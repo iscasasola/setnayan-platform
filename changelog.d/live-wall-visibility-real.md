@@ -96,3 +96,17 @@ SPEC IMPACT: `DECISION_LOG.md` row 2026-08-11 — the Live Photo Wall's guest
 phone mirror is now a couple-controlled choice, default on (recording shipped
 behaviour), and the venue projection is unchanged. `'tagged_only'` — the
 per-guest filter — remains **named but not built**, and is an owner call.
+
+### Registered with the guard that already exists for this
+
+`lib/gates-have-handles.test.ts` was written for exactly this pattern and has a
+`SWITCHES` list. `live_photo_wall_visibility` is now its **fifth** entry — and
+the first where the column had neither a writer *nor* a reader. Registering it
+means that if a later change removes the writer, the guard fires instead of the
+wall quietly going uncontrollable again. Mutation-proved: replacing the write
+makes it report *"live_photo_wall_visibility has something that can turn it on"*
+as a failure, and it goes green again on restore.
+
+That guard deliberately detects a **write**, not a mention — which is the same
+distinction that made one of this PR's own assertions decorative until it was
+re-anchored.

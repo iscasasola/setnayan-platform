@@ -42,3 +42,14 @@ f03e1fcdcfb264660d5c5c5626def658615191fb:supabase/migrations/20271019231590_papi
 # added at 4d5f7d890, but gitleaks-action scans every commit in the PR range, so
 # the introducing commit's fingerprint must be pinned here too.
 dd2a89c2b3f7d57407bb18cb570cc4faa49b63f2:apps/web/lib/llms-txt.ts:generic-api-key:97
+#
+# Same rule flags a hardcoded `claim_qr_token` fixture value ('legacy-fund-1')
+# in the Papic rungs-are-fundable db test — the seat row a legacy multi-camera
+# grant is replayed against. It is a literal in a PGlite in-memory database that
+# exists for the length of one test process; no seat, event or credential in any
+# real environment carries it. The rule fires on the COLUMN NAME (`..._token = '...'`),
+# not on entropy, which is why the surrounding fixtures using the same column
+# also match this shape. Pinned on the introducing commit because
+# gitleaks-action scans every commit in the PR range, so renaming the literal at
+# HEAD would not clear it.
+ee7f86117c3154443592c975fa0cdc9e1feea3ac:apps/web/tests/db/papic-rungs-are-fundable.db.test.ts:generic-api-key:187

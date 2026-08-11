@@ -39,7 +39,21 @@ export const LOCKED_IDENTITY_FIELD_KEYS = [
   // is a claim about where the business physically is, checked against their
   // DTI registration, BIR 2303 and Mayor's Permit. A verified shop must not be
   // able to quietly relocate.
+  //
+  // 🚨 ADDING IT HERE IN 2026-08-10 DID NOT ADD IT TO THE CHECK CONSTRAINT the
+  // comment above points at, and prod's constraint still listed eight fields
+  // until 2026-08-11. A city correction was REJECTED BY THE DATABASE, and the
+  // writer turns any insert error into "please try again shortly" — so it would
+  // have failed forever while reading like a hiccup. Fixed in migration
+  // `20271132819490`; `tests/db/correction-field-keys-parity.db.test.ts` now
+  // compares this list against the live constraint so the two cannot drift again.
   'location_city',
+  // The shop's web address. UNLIKE every other key here it is not merely
+  // "locked while verified" — it is immutable for EVERYONE, enforced by the
+  // `vendor_profiles_business_slug_immutable` trigger, and that stays true. It
+  // appears in this list because an admin correction is the ONE deliberate door
+  // through that trigger, and this table is where such a decision is recorded.
+  'business_slug',
 ] as const;
 
 export type LockedIdentityFieldKey = (typeof LOCKED_IDENTITY_FIELD_KEYS)[number];
@@ -63,6 +77,7 @@ export const LOCKED_FIELD_LABEL: Record<LockedIdentityFieldKey, string> = {
   in_business_since_year: 'In business since',
   logo_url: 'Logo',
   location_city: 'City',
+  business_slug: 'Web address',
 };
 
 /** The exact copy surfaced when a verified vendor tries to edit a locked field. */

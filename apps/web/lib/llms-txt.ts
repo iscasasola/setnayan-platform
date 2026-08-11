@@ -55,6 +55,26 @@ export type LlmsTxtInput = {
   refreshedOn: string;
 };
 
+/**
+ * Thrown when the copy still advertises a SKU that has been taken OFF SALE.
+ *
+ * Distinct from `MissingSkuError` on purpose: a missing row is usually a bad
+ * deploy or a renamed code, while this one is almost always a deliberate
+ * retirement whose prose was forgotten — a different fix (delete the line) and a
+ * different owner (whoever retired the SKU). The route treats both the same way
+ * — serve the short pointer file — because serving less beats serving wrong.
+ */
+export class RetiredSkuError extends Error {
+  constructor(readonly codes: readonly string[]) {
+    super(
+      `llms.txt cannot render — it still advertises SKU(s) that are no longer on ` +
+        `sale: ${codes.join(', ')}. Delete their prose line AND their REQUIRED_RETAIL ` +
+        `entry together; do not add an exemption.`,
+    );
+    this.name = 'RetiredSkuError';
+  }
+}
+
 /** Thrown when a SKU the copy depends on is absent from the catalog. */
 export class MissingSkuError extends Error {
   constructor(readonly codes: readonly string[]) {
@@ -87,7 +107,13 @@ const REQUIRED_RETAIL = [
   'LIVE_WALL',
   'ANIMATED_MONOGRAM',
   'COUPLE_WEBSITE_PRO',
-  'EVENT_SUBDOMAIN',
+  // EVENT_SUBDOMAIN removed 2026-08-11 — taken off sale (owner 2026-08-10), and
+  // its prose line went with it. 🪤 THE DEACTIVATION ALONE WOULD HAVE BEEN A
+  // NO-OP HERE: this list and the prose are hand-written, and only `activeRetail`
+  // filters on is_active — so a retired SKU keeps being advertised to every AI
+  // assistant that reads llms.txt. This file's own docblock records two earlier
+  // cases (Camera Bridge, the retired Live Studio device split). The new
+  // `every advertised SKU is still on sale` test below is what stops a third.
   'PAPIC_ADDON_STORIES',
   'PATIKTOK_COMPILER',
   'PABATI',
@@ -139,6 +165,31 @@ export function buildPriceBook(input: LlmsTxtInput): PriceBook {
     ...REQUIRED_VENDOR.filter((c) => !vendor.has(c)),
   ];
   if (missing.length > 0) throw new MissingSkuError(missing);
+
+  // ── A RETIRED SKU MUST STOP BEING ADVERTISED ────────────────────────────
+  // 🪤 `is_active = FALSE` does NOT remove a product from this file. The prose
+  // and REQUIRED_RETAIL are hand-written by design (the docblock explains why),
+  // and only `activeRetail` filters on the flag — so taking a SKU off sale in
+  // the catalog leaves it advertised, with a live price, to every AI assistant
+  // that reads llms.txt. This module's own docblock already records TWO such
+  // cases found on 2026-07-31 (Camera Bridge; the retired Live Studio device
+  // split), and a third was about to happen: EVENT_SUBDOMAIN was taken off sale
+  // on 2026-08-11 and its prose line would have kept selling it at ₱999/year.
+  //
+  // The refusal is deliberate and matches the fail-safe already in the route:
+  // MissingSkuError → serve the SHORT pointer file. **Serve less rather than
+  // serve wrong.** The fix when this fires is to delete the prose line and the
+  // REQUIRED_RETAIL entry together — not to add an exemption.
+  //
+  // ⚠ Only REQUIRED_* codes are checked. The Setnayan AI ladder's B/C/D rows are
+  // inactive BY DESIGN as price sources and are resolved through AI_TIER_SKU, so
+  // they are correctly out of scope. Verified against prod 2026-08-11: all 18
+  // prose-named retail codes are is_active = TRUE, so this throws for nobody today.
+  const activeCodes = new Set(
+    input.retail.filter((r) => r.is_active).map((r) => r.service_code),
+  );
+  const retired = REQUIRED_RETAIL.filter((c) => retail.has(c) && !activeCodes.has(c));
+  if (retired.length > 0) throw new RetiredSkuError(retired);
 
   return {
     retail,
@@ -279,10 +330,9 @@ Pricing in PHP. All sales final on digital deliverables.
 - **3D Plan** — ${R('SEATING_3D')}. Walk the reception in 3D before it is real — every table and detail in place.
 - **Thank You Video** — ${R('PAPIC_ADDON_THANK_YOU')}. Compiled thank-you video for all attendees.
 - **Live Photo Wall** — ${R('LIVE_WALL')} per day. Live photo collage with live attendance count, displayed at the venue.
-- **Animated Monogram** — ${R('ANIMATED_MONOGRAM')}. Bespoke monogram with animation, generated from the couple's inputs; includes the LED Live Background.
+- **Animated Monogram** — ${R('ANIMATED_MONOGRAM')}. Bespoke monogram with animation, generated from the couple's inputs.
 - **Event Website** — free. The 4-in-1 couple website (Save the Date, RSVP, on-the-day, Editorial) with unlimited RSVP.
 - **Website PRO** — ${R('COUPLE_WEBSITE_PRO')}. Unlocks every premium website touch — the Save-the-Date Cinematic Reveal and Editorial PRO — across the whole site, and removes the Setnayan watermark.
-- **Custom Subdomain** — ${R('EVENT_SUBDOMAIN')} per year. Your own web address (yourname.setnayan.com).
 - **Stories** — ${R('PAPIC_ADDON_STORIES')} per day (cap). 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Patiktok** — ${R('PATIKTOK_COMPILER')}. Mimic-station booth; unlimited 9:16 vertical recordings compiled into post-ready reels.
 - **Pabati** — ${R('PABATI')} per day. Guest-recorded greeting videos.

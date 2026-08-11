@@ -129,33 +129,36 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
               fulfillment with the supplier behind the scenes.
             </p>
           </div>
-          <span className="inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full bg-terracotta/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
+          {/* Was "Web V1 · launching", which reads as open-for-business on a page
+              whose checkout is deliberately disabled and whose products are
+              placeholders. A couple could pick items, price a wedding off them
+              and find no way to order. */}
+          <span className="inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full bg-warn-100 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-warn-900">
             <ShoppingBag aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Web V1 · launching
+            Not open yet
           </span>
         </div>
       </header>
 
       <section className="space-y-3 rounded-2xl border border-warn-200/60 bg-warn-50/60 p-4 sm:p-5">
-        <p className="text-sm font-medium text-warn-900">How it works</p>
-        <ol className="ml-5 list-decimal space-y-1.5 text-sm text-warn-900/90">
-          <li>Browse the catalog and add what you need to your cart.</li>
-          <li>
-            Tap <span className="font-medium">Checkout via Orders</span> to hand off
-            — your cart becomes a draft order on the Orders tab with the line items
-            pre-filled.
-          </li>
-          <li>
-            Setnayan locks the final quote at one transparent retail price (sourced
-            from the lowest-available wholesale in your area, with our markup
-            included — no surprise add-ons, no convenience fee).
-          </li>
-          <li>
-            Pay via BDO or GCash directly to Setnayan. Your supplier delivers to
-            your venue; tracking lives on the order. Any issue, you talk to
-            Setnayan — not the supplier.
-          </li>
-        </ol>
+        {/* 🚨 THIS BLOCK TOLD THE COUPLE TO DO SOMETHING IMPOSSIBLE. Step 2 read
+            "Tap Checkout via Orders … your cart becomes a draft order" — there is
+            no such handoff. The cart's own code says checkout is "intentionally
+            NOT built" and renders a disabled "Checkout opens soon" notice, so a
+            couple following these instructions hit a dead end and reasonably
+            concluded the app was broken. Instructions that describe a step that
+            does not exist are worse than no instructions. */}
+        <p className="text-sm font-medium text-warn-900">Not open yet</p>
+        <p className="text-sm text-warn-900/90">
+          Everything below is an <span className="font-medium">example</span> of
+          what Setnayan Supplies will carry — the items and prices are
+          placeholders, not real quotes, and nothing here can be ordered. We open
+          this once our supplier agreements are signed, and the prices you see
+          then will be real ones from real suppliers in your delivery area.
+        </p>
+        <p className="text-sm text-warn-900/90">
+          Nothing you add to the basket is charged, kept or sent to anyone.
+        </p>
       </section>
 
       <SuppliesMarketplaceBrowser recommended={recommended} />

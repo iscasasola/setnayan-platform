@@ -57,16 +57,25 @@ export async function sendCoordinatorBroadcast(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in again.' };
 
-  // Attribution label only — the INSERT policies re-check real authority.
+  // Decides whether we let them compose at all, and which refusal they see.
+  // It no longer decides the attribution: this comment used to say
+  // "Attribution label only — the INSERT policies re-check real authority",
+  // which was true of WHETHER you may write and false of WHOSE NAME goes on
+  // it. The policies never constrained sender_role, so a couple could sign
+  // their own announcement as the coordinator and vice versa. Migration
+  // 20271132843141 derives both sender columns in the database from
+  // auth.uid(), using the same couple-then-schedule-delegate order this
+  // resolver uses, and revokes the browser's privilege to name either.
   const authority = await resolveBroadcastAuthority(supabase, eventId, user.id);
   if (!authority.canSend) {
     return { ok: false, error: 'Only the couple or their coordinator can broadcast.' };
   }
 
+  // sender_user_id / sender_role are NOT sent — `authenticated` holds no INSERT
+  // privilege on either, so naming one is a hard permission failure rather than
+  // a silent ignore.
   const { error } = await supabase.from('coordinator_broadcasts').insert({
     event_id: eventId,
-    sender_user_id: user.id,
-    sender_role: authority.role,
     body: validated.body,
   });
   if (error) {

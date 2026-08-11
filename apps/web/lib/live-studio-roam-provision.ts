@@ -556,10 +556,24 @@ export function provisionFailureSentence(
     // for exactly that reason — the banner's own markup already knew.
     // A host reading "your stream is not running" while it runs either stops a
     // working broadcast or spends the ceremony trying to fix nothing.
+    // ⚠ SAY NOTHING ABOUT WHETHER THE STREAM IS UP — WE DO NOT KNOW HERE, AND
+    // BOTH PREVIOUS ATTEMPTS GOT IT WRONG IN OPPOSITE DIRECTIONS.
+    //   v1 "Your stream is not running."       — false: reached AFTER the
+    //      single-cam broadcast is persisted, so it alarmed a host mid-show.
+    //   v2 "Your stream is still on air…"      — ALSO false, and worse. This
+    //      file's own header (§ "THE HONEST LIMIT") says provisioning creates the
+    //      broadcast CONTAINER and its RTMP endpoint but does NOT put video into
+    //      it: browsers cannot push RTMP, so until the couple's OBS is running,
+    //      "a provisioned broadcast with nothing pushing to it shows as `ready`,
+    //      never `live`." Telling a host they are on air is how they never start
+    //      the encoder — and a wedding is not re-runnable.
+    // So this claims only what this function actually knows: which cameras did
+    // not start, and what that costs. Exactly the shape the `youtube_error` case
+    // below already used, which is the one wording that was never wrong.
     case 'no_channel_available':
-      return `${cameras} could not start — Setnayan has no broadcast channel free right now. Your stream is still on air from the camera you started with. Try Go live again in a few minutes, and tell Setnayan if it keeps happening.`;
+      return `${cameras} could not start — Setnayan has no broadcast channel free right now. Anyone shooting on ${n === 1 ? 'it' : 'them'} will not appear in the stream. Try Go live again in a few minutes, and tell Setnayan if it keeps happening.`;
     case 'channel_not_connected':
-      return `${cameras} could not start — this event's Setnayan broadcast channel needs reconnecting. Your stream is still on air from the camera you started with. Tell Setnayan so they can reconnect it.`;
+      return `${cameras} could not start — this event's Setnayan broadcast channel needs reconnecting. Anyone shooting on ${n === 1 ? 'it' : 'them'} will not appear in the stream. Tell Setnayan so they can reconnect it.`;
     case 'youtube_error':
       return `${cameras} did not start. Anyone shooting on ${n === 1 ? 'it' : 'them'} will not appear in the stream — check your camera list before you begin.`;
     default: {

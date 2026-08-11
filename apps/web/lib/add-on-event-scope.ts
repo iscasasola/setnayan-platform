@@ -1,5 +1,6 @@
 import { surfaceEnabled, type EventTypeProfile } from '@/lib/event-type-profile';
 import { papicGuestPassAccess } from '@/lib/papic-event-access';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import type { AddOnEntry } from '@/lib/add-ons-catalog';
 
 /**
@@ -66,5 +67,20 @@ export function addOnOfferedForEvent(
   if (entry.key === 'papic-guest') {
     return papicGuestPassAccess({ profile, communityId }).allowed;
   }
+  // ⚠ ONE LIVESTREAM TILE, NOT TWO — and it has to live HERE.
+  // The retired "Live Studio Cast" tile chips "Free" and lands on the same
+  // ₱2,999 page as the unified Live Studio tile, because /studio/panood is now a
+  // redirect. PR #4354 filtered it in the Studio hub's own surfaceOk — WHICH
+  // NEVER RUNS: `studio/page.tsx` redirects to /suite on its 11th line, and its
+  // own comment says Suite being off "never [happens] in prod". So the fix was
+  // real, in dead code, and the couple still saw both tiles. This is the gate
+  // the Suite actually calls.
+  // 🔑 A FIX IN A FILE NOBODY EXECUTES IS NOT A FIX — reachability first.
+  // Flag OFF: the unified tile is not appended to ADD_ONS at all, /studio/panood
+  // forwards to the free single-camera setup, and this Cast tile is the only
+  // livestream doorway there is — so it must stay. The free single-cam
+  // livestream is never hidden by this: with the flag ON its doorway is the
+  // unified tile, which opens the same setup.
+  if (entry.key === 'panood') return !liveStudioRoamEnabled();
   return true;
 }

@@ -44,7 +44,15 @@ const RETAIL: RetailRow[] = [
   { service_code: 'PAPIC_GUEST_6K', title: 'Papic — add 6,000 shots', retail_price_php: 2000, is_active: false },
   { service_code: 'PAPIC_GUEST_100', title: 'Papic — add 100 shots', retail_price_php: 50, is_active: true },
   { service_code: 'PAPIC_GUEST_20K', title: 'Papic — add 20,000 shots', retail_price_php: 5000, is_active: true },
-  { service_code: 'PAPIC_ADDON_STORIES', title: 'Stories', retail_price_php: 2000, is_active: true },
+  // is_active:false since 2026-08-11 — taken off sale (PR #4354, migration
+  // 20271132214645) because the ₱2,000 add-on sold nothing: the story maker is
+  // owner-locked FREE and no code read whether it was bought. Prod-verified.
+  // ⚠ THIS FIXTURE IS HAND-WRITTEN AND DID NOT KNOW. It still said is_active:true
+  // after the row went dark in production, so the whole suite passed green while
+  // llms-txt.ts was one rebuild away from throwing RetiredSkuError and serving
+  // its fallback stub. A fixture is a SECOND hand-typed copy of the catalog —
+  // when a SKU's is_active changes in prod, it must change here in the same PR.
+  { service_code: 'PAPIC_ADDON_STORIES', title: 'Stories', retail_price_php: 2000, is_active: false },
   { service_code: 'PATIKTOK_COMPILER', title: 'Patiktok', retail_price_php: 1500, is_active: true },
   { service_code: 'SEATING_3D', title: '3D Plan', retail_price_php: 1500, is_active: true },
   { service_code: 'SETNAYAN_AI', title: 'Setnayan AI', retail_price_php: 1499, is_active: true },

@@ -129,10 +129,11 @@ export default async function AdminCorrectionsPage({
           That request was already resolved by another admin — nothing changed.
         </p>
       ) : null}
-      {search.address_moved === '1' ? (
+      {search.address_moved ? (
         <FormFlash tone="success">
-          Address corrected. The old one now forwards to it, so links and QR
-          codes already printed keep working.
+          Address corrected for <strong>{decodeURIComponent(search.address_moved)}</strong>.
+          The old one now forwards to it, so links and QR codes already printed
+          keep working.
         </FormFlash>
       ) : null}
 

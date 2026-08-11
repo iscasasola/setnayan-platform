@@ -364,19 +364,39 @@ test('the mint will not hand a shop a word that is STILL FORWARDING', async () =
 test('the mint will not hand out a CLOSED shop’s held address', async () => {
   // Owner-locked 2026-08-10: a closed shop's address is held for a year so its
   // old links do not silently become a different company's page.
+  //
+  // ⚠ THIS TEST COULD NOT FAIL ON ITS FIRST WRITING. It seeded the hold as
+  // `hiraya-events`, but `slugify_business_name` is HYPHEN-FREE — "Hiraya
+  // Events" mints `hirayaevents`, so the assertion compared the minted address
+  // against a word the mint can never produce and passed no matter what the
+  // availability answer did. A test that cannot fail is decoration.
+  //
+  // The CONTROL below is what makes it honest: an identically-named shop with
+  // NO hold must get exactly the seeded word. If that control ever stops
+  // holding, this test is measuring nothing again and says so.
+  const control = await registerShop('Hiraya Events');
+  assert.equal(
+    (await readShop(control)).business_slug,
+    'hirayaevents',
+    'PRECONDITION: this is the address the mint produces for that name — if it is not, ' +
+      'the hold below is seeded with a word the mint could never hand out and proves nothing',
+  );
+
   await db.query(
     `INSERT INTO public.slug_change_log (entity_type, entity_id, old_slug, new_slug, redirect_until)
-     VALUES ('vendor_closed', gen_random_uuid(), 'hiraya-events', 'hiraya-events',
+     VALUES ('vendor_closed', gen_random_uuid(), 'hirayaevents2', 'hirayaevents2',
              now() + interval '365 days')`,
   );
 
+  // The second shop of that name would otherwise take `hirayaevents2` (the
+  // collision suffix) — which is now held by a closed shop.
   const id = await registerShop('Hiraya Events');
   const row = await readShop(id);
 
   assert.ok(row.business_slug);
   assert.notEqual(
     row.business_slug,
-    'hiraya-events',
+    'hirayaevents2',
     'a held address was reissued before its year was up — the exact thing the hold exists to stop',
   );
 });

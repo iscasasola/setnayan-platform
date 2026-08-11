@@ -165,12 +165,57 @@ export async function resolveRenamedPath(
     return `/${slug}`;
   }
 
+  // 🔒 A FORWARD MUST NOT OUT-DISCLOSE THE GATE IT LANDS ON. `/u/{handle}` is
+  // DORMANT by default (`public_profile_enabled` DEFAULT FALSE) and 404s to
+  // strangers precisely so it is not a name/existence oracle. A 307 discloses in
+  // its Location header regardless of what the target then returns — so
+  // forwarding a hidden account's old handle would publish two facts the gate
+  // exists to withhold: that the word WAS somebody's handle, and what that
+  // person's handle is NOW. Renaming is one of the likelier reasons an account
+  // is hidden, so the exposed population is the one that most wanted the gate.
+  //
+  // Reading the flag here (not at the call site) covers the bare root too — the
+  // dispatcher forwards `/{oldHandle}` through this same function.
   const { data } = await admin
     .from('users')
-    .select('slug')
+    .select('slug, public_profile_enabled')
     .eq('user_id', row.entity_id)
     .maybeSingle();
-  const slug = (data as { slug?: string | null } | null)?.slug?.trim();
+  const person = data as { slug?: string | null; public_profile_enabled?: boolean | null } | null;
+  if (person?.public_profile_enabled !== true) return null;
+  const slug = person.slug?.trim();
   if (!slug || same(slug)) return null;
   return `/u/${slug}`;
+}
+
+/**
+ * The CURRENT slug of a renamed event, or null — for callers that need the word
+ * rather than a path.
+ *
+ * 🎟 THE PRINTED INVITATION CARRIES A TOKEN, AND A PATH IS NOT ENOUGH FOR IT.
+ * A personal QR encodes `/{slug}?invite={token}` (lib/qr.ts), and the token has
+ * to survive the hand-off to `/{slug}/redeem` — which needs the bare word, not
+ * `/u/{owner}/{slug}`. Forwarding only the bare URL sent the guest to the right
+ * event as a STRANGER: no seat, no RSVP, and a lock screen telling them to open
+ * the personal link they had just used.
+ */
+export async function resolveRenamedEventSlug(
+  admin: SupabaseClient,
+  oldSlug: string,
+): Promise<string | null> {
+  const lower = String(oldSlug ?? '').trim().toLowerCase();
+  if (!lower) return null;
+
+  const row = await newestForwardingRow(admin, lower, ['event']);
+  if (!row) return null;
+  if (await wordIsLiveElsewhere(admin, lower)) return null;
+
+  const { data } = await admin
+    .from('events')
+    .select('slug')
+    .eq('event_id', row.entity_id)
+    .maybeSingle();
+  const slug = (data as { slug?: string | null } | null)?.slug?.trim();
+  if (!slug || slug.toLowerCase() === lower) return null;
+  return slug;
 }

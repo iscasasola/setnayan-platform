@@ -7,7 +7,10 @@ import { CLOSED_SHOP_SLUG_ENTITY_TYPE } from './closed-shop-slug';
  *
  * Weddings (`events.slug`), shops (`vendor_profiles.business_slug`) and people
  * (`users.slug`) all live at `setnayan.com/{word}`, and a retired word keeps
- * forwarding for 90 days (`slug_change_log.redirect_until`). Anything that
+ * forwarding until `slug_change_log.redirect_until` (the window is
+ * `SLUG_FORWARDING_MONTHS` in `lib/slug-forwarding-window.ts` — deliberately not
+ * restated here; this line said "90 days" for a day after it became two years,
+ * and this module is the natural place a reader comes to ask). Anything that
  * hands out a word must therefore ask about all four, not just its own table.
  *
  * Two live holes this closes:

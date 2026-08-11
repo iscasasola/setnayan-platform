@@ -198,6 +198,19 @@ function PeoplePreview() {
         </p>
       </header>
 
+      {/* 🚨 SAMAHAN IS LIVE AND THIS BRANCH USED TO HIDE IT.
+          `samahan-people-section.tsx` is NOT flag-gated — this file says so itself
+          further up — but the preview returned early without ever rendering it. So
+          the phone pill nav's People target, the most thumb-prominent People door in
+          the app, said "there's nothing to do on this page yet" to a user who had
+          samahans sitting right there. The owner hit exactly that.
+          It renders FIRST because it is the part that actually works; the
+          coming-soon note is about connections only. It also carries its own
+          "Create one" door when the user has none, so it is never dead weight. */}
+      <div className="mb-8">
+        <SamahanPeopleSection />
+      </div>
+
       <div className="sn-tile mb-8 flex items-start gap-3">
         <Clock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/50" strokeWidth={1.75} />
         <div className="space-y-1">
@@ -206,7 +219,11 @@ function PeoplePreview() {
             You&rsquo;ll be able to link the people in your life here — each one{' '}
             <span className="font-medium text-ink">suggested from your events</span> and{' '}
             <span className="font-medium text-ink">confirmed by both sides</span>, so nothing
-            connects until you both agree. There&rsquo;s nothing to do on this page yet.
+            connects until you both agree.{' '}
+            {/* ⚠ WAS "There's nothing to do on this page yet." That sentence was FALSE for
+                anyone with a samahan, and it is the sentence the owner read. Scope the
+                claim to connections — never to the page. */}
+            Your samahan above are ready now.
           </p>
         </div>
       </div>

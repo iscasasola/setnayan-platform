@@ -75,6 +75,11 @@ export const STUDIO_PEAK_MONTHS: Readonly<Record<string, number>> = {
   patiktok: 1,
   // After the day.
   editorial: 0,
+  // The Thank-You Video — the film a couple sends to the people who came. It can
+  // only be made once there are photos, so it peaks at 0 alongside the editorial
+  // rather than anywhere in the run-up. Recommending it earlier would push a
+  // couple at a screen that must refuse them for lack of cleared photos.
+  'thank-you': 0,
   // Live Studio Roam — a capture-the-day service like Cast/Papic (peak month 2).
   // Flag-gated to stay consistent with the flag-gated catalog entry
   // (add-ons-catalog.ts): when NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is off, Roam

@@ -260,6 +260,25 @@ jobs:
         continue-on-error: true
         run: node apps/web/scripts/lint-migrations-dir.mjs
 
+      # Fails when a migration declares a FUNCTION-LEVEL `SET` on a custom
+      # `setnayan.*` parameter. Prod refuses to create such a function —
+      # "permission denied to set parameter" (42501) — because that clause is
+      # validated at CREATE time and Supabase's `postgres` role is not a
+      # superuser.
+      #
+      # 🔑 NO DB TEST CAN CATCH THIS. The PGlite replay every *.db.test.ts runs
+      # against executes AS A SUPERUSER, so the one environment that would
+      # notice is the one that permits it. Measured 2026-08-11: migration
+      # 20271132819490 did exactly this — 8 db tests green, typecheck green, 18
+      # checks green, PR merged — and `supabase db push` was rejected on the way
+      # in. The deploy is migrate-then-deploy, so the app half was correctly
+      # held back too; the feature existed in neither half while every signal
+      # said it had shipped. See apps/web/scripts/lint-no-function-level-custom-set.mjs.
+      - name: Lint no function-level custom SET
+        id: guard_function_level_set
+        continue-on-error: true
+        run: node apps/web/scripts/lint-no-function-level-custom-set.mjs
+
       # Text on a fill it cannot be read against. Born 2026-08-08 with the gold
       # ruling: cream on the standard gold is 3.37:1 against a 4.5:1 floor, and
       # nothing in the stack notices — it compiles, renders and screenshots fine.
@@ -347,6 +366,7 @@ jobs:
           CHANGELOG_DIR: ${{ steps.guard_changelog_dir.outcome }}
           SERVER_ONLY: ${{ steps.guard_server_only.outcome }}
           MIGRATIONS_DIR: ${{ steps.guard_migrations_dir.outcome }}
+          FUNCTION_LEVEL_SET: ${{ steps.guard_function_level_set.outcome }}
           LABEL_CONTRAST: ${{ steps.guard_label_contrast.outcome }}
           AUTOMERGE_HOLD: ${{ steps.guard_automerge_hold.outcome }}
           STORED_ASSET_REFS: ${{ steps.guard_stored_asset_refs.outcome }}
@@ -374,6 +394,7 @@ jobs:
           check 'lint changelog fragment dir'  "$CHANGELOG_DIR"
           check 'lint server-only boundary'   "$SERVER_ONLY"
           check 'lint migrations dir'         "$MIGRATIONS_DIR"
+          check 'lint no function-level custom SET' "$FUNCTION_LEVEL_SET"
           check 'lint label-on-fill contrast' "$LABEL_CONTRAST"
           check 'lint auto-merge hold'        "$AUTOMERGE_HOLD"
           check 'lint stored-asset refs'      "$STORED_ASSET_REFS"

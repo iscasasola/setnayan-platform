@@ -1549,8 +1549,18 @@ export async function finalizeVendor(
         await emitNotification({
           userId: vendorUserId,
           type: 'booking_confirmed',
-          title: 'You have a new confirmed booking',
-          body: `${eventDisplay} confirmed their booking with you on Setnayan. Open the conversation to lock in the details and next steps.`,
+          // ⚠ THE COUPLE'S SIDE ONLY — the vendor has not agreed to anything at
+          // this point. This fires from finalizeVendor, i.e. the couple setting
+          // the row to LOCKED_STATUS ('contracted'); the vendor's own agree /
+          // decline happens later, on the deposit. The old wording ("You have a
+          // new confirmed booking" / "…confirmed their booking with you") told
+          // the supplier a deal was done and read as a commitment they had made,
+          // which is the one thing that had not happened yet.
+          // `type` stays 'booking_confirmed' — it is a stored enum value read by
+          // the notification pipeline, not copy. Renaming it here would be a
+          // phantom enum value, and the write would be rejected, not thrown.
+          title: 'A couple marked you as booked',
+          body: `${eventDisplay} marked you as booked on Setnayan. That is their side of it — open the conversation to agree the details and next steps.`,
           relatedUrl: threadId
             ? `/vendor-dashboard/messages/${threadId}`
             : '/vendor-dashboard/bookings',

@@ -545,10 +545,21 @@ export function provisionFailureSentence(
     case 'flag_off':
     case null:
       return null;
+    // ⚠ "YOUR STREAM IS NOT RUNNING" WAS FALSE AT BOTH OF THESE SITES, and it
+    // is the most alarming thing we could have told a host mid-show. Both are
+    // reached from the go-live action AFTER the single-camera broadcast is
+    // already persisted and its watch URL written — that ordering is deliberate
+    // and pinned by a test ("the free single-cam livestream is a published
+    // promise, and a multi-cam provisioning hiccup must never be the reason it
+    // did not go out"). So the show IS on air; what failed is the EXTRA cameras
+    // joining it. transport-row.tsx renders this as role="status", not "alert",
+    // for exactly that reason — the banner's own markup already knew.
+    // A host reading "your stream is not running" while it runs either stops a
+    // working broadcast or spends the ceremony trying to fix nothing.
     case 'no_channel_available':
-      return `${cameras} could not start — Setnayan has no broadcast channel free right now. Your stream is not running. Try Go live again in a few minutes, and tell Setnayan if it keeps happening.`;
+      return `${cameras} could not start — Setnayan has no broadcast channel free right now. Your stream is still on air from the camera you started with. Try Go live again in a few minutes, and tell Setnayan if it keeps happening.`;
     case 'channel_not_connected':
-      return `${cameras} could not start — this event's Setnayan broadcast channel needs reconnecting. Your stream is not running. Tell Setnayan so they can reconnect it.`;
+      return `${cameras} could not start — this event's Setnayan broadcast channel needs reconnecting. Your stream is still on air from the camera you started with. Tell Setnayan so they can reconnect it.`;
     case 'youtube_error':
       return `${cameras} did not start. Anyone shooting on ${n === 1 ? 'it' : 'them'} will not appear in the stream — check your camera list before you begin.`;
     default: {

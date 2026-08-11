@@ -107,10 +107,17 @@ function SwitcherPanelBody({
         </div>
       </div>
 
-      {/* ── Home — the switcher just jumps back to the home hub ── */}
+      {/* ── Home — the switcher jumps back to the home hub ──
+          🔑 `?hub=1` IS LOAD-BEARING, not a tidy-up. Plain `/dashboard` re-fires
+          the launcher's auto-jump for a single-event non-console user, so this
+          button landed them straight back in the event they were trying to leave
+          — the hub was unreachable for the core persona, permanently. The owner
+          ruled 2026-08-11 that the board is "the user's collection of events, on
+          going and completed", and this parameter is what makes Home mean the
+          collection from anywhere. Removing it silently restores the trap. */}
       <div className="px-4 pt-4 pb-2">
         <Link
-          href="/dashboard"
+          href="/dashboard?hub=1"
           onClick={close}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta-700 px-3 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-800"
         >

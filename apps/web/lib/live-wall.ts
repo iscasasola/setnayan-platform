@@ -20,12 +20,15 @@
 
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
+import { eventSkuActive } from '@/lib/entitlements';
 import {
   displayCodeFrom,
   resolveWallMode,
+  wallGuestMirrorOn,
   type WallMode,
   type WallTile,
 } from '@/lib/live-wall-logic';
@@ -175,6 +178,52 @@ export async function ingestToWall(
   } catch {
     // never let wall ingest break a capture path
   }
+}
+
+/**
+ * THE ONE DOOR EVERY GUEST-FACING WALL SURFACE GOES THROUGH.
+ *
+ * Owning the wall is not the same question as showing it on guests' phones, and
+ * for nine months the product only ever asked the first one. Three separate
+ * guest surfaces — the slug page loader, the guest hub, and the /[slug]/live-wall
+ * poll route — each called `eventSkuActive(…, 'LIVE_WALL')` and nothing else, so
+ * a couple who revoked every venue screen code still had the wall running in
+ * every guest's hand. The setting that should have stopped it,
+ * events.live_photo_wall_visibility, had zero readers and zero writers.
+ *
+ * The fix is not "check the column in three places" — that is three chances to
+ * forget, and the next guest surface makes four. Ownership and the couple's
+ * choice are fused into one call, so on a guest surface the permissive half is
+ * no longer reachable on its own.
+ *
+ * NOT for the venue projection. `/wall/[eventId]` and `/api/wall/[eventId]/feed`
+ * keep calling `eventSkuActive` directly: the venue screen projects regardless
+ * (owner-locked 2026-06-11) and is gated by its own single-use screen code.
+ *
+ * Fails CLOSED on a read error — if we cannot tell whether the couple said no,
+ * we do not put their wedding on a hundred phones. That asymmetry is deliberate
+ * and is the opposite of `asWallGuestVisibility`'s fail-open narrowing, which
+ * handles a value we DID read and merely did not recognise.
+ */
+export async function guestWallMirrorActive(
+  client: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  if (!(await eventSkuActive(client, eventId, 'LIVE_WALL'))) return false;
+
+  // Supabase resolves with { error }, it does not throw — a phantom column or a
+  // pre-migration schema comes back as `error`, not an exception. Treating that
+  // as "no objection" is exactly how a guard ends up unable to fire.
+  const { data, error } = await client
+    .from('events')
+    .select('live_photo_wall_visibility')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (error || !data) return false;
+
+  return wallGuestMirrorOn(
+    (data as { live_photo_wall_visibility?: string | null }).live_photo_wall_visibility,
+  );
 }
 
 export interface WallSnapshot {

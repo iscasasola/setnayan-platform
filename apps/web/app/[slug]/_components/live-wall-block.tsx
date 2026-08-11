@@ -49,6 +49,10 @@ export function LiveWallBlock({
   // there, so a first-load-with-no-tiles (the ordinary quiet moment) never
   // shows an error that is not true.
   const [stalled, setStalled] = useState(false);
+  // The couple closed the wall to guests' phones while this page was open.
+  // Distinct from `stalled`: that is "we cannot reach the wall", this is "we
+  // reached it and we are not welcome any more".
+  const [closed, setClosed] = useState(false);
   // feedIds present at first paint — only LATER arrivals animate in.
   const seededIds = useRef(new Set(initialTiles.map((t) => t.feedId)));
 
@@ -68,6 +72,25 @@ export function LiveWallBlock({
         const res = await fetch(`/${encodeURIComponent(slug)}/live-wall`, {
           cache: 'no-store',
         });
+        // 404 IS A REFUSAL, NOT AN OUTAGE — and the two must not be treated
+        // alike. The feed answers 404 only when the wall is not on offer to
+        // guests: the couple switched the phone mirror off, or the wall was
+        // never theirs. An outage looks like a 5xx or a thrown fetch, which
+        // fall through to the miss counter below.
+        //
+        // Without this branch, a couple turning the mirror off stopped NEW
+        // photos and left every already-open phone showing the ones it had
+        // downloaded, indefinitely, under the same "photos appear here the
+        // moment they're taken" promise. Closing has to reach the phones that
+        // are already holding the wall, not only the ones that reload.
+        if (res.status === 404) {
+          setClosed(true);
+          setTiles([]);
+          setCaption(null);
+          setCount(0);
+          stop();
+          return;
+        }
         if (!res.ok) {
           misses += 1;
           if (misses >= 2) setStalled(true);
@@ -138,9 +161,14 @@ export function LiveWallBlock({
       >
         <LiveWallHeader count={0} />
         <p className="mx-auto mt-2 max-w-prose text-sm text-ink/60">
-          {stalled
-            ? 'We can’t reach the wall right now — this venue’s signal may be busy. It keeps trying, and photos appear the moment it reconnects.'
-            : 'The wall is warming up — photos appear here the moment they’re taken.'}
+          {closed
+            ? // Said plainly, and without blame. The wall did not break and the
+              // guest did nothing wrong — the couple chose to keep it to the
+              // room. A card that simply emptied itself would read as a fault.
+              'The photo wall is playing on the screens at the venue. The couple has kept it off phones for this celebration.'
+            : stalled
+              ? 'We can’t reach the wall right now — this venue’s signal may be busy. It keeps trying, and photos appear the moment it reconnects.'
+              : 'The wall is warming up — photos appear here the moment they’re taken.'}
         </p>
       </section>
     );

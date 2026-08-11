@@ -57,8 +57,7 @@ import { eventPapicGuestActive } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
-import { eventSkuActive } from '@/lib/entitlements';
-import { getWallSnapshot } from '@/lib/live-wall';
+import { getWallSnapshot, guestWallMirrorActive } from '@/lib/live-wall';
 import type { WallTile } from '@/lib/live-wall-logic';
 import {
   readEventWatchUrls,
@@ -398,15 +397,20 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const hasCamera = Boolean(rollHref || candidHref);
 
   // ── Live Photo Wall — embed the SAME wall the venue projector renders
-  // (getWallSnapshot, LIVE_WALL-gated, live window only). LiveWallBlock polls
-  // the /[slug]/live-wall freshness FEED internally — that route is a JSON
+  // (getWallSnapshot, live window only). LiveWallBlock polls the
+  // /[slug]/live-wall freshness FEED internally — that route is a JSON
   // endpoint, never a page, so we mount the block rather than link to it. The
-  // post-event RECAP is the viewable album page. ────────────────────────────
+  // post-event RECAP is the viewable album page.
+  //
+  // guestWallMirrorActive, not a bare LIVE_WALL check: owning the wall and
+  // agreeing to put it on every guest's phone are two different questions, and
+  // this surface only ever asked the first. The poll route above enforces the
+  // same gate, so a closed mirror closes the data too, not just the block. ───
   let liveWall: { tiles: WallTile[]; count: number; caption: LiveWallCaption } | null =
     null;
   if (isLive) {
     try {
-      if (await eventSkuActive(admin, event.event_id, 'LIVE_WALL')) {
+      if (await guestWallMirrorActive(admin, event.event_id)) {
         const snap = await getWallSnapshot(event.event_id, null, { limit: 12 });
         liveWall = {
           tiles: snap.tiles,

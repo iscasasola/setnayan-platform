@@ -5,7 +5,11 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { PaymentUnderReview } from '@/app/dashboard/[eventId]/_components/payment-under-review';
 import { eventPapicActive } from '@/lib/papic-seats';
-import { asWallTileLayout, clampWallPhotoCount } from '@/lib/live-wall-logic';
+import {
+  asWallTileLayout,
+  clampWallPhotoCount,
+  wallGuestMirrorOn,
+} from '@/lib/live-wall-logic';
 import { LiveWallControls, type WallScreenRow, type WallTileRow } from './live-wall-controls';
 
 /**
@@ -95,7 +99,7 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
       .limit(12),
     supabase
       .from('events')
-      .select('wall_photo_count, wall_tile_layout')
+      .select('wall_photo_count, wall_tile_layout, live_photo_wall_visibility')
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
@@ -129,10 +133,20 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
             <MonitorPlay aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
             Live Photo Wall
           </h2>
+          {/* THE SENTENCE THIS CARD WAS MISSING. Until now it described a venue
+              projection and nothing else — matching the SKU's own name, "Live
+              VENUE Photo Wall" — while the same feed also ran on every invited
+              guest's phone for the whole celebration. A couple who revoked every
+              screen code below reasonably believed the wall was off. The one
+              honest line about the phone mirror lived on a different page
+              entirely (the website privacy settings), where nobody managing the
+              wall would meet it. */}
           <p className="mt-1 text-sm text-ink/60">
             Project the day&rsquo;s photos at the venue as they&rsquo;re shot. Open{' '}
             <span className="font-mono text-[13px] text-ink/80">{wallUrl}</span> on any
-            screen&rsquo;s browser and enter a screen code.
+            screen&rsquo;s browser and enter a screen code. The same photos also
+            appear on your guests&rsquo; own phones during the celebration &mdash;
+            you can turn that off below and keep the wall to the venue screens.
           </p>
         </div>
       </div>
@@ -142,6 +156,9 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
         tiles={tiles}
         photoCount={clampWallPhotoCount(cfg?.wall_photo_count as number | null)}
         tileLayout={asWallTileLayout(cfg?.wall_tile_layout as string | null)}
+        guestMirrorOn={wallGuestMirrorOn(
+          cfg?.live_photo_wall_visibility as string | null,
+        )}
       />
     </section>
   );

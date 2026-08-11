@@ -14,7 +14,11 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDisplayCode } from '@/lib/live-wall';
-import { asWallTileLayout, clampWallPhotoCount } from '@/lib/live-wall-logic';
+import {
+  asWallTileLayout,
+  clampWallPhotoCount,
+  storedWallGuestMirror,
+} from '@/lib/live-wall-logic';
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -71,6 +75,63 @@ export async function saveWallConfig(
   if (error) return { ok: false, error: error.message.slice(0, 80) };
   revalidateWallSurfaces(clean);
   return { ok: true };
+}
+
+/**
+ * "Does the wall also play on my guests' phones?" — the couple's answer.
+ *
+ * COUPLE-ONLY, deliberately narrower than the rest of this file. A coordinator
+ * may run the wall — mint screen codes, pull a photo down, set the layout —
+ * because that is running the day. Deciding whether the whole celebration is
+ * mirrored onto a hundred personal phones is a privacy call about the couple's
+ * own wedding, so it sits with `setPoolGalleryOpen`'s rule, not `saveWallConfig`'s.
+ *
+ * Writes only 'all_with_consent' | 'off' via storedWallGuestMirror. The third
+ * legal value, 'tagged_only', is never written by the app: no per-guest filter
+ * exists, so storing it would be a promise the product does not keep.
+ *
+ * Takes effect on the next request, in both directions — every guest surface
+ * re-asks guestWallMirrorActive per render, and the freshness feed re-asks it
+ * per poll. There is no cached "already allowed" anywhere to go stale.
+ */
+export async function setWallGuestMirror(
+  eventId: string,
+  on: boolean,
+): Promise<{ ok: true; on: boolean } | { ok: false; error: string }> {
+  const clean = eventId?.trim();
+  if (!clean) return { ok: false, error: 'missing_event' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'unauthorized' };
+
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', clean)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (!membership || membership.member_type !== 'couple') {
+    return { ok: false, error: 'forbidden' };
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('events')
+    .update({ live_photo_wall_visibility: storedWallGuestMirror(on === true) })
+    .eq('event_id', clean)
+    .select('event_id');
+  if (error) return { ok: false, error: error.message.slice(0, 80) };
+  // A 0-row update is NOT success. Supabase resolves with { error: null } when
+  // the WHERE simply matched nothing, so without this the switch would report
+  // "saved" for an event that no longer exists — and the couple would believe
+  // they had turned the wall off their guests' phones.
+  if (!data || data.length === 0) return { ok: false, error: 'not_saved' };
+
+  revalidateWallSurfaces(clean);
+  return { ok: true, on: on === true };
 }
 
 /** Mint a single-use venue screen code (15-minute claim window per P0). */

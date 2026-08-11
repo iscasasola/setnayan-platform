@@ -8,13 +8,14 @@
  */
 
 import { useState, useTransition } from 'react';
-import { EyeOff, Loader2, Plus, RotateCcw, X } from 'lucide-react';
+import { EyeOff, Loader2, Plus, RotateCcw, Smartphone, X } from 'lucide-react';
 import { WALL_TILE_LAYOUTS, type WallTileLayout } from '@/lib/live-wall-logic';
 import {
   createWallScreenCode,
   hideWallTile,
   revokeWallScreen,
   saveWallConfig,
+  setWallGuestMirror,
   unhideWallTile,
 } from './live-wall-actions';
 
@@ -39,17 +40,22 @@ export function LiveWallControls({
   tiles,
   photoCount,
   tileLayout,
+  guestMirrorOn,
 }: {
   eventId: string;
   screens: WallScreenRow[];
   tiles: WallTileRow[];
   photoCount: number;
   tileLayout: WallTileLayout;
+  /** Does the wall also play on guests' own phones? (events.live_photo_wall_visibility) */
+  guestMirrorOn: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [count, setCount] = useState(photoCount);
   const [layout, setLayout] = useState<WallTileLayout>(tileLayout);
+  const [mirror, setMirror] = useState(guestMirrorOn);
+  const [mirrorError, setMirrorError] = useState<string | null>(null);
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>) => {
     setError(null);
@@ -59,8 +65,70 @@ export function LiveWallControls({
     });
   };
 
+  // The mirror switch keeps its OWN error slot. Sharing the card-wide one would
+  // let a failed save scroll out of sight above the fold while the switch sat
+  // showing the state the couple asked for and did not get — and this is the
+  // one control where believing it worked is the whole harm.
+  function flipMirror() {
+    const next = !mirror;
+    setMirrorError(null);
+    startTransition(async () => {
+      const res = await setWallGuestMirror(eventId, next);
+      if (res.ok) {
+        setMirror(res.on);
+      } else {
+        setMirrorError(
+          res.error === 'forbidden'
+            ? 'Only the couple can change where the wall shows.'
+            : 'That didn’t save — the wall is unchanged. Try again.',
+        );
+      }
+    });
+  }
+
   return (
     <div className="mt-4 space-y-4">
+      {/* WHERE THE WALL SHOWS — the control this card never had. The wall was
+          sold as a venue projection ("Live VENUE Photo Wall") and also mirrored
+          onto every invited guest's phone; revoking the screen codes below did
+          nothing to that. events.live_photo_wall_visibility was built for
+          exactly this choice in Nov 2026 and had zero readers and zero writers
+          until now. */}
+      <div className="rounded-lg border border-ink/10 bg-ink/[0.02] p-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-ink/50">
+          Where the wall shows
+        </p>
+        <p className="mt-1.5 text-sm text-ink/70">
+          {mirror
+            ? 'On your venue screens and on your guests’ own phones while the celebration is on.'
+            : 'On your venue screens only. Guests won’t see the wall on their phones.'}
+        </p>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={mirror}
+          onClick={flipMirror}
+          disabled={pending}
+          className={`mt-2.5 inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition disabled:opacity-60 ${
+            mirror
+              ? 'bg-mulberry text-cream hover:bg-mulberry-600'
+              : 'bg-ink/5 text-ink/80 hover:bg-ink/10'
+          }`}
+        >
+          {pending ? (
+            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
+          ) : (
+            <Smartphone aria-hidden className="h-4 w-4" strokeWidth={2} />
+          )}
+          {mirror ? 'On guests’ phones — tap to stop' : 'Venue screens only — tap to allow phones'}
+        </button>
+        {mirrorError ? (
+          <p role="alert" className="mt-2 text-xs text-terracotta">
+            {mirrorError}
+          </p>
+        ) : null}
+      </div>
+
       {/* Wall display config (owner 2026-07-08 · D5) — how many photos + which
           layout. Fully responsive, so no resolution. */}
       <div className="rounded-lg border border-ink/10 bg-ink/[0.02] p-3">

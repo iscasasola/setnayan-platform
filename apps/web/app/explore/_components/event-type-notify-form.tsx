@@ -38,7 +38,15 @@ export function EventTypeNotifyForm({
         className="mx-auto mt-5 inline-flex items-center gap-2 rounded-full bg-success-50 px-4 py-2 text-sm font-medium text-success-800"
       >
         <span aria-hidden>✓</span>
-        We&rsquo;ll email you when {label} vendors are live.
+        {/* ⚠ PROMISES ONLY WHAT WE CAN DO. This said "We'll email you when
+            {label} vendors are live" — nothing can send that mail. The signup
+            row lands in couple_event_type_notify_signups, which has no admin
+            surface and no entry in lib/daily-email-jobs.ts, so no job ever reads
+            it. The interest IS recorded, which is what this now claims. The
+            table is empty in production, so nobody has been left waiting on a
+            mail that was never coming. Restore the stronger sentence when a
+            sender exists — not before. */}
+        Thanks — we&rsquo;ve noted your interest in {label} vendors.
       </p>
     );
   }

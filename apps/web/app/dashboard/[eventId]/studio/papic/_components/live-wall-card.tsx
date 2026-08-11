@@ -129,10 +129,19 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
             <MonitorPlay aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
             Live Photo Wall
           </h2>
+          {/* ⚠ THE SECOND HALF WAS MISSING. This described the wall as a venue
+              projection only, so a couple weighing ₱2,500 saw a screen rental
+              they might not need — and never learned the wall ALSO runs on every
+              guest's own phone. site-body.tsx renders that mirror on the event
+              page for the live window whenever the event owns LIVE_WALL, so it
+              is part of what they are already buying, not an upsell.
+              ⛔ Copy only. The on/off control for the mirror is Session 7's. */}
           <p className="mt-1 text-sm text-ink/60">
             Project the day&rsquo;s photos at the venue as they&rsquo;re shot. Open{' '}
             <span className="font-mono text-[13px] text-ink/80">{wallUrl}</span> on any
-            screen&rsquo;s browser and enter a screen code.
+            screen&rsquo;s browser and enter a screen code. The same wall also appears
+            on your guests&rsquo; phones on your event page while the celebration is
+            running — so everyone sees the photos, screen or no screen.
           </p>
         </div>
       </div>

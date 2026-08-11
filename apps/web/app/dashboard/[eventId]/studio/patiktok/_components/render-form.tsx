@@ -135,10 +135,16 @@ export function RenderForm({
         <Film aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Render reel
       </SubmitButton>
+      {/* ⚠ DESCRIBES THE RENDERER THAT EXISTS. This promised a server-side
+          ffmpeg/Remotion worker and an emailed link "within an hour"; there is
+          no such worker on this path. Submitting lands on the next screen, where
+          reel-renderer.tsx renders in the visitor's own browser and hands back a
+          Download button — which is why that screen says "keep this tab open".
+          Two screens, one flow, opposite promises. */}
       <p className="text-[11px] text-ink/55">
-        Renders queue server-side. The ffmpeg / Remotion vertical-reel worker
-        finishes each job and emails a download link — typically within an hour
-        of your booth wrapping.
+        Your reel renders in your browser on the next screen — nothing is queued
+        on our servers. Keep that tab open while it works, then download the file
+        straight to your device.
       </p>
     </form>
   );

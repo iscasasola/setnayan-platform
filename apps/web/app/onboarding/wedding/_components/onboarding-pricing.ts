@@ -79,7 +79,19 @@ export const INAPP_TO_SERVICE_CODE: Record<string, string> = {
   // includes the bundle-only Editorial PRO + Cinematic Reveal.
   advanced_website: 'COUPLE_WEBSITE_PRO',
   animated_monogram: 'ANIMATED_MONOGRAM',
-  panood: 'PANOOD_SYSTEM',
+  // ⚠ WAS 'PANOOD_SYSTEM', WHICH IS is_active=false IN PRODUCTION (retired
+  // 2026-07-26, migration 20271005180040 — Cast folded into the unified SKU).
+  // fetchV2CustomerCatalog filters `.eq('is_active', true)`, so the row never
+  // came back, the missing-row branch below zeroed the card, and the renderer
+  // (`p.label || pesoB(p.set)`) printed **₱0** — a livestream advertised as FREE
+  // on the onboarding screen when it costs ₱2,999. Same defect that was fixed on
+  // PAPIC_SEATS + PAPIC_GUEST on 2026-07-21; this key was missed.
+  // LIVE_STUDIO is the live product (₱2,999, is_active=true). It is name-excluded
+  // from the customer catalog only while NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is
+  // off — that flag is ON in production (verified: the row is on /pricing, which
+  // is impossible while it is excluded), so this resolves a real price today, and
+  // degrades to the honest empty row if the flag is ever turned back off.
+  panood: 'LIVE_STUDIO',
   // Papic POOL — the shared shot pool. Same code as before, but the product
   // underneath it changed: it is now a FLAT ₱1,000 top-up that ADDS 3,000
   // shots to whatever the event already holds (repeatable; ₱2,000/6,000 and

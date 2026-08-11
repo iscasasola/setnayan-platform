@@ -140,21 +140,45 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   PAPIC_CAMERA_ROLL_DAY:      'live', // per-camera legacy Roll rate (Mini economics) · capacity = papic_tier_config.points_per_day, NOT a fixed photo/clip count · #2246 · 2026-06-26
   PAPIC_CAMERA_UNLIMITED_DAY: 'live', // per-camera Unli (Unlimited) rate · unlimited points/day · #2246 · 2026-06-26
   HIGH_RES_ARCHIVE:    'partial',  // 0009 photo delivery partial
-  LIVE_BACKGROUND:     'live',     // ₱499 LED-wall background · marked live 2026-07-10 (owner "all features active")
+  LIVE_BACKGROUND:     'not_built', // REMOVED 2026-08-11 (owner: "remove wall backdrop"). Was marked 'live' on 2026-07-10 under "all features active" — it never was: the maker saved a draft and nothing rendered the 8K file or posted the USB it promised. Route, save endpoint, templates and both tables deleted (migration 20271132121622). Kept listed so the retirement is legible and any historical order row still resolves a status.
   PABATI:              'live',     // video guestbook end-to-end: gated day-of card + 5s guest recorder + recap section · collector exists · 2026-06-22
   KWENTO:              'live',     // words-on-a-photo · paid-to-unlock ₱500 · gated at route + moderation · 2026-06-26
 
   PAKANTA:               'live',       // custom-song delivery end-to-end: intake + admin upload → auto-plays on the couple's site (PR #2038) · 2026-06-22
   // Activated 2026-07-10 (owner "all our features should now be active" · migration
   // 20270710619774 flips SEATING_3D/STORIES/THANK_YOU is_active=true). These read
-  // Live; Camera Bridge + Live Wall are HELD as 'partial' ("In build") because
-  // their fulfillment infra genuinely isn't built yet (owner-confirmed hold).
+  // Live; CAMERA BRIDGE alone is still HELD as 'partial' ("In build") because it
+  // genuinely needs native iOS/Android + a DSLR SDK (owner-confirmed hold).
+  //
+  // ⚠ UPDATED 2026-08-11 — this sentence used to name Live Wall in that hold and
+  // STORIES among the activated. Both moved: Live Wall is 'live' (it was built all
+  // along), and STORIES is retired off sale (it sold nothing). A block that records
+  // one state at the top and contradicts it four lines down gets read from
+  // whichever line you land on, so it is corrected here and at each row.
   SEATING_3D:            'live',     // ₱2,499 · 3D reception + seating walk · public 3D walk shipped (Fable slices)
-  PAPIC_ADDON_STORIES:   'live',     // ₱2,000 · 30s guest story maker
+  // RETIRED 2026-08-11 — is_active=false (migration below). The ₱2,000 add-on
+  // bought NOTHING: the story maker is owner-locked FREE and lib/guest-stories.ts
+  // has no entitlement gate ("FREE TIER — no entitlement gate, no price; nothing
+  // here charges anything"), so no code anywhere asks whether this was purchased.
+  // It was already retired for exactly this reason by migration 20270328922621
+  // ("Guest Stories is owner-locked FREE") and reactivated as collateral by the
+  // blanket sweep in 20270710619774, which flipped SEATING_3D + THANK_YOU (both
+  // real paid products) and swept this one along. Owner re-confirmed off sale
+  // 2026-08-11. Zero orders ever, so nothing anyone owns is affected.
+  // build_status stays 'live' on purpose — the FEATURE works and is free; it is
+  // `is_active` that retires a SKU, and a status label is not a gate (see below).
+  PAPIC_ADDON_STORIES:   'live',     // ₱2,000 · 30s guest story maker · RETIRED (free feature, sold nothing)
   PAPIC_ADDON_THANK_YOU: 'live',     // ₱2,499 · compiled thank-you video
   STD_PREMIUM_OPENINGS:  'live',     // ₱1,499 · Save-the-Date Cinematic Reveal openings · buy flow shipped #1705/#1709/#1718
   CAMERA_BRIDGE:         'partial',  // ₱499 (reprice 2026-07-08 · migration 20270711042075) · HELD "In build" — needs native iOS/Android + DSLR SDK
-  LIVE_WALL:             'partial',  // ₱2,499 · HELD "In build" — WebSocket display surface not built
+  // 2026-08-11 — 'partial' → 'live'. The hold said "WebSocket display surface not
+  // built", and no WebSocket was ever needed: the venue wall ships as a polled
+  // surface. Every piece exists — app/wall/[eventId] (projection route),
+  // wall-claim.tsx (screen code), wall-projection.tsx, the couple's
+  // live-wall-controls.tsx, AND the guest-phone mirror in site-body.tsx. It was
+  // selling at ₱2,500, is_active=TRUE, while /pricing chipped it "in active
+  // build" — telling a couple the thing they can buy today is unfinished.
+  LIVE_WALL:             'live',     // ₱2,500 · venue projection + guest-phone mirror, both shipped
   CALL_TIME_ESCALATOR:   'not_built',  // retired SKU (is_active=false) — no SMS infrastructure
   // RETIRED 2026-08-11 — is_active=false (migration 20271128898031). Owner ruled
   // it off sale 2026-08-10: ₱999/year bought an address that resolves NOWHERE

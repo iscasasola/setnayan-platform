@@ -143,7 +143,7 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
   lights_sound:
     'Reception lighting + sound shapes the whole atmosphere. PA + lights setup is technical — book 4-6 months out and confirm the venue power supply.',
   led_background:
-    'LED background brings your monogram + theme to the stage. Setnayan can render an 8K loop for offline playback; book about 3 months out.',
+    'An LED wall behind the stage carries your monogram + theme all night. The rental company builds and plays your content; book about 3 months out.',
   cocktail_booths:
     'Mobile bar, coffee booth, cocktail station — the social glue of cocktail hour. PH cocktail-hour culture loves these; book 3-4 months out.',
   photobooth:

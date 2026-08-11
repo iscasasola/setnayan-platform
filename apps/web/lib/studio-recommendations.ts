@@ -62,7 +62,9 @@ export const STUDIO_PEAK_MONTHS: Readonly<Record<string, number>> = {
   pakanta: 6,
   'custom-qr-guest': 5,
   rsvp: 5,
-  led: 4,
+  // `led: 4` removed 2026-08-11 with the LED wall backdrop — Setnayan can no
+  // longer recommend a tool it does not have. (Booking an LED wall VENDOR is
+  // unaffected; that lives in the couple's plan, not in this add-on list.)
   // Layout + logistics, closing in.
   'indoor-blueprint': 3,
   seating: 3,

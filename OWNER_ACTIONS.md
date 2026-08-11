@@ -1320,15 +1320,28 @@ with **no code change** (the flow reads the flag). See `lib/anon-onboarding.ts`.
 When you enabled "Allow anonymous sign-ins", Supabase warned (correctly) that the
 anonymous endpoint is now a bot-abuse target — a bot can spam it to bloat the
 database and drive up Monthly-Active-User billing. The fix is Supabase's built-in
-captcha. **The code to support it is already shipped** (Cloudflare Turnstile is
-wired into every auth form — login, signup, change-password, and the anonymous
-sign-in paths). It's currently a **strict no-op**: with no site key set, no widget
-renders and auth works exactly as before. You activate it with the steps below.
+captcha. **The code to support it is already shipped.** It's currently a **strict
+no-op**: with no site key set, no widget renders and auth works exactly as before.
+You activate it with the steps below.
+
+> ⚠ **THIS SECTION WAS WRONG UNTIL 2026-08-11 — three holes, all closed now.**
+> It used to say Turnstile was "wired into every auth form". Three places were
+> not, and each one would have refused real people the hour captcha went on:
+> **Forgot-my-password** (no token, no widget — the page you land on *because*
+> you are locked out), and the **two scan-a-poster claim screens** (their server
+> code was already reading a token no form ever supplied). Worse, our own
+> security header did not allow the bot check's own window, so the challenge
+> could not have appeared **anywhere** — including on sign-in. All three are
+> fixed and each is now held by a test that fails if it regresses.
+>
+> 🔑 **Do not read a checklist as proof.** This paragraph is here because the
+> sentence above it was believed for weeks and nobody re-checked it.
 
 **IMPORTANT — Supabase captcha is GLOBAL.** Once enabled it gates login, signup,
-password re-auth AND anonymous sign-in. So the activation ORDER matters: get tokens
-flowing in the app FIRST, then flip enforcement on. Do it out of order and you lock
-everyone (including yourself) out of sign-in for a few minutes.
+password re-auth, password RESET AND anonymous sign-in. So the activation ORDER
+matters: get tokens flowing in the app FIRST, then flip enforcement on. Do it out
+of order and you lock everyone (including yourself) out of sign-in for a few
+minutes.
 
 1. **Cloudflare dashboard → Turnstile → Add widget.** Name it "Setnayan Auth",
    add your domains (`setnayan.com`, `www.setnayan.com`, and the Vercel preview
@@ -1343,25 +1356,35 @@ everyone (including yourself) out of sign-in for a few minutes.
    Turn it **on**, provider **Turnstile (by Cloudflare)**, paste the **Secret key**
    from step 1. Save. → Enforcement is now live; the tokens from step 2 satisfy it.
 4. **Test before walking away** (use the test accounts in memory
-   `project_setnayan_test_accounts`): sign in on `/login`, create a throwaway
-   account on `/signup`, and change a password in Settings. All three should work
-   normally (the challenge stays invisible for you). If any fails with a "captcha"
-   error, re-check that step 2's redeploy finished before step 3.
+   `project_setnayan_test_accounts`). Five things, not three — the last two are
+   the ones that were broken:
+   - sign in on `/login`
+   - create a throwaway account on `/signup`
+   - change a password in Settings
+   - **`/forgot-password` — ask for a reset link and confirm it arrives**
+   - **open a Papic claim link on a phone and tap "Start shooting"**
 
-**The anonymous flows — what's covered.** There are three anonymous sign-in paths:
+   All five should behave normally (the challenge stays invisible for you). If any
+   fails with a "captcha" error, re-check that step 2's redeploy finished before
+   step 3.
 
-- **Anon-draft onboarding** (`NEXT_PUBLIC_ANON_ONBOARDING_ENABLED`) — this one is
-  **LIVE in prod**, so it matters most. It is **fully wired**: the onboarding
-  "finish" button now mints a Turnstile token client-side and passes it into the
-  commit, so it keeps working under captcha. Test it after activating (start a
-  fresh event in an incognito window without signing in — it should land you in
-  the dashboard as it does today).
-- **Papic seat-claim + Panood camera-claim** (`papicSeatAnonEnabled`,
-  `panoodCameraAnonEnabled`) — their server actions accept a token, but the client
-  widget that mints it for those two claim screens lands with a later build. If
-  those flags are ON in prod and you enable captcha, test a Papic/Panood
-  guest-claim; if it errors, tell me and I'll ship their client mint same-day
-  (small change). If they're OFF, there's nothing to worry about.
+**The anonymous flows — what's covered.** There are **four** anonymous sign-in
+paths (this said three and missed the last one). All four are wired:
+
+- **Anon-draft onboarding** (`NEXT_PUBLIC_ANON_ONBOARDING_ENABLED`) — **LIVE in
+  prod**, so it matters most. The onboarding "finish" button mints a Turnstile
+  token client-side and passes it into the commit. Test it after activating
+  (start a fresh event in an incognito window without signing in — it should land
+  you in the dashboard as it does today).
+- **Papic seat-claim** (`papicSeatAnonEnabled`) — ✅ **fixed 2026-08-11.** This
+  flag is **ON in production right now**, so it was the live one. The claim form
+  now carries the widget its server code had always been reading.
+- **Panood camera-claim** (`panoodCameraAnonEnabled`) — ✅ fixed the same way.
+  Flag currently off.
+- **Live Studio guest camera-pick** — ✅ **fixed 2026-08-11**, and it was not on
+  this list at all. A guest tapping a side camera mints a session; the tap now
+  mints a token with it. Left alone, the paid multi-camera feature would have
+  switched itself off for every guest at every wedding with nothing to see.
 
 ---
 

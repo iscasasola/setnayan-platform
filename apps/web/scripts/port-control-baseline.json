@@ -4888,29 +4888,6 @@
         "WayfindingMap"
       ]
     },
-    "/dashboard/[eventId]/studio/led": {
-      "files": [
-        "dashboard/[eventId]/studio/led/_components/led-background-maker.tsx",
-        "dashboard/[eventId]/studio/led/loading.tsx",
-        "dashboard/[eventId]/studio/led/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/[seg]/monogram",
-        "/dashboard/[seg]/studio"
-      ],
-      "actions": [],
-      "blocks": [
-        "InlineCheckoutDrawer",
-        "LedBackgroundMaker",
-        "LedTemplate",
-        "Link",
-        "OwnedEditor",
-        "QueuedJob",
-        "RenderQueuedCard",
-        "TemplateThumbnail",
-        "UnownedView"
-      ]
-    },
     "/dashboard/[eventId]/studio/live-studio-control": {
       "files": [
         "dashboard/[eventId]/studio/live-studio-control/page.tsx"

@@ -445,13 +445,17 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'led_background',
     label: 'LED Background',
-    hint: 'Brings your monogram + theme to the stage. Setnayan can render 8K loops.',
+    hint: 'Brings your monogram + theme to the stage. Your LED rental vendor supplies and plays the content.',
     tier: 'style_program',
     categories: ['led_screens'],
     monthsBefore: 3,
     catalogFolder: 'design',
     catalogTile: 'led_wall',
-    subcategoryHint: 'setnayan_pailaw',
+    // Was `setnayan_pailaw` until 2026-08-11 — a FIRST-PARTY leaf for a
+    // Setnayan-made backdrop that has been removed. Pointing a couple's
+    // vendor search at a service we no longer offer finds them nobody, so this
+    // is now the real LED-wall rental leaf under the same tile.
+    subcategoryHint: 'led_video_wall',
   },
 
   // ════════ Extras tier ════════

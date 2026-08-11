@@ -13,9 +13,15 @@
  *
  *   • ANIMATED_MONOGRAM (₱1,000, is_active=TRUE) — "…and up on the LED stage
  *     screen. Includes the Live Background." The monogram works and stays on
- *     sale; the LED half does not. The maker saves a design and NOTHING
- *     produces a file — `led_background_renders` exists in prod with zero rows
- *     and zero writers — so a couple cannot hand anything to their venue.
+ *     sale; the LED half did not. The maker saved a design and NOTHING
+ *     produced a file — `led_background_renders` sat in prod with zero rows
+ *     and zero writers — so a couple could not hand anything to their venue.
+ *     ⚠ UPDATED 2026-08-11: the owner chose removal over building a render
+ *     farm ("remove wall backdrop"), so the maker, its route, its save
+ *     endpoint, its templates and its two tables are GONE. This assertion is
+ *     therefore no longer "do not promise it until it is built" — it is "we do
+ *     not sell an LED backdrop." Re-adding the sentence without re-adding a
+ *     working end-to-end backdrop is the failure this catches.
  *
  * ── WHY A REPLAY AND NOT A PROD QUERY ──────────────────────────────────────
  * A test that queries prod would pass or fail on whatever an admin last typed
@@ -113,8 +119,9 @@ test('no live SKU promises the LED stage screen while no file can be made', asyn
     res.rows.map((x) => x.service_code),
     [],
     'A live SKU description promises the LED stage screen or the Live Background. ' +
-      'The LED maker saves a design and produces NO file — led_background_renders ' +
-      'has zero writers — so the couple cannot hand anything to their venue. ' +
-      'Either ship the renderer in this PR, or do not sell the promise.',
+      'THE LED WALL BACKDROP WAS REMOVED FROM THE PRODUCT on 2026-08-11 (owner: ' +
+      '"remove wall backdrop") — there is no maker, no route, no save endpoint and ' +
+      'no renderer, so this is not a gap to be filled but a thing we do not sell. ' +
+      'Either ship a real backdrop end-to-end in this PR, or do not sell the promise.',
   );
 });

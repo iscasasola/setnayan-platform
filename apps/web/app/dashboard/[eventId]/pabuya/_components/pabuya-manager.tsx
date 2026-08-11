@@ -563,10 +563,22 @@ export function PabuyaManager({
             </div>
           </div>
 
+          {/* ⚠ THREE STATES, NOT TWO. This branched on private-vs-public only,
+              so with the public e-gift route still switched off it told the
+              couple "This is what guests see on your event page" while every
+              guest following that link got a 404 (lib/egift.ts — the route
+              returns notFound until PABUYA_PUBLIC_ROUTE_ENABLED is set). The
+              hardest gate is checked FIRST: launching a private event page does
+              not open this surface, so the private sentence alone would still
+              promise something that cannot happen yet.
+              `publicRouteEnabled` was already a prop — it drives `publicHref`
+              above and simply was not consulted here. */}
           <p className="mt-3 text-center text-[11px] leading-relaxed text-ink/50">
-            {isPrivate
-              ? 'Your event page is private — launch it to make this live for guests.'
-              : 'This is what guests see on your event page.'}
+            {!publicRouteEnabled
+              ? 'This is a preview. The guest gift page isn’t switched on yet, so guests can’t open it — your set-up is saved and ready for when it is.'
+              : isPrivate
+                ? 'Your event page is private — launch it to make this live for guests.'
+                : 'This is what guests see on your event page.'}
           </p>
         </div>
       </aside>

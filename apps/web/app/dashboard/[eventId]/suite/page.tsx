@@ -241,8 +241,9 @@ export default async function SuitePage({ params }: Props) {
       .select('service_code, retail_price_php')
       .in('service_code', serviceKeys)
       // Only price ACTIVE SKUs. A retired (is_active=false) SKU must not print a
-      // stale standalone price pill — e.g. the bundle-only LED Background card
-      // (serviceKey LIVE_BACKGROUND) shows a neutral pill, not the old ₱499.
+      // stale standalone price pill. (The LED Background card that used to
+      // demonstrate this rule was removed with the feature on 2026-08-11; the
+      // rule still holds for every other retired code.)
       .eq('is_active', true),
     fetchRoadmapState(supabase, eventId, new Date()).catch(() => null),
     // PR-2 persona — the cheaply-derivable personalization the vignette cards

@@ -338,13 +338,17 @@ export function stdAccentFromPalette(palette: RolePalette | null | undefined): s
   return toHex(ensureContrast(base, WHITE, 4.5));
 }
 
-// ── LED Background palette (0005 × 0010) ──────────────────────────────────────
-// The LED Background Maker (0005) recolours its template gradient FROM the
-// couple's Mood Board (0010), so the venue's stage wall reads as THEIR wedding —
-// in lockstep with the Save-the-Date reveal + branded QR, which already pull
-// from the same pool. Each template ships a hardcoded `[bg, accent1, accent2]`
-// fallback (lib/led-background.ts); we map the Mood-Board pool onto those three
-// slots WITHOUT flattening the template's character:
+// ── Template-gradient recolour from the Mood Board (was 0005 × 0010) ─────────
+// ⚠ NAME IS HISTORICAL. This was written for the LED Background Maker, which
+// was REMOVED 2026-08-11. The function survives it because the Dance-Floor
+// Mural (lib/dance-mural-texture.ts) reuses this exact math — it is now the
+// only caller, and renaming would ripple through a live feature for no gain.
+//
+// It recolours a template gradient FROM the couple's Mood Board (0010) so a
+// large surface reads as THEIR wedding — in lockstep with the Save-the-Date
+// reveal + branded QR, which already pull from the same pool. Each template
+// ships a hardcoded `[bg, accent1, accent2]` fallback; we map the Mood-Board
+// pool onto those three slots WITHOUT flattening the template's character:
 //   • bg     — kept at the TEMPLATE'S tone. A dark template (monogram-on-black)
 //              keeps a dark base; a light one keeps a light base. We tint that
 //              base toward the couple's deepest swatch (dark templates) or

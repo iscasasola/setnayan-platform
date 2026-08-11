@@ -18,6 +18,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Wordmark } from '@/app/_components/brand-marks';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { requestPasswordReset } from './actions';
 
 export const metadata: Metadata = {
@@ -200,6 +201,14 @@ export default async function ForgotPasswordPage({
               }}
             />
           </div>
+          {/*
+            The bot check. Renders NOTHING until a Turnstile site key is set, so
+            this page is unchanged today. It is not optional once captcha is on:
+            Supabase gates password recovery with the same global switch as
+            sign-in, and this is the page someone reaches BECAUSE they are
+            already locked out.
+          */}
+          <TurnstileField action="password_reset" />
           <SubmitButton
             className="m-btn-orange"
             style={{

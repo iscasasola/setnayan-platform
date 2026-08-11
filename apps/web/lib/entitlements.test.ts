@@ -644,21 +644,35 @@ test('eventActiveSkus: a pending COUPLE_WEBSITE_PRO order marks both aliased can
 
 test('SKU_OWNERSHIP_ALIASES: exactly the owner-locked bundle-only grants', () => {
   // 2026-07-22 bundle restructure: EDITORIAL_PRO + STD_PREMIUM_OPENINGS via the
-  // Website PRO umbrella; LIVE_BACKGROUND via Monogram PRO (ANIMATED_MONOGRAM).
+  // Website PRO umbrella.
   // 2026-07-25 Live Studio consolidation: LIVE_STUDIO via either Cast device tier.
+  // 2026-08-11: LIVE_BACKGROUND ← ANIMATED_MONOGRAM is GONE with the LED wall
+  // backdrop it unlocked (owner: "remove wall backdrop").
   assert.deepEqual(Object.keys(SKU_OWNERSHIP_ALIASES).sort(), [
     'EDITORIAL_PRO',
-    'LIVE_BACKGROUND',
     'LIVE_STUDIO',
     'STD_PREMIUM_OPENINGS',
   ]);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.EDITORIAL_PRO, ['COUPLE_WEBSITE_PRO']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.STD_PREMIUM_OPENINGS, ['COUPLE_WEBSITE_PRO']);
-  assert.deepEqual(SKU_OWNERSHIP_ALIASES.LIVE_BACKGROUND, ['ANIMATED_MONOGRAM']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.LIVE_STUDIO, [
     'PANOOD_SYSTEM',
     'PANOOD_SYSTEM_MOBILE',
   ]);
+});
+
+test('SKU_OWNERSHIP_ALIASES: buying the monogram no longer confers the LED backdrop', () => {
+  // The deepEqual above would already fail if LIVE_BACKGROUND came back, but it
+  // fails as "the key list changed", which reads like a routine restructure and
+  // invites someone to just add the key to the expected array. This asserts the
+  // PRODUCT rule by name, so the failure says what it means: a ₱1,000 monogram
+  // must not unlock a backdrop nothing can render. Removed 2026-08-11.
+  assert.equal(SKU_OWNERSHIP_ALIASES.LIVE_BACKGROUND, undefined);
+  assert.equal(
+    Object.values(SKU_OWNERSHIP_ALIASES).some((from) => from.includes('LIVE_BACKGROUND')),
+    false,
+    'no SKU may alias to LIVE_BACKGROUND either',
+  );
 });
 
 // ──────────────────────────────────────────────────────────────────────────

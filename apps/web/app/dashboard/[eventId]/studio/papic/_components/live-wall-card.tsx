@@ -133,20 +133,27 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
             <MonitorPlay aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
             Live Photo Wall
           </h2>
-          {/* THE SENTENCE THIS CARD WAS MISSING. Until now it described a venue
-              projection and nothing else — matching the SKU's own name, "Live
-              VENUE Photo Wall" — while the same feed also ran on every invited
-              guest's phone for the whole celebration. A couple who revoked every
-              screen code below reasonably believed the wall was off. The one
-              honest line about the phone mirror lived on a different page
-              entirely (the website privacy settings), where nobody managing the
-              wall would meet it. */}
+          {/* ⚠ THE SECOND HALF WAS MISSING. This described the wall as a venue
+              projection only, so a couple weighing ₱2,500 saw a screen rental
+              they might not need — and never learned the wall ALSO runs on every
+              guest's own phone. site-body.tsx renders that mirror on the event
+              page for the live window whenever the event owns LIVE_WALL, so it
+              is part of what they are already buying, not an upsell.
+
+              ✅ THE CONTROL NOW EXISTS — this comment's "the on/off control for
+              the mirror is Session 7's" is done, and the last sentence points at
+              it. Disclosure and control had to land together: telling a couple
+              their wedding is on a hundred phones without giving them a way to
+              stop it is worse than not telling them, and a switch with no
+              explanation beside it is not a choice either. The fact is here; the
+              switch is one card down, in LiveWallControls. */}
           <p className="mt-1 text-sm text-ink/60">
             Project the day&rsquo;s photos at the venue as they&rsquo;re shot. Open{' '}
             <span className="font-mono text-[13px] text-ink/80">{wallUrl}</span> on any
-            screen&rsquo;s browser and enter a screen code. The same photos also
-            appear on your guests&rsquo; own phones during the celebration &mdash;
-            you can turn that off below and keep the wall to the venue screens.
+            screen&rsquo;s browser and enter a screen code. The same wall also appears
+            on your guests&rsquo; phones on your event page while the celebration is
+            running — so everyone sees the photos, screen or no screen. If you
+            would rather keep it to the venue, you can switch the phones off below.
           </p>
         </div>
       </div>

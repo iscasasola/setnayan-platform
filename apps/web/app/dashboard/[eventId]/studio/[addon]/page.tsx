@@ -37,12 +37,8 @@ const ADD_ON_META: Record<
     blurb:
       'Google Drive integration for full-resolution photo handoff post-event. 30-day post-download compression rule applies.',
   },
-  led: {
-    iteration: 'Iteration 0005',
-    title: 'LED Background',
-    blurb:
-      '8K template render pipeline · Photo Pool blend · USB delivery for venue playback.',
-  },
+  // `led` removed 2026-08-11 — the "8K template render pipeline" and "USB
+  // delivery" it advertised never existed.
   patiktok: {
     iteration: 'Iteration 0017',
     title: 'Patiktok',

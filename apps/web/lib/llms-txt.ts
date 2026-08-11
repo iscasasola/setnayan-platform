@@ -114,7 +114,18 @@ const REQUIRED_RETAIL = [
   // assistant that reads llms.txt. This file's own docblock records two earlier
   // cases (Camera Bridge, the retired Live Studio device split). The new
   // `every advertised SKU is still on sale` test below is what stops a third.
-  'PAPIC_ADDON_STORIES',
+  // PAPIC_ADDON_STORIES removed 2026-08-11 — taken off sale the same day (PR
+  // #4354, migration 20271132214645), because the ₱2,000 add-on sold NOTHING:
+  // the story maker is owner-locked FREE and no code reads whether it was
+  // bought. Its prose line stayed and was rewritten to say "free" rather than
+  // deleted, because the FEATURE still exists — only the sale is gone, so
+  // dropping it would under-describe the product to every AI assistant.
+  // 🪤 THIS GUARD IS THE ONLY THING THAT CAUGHT IT. The retiring PR shipped
+  // without touching this file, which would have thrown RetiredSkuError on the
+  // next rebuild and served the 15-line FALLBACK stub — the whole GEO surface
+  // dark, silently. The unit tests did NOT catch it: they run against a
+  // hand-written fixture where every code is is_active:true, so nothing in CI
+  // ever compares this list against the real catalog.
   'PATIKTOK_COMPILER',
   'PABATI',
   'KWENTO',
@@ -339,7 +350,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Animated Monogram** — ${R('ANIMATED_MONOGRAM')}. Bespoke monogram with animation, generated from the couple's inputs.
 - **Event Website** — free. The 4-in-1 couple website (Save the Date, RSVP, on-the-day, Editorial) with unlimited RSVP.
 - **Website PRO** — ${R('COUPLE_WEBSITE_PRO')}. Unlocks every premium website touch — the Save-the-Date Cinematic Reveal and Editorial PRO — across the whole site, and removes the Setnayan watermark.
-- **Stories** — ${R('PAPIC_ADDON_STORIES')} per day (cap). 30-second story maker for guests, rendered in the browser and downloaded to their phone.
+- **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Patiktok** — ${R('PATIKTOK_COMPILER')}. Mimic-station booth; unlimited 9:16 vertical recordings compiled into post-ready reels.
 - **Pabati** — ${R('PABATI')} per day. Guest-recorded greeting videos.
 - **Kwento** — ${R('KWENTO')} (whole event). Guest-contributed stories and messages.

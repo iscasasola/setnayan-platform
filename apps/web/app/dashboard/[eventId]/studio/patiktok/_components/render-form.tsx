@@ -135,10 +135,24 @@ export function RenderForm({
         <Film aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Render reel
       </SubmitButton>
+      {/* ⚠ DESCRIBES THE RENDERER THAT EXISTS. This promised a server-side
+          ffmpeg/Remotion worker and an emailed link "within an hour"; there is
+          no such worker on this path. Submitting lands on the next screen, where
+          reel-renderer.tsx renders in the visitor's own browser and hands back a
+          Download button — which is why that screen says "keep this tab open".
+          Two screens, one flow, opposite promises.
+          ⚠ AND DO NOT ADD "nothing is queued on our servers" BACK. The first
+          repair said exactly that and it was false in the other direction:
+          submitPatiktokRender DOES insert a patiktok_render_jobs row with
+          status:'queued' before redirecting, this button's own pendingLabel is
+          "Queuing…", and the next screen says "Render queued." A JOB is queued
+          and tracked server-side; only the RENDER happens in the browser. Saying
+          less is what makes this true — describe where the work happens, never
+          what does or does not exist on the server. */}
       <p className="text-[11px] text-ink/55">
-        Renders queue server-side. The ffmpeg / Remotion vertical-reel worker
-        finishes each job and emails a download link — typically within an hour
-        of your booth wrapping.
+        Your reel renders in your browser on the next screen. Keep that tab open
+        while it works — then download it, and a copy is saved to your event
+        gallery.
       </p>
     </form>
   );

@@ -103,7 +103,9 @@ test('accent reads as text on paper, and light text reads on the CTA (AA 4.5)', 
 // ── ledPaletteFromMoodBoard (0005 LED × 0010 Mood Board) ─────────────────────
 
 const HEX = /^#[0-9a-f]{6}$/;
-// A representative dark template ([bg, accent1, accent2]) from led-background.ts.
+// A representative dark template ([bg, accent1, accent2]). These values came
+// from the LED template list, removed 2026-08-11; inlined here because the
+// surviving caller is the Dance-Floor Mural and the math is what is under test.
 const DARK_TPL = ['#0F0F0F', '#C9A14B', '#3A2A1C'] as const;
 const LIGHT_TPL = ['#F4EBD9', '#E3CDA0', '#A6815C'] as const;
 

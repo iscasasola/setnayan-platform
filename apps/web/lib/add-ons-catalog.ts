@@ -501,15 +501,16 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0004',
     status: 'web_v1',
     category: 'digital_services',
-    blurb: 'Your monogram, drawn to life on your QR, page, and signage. PRO adds the animation and the LED backdrop.',
+    blurb: 'Your monogram, drawn to life on your QR, page, and signage. PRO adds the animation.',
     cta: 'Open the maker',
     studioGroup: 'branding',
     // The maker itself is free (the lettered / cipher / upload monogram is
     // never gated) → "Free" chip. serviceKey keeps the Animated-Monogram SKU
     // ownership badge, so the chip flips to "Active" once the paid draw-on
-    // animation is owned (chip priority: Active > Pending > Free). As of
-    // 2026-07-22, Monogram PRO (₱1,000) ALSO confers the LED Live Background
-    // (SKU_OWNERSHIP_ALIASES: LIVE_BACKGROUND ← ANIMATED_MONOGRAM).
+    // animation is owned (chip priority: Active > Pending > Free). The LED
+    // Live Background it used to confer (2026-07-22 → 2026-08-11) is removed:
+    // that half of the ₱1,000 could never be delivered. Monogram PRO now buys
+    // the animation and nothing it cannot produce.
     tier: 'free',
     serviceKey: 'ANIMATED_MONOGRAM',
     poster: {
@@ -795,37 +796,11 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
       iconBadgeClass: 'bg-cream/25 text-cream',
     },
   },
-  {
-    // LED Background — bundle-only 2026-07-22 (owner: Live Background is part of
-    // Monogram PRO ₱1,000). serviceKey stays LIVE_BACKGROUND — the SAME canonical
-    // the LED maker + save route gate on — so the grid pill and the tool surface
-    // can never disagree (a Monogram-PRO owner reads "Active" here via the
-    // LIVE_BACKGROUND ← ANIMATED_MONOGRAM alias, exactly as the maker grants
-    // access; a direct LIVE_BACKGROUND owner reads "Active" too). Its catalog row
-    // is is_active=false, and the Suite/Studio price query filters is_active, so
-    // no stale standalone ₱499 pill shows — a non-owner sees a neutral pill and
-    // the maker page upsells Monogram PRO. opensDirect opens the maker directly.
-    key: 'led',
-    tags: ['Branding', 'Live', 'Day-of'],
-    label: 'LED Background',
-    Icon: Sparkles,
-    iteration: '0005',
-    opensDirect: true,
-    status: 'web_v1',
-    category: 'led_background',
-    blurb: 'Your name and monogram, twenty feet tall on the stage screen — included with Monogram PRO.',
-    cta: 'Design your LED',
-    studioGroup: 'branding',
-    serviceKey: 'LIVE_BACKGROUND',
-    poster: {
-      motion: 'pulse',
-      baseBackground:
-        'radial-gradient(circle at 50% 50%, #0F2A4A 0%, #050D1F 80%)',
-      motionBackground:
-        'radial-gradient(circle at 50% 50%, #4FFFE0 0%, rgba(80, 200, 255, 0.5) 25%, transparent 55%)',
-      iconBadgeClass: 'bg-cyan-100/20 text-cyan-50',
-    },
-  },
+  // The LED Background card was REMOVED 2026-08-11 (owner: "remove wall
+  // backdrop"). It offered "Design your LED" and opened a maker whose only
+  // output was a saved draft — nothing in this repo, and no server anywhere,
+  // ever produced the 8K file or the posted USB the card implied. The route,
+  // the save endpoint and the template module went with it.
   {
     // FREE (owner 2026-07-23: "indoor blueprint is free and uses the 2D Plan for
     // free"). The entrance→table wayfinding rides on the already-free 2D seat

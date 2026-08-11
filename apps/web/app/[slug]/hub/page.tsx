@@ -92,6 +92,14 @@ type Props = {
  * is unconditional here, which is strictly safer for a utility route.
  */
 export const metadata: Metadata = {
+  // A TITLE, because every sibling route sets one and this route did not. With
+  // only `robots` here the hub inherited the ROOT layout's marketing title, so a
+  // guest who bookmarked the day-of hub — the one page they are told to keep
+  // open at the venue — saved a Setnayan sales title instead of the event's own
+  // page. Static on purpose: the event's name is behind the canViewSlugEvent
+  // gate below, and a private event's name must not leak into a tab title or a
+  // bookmark on a page that is deliberately noindex.
+  title: 'Event Hub · Setnayan',
   robots: { index: false, follow: false },
 };
 

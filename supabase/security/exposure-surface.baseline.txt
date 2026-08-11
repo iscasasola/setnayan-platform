@@ -90,8 +90,8 @@ tpriv	public.concierge_unanswered_questions|anon	SIUD
 tpriv	public.concierge_unanswered_questions|authenticated	SIUD
 tpriv	public.coordinator_access_consents|anon	SIUD
 tpriv	public.coordinator_access_consents|authenticated	SIUD
-tpriv	public.coordinator_broadcasts|anon	SIUD
-tpriv	public.coordinator_broadcasts|authenticated	SIUD
+tpriv	public.coordinator_broadcasts|anon	SD
+tpriv	public.coordinator_broadcasts|authenticated	SD
 tpriv	public.coordinator_feature_recommendations|anon	SIUD
 tpriv	public.coordinator_feature_recommendations|authenticated	SIUD
 tpriv	public.couple_briefs|anon	SIUD
@@ -1114,13 +1114,13 @@ col	public.coordinator_access_consents.moderator_id	anon=SIU authenticated=SIU
 col	public.coordinator_access_consents.revoked_at	anon=SIU authenticated=SIU
 col	public.coordinator_access_consents.scope_version	anon=SIU authenticated=SIU
 col	public.coordinator_access_consents.scopes	anon=SIU authenticated=SIU
-col	public.coordinator_broadcasts.body	anon=SIU authenticated=SIU
-col	public.coordinator_broadcasts.broadcast_id	anon=SIU authenticated=SIU
-col	public.coordinator_broadcasts.created_at	anon=SIU authenticated=SIU
-col	public.coordinator_broadcasts.event_id	anon=SIU authenticated=SIU
-col	public.coordinator_broadcasts.id	anon=SIU authenticated=SIU
-col	public.coordinator_broadcasts.sender_role	anon=SIU authenticated=SIU
-col	public.coordinator_broadcasts.sender_user_id	anon=SIU authenticated=SIU
+col	public.coordinator_broadcasts.body	anon=S authenticated=SI
+col	public.coordinator_broadcasts.broadcast_id	anon=S authenticated=SI
+col	public.coordinator_broadcasts.created_at	anon=S authenticated=S
+col	public.coordinator_broadcasts.event_id	anon=S authenticated=SI
+col	public.coordinator_broadcasts.id	anon=S authenticated=SI
+col	public.coordinator_broadcasts.sender_role	anon=S authenticated=S
+col	public.coordinator_broadcasts.sender_user_id	anon=S authenticated=S
 col	public.coordinator_feature_recommendations.addon_key	anon=SIU authenticated=SIU
 col	public.coordinator_feature_recommendations.created_at	anon=SIU authenticated=SIU
 col	public.coordinator_feature_recommendations.event_id	anon=SIU authenticated=SIU

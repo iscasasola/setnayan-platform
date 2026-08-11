@@ -189,11 +189,13 @@ export async function eventCompActiveSkus(
  * is_active=false, so COUPLE_WEBSITE_PRO (repriced ₱3,500) is the ONLY way to
  * buy them. These aliases become the sole purchase→ownership path.
  *
- * LIVE_BACKGROUND ← ANIMATED_MONOGRAM (owner-locked 2026-07-22): Live Background
- * is now bundle-only, folded into Monogram PRO (ANIMATED_MONOGRAM, repriced
- * ₱1,000). An order under ANIMATED_MONOGRAM confers LIVE_BACKGROUND ownership;
- * existing direct LIVE_BACKGROUND owners keep access. One-directional — owning
- * LIVE_BACKGROUND does NOT confer ANIMATED_MONOGRAM.
+ * ⛔ LIVE_BACKGROUND ← ANIMATED_MONOGRAM (owner-locked 2026-07-22) is REMOVED
+ * 2026-08-11. It folded the LED wall backdrop into Monogram PRO, so ₱1,000 was
+ * partly payment for a backdrop nothing could render — the maker saved a draft
+ * and no code path anywhere produced the 8K file or the posted USB its own
+ * screens promised. Owner: "remove wall backdrop." The whole product went, so
+ * there is no capability left to confer. No one loses access: zero orders had
+ * ever been placed, under either key.
  *
  * ⭐ LIVE_STUDIO ← PANOOD_SYSTEM · PANOOD_SYSTEM_MOBILE (2026-07-25 · the Live
  * Studio "one controller" consolidation) — THE GRANDFATHER CLAUSE, and the reason
@@ -210,7 +212,8 @@ export async function eventCompActiveSkus(
  * rehearsal tier — and for most of them the thing they bought happens exactly once,
  * on a day that cannot be redone.
  *
- * Same shape as the LIVE_BACKGROUND fold-in: a purchase key conferring the SKU its
+ * Same shape as the (now-removed) LIVE_BACKGROUND fold-in: a purchase key
+ * conferring the SKU its
  * capability now lives under. No migration and no backfill — ownership still IS
  * orders.status, read one extra way, so it applies to past AND in-flight Cast
  * orders and reverses cleanly if the consolidation is rolled back.
@@ -247,7 +250,10 @@ export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string
   Object.freeze({
     EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO']),
     STD_PREMIUM_OPENINGS: Object.freeze(['COUPLE_WEBSITE_PRO']),
-    LIVE_BACKGROUND: Object.freeze(['ANIMATED_MONOGRAM']),
+    // LIVE_BACKGROUND ← ANIMATED_MONOGRAM is GONE (owner 2026-08-11, "remove
+    // wall backdrop"). It was the line that made a ₱1,000 monogram purchase
+    // unlock an LED maker whose output nothing could produce. The whole
+    // product is removed in this PR; there is no longer a key to alias TO.
     LIVE_STUDIO: Object.freeze([...PANOOD_PAID_SKUS]),
   });
 
@@ -396,7 +402,11 @@ export const BUNDLE_CHILD_SKUS = Object.freeze({
     'PABATI',
     'PAPIC_ADDON_THANK_YOU',
     'LIVE_WALL',
-    'LIVE_BACKGROUND',
+    // 'LIVE_BACKGROUND' dropped 2026-08-11 with the LED wall backdrop. This
+    // list is the CODE-side fallback for `bundle_components`, whose matching
+    // row the same PR's migration deletes — leaving it here would have the
+    // fallback grant a SKU the database no longer bundles, for a surface that
+    // no longer exists.
     'PANOOD_SYSTEM',
     'PAKANTA',
   ]),

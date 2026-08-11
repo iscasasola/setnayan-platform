@@ -6,6 +6,7 @@ import {
   type StudioGroup,
 } from '@/lib/add-ons-catalog';
 import { recommendStudioAddOns } from '@/lib/studio-recommendations';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { fetchRoadmapState } from '@/lib/wedding-roadmap-signals';
 import { addOnDetail } from '@/lib/add-ons-detail';
 import { formatPhp } from '@/lib/orders';
@@ -88,7 +89,7 @@ export default async function StudioPage({ params, searchParams }: Props) {
   // When Suite is on, this legacy hub is retired — redirect to it (same flag the
   // Suite page and the nav swap key on, so the hub and the nav stay consistent).
   // When Suite is off (never in prod), the hub still serves as the fallback, and
-  // its own tool sub-routes (/studio/save-the-date, /studio/led, …) are untouched
+  // its own tool sub-routes (/studio/save-the-date, /studio/patiktok, …) are untouched
   // either way — only this index page redirects.
   const suiteOn =
     envFlagEnabled(process.env.NEXT_PUBLIC_SUITE) || process.env.VERCEL_ENV === 'preview';
@@ -191,6 +192,25 @@ export default async function StudioPage({ params, searchParams }: Props) {
   const surfaceOk = (a: (typeof ADD_ONS)[number]) => {
     if (a.surface && !surfaceEnabled(profile, a.surface)) return false;
     if (a.key === 'papic-guest') return papicPassAllowed;
+    // ⚠ ONE LIVESTREAM TILE, NOT TWO. With the unified Live Studio live, the
+    // couple's Studio showed BOTH it and the retired "Live Studio Cast" tile —
+    // the second one chipped "Free", and both landed on the same ₱2,999 page,
+    // because /studio/panood is now a redirect. That page's own header names
+    // this exact defect and stops short of it: "Two tiles for one product is the
+    // whole defect. The catalog tile that points here is not ours to delete, so
+    // the DESTINATION is retired instead." This is the other half — the tile.
+    //
+    // Filtered HERE, not removed from ADD_ONS: fifteen modules import that
+    // catalog and several look the 'panood' entry up by key (the launch and
+    // galleries chips, alaala, the detail view's own special-case), and a test
+    // pins its presence. Deleting the row to hide a card would break lookups
+    // that have nothing to do with what the grid draws. `surfaceOk` is the grid's
+    // own gate and already carries a per-key exclusion right above this one.
+    //
+    // Flag OFF, nothing changes: the unified tile is not appended in that state,
+    // /studio/panood forwards to the free single-camera setup, and this Cast tile
+    // is the only livestream doorway there is — so it must stay.
+    if (a.key === 'panood') return !liveStudioRoamEnabled();
     return true;
   };
 

@@ -4,7 +4,6 @@ import {
   Camera,
   Video,
   Palette,
-  Lightbulb,
   Music,
   CloudUpload,
   ShoppingBag,
@@ -13,19 +12,25 @@ import {
 import type { MarketingLocale } from '@/lib/marketing-i18n';
 
 // Day-of apparatus (in-app services) — Panood, Papic, Patiktok, Pakulay,
-// Pailaw, Pakanta, Photo Delivery, Supplies Marketplace. One card per
-// service. NO PHP figures (prices live on /pricing and the in-app cart).
+// Pakanta, Photo Delivery, Supplies Marketplace. One card per service. NO PHP
+// figures (prices live on /pricing and the in-app cart).
 //
 // Bilingual (EN + Taglish). META (icon + SKU brand name) is language-neutral
-// — SKU names are NOT translated — and zips with COPY[locale].services by
-// index. Keep both arrays in lockstep.
+// — SKU names are NOT translated — and zips with COPY[locale].services BY
+// INDEX. Keep all THREE arrays in lockstep: META, COPY.en.services and
+// COPY.tl.services. Dropping a service from one and not the others does not
+// error — it silently prints the next service's words under this one's icon
+// and brand name. `LOCKSTEP` below fails the build instead.
+//
+// Pailaw (LED background) was slot 4 and was REMOVED 2026-08-11 from all three
+// (owner: "remove wall backdrop") — it promised an 8K file and a posted USB
+// that nothing produced.
 
 const META: { Icon: LucideIcon; sku: string }[] = [
   { Icon: Tv, sku: 'Live Studio' },
   { Icon: Camera, sku: 'Papic' },
   { Icon: Video, sku: 'Patiktok' },
   { Icon: Palette, sku: 'Pakulay' },
-  { Icon: Lightbulb, sku: 'Pailaw' },
   { Icon: Music, sku: 'Pakanta' },
   { Icon: CloudUpload, sku: 'Photo Delivery' },
   { Icon: ShoppingBag, sku: 'Supplies Marketplace' },
@@ -68,10 +73,6 @@ const COPY: Record<
         tagline: 'Mood-board engine',
         body: 'Per-role + per-venue palettes with the Setnayan Guide rule engine catching contrast / temperature / cultural-default mistakes before they hit the printer. Vendors get a live link, not a screenshot. They always reference the latest palette.',
         pricingLabel: 'Free baseline · Pro renders V1.1+',
-      },
-      {
-        tagline: 'LED background maker',
-        body: '8K loop generators for venue LED walls. USB-deliverable for offline playback at venues with no reliable internet. Match the loop to your palette and the visual language of your day reads consistently from the entrance to the dance floor.',
       },
       {
         tagline: 'A wedding song written for the two of you',
@@ -117,10 +118,6 @@ const COPY: Record<
         pricingLabel: 'Free baseline · Pro renders V1.1+',
       },
       {
-        tagline: 'LED background maker',
-        body: '8K loop generators para sa venue LED walls. USB-deliverable para sa offline playback sa mga venue na walang maaasahang internet. I-match ang loop sa palette mo at magiging consistent ang visual language ng araw mo mula entrance hanggang dance floor.',
-      },
-      {
         tagline: 'Isang kasal na kanta, ginawa para sa inyong dalawa',
         body: 'Custom song composition + recording para sa wedding day mo. Ibahagi ang inyong kwento kay Setnayan, isang original, full-production, AI-generated na kanta, royalty-free at sa inyo habambuhay. Nagiging soundtrack ng bawat Setnayan-rendered video sa kasal ninyo ang Pakanta.',
       },
@@ -146,6 +143,23 @@ const COPY: Record<
     ],
   },
 };
+
+// THE LOCKSTEP, as a mechanism rather than the sentence above it. META is
+// zipped with COPY[locale].services by index, so a service dropped from one
+// array and not the others does NOT error — it prints the next service's
+// words under this one's icon and brand name, which reads as a real (wrong)
+// product. This is static data, so a mismatch can only be introduced while
+// editing: it fails `next build` (a required check) and can never throw for a
+// visitor. Added 2026-08-11 when removing Pailaw from all three at once.
+for (const [locale, copy] of Object.entries(COPY)) {
+  if (copy.services.length !== META.length) {
+    throw new Error(
+      `_DayOfApparatus: COPY.${locale}.services has ${copy.services.length} entries but ` +
+        `META has ${META.length}. They are zipped by index — fix both, or the page ` +
+        `prints one service's copy under another's name.`,
+    );
+  }
+}
 
 export function DayOfApparatus({ locale }: { locale: MarketingLocale }) {
   const c = COPY[locale];

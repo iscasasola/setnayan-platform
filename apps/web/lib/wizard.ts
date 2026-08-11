@@ -488,16 +488,16 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // Added 2026-05-24 to align with PLAN_GROUPS.led_background. Owner
     // directive: same as coordinator entry above — the Plan grid had a cell
     // for LED background (category='led_screens') but no Setnayan AI card
-    // pointed at it. Iteration 0005 LED Background Maker is the offline
-    // template flow; this card is the vendor-pick precursor for couples
-    // sourcing an LED-screen rental vendor.
+    // pointed at it. This is, and now only is, the vendor-pick precursor for
+    // couples sourcing an LED-screen rental vendor. The Setnayan-made backdrop
+    // it used to reference ("the offline USB pipeline") was removed 2026-08-11.
     id: 'led_background',
     order: 10.5,
     phase: 'style_identity',
     kind: 'vendor_pick',
     title: 'Lock your LED background',
     whyItMatters:
-      "The LED wall behind your stage shapes every photo from the reception. 8K rentals book 3-4 months out and the template upload happens via the offline USB pipeline a week before — lock the vendor first so they can quote the setup.",
+      'The LED wall behind your stage shapes every photo from the reception. Rentals book 3-4 months out and the vendor needs your final artwork about a week before — lock them first so they can quote the setup and tell you what file they need.',
     pillLabel: 'Style & Identity',
     prerequisites: ['reception_venue'],
   },

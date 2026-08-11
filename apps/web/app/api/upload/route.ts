@@ -425,9 +425,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         let seatGate: PointsGateVerdict = 'allow';
         if (!unlocked) {
           try {
+            // ⚠ BOTH BALANCES, not the camera's own bucket alone. Asking only
+            // the bucket is what refused an upload URL to a camera that had
+            // spent its dedicated credits while the shared pot behind it was
+            // full — the ceiling-not-floor defect, showing up one seam earlier
+            // than the reserve did (owner 2026-08-11).
             const { data: remaining, error: remErr } = await admin.rpc(
-              'papic_camera_points_remaining',
-              { p_seat_id: seat.seat_id as string },
+              'papic_capture_points_available',
+              { p_seat_id: seat.seat_id as string, p_event_id: seat.event_id as string },
             );
             seatGate = resolvePointsGate(
               remErr ? (remErr.code ?? 'unknown') : null,

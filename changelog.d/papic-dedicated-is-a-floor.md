@@ -1,10 +1,7 @@
 ## 2026-08-11 · fix(papic): dedicated credits are a FLOOR, not a ceiling — the primitive
 
-⚠ **THIS PR ADDS THE CORRECT PRIMITIVE AND DOES NOT YET WIRE IT.** The capture paths still
-call the old pair of gates, so the defect below is still live for users until the follow-up
-lands. Merging this changes no behaviour. It is separated deliberately: the three enforcement
-seams and their unwind paths are a careful edit at the money gate, and half of one is worse
-than none.
+✅ **WIRED.** All three capture paths now go through the new gate, and the old pair has no
+live caller left — only stale comments, which are corrected here too.
 
 ### The defect, measured
 
@@ -69,8 +66,34 @@ credits, and the release putting everything back on the pot. Every sabotage veri
 restore verified byte-identical. The first two even break the migration's own self-check, so a
 database would refuse to apply them.
 
-⏭ **NEXT, and required before this means anything to a user:** point the record seam, the guest
-capture route and the presign probe at the new pair, and replace their two-part unwind.
+### What the wiring changed
+
+**The record seam** (a paparazzo's camera) and **the guest capture route** now make ONE call
+instead of two, and **the presign probe** asks what the camera can spend across BOTH balances
+rather than its own bucket alone — that last one was the same defect a seam earlier, refusing
+an upload URL to a camera with a full pot behind it.
+
+🔑 **A HAND-WRITTEN UNWIND DISAPPEARED IN EACH OF THEM, and its absence is the point.** Both
+seams carried a "if the second ledger refused, release the first" block, and the guest helper
+carried eighty lines of it. That code existed because two calls could half-succeed. The split
+is all-or-nothing inside one transaction, so the state it cleaned up cannot occur — and a
+release left standing would now un-spend a capture that *was* paid for. The guest helper's
+test was **inverted** accordingly: it used to REQUIRE the partial unwind, and now fails if one
+is present.
+
+⚠ **Two flags became two COUNTS.** `seatBooked`/`poolBooked` could only ever say "release the
+whole cost to this side" — meaningless once a capture can be paid from both at once. They are
+now the two figures the reserve actually returned.
+
+⚠ **Stale comments corrected, not left standing.** Several docblocks still described the
+pool "standing down" for any camera holding dedicated credits — the mechanism that caused
+this. A comment that outlives its behaviour is how the last gate on this codebase stayed shut
+for seven weeks.
+
+🪤 **A mutation of mine did not apply and briefly read as a passing guard.** A `perl s///`
+without `/g` replaced only the first occurrence — in a docblock — leaving the real call intact,
+so a "reverted" seam still looked wired. With `/g` the guard fires correctly. Same trap this
+repo already documents; verifying the sabotage LANDED is what caught it.
 
 SPEC IMPACT: `DECISION_LOG.md` (2026-08-11 · dedicated credits are a reserve, not a cap;
 a capture spends dedicated first and the pot covers the remainder).

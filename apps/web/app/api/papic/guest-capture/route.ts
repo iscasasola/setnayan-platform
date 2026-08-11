@@ -435,25 +435,33 @@ export async function POST(req: Request) {
   // fail-CLOSED posture as the seat path (papic/actions.ts): block on any RPC
   // error EXCEPT function-not-found (the seam-cutover carve-out in
   // resolvePointsGate). A refused reserve unwinds below if the record then fails.
-  let eventBooked = false;
-  let seatBooked = false;
+  // Two FIGURES, not two flags: a capture can be paid from the guest's own
+  // balance AND the pot at once, and an abort must put each half back where it
+  // came from (owner 2026-08-11: "spend 2 and take 6").
+  let dedicatedSpent = 0;
+  let poolSpent = 0;
   {
     // A guest spending their OWN shots books the pair the seat path books:
     // their camera's balance first, then the pool, which stands down while
     // that balance lasts. Everyone else takes the original path untouched.
-    const { outcome, booked } = spendOwn && ownCamera
+    const { outcome, booked } = ownCamera
       ? await reserveGuestOwnCameraCapture(
           admin,
           session.event_id,
           ownCamera.seatId,
           cost,
         ).then((r) => {
-          seatBooked = r.seatBooked;
-          return { outcome: r.outcome, booked: r.poolBooked };
+          dedicatedSpent = r.dedicatedSpent;
+          return { outcome: r.outcome, booked: r.poolSpent };
         })
-      // Only a TRUE actually spent points — a fn-not-found 'allow' booked nothing.
-      : await papicReserveEventPoolForCapture(admin, session.event_id, cost);
-    eventBooked = booked;
+      // No camera of their own at all — nothing to split against, so the pot is
+      // the only ledger. Only a TRUE actually spent points; a fn-not-found
+      // 'allow' booked nothing.
+      : await papicReserveEventPoolForCapture(admin, session.event_id, cost).then((r) => ({
+          outcome: r.outcome,
+          booked: r.booked ? cost : 0,
+        }));
+    poolSpent = booked;
     if (outcome === 'exhausted') {
       return NextResponse.json({ status: 'camera_points_exhausted' }, { status: 409 });
     }
@@ -495,25 +503,18 @@ export async function POST(req: Request) {
   // unwind costs the couple points, never a broken capture.
   const recordStatus = (data as { status?: string } | null)?.status;
   if (error || recordStatus !== 'ok') {
-    if (eventBooked) {
+    // ONE call, both halves — the guest's own balance and the host's pot each
+    // get back exactly what this capture took from them. Releasing the whole
+    // cost to either side alone would move credits between the two: the guest
+    // paid for theirs, and the leak in that direction is somebody's money
+    // rather than the host's allowance.
+    if (dedicatedSpent > 0 || poolSpent > 0) {
       await admin
-        .rpc('papic_release_event_points', {
+        .rpc('papic_release_capture_split', {
+          p_seat_id: ownCamera?.seatId ?? null,
           p_event_id: session.event_id,
-          p_cost: cost,
-        })
-        .then(
-          () => undefined,
-          () => undefined,
-        );
-    }
-    // Symmetric for the guest's OWN balance. Without this a refused capture
-    // would silently burn shots somebody paid for — the one ledger where a
-    // leak is the guest's money rather than the host's allowance.
-    if (seatBooked && ownCamera) {
-      await admin
-        .rpc('papic_release_camera_points', {
-          p_seat_id: ownCamera.seatId,
-          p_cost: cost,
+          p_dedicated_spent: dedicatedSpent,
+          p_pool_spent: poolSpent,
         })
         .then(
           () => undefined,

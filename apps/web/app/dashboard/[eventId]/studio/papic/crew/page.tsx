@@ -361,7 +361,7 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
                     {s.seat_index >= 200
                       ? `Camera ${s.seat_index - 199}` /* paid per-camera (index base 200) */
                       : s.seat_index === PAPIC_FREE_ONE_CAMERA_INDEX
-                        ? 'Papic One — free camera'
+                        ? 'Free camera'
                         : s.seat_index >= 100
                           ? `Free camera ${s.seat_index - 99}` /* free shared pool (100..102) */
                           : `Seat ${s.seat_index}`}

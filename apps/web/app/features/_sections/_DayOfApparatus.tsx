@@ -58,7 +58,7 @@ const COPY: Record<
       },
       {
         tagline: 'Designated paparazzi',
-        body: 'Two shapes, both in the browser — no app to install. Papic Pool is one shared purse of shots any guest’s phone can spend from after scanning the event QR; Papic One is a camera of its own for someone you trust, with its own shots nobody else can spend. QR-tag photos to specific guests or whole tables, untagged photos still land in the couple’s gallery. Real-time delivery, guests can flip through tagged photos before the reception is over.',
+        body: 'One shared pot of shots, in the browser — no app to install. Any guest’s phone can spend from it after scanning the event QR, and the couple can set some aside for one camera’s QR so the person they trust never runs out; when those run out that camera carries on from the pot. Cameras are free and unlimited. QR-tag photos to specific guests or whole tables, untagged photos still land in the couple’s gallery. Real-time delivery, guests can flip through tagged photos before the reception is over.',
       },
       {
         tagline: 'TikTok-format booth at the venue',
@@ -105,7 +105,7 @@ const COPY: Record<
       },
       {
         tagline: 'Designated paparazzi',
-        body: 'Dalawang klase, pareho sa browser — walang app na i-install. Ang Papic Pool ay isang shared na shots na pwedeng gamitin ng kahit sinong guest pagka-scan ng event QR; ang Papic One ay sariling camera para sa pinagkakatiwalaan mo, may sariling shots na walang ibang makakagamit. QR-tag ang photos sa specific guests o buong tables, ang untagged photos ay lalapag pa rin sa gallery ng couple. Real-time delivery, pwede nang tingnan ng guests ang tagged photos nila bago pa matapos ang reception.',
+        body: 'Isang shared na shots, sa browser — walang app na i-install. Pwedeng gamitin ng kahit sinong guest pagka-scan ng event QR, at pwedeng magtabi ang couple ng shots para sa isang camera lang para hindi maubusan ang pinagkakatiwalaan nila; pag naubos iyon, tuloy pa rin ang camera na iyon mula sa shared na shots. Libre at walang limitasyon ang cameras. QR-tag ang photos sa specific guests o buong tables, ang untagged photos ay lalapag pa rin sa gallery ng couple. Real-time delivery, pwede nang tingnan ng guests ang tagged photos nila bago pa matapos ang reception.',
       },
       {
         tagline: 'TikTok-format booth sa venue',

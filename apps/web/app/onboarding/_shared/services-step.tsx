@@ -98,7 +98,7 @@ const TYPE_COPY: Record<
   { title: string; kind: string; desc: string; note?: string; Icon: typeof Users }
 > = {
   pool: {
-    title: 'Papic Pool',
+    title: 'Papic',
     kind: 'Unlimited cameras · shared shots',
     desc:
       // ⚠ Same false promise as the studio Pool card (see its comment): there
@@ -109,8 +109,13 @@ const TYPE_COPY: Record<
       'they never expire before your day.',
     Icon: Users,
   },
+  // ⚠ A DEAD KEY, KEPT ONLY TO SATISFY THE TYPE. `papicView` stopped emitting a
+  // 'one' entry on 2026-08-11, so nothing here can render — but the id union
+  // still allows 'one' (the data-layer tests build such views on purpose, to
+  // prove the reader survives a stored pre-change draft), and a Record over that
+  // union must cover it. Do not read this as a live product.
   one: {
-    title: 'Papic One',
+    title: 'Papic',
     kind: 'Dedicated camera · its own QR',
     desc:
       'A named camera with its own QR and its own shots — for your best friend, ' +

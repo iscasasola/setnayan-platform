@@ -118,12 +118,18 @@ const REQUIRED_RETAIL = [
   'PATIKTOK_COMPILER',
   'PABATI',
   'KWENTO',
-  'PAPIC_ONE_100',
-  'PAPIC_CAMERA_MINI_DAY',
-  // Same gitleaks `generic-api-key` false positive as app/pricing/page.tsx:317 —
+  // ⚠ THREE CODES LEFT THIS LIST ON 2026-08-11 and their prose went with them,
+  // which is the ONLY correct way to retire one (see the RetiredSkuError note
+  // below — deleting the entry without the line, or the line without the entry,
+  // is how a retired product keeps being advertised or a live one vanishes).
+  // Gone: PAPIC_ONE_100 and PAPIC_CAMERA_MINI_DAY (Papic One is retired as a
+  // product — a dedicated camera is now MADE by handing it shots, not bought)
+  // and PAPIC_GUEST_6K (off the owner's ladder). Their absence here is what
+  // stops this file quoting prices nobody can pay.
+  // Same gitleaks `generic-api-key` false positive as app/pricing/page.tsx —
   // the adjacent PAPIC_GUEST* codes read as a keyword + high-entropy pair. Kept
   // on one line so the inline allow covers the whole match, per that precedent.
-  'PAPIC_GUEST', 'PAPIC_GUEST_6K', 'PAPIC_GUEST_10K', // gitleaks:allow — Papic Pool SKU service_codes, not secrets
+  'PAPIC_GUEST_100', 'PAPIC_GUEST', 'PAPIC_GUEST_10K', 'PAPIC_GUEST_20K', // gitleaks:allow — catalog service_codes, not secrets
   'CUSTOM_QR_GUEST',
 ] as const;
 
@@ -337,8 +343,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Patiktok** — ${R('PATIKTOK_COMPILER')}. Mimic-station booth; unlimited 9:16 vertical recordings compiled into post-ready reels.
 - **Pabati** — ${R('PABATI')} per day. Guest-recorded greeting videos.
 - **Kwento** — ${R('KWENTO')} (whole event). Guest-contributed stories and messages.
-- **Papic One** — dedicated cameras for the people you trust. First 3 cameras free, then ${R('PAPIC_CAMERA_MINI_DAY')} for a 50-shot camera or ${R('PAPIC_ONE_100')} for a 100-shot camera. Add as many as you like.
-- **Papic Pool** — one shared shot pool for every guest's phone: ${R('PAPIC_GUEST')} for 3,000 shots · ${R('PAPIC_GUEST_6K')} for 6,000 · ${R('PAPIC_GUEST_10K')} for 10,000. Every capture spends points (1 photo = 1 point, one 10-second clip = 8 points). 6-month access window.
+- **Papic** — one shared pot of shots every guest's phone can spend from, and the host can set some aside for one camera's QR that nobody else can touch. 50 shots free on every event, then ${R('PAPIC_GUEST_100')} for 100 · ${R('PAPIC_GUEST')} for 3,000 · ${R('PAPIC_GUEST_10K')} for 10,000 · ${R('PAPIC_GUEST_20K')} for 20,000, added on top and repeatable. Cameras are free and unlimited. A photo spends 1 credit; a video spends 2 to 8 depending on its length (1–2s = 2 · 3s = 3 · 4–6s = 5 · 7–10s = 8). 6-month access window.
 - **Custom QR per Guest** — free. Individual QR codes for guests (RSVP, seating, photo tagging).
 
 ## The mood board is free
@@ -373,7 +378,7 @@ Vendor-side: public profile editor · inquiry inbox · calendar with intra-day b
 - **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Setnayan AI is the one paid planning tier, priced by event type: ${aiLadderLine}. Everything else is à la carte, no bundles. Vendor side: Verified free during launch, Solo ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')}/28-day block), Pro ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), Enterprise ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). 0% commission.
 - **Is Setnayan free?** Starting is free and the planning workspace stays free. The 4-in-1 event website with unlimited RSVP is free; premium touches come with Website PRO ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is free.
 - **What is Setnayan AI?** The assisted-planning tier. One-time, access until the event date, priced by how much planning load the event type carries — a wedding at ${aiA} down to ${peso(ladder[3]!.php)} for a casual outing.
-- **What is Papic?** Guests' phones become a coordinated capture crew. Two ways to run it: **Papic One**, dedicated cameras for people you trust (first 3 free, then ${R('PAPIC_CAMERA_MINI_DAY')} or ${R('PAPIC_ONE_100')} per camera by shot count); and **Papic Pool**, one shared pool for every guest's phone (${R('PAPIC_GUEST')}/3,000 shots · ${R('PAPIC_GUEST_6K')}/6,000 · ${R('PAPIC_GUEST_10K')}/10,000). Photos auto-tag to guests and feed per-guest highlight reels. Every guest goes home with their own copy.
+- **What is Papic?** Guests' phones become a coordinated capture crew. You buy shots once — 50 free on every event, then ${R('PAPIC_GUEST_100')}/100 · ${R('PAPIC_GUEST')}/3,000 · ${R('PAPIC_GUEST_10K')}/10,000 · ${R('PAPIC_GUEST_20K')}/20,000 — and every guest shoots from that shared pot. The host can set some of it aside for one camera's QR, so the person they trust with the important moments has shots nobody else can spend; when those run out that camera carries on from the pot. Cameras are free and unlimited. Photos auto-tag to guests and feed per-guest highlight reels, and every guest goes home with their own copy.
 - **What is Live Studio?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} per event-day; single-camera streaming is free, and rehearsing with up to 12 cameras is free.
 - **What is Pakanta?** A custom Filipino-style song written for the couple. ${R('PAKANTA')}.
 - **Does Setnayan support discount codes?** Yes — admins issue codes for promos, refunds, or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.

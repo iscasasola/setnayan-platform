@@ -276,7 +276,12 @@ test('the order description says GUEST out loud, so a blank buyer reads as inten
     serviceCode: 'PAPIC_ONE_100',
     points: 100,
   });
+  // The word GUEST is the load-bearing part: an admin reconciling a transfer
+  // has to see at a glance that a guest paid, not the couple.
   for (const d of [pool, one]) assert.match(d, /guest/i);
-  assert.match(pool, /shared pool/i);
+  // "shared pool" became "shared pot" when Papic Pool stopped being a product
+  // name (2026-08-11) — the two descriptions must still say WHERE the shots
+  // land, or a top-up and a single-camera reload read identically on a bank line.
+  assert.match(pool, /shared pot/i);
   assert.match(one, /one camera/i);
 });

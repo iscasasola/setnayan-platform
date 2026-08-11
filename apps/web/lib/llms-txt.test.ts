@@ -33,12 +33,17 @@ import { KNOWN_PUBLIC_ROUTES } from './seo/health-checks';
 const RETAIL: RetailRow[] = [
   // --- active ---
   { service_code: 'COUPLE_WEBSITE_PRO', title: 'Couple Website PRO', retail_price_php: 3500, is_active: true },
-  { service_code: 'PAPIC_GUEST_10K', title: 'Papic Pool — add 10,000 shots', retail_price_php: 3000, is_active: true },
+  { service_code: 'PAPIC_GUEST_10K', title: 'Papic — add 10,000 shots', retail_price_php: 3000, is_active: true },
   { service_code: 'LIVE_STUDIO', title: 'Live Studio', retail_price_php: 2999, is_active: true },
   { service_code: 'PAKANTA', title: 'Pakanta', retail_price_php: 2500, is_active: true },
   { service_code: 'LIVE_WALL', title: 'Live Venue Photo Wall', retail_price_php: 2500, is_active: true },
   { service_code: 'PAPIC_ADDON_THANK_YOU', title: 'Thank You', retail_price_php: 2499, is_active: true },
-  { service_code: 'PAPIC_GUEST_6K', title: 'Papic Pool — add 6,000 shots', retail_price_php: 2000, is_active: true },
+  // Retired 2026-08-11 with the one-product model — kept in the fixture, and
+  // INACTIVE, so the 'a retired SKU must not be advertised' guard has a real
+  // case to catch rather than a hypothetical one.
+  { service_code: 'PAPIC_GUEST_6K', title: 'Papic — add 6,000 shots', retail_price_php: 2000, is_active: false },
+  { service_code: 'PAPIC_GUEST_100', title: 'Papic — add 100 shots', retail_price_php: 50, is_active: true },
+  { service_code: 'PAPIC_GUEST_20K', title: 'Papic — add 20,000 shots', retail_price_php: 5000, is_active: true },
   { service_code: 'PAPIC_ADDON_STORIES', title: 'Stories', retail_price_php: 2000, is_active: true },
   { service_code: 'PATIKTOK_COMPILER', title: 'Patiktok', retail_price_php: 1500, is_active: true },
   { service_code: 'SEATING_3D', title: '3D Plan', retail_price_php: 1500, is_active: true },
@@ -47,8 +52,8 @@ const RETAIL: RetailRow[] = [
   { service_code: 'PAPIC_GUEST', title: 'Papic Pool — add 3,000 shots', retail_price_php: 1000, is_active: true },
   { service_code: 'ANIMATED_MONOGRAM', title: 'Animated Monogram', retail_price_php: 1000, is_active: true },
   { service_code: 'KWENTO', title: 'Kwento', retail_price_php: 299, is_active: true },
-  { service_code: 'PAPIC_ONE_100', title: 'Papic One — 100 shots', retail_price_php: 100, is_active: true },
-  { service_code: 'PAPIC_CAMERA_MINI_DAY', title: 'Papic One — 50 shots', retail_price_php: 50, is_active: true },
+  { service_code: 'PAPIC_ONE_100', title: 'Papic One — 100 shots', retail_price_php: 100, is_active: false },
+  { service_code: 'PAPIC_CAMERA_MINI_DAY', title: 'Papic One — 50 shots', retail_price_php: 50, is_active: false },
   { service_code: 'CUSTOM_QR_GUEST', title: 'Custom QR per Guest', retail_price_php: 0, is_active: true },
   // --- AI tier ladder: price-source rows, inactive BY DESIGN ---
   { service_code: 'SETNAYAN_AI_B', title: 'Setnayan AI (Tier B)', retail_price_php: 899, is_active: false },

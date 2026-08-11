@@ -138,7 +138,7 @@ export async function mintOnboardingServiceOrders(
           serviceCode: tier.serviceCode,
           quantity: 1,
           unitPhp,
-          label: `Papic Pool — ${tier.points} shared shots`,
+          label: `Papic — ${tier.points} shots`,
         });
       } else {
         // An admin retiring a rung between the render and the commit is a

@@ -356,7 +356,7 @@ export default async function PricingPage() {
     papicPoolBuckets.length > 0
       ? {
           service_code: 'PAPIC_POOL',
-          title: 'Papic Pool',
+          title: 'Papic',
           retail_price_php: papicPoolBuckets[0]!.pricePhp,
           saas_overhead_cost_php: 0,
           is_token_able: false,

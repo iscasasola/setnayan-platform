@@ -475,7 +475,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
-        body: "Papic turns the phones at your wedding into candid cameras. It comes in two shapes, and most couples use both. Papic Pool is one shared purse of shots that any guest's phone can spend from — they scan your event QR and start shooting, and there's no limit on how many phones join in. Papic One is a camera of its own for someone you trust: its own QR, and its own shots that nobody else can spend. Both start free on every wedding, so you can try Papic before you decide to add anything. Every shot lands in your private gallery, each guest can find the photos they're in, and there's no app to install — it all runs in the browser.",
+        body: "Papic turns the phones at your wedding into candid cameras. You get one pot of shots for the whole event, and any guest can shoot from it — they scan your event QR and start, with no limit on how many phones join in. Every wedding starts with 50 shots free, so you can try it before deciding to add any. If you want to be sure someone in particular never runs out, you can set aside some of your shots for their camera alone, where nobody else can spend them; when those run out, that camera simply carries on from the shared pot. Cameras themselves are free and you can make as many as you like. Every shot lands in your private gallery, each guest can find the photos they're in, and there's no app to install — it all runs in the browser.",
       },
       {
         slug: 'turn-on-papic',
@@ -513,9 +513,16 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body: "The couple sent you a camera link. Open it on your phone and tap to claim it — your phone is now a candid camera for their wedding. Shoot photos and clips of up to 10 seconds; everything uploads to their gallery automatically. Your camera shows how many shots it has left, and the couple can top it up. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
       },
       {
-        slug: 'papic-pool-vs-papic-one',
-        title: 'Papic Pool or Papic One — which one do I want?',
-        body: "Both, usually. Papic Pool is the crowd: one shared purse of shots that ANY guest's phone can spend from after scanning your event QR. No limit on how many phones, no setting up anyone in advance — but they all draw from the same purse, so a few enthusiastic guests can spend a lot of it. Papic One is the person you trust: one camera with its own QR and its own shots, which nobody else can touch. Give one to the cousin who actually frames a photo, or to your maid of honour, and their balance is safe no matter how busy the crowd gets. You can have as many of these as you like — there's no cap. Both start free on every wedding, and you top up either one separately whenever you want. Rule of thumb: the Pool covers the room, a One covers a person.",
+        // ⚠ THIS ARTICLE ANSWERED A QUESTION THAT NO LONGER EXISTS. It was
+        // 'Papic Pool or Papic One — which one do I want?' and there is one
+        // product now, so the choice it walked people through is gone. Rewritten
+        // rather than deleted, because the underlying worry is real and people
+        // still have it: how do I make sure the person I trust doesn't run out?
+        // The old slug 301s to this one in next.config.ts — a bookmarked help
+        // link should land on the answer, not a 404.
+        slug: 'papic-giving-a-camera-its-own-shots',
+        title: 'How do I make sure one person never runs out of shots?',
+        body: "Set some of your shots aside for their camera. Everything you buy goes into one pot that every guest shoots from, which is usually what you want — but a few enthusiastic guests can spend a lot of it, and you might have someone in mind who you'd rather not have run dry: the cousin who actually frames a photo, or your maid of honour. On your Papic page, find their camera and type how many shots are theirs alone. Those leave the shared pot and nobody else can touch them. If they don't use them all, you can take the unused ones back at any time — just type a smaller number. And if they DO use them all, their camera doesn't stop: it carries on from the shared pot like everyone else's. So setting shots aside is a guarantee, never a limit. Cameras are free and you can make as many as you like, so there's no cost to giving several people their own.",
       },
       {
         slug: 'how-papic-shots-work',

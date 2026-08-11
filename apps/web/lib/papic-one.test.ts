@@ -4,7 +4,7 @@
  * Everything here runs without a database: rung→points resolution, the
  * reload-vs-new decision, the order row's shape, and the tri-state decode of the
  * shared-pool reserve. The DB half (dedicated metering, idempotency, the catalog
- * being the price source) is papic-two-type-model.test.ts.
+ * being the price source) is papic-dedicated-camera-metering.test.ts.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

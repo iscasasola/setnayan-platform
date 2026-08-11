@@ -1256,177 +1256,21 @@ export async function setPapicWindow(formData: FormData) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Papic ONE — buy a dedicated camera, or RELOAD one that already exists.
+// ── Papic ONE IS RETIRED AS A PURCHASE (owner 2026-08-11) ─────────────────
 //
-// Owner-locked 2026-07-29: a Papic One camera has its own QR and its own
-// UNSHARED balance. 50 pts ₱50 · 100 pts ₱100, per camera, no cap on how many
-// an event buys — and the SAME rungs top up a camera that already exists,
-// INCLUDING the free one every event gets.
+// `purchasePapicOneCamera` lived here: buy a dedicated camera, or reload one.
+// It is DELETED rather than left unreachable. Papic is one product now — a
+// dedicated camera is MADE by handing shots to a QR (`setCameraShots` at the
+// bottom of this file), not bought — so there is no active Papic One rung for
+// it to resolve and every call would have died at `unknown_rung`.
 //
-// WHY RELOAD IS A FIRST-CLASS MODE, not "just buy another"
-// ───────────────────────────────────────────────────────
-// A Papic One camera is a physical fact at the party: someone is holding the
-// phone that scanned that QR. Selling them a SECOND camera when they only
-// wanted more shots hands the couple a new QR mid-event — the person already
-// shooting keeps shooting into an empty camera while the shots they paid for
-// sit behind a code nobody has scanned. So a reload adds points to the EXISTING
-// seat and mints no QR at all.
+// 🔑 A BUY PATH FOR A PRODUCT NOBODY CAN BUY IS WORSE THAN NO BUY PATH. It
+// reads to the next person as a live product with a broken screen, and the
+// honest fix looks like "re-mount the card" rather than "this was retired".
 //
-// Both modes are one apply-then-pay order and one papic_one_orders row; they
-// differ ONLY in whether the seat was created here or already existed. The
-// approval hook (lib/sku-activation.ts -> papic_grant_camera_points) reads that
-// row and writes a SEAT-SCOPED grant, which is what makes the points dedicated.
-//
-// This is the minimal server seam. The polished picker ships with the Papic
-// onboarding cards; the studio form below is the doorway it needs today.
-export async function purchasePapicOneCamera(formData: FormData) {
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/login');
-  }
-
-  const fail = (code: string): never =>
-    redirect(`/dashboard/${eventId}/studio/papic?papic_one_error=${code}`);
-
-  const admin = createAdminClient();
-
-  // The rung must be a LIVE Papic One rung. Read from the table rather than an
-  // allow-list in code: a rung an admin deactivated must stop being sellable the
-  // moment they deactivate it, not the next time someone edits this file.
-  const rawSku = String(formData.get('service_code') ?? '').trim();
-  const tiers = await fetchPapicOneTiers(admin);
-  const points = papicOnePointsForSkuIn(tiers, rawSku);
-  if (points === null || points <= 0) fail('unknown_rung');
-
-  // PRICE COMES FROM THE CATALOG, never from the rung table and never from a
-  // literal here — the catalog is the single billing source for every SKU.
-  const { data: catalogRow } = await admin
-    .from('platform_retail_catalog_v2')
-    .select('retail_price_php, is_active')
-    .eq('service_code', rawSku)
-    .maybeSingle();
-  const pricePhp = Number(catalogRow?.retail_price_php ?? 0);
-  // is_active is checked HERE because resolveRetailChargeCentavos() does not:
-  // it prices by service_code alone, so a retired rung would still quote. The
-  // reject has to happen before an order exists, not after.
-  if (!Number.isFinite(pricePhp) || pricePhp <= 0 || catalogRow?.is_active !== true) {
-    fail('unavailable');
-  }
-
-  // RELOAD vs NEW. The requested seat must be one of THIS event's cameras — a
-  // seat id from another event would top up a stranger's camera on this
-  // couple's money, so an unrecognised one is refused outright rather than
-  // quietly demoted to "new camera" (which would charge for something they did
-  // not ask for).
-  const { data: seatRows } = await admin
-    .from('paparazzi_seats')
-    .select('seat_id')
-    .eq('event_id', eventId)
-    .is('revoked_at', null);
-  const seatIds = (seatRows ?? []).map((r) => String(r.seat_id));
-  const target = resolvePapicOneTarget(
-    String(formData.get('reload_seat_id') ?? ''),
-    seatIds,
-  );
-  if (target.mode === 'rejected') fail('unknown_camera');
-
-  const win = await fetchEventPapicWindow(admin, eventId);
-  const referenceCode = mintPapicReferenceCode();
-  const { data: order, error: orderErr } = await createMoneyWriterClient()
-    .from('orders')
-    .insert({
-      event_id: eventId,
-      user_id: user.id,
-      service_key: rawSku,
-      description:
-        target.mode === 'reload'
-          ? `Papic One — reload one camera with ${points} shots`
-          : `Papic One — one dedicated camera with ${points} shots`,
-      requested_total_php: pricePhp,
-      reference_code: referenceCode,
-      status: 'submitted',
-      platform: 'web',
-    })
-    .select('order_id, public_id')
-    .maybeSingle();
-  if (orderErr || !order) fail('order_failed');
-  const orderId = String(order!.order_id);
-
-  // Resolve the camera the points land on.
-  let seatId: string | null = target.mode === 'reload' ? target.seatId : null;
-  if (seatId === null) {
-    // NEW camera: one 'mini' seat on this order, in the paid index range, with
-    // the event's capture window. Reuses the shipped provisioner so a One camera
-    // is the same kind of row as any other paid camera.
-    try {
-      await provisionPaidCamerasAdmin(admin, {
-        eventId,
-        orderId,
-        miniCount: 1,
-        ltdCount: 0,
-        unlimitedCount: 0,
-        validFrom: win.startIso,
-        validUntil: win.endIso,
-      });
-      const { data: fresh } = await admin
-        .from('paparazzi_seats')
-        .select('seat_id')
-        .eq('paid_order_id', orderId)
-        .limit(1);
-      seatId = fresh?.[0]?.seat_id ? String(fresh[0].seat_id) : null;
-    } catch {
-      seatId = null;
-    }
-  }
-
-  // No camera means the grant would have nowhere to land on approval, so the
-  // order must not survive as an unfulfillable charge. Cancel it and say so.
-  if (!seatId) {
-    await admin
-      .from('orders')
-      .update({ status: 'cancelled' })
-      .eq('order_id', orderId);
-    fail('camera_failed');
-  }
-
-  const { error: mapErr } = await admin.from('papic_one_orders').insert(
-    papicOneOrderRow({
-      orderId,
-      eventId,
-      seatId: seatId!,
-      serviceCode: rawSku,
-      points: points!,
-      isReload: target.mode === 'reload',
-    }),
-  );
-  if (mapErr) {
-    // Same reasoning as above: without this row the approval hook cannot tell
-    // which camera the shots belong to, and a paid order that grants nothing is
-    // worse than no order at all.
-    await admin
-      .from('orders')
-      .update({ status: 'cancelled' })
-      .eq('order_id', orderId);
-    fail('order_failed');
-  }
-
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  redirect(
-    `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
-      String(order!.public_id),
-    )}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${pricePhp}`,
-  );
-}
+// What deliberately STAYS: the activation hooks in lib/sku-activation.ts and
+// the deactivated tier rows they resolve against. Deleting a buy path is not
+// the same as abandoning the orders it already minted.
 
 /**
  * Buy a Papic POOL top-up — add shots to the event's SHARED pool.
@@ -1506,7 +1350,7 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
       event_id: eventId,
       user_id: user.id,
       service_key: rawSku,
-      description: `Papic Pool — adds ${points} shots to the shared pool`,
+      description: `Papic — adds ${points} shots to this event`,
       requested_total_php: pricePhp,
       reference_code: referenceCode,
       status: 'submitted',
@@ -1602,4 +1446,90 @@ export async function setCapturePreserved(formData: FormData) {
 
   revalidatePath(back);
   redirect(`${back}?preserve_set=${preserve ? 'kept' : 'released'}`);
+}
+
+/**
+ * HAND SHOTS TO ONE CAMERA'S QR — or take the unspent ones back.
+ *
+ * The control the owner asked for on 2026-08-11: *"the host can dedicated a
+ * specific number of shots for a specific QR code. and the rest can be
+ * distributed to the rest"*. Papic is one product now — you buy shots, and this
+ * is where you decide which of them belong to one camera alone.
+ *
+ * ── IT POSTS A TARGET, NOT A DELTA ─────────────────────────────────────────
+ * `shots` is what the camera should hold when this is done, not how many to
+ * add. That is what makes lowering it the way you take shots back — giving and
+ * taking are the same call, so neither can be the one somebody forgot to build.
+ * It also makes a double-submit harmless, which matters on a form a host will
+ * tap twice on a bad venue connection.
+ *
+ * ── WHAT THIS ACTION DOES *NOT* DECIDE ─────────────────────────────────────
+ * Every rule about whether the move is allowed lives in `papic_dedicate_shots`,
+ * under a row lock, in one transaction: the pot must still hold what is being
+ * handed out, the camera cannot drop below what it has already shot, and the
+ * camera must belong to this event. None of that is re-implemented here.
+ * Deriving the same arithmetic twice is how a screen and a ledger come to
+ * disagree — and the screen is the one people believe.
+ *
+ * SEC-4 holds trivially: nothing about money crosses the wire. The browser
+ * posts a camera and a count of shots the couple already owns.
+ */
+export async function setCameraShots(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  const { eventId } = result;
+  const back = `/dashboard/${eventId}/studio/papic`;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/login');
+  }
+
+  const fail = (code: string): never =>
+    redirect(`${back}?shots_error=${encodeURIComponent(code)}`);
+
+  const seatId = String(formData.get('seat_id') ?? '').trim();
+  if (!seatId) fail('unknown_camera');
+
+  const raw = String(formData.get('shots') ?? '').trim();
+  const shots = Number(raw);
+  // A blank box is not zero. Reading it as zero would silently pull every shot
+  // off a camera because somebody cleared the field to retype it.
+  if (raw === '' || !Number.isFinite(shots) || shots < 0 || !Number.isInteger(shots)) {
+    fail('bad_number');
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin.rpc('papic_dedicate_shots', {
+    p_event_id: eventId,
+    p_seat_id: seatId,
+    p_points: shots,
+    p_actor: user!.id,
+  });
+
+  if (error) {
+    // 🔑 THE REFUSAL HAS TO REACH THE SCREEN. The database refuses with a
+    // specific reason; dropping it here would leave the host looking at a
+    // number that did not change and no idea why — which is indistinguishable
+    // from a button that does nothing. The three the function can raise are
+    // mapped; anything else is reported as itself rather than swallowed.
+    const message = String(error.message ?? '');
+    if (/does not belong to this event/.test(message)) fail('unknown_camera');
+    if (/still shared/.test(message)) fail('not_enough_left');
+    if (/already taken/.test(message)) fail('already_shot');
+    console.error('[papic] setCameraShots failed:', {
+      event_id: eventId,
+      seat_id: seatId,
+      error: message,
+    });
+    fail('failed');
+  }
+
+  revalidatePath(back);
+  redirect(`${back}?shots_set=${shots}`);
 }

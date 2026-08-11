@@ -885,6 +885,12 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // These are SELF-BOUNDING buckets, deliberately NOT listed in
   // papic_event_pool_config.pass_service_codes (the guest-derived fence for the
   // PAPIC_UNLOCK* bundles). Migration 20270828140000 asserts they stay out of it.
+  // 🚨 THE ENTRY RUNG OF THE ONE LADDER (owner 2026-08-11 · migration
+  // 20271130515135). 100 shots ₱50 — the rung that has to be easy to say yes to
+  // during onboarding, and therefore the one most likely to be bought first by
+  // someone who has never paid us before. If it were absent from this map it
+  // would be the very first order we ever took and silently failed to honour.
+  PAPIC_GUEST_100: grantPapicPassPoints,
   PAPIC_GUEST: grantPapicPassPoints,
   PAPIC_GUEST_6K: grantPapicPassPoints,
   PAPIC_GUEST_10K: grantPapicPassPoints,

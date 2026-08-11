@@ -133,7 +133,29 @@ export function normalisePapicOneTiers(rows: readonly OneTierRow[]): PapicOneTie
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-/** Every active One rung, cheapest first. Falls back rather than throwing. */
+/**
+ * Every active One rung, cheapest first.
+ *
+ * 🚨 AN EMPTY TABLE IS AN ANSWER, NOT A FAILURE — and getting that wrong would
+ * have put a RETIRED PRODUCT BACK ON SALE.
+ *
+ * This used to read `if (error || !Array.isArray(data) || data.length === 0)
+ * return [...FALLBACK_ONE_TIERS]`, collapsing three different situations into
+ * one. That was harmless while some rung was always active. On 2026-08-11 the
+ * owner retired Papic One and migration 20271130515135 deactivated every row —
+ * at which point `.eq('is_active', true)` correctly returns ZERO ROWS, the old
+ * code read that as "the table is unreadable", and answered with a seeded rung
+ * that looks completely live. The guest buy path (app/papic/buy/actions.ts)
+ * reads this function.
+ *
+ * So the three cases are now told apart:
+ *   • a transport/permission ERROR  → fall back (we genuinely cannot see)
+ *   • zero rows                     → return [] (we CAN see: nothing is on sale)
+ *   • rows that all normalise away  → return [] (same — the table was readable)
+ *
+ * This is the "a denied read and an empty read are the same value" trap that has
+ * bitten this codebase before, in the direction that sells something.
+ */
 export async function fetchPapicOneTiers(db: SupabaseClient): Promise<PapicOneTier[]> {
   try {
     const { data, error } = await db
@@ -141,11 +163,10 @@ export async function fetchPapicOneTiers(db: SupabaseClient): Promise<PapicOneTi
       .select('service_code, points, sort_order')
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
-    if (error || !Array.isArray(data) || data.length === 0) {
-      return [...FALLBACK_ONE_TIERS];
-    }
-    const tiers = normalisePapicOneTiers(data as OneTierRow[]);
-    return tiers.length > 0 ? tiers : [...FALLBACK_ONE_TIERS];
+    // Only a real read failure may fall back to the seed.
+    if (error || !Array.isArray(data)) return [...FALLBACK_ONE_TIERS];
+    // A readable table that offers nothing offers nothing.
+    return normalisePapicOneTiers(data as OneTierRow[]);
   } catch {
     return [...FALLBACK_ONE_TIERS];
   }

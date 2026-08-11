@@ -35,8 +35,6 @@ import {
 // Field names live in their own boundary-free module — commitSimpleEvent reads
 // exactly these, and spelling them twice is how a field silently stops posting.
 import {
-  PAPIC_FIELD_ONE_CAMERAS,
-  PAPIC_FIELD_ONE_RUNG,
   PAPIC_FIELD_POOL_RUNG,
   AI_FIELD_SELECTED,
 } from './papic-step-field-names';
@@ -62,12 +60,10 @@ export function PapicStepFields({
           appears only under some picks, and `parseServicesStepSelection` already treats
           blank as "not buying this". */}
       <input type="hidden" name={PAPIC_FIELD_POOL_RUNG} value={selection.poolRungKey ?? ''} />
-      <input type="hidden" name={PAPIC_FIELD_ONE_RUNG} value={selection.oneRungKey ?? ''} />
-      <input
-        type="hidden"
-        name={PAPIC_FIELD_ONE_CAMERAS}
-        value={String(selection.oneExtraCameras)}
-      />
+      {/* The two Papic One fields (rung + camera count) are GONE, not blanked
+          (owner 2026-08-11). Cameras are free and unlimited now, so there is
+          nothing here to buy — and an always-empty field would leave the next
+          reader hunting for the control that fills it. */}
       <input type="hidden" name={AI_FIELD_SELECTED} value={String(selection.ai)} />
     </div>
   );

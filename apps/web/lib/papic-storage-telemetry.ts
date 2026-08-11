@@ -20,7 +20,10 @@
 // than keeping a second copy that can drift. A second copy of a ratio is how the
 // day-of console and the floor console came to disagree about who counts as
 // booked.
-import { papicCaptureCost } from './papic-cameras';
+import {
+  PAPIC_POINTS_PER_PHOTO,
+  PAPIC_PRESERVATION_UNITS_PER_CLIP,
+} from './papic-cameras';
 
 /** Decimal GB (10^9), matching cloud-storage (R2) per-GB billing. */
 export const BYTES_PER_GB = 1_000_000_000;
@@ -200,7 +203,20 @@ export const PRESERVATION_BLOCK_PHP = 500;
  */
 export function preservationUnits(row: StoredRow): number {
   if (row.full_res_dropped_at) return 0;
-  return papicCaptureCost(row.is_clip ? 'clip' : 'photo');
+  // 🔒 STORAGE IS BILLED FLAT, EVEN THOUGH CAPTURE IS NOW BILLED BY LENGTH
+  // (owner 2026-08-11). Not an oversight and not laziness: a StoredRow carries
+  // `is_clip` and NO duration, so the length of a kept video is not readable
+  // here at all. Given a choice between billing every stored video at the
+  // cheapest band and billing it at the ceiling, the ceiling is the only honest
+  // one — the cheap band would under-charge ₱500-a-year storage on every video
+  // longer than three seconds.
+  //
+  // Named constant rather than `papicCaptureCost('clip')` with the duration
+  // left off. That call returns the same number today, but it would make a
+  // PRICING DECISION about a different product something a reader has to infer
+  // from a default argument — and the next person to make that default cheaper
+  // would silently reprice preservation without ever opening this file.
+  return row.is_clip ? PAPIC_PRESERVATION_UNITS_PER_CLIP : PAPIC_POINTS_PER_PHOTO;
 }
 
 export type AccountPreservation = {

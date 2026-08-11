@@ -1,6 +1,9 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { papicCaptureCost } from '@/lib/papic-cameras';
+import {
+  PAPIC_POINTS_PER_PHOTO,
+  PAPIC_PRESERVATION_UNITS_PER_CLIP,
+} from '@/lib/papic-cameras';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolvePlayRef } from '@/lib/papic-display-ref';
 
@@ -503,7 +506,19 @@ export async function fetchPreservationTotals(
     released,
     total: kept + released,
     // Derived from the capture path's own constants — never a re-typed 8.
+    //
+    // ⚠ PRESERVATION, NOT CAPTURE, so it uses the STORAGE unit. Capture is billed
+    // by length since 2026-08-11; storage is not and cannot be, because a stored
+    // row carries `is_clip` and no duration. This used to read
+    // `papicCaptureCost('clip')` — which returns the same number, but only
+    // because a missing duration falls to the ceiling. Leaving it that way would
+    // make a ₱500-a-year pricing decision something a reader infers from a
+    // default argument, and the next person to make that default cheaper would
+    // reprice preservation without opening this file.
+    //
+    // The sibling counter (preservationUnits, lib/papic-storage-telemetry.ts)
+    // expresses the same decision the same way, on purpose.
     keptCredits:
-      keptPhotos * papicCaptureCost('photo') + keptClips * papicCaptureCost('clip'),
+      keptPhotos * PAPIC_POINTS_PER_PHOTO + keptClips * PAPIC_PRESERVATION_UNITS_PER_CLIP,
   };
 }

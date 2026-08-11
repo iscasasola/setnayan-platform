@@ -12,10 +12,6 @@ import assert from 'node:assert/strict';
 import type { PapicTypeView } from '@/lib/onboarding/services-step-data';
 import {
   EMPTY_SERVICES_SELECTION,
-  ONBOARDING_MAX_EXTRA_CAMERAS,
-  oneCameraTotal,
-  onePriceOf,
-  oneRungOf,
   parseServicesStepSelection,
   poolPriceAt,
   poolRungAt,
@@ -25,8 +21,6 @@ import {
   quoteServicesStepSelection,
   selectionHasPurchase,
   setAi,
-  setOneCameras,
-  setOneRung,
   stepPool,
 } from './onboarding-services-selection';
 
@@ -176,66 +170,26 @@ test('the ladder is DATA — a nine-rung Pool needs no code change', () => {
   assert.equal(poolPriceAt(NINE, 0), 0);
 });
 
-// ── papic one ──────────────────────────────────────────────────────────────
-
-test('the camera count defaults to the free camera alone, at no charge', () => {
-  assert.equal(oneCameraTotal(ONE, EMPTY_SERVICES_SELECTION), ONE.freeCameras);
-  assert.equal(onePriceOf(ONE, EMPTY_SERVICES_SELECTION), 0);
-});
-
-test('extra cameras bill per camera at the chosen rung', () => {
-  const s = setOneCameras(ONE, EMPTY_SERVICES_SELECTION, 3);
-  assert.equal(s.oneExtraCameras, 3);
-  assert.equal(onePriceOf(ONE, s), ONE.rungs[0]!.pricePhp * 3);
-  assert.equal(oneCameraTotal(ONE, s), ONE.freeCameras! + 3);
-});
-
-test('the rung defaults to the CHEAPEST — a default may never over-quote', () => {
-  assert.equal(oneRungOf(ONE, EMPTY_SERVICES_SELECTION)?.key, 'O_A');
-  const cheapest = Math.min(...ONE.rungs.map((r) => r.pricePhp));
-  assert.equal(oneRungOf(ONE, EMPTY_SERVICES_SELECTION)?.pricePhp, cheapest);
-});
-
-test('picking a rung with the counter at zero starts it at one', () => {
-  const s = setOneRung(EMPTY_SERVICES_SELECTION, 'O_B');
-  assert.equal(s.oneExtraCameras, 1);
-  assert.equal(onePriceOf(ONE, s), ONE.rungs[1]!.pricePhp);
-});
-
-test('dropping back to zero cameras clears the rung — no phantom purchase', () => {
-  const bought = setOneCameras(ONE, EMPTY_SERVICES_SELECTION, 2);
-  const cleared = setOneCameras(ONE, bought, 0);
-  assert.equal(cleared.oneExtraCameras, 0);
-  assert.equal(
-    cleared.oneRungKey,
-    null,
-    'a rung key with a zero count reads as a purchase in every log that sees it',
-  );
-  assert.equal(selectionHasPurchase(cleared), false);
-});
-
-test('the camera stepper is bounded, and the bound is not a product rule', () => {
-  const s = setOneCameras(ONE, EMPTY_SERVICES_SELECTION, 9_999);
-  assert.equal(s.oneExtraCameras, ONBOARDING_MAX_EXTRA_CAMERAS);
-  assert.equal(setOneCameras(ONE, EMPTY_SERVICES_SELECTION, -4).oneExtraCameras, 0);
-});
-
-test('no live camera rung ⇒ no camera can be added', () => {
-  const dead: PapicTypeView = { ...ONE, rungs: [] };
-  const s = setOneCameras(dead, EMPTY_SERVICES_SELECTION, 5);
-  assert.equal(s.oneExtraCameras, 0);
-  assert.equal(onePriceOf(dead, s), 0);
-});
+// ── papic one is GONE from this screen (owner 2026-08-11) ─────────────────
+//
+// Seven tests stood here for the camera stepper: its default, its per-camera
+// billing, its cheapest-rung default, its bound, and the both-directions
+// consistency between a rung key and a count. Every one described a control
+// that no longer exists — cameras are free and unlimited, and a dedicated one
+// is made in the studio out of shots the couple already owns.
+//
+// ONE assertion replaced them, in the parse section below: a tab opened before
+// this change still POSTS the old fields, and what happens to that payload is
+// the only camera behaviour this module still has an opinion about.
 
 // ── the quote ──────────────────────────────────────────────────────────────
 
-test('the running total is the two products summed', () => {
-  let s = stepPool(POOL, EMPTY_SERVICES_SELECTION, +1);
-  s = setOneCameras(ONE, s, 2);
-  const q = quoteServicesStepSelection(TYPES, s);
+test('the running total is the shots plus the planner', () => {
+  const sel = stepPool(POOL, EMPTY_SERVICES_SELECTION, 1);
+  const q = quoteServicesStepSelection([POOL], sel);
   assert.equal(q.poolPhp, POOL.rungs[0]!.pricePhp);
-  assert.equal(q.onePhp, ONE.rungs[0]!.pricePhp * 2);
-  assert.equal(q.totalPhp, q.poolPhp + q.onePhp);
+  assert.equal(q.papicPhp, q.poolPhp, 'Papic is one product — its subtotal IS the shots line');
+  assert.equal(q.totalPhp, q.poolPhp);
 });
 
 test('touching nothing costs nothing', () => {
@@ -243,9 +197,8 @@ test('touching nothing costs nothing', () => {
   assert.equal(selectionHasPurchase(EMPTY_SERVICES_SELECTION), false);
 });
 
-test('either product alone counts as a purchase', () => {
+test('either line alone counts as a purchase', () => {
   assert.equal(selectionHasPurchase(stepPool(POOL, EMPTY_SERVICES_SELECTION, +1)), true);
-  assert.equal(selectionHasPurchase(setOneCameras(ONE, EMPTY_SERVICES_SELECTION, 1)), true);
 });
 
 // ── the untrusted boundary ─────────────────────────────────────────────────
@@ -256,31 +209,29 @@ test('parse strips anything that is not one of the four fields', () => {
   assert.deepEqual(parseServicesStepSelection(42), EMPTY_SERVICES_SELECTION);
   assert.deepEqual(parseServicesStepSelection({ poolRungKey: 'P_A', evil: 'x', totalPhp: 0 }), {
     poolRungKey: 'P_A',
-    oneRungKey: null,
-    oneExtraCameras: 0,
     ai: false,
   });
 });
 
-test('parse bounds the camera count a tampered payload can post', () => {
-  const s = parseServicesStepSelection({ oneRungKey: 'O_A', oneExtraCameras: 1e9 });
-  assert.equal(s.oneExtraCameras, ONBOARDING_MAX_EXTRA_CAMERAS);
-  assert.equal(
-    parseServicesStepSelection({ oneRungKey: 'O_A', oneExtraCameras: -5 }).oneExtraCameras,
-    0,
-  );
-  assert.equal(
-    parseServicesStepSelection({ oneRungKey: 'O_A', oneExtraCameras: Number.NaN }).oneExtraCameras,
-    0,
-  );
-});
+test('a tab opened before the change buys nothing extra', () => {
+  // ⚠ THE ONE CAMERA BEHAVIOUR THIS MODULE STILL HAS AN OPINION ABOUT. A browser
+  // loaded before Papic became one product keeps posting `oneRungKey` and
+  // `oneExtraCameras` — its JavaScript still knows those fields. Carrying them
+  // through would mint a line for a retired product at a price nobody set.
+  // Dropping them is exactly right: the couple's real pick, their shots, is
+  // untouched.
+  const stale = parseServicesStepSelection({
+    poolRungKey: 'P_A',
+    oneRungKey: 'O_A',
+    oneExtraCameras: 3,
+  });
+  assert.deepEqual(stale, { poolRungKey: 'P_A', ai: false });
+  assert.equal(selectionHasPurchase(stale), true, 'their shots still count as a purchase');
 
-test('parse keeps the count and the rung consistent in both directions', () => {
-  assert.equal(parseServicesStepSelection({ oneExtraCameras: 3 }).oneExtraCameras, 0);
-  assert.equal(parseServicesStepSelection({ oneRungKey: 'O_A' }).oneRungKey, null);
-  const ok = parseServicesStepSelection({ oneRungKey: 'O_A', oneExtraCameras: 3 });
-  assert.equal(ok.oneRungKey, 'O_A');
-  assert.equal(ok.oneExtraCameras, 3);
+  // …and a payload naming ONLY cameras buys nothing at all.
+  const camerasOnly = parseServicesStepSelection({ oneRungKey: 'O_A', oneExtraCameras: 3 });
+  assert.deepEqual(camerasOnly, EMPTY_SERVICES_SELECTION);
+  assert.equal(selectionHasPurchase(camerasOnly), false);
 });
 
 test('parse does not authorise — it only shapes', () => {
@@ -312,7 +263,7 @@ test('AI is OFF by default and adds nothing', () => {
 test('ticking AI adds its OWN line and leaves the Papic subtotal alone', () => {
   // The whole reason the quote reports papicPhp separately (owner: "yes it can
   // be just 50 and 499"): the two must never be conflated on screen.
-  let s = setOneCameras(ONE, EMPTY_SERVICES_SELECTION, 1);
+  let s = stepPool(POOL, EMPTY_SERVICES_SELECTION, 1);
   const papicOnly = quoteServicesStepSelection(TYPES, s, AI_PHP);
   s = setAi(s, true);
   const withAi = quoteServicesStepSelection(TYPES, s, AI_PHP);
@@ -366,17 +317,7 @@ test('the selection carries NO price and NO tier for AI', () => {
   // type. If a price or tier ever appears on this object, a tampered payload
   // could pick a cheaper one.
   const s = setAi(EMPTY_SERVICES_SELECTION, true);
-  assert.deepEqual(Object.keys(s).sort(), [
-    'ai',
-    'oneExtraCameras',
-    'oneRungKey',
-    'poolRungKey',
-  ]);
+  assert.deepEqual(Object.keys(s).sort(), ['ai', 'poolRungKey']);
   const parsed = parseServicesStepSelection({ ai: true, aiPricePhp: 1, aiTier: 'D' });
-  assert.deepEqual(Object.keys(parsed).sort(), [
-    'ai',
-    'oneExtraCameras',
-    'oneRungKey',
-    'poolRungKey',
-  ]);
+  assert.deepEqual(Object.keys(parsed).sort(), ['ai', 'poolRungKey']);
 });

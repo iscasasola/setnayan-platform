@@ -62,11 +62,16 @@ const build = (over: Partial<Parameters<typeof buildServicesStepView>[0]> = {}) 
 const typeOf = (v: ReturnType<typeof build>, id: PapicTypeView['id']) =>
   v.papic.types.find((t) => t.id === id)!;
 
-test('both Papic products render, Pool first by default', () => {
+test('ONE Papic product renders — the retired one is not emitted at all', () => {
+  // ⚠ INVERTED FROM WHAT IT ASSERTED (owner 2026-08-11). It used to demand BOTH
+  // products, Pool first. Papic is one product now, and the retired one must not
+  // reach the screen even as an empty card: a product heading with nothing under
+  // it, on the screen where a couple chooses what to pay for, reads as a broken
+  // page rather than a retirement.
   const v = build();
   assert.deepEqual(
     v.papic.types.map((t) => t.id),
-    ['pool', 'one'],
+    ['pool'],
   );
 });
 
@@ -80,14 +85,9 @@ test('rungs carry live points AND a live price, cheapest first', () => {
       [10000, 3000],
     ],
   );
-  const one = typeOf(build(), 'one');
-  assert.deepEqual(
-    one.rungs.map((r) => [r.points, r.pricePhp]),
-    [
-      [50, 50],
-      [100, 100],
-    ],
-  );
+  // (these are the FIXTURE's rungs, not the live ladder — the live ladder is
+  // owned by tests/db/papic-one-product-hand-out.db.test.ts, which reads the
+  // replayed catalog rather than a hand-built map.)
 });
 
 test('the repeatable Pool top-up is not a base pick', () => {
@@ -119,34 +119,28 @@ test('a rung the catalog cannot price DISAPPEARS — it is never shown at ₱0',
 test('a dead catalog leaves the free tier standing and sells nothing', () => {
   const v = build({ pricePhpByCode: new Map() });
   assert.deepEqual(typeOf(v, 'pool').rungs, []);
-  assert.deepEqual(typeOf(v, 'one').rungs, []);
   // The free half is armed by SQL, not the catalog, so it must survive.
   assert.equal(typeOf(v, 'pool').freePoints, 50);
-  assert.equal(typeOf(v, 'one').freePoints, 5);
 });
 
-test('the Pool is camera-less; Papic One gets exactly ONE free camera', () => {
+test('the product is camera-less — cameras are free and uncounted', () => {
   const v = build();
-  // null, not 0 and not 3: any guest phone shoots the pool, so there is no seat
-  // to count. `papic_tier_config.free.seats_per_event` (3) is a different thing.
+  // null, not 0 and not 3: any guest phone shoots the shared pot, so there is no
+  // seat to count, and since 2026-08-11 cameras cost nothing at all.
+  // `papic_tier_config.free.seats_per_event` (3) is a different thing.
   assert.equal(typeOf(v, 'pool').freeCameras, null);
-  assert.equal(typeOf(v, 'one').freeCameras, PAPIC_FREE_ONE_CAMERA_COUNT);
-  assert.equal(PAPIC_FREE_ONE_CAMERA_COUNT, 1);
 });
 
 test('a zeroed free allowance removes the free tier rather than promising it', () => {
   // papic_ensure_free_one_camera treats <= 0 as "arm nothing". Copy must follow,
   // or the card promises a camera the meter never mints.
   const v = build({ freeOnePoints: 0, freePoolPoints: 0 });
-  assert.equal(typeOf(v, 'one').freeCameras, 0);
-  assert.equal(typeOf(v, 'one').freePoints, 0);
   assert.equal(typeOf(v, 'pool').freePoints, 0);
 });
 
 test('the free allowances track their admin columns, they are not literals', () => {
   const v = build({ freePoolPoints: 90, freeOnePoints: 12 });
   assert.equal(typeOf(v, 'pool').freePoints, 90);
-  assert.equal(typeOf(v, 'one').freePoints, 12);
 });
 
 test('the point currency is derived from the capture-path constants', () => {
@@ -179,51 +173,44 @@ test('the runway noun is the type’s own word', () => {
 
 const TYPES = () => build().papic.types;
 
-test('interested_services orders the products — and does nothing else', () => {
+test('the ordering reader survives a stored preference for the RETIRED product', () => {
+  // ⚠ WHAT THIS NOW GUARDS. Every onboarding draft ever saved carries whatever
+  // the couple ticked, and thousands of them name `papic_seats` — Papic One.
+  // That product no longer renders, so ordering by it must be a harmless no-op
+  // rather than a crash, a dropped card, or an empty list. A reader that threw
+  // here would take down the services step for every couple with an old draft.
   const ordered = orderPapicTypes(TYPES(), [PAPIC_ONE_INAPP_KEY, 'advanced_website']);
+  assert.deepEqual(ordered.map((t) => t.id), ['pool']);
   assert.deepEqual(
-    ordered.map((t) => t.id),
-    ['one', 'pool'],
-  );
-  // Both still render, with identical content — order is the ONLY effect.
-  assert.deepEqual(
-    ordered.map((t) => t.rungs.length).sort(),
-    TYPES()
-      .map((t) => t.rungs.length)
-      .sort(),
+    ordered.map((t) => t.rungs.length),
+    TYPES().map((t) => t.rungs.length),
+    'ordering must never change CONTENT, only order',
   );
 });
 
-test('a named product outranks an unnamed one, in list order', () => {
+test('a named product still comes through, and an empty / unknown list is a no-op', () => {
   assert.deepEqual(
-    orderPapicTypes(TYPES(), [PAPIC_POOL_INAPP_KEY, PAPIC_ONE_INAPP_KEY]).map((t) => t.id),
-    ['pool', 'one'],
+    orderPapicTypes(TYPES(), [PAPIC_POOL_INAPP_KEY]).map((t) => t.id),
+    ['pool'],
   );
-  assert.deepEqual(
-    orderPapicTypes(TYPES(), [PAPIC_ONE_INAPP_KEY, PAPIC_POOL_INAPP_KEY]).map((t) => t.id),
-    ['one', 'pool'],
-  );
-});
-
-test('an empty / unrecognised / missing list is a no-op', () => {
   for (const input of [[], ['pakanta', 'panood'], null, undefined]) {
     assert.deepEqual(
       orderPapicTypes(TYPES(), input).map((t) => t.id),
-      ['pool', 'one'],
-      `expected default order for ${JSON.stringify(input)}`,
+      ['pool'],
+      `expected the single product for ${JSON.stringify(input)}`,
     );
   }
 });
 
 test('the inapp keys are the ones already stored in interested_services', () => {
-  // These strings are STABLE IDENTIFIERS written into every draft ever saved
-  // (INAPP_TO_SERVICE_CODE); renaming either would orphan live rows AND silently
-  // turn this reader back into a no-op.
+  // STABLE IDENTIFIERS written into every draft ever saved (INAPP_TO_SERVICE_CODE).
+  // PAPIC_ONE_INAPP_KEY is KEPT even though its product is retired: renaming or
+  // deleting it would orphan live rows that still name it, and the reader above
+  // has to keep recognising it in order to ignore it safely.
   assert.equal(PAPIC_POOL_INAPP_KEY, 'papic_guest');
   assert.equal(PAPIC_ONE_INAPP_KEY, 'papic_seats');
   const v = build();
   assert.equal(typeOf(v, 'pool').inappKey, PAPIC_POOL_INAPP_KEY);
-  assert.equal(typeOf(v, 'one').inappKey, PAPIC_ONE_INAPP_KEY);
 });
 
 // ── the flag's OFF-state contract ───────────────────────────────────────────
@@ -329,11 +316,9 @@ test('the three simple-page field names are spelled ONCE and shared', () => {
   const names = read('app/onboarding/simple/_components/papic-step-field-names.ts');
   const fields = read('app/onboarding/simple/_components/papic-step-fields.tsx');
   const action = read('app/onboarding/simple/actions.ts');
-  for (const konst of [
-    'PAPIC_FIELD_POOL_RUNG',
-    'PAPIC_FIELD_ONE_RUNG',
-    'PAPIC_FIELD_ONE_CAMERAS',
-  ]) {
+  // Only the shots field is left — the two Papic One fields were deleted with
+  // the control that filled them (owner 2026-08-11).
+  for (const konst of ['PAPIC_FIELD_POOL_RUNG']) {
     assert.match(names, new RegExp(`export const ${konst} =`), `${konst} must be defined once`);
     assert.match(fields, new RegExp(konst), `${konst} must be USED by the inputs, not re-typed`);
     assert.match(action, new RegExp(konst), `${konst} must be READ by the action, not re-typed`);

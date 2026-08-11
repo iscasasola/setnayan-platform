@@ -8,8 +8,6 @@ import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
 import {
-  PAPIC_FIELD_ONE_CAMERAS,
-  PAPIC_FIELD_ONE_RUNG,
   PAPIC_FIELD_POOL_RUNG,
   AI_FIELD_SELECTED,
 } from './_components/papic-step-field-names';
@@ -166,8 +164,6 @@ export async function commitSimpleEvent(formData: FormData) {
     userId: user.id,
     rawSelection: {
       poolRungKey: formData.get(PAPIC_FIELD_POOL_RUNG),
-      oneRungKey: formData.get(PAPIC_FIELD_ONE_RUNG),
-      oneExtraCameras: formData.get(PAPIC_FIELD_ONE_CAMERAS),
       // Arrives as the STRING 'true'/'false' — parseServicesStepSelection
       // accepts only a genuine yes, because Boolean('false') is true.
       ai: formData.get(AI_FIELD_SELECTED),

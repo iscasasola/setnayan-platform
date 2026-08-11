@@ -58,7 +58,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { createMoneyWriterClient } from '@/lib/supabase/admin';
-import { mintPapicReferenceCode, provisionPaidCamerasAdmin } from '@/lib/papic-cameras';
+import { mintPapicReferenceCode } from '@/lib/papic-cameras';
 import { fetchEventPapicWindow } from '@/lib/papic-limited';
 import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
 import { fetchPapicOneTiers, papicOneOrderRow } from '@/lib/papic-one';
@@ -123,9 +123,6 @@ export async function mintOnboardingServiceOrders(
 
   try {
     const parts: Part[] = [];
-    /** Credits per camera, snapshotted for the papic_one_orders rows. */
-    let cameraPoints = 0;
-
     // ── the shared Pool rung ────────────────────────────────────────────────
     // Read from the TABLE, never an allow-list: a rung an admin deactivates must
     // stop being sellable the moment they deactivate it. `isTopup` is excluded
@@ -153,29 +150,11 @@ export async function mintOnboardingServiceOrders(
       }
     }
 
-    // ── the extra dedicated cameras ─────────────────────────────────────────
-    if (selection.oneRungKey && selection.oneExtraCameras > 0) {
-      const oneTiers = await fetchPapicOneTiers(admin);
-      const tier = oneTiers.find((t) => t.serviceCode === selection.oneRungKey);
-      const unitPhp = tier ? await priceOf(admin, tier.serviceCode) : null;
-      if (tier && tier.points > 0 && unitPhp !== null) {
-        cameraPoints = tier.points;
-        parts.push({
-          serviceCode: tier.serviceCode,
-          quantity: selection.oneExtraCameras,
-          unitPhp,
-          label:
-            selection.oneExtraCameras === 1
-              ? `Papic One — one dedicated camera, ${tier.points} credits`
-              : `Papic One — ${selection.oneExtraCameras} dedicated cameras, ${tier.points} credits each`,
-        });
-      } else {
-        console.warn(
-          '[onboarding-services-orders] camera rung not sellable at commit:',
-          selection.oneRungKey,
-        );
-      }
-    }
+    // ── NO CAMERA LINE ANY MORE (owner 2026-08-11) ──────────────────────────
+    //
+    // A block here bought N dedicated cameras at a Papic One rung. Papic is one
+    // product now: cameras are free and unlimited, and a dedicated one is made
+    // in the studio by handing it shots the couple already owns.
 
     // ── Setnayan AI ─────────────────────────────────────────────────────────
     // Through the charge AUTHORITY — see the header. It re-reads the event's
@@ -276,93 +255,17 @@ export async function mintOnboardingServiceOrders(
     );
     if (itemsErr) return abandon(`items insert failed: ${itemsErr.message}`);
 
-    // ── the cameras themselves ──────────────────────────────────────────────
-    const cameraPart = parts.find((p) => p.serviceCode === selection.oneRungKey);
-    if (cameraPart && cameraPoints > 0) {
-      const count = cameraPart.quantity;
-      const win = await fetchEventPapicWindow(admin, eventId);
-      let seatIds: string[] = [];
-      try {
-        await provisionPaidCamerasAdmin(admin, {
-          eventId,
-          orderId,
-          miniCount: count,
-          ltdCount: 0,
-          unlimitedCount: 0,
-          validFrom: win.startIso,
-          validUntil: win.endIso,
-        });
-        const { data: fresh } = await admin
-          .from('paparazzi_seats')
-          .select('seat_id')
-          .eq('paid_order_id', orderId);
-        seatIds = (fresh ?? []).map((r: { seat_id: unknown }) => String(r.seat_id));
-      } catch (e) {
-        console.error('[onboarding-services-orders] camera provisioning threw:', e);
-      }
+    // ── NO CAMERAS TO PROVISION ─────────────────────────────────────────────
+    //
+    // Seat provisioning + the papic_one_orders rows stood here, wrapped in a
+    // FAIL-CLOSED unwind: provisioning could partly succeed (fewer seats than
+    // were paid for), so the order had to be dropped rather than left as a
+    // charge nobody could fulfil.
+    //
+    // 🔑 THE UNWIND WENT WITH IT, and that is the point worth recording: the
+    // complexity was inherent to SELLING a camera, not to Papic. With nothing
+    // provisioned at commit there is no partial state to detect or undo.
 
-      // One mapping row PER CAMERA — this is what the grant reads, and what
-      // tells it how many credits each camera is owed. Safe as several rows on
-      // one order only because migration 20271128697126 made the grant iterate.
-      const mapErr =
-        seatIds.length > 0
-          ? (
-              await admin.from('papic_one_orders').insert(
-                seatIds.map((seatId) =>
-                  papicOneOrderRow({
-                    orderId,
-                    eventId,
-                    seatId,
-                    serviceCode: cameraPart.serviceCode,
-                    points: cameraPoints,
-                    isReload: false,
-                  }),
-                ),
-              )
-            ).error
-          : { message: 'no cameras provisioned' };
-
-      // ⚠ BILL DOWN, DO NOT CANCEL THE WHOLE THING. The count check is NOT
-      // redundant with the insert error: provisioning can return fewer seats
-      // than asked without throwing, and the insert would then succeed for the
-      // seats that DO exist, leaving a couple billed for cameras nobody created.
-      //
-      // Cancelling the whole bill would also throw away a perfectly good Pool
-      // and Setnayan AI purchase because a camera failed, so instead the camera
-      // line is REMOVED and the total reduced — they are billed for exactly what
-      // exists. If cameras were the only line, there is nothing left to sell.
-      if (mapErr || seatIds.length !== count) {
-        console.error('[onboarding-services-orders] cameras incomplete — billing down:', {
-          orderId,
-          wanted: count,
-          got: seatIds.length,
-          error: mapErr ? String(mapErr.message ?? mapErr) : null,
-        });
-        // Drop the seats and the mapping rows so nothing half-provisioned
-        // survives to be granted on approval.
-        await admin.from('papic_one_orders').delete().eq('order_id', orderId);
-        await admin.from('paparazzi_seats').delete().eq('paid_order_id', orderId);
-        const { error: dropErr } = await admin
-          .from('onboarding_order_items')
-          .delete()
-          .eq('order_id', orderId)
-          .eq('service_code', cameraPart.serviceCode);
-        if (dropErr) return abandon(`could not drop the camera line: ${dropErr.message}`);
-
-        const kept = parts.filter((p) => p.serviceCode !== cameraPart.serviceCode);
-        const remaining = kept.reduce((sum, p) => sum + lineTotal(p), 0);
-        if (!(remaining > 0)) return abandon('cameras were the only line');
-        const { error: reErr } = await createMoneyWriterClient()
-          .from('orders')
-          .update({
-            requested_total_php: remaining,
-            description: kept.map((p) => p.label).join(' · '),
-          })
-          .eq('order_id', orderId);
-        // A bill that still said the old, larger figure would overcharge them.
-        if (reErr) return abandon(`could not reduce the bill: ${reErr.message}`);
-      }
-    }
 
     // Land them on their own Papic studio with the payment banner the studio's
     // buy paths already render, rather than on a new payment screen: it is the

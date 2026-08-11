@@ -309,22 +309,33 @@ export default async function PricingPage() {
         }
       : null;
 
-  // Papic Pool — the shared shot-pool buckets, flat-priced from the live
-  // catalog. Only the three base buckets (3k/6k/10k); the superseded top-up row
-  // is not a base pick. Absent rows drop out (a coming-soon Pool → no Pool
-  // picker, per the same "never hardcode a missing SKU" doctrine as the grouped
-  // renderer).
-  const POOL_BUCKET_CODES = ['PAPIC_GUEST', 'PAPIC_GUEST_6K', 'PAPIC_GUEST_10K']; // gitleaks:allow — Papic Pool SKU service_codes, not secrets
-  const papicPoolBuckets = POOL_BUCKET_CODES.map((code) =>
-    customerSkus.find((s) => s.service_code === code),
-  )
-    .filter((s): s is V2CustomerSku => Boolean(s))
+  // Papic — the shot buckets, flat-priced from the live catalog.
+  //
+  // 🚨 THIS USED TO BE A HARDCODED LIST OF THREE SERVICE CODES and it had
+  // already gone wrong. The list named the 3,000 / 6,000 / 10,000 rungs, so it
+  // could never show the two the owner added on 2026-08-11 (100 shots ₱50 and
+  // 20,000 ₱5,000) and still named the 6,000 rung he retired the same day — the
+  // public pricing page advertised a ladder that no longer existed, silently,
+  // with nothing to notice it. A page that lists SKUs by hand goes stale the
+  // moment the catalog moves, and the catalog is the thing customers buy from.
+  //
+  // Derived now: every ACTIVE Papic shot rung the catalog offers, whatever it
+  // offers. Adding or retiring a rung is a migration and nothing else.
+  // `is_topup` rows are excluded upstream in customerSkus; a retired code drops
+  // out on its own because it is no longer active.
+  const papicPoolBuckets = customerSkus
+    .filter((s) => /^PAPIC_GUEST(_|$)/.test(s.service_code)) // gitleaks:allow — catalog service_codes, not secrets
     .map((s) => ({
       key: s.service_code,
-      // Short bucket label from the catalog title ("Papic Pool — add 3,000
-      // shots" → "add 3,000 shots"); never a hardcoded shot count.
+      // Short bucket label from the catalog title ("Papic — add 3,000 shots" →
+      // "add 3,000 shots"); never a hardcoded shot count.
+      //
+      // ⚠ The old strip was /^Papic Pool\s*[—-]\s*/ and the titles were renamed
+      // to "Papic — add N shots" when the two products became one. It stopped
+      // matching, so the page rendered "₱1,000 to Papic — add 3,000 shots".
+      // Matching the product word alone survives that rename and the last one.
       label: s.title
-        .replace(/^Papic Pool\s*[—-]\s*/i, '')
+        .replace(/^Papic(\s+Pool)?\s*[—-]\s*/i, '')
         .replace(/\s*\(per event\)\s*$/i, ''),
       pricePhp: Number(s.retail_price_php),
     }))

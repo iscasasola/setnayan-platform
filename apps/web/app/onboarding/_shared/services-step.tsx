@@ -82,18 +82,12 @@ import {
   type ServicesStepView,
 } from '@/lib/onboarding/services-step-data';
 import {
-  ONBOARDING_MAX_EXTRA_CAMERAS,
-  oneCameraTotal,
-  onePriceOf,
-  oneRungOf,
   poolPriceAt,
   poolShotsAt,
   poolStepCount,
   poolStepOf,
   quoteServicesStepSelection,
   setAi,
-  setOneCameras,
-  setOneRung,
   stepPool,
   type ServicesStepSelection,
 } from '@/lib/onboarding-services-selection';
@@ -269,69 +263,11 @@ function PoolPicker({
   );
 }
 
-/** Papic One: how many dedicated cameras to add, and at which size. */
-function OnePicker({
-  type,
-  selection,
-  onChange,
-}: {
-  type: PapicTypeView;
-  selection: ServicesStepSelection;
-  onChange: (next: ServicesStepSelection) => void;
-}) {
-  const rung = oneRungOf(type, selection);
-  const extra = selection.oneExtraCameras;
-  const total = oneCameraTotal(type, selection);
-  // No live rung means there is nothing to sell — the free camera still exists,
-  // so the card simply grows no controls rather than offering an empty one.
-  if (!rung) return null;
-  return (
-    <div className="mx-3 mb-3">
-      <p className="mb-2 text-sm font-medium text-ink">
-        How many dedicated cameras do you want?
-      </p>
-      <Stepper
-        decLabel="Fewer cameras"
-        incLabel="More cameras"
-        value={String(total)}
-        sub={
-          extra === 0
-            ? 'Your free one'
-            : `Your free one, plus ${extra === 1 ? 'one you add' : `${extra} you add`}`
-        }
-        canDec={extra > 0}
-        canInc={extra < ONBOARDING_MAX_EXTRA_CAMERAS}
-        onDec={() => onChange(setOneCameras(type, selection, extra - 1))}
-        onInc={() => onChange(setOneCameras(type, selection, extra + 1))}
-      />
-      {/* The size choice only earns its space once a camera is being added, and
-          only when there is genuinely more than one size to choose between. */}
-      {extra > 0 && type.rungs.length > 1 ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {type.rungs.map((r) => {
-            const on = r.key === rung.key;
-            return (
-              <button
-                key={r.key}
-                type="button"
-                aria-pressed={on}
-                onClick={() => onChange(setOneRung(selection, r.key))}
-                className={`rounded-full border px-3 py-1.5 font-mono text-xs tabular-nums transition ${
-                  on
-                    ? 'border-terracotta bg-terracotta/[0.08] text-terracotta-700'
-                    : 'border-ink/15 text-ink/65 hover:border-ink/30'
-                }`}
-              >
-                {pts(r.points)} · {peso(r.pricePhp)} each
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-      <PriceLine pricePhp={onePriceOf(type, selection)} />
-    </div>
-  );
-}
+// OnePicker — "how many dedicated cameras, and at which size" — stood here.
+//
+// DELETED 2026-08-11: Papic is one product. Cameras are free and unlimited,
+// and a dedicated camera is made in the studio by handing it shots the couple
+// already owns. A stepper whose only legal answer is zero is a fake door.
 
 function PapicType({
   type,
@@ -373,20 +309,21 @@ function PapicType({
 
       <p className="px-4 pt-1.5 text-sm leading-relaxed text-ink/60">{copy.desc}</p>
 
-      {interactive ? (
+      {interactive && type.id === 'pool' ? (
         // The controls REPLACE the ladder rather than sitting under it. Showing
         // both would print every rung's price beside a stepper that already
         // states the one being charged — two answers to "what does this cost".
-        type.id === 'pool' ? (
-          <PoolPicker
-            type={type}
-            selection={selection}
-            onChange={onSelectionChange}
-            eventWord={eventWord}
-          />
-        ) : (
-          <OnePicker type={type} selection={selection} onChange={onSelectionChange} />
-        )
+        //
+        // Only 'pool' is interactive: it is the ONE thing on this screen a
+        // couple buys. Anything else falls through to the read-only ladder
+        // below rather than to a control — which is what a retired product
+        // should look like on the screen where money is chosen.
+        <PoolPicker
+          type={type}
+          selection={selection}
+          onChange={onSelectionChange}
+          eventWord={eventWord}
+        />
       ) : (
         <ul className="mx-2.5 my-3 flex list-none flex-col">
           {showFree ? (
@@ -468,7 +405,7 @@ export function ServicesStep({
     () =>
       selection
         ? quoteServicesStepSelection(papic.types, selection, ai?.pricePhp ?? null)
-        : { poolPhp: 0, onePhp: 0, aiPhp: 0, papicPhp: 0, totalPhp: 0 },
+        : { poolPhp: 0, aiPhp: 0, papicPhp: 0, totalPhp: 0 },
     [papic.types, selection, ai],
   );
 

@@ -140,7 +140,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   PAPIC_CAMERA_ROLL_DAY:      'live', // per-camera legacy Roll rate (Mini economics) · capacity = papic_tier_config.points_per_day, NOT a fixed photo/clip count · #2246 · 2026-06-26
   PAPIC_CAMERA_UNLIMITED_DAY: 'live', // per-camera Unli (Unlimited) rate · unlimited points/day · #2246 · 2026-06-26
   HIGH_RES_ARCHIVE:    'partial',  // 0009 photo delivery partial
-  LIVE_BACKGROUND:     'live',     // ₱499 LED-wall background · marked live 2026-07-10 (owner "all features active")
+  LIVE_BACKGROUND:     'not_built', // REMOVED 2026-08-11 (owner: "remove wall backdrop"). Was marked 'live' on 2026-07-10 under "all features active" — it never was: the maker saved a draft and nothing rendered the 8K file or posted the USB it promised. Route, save endpoint, templates and both tables deleted (migration 20271132121622). Kept listed so the retirement is legible and any historical order row still resolves a status.
   PABATI:              'live',     // video guestbook end-to-end: gated day-of card + 5s guest recorder + recap section · collector exists · 2026-06-22
   KWENTO:              'live',     // words-on-a-photo · paid-to-unlock ₱500 · gated at route + moderation · 2026-06-26
 

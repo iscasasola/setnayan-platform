@@ -107,7 +107,8 @@ const SERVICE_LABELS: Record<string, string> = {
   // PRO). Kept here so existing/bundle owners still get a clean "Powered by" label.
   EDITORIAL_PRO: 'Editorial PRO',
   EVENT_WEBSITE: 'Event Website',
-  LIVE_BACKGROUND: 'Live Background',
+  // LIVE_BACKGROUND removed 2026-08-11 with the LED wall backdrop itself. No
+  // order was ever placed under it, so no "Powered by" label loses its name.
   STD_PREMIUM_OPENINGS: 'Cinematic Reveal',
   LIVE_WALL: 'Live Photo Wall',
   PABATI: 'Pabati',

@@ -22,13 +22,11 @@ import {
   papicCameraOrderPaid,
   papicCaptureCost,
   resolvePointsGate,
-  resolveEventPoolReserve,
   type PointsGateVerdict,
   eventUnliFreeViaUnlock,
   eventLtdFreeViaUnlock,
 } from '@/lib/papic-cameras';
 import {
-  combinePointsGates,
   fetchEventPoolStatus,
   type EventPoolStatus,
 } from '@/lib/papic-event-pool';
@@ -300,7 +298,14 @@ export async function recordSeatCapture(
   // produced no photo (a silent points leak).
   let abortReleaseSeatId: string | null = null;
   let abortReleaseEventId: string | null = null;
-  let abortReleaseCost = 0;
+  // ⚠ TWO FIGURES, NOT ONE COST. A capture can be paid from BOTH balances at
+  // once (owner 2026-08-11: "spend 2 and take 6"), so an abort has to put each
+  // half back where it came from. A single `cost` released to either side alone
+  // silently moves credits between the camera and the pot — it would either
+  // inflate the camera's guaranteed floor or hand the couple back credits the
+  // camera actually spent.
+  let abortReleaseDedicated = 0;
+  let abortReleasePool = 0;
   {
     if (cameraTier) {
       // ── Capture WINDOW gate (owner 2026-06-26) ──────────────────────────
@@ -387,119 +392,70 @@ export async function recordSeatCapture(
         // absent or nonsense length at the TOP band, so the only thing a
         // tampered client can do by lying is pay MORE.
         const cost = papicCaptureCost(kind === 'clip' ? 'clip' : 'photo', durationMs);
-        let seatGate: PointsGateVerdict = 'allow';
-        let seatBooked = false;
+
+        // ── ONE GATE, BOTH BALANCES (owner 2026-08-11) ────────────────────
+        //
+        // This used to be TWO calls: reserve the camera's own credits, then ask
+        // the shared pot. That pair had a defect the owner caught — the pot
+        // stood down for any camera that had EVER held dedicated credits, not
+        // one that had any LEFT, so a camera given 3 shots took its 3 and then
+        // stopped dead with a thousand credits sitting unspent in the event.
+        // Dedicating was acting as a ceiling instead of a floor.
+        //
+        // 🔑 THE SPLIT CANNOT BE DECIDED BY TWO CALLS IN SEQUENCE. The first one
+        // MUTATES, so by the time the second ran the camera's counter had
+        // already moved, and a camera that spent its last credit looked
+        // identical to one that never had any. Whatever the second call decided
+        // would double-charge some captures and let others through free.
+        //
+        // So it is one call now, under one row lock, in one transaction: spend
+        // the camera's own first, the pot covers the remainder ("spend 2 and
+        // take 6"), and either both halves commit or neither does.
+        //
+        // ⚠ THE REFUSAL UNWIND THAT STOOD HERE IS GONE, and its absence is the
+        // point. It existed because one ledger could book while the other
+        // refused. All-or-nothing removes the state it cleaned up — there is no
+        // longer a moment where a refused capture has spent anything.
+        let gate: PointsGateVerdict = 'allow';
+        let dedicatedSpent = 0;
+        let poolSpent = 0;
         if (!unlocked) {
           try {
             const admin = createAdminClient();
-            const { data: reserveOk, error: reserveErr } = await admin.rpc(
-              'papic_reserve_camera_points',
-              {
-                p_seat_id: seat.seat_id,
-                p_event_id: seat.event_id,
-                p_cost: cost,
-              },
+            const { data, error: splitErr } = await admin.rpc('papic_reserve_capture_split', {
+              p_seat_id: seat.seat_id,
+              p_event_id: seat.event_id,
+              p_cost: cost,
+            });
+            // A set-returning function arrives as an array of one row.
+            const row = (Array.isArray(data) ? data[0] : data) as
+              | { ok?: unknown; dedicated_spent?: unknown; pool_spent?: unknown }
+              | null
+              | undefined;
+            gate = resolvePointsGate(
+              splitErr ? (splitErr.code ?? 'unknown') : null,
+              // An indeterminate shape is fail-CLOSED, not "allowed" — metering
+              // is money logic and a missing answer must never un-meter a camera.
+              row == null ? null : row.ok === true ? true : row.ok === false ? false : null,
             );
-            seatGate = resolvePointsGate(
-              reserveErr ? (reserveErr.code ?? 'unknown') : null,
-              reserveOk === true ? true : reserveOk === false ? false : null,
-            );
-            // Only a TRUE from the RPC actually spent points — a fn-not-found
-            // 'allow' booked nothing, so there'd be nothing to unwind.
-            seatBooked = reserveOk === true;
-          } catch {
-            seatGate = 'blocked'; // thrown ≠ identifiable fn-not-found → fail-CLOSED
-          }
-        }
-
-        // ── EVENT-SCOPED capture fence (Phase 0c) ────────────────────────
-        // The flat per-event PASS (PAPIC_UNLOCK / PAPIC_UNLOCK_LTD / the
-        // ₱1,499 flat pass) used to bypass metering entirely — this is the
-        // missing bound. Pool = clamp(guests × 150, 5,000, 30,000) points,
-        // event-LIFETIME, admin-tunable in papic_event_pool_config; Papic Pool
-        // top-ups add via papic_event_point_grants. The RPC allows
-        // unconditionally for every NON-pass event, so today's behaviour is
-        // unchanged there. Same fail-CLOSED posture as the seat reserve — money
-        // logic.
-        //
-        // ..._FOR_SEAT (owner-locked 2026-07-29): a PAPIC ONE camera has its own
-        // unshared balance, which the seat reserve above already charged. The
-        // shared pool must therefore stand DOWN for it — otherwise one photo is
-        // paid for twice, and a dedicated camera would stop shooting the moment
-        // the event's free 50-pt pool ran dry, which is exactly the coupling
-        // "unshared" exists to remove. The RPC is byte-identical to
-        // papic_reserve_event_points for every non-dedicated seat.
-        let eventGate: PointsGateVerdict = 'allow';
-        let eventBooked = false;
-        if (seatGate !== 'blocked') {
-          try {
-            const admin = createAdminClient();
-            const { data: poolOk, error: poolErr } = await admin.rpc(
-              'papic_reserve_event_points_for_seat',
-              {
-                p_event_id: seat.event_id,
-                p_seat_id: seat.seat_id,
-                p_cost: cost,
-              },
-            );
-            const verdict = resolveEventPoolReserve(
-              poolErr ? (poolErr.code ?? 'unknown') : null,
-              poolOk,
-            );
-            eventGate = verdict.gate;
-            // FALSE for a dedicated camera even though the gate allows: nothing
-            // was booked, so nothing may be released if a later step aborts.
-            eventBooked = verdict.booked;
-          } catch {
-            eventGate = 'blocked';
-          }
-        }
-
-        // The TIGHTER of the two budgets wins.
-        const gate = combinePointsGates(seatGate, eventGate);
-
-        // ALLOWED: the reserved points stay spent — record what to release if a
-        // later step aborts (see the papic_photos insert below). REFUSED is
-        // released immediately just under here, so these stay null on that path.
-        if (gate === 'allow') {
-          if (seatBooked) abortReleaseSeatId = seat.seat_id as string;
-          if (eventBooked) abortReleaseEventId = seat.event_id as string;
-          abortReleaseCost = cost;
-        }
-
-        // A refused capture must never leave points spent. Whichever ledger was
-        // booked before the other refused gets released. Best-effort + never
-        // fatal — a failed unwind costs the couple points, not a broken camera.
-        if (gate !== 'allow') {
-          const admin = (() => {
-            try {
-              return createAdminClient();
-            } catch {
-              return null;
+            if (row?.ok === true) {
+              dedicatedSpent = Number(row.dedicated_spent) || 0;
+              poolSpent = Number(row.pool_spent) || 0;
             }
-          })();
-          if (admin && seatBooked) {
-            await admin
-              .rpc('papic_release_camera_points', {
-                p_seat_id: seat.seat_id,
-                p_cost: cost,
-              })
-              .then(
-                () => undefined,
-                () => undefined,
-              );
+          } catch {
+            gate = 'blocked'; // thrown ≠ identifiable fn-not-found → fail-CLOSED
           }
-          if (admin && eventBooked) {
-            await admin
-              .rpc('papic_release_event_points', {
-                p_event_id: seat.event_id,
-                p_cost: cost,
-              })
-              .then(
-                () => undefined,
-                () => undefined,
-              );
-          }
+        }
+
+        // ALLOWED: the reserved credits stay spent — record EXACTLY what came
+        // from each side, so a later abort puts each half back where it came
+        // from. Releasing the whole cost to either side alone would silently
+        // move credits between the camera and the pot.
+        if (gate === 'allow' && (dedicatedSpent > 0 || poolSpent > 0)) {
+          abortReleaseSeatId = seat.seat_id as string;
+          abortReleaseEventId = seat.event_id as string;
+          abortReleaseDedicated = dedicatedSpent;
+          abortReleasePool = poolSpent;
         }
 
         if (gate === 'exhausted') {
@@ -582,7 +538,7 @@ export async function recordSeatCapture(
       // release the reserved points so the couple isn't charged for a photo
       // that does not exist. Best-effort + never fatal (mirrors the refusal
       // unwind above); a failed release costs points, not a broken camera.
-      if (abortReleaseCost > 0 && (abortReleaseSeatId || abortReleaseEventId)) {
+      if (abortReleaseDedicated > 0 || abortReleasePool > 0) {
         const rel = (() => {
           try {
             return createAdminClient();
@@ -590,19 +546,15 @@ export async function recordSeatCapture(
             return null;
           }
         })();
-        if (rel && abortReleaseSeatId) {
+        if (rel) {
+          // ONE call, both halves — passing back exactly the two figures the
+          // reserve returned, which is the whole reason it returns them.
           await rel
-            .rpc('papic_release_camera_points', {
+            .rpc('papic_release_capture_split', {
               p_seat_id: abortReleaseSeatId,
-              p_cost: abortReleaseCost,
-            })
-            .then(() => undefined, () => undefined);
-        }
-        if (rel && abortReleaseEventId) {
-          await rel
-            .rpc('papic_release_event_points', {
               p_event_id: abortReleaseEventId,
-              p_cost: abortReleaseCost,
+              p_dedicated_spent: abortReleaseDedicated,
+              p_pool_spent: abortReleasePool,
             })
             .then(() => undefined, () => undefined);
         }

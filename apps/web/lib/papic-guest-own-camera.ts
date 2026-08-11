@@ -26,17 +26,24 @@ import { resolvePointsGate, type PointsGateVerdict } from '@/lib/papic-cameras';
  *     points on approval. No activation change at all.
  *   • `papic_event_pool_status` sums only `seat_id IS NULL`, so what the guest
  *     bought never inflates the host's visible pool.
- *   • `papic_reserve_event_points_for_seat` returns -1 while the seat has
- *     dedicated points, so the pool stands down and the host is never billed
- *     for a shot the guest paid for.
+ *   • `papic_reserve_capture_split` spends what the guest BOUGHT first and asks
+ *     the host's pot only for the remainder, so the host is never billed for a
+ *     shot the guest paid for — and the guest is never stopped while the host
+ *     still has credits.
+ *
+ * ⚠ THE TWO BULLETS ABOVE USED TO DESCRIBE A DIFFERENT MECHANISM and describing
+ * it is all they did: a pair of calls where the pool "stood down" for any camera
+ * holding dedicated points. That pair is what capped a guest at what they had
+ * bought (owner 2026-08-11). Corrected here rather than left standing, because a
+ * comment that outlives its behaviour is how the last gate on this codebase
+ * stayed shut for seven weeks.
  *
  * ── THE TIER, AND THE REGRESSION IT AVOIDS ────────────────────────────────
  * Minted as `tier = 'unlimited'` — the ONLY tier whose `points_per_day` is NULL.
- * `papic_reserve_camera_points` spends a dedicated balance first and falls
- * through to the tier's DAILY budget once it is gone; every other tier caps at
- * 20/day (70 for ltd). The event-site camera has no daily cap today, so minting
- * at any other tier would mean a guest who PAID ended up more limited than one
- * who did not, starting the day their bought shots ran out.
+ * Every other tier caps at 20/day (70 for ltd), and the event-site camera has
+ * never had a daily cap, so minting at any other tier would leave a guest who
+ * PAID more limited than one who did not. The split reserve never touches the
+ * per-day ledger, but the tier is still what a future path would read.
  */
 
 /** A guest's own camera, and what it still holds. */
@@ -153,30 +160,45 @@ export async function ensureGuestOwnCameraAdmin(
 
 export type GuestCaptureReserve = {
   outcome: PointsGateVerdict;
-  /** Points booked against the camera's OWN balance — release on abort. */
-  seatBooked: boolean;
-  /** Points booked against the SHARED pool — release on abort. */
-  poolBooked: boolean;
+  /**
+   * Credits taken from the camera's OWN balance, and from the SHARED pot.
+   *
+   * ⚠ TWO FIGURES, NOT TWO BOOLEANS. A capture can be paid from both at once
+   * (owner 2026-08-11: "spend 2 and take 6"), so an abort must put each half
+   * back where it came from. Booleans could only say "release the whole cost
+   * to this side", which would move credits between the guest's paid balance
+   * and the host's pot.
+   */
+  dedicatedSpent: number;
+  poolSpent: number;
 };
 
 /**
- * Reserve one capture against the guest's OWN camera, then the shared pool.
+ * Reserve one capture for a guest who has a camera of their own.
  *
- * Mirrors the seat path (app/papic/actions.ts) exactly, and for the same reason:
- * the two ledgers must be booked and unwound as a pair or a refused capture
- * leaves points spent.
+ * ⚠ THIS USED TO ORCHESTRATE TWO RPCs AND UNWIND THEM BY HAND — eighty lines of
+ * "book the camera, book the pool, and if the second refuses release the first".
+ * All of that is now one call, because the pair had a defect no amount of
+ * careful sequencing could fix (owner 2026-08-11).
  *
- *   1. `papic_reserve_camera_points` spends the bought balance.
- *   2. `papic_reserve_event_points_for_seat` returns -1 while that balance
- *      lasts — the pool stands down, so one photo is never paid for twice.
+ * The pool stood down for any camera that had EVER held bought credits rather
+ * than one that had any LEFT, so a guest who spent what they paid for stopped
+ * dead even with the host's pot full behind them. And the split could not be
+ * decided in sequence: the first call MUTATES, so by the time the second ran, a
+ * camera that had just spent its last credit was indistinguishable from one that
+ * never had any.
  *
- * ⚠ ONLY call this for a camera that HOLDS a dedicated balance. On a camera
- * with none, step 1 falls through to the tier's daily budget — a cap the
- * event-site camera has never had. Callers gate on `dedicated > 0`, which also
- * makes this whole path invisible to every guest who has not bought anything.
+ * `papic_reserve_capture_split` does both under one row lock in one transaction:
+ * the camera's own credits first, the pot for the remainder, all-or-nothing.
+ * The hand-written unwind is gone with the state it existed to clean up.
  *
- * Fail-CLOSED on any RPC error except function-not-found, matching both sibling
- * paths: metering is money logic, so an outage must block rather than un-meter.
+ * Safe to call for a camera with NO dedicated balance — it simply spends the
+ * pot, which is what that guest was doing anyway. (The old version had to be
+ * gated on `dedicated > 0` because its first call would otherwise fall through
+ * to a per-day tier cap this surface never had.)
+ *
+ * Fail-CLOSED on any RPC error except function-not-found: metering is money
+ * logic, so an outage must block rather than un-meter.
  */
 export async function reserveGuestOwnCameraCapture(
   admin: SupabaseClient,
@@ -184,67 +206,32 @@ export async function reserveGuestOwnCameraCapture(
   seatId: string,
   cost: number,
 ): Promise<GuestCaptureReserve> {
-  let seatOutcome: PointsGateVerdict = 'allow';
-  let seatBooked = false;
   try {
-    const { data, error } = await admin.rpc('papic_reserve_camera_points', {
+    const { data, error } = await admin.rpc('papic_reserve_capture_split', {
       p_seat_id: seatId,
       p_event_id: eventId,
       p_cost: cost,
     });
-    seatOutcome = resolvePointsGate(
+    // A set-returning function arrives as an array of one row.
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | { ok?: unknown; dedicated_spent?: unknown; pool_spent?: unknown }
+      | null
+      | undefined;
+    const outcome = resolvePointsGate(
       error ? (error.code ?? 'unknown') : null,
-      data === true ? true : data === false ? false : null,
+      // An indeterminate shape is fail-CLOSED, never "allowed".
+      row == null ? null : row.ok === true ? true : row.ok === false ? false : null,
     );
-    seatBooked = data === true;
-  } catch {
-    seatOutcome = 'blocked'; // thrown ≠ identifiable fn-not-found → fail-CLOSED
-  }
-  if (seatOutcome !== 'allow') {
-    return { outcome: seatOutcome, seatBooked, poolBooked: false };
-  }
-
-  let poolOutcome: PointsGateVerdict = 'allow';
-  let poolBooked = false;
-  try {
-    const { data, error } = await admin.rpc('papic_reserve_event_points_for_seat', {
-      p_event_id: eventId,
-      p_seat_id: seatId,
-      p_cost: cost,
-    });
-    // TRI-STATE, and the distinction is load-bearing: 1 = booked · 0 = refused ·
-    // -1 = dedicated, nothing booked. Collapsing -1 into "booked" would refund
-    // the host's pool on every aborted upload from a camera that never charged
-    // it. See the RPC's own comment in migration 20271019231590.
-    const n = Number(data);
-    poolOutcome = resolvePointsGate(
-      error ? (error.code ?? 'unknown') : null,
-      n === 1 || n === -1 ? true : n === 0 ? false : null,
-    );
-    poolBooked = n === 1;
-  } catch {
-    poolOutcome = 'blocked';
-  }
-
-  // ── ALL-OR-NOTHING (the leak this closes) ────────────────────────────────
-  // The seat leg can succeed and the pool leg then fail — a dedicated camera
-  // normally gets -1 back, but an RPC error is 'blocked', and a balance that
-  // hit zero between the two calls gets a real refusal. The caller returns 409
-  // or 503 on that and never reaches its unwind, so the guest's PAID shot would
-  // burn for a photo that was refused. Release it here and report nothing
-  // booked, so this function's contract is "both ledgers or neither".
-  if (poolOutcome !== 'allow' && seatBooked) {
-    try {
-      await admin.rpc('papic_release_camera_points', {
-        p_seat_id: seatId,
-        p_cost: cost,
-      });
-    } catch {
-      // Best-effort, never fatal: a failed unwind costs the guest points, a
-      // throw here costs them the camera.
+    if (outcome !== 'allow' || row?.ok !== true) {
+      return { outcome, dedicatedSpent: 0, poolSpent: 0 };
     }
-    return { outcome: poolOutcome, seatBooked: false, poolBooked: false };
+    return {
+      outcome,
+      dedicatedSpent: Number(row.dedicated_spent) || 0,
+      poolSpent: Number(row.pool_spent) || 0,
+    };
+  } catch {
+    // thrown ≠ identifiable fn-not-found → fail-CLOSED
+    return { outcome: 'blocked', dedicatedSpent: 0, poolSpent: 0 };
   }
-
-  return { outcome: poolOutcome, seatBooked, poolBooked };
 }

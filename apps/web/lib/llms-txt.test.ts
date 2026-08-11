@@ -22,6 +22,7 @@ import {
   aiLadder,
   peso,
   MissingSkuError,
+  RetiredSkuError,
   LINKED_ROUTES,
   type LlmsTxtInput,
   type RetailRow,
@@ -45,7 +46,6 @@ const RETAIL: RetailRow[] = [
   { service_code: 'PABATI', title: 'Pabati', retail_price_php: 1299, is_active: true },
   { service_code: 'PAPIC_GUEST', title: 'Papic Pool — add 3,000 shots', retail_price_php: 1000, is_active: true },
   { service_code: 'ANIMATED_MONOGRAM', title: 'Animated Monogram', retail_price_php: 1000, is_active: true },
-  { service_code: 'EVENT_SUBDOMAIN', title: 'Custom Subdomain', retail_price_php: 999, is_active: true },
   { service_code: 'KWENTO', title: 'Kwento', retail_price_php: 299, is_active: true },
   { service_code: 'PAPIC_ONE_100', title: 'Papic One — 100 shots', retail_price_php: 100, is_active: true },
   { service_code: 'PAPIC_CAMERA_MINI_DAY', title: 'Papic One — 50 shots', retail_price_php: 50, is_active: true },
@@ -55,6 +55,7 @@ const RETAIL: RetailRow[] = [
   { service_code: 'SETNAYAN_AI_C', title: 'Setnayan AI (Tier C)', retail_price_php: 499, is_active: false },
   { service_code: 'SETNAYAN_AI_D', title: 'Setnayan AI (Tier D)', retail_price_php: 99, is_active: false },
   // --- genuinely retired: must never surface ---
+  { service_code: 'EVENT_SUBDOMAIN', title: 'Custom Subdomain', retail_price_php: 999, is_active: false },
   { service_code: 'CAMERA_BRIDGE', title: 'Camera Bridge', retail_price_php: 500, is_active: false },
   { service_code: 'PANOOD_SYSTEM_MOBILE', title: 'Live Studio — Mobile', retail_price_php: 1500, is_active: false },
   { service_code: 'PANOOD_SYSTEM', title: 'Live Studio', retail_price_php: 2500, is_active: false },
@@ -173,4 +174,69 @@ test('a reprice propagates without touching this repo', () => {
   const body = renderLlmsTxt({ ...INPUT, retail: repriced });
   assert.ok(body.includes('₱3,200'), 'a catalog reprice must appear in llms.txt with no code change');
   assert.ok(!body.includes('₱2,500 . Custom Filipino'), 'the old Pakanta price must be gone');
+});
+
+// ─── A RETIRED SKU MUST STOP BEING ADVERTISED ──────────────────────────────
+// Added 2026-08-11 with the EVENT_SUBDOMAIN retirement. The catalog flag alone
+// never removed a product from this file — the prose and REQUIRED_RETAIL are
+// hand-written, so `is_active = FALSE` left the SKU advertised with a live
+// price to every AI assistant reading llms.txt. This module's docblock records
+// two earlier cases (Camera Bridge; the retired Live Studio device split) that
+// shipped exactly that way, green.
+
+test('the retired subdomain is gone from the rendered file', () => {
+  const out = renderLlmsTxt(INPUT);
+  assert.ok(
+    !/Custom Subdomain/i.test(out),
+    'llms.txt still advertises the Custom Subdomain. It was taken off sale ' +
+      '2026-08-11 (owner 2026-08-10) and no address ever resolved.',
+  );
+  assert.ok(
+    !/setnayan\.com\/?\)?\s*$|yourname\.setnayan\.com/i.test(out),
+    'llms.txt still promises a yourname.setnayan.com address. Nothing resolves it.',
+  );
+});
+
+test('the monogram no longer promises the LED background', () => {
+  const out = renderLlmsTxt(INPUT);
+  assert.ok(
+    /Animated Monogram/.test(out),
+    'The Animated Monogram is still on sale and must still be listed — only its ' +
+      'LED claim was removed.',
+  );
+  assert.ok(
+    !/includes the LED Live Background/i.test(out),
+    'llms.txt still claims the monogram includes the LED Live Background. The LED ' +
+      'maker saves a design and produces NO file — led_background_renders has zero ' +
+      'writers — so a couple cannot hand anything to their venue.',
+  );
+});
+
+test('advertising a SKU that is off sale REFUSES to render', () => {
+  // 🔑 THE MUTATION IS THE TEST. Flip a prose-named SKU to inactive and the
+  // build must refuse rather than quietly keep selling it. If this ever passes
+  // without throwing, the guard is decoration and the drift is back.
+  const retired = {
+    ...INPUT,
+    retail: INPUT.retail.map((r) =>
+      r.service_code === 'PABATI' ? { ...r, is_active: false } : r,
+    ),
+  };
+  assert.throws(
+    () => renderLlmsTxt(retired),
+    (err: unknown) => {
+      assert.ok(err instanceof RetiredSkuError, `expected RetiredSkuError, got ${err}`);
+      assert.match((err as Error).message, /PABATI/);
+      return true;
+    },
+    'A SKU named in the prose was taken off sale and llms.txt rendered anyway — ' +
+      'which is how Camera Bridge stayed advertised after retirement.',
+  );
+});
+
+test('the deliberately-inactive AI ladder rows do NOT trip the refusal', () => {
+  // ⚠ A guard that cries wolf gets skimmed past. Tiers B/C/D are inactive BY
+  // DESIGN as price sources and are resolved through AI_TIER_SKU, never named in
+  // the prose — so the baseline INPUT (which contains all three) must render.
+  assert.doesNotThrow(() => renderLlmsTxt(INPUT));
 });

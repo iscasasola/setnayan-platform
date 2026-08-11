@@ -156,7 +156,18 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   CAMERA_BRIDGE:         'partial',  // ₱499 (reprice 2026-07-08 · migration 20270711042075) · HELD "In build" — needs native iOS/Android + DSLR SDK
   LIVE_WALL:             'partial',  // ₱2,499 · HELD "In build" — WebSocket display surface not built
   CALL_TIME_ESCALATOR:   'not_built',  // retired SKU (is_active=false) — no SMS infrastructure
-  EVENT_SUBDOMAIN:       'partial',  // ₱999/year · yourname.setnayan.com (owner 2026-07-10) · HELD "In build" — needs subdomain provisioning (wildcard DNS + subdomain-aware routing); ~₱0 COGS
+  // RETIRED 2026-08-11 — is_active=false (migration 20271128898031). Owner ruled
+  // it off sale 2026-08-10: ₱999/year bought an address that resolves NOWHERE
+  // (no wildcard DNS, no subdomain-aware routing). Kept listed so the retirement
+  // is legible rather than looking like an accidental deletion — same convention
+  // as PANOOD_SYSTEM and LIVE_BACKGROUND above, and so any historical order row
+  // still resolves a status.
+  // 🔑 'partial' HERE WAS NEVER A GATE. It rendered the chip "Partial · in active
+  //    build" on /pricing and blocked no buy path — `build_status` is read only
+  //    for styling and the onboarding list. `is_active` is the only real switch,
+  //    and it stayed TRUE for a month while this label implied otherwise.
+  //    A STATUS LABEL IS NOT A GATE.
+  EVENT_SUBDOMAIN:       'partial',
 };
 
 /**

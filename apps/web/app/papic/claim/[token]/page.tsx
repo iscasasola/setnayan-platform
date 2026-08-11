@@ -3,6 +3,7 @@ import { Camera, LogIn, CircleAlert, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { claimPapicSeat } from '@/app/papic/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { papicSeatAnonEnabled } from '@/lib/papic-seats';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 
@@ -106,6 +107,17 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
       </p>
       <form action={claimPapicSeat} className="mt-5">
         <input type="hidden" name="token" value={token} />
+        {/*
+          🔴 THE STAMP THE ACTION ALREADY ASKED FOR. claimPapicSeat has read
+          `captcha_token` off this form since captcha landed — and the form never
+          carried one, so the comment there ("the claim form carries a
+          <TurnstileField>") described a file that did not exist. Login-free
+          claiming mints an ANONYMOUS session, which is the exact endpoint
+          Supabase's captcha exists to protect, so with captcha on and no widget
+          here every crew member scanning the poster is refused. Renders nothing
+          until a site key is set.
+        */}
+        <TurnstileField action="papic_seat_claim" />
         <SubmitButton pendingLabel="Starting…" className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600">
           <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
           {user ? 'Claim my seat & start shooting' : 'Start shooting'}

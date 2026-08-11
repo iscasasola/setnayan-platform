@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Users, VideoOff } from 'lucide-react';
 
 import { startGuestPickSession } from '@/app/panood/guest-pick-actions';
+import { mintTurnstileToken } from '@/lib/turnstile-client';
 import { watchGuestCamera, type GuestCameraWatcher } from '@/lib/panood-guest-webrtc';
 import { GUEST_PICK_MAX_VIEWERS_PER_CAMERA } from '@/lib/live-studio-guest-pick';
 import type { PeerConnectionState } from '@/lib/panood-webrtc';
@@ -51,7 +52,18 @@ export function GuestCameraPlayer({
         : `v${Math.random().toString(36).slice(2)}${Date.now()}`;
 
     void (async () => {
-      const session = await startGuestPickSession(eventId).catch(() => null);
+      // The guest tapped a camera, which means minting an anonymous session —
+      // the endpoint Supabase's captcha exists to protect. Mint a token on the
+      // same tap. No site key → resolves undefined immediately (no script, no
+      // DOM), so this is inert until captcha is switched on. It never rejects,
+      // so it cannot become a new way for the player to fail.
+      const captchaToken = await mintTurnstileToken('guest_pick').catch(
+        () => undefined,
+      );
+      if (cancelled) return;
+      const session = await startGuestPickSession(eventId, captchaToken).catch(
+        () => null,
+      );
       if (cancelled) return;
       if (!session?.ok) {
         // Flag off, guest-pick switched off, not entitled, or no session could be

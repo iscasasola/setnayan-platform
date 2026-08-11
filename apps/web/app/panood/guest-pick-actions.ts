@@ -25,6 +25,16 @@
  * reception shares one venue NAT, so the sixth guest to tap a camera would be
  * refused for no reason. The bound here is the viewer cap itself.
  *
+ * ✅ CAPTCHA IS THE OPPOSITE CASE, AND IT IS WIRED (2026-08-11). Turnstile judges a
+ * VISITOR, not an address, so the shared-venue-NAT objection above does not apply to
+ * it — 200 guests on one connection each solve their own. This used to call
+ * `signInAnonymously()` bare, under a comment calling the refusal "a graceful
+ * degradation, not a bug". Re-read with captcha ON, that sentence means: the paid
+ * multi-camera feature switches itself off for every guest at every wedding, quietly,
+ * and the only symptom is that nobody ever sees a side camera. Rejecting a PAID
+ * capability by default is not graceful. The caller mints a token
+ * (`guest-camera-player.tsx`); no key → undefined → `{}` → unchanged.
+ *
  * ⚠ THE PAYWALL. `canPublishMultiCam` is re-asked here, with the admin client, on the
  * same footing as the public-page loader. It is the SAME single rule (§ 4d "rehearse
  * free, pay to broadcast"), not a second one — this call site exists so the TURN
@@ -38,6 +48,7 @@ import { mintTurnIceServers } from '@/lib/turn';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
 import { canPublishMultiCam } from '@/lib/live-studio-publish';
+import { captchaOptions } from '@/lib/turnstile';
 
 export type GuestPickSessionResult = {
   ok: boolean;
@@ -48,6 +59,12 @@ const REFUSED: GuestPickSessionResult = { ok: false, iceServers: [] };
 
 export async function startGuestPickSession(
   eventId: string,
+  /**
+   * Turnstile token minted by the client on the same tap. Optional: absent
+   * whenever no site key is configured, which is every environment until
+   * captcha is switched on.
+   */
+  captchaToken?: string,
 ): Promise<GuestPickSessionResult> {
   // Flag-dark by construction: with either flag off this returns `ok:false` and the
   // guest player never mounts a connection, so the public page behaves exactly as it
@@ -82,10 +99,13 @@ export async function startGuestPickSession(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    const { data: anon, error } = await supabase.auth.signInAnonymously();
-    // A project with captcha enforced on anonymous sign-in will refuse here. That is
-    // a graceful degradation, not a bug: the guest simply stays on the director's
-    // cut, which is on YouTube and unlimited.
+    const { data: anon, error } = await supabase.auth.signInAnonymously({
+      // Global Supabase captcha gates anonymous sign-in. Empty → {} → no-op.
+      options: captchaOptions(captchaToken),
+    });
+    // Still fail-soft on a genuine refusal — a guest who cannot get a session
+    // goes back to the director's cut, which is on YouTube and unlimited. The
+    // difference is that captcha is no longer a reason to end up there.
     if (error || !anon.user) return REFUSED;
   }
 

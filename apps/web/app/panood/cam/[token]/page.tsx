@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { claimPanoodCamera } from '@/app/panood/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import {
   panoodCameraAnonEnabled,
   panoodStreamingEnabled,
@@ -137,6 +138,15 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
       </p>
       <form action={claimPanoodCamera} className="mt-5">
         <input type="hidden" name="token" value={token} />
+        {/*
+          🔴 Same hole as the Papic claim screen, same fix. claimPanoodCamera has
+          read `captcha_token` off this form since captcha landed and the form
+          never supplied one. Login-free joining mints an ANONYMOUS session —
+          precisely what Supabase's captcha gates — so without this an operator
+          scanning the poster at the venue is refused with nothing to read.
+          Renders nothing until a site key is set.
+        */}
+        <TurnstileField action="panood_camera_claim" />
         <SubmitButton
           pendingLabel="Joining…"
           className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600"

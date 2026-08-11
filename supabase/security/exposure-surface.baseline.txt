@@ -496,8 +496,8 @@ tpriv	public.user_follows|anon	SIUD
 tpriv	public.user_follows|authenticated	SIUD
 tpriv	public.user_reports|anon	SIUD
 tpriv	public.user_reports|authenticated	SIUD
-tpriv	public.users|anon	SIUD
-tpriv	public.users|authenticated	SIUD
+tpriv	public.users|anon	SU
+tpriv	public.users|authenticated	SU
 tpriv	public.vendor_2307_filings|anon	SIUD
 tpriv	public.vendor_2307_filings|authenticated	SIUD
 tpriv	public.vendor_activities|authenticated	SIUD
@@ -3858,55 +3858,55 @@ col	public.user_reports.reviewed_by	anon=SIU authenticated=SIU
 col	public.user_reports.status	anon=SIU authenticated=SIU
 col	public.user_reports.target_id	anon=SIU authenticated=SIU
 col	public.user_reports.target_type	anon=SIU authenticated=SIU
-col	public.users.account_type	anon=SIU authenticated=SIU
-col	public.users.address_normalized	anon=SIU authenticated=SIU
-col	public.users.anon_sweep_skipped_at	anon=SIU authenticated=SIU
-col	public.users.birth_date	anon=SIU authenticated=SIU
-col	public.users.civil_status	anon=SIU authenticated=SIU
-col	public.users.civil_status_consent_at	anon=SIU authenticated=SIU
-col	public.users.concierge_abuse_strike_count	anon=SIU authenticated=SIU
-col	public.users.concierge_banned	anon=SIU authenticated=SIU
-col	public.users.concierge_banned_at	anon=SIU authenticated=SIU
-col	public.users.concierge_banned_by	anon=SIU authenticated=SIU
-col	public.users.concierge_banned_reason	anon=SIU authenticated=SIU
-col	public.users.concierge_enforcement_at	anon=SIU authenticated=SIU
-col	public.users.concierge_enforcement_by	anon=SIU authenticated=SIU
-col	public.users.concierge_enforcement_level	anon=SIU authenticated=SIU
-col	public.users.concierge_enforcement_reason	anon=SIU authenticated=SIU
-col	public.users.concierge_trial_used_at	anon=SIU authenticated=SIU
-col	public.users.created_at	anon=SIU authenticated=SIU
-col	public.users.creator_accepts_offers	anon=SIU authenticated=SIU
-col	public.users.deleted_at	anon=SIU authenticated=SIU
-col	public.users.display_name	anon=SIU authenticated=SIU
-col	public.users.email	anon=SIU authenticated=SIU
-col	public.users.followers_count	anon=SIU authenticated=SIU
-col	public.users.id	anon=SIU authenticated=SIU
-col	public.users.is_internal	anon=SIU authenticated=SIU
-col	public.users.is_team_member	anon=SIU authenticated=SIU
-col	public.users.last_ghost_check_at	anon=SIU authenticated=SIU
-col	public.users.last_login_at	anon=SIU authenticated=SIU
-col	public.users.locale	anon=SIU authenticated=SIU
-col	public.users.marketing_consent_at	anon=SIU authenticated=SIU
-col	public.users.marketing_opt_in	anon=SIU authenticated=SIU
-col	public.users.phone	anon=SIU authenticated=SIU
-col	public.users.planner_mode	anon=SIU authenticated=SIU
-col	public.users.profile_photo_url	anon=SIU authenticated=SIU
-col	public.users.profile_view_count	anon=SIU authenticated=SIU
-col	public.users.public_greeting_opt_in	anon=SIU authenticated=SIU
-col	public.users.public_id	anon=SIU authenticated=SIU
-col	public.users.public_profile_enabled	anon=SIU authenticated=SIU
-col	public.users.public_summary_consent_at	anon=SIU authenticated=SIU
-col	public.users.religion	anon=SIU authenticated=SIU
-col	public.users.religion_consent_at	anon=SIU authenticated=SIU
-col	public.users.reminders_enabled	anon=SIU authenticated=SIU
-col	public.users.sex	anon=SIU authenticated=SIU
-col	public.users.sex_consent_at	anon=SIU authenticated=SIU
-col	public.users.slug	anon=SIU authenticated=SIU
-col	public.users.theme_preference	anon=SIU authenticated=SIU
-col	public.users.tour_completed_at	anon=SIU authenticated=SIU
-col	public.users.tour_seen_keys	anon=SIU authenticated=SIU
-col	public.users.updated_at	anon=SIU authenticated=SIU
-col	public.users.user_id	anon=SIU authenticated=SIU
+col	public.users.account_type	anon=SU authenticated=SU
+col	public.users.address_normalized	anon=SU authenticated=SU
+col	public.users.anon_sweep_skipped_at	anon=SU authenticated=SU
+col	public.users.birth_date	anon=SU authenticated=SU
+col	public.users.civil_status	anon=SU authenticated=SU
+col	public.users.civil_status_consent_at	anon=SU authenticated=SU
+col	public.users.concierge_abuse_strike_count	anon=SU authenticated=SU
+col	public.users.concierge_banned	anon=SU authenticated=SU
+col	public.users.concierge_banned_at	anon=SU authenticated=SU
+col	public.users.concierge_banned_by	anon=SU authenticated=SU
+col	public.users.concierge_banned_reason	anon=SU authenticated=SU
+col	public.users.concierge_enforcement_at	anon=SU authenticated=SU
+col	public.users.concierge_enforcement_by	anon=SU authenticated=SU
+col	public.users.concierge_enforcement_level	anon=SU authenticated=SU
+col	public.users.concierge_enforcement_reason	anon=SU authenticated=SU
+col	public.users.concierge_trial_used_at	anon=SU authenticated=SU
+col	public.users.created_at	anon=SU authenticated=SU
+col	public.users.creator_accepts_offers	anon=SU authenticated=SU
+col	public.users.deleted_at	anon=SU authenticated=SU
+col	public.users.display_name	anon=SU authenticated=SU
+col	public.users.email	anon=SU authenticated=SU
+col	public.users.followers_count	anon=SU authenticated=SU
+col	public.users.id	anon=SU authenticated=SU
+col	public.users.is_internal	anon=SU authenticated=SU
+col	public.users.is_team_member	anon=SU authenticated=SU
+col	public.users.last_ghost_check_at	anon=SU authenticated=SU
+col	public.users.last_login_at	anon=SU authenticated=SU
+col	public.users.locale	anon=SU authenticated=SU
+col	public.users.marketing_consent_at	anon=SU authenticated=SU
+col	public.users.marketing_opt_in	anon=SU authenticated=SU
+col	public.users.phone	anon=SU authenticated=SU
+col	public.users.planner_mode	anon=SU authenticated=SU
+col	public.users.profile_photo_url	anon=SU authenticated=SU
+col	public.users.profile_view_count	anon=SU authenticated=SU
+col	public.users.public_greeting_opt_in	anon=SU authenticated=SU
+col	public.users.public_id	anon=SU authenticated=SU
+col	public.users.public_profile_enabled	anon=SU authenticated=SU
+col	public.users.public_summary_consent_at	anon=SU authenticated=SU
+col	public.users.religion	anon=SU authenticated=SU
+col	public.users.religion_consent_at	anon=SU authenticated=SU
+col	public.users.reminders_enabled	anon=SU authenticated=SU
+col	public.users.sex	anon=SU authenticated=SU
+col	public.users.sex_consent_at	anon=SU authenticated=SU
+col	public.users.slug	anon=SU authenticated=SU
+col	public.users.theme_preference	anon=SU authenticated=SU
+col	public.users.tour_completed_at	anon=SU authenticated=SU
+col	public.users.tour_seen_keys	anon=SU authenticated=SU
+col	public.users.updated_at	anon=SU authenticated=SU
+col	public.users.user_id	anon=SU authenticated=SU
 col	public.vendor_2307_filings.audit_log	anon=SIU authenticated=SIU
 col	public.vendor_2307_filings.created_at	anon=SIU authenticated=SIU
 col	public.vendor_2307_filings.downloaded_by_vendor_at	anon=SIU authenticated=SIU

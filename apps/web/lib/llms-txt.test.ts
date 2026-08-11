@@ -212,8 +212,9 @@ test('the monogram no longer promises the LED background', () => {
   assert.ok(
     !/includes the LED Live Background/i.test(out),
     'llms.txt still claims the monogram includes the LED Live Background. The LED ' +
-      'maker saves a design and produces NO file — led_background_renders has zero ' +
-      'writers — so a couple cannot hand anything to their venue.',
+      'wall backdrop was REMOVED from the product on 2026-08-11 — no maker, no ' +
+      'renderer, nothing to include — so this sentence advertises a thing that ' +
+      'does not exist to every model that reads this file.',
   );
 });
 

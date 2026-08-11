@@ -70,7 +70,6 @@
   "app/dashboard/[eventId]/studio/custom-qr-guest/page.tsx",
   "app/dashboard/[eventId]/studio/editorial-pro/page.tsx",
   "app/dashboard/[eventId]/studio/indoor-blueprint/page.tsx",
-  "app/dashboard/[eventId]/studio/led/page.tsx",
   "app/dashboard/[eventId]/studio/mood-board/page.tsx",
   "app/dashboard/[eventId]/studio/page.tsx",
   "app/dashboard/[eventId]/studio/pakanta/page.tsx",

@@ -15,8 +15,11 @@ import 'server-only';
  *     MediaRecorder fallback, already shared by THREE surfaces (Patiktok booth,
  *     Guest Stories, the creator teaser). Owner-locked 2026-06-18: "CLIENT-SIDE,
  *     ₱0 server compute … there is NO server ffmpeg/Remotion."
- *   • ❌ PHANTOM — the server queue. `render_jobs`, `patiktok_render_jobs` and
- *     `led_background_renders` are ALL EMPTY in prod; no worker exists anywhere
+ *   • ❌ PHANTOM — the server queue. `render_jobs` and `patiktok_render_jobs`
+ *     are EMPTY in prod (a third, `led_background_renders`, was DROPPED with
+ *     the LED wall backdrop on 2026-08-11 — that feature was the one which
+ *     never got a browser renderer either, so the owner removed it rather than
+ *     stand up a render farm for it); no worker exists anywhere
  *     in this repo; `lib/render/recap-ffmpeg.ts` is a pure argv builder naming
  *     an "Oracle Always-Free" box that is not in this codebase; and the one file
  *     that looked like a worker was DELETED 2026-08-09 for faking completion.

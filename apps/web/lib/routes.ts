@@ -148,9 +148,6 @@ export const routes = {
       index: () => `/api/health`,
       deep: () => `/api/health/deep`,
     },
-    ledBackground: {
-      save: () => `/api/led-background/save`,
-    },
     oauth: {
       drive: {
         callback: () => `/api/oauth/drive/callback`,
@@ -283,7 +280,6 @@ export const routes = {
         print: (eventId: string) => `/dashboard/${eventId}/studio/custom-qr-guest/print`,
       },
       indoorBlueprint: (eventId: string) => `/dashboard/${eventId}/studio/indoor-blueprint`,
-      led: (eventId: string) => `/dashboard/${eventId}/studio/led`,
       // Live Studio — the UNIFIED controller (owner 2026-07-25). Registry entries
       // for the live route folders, which were missing. ⚠ Do NOT link straight to
       // `control` from a doorway: while NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is off

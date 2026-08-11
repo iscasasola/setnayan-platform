@@ -24,7 +24,7 @@ export const RICH_DEMO_SLUGS = [
   'custom-qr-guest',
   'photo-delivery',
   'patiktok',
-  'led',
+  // 'led' removed 2026-08-11 with the LED wall backdrop.
   'indoor-blueprint',
   'setnayan-ai',
   'landing-page',

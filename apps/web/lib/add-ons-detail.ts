@@ -310,27 +310,10 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
     ],
   },
 
-  led: {
-    eyebrow: 'LED Background',
-    heroTitle: 'Your name, twenty feet tall.',
-    tagline:
-      'A stunning backdrop for the stage — your photos, your monogram — ready for the venue to play.',
-    paragraphs: [
-      'The wall behind you sets the whole room.',
-      'We build it from your photos and monogram, then hand the venue a file that’s ready to play.',
-    ],
-    highlights: [
-      'A showpiece backdrop for your stage',
-      'Your photos and monogram, woven in',
-      'Crisp on the biggest screens',
-      'Delivered ready for the venue',
-    ],
-    preview: [
-      { context: 'Choose', glyph: '▣', caption: 'Pick a look for the wall.' },
-      { context: 'Yours', glyph: '✶', caption: 'Your photos and monogram, together.' },
-      { context: 'Ready', glyph: '⇩', caption: 'Handed to the venue to play.' },
-    ],
-  },
+  // `led` (LED Background) was REMOVED 2026-08-11. Every line of it described a
+  // delivery — "hand the venue a file that's ready to play", "Delivered ready
+  // for the venue" — that no code path could perform. Owner: "remove wall
+  // backdrop."
 
   'indoor-blueprint': {
     eyebrow: 'Indoor Blueprint',

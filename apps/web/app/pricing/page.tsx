@@ -168,8 +168,9 @@ const ADDON_GROUPS: CatalogGroup[] = [
       { code: 'PANOOD_SYSTEM' }, // retired 2026-07-26 — folded into LIVE_STUDIO above
       { code: 'LIVE_WALL' },
       { code: 'PATIKTOK_COMPILER' },
-      // LIVE_BACKGROUND is bundle-only (2026-07-22) — folded into Monogram PRO —
-      // so it is is_active=false and drops out of resolvedGroups automatically.
+      // LIVE_BACKGROUND (the LED wall backdrop) was REMOVED from the product
+      // 2026-08-11 — it is is_active=false and drops out of resolvedGroups
+      // automatically, and there is no longer a maker behind it to sell.
       { code: 'SEATING_3D' }, // 3D Plan — walk the reception in 3D (activated 2026-07-10)
     ],
   },

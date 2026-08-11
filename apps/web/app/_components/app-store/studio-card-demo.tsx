@@ -641,76 +641,8 @@ const PATIKTOK_SCENES: RichFrame[] = [
   },
 ];
 
-// ── LED Background — hero → templates → customize → ready ──
-const LED_SCENES: RichFrame[] = [
-  {
-    caption: 'Your name, twenty feet tall on stage.',
-    hint: 'Tap to open the background maker.',
-    scene: (
-      <div className="absolute inset-0 flex flex-col" style={{ background: 'radial-gradient(circle at 50% 35%, #0F2A4A, #050D1F)' }}>
-        <div className="flex flex-1 items-center justify-center p-4">
-          <div className="flex aspect-video w-full items-center justify-center rounded" style={{ background: 'radial-gradient(circle, #14365e, #08182e)' }}>
-            <span className="text-2xl" style={{ fontFamily: SERIF, color: GOLD }}>A &amp; R</span>
-          </div>
-        </div>
-        <div className="px-4 pb-7 text-center text-cream">
-          <span className="font-mono text-[8px] uppercase tracking-[0.2em]" style={{ color: GOLD }}>Pailaw · LED background</span>
-          <p className="mt-1 text-base" style={{ fontFamily: SERIF }}>Your name, twenty feet tall.</p>
-          <span className="mt-3 inline-block rounded-full bg-terracotta-700 px-4 py-1 text-[10px] font-medium text-cream">Choose template</span>
-        </div>
-      </div>
-    ),
-  },
-  {
-    caption: 'Pick the look that’s yours.',
-    hint: 'Tap a template card to select.',
-    scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
-        <div className="flex items-center justify-between"><p className="text-[12px] font-semibold">Pick a template</p><span className="font-mono text-[7px] text-ink/55">10 motifs</span></div>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <div className="flex aspect-video items-center justify-center overflow-hidden rounded-lg border-2 border-terracotta" style={{ background: 'linear-gradient(135deg,#3A1226,#8B1E3F)' }}><span className="font-mono text-[8px] uppercase" style={{ color: GOLD }}>Velvet Sweep</span></div>
-          <div className="flex aspect-video items-center justify-center overflow-hidden rounded-lg border border-ink/10" style={{ background: '#0B0B0B' }}><span className="font-mono text-[8px] uppercase" style={{ color: GOLD }}>Gold Particles</span></div>
-          <div className="flex aspect-video items-center justify-center overflow-hidden rounded-lg border border-ink/10" style={{ background: '#0B1530' }}><span className="font-mono text-[8px] uppercase" style={{ color: GOLD }}>Constellation</span></div>
-          <div className="flex aspect-video items-center justify-center overflow-hidden rounded-lg border border-ink/10" style={{ background: 'radial-gradient(circle,#e8d5b5,#cbb088)' }}><span className="font-mono text-[8px] uppercase text-ink/60">Capiz</span></div>
-        </div>
-      </div>
-    ),
-  },
-  {
-    caption: 'Your photos and monogram, woven in.',
-    hint: 'Toggle Photo Pool to blend your photos.',
-    scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
-        <span className="font-mono text-[7px] uppercase tracking-[0.18em] text-ink/55">Customizing · Velvet Sweep</span>
-        <div className="mt-1.5 flex aspect-video items-center justify-center rounded-lg" style={{ background: 'linear-gradient(135deg,#3A1226,#8B1E3F)' }}><span className="text-lg" style={{ fontFamily: SERIF, color: GOLD }}>A &amp; R</span></div>
-        <div className="mt-2 flex items-center justify-between rounded-md border border-ink/10 px-2 py-1.5">
-          <span className="text-[9px]">Photo Pool blend</span>
-          <span className="flex h-3.5 w-6 items-center rounded-full bg-terracotta px-0.5"><span className="ml-auto h-2.5 w-2.5 rounded-full bg-cream" /></span>
-        </div>
-        <div className="mt-2 grid grid-cols-3 gap-1.5">
-          {['5 min', '10 min', '30 min'].map((m, k) => (
-            <span key={m} className={`rounded-md py-1 text-center text-[8px] ${k === 1 ? 'border border-terracotta bg-terracotta/5 text-ink' : 'border border-ink/10 text-ink/55'}`}>{m}</span>
-          ))}
-        </div>
-      </div>
-    ),
-  },
-  {
-    caption: 'Ready for the venue to play.',
-    hint: 'Tap save — we hand it to the venue.',
-    scene: (
-      <div className="absolute inset-0 flex flex-col justify-center bg-emerald-50 px-4 text-ink">
-        <div className="flex items-center gap-1.5"><Check aria-hidden className="h-4 w-4 text-emerald-700" strokeWidth={2.5} /><span className="text-[12px] font-semibold text-emerald-900">Draft saved</span></div>
-        <p className="mt-1 text-[9px] text-emerald-800/80">A venue-ready master that plays offline — no Wi-Fi needed.</p>
-        <div className="mt-3 space-y-1 rounded-lg bg-white/70 p-2.5 text-[8px]">
-          <div className="flex justify-between"><span className="font-mono text-ink/50">TEMPLATE</span><span>Velvet Sweep</span></div>
-          <div className="flex justify-between"><span className="font-mono text-ink/50">LOOP</span><span>10 min · Photo blend</span></div>
-          <div className="flex justify-between"><span className="font-mono text-ink/50">DELIVERY</span><span style={{ color: GOLD }}>To the venue</span></div>
-        </div>
-      </div>
-    ),
-  },
-];
+// LED_SCENES removed 2026-08-11 — the LED wall backdrop it demonstrated
+// ("Tap to open the background maker") is gone; nothing produced its file.
 
 // ── Indoor Blueprint — place → light up → guest view → calm ──
 const DOTTED = {
@@ -1207,7 +1139,6 @@ export const RICH_SCENES: Record<RichDemoSlug, RichFrame[]> = {
   'custom-qr-guest': CUSTOM_QR_SCENES,
   'photo-delivery': PHOTO_DELIVERY_SCENES,
   patiktok: PATIKTOK_SCENES,
-  led: LED_SCENES,
   'indoor-blueprint': INDOOR_BLUEPRINT_SCENES,
   'setnayan-ai': SETNAYAN_AI_SCENES,
   'landing-page': LANDING_PAGE_SCENES,
@@ -1243,7 +1174,6 @@ const RICH_MEDIA: Record<string, DemoMedia> = {
   'custom-qr-guest': m('custom-qr-guest'),
   'photo-delivery': m('photo-delivery'),
   patiktok: m('patiktok'),
-  led: m('led'),
   'indoor-blueprint': m('indoor-blueprint'),
   'setnayan-ai': m('setnayan-ai'),
   'landing-page': m('landing-page'),

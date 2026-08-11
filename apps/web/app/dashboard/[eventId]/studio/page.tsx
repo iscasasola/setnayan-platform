@@ -89,7 +89,7 @@ export default async function StudioPage({ params, searchParams }: Props) {
   // When Suite is on, this legacy hub is retired — redirect to it (same flag the
   // Suite page and the nav swap key on, so the hub and the nav stay consistent).
   // When Suite is off (never in prod), the hub still serves as the fallback, and
-  // its own tool sub-routes (/studio/save-the-date, /studio/led, …) are untouched
+  // its own tool sub-routes (/studio/save-the-date, /studio/patiktok, …) are untouched
   // either way — only this index page redirects.
   const suiteOn =
     envFlagEnabled(process.env.NEXT_PUBLIC_SUITE) || process.env.VERCEL_ENV === 'preview';

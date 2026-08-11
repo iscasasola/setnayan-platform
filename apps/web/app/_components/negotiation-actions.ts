@@ -162,12 +162,13 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
 
   // Post the in-thread card. body satisfies the 1-4000 char CHECK and is the
   // graceful fallback if the card ever renders before the appointment loads.
+  // sender_user_id / sender_role omitted — `authenticated` holds no INSERT
+  // privilege on either (migration 20271132839561); the DB derives both from
+  // auth.uid() and resolves the SAME role `role` was derived from above.
   const { error: cardErr } = await supabase.from('chat_messages').insert({
     thread_id: thread.thread_id,
     event_id: thread.event_id,
     vendor_profile_id: thread.vendor_profile_id,
-    sender_user_id: user.id,
-    sender_role: role,
     body: `📅 Meeting request: ${label}`,
     appointment_id: appointmentId,
   });
@@ -329,12 +330,12 @@ async function insertChangeRequest(
   }
   const changeOrderId = (data as { change_order_id: string }).change_order_id;
 
+  // sender_user_id / sender_role omitted — derived in the DB from auth.uid()
+  // (migration 20271132839561); `authenticated` cannot write either column.
   const { error: cardErr } = await supabase.from('chat_messages').insert({
     thread_id: thread.thread_id,
     event_id: thread.event_id,
     vendor_profile_id: thread.vendor_profile_id,
-    sender_user_id: userId,
-    sender_role: role,
     body: fallbackBody,
     change_order_id: changeOrderId,
   });
@@ -649,12 +650,12 @@ async function insertAmendment(
   );
   if (itemsErr) console.error('[negotiation] amendment items insert failed:', itemsErr.message);
 
+  // sender_user_id / sender_role omitted — derived in the DB from auth.uid()
+  // (migration 20271132839561); `authenticated` cannot write either column.
   const { error: cardErr } = await supabase.from('chat_messages').insert({
     thread_id: thread.thread_id,
     event_id: thread.event_id,
     vendor_profile_id: thread.vendor_profile_id,
-    sender_user_id: userId,
-    sender_role: role,
     body: fallbackBody,
     amendment_id: amendmentId,
   });

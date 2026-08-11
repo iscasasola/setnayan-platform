@@ -67,8 +67,8 @@ tpriv	public.canonical_service_taxonomy|anon	SIUD
 tpriv	public.canonical_service_taxonomy|authenticated	SIUD
 tpriv	public.chat_message_flags|anon	SIUD
 tpriv	public.chat_message_flags|authenticated	SIUD
-tpriv	public.chat_messages|anon	SIUD
-tpriv	public.chat_messages|authenticated	SIUD
+tpriv	public.chat_messages|anon	SD
+tpriv	public.chat_messages|authenticated	SD
 tpriv	public.chat_thread_reads|anon	SIUD
 tpriv	public.chat_thread_reads|authenticated	SIUD
 tpriv	public.chat_threads|anon	SIUD
@@ -943,23 +943,23 @@ col	public.chat_message_flags.sender_user_id	anon=SIU authenticated=SIU
 col	public.chat_message_flags.status	anon=SIU authenticated=SIU
 col	public.chat_message_flags.thread_id	anon=SIU authenticated=SIU
 col	public.chat_message_flags.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.chat_messages.amendment_id	anon=SIU authenticated=SIU
-col	public.chat_messages.appointment_id	anon=SIU authenticated=SIU
-col	public.chat_messages.attachment_mime	anon=SIU authenticated=SIU
-col	public.chat_messages.attachment_name	anon=SIU authenticated=SIU
-col	public.chat_messages.attachment_size_bytes	anon=SIU authenticated=SIU
-col	public.chat_messages.attachment_url	anon=SIU authenticated=SIU
-col	public.chat_messages.body	anon=SIU authenticated=SIU
-col	public.chat_messages.change_order_id	anon=SIU authenticated=SIU
-col	public.chat_messages.created_at	anon=SIU authenticated=SIU
-col	public.chat_messages.event_id	anon=SIU authenticated=SIU
-col	public.chat_messages.is_bot	anon=SIU authenticated=SIU
-col	public.chat_messages.message_id	anon=SIU authenticated=SIU
-col	public.chat_messages.proposal_id	anon=SIU authenticated=SIU
-col	public.chat_messages.sender_role	anon=SIU authenticated=SIU
-col	public.chat_messages.sender_user_id	anon=SIU authenticated=SIU
-col	public.chat_messages.thread_id	anon=SIU authenticated=SIU
-col	public.chat_messages.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.chat_messages.amendment_id	anon=S authenticated=SI
+col	public.chat_messages.appointment_id	anon=S authenticated=SI
+col	public.chat_messages.attachment_mime	anon=S authenticated=SI
+col	public.chat_messages.attachment_name	anon=S authenticated=SI
+col	public.chat_messages.attachment_size_bytes	anon=S authenticated=SI
+col	public.chat_messages.attachment_url	anon=S authenticated=SI
+col	public.chat_messages.body	anon=S authenticated=SI
+col	public.chat_messages.change_order_id	anon=S authenticated=SI
+col	public.chat_messages.created_at	anon=S authenticated=S
+col	public.chat_messages.event_id	anon=S authenticated=SI
+col	public.chat_messages.is_bot	anon=S authenticated=S
+col	public.chat_messages.message_id	anon=S authenticated=SI
+col	public.chat_messages.proposal_id	anon=S authenticated=SI
+col	public.chat_messages.sender_role	anon=S authenticated=S
+col	public.chat_messages.sender_user_id	anon=S authenticated=S
+col	public.chat_messages.thread_id	anon=S authenticated=SI
+col	public.chat_messages.vendor_profile_id	anon=S authenticated=SI
 col	public.chat_thread_reads.archived_at	anon=SIU authenticated=SIU
 col	public.chat_thread_reads.last_read_at	anon=SIU authenticated=SIU
 col	public.chat_thread_reads.thread_id	anon=SIU authenticated=SIU

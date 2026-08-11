@@ -29,9 +29,14 @@
 //     bounds engine RUNS per day, a straightforward reading a vendor can audit
 //     in the log).
 //
-// Service-role write path (§3b.2): sendChatMessageCore derives sender_role
-// from the live user and can't set is_bot, so the bot posts via the admin
-// client directly — precedent: lib/pending-inquiries.ts.
+// Service-role write path (§3b.2): a live-user session cannot author a bot
+// reply — sender_role and sender_user_id are derived from auth.uid() by the DB,
+// and `authenticated` holds no INSERT privilege on sender_role, sender_user_id
+// or is_bot (migration 20271132839561). So the bot posts via the admin client
+// directly — precedent: lib/pending-inquiries.ts.
+// (This paragraph asserted the same conclusion before that migration existed,
+// when a browser could in fact set all three. A comment is not a mechanism;
+// the grants are.)
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '../supabase/admin';

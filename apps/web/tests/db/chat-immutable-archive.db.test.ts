@@ -172,13 +172,27 @@ test('couple CANNOT delete or edit a chat_message (append-only)', async () => {
     `DELETE FROM public.chat_messages WHERE thread_id = $1`,
     [F.threadId],
   );
-  const upd = await db.query(
-    `UPDATE public.chat_messages SET body = 'REDACTED' WHERE thread_id = $1`,
-    [F.threadId],
-  );
+  // UPDATE is refused HARDER than it used to be, and the assertion moved to
+  // match. Until migration 20271132839561 `authenticated` held table-wide
+  // UPDATE and was stopped only by the absence of an UPDATE policy — RLS with
+  // no policy matches 0 rows silently, which is what this test asserted. That
+  // migration revoked the privilege outright (so that adding an "edit your own
+  // message" policy later cannot quietly hand back sender_role), and a missing
+  // privilege raises 42501 instead of returning 0 rows. Same guarantee, louder.
+  let updRefused = false;
+  let updMessage = '';
+  try {
+    await db.query(`UPDATE public.chat_messages SET body = 'REDACTED' WHERE thread_id = $1`, [
+      F.threadId,
+    ]);
+  } catch (err) {
+    updRefused = true;
+    updMessage = err instanceof Error ? err.message : String(err);
+  }
   await reset();
   assert.equal(del.affectedRows, 0, 'message DELETE denied (0 rows)');
-  assert.equal(upd.affectedRows, 0, 'message UPDATE denied (0 rows)');
+  assert.ok(updRefused, 'a couple session UPDATED a chat message');
+  assert.match(updMessage, /permission denied/i, `expected a privilege refusal, got: ${updMessage}`);
 
   await asService();
   const bodies = await db.query<{ body: string }>(

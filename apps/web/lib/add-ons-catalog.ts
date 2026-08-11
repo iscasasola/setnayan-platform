@@ -743,6 +743,35 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     },
   },
   {
+    // Thank-You Video — the SKU has been on sale at ₱2,499 since 2026-07-10 with
+    // NO doorway, NO screen and NOTHING producing it. A couple could pay and
+    // receive nothing. Owner ruled "BUILD IT" 2026-08-10; this entry is what
+    // makes the maker reachable — a maker with no card in the Studio is the
+    // "mechanism never proven reachable" defect, not a feature.
+    key: 'thank-you',
+    tags: ['Video', 'After', 'Guests'],
+    opensDirect: true,
+    label: 'Thank-You Video',
+    Icon: Film,
+    iteration: '0012',
+    status: 'web_v1',
+    category: 'photobooth',
+    blurb: 'A short film for the people who came — made from the photos everyone agreed to share.',
+    cta: 'Make the film',
+    studioGroup: 'capture',
+    // Paid SKU — without this the Studio card never flips to Active/Pending when
+    // owned (paid-features-auto-show). Canonical V2 code (sku-catalog-v2.ts).
+    serviceKey: 'PAPIC_ADDON_THANK_YOU',
+    poster: {
+      motion: 'scan',
+      baseBackground:
+        'linear-gradient(135deg, #2C2A29 0%, #6B4A3A 50%, #C24E25 100%)',
+      motionBackground:
+        'linear-gradient(90deg, transparent 0%, rgba(253, 251, 247, 0.75) 50%, transparent 100%)',
+      iconBadgeClass: 'bg-cream/25 text-cream',
+    },
+  },
+  {
     key: 'supplies-marketplace',
     tags: ['Print', 'Favors', 'Soon'],
     opensDirect: true,

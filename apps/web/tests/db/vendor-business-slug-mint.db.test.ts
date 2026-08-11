@@ -46,8 +46,20 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { DB_MIRRORED_RESERVED_SLUGS, ROUTE_RESERVED_SLUGS } from '../../lib/reserved-slugs';
+
+/** The migrations directory `supabase db push` actually reads. */
+const MIGRATIONS_DIR = join(import.meta.dirname, '../../../../supabase/migrations');
+
+/** Read a migration's SQL by its version prefix — never re-type its contents. */
+function readMigration(version: string): string {
+  const file = readdirSync(MIGRATIONS_DIR).find((f) => f.startsWith(`${version}_`));
+  assert.ok(file, `migration ${version} not found — this test restores state from it`);
+  return readFileSync(join(MIGRATIONS_DIR, file!), 'utf8');
+}
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -222,35 +234,24 @@ test('every HAND-TYPED reserved word is reserved in the database', async () => {
   );
 });
 
-// The route-derived half (lib/reserved-slugs.ts, generated 2026-08-09) is NOT
-// mirrored into public.business_slug_is_reserved — widening that function needs
-// a migration, which the reserved-names build was scoped out of. Every APP path
-// (event create + rename, the availability endpoint, the manual shop-address
-// form, the person handle) already refuses all of these; the only path that
-// does not is the DATABASE'S OWN auto-mint, which builds a default address from
-// a business name. So a company literally named e.g. "Creators" could still be
-// minted `creators`.
+// ✅ THE DEBT IS PAID — THIS SET IS EMPTY, AND KEEPING IT EMPTY IS THE POINT.
 //
-// This list makes that debt LOUD instead of silent, and the assertion is a
-// SUBSET check: it stays green when a migration closes part of it, and goes red
-// the moment a NEW route folder appears with no database cover.
-const KNOWN_DB_MINT_GAP = new Set([
-  'claim',
-  'creators',
-  'demo-capture',
-  'dev',
-  'host',
-  'onboarding',
-  'open-shop',
-  'pabati',
-  'proposals',
-  'prototype',
-  'receipts',
-  'samahan',
-  'site-editor',
-  'tl',
-  'vendor-invite',
-]);
+// It used to hold fifteen real top-level pages that the database's auto-mint
+// could still hand to a shop, including `/creators` and `/open-shop`, both live
+// and in the sitemap. Migration `20271132502763` added all fifteen to
+// `public.business_slug_is_reserved`.
+//
+// 🔑 A BASELINE IS A BILL, NOT A DECISION. Adding a line here is deciding that
+// a shop may permanently take one of our own pages — and a shop address is
+// immutable, so "permanently" is literal. With the set empty, a NEW route
+// folder appearing tomorrow turns this test RED on the next run, which is the
+// only reason the fifteen were ever found.
+//
+// If you are here because the test just failed: the honest answers are (a) add
+// the word to `business_slug_is_reserved` in a migration, or (b) add it here
+// with a written reason for why a shop taking that page is acceptable. There is
+// no third answer, and weakening the assertion is not one of them.
+const KNOWN_DB_MINT_GAP = new Set<string>([]);
 
 test('no NEW route word is left uncovered by the database mint', async () => {
   const words = [...ROUTE_RESERVED_SLUGS];
@@ -301,6 +302,134 @@ test('erasing a shop does not hand its address back', async () => {
     (await readShop(id)).business_slug,
     null,
     'an erased shop must stay address-less — re-minting would put the erased profile back on a public URL',
+  );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE MINT ASKS THE SAME QUESTION THE WIZARD DOES (migration 20271132502763)
+//
+// The app answers "is this word free?" with `findSlugConflict`, which checks
+// FIVE sources. The mint checked THREE — no people, no forwarding ledger — so
+// the wizard could preview a safe address while the database minted a colliding
+// one, permanently (a shop address is immutable).
+//
+// Each test below drives the REAL registration path and asserts the minted
+// address DODGED the occupied word, rather than asserting the helper function
+// in isolation: a helper nobody calls is the exact failure mode this repo keeps
+// finding.
+// ═══════════════════════════════════════════════════════════════════════════
+
+test('the mint will not hand a shop a PERSON’S handle', async () => {
+  const u = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email) VALUES ($1) RETURNING id`,
+    [nextEmail('person')],
+  );
+  await db.query(`UPDATE public.users SET slug = 'binibinistudio' WHERE user_id = $1`, [
+    u.rows[0]!.id,
+  ]);
+
+  const id = await registerShop('Binibini Studio');
+  const row = await readShop(id);
+
+  assert.ok(row.business_slug, 'the shop still needs an address');
+  assert.notEqual(
+    row.business_slug,
+    'binibinistudio',
+    'the mint took a word that is already a person’s public handle — both live at ' +
+      'setnayan.com/{word}, so one of them stops resolving',
+  );
+  assert.match(row.business_slug!, SLUG_RE);
+});
+
+test('the mint will not hand a shop a word that is STILL FORWARDING', async () => {
+  // A wedding renamed away from 'lakandiwa' — every printed invitation carrying
+  // that word still points at it, and the couple was promised it keeps working.
+  // Minting it to a shop puts those guests on a stranger's business page.
+  await db.query(
+    `INSERT INTO public.slug_change_log (entity_type, entity_id, old_slug, new_slug)
+     VALUES ('event', gen_random_uuid(), 'lakandiwa', 'lakandiwa-2027')`,
+  );
+
+  const id = await registerShop('Lakandiwa');
+  const row = await readShop(id);
+
+  assert.ok(row.business_slug);
+  assert.notEqual(
+    row.business_slug,
+    'lakandiwa',
+    'the mint took a word that is still forwarding printed invitations elsewhere',
+  );
+});
+
+test('the mint will not hand out a CLOSED shop’s held address', async () => {
+  // Owner-locked 2026-08-10: a closed shop's address is held for a year so its
+  // old links do not silently become a different company's page.
+  await db.query(
+    `INSERT INTO public.slug_change_log (entity_type, entity_id, old_slug, new_slug, redirect_until)
+     VALUES ('vendor_closed', gen_random_uuid(), 'hiraya-events', 'hiraya-events',
+             now() + interval '365 days')`,
+  );
+
+  const id = await registerShop('Hiraya Events');
+  const row = await readShop(id);
+
+  assert.ok(row.business_slug);
+  assert.notEqual(
+    row.business_slug,
+    'hiraya-events',
+    'a held address was reissued before its year was up — the exact thing the hold exists to stop',
+  );
+});
+
+test('an EXPIRED hold releases the word again', async () => {
+  // The counterweight. Without this, the three tests above would still pass if
+  // the mint simply refused every word that had ever appeared in the ledger —
+  // and a word would never come back into the pool.
+  await db.query(
+    `INSERT INTO public.slug_change_log (entity_type, entity_id, old_slug, new_slug, redirect_until)
+     VALUES ('event', gen_random_uuid(), 'tahananco', 'tahanan-2026', now() - interval '1 day')`,
+  );
+
+  const id = await registerShop('Tahanan Co');
+  assert.equal(
+    (await readShop(id)).business_slug,
+    'tahananco',
+    'an expired hold must free the word — otherwise the ledger is a one-way ratchet',
+  );
+});
+
+test('NEUTRALISATION: the shared answer is what does the refusing', async () => {
+  // Proves the three refusals above are `business_slug_is_available` and not
+  // some other constraint. Swap it for a function that says yes to everything,
+  // register a colliding shop, and watch the collision happen — then restore.
+  const u = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email) VALUES ($1) RETURNING id`,
+    [nextEmail('neutral')],
+  );
+  await db.query(`UPDATE public.users SET slug = 'kasalanmo' WHERE user_id = $1`, [u.rows[0]!.id]);
+
+  await db.query(
+    `CREATE OR REPLACE FUNCTION public.business_slug_is_available(p_slug text)
+     RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+     AS $$ SELECT p_slug IS NOT NULL AND length(p_slug) >= 3 $$`,
+  );
+  const collided = await registerShop('Kasalan Mo');
+  assert.equal(
+    (await readShop(collided)).business_slug,
+    'kasalanmo',
+    'with the availability answer neutralised the collision should occur — if it did not, ' +
+      'the tests above were passing for some other reason entirely',
+  );
+
+  // Restore from the MIGRATION FILE rather than re-typing the function here, so
+  // this test cannot leave a weakened version behind for every later test in
+  // the file — and so the restore can never drift from the real definition.
+  await db.exec(readMigration('20271132502763'));
+  const safe = await registerShop('Kasalan Mo');
+  assert.notEqual(
+    (await readShop(safe)).business_slug,
+    'kasalanmo',
+    'the availability answer did not come back — later tests in this file are measuring nothing',
   );
 });
 

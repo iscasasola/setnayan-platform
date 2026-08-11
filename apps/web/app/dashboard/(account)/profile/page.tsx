@@ -45,6 +45,7 @@ import {
   updateUserSlug,
 } from './actions';
 import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
+import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import {
   CIVIL_STATUSES,
   CIVIL_STATUS_LABELS,
@@ -697,8 +698,8 @@ export default async function ProfilePage({ searchParams }: Props) {
               <span className="font-mono text-ink/80">
                 {publicHost}/u/{currentSlug ?? 'your-handle'}
               </span>
-              . Change the handle any time — the old link keeps redirecting for
-              90 days.
+              . Change the handle any time — the old link keeps redirecting for{' '}
+              {slugForwardingLabel()}.
             </p>
           </div>
 

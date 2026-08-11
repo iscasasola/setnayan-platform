@@ -14,8 +14,8 @@ import {
   publicEventPath,
   publicEventUrl,
   resolveEventOwnerSlug,
-  resolveRenamedEventPath,
 } from '@/lib/public-event-url';
+import { resolveRenamedPath } from '@/lib/slug-forwarding';
 // Bare-root dispatch: a slug that isn't a renderable event may be a vendor
 // (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
 import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
@@ -208,12 +208,19 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Bare-root dispatch (PR5): not a renderable event → it might be a renamed
   // event's prior slug, else a vendor at this slug.
   if (!event) {
-    // Renamed-event redirect (wires the long-dormant slug_change_log read): a
-    // bare slug mapping to no current event may be a PRIOR slug of one — send it
-    // to that event's CURRENT canonical /u/ URL. Flag-gated (resolveRenamedEventPath
-    // self-noops when OFF), so this — like the rest of the cutover — is fully
-    // inert until the flip; the old-QR-after-rename 404 gets fixed as part of it.
-    const renamedTo = await resolveRenamedEventPath(admin, slug);
+    // Retired-address forwarding. A bare word matching no live event may be the
+    // PRIOR address of one — or of a shop, or of a person — so send it to
+    // wherever that page lives now.
+    //
+    // ⚠ THIS WAS GATED ON THE /u/ CUTOVER FLAG AND SO HAS NEVER RUN. The
+    // address field has promised forwarding since the day it shipped, the
+    // rename writes the ledger row, and the word is retired out of the pool to
+    // protect a redirect that returned null on its first line. Ungated now: it
+    // is a promise to whoever printed the old link, not part of the cutover.
+    //
+    // Only reached on the MISS path — a word that matched no live event — so it
+    // adds no query to any page that renders.
+    const renamedTo = await resolveRenamedPath(admin, slug);
     if (renamedTo) redirect(renamedTo);
     // Not a renamed event → try a vendor at this slug. renderVendorBySlug
     // notFound()s itself if there's no vendor either.

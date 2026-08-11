@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { Check, X, AlertTriangle, Loader2 } from 'lucide-react';
+import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 
 type CheckResult =
   | { status: 'current' }
@@ -98,7 +99,8 @@ export function SlugField({ eventId, initialSlug, saveAction }: Props) {
         </button>
       </div>
       <p className="text-xs text-ink/50">
-        3–32 chars · lowercase letters, numbers, hyphens. Changes redirect old links for 90 days.
+        3–32 chars · lowercase letters, numbers, hyphens. Changes redirect old links for{' '}
+        {slugForwardingLabel()}.
       </p>
     </form>
   );

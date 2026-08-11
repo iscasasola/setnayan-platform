@@ -200,7 +200,7 @@ function placeLabel(event: EventWithRole): string | null {
 export default async function LauncherPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ show?: string }>;
+  searchParams?: Promise<{ show?: string; hub?: string }>;
 }) {
   const user = await getCurrentUser();
   // Layout already redirects to /login if no user; this is for type narrowing.
@@ -277,24 +277,48 @@ export default async function LauncherPage({
   const active = events.filter((e) => !e.archived);
   const hasConsole = roles.hasVendorAccess || roles.hasAdminAccess;
 
-  // Landing (owner 2026-07-04, preserved verbatim from the prior hub):
-  //   - single-event, non-console user → jump straight into their one event.
-  //   - 0-event console user → send to create-event.
-  //   - everyone else → render the launcher below.
-  if (active.length === 1 && !hasConsole) {
-    redirect(`/dashboard/${active[0]!.event_id}`);
-  }
-  if (active.length === 0 && hasConsole) {
-    redirect('/dashboard/create-event');
-  }
-
-  // Split for display: upcoming (shown) vs finished (hidden behind "Show all").
   // Finished = archived OR the event date has passed (PH-local date compare).
+  // ⚠ MOVED ABOVE THE LANDING RULE 2026-08-11 — the rule now depends on it. It
+  // still does its original display job (upcoming shown / finished behind
+  // "Show all") further down; this is the same definition, read twice.
   const todayISO = new Date().toLocaleDateString('en-CA', {
     timeZone: 'Asia/Manila',
   });
   const isPast = (e: EventWithRole) =>
     !!e.event_date && e.event_date.slice(0, 10) < todayISO;
+
+  // ─── LANDING ────────────────────────────────────────────────────────────
+  // Owner 2026-07-04: "keep the auto-jump, HUB REACHABLE." Only the first half
+  // ever shipped. The jump fired for every single-event non-console user, and
+  // the account switcher's Home button landed back here — which re-fired it. So
+  // the hub was not reachable at all for the core persona: Alaala, People,
+  // Samahan and the Creator's Lab did not exist for them, permanently, and that
+  // is why "how do I find my samahan" had no good answer.
+  //
+  // 🔑 OWNER 2026-08-11, the ruling this implements: **"home board is for the
+  // user's collection of events. On going and completed."** A COLLECTION is a
+  // place you visit, not a place you are bounced out of — and it must hold the
+  // wedding that already happened. Two consequences, both here:
+  //
+  //   1. The jump only fires while the one event is still UPCOMING. Once the day
+  //      has passed the person is keeping, not planning, so they land on the
+  //      collection. Without this a couple is sealed inside a finished wedding
+  //      for the rest of their life on the platform.
+  //   2. `?hub=1` always wins. The switcher's Home carries it, so Home means the
+  //      board from anywhere — the "reachable" half of the 2026-07-04 ruling,
+  //      finally.
+  //
+  // Deliberately NOT changed: the auto-jump itself. A couple mid-planning with
+  // one wedding still wants to land in it, and reversing that would undo a
+  // ruling the owner has never withdrawn.
+  const wantsHub = sp.hub === '1';
+  const soleUpcoming = active.length === 1 && !isPast(active[0]!);
+  if (soleUpcoming && !hasConsole && !wantsHub) {
+    redirect(`/dashboard/${active[0]!.event_id}`);
+  }
+  if (active.length === 0 && hasConsole) {
+    redirect('/dashboard/create-event');
+  }
   // Timeline order (owner 2026-07-13): a Facebook-style feed — newest at the top,
   // OLDER as you scroll down. So the spine runs date DESCENDING: furthest-future
   // upcoming event on top, the most imminent one near the bottom, then (only when

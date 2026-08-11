@@ -162,11 +162,28 @@ const CSP_REPORT_ONLY = [
   // Origins named in the deferral comment above, plus the embeds already trusted by
   // the enforced `frame-src`. Anything MISSING here is precisely what the reports
   // will surface.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel-insights.com https://*.vercel-scripts.com https://*.posthog.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel-insights.com https://*.vercel-scripts.com https://*.posthog.com https://challenges.cloudflare.com https://itunes.apple.com",
   // ↑ MEASURED 2026-08-02: PostHog loads its client from
   // `us-assets.i.posthog.com`, and it was in connect-src but NOT script-src —
   // so the policy let PostHog SEND but not LOAD. Enforcing the old list would
   // have killed product analytics outright. Exactly what report-only is for.
+  //
+  // ↑ 2026-08-11, both found by `csp-embeds-are-allowed.test.ts` once it was
+  // taught to look at SCRIPT hosts, not just `<iframe>` markup we wrote:
+  //   • `challenges.cloudflare.com` — Cloudflare Turnstile. `turnstile-field.tsx`
+  //     and `turnstile-client.ts` inject its api.js, and the challenge itself is
+  //     an IFRAME from the same origin, so it needs BOTH this directive and the
+  //     enforced `frame-src` below. Absent from either one, every sign-in,
+  //     sign-up, password reset and login-free claim is refused the moment
+  //     captcha is switched on — including the owner's.
+  //   • `itunes.apple.com` — the Song Bank preview lookup is JSONP
+  //     (`lib/itunes-preview.ts` appends a <script src>), so it is a script
+  //     origin we have always loaded and never named here. Report-only blocks
+  //     nothing, so this was noise in the reports rather than a live break —
+  //     but enforcing the old list would have killed song previews outright.
+  // NOT added: `connect-src`. Turnstile's own traffic runs INSIDE its iframe,
+  // on its own origin. If a parent-context call to it ever appears, that is
+  // precisely the report this header exists to raise — do not pre-empt it.
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://*.vercel-insights.com",
   "img-src 'self' data: blob: https://media.setnayan.com https://*.r2.cloudflarestorage.com https://*.supabase.co https://i.ytimg.com",
   "media-src 'self' data: blob: https://media.setnayan.com https://*.r2.cloudflarestorage.com",
@@ -196,6 +213,16 @@ const securityHeaders = [
   // mechanism, not a sentence: `lib/csp-embeds-are-allowed.test.ts` now fails if
   // any iframe host in the app is absent here.
   //
+  // 🔴 `https://challenges.cloudflare.com` added 2026-08-11 — THE SAME BUG, one
+  // step further out. The OSM fix taught the guard to read `<iframe>` markup, so
+  // it could never see this: Cloudflare Turnstile paints its challenge in a
+  // window IT creates, from a script, with no `<iframe` anywhere in our source.
+  // Missing here, the bot check cannot render — and because Supabase captcha is
+  // GLOBAL, that is every sign-in, sign-up, password reset and login-free camera
+  // claim refused at once, the owner's included. Nothing is broken today only
+  // because no site key is set. The guard now derives this from the script hosts
+  // the app actually injects; see FRAME_CREATING_SCRIPT_HOSTS in that test.
+  //
   // 🔑 KEEP THIS COMMENT ABOVE THE OBJECT, NOT BETWEEN `value:` AND THE STRING.
   // `csp-report.test.ts` matches `value:` immediately followed by the policy to
   // prove the enforced header is still the frame-only one, and a comment in
@@ -204,7 +231,7 @@ const securityHeaders = [
   {
     key: 'Content-Security-Policy',
     value:
-      "frame-ancestors 'self'; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.instagram.com https://www.tiktok.com https://www.openstreetmap.org",
+      "frame-ancestors 'self'; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.instagram.com https://www.tiktok.com https://www.openstreetmap.org https://challenges.cloudflare.com",
   },
 ];
 

@@ -591,7 +591,7 @@ tpriv	public.vendor_papic_captures|anon	SIUD
 tpriv	public.vendor_papic_captures|authenticated	SIUD
 tpriv	public.vendor_partnerships|anon	SIUD
 tpriv	public.vendor_partnerships|authenticated	SIUD
-tpriv	public.vendor_payment_methods|authenticated	SIUD
+tpriv	public.vendor_payment_methods|authenticated	SD
 tpriv	public.vendor_payouts|authenticated	SIUD
 tpriv	public.vendor_portion_rules|anon	SIUD
 tpriv	public.vendor_portion_rules|authenticated	SIUD
@@ -4492,8 +4492,8 @@ col	public.vendor_payment_methods.label	anon=- authenticated=SIU
 col	public.vendor_payment_methods.link_domain	anon=- authenticated=SIU
 col	public.vendor_payment_methods.link_url	anon=- authenticated=SIU
 col	public.vendor_payment_methods.method_type	anon=- authenticated=SIU
-col	public.vendor_payment_methods.moderation_note	anon=- authenticated=SIU
-col	public.vendor_payment_methods.moderation_status	anon=- authenticated=SIU
+col	public.vendor_payment_methods.moderation_note	anon=- authenticated=S
+col	public.vendor_payment_methods.moderation_status	anon=- authenticated=S
 col	public.vendor_payment_methods.note	anon=- authenticated=SIU
 col	public.vendor_payment_methods.payment_method_id	anon=- authenticated=SIU
 col	public.vendor_payment_methods.provider	anon=- authenticated=SIU

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   classifyPaymentLink,
@@ -55,7 +56,23 @@ export async function addPaymentMethod(formData: FormData) {
     is_shown: true,
   };
 
+  // `moderation_status` is NOT part of `row` and must not be — `authenticated`
+  // holds no INSERT privilege on it (migration 20271134376999), so naming it is
+  // a hard permission failure rather than a silent ignore. Every row this
+  // action inserts therefore lands 'pending_review'.
+  //
+  // The safe lanes below are still approved instantly, exactly as before — but
+  // the approving write happens through the service-role client after the
+  // insert, so it is a decision the server makes rather than a claim the
+  // browser is trusted to send. A vendor POSTing straight to PostgREST skips
+  // this code and lands in the review queue, which is the point.
+  let autoApprove = false;
+
   if (methodType === 'bank') {
+    // Bank details were auto-approved before by omitting the column and letting
+    // the (then 'approved') DEFAULT fill it. That default is now
+    // 'pending_review', so the intent has to be stated rather than inherited.
+    autoApprove = true;
     const accountNumber = str(formData.get('account_number'), 64);
     if (!accountNumber) fail('Enter the account number or mobile.');
     row.provider = str(formData.get('provider'), 48);
@@ -80,9 +97,9 @@ export async function addPaymentMethod(formData: FormData) {
     const decoded = await decodeQrFromR2(qrRef);
     if (decoded) {
       row.decoded_destination = decoded;
+      autoApprove = true;
     } else {
       row.decoded_destination = str(formData.get('decoded_destination'), 256);
-      row.moderation_status = 'pending_review';
     }
   } else {
     // link — Pro/Enterprise only
@@ -95,17 +112,40 @@ export async function addPaymentMethod(formData: FormData) {
     const mod = initialLinkModeration(url);
     row.link_url = url;
     row.link_domain = mod.domain;
-    row.moderation_status = mod.status; // 'approved' (allowlist) or 'pending_review'
+    autoApprove = mod.status === 'approved'; // allowlisted domain
   }
 
-  const { error } = await supabase.from('vendor_payment_methods').insert(row);
+  const { data: inserted, error } = await supabase
+    .from('vendor_payment_methods')
+    .insert(row)
+    .select('payment_method_id')
+    .maybeSingle();
   if (error) fail(error.message);
+
+  // The auto-approve lanes, performed by the server rather than asserted by the
+  // client. Best-effort on purpose: if it fails the row stays 'pending_review',
+  // which shows it to nobody and puts it in the admin queue — the safe
+  // direction. `approved` is reported to the vendor only if the flip landed, so
+  // the message can never promise a visibility the row does not have.
+  let approved = false;
+  if (autoApprove && inserted) {
+    const admin = createAdminClient();
+    const { error: modErr } = await admin
+      .from('vendor_payment_methods')
+      .update({ moderation_status: 'approved', updated_at: new Date().toISOString() })
+      .eq('payment_method_id', (inserted as { payment_method_id: string }).payment_method_id);
+    if (modErr) {
+      console.error('[addPaymentMethod] auto-approve failed, left pending:', modErr.message);
+    } else {
+      approved = true;
+    }
+  }
 
   revalidatePath(BASE);
   flash(
-    row.moderation_status === 'pending_review'
-      ? 'Saved — it shows to clients once our team clears it (quick review).'
-      : 'Payment option saved — it’s now on your clients’ payment screen.',
+    approved
+      ? 'Payment option saved — it’s now on your clients’ payment screen.'
+      : 'Saved — it shows to clients once our team clears it (quick review).',
   );
 }
 

@@ -166,7 +166,16 @@ const ADDON_GROUPS: CatalogGroup[] = [
       // listed — same convention as LIVE_BACKGROUND below — so the retirement is legible
       // here rather than looking like an accidental deletion.
       { code: 'PANOOD_SYSTEM' }, // retired 2026-07-26 — folded into LIVE_STUDIO above
-      { code: 'LIVE_WALL' },
+      // LIVE_WALL is FREE for every event since 2026-08-11 (owner: "live photo
+      // wall FREE") — is_active=false, so it drops out of resolvedGroups
+      // automatically and no longer appears among the paid à-la-carte rows,
+      // which is correct: this page lists what you PAY for. The feature is still
+      // on for everyone (entitlements FREE_FOR_ALL_SKUS) and llms.txt describes
+      // it as free. Code kept listed — same convention as PANOOD_SYSTEM above
+      // and LIVE_BACKGROUND below — so the change is legible here rather than
+      // looking like an accidental deletion.
+      { code: 'LIVE_WALL' }, // FREE 2026-08-11 — no longer a paid row
+      { code: 'PATIKTOK_COMPILER' },
       { code: 'PATIKTOK_COMPILER' },
       // LIVE_BACKGROUND (the LED wall backdrop) was REMOVED from the product
       // 2026-08-11 — it is is_active=false and drops out of resolvedGroups

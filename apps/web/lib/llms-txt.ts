@@ -104,7 +104,16 @@ const REQUIRED_RETAIL = [
   'PAKANTA',
   'SEATING_3D',
   'PAPIC_ADDON_THANK_YOU',
-  'LIVE_WALL',
+  // LIVE_WALL removed 2026-08-11 — owner set it FREE ("live photo wall FREE"),
+  // so it no longer has a price to advertise and its row is deactivated. Its
+  // prose line stayed and now reads "free": the FEATURE is on for every event
+  // (entitlements FREE_FOR_ALL_SKUS), so deleting the line would hide something
+  // every couple can actually use.
+  // 🪤 REMOVING THE ENTRY AND THE PROSE PRICE TOGETHER IS MANDATORY. Leaving the
+  // entry throws RetiredSkuError and drops the whole file to its stub; leaving
+  // the `R('LIVE_WALL')` call throws MissingSkuError for the same result. That is
+  // not theoretical — it happened in production hours earlier when
+  // PAPIC_ADDON_STORIES was retired without touching this file (PR #4357).
   'ANIMATED_MONOGRAM',
   'COUPLE_WEBSITE_PRO',
   // EVENT_SUBDOMAIN removed 2026-08-11 — taken off sale (owner 2026-08-10), and
@@ -346,7 +355,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Pakanta** — ${R('PAKANTA')}. Custom Filipino-style song written for the couple.
 - **3D Plan** — ${R('SEATING_3D')}. Walk the reception in 3D before it is real — every table and detail in place.
 - **Thank You Video** — ${R('PAPIC_ADDON_THANK_YOU')}. Compiled thank-you video for all attendees.
-- **Live Photo Wall** — ${R('LIVE_WALL')} per day. Live photo collage with live attendance count, displayed at the venue.
+- **Live Photo Wall** — free. Live photo collage with live attendance count, shown on a screen at the venue and mirrored on every guest's own phone during the celebration.
 - **Animated Monogram** — ${R('ANIMATED_MONOGRAM')}. Bespoke monogram with animation, generated from the couple's inputs.
 - **Event Website** — free. The 4-in-1 couple website (Save the Date, RSVP, on-the-day, Editorial) with unlimited RSVP.
 - **Website PRO** — ${R('COUPLE_WEBSITE_PRO')}. Unlocks every premium website touch — the Save-the-Date Cinematic Reveal and Editorial PRO — across the whole site, and removes the Setnayan watermark.

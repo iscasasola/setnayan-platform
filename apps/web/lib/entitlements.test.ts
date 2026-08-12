@@ -19,6 +19,7 @@ import {
   checkOrderActive,
   eventOwnsSku,
   eventSkuActive,
+  FREE_FOR_ALL_SKUS,
   eventHasPapicUnlock,
   eventActiveSkus,
   BUNDLE_CHILD_SKUS,
@@ -242,9 +243,15 @@ function makeOwnedSupabase(
   return builder as unknown as SupabaseClient;
 }
 
-test('eventOwnsSku: direct à-la-carte order confers ownership (LIVE_WALL)', async () => {
-  const supabase = makeOwnedSupabase(new Set(['LIVE_WALL']));
-  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'LIVE_WALL'), true);
+// ⚠ THESE USED LIVE_WALL AS THE STAND-IN "PAID SKU" AND NO LONGER CAN.
+// LIVE_WALL is free for every event since 2026-08-11 (FREE_FOR_ALL_SKUS), so it
+// resolves owned/active with no order at all — every assertion below would have
+// gone on passing while testing NOTHING, which is worse than failing. Repointed
+// at PAPIC_ADDON_THANK_YOU, a genuinely paid, active à-la-carte SKU, so they keep
+// testing the MECHANISM (order → ownership) they were written for.
+test('eventOwnsSku: direct à-la-carte order confers ownership (PAPIC_ADDON_THANK_YOU)', async () => {
+  const supabase = makeOwnedSupabase(new Set(['PAPIC_ADDON_THANK_YOU']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PAPIC_ADDON_THANK_YOU'), true);
 });
 
 test('eventOwnsSku: MEDIA_PACK bundle grants a media child (PANOOD_SYSTEM)', async () => {
@@ -253,9 +260,35 @@ test('eventOwnsSku: MEDIA_PACK bundle grants a media child (PANOOD_SYSTEM)', asy
   assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PANOOD_SYSTEM'), true);
 });
 
-test('eventOwnsSku: MEDIA_PACK bundle grants LIVE_WALL', async () => {
+test('eventOwnsSku: MEDIA_PACK bundle grants a second media child (PAPIC_SEATS)', async () => {
+  // Was asserted on LIVE_WALL, which is now free for everyone and would pass
+  // without the bundle resolving at all.
   const supabase = makeOwnedSupabase(new Set(['MEDIA_PACK']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PAPIC_SEATS'), true);
+});
+
+/* ── LIVE_WALL IS FREE FOR EVERY EVENT (owner 2026-08-11) ────────────────────
+   Asserted directly, because the change is invisible otherwise: the wall's gates
+   all ask "does this event own it?", and the answer is now yes for an event that
+   owns nothing and has no orders at all. If someone deletes LIVE_WALL from
+   FREE_FOR_ALL_SKUS while its catalog row stays deactivated, the feature does not
+   go back to being paid — it goes DARK, because nobody can buy what is off sale.
+   These three tests are what makes that failure loud instead of silent.        */
+test('LIVE_WALL is owned by an event with NO orders — it is free, not purchasable', async () => {
+  const supabase = makeOwnedSupabase(new Set()); // owns nothing at all
   assert.equal(await eventOwnsSku(supabase, 'evt_1', 'LIVE_WALL'), true);
+});
+
+test('LIVE_WALL is ACTIVE (the feature gate, not just ownership) with no order', async () => {
+  const supabase = makeOwnedSupabase(new Set());
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'LIVE_WALL'), true);
+});
+
+test('LIVE_WALL is in the batch active set for an event with no orders', async () => {
+  const supabase = makeBatchSupabase([]);
+  const { active, pending } = await eventActiveSkus(supabase, 'evt_1');
+  assert.equal(active.has('LIVE_WALL'), true, 'the Studio badge must agree with the feature gate');
+  assert.equal(pending.has('LIVE_WALL'), false, 'a free SKU is never "payment under review"');
 });
 
 test('eventOwnsSku: GUIDED_PACK bundle grants its member but NOT a media-only child', async () => {
@@ -268,7 +301,8 @@ test('eventOwnsSku: GUIDED_PACK bundle grants its member but NOT a media-only ch
 
 test('eventOwnsSku: no direct order and no owned bundle → not owned', async () => {
   const supabase = makeOwnedSupabase(new Set()); // owns nothing
-  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'LIVE_WALL'), false);
+  // NOT LIVE_WALL — that is free for everyone now and would answer true here.
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PAPIC_ADDON_THANK_YOU'), false);
 });
 
 test('eventOwnsSku: a non-bundleable SKU with no direct order → not owned (no bundle fallback)', async () => {
@@ -430,15 +464,17 @@ test('checkOrderActive: any other DB error throws', async () => {
 });
 
 test('eventSkuActive: a paid direct order is active', async () => {
-  const supabase = makeOwnedSupabase(new Set(['LIVE_WALL']), 'paid');
-  assert.equal(await eventSkuActive(supabase, 'evt_1', 'LIVE_WALL'), true);
+  const supabase = makeOwnedSupabase(new Set(['PAPIC_ADDON_THANK_YOU']), 'paid');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'PAPIC_ADDON_THANK_YOU'), true);
 });
 
 test('eventSkuActive: a SUBMITTED direct order is NOT active (the gate), but IS a live order (no double-buy)', async () => {
-  const a = makeOwnedSupabase(new Set(['LIVE_WALL']), 'submitted');
-  assert.equal(await eventSkuActive(a, 'evt_1', 'LIVE_WALL'), false);
-  const b = makeOwnedSupabase(new Set(['LIVE_WALL']), 'submitted');
-  assert.equal(await eventOwnsSku(b, 'evt_1', 'LIVE_WALL'), true);
+  // NOT LIVE_WALL — free-for-all short-circuits both predicates, so the payment
+  // handshake this test exists to prove would be invisible.
+  const a = makeOwnedSupabase(new Set(['PAPIC_ADDON_THANK_YOU']), 'submitted');
+  assert.equal(await eventSkuActive(a, 'evt_1', 'PAPIC_ADDON_THANK_YOU'), false);
+  const b = makeOwnedSupabase(new Set(['PAPIC_ADDON_THANK_YOU']), 'submitted');
+  assert.equal(await eventOwnsSku(b, 'evt_1', 'PAPIC_ADDON_THANK_YOU'), true);
 });
 
 test('eventSkuActive: a PAID MEDIA_PACK bundle activates a child (PANOOD_SYSTEM)', async () => {
@@ -637,7 +673,16 @@ test('eventActiveSkus: a paid COUPLE_WEBSITE_PRO order fans out to BOTH aliased 
 test('eventActiveSkus: a pending COUPLE_WEBSITE_PRO order marks both aliased canonicals pending', async () => {
   const supabase = makeBatchSupabase([{ service_key: 'COUPLE_WEBSITE_PRO', status: 'submitted' }]);
   const { active, pending } = await eventActiveSkus(supabase, 'evt_1');
-  assert.equal(active.size, 0);
+  // Was `active.size === 0`. The batch set is now seeded with the always-free
+  // SKUs, so a bare count no longer expresses the intent — and would break again
+  // the next time one is added. Assert the actual rule instead: a SUBMITTED order
+  // activates NOTHING, and anything that is active got there by being free.
+  assert.equal(active.has('COUPLE_WEBSITE_PRO'), false);
+  assert.equal(active.has('EDITORIAL_PRO'), false);
+  assert.equal(active.has('STD_PREMIUM_OPENINGS'), false);
+  for (const key of active) {
+    assert.ok(FREE_FOR_ALL_SKUS.has(key), `a pending order must activate nothing, but ${key} is active`);
+  }
   assert.equal(pending.has('EDITORIAL_PRO'), true);
   assert.equal(pending.has('STD_PREMIUM_OPENINGS'), true);
 });

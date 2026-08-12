@@ -75,31 +75,45 @@ describe('resolveLiveAir — the two routes on air', () => {
   });
 });
 
-describe('shouldOfferManualAir — the switch is offered exactly when it is needed', () => {
-  test('offered when one-tap go-live is unavailable', () => {
-    assert.equal(shouldOfferManualAir({ automaticAvailable: false }), true);
+describe('shouldOfferManualAir — withdrawn only by a REAL broadcast', () => {
+  test('offered when nothing is broadcasting', () => {
+    assert.equal(shouldOfferManualAir({ broadcastLive: false }), true);
   });
 
-  test('hidden when one-tap works and nothing was set by hand', () => {
-    assert.equal(shouldOfferManualAir({ automaticAvailable: true }), false);
+  test('withdrawn while an automatic broadcast is actually on air', () => {
+    // Then the red light is already lit by the real thing; a second on-air control
+    // would be two answers to one question.
+    assert.equal(shouldOfferManualAir({ broadcastLive: true }), false);
   });
 
-  test('NO GATE WITHOUT A HANDLE: still offered once set, even after YouTube connects', () => {
-    // The trap this closes: switch on by hand → later connect YouTube → the control
-    // that turns it off vanishes while the red light stays on forever.
-    assert.equal(
-      shouldOfferManualAir({
-        automaticAvailable: true,
-        manualOnAirAt: '2026-12-12T06:30:00.000Z',
-      }),
-      true,
+  test('CONNECTING IS NOT BROADCASTING — the switch survives a connected channel', () => {
+    // The trap this closes: the first cut hid the switch the moment a channel
+    // existed. That is exactly the moment it is needed — the host connects, presses
+    // Go live, YouTube refuses (live streaming not enabled yet, quota, a strike),
+    // and the only remaining way to light the control room has just been removed
+    // BECAUSE they connected.
+    assert.equal(shouldOfferManualAir({ broadcastLive: false }), true);
+  });
+
+  test('NO GATE WITHOUT A HANDLE: a manually-on host can always switch off', () => {
+    // Manually on air means source==='manual', which means no broadcast row, which
+    // means broadcastLive is false — so the off switch is always reachable.
+    const air = resolveLiveAir({
+      hasActiveBroadcast: false,
+      manualOnAirAt: '2026-12-12T06:30:00.000Z',
+    });
+    // Compute BEFORE asserting: an equality assert narrows `source` to the literal
+    // 'manual', after which comparing it to 'broadcast' is a type error rather than
+    // the runtime check this test is making.
+    const offered = shouldOfferManualAir({ broadcastLive: air.source === 'broadcast' });
+    assert.equal(air.source, 'manual');
+    assert.equal(offered, true);
+  });
+
+  test('the predicate is not a tautology — both outcomes are reachable', () => {
+    const outcomes = new Set(
+      [true, false].map((b) => shouldOfferManualAir({ broadcastLive: b })),
     );
-  });
-
-  test('a junk stored value does not conjure a handle for a state that reads off', () => {
-    assert.equal(
-      shouldOfferManualAir({ automaticAvailable: true, manualOnAirAt: 'garbage' }),
-      false,
-    );
+    assert.equal(outcomes.size, 2, 'a boolean that cannot say no is not a decision');
   });
 });

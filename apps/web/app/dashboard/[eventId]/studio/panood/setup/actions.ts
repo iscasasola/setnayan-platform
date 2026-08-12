@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizeYouTubeWatchUrl } from '@/lib/panood-watch';
 import { normalizeFacebookWatchUrl } from '@/lib/facebook-watch';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { classifyGoLiveFailure } from '@/lib/youtube-go-live-error';
 import { stampFirstLiveAt } from '@/lib/live-studio-window-server';
 // ⭐ WAVE 8: the unified controller moved to a chrome-less top-level route (§ 4g),
 // so its revalidate target comes from the shared helper, never a literal path.
@@ -218,24 +219,37 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
   let notice: string | null = null;
   let accessToken: string | null = null;
   let usedPoolChannel = false;
+  // Did the SETNAYAN-OWNED channel route actually produce a channel? Distinct from
+  // "is the flag on" — see the no-token branch below, which told the owner to
+  // contact himself because it asked the flag instead of this.
+  let poolAttempted = false;
   if (liveStudioRoamEnabled()) {
     const pooled = await resolveEventBroadcastToken(createAdminClient(), eventId);
     if (pooled) {
       accessToken = pooled.accessToken;
       usedPoolChannel = true;
+      poolAttempted = true;
     }
   }
   if (!accessToken) {
     accessToken = await getEventYoutubeAccessToken(eventId);
   }
   if (!accessToken) {
-    // Flag-aware copy. Telling a host to "connect your YouTube channel" under the
-    // Wave 9 model would be asking them for the exact thing the model removed —
-    // and they cannot fix it, because the missing piece is on Setnayan's side.
+    // ⚠ THIS USED TO BRANCH ON THE FLAG ALONE, AND IT TOLD THE OWNER TO CONTACT
+    // HIMSELF. Under Wave 9 a couple never connects a Google account, so "contact
+    // Setnayan" is right — but ONLY when a Setnayan pool channel was genuinely the
+    // route being attempted. The flag is on in production while the pool holds ZERO
+    // channels and ZERO grants, so every host fell into that branch and was told a
+    // dead end, while the actual fix — press Connect — was hidden from them.
+    //
+    // Branch on what was actually TRIED, not on what is switched on. `poolAttempted`
+    // is true only when the pool resolver was consulted AND handed back a channel;
+    // if it could not, BYO is the live route and Connect is the honest instruction.
+    // Same shape as the wall gate: ask the question the answer depends on.
     return {
-      error: liveStudioRoamEnabled()
+      error: poolAttempted
         ? 'No Setnayan broadcast channel is available for your event yet. This is on our side — please contact Setnayan.'
-        : 'Connect your YouTube channel first',
+        : 'Connect your YouTube channel first — open step 1 above, then press Go live again.',
     };
   }
 
@@ -264,7 +278,25 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
 
     stream = await createYoutubeStream(accessToken, { title });
     await bindYoutubeBroadcast(accessToken, broadcastId, stream.streamId);
-  } catch {
+  } catch (err) {
+    // ⚠ THIS USED TO BE A BARE `} catch {` AND THAT IS WHY NOBODY KNOWS WHY JULY
+    // FAILED. `youtubeFetch` throws an Error already carrying YouTube's status and
+    // the first 300 characters of its JSON body — the reason we most needed — and
+    // dropping the binding destroyed it. Production still holds ZERO
+    // panood_broadcasts rows: no broadcast has ever been created, and the sentence
+    // that would say why was thrown away every time.
+    //
+    // Two separate obligations, and the old code met neither:
+    //   • WRITE IT DOWN. console.error is the only durable record; a failure that
+    //     explains nothing teaches the same amount as one that never happened.
+    //   • SAY THE RIGHT NEXT ACTION. The old copy hedged across three unrelated
+    //     causes and pointed at "reconnect", which is wrong for two of them — it
+    //     burns a working connection and changes nothing.
+    const failure = classifyGoLiveFailure(err);
+    console.error(
+      `[go-live] event=${eventId} pool=${usedPoolChannel} kind=${failure.kind} :: ${failure.detail}`,
+    );
+
     // Wave 9: a pool-channel failure is not the host's to fix, and the channel
     // must go back so the next event is not blocked behind a broken one. Only
     // released when nothing is riding on it (releasePoolChannelIfIdle).
@@ -275,10 +307,7 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
           'YouTube could not create the broadcast on the Setnayan channel. This is on our side — please contact Setnayan.',
       };
     }
-    return {
-      error:
-        'YouTube could not create the broadcast. This usually means the YouTube connection needs reconnecting, or live streaming is not yet enabled on your channel. Try reconnecting in step 1.',
-    };
+    return { error: failure.message };
   }
 
   // (e) Persist the broadcast (with the secret stream key). createPanoodBroadcast

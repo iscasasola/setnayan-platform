@@ -126,6 +126,17 @@ export function buildYoutubeAuthorizeUrl(input: {
     redirectUri: input.redirectUri,
     scopes: YOUTUBE_OAUTH_SCOPES,
     state: input.state,
+    // ⭐ FORCE THE ACCOUNT CHOOSER. Without it Google silently reuses whichever
+    // session the browser is already signed into, so someone signed into more than
+    // one Google account can authorise the WRONG channel — and we would store it,
+    // display its name, and report "Connected". The broadcast would then go out on
+    // a personal channel.
+    //
+    // `lib/papic-drive.ts` already passes exactly this, with the same reasoning in
+    // its comment; the YouTube builder never got it. Cheap, and it removes the one
+    // silent way to connect the wrong thing — which matters most on the FIRST
+    // connect, when nobody yet has a name on screen to compare against.
+    prompt: 'select_account consent',
   });
 }
 

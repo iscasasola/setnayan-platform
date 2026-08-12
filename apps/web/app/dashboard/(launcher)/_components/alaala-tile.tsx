@@ -3,6 +3,7 @@ import { Play, Sparkles } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
 import { fetchMomentGraph } from '@/lib/life-story-moment-graph';
+import { lifeFlashSummaryLine } from '@/lib/life-story-summary-line';
 import { orbBackground } from '../../(account)/life-flash/_components/placeholder';
 import { AlaalaLenses, type AlaalaLensKey } from './alaala-lenses';
 
@@ -82,12 +83,10 @@ export async function AlaalaTile({
     }
   }
 
-  const whoLine =
-    momentCount > 0
-      ? `${momentCount} ${momentCount === 1 ? 'moment' : 'moments'} · ${peopleCount} ${
-          peopleCount === 1 ? 'person' : 'people'
-        } who made them — gathered while you’re living them`
-      : 'Moments gather here live, from every celebration you’re part of.';
+  // Built in lib/ because this component is async and the unit runner cannot
+  // import it — the sentence is guarded there. It omits the people clause when
+  // nobody is tagged rather than printing "· 0 people who made them".
+  const whoLine = lifeFlashSummaryLine(momentCount, peopleCount);
 
   // ── Lens bodies — server-rendered, REAL state only ────────────────────────
   const bodies: Record<AlaalaLensKey, React.ReactNode> = {

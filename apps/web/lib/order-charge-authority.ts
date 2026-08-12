@@ -48,6 +48,7 @@ import {
   resolveBundleChargeResolution,
 } from '@/lib/v2-catalog';
 import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
+import type { AiPriceContext } from './setnayan-ai-type-pricing';
 import {
   SETNAYAN_AI_SKU,
   resolveSetnayanAiTypeChargeCentavos,
@@ -81,6 +82,17 @@ export type ChargeAuthorityInput = {
    * nullable: a null simply fails to resolve a price and is refused.
    */
   eventId: string | null;
+  /**
+   * 🔒 WHICH PRICE APPLIES — AND THIS FIELD IS NOT THE BROWSER'S TO SET.
+   *
+   * Setnayan AI is cheaper when bought while the event is being created
+   * (owner-locked 2026-08-12). `'onboarding'` may be passed ONLY by the
+   * server-side event-commit path, which is unreachable from a client: nothing
+   * in a request body is ever mapped onto it. It DEFAULTS to `'regular'`, so a
+   * future call site that forgets it charges full price — the safe direction.
+   * Getting this backwards would let anyone buy at the discount for ever.
+   */
+  priceContext?: AiPriceContext;
 };
 
 /**
@@ -107,7 +119,7 @@ export type ChargeAuthorityInput = {
 export async function resolveOrderChargeCentavos(
   input: ChargeAuthorityInput,
 ): Promise<OrderChargeAuthority> {
-  const { serviceKey, eventId } = input;
+  const { serviceKey, eventId, priceContext = 'regular' } = input;
 
   let admin: SupabaseClient;
   try {
@@ -141,7 +153,11 @@ export async function resolveOrderChargeCentavos(
     // catalog charge stands, byte-identical to before.
     if (serviceKey === SETNAYAN_AI_SKU && eventId) {
       if (await resolveSetnayanAiPerEventPricingEnabled()) {
-        const perType = await resolveSetnayanAiTypeChargeCentavos(admin, eventId);
+        const perType = await resolveSetnayanAiTypeChargeCentavos(
+          admin,
+          eventId,
+          priceContext,
+        );
         if (perType != null) {
           return sealServerResolvedTotal(perType, 'setnayan_ai_event_type');
         }

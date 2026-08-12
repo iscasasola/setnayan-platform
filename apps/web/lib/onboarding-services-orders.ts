@@ -164,6 +164,11 @@ export async function mintOnboardingServiceOrders(
       const charge = await resolveOrderChargeCentavos({
         serviceKey: SETNAYAN_AI_SKU,
         eventId,
+        // 🔒 THE ONLY PLACE IN THE APP THAT MAY ASK FOR THE SIGN-UP PRICE.
+        // This module runs server-side off the event-commit path and nothing in
+        // a request body reaches this literal, so a browser cannot buy at the
+        // discount later. Everywhere else defaults to the regular price.
+        priceContext: 'onboarding',
       });
       if (!charge.ok) {
         console.warn('[onboarding-services-orders] AI charge refused:', charge.refusal);

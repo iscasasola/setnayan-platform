@@ -21,6 +21,7 @@ import { resolveSetnayanAiOrderPricePhp } from './setnayan-ai-pricing';
 import {
   setnayanAiTierSkuForEventType,
   setnayanAiTierFallbackPhp,
+  type AiPriceContext,
 } from './setnayan-ai-type-pricing';
 
 /** The intro catalog SKU (₱499 first cycle) — the live per-event AI row. */
@@ -39,18 +40,35 @@ export const SETNAYAN_AI_RENEW_SKU = 'SETNAYAN_AI_RENEW';
 export async function resolveSetnayanAiTypePricePhp(
   client: SupabaseClient,
   eventType: string | null | undefined,
+  context: AiPriceContext = 'regular',
 ): Promise<number> {
   const sku = setnayanAiTierSkuForEventType(eventType);
   if (sku === null) return 0; // Tier E — Setnayan AI is not present for this type.
   const { data } = await client
     .from('platform_retail_catalog_v2')
-    .select('retail_price_php')
+    .select('retail_price_php, onboarding_price_php')
     .eq('service_code', sku)
     .maybeSingle();
-  const catalogPhp = (data as { retail_price_php?: number | null } | null)?.retail_price_php;
-  return typeof catalogPhp === 'number' && Number.isFinite(catalogPhp) && catalogPhp > 0
-    ? catalogPhp
-    : setnayanAiTierFallbackPhp(eventType);
+  const row = data as
+    | { retail_price_php?: number | null; onboarding_price_php?: number | null }
+    | null;
+
+  const usable = (v: unknown): v is number =>
+    typeof v === 'number' && Number.isFinite(v) && v > 0;
+
+  // 🔑 THE SIGN-UP PRICE FALLS BACK TO THE REGULAR ONE, NEVER TO ZERO OR TO FREE.
+  // `onboarding_price_php` is nullable and means "no sign-up discount for this
+  // service" — most rows have none. Reading NULL as 0 would hand the product
+  // away; reading it as "skip the discount" is the only safe direction, and it
+  // is also what a service with no discount genuinely wants.
+  if (context === 'onboarding' && usable(row?.onboarding_price_php)) {
+    return row!.onboarding_price_php as number;
+  }
+  if (usable(row?.retail_price_php)) {
+    // An onboarding read with no discount on the row pays the regular price.
+    return row!.retail_price_php as number;
+  }
+  return setnayanAiTierFallbackPhp(eventType, context);
 }
 
 /**
@@ -62,6 +80,7 @@ export async function resolveSetnayanAiTypePricePhp(
 export async function resolveSetnayanAiTypeChargeCentavos(
   admin: SupabaseClient,
   eventId: string,
+  context: AiPriceContext = 'regular',
 ): Promise<number | null> {
   const { data: ev } = await admin
     .from('events')
@@ -70,7 +89,7 @@ export async function resolveSetnayanAiTypeChargeCentavos(
     .maybeSingle();
   if (!ev) return null;
   const eventType = (ev as { event_type?: string | null }).event_type ?? null;
-  const pricePhp = await resolveSetnayanAiTypePricePhp(admin, eventType);
+  const pricePhp = await resolveSetnayanAiTypePricePhp(admin, eventType, context);
   return Math.round(pricePhp * 100);
 }
 

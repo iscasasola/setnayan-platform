@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveSetnayanAiPerEventPricingEnabled } from './integration-config';
+import type { AiPriceContext } from './setnayan-ai-type-pricing';
 import {
   SETNAYAN_AI_SKU,
   resolveSetnayanAiTypePricePhp,
@@ -59,9 +60,15 @@ import { setnayanAiTierSkuForEventType } from './setnayan-ai-type-pricing';
 export async function resolveSetnayanAiDisplayPricePhp(
   client: SupabaseClient,
   eventType: string | null | undefined,
+  /**
+   * Which price to SHOW. Must match the context the charge path will use for
+   * the same button, or the screen makes a promise checkout will not keep.
+   * `onboarding` on the sign-up card; `regular` everywhere else.
+   */
+  context: AiPriceContext = 'regular',
 ): Promise<number> {
   if (await resolveSetnayanAiPerEventPricingEnabled()) {
-    return resolveSetnayanAiTypePricePhp(client, eventType);
+    return resolveSetnayanAiTypePricePhp(client, eventType, context);
   }
   // Flag off — checkout will charge the flat SETNAYAN_AI row, so show exactly
   // that. Tier E still shows nothing: with no vendors there is no product to buy,
@@ -69,9 +76,19 @@ export async function resolveSetnayanAiDisplayPricePhp(
   if (setnayanAiTierSkuForEventType(eventType) === null) return 0;
   const { data } = await client
     .from('platform_retail_catalog_v2')
-    .select('retail_price_php')
+    .select('retail_price_php, onboarding_price_php')
     .eq('service_code', SETNAYAN_AI_SKU)
     .maybeSingle();
-  const flat = (data as { retail_price_php?: number | null } | null)?.retail_price_php;
-  return typeof flat === 'number' && Number.isFinite(flat) && flat > 0 ? flat : 0;
+  const row = data as
+    | { retail_price_php?: number | null; onboarding_price_php?: number | null }
+    | null;
+  const usable = (v: unknown): v is number =>
+    typeof v === 'number' && Number.isFinite(v) && v > 0;
+  // Even with the per-type model off, the sign-up discount still applies —
+  // otherwise the card would show the regular price and checkout would take
+  // the cheaper one, which is the same disagreement in the other direction.
+  if (context === 'onboarding' && usable(row?.onboarding_price_php)) {
+    return row!.onboarding_price_php as number;
+  }
+  return usable(row?.retail_price_php) ? (row!.retail_price_php as number) : 0;
 }

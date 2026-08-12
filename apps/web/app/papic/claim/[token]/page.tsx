@@ -73,6 +73,13 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
     );
   }
 
+  // 🔴 BOT CHECK REFUSED — the link is FINE. Deliberately NOT folded into the
+  // terminal branch below: that one says "ask the host for a new link", which
+  // sends a crew member re-scanning a QR that was never the problem. This one
+  // falls through to the claim CTA further down, so the form (and a FRESH
+  // challenge) come back and one more tap works.
+  const botCheckRefused = state === 'verify';
+
   // Invalid / expired / soft error.
   if (state === 'invalid' || state === 'error') {
     return (
@@ -105,6 +112,16 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
         photo you shoot lands straight in the host&rsquo;s gallery — no app to
         install{user ? '' : ', no sign-up'}.
       </p>
+      {botCheckRefused ? (
+        <p
+          role="alert"
+          className="mt-4 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-2 text-sm text-ink/80"
+        >
+          That didn&rsquo;t get past our quick &ldquo;are you a robot?&rdquo;
+          check &mdash; usually just a tap that landed a second too early.
+          Your link is fine. Give it one more go.
+        </p>
+      ) : null}
       <form action={claimPapicSeat} className="mt-5">
         <input type="hidden" name="token" value={token} />
         {/*

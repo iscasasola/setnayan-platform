@@ -70,6 +70,37 @@ export function TurnstileField({ action }: { action?: string }) {
     if (!TURNSTILE_SITE_KEY || !holderRef.current) return;
     let widgetId: string | undefined;
     let cancelled = false;
+    const form = holderRef.current.closest('form');
+
+    /**
+     * 🔴 A TURNSTILE TOKEN IS SINGLE-USE, AND A FAILED SUBMIT DOES NOT REMOUNT US.
+     *
+     * Every one of these forms is a server action that ends in `redirect()` back
+     * to the same route on failure. That is an RSC navigation, NOT a fresh page
+     * load: React keeps this component in the same tree position, the effect
+     * above never re-runs, and the hidden input still holds the token the server
+     * just consumed. Cloudflare rejects a replayed token, so the SECOND attempt
+     * fails no matter what the person types — and the third, and the fourth.
+     *
+     * The failure is invisible in every environment we can test in, because with
+     * no site key none of this renders at all.
+     *
+     * So: the moment the surrounding form is submitted, spend the token locally
+     * too — blank the input and ask Cloudflare for a fresh one. The browser has
+     * already serialised the old value into the POST by the time `submit`
+     * fires, so this cannot rob the in-flight request of its token.
+     */
+    const onSubmit = () => {
+      if (inputRef.current) inputRef.current.value = '';
+      if (widgetId && window.turnstile) {
+        try {
+          window.turnstile.reset(widgetId);
+        } catch {
+          /* widget already gone — the next mount will make a new one */
+        }
+      }
+    };
+    form?.addEventListener('submit', onSubmit);
 
     loadTurnstileScript()
       .then(() => {
@@ -98,6 +129,7 @@ export function TurnstileField({ action }: { action?: string }) {
 
     return () => {
       cancelled = true;
+      form?.removeEventListener('submit', onSubmit);
       if (widgetId && window.turnstile) {
         try {
           window.turnstile.remove(widgetId);

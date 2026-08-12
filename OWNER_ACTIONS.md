@@ -1364,9 +1364,27 @@ minutes.
    - **`/forgot-password` — ask for a reset link and confirm it arrives**
    - **open a Papic claim link on a phone and tap "Start shooting"**
 
-   All five should behave normally (the challenge stays invisible for you). If any
-   fails with a "captcha" error, re-check that step 2's redeploy finished before
-   step 3.
+   Four of the five should behave normally (the challenge stays invisible for
+   you). If any fails with a "captcha" error, re-check that step 2's redeploy
+   finished before step 3.
+
+   ⚠ **THE FIFTH IS EXPECTED TO BE SLIGHTLY WORSE, BY DESIGN — do not report it
+   as a bug.** Creating an account on `/signup` will land you on the sign-in
+   page asking for the password you just chose, instead of signing you straight
+   in. A bot-check stamp can only be used once and the sign-up itself spends it,
+   so the automatic sign-in that follows has nothing left to present. Fixing it
+   would mean a second challenge on the highest-intent form in the product. It
+   is one extra password entry, it is not a lockout, and it is written down in
+   the code so it cannot quietly become one.
+
+   ⚠ **PREVIEW AND LOCAL COPIES OF THE SITE WILL STOP LETTING ANYONE IN.**
+   Supabase's captcha switch is per-project, not per-environment — the moment
+   you flip it, every deployment pointed at that project demands a stamp, and
+   preview builds and your laptop have no site key to produce one. If you want
+   those to keep working, set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` in the Preview
+   and Development environments too, to Cloudflare's public always-passes
+   testing key `1x00000000000000000000AA`. That key is for non-production ONLY;
+   never put it in Production, where it would wave every bot through.
 
 **The anonymous flows — what's covered.** There are **four** anonymous sign-in
 paths (this said three and missed the last one). All four are wired:

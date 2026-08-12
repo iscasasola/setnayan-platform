@@ -31,7 +31,7 @@ import {
   type EventPoolStatus,
 } from '@/lib/papic-event-pool';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
-import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
+import { captchaOptions, captchaTokenFromForm, isCaptchaRefusal } from '@/lib/turnstile';
 import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
 import { captureWindowState } from '@/lib/papic-window';
 
@@ -123,7 +123,18 @@ export async function claimPapicSeat(formData: FormData) {
         });
       if (anonError || !anon.user) {
         console.error('[claimPapicSeat] anon sign-in failed:', anonError?.message);
-        redirect(`/papic/claim/${token}?state=error`);
+        // 🔴 A BOT-CHECK REFUSAL IS NOT A DEAD LINK. `?state=error` renders
+        // "This link isn't active — ask the host for your latest claim link",
+        // which is a TERMINAL screen with no form and no retry. Told that, a
+        // photo-crew member at a wedding re-scans the same QR and hits the same
+        // wall; their link was fine all along. Captcha makes this reachable for
+        // the most ordinary reason there is — tapping a moment before the check
+        // finished — so it gets its own retryable state.
+        redirect(
+          `/papic/claim/${token}?state=${
+            isCaptchaRefusal(anonError) ? 'verify' : 'error'
+          }`,
+        );
       }
       user = anon.user;
     } else {

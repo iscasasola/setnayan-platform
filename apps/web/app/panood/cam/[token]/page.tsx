@@ -104,6 +104,12 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
     );
   }
 
+  // 🔴 BOT CHECK REFUSED — the link is FINE. See the twin note in
+  // app/papic/claim/[token]/page.tsx: the terminal branch below tells the
+  // operator to ask for a new camera link, which is the wrong instruction when
+  // all that happened is a tap landing before the check finished.
+  const botCheckRefused = state === 'verify';
+
   // Invalid / expired / revoked / soft error.
   if (state === 'invalid' || state === 'error') {
     return (
@@ -136,6 +142,16 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
         The couple&rsquo;s operator picks which camera is on screen — you just keep
         the shot framed. No app to install{user ? '' : ', no sign-up'}.
       </p>
+      {botCheckRefused ? (
+        <p
+          role="alert"
+          className="mt-4 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-2 text-sm text-ink/80"
+        >
+          That didn&rsquo;t get past our quick &ldquo;are you a robot?&rdquo;
+          check &mdash; usually just a tap that landed a second too early.
+          Your link is fine. Give it one more go.
+        </p>
+      ) : null}
       <form action={claimPanoodCamera} className="mt-5">
         <input type="hidden" name="token" value={token} />
         {/*

@@ -52,3 +52,28 @@ export function captchaTokenFromForm(formData: FormData): string | undefined {
   const t = String(formData.get('captcha_token') ?? '').trim();
   return t || undefined;
 }
+
+/**
+ * Was this auth failure the BOT CHECK refusing, rather than something being
+ * genuinely wrong?
+ *
+ * WHY IT MATTERS: the two need different screens. A bad or reissued claim token
+ * is terminal — "ask the host for a new link" is the right answer. A bot-check
+ * refusal is the opposite: the link is perfect, the person just needs to try
+ * again, and the most ordinary way to hit it is tapping a moment before the
+ * check finished. Telling them their invitation is dead sends them re-scanning
+ * a QR that was never the problem.
+ *
+ * GoTrue reports these as a 400 whose message names captcha, e.g.
+ * "captcha protection: request disallowed (invalid-input-response)". Matched on
+ * the word rather than a code because the codes have moved between releases and
+ * the consequence of a miss is only that we show the harsher screen — this
+ * fails toward the existing behaviour, never toward letting someone through.
+ */
+export function isCaptchaRefusal(
+  error: { message?: string | null; code?: string | null } | null | undefined,
+): boolean {
+  if (!error) return false;
+  const haystack = `${error.message ?? ''} ${error.code ?? ''}`.toLowerCase();
+  return haystack.includes('captcha');
+}

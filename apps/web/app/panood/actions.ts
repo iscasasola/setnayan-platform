@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { panoodCameraAnonEnabled, panoodStreamingEnabled } from '@/lib/panood-camera-seats';
-import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
+import { captchaOptions, captchaTokenFromForm, isCaptchaRefusal } from '@/lib/turnstile';
 import { mintTurnIceServers } from '@/lib/turn';
 
 // Panood · camera-operator (claimer) actions — the public camera-join surface.
@@ -95,7 +95,14 @@ export async function claimPanoodCamera(formData: FormData) {
           '[claimPanoodCamera] anon sign-in failed:',
           anonError?.message,
         );
-        redirect(`/panood/cam/${token}?state=error`);
+        // Same split as claimPapicSeat: `?state=error` is a TERMINAL screen
+        // ("this link isn't active") with no retry, and a bot-check refusal is
+        // the one failure where the link is perfectly fine. See ./papic.
+        redirect(
+          `/panood/cam/${token}?state=${
+            isCaptchaRefusal(anonError) ? 'verify' : 'error'
+          }`,
+        );
       }
       user = anon.user;
     } else {

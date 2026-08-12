@@ -9,10 +9,10 @@ import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
 
-export const metadata = { title: 'Real Stories · Vendor' };
+export const metadata = { title: 'Stories · Vendor' };
 
 /**
- * Vendor "Featured in Real Stories" — the weddings this vendor helped create
+ * Vendor "Featured in Stories" — the weddings this vendor helped create
  * that the couple has published to the public showcase (/realstories), each
  * ready to SHARE to the vendor's Facebook Page.
  *
@@ -56,12 +56,12 @@ export default async function VendorRealStoriesPage() {
           <Sparkles aria-hidden className="h-5 w-5" strokeWidth={1.75} />
         </span>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Featured in Real Stories
+          Featured in Stories
         </h1>
         <p className="max-w-prose text-base text-ink/65">
           When a couple you worked with publishes their wedding to{' '}
           <Link href="/realstories" className="font-medium text-terracotta underline">
-            Real Stories
+            Stories
           </Link>
           , it shows up here — with your profile credited in the story. Share it
           to your Facebook Page in one tap: it&rsquo;s real proof of your work,
@@ -97,7 +97,7 @@ export default async function VendorRealStoriesPage() {
               >
                 <div>
                   <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
-                    Featured in Real Stories
+                    Featured in Stories
                   </p>
                   <h2 className="mt-1.5 text-lg font-semibold leading-snug text-ink">
                     {s.coupleNames}

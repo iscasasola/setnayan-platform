@@ -430,7 +430,7 @@ export function RealStoriesGallery({ items }: { items: GalleryItem[] }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by name, city, milestone, theme…"
-          aria-label="Search real stories"
+          aria-label="Search stories"
           className="h-12 w-full rounded-full border border-ink/15 bg-white/70 pl-11 pr-11 text-[15px] text-ink outline-none transition placeholder:text-ink/40 focus:border-terracotta/50 focus:bg-white"
         />
         {query ? (

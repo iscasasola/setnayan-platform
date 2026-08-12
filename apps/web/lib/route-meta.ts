@@ -139,7 +139,7 @@ export const routeMeta = {
     payments: { icon: Banknote, label: 'Payments' },
     payouts: { icon: Wallet, label: 'Payouts' },
     pricing: { icon: DollarSign, label: 'Pricing' },
-    realStories: { icon: Newspaper, label: 'Real Stories' },
+    realStories: { icon: Newspaper, label: 'Stories' },
     recaps: { icon: Images, label: 'Recaps' },
     receipts: { icon: Receipt, label: 'Receipts' },
     // 'refinements' route-meta REMOVED 2026-07-03 — mirrors routes.ts; the
@@ -261,7 +261,7 @@ export const routeMeta = {
     paymentOptions: { icon: Wallet, label: 'How clients pay you' },
     profile: { icon: User, label: 'Profile' },
     proposals: { icon: FileText, label: 'Proposals' },
-    realStories: { icon: Sparkles, label: 'Real Stories' },
+    realStories: { icon: Sparkles, label: 'Stories' },
     recaps: { icon: Images, label: 'Recaps' },
     repertoire: { icon: Music, label: 'Repertoire' },
     reviews: { icon: Star, label: 'Reviews' },

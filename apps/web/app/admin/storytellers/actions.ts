@@ -150,8 +150,8 @@ async function notifyCreatorChapterFeatured(
     await emitNotification({
       userId,
       type: 'showcase_featured',
-      title: 'Your chapter is featured on Real Stories',
-      body: `“${title}” is now featured in the From Our Storytellers shelf on Setnayan’s Real Stories page.`,
+      title: 'Your chapter is featured on Stories',
+      body: `“${title}” is now featured in the From Our Storytellers shelf on Setnayan’s Stories page.`,
       relatedUrl: '/realstories#storytellers',
     });
   } catch (e) {

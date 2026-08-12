@@ -51,7 +51,7 @@ const SITE_URL = (
 // chapters told by our storytellers. Chapter detail pages stay noindex — only
 // the hub's identity widens; all creator SEO equity concentrates here.
 const HUB_DESCRIPTION =
-  'Real stories from real events — editorial features written by Setnayan, and chapters told by our storytellers. Filipino weddings, debuts, anniversaries, graduations, travels, and reunions, told in full by the people who were there.';
+  'Stories from real events — editorial features written by Setnayan, and chapters told by our storytellers. Filipino weddings, debuts, anniversaries, graduations, travels, and reunions, told in full by the people who were there.';
 
 export const metadata: Metadata = {
   title: 'Stories · Setnayan',
@@ -62,7 +62,7 @@ export const metadata: Metadata = {
     'Filipino debut stories',
     'Filipino anniversary celebration',
     'Philippines life milestones',
-    'Setnayan real stories',
+    'Setnayan stories',
     'Setnayan storytellers',
     'Filipino wedding editorial',
     'Filipino creator wedding video',

@@ -230,8 +230,7 @@ async function CreatorBody({
               strokeWidth={1.5}
             />
             <p className="text-sm text-ink/55">
-              No chapters yet. Create one above, paste your finished edit, then
-              publish.
+              No chapters yet. Create one above, write your story, then publish.
             </p>
           </div>
         ) : (
@@ -483,8 +482,15 @@ function ChapterCard({
           <ChapterEmbedFrame src={c.embed_url} title={c.title} />
         </div>
       ) : (
-        <p className="rounded-tile border border-dashed border-ink/15 p-3 text-xs text-ink/55">
-          No embed yet — paste your finished edit below, then publish.
+        /* ⚠ THIS USED TO READ "No embed yet — paste your finished edit below,
+           then publish", inside a dashed box, on EVERY chapter without a video
+           INCLUDING published ones. It described the retired rule as a required
+           step, so a finished written story permanently read as unfinished and
+           blocked — the publish wall rebuilt in copy after it was removed from
+           the code. A video is optional; its absence needs no warning. */
+        <p className="text-xs text-ink/50">
+          No video on this chapter — that&rsquo;s fine, your story stands on its
+          own. Add a link below any time.
         </p>
       )}
 

@@ -6,6 +6,43 @@ link could open them on the live site**. Owner decision 2026-08-12: take them
 off the open web. They were moved here, not deleted — you still have them, you
 just don't publish them.
 
+## ✅ The prices were CORRECTED on 2026-08-12 (owner: "fix them")
+
+Everything in the next section is **what was wrong before that pass** — kept
+because it is the reason these came down, and because knowing what drifted tells
+you what to re-check next time. **The two decks that actually render
+(`engineering.html`, `vendors.html`) now carry figures read straight out of the
+live catalog**, not retyped:
+
+| | now says |
+|---|---|
+| Live Studio (was "Panood ₱18,000") | **₱2,999 / event** |
+| Papic (was a flat ₱8,000) | **50 free, then ₱50 – ₱5,000** — credits, not a fee |
+| Patiktok (was ₱6,500) | **₱1,500 / day** |
+| Pakanta (was ₱4,500) | **₱2,500** |
+| Vendor verification (was ₱1,499 once) | **FREE** — free during launch |
+| Solo · Pro · Enterprise (Pro was ₱1,999, Ent. ₱5,499) | **₱1,000 · ₱2,500 · ₱8,000 / 28 days** |
+| Bidding tokens (₱1,000–₱18,000 packs) | **gone** — the currency was retired 2026-08-07; answering is free on every tier |
+| Pailaw · LED background loops ₱6,000 | **gone** — the product was removed 2026-08-11 |
+
+**Rows deleted rather than repriced**, because nothing on sale corresponds to
+them: *AI Highlight Reel ₱12,000* · *Photo Delivery ₱3,500* · *Invitation Widgets
+Pro ₱1,500* · *Document update ₱499* · *Boosted Ads ₱1,200/wk*. Quoting a price
+for something we do not sell is the exact defect this pass existed to remove. **If
+any of those is real, restore it with its true rate.**
+
+⏭ **Still open, because it is a product question and not a price:** the
+engineering deck still has a whole chapter on an **"AI Highlight Reel"**, and
+there is no such thing in the catalog. Deleting a chapter is the owner's call,
+so it was left and named here instead.
+
+⚠ **The other 30 component files in `keynote/components/` are never loaded by any
+of the three decks** (621 KB of dead code) and were NOT corrected — including
+`admin-dashboard.jsx`, which holds the worst content of all: every add-on with a
+`takeRate: 5`, contradicting the "0% commission" the decks themselves promise.
+Nobody can reach it. If you ever wire one of those files into a deck, read it
+first.
+
 ## What was in them, and why that mattered
 
 They are a **snapshot of 2026-05-28** and the product moved a long way after
@@ -73,7 +110,10 @@ Moving either folder back under `apps/web/public/` republishes it — and
 `apps/web/lib/no-published-decks.test.ts` will fail on purpose to make sure that
 is a decision someone took deliberately, not an accident. ⚠ That test knows the
 two names `keynote` and `proto` and nothing else: publishing this material under
-a *different* folder name would sail straight through. **Fix the prices first.**
+a *different* folder name would sail straight through. **The à-la-carte and tier
+prices were fixed on 2026-08-12** (see the top of this file) — what remains before
+a republish is the "AI Highlight Reel" chapter, the prototype page's own numbers,
+and a fresh read of anything not listed there.
 
 ⚠️ **And republishing is not the only way these stay readable.** Vercel keeps
 every past deployment URL alive, this repo is public, and GitHub's deployments

@@ -199,7 +199,7 @@ const SetnayanArchitecture = () => (
               <tspan x="500" dy="0">0% commission</tspan>
               <tspan x="500" dy="18">vendor-to-couple direct</tspan>
               <tspan x="500" dy="18">first-party Productions</tspan>
-              <tspan x="500" dy="18">tokens · referrals</tspan>
+              <tspan x="500" dy="18">referrals</tspan>
             </text>
           </>
         )}
@@ -250,7 +250,7 @@ const T04 = () => (
     </Reveal>
     <Reveal delay={300}>
       <TBody>
-        Vendors pay <strong style={{ color: "var(--ink)" }}>₱1,499 once</strong> to be verified —
+        Verification is <strong style={{ color: "var(--ink)" }}>free during launch</strong> —
         not <strong style={{ color: "var(--ink)" }}>₱299 every month forever</strong>, the way
         other platforms charge to stay listed. Claude reads their three documents (DTI, BIR,
         Mayor&apos;s permit), extracts the fields, and runs a cross-document plausibility check.
@@ -261,7 +261,7 @@ const T04 = () => (
     </Reveal>
     <Reveal delay={600}>
       <StatRow stats={[
-        { label: "One-time fee",     value: "₱1,499",    hint: "vs ₱299/mo elsewhere" },
+        { label: "Cost to verify",   value: "₱0",        hint: "free during launch" },
         { label: "Target SLA",       value: "24h",       hint: "current avg 18h" },
         { label: "Human-approved",   value: "100%",      hint: "founder policy" },
         { label: "Auto-approve",     value: "Never",     hint: "by design" },
@@ -300,7 +300,7 @@ const T05 = () => (
         Every vendor booking on Setnayan is between the vendor and the couple — directly.
         We don't process the payment, we don't take a cut, we don't see the money. The vendor
         keeps <strong style={{ color: "var(--paper)" }}>100%</strong> of what they list (minus their own
-        EWT). The couple pays exactly what they see. Setnayan earns from subscriptions, tokens,
+        EWT). The couple pays exactly what they see. Setnayan earns from subscriptions,
         and our own Productions services — not from your wedding budget.
       </TBody>
     </Reveal>
@@ -419,7 +419,7 @@ const T07 = () => (
 
 // ─── 08 · Deep dive 05 · Panood + Reel ─────────────────────────────────────
 const T08 = () => (
-  <TChapter num={8} eyebrow="Deep dive 05 · Panood + AI Reel">
+  <TChapter num={8} eyebrow="Deep dive 05 · Live Studio + AI Reel">
     <Reveal>
       <TH1 size={80} sub="Five cameras. One broadcast. AI-cut reel before dinner ends.">
         THE WHOLE DAY<br />ON A FEED.
@@ -427,9 +427,9 @@ const T08 = () => (
     </Reveal>
     <Reveal delay={300}>
       <TBody>
-        Panood gives the couple up to five cameras — broadcaster operates a single live mix to
+        Live Studio gives the couple up to five cameras — broadcaster operates a single live mix to
         YouTube with a custom monogram and the chosen Broadcast Style Pack. Sub-5-second latency.
-        After the ceremony, AI Highlight Reel pulls the best moments from Panood + Papic feeds,
+        After the ceremony, AI Highlight Reel pulls the best moments from Live Studio + Papic feeds,
         cuts a 90-second reel, delivers it to the couple before dinner ends. Optional content
         team (1–3 Setnayan personnel) attends for case-study documentation, disclosed to all
         vendors at booking.
@@ -437,7 +437,7 @@ const T08 = () => (
     </Reveal>
     <Reveal delay={600}>
       <StatRow stats={[
-        { label: "Cameras",            value: "5",       hint: "Panood mix" },
+        { label: "Cameras",            value: "5",       hint: "Live Studio mix" },
         { label: "Stream latency",     value: "<5s",     hint: "1080p · YouTube" },
         { label: "Reel turnaround",    value: "≤30 min", hint: "after ceremony" },
         { label: "Content team",       value: "1–3",     hint: "optional · disclosed" },
@@ -458,7 +458,7 @@ const T09 = () => (
       {[
         { tag: "PAKULAY",         title: "Mood-board sanity check", body: "Claude scans your mood board for contrast, cultural conflicts, and print-readiness issues before you spend a peso on printers." },
         { tag: "TODAY'S FOCUS",    title: "Your daily co-pilot",    body: "Surfaces the one decision that matters today based on upcoming milestones. Sends the email, prints the QR sheet, locks the count." },
-        { tag: "AI HIGHLIGHT REEL", title: "Same-day wedding video",  body: "Cuts a 90-second highlight from Papic + Panood feeds before the reception ends. Goes to your socials before dessert." },
+        { tag: "AI HIGHLIGHT REEL", title: "Same-day wedding video",  body: "Cuts a 90-second highlight from Papic + Live Studio feeds before the reception ends. Goes to your socials before dessert." },
         { tag: "PAKANTA",          title: "Your wedding's song",     body: "AI composes a custom first-dance song from your vows + story. Cleared license, ready for the livestream and the highlight reel." },
       ].map((c, i) => (
         <Reveal key={c.tag} delay={i * 150}>
@@ -596,16 +596,42 @@ const T_PRICING = () => (
         <div className="mono" style={{ fontSize: 11, color: "var(--orange-2)", letterSpacing: "0.16em" }}>☆ SETNAYAN PRODUCTIONS · PAY-PER-USE</div>
         <div style={{ fontFamily: "var(--display)", fontWeight: 800, fontSize: 36, color: "var(--ink)", marginTop: 4 }}>à LA CARTE</div>
         <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 8 }}>
+          {/*
+            REBUILT 2026-08-12 from the LIVE catalog (platform_retail_catalog_v2,
+            is_active = true), not from the previous list. Every figure below was
+            read out of the database; none was carried over.
+
+            What the old list said, and why each line changed:
+              • Panood · multi-cam livestream  ₱18,000 → the product is now LIVE
+                STUDIO at ₱2,999 per event. "Panood" stopped being the customer
+                name on 2026-06-29.
+              • Papic  ₱8,000 → Papic is not a flat fee. It is credits: 50 free,
+                then ₱50 / ₱1,000 / ₱3,000 / ₱5,000 rungs. Cameras are free.
+              • Patiktok ₱6,500 → ₱1,500 per day.
+              • Pakanta  ₱4,500 → ₱2,500.
+              • Pailaw · LED background loops ₱6,000 → REMOVED FROM THE PRODUCT
+                2026-08-11. Nothing ever produced the 8K file or the posted USB
+                it promised.
+              • AI Highlight Reel ₱12,000 · Photo Delivery ₱3,500 · Invitation
+                Widgets Pro ₱1,500 → DROPPED: no such thing is on sale. Quoting a
+                price for something we do not sell is the defect this list had.
+            Rows added because they are real and were missing: Setnayan AI, the
+            couple website, the monogram, 3D plan, Pabati, thank-you video, Kwento.
+          */}
           {[
-            { name: "Pakulay · Mood board",            price: "FREE",          note: "included · cultural conflict catcher" },
-            { name: "Invitation Widgets · Pro",        price: "from ₱1,500",   note: "premium themes, custom domain, audio" },
-            { name: "Photo Delivery · full-res handoff", price: "from ₱3,500", note: "photographer&apos;s Drive → your gallery" },
-            { name: "Pakanta · AI wedding song",        price: "from ₱4,500",   note: "royalty-free, cleared for stream + reel" },
-            { name: "Pailaw · LED background loops",    price: "from ₱6,000",   note: "8K, USB-deliverable for offline" },
-            { name: "Patiktok · vertical photo booth",  price: "from ₱6,500",   note: "30-sec clips, next-day compilation" },
-            { name: "Papic · paparazzi app for guests", price: "from ₱8,000",   note: "real-time tagged photos, no app install" },
-            { name: "AI Highlight Reel · same-day",     price: "from ₱12,000",  note: "90-sec edit before reception ends" },
-            { name: "Panood · multi-cam livestream",    price: "from ₱18,000",  note: "4K · 5 cameras · broadcast style pack" },
+            { name: "Pakulay · Mood board",             price: "FREE",          note: "included · cultural conflict catcher" },
+            { name: "Custom QR per guest",              price: "FREE",          note: "one branded code per guest" },
+            { name: "Kwento · words on a photo",        price: "₱299",          note: "guests leave a line beside the shot" },
+            { name: "Animated Monogram",                price: "₱1,000",        note: "your mark, drawn to life on QR + page" },
+            { name: "Pabati · video guestbook",         price: "₱1,299",        note: "5-second messages from the people there" },
+            { name: "Patiktok · vertical photo booth",  price: "₱1,500 / day",  note: "30-sec clips, next-day compilation" },
+            { name: "3D Plan · reception walk",         price: "₱1,500",        note: "walk the room before the day" },
+            { name: "Setnayan AI · assisted planner",   price: "₱1,499",        note: "roadmap, nudges, vendor matching" },
+            { name: "Pakanta · AI wedding song",        price: "₱2,500",        note: "royalty-free, cleared for stream + reel" },
+            { name: "Thank-You video",                  price: "₱2,499",        note: "one film for everyone who came" },
+            { name: "Live Studio · livestream",         price: "₱2,999 / event", note: "one price, every camera, no per-cam fee" },
+            { name: "Couple Website PRO",               price: "₱3,500",        note: "the full page + the cinematic reveal" },
+            { name: "Papic · guest paparazzi",          price: "50 free, then ₱50–₱5,000", note: "credits, not a fee · cameras are free" },
             { name: "Supplies · vetted vendors",        price: "vendor-set",    note: "prints, rentals, decor · one invoice" },
           ].map((row) => (
             <div key={row.name} style={{ padding: "10px 12px", background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line-soft)" }}>
@@ -800,7 +826,7 @@ const SetnayanCollage = () => (
     }}>
       <CTile tone="blush"  tag="01 · Per-guest QR"  title="Every guest"     sub="lands on their own door." />
       <CTile tone="paper"  tag="02 · Papic"          title="Photos sort"     sub="themselves, in real time." />
-      <CTile tone="orange" tag="03 · Panood"         title="5-cam 4K"        sub="livestream to YouTube." />
+      <CTile tone="orange" tag="03 · Live Studio"    title="5-cam 4K"        sub="livestream to YouTube." />
       <CTile tone="ink"    tag="04 · AI Reel"        title="Same-day"        sub="reel before dinner ends." />
 
       <CTile tone="sage"   tag="05 · Pakulay"        title="Mood-board"      sub="catches cultural conflicts." />
@@ -813,7 +839,7 @@ const SetnayanCollage = () => (
       <CTile tone="orange" tag="09 · Reviews"          title="Real verdicts"    sub="from real Setnayan couples." />
       <CTile tone="ink"    tag="10 · Today's Focus"       title="Hand-matched"     sub="couples to vendors." />
       <CTile tone="sage"   tag="11 · Microsite"      title="5 phases"        sub="auto-evolve on the date." />
-      <CTile tone="paper"  tag="12 · Tokens"         title="₱180–₱250"       sub="vendor bidding currency." />
+      <CTile tone="paper"  tag="12 · Answering"      title="FREE"            sub="every tier · no per-lead fee." />
     </div>
 
     <div style={{ maxWidth: 1400, margin: "36px auto 0", textAlign: "center" }}>
@@ -879,7 +905,7 @@ const SLIDE_BGS = [
   "var(--ink)",    // 02 0% commission (T05)
   "var(--paper)",  // 03 Personal website (T06)
   "var(--ink)",    // 04 Papic (T07)
-  "var(--paper)",  // 05 Panood + Reel (T08)
+  "var(--paper)",  // 05 Live Studio + Reel (T08)
   "var(--ink)",    // 06 AI layer (T09, customer-only)
   "var(--paper)",  // 07 Ops layer (T10, customer reassurance)
   "var(--ivory)",  // 08 Built for Filipino weddings (T_PH)

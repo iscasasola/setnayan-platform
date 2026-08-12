@@ -157,7 +157,7 @@ const V02 = () => (
     </VH1>
     <div style={{ marginTop: 48, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px,42vw), 1fr))", gap: 12 }}>
       {[
-        { tag: "INBOX",     title: "Bid → Chat → Quote → Accept", body: "Couple requests a bid. You spend 1 token to accept. You chat, finalize the pricing together, customer accepts." },
+        { tag: "INBOX",     title: "Bid → Chat → Quote → Accept", body: "Couple requests a bid. You accept — free, on every tier. You chat, finalize the pricing together, customer accepts." },
         { tag: "CALENDAR",  title: "Schedules that scale", body: "Pro and Enterprise vendors can take multiple events per day. We keep your bookings, prep windows, and crew assignments in sync — so nothing slips between Saturday's ceremony and Sunday's reception." },
         { tag: "REPUTATION", title: "Reviews + verified badge", body: "Real Setnayan couples leave reviews on your profile. Your verified badge appears in every search and recommendation — the trust signal that gets you to the inquiry." },
         { tag: "PROFILE",   title: "Vendor microsite",     body: "Your portfolio, your packages, your exclusive perk. Search-optimized in the marketplace." },
@@ -202,23 +202,28 @@ const V03 = () => (
 // ─── 04 · Verification ────────────────────────────────────────────────────
 const V04 = () => (
   <VChapter presenter={P.MIGS}>
-    <VH1 size={84} sub="Verified once. No monthly listing fees. Ever.">
-      ₱1,499 ONCE.<br />NOT ₱299/28D.
+    {/* CORRECTED 2026-08-12. This whole slide sold verification at ₱1,499 once,
+        positioned against "₱299/28d elsewhere". Verification is now FREE —
+        VENDOR_TIERS_AND_BENEFITS.md § "FREE — VERIFIED (₱0 · verified free
+        during launch)" — so the old headline undersold the offer AND quoted a
+        fee nobody is charged. `app/robots.ts` had already listed the "₱1,499
+        verification fee" among the retired claims that got these decks
+        crawler-blocked. */}
+    <VH1 size={84} sub="Verified free during launch. No monthly listing fees. Ever.">
+      FREE TO JOIN.<br />FREE TO VERIFY.
     </VH1>
     <VBody>
-      One-time vendor verification fee — instead of the monthly listing subscriptions other
+      Verification is free during launch — instead of the monthly listing subscriptions other
       platforms charge to stay visible. Our AI co-pilot reads your three documents (DTI, BIR,
       Mayor&apos;s permit), cross-checks the fields, and generates a gov-DB lookup checklist for
       our admin. A human signs off. <strong style={{ color: "var(--ink)" }}>No auto-approve, ever — every vendor
-      we list, we vouch for.</strong> When your business documents change later, document updates
-      cost <strong style={{ color: "var(--ink)" }}>₱499 per refresh</strong> — only when you need it.
-      One-time, simple, and the cost is yours to control.
+      we list, we vouch for.</strong>
     </VBody>
     <VStatRow stats={[
-      { label: "One-time fee",     value: "₱1,499",   hint: "vs ₱299/mo elsewhere" },
+      { label: "Cost to verify",   value: "₱0",       hint: "free during launch" },
       { label: "Verification SLA", value: "24h",      hint: "current avg 18h" },
       { label: "Human-approved",   value: "100%",     hint: "founder policy" },
-      { label: "Document updates", value: "₱499",   hint: "only when you change docs" },
+      { label: "Listing fee",      value: "₱0",       hint: "no monthly fee to stay visible" },
     ]} />
     <div style={{ marginTop: 32, padding: "22px 28px", background: "var(--paper-2)", borderRadius: 14, border: "1px solid var(--line-soft)" }}>
       <div className="mono" style={{ fontSize: 11, color: "var(--orange-2)", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 8 }}>
@@ -301,7 +306,8 @@ const V_RULES = () => (
 const V05 = () => (
   <VChapter presenter={P.MIGS} dark>
     <VH1 color="var(--paper)" size={80} sub="Free vendor profile is plenty for most. Pro is for vendors who want the ecosystem.">
-      FREE FOREVER.<br />PRO AT ₱1,999/28D.
+      {/* ₱1,999 → ₱2,500, re-read from the live vendor catalog 2026-08-12. */}
+      FREE FOREVER.<br />PRO AT ₱2,500/28D.
     </VH1>
     <div style={{ marginTop: 56, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
       <div style={{ padding: 28, background: "var(--paper)", borderRadius: 14 }}>
@@ -314,7 +320,6 @@ const V05 = () => (
             "In-app couple chat (couple-initiated)",
             "Reviews from real Setnayan couples",
             "Up to 3 service packages",
-            "Buy bidding tokens to send quotes",
           ].map((line) => (
             <div key={line} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 14, color: "var(--ink)" }}>
               <span style={{ color: "var(--sage-deep)" }}>✓</span>
@@ -325,7 +330,7 @@ const V05 = () => (
       </div>
       <div style={{ padding: 28, background: "var(--ink)", border: "1px solid var(--orange-3)", borderRadius: 14 }}>
         <div className="mono" style={{ fontSize: 11, color: "var(--orange-3)", letterSpacing: "0.16em" }}>★ PRO</div>
-        <div style={{ fontFamily: "var(--display)", fontWeight: 800, fontSize: 36, color: "var(--paper)", marginTop: 4 }}>₱1,999<span style={{ fontSize: 16, color: "var(--slate-4)" }}>/28d</span></div>
+        <div style={{ fontFamily: "var(--display)", fontWeight: 800, fontSize: 36, color: "var(--paper)", marginTop: 4 }}>₱2,500<span style={{ fontSize: 16, color: "var(--slate-4)" }}>/28d</span></div>
         <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
           {[
             "Everything in Free",
@@ -346,7 +351,7 @@ const V05 = () => (
       </div>
     </div>
     <div className="mono" style={{ fontSize: 12, color: "var(--slate-4)", marginTop: 24, textAlign: "center", letterSpacing: "0.10em" }}>
-      Verified vendors only · Enterprise at ₱5,499/28d for multi-category + unlimited team accounts · Founder bonus 100 tokens on verification (until 31 Jan 2027)
+      Verified vendors only · Enterprise at ₱8,000/28d for multi-category + up to 10 team seats
     </div>
   </VChapter>
 );
@@ -375,7 +380,6 @@ const V_PRICING = () => (
             "Direct-line listing on your profile",
             "Crew-rate marketplace participation",
             "Reverse-image theft monitoring",
-            "Productions referral · earn 1 token per converted recommend",
           ].map((line) => (
             <div key={line} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "var(--ink)" }}>
               <span style={{ color: "var(--sage-deep)", fontFamily: "var(--mono)" }}>✓</span>
@@ -391,15 +395,22 @@ const V_PRICING = () => (
         <div style={{ fontFamily: "var(--display)", fontWeight: 800, fontSize: 36, color: "var(--ink)", marginTop: 4 }}>BOOSTERS</div>
         <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 10 }}>
           {[
-            { name: "Vendor verification",          price: "₱1,499 once",       note: "one-time · lifetime verified badge · prerequisite for Pro" },
-            { name: "Document update",              price: "₱499",              note: "only when your business docs change" },
-            { name: "Pro subscription",             price: "₱1,999/28 days",      note: "1 category · up to 5 team accounts" },
-            { name: "Enterprise subscription",      price: "₱5,499/28 days",      note: "multi-category · unlimited team accounts" },
-            { name: "Bidding token packs",          price: "₱1,000–₱18,000",     note: "4 / 10 / 25 / 50 / 100 packs · ₱180–₱250 per token" },
+            /* "Vendor verification ₱1,499 once" → ₱0: verification is free during
+               launch (VENDOR_TIERS_AND_BENEFITS.md). "Document update ₱499" and
+               "Boosted Ads ₱1,200/wk" were REMOVED rather than repriced — neither
+               appears in vendor_billing_catalog and no source confirms the figure,
+               and quoting an unconfirmable price is the exact defect this pass is
+               here to remove. If either is real, restore it with its true rate. */
+            { name: "Vendor verification",          price: "FREE",              note: "free during launch · lifetime verified badge" },
+            /* Prices re-read from the live vendor catalog 2026-08-12. Pro was
+               ₱1,999 and Enterprise ₱5,499 here; both were stale. Solo added —
+               it is the entry paid tier and this list did not mention it. */
+            { name: "Solo subscription",            price: "₱1,000/28 days",      note: "the entry paid tier · ₱10,000 annual" },
+            { name: "Pro subscription",             price: "₱2,500/28 days",      note: "1 category · up to 5 team accounts · ₱25,000 annual" },
+            { name: "Enterprise subscription",      price: "₱8,000/28 days",      note: "multi-category · up to 10 team seats · ₱80,000 annual" },
             { name: "On-site verification + content kit", price: "vendor-set range", note: "film crew + photos + service docs · Request bid" },
-            { name: "Boosted Ads · to 30km radius",  price: "₱1,200/wk",         note: "Pro+ · pausable anytime" },
             { name: "Sponsored Boost · top of search", price: "by category",      note: "Pro+ · quarterly or annual" },
-            { name: "Setnayan Productions · resell", price: "wholesale rates",   note: "Pro+ · resell Panood/Papic/etc. at your markup" },
+            { name: "Setnayan Productions · resell", price: "wholesale rates",   note: "Pro+ · resell Live Studio / Papic / Patiktok / Pakanta at your markup" },
           ].map((row) => (
             <div key={row.name} style={{ padding: "10px 12px", background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line-soft)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
@@ -468,7 +479,7 @@ const V07 = () => (
     <VStatRow dark stats={[
       { label: "Today's Focus",        value: "Hand-matched", hint: "ops-team intros" },
       { label: "Social channels",  value: "FB · IG · TikTok", hint: "constant boost on us" },
-      { label: "Boost radius",     value: "20→30km",       hint: "₱1,200/wk" },
+      { label: "Boost radius",     value: "20→30km",       hint: "Pro+ · rate not set" },
       { label: "Multi-event view", value: "First-look",    hint: "next event types" },
       { label: "ROI tracking",     value: "Built-in",      hint: "only on-platform conversions" },
     ]} />
@@ -506,8 +517,11 @@ const V09 = () => (
       CO-LISTED WITH<br />SETNAYAN PRODUCTIONS.
     </VH1>
     <VBody dark max={840}>
-      Setnayan Productions runs Panood (multi-cam livestream), Papic (guest paparazzi app),
-      AI Highlight Reel, Pailaw (LED loops), and Pakanta (AI wedding song). These show up in
+      {/* Corrected 2026-08-12: "Pailaw (LED loops)" removed — that product was
+          taken out of Setnayan on 2026-08-11. "AI Highlight Reel" removed too:
+          it is not on sale and never was. "Panood" is now Live Studio. */}
+      Setnayan Productions runs Live Studio (livestream), Papic (guest paparazzi),
+      Patiktok (vertical photo booth) and Pakanta (AI wedding song). These show up in
       every couple&apos;s bundle recommendation. <strong style={{ color: "var(--paper)" }}>Pro vendors get co-listed alongside them.</strong>
       Your service becomes part of the recommended package, not a separate booking the couple has to remember.
     </VBody>
@@ -527,9 +541,15 @@ const V09 = () => (
         ✦ Resell our services in your packages
       </div>
       <p style={{ fontSize: 15, color: "var(--ink)", lineHeight: 1.6, margin: 0 }}>
-        Vendors can purchase Setnayan Productions services (Panood, Papic, AI Reel, Pailaw,
-        Pakanta) at the platform rate and resell them as part of their own package.
-        Bundle a livestream into your venue deal, a same-day reel into your photography contract,
+        {/* 🚨 Corrected 2026-08-12. This sentence used to name Pailaw (the LED
+            backdrop) and "AI Reel" among the services a vendor could buy and
+            resell. Neither is deliverable — the LED backdrop was removed from
+            the product on 2026-08-11, and there is no AI Reel SKU. A written
+            offer letting a partner resell something we cannot supply is the
+            single worst claim these decks carried. */}
+        Vendors can purchase Setnayan Productions services (Live Studio, Papic,
+        Patiktok, Pakanta) at the platform rate and resell them as part of their own package.
+        Bundle a livestream into your venue deal, a photo booth into your coverage contract,
         a custom song into your coordination plan — <strong style={{ color: "var(--ink)" }}>you keep the markup, we deliver the service.</strong>
       </p>
     </div>

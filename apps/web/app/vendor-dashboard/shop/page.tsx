@@ -46,6 +46,11 @@ import { ReachMap } from './_components/reach-map';
 import { ServiceRadiusFields } from './_components/service-radius-fields';
 import { VenueMatchCard } from './_components/venue-match-card';
 import { PublicLineCard } from './_components/public-line-card';
+import { RequestCorrectionCard } from './_components/request-correction-card';
+import {
+  fetchCorrectionRequests,
+  type VendorCorrectionRequestRow,
+} from '@/lib/vendor-corrections';
 import { VisibilityCard } from './_components/visibility-card';
 import { BranchManager, type PayInfo } from '../_components/branch-manager';
 import {
@@ -225,6 +230,11 @@ type ShopData = {
   socialFeatureOptOut: boolean;
   /** The celebration post already went out — a later opt-out can't recall it. */
   socialAlreadyFeatured: boolean;
+  /**
+   * The vendor's OWN still-open correction requests, so the ask-card can show
+   * "waiting on Setnayan" instead of inviting the same request a second time.
+   */
+  openCorrections: VendorCorrectionRequestRow[];
 };
 
 async function loadShopData(): Promise<ShopData | 'no-vendor'> {
@@ -235,6 +245,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
+  // The vendor's own open correction requests (RLS-scoped). Read here rather
+  // than in the card so the card stays a client component with no data access.
+  const openCorrections = await fetchCorrectionRequests(supabase, { status: 'open' });
   // Signed in but no shop (owned OR via team) — send them to the one-button
   // "Open your shop" gate instead of a dead fallback (owner gap-fix
   // 2026-07-03). Distinct from the error path: the caller's catch keeps the
@@ -619,6 +632,10 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     primaryService: profile.services?.[0] ? titleCase(profile.services[0]) : null,
     tier,
     isVerified: profile.public_visibility === 'verified',
+    // RLS-scoped to this vendor. Defensive by construction: fetchCorrectionRequests
+    // returns [] on ANY error, so a read hiccup shows the ask-card with nothing
+    // pending rather than hiding the only doorway a wrong address has.
+    openCorrections,
     websiteLive:
       Boolean(profile.business_slug) &&
       isPubliclyVisible(profile.public_visibility),
@@ -910,6 +927,19 @@ async function ShopHome({
               // in Postgres also excludes a NULL tier — so NULL is not paid.
               isPaidTier={data.tier != null && data.tier !== 'free'}
               alreadyFeatured={data.socialAlreadyFeatured}
+            />
+            {/* The ASK. `requestProfileCorrection` + the /admin/corrections
+                queue that resolves it both shipped complete and had ZERO
+                callers — no screen rendered a form, so prod held zero rows and
+                the queue could never receive anything. The web address is
+                offered to every vendor at every tier (it is immutable for
+                everyone, which is precisely why a signup typo has no other
+                remedy); the rest appear once the verified lock is what is
+                actually stopping an inline edit. */}
+            <RequestCorrectionCard
+              currentSlug={data.slug}
+              isVerified={data.isVerified}
+              openRequests={data.openCorrections}
             />
           </>
         }

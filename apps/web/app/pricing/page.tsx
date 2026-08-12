@@ -176,7 +176,6 @@ const ADDON_GROUPS: CatalogGroup[] = [
       // looking like an accidental deletion.
       { code: 'LIVE_WALL' }, // FREE 2026-08-11 — no longer a paid row
       { code: 'PATIKTOK_COMPILER' },
-      { code: 'PATIKTOK_COMPILER' },
       // LIVE_BACKGROUND (the LED wall backdrop) was REMOVED from the product
       // 2026-08-11 — it is is_active=false and drops out of resolvedGroups
       // automatically, and there is no longer a maker behind it to sell.

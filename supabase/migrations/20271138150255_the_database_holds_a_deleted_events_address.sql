@@ -65,6 +65,18 @@ BEGIN
 END;
 $function$;
 
+-- 🔒 A NEW FUNCTION IN `public` SHIPS EXECUTABLE BY EVERYONE. Postgres grants
+-- EXECUTE to PUBLIC by default, so this SECURITY DEFINER function would be
+-- callable by any holder of the publishable key — caught by
+-- `anon-rpc-surface.db.test.ts`, which is exactly what it is for.
+--
+-- REVOKED rather than declared in that baseline: a trigger function needs no
+-- EXECUTE grant from anyone. The trigger fires as the table owner. A baseline
+-- line is a BILL — it would have recorded a decision to leave it reachable, for
+-- no benefit at all.
+REVOKE ALL ON FUNCTION public.hold_event_address_on_delete() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.hold_event_address_on_delete() FROM anon, authenticated;
+
 DROP TRIGGER IF EXISTS events_hold_address_on_delete ON public.events;
 CREATE TRIGGER events_hold_address_on_delete
   BEFORE DELETE ON public.events

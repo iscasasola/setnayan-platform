@@ -14,6 +14,7 @@ import {
   resolveCustomDomainPath,
   resolveEventSubdomainPath,
 } from '@/lib/custom-domain-resolve';
+import { userNestingRewritePath } from '@/lib/u-nesting';
 
 // Matches a v4-style UUID exactly. Slugs are capped at 32 chars
 // (`[a-z0-9-]+`), so a UUID — 36 chars including hyphens — cannot
@@ -185,12 +186,16 @@ export async function middleware(request: NextRequest) {
   // Additive: the bare-root event URLs (`/{eventSlug}[/rest]`, still on printed
   // QR codes) keep resolving in parallel. The QR/link cutover to `/u/` and the
   // bare-root→`/u/` permanent redirect land in a later PR, behind a flag.
+  // ⚠ NOT every 3-segment /u/ path is a nested event. This used to rewrite on
+  // segment COUNT alone, which ate the chapter route (`/u/{slug}/c/{id}`) and
+  // made a storyteller's own story page 404 — it had NEVER been reachable in
+  // prod. `userNestingRewritePath` owns the decision and returns null for a real
+  // /u subtree; see lib/u-nesting.ts.
   if (pathname.startsWith('/u/')) {
-    // ['u', userSlug, eventSlug, ...rest]
-    const segments = pathname.split('/').filter(Boolean);
-    if (segments.length >= 3) {
+    const nested = userNestingRewritePath(pathname);
+    if (nested) {
       const rewrite = request.nextUrl.clone();
-      rewrite.pathname = `/${segments.slice(2).join('/')}`;
+      rewrite.pathname = nested;
       // PR6 loop-break: mark that this render arrived via the nested /u/ URL so
       // the event dispatcher (app/[slug]/page.tsx) does NOT re-redirect it back
       // to /u/ under the cutover flag — that would loop /u/a/b → /b → /u/a/b.

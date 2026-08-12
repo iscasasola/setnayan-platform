@@ -37,6 +37,14 @@ const ERROR_COPY: Record<string, string> = {
   missing: 'Enter the email you signed up with.',
   rate_limited:
     'Too many reset requests in a row — please wait a minute, then try again.',
+  // A FAILED BOT CHECK SAYS SO, instead of the neutral "we've sent a link".
+  // Nothing was sent in this case, and this is the one page a person reaches
+  // when they already cannot get in — telling them to wait for a mail that is
+  // not coming is the worst possible place to be reassuring. Names no account:
+  // the check fails before any lookup, so this reveals nothing about whether
+  // the email is registered.
+  captcha:
+    'The bot check didn’t pass, so we haven’t sent anything yet. Please try again — if it keeps happening, refresh the page.',
 };
 
 export default async function ForgotPasswordPage({

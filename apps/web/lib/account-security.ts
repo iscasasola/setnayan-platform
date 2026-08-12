@@ -79,3 +79,36 @@ export function isAuthRateLimitError(
   if (!message) return false;
   return /rate limit|only request this after|too many requests/i.test(message);
 }
+
+/**
+ * Detect a FAILED BOT CHECK from Supabase Auth ("captcha protection: request
+ * disallowed (invalid-input-response)", "captcha verification process failed",
+ * code `captcha_failed`).
+ *
+ * 🚨 WHY THIS EXISTS. /forgot-password deliberately collapses every error to the
+ * neutral "if that email exists, we've sent a link" confirmation, so that the
+ * page can never be used to discover whether an account exists. That rule is
+ * correct and stays. But it also swallowed a failed BOT CHECK — so the moment
+ * captcha is switched on, a real person who fails it would be told a link was
+ * sent and nothing would be sent. They would wait forever, on the one page
+ * someone reaches when they already cannot get into their account.
+ *
+ * 🔑 A CAPTCHA FAILURE IS SAFE TO NAME, AND THAT IS THE WHOLE POINT. It is
+ * decided BEFORE any account lookup — GoTrue rejects the request outright — so
+ * saying "the bot check didn't pass" reveals nothing about whether the email is
+ * registered. It is the one error here that carries no enumeration risk, which
+ * is exactly why it must not hide behind the neutral confirmation.
+ *
+ * Matched on the word "captcha" rather than a status code: a failed check is a
+ * 400, and so are several errors that MUST stay neutral. Matching the message is
+ * narrower than matching the status, not wider.
+ */
+export function isCaptchaVerificationError(
+  status: number | undefined,
+  message: string | undefined,
+  code?: string | undefined,
+): boolean {
+  if (code && /captcha/i.test(code)) return true;
+  if (!message) return false;
+  return /captcha/i.test(message);
+}

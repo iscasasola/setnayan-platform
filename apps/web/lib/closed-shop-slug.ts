@@ -47,3 +47,26 @@ export function closedShopSlugHeldUntil(now: Date = new Date()): string {
   until.setUTCDate(until.getUTCDate() + CLOSED_SHOP_SLUG_HOLD_DAYS);
   return until.toISOString();
 }
+
+/**
+ * The `slug_change_log.entity_type` that means "wedding deleted, address held".
+ *
+ * Owner 2026-08-12: *"a retired website address will only be usable again after
+ * 1 year."* Every other retirement already honoured that — a renamed wedding or
+ * handle is held for the 24-month forwarding window, a closed shop for a year.
+ * **Deletion was the hole**: measured in prod, the final address of a deleted
+ * wedding was claimable the same second, so every invitation and QR code
+ * carrying it could have been handed to a stranger.
+ *
+ * Same shape as a closed shop, and for the same reason: it forwards NOBODY (the
+ * event is gone — there is nothing to forward to), it only stops the word being
+ * reissued. `resolveRenamedPath` filters to the forwarding types, so this is
+ * inert there by construction; `findSlugConflict` matches on `old_slug` with no
+ * entity_type filter, so it blocks reuse everywhere a word is handed out.
+ */
+export const CLOSED_EVENT_SLUG_ENTITY_TYPE = 'event_closed';
+
+/** One year, shared with the closed-shop hold — one rule, not two numbers. */
+export function closedEventSlugHeldUntil(now: Date = new Date()): string {
+  return closedShopSlugHeldUntil(now);
+}

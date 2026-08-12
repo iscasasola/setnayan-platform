@@ -34,9 +34,9 @@ export function StorytellersShelf({
           From Our Storytellers
         </h2>
         <p className="text-sm text-ink/60">
-          Chapters told first-hand by the people who lived them — their own
-          finished edit, embedded from their own channel, with the real vendors
-          and moments behind it.
+          Chapters told first-hand by the people who lived them — in their own
+          words, with the real vendors and moments behind it, and their own
+          video when they have one.
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

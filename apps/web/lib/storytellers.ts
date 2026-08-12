@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
+  chapterExcerpt,
   youtubeThumbFromEmbedUrl,
   type ChapterKind,
   type EmbedProvider,
@@ -43,8 +44,15 @@ export type StorytellerTileItem = {
   ownerName: string;
   /** Aggregate public views (no PII). Chapters show views; editorials never do. */
   viewCount: number;
-  /** YouTube-derived thumbnail (V1 rule) — always present on FEATURED rows. */
+  /**
+   * YouTube-derived thumbnail (V1 rule). NULL for a chapter told in writing
+   * with no companion video — such a tile renders TEXT-LED (see `excerpt`)
+   * rather than being dropped. Never a presigned R2 URL: this shelf is ISR, and
+   * a baked-in presigned poster expires with nothing to blame.
+   */
   thumbUrl: string | null;
+  /** Plain-text lede, shown as the hero when there is no `thumbUrl`. */
+  excerpt: string | null;
   publishedAt: string | null;
   /** The chapter's linked Setnayan event (cross-rail join key), if any. */
   eventId: string | null;
@@ -58,6 +66,7 @@ type ChapterRow = {
   event_id: string | null;
   title: string;
   kind: string;
+  body?: string | null;
   embed_url: string | null;
   embed_provider: string | null;
   published_at: string | null;
@@ -113,6 +122,7 @@ function toTile(
     ownerName: owner.name,
     viewCount: typeof row.view_count === 'number' ? row.view_count : Number(row.view_count ?? 0),
     thumbUrl: youtubeThumbFromEmbedUrl(row.embed_url),
+    excerpt: chapterExcerpt(row.body ?? null),
     publishedAt: row.published_at ?? null,
     eventId: row.event_id ?? null,
     featureRank: row.showcase_feature_rank ?? null,
@@ -120,7 +130,7 @@ function toTile(
 }
 
 const FEATURED_FIELDS =
-  'chapter_id, public_id, user_id, event_id, title, kind, embed_url, embed_provider, published_at, view_count, showcase_featured_at, showcase_feature_rank';
+  'chapter_id, public_id, user_id, event_id, title, kind, body, embed_url, embed_provider, published_at, view_count, showcase_featured_at, showcase_feature_rank';
 
 /**
  * The PUBLIC shelf read — ONLY owner-featured, published chapters on public
@@ -158,9 +168,13 @@ export async function loadFeaturedChapters(limit = 24): Promise<StorytellerTileI
       const owner = owners.get(r.user_id);
       if (!owner) continue; // profile hidden/deleted since featuring → drop
       const tile = toTile(r, owner);
-      // Featured rows are YouTube-only by the curation rule, but re-assert at
-      // read time: no derivable thumb → no tile (never a broken card).
-      if (tile && tile.thumbUrl) out.push(tile);
+      // ⚠ THIS USED TO REQUIRE A THUMBNAIL, AND THAT DROPPED EVERY WRITTEN
+      // STORY. A chapter whose story is writing has no video to derive a poster
+      // from, so `thumbUrl` is legitimately null — the tile renders TEXT-LED
+      // instead of being silently discarded here. Still refused: a row whose
+      // KIND we don't recognise (toTile → null), which really would be a broken
+      // card.
+      if (tile) out.push(tile);
     }
     return out;
   } catch {
@@ -262,7 +276,8 @@ export async function loadFeaturedChaptersCreditingVendor(vendorKeys: {
       const owner = owners.get(r.user_id);
       if (!owner) continue;
       const tile = toTile(r, owner);
-      if (tile && tile.thumbUrl) out.push(tile);
+      // Text-led tiles are legitimate here too — see loadFeaturedChapters.
+      if (tile) out.push(tile);
     }
     return out.slice(0, 6);
   } catch {

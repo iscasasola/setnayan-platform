@@ -7,7 +7,11 @@ import {
   resolveShoppableVendors,
   type ShoppableVendor,
 } from '@/lib/creator-public';
-import { CHAPTER_KIND_LABEL, EMBED_PROVIDER_LABEL } from '@/lib/creator-chapters';
+import {
+  CHAPTER_KIND_LABEL,
+  EMBED_PROVIDER_LABEL,
+  splitChapterParagraphs,
+} from '@/lib/creator-chapters';
 import { formatAudienceCount } from '@/lib/creator-audience';
 import { CreatorBadge } from '@/app/_components/creator-badge';
 import { ViewBeacon } from '@/app/u/_components/view-beacon';
@@ -25,12 +29,18 @@ import { fetchAudienceRatesForCreatorVendors } from '@/lib/inquiry-attribution';
 // never shadow (or be shadowed by) an event slug. The chapter is addressed by
 // its human-facing public_id (S89C-…), never an enumerable integer.
 //
-// Renders (locked model, do NOT re-litigate):
-//   • the EMBEDDED finished edit via the sandboxed, allowlisted ChapterEmbedFrame
-//     — Setnayan NEVER hosts the creator's full video;
+// Renders:
+//   • the STORY — the chapter's editorial body, in paragraphs. This is the
+//     primary content (owner 2026-08-12: "their storytelling doesn't need to be
+//     a video anymore. it will be their editorial and they can also paste a
+//     video"). It was previously `substrate.itinerary`, filed under "behind the
+//     chapter" and rendered as a single <p>; a couple's whole wedding story came
+//     back as one grey slab. See migration 20271140092009.
+//   • the OPTIONAL embedded edit via the sandboxed, allowlisted
+//     ChapterEmbedFrame — Setnayan NEVER hosts the creator's full video;
 //   • the chapter title + kind + published date + the creator badge;
-//   • the SHOPPABLE substrate (CP-4) — itinerary, an optional Papic-gallery note,
-//     and vendor cards that link to the vendor's existing public page /v/[slug]
+//   • the SHOPPABLE substrate (CP-4) — an optional Papic-gallery note, and
+//     vendor cards that link to the vendor's existing public page /v/[slug]
 //     (0% commission leads; read-only surfacing, no new inquiry flow here).
 //
 // Gate (user-native since 2026-07-16): the owner's public profile must be
@@ -112,7 +122,8 @@ export default async function ChapterDetailPage({ params }: Props) {
       })
     : null;
 
-  const { itinerary, papic_gallery_id, vendor_ids } = chapter.substrate;
+  const paragraphs = splitChapterParagraphs(chapter.body);
+  const { papic_gallery_id, vendor_ids } = chapter.substrate;
   // GAP-3: pass the relationship context so a vendor is only rendered as a
   // shoppable/bookable card when a real tie exists (accepted collab with THIS
   // creator, or a booking on THIS chapter's event). Unrelated self-asserted
@@ -121,8 +132,7 @@ export default async function ChapterDetailPage({ params }: Props) {
     creatorUserId: user.user_id,
     eventId: papic_gallery_id ?? null,
   });
-  const hasSubstrate =
-    !!itinerary || !!papic_gallery_id || vendors.length > 0;
+  const hasSubstrate = !!papic_gallery_id || vendors.length > 0;
 
   // Creator Economy PR-C — the viewer promo. For each shoppable vendor with an
   // ACCEPTED collab (this chapter's creator ↔ that vendor) carrying an audience
@@ -177,16 +187,24 @@ export default async function ChapterDetailPage({ params }: Props) {
           </div>
         ) : null}
 
+        {/* THE STORY. Paragraphs, not a slab — a blank line starts a new one and
+            single newlines survive via `white-space: pre-line`. Rendered as
+            plain text on purpose: a chapter body is writing, and treating a
+            stranger's text as markup is an injection surface with nothing to
+            gain. */}
+        {paragraphs.length > 0 ? (
+          <section className="uchap-body" aria-label="The story">
+            {paragraphs.map((p, i) => (
+              <p key={i} className="uchap-para">
+                {p}
+              </p>
+            ))}
+          </section>
+        ) : null}
+
         {hasSubstrate ? (
           <section className="uchap-sub" aria-label="Behind the chapter">
             <h2 className="m-serif uchap-sub-head">Behind the chapter</h2>
-
-            {itinerary ? (
-              <div className="uchap-block">
-                <p className="uchap-block-label">Itinerary</p>
-                <p className="uchap-itinerary">{itinerary}</p>
-              </div>
-            ) : null}
 
             {papic_gallery_id ? (
               <div className="uchap-block">
@@ -404,13 +422,20 @@ const UCHAP_CSS = `
     text-transform: uppercase;
     color: var(--m-slate-2, #6A6E76);
   }
-  .uchap-itinerary {
-    margin: 0;
-    white-space: pre-wrap;
-    font-size: 0.95rem;
-    line-height: 1.6;
-    color: var(--m-slate, #4F535B);
+  /* THE STORY — reading typography, not metadata typography. Measure is capped
+     so a long wedding write-up stays readable on a wide screen. */
+  .uchap-body {
+    margin-top: clamp(1.75rem, 4vw, 2.5rem);
+    max-width: 34em;
   }
+  .uchap-para {
+    margin: 0;
+    white-space: pre-line;
+    font-size: clamp(1.02rem, 2.4vw, 1.12rem);
+    line-height: 1.75;
+    color: var(--m-ink, #1B1A17);
+  }
+  .uchap-para + .uchap-para { margin-top: 1.15em; }
   .uchap-note {
     margin: 0;
     font-size: 0.9rem;

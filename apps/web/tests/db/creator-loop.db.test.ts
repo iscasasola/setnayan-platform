@@ -155,9 +155,9 @@ before(async () => {
   // hiddenCreator gets a published chapter (service-role write, as the app's
   // admin client would) — publishing alone must NOT make them offerable.
   await db.query(
-    `INSERT INTO public.creator_chapters (user_id, title, kind, embed_url, embed_provider, status, published_at)
+    `INSERT INTO public.creator_chapters (user_id, title, kind, embed_url, embed_provider, status, published_at, body)
      VALUES ($1, 'Hidden profile chapter', 'travel',
-             'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'youtube', 'published', now())`,
+             'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'youtube', 'published', now(), 'The story, in their own words.')`,
     [F.hiddenCreator],
   );
 });
@@ -225,7 +225,7 @@ test('publish: owner flips draft→published; readable on the app read path', as
   await setAuthUid(db, F.creator);
   await db.exec(`SET ROLE authenticated`);
   await db.query(
-    `UPDATE public.creator_chapters SET status='published', published_at=now() WHERE chapter_id=$1`,
+    `UPDATE public.creator_chapters SET status='published', published_at=now(), body='The story, in their own words.' WHERE chapter_id=$1`,
     [F.creatorChapterId],
   );
   // owner still sees their own published row
@@ -522,9 +522,9 @@ test('AN EMPTY WALLET CAN STILL SEND — the defect the retirement fixed', async
   const creator3 = await createUser('creator3@loop.test');
   await setPublicProfile(creator3, true);
   await db.query(
-    `INSERT INTO public.creator_chapters (user_id, title, kind, embed_url, embed_provider, status, published_at)
+    `INSERT INTO public.creator_chapters (user_id, title, kind, embed_url, embed_provider, status, published_at, body)
      VALUES ($1, 'food chapter', 'food',
-             'https://www.youtube-nocookie.com/embed/9bZkp7q19f0', 'youtube', 'published', now())`,
+             'https://www.youtube-nocookie.com/embed/9bZkp7q19f0', 'youtube', 'published', now(), 'The story, in their own words.')`,
     [creator3],
   );
   await setAuthUid(db, F.founder);
@@ -547,9 +547,9 @@ test('EXPIRY: sweep marks expired and refunds NOTHING', async () => {
   const creator4 = await createUser('creator4@loop.test');
   await setPublicProfile(creator4, true);
   await db.query(
-    `INSERT INTO public.creator_chapters (user_id, title, kind, embed_url, embed_provider, status, published_at)
+    `INSERT INTO public.creator_chapters (user_id, title, kind, embed_url, embed_provider, status, published_at, body)
      VALUES ($1, 'lifestyle chapter', 'lifestyle',
-             'https://www.youtube-nocookie.com/embed/kJQP7kiw5Fk', 'youtube', 'published', now())`,
+             'https://www.youtube-nocookie.com/embed/kJQP7kiw5Fk', 'youtube', 'published', now(), 'The story, in their own words.')`,
     [creator4],
   );
   await setAuthUid(db, F.founder);
@@ -597,9 +597,9 @@ test('MEMBER draw: a teammate sends free too, and no personal wallet moves', asy
   const creator5 = await createUser('creator5@loop.test');
   await setPublicProfile(creator5, true);
   await db.query(
-    `INSERT INTO public.creator_chapters (user_id, title, kind, embed_url, embed_provider, status, published_at)
+    `INSERT INTO public.creator_chapters (user_id, title, kind, embed_url, embed_provider, status, published_at, body)
      VALUES ($1, 'member-draw chapter', 'wedding',
-             'https://www.youtube-nocookie.com/embed/2Vv-BfVoq4g', 'youtube', 'published', now())`,
+             'https://www.youtube-nocookie.com/embed/2Vv-BfVoq4g', 'youtube', 'published', now(), 'The story, in their own words.')`,
     [creator5],
   );
 

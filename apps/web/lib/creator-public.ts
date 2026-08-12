@@ -22,12 +22,19 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isPubliclyVisible, parseVisibility } from '@/lib/vendor-visibility';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
-import type { ChapterKind, EmbedProvider } from '@/lib/creator-chapters';
+import {
+  chapterHasReadableContent,
+  type ChapterKind,
+  type EmbedProvider,
+} from '@/lib/creator-chapters';
 
-/** The parsed, app-owned shape of `creator_chapters.substrate` (a bag of refs). */
+/**
+ * The parsed, app-owned shape of `creator_chapters.substrate` (a bag of refs).
+ * ⚠ `itinerary` is GONE — it became the first-class `body` column (the story)
+ * in migration 20271140092009.
+ */
 export type ChapterSubstrate = {
   papic_gallery_id?: string;
-  itinerary?: string;
   vendor_ids?: string[];
 };
 
@@ -36,6 +43,8 @@ export type PublicChapter = {
   public_id: string;
   title: string;
   kind: ChapterKind;
+  /** The EDITORIAL — the story itself, and a chapter's primary content. */
+  body: string | null;
   embed_url: string | null;
   embed_provider: EmbedProvider | null;
   teaser_r2_key: string | null;
@@ -46,7 +55,7 @@ export type PublicChapter = {
 };
 
 const CHAPTER_FIELDS =
-  'chapter_id, public_id, title, kind, embed_url, embed_provider, teaser_r2_key, substrate, published_at, view_count';
+  'chapter_id, public_id, title, kind, body, embed_url, embed_provider, teaser_r2_key, substrate, published_at, view_count';
 
 function coerceSubstrate(raw: unknown): ChapterSubstrate {
   if (!raw || typeof raw !== 'object') return {};
@@ -54,9 +63,6 @@ function coerceSubstrate(raw: unknown): ChapterSubstrate {
   const out: ChapterSubstrate = {};
   if (typeof r.papic_gallery_id === 'string' && r.papic_gallery_id.trim()) {
     out.papic_gallery_id = r.papic_gallery_id;
-  }
-  if (typeof r.itinerary === 'string' && r.itinerary.trim()) {
-    out.itinerary = r.itinerary;
   }
   if (Array.isArray(r.vendor_ids)) {
     const ids = r.vendor_ids
@@ -73,6 +79,7 @@ function mapRow(row: Record<string, unknown>): PublicChapter {
     public_id: row.public_id as string,
     title: row.title as string,
     kind: row.kind as ChapterKind,
+    body: (row.body as string | null) ?? null,
     embed_url: (row.embed_url as string | null) ?? null,
     embed_provider: (row.embed_provider as EmbedProvider | null) ?? null,
     teaser_r2_key: (row.teaser_r2_key as string | null) ?? null,
@@ -85,8 +92,16 @@ function mapRow(row: Record<string, unknown>): PublicChapter {
 
 /**
  * A creator's PUBLISHED chapters, newest-first — the profile timeline (CP-3).
- * Only rows that actually carry an embed (a chapter's whole point) are returned,
- * so the timeline never renders an empty card.
+ * Only rows that actually carry something to read are returned, so the timeline
+ * never renders an empty card.
+ *
+ * 🔑 THE TEST USED TO BE `!!c.embed_url`, AND THAT WAS A SECOND, SILENT WALL.
+ * Behind the publish gate sat three more embed checks — this one, the chapter
+ * page's, and the share card's — so even after the publish button was fixed a
+ * video-less story would have been dropped from its own author's profile with
+ * a success message on screen. Fixing only the visible gate would have shipped
+ * a worse bug than the one it closed. See lib/creator-chapters
+ * `chapterHasReadableContent`.
  */
 export async function fetchPublishedChapters(
   userId: string,
@@ -100,7 +115,7 @@ export async function fetchPublishedChapters(
     .order('published_at', { ascending: false });
   return ((data ?? []) as Record<string, unknown>[])
     .map(mapRow)
-    .filter((c) => !!c.embed_url);
+    .filter(chapterHasReadableContent);
 }
 
 /**
@@ -123,7 +138,7 @@ export async function fetchPublishedChapterByPublicId(
     .maybeSingle();
   if (!data) return null;
   const chapter = mapRow(data as Record<string, unknown>);
-  return chapter.embed_url ? chapter : null;
+  return chapterHasReadableContent(chapter) ? chapter : null;
 }
 
 /**
@@ -166,7 +181,7 @@ export async function fetchPublishedChapterForShare(publicId: string): Promise<{
   if (!data) return null;
   const row = data as Record<string, unknown>;
   const chapter = mapRow(row);
-  if (!chapter.embed_url) return null;
+  if (!chapterHasReadableContent(chapter)) return null;
 
   const { data: owner, error: ownerError } = await admin
     .from('users')

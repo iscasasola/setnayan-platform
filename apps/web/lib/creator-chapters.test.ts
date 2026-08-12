@@ -15,7 +15,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { normalizeEmbed, rankChaptersByPublishedAt } from './creator-chapters';
+import {
+  CHAPTER_BODY_MAX,
+  chapterExcerpt,
+  chapterHasReadableContent,
+  normalizeChapterBody,
+  normalizeEmbed,
+  rankChaptersByPublishedAt,
+  splitChapterParagraphs,
+} from './creator-chapters';
 
 test('YouTube watch URL → youtube-nocookie embed', () => {
   assert.deepEqual(normalizeEmbed('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), {
@@ -140,4 +148,104 @@ test('an empty list is inert', () => {
   assert.equal(r.numberByIndex.size, 0);
   assert.equal(r.newestIndex, -1);
   assert.equal(r.showLatest, false);
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// THE STORY IS THE CHAPTER (owner 2026-08-12) — body normalization, paragraph
+// splitting, the excerpt, and the publishability test that REPLACED `!!embed_url`.
+//
+// Why these are locked: requiring an embed meant only somebody who already
+// posts video on YouTube/Instagram/TikTok could ever be a storyteller, which is
+// the measured reason prod held 0 chapters and 0 public profiles. The publish
+// gate was only the visible half — three read paths carried the same `embed_url`
+// test, so a video-less story would have published "successfully" into nowhere.
+// ───────────────────────────────────────────────────────────────────────────
+
+test('normalizeChapterBody: CRLF collapses, runs of blank lines cap at one', () => {
+  assert.equal(
+    normalizeChapterBody('One\r\n\r\n\r\n\r\nTwo'),
+    'One\n\nTwo',
+  );
+});
+
+test('normalizeChapterBody: trims ends + trailing spaces, keeps inner single newlines', () => {
+  // LEADING whitespace on an interior line is deliberately PRESERVED — a writer
+  // may indent, and we are not in the business of reformatting their prose.
+  assert.equal(normalizeChapterBody('  A line   \nsecond line  \n\n  B  '), 'A line\nsecond line\n\n  B');
+});
+
+test('normalizeChapterBody + splitChapterParagraphs: indentation never reaches the page', () => {
+  // The pair is what the reader actually sees: whatever indentation survives
+  // storage is trimmed per-paragraph at render, so the two functions together
+  // produce clean output without normalize() having to rewrite the writing.
+  assert.deepEqual(
+    splitChapterParagraphs(normalizeChapterBody('  A line   \nsecond line  \n\n  B  ')),
+    ['A line\nsecond line', 'B'],
+  );
+});
+
+test('normalizeChapterBody: non-string and blank input become the empty string', () => {
+  assert.equal(normalizeChapterBody(undefined), '');
+  assert.equal(normalizeChapterBody(null), '');
+  assert.equal(normalizeChapterBody('   \n\n  '), '');
+});
+
+test('normalizeChapterBody: caps at CHAPTER_BODY_MAX', () => {
+  assert.equal(normalizeChapterBody('x'.repeat(CHAPTER_BODY_MAX + 500)).length, CHAPTER_BODY_MAX);
+});
+
+test('splitChapterParagraphs: a blank line starts a new paragraph', () => {
+  assert.deepEqual(splitChapterParagraphs('First para.\n\nSecond para.\n\n\nThird.'), [
+    'First para.',
+    'Second para.',
+    'Third.',
+  ]);
+});
+
+test('splitChapterParagraphs: a SINGLE newline stays inside one paragraph', () => {
+  // This is the pre-line contract — a writer keeping a line break inside a
+  // stanza must not have it promoted to a new <p>.
+  assert.deepEqual(splitChapterParagraphs('Line one\nLine two'), ['Line one\nLine two']);
+});
+
+test('splitChapterParagraphs: nothing in, nothing out (never [""])', () => {
+  assert.deepEqual(splitChapterParagraphs(''), []);
+  assert.deepEqual(splitChapterParagraphs(null), []);
+  assert.deepEqual(splitChapterParagraphs('   \n\n   '), []);
+});
+
+test('chapterExcerpt: takes the FIRST paragraph, flattened', () => {
+  assert.equal(chapterExcerpt('The opening line.\nstill first\n\nSecond para.'), 'The opening line. still first');
+});
+
+test('chapterExcerpt: truncates on a word boundary with an ellipsis', () => {
+  const out = chapterExcerpt('alpha bravo charlie delta echo foxtrot', 20)!;
+  assert.ok(out.endsWith('…'), `expected ellipsis, got ${out}`);
+  assert.ok(out.length <= 21, `expected <= 21 chars, got ${out.length}`);
+  assert.ok(!/\s…$/.test(out), 'must not leave a space before the ellipsis');
+  // Word boundary: the truncation point is not mid-word.
+  assert.ok('alpha bravo charlie delta echo foxtrot'.startsWith(out.slice(0, -1)));
+});
+
+test('chapterExcerpt: no body → null (callers must NOT fall back to the title)', () => {
+  assert.equal(chapterExcerpt(null), null);
+  assert.equal(chapterExcerpt('   '), null);
+});
+
+test('chapterHasReadableContent: a written story with NO video is readable', () => {
+  // THE REGRESSION. `!!embed_url` returned false here and dropped the chapter
+  // from its own author's profile timeline.
+  assert.equal(chapterHasReadableContent({ body: 'We got married in Batanes.', embed_url: null }), true);
+});
+
+test('chapterHasReadableContent: a video with no story is still readable (legacy rows)', () => {
+  assert.equal(
+    chapterHasReadableContent({ body: null, embed_url: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ' }),
+    true,
+  );
+});
+
+test('chapterHasReadableContent: neither → false, and whitespace is not a story', () => {
+  assert.equal(chapterHasReadableContent({ body: null, embed_url: null }), false);
+  assert.equal(chapterHasReadableContent({ body: '   \n  ', embed_url: '  ' }), false);
 });

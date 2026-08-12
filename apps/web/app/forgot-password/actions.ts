@@ -14,7 +14,7 @@
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { isAuthRateLimitError } from '@/lib/account-security';
+import { isAuthRateLimitError, isCaptchaVerificationError } from '@/lib/account-security';
 // 🔴 CAPTCHA (2026-08-11). Supabase's captcha switch is GLOBAL and it gates
 // password RECOVERY as well as sign-in — and this route is THE WAY OUT of a
 // lockout, linked straight off the sign-in card. Unwired, the one page someone
@@ -44,6 +44,25 @@ export async function requestPasswordReset(formData: FormData) {
   if (error) {
     if (isAuthRateLimitError(error.status, error.message)) {
       return redirect('/forgot-password?error=rate_limited');
+    }
+    // 🚨 A FAILED BOT CHECK MUST NOT BE TOLD "we've sent you a link".
+    // Everything below falls through to the neutral sent-confirmation on
+    // purpose, so this page can never reveal whether an account exists. A
+    // captcha failure is the ONE error here that carries no such risk — GoTrue
+    // rejects it BEFORE any account lookup — and it is also the one where the
+    // neutral copy becomes a lie: nothing was sent, and the person is left
+    // waiting for a mail that is never coming, on the one page someone reaches
+    // when they are already locked out.
+    // Inert today (no site key ⇒ no captcha ⇒ this error cannot occur); this
+    // exists so the page is honest the moment the owner turns the bot check on.
+    if (
+      isCaptchaVerificationError(
+        error.status,
+        error.message,
+        (error as { code?: string }).code,
+      )
+    ) {
+      return redirect('/forgot-password?error=captcha');
     }
     // Anything else (including any "user not found"-shaped response) still
     // shows the neutral confirmation. Log server-side for ops visibility.

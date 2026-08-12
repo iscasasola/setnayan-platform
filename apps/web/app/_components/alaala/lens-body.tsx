@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowUpRight, Camera, Play, Users } from 'lucide-react';
 
 import { orbBackground } from '@/app/dashboard/(account)/life-flash/_components/placeholder';
 import {
+  lensEmptyLine,
   lensIsWall,
   selectLens,
   type AlaalaLensKey,
@@ -137,22 +138,6 @@ function Nothing({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** The empty line for each lens. An empty ATTENDED is not "no photos yet". */
-function emptyCopy(lens: AlaalaLensKey): React.ReactNode {
-  switch (lens) {
-    case 'recent':
-      return 'Your story starts with a celebration — photos and clips land here as they happen.';
-    case 'owned':
-      return 'The events you host become memories here — every frame your cameras catch.';
-    case 'attended':
-      return 'No events attended yet. When you are a guest somewhere, the photos you are in gather here too.';
-    case 'with_me':
-      return 'Photos and clips you appear in gather here — wherever they were taken, whoever took them.';
-    case 'people':
-      return 'Family, godparents and friends appear here as they show up in your photos.';
-  }
-}
-
 export function AlaalaLensBody({
   lens,
   wall,
@@ -178,7 +163,7 @@ export function AlaalaLensBody({
     if (wall.faces.length === 0) {
       return (
         <div className="space-y-2.5">
-          <Nothing>{emptyCopy('people')}</Nothing>
+          <Nothing>{lensEmptyLine('people', wall.hasAttendedEvents)}</Nothing>
           <PeopleDoor />
         </div>
       );
@@ -221,11 +206,20 @@ export function AlaalaLensBody({
   const frames = selectLens(wall, lens);
 
   if (frames.length === 0) {
-    return wall.unreadable ? <Unreadable /> : <Nothing>{emptyCopy(lens)}</Nothing>;
+    return wall.unreadable ? (
+      <Unreadable />
+    ) : (
+      <Nothing>{lensEmptyLine(lens, wall.hasAttendedEvents)}</Nothing>
+    );
   }
 
   const shown = frames.slice(0, tiles);
-  const more = frames.length - shown.length;
+  // The TOTAL comes from the uncapped read, never from what is on screen —
+  // `frames` is already a display budget, so counting it would print a cap as
+  // a total. `partial` means a source hit its fetch ceiling, so it is "N+".
+  const total = wall.totals[lens] ?? frames.length;
+  const more = total - shown.length;
+  const atLeast = wall.partial ? '+' : '';
 
   return (
     <div className="space-y-2.5">
@@ -237,8 +231,8 @@ export function AlaalaLensBody({
       {wall.unreadable ? <Unreadable /> : null}
       <p className="text-[11px] text-ink/45">
         {lens === 'with_me'
-          ? `${frames.length} ${frames.length === 1 ? 'frame' : 'frames'} you are in`
-          : `${frames.length} ${frames.length === 1 ? 'frame' : 'frames'} kept`}
+          ? `${total}${atLeast} ${total === 1 ? 'frame' : 'frames'} you are in`
+          : `${total}${atLeast} ${total === 1 ? 'frame' : 'frames'} kept`}
         {more > 0 ? ` · showing the newest ${shown.length}` : null}
       </p>
     </div>

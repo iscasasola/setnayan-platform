@@ -84,8 +84,24 @@ export type WallFace = {
 };
 
 export type AlaalaWall = {
-  /** Newest first, deduped, across every event. */
+  /**
+   * The frames a surface can actually show: the UNION of each lens's OWN newest
+   * slice, newest first. Not "the newest N overall" — see `surfaceBudget`.
+   */
   items: WallItem[];
+  /**
+   * How many frames each lens really has, measured from the UNCAPPED read —
+   * never from `items`, which is a display budget. `null` = not measured.
+   */
+  totals: Record<AlaalaLensKey, number | null>;
+  /**
+   * A source hit its fetch ceiling, so `totals` are "AT LEAST this many". The
+   * UI must render `N+`; printing a ceiling as a total is the same class of lie
+   * as printing 0 for a read that never ran.
+   */
+  partial: boolean;
+  /** Is the viewer a guest at any event at all? Distinct from "has frames". */
+  hasAttendedEvents: boolean;
   faces: WallFace[];
   /**
    * TRUE when any read failed or was refused. The UI must not print "nothing
@@ -100,8 +116,19 @@ export type AlaalaWall = {
   facesMeasured: boolean;
 };
 
+export const ZERO_TOTALS: Record<AlaalaLensKey, number | null> = {
+  recent: 0,
+  owned: 0,
+  attended: 0,
+  people: 0,
+  with_me: 0,
+};
+
 export const EMPTY_WALL: AlaalaWall = {
   items: [],
+  totals: ZERO_TOTALS,
+  partial: false,
+  hasAttendedEvents: false,
   faces: [],
   unreadable: false,
   facesMeasured: false,
@@ -142,17 +169,89 @@ export function selectLens(
   wall: AlaalaWall,
   lens: AlaalaLensKey,
 ): WallItem[] {
+  if (lens === 'people') return [];
+  return wall.items.filter((i) => matchesLens(i, lens));
+}
+
+/** The four lenses that answer with frames. `people` answers with faces. */
+export const FRAME_LENSES: ReadonlyArray<AlaalaLensKey> = [
+  'recent',
+  'owned',
+  'attended',
+  'with_me',
+];
+
+/**
+ * EVERY LENS GETS ITS OWN BUDGET.
+ *
+ * 🚨 THE BUG THIS EXISTS TO PREVENT — it shipped, and it was measured, not
+ * reasoned about. The first cut took the newest N of the MERGED list and only
+ * then filtered per lens. So a couple with 60 frames from their own wedding
+ * last month and 24 they are tagged in from a friend's wedding two years ago
+ * got:
+ *
+ *     recent  48   owned 48   attended 0   with_me 0        (real: 84/60/24/24)
+ *
+ * Attended and With me rendered EMPTY over twenty-four photographs that had
+ * been read successfully and then thrown away — and the page then printed
+ * "No events attended yet", a false statement about somebody's life, with a
+ * MEASURED 0 on the chip. That is the exact harm this whole surface was built
+ * to end, reintroduced by a display cap.
+ *
+ * 🔑 A GLOBAL CAP OVER A FILTERED VIEW IS A SILENT FILTER OF ITS OWN. Raising
+ * the number does not fix it; it only moves the wedding size at which it bites.
+ *
+ * Returns the union of the newest `perLens` of each frame lens, in wall order,
+ * deduped — so a frame that serves several lenses is signed once.
+ */
+export function surfaceBudget(
+  ordered: ReadonlyArray<WallItem>,
+  perLens: number,
+): WallItem[] {
+  const keep = new Set<string>();
+  for (const lens of FRAME_LENSES) {
+    let taken = 0;
+    for (const item of ordered) {
+      if (taken >= perLens) break;
+      if (!matchesLens(item, lens)) continue;
+      keep.add(item.key);
+      taken++;
+    }
+  }
+  return ordered.filter((i) => keep.has(i.key));
+}
+
+/**
+ * What each lens really holds, from the UNCAPPED read. Never count `items` for
+ * this — `items` is a display budget, and counting it is how a lens reports a
+ * confident 0 over frames it simply did not have room to show.
+ */
+export function lensTotals(
+  ordered: ReadonlyArray<WallItem>,
+  faceCount: number,
+): Record<AlaalaLensKey, number | null> {
+  return {
+    recent: ordered.length,
+    owned: ordered.filter((i) => matchesLens(i, 'owned')).length,
+    attended: ordered.filter((i) => matchesLens(i, 'attended')).length,
+    with_me: ordered.filter((i) => matchesLens(i, 'with_me')).length,
+    people: faceCount,
+  };
+}
+
+/** The one place a lens's membership rule is written. */
+function matchesLens(item: WallItem, lens: AlaalaLensKey): boolean {
   switch (lens) {
     case 'recent':
-      return wall.items;
+      return true;
     case 'owned':
-      return wall.items.filter((i) => i.role === 'couple');
+      return item.role === 'couple';
     case 'attended':
-      return wall.items.filter((i) => i.role === 'guest');
+      return item.role === 'guest';
     case 'with_me':
-      return wall.items.filter((i) => i.withMe);
+      return item.withMe;
     case 'people':
-      return [];
+      return false;
   }
 }
 
@@ -175,13 +274,46 @@ export function lensCounts(
   const frames = wall.unreadable
     ? { recent: null, owned: null, attended: null, with_me: null }
     : {
-        recent: wall.items.length,
-        owned: selectLens(wall, 'owned').length,
-        attended: selectLens(wall, 'attended').length,
-        with_me: selectLens(wall, 'with_me').length,
+        recent: wall.totals.recent,
+        owned: wall.totals.owned,
+        attended: wall.totals.attended,
+        with_me: wall.totals.with_me,
       };
   return {
     ...frames,
     people: wall.facesMeasured ? wall.faces.length : null,
   } as Record<AlaalaLensKey, number | null>;
+}
+
+/**
+ * What an EMPTY lens says.
+ *
+ * 🔑 AN EMPTY LENS IS A CLAIM, SO IT MUST ONLY CLAIM WHAT WAS MEASURED. The
+ * first cut said "No events attended yet" whenever the ATTENDED lens held no
+ * frames — a statement about MEMBERSHIPS made from an absence of PHOTOS. Every
+ * guest is in exactly that state until the photographers work through the
+ * album, so somebody who joined a friend's wedding by QR yesterday was told
+ * they had attended nothing. `hasAttended` is measured separately, from the
+ * event list, and is the only thing allowed to license that sentence.
+ *
+ * Lives here, not in the component, for the same reason
+ * `lifeFlashSummaryLine` does: an async JSX file cannot be imported by the
+ * unit runner, and a sentence nothing can import is a sentence nothing can
+ * check.
+ */
+export function lensEmptyLine(lens: AlaalaLensKey, hasAttended: boolean): string {
+  switch (lens) {
+    case 'recent':
+      return 'Your story starts with a celebration — photos and clips land here as they happen.';
+    case 'owned':
+      return 'The events you host become memories here — every frame your cameras catch.';
+    case 'attended':
+      return hasAttended
+        ? 'No photos of you yet from the events you attended — they gather here as they are tagged.'
+        : 'No events attended yet. When you are a guest somewhere, the photos you are in gather here too.';
+    case 'with_me':
+      return 'Photos and clips you appear in gather here — wherever they were taken, whoever took them.';
+    case 'people':
+      return 'Family, godparents and friends appear here as they show up in your photos.';
+  }
 }

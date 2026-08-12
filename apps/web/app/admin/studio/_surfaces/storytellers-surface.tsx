@@ -16,14 +16,21 @@ import {
  *
  * Candidate list = ALL published chapters on public-profile accounts, newest
  * first (featured rows sorted to the top exactly as the public shelf orders
- * them), each with its YouTube-derived embed preview, owner, kind, view count,
- * and open-report count inline — THE FEATURING CLICK IS THE MODERATION REVIEW.
+ * them), each with its preview — the YouTube-derived thumb when there is a
+ * video, a "Written" chip and the story's opening line when there is not —
+ * plus owner, kind, view count and open-report count inline. THE FEATURING
+ * CLICK IS THE MODERATION REVIEW, so what it takes to review must be on screen.
  *
  * Deny-by-default: publishing never lists a chapter; only rows the owner
  * Features here ever render in the "From Our Storytellers" shelf on
- * /realstories. Non-YouTube chapters show an honest "not featurable (V1)"
- * note — the thumbnail curation rule — and the action refuses them serverside
- * too. Edits revalidate /realstories live — no redeploy.
+ * /realstories. Edits revalidate /realstories live — no redeploy.
+ *
+ * ⚠ THIS DOCBLOCK USED TO SAY the action "refuses them serverside too" for
+ * non-YouTube chapters. That was true until 2026-08-12 and then was not, and it
+ * was the stated justification for gating the Feature button on a thumbnail —
+ * the reasoning a later reader would have used to put the gate back. A stale
+ * comment kept the face-tagging switch shut for seven weeks; this one hid a
+ * button. Every chapter with something to read is featurable now.
  */
 
 const INPUT =
@@ -69,9 +76,9 @@ export async function StorytellersSurface({
           </Link>{' '}
           page, and in what order. Publishing never lists a chapter by itself —
           your Feature click here is the moderation review (deny-by-default).
-          With zero featured chapters the shelf doesn&rsquo;t render at all. V1
-          shelf thumbnails are YouTube-derived, so only chapters with a YouTube
-          embed are featurable.
+          Chapters told in writing are featurable too — their shelf tile leads
+          with the story instead of a thumbnail. With zero featured chapters the
+          shelf doesn&rsquo;t render at all.
         </p>
       </header>
 

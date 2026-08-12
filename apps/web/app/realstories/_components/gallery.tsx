@@ -23,7 +23,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Search, X, ArrowRight, Play } from 'lucide-react';
+import { Search, X, ArrowRight, Play, BookOpen } from 'lucide-react';
 import { VendorCreditChip } from '@/app/_components/vendor-credit-chip';
 
 export type GalleryItem = {
@@ -63,6 +63,8 @@ export type GalleryItem = {
   // (sibling link, never a nested anchor). Null/absent → no chip, byte-
   // identical render to the pre-chapter page.
   storytellerCutHref?: string | null;
+  /** Does that chapter carry a video? Decides Watch vs Read on the chip. */
+  storytellerCutHasVideo?: boolean;
 };
 
 export type VendorChip = { name: string; slug: string; logoUrl: string | null };
@@ -337,8 +339,19 @@ export function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; t
             href={item.storytellerCutHref}
             className="inline-flex items-center gap-1.5 rounded-full border border-ink/12 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-ink/75 transition-colors hover:border-terracotta/40 hover:bg-white hover:text-ink"
           >
-            <Play aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-            Watch the storyteller&rsquo;s cut
+            {/* "Watch" was unconditional, so a chapter told in WRITING was
+                advertised on the public hub as something to watch. */}
+            {item.storytellerCutHasVideo ? (
+              <>
+                <Play aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                Watch the storyteller&rsquo;s cut
+              </>
+            ) : (
+              <>
+                <BookOpen aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                Read the storyteller&rsquo;s chapter
+              </>
+            )}
           </Link>
         ) : null}
       </div>

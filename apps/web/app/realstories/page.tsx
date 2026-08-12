@@ -6,6 +6,7 @@ import {
   loadFeaturedChapters,
   loadChapterCutsForEvents,
   loadChapterSearchMeta,
+  type ChapterCut,
 } from '@/lib/storytellers';
 import { RealStoriesGallery, type GalleryItem } from './_components/gallery';
 import { StorytellersShelf } from './_components/storytellers-shelf';
@@ -102,7 +103,7 @@ export default async function RealStoriesIndexPage() {
   const chapterCutByEvent =
     showcases.length > 0
       ? await loadChapterCutsForEvents(showcases.map((s) => s.eventId))
-      : new Map<string, string>();
+      : new Map<string, ChapterCut>();
   // Cross-rail (chapter → editorial): "Read the editorial" chips for chapter
   // tiles whose event has a consented published editorial — composed from the
   // showcases already loaded above (the shelf modules stay route-agnostic).
@@ -174,7 +175,8 @@ export default async function RealStoriesIndexPage() {
         // Credited vendors' canonical categories → the service facet axis.
         serviceCategories: s.serviceCategories,
         // Cross-rail chip — the storyteller's cut of this same event, if any.
-        storytellerCutHref: chapterCutByEvent.get(s.eventId) ?? null,
+        storytellerCutHref: chapterCutByEvent.get(s.eventId)?.href ?? null,
+        storytellerCutHasVideo: chapterCutByEvent.get(s.eventId)?.hasVideo ?? false,
       }));
 
   // ── Stories SEARCH display gate (P4+ · volume-gated) ─────────────────────

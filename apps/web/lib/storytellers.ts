@@ -53,6 +53,13 @@ export type StorytellerTileItem = {
   thumbUrl: string | null;
   /** Plain-text lede, shown as the hero when there is no `thumbUrl`. */
   excerpt: string | null;
+  /**
+   * Whether the chapter carries a video at all. NOT the same as `thumbUrl`:
+   * only YouTube yields a derivable thumbnail, so an Instagram or TikTok
+   * chapter has a video and no thumb. Deciding the Watch/Read label from the
+   * thumbnail labelled those "Read".
+   */
+  hasVideo: boolean;
   publishedAt: string | null;
   /** The chapter's linked Setnayan event (cross-rail join key), if any. */
   eventId: string | null;
@@ -123,6 +130,7 @@ function toTile(
     viewCount: typeof row.view_count === 'number' ? row.view_count : Number(row.view_count ?? 0),
     thumbUrl: youtubeThumbFromEmbedUrl(row.embed_url),
     excerpt: chapterExcerpt(row.body ?? null),
+    hasVideo: Boolean(row.embed_url),
     publishedAt: row.published_at ?? null,
     eventId: row.event_id ?? null,
     featureRank: row.showcase_feature_rank ?? null,
@@ -188,10 +196,20 @@ export async function loadFeaturedChapters(limit = 24): Promise<StorytellerTileI
  * "Watch the storyteller's cut" chip on editorial cards. A join over
  * creator_chapters.event_id, not machinery. Best-effort → empty map.
  */
+export type ChapterCut = {
+  href: string;
+  /**
+   * Does the chapter actually carry a video? The cross-rail chip used to say
+   * "Watch the storyteller's cut" unconditionally, so a chapter told purely in
+   * WRITING was advertised on the public hub as something to watch.
+   */
+  hasVideo: boolean;
+};
+
 export async function loadChapterCutsForEvents(
   eventIds: ReadonlyArray<string>,
-): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
+): Promise<Map<string, ChapterCut>> {
+  const out = new Map<string, ChapterCut>();
   const ids = Array.from(new Set(eventIds)).filter(Boolean);
   if (ids.length === 0) return out;
   let admin: ReturnType<typeof createAdminClient>;
@@ -203,13 +221,13 @@ export async function loadChapterCutsForEvents(
   try {
     const { data } = await admin
       .from('creator_chapters')
-      .select('public_id, user_id, event_id, published_at')
+      .select('public_id, user_id, event_id, published_at, embed_url')
       .eq('status', 'published')
       .in('event_id', ids)
       .order('published_at', { ascending: false });
     const rows = (data ?? []) as Pick<
       ChapterRow,
-      'public_id' | 'user_id' | 'event_id' | 'published_at'
+      'public_id' | 'user_id' | 'event_id' | 'published_at' | 'embed_url'
     >[];
     if (rows.length === 0) return out;
     const owners = await fetchPublicOwners(
@@ -220,7 +238,10 @@ export async function loadChapterCutsForEvents(
       if (!r.event_id || out.has(r.event_id)) continue; // newest-first → keep first
       const owner = owners.get(r.user_id);
       if (!owner) continue;
-      out.set(r.event_id, `/u/${owner.slug}/c/${r.public_id}`);
+      out.set(r.event_id, {
+        href: `/u/${owner.slug}/c/${r.public_id}`,
+        hasVideo: Boolean(r.embed_url),
+      });
     }
     return out;
   } catch {

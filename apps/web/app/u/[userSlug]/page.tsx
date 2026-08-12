@@ -490,7 +490,10 @@ function ChapterTimeline({
                   </span>
                   <span className="m-serif uprof-tl-title">{c.title}</span>
                   <span className="uprof-tl-cue">
-                    Watch the chapter
+                    {/* "Watch" was hardcoded, so a story told in WRITING was
+                        advertised to every visitor as a video they could
+                        watch. The cue follows what the chapter actually is. */}
+                    {c.embed_url ? 'Watch the chapter' : 'Read the chapter'}
                     <span aria-hidden className="uprof-tl-chev">
                       &rsaquo;
                     </span>

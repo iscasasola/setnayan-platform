@@ -58,16 +58,26 @@ export function StorytellerTile({
               className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
             />
           ) : (
-            <div className="absolute inset-0 flex items-end bg-gradient-to-br from-cream via-cream to-terracotta/10 p-4 sm:p-5">
-              {item.excerpt ? (
-                <p className="m-serif line-clamp-4 text-[0.95rem] italic leading-snug text-ink/70">
-                  {item.excerpt}
-                </p>
-              ) : null}
+            <div className="absolute inset-0 flex items-end bg-gradient-to-br from-cream via-cream to-terracotta/10 p-4 pb-11 sm:p-5 sm:pb-12">
+              {/* pb-11/pb-12 clears the absolutely-positioned Watch/Read pill,
+                  which is painted after this block and would otherwise sit on
+                  top of the excerpt's last line. */}
+              <p className="m-serif line-clamp-3 text-[0.95rem] italic leading-snug text-ink/70">
+                {/* TERMINAL FALLBACK. With neither a thumbnail nor an excerpt
+                    this hero used to render as a blank gradient box — no image,
+                    no text, nothing. A chapter can reach that state legitimately
+                    (a very short story, or one whose first paragraph is
+                    whitespace), so the kind is the floor, never nothing. */}
+                {item.excerpt ?? `A ${item.kindLabel.toLowerCase()} story`}
+              </p>
             </div>
           )}
           <span className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-white backdrop-blur-sm">
-            {item.thumbUrl ? (
+            {/* Keyed on hasVideo, NOT thumbUrl. Only YouTube yields a
+                derivable thumbnail, so an Instagram or TikTok chapter has a
+                real video and no thumb — keying on the image labelled those
+                "Read" and put a book icon on a video. */}
+            {item.hasVideo ? (
               <>
                 <Play aria-hidden className="h-2.5 w-2.5" fill="currentColor" strokeWidth={0} />
                 Watch

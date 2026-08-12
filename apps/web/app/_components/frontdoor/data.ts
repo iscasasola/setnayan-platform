@@ -32,7 +32,11 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { publishedBlogArticles, blogCategoryLabel } from '@/lib/blog';
+import {
+  publishedBlogArticles,
+  blogCategoryLabel,
+  readingMinutes,
+} from '@/lib/blog';
 import { loadFeaturedChapters } from '@/lib/storytellers';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
 
@@ -70,7 +74,9 @@ export type FrontDoorStory = {
   kindLabel: string;
   /** A written chapter legitimately has no video. Never a reason to drop it. */
   hasVideo: boolean;
-  readingMinutes: number;
+  // No `readingMinutes` — see the note where these are built. The shared
+  // loader keeps only an excerpt, and a reading time derived from a preview is
+  // an invented number.
 };
 
 export type FrontDoorShop = {
@@ -91,19 +97,16 @@ export type FrontDoorData = {
   realWeddingCount: number | null;
 };
 
-/**
- * Reading time from the article's own blocks. The Journal computes this for
- * its cards already; the front door shows the same number so a card cannot
- * promise 4 minutes on one page and 7 on another.
+/*
+ * ⚠ THERE IS NO LOCAL `readingMinutes` HERE, AND THAT IS THE POINT.
+ *
+ * The first cut of this file wrote one — and it divided by 220 while the
+ * shipped `readingMinutes` in `lib/blog.ts` divides by 200 and walks the blocks
+ * through `blogPlainText`. So the SAME article would have advertised one
+ * reading time on the front page and a different one on the article itself.
+ * Two definitions of one rule do not stay equal; these two were never equal to
+ * begin with. Caught by `lint:dup-rule`, which is exactly what it is for.
  */
-function readingMinutes(blocks: ReadonlyArray<{ text?: string }>): number {
-  const words = blocks
-    .map((b) => (typeof b.text === 'string' ? b.text : ''))
-    .join(' ')
-    .split(/\s+/)
-    .filter(Boolean).length;
-  return Math.max(1, Math.round(words / 220));
-}
 
 /**
  * Live shops — `public_visibility='verified'` AND `verification_state='verified'`.
@@ -196,9 +199,9 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
       publishedAt: a.publishedAt,
       cover: a.cover,
       coverAlt: a.coverAlt,
-      readingMinutes: readingMinutes(
-        a.blocks as ReadonlyArray<{ text?: string }>,
-      ),
+      // The Journal's own reading time, imported — so a card cannot promise
+      // 5 minutes here and 6 on the article itself.
+      readingMinutes: readingMinutes(a.blocks),
     }));
 
   const stories: FrontDoorStory[] = (storiesRaw ?? []).map((s) => ({
@@ -207,7 +210,20 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
     ownerName: s.ownerName,
     kindLabel: s.kindLabel,
     hasVideo: Boolean(s.thumbUrl),
-    readingMinutes: Math.max(1, Math.round((s.excerpt ?? '').split(/\s+/).length / 220) || 1),
+    /*
+      ⚠ NO READING TIME ON A STORYTELLER CARD, DELIBERATELY.
+
+      The prototype draws one, and the first cut computed it — from the
+      EXCERPT, because the shared shelf loader keeps only an excerpt and not
+      the body. A reading time derived from a truncated preview is a number we
+      invented: it would read "1 min" on a piece that takes ten, on somebody
+      else's wedding.
+
+      This page's whole rule is that a number it cannot stand behind does not
+      go on the screen. So the card carries what is TRUE — the kind, the
+      author, and whether there is video — and the minutes are left off until
+      the loader carries the body. That is follow-up work, not a defect here.
+    */
   }));
 
   // ⚠ SAMPLES ARE NOT REAL WEDDINGS. `loadPublishedShowcases` deliberately

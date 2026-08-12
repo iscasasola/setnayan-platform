@@ -98,10 +98,11 @@ function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
     <Link href={s.href} className="fd-item">
       <div className="fd-thumb">
         THEIR STORY
-        <span className="fd-dur">{s.readingMinutes} min</span>
         {/* A written chapter legitimately has no video. The card leads with
             the READ and marks a video as an extra, never as the whole point —
-            which is the entire reason the storyteller shelf was empty. */}
+            which is the entire reason the storyteller shelf was empty.
+            No minutes badge: see data.ts — we do not have the body, and a
+            reading time guessed from an excerpt is an invented number. */}
         {s.hasVideo ? <span className="fd-hasvid">▶ with video</span> : null}
       </div>
       <div className="fd-imeta">
@@ -251,7 +252,8 @@ export function FrontDoorFeed({
             {shownStories.slice(0, 6).map((s) => (
               <Link key={s.href} href={s.href} className="fd-story">
                 <div className="fd-sthumb">
-                  <span className="fd-min">{s.readingMinutes} MIN</span>
+                  {/* Video is a fact we hold; minutes are not (see data.ts). */}
+                  {s.hasVideo ? <span className="fd-min">▶</span> : null}
                 </div>
                 <p className="fd-sttl">{s.title}</p>
                 <p className="fd-sby">Their story · {s.ownerName}</p>

@@ -65,7 +65,14 @@ test('no "reception" anywhere — a tournament has none', () => {
   for (const terms of [BIRTHDAY, WEDDING_AI_VALUE_TERMS]) {
     assert.ok(!allText(terms).toLowerCase().includes('reception'));
   }
-  assert.match(allText(BIRTHDAY), /distance to your venue/);
+  // ⚠ The positive half of this test used to assert the distance capability said
+  // "distance to your venue" rather than "reception". That capability was REMOVED
+  // 2026-08-12 — nearest-first sorting is FREE for everyone, so selling it on the
+  // paid card was charging for something every couple already had. There is no
+  // longer a line to check the wording of. The "reception" sweep above still runs
+  // over every word of the copy, which is the half that actually guards the
+  // 16 event types; keeping a match on deleted text would only have forced the
+  // line back.
 });
 
 test('the shortlist blurb uses the type event word', () => {

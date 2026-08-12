@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b53837621",
+  "generatedFromRef": "66ea86592",
   "routeCount": 401,
-  "destinations": 680,
-  "actions": 515,
-  "blocks": 3545,
+  "destinations": 678,
+  "actions": 517,
+  "blocks": 3548,
   "routes": {
     "/": {
       "files": [
@@ -992,6 +992,7 @@
       ],
       "actions": [
         "applyCorrectionRequest",
+        "correctShopAddress",
         "declineCorrectionRequest"
       ],
       "blocks": [
@@ -999,6 +1000,7 @@
         "FormFlash",
         "Link",
         "RequestCard",
+        "ShopAddressCorrection",
         "SubmitButton",
         "VendorCorrectionRequestRow"
       ]
@@ -5061,7 +5063,9 @@
       ],
       "destinations": [],
       "actions": [],
-      "blocks": []
+      "blocks": [
+        "Link"
+      ]
     },
     "/dashboard/[eventId]/studio/panood/setup": {
       "files": [
@@ -5534,17 +5538,19 @@
         "dashboard/[eventId]/studio/setnayan-ai/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]",
         "/dashboard/[seg]/studio",
         "/dashboard/[seg]/vendors"
       ],
-      "actions": [],
+      "actions": [
+        "setPlanningMode"
+      ],
       "blocks": [
         "Figure",
         "Icon",
         "InlineCheckoutDrawer",
         "Link",
-        "SetnayanAiValue"
+        "SetnayanAiValue",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/studio/supplies-marketplace": {
@@ -5566,6 +5572,20 @@
         "ProductCard",
         "SuppliesMarketplaceBrowser",
         "SupplyCategoryKey"
+      ]
+    },
+    "/dashboard/[eventId]/studio/thank-you": {
+      "files": [
+        "dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx",
+        "dashboard/[eventId]/studio/thank-you/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PageMasthead",
+        "Phase",
+        "ThankYouMaker"
       ]
     },
     "/dashboard/[eventId]/studio/website-pro": {
@@ -6468,6 +6488,7 @@
       "blocks": [
         "Link",
         "SubmitButton",
+        "TurnstileField",
         "Wordmark"
       ]
     },
@@ -6903,7 +6924,8 @@
         "PanoodCameraPublish",
         "PeerConnectionState",
         "Shell",
-        "SubmitButton"
+        "SubmitButton",
+        "TurnstileField"
       ]
     },
     "/panood/control/[eventId]": {
@@ -6919,7 +6941,8 @@
         "panood/control/[eventId]/transport-row.tsx"
       ],
       "destinations": [
-        "/api/oauth/youtube/start?event_id=[seg]"
+        "/api/oauth/youtube/start?event_id=[seg]",
+        "/dashboard/[seg]/studio/panood/cameras/print"
       ],
       "actions": [
         "action",
@@ -7068,7 +7091,8 @@
       "blocks": [
         "Link",
         "Shell",
-        "SubmitButton"
+        "SubmitButton",
+        "TurnstileField"
       ]
     },
     "/papic/decorate": {
@@ -9324,6 +9348,7 @@
         "vendor-dashboard/shop/_components/profile-checklist-editor.tsx",
         "vendor-dashboard/shop/_components/public-line-card.tsx",
         "vendor-dashboard/shop/_components/reach-map.tsx",
+        "vendor-dashboard/shop/_components/request-correction-card.tsx",
         "vendor-dashboard/shop/_components/service-radius-fields.tsx",
         "vendor-dashboard/shop/_components/services-disclosure.tsx",
         "vendor-dashboard/shop/_components/venue-match-card.tsx",
@@ -9395,6 +9420,7 @@
         "LeafletMarker",
         "LeafletModule",
         "Link",
+        "LockedIdentityFieldKey",
         "ManageTiles",
         "ManpowerSurface",
         "PanelShell",
@@ -9411,6 +9437,7 @@
         "ReceiptLine",
         "RegNumberSaveResult",
         "RegistrationNumberInput",
+        "RequestCorrectionCard",
         "Row",
         "RowPreview",
         "ServiceCoverageRow",

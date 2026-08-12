@@ -63,15 +63,37 @@ export const WEDDING_AI_VALUE_TERMS: AiValueTerms = {
 /** Stable ids — the component keys icons + live figures off these, never off titles. */
 export type AiCapabilityId =
   | 'rank'
-  | 'distance'
-  | 'first_inquiry'
   | 'deadlines'
-  | 'chase'
   | 'next_move'
   | 'payments'
   | 'budget'
-  | 'demand';
+  | 'demand'
+  | 'price_watch'
+  | 'date_watch'
+  | 'schedule_clash';
 
+/**
+ * ⛔ NOTHING GOES ON THIS CARD THAT THE PRODUCT DOES NOT DO (owner 2026-08-12:
+ * "just list what is true").
+ *
+ * REMOVED 2026-08-12, because a verification pass found them sold and unbuilt:
+ *   • `first_inquiry` — "Sends your first inquiry to the best fit". NO
+ *     implementation existed anywhere. The only inquiry fan-out in the product
+ *     is the FREE one at sign-up, so this was charging for something absent.
+ *   • `chase` — "Chases the vendors who go quiet". It fires internally, but it
+ *     is a "secretary" message and notifications carry GUARDS only, while the
+ *     home rail is handed an empty inquiry list. Blocked twice over; it has
+ *     never reached a single person.
+ *
+ * ⚠ THESE ARE COMING BACK. The owner's ruling is BUILD them, not delete them —
+ * `first_inquiry` specifically is to become a real Setnayan AI feature (the
+ * planner writing and sending a requirement-filled inquiry to the single best
+ * fit, then following it up), distinct from the free fan-out, which stays free.
+ * Re-add each line the day the thing behind it works, not before.
+ *
+ * 🔑 A FEATURE LIST IS A PROMISE WITH A PRICE ON IT. This card sits directly
+ * above a buy button.
+ */
 export type AiCapabilityCopy = { id: AiCapabilityId; title: string; body: string };
 export type AiCapabilityGroupCopy = {
   heading: string;
@@ -107,33 +129,19 @@ export function buildAiValueGroups(terms: AiValueTerms): AiCapabilityGroupCopy[]
       caps: [
         {
           id: 'rank',
-          // "faith" stays for EVERY type on purpose. It is a real weighted
-          // dimension in the matcher (`faithFit`, 0.07 — a lift for a vendor who
-          // declares the ceremony/faith), and it is not wedding-only: a
-          // christening ranks on it too. Listing an input that simply scores
-          // NEUTRAL when your event declares no faith is not a false promise;
-          // dropping it would UNDER-claim a running capability, which breaks the
-          // same "list only what's wired" rule from the other direction.
-          title: 'Ranks every vendor by how well they fit',
+          // ⚠ REWORDED 2026-08-12, not removed. The old title claimed the "%
+          // match" on every vendor, and that score is FREE for everyone —
+          // category-search.ts says so in as many words: "the paid layer is the
+          // concierge, not the score". What Setnayan AI genuinely changes is the
+          // SUGGESTED TEAM's rank mode (`compat` vs `cheapest`). Deleting the
+          // line would have under-claimed a real paid capability; keeping the old
+          // wording would have sold a free one. Both are failures.
+          title: 'Builds your suggested team by best fit, not cheapest',
           body:
-            'Sorted by your date, budget, location, guest count, faith and reviews ' +
-            '— each with a “% match”, not a generic A–Z list.',
-        },
-        {
-          id: 'distance',
-          // "reception" was wedding-only; "venue" is true for every type,
-          // including a wedding, whose reception IS the anchor venue.
-          title: 'Sorts by distance to your venue',
-          body:
-            'Nearer vendors rise to the top, so you’re not comparing a supplier ' +
-            'three provinces away against one down the road.',
-        },
-        {
-          id: 'first_inquiry',
-          title: 'Sends your first inquiry to the best fit',
-          body:
-            'For each category it can draft and open the conversation with the ' +
-            'strongest match, so you start with a reply — not a blank page.',
+            'The “% match” on each vendor is free for everyone. What Setnayan AI ' +
+            'changes is how your suggested TEAM is assembled — around fit with ' +
+            'your date, budget and the rest of your line-up, instead of simply ' +
+            'the lowest price.',
         },
       ],
     },
@@ -142,13 +150,6 @@ export function buildAiValueGroups(terms: AiValueTerms): AiCapabilityGroupCopy[]
       blurb: 'The quiet secretary that never loses the thread.',
       caps: [
         { id: 'deadlines', title: 'Tracks every deadline for you', body: deadlineBody },
-        {
-          id: 'chase',
-          title: 'Chases the vendors who go quiet',
-          body:
-            'If someone you’ve messaged hasn’t replied, it notices and offers to ' +
-            'send a polite nudge — so a stalled thread never becomes a lost date.',
-        },
         {
           id: 'next_move',
           title: 'Tells you the one thing to do next',
@@ -175,6 +176,30 @@ export function buildAiValueGroups(terms: AiValueTerms): AiCapabilityGroupCopy[]
           body:
             'It adds up what you’ve committed against your target and speaks up ' +
             'while there’s still room to trim, not after.',
+        },
+        {
+          id: 'price_watch',
+          title: 'Tells you when a vendor you’re watching changes their price',
+          body:
+            'It keeps the figure you were quoted and checks it against what the ' +
+            'vendor charges now, so a quiet rise before you have signed does not ' +
+            'reach you as a surprise on the invoice.',
+        },
+        {
+          id: 'date_watch',
+          title: 'Tells you when someone you’re considering gets booked — or frees up',
+          body:
+            'The one you were still deciding on takes another booking on your ' +
+            'date, and you hear it from us rather than from a reply three days ' +
+            'later. It works the other way too, when a full favourite opens up.',
+        },
+        {
+          id: 'schedule_clash',
+          title: 'Warns you when two things clash on the day',
+          body:
+            'Two parts of the run-of-show booked over each other, or a supplier ' +
+            'due somewhere they cannot be, gets caught while it is still a ' +
+            'calendar problem instead of a problem on the day itself.',
         },
         {
           id: 'demand',

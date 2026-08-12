@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4c0072d1f",
+  "generatedFromRef": "75b62fb81",
   "routeCount": 401,
   "destinations": 677,
   "actions": 517,
-  "blocks": 3547,
+  "blocks": 3548,
   "routes": {
     "/": {
       "files": [
@@ -28,6 +28,7 @@
         "DeferredObservability",
         "DemoModeBanner",
         "DeviceCapture",
+        "FrontDoor",
         "GlobalHaptics",
         "GlobalSliderHint",
         "HomeReskin",

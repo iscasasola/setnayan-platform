@@ -1,0 +1,960 @@
+/**
+ * front-door.css — the public front door at `/`.
+ *
+ * PORTED, NOT REDRAWN, from `prototypes/front_door_and_seam_2026-08-12.html`
+ * (rev 3) — the binding drawing. A delta between this and the prototype is a
+ * defect in the PORT, not a fresh design decision.
+ *
+ * ─── SCOPE ───────────────────────────────────────────────────────────────
+ * Everything is under `.fd`. This page deliberately overrides the app's
+ * terracotta + serif locks FOR THIS PAGE ONLY (owner 2026-08-11), exactly as
+ * the retired homepage reskin did — so the scope prefix is load-bearing, not
+ * tidiness. Nothing outside `/` may inherit a rule from this file.
+ *
+ * ─── WHAT IS LOCKED HERE (owner 2026-08-11, this page only) ──────────────
+ *   • gold #8C6932 action buttons with cream labels — measured 4.86:1
+ *   • the SYSTEM typeface, not the app's serif
+ *   • cream #FDFBF7 page, ink #2C2A29
+ *   • counts in monospace, 44×44 tap targets, light mode only
+ *
+ * ⚠ ONE DELIBERATE SUPERSESSION, and it is stricter rather than looser. The
+ * 2026-08-11 lock said "cards separated by border + shadow". Rev 2 of the
+ * prototype (2026-08-12, drawn against the owner-supplied YouTube desktop)
+ * removed both: the thumbnail IS the object and the text sits directly on the
+ * page. That is a stricter reading of the same "cream page and cards, never a
+ * second surface" lock, and it is what the binding drawing does — so `.fd-item`
+ * carries no border and no shadow. Do not add them back.
+ *
+ * ─── RADII COME FROM THE GLOBAL TOKENS, NOT FROM THIS PAGE ───────────────
+ * Corner radius uses `var(--m-r-*)` — the owner-locked "softer corners" scale
+ * (2026-06-20), NOT this page's own values. The front door overrides colour
+ * and typeface for itself; corner radius is a different lock and there is no
+ * reason for this page to have its own. `lint:radius` enforces it.
+ *
+ * 🪤 That guard PRINTS A WARNING AND EXITS 0 locally, but CI treats it as
+ * blocking — so checking `$?` locally says nothing. Read its OUTPUT.
+ *
+ * ─── LIGHT MODE ONLY, ON PURPOSE ─────────────────────────────────────────
+ * There is no `prefers-color-scheme: dark` block and there must not be one.
+ * The palette is a measured-contrast decision; a dark variant would be a new
+ * design, not a port.
+ */
+
+.fd {
+  --fd-cream: #fdfbf7;
+  --fd-ink: #2c2a29;
+  --fd-gold: #8c6932;
+  --fd-hi: #a9834b;
+  --fd-link: #3b4e67;
+  --fd-m1: #6e6a62;
+  --fd-m2: #8a857b;
+  --fd-m3: #a09a8e;
+  --fd-line: #e1dcd1;
+  --fd-wash: #f3ecdf;
+  --fd-hover: #f4eee3;
+  --fd-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --fd-sys: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif;
+  /* The rail is 240px. The written spec says 248; the binding drawing says
+     240 and the drawing wins. */
+  --fd-rail: 240px;
+
+  background: var(--fd-cream);
+  color: var(--fd-ink);
+  font-family: var(--fd-sys);
+  min-height: 100vh;
+}
+
+.fd *,
+.fd *::before,
+.fd *::after {
+  box-sizing: border-box;
+}
+
+.fd-mono {
+  font-family: var(--fd-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── TOP BAR ──────────────────────────────────────────────────────────────
+   Three columns: hamburger + wordmark left, centred search, account cluster
+   right. The centre column is capped so the search never stretches across a
+   wide desktop — the reference pins it to a readable width. */
+.fd-topbar {
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 640px) 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: var(--fd-cream);
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  border-bottom: 1px solid transparent;
+}
+
+.fd-topleft,
+.fd-topright {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fd-topright {
+  justify-content: flex-end;
+  position: relative;
+}
+
+/* The account menu. Signing out lives HERE and nowhere else — visiting the
+   public site never signs anyone out. */
+.fd-acctmenu {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  width: 230px;
+  background: var(--fd-cream);
+  border: 1px solid var(--fd-line);
+  border-radius: var(--m-r-md);
+  box-shadow: 0 12px 30px rgba(44, 42, 41, 0.12);
+  padding: 6px;
+  z-index: 30;
+}
+.fd-acctmenu form {
+  margin: 0;
+}
+.fd-acctmenu .fd-row {
+  font-size: 13.5px;
+}
+
+/* 44×44 is the locked tap target. The visual circle may read smaller, but the
+   pressable area never does. */
+.fd-iconbtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  background: none;
+  border: 0;
+  color: var(--fd-ink);
+  cursor: pointer;
+}
+.fd-iconbtn:hover {
+  background: var(--fd-hover);
+}
+
+.fd-wordmark {
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  font-size: 15px;
+  color: var(--fd-ink);
+  text-decoration: none;
+  padding: 0 4px;
+}
+
+.fd-searchwrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.fd-searchbox {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--fd-line);
+  border-radius: var(--m-r-full);
+  overflow: hidden;
+  background: var(--fd-cream);
+  min-width: 0;
+}
+.fd-searchbox input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--fd-ink);
+  padding: 0 14px;
+  min-height: 42px;
+}
+.fd-searchbox input::placeholder {
+  color: var(--fd-m2);
+}
+/* The search has its OWN button — the reference does, and a field with no
+   button reads as decoration on a page whose whole job is to answer a word. */
+.fd-searchgo {
+  width: 58px;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  background: #f6f1e7;
+  border: 0;
+  border-left: 1px solid var(--fd-line);
+  color: var(--fd-m1);
+  cursor: pointer;
+}
+.fd-searchgo:hover {
+  background: var(--fd-wash);
+}
+.fd-micbtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #f6f1e7;
+  border: 0;
+  display: grid;
+  place-items: center;
+  color: var(--fd-m1);
+  cursor: pointer;
+  flex: 0 0 44px;
+}
+.fd-micbtn:hover {
+  background: var(--fd-wash);
+}
+
+.fd-btn-gold {
+  min-height: 44px;
+  padding: 0 15px;
+  border-radius: var(--m-r-full);
+  background: var(--fd-gold);
+  color: var(--fd-cream);
+  border: 0;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 650;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+.fd-btn-gold:hover {
+  background: #7b5c2c;
+}
+.fd-btn-quiet {
+  min-height: 44px;
+  padding: 0 13px;
+  border-radius: var(--m-r-full);
+  border: 1px solid var(--fd-line);
+  background: var(--fd-cream);
+  color: var(--fd-ink);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+.fd-btn-quiet:hover {
+  background: var(--fd-hover);
+}
+
+.fd-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--fd-wash);
+  border: 1px solid var(--fd-line);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fd-gold);
+  font-family: var(--fd-mono);
+}
+
+/* ── BODY: rail + feed ───────────────────────────────────────────────────── */
+.fd-body {
+  display: grid;
+  grid-template-columns: var(--fd-rail) 1fr;
+}
+
+.fd-rail {
+  padding: 10px 8px 40px;
+  overflow-y: auto;
+  position: sticky;
+  top: 60px;
+  max-height: calc(100vh - 60px);
+}
+
+/* A rail row. `min-height:44px` is the locked tap target. */
+.fd-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--m-r-sm);
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--fd-ink);
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+}
+.fd-row:hover {
+  background: var(--fd-hover);
+}
+/* Scroll-spy sits on the LEFT edge of the active row — a right-edge marker on
+   a left rail points away from the content it describes. */
+.fd-row[data-on='true'] {
+  background: var(--fd-wash);
+  font-weight: 650;
+}
+.fd-row[data-on='true']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--fd-gold);
+}
+.fd-gi {
+  width: 20px;
+  flex: 0 0 20px;
+  text-align: center;
+  color: var(--fd-m1);
+  font-size: 15px;
+}
+.fd-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fd-hi);
+  flex: 0 0 6px;
+  margin: 0 7px;
+}
+.fd-ct {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--fd-m2);
+}
+
+.fd-rdiv {
+  height: 1px;
+  background: var(--fd-line);
+  margin: 12px;
+}
+.fd-rlabel {
+  padding: 6px 12px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--fd-m1);
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.fd-rlabel small {
+  font-weight: 500;
+  color: var(--fd-m3);
+  font-size: 11px;
+}
+
+/* The sign-in prompt — a plain prompt and plain rows, never a bordered block.
+   Rev 1 tried to solve visibility with decoration when POSITION was the real
+   answer, and the account slot is now the second group. */
+.fd-signin-prompt {
+  padding: 4px 12px 8px;
+}
+.fd-signin-prompt p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fd-m1);
+}
+
+/* People is deliberately off, pending legal review. It is a NOTICE, not a
+   door — no chevron, no hover, nothing to press. A greyed-out row invites a
+   press that fails; a sentence tells the truth and costs nothing. */
+.fd-notice {
+  margin: 6px 12px;
+  padding: 10px 12px;
+  border-radius: var(--m-r-sm);
+  background: #f7f3ea;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fd-m1);
+}
+.fd-notice b {
+  display: block;
+  color: var(--fd-ink);
+  font-size: 13px;
+  margin-bottom: 3px;
+}
+.fd-soon {
+  display: inline-block;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--fd-m2);
+  border: 1px solid var(--fd-line);
+  border-radius: var(--m-r-xs);
+  padding: 1px 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.fd-smallprint {
+  padding: 4px 12px;
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--fd-m2);
+}
+.fd-smallprint a {
+  color: var(--fd-m2);
+  text-decoration: none;
+  margin-right: 10px;
+}
+.fd-smallprint a:hover {
+  color: var(--fd-ink);
+  text-decoration: underline;
+}
+.fd-copy {
+  margin-top: 10px;
+  color: var(--fd-m3);
+  font-size: 11.5px;
+}
+.fd-tag2 {
+  color: var(--fd-m3);
+  font-size: 11.5px;
+  font-style: italic;
+}
+
+/* ── FEED ─────────────────────────────────────────────────────────────────
+   The feed column is capped per breakpoint so the grid keeps its four-across
+   rhythm instead of stretching into five-across soup on a wide monitor. */
+.fd-main {
+  padding: 0 24px 60px;
+  min-width: 0;
+}
+.fd-col {
+  width: 100%;
+  max-width: 1064px;
+  margin: 0 auto;
+}
+
+.fd-chipbar {
+  position: sticky;
+  top: 60px;
+  background: var(--fd-cream);
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+}
+.fd-chips {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.fd-chips::-webkit-scrollbar {
+  display: none;
+}
+.fd-chip {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--m-r-sm);
+  background: #f2ece0;
+  border: 0;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--fd-ink);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.fd-chip:hover {
+  background: #e9e1d2;
+}
+.fd-chip[data-on='true'] {
+  background: var(--fd-ink);
+  color: var(--fd-cream);
+}
+
+/* THE UNIFORM FOUR-ACROSS GRID. This is what makes a page look full on a day
+   when three of four rails are bare — a lead story plus empty shelves reads as
+   four apologies; an even grid of real articles reads as a publication. */
+.fd-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 26px;
+}
+
+/* NO BORDER, NO SHADOW. See the header note. */
+.fd-item {
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.fd-thumb {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--m-r-md);
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #e7decd, #d8cdb9);
+  display: grid;
+  place-items: center;
+  color: #b0a48a;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+}
+/* `next/image` with `fill` positions itself; this only has to say how it
+   crops. Both thumb shapes share it. */
+.fd-cover {
+  object-fit: cover;
+}
+.fd-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.fd-item:hover .fd-thumb {
+  filter: brightness(0.97);
+}
+.fd-dur {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  background: rgba(30, 28, 26, 0.85);
+  color: #f5f1e8;
+  border-radius: var(--m-r-xs);
+  padding: 1px 5px;
+  font-size: 11.5px;
+  font-family: var(--fd-mono);
+}
+.fd-hasvid {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  background: rgba(30, 28, 26, 0.85);
+  color: #f5f1e8;
+  border-radius: var(--m-r-xs);
+  padding: 1px 6px;
+  font-size: 11px;
+}
+.fd-imeta {
+  display: flex;
+  gap: 12px;
+  padding-top: 11px;
+}
+.fd-ava {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex: 0 0 36px;
+  background: var(--fd-wash);
+  border: 1px solid var(--fd-line);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fd-gold);
+  font-family: var(--fd-mono);
+}
+.fd-itxt {
+  flex: 1;
+  min-width: 0;
+}
+.fd-ttl {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 0 0 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.fd-by {
+  font-size: 13px;
+  color: var(--fd-m2);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* The card says which KIND it is, so the shelf does not have to — which is
+   what lets articles and their stories share one shelf instead of standing in
+   two, one of them permanently empty. */
+.fd-kindtag {
+  display: inline-block;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  border: 1px solid var(--fd-line);
+  border-radius: var(--m-r-xs);
+  padding: 1px 5px;
+  margin-right: 5px;
+  color: var(--fd-m1);
+  background: #f7f3ea;
+}
+.fd-kindtag-w {
+  color: #7a4a2e;
+  border-color: #e6cdbc;
+  background: #fbf0e9;
+}
+
+.fd-sechead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 14px;
+  flex-wrap: wrap;
+}
+/* ⚠ THE ELEMENT IS THE HEADING, NOT ITS PARENT.
+   The drawing had `<div class="sechead"><h3>…</h3></div>`; the port made the
+   <h2> itself the classed element. The rule below used to say `.fd-sechead h2`
+   — a descendant that never exists — so with Tailwind preflight resetting
+   h1..h6 to inherit, both section headings rendered as plain body text. */
+h2.fd-sechead,
+.fd-sechead {
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+/* The meta and rule spans sit inside the heading and must NOT inherit 19px/700. */
+.fd-sechead .fd-meta,
+.fd-sechead .fd-rule {
+  font-weight: 400;
+  letter-spacing: normal;
+}
+.fd-sechead .fd-meta {
+  font-size: 13px;
+  color: var(--fd-m2);
+}
+.fd-sechead .fd-rule {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--fd-m3);
+}
+.fd-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--m-r-sm);
+  background: var(--fd-gold);
+  color: var(--fd-cream);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  flex: 0 0 22px;
+}
+
+/* The shorts row — 9:16, six-up at the widest. */
+.fd-storyrow {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+  margin-bottom: 26px;
+}
+.fd-story {
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+}
+.fd-sthumb {
+  aspect-ratio: 9 / 16;
+  border-radius: var(--m-r-md);
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(160deg, #e7decd, #d3c7b1);
+}
+.fd-sthumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.fd-min {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(30, 28, 26, 0.8);
+  color: #f3eee4;
+  border-radius: var(--m-r-xs);
+  padding: 1px 5px;
+  font-size: 10.5px;
+  font-family: var(--fd-mono);
+}
+.fd-sttl {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 8px 0 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.fd-sby {
+  font-size: 11.5px;
+  color: var(--fd-m2);
+  margin: 0;
+}
+
+/* An invitation, not an apology — the shape an empty rail takes. */
+.fd-invite {
+  border: 1px dashed #dcd3c2;
+  border-radius: var(--m-r-md);
+  padding: 20px 22px;
+  background: #fcf8f1;
+}
+.fd-invite h3 {
+  margin: 0 0 7px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.fd-invite p {
+  margin: 0 0 13px;
+  color: var(--fd-m1);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.fd-invite .fd-go {
+  font-size: 13.5px;
+  color: var(--fd-link);
+  font-weight: 650;
+  text-decoration: none;
+}
+.fd-invite .fd-go:hover {
+  text-decoration: underline;
+}
+.fd-invite-wide {
+  grid-column: span 2;
+}
+.fd-invite-full {
+  grid-column: 1 / -1;
+}
+
+/* A count that failed to load says so. It NEVER says 0. */
+.fd-unknown {
+  color: var(--fd-m3);
+  font-style: italic;
+}
+
+/* ── BREAKPOINTS ──────────────────────────────────────────────────────────
+   ≥1440 rail 240 · feed 1064 · shorts 6-up
+   1280–1439 rail 240 · feed 960 · shorts 5-up
+   1024–1279 rail collapses to a 72px icon strip · shorts 4-up
+   <1024 rail goes off-canvas behind the hamburger · 3-up → 2-up on phone */
+@media (max-width: 1439.98px) {
+  .fd-col {
+    max-width: 960px;
+  }
+  .fd-storyrow {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media (max-width: 1279.98px) {
+  .fd {
+    --fd-rail: 72px;
+  }
+  .fd-storyrow {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  /* The icon strip keeps the icon and drops the word. A row with no icon
+     (the tools' bullet rows, the small print) has nothing to show at 72px, so
+     it is hidden outright rather than rendered as a mystery stub. */
+  .fd-rail {
+    padding: 10px 4px 40px;
+  }
+  .fd-rail .fd-label-text,
+  .fd-rail .fd-ct,
+  .fd-rlabel,
+  .fd-signin-prompt p,
+  .fd-notice,
+  .fd-smallprint {
+    display: none;
+  }
+  .fd-row {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 2px;
+    font-size: 10px;
+    min-height: 60px;
+    justify-content: center;
+    text-align: center;
+  }
+  .fd-row .fd-icon-caption {
+    display: block;
+    font-size: 10px;
+    line-height: 1.2;
+    color: var(--fd-m1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 1280px) {
+  .fd-row .fd-icon-caption {
+    display: none;
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .fd-body {
+    grid-template-columns: 1fr;
+  }
+  /* Off-canvas behind the hamburger.
+     🔑 `display:none` when shut is load-bearing: it takes every row OUT OF THE
+     TAB ORDER. Sliding it off-screen with a transform, or hiding it with
+     `aria-hidden` + `pointer-events:none`, would leave a dozen focusable links
+     reachable by keyboard behind the scrim while appearing closed. */
+  .fd-rail[data-open='false'] {
+    display: none;
+  }
+  .fd-rail {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-height: none;
+    background: var(--fd-cream);
+    border-right: 1px solid var(--fd-line);
+    z-index: 40;
+    padding: 16px 8px 40px;
+  }
+  .fd {
+    --fd-rail: 240px;
+  }
+  .fd-rail .fd-label-text,
+  .fd-rail .fd-ct,
+  .fd-rlabel,
+  .fd-signin-prompt p,
+  .fd-notice,
+  .fd-smallprint {
+    display: revert;
+  }
+  .fd-row {
+    flex-direction: row;
+    gap: 12px;
+    padding: 0 12px;
+    font-size: 14px;
+    min-height: 44px;
+    text-align: left;
+    justify-content: flex-start;
+  }
+  .fd-row .fd-icon-caption {
+    display: none;
+  }
+  .fd-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(30, 28, 26, 0.38);
+    z-index: 39;
+  }
+  .fd-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .fd-storyrow {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .fd-main {
+    padding: 0 16px 60px;
+  }
+  .fd-topbar {
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 700.98px) {
+  .fd-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .fd-storyrow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .fd-invite-wide {
+    grid-column: 1 / -1;
+  }
+  /* On a phone the search collapses to its button; the field opens as its own
+     row so the wordmark and the account cluster keep their space. */
+  .fd-searchwrap {
+    display: none;
+  }
+  .fd-searchrow {
+    display: block;
+    padding: 0 16px 10px;
+    background: var(--fd-cream);
+  }
+  .fd-ttl {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 701px) {
+  .fd-searchrow {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fd * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* The hamburger exists only where the rail is off-canvas. A real mount
+   condition — above this width the rail is permanently visible and a menu
+   button would announce collapsed navigation that is fully on screen. */
+.fd-only-narrow {
+  display: none;
+}
+@media (max-width: 1023.98px) {
+  .fd-only-narrow {
+    display: grid;
+  }
+}
+
+/* The page's <h1>. Present for structure and for a screen reader; the visible
+   masthead is the wordmark, which is a link and cannot double as the heading. */
+.fd-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The scrim must never exist as a layout box outside the off-canvas band —
+   unstyled it became grid item #1 of .fd-body and collapsed the page. */
+.fd-scrim {
+  display: none;
+}
+@media (max-width: 1023.98px) {
+  .fd-scrim {
+    display: block;
+  }
+}

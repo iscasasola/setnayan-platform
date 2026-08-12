@@ -43,7 +43,7 @@ export function clampWallPhotoCount(n: number | null | undefined): number {
 // ───────────────────────────────────────────────────────────────────────────
 // THE GUEST PHONE MIRROR — events.live_photo_wall_visibility.
 //
-// The ₱2,500 SKU is called "Live VENUE Photo Wall" and the couple's card only
+// The SKU is called "Live VENUE Photo Wall" and the couple's card only
 // ever described a venue projection and screen codes. The same screened feed is
 // ALSO mirrored onto every invited guest's phone for the whole live window
 // (owner 2026-06-12). A couple who revoked every venue screen code would
@@ -82,8 +82,8 @@ export const DEFAULT_WALL_GUEST_VISIBILITY: WallGuestVisibility = 'all_with_cons
  *
  * FAILS OPEN, on purpose and against the usual instinct. An unreadable or
  * pre-migration value must land on the behaviour the product has always had
- * (the mirror on) rather than silently removing a feature the couple paid
- * ₱2,500 for. Turning the mirror off is a decision only the couple makes, and
+ * (the mirror on) rather than silently removing a feature they already have
+ * for. Turning the mirror off is a decision only the couple makes, and
  * `'off'` is the only value that means it — a typo, a NULL or a future enum
  * member never speaks for them in either direction.
  */

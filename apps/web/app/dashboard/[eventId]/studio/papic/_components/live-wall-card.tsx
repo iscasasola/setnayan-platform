@@ -134,11 +134,14 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
             Live Photo Wall
           </h2>
           {/* ⚠ THE SECOND HALF WAS MISSING. This described the wall as a venue
-              projection only, so a couple weighing ₱2,500 saw a screen rental
+              projection only, so a couple weighing it up saw a screen rental
               they might not need — and never learned the wall ALSO runs on every
               guest's own phone. site-body.tsx renders that mirror on the event
-              page for the live window whenever the event owns LIVE_WALL, so it
-              is part of what they are already buying, not an upsell.
+              page for the live window, so it is part of what they already have,
+              not an upsell. (It was a paid add-on when this was written; the
+              owner made it free for every event on 2026-08-12. No price is
+              quoted here on purpose — a copied price is how a dead number
+              survives in the codebase.)
 
               ✅ THE CONTROL NOW EXISTS — this comment's "the on/off control for
               the mirror is Session 7's" is done, and the last sentence points at

@@ -88,14 +88,49 @@ function sources(dir: string, out: string[] = []): string[] {
 
 const CONFIG = () => readFileSync(join(WEB, 'next.config.ts'), 'utf8');
 
-/** The ENFORCED policy — the report-only one blocks nothing and proves nothing. */
+/**
+ * The ENFORCED policy — the report-only one blocks nothing and proves nothing.
+ *
+ * ⚠ ANCHORED ON `key: 'Content-Security-Policy'`, NOT on the bare directive.
+ * There are now TWO `frame-src` directives in this file, and the report-only one
+ * is written FIRST. A plain `/frame-src 'self'/` returns whichever comes first —
+ * so the moment the draft policy gained a frame-src, every assertion in this file
+ * silently switched to measuring the header that BLOCKS NOTHING, while staying
+ * green because the two lists happened to agree. A guard reading the wrong thing
+ * and passing is worse than no guard.
+ */
+function extractEnforcedFrameSrc(config: string): string | null {
+  const header = /key: 'Content-Security-Policy',[\s\S]{0,200}?"([^"]*)"/.exec(config);
+  if (!header?.[1]) return null;
+  return /frame-src 'self'[^"']*/.exec(header[1])?.[0] ?? null;
+}
+
 function enforcedFrameSrc(): string {
-  const config = CONFIG();
-  // Anchored on the directive so a bare /frame-src/ can't match the word inside
-  // a comment. Same anchoring as watch-live-block.test.ts.
-  const match = /frame-src 'self'[^"']*/.exec(config);
-  assert.notEqual(match, null, 'no enforced frame-src directive found in next.config.ts');
-  return match![0];
+  const got = extractEnforcedFrameSrc(CONFIG());
+  assert.notEqual(got, null, 'no enforced frame-src directive found in next.config.ts');
+  return got!;
+}
+
+/**
+ * The REPORT-ONLY `frame-src` — the draft of what will one day be enforced.
+ * Anchored inside the CSP_REPORT_ONLY array so it cannot pick up the enforced one.
+ */
+function extractDraftFrameSrc(config: string): string | null {
+  const block = /const CSP_REPORT_ONLY = \[([\s\S]*?)\]\.join/.exec(config);
+  if (!block?.[1]) return null;
+  // Directive STRINGS only — a comment mentioning `frame-src` must not count as
+  // one. That mistake was made twice in one day while investigating this file.
+  for (const line of block[1].split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('//')) continue;
+    const m = /^"(frame-src [^"]*)"/.exec(trimmed);
+    if (m) return m[1]!;
+  }
+  return null;
+}
+
+function reportOnlyFrameSrc(): string | null {
+  return extractDraftFrameSrc(CONFIG());
 }
 
 /**
@@ -381,6 +416,88 @@ test('the bot check stays reachable in BOTH policies', () => {
     /challenges\.cloudflare\.com/,
     'Turnstile fell out of the report-only script-src — harmless today, an ' +
       'app-wide lockout the day that policy is enforced',
+  );
+});
+
+test('🔴 the DRAFT policy would not grey-box every embed if it were enforced', () => {
+  // WHAT THIS CAUGHT (2026-08-11): CSP_REPORT_ONLY had NO `frame-src` at all.
+  // Frames therefore fell back to `default-src 'self'`, which means enforcing the
+  // draft as written would have turned every YouTube/Vimeo/Instagram/TikTok
+  // player, the vendor OpenStreetMap panel and the Turnstile challenge into
+  // silent grey boxes on the same afternoon.
+  //
+  // It also poisoned the measurement the whole report-only exercise exists for:
+  // every legitimate embed reported a violation, so a real finding would have
+  // arrived buried in noise about origins we had already approved.
+  const draft = reportOnlyFrameSrc();
+  assert.notEqual(
+    draft,
+    null,
+    'CSP_REPORT_ONLY has no frame-src directive. Frames fall back to ' +
+      "default-src 'self', so enforcing this draft breaks EVERY embed on the " +
+      'site at once, and until then every legitimate embed reports a violation.',
+  );
+
+  const enforced = enforcedFrameSrc();
+  const hosts = [...enforced.matchAll(/https?:\/\/([A-Za-z0-9.*-]+)/g)].map((m) => m[1]!);
+  assert.ok(hosts.length >= 5, `only ${hosts.length} hosts parsed from the enforced frame-src`);
+
+  const missing = hosts.filter((h) => !draft!.includes(h));
+  assert.deepEqual(
+    missing,
+    [],
+    `The draft frame-src is missing origins the enforced one already trusts. ` +
+      `These two lists are copies, and this is the drift the copy was always ` +
+      `going to produce: the day the draft is enforced, each of these embeds ` +
+      `becomes a grey box with nothing logged.\n\nenfor` +
+      `ced: ${enforced}\ndraft:    ${draft}\n\nmissing: ${missing.join(', ')}`,
+  );
+});
+
+test('the two frame-src readers really do read DIFFERENT policies', () => {
+  // WHY THIS IS NOT DECORATION. The drift test above compares two strings that
+  // are, today, byte-identical. If both readers were quietly returning the SAME
+  // directive — which is exactly what happens with a bare /frame-src 'self'/
+  // regex now that the draft is declared FIRST — that test would be comparing a
+  // string to itself and would pass forever while measuring nothing.
+  //
+  // Asserting against the real file cannot detect that, precisely BECAUSE the
+  // two lists agree. So this feeds the extractors a synthetic config where the
+  // two deliberately differ, and requires each to return its own one.
+  const synthetic = `
+const CSP_REPORT_ONLY = [
+  "default-src 'self'",
+  "frame-src 'self' https://draft-only.example",
+  'report-uri /api/csp-report',
+].join('; ');
+const securityHeaders = [
+  {
+    key: 'Content-Security-Policy',
+    value:
+      "frame-ancestors 'self'; frame-src 'self' https://enforced-only.example",
+  },
+];`;
+
+  assert.equal(
+    extractDraftFrameSrc(synthetic),
+    "frame-src 'self' https://draft-only.example",
+    'the draft reader picked up the wrong policy',
+  );
+  assert.equal(
+    extractEnforcedFrameSrc(synthetic),
+    "frame-src 'self' https://enforced-only.example",
+    'the enforced reader picked up the wrong policy — with the draft declared ' +
+      'first in the file, an un-anchored regex returns the draft, and every ' +
+      'assertion in this file silently starts measuring the header that BLOCKS ' +
+      'NOTHING while staying green',
+  );
+
+  // And the un-anchored regex the file used to carry really would get it wrong —
+  // so the anchoring is load-bearing, not defensive tidying.
+  assert.equal(
+    /frame-src 'self'[^"']*/.exec(synthetic)?.[0],
+    "frame-src 'self' https://draft-only.example",
+    'if this stops being true the hazard is gone and this test can be simplified',
   );
 });
 

@@ -11,11 +11,11 @@ import {
   type BlogCategoryKey,
 } from '@/lib/blog';
 // Eyebrow / metaLine / StoryCard moved to ./_components/story-card (2026-08-08)
-// so /realstories' "From the Journal" rail renders a real Journal card instead
+// so /realstories' "From our articles" rail renders a real article card instead
 // of a copy of one. Pure move — this page's markup is unchanged.
 import { StoryCard, Eyebrow, metaLine } from './_components/story-card';
 
-// Setnayan Journal index — magazine redesign (iteration 0038, 2026-06-15).
+// Setnayan Articles index — magazine redesign (iteration 0038, 2026-06-15).
 // Photo-led editorial: a full-bleed cover for the featured guide, a "Nuggets"
 // band of shareable wisdom, and a varied grid of story cards. Keeps the
 // SEO/GEO machinery from the 2026-06-13 first slice intact (static render,
@@ -27,14 +27,14 @@ const SITE_URL = (
 ).replace(/\/$/, '');
 
 export const metadata = {
-  title: 'Setnayan Journal — Filipino wedding planning guides',
+  title: 'Setnayan Articles — Filipino wedding planning guides',
   description:
     'Planning timelines, supplier cost guides, and Filipino wedding customs explained — practical, no-nonsense advice for couples planning a wedding in the Philippines.',
   alternates: { canonical: `${SITE_URL}/blog` },
   openGraph: {
     type: 'website',
     url: `${SITE_URL}/blog`,
-    title: 'Setnayan Journal',
+    title: 'Setnayan Articles',
     description:
       'Filipino wedding planning guides — timelines, supplier costs, and customs explained.',
     siteName: 'Setnayan',
@@ -43,7 +43,7 @@ export const metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Setnayan Journal — Filipino wedding planning guides',
+    title: 'Setnayan Articles — Filipino wedding planning guides',
     description:
       'Filipino wedding planning guides — timelines, supplier costs, and customs explained.',
     images: [`${SITE_URL}/blog/hero.webp`],
@@ -128,7 +128,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
   const blogJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Blog',
-    name: 'Setnayan Journal',
+    name: 'Setnayan Articles',
     description:
       'Filipino wedding planning guides — timelines, supplier cost guides, and customs explained.',
     url: `${SITE_URL}/blog`,
@@ -152,7 +152,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
       {
         '@type': 'ListItem',
         position: 2,
-        name: 'Journal',
+        name: 'Articles',
         item: `${SITE_URL}/blog`,
       },
     ],
@@ -188,7 +188,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
           <div className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-6xl px-5 pb-12 sm:px-8 sm:pb-16">
             <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.24em] text-[#E6D4A6]">
               <Newspaper aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Setnayan Journal · the Filipino wedding edit
+              Setnayan Articles · the Filipino wedding edit
             </p>
             <h1 className="mt-4 max-w-[15ch] font-display text-4xl font-medium leading-[1.02] tracking-tight text-white sm:text-6xl">
               Wedding planning, the Filipino way.
@@ -263,7 +263,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
       <div className="mx-auto w-full max-w-6xl flex-1 px-5 py-14 sm:px-8 sm:py-16">
         {activeCategory ? (
           <div className="max-w-2xl space-y-3">
-            <Eyebrow>Setnayan Journal</Eyebrow>
+            <Eyebrow>Setnayan Articles</Eyebrow>
             <h1 className="font-display text-4xl font-medium tracking-tight text-ink">
               {blogCategoryLabel(activeCategory)}
             </h1>

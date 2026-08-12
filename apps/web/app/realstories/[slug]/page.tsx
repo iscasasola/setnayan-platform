@@ -148,14 +148,14 @@ function SampleEditorial({ wedding }: { wedding: RealWedding }) {
           className="mt-10 inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
         >
           <ChevronLeft aria-hidden className="mr-1 h-4 w-4" strokeWidth={1.75} />
-          All real weddings
+          All stories
         </Link>
       </div>
     </article>
   );
 }
 
-// /realstories/[slug] — Real Weddings showcase detail (iteration 0046).
+// /realstories/[slug] — Stories showcase detail (iteration 0046).
 //
 // The showcase IS the editorial: each entry renders through the SAME
 // `EditorialContent` component as a real wedding's post-event editorial page,
@@ -235,7 +235,7 @@ export default async function WeddingShowcasePage({ params }: Props) {
       {
         '@type': 'ListItem',
         position: 2,
-        name: 'Real weddings',
+        name: 'Stories',
         item: `${SITE_URL}/realstories`,
       },
       {
@@ -280,7 +280,7 @@ export default async function WeddingShowcasePage({ params }: Props) {
             className="inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
           >
             <ChevronLeft aria-hidden className="mr-1 h-4 w-4" strokeWidth={1.75} />
-            Real weddings
+            Stories
           </Link>
           <div className="flex flex-wrap items-center gap-3">
             {wedding.isSample ? (

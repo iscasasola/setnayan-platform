@@ -136,7 +136,7 @@ export async function updateLandingPageVisibility(formData: FormData) {
 }
 
 /**
- * Real Weddings showcase consent — RA 10173 opt-in / one-click opt-out
+ * Stories showcase consent — RA 10173 opt-in / one-click opt-out
  * (iteration 0046 "Phase B" surface referenced by
  * 20260519000000_phase_a_event_editorial_consent.sql).
  *

@@ -2,7 +2,7 @@ import { StoryCard } from '@/app/blog/_components/story-card';
 import type { BlogArticle } from '@/lib/blog';
 
 /**
- * JournalRail — "From the Journal" on /realstories (Warm Editorial port E4 ·
+ * JournalRail — "From our articles" on /realstories (Warm Editorial port E4 ·
  * FABLE Public Marketplace spec § 3.3, state § 4.B item 6).
  *
  * Frame 4e wanted the Journal folded INTO the stories grid as one publication.
@@ -35,10 +35,10 @@ export function JournalRail({ articles }: { articles: BlogArticle[] }) {
   if (articles.length < 2) return null;
 
   return (
-    <section aria-label="From the Journal" className="mt-14 sm:mt-16">
+    <section aria-label="From our articles" className="mt-14 sm:mt-16">
       <div className="mb-4 max-w-2xl space-y-1.5">
         <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-700">
-          From the Journal
+          From our articles
         </p>
         <h2 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">
           Practical guides for planning your own.

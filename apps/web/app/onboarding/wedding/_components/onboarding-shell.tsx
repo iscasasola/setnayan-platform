@@ -59,6 +59,11 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-flag';
+// The customer-facing category words. Imported, never re-typed: this file used
+// to carry its own hand-written copy of all ten group names, so the 2026-08-12
+// rename had to be applied here a THIRD time or the wizard would have kept
+// showing `Documentary` / `Feast` after the marketplace stopped. One source.
+import { WEDDING_FOLDER_LABEL } from '@/lib/taxonomy';
 import type { ServicesStepView } from '@/lib/onboarding/services-step-data';
 import { ServicesStep } from '@/app/onboarding/_shared/services-step';
 import {
@@ -393,16 +398,16 @@ const REGLABEL: Record<string, string> = Object.fromEntries(
 type PickChip = { cat: string; label: string; photoUrl?: string | null };
 type PickGroup = { label: string; rows: PickChip[][] };
 const PICK_GROUPS_FALLBACK: PickGroup[] = [
-  { label: 'Venue', rows: [[{ cat: 'reception', label: 'Reception venue' }, { cat: 'ceremony', label: 'Ceremony venue' }]] },
-  { label: 'Planning', rows: [[{ cat: 'coordinator', label: 'Coordinator / planner' }]] },
-  { label: 'Feast', rows: [[{ cat: 'catering', label: 'Catering' }], [{ cat: 'cake', label: 'Cake' }, { cat: 'stations', label: 'Food stations' }]] },
-  { label: 'Design', rows: [[{ cat: 'stylist', label: 'Stylist / decorator' }], [{ cat: 'lights_sound', label: 'Lights & sound' }, { cat: 'florist', label: 'Florist' }], [{ cat: 'dance_floor', label: 'Dance floor' }, { cat: 'led_wall', label: 'LED wall' }], [{ cat: 'fireworks', label: 'Fireworks' }, { cat: 'outdoor', label: 'Outdoor setup' }]] },
-  { label: 'Program', rows: [[{ cat: 'host_mc', label: 'Host / MC' }], [{ cat: 'live_band', label: 'Live band' }, { cat: 'orchestra', label: 'Orchestra' }], [{ cat: 'choir', label: 'Choir' }, { cat: 'wedding_singer', label: 'Wedding singer' }], [{ cat: 'dj', label: 'DJ' }, { cat: 'choreographer', label: 'Choreographer' }], [{ cat: 'performers', label: 'Performers' }]] },
-  { label: 'Documentary', rows: [[{ cat: 'photo_video', label: 'Photo & Video' }], [{ cat: 'livestream', label: 'Livestream' }, { cat: 'editorial', label: 'Editorial feature' }]] },
-  { label: 'Look', rows: [[{ cat: 'bride_attire', label: "Bride's attire" }], [{ cat: 'groom_attire', label: "Groom's attire" }, { cat: 'grooming', label: 'Grooming' }], [{ cat: 'hmua', label: 'Hair & makeup' }, { cat: 'wellness', label: 'Wellness & fitness' }], [{ cat: 'filipiniana', label: 'Filipiniana & Barong' }], [{ cat: 'women_attire', label: "Women's attire" }, { cat: 'men_attire', label: "Men's attire" }], [{ cat: 'jewelry', label: 'Jewellery & accessories' }]] },
-  { label: 'Booths', rows: [[{ cat: 'photo_booth', label: 'Photo booth' }], [{ cat: 'coffee', label: 'Coffee / espresso' }, { cat: 'mocktail', label: 'Mocktail bar' }], [{ cat: 'mobile_bar', label: 'Mobile bar' }, { cat: 'dessert', label: 'Dessert' }], [{ cat: 'food_cart', label: 'Food cart' }, { cat: 'food_truck', label: 'Food truck' }], [{ cat: 'massage_chair', label: 'Massage chair' }, { cat: 'nail_bar', label: 'Mini nail bar' }], [{ cat: 'caricature', label: 'Calligraphy / Caricature / Live Art' }, { cat: 'tarot', label: 'Tarot / astrology' }], [{ cat: 'perfume_bar', label: 'Perfume bar' }, { cat: 'arcade', label: 'Arcade / games' }], [{ cat: 'henna', label: 'Henna / tattoo' }, { cat: 'engraving', label: 'Engraving / embroidery' }]] },
-  { label: 'Prints', rows: [[{ cat: 'printing', label: 'Printing' }, { cat: 'souvenirs', label: 'Souvenirs / giveaways' }]] },
-  { label: 'Transport', rows: [[{ cat: 'bridal_car', label: 'Bridal car' }], [{ cat: 'guest_shuttle', label: 'Guest shuttle' }, { cat: 'escort', label: 'Escort' }]] },
+  { label: WEDDING_FOLDER_LABEL.venue, rows: [[{ cat: 'reception', label: 'Reception venue' }, { cat: 'ceremony', label: 'Ceremony venue' }]] },
+  { label: WEDDING_FOLDER_LABEL.planning, rows: [[{ cat: 'coordinator', label: 'Coordinator / planner' }]] },
+  { label: WEDDING_FOLDER_LABEL.feast, rows: [[{ cat: 'catering', label: 'Catering' }], [{ cat: 'cake', label: 'Cake' }, { cat: 'stations', label: 'Food stations' }]] },
+  { label: WEDDING_FOLDER_LABEL.design, rows: [[{ cat: 'stylist', label: 'Stylist / decorator' }], [{ cat: 'lights_sound', label: 'Lights & sound' }, { cat: 'florist', label: 'Florist' }], [{ cat: 'dance_floor', label: 'Dance floor' }, { cat: 'led_wall', label: 'LED wall' }], [{ cat: 'fireworks', label: 'Fireworks' }, { cat: 'outdoor', label: 'Outdoor setup' }]] },
+  { label: WEDDING_FOLDER_LABEL.program, rows: [[{ cat: 'host_mc', label: 'Host / MC' }], [{ cat: 'live_band', label: 'Live band' }, { cat: 'orchestra', label: 'Orchestra' }], [{ cat: 'choir', label: 'Choir' }, { cat: 'wedding_singer', label: 'Wedding singer' }], [{ cat: 'dj', label: 'DJ' }, { cat: 'choreographer', label: 'Choreographer' }], [{ cat: 'performers', label: 'Performers' }]] },
+  { label: WEDDING_FOLDER_LABEL.documentary, rows: [[{ cat: 'photo_video', label: 'Photo & Video' }], [{ cat: 'livestream', label: 'Livestream' }, { cat: 'editorial', label: 'Editorial feature' }]] },
+  { label: WEDDING_FOLDER_LABEL.look, rows: [[{ cat: 'bride_attire', label: "Bride's attire" }], [{ cat: 'groom_attire', label: "Groom's attire" }, { cat: 'grooming', label: 'Grooming' }], [{ cat: 'hmua', label: 'Hair & makeup' }, { cat: 'wellness', label: 'Wellness & fitness' }], [{ cat: 'filipiniana', label: 'Filipiniana & Barong' }], [{ cat: 'women_attire', label: "Women's attire" }, { cat: 'men_attire', label: "Men's attire" }], [{ cat: 'jewelry', label: 'Jewellery & accessories' }]] },
+  { label: WEDDING_FOLDER_LABEL.booths, rows: [[{ cat: 'photo_booth', label: 'Photo booth' }], [{ cat: 'coffee', label: 'Coffee / espresso' }, { cat: 'mocktail', label: 'Mocktail bar' }], [{ cat: 'mobile_bar', label: 'Mobile bar' }, { cat: 'dessert', label: 'Dessert' }], [{ cat: 'food_cart', label: 'Food cart' }, { cat: 'food_truck', label: 'Food truck' }], [{ cat: 'massage_chair', label: 'Massage chair' }, { cat: 'nail_bar', label: 'Mini nail bar' }], [{ cat: 'caricature', label: 'Calligraphy / Caricature / Live Art' }, { cat: 'tarot', label: 'Tarot / astrology' }], [{ cat: 'perfume_bar', label: 'Perfume bar' }, { cat: 'arcade', label: 'Arcade / games' }], [{ cat: 'henna', label: 'Henna / tattoo' }, { cat: 'engraving', label: 'Engraving / embroidery' }]] },
+  { label: WEDDING_FOLDER_LABEL.prints, rows: [[{ cat: 'printing', label: 'Printing' }, { cat: 'souvenirs', label: 'Souvenirs / giveaways' }]] },
+  { label: WEDDING_FOLDER_LABEL.transport, rows: [[{ cat: 'bridal_car', label: 'Bridal car' }], [{ cat: 'guest_shuttle', label: 'Guest shuttle' }, { cat: 'escort', label: 'Escort' }]] },
 ];
 /* Dream Team chapter (PR-3) — the 4 ESSENTIAL services rendered on `team_basics`, in the
    canonical BASIC order (ceremony → catering → coordinator → photo_video; owner ISSUE-1).
@@ -413,60 +418,60 @@ const PICK_GROUPS_FALLBACK: PickGroup[] = [
    screens call the same pickChip(cat); there is no basicPicks/enhancePicks. */
 const BASIC_CATS = ['ceremony', 'catering', 'coordinator', 'photo_video'] as const;
 const BASIC_SET = new Set<string>(BASIC_CATS);
-const PICK_INFO: Record<string, { g: string; d: string }> = {
-  reception: { g: 'Venue', d: 'Where your celebration happens — the dinner, the program, and the dancing.' },
-  ceremony: { g: 'Venue', d: 'Where you exchange vows — church, mosque, temple, garden, or civil hall.' },
-  coordinator: { g: 'Planning', d: 'Runs your timeline and vendors so you can just enjoy the day.' },
-  catering: { g: 'Feast', d: 'Food and service for your guests — buffet, plated, or family-style.' },
-  cake: { g: 'Feast', d: 'Your wedding cake and dessert centerpiece.' },
-  stations: { g: 'Feast', d: 'Live food stations — carving, pasta, lechon, and more.' },
-  stylist: { g: 'Design', d: 'Designs and styles the whole look — venue, stage, and tables.' },
-  florist: { g: 'Design', d: 'Bouquets, centerpieces, and floral styling throughout.' },
-  lights_sound: { g: 'Design', d: 'Lighting design and the sound system for the day.' },
-  dance_floor: { g: 'Design', d: 'A proper dance floor for the first dance and the party.' },
-  outdoor: { g: 'Design', d: 'Tents, draping, and setup for an outdoor celebration.' },
-  fireworks: { g: 'Design', d: 'A fireworks or pyro send-off for the big moment.' },
-  led_wall: { g: 'Design', d: 'An LED video wall for visuals, the live feed, and your monogram.' },
-  live_band: { g: 'Program', d: 'A live band to play your reception.' },
-  choir: { g: 'Program', d: 'A choir for your ceremony.' },
-  orchestra: { g: 'Program', d: 'A string ensemble or orchestra for an elegant ceremony.' },
-  wedding_singer: { g: 'Program', d: 'A soloist for your processional and special moments.' },
-  dj: { g: 'Program', d: 'A DJ to keep the party going all night.' },
-  choreographer: { g: 'Program', d: 'Choreographs your first dance or entourage number.' },
-  performers: { g: 'Program', d: 'Special performers — cultural acts, dancers, or a surprise.' },
-  host_mc: { g: 'Program', d: 'A host or emcee to run your reception program.' },
-  photo_video: { g: 'Documentary', d: 'Photo and video teams to capture the whole day.' },
-  editorial: { g: 'Documentary', d: 'A styled editorial feature of your wedding.' },
-  livestream: { g: 'Documentary', d: 'Livestream the ceremony for guests who cannot be there.' },
-  bride_attire: { g: 'Look', d: 'The bride’s gown — bought, made, or rented.' },
-  groom_attire: { g: 'Look', d: 'The groom’s suit or formalwear.' },
-  women_attire: { g: 'Look', d: 'Gowns for your bridesmaids and women’s entourage.' },
-  men_attire: { g: 'Look', d: 'Suits for your groomsmen and men’s entourage.' },
-  filipiniana: { g: 'Look', d: 'Filipiniana gowns and Barong Tagalog for a heritage look.' },
-  hmua: { g: 'Look', d: 'Hair and makeup for the bride and the entourage.' },
-  grooming: { g: 'Look', d: 'Grooming for the groom and the men.' },
-  wellness: { g: 'Look', d: 'Skin, fitness, and wellness prep before the day.' },
-  jewelry: { g: 'Look', d: 'Rings, veil, and the finishing accessories.' },
-  photo_booth: { g: 'Booths', d: 'A photo booth for instant guest keepsakes.' },
-  mobile_bar: { g: 'Booths', d: 'A mobile bar serving cocktails and drinks.' },
-  coffee: { g: 'Booths', d: 'A coffee and espresso cart for your guests.' },
-  mocktail: { g: 'Booths', d: 'A mocktail bar — alcohol-free, all the fun.' },
-  food_truck: { g: 'Booths', d: 'A food truck for a fun late-night bite.' },
-  dessert: { g: 'Booths', d: 'A dessert cart or a sweets table.' },
-  food_cart: { g: 'Booths', d: 'A classic Filipino food cart — fishball, ice cream, and more.' },
-  massage_chair: { g: 'Booths', d: 'Massage chairs to pamper your guests.' },
-  perfume_bar: { g: 'Booths', d: 'A perfume bar — guests blend a scent to take home.' },
-  arcade: { g: 'Booths', d: 'Arcade and games to keep the crowd entertained.' },
-  henna: { g: 'Booths', d: 'A henna or temporary-tattoo station.' },
-  nail_bar: { g: 'Booths', d: 'A mini nail bar for quick pampering.' },
-  tarot: { g: 'Booths', d: 'Tarot, astrology, or palm reading — just for fun.' },
-  caricature: { g: 'Booths', d: 'A live caricature or calligraphy artist.' },
-  engraving: { g: 'Booths', d: 'On-the-spot engraving or embroidery favors.' },
-  printing: { g: 'Prints', d: 'Invitations, signage, and printed pieces.' },
-  souvenirs: { g: 'Prints', d: 'Giveaways and souvenirs for your guests.' },
-  bridal_car: { g: 'Transport', d: 'The bridal car for your grand entrance and exit.' },
-  guest_shuttle: { g: 'Transport', d: 'Shuttles to bring your guests to the venue.' },
-  escort: { g: 'Transport', d: 'A security or motorcade escort for the convoy.' },
+const PICK_INFO: Record<string, { d: string }> = {
+  reception: { d: 'Where your celebration happens — the dinner, the program, and the dancing.' },
+  ceremony: { d: 'Where you exchange vows — church, mosque, temple, garden, or civil hall.' },
+  coordinator: { d: 'Runs your timeline and vendors so you can just enjoy the day.' },
+  catering: { d: 'Food and service for your guests — buffet, plated, or family-style.' },
+  cake: { d: 'Your wedding cake and dessert centerpiece.' },
+  stations: { d: 'Live food stations — carving, pasta, lechon, and more.' },
+  stylist: { d: 'Designs and styles the whole look — venue, stage, and tables.' },
+  florist: { d: 'Bouquets, centerpieces, and floral styling throughout.' },
+  lights_sound: { d: 'Lighting design and the sound system for the day.' },
+  dance_floor: { d: 'A proper dance floor for the first dance and the party.' },
+  outdoor: { d: 'Tents, draping, and setup for an outdoor celebration.' },
+  fireworks: { d: 'A fireworks or pyro send-off for the big moment.' },
+  led_wall: { d: 'An LED video wall for visuals, the live feed, and your monogram.' },
+  live_band: { d: 'A live band to play your reception.' },
+  choir: { d: 'A choir for your ceremony.' },
+  orchestra: { d: 'A string ensemble or orchestra for an elegant ceremony.' },
+  wedding_singer: { d: 'A soloist for your processional and special moments.' },
+  dj: { d: 'A DJ to keep the party going all night.' },
+  choreographer: { d: 'Choreographs your first dance or entourage number.' },
+  performers: { d: 'Special performers — cultural acts, dancers, or a surprise.' },
+  host_mc: { d: 'A host or emcee to run your reception program.' },
+  photo_video: { d: 'Photo and video teams to capture the whole day.' },
+  editorial: { d: 'A styled editorial feature of your wedding.' },
+  livestream: { d: 'Livestream the ceremony for guests who cannot be there.' },
+  bride_attire: { d: 'The bride’s gown — bought, made, or rented.' },
+  groom_attire: { d: 'The groom’s suit or formalwear.' },
+  women_attire: { d: 'Gowns for your bridesmaids and women’s entourage.' },
+  men_attire: { d: 'Suits for your groomsmen and men’s entourage.' },
+  filipiniana: { d: 'Filipiniana gowns and Barong Tagalog for a heritage look.' },
+  hmua: { d: 'Hair and makeup for the bride and the entourage.' },
+  grooming: { d: 'Grooming for the groom and the men.' },
+  wellness: { d: 'Skin, fitness, and wellness prep before the day.' },
+  jewelry: { d: 'Rings, veil, and the finishing accessories.' },
+  photo_booth: { d: 'A photo booth for instant guest keepsakes.' },
+  mobile_bar: { d: 'A mobile bar serving cocktails and drinks.' },
+  coffee: { d: 'A coffee and espresso cart for your guests.' },
+  mocktail: { d: 'A mocktail bar — alcohol-free, all the fun.' },
+  food_truck: { d: 'A food truck for a fun late-night bite.' },
+  dessert: { d: 'A dessert cart or a sweets table.' },
+  food_cart: { d: 'A classic Filipino food cart — fishball, ice cream, and more.' },
+  massage_chair: { d: 'Massage chairs to pamper your guests.' },
+  perfume_bar: { d: 'A perfume bar — guests blend a scent to take home.' },
+  arcade: { d: 'Arcade and games to keep the crowd entertained.' },
+  henna: { d: 'A henna or temporary-tattoo station.' },
+  nail_bar: { d: 'A mini nail bar for quick pampering.' },
+  tarot: { d: 'Tarot, astrology, or palm reading — just for fun.' },
+  caricature: { d: 'A live caricature or calligraphy artist.' },
+  engraving: { d: 'On-the-spot engraving or embroidery favors.' },
+  printing: { d: 'Invitations, signage, and printed pieces.' },
+  souvenirs: { d: 'Giveaways and souvenirs for your guests.' },
+  bridal_car: { d: 'The bridal car for your grand entrance and exit.' },
+  guest_shuttle: { d: 'Shuttles to bring your guests to the venue.' },
+  escort: { d: 'A security or motorcade escort for the convoy.' },
 };
 /* ── feel/palette data (prototype FEELS) — re-housed into the standalone `mood` screen
    (PR-3) after the StyleSubStepper was retired. Still read by buildCommitPayload
@@ -1593,14 +1598,12 @@ export function OnboardingShell({
     if (!newChips.length) return PICK_GROUPS_FALLBACK;
     // Deep-copy so we can safely push without mutating the module-level const.
     const result: PickGroup[] = PICK_GROUPS_FALLBACK.map((g) => ({ label: g.label, rows: g.rows.map((r) => [...r]) }));
-    // Folder id → group label (mirrors WEDDING_FOLDER_LABEL in lib/taxonomy.ts).
-    const FOLDER_LABEL: Record<string, string> = {
-      venue: 'Venue', planning: 'Planning', feast: 'Feast', design: 'Design',
-      program: 'Program', documentary: 'Documentary', look: 'Look',
-      booths: 'Booths', prints: 'Prints', transport: 'Transport',
-    };
+    // Folder id → group label. Reads WEDDING_FOLDER_LABEL directly; this used
+    // to be a hand-typed mirror of it, which is precisely how a rename lands in
+    // one place and not the other.
     for (const chip of newChips) {
-      const groupLabel = FOLDER_LABEL[chip.folder] ?? chip.folder;
+      const groupLabel =
+        WEDDING_FOLDER_LABEL[chip.folder as keyof typeof WEDDING_FOLDER_LABEL] ?? chip.folder;
       let group = result.find((g) => g.label === groupLabel);
       if (!group) { group = { label: groupLabel, rows: [] }; result.push(group); }
       // Append as its own row (single-chip row) so layout stays clean.

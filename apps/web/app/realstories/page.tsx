@@ -54,7 +54,7 @@ const HUB_DESCRIPTION =
   'Real stories from real events — editorial features written by Setnayan, and chapters told by our storytellers. Filipino weddings, debuts, anniversaries, graduations, travels, and reunions, told in full by the people who were there.';
 
 export const metadata: Metadata = {
-  title: 'Real stories · Setnayan',
+  title: 'Stories · Setnayan',
   description: HUB_DESCRIPTION,
   alternates: { canonical: '/realstories' },
   keywords: [
@@ -69,13 +69,13 @@ export const metadata: Metadata = {
     'wedding stories Philippines',
   ],
   openGraph: {
-    title: 'Real stories · Setnayan',
+    title: 'Stories · Setnayan',
     description: HUB_DESCRIPTION,
     url: '/realstories',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Real stories · Setnayan',
+    title: 'Stories · Setnayan',
     description: HUB_DESCRIPTION,
   },
 };
@@ -225,7 +225,7 @@ export default async function RealStoriesIndexPage() {
   const collectionJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
-    name: 'Real stories · Setnayan',
+    name: 'Stories · Setnayan',
     description: HUB_DESCRIPTION,
     url: `${SITE_URL}/realstories`,
     inLanguage: 'en-PH',
@@ -237,7 +237,7 @@ export default async function RealStoriesIndexPage() {
     '@type': 'BreadcrumbList',
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
-      { '@type': 'ListItem', position: 2, name: 'Real stories', item: `${SITE_URL}/realstories` },
+      { '@type': 'ListItem', position: 2, name: 'Stories', item: `${SITE_URL}/realstories` },
     ],
   };
 
@@ -296,7 +296,7 @@ export default async function RealStoriesIndexPage() {
           </>
         )}
 
-        {/* "From the Journal" (E4) — deliberately OUTSIDE the searchMode
+        {/* "From our articles" (E4) — deliberately OUTSIDE the searchMode
             ternary. Inside the else-branch it would silently disappear the day
             the pool crosses STORIES_SEARCH_MIN_POOL: a rail that vanishes on
             success. The guides are just as relevant above the gate as below it.

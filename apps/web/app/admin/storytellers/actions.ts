@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
-import { youtubeThumbFromEmbedUrl } from '@/lib/creator-chapters';
+import { chapterHasReadableContent } from '@/lib/creator-chapters';
 
 /**
  * Setnayan HQ · Storytellers actions — curate which PUBLISHED creator chapters
@@ -89,8 +89,13 @@ async function assertFeaturableChapter(
 ): Promise<EligibleChapter | { refused: string }> {
   const { data: ch } = await admin
     .from('creator_chapters')
+    // `body` is REQUIRED here — assertFeaturableChapter reads it. A select that
+    // omits a column it later reads yields `undefined`, not an error, and would
+    // refuse every chapter with a message about having no story. Same family as
+    // the phantom column / enum value / RPC argument: no throw, just a wrong
+    // answer delivered confidently.
     .select(
-      'chapter_id, public_id, user_id, title, status, embed_url, embed_provider, showcase_featured_at',
+      'chapter_id, public_id, user_id, title, status, body, embed_url, embed_provider, showcase_featured_at',
     )
     .eq('public_id', publicId)
     .maybeSingle();
@@ -98,10 +103,20 @@ async function assertFeaturableChapter(
   if (ch.status !== 'published') {
     return { refused: 'Only a published chapter can be featured — this one is a draft (or was unpublished).' };
   }
-  if (!youtubeThumbFromEmbedUrl(ch.embed_url as string | null)) {
+  // ⚠ THE YOUTUBE-THUMBNAIL REFUSAL IS GONE (owner 2026-08-12). It read the V1
+  // "thumbnails are YouTube-derived" rule as "no YouTube video ⇒ not
+  // featurable", which — once a chapter's story is WRITING — made every
+  // editorial chapter permanently unfeaturable. That was a second wall behind
+  // the publish gate: a story could be published and still never reach
+  // /realstories, with no error anywhere. A chapter with no derivable
+  // thumbnail now renders as a TEXT-LED tile (see StorytellerTile).
+  //
+  // What is still refused, below: an unpublished chapter, and a chapter whose
+  // author has no live public profile.
+  if (!chapterHasReadableContent(ch as { body?: string | null; embed_url?: string | null })) {
     return {
       refused:
-        'Not featurable yet: the Storytellers shelf uses YouTube-derived thumbnails in V1, and this chapter’s embed is not a YouTube video. It stays published on the creator’s own page.',
+        'Not featurable: this chapter has no story text and no video, so there is nothing to show on the shelf.',
     };
   }
   const { data: owner } = await admin

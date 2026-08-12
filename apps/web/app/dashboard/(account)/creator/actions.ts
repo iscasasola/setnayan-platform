@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import {
   isChapterKind,
+  normalizeChapterBody,
   normalizeEmbed,
   type ChapterKind,
 } from '@/lib/creator-chapters';
@@ -73,28 +74,37 @@ function readEmbed(
 }
 
 /**
- * Substrate = the raw moat behind the chapter (Papic gallery id / itinerary /
- * booked vendor ids). Stored now, surfaced publicly in CP-3/CP-4. We keep a
- * conservative, explicit shape and drop anything else.
+ * The chapter's EDITORIAL — the story itself. Returns `undefined` when the form
+ * did not carry the field at all (leave the column alone), '' when it was
+ * submitted empty (an explicit clear, legal on a draft).
+ *
+ * Formerly `substrate.itinerary`. See migration 20271140092009 for why the
+ * value was renamed rather than documented around.
+ */
+function readBody(formData: FormData): string | undefined {
+  if (!formData.has('body')) return undefined;
+  return normalizeChapterBody(formData.get('body'));
+}
+
+/**
+ * Substrate = the raw moat behind the chapter (Papic gallery id / booked vendor
+ * ids). Stored now, surfaced publicly in CP-3/CP-4. We keep a conservative,
+ * explicit shape and drop anything else.
+ *
+ * ⚠ `itinerary` is GONE from this bag — it became the first-class `body` column
+ * (the story), and leaving a second home for the same value is how the old
+ * travel-shaped name comes back.
  */
 function readSubstrate(formData: FormData): Record<string, unknown> | undefined {
-  if (
-    !formData.has('papic_gallery_id') &&
-    !formData.has('itinerary') &&
-    !formData.has('vendor_ids')
-  ) {
+  if (!formData.has('papic_gallery_id') && !formData.has('vendor_ids')) {
     return undefined;
   }
   const galleryRaw = formData.get('papic_gallery_id');
-  const itineraryRaw = formData.get('itinerary');
   const vendorsRaw = formData.get('vendor_ids');
 
   const substrate: Record<string, unknown> = {};
   if (typeof galleryRaw === 'string' && galleryRaw.trim()) {
     substrate.papic_gallery_id = galleryRaw.trim().slice(0, 200);
-  }
-  if (typeof itineraryRaw === 'string' && itineraryRaw.trim()) {
-    substrate.itinerary = itineraryRaw.trim().slice(0, 4000);
   }
   if (typeof vendorsRaw === 'string' && vendorsRaw.trim()) {
     const ids = vendorsRaw
@@ -114,11 +124,14 @@ export async function createChapter(formData: FormData) {
   const embed = readEmbed(formData, { allowEmpty: true });
   const substrate = readSubstrate(formData);
 
+  const body = readBody(formData);
+
   const insert: Record<string, unknown> = { user_id: userId, title, kind };
   if (embed) {
     insert.embed_url = embed.embed_url;
     insert.embed_provider = embed.embed_provider;
   }
+  if (body !== undefined) insert.body = body;
   if (substrate) insert.substrate = substrate;
 
   const { error } = await supabase.from('creator_chapters').insert(insert);
@@ -143,6 +156,8 @@ export async function updateChapter(formData: FormData) {
     update.embed_url = embed.embed_url;
     update.embed_provider = embed.embed_provider;
   }
+  const body = readBody(formData);
+  if (body !== undefined) update.body = body;
   const substrate = readSubstrate(formData);
   if (substrate) update.substrate = substrate;
 
@@ -162,19 +177,53 @@ export async function publishChapter(formData: FormData) {
   const chapterId = formData.get('chapter_id');
   if (typeof chapterId !== 'string' || !chapterId) fail('Missing chapter.');
 
-  // A chapter's core IS the embedded edit — never publish an empty one. Also
-  // read status + identity so we only fan out to followers on a genuine
-  // draft→published transition (re-publishing an already-live chapter must not
-  // re-notify).
+  // A chapter's core is the WRITING (owner 2026-08-12) — never publish an empty
+  // one. Also read status + identity so we only fan out to followers on a
+  // genuine draft→published transition (re-publishing an already-live chapter
+  // must not re-notify).
   const { data: row } = await supabase
     .from('creator_chapters')
-    .select('embed_url, status, public_id, title')
+    .select('body, embed_url, status, public_id, title')
     .eq('chapter_id', chapterId)
     .eq('user_id', userId)
     .maybeSingle();
   if (!row) fail('Chapter not found.');
-  if (!row.embed_url) fail('Add the embedded edit before publishing.');
+
+  // THE GATE, REPLACED. It used to be `if (!row.embed_url)` — "Add the embedded
+  // edit before publishing" — which made an external video account a
+  // precondition for telling your own story, and was the measured reason prod
+  // held 0 chapters. A video is now optional; the story is not.
+  if (typeof row.body !== 'string' || row.body.trim().length === 0) {
+    fail('Write your story before publishing — a title and the story itself. The video is optional.');
+  }
+
+  // Only fan out to followers on a genuine draft→published transition;
+  // re-publishing an already-live chapter must not re-notify.
   const wasDraft = row.status !== 'published';
+
+  // ⚠ PUBLISHING IS NOT ENOUGH ON ITS OWN, AND SILENCE HERE WOULD BE THE WHOLE
+  // BUG AGAIN. A published chapter is only reachable when the author also has
+  // (a) a public web address and (b) their public page switched on. Both are
+  // OFF/absent by default and 8 of 9 prod accounts had no address at all
+  // (measured 2026-08-12) — so a publish that ignored them would report success
+  // and put the story precisely nowhere. Same family as every other
+  // rejected-not-thrown defect in this repo: the only symptom is an absence.
+  const { data: profile, error: profileError } = await supabase
+    .from('users')
+    .select('slug, public_profile_enabled')
+    .eq('user_id', userId)
+    .maybeSingle();
+  // Fail CLOSED on a read error: publishing into an unknown profile state is
+  // exactly the silent-nowhere outcome this block exists to prevent.
+  if (profileError || !profile) {
+    fail('We could not check your public page just now. Please try again in a moment.');
+  }
+  if (!profile.slug) {
+    // Deliberately NOT auto-minted. A person's handle is their permanent public
+    // address — the forwarding ledger exists because renames break links people
+    // already printed — so it is chosen, never assigned by a side effect.
+    fail('Pick your web address first (Profile → Your address), then publish. That address is where people will read your story.');
+  }
 
   const { error } = await supabase
     .from('creator_chapters')
@@ -186,6 +235,19 @@ export async function publishChapter(formData: FormData) {
     .eq('chapter_id', chapterId)
     .eq('user_id', userId);
   if (error) fail(error.message);
+
+  // ONE PRESS. Publishing IS the decision to be read, so it also opens the
+  // public page rather than leaving the story stranded behind a switch the
+  // author never knew about. The button's copy states this before the press
+  // (see the creator surface) — a privacy-relevant change is never silent.
+  if (profile.public_profile_enabled !== true) {
+    const { error: openError } = await supabase
+      .from('users')
+      .update({ public_profile_enabled: true, updated_at: new Date().toISOString() })
+      .eq('user_id', userId);
+    if (openError) fail(openError.message);
+    revalidatePath('/u', 'layout');
+  }
 
   // Notify followers — only on the first publish, fire-and-forget (never blocks
   // the redirect). No-op when the author has no followers or a hidden profile.

@@ -13,8 +13,11 @@ import type { StorytellerTileItem } from '@/lib/storytellers';
  *     provenance signal, extending the isSample-badge precedent);
  *   • kind chip + view count (editorial tiles NEVER show view counts;
  *     chapter tiles always may — two voices, two grammars);
- *   • YouTube-derived thumbnail hero (V1 thumbnail rule — a featured chapter
- *     always has one; the admin feature action refuses non-YouTube embeds);
+ *   • hero — the YouTube-derived thumbnail when the chapter has a YouTube
+ *     video, otherwise a TYPOGRAPHIC hero carrying the story's opening line.
+ *     A chapter told in writing has no video to derive a poster from, and used
+ *     to be dropped from the shelf entirely (owner 2026-08-12 opened chapters
+ *     to editorial-first storytelling);
  *   • links to the chapter's CANONICAL page /u/[slug]/c/[id] (noindex there;
  *     all SEO equity stays on the hub).
  *
@@ -39,7 +42,11 @@ export function StorytellerTile({
         href={item.href}
         className="group flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white transition-colors hover:border-terracotta/40 sm:rounded-3xl"
       >
-        {/* YouTube-derived thumbnail hero (V1 rule — always present when featured). */}
+        {/* HERO — two grammars, decided by what the chapter actually IS.
+            With a YouTube video: the derived thumbnail + "Watch".
+            Told in writing: a typographic hero carrying the opening line +
+            "Read". A written story is not a video with a missing image, so it
+            never renders an empty grey box with a Watch chip over it. */}
         <div className="relative aspect-video w-full overflow-hidden bg-ink/5">
           {item.thumbUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -50,10 +57,27 @@ export function StorytellerTile({
               decoding="async"
               className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
             />
-          ) : null}
+          ) : (
+            <div className="absolute inset-0 flex items-end bg-gradient-to-br from-cream via-cream to-terracotta/10 p-4 sm:p-5">
+              {item.excerpt ? (
+                <p className="m-serif line-clamp-4 text-[0.95rem] italic leading-snug text-ink/70">
+                  {item.excerpt}
+                </p>
+              ) : null}
+            </div>
+          )}
           <span className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-white backdrop-blur-sm">
-            <Play aria-hidden className="h-2.5 w-2.5" fill="currentColor" strokeWidth={0} />
-            Watch
+            {item.thumbUrl ? (
+              <>
+                <Play aria-hidden className="h-2.5 w-2.5" fill="currentColor" strokeWidth={0} />
+                Watch
+              </>
+            ) : (
+              <>
+                <BookOpen aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
+                Read
+              </>
+            )}
           </span>
           <span className="absolute left-2.5 top-2.5 rounded-full bg-white/90 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.13em] text-ink">
             {item.kindLabel}

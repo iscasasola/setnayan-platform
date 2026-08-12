@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
+  CHAPTER_BODY_MAX,
   CHAPTER_KINDS,
   CHAPTER_KIND_LABEL,
   EMBED_PROVIDER_LABEL,
@@ -45,6 +46,8 @@ type ChapterRow = {
   public_id: string;
   title: string;
   kind: ChapterKind;
+  /** The story itself — required to publish (a video is not). */
+  body: string | null;
   embed_url: string | null;
   embed_provider: EmbedProvider | null;
   substrate: Record<string, unknown> | null;
@@ -107,11 +110,12 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
         </p>
         <h1 className="sn-h1">Your Chapters</h1>
         <p className="text-base text-ink/65">
-          A chapter embeds your finished edit — hosted on your own platform
-          (YouTube, Instagram, or TikTok) — and wraps it with the raw substrate
-          only Setnayan has: your Papic gallery, the itinerary, the vendors.
-          Publish one and your public profile becomes a timeline of chapters, not
-          a feed. Anyone can tell their story here — there&rsquo;s nothing to buy.
+          A chapter is your story in your own words — and, if you have one, your
+          video alongside it. You don&rsquo;t need a YouTube channel or a TikTok
+          account to tell it. Setnayan adds what only we have: your Papic
+          gallery and the real vendors behind the day. Publish one and your
+          public profile becomes a timeline of chapters, not a feed. Anyone can
+          tell their story here — there&rsquo;s nothing to buy.
         </p>
       </header>
 
@@ -146,11 +150,15 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
         </form>
       </section>
 
+      {/* `=== true`, not `!== false`. The column is NOT NULL DEFAULT false, so
+          the only honest reading of a missing/failed profile read is "not
+          public" — `!== false` turned an undefined into a claim that the page
+          was live, which is the reassuring direction to be wrong in. */}
       <CreatorBody
         supabase={supabase}
         userId={user.id}
         slug={profile?.slug ?? null}
-        publicProfileEnabled={profile?.public_profile_enabled !== false}
+        publicProfileEnabled={profile?.public_profile_enabled === true}
       />
     </div>
   );
@@ -171,7 +179,7 @@ async function CreatorBody({
     supabase
       .from('creator_chapters')
       .select(
-        'chapter_id, public_id, title, kind, embed_url, embed_provider, substrate, teaser_r2_key, status, published_at, updated_at',
+        'chapter_id, public_id, title, kind, body, embed_url, embed_provider, substrate, teaser_r2_key, status, published_at, updated_at',
       )
       .eq('user_id', userId)
       .order('updated_at', { ascending: false }),
@@ -435,7 +443,6 @@ function ChapterCard({
 }) {
   const substrate = (c.substrate ?? {}) as {
     papic_gallery_id?: string;
-    itinerary?: string;
     vendor_ids?: string[];
   };
   const published = c.status === 'published';
@@ -546,10 +553,35 @@ function ChapterCard({
             </form>
             {/* Publish-time expectation (readiness verdict 2026-07-16 · B5):
                 say what publish DOES — live public page + possible Real
-                Stories featuring — so nobody is surprised either way. */}
+                Stories featuring — so nobody is surprised either way.
+                EXTENDED 2026-08-12: publishing now also switches the public
+                page ON when it is off. That default-FALSE switch had never been
+                turned on by anyone in prod, so a published chapter used to land
+                somewhere nobody could reach. A privacy-relevant change is
+                stated HERE, before the press — never discovered afterwards. */}
             <span className="min-w-0 max-w-xs text-[11px] leading-snug text-ink/50">
-              Published chapters are visible on your public page right away;
-              Setnayan may feature standout chapters on Real Stories.
+              {!slug ? (
+                <>
+                  First pick your web address in{' '}
+                  <Link
+                    href="/dashboard/profile#url-slug"
+                    className="underline decoration-ink/25 underline-offset-2 hover:text-ink"
+                  >
+                    Profile
+                  </Link>{' '}
+                  — that address is where people will read your story.
+                </>
+              ) : publicProfileEnabled ? (
+                <>
+                  Published chapters are visible on your public page right away;
+                  Setnayan may feature standout chapters on Real Stories.
+                </>
+              ) : (
+                <>
+                  Publishing also switches on your public page at /u/{slug} so
+                  people can read this. Your private event details stay private.
+                </>
+              )}
             </span>
           </>
         )}
@@ -573,7 +605,7 @@ function ChapterFields({
   substrate,
 }: {
   chapter?: ChapterRow;
-  substrate?: { papic_gallery_id?: string; itinerary?: string; vendor_ids?: string[] };
+  substrate?: { papic_gallery_id?: string; vendor_ids?: string[] };
 }) {
   return (
     <>
@@ -600,9 +632,31 @@ function ChapterFields({
         </select>
       </label>
 
+      {/* THE STORY — the main event, and therefore the biggest field on the
+          form. It used to be a 3-row box called "Itinerary" inside a fieldset
+          headed "Substrate (the moat)", below the embed. A couple typing their
+          wedding story was filling in travel paperwork. */}
+      <label className="block space-y-1">
+        <span className="block text-xs font-medium text-ink">Your story</span>
+        <textarea
+          name="body"
+          maxLength={CHAPTER_BODY_MAX}
+          rows={14}
+          defaultValue={chapter?.body ?? ''}
+          placeholder={
+            'Tell it the way you’d tell a friend.\n\nHow the day started. What you didn’t expect. Who made it work. The bit you’ll still be telling in ten years.\n\nLeave a blank line between paragraphs.'
+          }
+          className="input-field"
+        />
+        <span className="block text-[11px] text-ink/55">
+          This is your chapter. Needed to publish — a video is optional. Blank
+          lines become paragraphs.
+        </span>
+      </label>
+
       <label className="block space-y-1">
         <span className="block text-xs font-medium text-ink">
-          Embed link (YouTube · Instagram · TikTok)
+          Video link — optional (YouTube · Instagram · TikTok)
         </span>
         <input
           name="embed_url"
@@ -612,13 +666,16 @@ function ChapterFields({
           className="input-field"
         />
         <span className="block text-[11px] text-ink/55">
-          We store a privacy-enhanced embed link only (youtube-nocookie, etc.).
-          Setnayan never hosts your full edit — it stays on your platform.
+          Leave this empty if you don’t have one — your story stands on its own.
+          If you paste a link we store a privacy-enhanced embed only; Setnayan
+          never hosts your video, it stays on your platform.
         </span>
       </label>
 
       <fieldset className="space-y-3 rounded-tile border border-ink/10 p-3">
-        <legend className="px-1 text-xs font-medium text-ink">Substrate (the moat)</legend>
+        <legend className="px-1 text-xs font-medium text-ink">
+          Behind the chapter — all optional
+        </legend>
         <label className="block space-y-1">
           <span className="block text-xs font-medium text-ink/80">Papic gallery id</span>
           <input
@@ -632,17 +689,6 @@ function ChapterFields({
             Set this to power the owned-music teaser — it’s built from this
             gallery’s photos. Only galleries you have access to can be used.
           </span>
-        </label>
-        <label className="block space-y-1">
-          <span className="block text-xs font-medium text-ink/80">Itinerary</span>
-          <textarea
-            name="itinerary"
-            maxLength={4000}
-            rows={3}
-            defaultValue={substrate?.itinerary ?? ''}
-            placeholder="optional — the day-by-day / run-of-show behind the edit"
-            className="input-field"
-          />
         </label>
         <label className="block space-y-1">
           <span className="block text-xs font-medium text-ink/80">Vendor ids</span>

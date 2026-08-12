@@ -1,34 +1,50 @@
 /**
- * Homepage · / — the ELN-style reskin (owner-approved 2026-06-29).
+ * Homepage · / — THE FRONT DOOR (owner-ruled 2026-08-13).
  *
- * REPLACES the prior Hero → PostHeroReveal → FeaturesNarrative composition with
- * the cinematic no-scroll gate + 5-pillar dock + interactive pillar widgets +
- * Real Stories + kinetic ticker + the four nav overlays, ported faithfully from
- * the prototype `03_Strategy/Home_ELN_Reskin_2026-06-28.html`. The design
- * intentionally overrides the warm-Alabaster + Instrument-Serif locks FOR THE
- * HOMEPAGE ONLY — everything is scoped under `.home-reskin` / `.home-reskin-ov`
- * so no other surface changes.
+ * ─── WHAT THIS REPLACED, AND ON WHOSE WORD ───────────────────────────────
+ * Until today `/` rendered `HomeReskin` — the ELN cinematic no-scroll gate +
+ * 5-pillar dock, owner-approved 2026-06-29. The owner was asked directly
+ * whether the new front door replaces the homepage ("yes we want the new
+ * website") and then what becomes of the cinematic opening: **"Retire it
+ * completely."** He was told in the question itself that this discards
+ * finished, approved work. `DECISION_LOG.md` 2026-08-13.
  *
- * The persistent SiteChrome top-nav is suppressed on `/` (see site-chrome.tsx)
- * because the reskin renders its own floating glass nav.
+ * So this is a REVERSAL OF AN OWNER LOCK, taken on the owner's own sentence —
+ * not a redesign anyone drifted into.
  *
- * PRESERVED (no visual footprint):
- *   • GEO/SERP metadata + the WebSite + SoftwareApplication JSON-LD graph, so AI
- *     answer engines + search cards keep their extractable surface.
- *   • The cron-free admin morning-digest flush via after() — it piggybacks on
- *     the homepage's guaranteed public traffic.
- *   • force-dynamic — getHomePricingData() reads the live catalog per request.
+ * ─── PORTED, NOT REDRAWN ─────────────────────────────────────────────────
+ * Binding sources: `prototypes/front_door_and_seam_2026-08-12.html` (rev 3)
+ * and `FRONT_DOOR_AND_SEAM_FINAL_2026-08-12.md`. A delta between this page and
+ * the prototype is a defect in the PORT, not a fresh design decision.
  *
- * PRICING IS CATALOG-DRIVEN, NOT HARDCODED: getHomePricingData() resolves every
- * displayed price from platform_retail_catalog_v2 (lib/v2-catalog.ts) so admin
- * price edits propagate without a redeploy. See _components/home/pricing-data.ts.
+ * ─── PRESERVED, deliberately (no visual footprint) ───────────────────────
+ *   • GEO/SERP metadata + the WebSite + SoftwareApplication JSON-LD graph, so
+ *     AI answer engines and search cards keep their extractable surface. The
+ *     shape of the page changed; what a machine reads about the brand did not.
+ *   • All three CRON-FREE after() jobs — the admin morning digest, the daily
+ *     email jobs and the interconnection probes. These have no scheduler
+ *     behind them; they piggyback on this page's guaranteed public traffic, so
+ *     dropping them while rewriting the page would have silently stopped the
+ *     anniversary digests, the renewal reminders and the Papic drop warning.
+ *
+ * ⚠ RETIRED WITH THE REMOVED PAGE: the catalog-driven pricing read, the admin
+ * background videos, and the Spotlight strip. They were props of the cinematic
+ * homepage only. `/pricing` remains the source of truth for prices and is
+ * untouched.
+ *
+ * The persistent SiteChrome top-nav stays suppressed on `/` (site-chrome.tsx
+ * omits it) because the front door renders its own top bar — same reason as
+ * before, different bar.
  */
 
 import { after } from 'next/server';
 import './_components/home/home-reskin.css';
+import './_components/frontdoor/front-door.css';
 import { HomeReskin } from './_components/home/HomeReskin';
 import { HomeSpotlightStrip } from './_components/home/HomeSpotlightStrip';
 import { getHomePricingData } from './_components/home/pricing-data';
+import { FrontDoor } from './_components/frontdoor/front-door';
+import { newFrontDoorEnabled } from '@/lib/front-door-flag';
 import { fetchHomepageSpotlight } from '@/lib/spotlight-awards';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
 import { publishedBlogArticles } from '@/lib/blog';
@@ -107,18 +123,24 @@ export const metadata = {
   },
 };
 
-// ISR, not per-request (was force-dynamic). The homepage is the highest-traffic
-// public URL; edge-caching it removes the per-visit function invocation + the
-// cold-start spikes. It's now cacheable because (a) getClientShell()'s
-// headers()/cookies() read moved client-side into HomeOverlays, and (b) the root
-// layout's DemoModeBanner stopped reading cookies() during SSR. Every data read
-// on this page degrades to a safe fallback when the service-role key is absent
-// (fetchV2CustomerCatalog / fetchPublishedBackgroundVideos / fetchHomepageSpotlight
-// all try/catch → []/null), so the build-time prerender no longer throws.
-// revalidate=300 refreshes catalog/video/spotlight edits within 5 min; admin
-// edits can also bust the relevant unstable_cache tags for instant propagation.
-// The after() digest flush still fires on each revalidation render.
-// (Perf sweep 2026-07-02, homepage ISR.)
+// ISR, unchanged from the 2026-07-02 perf sweep — the homepage is the
+// highest-traffic public URL and edge-caching it removes the per-visit function
+// invocation. revalidate=300 also keeps the three cron-free after() jobs below
+// firing on a bounded schedule; `home-carries-the-cron-free-jobs.test.ts`
+// asserts this number for exactly that reason.
+//
+// ⚠ WHY THIS IS NOT `force-dynamic`, though the front door reads the session.
+// An earlier cut of this change set `force-dynamic`, which would have made the
+// page dynamic for BOTH branches — costing the CURRENTLY LIVE homepage its
+// caching during the whole flag-off window, for a page that does not read the
+// session at all. Instead the route stays ISR and Next's own dynamic bailout
+// handles it: `cookies()` is reached only inside <FrontDoor>, so it runs only
+// once the flag is on, and the route becomes dynamic then rather than now.
+//
+// ⏭ KNOWN FOLLOW-UP AT THE FLIP: with the flag on, this route renders
+// per-request. If that proves too expensive once there is real traffic, cache
+// the four feed reads behind `unstable_cache` so only the session lookup stays
+// per-request. Named now so it is a decision later, not a surprise.
 export const revalidate = 300;
 
 const SITE_URL = (
@@ -189,7 +211,11 @@ const softwareAppJsonLd = {
   },
 };
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   // These three reads are fully independent — none consumes another's output —
   // so run them CONCURRENTLY. Each degrades to a safe fallback ([]/null) when the
   // service-role key is absent, so this is safe at build-time prerender under ISR.
@@ -211,6 +237,12 @@ export default async function HomePage() {
   // read and a genuinely empty archive both arrive as zero. That is the right
   // direction here: below the threshold the rail renders a written invitation
   // instead of a grid, and an invitation is honest in both cases.
+  const chipParam = (await searchParams).c;
+  const chip = Array.isArray(chipParam) ? chipParam[0] : chipParam;
+
+  // The retired page's reads. They stay until the flag flips, at which point
+  // this block and the four imports above go with it — one commit, once
+  // somebody has actually seen what replaces it.
   const [pricing, bg, spotlightVendors, showcases] = await Promise.all([
     getHomePricingData(),
     fetchPublishedBackgroundVideos(),
@@ -220,7 +252,9 @@ export default async function HomePage() {
 
   const bgVideos = {
     main: bg.main?.url ?? null,
-    pillars: [1, 2, 3, 4, 5].map((slot) => bg.pillars.find((p) => p.slot === slot)?.url ?? null),
+    pillars: [1, 2, 3, 4, 5].map(
+      (slot) => bg.pillars.find((p) => p.slot === slot)?.url ?? null,
+    ),
   };
 
   // Admin morning-digest flush — cron-free, piggybacks on the homepage's
@@ -250,16 +284,25 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
-      {/* `articles` is a SYNCHRONOUS read — the Journal is git-tracked markdown,
-          so it has no failure mode at all and its count is known at build time.
-          Nothing to fail soft; no "could not load" state is possible. */}
-      <HomeReskin
-        pricing={pricing}
-        bgVideos={bgVideos}
-        showcases={showcases}
-        articles={publishedBlogArticles().slice(0, 3)}
-      />
-      <HomeSpotlightStrip vendors={spotlightVendors} />
+      {newFrontDoorEnabled() ? (
+        <FrontDoor chip={chip} />
+      ) : (
+        <>
+          {/* The June cinematic homepage, still standing until the flip.
+              The owner HAS ruled it retired — this is about ORDER, not doubt:
+              deleting a finished, approved page before its replacement has
+              been looked at on a real screen is the one step here that cannot
+              be undone, and the standing rule is that the owner LOOKING beats
+              every automated check. */}
+          <HomeReskin
+            pricing={pricing}
+            bgVideos={bgVideos}
+            showcases={showcases}
+            articles={publishedBlogArticles().slice(0, 3)}
+          />
+          <HomeSpotlightStrip vendors={spotlightVendors} />
+        </>
+      )}
     </>
   );
 }

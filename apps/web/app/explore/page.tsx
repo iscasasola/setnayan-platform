@@ -59,6 +59,7 @@ import {
   type TaxonomyEntry,
   type TaxonomyPhase,
 } from '@/lib/taxonomy';
+import { FOLDER_SERVICE_COUNT } from '@/lib/taxonomy-folder-counts';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
@@ -179,14 +180,12 @@ function taxonomyLabel(key: string): string {
  * find when they land. (Measured 2026-08-12: Attire & make-up 54 · Booths &
  * carts 42 · Venues 28 · Styling 26 · Hosts & music 20 · Invites & prints 15 ·
  * Planners 12 · Photo & video 12 · Cars 11 · Catering 7 · the rest ≤3.)
+ *
+ * ⚠ MOVED to `@/lib/taxonomy-folder-counts` on 2026-08-13, unchanged. The
+ * front door's rail shows this same number beside this same folder, and two
+ * private copies of one customer-visible count is how they drift. Imported
+ * here rather than recomputed so a taxonomy edit moves both or neither.
  */
-const FOLDER_SERVICE_COUNT: Record<string, number> = Object.values(
-  TAXONOMY_MAP,
-).reduce<Record<string, number>>((acc, meta) => {
-  if (meta.marketplaceHidden || meta.setnayan) return acc;
-  acc[meta.folder] = (acc[meta.folder] ?? 0) + 1;
-  return acc;
-}, {});
 
 // Build the full 192-item autocomplete list once at module load.
 const TAXONOMY_OPTIONS: ReadonlyArray<TaxonomyOption> = Object.entries(

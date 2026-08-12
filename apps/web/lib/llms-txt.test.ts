@@ -36,7 +36,12 @@ const RETAIL: RetailRow[] = [
   { service_code: 'PAPIC_GUEST_10K', title: 'Papic — add 10,000 shots', retail_price_php: 3000, is_active: true },
   { service_code: 'LIVE_STUDIO', title: 'Live Studio', retail_price_php: 2999, is_active: true },
   { service_code: 'PAKANTA', title: 'Pakanta', retail_price_php: 2500, is_active: true },
-  { service_code: 'LIVE_WALL', title: 'Live Venue Photo Wall', retail_price_php: 2500, is_active: true },
+  // is_active:false since 2026-08-11 — owner set the wall FREE, so the paid row
+  // is retired and the prose says "free". See the fixture note on
+  // PAPIC_ADDON_STORIES: this file is a SECOND hand-typed copy of the catalog and
+  // must move in the same PR as the real one, or the suite passes green while
+  // production serves the fallback stub.
+  { service_code: 'LIVE_WALL', title: 'Live Venue Photo Wall', retail_price_php: 2500, is_active: false },
   { service_code: 'PAPIC_ADDON_THANK_YOU', title: 'Thank You', retail_price_php: 2499, is_active: true },
   // Retired 2026-08-11 with the one-product model — kept in the fixture, and
   // INACTIVE, so the 'a retired SKU must not be advertised' guard has a real

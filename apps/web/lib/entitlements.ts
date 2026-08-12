@@ -591,11 +591,44 @@ async function basketGrantsSku(
   return rows.some((r) => live(r.status));
 }
 
+/**
+ * ⭐ SKUs THAT ARE FREE FOR EVERY EVENT, PERMANENTLY — owner pricing decisions,
+ * not promotions.
+ *
+ * Checked FIRST and unconditionally in all three predicates below, so a feature
+ * whose price the owner has set to zero unlocks for every couple with no order,
+ * no bundle, no comp grant and no basket.
+ *
+ * ⚠ DO NOT CONFUSE THIS WITH A PROMO FREE WINDOW (lib/promo-free-windows.ts).
+ * That mechanism is deliberately EPHEMERAL and flag-gated — "free this weekend",
+ * reverting when the window closes. This one is permanent and needs no flag,
+ * because it records a decision about what a product COSTS.
+ *
+ * 🔑 WHY THIS EXISTS AT ALL — RETIRING THE CATALOG ROW WOULD DO THE OPPOSITE.
+ * Every gate on these features asks "does this event OWN the SKU?". Simply
+ * setting `is_active = false` (the way a genuinely retired product is taken off
+ * sale) means nobody can buy it, therefore nobody owns it, therefore the feature
+ * goes DARK for everyone — the exact opposite of free. Free and retired look
+ * identical in the catalog and are opposites in the product. The catalog row is
+ * still deactivated alongside this, so nothing quotes a price; this set is what
+ * keeps the feature switched on for everyone once it is.
+ *
+ * LIVE_WALL — owner 2026-08-11, verbatim: "live photo wall FREE." Both halves of
+ * it are free: the venue projection AND the mirror on every guest's phone. It was
+ * ₱2,500 and had never been bought by anyone.
+ */
+export const FREE_FOR_ALL_SKUS: ReadonlySet<string> = Object.freeze(
+  new Set(['LIVE_WALL']),
+) as ReadonlySet<string>;
+
 export async function eventOwnsSku(
   supabase: SupabaseClient,
   eventId: string,
   serviceKey: string,
 ): Promise<boolean> {
+  // 0. Free for everyone — an owner pricing decision. No order to find.
+  if (FREE_FOR_ALL_SKUS.has(serviceKey)) return true;
+
   // 1. Direct order for the SKU (covers à-la-carte purchase AND a bundle code
   //    passed directly).
   if (await checkOrderOwnership(supabase, eventId, serviceKey)) return true;
@@ -655,6 +688,10 @@ export async function eventSkuActive(
   eventId: string,
   serviceKey: string,
 ): Promise<boolean> {
+  // Free for everyone — see FREE_FOR_ALL_SKUS. Checked before the order read so
+  // a free feature never depends on a payment that will never exist.
+  if (FREE_FOR_ALL_SKUS.has(serviceKey)) return true;
+
   if (await checkOrderActive(supabase, eventId, serviceKey)) return true;
   // Composition DB-first from bundle_components (const fallback pre-migration).
   const composition = await fetchBundleComponents(supabase);
@@ -743,6 +780,11 @@ export async function eventActiveSkus(
 ): Promise<{ active: Set<string>; pending: Set<string> }> {
   const active = new Set<string>();
   const pending = new Set<string>();
+
+  // Free for everyone — see FREE_FOR_ALL_SKUS. Seeded before anything else so the
+  // Studio/Suite owned-state badges agree with the feature gates; a surface that
+  // renders the wall while its badge still says "buy" is the drift this avoids.
+  for (const key of FREE_FOR_ALL_SKUS) active.add(key);
 
   // Composition DB-first from bundle_components (const fallback pre-migration),
   // fetched once for the whole batch.

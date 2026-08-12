@@ -178,7 +178,15 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   // live-wall-controls.tsx, AND the guest-phone mirror in site-body.tsx. It was
   // selling at ₱2,500, is_active=TRUE, while /pricing chipped it "in active
   // build" — telling a couple the thing they can buy today is unfinished.
-  LIVE_WALL:             'live',     // ₱2,500 · venue projection + guest-phone mirror, both shipped
+  // FREE for every event since 2026-08-11 (owner: "live photo wall FREE"). The
+  // paid row is deactivated so nothing quotes ₱2,500, and the feature is switched
+  // on for everyone via FREE_FOR_ALL_SKUS in lib/entitlements.ts.
+  // 🔑 THE DEACTIVATION ALONE WOULD HAVE MADE IT UNAVAILABLE, NOT FREE — every
+  // gate asks whether the event OWNS the SKU, and nobody owns what nobody can
+  // buy. Free and retired are identical in the catalog and opposite in the app.
+  // build_status stays 'live': it describes whether the thing is BUILT, and a
+  // status label is not a gate (see the note further down this map).
+  LIVE_WALL:             'live',     // FREE · venue projection + guest-phone mirror, both shipped
   CALL_TIME_ESCALATOR:   'not_built',  // retired SKU (is_active=false) — no SMS infrastructure
   // RETIRED 2026-08-11 — is_active=false (migration 20271128898031). Owner ruled
   // it off sale 2026-08-10: ₱999/year bought an address that resolves NOWHERE

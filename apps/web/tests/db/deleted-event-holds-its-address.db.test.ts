@@ -28,6 +28,87 @@ after(async () => {
   await db?.close();
 });
 
+test('DELETING AN EVENT HOLDS ITS ADDRESS — no app code involved', async () => {
+  // The load-bearing one. A raw SQL DELETE stands in for prod's own RLS policy
+  // `couple_can_delete_event`, which lets a couple delete their wedding through
+  // PostgREST with no server action running. If the hold lived in the app, this
+  // test could not exist and that path would silently free the word.
+  const ev = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (slug, event_type, display_name) VALUES ('doomed-wedding', 'birthday', 'Probe')
+     RETURNING event_id`,
+  );
+  await db.query(`DELETE FROM public.events WHERE event_id = $1`, [ev.rows[0]!.event_id]);
+
+  const { rows } = await db.query<{ entity_type: string; days: number }>(
+    `SELECT entity_type, (redirect_until::date - now()::date) AS days
+       FROM public.slug_change_log WHERE old_slug = 'doomed-wedding'`,
+  );
+  assert.equal(
+    rows.length,
+    1,
+    'deleting an event did not hold its address — the word is free the same second, and a ' +
+      'guest following a printed invitation would land on whoever took it next',
+  );
+  assert.equal(rows[0]!.entity_type, 'event_closed');
+  assert.ok(rows[0]!.days > 700, `held only ${rows[0]!.days} days; the rule is two years`);
+
+  assert.equal(
+    (await db.query<{ free: boolean }>(
+      `SELECT public.business_slug_is_available('doomed-wedding') AS free`,
+    )).rows[0]!.free,
+    false,
+    'the held address is still being handed out',
+  );
+});
+
+test('the sweep can delete an abandoned draft WITHOUT holding its address', async () => {
+  // The one deliberate opt-out. If this stops working, every abandoned
+  // anonymous draft burns its couple's natural address for two years.
+  const ev = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (slug, event_type, display_name) VALUES ('abandoned-draft', 'birthday', 'Probe')
+     RETURNING event_id`,
+  );
+  await db.query(`SELECT public.sweep_delete_abandoned_events(ARRAY[$1]::uuid[])`, [
+    ev.rows[0]!.event_id,
+  ]);
+  const { rows } = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.slug_change_log WHERE old_slug = 'abandoned-draft'`,
+  );
+  assert.equal(rows[0]!.n, 0, 'the sweep held a draft address it was meant to release');
+
+  // …and the opt-out did NOT leak to the next delete IN THE SAME TRANSACTION.
+  //
+  // ⚠ THIS HAS TO BE ONE EXPLICIT TRANSACTION OR IT PROVES NOTHING. A
+  // transaction-local setting dies at COMMIT, so two separate statements each
+  // get a clean session and the assertion cannot fail however the function is
+  // written — measured: deleting the restore left this green. Wrapping both in
+  // one transaction is what makes the leak observable, and is also the shape a
+  // real caller doing more work after the sweep would have.
+  const ev2 = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (slug, event_type, display_name) VALUES ('real-wedding-after', 'birthday', 'Probe')
+     RETURNING event_id`,
+  );
+  const ev3 = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (slug, event_type, display_name) VALUES ('swept-in-txn', 'birthday', 'Probe')
+     RETURNING event_id`,
+  );
+  await db.query('BEGIN');
+  await db.query(`SELECT public.sweep_delete_abandoned_events(ARRAY[$1]::uuid[])`, [
+    ev3.rows[0]!.event_id,
+  ]);
+  await db.query(`DELETE FROM public.events WHERE event_id = $1`, [ev2.rows[0]!.event_id]);
+  const held = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.slug_change_log WHERE old_slug = 'real-wedding-after'`,
+  );
+  await db.query('COMMIT');
+  assert.equal(
+    held.rows[0]!.n,
+    1,
+    'the skip flag outlived its statement — a real wedding deleted afterwards in the same ' +
+      'transaction lost its hold, and its address is free immediately',
+  );
+});
+
 test('the database accepts the deleted-event hold type', async () => {
   // A phantom enum/CHECK value is REJECTED, not thrown — the insert would fail
   // and the app's best-effort write would swallow it, leaving the address free

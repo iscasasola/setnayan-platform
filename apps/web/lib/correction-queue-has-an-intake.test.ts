@@ -119,6 +119,21 @@ test('a vendor can actually REACH the correction request action', () => {
   );
 });
 
+test('the card is MOUNTED by a page, not merely imported', () => {
+  // ⚠ THE IMPORT-GRAPH WALK IS NOT ENOUGH ON ITS OWN. It follows import PATHS,
+  // so deleting the JSX element while leaving the import line keeps the card
+  // "reachable" and the guard green — with no doorway on the screen. That is
+  // the same shape as the two earlier versions of this guard, which both
+  // passed while the button was gone.
+  const page = readFileSync(join(APP, 'vendor-dashboard/shop/page.tsx'), 'utf8');
+  assert.match(
+    page,
+    /<RequestCorrectionCard\b/,
+    'the card is imported but never RENDERED — the vendor has no way to file a request, ' +
+      'which is exactly the state that made the whole queue dead for months',
+  );
+});
+
 test('the vendor-side card offers the WEB ADDRESS to every tier', () => {
   // The address is immutable for EVERYONE, not just verified shops — a signup
   // typo is exactly how a wrong address happens, long before verification. If

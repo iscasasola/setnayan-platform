@@ -245,9 +245,6 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  // The vendor's own open correction requests (RLS-scoped). Read here rather
-  // than in the card so the card stays a client component with no data access.
-  const openCorrections = await fetchCorrectionRequests(supabase, { status: 'open' });
   // Signed in but no shop (owned OR via team) — send them to the one-button
   // "Open your shop" gate instead of a dead fallback (owner gap-fix
   // 2026-07-03). Distinct from the error path: the caller's catch keeps the
@@ -256,6 +253,19 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
 
   const vendorId = profile.vendor_profile_id;
   const businessName = profile.business_name ?? 'Your shop';
+
+  // THIS shop's open correction requests. Read here rather than in the card so
+  // the card stays a client component with no data access — and scoped to
+  // `vendorId` EXPLICITLY, because RLS is not the scope: the read policy is
+  // `owns the profile OR is_admin()`, deliberately widened so the same helper
+  // can back /admin/corrections. Without the filter, a vendor who is also an
+  // admin (production has exactly one — the owner's own shop) would see every
+  // OTHER shop's requests rendered as their own "waiting on Setnayan", and
+  // would lose the ability to ask about those fields themselves.
+  const openCorrections = await fetchCorrectionRequests(supabase, {
+    status: 'open',
+    vendorProfileId: vendorId,
+  });
 
   // Tier — not in the shared profile select; soft-probe it.
   let tier: string | null = null;
@@ -632,7 +642,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     primaryService: profile.services?.[0] ? titleCase(profile.services[0]) : null,
     tier,
     isVerified: profile.public_visibility === 'verified',
-    // RLS-scoped to this vendor. Defensive by construction: fetchCorrectionRequests
+    // Scoped to this vendor EXPLICITLY (RLS alone is not the scope — see the
+    // read above). Defensive by construction: fetchCorrectionRequests
     // returns [] on ANY error, so a read hiccup shows the ask-card with nothing
     // pending rather than hiding the only doorway a wrong address has.
     openCorrections,

@@ -47,7 +47,13 @@ function admin(rows: TableRows) {
   const chain = (table: string) => {
     const res = rows[table] ?? { data: null };
     const self: Record<string, unknown> = {};
-    for (const m of ['select', 'eq', 'ilike', 'gt', 'limit', 'neq']) self[m] = () => self;
+    // ⚠ `in` BELONGS IN THIS LIST. The closure probe in findSlugConflict moved
+    // from `.eq('entity_type', …)` to `.in('entity_type', […])` when deleted
+    // weddings joined closed shops, and a stub missing the method does not
+    // return wrong rows — it throws "is not a function", failing tests that
+    // have nothing to do with the change. Kept in sync with the richer double
+    // in slug-availability.test.ts, which also FILTERS on it.
+    for (const m of ['select', 'eq', 'in', 'ilike', 'gt', 'limit', 'neq']) self[m] = () => self;
     self.maybeSingle = async () => ({ data: res.data, error: res.error ?? null });
     self.then = undefined;
     return self;

@@ -22,9 +22,23 @@
  * `tests/db/slug-forwarding-window.db.test.ts` reads that default back out of
  * the catalog and compares it to this constant.
  *
- * 🔒 NOT the closed-shop hold. A closed shop's address is held ONE YEAR
- * (`CLOSED_SHOP_SLUG_HOLD_DAYS`, owner-locked 2026-08-10) and is written with
- * an explicit expiry — it never reads this.
+ * 🔒 THE RETIREMENT HOLD IS THE SAME NUMBER — `RETIRED_SLUG_HOLD_MONTHS` in
+ * `lib/closed-shop-slug.ts` is DERIVED FROM THIS ONE. A closed shop, a deleted
+ * wedding and a corrected shop address are all out of circulation for exactly
+ * as long as a renamed address keeps forwarding.
+ *
+ * ⚠ THIS PARAGRAPH SAID THE OPPOSITE, IN THREE WAYS AT ONCE — that the hold was
+ * ONE YEAR, that it "never reads this", and it named `CLOSED_SHOP_SLUG_HOLD_DAYS`,
+ * a constant that no longer exists. Owner 2026-08-12 (*"make it 2 years"*)
+ * superseded the one-year lock of 2026-08-10, and in the file whose entire
+ * purpose is to be THE ONE NUMBER, a stale figure is the worst possible place
+ * for one.
+ *
+ * What IS still true, and is what that warning was really protecting: each
+ * retirement path writes `redirect_until` EXPLICITLY rather than inheriting the
+ * column default. Now that the two numbers match, an inheriting path would be
+ * invisible — and would silently follow any future change to this window.
+ * `tests/db/slug-forwarding-window.db.test.ts` asserts the explicit write.
  */
 export const SLUG_FORWARDING_MONTHS = 24;
 

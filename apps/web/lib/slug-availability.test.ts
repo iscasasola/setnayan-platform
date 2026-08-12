@@ -36,11 +36,17 @@ const noRows: Probe = { data: [], error: null };
 /**
  * Minimal chainable stand-in for the admin client's query builder.
  *
- * ⚠ IT HONOURS `.eq('entity_type', …)`, AND IT HAS TO. `slug_change_log` now
- * holds two different kinds of row — a RENAME, which forwards visitors to where
- * something went, and a CLOSED SHOP's address, which forwards nobody anywhere
- * and is only being held so nobody else takes it. Two probes read that table and
- * they differ ONLY by that filter.
+ * ⚠ IT HONOURS `.eq('entity_type', …)` AND `.in('entity_type', […])`, AND IT
+ * HAS TO. `slug_change_log` holds three kinds of row — a RENAME, which forwards
+ * visitors to where something went, and the two CLOSURE holds (a closed shop, a
+ * deleted wedding), which forward nobody anywhere and are only held so nobody
+ * else takes the word. Two probes read that table and they differ ONLY by that
+ * filter.
+ *
+ * The closure probe moved from `.eq` to `.in` when deleted weddings joined
+ * closed shops; a stub missing `.in` does not return wrong rows, it throws
+ * "is not a function" — which at least fails loudly. Both are honoured here so
+ * the fixtures keep meaning what they say.
  *
  * A stub that ignored it returned the same rows to both, so whichever probe ran
  * first won and a rename fixture came back as a closed shop. Not a wrong answer
@@ -59,16 +65,25 @@ function fakeAdmin(tables: Record<string, Probe>, seen: string[] = []): Supabase
       for (const method of ['select', 'ilike', 'gt', 'neq', 'order']) {
         builder[method] = () => builder;
       }
+      let entityTypes: string[] | null = null;
       builder.eq = (column: string, value: unknown) => {
         if (column === 'entity_type') entityType = String(value);
+        return builder;
+      };
+      builder.in = (column: string, values: unknown) => {
+        if (column === 'entity_type' && Array.isArray(values)) {
+          entityTypes = values.map(String);
+        }
         return builder;
       };
       // A fixture row declares its own kind; one that does not is a rename,
       // which is what every row in this table was before closures existed.
       const filtered = (): Probe => {
-        if (entityType === null || !Array.isArray(result.data)) return result;
-        const rows = (result.data as Array<{ entity_type?: string }>).filter(
-          (r) => (r.entity_type ?? 'event') === entityType,
+        const wanted =
+          entityTypes ?? (entityType === null ? null : [entityType]);
+        if (wanted === null || !Array.isArray(result.data)) return result;
+        const rows = (result.data as Array<{ entity_type?: string }>).filter((r) =>
+          wanted.includes(r.entity_type ?? 'event'),
         );
         return { data: rows, error: result.error };
       };

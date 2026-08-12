@@ -422,12 +422,17 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       {
-        // Report-only CSP — measurement, blocks nothing. Excludes /keynote and
-        // /proto: those are dated internal pitch decks that execute inline
-        // Babel-standalone from public/, so they would emit a constant stream of
-        // known, uninteresting violations and bury the origins we are here to find.
-        // (They are already robots-disallowed and are not product surfaces.)
-        source: '/((?!keynote|proto).*)',
+        // Report-only CSP — measurement, blocks nothing. Now covers EVERY path.
+        //
+        // It used to exclude /keynote and /proto, because those dated internal
+        // pitch decks executed inline Babel-standalone out of public/ and would
+        // have buried the signal in known, uninteresting violations. Those decks
+        // were taken off the open web on 2026-08-12 (moved to `internal-decks/`),
+        // so the carve-out lost its subject — and a carve-out that outlives its
+        // reason is worse than none: anything ever republished at those paths
+        // would have been silently exempt from the measurement too, without
+        // anyone choosing that.
+        source: '/(.*)',
         headers: [{ key: 'Content-Security-Policy-Report-Only', value: CSP_REPORT_ONLY }],
       },
       {

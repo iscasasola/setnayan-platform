@@ -115,10 +115,26 @@ test('it is REPORT-ONLY — the enforced header is untouched', () => {
   );
 });
 
-test('the decks are excluded, so they cannot bury the signal', () => {
-  // /keynote + /proto execute inline Babel-standalone from public/ and would emit a
-  // constant stream of known violations. They are robots-disallowed internal decks.
-  assert.match(CONFIG, /source: '\/\(\(\?!keynote\|proto\)\.\*\)'/);
+test('the report-only policy covers every path — the deck carve-out is gone', () => {
+  // WAS: /keynote + /proto were excluded, because those decks executed inline
+  // Babel-standalone from public/ and would have buried the signal in known
+  // violations. They were taken off the open web 2026-08-12 (moved to
+  // `internal-decks/`), so the exclusion lost its subject.
+  //
+  // 🔑 This asserts the ABSENCE on purpose. A carve-out that outlives its reason
+  // silently exempts whatever lands at those paths NEXT — nobody would be
+  // choosing that, and nobody would see it happen.
+  assert.doesNotMatch(
+    CONFIG,
+    /\(\?!keynote\|proto\)/,
+    'the /keynote + /proto exclusion is back; the decks it existed for are unpublished, ' +
+      'so anything at those paths would now be exempt from CSP measurement by accident',
+  );
+  assert.match(
+    CONFIG,
+    /source: '\/\(\.\*\)',\s*\n\s*headers: \[\{ key: 'Content-Security-Policy-Report-Only'/,
+    'the report-only CSP must apply to every path',
+  );
 });
 
 test("script-src keeps 'unsafe-inline'/'unsafe-eval' ON PURPOSE", () => {

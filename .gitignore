@@ -24,6 +24,13 @@
 !/scripts/
 !/src-tauri/
 !/changelog.d/
+# Added 2026-08-12 with the folder itself. The decks moved here out of
+# apps/web/public/ survived only because `git mv` re-stages already-TRACKED
+# blobs — the new README written alongside them was silently swallowed by the
+# `/*` rule above and never entered the repo, exactly as the ⚠ CONSEQUENCE note
+# at the top of this file warns. Without this line the folder is a black hole:
+# anything added to it later disappears from `git status` with no error.
+!/internal-decks/
 
 # --- build + tooling config at the root ---
 !/package.json

@@ -1600,7 +1600,7 @@ const SHOP_SECTIONS: AccordionSection[] = [
 const SHOP_TOOLS: { href: string; label: string; sub: string }[] = [
   { href: '/vendor-dashboard/reviews', label: 'Reviews', sub: 'Ratings and written reviews from booked couples.' },
   { href: '/vendor-dashboard/track-record', label: 'Track record', sub: 'Completed events and the public proof they build.' },
-  { href: '/vendor-dashboard/real-stories', label: 'Real Stories', sub: 'Editorial features starring your work.' },
+  { href: '/vendor-dashboard/real-stories', label: 'Stories', sub: 'Editorial features starring your work.' },
   { href: '/vendor-dashboard/recaps', label: 'Recaps', sub: 'Living recaps from events you served.' },
   { href: '/vendor-dashboard/recommendations', label: 'Recommend', sub: 'Vendors you vouch for, and who vouches for you.' },
   { href: '/vendor-dashboard/partnerships', label: 'Partnerships', sub: 'Preferred-partner ties with other vendors.' },

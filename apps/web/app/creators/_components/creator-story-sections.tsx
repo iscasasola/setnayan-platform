@@ -231,7 +231,7 @@ export function CreatorStoryChapter() {
               {[
                 { n: '1', t: 'The embed', p: 'Your YouTube / TikTok / Instagram edit, playing inside the Chapter. Views and monetization stay on your channel — we just give it a home that converts.' },
                 { n: '2', t: 'Shop this event', p: 'The vendors who made the day — venue, photo, florals, catering — credited as cards a viewer can open and inquire with. 0% commission, as always.' },
-                { n: '3', t: 'Your audience layer', p: 'Followers and view counts on your page, plus the Storyteller badge once you’ve published. Standout Chapters get featured on Setnayan’s Real Stories page.' },
+                { n: '3', t: 'Your audience layer', p: 'Followers and view counts on your page, plus the Storyteller badge once you’ve published. Standout Chapters get featured on Setnayan’s Stories page.' },
               ].map((s) => (
                 <li
                   key={s.n}
@@ -367,7 +367,7 @@ export function CreatorStoryWhy() {
         <GridCard icon="📺" title="Your monetization, untouched" body="The video is embedded from your channel — its views, ads and deals stay 100% yours. Setnayan never hosts your edit." />
         <GridCard icon="🏛" title="Permanence, not a feed" body="A Chapter doesn't scroll away. Your page is a timeline of substantial events — a portfolio that compounds." />
         <GridCard icon="⭐" title="The Storyteller badge" body="Publish a public Chapter and your page carries the storyteller mark — a signal to vendors and viewers alike." />
-        <GridCard icon="📰" title="Featured on Real Stories" body="Standout Chapters get pulled onto Setnayan's Real Stories showcase — distribution to people actively planning." />
+        <GridCard icon="📰" title="Featured on Stories" body="Standout Chapters get pulled onto Setnayan's Stories showcase — distribution to people actively planning." />
       </CardGrid>
     </section>
   );
@@ -432,7 +432,7 @@ export function CreatorStoryCTA() {
             Publish your story — free
           </Link>
           <Link href="/realstories" className="m-btn m-btn-ghost m-btn-lg">
-            See Real Stories
+            See Stories
           </Link>
         </div>
         <p style={{ maxWidth: 1120, margin: '26px auto 0', textAlign: 'center', fontSize: 12, color: 'var(--m-slate-3)', fontStyle: 'italic' }}>

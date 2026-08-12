@@ -212,7 +212,7 @@ export function StoriesSearch({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search a place, a service, a name, a milestone…"
-          aria-label="Search real stories and storyteller chapters"
+          aria-label="Search stories and storyteller chapters"
           className="h-12 w-full rounded-full border border-ink/15 bg-white/70 pl-11 pr-11 text-[15px] text-ink outline-none transition placeholder:text-ink/40 focus:border-terracotta/50 focus:bg-white"
         />
         {query ? (

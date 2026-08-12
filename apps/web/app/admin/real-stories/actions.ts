@@ -108,7 +108,7 @@ async function assertEligibleShowcase(
 
 /**
  * Notify the couple (every couple-type event member) that their wedding was
- * featured on Real Stories (Notification Foundation · Phase B). Deep-links to
+ * featured on Stories (Notification Foundation · Phase B). Deep-links to
  * the public showcase index. Best-effort: a failed notification never affects
  * the feature write that already landed. Fired on feature only — a pure admin
  * re-order (setShowcaseRank) is internal curation and would be misleading to
@@ -135,8 +135,8 @@ async function notifyCoupleShowcaseFeatured(
         emitNotification({
           userId,
           type: 'showcase_featured',
-          title: 'Your wedding is featured on Real Stories',
-          body: `${displayName} is now featured in the Setnayan Real Stories showcase. Couples planning their own day will see your story.`,
+          title: 'Your wedding is featured on Stories',
+          body: `${displayName} is now featured in the Setnayan Stories showcase. Couples planning their own day will see your story.`,
           relatedUrl: '/realstories',
         }),
       ),
@@ -243,7 +243,7 @@ export async function setShowcaseFeatured(formData: FormData) {
     }
     revalidatePath('/realstories');
     revalidatePath(BASE);
-    redirectBack('ok', `${name} is now featured on Real Stories.`, eventId);
+    redirectBack('ok', `${name} is now featured on Stories.`, eventId);
   }
 
   // Unfeature — clear both the pin and any manual rank.

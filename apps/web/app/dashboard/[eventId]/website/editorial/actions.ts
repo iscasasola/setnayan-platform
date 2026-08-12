@@ -384,7 +384,7 @@ export async function setStoryShowcase(
       .eq('event_id', eventId)
       .maybeSingle();
     if (((ev?.event_type as string | null) ?? 'wedding') !== 'wedding') {
-      return { ok: false, error: 'Real Stories features weddings only.' };
+      return { ok: false, error: 'Stories features weddings only.' };
     }
   }
 

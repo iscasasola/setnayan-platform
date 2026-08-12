@@ -473,8 +473,8 @@ export function EditorialEditor({
       if (!r.ok) throw new Error(r.error);
       toast.success(
         next
-          ? 'Your story can now be featured in Real Stories.'
-          : 'Removed from Real Stories.',
+          ? 'Your story can now be featured in Stories.'
+          : 'Removed from Stories.',
       );
     } catch (e) {
       setFeatured(!next); // rollback
@@ -1114,10 +1114,10 @@ export function EditorialEditor({
             >
               <span>
                 <span className="block text-sm font-medium text-ink">
-                  Feature our story in Real Stories
+                  Feature our story in Stories
                 </span>
                 <span className="block text-xs text-ink/55">
-                  Add our wedding to the public Real Stories gallery, 30 days after
+                  Add our wedding to the public Stories gallery, 30 days after
                   the day. You can turn this off anytime.
                 </span>
               </span>

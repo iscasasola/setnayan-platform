@@ -141,7 +141,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
     groups: [
       {
         items: [
-          { n: 'Premium two-column page', b: 'A wide, editorial layout with a sticky “Inquire” rail, a hero photo, a pinned review, and your featured Real Stories.' },
+          { n: 'Premium two-column page', b: 'A wide, editorial layout with a sticky “Inquire” rail, a hero photo, a pinned review, and your featured Stories.' },
           { n: 'Team sub-accounts (3 seats)', b: 'Give each crew member a login scoped to their services, no shared passwords.' },
           { n: 'One clean business identity', b: 'Crew act under one verified profile, you look like a real studio.' },
           { n: 'Three categories + 50 km reach', b: 'List under three parent categories and serve a wider radius.' },

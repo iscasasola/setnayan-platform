@@ -574,7 +574,7 @@ function ChapterCard({
               ) : publicProfileEnabled ? (
                 <>
                   Published chapters are visible on your public page right away;
-                  Setnayan may feature standout chapters on Real Stories.
+                  Setnayan may feature standout chapters on Stories.
                 </>
               ) : (
                 <>

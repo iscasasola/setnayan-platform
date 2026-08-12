@@ -556,7 +556,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 />
                 <span>
                   <span style={{ color: 'var(--m-ink)', fontWeight: 500 }}>
-                    Include my wedding in Setnayan&rsquo;s Real Weddings showcase.
+                    Include my wedding in Setnayan&rsquo;s Stories showcase.
                   </span>{' '}
                   30 days after our event, our editorial page becomes publicly
                   searchable on{' '}

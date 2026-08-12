@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 
+import { rankTaxonomyOptions } from '@/lib/taxonomy-search-rank';
+
 export type TaxonomyOption = {
   /** The canonical_service key — written verbatim into `?category=` on select. */
   key: string;
@@ -11,6 +13,12 @@ export type TaxonomyOption = {
   label: string;
   /** Short mega-column hint shown as secondary text in each row. */
   column: string;
+  /**
+   * How many services live in that folder. Rendered after the folder name so a
+   * row answers "is this a real place or a dead end?" before they click.
+   * Optional so a caller that has not computed it still renders a valid row.
+   */
+  columnCount?: number;
 };
 
 type Props = {
@@ -45,8 +53,8 @@ type Props = {
   };
 };
 
-const MAX_SUGGESTIONS = 8;
-const MIN_QUERY_LEN = 2;
+// The minimum query length lives with the matcher it belongs to, in
+// `lib/taxonomy-search-rank.ts`. A second copy here would be a second rule.
 
 /**
  * Marketplace search input with taxonomy autocomplete.
@@ -96,26 +104,10 @@ export function TaxonomySearch({
     };
   }, [open]);
 
-  const suggestions = useMemo(() => {
-    const trimmed = value.trim().toLowerCase();
-    if (trimmed.length < MIN_QUERY_LEN) return [];
-    const snakeQuery = trimmed.replace(/\s+/g, '_');
-    type Scored = TaxonomyOption & { score: number };
-    const matches: Scored[] = [];
-    for (const opt of options) {
-      const labelLc = opt.label.toLowerCase();
-      const keyLc = opt.key.toLowerCase();
-      let score = 0;
-      if (labelLc.startsWith(trimmed)) score = 3;
-      else if (labelLc.includes(trimmed)) score = 2;
-      else if (keyLc.includes(snakeQuery)) score = 1;
-      if (score > 0) matches.push({ ...opt, score });
-    }
-    matches.sort(
-      (a, b) => b.score - a.score || a.label.localeCompare(b.label),
-    );
-    return matches.slice(0, MAX_SUGGESTIONS);
-  }, [value, options]);
+  const suggestions = useMemo(
+    () => rankTaxonomyOptions(options, value),
+    [value, options],
+  );
 
   function selectOption(opt: TaxonomyOption) {
     const params = new URLSearchParams();
@@ -254,7 +246,16 @@ export function TaxonomySearch({
                 }
               >
                 <span className="font-medium">{opt.label}</span>
-                <span className="shrink-0 text-xs text-ink/45">{opt.column}</span>
+                {/* THEIR word on the left, OURS on the right as a PLACE — the
+                    row reads "photography · in Photo & video · 12 services".
+                    The leading "in" is load-bearing: without it the folder name
+                    sits there looking like a correction of what they typed, and
+                    the whole point is that nobody should have to learn our
+                    vocabulary to find a photographer. */}
+                <span className="shrink-0 text-xs text-ink/45">
+                  in {opt.column}
+                  {opt.columnCount ? ` · ${opt.columnCount} services` : ''}
+                </span>
               </button>
             );
           })}

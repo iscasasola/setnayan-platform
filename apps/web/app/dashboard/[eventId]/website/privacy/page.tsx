@@ -103,7 +103,7 @@ export default async function PrivacyEditorPage({
       }).format(new Date(scheduledAt))
     : null;
 
-  // Real Weddings showcase consent (user-level). Read via the admin client so
+  // Stories showcase consent (user-level). Read via the admin client so
   // the toggle reflects the true state regardless of users-table RLS; defaults
   // to off on any error.
   let showcaseOptedIn = false;
@@ -317,12 +317,12 @@ export default async function PrivacyEditorPage({
         </p>
       </div>
 
-      {/* Real Weddings showcase consent — RA 10173 opt-in / one-click opt-out (0046) */}
+      {/* Stories showcase consent — RA 10173 opt-in / one-click opt-out (0046) */}
       <div className="space-y-4 sn-tile p-5 sm:p-6">
         <div className="space-y-2">
           <p className="sn-eye flex items-center gap-2">
             <Heart aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Real Weddings
+            Stories
           </p>
           <h2 className="font-serif text-2xl italic tracking-tight">
             Feature your {eventNoun(event.event_type)} on Setnayan
@@ -330,7 +330,7 @@ export default async function PrivacyEditorPage({
           <p className="max-w-prose text-sm text-ink/70">
             With your okay, Setnayan can feature your {eventNoun(event.event_type)} on our public{' '}
             <Link href="/realstories" className="text-terracotta hover:underline">
-              Real Weddings
+              Stories
             </Link>{' '}
             page — your story, your photos, and the team behind your day — starting
             30&nbsp;days after your {eventNoun(event.event_type)}. It&rsquo;s completely optional, and you can

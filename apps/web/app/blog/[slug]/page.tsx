@@ -78,7 +78,7 @@ export async function generateMetadata({ params }: Props) {
     openGraph: {
       type: 'article',
       url: canonicalUrl,
-      title: `${article.title} · Setnayan Journal`,
+      title: `${article.title} · Setnayan Articles`,
       description,
       siteName: 'Setnayan',
       locale: 'en_PH',
@@ -357,7 +357,7 @@ export default async function BlogArticlePage({ params }: Props) {
       {
         '@type': 'ListItem',
         position: 2,
-        name: 'Journal',
+        name: 'Articles',
         item: `${SITE_URL}/blog`,
       },
       {
@@ -406,7 +406,7 @@ export default async function BlogArticlePage({ params }: Props) {
       <header className="border-b border-ink/5">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center text-ink">
-            <Logo height={32} withWordmark title="Setnayan · Journal" />
+            <Logo height={32} withWordmark title="Setnayan · Articles" />
           </Link>
           <Link
             href="/blog"
@@ -449,7 +449,7 @@ export default async function BlogArticlePage({ params }: Props) {
           </Link>
           <span className="mx-2">/</span>
           <Link href="/blog" className="hover:text-ink hover:underline">
-            Journal
+            Articles
           </Link>
           <span className="mx-2">/</span>
           <Link

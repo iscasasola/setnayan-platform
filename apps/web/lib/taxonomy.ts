@@ -76,38 +76,61 @@ export const WEDDING_FOLDER_ORDER: ReadonlyArray<WeddingFolder> = [
   'specialty',
 ];
 
-/** Long human-readable label rendered as the parent section heading. */
+/**
+ * Long human-readable label rendered as the parent section heading.
+ *
+ * 2026-08-12 — CUSTOMER WORDS, not our internal ones (owner-approved, redesign
+ * Session 3). The folder KEYS and `WEDDING_FOLDER_SLUG` are deliberately
+ * UNCHANGED, so every `?folder=` link, anchor and saved URL still resolves —
+ * this is a display rename with no address cost.
+ *
+ * ⚠ THIS CONSTANT IS NOT THE ONLY SOURCE THESE WORDS RENDER FROM. The live
+ * marketplace catalog reads `service_categories.label_en` / `label_short` from
+ * the DB via `getTaxonomy()` (lib/taxonomy-db.ts) and only falls back here when
+ * that read is empty or errors. Editing this file alone leaves the catalog
+ * headings on the OLD words while the icon-tile strip — which reads this
+ * constant directly — shows the new ones: one page, two vocabularies, and no
+ * error anywhere. The DB rows are moved in lockstep by migration
+ * `20271135090000_friendly_category_labels.sql`, regenerated from here via
+ * `scripts/gen-taxonomy-seed.ts`. Change one, change both.
+ */
 export const WEDDING_FOLDER_LABEL: Record<WeddingFolder, string> = {
-  venue: 'Venue',
-  planning: 'Planning',
-  feast: 'Feast',
-  design: 'Design',
-  program: 'Program',
-  documentary: 'Documentary',
-  look: 'Look',
-  booths: 'Booths',
-  prints: 'Prints',
-  transport: 'Transport',
-  experience: 'Experience',
-  dining: 'Dining',
-  logistics_safety: 'Logistics & Safety',
-  insurance: 'Insurance & Protection',
+  venue: 'Venues & churches',
+  planning: 'Coordinators & planners',
+  feast: 'Catering & cake',
+  design: 'Styling, flowers & lights',
+  program: 'Hosts, music & program',
+  documentary: 'Photo & video',
+  look: 'Attire, hair & make-up',
+  booths: 'Booths, carts & bars',
+  prints: 'Invites, prints & souvenirs',
+  transport: 'Cars & transport',
+  experience: 'Guest experiences',
+  dining: 'Dining extras',
+  logistics_safety: 'Logistics & safety',
+  insurance: 'Insurance & protection',
   specialty: 'Specialty',
 };
 
-/** Short label rendered in the icon-tile strip + autocomplete dropdown. */
+/**
+ * Short label rendered in the icon-tile strip + autocomplete dropdown.
+ *
+ * Shortened forms of WEDDING_FOLDER_LABEL — these sit in a 44pt chip and as the
+ * "in <place>" hint on a search row, so they must stay THUMB-WIDTH. Same
+ * lockstep rule as the long labels above: the DB carries its own copy.
+ */
 export const WEDDING_FOLDER_SHORT_LABEL: Record<WeddingFolder, string> = {
-  venue: 'Venue',
-  planning: 'Planning',
-  feast: 'Feast',
-  design: 'Design',
-  program: 'Program',
-  documentary: 'Documentary',
-  look: 'Look',
-  booths: 'Booths',
-  prints: 'Prints',
-  transport: 'Transport',
-  experience: 'Experience',
+  venue: 'Venues',
+  planning: 'Planners',
+  feast: 'Catering',
+  design: 'Styling',
+  program: 'Hosts & music',
+  documentary: 'Photo & video',
+  look: 'Attire & make-up',
+  booths: 'Booths & carts',
+  prints: 'Invites & prints',
+  transport: 'Cars',
+  experience: 'Experiences',
   dining: 'Dining',
   logistics_safety: 'Logistics',
   insurance: 'Insurance',

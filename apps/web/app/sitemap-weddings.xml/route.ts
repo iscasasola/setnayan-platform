@@ -1,5 +1,5 @@
 /**
- * Real Weddings sitemap at /sitemap-weddings.xml.
+ * Stories sitemap at /sitemap-weddings.xml.
  *
  * SEO/GEO Bucket 3 (CLAUDE.md 2026-05-29) + iteration 0046 (2026-06-13).
  * DB-driven + consent-gated: emits the `/realstories` hub plus each REAL,

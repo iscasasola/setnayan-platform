@@ -172,6 +172,22 @@ function taxonomyLabel(key: string): string {
     .join(' ');
 }
 
+/**
+ * How many services a customer can actually browse inside each folder.
+ * Counted, never typed — the same two exclusions the marketplace itself
+ * applies, so the number on a search row is the number of things they will
+ * find when they land. (Measured 2026-08-12: Attire & make-up 54 · Booths &
+ * carts 42 · Venues 28 · Styling 26 · Hosts & music 20 · Invites & prints 15 ·
+ * Planners 12 · Photo & video 12 · Cars 11 · Catering 7 · the rest ≤3.)
+ */
+const FOLDER_SERVICE_COUNT: Record<string, number> = Object.values(
+  TAXONOMY_MAP,
+).reduce<Record<string, number>>((acc, meta) => {
+  if (meta.marketplaceHidden || meta.setnayan) return acc;
+  acc[meta.folder] = (acc[meta.folder] ?? 0) + 1;
+  return acc;
+}, {});
+
 // Build the full 192-item autocomplete list once at module load.
 const TAXONOMY_OPTIONS: ReadonlyArray<TaxonomyOption> = Object.entries(
   TAXONOMY_MAP,
@@ -180,6 +196,7 @@ const TAXONOMY_OPTIONS: ReadonlyArray<TaxonomyOption> = Object.entries(
     key,
     label: taxonomyLabel(key),
     column: WEDDING_FOLDER_SHORT_LABEL[meta.folder],
+    columnCount: FOLDER_SERVICE_COUNT[meta.folder] ?? 0,
   }))
   .sort((a, b) => a.label.localeCompare(b.label));
 

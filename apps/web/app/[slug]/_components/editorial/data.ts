@@ -630,7 +630,7 @@ function computeArchetype(guests: number, perGuestSpend: number | null): Archety
 export const loadEditorialData = cache(loadEditorialDataUncached);
 
 async function loadEditorialDataUncached(eventId: string): Promise<EditorialData | null> {
-  // Sample editorial (iteration 0046 Real Weddings) — the curated Maria & Juan
+  // Sample editorial (iteration 0046 Stories) — the curated Maria & Juan
   // fixture renders through THIS exact component (via the /realstories sample page),
   // so the sample always tracks the live editorial format. Returns without
   // touching the DB; real event ids fall straight through to the loader below.
@@ -2499,7 +2499,7 @@ function deriveMonogramFallback(displayName: string): string {
 }
 
 // ============================================================================
-// Real Weddings SAMPLE editorial (iteration 0046)
+// Stories SAMPLE editorial (iteration 0046)
 // ============================================================================
 // The curated Maria & Juan SAMPLE shown on the /realstories showcase detail page.
 // It flows through the SAME EditorialContent component as real weddings (via the

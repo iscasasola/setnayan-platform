@@ -576,8 +576,8 @@ export function HomeReskin({
               the upper menu — a popup"). That ruling was about the popups; it
               did not say the site should have no destinations. */}
           <Link href="/explore">Find vendors</Link>
-          <Link href="/realstories">Real weddings</Link>
-          <Link href="/blog">Journal</Link>
+          <Link href="/realstories">Their stories</Link>
+          <Link href="/blog">Articles</Link>
           <button onClick={() => setOverlay('prices')}>Prices</button>
           <button onClick={() => setOverlay('download')}>Download</button>
           <button onClick={() => setOverlay('vendors')}>Vendors</button>
@@ -776,7 +776,7 @@ export function HomeReskin({
 
         {/* Real Stories gallery */}
         <section className="hr-stories">
-          <div className="hr-pnum">Real Stories</div>
+          <div className="hr-pnum">Their stories</div>
           <h2 className="hr-pname">The front-page story of your day.</h2>
           <p className="hr-pdef" style={{ marginLeft: 'auto', marginRight: 'auto' }}>
             A living archive of real celebrations, each one unique in feeling, faith, and place.
@@ -824,7 +824,7 @@ export function HomeReskin({
             build time and there is no read to go wrong. */}
         {articles.length >= 2 ? (
           <section className="hr-stories">
-            <div className="hr-pnum">The Journal</div>
+            <div className="hr-pnum">Articles</div>
             <h2 className="hr-pname">What we&rsquo;ve learned, written down.</h2>
             <div className="hr-grid2">
               {articles.map((a) => (

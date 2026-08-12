@@ -14,7 +14,7 @@ import {
 // `Eyebrow`, `metaLine` and `StoryCard` arrived here with every class string
 // byte-identical to what /blog already shipped. Nothing below is new design.
 //
-// WHY IT MOVED: the "From the Journal" rail on /realstories
+// WHY IT MOVED: the "From our articles" rail on /realstories
 // (app/realstories/_components/journal-rail.tsx) must render a REAL Journal
 // card, not a lookalike. Duplicating the markup would fork the grammar — the
 // two surfaces would drift the first time either is touched, which is the

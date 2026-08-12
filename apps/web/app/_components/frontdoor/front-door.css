@@ -623,11 +623,22 @@
   margin: 6px 0 14px;
   flex-wrap: wrap;
 }
-.fd-sechead h2 {
+/* ⚠ THE ELEMENT IS THE HEADING, NOT ITS PARENT.
+   The drawing had `<div class="sechead"><h3>…</h3></div>`; the port made the
+   <h2> itself the classed element. The rule below used to say `.fd-sechead h2`
+   — a descendant that never exists — so with Tailwind preflight resetting
+   h1..h6 to inherit, both section headings rendered as plain body text. */
+h2.fd-sechead,
+.fd-sechead {
   font-size: 19px;
-  margin: 0;
   letter-spacing: -0.01em;
   font-weight: 700;
+}
+/* The meta and rule spans sit inside the heading and must NOT inherit 19px/700. */
+.fd-sechead .fd-meta,
+.fd-sechead .fd-rule {
+  font-weight: 400;
+  letter-spacing: normal;
 }
 .fd-sechead .fd-meta {
   font-size: 13px;
@@ -748,7 +759,7 @@
    1280–1439 rail 240 · feed 960 · shorts 5-up
    1024–1279 rail collapses to a 72px icon strip · shorts 4-up
    <1024 rail goes off-canvas behind the hamburger · 3-up → 2-up on phone */
-@media (max-width: 1439px) {
+@media (max-width: 1439.98px) {
   .fd-col {
     max-width: 960px;
   }
@@ -757,7 +768,7 @@
   }
 }
 
-@media (max-width: 1279px) {
+@media (max-width: 1279.98px) {
   .fd {
     --fd-rail: 72px;
   }
@@ -805,7 +816,7 @@
   }
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1023.98px) {
   .fd-body {
     grid-template-columns: 1fr;
   }
@@ -873,7 +884,7 @@
   }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 700.98px) {
   .fd-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -908,5 +919,42 @@
   .fd * {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/* The hamburger exists only where the rail is off-canvas. A real mount
+   condition — above this width the rail is permanently visible and a menu
+   button would announce collapsed navigation that is fully on screen. */
+.fd-only-narrow {
+  display: none;
+}
+@media (max-width: 1023.98px) {
+  .fd-only-narrow {
+    display: grid;
+  }
+}
+
+/* The page's <h1>. Present for structure and for a screen reader; the visible
+   masthead is the wordmark, which is a link and cannot double as the heading. */
+.fd-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The scrim must never exist as a layout box outside the off-canvas band —
+   unstyled it became grid item #1 of .fd-body and collapsed the page. */
+.fd-scrim {
+  display: none;
+}
+@media (max-width: 1023.98px) {
+  .fd-scrim {
+    display: block;
   }
 }

@@ -126,15 +126,41 @@ test('sign out is submitted as a form, not linked', () => {
    the SAME destination under another word, so hiding the group while leaving
    the synonym would defeat the instruction with a label. */
 test('Find a supplier is gated on the same condition as the Marketplace group', () => {
-  const findRow = SHELL_CODE.indexOf('Find a supplier');
-  assert.ok(findRow > -1, 'the Find a supplier row is missing');
-  // The row must sit inside a signedIn branch.
-  const before = SHELL_CODE.slice(0, findRow);
-  const lastGate = before.lastIndexOf('account.signedIn');
-  const lastClose = before.lastIndexOf(') : null}');
+  /*
+    🔑 The first cut looked backwards from the row for the nearest
+    `account.signedIn` — which an INVERTED gate (`!account.signedIn ?`) also
+    satisfies, because the string is still there. Match the gate INCLUDING its
+    polarity, and require the Marketplace group to carry the identical one.
+  */
+  const linkIdx = SHELL_CODE.indexOf('<Link href="/explore"');
+  assert.ok(linkIdx > -1, 'the Find a supplier row is missing');
+
+  /*
+    🔑 THE NEAREST GATE, NOT ANY EARLIER ONE. A first rewrite scanned BACKWARDS
+    for the last `account.signedIn` — and the account slot above supplies one,
+    so replacing this row's own gate with `{true ?` still passed. Mutation
+    proved it decorative. Look only at the code IMMEDIATELY before the row.
+  */
+  const window = SHELL_CODE.slice(Math.max(0, linkIdx - 160), linkIdx);
   assert.ok(
-    lastGate > lastClose,
-    'Find a supplier must render only when signed in',
+    /\{\s*account\.signedIn\s*\?[^{}]*$/.test(window),
+    'Find a supplier must be gated directly by account.signedIn — its own ' +
+      `nearest gate, not one inherited from a block above. Saw: ...${window.slice(-90)}`,
+  );
+  assert.ok(
+    !/!\s*account\.signedIn/.test(window),
+    'Find a supplier is gated on NOT signed in — it must show only when signed IN',
+  );
+
+  // The Marketplace group must be gated the same way, or the owner's rule is
+  // kept by one and broken by the other.
+  const mkt = SHELL_CODE.indexOf('>Marketplace<');
+  assert.ok(mkt > -1, 'the Marketplace group label is missing');
+  const mktWindow = SHELL_CODE.slice(Math.max(0, mkt - 400), mkt);
+  assert.ok(
+    /\{\s*account\.signedIn\s*\?/.test(mktWindow) &&
+      !/!\s*account\.signedIn/.test(mktWindow),
+    'the Marketplace group must show only when signed IN',
   );
 });
 
@@ -186,21 +212,43 @@ test('a count that failed to load renders words, not a zero', () => {
    The heading must be decided by the live count against the threshold, not
    hand-typed. */
 test('the shops heading is derived from the shared composer, not hardcoded', () => {
+  /*
+    🔑 ANCHOR ON WHAT REACHES THE SCREEN. The first cut asserted three strings —
+    that `composeFrontDoor` appeared, that `shape.shopsHeading === 'trending'`
+    appeared, and that the `shopsHeading` DECLARATION mentioned `shape.`. All
+    three survive the regression: nothing checked that `{shopsHeading}` is
+    actually rendered, and nothing checked the two ternary arms DIFFER. This is
+    the same fault the JSON-LD test above already carries a warning about,
+    repeated one test later.
+  */
+  assert.ok(/composeFrontDoor\(\{/.test(FEED_CODE), 'the feed must call the composer');
+
+  const decl = FEED_CODE.match(/const shopsHeading\s*=([\s\S]*?);/)?.[1] ?? '';
+  assert.ok(decl.length > 0, 'shopsHeading assignment not found');
   assert.ok(
-    /composeFrontDoor/.test(FEED_CODE),
-    'the feed must get its rail shapes from the shared composer',
+    /shape\.shopsHeading/.test(decl),
+    'the heading must come from the composer verdict',
+  );
+
+  // THE ACT: the value must actually be rendered.
+  assert.ok(
+    /\{shopsHeading\}/.test(FEED_CODE),
+    'shopsHeading is computed but never rendered — the guard would otherwise ' +
+      'pass over a page that prints something else entirely',
+  );
+
+  // THE DISTINCTION: both outcomes must be reachable and different.
+  // Only the ternary ARMS — the comparison literal ('trending') is not an arm.
+  const armText = decl.slice(decl.indexOf('?') + 1);
+  const arms = armText.match(/'([^']+)'/g) ?? [];
+  assert.equal(
+    new Set(arms).size,
+    2,
+    `the two headings must differ and both be present, saw: ${arms.join(', ')}`,
   );
   assert.ok(
-    /shape\.shopsHeading === 'trending'/.test(FEED_CODE),
-    '"Trending" must be a verdict from the composer, never a typed string',
-  );
-  // The regression: assigning the heading unconditionally. The word may only
-  // ever reach the screen through the composer's verdict.
-  const heading = FEED_CODE.match(/const shopsHeading[\s\S]*?;/)?.[0] ?? '';
-  assert.ok(heading.length > 0, 'shopsHeading assignment not found');
-  assert.ok(
-    /shape\./.test(heading),
-    `shopsHeading must be computed from the composer, got: ${heading.slice(0, 120)}`,
+    arms.some((a) => /trending/i.test(a)) && arms.some((a) => /first/i.test(a)),
+    `expected a Trending arm and a "first shops" arm, saw: ${arms.join(', ')}`,
   );
 });
 
@@ -258,21 +306,36 @@ test('the homepage still emits both JSON-LD nodes', () => {
    looks live. That is this project's "gate with no handle", inverted. */
 test('the front door is chosen by the flag, and both branches are reachable', () => {
   const src = code(PAGE);
+
+  // The flag must be READ...
+  const readMatch = src.match(/const\s+(\w+)\s*=\s*newFrontDoorEnabled\(\)/);
   assert.ok(
-    /newFrontDoorEnabled\(\)\s*\?/.test(src),
-    'the branch must be decided by newFrontDoorEnabled(), not hardcoded',
+    readMatch || /newFrontDoorEnabled\(\)\s*\?/.test(src),
+    'the page must call newFrontDoorEnabled()',
   );
+  // ...and its value must be what selects the branch.
+  const gate: string = readMatch?.[1] ?? 'newFrontDoorEnabled()';
+  assert.ok(
+    new RegExp(`\\{\\s*${gate.replace(/[()]/g, '\\$&')}\\s*\\?`).test(src),
+    `the rendered branch must be selected by ${gate}, not hardcoded`,
+  );
+
   assert.ok(/<FrontDoor\b/.test(src), 'the new front door branch is missing');
   assert.ok(
     /<HomeReskin\b/.test(src),
     'the retired page must stay mounted until the flip — deleting it before ' +
       'the owner has seen the replacement is the one irreversible step here',
   );
-  // A tautology in the condition would make one branch dead while looking
-  // considered — this repo has shipped exactly that (`|| true`) before.
+
+  // A tautology or a flipped polarity would make one branch dead while looking
+  // considered. This repo has shipped `|| true` before.
   assert.ok(
-    !/newFrontDoorEnabled\(\)\s*(\|\||&&)\s*(true|false)\b/.test(src),
+    !new RegExp(`${gate.replace(/[()]/g, '\\$&')}\\s*(\\|\\||&&)\\s*(true|false)\\b`).test(src),
     'the flag condition must not be neutered by a tautology',
+  );
+  assert.ok(
+    !new RegExp(`\\{\\s*!\\s*${gate.replace(/[()]/g, '\\$&')}\\s*\\?`).test(src),
+    'the flag must not be inverted — that ships the retired page when it is ON',
   );
 });
 
@@ -281,19 +344,66 @@ test('the front door is chosen by the flag, and both branches are reachable', ()
    Two private copies is how they drift, and the customer sees the mismatch
    before we do. */
 test('the rail and explore both read the shared folder count', () => {
+  /*
+    🔑 The first cut asserted the import PATH string appeared. That module also
+    exports the two folder LISTS the rail cannot render without — so the
+    substring survived every possible regression of the COUNT itself. Assert
+    the specific SYMBOL, and that neither side recomputes it.
+  */
   assert.ok(
-    /taxonomy-folder-counts/.test(DOOR_CODE),
-    'the front door must import the shared count',
+    /FOLDER_SERVICE_COUNT/.test(DOOR_CODE),
+    'the front door must import the shared FOLDER_SERVICE_COUNT',
   );
-  const explore = code(
-    readFileSync(join(APP, 'explore', 'page.tsx'), 'utf8'),
+  const explore = code(readFileSync(join(APP, 'explore', 'page.tsx'), 'utf8'));
+  assert.ok(
+    /FOLDER_SERVICE_COUNT/.test(explore),
+    'explore must use the shared FOLDER_SERVICE_COUNT',
+  );
+
+  // Neither may derive its own copy from the taxonomy — that is the drift.
+  for (const [name, src] of [
+    ['front door', DOOR_CODE],
+    ['explore', explore],
+  ] as const) {
+    assert.ok(
+      !/FOLDER_SERVICE_COUNT[^=\n]*=[\s\S]{0,80}Object\.values\(\s*TAXONOMY_MAP/.test(src),
+      `${name} recomputes the folder count instead of importing it`,
+    );
+    assert.ok(
+      !/reduce<Record<string, number>>/.test(src),
+      `${name} appears to rebuild a per-folder tally locally`,
+    );
+  }
+});
+
+/* ── 11 · A FAILED STORY READ IS NOT A ZERO ───────────────────────────────
+   The shared shelf loader returns `[]` for BOTH "none yet" and "rejected", so
+   a count taken from the array prints "0 theirs" to a visitor on a day when
+   eight are published. The front door must take its count from the read's own
+   success flag, never from the array length. */
+test('the storyteller count comes from the read result, not the array length', () => {
+  const data = code(readFileSync(join(HERE, 'data.ts'), 'utf8'));
+
+  assert.ok(
+    /loadFeaturedChaptersResult/.test(data),
+    'the front door must use the result-returning loader, which reports failure',
+  );
+
+  /*
+    ⚠ MATCH THE ASSIGNMENT, NOT THE TYPE. The first cut of this very assertion
+    matched `storyCount: number | null;` — the FIELD DECLARATION — and reported
+    it as the value. Object-literal entries end in a comma; type members end in
+    a semicolon. Same trap as the JSON-LD guard, caught by its own message.
+  */
+  const assign = data.match(/storyCount:\s*([^;\n]+),/)?.[1] ?? '';
+  assert.ok(assign.length > 0, 'storyCount is not assigned in the returned object');
+  assert.ok(
+    /\.ok\b/.test(assign) && /null/.test(assign),
+    `storyCount must branch on the read's ok flag and yield null on failure, got: ${assign}`,
   );
   assert.ok(
-    /taxonomy-folder-counts/.test(explore),
-    'explore must import the shared count, not recompute it',
-  );
-  assert.ok(
-    !/const FOLDER_SERVICE_COUNT[^=]*=\s*Object\.values/.test(explore),
-    'explore must no longer hold a private copy of the count',
+    !/^\s*stories\.length\s*$/.test(assign) &&
+      !/^\s*storiesRaw\.items\.length\s*$/.test(assign),
+    'storyCount must not be a bare array length — that is the defect itself',
   );
 });

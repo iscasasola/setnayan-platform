@@ -98,10 +98,23 @@ async function resolveAccount(): Promise<FrontDoorAccount> {
     // a signed-out rail with nothing said about it.
     const [{ count: eventCount, error: eventErr }, { data: shop }] =
       await Promise.all([
+        /*
+          ⚠ THE SAME NARROWING /dashboard USES, or the two numbers disagree.
+          `fetchUserEvents` filters `hidden_at IS NULL` (lib/events.ts) because
+          a declined or left membership stamps that column — and the launcher
+          then drops archived events too. Counting raw memberships made the
+          rail promise "5 Events" and the board show 3, with no way for the
+          person to find the missing two.
+
+          `hidden_at` is matched here; archived is a property of the EVENT, not
+          the membership, so it is excluded via the join rather than counted.
+        */
         supabase
           .from('event_members')
-          .select('event_id', { count: 'exact', head: true })
-          .eq('user_id', user.id),
+          .select('event_id, events!inner(archived)', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .is('hidden_at', null)
+          .eq('events.archived', false),
         supabase
           .from('vendor_profiles')
           // ⚠ THE COLUMN IS `user_id`, NOT `owner_user_id`. The first cut of

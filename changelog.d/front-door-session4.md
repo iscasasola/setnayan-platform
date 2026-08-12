@@ -151,3 +151,84 @@ for the build. `REDESIGN_SESSIONS_2026-08-12.md` is deliberately NOT marked
 shipped here: the register's own recorded lesson is that a session marked
 shipped while its PR is open is how that file went stale twice. It is updated
 after the merge is confirmed, and Session 4 is not DONE until the flag flips.
+
+---
+
+## 2026-08-13 · fix(front-door): 13 defects an adversarial review found before merge
+
+A 73-agent adversarial pass over this port — five independent lenses, then TWO
+skeptics per finding with either able to kill it. **34 candidates · 13 survived
+refutation · 21 refuted.** Every survivor was re-verified by hand before acting.
+
+### The one that mattered most — the page's own premise was dead code
+
+This page is written around *"a count that failed to load says so, never 0"*.
+**It could not happen.** `loadFeaturedChapters` and `loadPublishedShowcases`
+both return `[]` for a REJECTED query as well as an empty one, so the
+`.catch(() => null)` around them was unreachable, `?? []` erased what was left,
+and the heading rendered `stories.length` — a literal **0**. On a day when eight
+storytellers were published and the read broke, the front page would have said
+*"0 theirs"*, every card would have vanished, and nothing anywhere would have
+said a word. Under the "Their stories" chip it would additionally have claimed
+*"Nothing under 'Their stories' yet."*
+
+🔑 **And my own guard passed over it** — it matched the string `value === null`,
+proving the branch was WRITTEN, not that anything could reach it. *A guard can
+match a string rather than the act*, one file after I wrote that sentence about
+a different guard.
+
+Fixed at the source: `lib/storytellers.ts` gains `loadFeaturedChaptersResult`,
+which reports whether the read succeeded. `loadFeaturedChapters` keeps its exact
+behaviour by discarding the flag, so **/realstories is untouched**.
+
+### Also fixed
+
+- **The hamburger was live at every width.** Pressing it on a desktop mounted a
+  scrim whose only styles live below 1024px — unstyled it became grid item #1
+  and shoved the rail and feed into the wrong columns, collapsing the layout.
+  It also announced "Menu, collapsed" for navigation that was fully on screen.
+- **Three top-bar buttons were focusable, labelled and dead** — the voice-search
+  mic, the bell, and the signed-out overflow. A handler-less button is a fake
+  door in button form. The bell is now a real link to notifications; the mic and
+  the overflow are **not ported** until the things behind them exist.
+- **The front page understated the archive**: it printed the length of the
+  12-item slice it renders, so it said *"12 pieces"* while 33 are published —
+  a number that shrinks as the page gets busier.
+- **Both section headings rendered as body text.** The 19px/bold rule targeted a
+  child `<h2>` that does not exist (the port made the heading itself the classed
+  element), and Tailwind preflight resets `h1..h6` to inherit.
+- **Media-query gaps at 1279–1280 and 700–701** — a viewport at 1279.5px matched
+  neither band and every rail row rendered its label twice. Fractional upper
+  bounds throughout.
+- **The rail's Events count contradicted the dashboard**: it counted raw
+  memberships, while `/dashboard` filters `hidden_at` and drops archived. The
+  rail would promise 5 and the board show 3.
+- **No `<h1>`**, and under a filter chip the first heading was an `<h3>`.
+- **Focus escaped the open drawer** — Tab walked into the feed behind the scrim.
+- **`await searchParams` opted `/` out of static generation in BOTH flag
+  states** — the exact ISR regression the `revalidate` note claimed to avoid.
+  The read is now gated on the build-inlined flag.
+
+### Three more of my guards were decorative, and are now proven
+
+- "Trending is earned" checked the DECLARATION and never that the value reaches
+  the screen, nor that the two arms differ.
+- The Marketplace-synonym gate scanned BACKWARDS for `account.signedIn` and
+  found the account slot's gate above it — so replacing the row's own gate with
+  `{true ?` passed.
+- The shared-count guard asserted an import PATH that cannot disappear, because
+  the same module also supplies the folder lists.
+
+🛡 **12 sabotages, each looking like the real regression, occurrence counts
+printed before and after, every file restored byte-identical — all 12 RED.**
+Two rounds were needed: the first found three guards still decorative, including
+one where my new assertion matched the TYPE DECLARATION (`storyCount: number |
+null;`) instead of the assignment. Object entries end in a comma; type members
+end in a semicolon.
+
+⚠ **REVERTED after the review refuted it:** gating the retired page's four reads
+on the flag. It forces every downstream prop nullable for a saving that exists
+only in the flag-ON state, and the pass explicitly refuted "the retired reads are
+wasted work" as a defect.
+
+SPEC IMPACT: None beyond the existing row.

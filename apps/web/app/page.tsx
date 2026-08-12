@@ -237,12 +237,30 @@ export default async function HomePage({
   // read and a genuinely empty archive both arrive as zero. That is the right
   // direction here: below the threshold the rail renders a written invitation
   // instead of a grid, and an invitation is honest in both cases.
-  const chipParam = (await searchParams).c;
+  /*
+    ⚠ AWAITING `searchParams` IS ITSELF A DYNAMIC OPT-OUT, IN BOTH BRANCHES.
+    An earlier cut awaited it unconditionally at the top of this function — so
+    the CURRENTLY LIVE homepage lost its static generation the moment this
+    landed, which is precisely the regression the `revalidate` note above says
+    was avoided. Reading a request-scoped value is dynamic whether or not the
+    value is used.
+
+    `newFrontDoorEnabled()` reads a NEXT_PUBLIC_* var, which is inlined at
+    build time — so with the flag off this expression is a compile-time false
+    and the await never appears in the executed path. Flag off ⇒ still ISR.
+  */
+  const newDoor = newFrontDoorEnabled();
+  const chipParam = newDoor ? (await searchParams).c : undefined;
   const chip = Array.isArray(chipParam) ? chipParam[0] : chipParam;
 
   // The retired page's reads. They stay until the flag flips, at which point
   // this block and the four imports above go with it — one commit, once
   // somebody has actually seen what replaces it.
+  // ⚠ These four run in BOTH branches, deliberately. Gating them on the flag
+  // was tried and reverted: it forces every downstream prop nullable for a
+  // saving that only exists in the flag-ON state, and the adversarial review
+  // explicitly refuted "the retired reads are wasted work" as a defect. They
+  // disappear with the block below at the flip.
   const [pricing, bg, spotlightVendors, showcases] = await Promise.all([
     getHomePricingData(),
     fetchPublishedBackgroundVideos(),
@@ -284,7 +302,7 @@ export default async function HomePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
-      {newFrontDoorEnabled() ? (
+      {newDoor ? (
         <FrontDoor chip={chip} />
       ) : (
         <>

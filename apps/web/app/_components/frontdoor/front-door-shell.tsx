@@ -133,9 +133,19 @@ export function FrontDoorShell({
     <div className="fd">
       <header className="fd-topbar">
         <div className="fd-topleft">
+          {/*
+            ⚠ ONLY WHERE THE RAIL IS ACTUALLY OFF-CANVAS (below 1024).
+            It used to render at every width — so on a desktop it announced
+            "Menu, collapsed" for navigation that was fully on screen, and
+            pressing it mounted the scrim, whose only styles live inside the
+            <1024 media query. Unstyled, the scrim became grid item #1 of
+            `.fd-body` and shoved the rail and the feed into the wrong columns,
+            collapsing the whole page layout.
+            `fd-only-narrow` is a real CSS mount condition, not a visual one.
+          */}
           <button
             type="button"
-            className="fd-iconbtn"
+            className="fd-iconbtn fd-only-narrow"
             aria-label="Menu"
             aria-expanded={railOpen}
             aria-controls={railId}
@@ -153,9 +163,14 @@ export function FrontDoorShell({
             word somebody typed. */}
         <div className="fd-searchwrap">
           <SearchBox />
-          <button type="button" className="fd-micbtn" aria-label="Search by voice">
-            🎙
-          </button>
+          {/*
+            🪤 THE PROTOTYPE DRAWS A MIC HERE AND IT IS NOT PORTED, ON PURPOSE.
+            There is no voice search in this product. A focusable, labelled
+            button with no handler is a fake door in button form — worse than a
+            dead link, because it looks like it did nothing rather than like it
+            was never there. "No fake doors" is a LOCKED rule and it outranks a
+            drawn affordance. Ship it when voice search exists.
+          */}
         </div>
 
         <div className="fd-topright" ref={menuRef}>
@@ -164,9 +179,15 @@ export function FrontDoorShell({
               <Link href="/dashboard" className="fd-btn-gold">
                 + Create
               </Link>
-              <button type="button" className="fd-iconbtn" aria-label="Notifications">
+              {/* A real destination, not an ornament — /dashboard/notifications
+                  ships. It was a handler-less button until the review. */}
+              <Link
+                href="/dashboard/notifications"
+                className="fd-iconbtn"
+                aria-label="Notifications"
+              >
                 🔔
-              </button>
+              </Link>
               <button
                 type="button"
                 className="fd-avatar"
@@ -182,9 +203,9 @@ export function FrontDoorShell({
             </>
           ) : (
             <>
-              <button type="button" className="fd-iconbtn" aria-label="More">
-                ⋮
-              </button>
+              {/* The drawn "⋮" overflow is not ported: it had no menu behind
+                  it, and everything it would contain is already in the rail's
+                  small print. Same rule as the mic. */}
               {/* Signing IN wears the app's terracotta, not this page's gold —
                   it is the first room inside, not the last step outside. That
                   is handled on the sign-in page itself; here it is a quiet
@@ -386,7 +407,15 @@ export function FrontDoorShell({
           </div>
         </nav>
 
-        <main className="fd-main">
+        {/*
+          `inert` while the drawer is open: without it, Tab walks straight out
+          of the drawer and through every link in the feed BEHIND the scrim —
+          the reader is typing into a page they cannot see. This is the same
+          rule as the closed rail's `display:none`: gate on a real condition,
+          never on something that merely looks like one.
+        */}
+        <main className="fd-main" inert={railOpen ? true : undefined}>
+          <h1 className="fd-sr-only">Setnayan — plan your event, keep it for life</h1>
           <div className="fd-col">{children}</div>
         </main>
       </div>

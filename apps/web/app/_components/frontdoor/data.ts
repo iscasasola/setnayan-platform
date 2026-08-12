@@ -8,10 +8,14 @@
  * product, so every count here is `number | null` and a read FAILURE never
  * collapses into a zero.
  *
- * That is why none of these loaders returns `[]` on error the way the older
- * shelf loaders do: an empty list and a failed read are indistinguishable
- * once you have thrown the error away, and this page composes itself
- * DIFFERENTLY for empty than for broken.
+ * ⚠ THE SHARED SHELF LOADERS DO NOT KEEP THAT DISTINCTION, and an earlier
+ * version of this file claimed otherwise while delegating straight to them.
+ * `loadFeaturedChapters` and `loadPublishedShowcases` both return `[]` for a
+ * REJECTED query as well as an empty one — correct for a shelf that renders
+ * nothing either way, fatal for anything that puts a NUMBER on screen. So the
+ * storyteller read goes through `loadFeaturedChaptersResult`, which reports
+ * its own success, and the showcase count is used ONLY for rail SHAPE and is
+ * never displayed. What a number here claims, it can back.
  *
  * ⚠ A REJECTED QUERY IS NOT A THROWN ERROR. Supabase resolves with
  * `{ data: null, error }` — a phantom column or a missing grant returns
@@ -37,7 +41,7 @@ import {
   blogCategoryLabel,
   readingMinutes,
 } from '@/lib/blog';
-import { loadFeaturedChapters } from '@/lib/storytellers';
+import { loadFeaturedChaptersResult } from '@/lib/storytellers';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
 
 /**
@@ -89,12 +93,28 @@ export type FrontDoorShop = {
 
 export type FrontDoorData = {
   articles: FrontDoorArticle[];
+  /** How many articles are published in total — NOT how many this page shows. */
+  articleTotal: number;
   stories: FrontDoorStory[];
+  /**
+   * Storytellers' published pieces. `null` = the read FAILED.
+   *
+   * ⚠ THIS IS NOT `stories.length`, AND THE DIFFERENCE IS THE WHOLE POINT.
+   * The shared shelf loader returns `[]` for both "none yet" and "rejected",
+   * so a count taken from the array would print "0 theirs" to a visitor on a
+   * day when eight are published, with nothing anywhere saying so.
+   */
+  storyCount: number | null;
   shops: FrontDoorShop[];
   /** null = the read failed. Never coerced to 0. */
   liveShopCount: number | null;
-  /** Real, consented, non-sample published weddings. null = read failed. */
-  realWeddingCount: number | null;
+  /**
+   * Real, consented, non-sample published weddings.
+   * ⚠ Only ever feeds the SHAPE composer, never the screen — the shared
+   * showcase loader also collapses a failed read to `[]`, so this cannot be
+   * trusted as a displayed number and is deliberately not displayed.
+   */
+  realWeddingCount: number;
 };
 
 /*
@@ -183,7 +203,7 @@ async function folderOfService(key: string) {
 export async function loadFrontDoorData(): Promise<FrontDoorData> {
   const [articlesRaw, storiesRaw, shopsRaw, showcasesRaw] = await Promise.all([
     Promise.resolve(publishedBlogArticles()).catch(() => null),
-    loadFeaturedChapters(24).catch(() => null),
+    loadFeaturedChaptersResult(24).catch(() => ({ items: [], ok: false })),
     loadLiveShops(8).catch(() => ({ shops: [], count: null })),
     loadPublishedShowcases(24).catch(() => null),
   ]);
@@ -204,7 +224,7 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
       readingMinutes: readingMinutes(a.blocks),
     }));
 
-  const stories: FrontDoorStory[] = (storiesRaw ?? []).map((s) => ({
+  const stories: FrontDoorStory[] = storiesRaw.items.map((s) => ({
     href: s.href,
     title: s.title,
     ownerName: s.ownerName,
@@ -231,14 +251,18 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
   // the front door's threshold is a claim about how many real couples have
   // shared their day, and counting a sample toward it would make the page
   // lie about the one thing it promises ("nothing is staged").
-  const realWeddingCount =
-    showcasesRaw === null
-      ? null
-      : showcasesRaw.filter((s) => !s.isSample).length;
+  const realWeddingCount = (showcasesRaw ?? []).filter((s) => !s.isSample).length;
 
   return {
     articles,
+    // ⚠ THE TOTAL, NOT THE SLICE. `articles` is capped for the grid; the
+    // sentence "There are N pieces" is a claim about the ARCHIVE. Taking N
+    // from the truncated array told a visitor the archive held 12 when 33 are
+    // published — a number that shrinks as the page gets busier.
+    articleTotal: (articlesRaw ?? []).length,
     stories,
+    // null ⇒ the read failed ⇒ the heading says "couldn't load", never "0".
+    storyCount: storiesRaw.ok ? storiesRaw.items.length : null,
     shops: shopsRaw.shops,
     liveShopCount: shopsRaw.count,
     realWeddingCount,

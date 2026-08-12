@@ -150,7 +150,8 @@ export function FrontDoorFeed({
   data: FrontDoorData;
   chip: ChipKey;
 }) {
-  const { articles, stories, shops, liveShopCount, realWeddingCount } = data;
+  const { articles, articleTotal, stories, storyCount, shops, liveShopCount, realWeddingCount } =
+    data;
 
   // The chip decides which KINDS are in the shelf. It never changes the page's
   // structure — only what the one shelf contains.
@@ -179,8 +180,8 @@ export function FrontDoorFeed({
   */
   const shape = composeFrontDoor({
     chapters: stories.length,
-    articles: articles.length,
-    stories: realWeddingCount ?? 0,
+    articles: articleTotal,
+    stories: realWeddingCount,
     liveShops: liveShopCount ?? 0,
   });
 
@@ -208,9 +209,9 @@ export function FrontDoorFeed({
 
       {nothingUnderChip ? (
         <div className="fd-invite fd-invite-full">
-          <h3>Nothing under &ldquo;{chip}&rdquo; yet.</h3>
+          <h2>Nothing under &ldquo;{chip}&rdquo; yet.</h2>
           <p>
-            There are <CountText value={articles.length} /> pieces and growing
+            There are <CountText value={articleTotal} /> pieces and growing
             most weeks — try another chip, or clear the filter.
           </p>
           <Link href="/" className="fd-go">
@@ -239,9 +240,12 @@ export function FrontDoorFeed({
             </span>
             <span>Stories</span>
             <span className="fd-meta">
-              <CountText value={articles.length} /> ours ·{' '}
-              <CountText value={stories.length} /> theirs — some with video,
-              some without
+              {/* THE ARCHIVE's size, and a story count that can say it does
+                  not know — not the length of what this page happens to
+                  render. */}
+              <CountText value={articleTotal} /> ours ·{' '}
+              <CountText value={storyCount} /> theirs — some with video, some
+              without
             </span>
             <span className="fd-rule">
               one shelf — the card says which kind it is

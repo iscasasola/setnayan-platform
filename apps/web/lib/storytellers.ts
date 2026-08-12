@@ -141,18 +141,46 @@ const FEATURED_FIELDS =
   'chapter_id, public_id, user_id, event_id, title, kind, body, embed_url, embed_provider, published_at, view_count, showcase_featured_at, showcase_feature_rank';
 
 /**
+ * The result of a shelf read, WITH whether the read actually succeeded.
+ *
+ * ⚠ WHY THIS EXISTS. `loadFeaturedChapters` returns `[]` for BOTH "nobody has
+ * featured a chapter yet" and "the query was rejected" — which is correct for
+ * a shelf that simply renders nothing either way, and WRONG for any caller
+ * that puts a NUMBER on the screen. The front door prints "N theirs" beside
+ * the writing, and a rejected read there would print "0" to a visitor on a day
+ * when eight storytellers are published. An unknown is not a nought.
+ *
+ * So the read now reports its own success and the old signature keeps its
+ * exact behaviour by throwing the flag away. Nothing at /realstories changes.
+ */
+export type FeaturedChaptersResult = {
+  items: StorytellerTileItem[];
+  /** false ⇒ the read FAILED. `items` is then meaningless, not empty. */
+  ok: boolean;
+};
+
+/**
  * The PUBLIC shelf read — ONLY owner-featured, published chapters on public
  * profiles, rank order (lower first, NULLs last, then most-recently featured).
  * Empty ⇒ the "From Our Storytellers" shelf renders NOTHING (not even a
  * heading) — the self-gate that keeps PR-D dark until the owner's first
  * Feature click. Best-effort: a pre-migration DB (42703) returns [].
+ *
+ * Callers that DISPLAY A COUNT must use `loadFeaturedChaptersResult` instead,
+ * so they can tell an empty shelf from a broken one.
  */
 export async function loadFeaturedChapters(limit = 24): Promise<StorytellerTileItem[]> {
+  return (await loadFeaturedChaptersResult(limit)).items;
+}
+
+export async function loadFeaturedChaptersResult(
+  limit = 24,
+): Promise<FeaturedChaptersResult> {
   let admin: ReturnType<typeof createAdminClient>;
   try {
     admin = createAdminClient();
   } catch {
-    return [];
+    return { items: [], ok: false }; // no client ⇒ we did not look
   }
   try {
     const { data, error } = await admin
@@ -163,9 +191,11 @@ export async function loadFeaturedChapters(limit = 24): Promise<StorytellerTileI
       .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
       .order('showcase_featured_at', { ascending: false })
       .limit(limit);
-    if (error) return []; // incl. 42703 pre-migration — shelf stays absent
+    // A REJECTED QUERY IS NOT A THROWN ERROR — this is the branch a phantom
+    // column or a missing grant takes, silently. incl. 42703 pre-migration.
+    if (error) return { items: [], ok: false };
     const rows = (data ?? []) as ChapterRow[];
-    if (rows.length === 0) return [];
+    if (rows.length === 0) return { items: [], ok: true }; // looked, genuinely none
 
     const owners = await fetchPublicOwners(
       admin,
@@ -184,9 +214,9 @@ export async function loadFeaturedChapters(limit = 24): Promise<StorytellerTileI
       // card.
       if (tile) out.push(tile);
     }
-    return out;
+    return { items: out, ok: true };
   } catch {
-    return [];
+    return { items: [], ok: false };
   }
 }
 

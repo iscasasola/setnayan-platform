@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { Radio, Square, AlertCircle, Link2 } from 'lucide-react';
 import { useSaveLoader } from '@/components/sd-loader';
+import { automaticGoLiveAvailable } from '@/lib/live-studio-manual-air';
 import {
   goLivePanood,
   endPanoodBroadcast,
@@ -85,11 +86,15 @@ export function TransportRow({
     });
   }
 
-  const blocked = !oauthReady
-    ? 'One-tap go-live turns on once Setnayan’s YouTube app review clears with Google. Until then you can go live from the YouTube app and paste the link below.'
-    : !connected
-      ? 'Connect your YouTube channel first — then this button goes live in one tap.'
-      : null;
+  // The SHARED predicate — see lib/live-studio-manual-air.ts. The page asks the same
+  // question to decide whether to offer the by-hand on-air switch, and two copies of
+  // it is how the two controls drift into disagreeing about whether this host has
+  // any way to go on air at all.
+  const blocked = automaticGoLiveAvailable({ oauthReady, connected })
+    ? null
+    : !oauthReady
+      ? 'One-tap go-live turns on once Setnayan’s YouTube app review clears with Google. Until then, start the stream yourself and use the “We’re on air” switch below — your control room lights up the same way.'
+      : 'Connect your YouTube channel first — then this button goes live in one tap.';
 
   return (
     <div className="space-y-2">

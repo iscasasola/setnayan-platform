@@ -10,7 +10,6 @@ import {
   AlertCircle,
   Users,
   Clapperboard,
-  Images,
   Heart,
   HeartHandshake,
   MapPin,
@@ -53,10 +52,9 @@ import {
   LifeStorySection,
   type LifeStoryGroup,
 } from '../(account)/_components/life-story-section';
-import { PhotosTab } from '../(account)/library/_components/photos-tab';
-import { Expandable } from './_components/expandable';
 import { CountUp } from '@/app/_components/count-up';
 import { AlaalaTile, AlaalaTileSkeleton } from './_components/alaala-tile';
+import { AlaalaWall, AlaalaWallSkeleton } from './_components/alaala-wall';
 import { CreatorBenefits } from './_components/creator-benefits';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import {
@@ -96,12 +94,15 @@ export const metadata = {
  *     into its event dashboard — an allowed navigation.
  *   • ALAALA — the single memory dimension (owner-confirmed name 2026-07-14),
  *     composed as the prototype's BENTO: the obsidian Alaala·Life-Flash tile
- *     (headline · face row · Play when the flag is on · the five LENSES —
- *     Recent/Owned/Attended/People/With me, all inline swaps) beside the
- *     Setnayan-AI "Watch" aggregate; "This year" (YearMomentsStrip) + the
- *     Memories Hub Expandable continue beneath — inline per the owner
- *     2026-07-13 rule. The flag-gated person-spine "Your story" renders in the
- *     tile's column when its flag turns on.
+ *     (headline · face row · Play when the flag is on) beside the Setnayan-AI
+ *     "Watch" aggregate; beneath them the MEMORY WALL — the five LENSES
+ *     (Recent/Owned/Attended/People/With me) over PHOTOGRAPHS, all inline
+ *     swaps from one read — then "This year" (YearMomentsStrip), inline per
+ *     the owner 2026-07-13 rule. The lenses used to sit inside the tile and
+ *     answer with sentences about EVENTS, which made Alaala a second list of
+ *     events; the board above is the list of events. The flag-gated
+ *     person-spine "Your story" renders in the tile's column when its flag
+ *     turns on.
  *   • SPACES → "YOURS TO RUN" (owner 2026-07-30 "split it in two"). The tile
  *     was mixing three unlike things; it now holds only the stances this
  *     account OPERATES, as labelled groups: the vendor shop(s) + Admin HQ
@@ -512,22 +513,6 @@ export default async function LauncherPage({
     }))
     .filter((r) => r.total > 0)
     .sort((a, b) => b.total - a.total);
-
-  // The Alaala "Attended" lens — a real head-count of guest memberships.
-  // Graceful-degrade to null (the lens shows its invite line, never a
-  // fabricated number).
-  let attendedCount: number | null = null;
-  try {
-    const { count, error } = await supabase
-      .from('event_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('member_type', 'guest')
-      .is('hidden_at', null);
-    if (!error) attendedCount = count ?? 0;
-  } catch {
-    attendedCount = null;
-  }
 
   // STORYTELLER doorway signal — does this account already author chapters?
   // Real head-count on the user's own creator_chapters rows (owner-scoped RLS).
@@ -1163,16 +1148,7 @@ export default async function LauncherPage({
         <div className="grid gap-3 sm:gap-4 lg:grid-cols-[1.3fr_1fr] lg:items-start">
           <div className="space-y-3 sm:space-y-4">
             <Suspense fallback={<AlaalaTileSkeleton />}>
-              <AlaalaTile
-                userId={user.id}
-                lifeOn={lifeOn}
-                ownedEvents={active.slice(0, 5).map((e) => ({
-                  name: e.display_name,
-                  dateLabel: shortDate(e.event_date) ?? 'TBD',
-                }))}
-                attendedCount={attendedCount}
-                personStoriesOn={lifeStoryGroups !== null}
-              />
+              <AlaalaTile userId={user.id} lifeOn={lifeOn} />
             </Suspense>
 
             {/* Person-spine "Your story" (flag-gated, counsel-gated) — the
@@ -1441,36 +1417,29 @@ export default async function LauncherPage({
         </div>
 
         <div className="mt-3 space-y-3 sm:mt-4 sm:space-y-4">
+          {/* ── THE MEMORY WALL — the five lenses over PHOTOGRAPHS ──────────
+              Alaala is for KEEPING; the board above is for DOING. This row
+              used to be a collapsed "Photos & videos" panel rendering
+              PhotosTab — ONE CARD PER EVENT WITH A PHOTO COUNT — so Alaala
+              was a second list of events, and the lenses in the tile above it
+              answered with sentences about events too. Frames now, not
+              occasions. "With me" is every photo of you across six years and
+              belongs to no single event, which is exactly why it lives here at
+              the account level and not inside one.
+
+              The per-event albums (and Download all) did not go away — they
+              are one tap deeper, in Alaala opened full, where a whole-event
+              download is the job. */}
+          <Suspense fallback={<AlaalaWallSkeleton />}>
+            <AlaalaWall userId={user.id} />
+          </Suspense>
+
           {/* Date-anchor model — the couple's next few derived moments
               (anniversaries · wedding countdowns). Self-fetching; renders
               nothing when there are no anchors. */}
           <Suspense fallback={null}>
             <YearMomentsStrip userId={user.id} />
           </Suspense>
-
-          {/* ── ALAALA ABSORBS THE HUB (owner 2026-07-31: "the memories hub is
-              still not integrated" · "ala ala is not fixed") ─────────────────
-              This row used to be titled "Memories Hub" and sat as a PEER of the
-              Alaala tile — two names for one idea, which is exactly the overlap
-              the four-surface model exists to remove (Alaala is the single
-              memory dimension; Memories Hub was its old name).
-
-              It is now Alaala's own content: same photos, no second brand.
-
-              ⚠ The subtitle also promised "saved vendors", and this panel
-              renders PhotosTab, which contains ZERO vendor code. The page
-              advertised a third thing it did not show. Saved vendors now live
-              where the owner put them — with the shops and consoles, in
-              Spaces — and this row says only what it actually contains. */}
-          <Expandable
-            icon={<Images className="h-[18px] w-[18px]" />}
-            title="Photos & videos"
-            subtitle="Every album, across every event"
-          >
-            <Suspense fallback={<InlinePanelSkeleton />}>
-              <PhotosTab userId={user.id} />
-            </Suspense>
-          </Expandable>
         </div>
       </section>
 
@@ -1936,20 +1905,6 @@ function NewEventCard({ delay = 0 }: { delay?: number }) {
       <Plus aria-hidden className="h-[22px] w-[22px] text-[color:var(--sn-gold-600)]" />
       New event
     </Link>
-  );
-}
-
-/** Streaming skeleton for an inline account panel (e.g. Memories Hub photos). */
-function InlinePanelSkeleton() {
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="h-28 animate-pulse rounded-xl border border-ink/10 bg-ink/[0.04]"
-        />
-      ))}
-    </div>
   );
 }
 

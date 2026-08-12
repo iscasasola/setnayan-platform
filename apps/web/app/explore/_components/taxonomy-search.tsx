@@ -53,7 +53,8 @@ type Props = {
   };
 };
 
-const MIN_QUERY_LEN = 2;
+// The minimum query length lives with the matcher it belongs to, in
+// `lib/taxonomy-search-rank.ts`. A second copy here would be a second rule.
 
 /**
  * Marketplace search input with taxonomy autocomplete.

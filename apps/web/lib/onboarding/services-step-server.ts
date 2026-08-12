@@ -39,7 +39,7 @@ import {
   readPapicFreeGrantPoints,
   readPapicFreeOneCameraPoints,
 } from '@/lib/papic-tier-config-read';
-import { resolveSetnayanAiTypePricePhp } from '@/lib/setnayan-ai-event-pricing';
+import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { setnayanAiTierSkuForEventType } from '@/lib/setnayan-ai-type-pricing';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { buildServicesStepView, type ServicesStepView } from './services-step-data';
@@ -72,7 +72,16 @@ export async function readServicesStepView(
       readPapicFreeGrantPoints(),
       readPapicFreeOneCameraPoints(),
       aiOffered
-        ? resolveSetnayanAiTypePricePhp(client, eventType).catch(() => 0)
+        ? // 🔴 THROUGH THE SHARED RESOLVER, IN ONBOARDING CONTEXT. This used to
+          // call the raw per-type resolver directly and UNGATED — the exact
+          // shape of the bug `setnayan-ai-price-display-matches-charge.test.ts`
+          // was written for on the studio page, sitting unnoticed on this one
+          // because the guard only ever covered that other screen. With the
+          // per-type model switched off, this card showed a tier price while
+          // checkout charged the flat row.
+          resolveSetnayanAiDisplayPricePhp(client, eventType, 'onboarding').catch(
+            () => 0,
+          )
         : Promise.resolve(0),
     ]);
 

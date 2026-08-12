@@ -76,8 +76,34 @@ export const AI_TIER_SKU: Readonly<Record<AiPriceTier, string | null>> = {
   E: null,
 };
 
-/** Last-resort price per tier (catalog wins). Matches the locked ladder. */
+/**
+ * Last-resort REGULAR price per tier (catalog wins). Matches the locked ladder.
+ * This is what an event pays to switch Setnayan AI on AFTER onboarding.
+ */
 export const AI_TIER_FALLBACK_PHP: Readonly<Record<AiPriceTier, number>> = {
+  A: 2499,
+  B: 1499,
+  C: 899,
+  D: 199,
+  E: 0,
+};
+
+/**
+ * Last-resort SIGN-UP price per tier — what the couple pays when they buy
+ * Setnayan AI while creating the event (owner-locked 2026-08-12).
+ *
+ * ⚠ THESE TWO LADDERS MUST NEVER CROSS. The sign-up price is a discount, so
+ * every rung must be ≤ its regular twin; a sign-up price ABOVE the regular one
+ * would quietly punish the customer for buying early, which is the opposite of
+ * the decision. `setnayan-ai-price-display-matches-charge.test.ts` asserts the
+ * ordering rung by rung, so a future edit to one ladder cannot silently invert
+ * the other.
+ *
+ * Catalog still wins (`onboarding_price_php`); these are the numbers used only
+ * when the row is unreadable, so the charge degrades to the right price rather
+ * than to zero or to full price.
+ */
+export const AI_TIER_ONBOARDING_FALLBACK_PHP: Readonly<Record<AiPriceTier, number>> = {
   A: 1499,
   B: 899,
   C: 499,
@@ -96,7 +122,24 @@ export function setnayanAiTierSkuForEventType(eventType: string | null | undefin
   return AI_TIER_SKU[setnayanAiTierForEventType(eventType)];
 }
 
+/**
+ * Which of the two prices applies. `onboarding` is the discount a couple gets
+ * for buying while they create the event; `regular` is everything afterwards.
+ *
+ * 🔒 SERVER-DECIDED, NEVER CLIENT-SUPPLIED. The only caller that may pass
+ * `onboarding` is the event-commit path, which runs on the server — otherwise a
+ * browser could ask for the cheap price at any time. Everything else defaults
+ * to `regular`, so a new call site cannot get the discount by omission.
+ */
+export type AiPriceContext = 'onboarding' | 'regular';
+
 /** The fallback price (PHP) for a type, used only when the catalog is unreadable. */
-export function setnayanAiTierFallbackPhp(eventType: string | null | undefined): number {
-  return AI_TIER_FALLBACK_PHP[setnayanAiTierForEventType(eventType)];
+export function setnayanAiTierFallbackPhp(
+  eventType: string | null | undefined,
+  context: AiPriceContext = 'regular',
+): number {
+  const tier = setnayanAiTierForEventType(eventType);
+  return context === 'onboarding'
+    ? AI_TIER_ONBOARDING_FALLBACK_PHP[tier]
+    : AI_TIER_FALLBACK_PHP[tier];
 }

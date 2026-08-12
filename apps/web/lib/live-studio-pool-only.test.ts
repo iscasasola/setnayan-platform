@@ -117,10 +117,33 @@ test('🔒 closing the door to NEW consents does not strand an EXISTING grant', 
     /getEventYoutubeAccessToken\(eventId\)/,
     'the BYO fallback was removed — that revokes consent already given, rather than closing the door to new consent',
   );
+
+  // ── THE BAN IS NARROWED TO WHERE IT MEANS SOMETHING ─────────────────────────
+  // This was a blanket `doesNotMatch(/liveStudioPoolOnly/)` over the whole file.
+  // The property it protects is real and unchanged: **pool-only must never
+  // influence whether an existing grant can still put a host on air.** It governs
+  // NEW consents; a grandfathered host keeps broadcasting.
+  //
+  // But a whole-file string ban cannot tell that apart from consulting the flag to
+  // choose the WORDING of a failure after the token lookup has already come back
+  // empty — which strands nobody, and which is what fixes the message that told the
+  // owner to contact himself.
+  //
+  // So: assert the flag is absent from the TOKEN-RESOLUTION region specifically —
+  // everything from the start of goLivePanood up to the point where a missing token
+  // has already been established. If pool-only ever appears there, it can gate a
+  // token, and that is the regression this test exists to catch.
+  const fn = actions.slice(
+    actions.indexOf('export async function goLivePanood'),
+    actions.indexOf('export async function endPanoodBroadcast'),
+  );
+  const tokenRegion = fn.slice(0, fn.indexOf('if (!accessToken) {'));
+  assert.ok(tokenRegion.length > 200, 'failed to locate the token-resolution region');
   assert.doesNotMatch(
-    actions,
+    tokenRegion,
     /liveStudioPoolOnly/,
-    'go-live must not consult pool-only: the flag governs NEW connections, not existing ones',
+    'pool-only is being consulted while RESOLVING a token — that strands a host who ' +
+      'connected before the flip, which is exactly what this flag must never do',
   );
 });
 

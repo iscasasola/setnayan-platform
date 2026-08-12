@@ -42,9 +42,27 @@ body cut mid-JSON.
 **🚨 THE APP TOLD THE OWNER TO CONTACT HIMSELF.** The no-token branch picked its
 message from `liveStudioRoamEnabled()` alone. That flag is on while the Setnayan
 channel pool holds **0 channels and 0 grants**, so every host with no connection got
-*"This is on our side — please contact Setnayan"* while the actual fix — press
-Connect — was hidden. Now branches on whether a pool channel was **actually
-resolved**, not on what is switched on. Ask the question the answer depends on.
+*"This is on our side — please contact Setnayan"* while the Connect button sat
+rendered on the page they were reading.
+
+🔑 **The Wave 9 promise is real and is NOT broken here** — a host who *cannot*
+connect their own account must never be told to. The roam flag was simply the wrong
+way to ask it. The one thing that closes the BYO door is `liveStudioPoolOnly()`: it
+removes the Connect button and makes `/api/oauth/youtube/start` refuse with `409`.
+So the copy now branches on **that**. Measured live: that endpoint returns `400`,
+not `409`, and the check runs ahead of auth — pool-only is OFF, so BYO is the only
+route to air today and "press Connect" is the truth.
+
+🛡 **Two existing guards had to be re-pointed, neither weakened.** One pinned the
+copy to the exact `liveStudioRoamEnabled() ? … : …` ternary — it was holding the
+wrong question in place, so it now asserts the pool-only branch *and* that the roam
+flag never decides this message again. The other was a **whole-file** ban on the
+string `liveStudioPoolOnly`, guarding a genuinely important property: pool-only must
+never influence whether an *existing* grant can still put a host on air. A
+whole-file ban cannot tell that apart from wording a message after the token lookup
+already failed, so it is narrowed to the **token-resolution region** — where it
+means something. Mutation-proved: letting pool-only gate the token moves its count
+in that region 0 → 1 and turns the guard red.
 
 **⭐ THE GOOGLE ACCOUNT CHOOSER IS NOW FORCED.** `buildYoutubeAuthorizeUrl` passed no
 `prompt`, defaulting to `consent`, so Google silently reuses whichever session the

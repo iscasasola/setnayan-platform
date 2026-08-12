@@ -51,3 +51,19 @@ occurrences, marker present) turns the regression test red.
 
 SPEC IMPACT: None (routing defect; the storytelling model row was logged
 2026-08-12).
+
+### One e2e assertion was passing without ever reaching the route
+
+`unknown chapter under a profile 404s` asserted a clean 404 — and got one,
+because the middleware had rewritten the URL to `/c/{id}`, which matches no
+route. **The test never invoked the chapter route, in CI or in production.**
+
+With the route genuinely reachable it now behaves exactly like its sibling
+`/u/[slug]` test: a real DB gives a clean 404, and this DB-less e2e environment
+makes the resolver fail at the network layer instead (500). The assertion moves
+to the contract that holds in **both** — fail closed **and leak nothing** — and
+gains two content-absence checks it never had. The exact 404 is verified against
+production instead, where a database exists.
+
+🔑 **A green test that never exercised its subject is indistinguishable from one
+that did.** This one had been green since the route shipped.

@@ -16,6 +16,8 @@ import { loadAiActivity } from '@/lib/setnayan-ai-activity';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { SetnayanAiValue } from './_components/setnayan-ai-value';
 import type { AiValueTerms } from './_components/setnayan-ai-value-copy';
+import { setPlanningMode } from '@/app/dashboard/[eventId]/actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Setnayan AI · Setnayan' };
 
@@ -196,6 +198,32 @@ export default async function SetnayanAiPage({ params }: Props) {
           </div>
 
           <SetnayanAiValue mode="live" activity={activity} terms={aiValueTerms} />
+
+          {/* 🔴 THE OFF-RAMP. Until now Setnayan AI could be bought and never
+              switched off: the flip existed in the code with no button on any
+              screen. Nobody should be able to buy something they cannot stop —
+              and turning it off is not a refund or a cancellation, it just
+              stops the ranking and the nudges, so it is safe to offer plainly
+              rather than hiding it behind support. Access is kept; the same
+              button above brings it back. */}
+          <form
+            action={setPlanningMode}
+            className="flex flex-col gap-3 rounded-xl border border-ink/10 p-5 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="mode" value="manual" />
+            <p className="text-sm text-ink/55">
+              Prefer to plan this one yourself? Switch to manual and Setnayan AI
+              stops ranking and nudging. You keep it — turn it back on whenever
+              you like.
+            </p>
+            <SubmitButton
+              pendingLabel="Switching…"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-ink/15 px-4 py-2 text-sm font-medium text-ink/75 hover:bg-ink/5 sm:w-auto"
+            >
+              Switch to manual planning
+            </SubmitButton>
+          </form>
         </>
       ) : owns || !paywallOn ? (
         <>
@@ -213,17 +241,30 @@ export default async function SetnayanAiPage({ params }: Props) {
             </p>
           </header>
 
-          <div className="sn-tile flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+          {/* 🔴 THIS USED TO BE A LINK TO /dashboard — A BUTTON THAT PROMISED AN
+              ACTION AND DELIVERED A PAGE WITH NO SUCH CONTROL ON IT. The action
+              behind it (`setPlanningMode`) has existed since 2026-06-05 with
+              ZERO callers anywhere in the app, so a couple who owned Setnayan AI
+              and switched to manual had no way back on, and the one button that
+              said otherwise walked them into an empty room. A control that does
+              not act is worse than no control: it spends the one moment someone
+              was willing to act. */}
+          <form
+            action={setPlanningMode}
+            className="sn-tile flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="mode" value="guided" />
             <p className="text-sm text-ink/65">
               Assisted planning is currently off.
             </p>
-            <Link
-              href={`/dashboard/${eventId}`}
+            <SubmitButton
+              pendingLabel="Turning on…"
               className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
             >
               Turn on Assisted planning
-            </Link>
-          </div>
+            </SubmitButton>
+          </form>
 
           <SetnayanAiValue mode="preview" terms={aiValueTerms} />
         </>

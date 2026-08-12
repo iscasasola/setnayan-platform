@@ -1,9 +1,9 @@
 import {
   ListChecks,
-  MapPin,
-  Send,
+  TrendingUp,
+  CalendarX,
+  AlertTriangle,
   CalendarClock,
-  BellRing,
   Wallet,
   PiggyBank,
   Eye,
@@ -51,14 +51,14 @@ import {
  */
 const CAP_ICON: Record<AiCapabilityId, typeof ListChecks> = {
   rank: ListChecks,
-  distance: MapPin,
-  first_inquiry: Send,
   deadlines: CalendarClock,
-  chase: BellRing,
   next_move: Clock,
   payments: Wallet,
   budget: PiggyBank,
   demand: Eye,
+  price_watch: TrendingUp,
+  date_watch: CalendarX,
+  schedule_clash: AlertTriangle,
 };
 
 const CAP_FIGURE: Partial<Record<AiCapabilityId, (a: AiActivity) => string>> = {

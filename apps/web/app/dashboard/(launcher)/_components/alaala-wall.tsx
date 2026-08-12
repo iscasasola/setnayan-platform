@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ArrowUpRight, Images } from 'lucide-react';
 
 import { getAlaalaWall } from '@/lib/alaala-wall-data';
-import { lensCounts, type AlaalaLensKey } from '@/lib/alaala-wall';
+import { ALAALA_LENSES, lensCounts, type AlaalaLensKey } from '@/lib/alaala-wall';
 import { AlaalaLensBody } from '@/app/_components/alaala/lens-body';
 import { AlaalaLenses } from './alaala-lenses';
 
@@ -37,13 +37,16 @@ export async function AlaalaWall({ userId }: { userId: string }) {
   const wall = await getAlaalaWall(userId);
   const counts = lensCounts(wall);
 
-  const bodies: Record<AlaalaLensKey, React.ReactNode> = {
-    recent: <AlaalaLensBody lens="recent" wall={wall} />,
-    owned: <AlaalaLensBody lens="owned" wall={wall} />,
-    attended: <AlaalaLensBody lens="attended" wall={wall} />,
-    people: <AlaalaLensBody lens="people" wall={wall} />,
-    with_me: <AlaalaLensBody lens="with_me" wall={wall} />,
-  };
+  // DERIVED, not hand-typed. The five used to be written out as key/prop pairs,
+  // and a mutation proved the pairing was unguarded: rewriting one entry to
+  // `owned: <AlaalaLensBody lens="recent" …>` left 17/17 tests green — the guard
+  // matches the record KEY, which that mutation preserves, and `Record<K, Node>`
+  // gives no key↔prop link. The Owned chip would have quietly shown the Recent
+  // wall. Deriving from the one declared list makes the class of bug
+  // unexpressible, which beats any guard over hand-typed pairs.
+  const bodies = Object.fromEntries(
+    ALAALA_LENSES.map(({ key }) => [key, <AlaalaLensBody key={key} lens={key} wall={wall} />]),
+  ) as Record<AlaalaLensKey, React.ReactNode>;
 
   return (
     <div className="sn-tile-glass sn-lift-3 rounded-2xl p-4 sm:p-[18px]">
@@ -60,7 +63,7 @@ export async function AlaalaWall({ userId }: { userId: string }) {
           <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
         </Link>
       </div>
-      <AlaalaLenses bodies={bodies} counts={counts} />
+      <AlaalaLenses bodies={bodies} counts={counts} partial={wall.partial} />
     </div>
   );
 }

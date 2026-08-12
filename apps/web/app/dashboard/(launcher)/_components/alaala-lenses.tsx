@@ -36,9 +36,12 @@ const LENSES: Array<{ key: AlaalaLensKey; label: string }> = [
 export function AlaalaLenses({
   bodies,
   counts,
+  partial = false,
 }: {
   bodies: Record<AlaalaLensKey, ReactNode>;
   counts?: Partial<Record<AlaalaLensKey, number | null>>;
+  /** A source hit its fetch ceiling ⇒ render `N+`, never a bare total. */
+  partial?: boolean;
 }) {
   const [active, setActive] = useState<AlaalaLensKey>('recent');
 
@@ -74,6 +77,7 @@ export function AlaalaLenses({
                   }`}
                 >
                   {count}
+                  {partial ? '+' : ''}
                 </span>
               ) : null}
             </button>

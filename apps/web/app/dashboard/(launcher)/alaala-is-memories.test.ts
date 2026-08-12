@@ -48,6 +48,7 @@ const TILE = resolve(HERE, '_components', 'alaala-tile.tsx');
 const WALL = resolve(HERE, '_components', 'alaala-wall.tsx');
 const BODY = resolve(WEB, 'app', '_components', 'alaala', 'lens-body.tsx');
 const ALAALA_PAGE = resolve(WEB, 'app', 'dashboard', '(account)', 'library', 'page.tsx');
+const DATA = resolve(WEB, 'lib', 'alaala-wall-data.ts');
 
 /** The five, in the tile's order. A body missing one renders `undefined`. */
 const LENSES = ['recent', 'owned', 'attended', 'people', 'with_me'] as const;
@@ -102,24 +103,57 @@ test('the obsidian tile carries Life-Flash and does NOT carry the lenses', () =>
   );
 });
 
-test('every one of the five lenses has a body on the home wall', () => {
+test('the home wall DERIVES its lens bodies — the pairing is not hand-typed', () => {
   const s = src(WALL);
-  const from = s.indexOf('const bodies');
-  assert.notEqual(from, -1, 'no `const bodies` in alaala-wall.tsx — update this guard');
-  // End at the map's own closing `};`, not at the next `return (`: the file's
-  // FIRST `return (` belongs to the skeleton and sits ABOVE this, which yields
-  // an empty slice and would pass every check below vacuously.
-  const close = s.indexOf('\n  };', from);
-  assert.notEqual(close, -1, 'could not find the end of the lens-bodies map');
-  const block = s.slice(from, close);
-  assert.ok(block.length > 100, 'the lens-bodies map extractor matched almost nothing');
+  // 🪤 THE PREVIOUS VERSION OF THIS TEST COULD NOT FAIL THE WAY THAT MATTERED.
+  // It scanned a hand-typed `{ owned: <AlaalaLensBody lens="owned" …> }` map for
+  // the record KEY. A mutation rewriting one entry to `lens="recent"` preserves
+  // the key, so 17/17 tests stayed green while the Owned chip rendered the
+  // Recent wall — measured, not supposed. `Record<K, ReactNode>` gives no
+  // key↔prop link, so no guard over hand-typed pairs can be trusted. The map is
+  // now derived from the one declared list, which makes the bug unexpressible.
+  assert.match(
+    s,
+    /ALAALA_LENSES\.map\(\s*\(\{\s*key\s*\}\)\s*=>\s*\[\s*key\s*,[\s\S]{0,160}?lens=\{key\}/,
+    'The home wall no longer derives its lens bodies from ALAALA_LENSES. A ' +
+      'hand-typed key/prop map lets a chip render another lens’s answer with ' +
+      'every test green — that is exactly how this guard was caught being ' +
+      'decoration.',
+  );
+  assert.equal(
+    count(s, /lens="(recent|owned|attended|people|with_me)"/g),
+    0,
+    'a hand-typed lens prop came back on the home wall',
+  );
+});
+
+test('the declared lens list is still the owner-approved five', () => {
+  const s = src(resolve(WEB, 'lib', 'alaala-wall.ts'));
+  const decl = /ALAALA_LENSES[\s\S]*?=\s*\[([\s\S]*?)\];/.exec(s);
+  assert.ok(decl, 'no ALAALA_LENSES declaration — update this guard');
   for (const lens of LENSES) {
     assert.ok(
-      new RegExp(`\\b${lens}:`).test(block),
-      `The "${lens}" lens has no body. A missing key renders \`undefined\` — an ` +
-        `empty panel with no error, which reads as "you have nothing here".`,
+      new RegExp(`key: '${lens}'`).test(decl[1]!),
+      `"${lens}" left ALAALA_LENSES. Every body on both surfaces is derived from ` +
+        `that list, so dropping one silently removes the lens everywhere.`,
     );
   }
+});
+
+test('the People door lives in the shared body, where both surfaces get it', () => {
+  // 🪤 The port-loss baseline records controls PER ROUTE DIRECTORY and does not
+  // follow into app-root `_components` — so when this door moved here it was
+  // recorded as REMOVED from /dashboard/library, and deleting it now would fire
+  // nothing. This assertion is the replacement for the line that stopped
+  // watching it.
+  const s = src(BODY);
+  assert.equal(
+    count(s, /href="\/dashboard\/people"/g),
+    1,
+    'The only route from Alaala to /dashboard/people is gone. It once hung off a ' +
+      'prose placeholder and vanished the moment the People lens started showing ' +
+      'real faces — a control that disappears when the feature starts WORKING.',
+  );
 });
 
 test('the shared lens body renders frames, never a list of events', () => {
@@ -186,4 +220,32 @@ test('"With me" is reachable at the account level, where it has to be', () => {
       `the home wall stopped offering the "${lens}" lens`,
     );
   }
+});
+
+test('the read budgets PER LENS and counts on the uncapped set', () => {
+  // 🚨 THE REGRESSION THAT SHIPPED IN #4395, and the one sabotage that escaped
+  // the first version of this guard: the pure core was tested directly, so
+  // nothing watched the DATA LAYER reverting to a single global cap. Replacing
+  // `surfaceBudget(ordered, …)` with `ordered.slice(0, …)` there left every
+  // test green while Attended and With me emptied over frames already read.
+  const s = src(DATA);
+  assert.equal(
+    count(s, /surfaceBudget\(\s*ordered/g),
+    1,
+    'The wall no longer budgets per lens. A global cap over a filtered view is a ' +
+      'silent filter: the newest frames all belong to one lens and the others ' +
+      'render empty over photographs that were successfully read.',
+  );
+  assert.equal(
+    count(s, /\bordered\.slice\(/g),
+    0,
+    'The ordered wall is being truncated before the lens split — that IS the bug.',
+  );
+  assert.equal(
+    count(s, /lensTotals\(\s*ordered/g),
+    1,
+    'Totals must be measured on the UNCAPPED read. Counting the budgeted set ' +
+      'prints a display cap as a total, and prints a confident 0 for a lens that ' +
+      'simply had no room.',
+  );
 });

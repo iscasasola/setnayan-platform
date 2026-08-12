@@ -10,7 +10,9 @@ import { fetchMomentGraph } from '@/lib/life-story-moment-graph';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import {
+  lensTotals,
   orderWall,
+  surfaceBudget,
   type AlaalaWall,
   type WallFace,
   type WallItem,
@@ -59,8 +61,12 @@ const MAX_EVENTS = 12;
 const ROWS_PER_TABLE = 60;
 /** Frames per attended event (this read is already tag-scoped and small). */
 const ROWS_PER_ATTENDED = 24;
-/** Frames actually presigned. Presign ONLY what a surface can show. */
-const MAX_TILES = 48;
+/**
+ * Frames presigned PER LENS. Presign only what a surface can show — but give
+ * each lens its OWN budget, never a shared one. A global cap over a filtered
+ * view is a silent filter: see the measured failure in `surfaceBudget`.
+ */
+const TILES_PER_LENS = 36;
 
 type Ref = {
   key: string;
@@ -142,7 +148,7 @@ async function viewerGuestIds(
 async function ownedRefs(
   supabase: Awaited<ReturnType<typeof createClient>>,
   event: { event_id: string; display_name: string },
-): Promise<{ refs: Ref[]; unreadable: boolean }> {
+): Promise<{ refs: Ref[]; unreadable: boolean; saturated: boolean }> {
   const [photoRes, captureRes] = await Promise.all([
     supabase
       .from('papic_photos')
@@ -200,7 +206,12 @@ async function ownedRefs(
     });
   }
 
-  return { refs, unreadable };
+  // Either table coming back exactly full means there may be more behind it —
+  // so any total derived from this read is "at least", never a total.
+  const saturated =
+    (photoRes.data ?? []).length >= ROWS_PER_TABLE ||
+    (captureRes.data ?? []).length >= ROWS_PER_TABLE;
+  return { refs, unreadable, saturated };
 }
 
 /**
@@ -211,21 +222,31 @@ async function ownedRefs(
 async function attendedRefs(
   userId: string,
   event: { event_id: string; display_name: string },
-): Promise<Ref[]> {
+): Promise<{ refs: Ref[]; unreadable: boolean; saturated: boolean }> {
   const admin = createAdminClient();
-  const { data: member } = await admin
+  // .error is checked, not discarded: a refused membership read here used to be
+  // indistinguishable from "not a guest", and the lens then stated the viewer
+  // had attended nothing.
+  const { data: member, error } = await admin
     .from('event_members')
     .select('guest_id')
     .eq('event_id', event.event_id)
     .eq('user_id', userId)
     .maybeSingle();
+  if (error) return { refs: [], unreadable: true, saturated: false };
   const guestId = (member?.guest_id as string | null | undefined) ?? null;
-  if (!guestId) return [];
+  if (!guestId) return { refs: [], unreadable: false, saturated: false };
 
   const gallery = await getGuestLiveGallery(event.event_id, guestId, ROWS_PER_ATTENDED);
-  if (!gallery) return [];
+  // ⚠ DELIBERATELY NOT `unreadable` — getGuestLiveGallery returns null BOTH for
+  // a failed read and for the ordinary "this guest has no tags yet", which is
+  // the normal state of every guest before the photographers work through the
+  // album. Raising the banner here would cry wolf at the entire guest
+  // population. Splitting those two needs that function's return contract to
+  // change; named as follow-up, not botched here.
+  if (!gallery) return { refs: [], unreadable: false, saturated: false };
 
-  return gallery.photos.map((p) => ({
+  const refs: Ref[] = gallery.photos.map((p) => ({
     key: `${p.sourceTable}:${p.id}`,
     storedRef: p.url,
     isClip: false,
@@ -234,6 +255,7 @@ async function attendedRefs(
     eventName: event.display_name,
     role: 'guest' as const,
   }));
+  return { refs, unreadable: false, saturated: gallery.total > gallery.photos.length };
 }
 
 /** Faces, from the moment graph — the tile's own source, fetched once. */
@@ -270,8 +292,11 @@ export const getAlaalaWall = cache(async (userId: string): Promise<AlaalaWall> =
 
   let events: Array<{ event_id: string; display_name: string; role: 'couple' | 'guest' }> = [];
   let unreadable = false;
+  let partial = false;
+  let allEvents = 0;
   try {
     const switcher = await getSwitcherData(userId);
+    allEvents = switcher.events.length;
     events = switcher.events.slice(0, MAX_EVENTS).map((e) => ({
       event_id: e.event_id,
       display_name: e.display_name,
@@ -280,18 +305,21 @@ export const getAlaalaWall = cache(async (userId: string): Promise<AlaalaWall> =
   } catch {
     unreadable = true;
   }
+  // More events than we fanned out over ⇒ every total below is "at least".
+  if (allEvents > events.length) partial = true;
 
   const ownedIds = events.filter((e) => e.role === 'couple').map((e) => e.event_id);
+  const hasAttendedEvents = events.some((e) => e.role === 'guest');
 
   const [perEvent, tagged, faces] = await Promise.all([
     Promise.all(
       events.map(async (event) => {
         try {
           if (event.role === 'couple') return await ownedRefs(supabase, event);
-          return { refs: await attendedRefs(userId, event), unreadable: false };
+          return await attendedRefs(userId, event);
         } catch {
           // One bad event never empties the whole wall — but it is not silence.
-          return { refs: [] as Ref[], unreadable: true };
+          return { refs: [] as Ref[], unreadable: true, saturated: false };
         }
       }),
     ),
@@ -302,11 +330,16 @@ export const getAlaalaWall = cache(async (userId: string): Promise<AlaalaWall> =
   const refs: Ref[] = [];
   for (const chunk of perEvent) {
     if (chunk.unreadable) unreadable = true;
+    if (chunk.saturated) partial = true;
     refs.push(...chunk.refs);
   }
   if (tagged.unreadable) unreadable = true;
 
-  // Order BEFORE presigning: only the frames a surface can show get signed.
+  // ORDER AND COUNT ON THE FULL SET — then budget PER LENS.
+  // The first cut sliced the merged list to a single global cap and filtered
+  // afterwards, which emptied Attended and With me over frames it had already
+  // read. `totals` therefore come from `ordered` (uncapped) and never from the
+  // budgeted `items`.
   const ordered = orderWall(
     refs.map((r) => ({
       key: r.key,
@@ -319,11 +352,13 @@ export const getAlaalaWall = cache(async (userId: string): Promise<AlaalaWall> =
       // An attended frame IS a tagged frame — that is the only way it was read.
       withMe: r.role === 'guest' || tagged.keys.has(r.key),
     })),
-  ).slice(0, MAX_TILES);
+  );
+  const totals = lensTotals(ordered, faces.faces.length);
+  const surfaced = surfaceBudget(ordered, TILES_PER_LENS);
 
   const byKey = new Map(refs.map((r) => [r.key, r.storedRef]));
   const signed = await Promise.all(
-    ordered.map(async (item) => {
+    surfaced.map(async (item) => {
       try {
         const url = await displayUrlForStoredAsset(byKey.get(item.key) ?? null);
         return url ? { ...item, url } : null;
@@ -337,8 +372,20 @@ export const getAlaalaWall = cache(async (userId: string): Promise<AlaalaWall> =
   // against the unfiltered refs — one null silently shifts every later frame
   // onto the wrong photo.
   const items: WallItem[] = signed.filter((i): i is WallItem => i !== null);
+  // A frame that was read but could not be resolved to a fetchable URL is a
+  // memory going missing with no error anywhere. Say so rather than serving a
+  // quietly shorter wall.
+  if (items.length < surfaced.length) unreadable = true;
 
-  return { items, faces: faces.faces, unreadable, facesMeasured: faces.measured };
+  return {
+    items,
+    totals,
+    partial,
+    hasAttendedEvents,
+    faces: faces.faces,
+    unreadable,
+    facesMeasured: faces.measured,
+  };
 });
 
 /** The frames the viewer is tagged in, across their OWN events. */

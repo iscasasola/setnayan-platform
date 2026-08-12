@@ -27,9 +27,12 @@ import {
   ALAALA_LENSES,
   EMPTY_WALL,
   lensCounts,
+  lensEmptyLine,
   lensIsWall,
+  lensTotals,
   orderWall,
   selectLens,
+  surfaceBudget,
   type AlaalaLensKey,
   type AlaalaWall,
   type WallItem,
@@ -52,7 +55,19 @@ function frame(over: Partial<WallItem> & { key: string }): WallItem {
  * An account with a life: two own celebrations and one they attended, and they
  * are tagged in some of it. Every lens has a genuinely different answer here.
  */
+function wall(items: WallItem[], over: Partial<AlaalaWall> = {}): AlaalaWall {
+  const ordered = orderWall(items);
+  return {
+    ...EMPTY_WALL,
+    items: ordered,
+    totals: lensTotals(ordered, over.faces?.length ?? 0),
+    facesMeasured: true,
+    ...over,
+  };
+}
+
 const LIVED: AlaalaWall = {
+  ...EMPTY_WALL,
   items: orderWall([
     frame({ key: 'papic_photos:a', eventId: 'own1', capturedAt: '2026-08-10T10:00:00Z' }),
     frame({ key: 'papic_photos:b', eventId: 'own1', capturedAt: '2026-08-09T10:00:00Z', withMe: true }),
@@ -65,6 +80,8 @@ const LIVED: AlaalaWall = {
   ],
   unreadable: false,
   facesMeasured: true,
+  hasAttendedEvents: true,
+  totals: { recent: 4, owned: 3, attended: 1, with_me: 2, people: 2 },
 };
 
 test('the five lenses are the owner-approved five, in the tile order', () => {
@@ -176,4 +193,78 @@ test('a readable, genuinely empty account reports 0 — not null', () => {
   const counts = lensCounts({ ...EMPTY_WALL, facesMeasured: true });
   assert.equal(counts.recent, 0);
   assert.equal(counts.owned, 0);
+});
+
+// ── THE REGRESSION THAT SHIPPED IN #4395, AND ITS TWO GUARDS ───────────────
+// The first cut capped the MERGED wall to 48 newest frames and only then
+// filtered per lens. Measured against the shipped core, a couple with 60 frames
+// from their own wedding last month and 24 they are tagged in from a friend's
+// wedding two years ago got: recent 48 · owned 48 · attended 0 · with_me 0 —
+// against a truth of 84/60/24/24. Attended rendered EMPTY over twenty-four
+// photographs that had been read and thrown away, and the page then printed
+// "No events attended yet" with a MEASURED 0 on the chip.
+
+function older(n: number, prefix: string, role: 'couple' | 'guest', year: string): WallItem[] {
+  return Array.from({ length: n }, (_, i) =>
+    frame({
+      key: `${prefix}${i}`,
+      role,
+      withMe: role === 'guest',
+      eventId: role === 'couple' ? 'own' : 'att',
+      capturedAt: `${year}-06-${String(1 + (i % 28)).padStart(2, '0')}T10:00:00Z`,
+    }),
+  );
+}
+
+/** 60 own frames from THIS year, 24 attended frames from two years ago. */
+const BUSY = orderWall([
+  ...older(60, 'o', 'couple', '2026'),
+  ...older(24, 'a', 'guest', '2024'),
+]);
+
+test('every lens gets its OWN budget — a busy own-event cannot starve Attended', () => {
+  const budgeted = surfaceBudget(BUSY, 12);
+  const w = wall(budgeted);
+  for (const lens of ['recent', 'owned', 'attended', 'with_me'] as AlaalaLensKey[]) {
+    assert.ok(
+      selectLens(w, lens).length >= 12,
+      `"${lens}" got ${selectLens(w, lens).length} of its 12-frame budget. A global cap ` +
+        `over a filtered view is a silent filter: the newest frames all belong to one ` +
+        `lens, and the others render empty over photos that were already read.`,
+    );
+  }
+});
+
+test('totals are measured on the UNCAPPED read, never on what fits the screen', () => {
+  const totals = lensTotals(BUSY, 0);
+  assert.equal(totals.recent, 84);
+  assert.equal(totals.owned, 60);
+  assert.equal(totals.attended, 24);
+  assert.equal(totals.with_me, 24);
+  // …and the budgeted wall reports those same totals, not its own length.
+  const w = wall(surfaceBudget(BUSY, 12), { totals });
+  assert.equal(lensCounts(w).attended, 24, 'a display budget was printed as a total');
+  assert.ok(selectLens(w, 'attended').length < 24, 'fixture no longer exercises truncation');
+});
+
+test('an empty ATTENDED lens does not claim the viewer attended nothing', () => {
+  // Every guest is untagged until the photographers work through the album.
+  const joined = lensEmptyLine('attended', true);
+  const never = lensEmptyLine('attended', false);
+  assert.notEqual(joined, never, 'the sentence ignores whether they attended anything');
+  assert.ok(
+    !/attended yet|attended nothing/i.test(joined),
+    `A guest who has joined an event was told: "${joined}". That is a claim about ` +
+      `MEMBERSHIPS made from an absence of PHOTOS.`,
+  );
+  assert.match(never, /No events attended yet/);
+});
+
+test('every lens has an empty line, and none of them is blank', () => {
+  for (const { key } of ALAALA_LENSES) {
+    for (const hasAttended of [true, false]) {
+      const line = lensEmptyLine(key, hasAttended);
+      assert.ok(line.trim().length > 20, `"${key}" has no real empty-state sentence`);
+    }
+  }
 });

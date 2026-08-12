@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "66ea86592",
+  "generatedFromRef": "4c0072d1f",
   "routeCount": 401,
-  "destinations": 678,
+  "destinations": 677,
   "actions": 517,
-  "blocks": 3548,
+  "blocks": 3547,
   "routes": {
     "/": {
       "files": [
@@ -2798,6 +2798,7 @@
       ],
       "destinations": [
         "/dashboard",
+        "/dashboard/profile",
         "/u/[seg]",
         "/v/[seg]"
       ],
@@ -2839,9 +2840,7 @@
         "/dashboard/[seg]/studio/papic",
         "/dashboard/create-event",
         "/dashboard/library?tab=[seg]",
-        "/dashboard/library?tab=attended",
         "/dashboard/life-flash",
-        "/dashboard/people",
         "/dashboard/profile",
         "/explore",
         "/v/[seg]",
@@ -2849,6 +2848,7 @@
       ],
       "actions": [],
       "blocks": [
+        "AlaalaLensBody",
         "AlbumCard",
         "EditorialCard",
         "EditorialsTab",
@@ -2856,13 +2856,11 @@
         "FacebookGlyph",
         "Icon",
         "Link",
-        "PeopleLens",
         "PhotosTab",
         "SavedVendorCardItem",
         "Section",
         "StatusChip",
-        "VendorsTab",
-        "WithMeLens"
+        "VendorsTab"
       ]
     },
     "/dashboard/(account)/life-flash": {
@@ -3105,6 +3103,7 @@
         "dashboard/(launcher)/_components/account-inline.tsx",
         "dashboard/(launcher)/_components/alaala-lenses.tsx",
         "dashboard/(launcher)/_components/alaala-tile.tsx",
+        "dashboard/(launcher)/_components/alaala-wall.tsx",
         "dashboard/(launcher)/_components/creator-benefits.tsx",
         "dashboard/(launcher)/_components/event-scene.tsx",
         "dashboard/(launcher)/_components/expandable.tsx",
@@ -3136,10 +3135,13 @@
       "actions": [],
       "blocks": [
         "AccountSwitcher",
+        "AlaalaLensBody",
         "AlaalaLensKey",
         "AlaalaLenses",
         "AlaalaTile",
         "AlaalaTileSkeleton",
+        "AlaalaWall",
+        "AlaalaWallSkeleton",
         "AttentionPill",
         "AutoSurfacedEvents",
         "BecomeStorytellerRow",
@@ -3151,7 +3153,6 @@
         "EventComposer",
         "EventMonogram",
         "EventScene",
-        "Expandable",
         "Facet",
         "GlassEventCard",
         "HTMLDivElement",
@@ -3162,7 +3163,6 @@
         "HomeRail",
         "Icon",
         "Image",
-        "InlinePanelSkeleton",
         "LifeStorySection",
         "Link",
         "LogoMark",
@@ -3171,7 +3171,6 @@
         "MomentRow",
         "NewEventCard",
         "OpenShopRow",
-        "PhotosTab",
         "ProgressRing",
         "SectionLabel",
         "ShopLogo",

@@ -2,18 +2,17 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft,
-  ArrowUpRight,
   Images,
   Heart,
   Newspaper,
   Sparkles,
-  Users,
   UserCircle,
   Settings,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
-import { personLifeStoriesEnabled } from '@/lib/person-life-stories';
+import { getAlaalaWall } from '@/lib/alaala-wall-data';
+import { AlaalaLensBody } from '@/app/_components/alaala/lens-body';
 import { PhotosTab } from './_components/photos-tab';
 import { VendorsTab } from './_components/vendors-tab';
 import { EditorialsTab } from './_components/editorials-tab';
@@ -43,17 +42,19 @@ export const metadata = { title: 'Alaala' };
  * The Alaala tile names five lenses (Recent · Owned · Attended · People · With
  * me — `(launcher)/_components/alaala-lenses.tsx`). This page used a SECOND,
  * unrelated axis: three tabs (Photos & Videos · Saved Vendors · Editorials).
- * The lenses are now the page's primary navigation, and they are not a new
- * read: `Album.role` is already `'couple' | 'guest'`, which IS Owned vs
- * Attended, so three of the five are a filter over albums we already fetch.
- * The tile and the page now answer the same question with the same words.
+ * The lenses are the page's primary navigation, and both surfaces now render
+ * the SAME body (`app/_components/alaala/lens-body.tsx`) from the same read.
  *
- * ── WHAT THE LENSES CANNOT ANSWER ──────────────────────────────────────────
- * People and With me are not albums, and neither is faked here. People is a
- * real doorway to `/dashboard/people` (which renders its own honest coming-
- * soon preview while `peopleConnectionsEnabled()` is off). With me is gated by
- * the counsel-gated `personLifeStoriesEnabled()` and says so plainly rather
- * than rendering an empty grid that looks broken.
+ * ── AND THE LENSES ANSWER WITH PHOTOGRAPHS (2026-08-13) ────────────────────
+ * Three of them used to answer with `PhotosTab` — one card per event with a
+ * photo count — and the other two with prose, because People and With me are
+ * not albums. So Alaala was a second list of events, which is the board's job:
+ * Events is for DOING, Alaala is for KEEPING. "With me" is every photo of you
+ * across six years and belongs to NO SINGLE EVENT, which is exactly why an
+ * album grid could never be its answer.
+ *
+ * The per-event grid is not gone — it is "Albums by event" under "Also kept",
+ * where downloading one whole celebration is a real job.
  *
  * ── "ALSO KEPT" — AND WHY SAVED VENDORS IS NOT A LENS ──────────────────────
  * A shortlist of vendors is not a memory. The owner put saved vendors in
@@ -70,14 +71,25 @@ export const metadata = { title: 'Alaala' };
 
 /** The Alaala tile's five lenses, in the tile's own order. */
 const LENS_KEYS = ['recent', 'owned', 'attended', 'people', 'with_me'] as const;
-/** Kept-but-not-a-memory views. Reachable, not peers of the lenses. */
-const KEPT_KEYS = ['editorials', 'vendors'] as const;
+/**
+ * Reachable, deliberately NOT lenses.
+ *
+ * `albums` is the per-event grid this page used to answer three of the five
+ * lenses with. It is a real job — opening one celebration and downloading all
+ * of it — but it is a LIST OF EVENTS, and a list of events is the board's
+ * answer, not Alaala's. It keeps its door; it stops being the memory.
+ */
+const KEPT_KEYS = ['albums', 'editorials', 'vendors'] as const;
 
 type LensKey = (typeof LENS_KEYS)[number];
 type KeptKey = (typeof KEPT_KEYS)[number];
 type ViewKey = LensKey | KeptKey;
 
 const ALL_KEYS: readonly ViewKey[] = [...LENS_KEYS, ...KEPT_KEYS];
+
+function isLens(view: ViewKey): view is LensKey {
+  return (LENS_KEYS as readonly string[]).includes(view);
+}
 
 /**
  * Legacy `?tab=` values, kept working forever. `?tab=photos` is still sent by
@@ -97,6 +109,7 @@ const LENSES: { key: LensKey; label: string }[] = [
 ];
 
 const KEPT: { key: KeptKey; label: string; Icon: typeof Images }[] = [
+  { key: 'albums', label: 'Albums by event', Icon: Images },
   { key: 'editorials', label: 'Editorials', Icon: Newspaper },
   { key: 'vendors', label: 'Saved vendors', Icon: Heart },
 ];
@@ -118,7 +131,16 @@ export default async function AlaalaPage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const withMeOn = personLifeStoriesEnabled();
+  // ONE read, whichever lens is open — the same wall the home renders, opened
+  // full. Only fetched for a lens that answers with memories; the "also kept"
+  // views (albums · editorials · vendors) do their own reads.
+  //
+  // `isLens` is a type predicate rather than a chain of `||`: a narrowing that
+  // lives in the DECLARED lens list cannot drift out of step with it, and a
+  // sixth key added to LENS_KEYS is then a compile error here rather than a
+  // lens that silently renders nothing.
+  const lens: LensKey | null = isLens(active) ? active : null;
+  const wall = lens ? await getAlaalaWall(user.id) : null;
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
@@ -220,12 +242,23 @@ export default async function AlaalaPage({
 
       {/* key remount on view change → the body cross-fades in (§ 2d) */}
       <div key={active} className="sn-lens-swap">
-        {active === 'recent' || active === 'owned' || active === 'attended' ? (
-          // `active` is narrowed to the three album lenses by the test above.
-          <PhotosTab userId={user.id} lens={active} />
+        {/* All five lenses answer with MEMORIES, from one read. They used to
+            answer with `PhotosTab` — one card per event with a photo count —
+            which made this page a second list of events, and left People and
+            With me as prose because neither is an album. Frames, not
+            occasions. */}
+        {lens && wall ? (
+          <AlaalaLensBody lens={lens} wall={wall} tiles={36} />
         ) : null}
-        {active === 'people' ? <PeopleLens /> : null}
-        {active === 'with_me' ? <WithMeLens enabled={withMeOn} /> : null}
+        {active === 'albums' ? (
+          <div className="space-y-4">
+            <p className="rounded-2xl border border-ink/10 bg-white/60 p-4 text-sm text-ink/60">
+              One card per celebration — this is where a whole event downloads at
+              once. Your memories themselves live in the lenses above.
+            </p>
+            <PhotosTab userId={user.id} />
+          </div>
+        ) : null}
         {active === 'editorials' ? <EditorialsTab userId={user.id} /> : null}
         {active === 'vendors' ? (
           <div className="space-y-4">
@@ -241,60 +274,6 @@ export default async function AlaalaPage({
           </div>
         ) : null}
       </div>
-    </div>
-  );
-}
-
-/**
- * The People lens. The Alaala tile shows faces from the moment graph when
- * NEXT_PUBLIC_LIFE_STORY is on; this surface does NOT re-derive them — a
- * second, drifting source of the same faces is exactly the defect this PR
- * exists to remove. It carries the tile's own sentence and the real door.
- */
-function PeopleLens() {
-  return (
-    <div className="rounded-2xl border border-dashed border-ink/15 p-10 text-center">
-      <span className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
-        <Users aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-      </span>
-      <p className="mx-auto max-w-sm text-sm text-ink/60">
-        Family, godparents and friends — suggested from your events, confirmed by
-        both sides. Connections are coming soon.
-      </p>
-      <Link
-        href="/dashboard/people"
-        className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
-      >
-        Open People
-        <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-      </Link>
-    </div>
-  );
-}
-
-/**
- * The With-me lens. Cross-event participant media (Phase 1.5) is COUNSEL-gated
- * behind `personLifeStoriesEnabled()`, off in production. An empty grid would
- * read as a bug; the honest line reads as a promise, which is what it is.
- */
-function WithMeLens({ enabled }: { enabled: boolean }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-ink/15 p-10 text-center">
-      <span className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
-        <Images aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-      </span>
-      <p className="mx-auto max-w-sm text-sm text-ink/60">
-        {enabled
-          ? 'Photos and clips you appear in gather here, event by event — open an album below to see the ones you’re tagged in.'
-          : 'Photos and clips you appear in will gather here. Until then, the Attended lens shows every event whose photos you can already open.'}
-      </p>
-      <Link
-        href="/dashboard/library?tab=attended"
-        className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
-      >
-        See Attended
-        <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-      </Link>
     </div>
   );
 }

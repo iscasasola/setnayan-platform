@@ -125,8 +125,8 @@ tpriv	public.drive_copy_folders|anon	SIUD
 tpriv	public.drive_copy_folders|authenticated	SIUD
 tpriv	public.earned_token_vouchers|anon	SIUD
 tpriv	public.earned_token_vouchers|authenticated	SIUD
-tpriv	public.editorial_vendor_media|anon	SIUD
-tpriv	public.editorial_vendor_media|authenticated	SIUD
+tpriv	public.editorial_vendor_media|anon	SD
+tpriv	public.editorial_vendor_media|authenticated	SD
 tpriv	public.event_access_requests|authenticated	SIU
 tpriv	public.event_action_log|anon	SIUD
 tpriv	public.event_action_log|authenticated	SIUD
@@ -364,8 +364,8 @@ tpriv	public.papic_pass_tiers|anon	SIUD
 tpriv	public.papic_pass_tiers|authenticated	SIUD
 tpriv	public.papic_photo_challenge_sponsorships|anon	SIUD
 tpriv	public.papic_photo_challenge_sponsorships|authenticated	SIUD
-tpriv	public.papic_photos|anon	SIUD
-tpriv	public.papic_photos|authenticated	SIUD
+tpriv	public.papic_photos|anon	SD
+tpriv	public.papic_photos|authenticated	SD
 tpriv	public.papic_seat_day_usage|anon	SIUD
 tpriv	public.papic_seat_day_usage|authenticated	SIUD
 tpriv	public.papic_tier_config|anon	SIUD
@@ -1297,21 +1297,21 @@ col	public.earned_token_vouchers.tokens_granted	anon=SIU authenticated=SIU
 col	public.earned_token_vouchers.tokens_remaining	anon=SIU authenticated=SIU
 col	public.earned_token_vouchers.vendor_id	anon=SIU authenticated=SIU
 col	public.earned_token_vouchers.voucher_id	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.boomerang_r2_key	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.caption	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.created_at	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.created_by	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.event_id	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.event_vendor_id	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.hidden_by_couple	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.media_id	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.media_type	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.moderation_state	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.public_id	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.sort_order	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.still_r2_key	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.updated_at	anon=SIU authenticated=SIU
-col	public.editorial_vendor_media.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.editorial_vendor_media.boomerang_r2_key	anon=S authenticated=SIU
+col	public.editorial_vendor_media.caption	anon=S authenticated=SIU
+col	public.editorial_vendor_media.created_at	anon=S authenticated=SIU
+col	public.editorial_vendor_media.created_by	anon=S authenticated=SIU
+col	public.editorial_vendor_media.event_id	anon=S authenticated=SIU
+col	public.editorial_vendor_media.event_vendor_id	anon=S authenticated=SIU
+col	public.editorial_vendor_media.hidden_by_couple	anon=S authenticated=SIU
+col	public.editorial_vendor_media.media_id	anon=S authenticated=SIU
+col	public.editorial_vendor_media.media_type	anon=S authenticated=SIU
+col	public.editorial_vendor_media.moderation_state	anon=S authenticated=S
+col	public.editorial_vendor_media.public_id	anon=S authenticated=SIU
+col	public.editorial_vendor_media.sort_order	anon=S authenticated=SIU
+col	public.editorial_vendor_media.still_r2_key	anon=S authenticated=SIU
+col	public.editorial_vendor_media.updated_at	anon=S authenticated=SIU
+col	public.editorial_vendor_media.vendor_profile_id	anon=S authenticated=SIU
 col	public.event_access_requests.created_at	anon=- authenticated=SIU
 col	public.event_access_requests.decided_at	anon=- authenticated=SIU
 col	public.event_access_requests.decided_by_user_id	anon=- authenticated=SIU
@@ -2965,46 +2965,46 @@ col	public.papic_photo_challenge_sponsorships.order_id	anon=SIU authenticated=SI
 col	public.papic_photo_challenge_sponsorships.sponsored_at	anon=SIU authenticated=SIU
 col	public.papic_photo_challenge_sponsorships.sponsorship_id	anon=SIU authenticated=SIU
 col	public.papic_photo_challenge_sponsorships.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.papic_photos.captured_at	anon=SIU authenticated=SIU
-col	public.papic_photos.captured_by_person_id	anon=SIU authenticated=SIU
-col	public.papic_photos.clip_web_bytes	anon=SIU authenticated=SIU
-col	public.papic_photos.clip_web_r2_key	anon=SIU authenticated=SIU
-col	public.papic_photos.consent_to_public	anon=SIU authenticated=SIU
-col	public.papic_photos.couple_approved_for_showcase	anon=SIU authenticated=SIU
-col	public.papic_photos.created_at	anon=SIU authenticated=SIU
-col	public.papic_photos.device_model	anon=SIU authenticated=SIU
-col	public.papic_photos.display_bytes	anon=SIU authenticated=SIU
-col	public.papic_photos.display_r2_key	anon=SIU authenticated=SIU
-col	public.papic_photos.drive_transferred_at	anon=SIU authenticated=SIU
-col	public.papic_photos.event_id	anon=SIU authenticated=SIU
-col	public.papic_photos.expires_at	anon=SIU authenticated=SIU
-col	public.papic_photos.faceblock_baked_at	anon=SIU authenticated=SIU
-col	public.papic_photos.faceblock_faces_found	anon=SIU authenticated=SIU
-col	public.papic_photos.full_res_drop_deferred_at	anon=SIU authenticated=SIU
-col	public.papic_photos.full_res_dropped_at	anon=SIU authenticated=SIU
-col	public.papic_photos.geo_accuracy_m	anon=SIU authenticated=SIU
-col	public.papic_photos.geo_lat	anon=SIU authenticated=SIU
-col	public.papic_photos.geo_lon	anon=SIU authenticated=SIU
-col	public.papic_photos.geo_unavailable	anon=SIU authenticated=SIU
-col	public.papic_photos.height_px	anon=SIU authenticated=SIU
-col	public.papic_photos.hidden_at	anon=SIU authenticated=SIU
-col	public.papic_photos.id	anon=SIU authenticated=SIU
-col	public.papic_photos.mime_type	anon=SIU authenticated=SIU
-col	public.papic_photos.moderation_state	anon=SIU authenticated=SIU
-col	public.papic_photos.orig_bytes	anon=SIU authenticated=SIU
-col	public.papic_photos.paparazzi_seat_id	anon=SIU authenticated=SIU
-col	public.papic_photos.photo_id	anon=SIU authenticated=SIU
-col	public.papic_photos.photo_type	anon=SIU authenticated=SIU
-col	public.papic_photos.poster_r2_key	anon=SIU authenticated=SIU
-col	public.papic_photos.preserved_at	anon=SIU authenticated=SIU
-col	public.papic_photos.r2_object_key	anon=SIU authenticated=SIU
-col	public.papic_photos.size_bytes	anon=SIU authenticated=SIU
-col	public.papic_photos.superseded_at	anon=SIU authenticated=SIU
-col	public.papic_photos.thumb_bytes	anon=SIU authenticated=SIU
-col	public.papic_photos.thumb_r2_key	anon=SIU authenticated=SIU
-col	public.papic_photos.wall_hidden_at	anon=SIU authenticated=SIU
-col	public.papic_photos.wall_safe_r2_key	anon=SIU authenticated=SIU
-col	public.papic_photos.width_px	anon=SIU authenticated=SIU
+col	public.papic_photos.captured_at	anon=S authenticated=SIU
+col	public.papic_photos.captured_by_person_id	anon=S authenticated=SIU
+col	public.papic_photos.clip_web_bytes	anon=S authenticated=SIU
+col	public.papic_photos.clip_web_r2_key	anon=S authenticated=SIU
+col	public.papic_photos.consent_to_public	anon=S authenticated=SIU
+col	public.papic_photos.couple_approved_for_showcase	anon=S authenticated=SIU
+col	public.papic_photos.created_at	anon=S authenticated=SIU
+col	public.papic_photos.device_model	anon=S authenticated=SIU
+col	public.papic_photos.display_bytes	anon=S authenticated=SIU
+col	public.papic_photos.display_r2_key	anon=S authenticated=SIU
+col	public.papic_photos.drive_transferred_at	anon=S authenticated=SIU
+col	public.papic_photos.event_id	anon=S authenticated=SIU
+col	public.papic_photos.expires_at	anon=S authenticated=SIU
+col	public.papic_photos.faceblock_baked_at	anon=S authenticated=SIU
+col	public.papic_photos.faceblock_faces_found	anon=S authenticated=SIU
+col	public.papic_photos.full_res_drop_deferred_at	anon=S authenticated=SIU
+col	public.papic_photos.full_res_dropped_at	anon=S authenticated=SIU
+col	public.papic_photos.geo_accuracy_m	anon=S authenticated=SIU
+col	public.papic_photos.geo_lat	anon=S authenticated=SIU
+col	public.papic_photos.geo_lon	anon=S authenticated=SIU
+col	public.papic_photos.geo_unavailable	anon=S authenticated=SIU
+col	public.papic_photos.height_px	anon=S authenticated=SIU
+col	public.papic_photos.hidden_at	anon=S authenticated=SIU
+col	public.papic_photos.id	anon=S authenticated=SIU
+col	public.papic_photos.mime_type	anon=S authenticated=SIU
+col	public.papic_photos.moderation_state	anon=S authenticated=S
+col	public.papic_photos.orig_bytes	anon=S authenticated=SIU
+col	public.papic_photos.paparazzi_seat_id	anon=S authenticated=SIU
+col	public.papic_photos.photo_id	anon=S authenticated=SIU
+col	public.papic_photos.photo_type	anon=S authenticated=SIU
+col	public.papic_photos.poster_r2_key	anon=S authenticated=SIU
+col	public.papic_photos.preserved_at	anon=S authenticated=SIU
+col	public.papic_photos.r2_object_key	anon=S authenticated=SIU
+col	public.papic_photos.size_bytes	anon=S authenticated=SIU
+col	public.papic_photos.superseded_at	anon=S authenticated=SIU
+col	public.papic_photos.thumb_bytes	anon=S authenticated=SIU
+col	public.papic_photos.thumb_r2_key	anon=S authenticated=SIU
+col	public.papic_photos.wall_hidden_at	anon=S authenticated=SIU
+col	public.papic_photos.wall_safe_r2_key	anon=S authenticated=SIU
+col	public.papic_photos.width_px	anon=S authenticated=SIU
 col	public.papic_seat_day_usage.created_at	anon=SIU authenticated=SIU
 col	public.papic_seat_day_usage.event_id	anon=SIU authenticated=SIU
 col	public.papic_seat_day_usage.id	anon=SIU authenticated=SIU

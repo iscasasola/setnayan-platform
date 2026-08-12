@@ -28,6 +28,7 @@ import {
   Crown,
   Captions,
   QrCode,
+  Printer,
   SlidersHorizontal,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -40,6 +41,7 @@ import {
   resolveChannelStatus,
   type ChannelCameraView,
 } from '@/lib/live-studio-channel-cameras';
+import { printableCardCount } from '@/lib/live-studio-camera-cards';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { ADD_A_DAY_LABEL } from '@/lib/live-studio-window';
@@ -433,6 +435,21 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   );
 
   const atCap = !canAddZone(zones.length);
+  // How many channels have a join code you could actually hand to somebody. This is
+  // the SAME function the print sheet builds itself from, so the doorway below can
+  // never promise cards the sheet would not print.
+  const printableCards = printableCardCount(
+    zones.map((z) => ({
+      zoneId: z.id,
+      zoneIndex: z.zone_index,
+      label: z.label,
+      venueLabel: z.venue_label,
+      claimUrl: z.camera?.claimUrl ?? null,
+      hasSeat: Boolean(z.camera),
+      claimed: z.camera?.claimed ?? false,
+      revoked: z.camera?.revoked ?? false,
+    })),
+  );
   const mainStageZone = zones.find((z) => z.is_main_stage) ?? null;
   // The slot the CH 1 monitor should render — the on-air channel's camera, if a
   // phone has joined it. Null means there is genuinely nothing to show, and the
@@ -1642,6 +1659,30 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               </li>
             ))}
           </ul>
+        ) : null}
+
+        {/* ── THE PRINTABLE HAND-OUT ────────────────────────────────────────
+            The sheet has existed for months with NO doorway a host could reach:
+            its only link sat on the cameras page, whose own links live on the
+            retired control room — which redirects away on sight once this
+            controller is switched on. So the one artefact you carry to a venue
+            was reachable only by typing its URL.
+
+            It goes HERE, on the surface that survives the flag flip, directly
+            under the join QRs it prints — the same reasoning the recording
+            handoff records a few hundred lines up.
+
+            Shown only when there is genuinely something to print: a link onto
+            "nothing to print yet" is a fake door, and the collapsed QR blocks
+            above are where a host makes the codes in the first place. */}
+        {printableCards > 0 ? (
+          <Link
+            href={`/dashboard/${eventId}/studio/panood/cameras/print`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink/70 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+          >
+            <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Print {printableCards === 1 ? 'the join card' : `${printableCards} join cards`}
+          </Link>
         ) : null}
 
         {atCap ? (

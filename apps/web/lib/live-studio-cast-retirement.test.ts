@@ -155,12 +155,42 @@ test('⭐ a LIVE_STUDIO owner is never told they are on the free tier', () => {
   assert.match(src, /PANOOD_FREE_CAMERA_COUNT/);
 });
 
-test('the printed QR sheet provisions the same number of seats as the screen', () => {
-  // cameras/ and cameras/print/ both call provisionPanoodCamerasAdmin with their own
-  // cap. If only one of them learns about LIVE_STUDIO, a paid host gets 8 seats on
-  // screen and 3 on the sheet they hand out at the venue.
+test('the printed QR sheet cannot disagree with the screen about the cameras', () => {
+  // ── WHAT THIS PROTECTS, AND WHY THE CHECK MOVED ─────────────────────────────
+  // The outcome guarded here has never changed: what a host hands out at the venue
+  // must match what their control room shows.
+  //
+  // It used to be guarded by a CAP COMPARISON. cameras/ and cameras/print/ each
+  // called provisionPanoodCamerasAdmin with their own cap, so if only one of them
+  // learned about LIVE_STUDIO a paid host got 8 seats on screen and 3 on the sheet.
+  //
+  // The sheet no longer mints seats or carries a cap at all. It renders the
+  // CHANNELS the controller has bound, through `fetchChannelCameras` — the reader
+  // the controller itself uses — so there is no second number left to get wrong.
+  // The drift is now impossible by construction rather than caught by comparison,
+  // which is the stronger arrangement; this test asserts the construction holds.
   const src = repoFile(CAST_CAMERAS_PRINT);
-  assert.match(src, /LIVE_STUDIO/, 'the print sheet still caps a paid host at the free tier');
+
+  assert.match(
+    src,
+    /fetchChannelCameras/,
+    'the print sheet no longer reads cameras through the controller’s own reader — ' +
+      'it can drift from the screen again',
+  );
+  assert.match(
+    src,
+    /buildCameraCards/,
+    'the print sheet no longer derives its cards from the shared builder the ' +
+      'controller sizes its Print doorway with',
+  );
+  // And it must NOT have grown a cap of its own again — a cap here is the exact
+  // shape of the original defect.
+  assert.doesNotMatch(
+    src,
+    /panoodCameraCapForTier|provisionPanoodCamerasAdmin/,
+    'the print sheet is minting/capping seats again instead of rendering the ' +
+      'controller’s channel bindings',
+  );
 });
 
 /* ── 3 · THE CONTROL THAT MUST NOT DISAPPEAR ──────────────────────────────── */

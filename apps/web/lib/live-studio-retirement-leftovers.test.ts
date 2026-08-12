@@ -161,10 +161,20 @@ test('camera seats are only ever provisioned by a render-time surface, never by 
       /\bprovisionPanoodCamerasAdmin\s*\(/.test(code(readFileSync(file, 'utf8'))),
   );
 
-  // Sanity: the three camera surfaces DO call it. Zero callers would make the
-  // assertion below pass while proving nothing.
+  // Sanity: the camera surfaces DO call it. Zero callers would make the assertion
+  // below pass while proving nothing.
+  //
+  // The floor was 3 and is now 2, and the reason is written down rather than the
+  // number quietly lowered: the printable sheet (cameras/print/) STOPPED
+  // provisioning seats. It no longer mints anything — it renders the channels the
+  // controller has already bound, through the controller's own reader. That is a
+  // deliberate removal, not a regression, and `live-studio-cast-retirement.test.ts`
+  // asserts the sheet keeps deriving from that shared reader instead of growing a
+  // cap of its own again.
+  //
+  // Two is still a real floor: it keeps the assertion below non-vacuous.
   assert.ok(
-    callers.length >= 3,
+    callers.length >= 2,
     `expected the camera surfaces to provision on render, found ${callers.length} caller(s)`,
   );
 

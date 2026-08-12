@@ -25,6 +25,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
+import { eventPapicActive } from '@/lib/papic-seats';
 import {
   displayCodeFrom,
   resolveWallMode,
@@ -204,12 +205,43 @@ export async function ingestToWall(
  * we do not put their wedding on a hundred phones. That asymmetry is deliberate
  * and is the opposite of `asWallGuestVisibility`'s fail-open narrowing, which
  * handles a value we DID read and merely did not recognise.
+ *
+ * ─── WHY PAPIC IS PART OF THIS GATE (added when the wall went free) ─────────
+ *
+ * The wall used to be a paid purchase that nobody had made, so this gate was
+ * effectively closed everywhere. On 2026-08-12 the owner made it FREE FOR EVERY
+ * EVENT (`FREE_FOR_ALL_SKUS`), and `eventSkuActive` began returning true
+ * unconditionally. That turned one question into two problems:
+ *
+ *  1. A wedding with no Papic at all would render the wall block through its
+ *     whole live window showing "the wall is warming up — photos appear here the
+ *     moment they're taken". Nothing was ever coming. The wall projects Papic
+ *     captures, so with no cameras there is no wall — only the promise of one.
+ *
+ *  2. Worse, and the reason this is a correctness fix rather than a cosmetic
+ *     one: LiveWallCard — where the couple's on/off switch lives — renders only
+ *     when Papic is active. So on exactly those events the mirror ran and THE
+ *     COUPLE HAD NO SWITCH. A control that is not reachable on every surface
+ *     the thing runs on is not a control.
+ *
+ * So the guest gate now asks the SAME preconditions as the couple's card, and
+ * `wall-guest-mirror.test.ts` asserts that they cannot drift apart. Whenever a
+ * feature can be turned off, the "is it on?" test and the "can they turn it
+ * off?" test have to be the same test.
  */
 export async function guestWallMirrorActive(
   client: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  if (!(await eventSkuActive(client, eventId, 'LIVE_WALL'))) return false;
+  // Both halves of the couple's own card: the wall is available for this event,
+  // AND there is Papic to project. eventPapicActive fails OPEN on a genuine read
+  // failure (its own documented behaviour) — that is its call to make, not this
+  // gate's to second-guess; the couple's choice below still fails CLOSED.
+  const [wallAvailable, papicActive] = await Promise.all([
+    eventSkuActive(client, eventId, 'LIVE_WALL'),
+    eventPapicActive(client, eventId),
+  ]);
+  if (!wallAvailable || !papicActive) return false;
 
   // Supabase resolves with { error }, it does not throw — a phantom column or a
   // pre-migration schema comes back as `error`, not an exception. Treating that

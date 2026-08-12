@@ -99,7 +99,7 @@ const SWITCHES: {
     // shipped 2026-11-04 with a CHECK constraint, a column comment naming the
     // exact surface it governs, and nothing at either end for nine months.
     //
-    // What that cost: the ₱2,500 SKU is titled "Live VENUE Photo Wall", and it
+    // What that cost: the SKU is titled "Live VENUE Photo Wall", and it
     // also mirrored the wall onto every invited guest's phone for the whole
     // celebration. The couple's only "off" was revoking the venue screen codes,
     // which did nothing to the phones. So a couple who deliberately shut the

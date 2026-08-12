@@ -20,7 +20,7 @@ import {
  *
  * `events.live_photo_wall_visibility` shipped on 2026-11-04 and had ZERO
  * readers, ZERO writers and no database consumer but its own CHECK constraint
- * for nine months. Meanwhile the ₱2,500 SKU — titled "Live VENUE Photo Wall" —
+ * for nine months. Meanwhile the SKU — titled "Live VENUE Photo Wall" —
  * mirrored the same feed onto every invited guest's phone for the whole live
  * window, gated on SKU ownership alone. A couple who revoked every venue screen
  * code would reasonably believe the wall was off. It was still running in every
@@ -81,7 +81,7 @@ test('a legacy "tagged_only" row shows everything — deliberately, not by accid
 
 test('an unrecognised or missing value falls back to the shipped behaviour, not to silence', () => {
   // Fails OPEN on purpose. An unreadable value must not silently delete a
-  // feature the couple paid ₱2,500 for; only the couple, saying 'off',
+  // feature the couple already has; only the couple, saying 'off',
   // turns the mirror off. (The SERVER gate fails CLOSED on a read ERROR —
   // different question, opposite answer, both deliberate.)
   assert.equal(asWallGuestVisibility(null), DEFAULT_WALL_GUEST_VISIBILITY);
@@ -136,6 +136,54 @@ test('the venue projection is deliberately NOT gated on the guest mirror', () =>
       src,
       /guestWallMirrorActive\(/,
       `${file} is the venue screen — turning off the phone mirror must never dark the venue wall`,
+    );
+  }
+});
+
+test('the guest mirror and the couple’s switch require the SAME preconditions', () => {
+  // 🚨 THE FIX THAT PROMPTED THIS TEST. While the wall was a paid SKU nobody had
+  // bought, the gate was closed everywhere and the asymmetry below was invisible.
+  // The day it went FREE FOR EVERY EVENT, eventSkuActive started returning true
+  // unconditionally — and the guest mirror began running on events where
+  // LiveWallCard does NOT render, because the card also requires Papic.
+  //
+  // On those events the wall played on every guest's phone AND THE COUPLE HAD NO
+  // SWITCH. A control that is not reachable on every surface the thing runs on
+  // is not a control — it is the "fix nobody can reach" shape, arrived at from
+  // the other direction.
+  //
+  // So: whatever the card demands before it will show the switch, the gate must
+  // demand before it will show the wall. This test is what keeps them married.
+  const gate = /export async function guestWallMirrorActive\([\s\S]*?\n}/.exec(
+    read('lib/live-wall.ts'),
+  )?.[0];
+  const card = read('app/dashboard/[eventId]/studio/papic/_components/live-wall-card.tsx');
+  assert.ok(gate, 'guestWallMirrorActive should exist');
+
+  for (const [precondition, result, why] of [
+    ['eventSkuActive', 'wallAvailable', 'the wall must be available for this event'],
+    [
+      'eventPapicActive',
+      'papicActive',
+      'there must be Papic to project — no cameras, no wall, only a promise',
+    ],
+  ] as const) {
+    assert.match(card, new RegExp(`${precondition}\\(`), `the card checks ${precondition} (${why})`);
+    assert.match(
+      gate,
+      new RegExp(`${precondition}\\(`),
+      `so the guest gate must too, or the mirror runs where the switch does not render — ${why}`,
+    );
+    // ⚠ AND IT MUST ACT ON THE ANSWER. Asserting only that the call is PRESENT
+    // passed with the result thrown away — mutation-proved: deleting
+    // `|| !papicActive` from the refusal left this test green while the gate
+    // stopped enforcing Papic entirely. Calling a check and ignoring it is
+    // indistinguishable from not calling it, and reads as more thorough.
+    assert.match(
+      gate,
+      new RegExp(`if \\([^)]*!${result}[^)]*\\)\\s*return false;`),
+      `${precondition}'s answer must be able to REFUSE — calling it and dropping ` +
+        `the result is not a precondition, it is a decoration (${why})`,
     );
   }
 });

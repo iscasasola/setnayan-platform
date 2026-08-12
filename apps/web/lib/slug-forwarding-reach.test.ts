@@ -74,3 +74,23 @@ test('the shop-address correction matches an exact address, never a pattern', ()
     'the address being moved FROM must be format-checked, not only the destination',
   );
 });
+
+test('a hidden or suspended shop is not disclosed by a forward', () => {
+  // The twin of the hidden-profile rule, and the shop route already states it:
+  // "don't leak the existence of suspended / closed profiles". A 307 discloses
+  // in its Location header whatever the target then returns, so forwarding a
+  // suspended shop's retired address publishes its CURRENT address to anyone
+  // probing the old one.
+  const src = read('lib/slug-forwarding.ts');
+  const vendorBranch = src.slice(
+    src.indexOf("row.entity_type === 'vendor'"),
+    src.indexOf("resolveRenamedEventSlug"),
+  );
+  assert.ok(vendorBranch.length > 0, 'the vendor branch moved — update this test');
+  assert.match(
+    vendorBranch,
+    /\bisPubliclyVisible\(/,
+    'the vendor forward does not check visibility — a hidden shop’s old address discloses ' +
+      'where the shop now lives, which is exactly what its 404 exists to withhold',
+  );
+});

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { CLOSED_SHOP_SLUG_ENTITY_TYPE } from '@/lib/closed-shop-slug';
+import { isPubliclyVisible, parseVisibility } from '@/lib/vendor-visibility';
 
 export {
   SLUG_FORWARDING_MONTHS,
@@ -155,10 +156,31 @@ export async function resolveRenamedPath(
   if (row.entity_type === 'vendor') {
     const { data } = await admin
       .from('vendor_profiles')
-      .select('business_slug')
+      .select('business_slug, public_visibility')
       .eq('vendor_profile_id', row.entity_id)
       .maybeSingle();
-    const slug = (data as { business_slug?: string | null } | null)?.business_slug?.trim();
+    const shop = data as {
+      business_slug?: string | null;
+      public_visibility?: string | null;
+    } | null;
+    // 🔒 SAME RULE AS THE HIDDEN PROFILE BELOW, AND THE SHOP ROUTE ALREADY
+    // STATES IT: "Hidden + archived vendors 404 from the public surface (don't
+    // leak the existence of suspended / closed profiles)." A 307 discloses in
+    // its Location header regardless of what the target then returns — so
+    // forwarding a suspended shop's retired address would publish its CURRENT
+    // address to anyone probing the old one, which is precisely what that 404
+    // exists to withhold. Hidden is also the resting state of every shop
+    // awaiting approval.
+    //
+    // Not a permanent loss: the moment the shop is approved, its old address
+    // starts forwarding again — the ledger row is untouched by this check.
+    //
+    // ⚠ DELIBERATELY NOT APPLIED TO THE EVENT BRANCH ABOVE. A private event is
+    // not existence-gated — its address renders a lock screen rather than a
+    // 404 (measured: an anonymous request to a live event returns 200), so
+    // forwarding to it discloses nothing a direct visit would not.
+    if (!isPubliclyVisible(parseVisibility(shop?.public_visibility))) return null;
+    const slug = shop?.business_slug?.trim();
     if (!slug || same(slug)) return null;
     // The BARE ROOT is a shop's canonical address (app/[slug] dispatches to the
     // vendor renderer); `/v/{slug}` is legacy.

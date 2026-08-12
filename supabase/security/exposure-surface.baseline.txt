@@ -673,8 +673,8 @@ tpriv	public.vendor_token_purchases|anon	SIUD
 tpriv	public.vendor_token_purchases|authenticated	SIUD
 tpriv	public.vendor_tool_bundles|anon	SIUD
 tpriv	public.vendor_tool_bundles|authenticated	SIUD
-tpriv	public.vendor_verification_applications|anon	SIUD
-tpriv	public.vendor_verification_applications|authenticated	SIUD
+tpriv	public.vendor_verification_applications|anon	SD
+tpriv	public.vendor_verification_applications|authenticated	SD
 tpriv	public.vendor_verifications|anon	SIUD
 tpriv	public.vendor_verifications|authenticated	SIUD
 tpriv	public.vendor_wallets|anon	SIUD
@@ -5056,27 +5056,27 @@ col	public.vendor_tool_bundles.order_id	anon=SIU authenticated=SIU
 col	public.vendor_tool_bundles.sku_code	anon=SIU authenticated=SIU
 col	public.vendor_tool_bundles.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_tool_bundles.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.admin_user_id	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.application_id	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.application_type	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.contact_email_confirmed_at	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.contact_email_confirmed_by	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.contact_phone_confirmed_at	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.contact_phone_confirmed_by	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.created_at	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.decided_at	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.decision	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.decision_reason	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.doc_uploads	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.docs_complete	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.fee_php_centavos	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.notes	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.public_id	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.sla_due_at	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.status	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.submitted_at	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.updated_at	anon=SIU authenticated=SIU
-col	public.vendor_verification_applications.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_verification_applications.admin_user_id	anon=S authenticated=S
+col	public.vendor_verification_applications.application_id	anon=S authenticated=SIU
+col	public.vendor_verification_applications.application_type	anon=S authenticated=SIU
+col	public.vendor_verification_applications.contact_email_confirmed_at	anon=S authenticated=S
+col	public.vendor_verification_applications.contact_email_confirmed_by	anon=S authenticated=S
+col	public.vendor_verification_applications.contact_phone_confirmed_at	anon=S authenticated=S
+col	public.vendor_verification_applications.contact_phone_confirmed_by	anon=S authenticated=S
+col	public.vendor_verification_applications.created_at	anon=S authenticated=SIU
+col	public.vendor_verification_applications.decided_at	anon=S authenticated=S
+col	public.vendor_verification_applications.decision	anon=S authenticated=S
+col	public.vendor_verification_applications.decision_reason	anon=S authenticated=S
+col	public.vendor_verification_applications.doc_uploads	anon=S authenticated=SIU
+col	public.vendor_verification_applications.docs_complete	anon=S authenticated=SIU
+col	public.vendor_verification_applications.fee_php_centavos	anon=S authenticated=SIU
+col	public.vendor_verification_applications.notes	anon=S authenticated=S
+col	public.vendor_verification_applications.public_id	anon=S authenticated=SIU
+col	public.vendor_verification_applications.sla_due_at	anon=S authenticated=SIU
+col	public.vendor_verification_applications.status	anon=S authenticated=SIU
+col	public.vendor_verification_applications.submitted_at	anon=S authenticated=SIU
+col	public.vendor_verification_applications.updated_at	anon=S authenticated=SIU
+col	public.vendor_verification_applications.vendor_profile_id	anon=S authenticated=SIU
 col	public.vendor_verifications.approved_at	anon=SIU authenticated=SIU
 col	public.vendor_verifications.approved_by_admin_user_id	anon=SIU authenticated=SIU
 col	public.vendor_verifications.bank_account_proof_r2_key	anon=SIU authenticated=SIU
@@ -6019,7 +6019,7 @@ policy	public.vendor_token_boosters|vendor_token_boosters_vendor_access	mode=PER
 policy	public.vendor_token_purchases|vtp_admin_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=is_console_admin() check=NULL
 policy	public.vendor_token_purchases|vtp_vendor_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(vendor_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = auth.uid()))) check=NULL
 policy	public.vendor_tool_bundles|vendor_tool_bundles_self_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_tool_bundles.vendor_profile_id) AND (vp.user_id = auth.uid())))) check=NULL
-policy	public.vendor_verification_applications|vendor_verification_applications_owner_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid()))))
+policy	public.vendor_verification_applications|vendor_verification_applications_owner_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) AND (status = 'draft'::text))
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) OR is_admin()) check=NULL
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_update_draft	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) AND (status = 'draft'::text)) check=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) AND (status = ANY (ARRAY['draft'::text, 'pending_review'::text])))
 policy	public.vendor_verifications|vendor_verifications_self_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verifications.vendor_profile_id) AND (vp.user_id = auth.uid()))))

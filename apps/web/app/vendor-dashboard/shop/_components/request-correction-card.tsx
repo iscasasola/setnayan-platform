@@ -65,7 +65,18 @@ export function RequestCorrectionCard({
     'contact_phone',
     'contact_email',
     'in_business_since_year',
+    // 🚨 THE INLINE EDITOR SENDS VERIFIED VENDORS HERE FOR THIS ONE.
+    // `updateVendorProfileField` refuses a verified shop's logo with "Your shop
+    // is verified, so these details are locked. Request a correction instead."
+    // — while My Shop still renders a working-looking uploader for it. Omitting
+    // it here named a remedy that was not on the screen, and left a wrong logo
+    // unchangeable by anyone through the product: the admin apply path already
+    // handles `logo_url`, but no request could ever be filed for it.
+    'logo_url',
   ];
+  // ⚠ `services` is deliberately NOT here — the Coverage page owns that writer,
+  // so a verified vendor already has a real place to change it.
+
   const fields: LockedIdentityFieldKey[] = isVerified
     ? ['business_slug', ...OTHER_LOCKED]
     : ['business_slug'];

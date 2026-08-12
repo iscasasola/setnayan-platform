@@ -25,7 +25,7 @@ import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { SLUG_FORWARDING_MONTHS } from '../../lib/slug-forwarding-window';
 import { RETIRED_SLUG_HOLD_MONTHS } from '../../lib/closed-shop-slug';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const WEB = join(import.meta.dirname, '../..');
@@ -78,19 +78,31 @@ test('the retirement holds set their OWN expiry, not the column default', () => 
   // column default. Today that would be invisible — the numbers match — and if
   // the forwarding window is ever changed alone, every held address would move
   // with it without anyone deciding that. So assert the write, not the number.
-  const paths: [string, string][] = [
-    ['lib/erasure/purge.ts', 'a closed shop'],
-    ['app/admin/events/actions.ts', 'a deleted wedding'],
-  ];
-  for (const [rel, what] of paths) {
-    const src = readFileSync(join(WEB, rel), 'utf8');
-    assert.match(
-      src,
-      /redirect_until:\s*closed(Shop|Event)SlugHeldUntil\(\)/,
-      `${rel} (${what}) no longer sets redirect_until explicitly — the hold would ` +
-        `silently inherit the forwarding window's default and move with it`,
-    );
-  }
+  // The closed-SHOP hold is written in app code and must set its own expiry.
+  const shop = readFileSync(join(WEB, 'lib/erasure/purge.ts'), 'utf8');
+  assert.match(
+    shop,
+    /redirect_until:\s*closedShopSlugHeldUntil\(\)/,
+    'lib/erasure/purge.ts (a closed shop) no longer sets redirect_until explicitly — the ' +
+      "hold would silently inherit the forwarding window's default and move with it",
+  );
+
+  // ⚠ THE DELETED-WEDDING HOLD IS NO LONGER APP CODE. It moved into a BEFORE
+  // DELETE trigger (migration 20271138150255) because prod's own RLS lets a
+  // couple delete their wedding with no server action running — an app-side
+  // hold covered the admin path only. So the explicit-expiry property is
+  // asserted where it now lives: in the migration.
+  const migrations = join(WEB, '../../supabase/migrations');
+  const trigger = readdirSync(migrations)
+    .filter((f) => f.startsWith('20271138150255'))
+    .map((f) => readFileSync(join(migrations, f), 'utf8'))[0];
+  assert.ok(trigger, 'the trigger migration is missing');
+  assert.match(
+    trigger!,
+    /now\(\)\s*\+\s*'24 months'::interval/,
+    'the deleted-wedding trigger no longer sets its own expiry — it would inherit the ' +
+      'column default and move with any future change to the forwarding window',
+  );
 
   assert.equal(
     RETIRED_SLUG_HOLD_MONTHS,

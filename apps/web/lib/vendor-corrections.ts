@@ -114,7 +114,26 @@ const SELECT =
  */
 export async function fetchCorrectionRequests(
   supabase: SupabaseClient,
-  opts: { status?: CorrectionRequestStatus | 'all'; limit?: number } = {},
+  opts: {
+    status?: CorrectionRequestStatus | 'all';
+    limit?: number;
+    /**
+     * Scope to ONE shop. Required by any vendor-facing caller.
+     *
+     * 🚨 RLS IS NOT THE SCOPE HERE. `vendor_correction_requests_owner_read` is
+     * `USING (owns the profile OR is_admin())` — deliberately widened, because
+     * the SAME helper backs /admin/corrections. So for a vendor who is ALSO an
+     * admin (production has one: the owner's own shop) an unfiltered read
+     * returns EVERY shop's requests. On My Shop that renders another shop's
+     * request as "waiting on Setnayan" and removes that field from the ones
+     * they can ask about — and with enough foreign requests the ask button
+     * disappears entirely, restoring the exact unreachable-doorway defect the
+     * card was built to fix.
+     *
+     * Omitted only by the admin queue, which is meant to see everything.
+     */
+    vendorProfileId?: string | null;
+  } = {},
 ): Promise<VendorCorrectionRequestRow[]> {
   try {
     let query = supabase
@@ -124,6 +143,7 @@ export async function fetchCorrectionRequests(
       .limit(opts.limit ?? 200);
     const status = opts.status ?? 'open';
     if (status !== 'all') query = query.eq('status', status);
+    if (opts.vendorProfileId) query = query.eq('vendor_profile_id', opts.vendorProfileId);
     const { data, error } = await query;
     if (error || !data) return [];
     return data as VendorCorrectionRequestRow[];

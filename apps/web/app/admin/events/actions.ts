@@ -6,10 +6,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
-import {
-  CLOSED_EVENT_SLUG_ENTITY_TYPE,
-  closedEventSlugHeldUntil,
-} from '@/lib/closed-shop-slug';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -42,7 +38,7 @@ async function requireAdmin() {
  * and proceed knowingly.
  */
 export async function deleteEvent(formData: FormData) {
-  const { adminUserId } = await requireAdmin();
+  await requireAdmin();
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid event_id');
@@ -50,40 +46,17 @@ export async function deleteEvent(formData: FormData) {
 
   const admin = createAdminClient();
 
-  // 🔒 HOLD THE ADDRESS FIRST — owner 2026-08-12: "a retired website address
-  // will only be usable again after 1 year."
+  // 🔒 THE ADDRESS IS HELD BY THE DATABASE, NOT HERE.
   //
-  // Deleting the row frees its `slug` the same second. Measured in prod before
-  // this shipped: the final address of an already-deleted wedding was claimable
-  // immediately — so every invitation, save-the-date and printed QR carrying it
-  // could have been handed to a stranger, and the guest following one would land
-  // on somebody else's page. Every other retirement already held its word (a
-  // rename for the forwarding window, a closed shop for a year); deletion was
-  // the hole, and it is the case with the least warning.
+  // This action used to write the `event_closed` hold itself. That covered the
+  // admin path and ONLY the admin path — prod carries a live RLS policy
+  // (`couple_can_delete_event`) letting a couple delete their own wedding
+  // straight through PostgREST, with no server action involved and no hold
+  // written. Removing the button closes the button, not the door.
   //
-  // BEFORE the delete, deliberately: read the slug while the row still exists.
-  // Best-effort on the WRITE — a ledger hiccup must not block an admin
-  // deletion, which may itself be an erasure obligation.
-  const { data: doomed } = await admin
-    .from('events')
-    .select('slug')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const retiredSlug = (doomed as { slug?: string | null } | null)?.slug?.trim();
-  if (retiredSlug) {
-    await admin.from('slug_change_log').insert({
-      entity_type: CLOSED_EVENT_SLUG_ENTITY_TYPE,
-      entity_id: eventId,
-      old_slug: retiredSlug.toLowerCase(),
-      // NOT NULL, and nothing reads it for a closure — the resolver filters to
-      // the forwarding types and routes via entity_id, never this. Same value
-      // so the row cannot be misread as a move to somewhere else.
-      new_slug: retiredSlug.toLowerCase(),
-      redirect_until: closedEventSlugHeldUntil(),
-      changed_by: adminUserId,
-    });
-  }
-
+  // Migration `20271138150255` moves it into a BEFORE DELETE trigger, so every
+  // path — this one, a direct API call, and one nobody has written yet — holds
+  // the word. Writing it here too would be a second, driftable copy.
   const { error } = await admin.from('events').delete().eq('event_id', eventId);
   if (error) throw new Error(error.message);
 

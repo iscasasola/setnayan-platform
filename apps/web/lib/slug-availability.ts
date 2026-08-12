@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isReservedSlug } from './reserved-slugs';
-import { CLOSED_SHOP_SLUG_ENTITY_TYPE, RETIRED_SLUG_HOLD_MONTHS } from './closed-shop-slug';
+import {
+  CLOSED_EVENT_SLUG_ENTITY_TYPE,
+  CLOSED_SHOP_SLUG_ENTITY_TYPE,
+  RETIRED_SLUG_HOLD_MONTHS,
+} from './closed-shop-slug';
 import { slugForwardingLabel } from './slug-forwarding-window';
 
 /**
@@ -33,6 +37,7 @@ export type SlugConflict =
   | 'taken_by_person'
   | 'forwarding'
   | 'retired_shop'
+  | 'retired_event'
   | 'unverified';
 
 export const SLUG_FORMAT = /^[a-z0-9-]{3,32}$/;
@@ -65,6 +70,14 @@ export const SLUG_CONFLICT_MESSAGE: Record<SlugConflict, string> = {
   retired_shop: `That address belonged to a shop that has closed. It becomes free again ${slugForwardingLabel(
     RETIRED_SLUG_HOLD_MONTHS,
   )} after it closed.`,
+  // Same shape as retired_shop, and separate for the same reason: a deleted
+  // wedding's address sends nobody anywhere, so the FORWARDING wording — "still
+  // sends visitors to its old page" — would be a plain untruth. It fell through
+  // to exactly that until 2026-08-12, because the closure probe below matched
+  // only the shop type.
+  retired_event: `That address belonged to an event that has been deleted. It becomes free again ${slugForwardingLabel(
+    RETIRED_SLUG_HOLD_MONTHS,
+  )} after it was deleted.`,
   unverified: 'We couldn’t check that address just now. Please try again.',
 };
 
@@ -140,15 +153,20 @@ export async function findSlugConflict(
   const personId = (person.data as { user_id?: string } | null)?.user_id ?? null;
   if (personId && !sameId(exclusions.userId, personId)) return 'taken_by_person';
 
-  // A CLOSED shop's address is held for a year (owner-locked 2026-08-10).
-  // Checked BEFORE the forwarding probe purely so the caller gets the true
-  // reason: both rows live in the same ledger and `isSlugForwarding` would
-  // match this one too, then explain it with wording about redirects that do
-  // not exist.
+  // A CLOSURE hold — a closed shop or a deleted wedding. Checked BEFORE the
+  // forwarding probe purely so the caller gets the TRUE reason: every one of
+  // these rows lives in the same ledger, and `isSlugForwarding` matches them
+  // too, then explains them with wording about a redirect that does not exist.
+  //
+  // ⚠ THIS MATCHED THE SHOP TYPE ONLY. When `event_closed` was added
+  // (2026-08-12) a deleted wedding's held address fell straight through to the
+  // forwarding message — "still sends visitors to its old page" — which is
+  // untrue by construction: a closure forwards nobody. Both types are matched
+  // now, and the reason is chosen from the row rather than assumed.
   const retired = await admin
     .from('slug_change_log')
-    .select('entity_id')
-    .eq('entity_type', CLOSED_SHOP_SLUG_ENTITY_TYPE)
+    .select('entity_id, entity_type')
+    .in('entity_type', [CLOSED_SHOP_SLUG_ENTITY_TYPE, CLOSED_EVENT_SLUG_ENTITY_TYPE])
     .eq('old_slug', lower)
     .gt('redirect_until', new Date().toISOString())
     .limit(50);
@@ -156,9 +174,17 @@ export async function findSlugConflict(
   // cannot prove the word is free, and handing out a held address is worse than
   // asking someone to try again.
   if (retired.error) return 'unverified';
-  const retiredRows = (retired.data ?? []) as { entity_id: string | null }[];
-  if (retiredRows.some((r) => !sameId(exclusions.vendorProfileId, r.entity_id))) {
-    return 'retired_shop';
+  const retiredRows = (retired.data ?? []) as {
+    entity_id: string | null;
+    entity_type: string;
+  }[];
+  const blockingClosure = retiredRows.find(
+    (r) => !sameId(exclusions.vendorProfileId, r.entity_id),
+  );
+  if (blockingClosure) {
+    return blockingClosure.entity_type === CLOSED_EVENT_SLUG_ENTITY_TYPE
+      ? 'retired_event'
+      : 'retired_shop';
   }
 
   if (await isSlugForwarding(admin, lower, exclusions)) return 'forwarding';

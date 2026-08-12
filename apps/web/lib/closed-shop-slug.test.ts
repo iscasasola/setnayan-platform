@@ -72,21 +72,35 @@ test('the availability check refuses a held address before it explains it away',
   // the forwarding probe matches on old_slug alone — so if it ran first, a
   // closed shop's address would be refused with wording about redirects that do
   // not exist. Same answer, wrong reason, and the reason is the whole message.
+  //
+  // ⚠ ANCHORED ON THE PROBE, NOT ON A RETURN LITERAL. This matched
+  // `return 'retired_shop'` until that became a ternary picking between the two
+  // closure reasons — at which point `indexOf` returned -1 and the test failed
+  // for a reason that had nothing to do with the property. The probe's own
+  // statement is the stable landmark.
   const src = readFileSync(join(process.cwd(), 'lib/slug-availability.ts'), 'utf8');
-  const retiredAt = src.indexOf("return 'retired_shop'");
+  const closureProbeAt = src.indexOf('const retired = await admin');
   const forwardingAt = src.indexOf("return 'forwarding'");
-  assert.ok(retiredAt > 0 && forwardingAt > 0);
+  assert.ok(closureProbeAt > 0, 'the closure probe is gone');
+  assert.ok(forwardingAt > 0, 'the forwarding probe is gone');
   assert.ok(
-    retiredAt < forwardingAt,
+    closureProbeAt < forwardingAt,
     'the forwarding probe now runs first and will claim a closed address redirects somewhere',
   );
+  // Both closure kinds must have their own reason — a deleted wedding refused
+  // with the shop wording is a different untruth, not a fix.
+  for (const reason of ["'retired_shop'", "'retired_event'"]) {
+    assert.ok(src.includes(reason), `${reason} is not returned by any path`);
+  }
 });
 
 test('the check fails closed — an unreadable ledger never means "free"', () => {
   const src = readFileSync(join(process.cwd(), 'lib/slug-availability.ts'), 'utf8');
   const block = src.slice(
     src.indexOf('const retired = await admin'),
-    src.indexOf("return 'retired_shop'"),
+    // End at the forwarding probe — the next statement after the closure
+    // branch, and stable across changes to how the reason is chosen.
+    src.indexOf("if (await isSlugForwarding"),
   );
   assert.match(
     block,

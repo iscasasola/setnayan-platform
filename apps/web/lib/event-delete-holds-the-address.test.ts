@@ -3,21 +3,27 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
+const ROOT = join(import.meta.dirname, '../../..');
 const WEB = join(import.meta.dirname, '..');
 
 /**
- * GUARD — every path that DELETES an event must hold its address first.
+ * GUARD — a deleted wedding's address is held by the DATABASE, and only one
+ * caller may opt out.
  *
- * Owner 2026-08-12: *"a retired website address will only be usable again after
- * 1 year."* Deleting an `events` row frees its `slug` the same second, and the
- * word is then handed to the next person who asks — while printed invitations
+ * Owner 2026-08-12: a retired address is unusable for two years. Deleting an
+ * `events` row frees its `slug` the same second, while printed invitations
  * still carry it.
  *
- * 🔑 THIS IS A FORWARD PRIMITIVE WITH NO INVERSE, the failure this repo already
- * has a name for. So the guard is on the SHAPE (a delete), not on the one call
- * site I happened to find — a delete added next month is the whole risk.
+ * ⚠ THE FIRST VERSION OF THIS GUARD POLICED THE APP, AND THE APP WAS THE WRONG
+ * PLACE. It asserted that each delete CALL SITE wrote a hold — which covered
+ * `deleteEvent` and nothing else, while prod's own RLS policy
+ * `couple_can_delete_event` lets a couple delete their wedding straight through
+ * PostgREST with no server action involved. Removing the button closes the
+ * button, not the door; the same lesson the shop-address trigger already cost.
  *
- * Exemptions are a BILL, not a decision: each needs a written reason here.
+ * So the hold is a BEFORE DELETE trigger, every path is safe by default, and
+ * what needs policing flips: any caller that OPTS OUT must be named here with a
+ * reason.
  */
 function walk(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(dir)) {
@@ -29,44 +35,65 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
+/** Comments stripped — a guard a paragraph can satisfy is decoration. */
+function code(file: string): string {
+  return readFileSync(file, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .map((l) => (l.trimStart().startsWith('//') ? '' : l))
+    .join('\n');
+}
+
 /**
- * Deletes an event and deliberately does NOT hold the address.
+ * Callers allowed to delete an event WITHOUT holding its address.
  *
- * `anon-draft-sweep.ts` — abandoned ANONYMOUS drafts. Nobody was ever given
- * these addresses: an anonymous draft is never published, never printed, never
- * shared, and the sweep exists to return abandoned words to the pool. Holding
- * them for a year would burn a real couple's natural address to protect a link
- * that never left the browser it was made in.
+ * `lib/anon-draft-sweep.ts` — abandoned ANONYMOUS drafts. Never published,
+ * never printed, never shared; holding those words would burn a real couple's
+ * natural address to protect a link that never left the browser it was made in.
  */
-const EXEMPT = new Map<string, string>([
+const MAY_OPT_OUT = new Map<string, string>([
   ['lib/anon-draft-sweep.ts', 'abandoned anonymous drafts — never published, never printed'],
 ]);
 
-const DELETES_AN_EVENT = /\.from\(\s*['"]events['"]\s*\)[\s\S]{0,200}?\.delete\(\s*\)/;
+test('the DATABASE holds the address — the trigger is installed by a migration', () => {
+  // The whole design rests on this. If the trigger is ever dropped, every
+  // delete path silently stops holding, and no app-side test would notice.
+  const dir = join(ROOT, 'supabase/migrations');
+  const installs = readdirSync(dir).filter((f) =>
+    /CREATE TRIGGER events_hold_address_on_delete/i.test(readFileSync(join(dir, f), 'utf8')),
+  );
+  assert.ok(
+    installs.length > 0,
+    'no migration installs events_hold_address_on_delete — a deleted wedding’s address ' +
+      'would be free the same second, for every delete path at once',
+  );
+});
 
-test('every event-delete path holds the address, or is exempt with a reason', () => {
+test('only a named caller may skip the hold', () => {
   const offenders: string[] = [];
   for (const file of [...walk(join(WEB, 'app')), ...walk(join(WEB, 'lib'))]) {
     const rel = file.slice(WEB.length + 1);
-    const src = readFileSync(file, 'utf8');
-    if (!DELETES_AN_EVENT.test(src)) continue;
-    if (EXEMPT.has(rel)) continue;
-    if (/CLOSED_EVENT_SLUG_ENTITY_TYPE/.test(src)) continue;
+    if (!/setnayan\.skip_slug_hold|sweep_delete_abandoned_events/.test(code(file))) continue;
+    if (MAY_OPT_OUT.has(rel)) continue;
     offenders.push(rel);
   }
   assert.deepEqual(
     offenders,
     [],
-    'these delete an event without holding its address — the word is free the same second, ' +
-      'and the next person to ask can be handed an address that is printed on somebody’s ' +
-      'invitations. Hold it (CLOSED_EVENT_SLUG_ENTITY_TYPE) or add it to EXEMPT with a reason.',
+    'these skip the address hold when deleting an event. The word is then free immediately ' +
+      'and can be handed to somebody else while printed invitations still point at it. ' +
+      'Add the caller to MAY_OPT_OUT with a written reason, or stop skipping.',
   );
 });
 
-test('PRECONDITION: the pattern actually matches the known delete path', () => {
-  // Without this the test above passes by matching NOTHING — the shape of a
-  // Supabase delete could change and the guard would go quietly blind.
-  const known = readFileSync(join(WEB, 'app/admin/events/actions.ts'), 'utf8');
-  assert.match(known, DELETES_AN_EVENT, 'the delete pattern no longer matches the known path');
-  assert.match(known, /CLOSED_EVENT_SLUG_ENTITY_TYPE/, 'the known path stopped holding the address');
+test('PRECONDITION: the exempt caller really does still delete events', () => {
+  // Without this the exemption could outlive the code it excuses, and the guard
+  // would be quietly protecting nothing.
+  const sweep = code(join(WEB, 'lib/anon-draft-sweep.ts'));
+  assert.match(
+    sweep,
+    /sweep_delete_abandoned_events/,
+    'the draft sweep no longer opts out — either it stopped deleting events (remove the ' +
+      'exemption) or it now holds addresses it should not',
+  );
 });

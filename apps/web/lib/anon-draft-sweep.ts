@@ -120,10 +120,22 @@ export async function runAnonDraftSweep(): Promise<{ scanned: number; deleted: n
           continue;
         }
 
-        const { error: delEventsErr } = await admin
-          .from('events')
-          .delete()
-          .in('event_id', eventIds);
+        // 🔓 THE ONE DELIBERATE OPT-OUT FROM THE ADDRESS HOLD.
+        //
+        // Deleting an event now writes a two-year hold on its address
+        // (trigger `events_hold_address_on_delete`), so a printed invitation
+        // can never be handed to a stranger. That is wrong for THESE events:
+        // an abandoned anonymous draft was never published, never printed and
+        // never shared, and holding its words would burn a real couple's
+        // natural address to protect a link that never left the browser it was
+        // made in.
+        //
+        // Via an RPC because a `SET LOCAL` cannot be wrapped around a PostgREST
+        // delete — the function sets the flag for its own statement and
+        // restores the caller's prior value on every exit path.
+        const { error: delEventsErr } = await admin.rpc('sweep_delete_abandoned_events', {
+          p_event_ids: eventIds,
+        });
         if (delEventsErr) {
           console.error(`[anon-draft-sweep] event delete failed (${uid}):`, delEventsErr.message);
           await markSkipped(uid);

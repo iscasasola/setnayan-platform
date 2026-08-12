@@ -164,8 +164,10 @@ export async function StorytellersSurface({
                     >
                       <td className="px-4 py-3 align-top">
                         <div className="flex items-start gap-3">
-                          {/* Embed preview — the YouTube-derived thumb (the V1
-                              featurability signal doubles as the preview). */}
+                          {/* Preview — the YouTube thumb when there is a video,
+                              otherwise a "Written" chip. A chapter told in
+                              writing is a first-class chapter, not a video with
+                              a missing image. */}
                           {r.thumbUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -177,7 +179,7 @@ export async function StorytellersSurface({
                             />
                           ) : (
                             <span className="flex h-12 w-20 shrink-0 items-center justify-center rounded-md border border-ink/10 bg-ink/[0.03] text-center font-mono text-[9px] uppercase leading-tight tracking-wide text-ink/40">
-                              {r.embedProvider ?? 'no embed'}
+                              {r.embedProvider ?? 'Written'}
                             </span>
                           )}
                           <div className="min-w-0">
@@ -203,10 +205,19 @@ export async function StorytellersSurface({
                                 </Link>
                               </p>
                             ) : null}
+                            {/* This line used to declare a thumbnail-less
+                                chapter ineligible for the shelf. That stopped
+                                being true on 2026-08-12 and, worse, it made the
+                                hidden Feature button look deliberate. A written
+                                chapter IS eligible; its shelf tile simply leads
+                                with the writing. The phrase is banned from this
+                                file outright — see the sibling guard — because
+                                the sentence is what taught the wrong thing. */}
                             {!r.thumbUrl ? (
                               <p className="mt-1 text-[11px] text-ink/50">
-                                Not featurable (V1) — no YouTube thumbnail to
-                                derive. It stays live on the creator&rsquo;s page.
+                                {r.excerpt
+                                  ? `Told in writing — the shelf tile will lead with: “${r.excerpt}”`
+                                  : 'Told in writing — the shelf tile leads with the story, not a thumbnail.'}
                               </p>
                             ) : null}
                           </div>
@@ -257,13 +268,26 @@ export async function StorytellersSurface({
                               Unfeature
                             </SubmitButton>
                           </ConfirmForm>
-                        ) : r.thumbUrl ? (
+                        ) : (
+                          /* 🚨 THIS BUTTON USED TO RENDER ONLY `? r.thumbUrl :`,
+                             i.e. only for a chapter with a YouTube video —
+                             every story told in WRITING showed a greyed-out
+                             ineligible label and there was nothing to click.
+                             The server action's refusal was lifted on
+                             2026-08-12 but the control was never restored, so
+                             the fix was unreachable. A fix nobody can reach is
+                             no fix. The action re-asserts every condition, so
+                             rendering the button is safe by construction. */
                           <ConfirmForm
                             action={setChapterFeatured}
                             title="Feature in From Our Storytellers?"
                             confirmLabel="Feature"
                             destructive={false}
-                            message="This chapter goes live in the Storytellers shelf on the public Real Stories page and the creator is notified. Featuring is the moderation review — watch it first. You can set its order next."
+                            message={
+                              r.thumbUrl
+                                ? 'This chapter goes live in the Storytellers shelf on the public Real Stories page and the creator is notified. Featuring is the moderation review — watch it first. You can set its order next.'
+                                : 'This chapter goes live in the Storytellers shelf on the public Real Stories page and the creator is notified. It is told in writing, so its tile leads with the story instead of a thumbnail. Featuring is the moderation review — read it first. You can set its order next.'
+                            }
                           >
                             <input type="hidden" name="public_id" value={r.publicId} />
                             <input type="hidden" name="feature" value="1" />
@@ -271,8 +295,6 @@ export async function StorytellersSurface({
                               Feature
                             </SubmitButton>
                           </ConfirmForm>
-                        ) : (
-                          <span className="text-xs text-ink/45">Not featurable</span>
                         )}
                       </td>
                     </tr>

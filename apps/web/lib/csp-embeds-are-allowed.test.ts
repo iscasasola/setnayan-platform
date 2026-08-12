@@ -283,8 +283,20 @@ function embedHosts(code: string): { hosts: Set<string>; unresolved: string[] } 
       .map((m) => m[1])
       .filter((h): h is string => Boolean(h));
     if (urls.length === 0) {
-      // Resolvable, and same-origin — a relative path needs no allowlist entry
-      // beyond `'self'`, which is always present.
+      // 🔴 THIS BRANCH USED TO `continue` SILENTLY, under a comment asserting the
+      // src must therefore be same-origin. It does not follow: reaching here only
+      // means we found NO absolute URL in whatever text we resolved — which is
+      // equally true of a relative path (genuinely fine) and of a `const` we
+      // resolved to something that simply is not a URL (not fine at all). Three
+      // of the app's nine iframe files were being dropped here while the test
+      // printed "NO SILENT CAP" and named only five. A guard that undercounts
+      // itself is worse than one that admits it cannot see.
+      //
+      // A relative src is still fine — `'self'` always covers it — so only say
+      // so when the text really looks like a path.
+      if (!/^["'`]?\.{0,2}\//.test(text.trim())) {
+        unresolved.push(`${expr} (resolved, but no URL and no relative path in it)`);
+      }
       continue;
     }
     for (const h of urls) hosts.add(h);

@@ -104,10 +104,15 @@ function normalizeInstant(raw: string | null | undefined): string | null {
  * channel. Neither is true in production today, which is why the by-hand route is
  * the only one that works.
  *
- * ONE definition, exported, because two surfaces answer this question — the
- * transport button decides whether to render "Go live" or the reason it cannot, and
- * the page decides whether to offer the by-hand switch. A copy in each is how they
- * drift into disagreeing about whether the host has any way to go on air at all.
+ * Exported and used by the transport button, which decides whether to render
+ * "Go live" or the plain-English reason it cannot.
+ *
+ * ⚠ It deliberately no longer decides whether the by-hand switch appears. It did,
+ * and that coupling was the bug: it withdrew the fallback at the exact moment a host
+ * connected a channel — which is when Go live can still refuse and the fallback is
+ * most needed. `shouldOfferManualAir` now asks the only question that matters there,
+ * which is whether a broadcast is actually running. Being AVAILABLE and being ON AIR
+ * are different facts; one predicate answering both is how they got conflated.
  */
 export function automaticGoLiveAvailable(input: {
   /** Setnayan's YouTube app review has cleared (platform-level, not per host). */
@@ -121,20 +126,36 @@ export function automaticGoLiveAvailable(input: {
 /**
  * Should the by-hand on-air switch be offered at all?
  *
- * TWO reasons, and the second is the one that stops this becoming another gate with
- * no handle:
+ * Hidden in exactly ONE situation: an automatic broadcast is genuinely running. Then
+ * the red light is already lit by the real thing and a second on-air control would
+ * be two answers to one question.
  *
- *   • the automatic one-tap route is UNAVAILABLE (Setnayan's YouTube app review has
- *     not cleared, or this host has not connected a channel) — so by-hand is the
- *     only way they can be on air; or
- *   • the manual flag is ALREADY SET. A host who switches on, then later connects
- *     YouTube, would otherwise watch the control offering to turn it off disappear
- *     while the red light stayed on forever. Whenever the state exists, so does its
- *     handle.
+ * Offered otherwise, and the reasons are cumulative:
+ *
+ *   • the one-tap route is UNAVAILABLE (Setnayan's YouTube app review has not
+ *     cleared, or this host has not connected a channel) — by-hand is then the only
+ *     way to be on air at all;
+ *   • ⚠ the channel IS connected but nothing is broadcasting. The first cut of this
+ *     hid the switch the moment a channel existed, which is precisely the wrong
+ *     moment: a host connects, presses Go live, YouTube refuses (live streaming not
+ *     enabled yet, a quota, a strike) — and the fallback that would still light
+ *     their control room has just been taken away BECAUSE they connected.
+ *     Connecting is not broadcasting;
+ *   • the manual flag is ALREADY SET. A host who switches on and later connects
+ *     YouTube would otherwise watch the control that turns it off disappear while
+ *     the red light stayed on forever. Whenever the state exists, so does its handle.
+ *
+ * All three collapse into one predicate — is a real broadcast running? — so the
+ * inputs the first cut consulted (`automaticAvailable`, the stored instant) are gone
+ * rather than left as parameters nothing reads. A tautology in a boolean is how a
+ * clause stops meaning anything while still looking considered.
  */
 export function shouldOfferManualAir(input: {
-  automaticAvailable: boolean;
-  manualOnAirAt?: string | null;
+  /**
+   * An automatic (panood_broadcasts) broadcast is on air RIGHT NOW — the ONLY thing
+   * that withdraws this switch.
+   */
+  broadcastLive: boolean;
 }): boolean {
-  return !input.automaticAvailable || Boolean(normalizeInstant(input.manualOnAirAt));
+  return !input.broadcastLive;
 }

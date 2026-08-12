@@ -328,13 +328,35 @@ test('⭐ go-live prefers the SETNAYAN pool channel, with BYO only as fallback',
   assert.match(fn, /if \(liveStudioRoamEnabled\(\)\) \{[\s\S]{0,300}resolveEventBroadcastToken/);
 });
 
-test('go-live copy never asks a Wave 9 host to connect a YouTube channel', () => {
+test('go-live never tells a host to connect a channel they are not allowed to connect', () => {
   const src = repoFile(GO_LIVE);
   const fn = src.slice(src.indexOf('export async function goLivePanood'), src.indexOf('export async function endPanoodBroadcast'));
-  // The old string survives ONLY on the flag-off branch.
+
+  // ── THE PROPERTY IS UNCHANGED; THE QUESTION IT ASKS IS FIXED ────────────────
+  // What must hold: a host who CANNOT connect their own Google account is never
+  // told to. That is the Wave 9 promise and it still stands.
+  //
+  // This used to be pinned to the exact ternary `liveStudioRoamEnabled() ? … : …`,
+  // and the roam flag turned out to be the wrong question. It is ON in production
+  // while the Setnayan pool holds ZERO channels and ZERO grants, so EVERY host
+  // without a connection was told "this is on our side — contact Setnayan" while
+  // the Connect button sat rendered on the page they were reading. The owner was
+  // being told to contact himself, and the guard was holding that in place.
+  //
+  // The thing that actually closes the BYO door is `liveStudioPoolOnly()` — it
+  // removes the couple's Connect button and makes /api/oauth/youtube/start refuse
+  // with 409. So THAT is what the copy must branch on, and this asserts it.
   assert.match(
     fn,
-    /liveStudioRoamEnabled\(\)\s*\?\s*'No Setnayan broadcast channel is available[^']*'\s*:\s*'Connect your YouTube channel first'/,
+    /liveStudioPoolOnly\(\)\s*\?\s*'No Setnayan broadcast channel is available[^']*'\s*:\s*'Connect your YouTube channel first[^']*'/,
+    'the no-token copy must branch on whether the BYO door is OPEN (pool-only), not on the roam flag',
+  );
+
+  // And the roam flag must NOT be what decides this copy again.
+  assert.doesNotMatch(
+    fn,
+    /liveStudioRoamEnabled\(\)\s*\?\s*'No Setnayan broadcast channel is available/,
+    'the roam flag is back to deciding this message — it is on while the pool is empty',
   );
 });
 

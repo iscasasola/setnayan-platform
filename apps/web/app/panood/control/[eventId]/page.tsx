@@ -91,11 +91,7 @@ import {
   getActivePanoodBroadcast,
   getActivePanoodStreamKey,
 } from '@/lib/panood-broadcast';
-import {
-  automaticGoLiveAvailable,
-  resolveLiveAir,
-  shouldOfferManualAir,
-} from '@/lib/live-studio-manual-air';
+import { resolveLiveAir, shouldOfferManualAir } from '@/lib/live-studio-manual-air';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { decideProgramAir, type ProgramChannel } from '@/lib/live-studio-publish';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
@@ -533,12 +529,11 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // answers come from the shared module so this page and the transport button cannot
   // disagree about whether one-tap go-live is available.
   const manualOnAir = liveAir.source === 'manual';
+  // Offered unless a REAL broadcast is running. Deliberately NOT gated on "is a
+  // channel connected": a host connects, presses Go live, YouTube refuses — and
+  // gating on the connection would take away the fallback at exactly that moment.
   const offerManualAir = shouldOfferManualAir({
-    automaticAvailable: automaticGoLiveAvailable({
-      oauthReady,
-      connected: Boolean(youtubeGrant),
-    }),
-    manualOnAirAt,
+    broadcastLive: liveAir.source === 'broadcast',
   });
   // When the CURRENT run started. This BOUNDS the never-interrupt rule: a broadcast
   // that began inside the paid window finishes clean, one that began after it lapsed

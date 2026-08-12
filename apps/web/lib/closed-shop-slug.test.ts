@@ -5,30 +5,44 @@ import { join } from 'node:path';
 
 import {
   CLOSED_SHOP_SLUG_ENTITY_TYPE,
-  CLOSED_SHOP_SLUG_HOLD_DAYS,
+  RETIRED_SLUG_HOLD_MONTHS,
   closedShopSlugHeldUntil,
 } from './closed-shop-slug';
+import { SLUG_FORWARDING_MONTHS } from './slug-forwarding-window';
 import { SLUG_CONFLICT_MESSAGE } from './slug-availability';
 
-test('a shop closing today releases its address one year later', () => {
+test('a shop closing today releases its address two years later', () => {
   // Fixed instant, not `new Date()` — a test that recomputes the same
   // arithmetic as the code and compares the two agrees with itself no matter
   // what either one says.
+  //
+  // ⚠ WAS ONE YEAR (owner-locked 2026-08-10). Owner 2026-08-12: "make it 2
+  // years", aligning a retired address with the forwarding window.
   const closed = new Date('2026-08-10T00:00:00.000Z');
-  assert.equal(closedShopSlugHeldUntil(closed), '2027-08-10T00:00:00.000Z');
+  assert.equal(closedShopSlugHeldUntil(closed), '2028-08-10T00:00:00.000Z');
 });
 
-test('the hold spans a leap day without losing one', () => {
-  // 2028 is a leap year. Adding 365 calendar days across it lands on 29 Feb —
-  // which is correct and worth pinning, because "a year" implemented as a fixed
-  // day count and "a year" implemented by incrementing the year field disagree
-  // exactly here, silently, once every four years.
+test('the hold lands on the SAME CALENDAR DATE, leap years included', () => {
+  // Day-count arithmetic drifts through a leap year — 730 days from 1 Mar 2027
+  // is 28 Feb 2029, a day early, silently. Month arithmetic keeps "two years"
+  // meaning the same date, which is what a person reads it as.
   const closed = new Date('2027-03-01T00:00:00.000Z');
-  assert.equal(closedShopSlugHeldUntil(closed), '2028-02-29T00:00:00.000Z');
+  assert.equal(closedShopSlugHeldUntil(closed), '2029-03-01T00:00:00.000Z');
 });
 
-test('the hold is a year, not a quarter and not a decade', () => {
-  assert.equal(CLOSED_SHOP_SLUG_HOLD_DAYS, 365);
+test('a date that does not exist in the target month rolls FORWARD, never back', () => {
+  // 29 Feb 2028 + 24 months: February 2030 has no 29th. Rolling forward to
+  // 1 Mar holds the address a day LONGER; rolling back would release it a day
+  // EARLY, and every one of these numbers exists to stop an early release.
+  const closed = new Date('2028-02-29T00:00:00.000Z');
+  assert.equal(closedShopSlugHeldUntil(closed), '2030-03-01T00:00:00.000Z');
+});
+
+test('the hold is DERIVED from the forwarding window — one number, not two', () => {
+  // Two constants for "how long is an address unavailable" is how a correction
+  // at one site becomes a contradiction at the other.
+  assert.equal(RETIRED_SLUG_HOLD_MONTHS, SLUG_FORWARDING_MONTHS);
+  assert.equal(RETIRED_SLUG_HOLD_MONTHS, 24);
 });
 
 test('a closed address is refused for its own reason, not the rename one', () => {

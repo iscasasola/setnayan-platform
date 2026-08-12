@@ -14,7 +14,7 @@ import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import {
   CLOSED_EVENT_SLUG_ENTITY_TYPE,
-  CLOSED_SHOP_SLUG_HOLD_DAYS,
+  RETIRED_SLUG_HOLD_MONTHS,
 } from '../../lib/closed-shop-slug';
 
 let replay: ReplayResult;
@@ -72,7 +72,10 @@ test('the hold FORWARDS NOBODY — there is nothing left to forward to', async (
 });
 
 test('the hold releases after a year, not sooner and not never', async () => {
-  assert.equal(CLOSED_SHOP_SLUG_HOLD_DAYS, 365, 'the owner rule is one year');
+  // ⚠ WAS ONE YEAR (owner-locked 2026-08-10). Owner 2026-08-12: "make it 2
+  // years" — a retired address is now out of circulation for exactly as long as
+  // a renamed one keeps forwarding.
+  assert.equal(RETIRED_SLUG_HOLD_MONTHS, 24, 'the owner rule is two years');
   const { rows } = await db.query<{ free: boolean }>(
     `SELECT public.business_slug_is_available('released-wedding') AS free`,
   );

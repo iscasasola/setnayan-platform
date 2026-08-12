@@ -800,3 +800,62 @@ export async function clearControlFacebookUrl(formData: FormData): Promise<void>
   revalidatePath('/[slug]', 'page');
   redirect(SETUP_PATH(eventId));
 }
+
+/* -------------------------------------------------------------------------- */
+/*  BY-HAND ON AIR — the red light for a host who streams themselves           */
+/* -------------------------------------------------------------------------- */
+//
+// Until Setnayan's own YouTube channel exists and its app review clears, one-tap
+// go-live cannot work for anyone, and the controller's own copy sends the host to
+// "start your broadcast on YouTube, then paste the watch link". That route wrote a
+// URL and nothing else, so the host got no red tally and — worse — no ⚡ Moment
+// button, a control they PAID for. These two actions are the missing switch.
+//
+// ⚠ SERVICE ROLE, deliberately. events.panood_manual_on_air_at carries NO column
+// grant (see migration 20271137667349): the instant bounds the paid multi-cam
+// never-interrupt rule, so a browser that could write it could backdate itself into
+// free multi-cam. The host check below IS the authorization boundary, exactly as it
+// is for the seat reads on the controller page. The DB trigger stamps now()
+// regardless of what is sent, so neither of these actions is trusted with the value
+// either — they name the column, never the number.
+
+/** Say "we are on air" for a stream the host started themselves. Host-gated, free. */
+export async function setControlManualAir(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+
+  await requireHostMembership(eventId);
+
+  // The value sent here is IGNORED by the trigger, which stamps now(). Sending an
+  // ISO string rather than a literal keeps this readable; sending the wrong one
+  // cannot matter, and that is the point of putting the stamp in the database.
+  const admin = createAdminClient();
+  await admin
+    .from('events')
+    .update({ panood_manual_on_air_at: new Date().toISOString() })
+    .eq('event_id', eventId);
+
+  revalidatePath(SETUP_PATH(eventId));
+  redirect(`${SETUP_PATH(eventId)}?on_air=1`);
+}
+
+/** Say "we are off air" again. Always permitted — leaving is never gated. */
+export async function clearControlManualAir(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+
+  await requireHostMembership(eventId);
+
+  const admin = createAdminClient();
+  await admin
+    .from('events')
+    .update({ panood_manual_on_air_at: null })
+    .eq('event_id', eventId);
+
+  revalidatePath(SETUP_PATH(eventId));
+  redirect(`${SETUP_PATH(eventId)}?on_air=0`);
+}

@@ -89,6 +89,11 @@ import {
   getActivePanoodBroadcast,
   getActivePanoodStreamKey,
 } from '@/lib/panood-broadcast';
+import {
+  automaticGoLiveAvailable,
+  resolveLiveAir,
+  shouldOfferManualAir,
+} from '@/lib/live-studio-manual-air';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { decideProgramAir, type ProgramChannel } from '@/lib/live-studio-publish';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
@@ -117,6 +122,8 @@ import {
   clearControlWatchUrl,
   saveControlFacebookUrl,
   clearControlFacebookUrl,
+  setControlManualAir,
+  clearControlManualAir,
   setMonogramOverlay,
   setLowerThird,
   setEventQrOverlay,
@@ -471,13 +478,56 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     // pre-migration env — no active broadcast
   }
 
-  // The one fact the tally depends on: is the broadcast actually up?
-  const isLive = Boolean(activeBroadcast);
-  // When the CURRENT broadcast started. This BOUNDS the never-interrupt rule: a
-  // broadcast that began inside the paid window finishes clean, one that began after
-  // it lapsed is a NEXT go-live and gets no protection.
-  const broadcastStartedAt =
-    activeBroadcast?.went_live_at ?? activeBroadcast?.scheduled_start_at ?? null;
+  // ── BY-HAND ON AIR ────────────────────────────────────────────────────────
+  //
+  // The host who starts their own stream and pastes the watch link leaves no
+  // panood_broadcasts row, so the tally below used to read them as off air — no red
+  // light, and no ⚡ Moment button, which they PAID for. This is their trace.
+  //
+  // ⚠ ADMIN CLIENT, and it is not a shortcut. `events.panood_manual_on_air_at`
+  // deliberately carries no column grant (migration 20271137667349), so naming it in
+  // the host-session select above would get that ENTIRE query rejected — the whole
+  // event read returns null, `notFound()` fires, and the controller 404s for
+  // everyone. Rejected, not thrown; the only symptom would be an absence. Its own
+  // read, fail-soft, so a pre-migration environment reads "off air" rather than
+  // crashing — the same posture as the broadcast read above.
+  let manualOnAirAt: string | null = null;
+  {
+    const { data } = await admin
+      .from('events')
+      .select('panood_manual_on_air_at')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    manualOnAirAt = (data as { panood_manual_on_air_at?: string | null } | null)
+      ?.panood_manual_on_air_at ?? null;
+  }
+
+  // The one fact the tally depends on: is this event actually on air — by EITHER
+  // route? `isLive` and the start instant come out of one resolver together, because
+  // handing the window `isLive` without a start is what it reads as "protected".
+  const liveAir = resolveLiveAir({
+    hasActiveBroadcast: Boolean(activeBroadcast),
+    broadcastStartedAt:
+      activeBroadcast?.went_live_at ?? activeBroadcast?.scheduled_start_at ?? null,
+    manualOnAirAt,
+  });
+  const isLive = liveAir.isLive;
+  // Is the by-hand switch on right now, and should it be on screen at all? Both
+  // answers come from the shared module so this page and the transport button cannot
+  // disagree about whether one-tap go-live is available.
+  const manualOnAir = liveAir.source === 'manual';
+  const offerManualAir = shouldOfferManualAir({
+    automaticAvailable: automaticGoLiveAvailable({
+      oauthReady,
+      connected: Boolean(youtubeGrant),
+    }),
+    manualOnAirAt,
+  });
+  // When the CURRENT run started. This BOUNDS the never-interrupt rule: a broadcast
+  // that began inside the paid window finishes clean, one that began after it lapsed
+  // is a NEXT go-live and gets no protection. A by-hand start is stamped by the
+  // database, never by the caller, so it cannot be backdated into that protection.
+  const broadcastStartedAt = liveAir.startedAt;
 
   // ── ⭐ WAVE 7 · THE BROADCAST WINDOW ─────────────────────────────────────────
   // (owner-locked 2026-07-25 · Live_Studio_Unified_Spec § 4f ② · lib/live-studio-window.ts)
@@ -995,6 +1045,44 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               </SubmitButton>
             </form>
           </div>
+
+          {/* ── BY-HAND ON AIR ────────────────────────────────────────────────
+              The host who starts their own stream and pastes the watch link — the
+              route the Watch-link card below sends them down, and until Setnayan's
+              own YouTube channel is connected the ONLY route that works — left no
+              trace anything could read. They lost the red tally AND the ⚡ Moment
+              button they had paid for.
+
+              Offered when one-tap go-live is unavailable, OR whenever the switch is
+              already on: a host who declares themselves on air and later connects
+              YouTube must not watch the only way to turn it off disappear while the
+              red light stays lit. Whenever the state exists, so does its handle. */}
+          {offerManualAir ? (
+            <form
+              action={manualOnAir ? clearControlManualAir : setControlManualAir}
+              className="shrink-0"
+            >
+              <input type="hidden" name="event_id" value={eventId} />
+              <SubmitButton
+                pendingLabel={manualOnAir ? 'Ending…' : 'Going on air…'}
+                overlay={false}
+                aria-pressed={manualOnAir}
+                title={
+                  manualOnAir
+                    ? 'Your control room is showing as on air — tap when your stream ends'
+                    : 'Already streaming from YouTube or Facebook? Tap to light up your control room'
+                }
+                className={`flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors ${
+                  manualOnAir
+                    ? 'bg-danger-600 font-mono uppercase tracking-[0.08em] text-cream hover:bg-danger-700'
+                    : 'border border-dashed border-ink/20 bg-cream/70 text-ink/75 hover:border-terracotta/40 hover:text-ink'
+                }`}
+              >
+                <Radio aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.25} />
+                {manualOnAir ? 'We’re off air' : 'We’re on air'}
+              </SubmitButton>
+            </form>
+          ) : null}
 
           {/* ── ⭐ WAVE 7 · THE BROADCAST DAY + THE 12-HOUR ARCHIVE CAP ───────
               (owner-locked 2026-07-25 · § 4f ②/③.)

@@ -426,8 +426,15 @@ export type StorytellerAdminRow = {
   ownerSlug: string | null;
   ownerName: string;
   viewCount: number;
-  /** YouTube-derived thumb. null ⇒ NOT FEATURABLE (V1 thumbnail rule). */
+  /**
+   * YouTube-derived thumb, or null for a chapter told in writing.
+   * ⚠ NULL NO LONGER MEANS "NOT FEATURABLE" (owner 2026-08-12) — it means the
+   * shelf tile is TEXT-LED. Reading it as unfeaturable is what left the admin
+   * Feature button unrendered for every written story.
+   */
   thumbUrl: string | null;
+  /** Plain-text lede — what the text-led tile will show in place of a thumb. */
+  excerpt: string | null;
   publishedAt: string | null;
   featured: boolean;
   featureRank: number | null;
@@ -513,6 +520,7 @@ export async function loadStorytellerCandidatesForAdmin(
         viewCount:
           typeof r.view_count === 'number' ? r.view_count : Number(r.view_count ?? 0),
         thumbUrl: youtubeThumbFromEmbedUrl(r.embed_url),
+        excerpt: chapterExcerpt(r.body ?? null),
         publishedAt: r.published_at ?? null,
         featured: r.showcase_featured_at != null,
         featureRank: r.showcase_feature_rank ?? null,

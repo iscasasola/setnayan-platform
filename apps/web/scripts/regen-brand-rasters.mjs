@@ -24,11 +24,15 @@ const svg = readFileSync(SRC);
 
 // 1) Byte-identical SVG copies — the favicon set, the Logo/share SVG, the proto
 //    asset, and the desktop (Tauri) icon source (build runs `tauri icon` on it).
+// NOTE 2026-08-12: the prototype deck's copy (`public/proto/assets/…`) was
+// dropped from this list when the internal decks were taken off the open web
+// (moved to `internal-decks/`, see its README). They are a frozen 2026-05-28
+// snapshot and are no longer published, so their assets freeze with them —
+// regenerating brand art into an unpublished archive is churn nobody reads.
 const svgCopies = [
   join(web, 'public/brand/setnayan-logo.svg'),
   join(web, 'public/icon-192.svg'),
   join(web, 'public/icon-512.svg'),
-  join(web, 'public/proto/assets/setnayan-mark.svg'),
   join(repo, 'src-tauri/icons/icon.svg'),
 ];
 for (const dst of svgCopies) {
@@ -41,7 +45,8 @@ for (const dst of svgCopies) {
 //     the mobile splash/launcher sets — those carry their own bg treatment.)
 const pngs = [
   { out: join(web, 'public/brand/setnayan-mark-512.png'), size: 512 }, // seat-plan PDF + generic raster
-  { out: join(web, 'public/keynote/brand/setnayan-mark.png'), size: 483 }, // keynote deck mark
+  // The keynote deck mark was dropped 2026-08-12 for the same reason as the
+  // proto SVG above — the decks are unpublished and frozen.
 ];
 for (const t of pngs) {
   const buf = await sharp(SRC, { density: 384 })

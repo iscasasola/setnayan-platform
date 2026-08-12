@@ -24,7 +24,11 @@ import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { SLUG_FORWARDING_MONTHS } from '../../lib/slug-forwarding-window';
-import { CLOSED_SHOP_SLUG_HOLD_DAYS } from '../../lib/closed-shop-slug';
+import { RETIRED_SLUG_HOLD_MONTHS } from '../../lib/closed-shop-slug';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const WEB = join(import.meta.dirname, '../..');
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -63,16 +67,34 @@ test('the column default is the window the app promises', async () => {
   );
 });
 
-test('the closed-shop hold does NOT ride on that default', async () => {
-  // Owner-locked at one year. The erasure path writes redirect_until
-  // EXPLICITLY; this asserts the two numbers are genuinely independent, so
-  // changing the forwarding window can never quietly change the hold.
-  const holdMonths = Math.round(CLOSED_SHOP_SLUG_HOLD_DAYS / 30.44);
-  assert.equal(holdMonths, 12, 'the closed-shop hold is owner-locked at one year');
-  assert.notEqual(
-    holdMonths,
+test('the retirement holds set their OWN expiry, not the column default', () => {
+  // ⚠ THIS TEST USED TO ASSERT THE TWO NUMBERS DIFFERED — "if these ever
+  // coincide, re-verify by hand that the hold still sets its own expiry". Owner
+  // 2026-08-12 made them coincide ("make it 2 years"), so that check has fired
+  // and has been honoured: re-verified, and replaced with the property it was
+  // only ever a proxy for.
+  //
+  // 🔑 THE REAL RISK is a retirement path silently starting to INHERIT the
+  // column default. Today that would be invisible — the numbers match — and if
+  // the forwarding window is ever changed alone, every held address would move
+  // with it without anyone deciding that. So assert the write, not the number.
+  const paths: [string, string][] = [
+    ['lib/erasure/purge.ts', 'a closed shop'],
+    ['app/admin/events/actions.ts', 'a deleted wedding'],
+  ];
+  for (const [rel, what] of paths) {
+    const src = readFileSync(join(WEB, rel), 'utf8');
+    assert.match(
+      src,
+      /redirect_until:\s*closed(Shop|Event)SlugHeldUntil\(\)/,
+      `${rel} (${what}) no longer sets redirect_until explicitly — the hold would ` +
+        `silently inherit the forwarding window's default and move with it`,
+    );
+  }
+
+  assert.equal(
+    RETIRED_SLUG_HOLD_MONTHS,
     SLUG_FORWARDING_MONTHS,
-    'if these ever coincide, re-verify by hand that the hold still sets its own expiry ' +
-      'instead of inheriting the column default',
+    'owner 2026-08-12: a retired address is held for the same span a renamed one forwards',
   );
 });

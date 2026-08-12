@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isReservedSlug } from './reserved-slugs';
-import { CLOSED_SHOP_SLUG_ENTITY_TYPE } from './closed-shop-slug';
+import { CLOSED_SHOP_SLUG_ENTITY_TYPE, RETIRED_SLUG_HOLD_MONTHS } from './closed-shop-slug';
+import { slugForwardingLabel } from './slug-forwarding-window';
 
 /**
  * ONE availability answer for the ONE top-level namespace.
@@ -58,8 +59,12 @@ export const SLUG_CONFLICT_MESSAGE: Record<SlugConflict, string> = {
   // nobody anywhere — saying it does would be a plain untruth to whoever tried
   // to take it, and the difference is the only thing that explains why the word
   // frees up later.
-  retired_shop:
-    'That address belonged to a shop that has closed. It becomes free again a year after it closed.',
+  // ⚠ DERIVED, NOT TYPED. This said "a year" and would have gone on saying it
+  // after the owner raised the hold to two (2026-08-12) — telling whoever tried
+  // to take the word to come back twelve months before it is actually free.
+  retired_shop: `That address belonged to a shop that has closed. It becomes free again ${slugForwardingLabel(
+    RETIRED_SLUG_HOLD_MONTHS,
+  )} after it closed.`,
   unverified: 'We couldn’t check that address just now. Please try again.',
 };
 

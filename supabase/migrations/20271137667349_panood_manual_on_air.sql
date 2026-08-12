@@ -85,10 +85,16 @@ COMMENT ON COLUMN public.events.panood_manual_on_air_at IS
 /*  The stamp — off→on is always now(), never the caller's number.             */
 /* -------------------------------------------------------------------------- */
 
+-- ⚠ SECURITY INVOKER (the default), deliberately — the first cut of this said
+-- SECURITY DEFINER out of habit and `anon-rpc-surface.db.test.ts` caught it. This
+-- function reads and writes nothing but the NEW row it is handed; it needs no
+-- elevated privileges, and a BEFORE trigger fires regardless of who the caller is.
+-- Declaring DEFINER would have added a new anon-callable elevated function to the
+-- surface for no benefit. Baselining it instead would have been paying a bill that
+-- did not need to exist.
 CREATE OR REPLACE FUNCTION public.enforce_panood_manual_on_air_stamp()
 RETURNS trigger
 LANGUAGE plpgsql
-SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
@@ -124,6 +130,13 @@ COMMENT ON FUNCTION public.enforce_panood_manual_on_air_stamp() IS
   'Forces events.panood_manual_on_air_at to now() on any off→on transition and pins it '
   'thereafter, so the instant that bounds the paid multi-cam never-interrupt rule can '
   'never be backdated by a caller. Clearing to NULL is always permitted.';
+
+-- Nothing should ever CALL this by hand — it is a trigger body. Postgres does not
+-- check EXECUTE when a trigger fires, so removing the default PUBLIC grant costs
+-- the trigger nothing and keeps the function off the callable surface entirely.
+REVOKE ALL ON FUNCTION public.enforce_panood_manual_on_air_stamp() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.enforce_panood_manual_on_air_stamp() FROM anon;
+REVOKE ALL ON FUNCTION public.enforce_panood_manual_on_air_stamp() FROM authenticated;
 
 -- BEFORE INSERT OR UPDATE **OF** the column: an update that does not name it never
 -- fires this, so every unrelated write to events stays a no-op here and a live

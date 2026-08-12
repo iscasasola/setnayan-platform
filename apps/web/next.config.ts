@@ -185,6 +185,22 @@ const CSP_REPORT_ONLY = [
   // on its own origin. If a parent-context call to it ever appears, that is
   // precisely the report this header exists to raise — do not pre-empt it.
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://*.vercel-insights.com",
+  // 🔴 ADDED 2026-08-11. This directive was MISSING ENTIRELY, and its absence was
+  // a live outage scheduled for whenever someone enforces this draft: with no
+  // `frame-src`, frames fall back to `default-src 'self'`, so EVERY embed on the
+  // site — YouTube, Vimeo, Instagram, TikTok, the vendor OpenStreetMap panel
+  // (fixed only days ago) and the Turnstile challenge (fixed in this same pass) —
+  // becomes a silent grey box. The exact failure this whole file is about.
+  //
+  // It also cost us the signal in the meantime: with everything falling back to
+  // 'self', every legitimate YouTube embed reports a violation, so real findings
+  // would arrive buried in noise about things we already decided are fine.
+  //
+  // ⚠ THIS IS A COPY OF THE ENFORCED LIST BELOW, AND A COPY IS A DRIFT WAITING TO
+  // HAPPEN — so it is not left to discipline. `csp-embeds-are-allowed.test.ts`
+  // fails if the enforced list gains a host this one lacks. The chain is anchored
+  // in code at both ends: source iframes/scripts → enforced list → this draft.
+  "frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.instagram.com https://www.tiktok.com https://www.openstreetmap.org https://challenges.cloudflare.com",
   "img-src 'self' data: blob: https://media.setnayan.com https://*.r2.cloudflarestorage.com https://*.supabase.co https://i.ytimg.com",
   "media-src 'self' data: blob: https://media.setnayan.com https://*.r2.cloudflarestorage.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",

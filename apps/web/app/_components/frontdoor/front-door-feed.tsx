@@ -106,8 +106,14 @@ function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
         {/* A written chapter legitimately has no video. The card leads with
             the READ and marks a video as an extra, never as the whole point —
             which is the entire reason the storyteller shelf was empty.
-            No minutes badge: see data.ts — we do not have the body, and a
-            reading time guessed from an excerpt is an invented number. */}
+
+            ⚠ This comment used to end "No minutes badge: we do not have the
+            body, and a reading time guessed from an excerpt is an invented
+            number." The badge was added directly beneath it and the sentence
+            was left standing, so the file told the next reader the opposite
+            of what the two lines under it do. The minutes are REAL now —
+            computed at the loader from the full body — and stay null-able,
+            which is why the badge is conditional rather than always drawn. */}
         {s.readingMinutes !== null ? (
           <span className="fd-dur">{s.readingMinutes} min</span>
         ) : null}

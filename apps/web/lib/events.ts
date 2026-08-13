@@ -93,6 +93,20 @@ export type EventRow = {
    */
   date_candidates?: string[] | null;
   date_window_start?: string | null;
+  /**
+   * The event's PUBLIC ADDRESS (`setnayan.com/<slug>`) — read here for exactly
+   * one reason: a person who was INVITED to an event cannot be sent to
+   * `/dashboard/[eventId]`, which admits `member_type = 'couple'` only, so the
+   * events board routes their card to `/{slug}` instead (lib/event-board.ts).
+   *
+   * NULLABLE, and one prod event is null today — a host who has not opened a
+   * public page yet. Callers must handle null rather than build `/null`.
+   *
+   * `SELECT`-granted to `authenticated` AND `anon` (verified against prod
+   * 2026-08-13 via `has_column_privilege`) — a revoked column would reject the
+   * WHOLE `fetchUserEvents` query, and this read powers every dashboard.
+   */
+  slug?: string | null;
 };
 
 export type EventWithRole = EventRow & {
@@ -150,7 +164,8 @@ export const fetchUserEvents = cache(async (
          concierge_status,
          created_at,
          date_candidates,
-         date_window_start
+         date_window_start,
+         slug
        )`,
     )
     .eq('user_id', userId);

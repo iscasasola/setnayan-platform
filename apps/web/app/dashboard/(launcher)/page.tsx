@@ -1,4 +1,9 @@
-import { Suspense, type ReactNode, type ComponentType } from 'react';
+import {
+  Suspense,
+  type ReactNode,
+  type ComponentType,
+  type CSSProperties,
+} from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
@@ -14,10 +19,21 @@ import {
   HeartHandshake,
   MapPin,
   Baby,
+  Mail,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, type EventWithRole } from '@/lib/events';
+import {
+  eventBoardHref,
+  eventStance,
+  isFinishedEvent,
+  manilaTodayISO,
+  mergeBoardMemberships,
+  splitEventBoard,
+  stanceLabel,
+  type EventStance,
+} from '@/lib/event-board';
 import {
   fetchUserCommunities,
   type CommunityWithRole,
@@ -86,12 +102,20 @@ export const metadata = {
  * home (owner-approved final design 2026-07-15, "build it"; council verdict
  * `User_Home_Redesign_Council_Verdict_2026-07-14.md` in the spec corpus). Every
  * block has exactly ONE home — no duplicated surfaces:
- *   • EVENTS — ongoing + upcoming events as glass cards (badge · monogram ·
- *     place/date · gold progress ring · countdown · attention line), date
- *     DESCENDING (newest on top, per the 2026-07-13 timeline ordering rule),
- *     ending in a "New event" card. COMPLETED (past) + archived stay hidden
- *     behind "Show all" (`?show=all`) and read "Celebrated". Each card jumps
- *     into its event dashboard — an allowed navigation.
+ *   • EVENTS — TWO ALWAYS-PRESENT SHELVES (owner 2026-08-13): "Coming up" as
+ *     glass cards (badge · stance · monogram · place/date · gold progress ring
+ *     · countdown), date DESCENDING (newest on top, per the 2026-07-13 timeline
+ *     ordering rule) with UNDATED at the tail reading "Date to be set", ending
+ *     in a "New event" card — then "Finished", which reads "Celebrated" and is
+ *     rendered WHETHER OR NOT it has anything in it. It used to hide behind a
+ *     "Show all" (`?show=all`) toggle: **a thing you have to switch on reads as
+ *     a thing that might not be there**, and prod's one finished wedding was
+ *     exactly that. Every card also NAMES ITS STANCE — you organise it, or you
+ *     were invited — because that is what decides where it can send you: an
+ *     organiser's card opens the event dashboard, an invited card opens the
+ *     event's own public address, where their photos / table / RSVP live and
+ *     the money + plan surfaces are ABSENT rather than present-and-refused.
+ *     Shelves, stance and hrefs are all derived in lib/event-board.ts.
  *   • ALAALA — the single memory dimension (owner-confirmed name 2026-07-14),
  *     composed as the prototype's BENTO: the obsidian Alaala·Life-Flash tile
  *     (headline · face row · Play when the flag is on) beside the Setnayan-AI
@@ -201,14 +225,16 @@ function placeLabel(event: EventWithRole): string | null {
 export default async function LauncherPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ show?: string; hub?: string }>;
+  // `show` is GONE (2026-08-13): the board no longer has a hidden half, so
+  // there is nothing for a query param to reveal. A bookmarked or printed
+  // `/dashboard?show=all` still renders the board — an unread param is ignored.
+  searchParams?: Promise<{ hub?: string }>;
 }) {
   const user = await getCurrentUser();
   // Layout already redirects to /login if no user; this is for type narrowing.
   if (!user) redirect('/login');
   const supabase = await createClient();
   const sp = (await searchParams) ?? {};
-  const showAll = sp.show === 'all';
 
   // OAuth-race graceful-degrade shielding (preserved from the prior hub): the
   // users / events rows this page reads are the SAME rows supabase-auth just
@@ -216,77 +242,105 @@ export default async function LauncherPage({
   // JWT/trigger commit for ~1-2s right after a Google / Facebook OAuth callback.
   // Every query graceful-degrades with a safe default so the page renders the
   // launcher instead of flashing the global error boundary.
-  const [events, profileRes, roles, communities] = await Promise.all([
-    fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
-      logQueryError(
-        'Launcher (fetchUserEvents threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { user_id: user.id },
-        'graceful_degrade',
-      );
-      return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
-    }),
-    (async () => {
-      try {
-        return await supabase
-          .from('users')
-          .select('display_name')
-          .eq('user_id', user.id)
-          .maybeSingle();
-      } catch (caught) {
+  const [organiserEvents, invitedEvents, profileRes, roles, communities] =
+    await Promise.all([
+      fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
         logQueryError(
-          'Launcher (users.display_name SELECT threw)',
-          caught instanceof Error ? caught : new Error(String(caught)),
+          'Launcher (fetchUserEvents threw)',
+          err instanceof Error ? err : new Error(String(err)),
           { user_id: user.id },
           'graceful_degrade',
         );
-        return { data: null, error: null } as never;
-      }
-    })(),
-    fetchUserRoleSummary(supabase, user.id).catch((err: unknown) => {
-      logQueryError(
-        'Launcher (fetchUserRoleSummary threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { user_id: user.id },
-        'graceful_degrade',
-      );
-      // Safe-default role summary matches the shape fetchUserRoleSummary
-      // returns when the user has no admin / vendor associations.
-      return {
-        hasCustomerAccess: true,
-        hasVendorAccess: false,
-        hasAdminAccess: false,
-        vendorProfiles: [],
-        ownedShopCount: 0,
-        canOpenShop: false,
-      } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
-    }),
-    // Samahan (communities) the user belongs to — graceful-degrade to [] so a
-    // pre-migration environment (or an OAuth-race read) renders the launcher
-    // with the create-only Samahan section rather than the error boundary.
-    fetchUserCommunities(supabase, user.id).catch((err: unknown) => {
-      logQueryError(
-        'Launcher (fetchUserCommunities threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { user_id: user.id },
-        'graceful_degrade',
-      );
-      return [] as CommunityWithRole[];
-    }),
-  ]);
+        return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
+      }),
+      // INVITED memberships — the other half of "the board is your collection of
+      // events". Until now the board asked for `'couple'` rows only, so an event
+      // somebody had joined by scanning an invitation QR was INVISIBLE to them
+      // here; the only surface that read guest rows sits behind an off-by-default
+      // flag. Separate call (not a widened one) so the `'couple'` cache key the
+      // dashboard shell shares stays intact.
+      //
+      // ⚠ NEVER PRINT A COUNT OFF THIS. fetchUserEvents graceful-degrades to []
+      // on every error including RLS denial, so `[]` cannot be told apart from
+      // "none" — the board therefore states what the shelves are FOR and never
+      // that you have no invitations.
+      fetchUserEvents(supabase, user.id, 'guest').catch((err: unknown) => {
+        logQueryError(
+          'Launcher (fetchUserEvents guest threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { user_id: user.id },
+          'graceful_degrade',
+        );
+        return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
+      }),
+      (async () => {
+        try {
+          return await supabase
+            .from('users')
+            .select('display_name')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        } catch (caught) {
+          logQueryError(
+            'Launcher (users.display_name SELECT threw)',
+            caught instanceof Error ? caught : new Error(String(caught)),
+            { user_id: user.id },
+            'graceful_degrade',
+          );
+          return { data: null, error: null } as never;
+        }
+      })(),
+      fetchUserRoleSummary(supabase, user.id).catch((err: unknown) => {
+        logQueryError(
+          'Launcher (fetchUserRoleSummary threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { user_id: user.id },
+          'graceful_degrade',
+        );
+        // Safe-default role summary matches the shape fetchUserRoleSummary
+        // returns when the user has no admin / vendor associations.
+        return {
+          hasCustomerAccess: true,
+          hasVendorAccess: false,
+          hasAdminAccess: false,
+          vendorProfiles: [],
+          ownedShopCount: 0,
+          canOpenShop: false,
+        } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
+      }),
+      // Samahan (communities) the user belongs to — graceful-degrade to [] so a
+      // pre-migration environment (or an OAuth-race read) renders the launcher
+      // with the create-only Samahan section rather than the error boundary.
+      fetchUserCommunities(supabase, user.id).catch((err: unknown) => {
+        logQueryError(
+          'Launcher (fetchUserCommunities threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { user_id: user.id },
+          'graceful_degrade',
+        );
+        return [] as CommunityWithRole[];
+      }),
+    ]);
 
+  // ⚠ `events` STAYS THE ORGANISER-ONLY SET, deliberately. Everything below it
+  // — the landing auto-jump, the checklists, the "% planned" rings, the decision
+  // counts, The Watch — is about running an event, and a person who was merely
+  // invited to one has none of that. Folding invited rows in here would silently
+  // reverse the owner's single-event auto-jump ruling the moment somebody scans
+  // an invitation. Only the BOARD reads the merged set (`boardEvents` below).
+  const events = organiserEvents;
   const active = events.filter((e) => !e.archived);
   const hasConsole = roles.hasVendorAccess || roles.hasAdminAccess;
 
   // Finished = archived OR the event date has passed (PH-local date compare).
-  // ⚠ MOVED ABOVE THE LANDING RULE 2026-08-11 — the rule now depends on it. It
-  // still does its original display job (upcoming shown / finished behind
-  // "Show all") further down; this is the same definition, read twice.
-  const todayISO = new Date().toLocaleDateString('en-CA', {
-    timeZone: 'Asia/Manila',
-  });
-  const isPast = (e: EventWithRole) =>
-    !!e.event_date && e.event_date.slice(0, 10) < todayISO;
+  // ⚠ MOVED ABOVE THE LANDING RULE 2026-08-11 — the rule now depends on it. The
+  // definition itself now lives in lib/event-board.ts (`isFinishedEvent`), so
+  // the shelf a card lands on and the landing rule can never drift apart.
+  const todayISO = manilaTodayISO();
+  // (Both remaining callers pass rows out of `active`, which is already
+  // non-archived, so `isFinishedEvent`'s archived branch can never fire for
+  // them — this is the same answer the old inline date test gave.)
+  const isPast = (e: EventWithRole) => isFinishedEvent(e, todayISO);
 
   // ─── LANDING ────────────────────────────────────────────────────────────
   // Owner 2026-07-04: "keep the auto-jump, HUB REACHABLE." Only the first half
@@ -320,31 +374,24 @@ export default async function LauncherPage({
   if (active.length === 0 && hasConsole) {
     redirect('/dashboard/create-event');
   }
-  // Timeline order (owner 2026-07-13): a Facebook-style feed — newest at the top,
-  // OLDER as you scroll down. So the spine runs date DESCENDING: furthest-future
-  // upcoming event on top, the most imminent one near the bottom, then (only when
-  // "Show all" reveals them) completed events continue oldest-toward-the-bottom —
-  // a smooth "older as you scroll down" across the upcoming→completed boundary.
-  // Undated ("Date to be set") events sit at the tail of the upcoming block.
+  // ─── THE BOARD'S TWO SHELVES ────────────────────────────────────────────
+  // Timeline order (owner 2026-07-13): a Facebook-style feed — newest at the
+  // top, OLDER as you scroll down. Coming up runs date DESCENDING with UNDATED
+  // at the tail ("Date to be set" is a real state, not a missing value), then
+  // Finished continues oldest-toward-the-bottom. Both shelves ALWAYS RENDER
+  // (owner 2026-08-13) — the `?show=all` toggle that used to hide the second one
+  // is gone.
+  //
+  // This is the ONE place the invited memberships join the organiser ones: the
+  // board is the person's collection of events, whichever side of it they stand
+  // on. Ordering + the finished test + the stance/href derivation all live in
+  // lib/event-board.ts.
   const dateKey = (e: EventWithRole) => e.event_date?.slice(0, 10) ?? '';
-  const upcoming = active
-    .filter((e) => !isPast(e))
-    .sort((a, b) => {
-      const da = dateKey(a);
-      const db = dateKey(b);
-      if (!da && !db) return 0;
-      if (!da) return 1; // undated → tail
-      if (!db) return -1;
-      return da < db ? 1 : da > db ? -1 : 0; // latest date first
-    });
-  const finished = [
-    ...active.filter(isPast),
-    ...events.filter((e) => e.archived),
-  ].sort((a, b) => {
-    const da = dateKey(a);
-    const db = dateKey(b);
-    return da < db ? 1 : da > db ? -1 : 0; // most recent past first → oldest last
-  });
+  const boardEvents = mergeBoardMemberships(events, invitedEvents);
+  const { comingUp: upcoming, finished } = splitEventBoard(
+    boardEvents,
+    todayISO,
+  );
 
   const profile = profileRes.data;
   const greeting =
@@ -789,17 +836,33 @@ export default async function LauncherPage({
   // destinations, serialized for the HomeCommandBar client island (no functions
   // across the RSC boundary; icons resolve from string keys client-side).
   const commandItems: HomeCommandItem[] = [
-    ...[...upcoming, ...finished].map((e): HomeCommandItem => {
+    // ⚠ THE JUMP TARGET IS `eventBoardHref`, NOT `/dashboard/${event_id}`.
+    // This list used to hardcode the dashboard path for every row — which, now
+    // that invited events reach the board, would put a 404 behind a search
+    // result for the person it was offered to (the couple dashboard admits
+    // organisers only). An invited event whose host has opened no public page
+    // has nowhere to jump, so it is dropped from the index rather than listed
+    // with a dead href.
+    ...[...upcoming, ...finished]
+      .map((e) => ({ e, href: eventBoardHref(e) }))
+      .filter((x): x is { e: EventWithRole; href: string } => x.href !== null)
+      .map(({ e, href }): HomeCommandItem => {
       const dateLabel = shortDate(e.event_date);
       const place = placeLabel(e);
+      const stance = eventStance(e.member_type);
       return {
         id: `event-${e.event_id}`,
         label: e.display_name,
         sublabel:
-          [eventTypeBadge(e.event_type), dateLabel ?? 'Date to be set', place]
+          [
+            eventTypeBadge(e.event_type),
+            dateLabel ?? 'Date to be set',
+            place,
+            stance === 'invited' ? 'You’re invited' : null,
+          ]
             .filter(Boolean)
             .join(' · '),
-        href: `/dashboard/${e.event_id}`,
+        href,
         kind: 'event',
         icon: 'calendar',
       };
@@ -1016,24 +1079,17 @@ export default async function LauncherPage({
           shop/HQ tiles exist only for a user who has them. */}
       <HomeBoard tiles={boardTiles} />
 
-      {/* EVENTS — ongoing + upcoming as glass cards, date descending (newest on
-          top, owner 2026-07-13 ordering). Completed stay behind "Show all".
-          Each card jumps into its event dashboard — an allowed navigation. */}
+      {/* COMING UP — the first of the board's TWO ALWAYS-PRESENT shelves
+          (owner 2026-08-13). Glass cards, date descending (newest on top, owner
+          2026-07-13 ordering), UNDATED at the tail reading "Date to be set".
+          The FINISHED shelf follows as its own section — it is no longer hidden
+          behind a "Show all" toggle. */}
       <section
         id="events"
         className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
         style={{ animationDelay: '0.4s' }}
       >
-        <SectionLabel
-          sub="ongoing & upcoming"
-          action={
-            finished.length > 0 ? (
-              <ShowAllToggle showAll={showAll} />
-            ) : null
-          }
-        >
-          Events
-        </SectionLabel>
+        <SectionLabel sub="ongoing & upcoming">Coming up</SectionLabel>
         {/* MOBILE composition (proto .mhero/.mbento/.m-nudge/.mghost): the
             primary event as a full-width dark hero, the rest as compact glass
             chips, the neediest-event nudge row, then the New-event ghost. Same
@@ -1045,7 +1101,7 @@ export default async function LauncherPage({
               pct={progressByEvent.get(upcoming[0].event_id) ?? null}
             />
           ) : null}
-          {upcoming.length > 1 || (showAll && finished.length > 0) ? (
+          {upcoming.length > 1 ? (
             <div
               className="sn-reveal grid grid-cols-2 gap-2.5"
               style={{ animationDelay: '0.58s' }}
@@ -1057,16 +1113,6 @@ export default async function LauncherPage({
                   pct={progressByEvent.get(event.event_id) ?? null}
                 />
               ))}
-              {showAll
-                ? finished.map((event) => (
-                    <MobileEventChip
-                      key={event.event_id}
-                      event={event}
-                      pct={progressByEvent.get(event.event_id) ?? null}
-                      finished
-                    />
-                  ))
-                : null}
             </div>
           ) : null}
           {/* The overdue NUDGE row — the mobile stand-in for the desktop Watch
@@ -1106,8 +1152,53 @@ export default async function LauncherPage({
               index={i}
             />
           ))}
-          {showAll
-            ? finished.map((event, i) => (
+          <NewEventCard delay={0.5 + upcoming.length * 0.08} />
+        </div>
+      </section>
+
+      {/* FINISHED — the second shelf, and it is ALWAYS HERE (owner 2026-08-13).
+          It used to be the hidden half of the Events block, revealed by a
+          "Show all" link: **a thing you have to switch on reads as a thing that
+          might not be there**, and what was behind it is somebody's memories —
+          prod's one finished wedding sat there. Now it is a named place on the
+          board whether or not anything has reached it yet.
+
+          🔑 THE EMPTY STATE MAKES NO ZERO-CLAIM. `fetchUserEvents`
+          graceful-degrades to `[]` on every error including an RLS denial, so an
+          empty shelf cannot be told apart from a refused read — the line
+          therefore says what this shelf is FOR ("celebrations move here on their
+          own once the day has passed") and never that you have none. Same rule
+          the Alaala wall learned on 2026-08-12: "no photos yet" printed over a
+          failed read is a lie told about somebody's memories. */}
+      <section
+        id="finished"
+        className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
+        style={{ animationDelay: '0.46s' }}
+      >
+        <SectionLabel sub="kept for good">Finished</SectionLabel>
+        {finished.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
+            Celebrations move here on their own once the day has passed. Nothing
+            you keep is ever taken away.
+          </p>
+        ) : (
+          <>
+            {/* MOBILE — compact chips, muted (the same treatment the hidden
+                half used to get once revealed). */}
+            <div className="grid grid-cols-2 gap-2.5 sm:hidden">
+              {finished.map((event) => (
+                <MobileEventChip
+                  key={event.event_id}
+                  event={event}
+                  pct={progressByEvent.get(event.event_id) ?? null}
+                  finished
+                />
+              ))}
+            </div>
+            {/* DESKTOP — the same glass cards, muted scene, reading
+                "Celebrated". */}
+            <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {finished.map((event, i) => (
                 <GlassEventCard
                   key={event.event_id}
                   event={event}
@@ -1117,17 +1208,10 @@ export default async function LauncherPage({
                   finished
                   index={upcoming.length + i}
                 />
-              ))
-            : null}
-          <NewEventCard
-            delay={0.5 + (upcoming.length + (showAll ? finished.length : 0)) * 0.08}
-          />
-        </div>
-        {!showAll && finished.length > 0 ? (
-          <p className="mt-3 text-xs text-ink/40">
-            {finished.length} finished event{finished.length > 1 ? 's' : ''} hidden
-          </p>
-        ) : null}
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       {/* #7b (gap G5): events auto-surfaced to this account + a one-tap Leave.
@@ -1533,20 +1617,73 @@ function SectionLabel({
 }
 
 /**
- * "Show all" toggle (proto .viewall) — a gold text link that flips the
- * `?show=all` search param (server-only; no client JS). Reveals the
- * finished/archived events, which are hidden by default; reads "Hide finished"
- * while they show. `scroll={false}` keeps the viewport put.
+ * THE STANCE CHIP — "You organise this" / "You're invited".
+ *
+ * The one thing a card has to answer before it is pressed, because it decides
+ * what is behind it: an organiser opens the event dashboard, an invited person
+ * opens the event's own public page (their photos, their table, their RSVP —
+ * with the money and plan surfaces absent, not present-and-refused).
+ *
+ * Rendered on EVERY card, not just the invited ones. An unexplained difference
+ * between two cards is worse than a label on both — and "you organise this" is
+ * the sentence that makes the other one legible.
  */
-function ShowAllToggle({ showAll }: { showAll: boolean }) {
+function StanceChip({ stance }: { stance: EventStance }) {
+  const invited = stance === 'invited';
   return (
-    <Link
-      href={showAll ? '/dashboard' : '/dashboard?show=all'}
-      scroll={false}
-      className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-[color:var(--sn-gold-700)] transition-colors hover:text-[color:var(--sn-gold-600)]"
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[9.5px] font-bold uppercase tracking-[0.08em] shadow-[0_2px_8px_rgba(30,26,18,0.08)] ${
+        invited
+          ? 'bg-[color:var(--sn-mulberry-100,rgba(194,78,37,0.14))] text-mulberry'
+          : 'bg-white/85 text-[color:var(--sn-ink-500)]'
+      }`}
     >
-      {showAll ? 'Hide finished' : 'Show all'}
-      <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
+      {invited ? (
+        <Mail aria-hidden className="h-[11px] w-[11px]" strokeWidth={2.25} />
+      ) : (
+        <HeartHandshake
+          aria-hidden
+          className="h-[11px] w-[11px]"
+          strokeWidth={2.25}
+        />
+      )}
+      {stanceLabel(stance)}
+    </span>
+  );
+}
+
+/**
+ * A board card is a LINK when there is somewhere to send this person, and a
+ * plain panel when there is not.
+ *
+ * 🪤 An INVITED event whose host has never opened a public page has no guest
+ * surface at all — and one prod event is in exactly that state. The old card
+ * would have linked to `/dashboard/<id>`, which admits organisers only, so the
+ * person told they belong would have been shown a 404. Rendering the card
+ * without a link is the honest version: they ARE invited, there is just nothing
+ * to open yet, and the card says so in its status line.
+ */
+function CardShell({
+  href,
+  className,
+  style,
+  children,
+}: {
+  href: string | null;
+  className: string;
+  style?: CSSProperties;
+  children: ReactNode;
+}) {
+  if (!href) {
+    return (
+      <div className={className} style={style}>
+        {children}
+      </div>
+    );
+  }
+  return (
+    <Link href={href} className={className} style={style}>
+      {children}
     </Link>
   );
 }
@@ -1583,15 +1720,12 @@ function GlassEventCard({
    *  stagger delays (computed, never hardcoded per card). */
   index?: number;
 }) {
-  const { badge, dateLabel, place, status, plannedLabel } = deriveEventView(
-    event,
-    pct,
-    finished,
-  );
+  const { badge, dateLabel, place, status, plannedLabel, stance } =
+    deriveEventView(event, pct, finished);
 
   return (
-    <Link
-      href={`/dashboard/${event.event_id}`}
+    <CardShell
+      href={eventBoardHref(event)}
       className={`sn-tile-glass sn-lift-4 sn-press sn-reveal group flex min-h-[196px] flex-col overflow-hidden rounded-2xl hover:border-mulberry/30 ${
         finished ? 'opacity-75 hover:opacity-100' : ''
       }`}
@@ -1614,9 +1748,14 @@ function GlassEventCard({
           ownPhotoSrc={ownHeroSrc}
           muted={finished}
         />
-        <span className="absolute left-3 top-3 inline-flex rounded-full bg-white/85 px-2 py-1 font-mono text-[9px] font-normal uppercase tracking-[0.12em] text-[color:var(--sn-gold-700)] shadow-[0_2px_8px_rgba(30,26,18,0.08)]">
-          {badge}
-        </span>
+        {/* Type badge + STANCE, one row: what kind of event this is, and which
+            side of it you are on. */}
+        <div className="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-1.5">
+          <span className="inline-flex rounded-full bg-white/85 px-2 py-1 font-mono text-[9px] font-normal uppercase tracking-[0.12em] text-[color:var(--sn-gold-700)] shadow-[0_2px_8px_rgba(30,26,18,0.08)]">
+            {badge}
+          </span>
+          {stance ? <StanceChip stance={stance} /> : null}
+        </div>
         {/* The event's REAL monogram (uploaded / bespoke SVG · framed lockup ·
             lettered). Uploaded outranks custom per app-wide precedence;
             EventMonogram only reads monogram_custom_svg, so resolve it here. */}
@@ -1688,7 +1827,7 @@ function GlassEventCard({
           </div>
         </div>
       </div>
-    </Link>
+    </CardShell>
   );
 }
 
@@ -1722,11 +1861,35 @@ function deriveEventView(
           : days === 0
             ? 'Happening today'
             : null;
+  // WHICH SIDE OF THIS EVENT THE VIEWER IS ON — the thing that decides where the
+  // card can send them. NULL for a member_type this board does not carry
+  // (vendor · coordinator), which `splitEventBoard` has already filtered out.
+  const stance = eventStance(event.member_type);
+  const invited = stance === 'invited';
+  // An INVITED event has no plan to be underway and no tasks to be behind on —
+  // "Planning underway" would be describing somebody else's work. It gets the
+  // countdown, or the honest reason there is nothing to open: a host who has not
+  // opened a public page yet (a real prod state — `slug` is nullable).
   const status = finished
     ? 'Celebrated'
-    : (countdown ?? (pct != null ? 'Planning underway' : 'Just getting started'));
-  const plannedLabel = pct != null ? `${pct}% planned` : null;
-  return { badge, dateLabel, place, dateMeta, countdown, status, plannedLabel };
+    : invited
+      ? (countdown ??
+        (event.slug?.trim()
+          ? 'You’re on the guest list'
+          : 'The host hasn’t opened their page yet'))
+      : (countdown ?? (pct != null ? 'Planning underway' : 'Just getting started'));
+  // "% planned" is an ORGANISER's number. Never shown on an invited card.
+  const plannedLabel = !invited && pct != null ? `${pct}% planned` : null;
+  return {
+    badge,
+    dateLabel,
+    place,
+    dateMeta,
+    countdown,
+    status,
+    plannedLabel,
+    stance,
+  };
 }
 
 /**
@@ -1742,21 +1905,32 @@ function MobileEventHero({
   event: EventWithRole;
   pct: number | null;
 }) {
-  const { badge, dateLabel, countdown, plannedLabel } = deriveEventView(
-    event,
-    pct,
-  );
+  const { badge, dateLabel, countdown, plannedLabel, status, stance } =
+    deriveEventView(event, pct);
   // Attention/overdue lives ONLY in the mobile nudge row now (owner 2026-07-15:
   // one home for overdue counts). The hero keeps identity/date/progress facts.
-  const facts = [plannedLabel, dateLabel].filter(Boolean) as string[];
+  // An INVITED hero shows its status line instead of a plan percentage it has no
+  // business quoting — `plannedLabel` is already null for it.
+  const facts = [
+    plannedLabel,
+    stance === 'invited' ? status : null,
+    dateLabel,
+  ].filter(Boolean) as string[];
   return (
-    <Link
-      href={`/dashboard/${event.event_id}`}
+    <CardShell
+      href={eventBoardHref(event)}
       className="sn-press sn-reveal block w-full rounded-2xl bg-ink p-4 text-cream shadow-[0_20px_44px_-26px_rgba(23,22,15,0.7)]"
       style={{ animationDelay: '0.5s' }}
     >
-      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-gold-300)]">
-        {badge} · {countdown ?? dateLabel ?? 'Date to be set'}
+      <p className="flex flex-wrap items-center gap-x-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-gold-300)]">
+        <span>
+          {badge} · {countdown ?? dateLabel ?? 'Date to be set'}
+        </span>
+        {stance ? (
+          <span className="normal-case tracking-normal text-cream/55">
+            · {stanceLabel(stance)}
+          </span>
+        ) : null}
       </p>
       <p className="mt-1 flex items-center gap-1.5 text-lg font-bold">
         {event.is_primary ? (
@@ -1791,13 +1965,13 @@ function MobileEventHero({
           </i>
         </span>
       ) : null}
-    </Link>
+    </CardShell>
   );
 }
 
 /**
  * MOBILE compact event chip (proto .mbento cell) — eyebrow (badge · date),
- * name, status line. No ring/texture/monogram at this density.
+ * name, status line, stance. No ring/texture/monogram at this density.
  */
 function MobileEventChip({
   event,
@@ -1808,10 +1982,14 @@ function MobileEventChip({
   pct: number | null;
   finished?: boolean;
 }) {
-  const { badge, dateLabel, status } = deriveEventView(event, pct, finished);
+  const { badge, dateLabel, status, stance } = deriveEventView(
+    event,
+    pct,
+    finished,
+  );
   return (
-    <Link
-      href={`/dashboard/${event.event_id}`}
+    <CardShell
+      href={eventBoardHref(event)}
       className={`sn-press block rounded-2xl border border-ink/15 bg-white/60 p-3 text-left ${
         finished ? 'opacity-75' : ''
       }`}
@@ -1822,7 +2000,15 @@ function MobileEventChip({
       </p>
       <p className="truncate text-sm font-bold text-ink">{event.display_name}</p>
       <p className="truncate text-[11px] text-ink/55">{status}</p>
-    </Link>
+      {/* The stance, at chip density: a plain line rather than the badge, so a
+          two-up grid stays readable. Never omitted — the whole point is that
+          two cards side by side say which is which. */}
+      {stance ? (
+        <p className="truncate text-[10.5px] font-semibold text-ink/45">
+          {stanceLabel(stance)}
+        </p>
+      ) : null}
+    </CardShell>
   );
 }
 

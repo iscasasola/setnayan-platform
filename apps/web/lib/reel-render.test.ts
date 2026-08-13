@@ -18,6 +18,7 @@ import {
   buildBeatSchedule,
   spansToUnits,
   splitFrames,
+  clipSlotCeilingSec,
 } from './reel-render';
 import type { BeatGrid } from './stories-templates';
 
@@ -287,4 +288,114 @@ test('splitFrames still distributes the remainder to earlier parts', () => {
   assert.deepEqual(splitFrames(10, 3), [4, 3, 3]);
   assert.deepEqual(splitFrames(9, 3), [3, 3, 3]);
   assert.deepEqual(splitFrames(0, 0), []);
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// THE END CARD MUST NOT EAT THE FILM.
+//
+// buildBeatSchedule gives its LAST source everything remaining ("Last source
+// fills to the end so the reel is exactly totalSec"), and every montage caller
+// appends a rigid "Made with Setnayan" end card as that final PHOTO. A photo's
+// default ceiling is Infinity, so the card's slot was whatever the photos left
+// over. At 6 seconds that was tolerable and nobody looked. At 30 seconds it is
+// the whole film.
+//
+// These tests MEASURE the split rather than asserting a vibe: the first one
+// documents the trap, the second locks the fix.
+// ───────────────────────────────────────────────────────────────────────────
+
+/** A realistic grid: 175 BPM, beats every ~0.343s across three minutes. */
+function grid175(): { bpm: number; beats: number[] } {
+  const beats: number[] = [];
+  for (let t = 0; t < 180; t += 60 / 175) beats.push(Number(t.toFixed(6)));
+  return { bpm: 175, beats };
+}
+
+test('THE TRAP: an uncapped end card swallows a long film', () => {
+  const photos = 8;
+  const kinds: ('photo' | 'clip')[] = Array(photos + 1).fill('photo');
+  // NOTE: no beatsPerCut — that is the SHIPPED configuration. The teaser
+  // passes none, so the engine default of 1 applies. Measured against this
+  // grid: the unpinned end card takes 3.26s of a 6s film (54%), 12.26s of 15s
+  // (82%) and 27.26s of 30s (91%).
+  const spans = buildBeatSchedule(30, kinds, { beatGrid: grid175() });
+  const endCard = spans[spans.length - 1]!;
+
+  // This is the behaviour BEFORE pinning — recorded so the reason the fix
+  // exists cannot be argued away later.
+  assert.ok(
+    endCard > 25,
+    `expected the unpinned end card to swallow a 30s film, got ${endCard.toFixed(2)}s`,
+  );
+});
+
+test('THE FIX: a pinned end card holds its slot and the photos take the rest', () => {
+  const photos = 8;
+  const END = 1.6;
+  const kinds: ('photo' | 'clip')[] = Array(photos + 1).fill('photo');
+  // Exactly what renderReel derives once a photo carries an explicit duration.
+  const slotMaxSec = [...Array(photos).fill(Infinity), END];
+  const spans = buildBeatSchedule(30, kinds, { beatGrid: grid175(), slotMaxSec });
+
+  const endCard = spans[spans.length - 1]!;
+  const photoTime = spans.slice(0, photos).reduce((a, b) => a + b, 0);
+  const total = spans.reduce((a, b) => a + b, 0);
+
+  assert.ok(
+    Math.abs(endCard - END) < 0.01,
+    `end card must hold its pinned ${END}s, got ${endCard.toFixed(2)}s`,
+  );
+  assert.ok(
+    photoTime > 28,
+    `the wedding should get the film, got ${photoTime.toFixed(2)}s of 30s`,
+  );
+  assert.ok(
+    Math.abs(total - 30) < 0.01,
+    `the reel must still be exactly 30s, got ${total.toFixed(2)}s`,
+  );
+});
+
+test('THE FILM THAT SHIPS TODAY: 54% of a 6s teaser is the logo', () => {
+  // Not a hypothetical about a longer film — this is the current product.
+  const kinds: ('photo' | 'clip')[] = Array(9).fill('photo');
+  const before = buildBeatSchedule(6, kinds, { beatGrid: grid175() });
+  const after = buildBeatSchedule(6, kinds, {
+    beatGrid: grid175(),
+    slotMaxSec: [...Array(8).fill(Infinity), 1.6],
+  });
+
+  assert.ok(
+    before[before.length - 1]! > 3,
+    `today's 6s end card should be >3s, measured ${before[before.length - 1]!.toFixed(2)}s`,
+  );
+  assert.ok(
+    Math.abs(after[after.length - 1]! - 1.6) < 0.01,
+    'pinned to 1.6s at the current length too',
+  );
+  const wedding = after.slice(0, 8).reduce((a, b) => a + b, 0);
+  assert.ok(wedding > 4.3, `the photos should get the film back, got ${wedding.toFixed(2)}s`);
+  assert.ok(Math.abs(after.reduce((a, b) => a + b, 0) - 6) < 0.01, 'still exactly 6s');
+});
+
+// THE DERIVATION ITSELF. The three scheduler tests above pass `slotMaxSec`
+// explicitly, so they prove the SCHEDULER honours a ceiling — they do NOT prove
+// renderReel still derives one. Measured: sabotaging clipSlotCeilingSec to
+// always return Infinity left all of them green. These close that gap.
+test('a PINNED photo yields a finite slot ceiling', () => {
+  assert.equal(
+    clipSlotCeilingSec({ clipId: 'endcard', url: 'x', durationSec: 1.6, kind: 'photo' }),
+    1.6,
+  );
+});
+
+test('an ordinary photo stays uncapped, so it can absorb the remainder', () => {
+  assert.equal(
+    clipSlotCeilingSec({ clipId: 'p', url: 'x', durationSec: null, kind: 'photo' }),
+    Infinity,
+  );
+});
+
+test('clips are unaffected — still capped at their footage or the 10s cap', () => {
+  assert.equal(clipSlotCeilingSec({ clipId: 'c', url: 'x', durationSec: 4, kind: 'clip' }), 4);
+  assert.equal(clipSlotCeilingSec({ clipId: 'c', url: 'x', durationSec: 999, kind: 'clip' }), 10);
 });

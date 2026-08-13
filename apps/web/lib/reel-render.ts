@@ -295,8 +295,26 @@ const CLIP_SLOT_MAX_SEC = 10;
  *     frozen tail on both paths). Footage length unknown (null) → the flat 10s
  *     ceiling; the render loop's own duration clamp bounds playback either way.
  */
-function clipSlotCeilingSec(source: RenderClip): number {
-  if ((source.kind ?? 'clip') === 'photo') return Infinity;
+export function clipSlotCeilingSec(source: RenderClip): number {
+  if ((source.kind ?? 'clip') === 'photo') {
+    // A still normally holds any length (∞) — that is what lets photos absorb
+    // the remainder so the reel sums to exactly totalSec.
+    //
+    // 🚨 BUT AN ∞ CEILING ON THE **LAST** SOURCE IS A TRAP. buildBeatSchedule
+    // gives the final source everything left ("Last source fills to the end"),
+    // and the montage callers append a rigid "Made with Setnayan" END CARD as
+    // that final photo. At 6s the card took ~2.5s and nobody noticed. Raise the
+    // target to 30s and the card takes ~27s: three seconds of wedding, then
+    // half a minute of a logo — at exactly the right total duration, with no
+    // error anywhere. A caller can now pin such a slot by giving the PHOTO an
+    // explicit `durationSec`.
+    //
+    // Behaviour-preserving: every existing photo caller passes
+    // `durationSec: null` (verified across the repo), so this branch is opt-in
+    // and no shipped film re-cuts.
+    const fixed = source.durationSec;
+    return fixed && fixed > 0 ? fixed : Infinity;
+  }
   const dur = source.durationSec;
   return dur && dur > 0 ? Math.min(CLIP_SLOT_MAX_SEC, dur) : CLIP_SLOT_MAX_SEC;
 }

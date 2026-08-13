@@ -12,6 +12,16 @@ import type { BeatGrid } from './stories-templates';
 
 /** Target teaser length — a "few seconds". */
 export const TEASER_TARGET_SEC = 6;
+/**
+ * How long the rigid "Made with Setnayan" end card holds, in seconds.
+ *
+ * 🚨 THIS EXISTS BECAUSE THE END CARD WAS EATING THE FILM. The beat scheduler
+ * gives its LAST source everything remaining, and the end card is appended
+ * last, so its slot was however much time the photos left over: ~2.5s of a 6s
+ * film (42%), and ~27s of a 30s one. Pinning it means the photos absorb the
+ * remainder instead — which is what a montage is.
+ */
+export const TEASER_END_CARD_SEC = 1.6;
 /** A teaser needs enough frames to read as a montage, not a slideshow. */
 export const TEASER_MIN_PHOTOS = 3;
 /** Cap so a 100-photo gallery still yields a tight few-second cut. */

@@ -268,13 +268,14 @@ export function StoriesSearch({
 
           🔒 The council lock is intact and is the reason this is one grid and
           not one card type: the editorial keeps the Chronicle tile, the
-          chapter keeps the byline tile. What merged is the HEADINGS. */}
+          chapter keeps the byline tile. What merged is the HEADINGS.
+
+          🚨 THE ANCHOR IS GATED ON CHAPTERS, NOT ON THIS SECTION. Before the
+          merge this section only existed when chapters did, so the id was safe
+          by construction; merging the two made it render for editorials alone,
+          which would have pointed "storytellers" at somebody else's content.
+          Deny-by-default: no chapters, no anchor. */}
       {editorialResults.length > 0 || chapterResults.length > 0 ? (
-        {/* 🚨 THE ANCHOR IS GATED ON CHAPTERS, NOT ON THIS SECTION. Before
-            the merge this section only existed when chapters did, so the id was
-            safe by construction; merging the two made the section render for
-            editorials alone, which would have pointed "storytellers" at
-            somebody else's content. Deny-by-default: no chapters, no anchor. */}
         <section
           id={chapterResults.length > 0 ? 'storytellers' : undefined}
           className="scroll-mt-24"

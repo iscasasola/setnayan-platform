@@ -48,4 +48,10 @@ Nothing above was covered. `front-door-invariants.test.ts` had ten tests and non
 
 11 sabotages, each with the anchor's occurrence count printed **before and after** so a mutation that did not land could not be mistaken for a guard that held. Details in the PR body.
 
-SPEC IMPACT: None. No SKU, price, schema or migration. The one shelf, its four chips and both thresholds are the already-approved Session 4 port (`prototypes/front_door_and_seam_2026-08-12.html` rev 3) — this fixes defects in it and does not change the design. The front door remains behind `NEXT_PUBLIC_NEW_FRONT_DOOR`, which is off; the Journal credit fix is live immediately.
+### ⚠ These are defects on a LIVE public page, not behind a dark flag
+
+Both the code default and the standing note said the front door was merged but switched off. **Measured against `https://www.setnayan.com/` instead of read: it is the live homepage.** The response carries `fd-chipbar`, `fd-storyrow` and 24 `fd-kindtag` marks, no `HomeReskin` markers at all, all four chips render, and `/?c=With%20video` returns the real *"Nothing under 'With video' yet — there are 33 pieces"* block. So `NEXT_PUBLIC_NEW_FRONT_DOOR` has been flipped since that note was written.
+
+🔑 **A flag's default in code is not its value in production, and a note about a flag is a claim about the past.** Read the deployed page. The first draft of this entry asserted the opposite in its own last line.
+
+SPEC IMPACT: None. No SKU, price, schema or migration. The one shelf, its four chips and both thresholds are the already-approved Session 4 port (`prototypes/front_door_and_seam_2026-08-12.html` rev 3) — this fixes defects in it and does not change the design.

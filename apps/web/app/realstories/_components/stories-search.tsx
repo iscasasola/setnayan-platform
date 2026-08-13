@@ -9,8 +9,8 @@
 // the already-public featured+curated pool crosses STORIES_SEARCH_MIN_POOL — a
 // search box over a dozen items reads as a dead platform (Simplicity Canon:
 // don't build search before there's something to find). Below the gate the
-// page keeps its shelf layout (the editorial cascade + the Storytellers shelf);
-// this component never mounts.
+// page keeps its ONE shelf (the editorial cascade plus the chapters and the
+// Journal, merged 2026-08-13); this component never mounts.
 //
 // Facets span BOTH pools but results KEEP THEIR VOICE (the non-negotiable lock):
 //   • editorial → the Chronicle newspaper Tile (reused from gallery.tsx);
@@ -22,9 +22,10 @@
 // IMPLEMENTATION of it. The lock is the GRAMMAR: an editorial must not look
 // like a chapter. The owner merged the headings onto one shelf ("option B");
 // both tiles are unchanged, so the lock holds. Guarded by
-// `stories-one-shelf.test.ts`, which nothing did before. Same-event cross-links (the
-// "Watch the storyteller's cut" / "Read the editorial" chips) ride along on the
-// tiles exactly as on the shelves.
+// `stories-one-shelf.test.ts`, which nothing did before.
+//
+// Same-event cross-links (the "Watch the storyteller's cut" / "Read the
+// editorial" chips) ride along on the tiles exactly as on the shelf.
 //
 // READ-ONLY over the already-public pool: the page hands down only featured
 // chapters + consented/curated editorials, so nothing unpublished/unfeatured/

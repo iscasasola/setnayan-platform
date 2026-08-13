@@ -34,8 +34,20 @@ test.describe('Homepage', () => {
     // off-canvas, so this asserts presence, not visibility).
     await expect(page.locator('nav.fd-rail')).toHaveCount(1);
 
-    // The wordmark, and the brand spelled in full (brand lock: never STNYN).
-    await expect(page.getByRole('link', { name: 'SETNAYAN', exact: true }).first()).toBeVisible();
+    /*
+      The wordmark — asserted in TITLE CASE, and that is the point of the
+      assertion, not an accident of it.
+
+      🔒 Google refused OAuth brand verification on 2026-07-25 partly because
+      the ALL-CAPS wordmark did not read as a match for the consent-screen app
+      name. The page renders capitals via `text-transform` while the markup —
+      and therefore the ACCESSIBLE NAME, which is what a reviewer's tooling and
+      a screen reader read — says "Setnayan". This line is the live proof of
+      that: an earlier draft asserted 'SETNAYAN' and could not find the element,
+      which is exactly the evidence wanted.
+      Brand lock: the full spelling, never STNYN.
+    */
+    await expect(page.getByRole('link', { name: 'Setnayan', exact: true }).first()).toBeVisible();
 
     // Search answers a SIGNED-OUT person — deliberate, and the one thing this
     // page exists for. It is a real GET form to the marketplace.

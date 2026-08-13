@@ -175,8 +175,26 @@ export function FrontDoorShell({
           >
             ☰
           </button>
+          {/*
+            🔒 THE TEXT IS TITLE-CASE "Setnayan" AND THE CAPITALS COME FROM CSS.
+            It looks identical to the approved prototype — `.fd-wordmark` carries
+            `text-transform: uppercase` — but the string in the HTML, in the
+            accessible name, and in anything a reviewer or a screen reader reads
+            now matches the OAuth consent-screen app name character for
+            character.
+
+            🚨 THIS IS NOT A STYLE PREFERENCE. Google refused Setnayan's OAuth
+            brand verification on 2026-07-25, and one of the two stated reasons
+            was that the ALL-CAPS wordmark did not read as a match for the app
+            name. The page that fixed it (`HomeReskin`) rendered
+            `<span class="hr-wordmark">Setnayan</span>` in title case with no
+            transform — and `app/home-brand-name.test.ts` was written to hold
+            that. When the front door replaced it in caps, the guard kept
+            passing because it was still reading the retired file. Ported here
+            with the page.
+          */}
           <Link href="/" className="fd-wordmark">
-            SETNAYAN
+            Setnayan
           </Link>
         </div>
 

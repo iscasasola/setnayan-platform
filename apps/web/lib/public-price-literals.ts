@@ -121,23 +121,6 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     reason: 'Illustrative budget figure in onboarding copy — not a Setnayan SKU.',
   },
 
-  // ── homepage pillar mocks: an illustrative couple's budget, not a price list ──
-  ...(
-    [
-      ['₱420,000', 'Mock total budget in the planning-pillar screenshot.'],
-      ['₱120,000', 'Mock venue line in the same screenshot.'],
-      ['₱150,000', 'Mock catering line.'],
-      ['₱45,000', 'Mock photography line.'],
-      ['₱35,000', 'Mock coordination line.'],
-      ['₱85,000', 'Mock vendor quote chip.'],
-      ['₱8,000', 'Mock "quote changed −₱8,000" delta — a saving, not a price.'],
-    ] as const
-  ).map(([literal, reason]) => ({
-    file: 'app/_components/home/pillars.tsx',
-    literal,
-    sku: null,
-    reason,
-  })),
 ];
 
 /** '₱1,000' → 1000. Returns null for anything unparseable. */

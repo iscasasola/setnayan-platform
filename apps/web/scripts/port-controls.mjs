@@ -243,13 +243,20 @@ const HREF_RE = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|\{\s*`([^`]*)`\s*\}|\{\s*"(
  * regenerate the baseline, so a blind spot here gets written down as a
  * DELIBERATE REMOVAL THAT NEVER HAPPENED, and the guard then defends the lie.
  *
- * Now it takes the whole `{...}` expression and records every identifier in
- * it. Over-capture is SAFE BY CONSTRUCTION in this guard: missing → fail,
- * added → pass, so a few extra names can never hide a real removal. Under-
- * capture was the only direction that could.
+ * Now it also reads the two BRANCHES of a ternary.
+ *
+ * ⚠ AND ONLY THOSE. The first cut of this widening recorded EVERY identifier
+ * inside the braces, which is over-capture — safe in the missing→fail /
+ * added→pass sense, but it wrote `null`, `p`, `id` and `bind` into the
+ * baseline as if they were controls. A guard whose baseline is full of noise
+ * is one people learn to skim, and this repo has already paid for a guard that
+ * cried wolf. Two shapes, both real, nothing else:
+ *     action={doThing}
+ *     action={cond ? doThisThing : doThatThing}
  */
 const ACTION_EXPR_RE = /\b(?:form)?[aA]ction\s*=\s*\{([^{}]*)\}/g;
-const IDENT_RE = /[A-Za-z_$][\w$]*/g;
+const BARE_IDENT_RE = /^\s*([A-Za-z_$][\w$]*)\s*$/;
+const TERNARY_RE = /^\s*[^?]+\?\s*([A-Za-z_$][\w$]*)\s*:\s*([A-Za-z_$][\w$]*)\s*$/;
 /**
  * The `routes` builder from lib/routes.ts — the repo's own "no hand-typed
  * paths" guardrail. Two things this pattern had to learn the hard way:
@@ -287,7 +294,17 @@ export function extractControls(rawSource) {
     destinations.add(href);
   }
   for (const m of source.matchAll(ACTION_EXPR_RE)) {
-    for (const id of m[1].match(IDENT_RE) ?? []) actions.add(id);
+    const expr = m[1];
+    const bare = BARE_IDENT_RE.exec(expr);
+    if (bare?.[1]) {
+      actions.add(bare[1]);
+      continue;
+    }
+    const ternary = TERNARY_RE.exec(expr);
+    if (ternary?.[1] && ternary[2]) {
+      actions.add(ternary[1]);
+      actions.add(ternary[2]);
+    }
   }
   for (const m of source.matchAll(ROUTES_RE)) actions.add(`routes${m[1]}`);
 

@@ -27,6 +27,7 @@ import { formatAudienceCount } from '@/lib/creator-audience';
 import { fetchCreatorInquiriesDriven } from '@/lib/inquiry-attribution';
 import { ViewBeacon } from '@/app/u/_components/view-beacon';
 import { FollowButton } from '@/app/u/_components/follow-button';
+import { MutualDays } from '@/app/u/_components/mutual-days';
 
 // Public account profile · setnayan.com/u/[user-slug].
 //
@@ -353,6 +354,23 @@ export default async function AccountProfilePage({ params }: Props) {
           </div>
         )}
 
+        {/* "The days you were both there" — a per-VIEWER client island, for the
+            same reason FollowButton is one: this page is ISR-cached, and an
+            answer that differs per visitor must never enter that cache. It
+            renders nothing for a signed-out visitor, nothing on your own
+            profile, and nothing while the feature is off. The holder's name is
+            passed ONLY where the page already prints it publicly, so the island
+            can never become a name oracle for a hidden/empty profile. */}
+        {/* ⚠ NOT `displayName` — that variable falls back to the literal
+            "Celebrations" when the account has no name set, which would print
+            "the next time you and Celebrations are at the same celebration".
+            Pass the REAL name or nothing; the island says "them" when it has
+            nothing, which is always readable. */}
+        <MutualDays
+          profileUserId={user.user_id}
+          profileName={hasPublicContent ? (user.display_name?.trim() || null) : null}
+        />
+
         {hasChapters ? (
           <ChapterTimeline chapters={chapters} slug={canonicalSlug} />
         ) : null}
@@ -540,6 +558,56 @@ function CreatorInfluence({ vendors }: { vendors: CreatorInfluenceVendor[] }) {
 }
 
 const UPROF_CSS = `
+  /* "Days you were both there" — rendered by the MutualDays client island.
+     The island is a separate file, so these classes are its only styling; keep
+     them here with the rest of the page's CSS rather than shipping a second
+     <style> block. */
+  .uprof-md { margin-top: clamp(2.5rem, 6vw, 3.75rem); }
+  .uprof-md-head {
+    font-size: clamp(1.2rem, 3.5vw, 1.6rem);
+    text-align: center;
+    margin: 0 0 clamp(1.25rem, 3vw, 1.75rem);
+    color: var(--m-ink, #1B1A17);
+  }
+  .uprof-md-invite {
+    max-width: 34rem;
+    margin: 0 auto;
+    text-align: center;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: color-mix(in srgb, var(--m-ink, #1B1A17) 62%, transparent);
+  }
+  .uprof-md-list { list-style: none; margin: 0; padding: 0; }
+  .uprof-md-item + .uprof-md-item { margin-top: 0.9rem; }
+  .uprof-md-card {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.95rem 1.1rem;
+    border: 1px solid color-mix(in srgb, var(--m-ink, #1B1A17) 12%, transparent);
+    /* The same token as .uprof-card and .uprof-tl-card — a shared day is a card
+       in the same stack, so it must not round differently from its neighbours. */
+    border-radius: var(--m-r-lg, 22px);
+    background: color-mix(in srgb, #FFFFFF 60%, transparent);
+    text-decoration: none;
+    transition: background-color 200ms, border-color 200ms;
+  }
+  .uprof-md-card:hover {
+    background: #FFFFFF;
+    border-color: color-mix(in srgb, var(--m-ink, #1B1A17) 22%, transparent);
+  }
+  .uprof-md-body { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; flex: 1; }
+  .uprof-md-title { font-size: 1.02rem; color: var(--m-ink, #1B1A17); }
+  .uprof-md-meta {
+    font-size: 0.82rem;
+    color: color-mix(in srgb, var(--m-ink, #1B1A17) 55%, transparent);
+  }
+  .uprof-md-chev {
+    font-size: 1.35rem;
+    line-height: 1;
+    color: color-mix(in srgb, var(--m-ink, #1B1A17) 35%, transparent);
+  }
+
   .uprof-inf { margin-top: clamp(2.5rem, 6vw, 3.75rem); }
   .uprof-inf-head {
     font-size: clamp(1.2rem, 3.5vw, 1.6rem);

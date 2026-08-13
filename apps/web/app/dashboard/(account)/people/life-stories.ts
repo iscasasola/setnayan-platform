@@ -16,9 +16,13 @@ import {
  * Person-spine · Phase 2 · LIFE STORIES — server actions (STAGED / flag-off).
  *
  * ⚠ Every mutating/assembly action hard-guards on `personLifeStoriesEnabled()`
- * (default OFF), so in production they are inert no-ops until PH counsel signs
- * off and the owner flips `NEXT_PUBLIC_PERSON_LIFE_STORIES=1`. Nothing writes or
- * surfaces cross-event participant media while the flag is off.
+ * (default OFF), so in production they are inert no-ops until the owner sets
+ * `NEXT_PUBLIC_PERSON_LIFE_STORIES=1`. Nothing writes or surfaces cross-event
+ * participant media while the flag is off.
+ * ⚖ THAT IS THE ONLY CONDITION LEFT — corrected 2026-08-13. This used to say
+ * "until PH counsel signs off AND …"; the first half was discharged by the
+ * OWNER'S OWN ruling as registered DPO, not by outside counsel. See the
+ * authority note on personLifeStoriesEnabled() in lib/person-life-stories.ts.
  * Plan: 03_Strategy/People_Graph_and_Lifelong_Identity_2026-07-04.md §9 + §12.
  *
  * WHAT THIS DOES: multi-homes a shared event photo / 5s clip / editorial into
@@ -194,19 +198,35 @@ export async function multiHomePapicItem(input: {
   if (!personLifeStoriesEnabled()) return OFF;
   const admin = createAdminClient();
 
-  // Every tag on this item, with the tagged guest's linked person (if any).
+  // Every tag on this item, with the tagged guest's linked person (if any) and
+  // their photo-consent answer.
+  //
+  // 🔑 `photo_consent` IS READ HERE SO THE CONSENT STAMP HAS A WRITER. A
+  // photo/clip row's `consented_at` was never set by anything — the column
+  // existed, the schema comment said it "may be NULL" for media, and every
+  // media row therefore carried NULL forever. That is fine for the person's own
+  // private archive (tag/QR co-presence is its own consent surface there) but it
+  // left the ONE column that says "this co-presence may be shown publicly" with
+  // no writer at all — a gate with no handle, the fifth in this codebase. The
+  // mutual-days read (resolveMutualStoryDays) requires the stamp, so without
+  // this it would be correct and permanently empty.
+  //
+  // The row is still written when consent is false — the person keeps the item
+  // in their OWN story — it just never carries the stamp, so it can never
+  // surface on anyone else's page. Stricter, never looser.
   const { data: tags, error: tagErr } = await admin
     .from('photo_tags')
-    .select('tag_id,source,guest_id,guests!inner(person_id)')
+    .select('tag_id,source,guest_id,guests!inner(person_id,photo_consent)')
     .eq('event_id', input.eventId)
     .eq('source_table', input.sourceTable)
     .eq('source_id', input.sourceId);
   if (tagErr) return { ok: false, error: 'Couldn’t read tags.' };
 
+  type TaggedGuest = { person_id: string | null; photo_consent: boolean | null };
   type TagRow = {
     tag_id: string;
     source: 'individual_qr' | 'table_qr' | 'auto_face' | 'manual_pick';
-    guests: { person_id: string | null } | { person_id: string | null }[] | null;
+    guests: TaggedGuest | TaggedGuest[] | null;
   };
   const rows: {
     person_id: string;
@@ -216,8 +236,10 @@ export async function multiHomePapicItem(input: {
     source_id: string;
     origin: StoryOrigin;
     source_tag_id: string;
+    consented_at: string | null;
   }[] = [];
   const seen = new Set<string>();
+  const now = new Date().toISOString();
 
   for (const t of (tags ?? []) as TagRow[]) {
     const origin = originFromPhotoTagSource(t.source); // null for auto_face → skipped
@@ -234,6 +256,10 @@ export async function multiHomePapicItem(input: {
       source_id: input.sourceId,
       origin,
       source_tag_id: t.tag_id,
+      // Stamp ONLY on an explicit yes. `photo_consent` is a boolean that
+      // defaults to true, but NULL (or a read that somehow lost the column)
+      // must not read as consent — fail closed.
+      consented_at: g?.photo_consent === true ? now : null,
     });
   }
   if (rows.length === 0) return { ok: true };

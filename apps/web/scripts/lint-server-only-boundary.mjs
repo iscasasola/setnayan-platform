@@ -113,7 +113,40 @@ function source(file) {
 }
 
 const isClient = (file) => /(^|\n)\s*['"]use client['"]/.test(source(file).clean);
-const isServerOnly = (file) => /(^|\n)\s*import\s+['"]server-only['"]/.test(source(file).clean);
+
+/**
+ * MODULES DECLARED AS A BOUNDARY WITHOUT CARRYING `import 'server-only'`.
+ *
+ * 🪤 WHY NOT JUST WRITE `import 'server-only'` IN THEM? Because `server-only` is
+ * a Next BUNDLER ALIAS and there is no installed package by that name in this
+ * workspace — a module that imports it becomes unloadable under `tsx --test`,
+ * which is how every rule in `lib/` is proved. Measured: of the 171 server-only
+ * modules in this repo, exactly ZERO have a co-located unit test. That is not a
+ * coincidence, and a privacy rule that cannot be unit-tested is a worse trade
+ * than a boundary declared here.
+ *
+ * ⚠ THE SERVICE-ROLE CLIENT ITSELF IS NOT ON THIS LIST, AND THAT IS A KNOWN
+ * GAP, NOT AN OVERSIGHT. `lib/supabase/admin.ts` bypasses RLS, and its own
+ * docblock says "Never import this from a client component" — a sentence, not a
+ * mechanism. Adding it here was tried on 2026-08-13 and reports **23**
+ * pre-existing client→…→admin chains (reveal-config, entitlements,
+ * promo-free-windows, papic-cameras, live-studio-*, v2-catalog). They compile
+ * today because the bundler drops the unused edge, so this is latent risk
+ * rather than a live leak — but 23 findings landed as a baseline would be a
+ * bill nobody pays, and a guard that cries wolf 23 times teaches you to skim
+ * past the one time it is right. Fixing those chains is its own piece of work.
+ */
+const EXTRA_BOUNDARY_MODULES = [
+  // Reads the two-person story intersection through the service-role client.
+  // Nothing in a browser bundle has any business reaching it.
+  'lib/person-life-stories.ts',
+];
+const extraBoundaryPaths = new Set(
+  EXTRA_BOUNDARY_MODULES.map((p) => join(WEB_ROOT, p)),
+);
+const isServerOnly = (file) =>
+  extraBoundaryPaths.has(file) ||
+  /(^|\n)\s*import\s+['"]server-only['"]/.test(source(file).clean);
 
 /**
  * A `'use server'` module is a BOUNDARY, not an edge to follow.
@@ -213,7 +246,10 @@ if (violations.length > 0) {
     console.error(`  ${rel(chain[0])}  ('use client')`);
     for (let i = 1; i < chain.length; i++) {
       const last = i === chain.length - 1;
-      console.error(`    ${last ? '└─▶' : '├─▶'} ${rel(chain[i])}${last ? "  ← import 'server-only'" : ''}`);
+      const why = extraBoundaryPaths.has(chain[i])
+        ? '  ← declared a boundary (EXTRA_BOUNDARY_MODULES)'
+        : "  ← import 'server-only'";
+      console.error(`    ${last ? '└─▶' : '├─▶'} ${rel(chain[i])}${last ? why : ''}`);
     }
     console.error('');
   }

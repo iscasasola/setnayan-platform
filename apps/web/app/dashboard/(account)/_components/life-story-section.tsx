@@ -10,11 +10,15 @@ import {
 
 /**
  * Person-spine · Phase 2 · LIFE STORIES — participant "Your Story" surface
- * (STAGED / flag-off / counsel-gated).
+ * (STAGED / flag-off).
  *
  * ⚠ This component only renders when `personLifeStoriesEnabled()` is true, which
  * is decided on the server (account home page.tsx). It is production-inert until
- * PH counsel clears Phase 2 and the owner sets NEXT_PUBLIC_PERSON_LIFE_STORIES=1.
+ * the owner sets NEXT_PUBLIC_PERSON_LIFE_STORIES=1.
+ * ⚖ ONE CONDITION, NOT TWO — corrected 2026-08-13. This said "until PH counsel
+ * clears Phase 2 AND …"; the owner discharged that half himself as registered
+ * DPO. No external counsel opinion exists — see the authority note on
+ * personLifeStoriesEnabled() in lib/person-life-stories.ts.
  *
  * Story items are REFERENCES (source_table + source_id), NOT media — so we never
  * render thumbnails / R2 images here. We present the person's story grouped by

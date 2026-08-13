@@ -41,33 +41,34 @@
  * It is the first room inside, not the last step outside — so the colour change
  * is a threshold you cross on purpose rather than a mismatch you notice.
  * (`FRONT_DOOR_AND_SEAM_FINAL` §4b.)
+ *
+ * ─── WHAT IS IN THIS FILE, AND WHY IT IS SO SMALL ────────────────────────
+ * Only the context, the opener and a `dynamic()` reference. The panel — the
+ * card, the OAuth row, the Turnstile field, two stylesheets — lives in
+ * `sign-in-here-panel.tsx` and is fetched on the first press. See the note
+ * there: this provider is in the ROOT LAYOUT, so anything it imports statically
+ * ships on every page in the product.
  */
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
-import { useModalA11y } from '@/lib/use-modal-a11y';
-import { SignInCard } from '@/app/login/_components/sign-in-card';
-import { detectSignInOAuth, type SignInOAuth } from './detect-oauth-shell';
-import '@/app/_components/home/home-reskin.css';
-import './sign-in-here.css';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
+import type { OpenSignInOptions } from './sign-in-here-types';
 
-export type OpenSignInOptions = {
-  /**
-   * Ran after a successful in-place sign-in, before the refresh. The shop
-   * page's Save button uses it to retry the save the person had already
-   * pressed, so the four presses in the prototype are four presses here.
-   */
-  onSignedIn?: () => void;
-};
+export type { OpenSignInOptions };
+
+/*
+  🚨 LAZY, AND THIS IS THE WHOLE REASON THE PANEL IS A SEPARATE FILE.
+  This provider is mounted in the ROOT LAYOUT. A static import of the panel
+  would put <SignInCard>, the OAuth row, the Turnstile field and two
+  stylesheets into the first-load JS of EVERY page — for every visitor who
+  never presses Sign in. That is the same defect the 2026-07-02 perf sweep
+  fixed for the homepage overlays (finding #7), at a larger blast radius.
+  `ssr: false` is safe: there is nothing to server-render while it is closed.
+*/
+const SignInHerePanel = dynamic(
+  () => import('./sign-in-here-panel').then((m) => m.SignInHerePanel),
+  { ssr: false },
+);
 
 type SignInHereApi = {
   open: (options?: OpenSignInOptions) => void;
@@ -114,112 +115,3 @@ export function SignInHereProvider({ children }: { children: React.ReactNode }) 
   );
 }
 
-/**
- * The panel. Mounted only while open, so nothing about it — not the card, not
- * the overlay styles' effect on the page — exists for a visitor who never
- * presses Sign in.
- */
-function SignInHerePanel({
-  options,
-  onClose,
-}: {
-  options: OpenSignInOptions;
-  onClose: () => void;
-}) {
-  const router = useRouter();
-  const ref = useRef<HTMLDivElement>(null);
-  const [oauth] = useState<SignInOAuth>(detectSignInOAuth);
-  /*
-    ⚠ READ FROM `window`, NOT `useSearchParams()` — and this is not a style
-    choice. This provider is mounted in the ROOT LAYOUT, so a `useSearchParams`
-    anywhere in it opts EVERY page in the app out of static rendering (or fails
-    `next build` outright with the missing-Suspense error). The marketing pages
-    and the front door are ISR/edge-cached; quietly making them dynamic to
-    build one URL would be a site-wide performance regression shipped as a
-    sign-in tweak. This panel only ever mounts from a click, so `window` is
-    always there by the time it is read.
-    🪤 `tsc` cannot see this class of break — only a real `next build` can.
-  */
-  const [here, setHere] = useState('/');
-
-  useEffect(() => {
-    setHere(`${window.location.pathname}${window.location.search}`);
-  }, []);
-  /*
-    🚨 THERE IS NO `mounted` GATE HERE, AND ADDING ONE BREAKS THE DIALOG
-    SILENTLY. `useModalA11y` reads `containerRef.current` inside an effect that
-    runs ONCE — its deps are `open` (a constant `true` here), the ref OBJECT and
-    the id, none of which change when a mount flag flips. So with an
-    `if (!mounted) return null` in front of the portal, the first render has no
-    DOM, the effect early-returns on a null ref, and it NEVER RUNS AGAIN:
-    Escape stops closing the panel, Tab wanders into the page behind it, and
-    the body never locks. Nothing throws and it looks completely fine.
-
-    The gate is also unnecessary. This component is rendered only from a click,
-    so `document` always exists by then — the panel is never part of the
-    server-rendered tree (the provider holds `null` until somebody presses Sign
-    in). The `typeof document` line below is a RENDER-TIME safety net, not a
-    state gate: it cannot delay the first real render the way state does, so
-    the ref is attached before the effect fires.
-
-    `app/login/_components/sign-in-card-modal.tsx` is the shape that works and
-    has always worked: no gate, `open: true`, ref attached on first commit.
-  */
-  useModalA11y({ open: true, onClose, containerRef: ref });
-
-  /*
-    WHERE OAUTH COMES BACK TO.
-    OAuth genuinely leaves — it is Google's page, not ours — so `next` is the
-    only thing that can bring somebody back to the shop they were reading. It
-    carries the CURRENT url, query and all.
-    (The password path never navigates at all; `next` is threaded so both
-    halves of the card agree about where "here" is.)
-  */
-  const next = here;
-
-  const handleSignedIn = useCallback(
-    () => {
-      onClose();
-      options.onSignedIn?.();
-      /*
-        🔑 REFRESH, NOT PUSH — this is the whole seam in one call.
-        `router.refresh()` re-renders the server components with the new
-        session while leaving every CLIENT component mounted. That is what
-        keeps a half-written enquiry in its box. `router.push(here)` would look
-        identical in the address bar and throw the typing away.
-      */
-      router.refresh();
-    },
-    [onClose, options, router],
-  );
-
-  if (typeof document === 'undefined') return null;
-
-  return createPortal(
-    <div
-      className="home-reskin-ov sn-signin-here"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Sign in"
-      ref={ref}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="hr-ov-card sn-signin-terra" style={{ maxWidth: 460 }}>
-        <button type="button" className="hr-ov-x" onClick={onClose} aria-label="Close">
-          ✕
-        </button>
-        <SignInCard
-          next={next}
-          signupHref={`/signup?next=${encodeURIComponent(next)}`}
-          showOAuth={oauth.show}
-          desktopOAuth={oauth.desktop}
-          onNavigate={onClose}
-          onSignedIn={handleSignedIn}
-        />
-      </div>
-    </div>,
-    document.body,
-  );
-}

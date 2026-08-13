@@ -104,6 +104,7 @@ export function Nav({
             className="hr-signin hr-glass-dark"
             href="/login"
             prefetch={false}
+            aria-haspopup="dialog"
             onClick={(e) => {
               if (!signInHere.available) return;
               e.preventDefault();

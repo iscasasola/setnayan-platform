@@ -237,6 +237,7 @@ export function FrontDoorShell({
                 href="/login"
                 prefetch={false}
                 className="fd-btn-quiet"
+                aria-haspopup="dialog"
                 onClick={openSignIn}
               >
                 Sign in
@@ -366,6 +367,7 @@ export function FrontDoorShell({
                   href="/login"
                   prefetch={false}
                   className="fd-btn-gold"
+                  aria-haspopup="dialog"
                   onClick={openSignIn}
                 >
                   Sign in

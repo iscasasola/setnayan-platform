@@ -46,18 +46,34 @@ test.describe('Homepage', () => {
     await expect(startPlanning).toHaveAttribute('href', '/onboarding/wedding');
 
     // Nav sign-in — owner 2026-06-30 "login should be like the rest of the upper
-    // menu. a popup." The reskin's glass nav now ships a "Sign in" BUTTON that
-    // opens the real login overlay (Google + Apple + email) in a dialog, instead
-    // of a link to /login. Visible in the gate on every viewport.
-    const signIn = page.getByRole('button', { name: /^Sign in$/i }).first();
+    // menu. a popup." Pressing it must open the real login (Google + Apple +
+    // email) OVER this page and must NOT navigate.
+    //
+    // ⚠ THIS ASSERTED `getByRole('button')` UNTIL 2026-08-13, and that pinned
+    // the wrong thing. The control is now a real <Link href="/login"> whose
+    // press is intercepted — deliberately, so it still works before hydration
+    // and with JavaScript off, supports middle-click / open-in-new-tab, and
+    // satisfies `@next/next/no-html-link-for-pages`. `aria-haspopup="dialog"`
+    // keeps that truthful to a screen reader: a link, that opens a dialog.
+    //
+    // 🔑 SO THIS NOW ASSERTS THE RULE INSTEAD OF THE ELEMENT — the dialog opens
+    // AND THE URL DOES NOT CHANGE. The old version never checked the second
+    // half, which is the actual owner instruction: a popup, not a navigation.
+    // Element type is an implementation detail; "you did not leave the page" is
+    // the promise.
+    const urlBefore = page.url();
+    const signIn = page.getByRole('link', { name: /^Sign in$/i }).first();
     await expect(signIn).toBeVisible();
+    await expect(signIn).toHaveAttribute('aria-haspopup', 'dialog');
     await signIn.click();
     // The popup is a role=dialog labelled "Sign in" carrying the email field +
-    // the "Continue" submit — assert it opens (the popup behavior the owner asked
-    // for).
+    // the "Continue" submit — assert it opens (the popup behavior the owner
+    // asked for).
     const dialog = page.getByRole('dialog', { name: /^Sign in$/i });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel(/^Email$/i)).toBeVisible();
+    // And we are still on the page we started on — no navigation happened.
+    expect(page.url()).toBe(urlBefore);
   });
 
   test('homepage responds with 200', async ({ page }) => {

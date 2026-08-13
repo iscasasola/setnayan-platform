@@ -103,7 +103,7 @@ decision says nothing about.
 
 ### Guard
 
-`app/_components/auth/seam-invariants.test.ts` — **16 assertions, all 16
+`app/_components/auth/seam-invariants.test.ts` — **17 assertions, all 17
 mutation-tested with the occurrence count printed before → after**, baseline
 green and restored green. It pins: sign-out in the account menus and nowhere
 else (**and still present in all three** — narrowing "one place" to "no place"
@@ -143,6 +143,44 @@ the component is permanently mounted, so `mounted` is already true by the time
 bug; the idiom plus a constant `open` is.** Left alone, deliberately.
 
 Guarded, and the guard mutation-tested with the rest.
+
+### 🚨 A second defect in my own first cut: the provider shipped the login form to every page
+
+The panel was imported **statically** into `SignInHereProvider` — which is
+mounted in the **root layout**. That put `<SignInCard>`, the OAuth row, the
+Turnstile field and two stylesheets into the first-load JS of **every page in
+the product**, for every visitor who never presses Sign in.
+
+🔑 **That is the exact defect this repo's own 2026-07-02 perf sweep already
+fixed once** (finding #7 — `HomeReskin` wraps `HomeOverlays` in
+`dynamic(…, { ssr: false })` precisely because it was *"CLOSED on first paint …
+yet statically imported into the homepage's first-load JS bundle"*) —
+reintroduced at a strictly **larger** blast radius, because the root layout is
+every route rather than one page.
+
+And my own comment asserted the opposite: *"renders NOTHING until somebody
+presses Sign in … so a visitor who never signs in pays nothing for it."*
+**Rendering nothing and costing nothing are different claims**, and only the
+second one needed a code change to be true. The panel is now its own module
+behind a `dynamic()` import, and a guard asserts the provider never statically
+imports the card, the OAuth detector or either stylesheet.
+
+### 🎭 And an e2e test caught the one thing static checks cannot
+
+`homepage.spec.ts` went red: it asserted the nav sign-in is a
+`getByRole('button')`, and the control is now a real `<Link>`.
+
+**The test was pinning the element, not the rule.** The owner's instruction
+(2026-06-30) is *"login should be like the rest of the upper menu — a popup"*,
+i.e. **do not navigate**, and the old assertion never checked that at all. It
+now asserts what the rule actually says: the dialog opens **and the URL is
+unchanged**.
+
+Keeping these as links is deliberate — they work before hydration and with
+JavaScript off (a `<button>` pressed before hydration does nothing), and
+middle-click still opens `/login`. To keep that honest to a screen reader, all
+five controls now carry **`aria-haspopup="dialog"`**: a link, that opens a
+dialog. Both halves true, and the e2e test keys on that instead of the tag.
 
 ### Traps paid on the way
 

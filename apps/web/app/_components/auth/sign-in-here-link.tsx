@@ -66,6 +66,7 @@ export function SignInHereLink({
       prefetch={false}
       className={className}
       title={title}
+      aria-haspopup="dialog"
       onClick={(e) => {
         if (!signInHere.available) return;
         // Let the browser handle the presses that mean "somewhere else":

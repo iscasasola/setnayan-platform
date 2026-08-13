@@ -667,8 +667,11 @@ export default async function RootLayout({
           {/* SignInHereProvider = THE ONE sign-in panel, mounted once here so
               every public surface can open it over itself instead of
               navigating away (Redesign Session 6, "the seam"). It renders
-              NOTHING until somebody presses Sign in — no card, no overlay, no
-              styles — so a visitor who never signs in pays nothing for it.
+              NOTHING until somebody presses Sign in, and — because the panel
+              is a `dynamic()` import — DOWNLOADS nothing either, so a visitor
+              who never signs in pays nothing for it. (Rendering nothing and
+              costing nothing are different claims; only the second one needed
+              a code change to be true.)
               Mounted at the root rather than per-page because the surfaces
               that need it do not share an ancestor: the front door at '/',
               the marketing nav, and the shop pages under '/[slug]' are three

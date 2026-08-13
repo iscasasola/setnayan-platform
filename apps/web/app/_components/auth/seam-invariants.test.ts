@@ -184,6 +184,20 @@ test('the front door signs you in without leaving', () => {
     links.length,
     `Every /login control on the front door must open the in-place panel. ${links.length} link(s), ${intercepted.length} intercepted.`,
   );
+  /*
+    A LINK THAT OPENS A DIALOG MUST SAY SO. Keeping these as real links is
+    deliberate — they work before hydration and with JavaScript off, and
+    middle-click still opens /login — but a screen reader would otherwise
+    announce "link" and then be handed a dialog. `aria-haspopup="dialog"` is
+    what makes both halves true at once, and it is the attribute the e2e test
+    now keys on instead of the element type.
+  */
+  const announced = src.match(/aria-haspopup="dialog"/g) ?? [];
+  assert.equal(
+    announced.length,
+    links.length,
+    'Every intercepted sign-in link must carry aria-haspopup="dialog".',
+  );
 });
 
 test('the sign-in panel can actually trap focus, close on Escape and lock scroll', () => {
@@ -200,7 +214,7 @@ test('the sign-in panel can actually trap focus, close on Escape and lock scroll
     then — the render-time `typeof document` bail is the SSR safety net and
     cannot delay the first real render the way state does.
   */
-  const src = code(read('_components/auth/sign-in-here.tsx'));
+  const src = code(read('_components/auth/sign-in-here-panel.tsx'));
   assert.match(
     src,
     /useModalA11y\(/,
@@ -219,7 +233,7 @@ test('the sign-in panel can actually trap focus, close on Escape and lock scroll
 });
 
 test('the panel stays put on success — refresh, never push', () => {
-  const src = code(read('_components/auth/sign-in-here.tsx'));
+  const src = code(read('_components/auth/sign-in-here-panel.tsx'));
   assert.match(
     src,
     /router\.refresh\(\)/,
@@ -269,7 +283,7 @@ test('there is exactly one sign-in panel', () => {
   // dropping everyone on the account board.
   const offenders = TSX_FILES.filter((f) => {
     const rel = f.slice(APP.length + 1);
-    if (rel === '_components/auth/sign-in-here.tsx') return false;
+    if (rel === '_components/auth/sign-in-here-panel.tsx') return false;
     if (rel === 'login/_components/sign-in-card-modal.tsx') return false;
     return /<SignInCard\b/.test(code(readFileSync(f, 'utf8')));
   }).map((f) => f.slice(APP.length + 1));
@@ -296,12 +310,37 @@ test('the sign-in panel wears the locked terracotta, not the front door gold', (
     /#8c6932|#a9834b/i,
     'The front door\'s gold must not appear on the panel — it is the first room inside, not the last step outside.',
   );
-  const panel = code(read('_components/auth/sign-in-here.tsx'));
+  const panel = code(read('_components/auth/sign-in-here-panel.tsx'));
   assert.match(
     panel,
     /sn-signin-terra/,
     'The panel must actually wear the class — a stylesheet nothing references is decoration.',
   );
+});
+
+test('the root-layout provider costs a visitor who never signs in nothing', () => {
+  /*
+    🚨 THE PROVIDER IS IN THE ROOT LAYOUT, so anything it imports STATICALLY
+    ships in the first-load JS of every page in the product. The first cut of
+    this change pulled <SignInCard> — plus the OAuth row, Turnstile and two
+    stylesheets — into it, which is the same defect the 2026-07-02 perf sweep
+    already fixed for the homepage overlays (finding #7), at a larger blast
+    radius. Rendering nothing and COSTING nothing are different claims.
+  */
+  const src = code(read('_components/auth/sign-in-here.tsx'));
+  assert.match(
+    src,
+    /dynamic\(\s*\(\)\s*=>\s*import\('\.\/sign-in-here-panel'\)/,
+    'The panel must be a dynamic() import so it is fetched on the first press, not on every page load.',
+  );
+  const heavy = [/SignInCard/, /home-reskin\.css/, /sign-in-here\.css/, /detect-oauth-shell/];
+  for (const re of heavy) {
+    assert.doesNotMatch(
+      src,
+      new RegExp(`import[^;]*${re.source}`),
+      `The root-layout provider must not statically import ${re.source} — it would ship on every page.`,
+    );
+  }
 });
 
 /* ══════════════════════════════════════════════════════════════════════════

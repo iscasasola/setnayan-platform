@@ -36,8 +36,15 @@ export type StorageRow = {
   orig_bytes?: number | null;
   /** Display web-copy derivative (long-edge 1280 JPEG) size — the forever-hosted copy. */
   display_bytes?: number | null;
-  /** Thumb derivative (long-edge 320 JPEG) size. */
+  /** Thumb derivative (long-edge 320) size. */
   thumb_bytes?: number | null;
+  /**
+   * Tile derivative (long-edge 640) size — the copy a grid WALL renders, added
+   * 2026-08-13. NULL on rows captured before it existed, and on rows that have
+   * not been backfilled; `pos()` treats that as 0, which is right: an
+   * unmeasured byte is not a stored byte we can claim to know about.
+   */
+  tile_bytes?: number | null;
 };
 
 /**
@@ -65,9 +72,17 @@ function pos(v: number | null | undefined): number {
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0;
 }
 
-/** The forever-hosted web copy of one capture = display + thumb derivatives (bytes). */
+/**
+ * The forever-hosted web copy of one capture = every derivative we keep.
+ *
+ * ⚠ `tile_bytes` JOINED THIS SUM ON 2026-08-13, and leaving it out would have
+ * quietly under-reported every figure on the storage readout — the per-event
+ * total, the web-copy ceiling check, and the ~8% ratio the pricing councils
+ * asked to lock from real data. A third derivative that nothing counts is
+ * storage we pay for and cannot see.
+ */
 export function webCopyBytes(row: StorageRow): number {
-  return pos(row.display_bytes) + pos(row.thumb_bytes);
+  return pos(row.display_bytes) + pos(row.tile_bytes) + pos(row.thumb_bytes);
 }
 
 /**

@@ -3,10 +3,12 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   aggregateEventStorage,
+  webCopyBytes,
   BYTES_PER_GB,
   DEFAULT_WEB_COPY_CEILING_GB,
   type StorageRow,
 } from '@/lib/papic-storage-telemetry';
+import { BackfillTilesButton } from './backfill-tiles-button';
 import { listStrandedDriveCopies } from '@/lib/papic-drive-copy-retry';
 import { DRIVE_COPY_RETRY_CEILING } from '@/lib/papic-drive-copy-retry-core';
 
@@ -40,11 +42,11 @@ export default async function PapicStoragePage() {
   const [photos, guests] = await Promise.all([
     admin
       .from('papic_photos')
-      .select('event_id, orig_bytes, display_bytes, thumb_bytes')
+      .select('event_id, orig_bytes, display_bytes, tile_bytes, thumb_bytes')
       .limit(ROW_CAP),
     admin
       .from('papic_guest_captures')
-      .select('event_id, orig_bytes, display_bytes, thumb_bytes')
+      .select('event_id, orig_bytes, display_bytes, tile_bytes, thumb_bytes')
       .limit(ROW_CAP),
   ]);
 
@@ -90,7 +92,10 @@ export default async function PapicStoragePage() {
   let totalWebBytes = 0;
   let measuredStills = 0;
   for (const r of rows) {
-    const web = (r.display_bytes ?? 0) + (r.thumb_bytes ?? 0);
+    // webCopyBytes(), not a local sum: the tile derivative joined this total on
+    // 2026-08-13 and a second hand-written copy of the rule is how one of them
+    // silently keeps under-reporting.
+    const web = webCopyBytes(r);
     totalWebBytes += web > 0 ? web : 0;
     const orig = r.orig_bytes ?? 0;
     if (orig > 0) {
@@ -114,6 +119,21 @@ export default async function PapicStoragePage() {
     rows: [] as Awaited<ReturnType<typeof listStrandedDriveCopies>>['rows'],
   }));
 
+  // How many captures still have no wall-size copy. `null` when a count could
+  // not be measured — filing an unmeasured number under "nothing to do" puts it
+  // in the one place a reader has been told they need not look.
+  const pendingTiles = await (async (): Promise<number | null> => {
+    const [a, b] = await Promise.all([
+      admin.from('papic_photos').select('*', { count: 'exact', head: true }).is('tile_r2_key', null),
+      admin
+        .from('papic_guest_captures')
+        .select('*', { count: 'exact', head: true })
+        .is('tile_r2_key', null),
+    ]);
+    if (a.error || b.error || a.count == null || b.count == null) return null;
+    return a.count + b.count;
+  })().catch(() => null);
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="flex items-center gap-3">
@@ -127,6 +147,21 @@ export default async function PapicStoragePage() {
           </p>
         </div>
       </header>
+
+      {/* WALL-SIZE COPIES — the doorway for the tile backfill. The wall renders
+          105–192 CSS px squares (310–383 device px); the 320px thumb upscaled
+          into that and the 1280px display copy is ~4x heavier than the tile
+          needs. Rows captured before 2026-08-13 have no tile and fall back to
+          display, so this is where they get one. */}
+      <section className="rounded-2xl border border-ink/10 bg-white p-4 shadow-sm">
+        <h2 className="text-base font-semibold text-ink">Wall-size copies</h2>
+        <p className="mt-1 text-sm text-ink/60">
+          The 640px copy the memory wall renders. Photos taken before it existed fall
+          back to the full-view copy — sharp, but about four times heavier than the
+          tile needs.
+        </p>
+        <BackfillTilesButton pending={pendingTiles} />
+      </section>
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile

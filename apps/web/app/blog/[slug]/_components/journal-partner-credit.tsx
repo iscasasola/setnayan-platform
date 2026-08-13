@@ -6,6 +6,31 @@ import {
   type JournalSpotlightPublic,
 } from '@/lib/journal-spotlights';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import type { InquirySource } from '@/lib/inquiry-source';
+
+/**
+ * 🎟 THE LINK CARRIES WHERE THE READER CAME FROM.
+ *
+ * A reader who leaves one of our articles for a credited shop used to arrive
+ * as an anonymous walk-in: the link was a bare `/v/{slug}` with nothing on it.
+ * The shop page reads `?src=` and stamps the inquiry's origin server-side, so
+ * with no tag the enquiry was labelled the plain website default — and
+ * `'editorial'` is in the SOURCED set (`SOURCED_INQUIRY_SOURCES`, mirrored in
+ * SQL by `booking_fee_is_sourced_surface`), while the default is not. So an
+ * article that actually produced a booking could never be counted as one
+ * Setnayan brought. The writing was earning introductions it got no credit
+ * for, silently, with nothing in the app able to notice.
+ *
+ * `/realstories` already did this correctly through `VendorCreditChip`; this
+ * is the same arrival tag on the other surface that credits vendors.
+ *
+ * ⚠ TYPED, NOT A LOOSE STRING. `?src=` is re-validated server-side against a
+ * fixed set, so a typo here would not throw — it would simply be ignored and
+ * the reader would arrive untracked again, which is the exact bug this fixes
+ * and is invisible from the page. Typing it as `InquirySource` makes a typo a
+ * BUILD failure instead of a silent one.
+ */
+const ARRIVAL_TAG: InquirySource = 'editorial';
 
 /**
  * JournalPartnerCredit — the public "Featured partner / In partnership with"
@@ -13,8 +38,9 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
  * Editorial & Journal Spotlights).
  *
  * Each credited vendor shows their logo + business name + a DOFOLLOW link to
- * their public marketplace presence (/v/[slug]) — the dofollow link is the SEO
- * benefit the vendor is being credited with. A `sponsored` placement carries an
+ * their public marketplace presence (the canonical bare-root `/{slug}`, tagged
+ * with where the reader came from — see ARRIVAL_TAG below) — the dofollow link
+ * is the SEO benefit the vendor is being credited with. A `sponsored` placement carries an
  * unambiguous "Sponsored" badge (0038 disclosure rule); free placements
  * (featured_partner / recommended) do not.
  *
@@ -88,7 +114,13 @@ export async function JournalPartnerCredit({
       <ul className="mt-6 space-y-4">
         {spotlights.map((s, i) => {
           const name = s.business_name ?? 'A Setnayan vendor';
-          const href = s.business_slug ? `/v/${s.business_slug}` : null;
+          // The BARE ROOT is the shop's canonical address; `/v/{slug}` is the
+          // legacy form. The shop page self-canonicalises to the clean
+          // bare-root URL, so the `?src=` tag costs the credited vendor no
+          // link equity — which is the whole point of crediting them here.
+          const href = s.business_slug
+            ? `/${s.business_slug}?src=${ARRIVAL_TAG}`
+            : null;
           const logoUrl = logoUrls[i] ?? null;
           return (
             <li

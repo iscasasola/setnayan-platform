@@ -457,5 +457,96 @@ test('chapter reading time is computed from the body, never the excerpt', () => 
   assert.ok(
     !/\/\s*200\b/.test(code(story)),
     'storytellers.ts must not re-derive the words-per-minute rule',
+/* ── 14 · THE ONE SHELF ACTUALLY USES THE SHARED CHIP RULE ────────────────
+   `lib/front-door-composition.test.ts` proves `selectShelf` is right. That
+   proves NOTHING about this page: extracting a pure core and testing it while
+   the call site quietly keeps its own copy is a guard watching the wrong
+   thing. So this asserts the ACT (the feed calls it) AND THE CONSEQUENCE (the
+   page renders what it returned, and holds no second copy of the rule). */
+test('the shelf contents come from the shared chip rule, not a local copy', () => {
+  assert.ok(
+    /selectShelf\(chip,/.test(FEED_CODE),
+    'the feed must ask the shared composer what the chip admits',
+  );
+
+  // THE CONSEQUENCE — the returned lists are what reach the screen. Without
+  // this, the feed could call selectShelf, discard it, and still pass.
+  for (const rendered of ['shownStories', 'shownArticles', 'nothingUnderChip']) {
+    assert.ok(
+      new RegExp(`\\b${rendered}\\b`).test(FEED_CODE),
+      `${rendered} is destructured but never used — the call would be decoration`,
+    );
+  }
+  assert.ok(
+    /leadStories\.map/.test(FEED_CODE) && /leadArticles\.map/.test(FEED_CODE),
+    'both kinds must render into the one shelf',
+  );
+
+  // NO SECOND COPY. A re-implemented ternary chain beside the call is how the
+  // page and the tested rule start disagreeing.
+  assert.ok(
+    !/chip === 'With video'\s*\?/.test(FEED_CODE),
+    'the chip rule must live in one place — this is a second copy of it',
   );
 });
+
+/* ── 15 · THE KIND LIVES ON THE CARD ──────────────────────────────────────
+   The merge only works because each card says which kind it is. Lose the tag
+   and the shelf becomes an undifferentiated pile in which our own writing is
+   indistinguishable from a couple's story — which is the one thing the owner
+   asked the card, not the shelf, to carry. */
+test('every card in the one shelf declares its kind', () => {
+  assert.ok(
+    /fd-kindtag[^]*?>\s*Article\s*</.test(FEED_CODE),
+    'the article card must carry the word Article',
+  );
+  assert.ok(
+    /fd-kindtag[^]*?>\s*Their story\s*</.test(FEED_CODE),
+    'the story card must carry the words Their story',
+  );
+  // …and the shelf itself must NOT be split back into two headed rows.
+  assert.ok(
+    /one shelf/.test(FEED),
+    'the shelf still states the rule it exists to keep',
+  );
+});
+
+/* ── 16 · "WITH VIDEO" ASKS THE LOADER, NOT THE PICTURE ───────────────────
+   `thumbUrl` is YouTube-only. Deriving "has video" from it answers NO for a
+   chapter that is entirely video but hosted elsewhere, so that chapter falls
+   out of the one chip built to find it and loses its ▶. The tile type says so
+   in its own comment, and records the same substitution being made once
+   before. It was made again in data.ts. */
+test('a story\'s video flag comes from the loader, never from its thumbnail', () => {
+  const DATA_CODE = code(readFileSync(join(HERE, 'data.ts'), 'utf8'));
+  assert.ok(
+    /hasVideo:\s*s\.hasVideo\b/.test(DATA_CODE),
+    'the front door must carry the loader\'s hasVideo through',
+  );
+  assert.ok(
+    !/hasVideo:\s*Boolean\(\s*s\.thumbUrl\s*\)/.test(DATA_CODE),
+    'hasVideo derived from thumbUrl drops every non-YouTube chapter',
+  );
+});
+
+/* ── 17 · THE LEAD/TRAILING BOUNDARY COMES FROM THE COMPOSER ──────────────
+   Same lesson as #11: the pure split is proven in
+   `lib/front-door-composition.test.ts`, which proves nothing about this page
+   unless the page actually uses it. A hard-coded `slice(4, …)` here silently
+   drops articles the day the first chapter is featured. */
+test('the shelf rows are split by the composer, not by a hard-coded index', () => {
+  assert.ok(
+    /splitShelfRows\(/.test(FEED_CODE),
+    'the feed must ask the composer where the lead grid stops',
+  );
+  // THE CONSEQUENCE — all three returned rows must reach the screen.
+  assert.ok(
+    /leadStories\.map/.test(FEED_CODE) &&
+      /leadArticles\.map/.test(FEED_CODE) &&
+      /trailingArticles\.map/.test(FEED_CODE),
+    'a row that is computed and never rendered is an article nobody can read',
+  );
+  // NO HAND-TYPED BOUNDARY left beside it.
+  assert.ok(
+    !/shownArticles\.slice\(\s*4\s*,/.test(FEED_CODE),
+    'the trailing row must not start at a hard-coded index',

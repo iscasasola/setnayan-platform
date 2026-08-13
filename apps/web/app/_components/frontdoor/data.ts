@@ -247,9 +247,25 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
     title: s.title,
     ownerName: s.ownerName,
     kindLabel: s.kindLabel,
-    hasVideo: Boolean(s.thumbUrl),
+    /*
+      ⚠ THE LOADER'S OWN `hasVideo`, NEVER `Boolean(thumbUrl)`.
+
+      `thumbUrl` is a YOUTUBE-DERIVED poster, and only YouTube yields a
+      derivable thumbnail — so an Instagram or TikTok chapter has a video and
+      no thumb. Deriving "has video" from the picture therefore answers NO for
+      a chapter that is entirely video, which drops it out of the "With video"
+      chip and strips the ▶ from its card.
+
+      `StorytellerTileItem` says this in the type itself, and records that the
+      same substitution was already made once ("Deciding the Watch/Read label
+      from the thumbnail labelled those 'Read'"). The first cut of this file
+      made it again. The loader already computes the honest answer from
+      `embed_url`; carry it.
+    */
+    hasVideo: s.hasVideo,
     // Real now: computed at the loader from the FULL body, not guessed from
     // the lede. Still null-able — a chapter with no body shows no minutes.
+    // (#4400 closed the debt this file used to name here.)
     readingMinutes: s.readingMinutes,
   }));
 

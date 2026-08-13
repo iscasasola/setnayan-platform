@@ -27,6 +27,10 @@ import {
   TRENDING_MIN_LIVE_SHOPS,
   STORIES_MIN_PUBLISHED,
   STORYTELLER_MIN_CHAPTERS,
+  FRONT_DOOR_CHIPS,
+  isChip,
+  selectShelf,
+  splitShelfRows,
   type FrontDoorCounts,
 } from './front-door-composition';
 
@@ -118,4 +122,158 @@ test('when only the writing is full, the page knows the writing carries it', () 
   const c = composeFrontDoor({ chapters: 0, articles: 33, stories: 0, liveShops: 0 });
   assert.equal(c.articlesCarryThePage, true);
   assert.equal(c.storytellers, 'absent');
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ONE SHELF, TWO AUTHORS — the four chips.
+
+   These exist because nothing tested them. The chip rule lived in three
+   ternaries inside an async server component's JSX, where the only symptom of
+   a break is a visitor picking a chip and finding an empty page that looks
+   exactly like a quiet week.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+type A = { slug: string };
+type S = { href: string; hasVideo: boolean };
+
+const ARTICLES: A[] = [{ slug: 'a1' }, { slug: 'a2' }, { slug: 'a3' }];
+const STORIES: S[] = [
+  { href: '/s/youtube', hasVideo: true },
+  // 🔑 A CHAPTER WHOSE VIDEO IS NOT ON YOUTUBE. It has a video and no
+  // derivable thumbnail — the exact row the first cut dropped by reading
+  // `Boolean(thumbUrl)` instead of the loader's `hasVideo`.
+  { href: '/s/tiktok', hasVideo: true },
+  { href: '/s/written', hasVideo: false },
+];
+
+test('ANCHOR — the shelf has exactly the four owner-named chips, in order', () => {
+  assert.deepEqual(
+    [...FRONT_DOOR_CHIPS],
+    ['All', 'Articles', 'Their stories', 'With video'],
+  );
+  assert.equal(isChip('All'), true);
+  assert.equal(isChip('Journal'), false, 'there is no Journal chip — one shelf');
+  assert.equal(isChip(undefined), false);
+});
+
+test('All — both kinds are in the one shelf', () => {
+  const r = selectShelf('All', ARTICLES, STORIES);
+  assert.equal(r.articles.length, 3);
+  assert.equal(r.stories.length, 3);
+  assert.equal(r.empty, false);
+});
+
+test('Articles — our writing only, and no story leaks in', () => {
+  const r = selectShelf('Articles', ARTICLES, STORIES);
+  assert.equal(r.articles.length, 3);
+  assert.equal(r.stories.length, 0, 'a story under the Articles chip is mislabelled');
+});
+
+test('Their stories — theirs only, INCLUDING the ones with no video', () => {
+  const r = selectShelf('Their stories', ARTICLES, STORIES);
+  assert.equal(r.articles.length, 0);
+  assert.equal(r.stories.length, 3);
+  assert.ok(
+    r.stories.some((s) => !s.hasVideo),
+    'a written chapter is still their story — dropping it is what emptied the ' +
+      'storyteller shelf in the first place',
+  );
+});
+
+test('With video — every story that HAS a video, whoever hosts it', () => {
+  const r = selectShelf('With video', ARTICLES, STORIES);
+  assert.equal(r.articles.length, 0, 'articles carry no video of their own');
+  assert.deepEqual(
+    r.stories.map((s) => s.href).sort(),
+    ['/s/tiktok', '/s/youtube'],
+    'a chapter whose video is not on YouTube must still appear here',
+  );
+});
+
+test('a chip with nothing under it reports empty, so the page can say so', () => {
+  // Today: 0 published chapters reach the public shelf.
+  const r = selectShelf('With video', ARTICLES, []);
+  assert.equal(r.empty, true);
+  // …but the writing is never empty, so All never is either.
+  assert.equal(selectShelf('All', ARTICLES, []).empty, false);
+});
+
+test('selecting never mutates what it was given', () => {
+  const stories = [...STORIES];
+  selectShelf('With video', ARTICLES, stories);
+  assert.equal(stories.length, 3, 'the caller\'s array must survive a filter');
+});
+
+/* ── THE LEAD/TRAILING SPLIT ──────────────────────────────────────────────
+   The rule: every article handed to the shelf is either in the lead grid or
+   the trailing row, in order, with NOTHING skipped between them. */
+
+/** Articles a0…a11, so a skipped one is identifiable by name. */
+const TWELVE: A[] = Array.from({ length: 12 }, (_, i) => ({ slug: `a${i}` }));
+
+function renderedSlugs(stories: S[], articles: A[]): string[] {
+  const r = splitShelfRows(stories, articles);
+  return [...r.leadArticles, ...r.trailingArticles].map((a) => a.slug);
+}
+
+test('no story — the lead grid takes four and the rest follows contiguously', () => {
+  const r = splitShelfRows([], TWELVE);
+  assert.equal(r.leadStories.length, 0);
+  assert.deepEqual(r.leadArticles.map((a) => a.slug), ['a0', 'a1', 'a2', 'a3']);
+  // Byte-identical to the shipped slice(4, 12) on today's real numbers.
+  assert.deepEqual(
+    r.trailingArticles.map((a) => a.slug),
+    ['a4', 'a5', 'a6', 'a7', 'a8', 'a9', 'a10', 'a11'],
+  );
+});
+
+test('THE REGRESSION — four stories must not make two articles vanish', () => {
+  const stories: S[] = Array.from({ length: 4 }, (_, i) => ({
+    href: `/s/${i}`,
+    hasVideo: false,
+  }));
+  const shown = renderedSlugs(stories, TWELVE);
+  // The lead grid is all stories, so the writing starts at the very first one.
+  assert.equal(shown[0], 'a0', 'the trailing row must start where the lead stopped');
+  for (const missing of ['a2', 'a3']) {
+    assert.ok(
+      shown.includes(missing),
+      `${missing} rendered nowhere — this is the hard-coded slice(4, …) bug`,
+    );
+  }
+});
+
+test('nothing is skipped at ANY story count — the whole range', () => {
+  for (let n = 0; n <= 6; n++) {
+    const stories: S[] = Array.from({ length: n }, (_, i) => ({
+      href: `/s/${i}`,
+      hasVideo: false,
+    }));
+    const shown = renderedSlugs(stories, TWELVE);
+    const expected = TWELVE.slice(0, shown.length).map((a) => a.slug);
+    assert.deepEqual(
+      shown,
+      expected,
+      `${n} stories: the rendered articles must be an unbroken run from the start`,
+    );
+  }
+});
+
+test('the lead grid never exceeds four across, whatever it is fed', () => {
+  for (let n = 0; n <= 8; n++) {
+    const stories: S[] = Array.from({ length: n }, (_, i) => ({
+      href: `/s/${i}`,
+      hasVideo: false,
+    }));
+    const r = splitShelfRows(stories, TWELVE);
+    assert.ok(
+      r.leadStories.length + r.leadArticles.length <= 4,
+      `${n} stories overflowed the lead grid`,
+    );
+  }
+});
+
+test('an empty shelf splits into empty rows rather than throwing', () => {
+  const r = splitShelfRows([], []);
+  assert.deepEqual(r, { leadStories: [], leadArticles: [], trailingArticles: [] });
 });

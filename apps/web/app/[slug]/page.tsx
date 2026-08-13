@@ -102,6 +102,19 @@ type Props = {
     // holding a server-verified OwnerCapability; inert for everyone else, so a
     // guest's bytes are unchanged. See lib/simulated-guest-preview.ts.
     as?: string;
+    /**
+     * ⚠ NOT READ HERE — READ BY THE SHOP THIS ROUTE FALLS THROUGH TO.
+     *
+     * The bare root is the CANONICAL shop address, so an arrival tag
+     * (`?src=editorial` from a Journal credit, `?src=explore`, …) lands on
+     * THIS route and is forwarded, promise and all, to `renderVendorBySlug`,
+     * which stamps the inquiry's origin server-side. It is declared here so
+     * that whoever tightens this type can see the param travels: dropping it
+     * would not throw and would not blank anything — the reader would simply
+     * arrive untracked and the shop would be told they walked in off the
+     * street.
+     */
+    src?: string;
   }>;
 };
 

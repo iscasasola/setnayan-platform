@@ -25,17 +25,22 @@
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { composeFrontDoor } from '@/lib/front-door-composition';
+import {
+  composeFrontDoor,
+  selectShelf,
+  splitShelfRows,
+  FRONT_DOOR_CHIPS as CHIPS,
+} from '@/lib/front-door-composition';
 
 import { type FrontDoorData } from './data';
 
-/** Chips are real links, so filtering works with no JavaScript at all. */
-const CHIPS = ['All', 'Articles', 'Their stories', 'With video'] as const;
-export type ChipKey = (typeof CHIPS)[number];
-
-export function isChip(v: string | undefined): v is ChipKey {
-  return !!v && (CHIPS as ReadonlyArray<string>).includes(v);
-}
+// The chip vocabulary and the rule for what each chip admits live in
+// `lib/front-door-composition.ts` beside the rail thresholds — a rule written
+// inside this file's JSX could not be tested, and "With video" quietly showing
+// nothing looks exactly like a quiet week. Re-exported so existing callers
+// keep importing them from the component they render.
+export { isChip, type ChipKey } from '@/lib/front-door-composition';
+import { type ChipKey } from '@/lib/front-door-composition';
 
 function initialsOf(name: string): string {
   return (
@@ -172,18 +177,21 @@ export function FrontDoorFeed({
     data;
 
   // The chip decides which KINDS are in the shelf. It never changes the page's
-  // structure — only what the one shelf contains.
-  const showArticles = chip === 'All' || chip === 'Articles';
-  const showStories = chip === 'All' || chip === 'Their stories' || chip === 'With video';
-  const shownArticles = showArticles ? articles : [];
-  const shownStories = showStories
-    ? chip === 'With video'
-      ? stories.filter((s) => s.hasVideo)
-      : stories
-    : [];
+  // structure — only what the one shelf contains. The rule itself lives in the
+  // shared composer so it is reachable from a test.
+  const {
+    articles: shownArticles,
+    stories: shownStories,
+    empty: nothingUnderChip,
+  } = selectShelf(chip, articles, stories);
 
-  const nothingUnderChip =
-    shownArticles.length === 0 && shownStories.length === 0;
+  // Where the lead grid stops and the rest of the writing starts — from the
+  // shared composer, because that boundary MOVES with the story count and
+  // hard-coding it silently drops articles (see splitShelfRows).
+  const { leadStories, leadArticles, trailingArticles } = splitShelfRows(
+    shownStories,
+    shownArticles,
+  );
 
   /*
     Every rail's shape comes from the shared composer, not from `if`s written
@@ -242,14 +250,12 @@ export function FrontDoorFeed({
               any, so a real couple's piece is never buried under our own
               writing. */}
           <div className="fd-grid">
-            {shownStories.slice(0, 4).map((s) => (
+            {leadStories.map((s) => (
               <StoryCard key={s.href} s={s} />
             ))}
-            {shownArticles
-              .slice(0, Math.max(0, 4 - shownStories.slice(0, 4).length))
-              .map((a) => (
-                <ArticleCard key={a.slug} a={a} />
-              ))}
+            {leadArticles.map((a) => (
+              <ArticleCard key={a.slug} a={a} />
+            ))}
           </div>
 
           <h2 className="fd-sechead">
@@ -355,9 +361,9 @@ export function FrontDoorFeed({
       </div>
 
       {/* The rest of the writing. This is what actually fills the page today. */}
-      {shownArticles.length > 4 ? (
+      {trailingArticles.length > 0 ? (
         <div className="fd-grid">
-          {shownArticles.slice(4, 12).map((a) => (
+          {trailingArticles.map((a) => (
             <ArticleCard key={a.slug} a={a} />
           ))}
         </div>

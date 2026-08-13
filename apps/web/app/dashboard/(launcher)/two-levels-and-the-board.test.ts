@@ -216,10 +216,26 @@ test('an INVITED card never points into the couple dashboard', () => {
     slug: 'maria-and-jose',
     member_type: 'guest',
   });
-  assert.equal(href, '/maria-and-jose');
+  assert.equal(href, '/maria-and-jose/enter');
   assert.ok(
     !href!.startsWith('/dashboard'),
     'An invited person was sent into the organiser dashboard, which 404s for them.',
+  );
+});
+
+test('an INVITED card goes through the recognition hop, not the bare address', () => {
+  // 🔑 THE PROMISE ON THE CARD DEPENDS ON THIS HOP. The guest cookie is a HARD
+  // 60 days holding ONE event id, and save-the-dates go out 6–12 months ahead —
+  // so the bare `/{slug}` is "you are a stranger here" for the ordinary guest,
+  // and a lock screen on a private event (3 of 5 in prod). `/enter` re-mints
+  // from the seat binding they already hold. Dropping the hop compiles, reviews
+  // clean, and silently un-does the whole feature.
+  assert.equal(
+    eventBoardHref({ event_id: 'abc', slug: 'cale-ice', member_type: 'guest' }),
+    '/cale-ice/enter',
+    'The invited card points at the bare public address again. That page cannot ' +
+      'recognise a guest whose cookie has lapsed or who was invited to a second ' +
+      'event — which is the ordinary case, not an edge case.',
   );
 });
 

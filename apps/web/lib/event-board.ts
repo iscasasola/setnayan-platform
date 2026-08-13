@@ -28,6 +28,18 @@
  * present-and-refused. Nothing new is built for the invited case; the card
  * simply stops pointing at a door that would slam.
  *
+ * 🎟 …BUT IT GOES VIA `/{slug}/enter`, NOT STRAIGHT TO `/{slug}`, AND THAT HOP
+ * IS THE WHOLE PROMISE. Guest identity on that page is a cookie with a HARD
+ * 60-day life carrying exactly ONE event id — no sliding refresh. Save-the-dates
+ * go out 6–12 months ahead, so the ordinary guest is a STRANGER on the page by
+ * the wedding day, and anyone invited to two events can only be recognised on
+ * one of them at a time. `/enter` re-mints the session from the
+ * `event_members.guest_id` binding they already earned, then lands them on the
+ * page. Without the hop, this card sends an invited person to a screen telling
+ * them to scan the QR they already scanned — measured 2026-08-13; 3 of 5 prod
+ * events are `private`, where that screen is what they would get.
+ * See lib/guest-membership-session.ts.
+ *
  * 🪤 A SLUG CAN BE NULL AND ONE IS IN PROD TODAY (4 of 5 events have a slug;
  * the finished wedding is the one that does not). `eventBoardHref` returns
  * NULL for that case rather than `/null` — the caller renders the card without
@@ -88,9 +100,16 @@ export function stanceLabel(stance: EventStance): string {
  * Where the card GOES — the whole point of naming the stance.
  *
  * organiser → the event dashboard, which admits them.
- * invited   → the event's own public address, where their photos, their table
- *             and their RSVP already live. NULL when the host has not opened
- *             one yet (a real prod state), so the caller renders no link.
+ * invited   → `/{slug}/enter`, which re-mints their guest session from the seat
+ *             binding they already hold and then lands them on the event's own
+ *             public address, where their photos, their table and their RSVP
+ *             live. NULL when the host has not opened a public address yet (a
+ *             real prod state), so the caller renders no link at all.
+ *
+ * ⚠ The invited branch must stay a `/enter` hop. Pointing it at the bare
+ * `/{slug}` compiles, passes review and looks right — and silently reverts the
+ * card to "you are a stranger here" for every guest whose 60-day cookie has
+ * lapsed or who was invited to a second event. A guard asserts the hop.
  */
 export function eventBoardHref(event: {
   event_id: string;
@@ -101,7 +120,7 @@ export function eventBoardHref(event: {
   if (stance === 'organiser') return `/dashboard/${event.event_id}`;
   if (stance !== 'invited') return null;
   const slug = event.slug?.trim();
-  return slug ? `/${slug}` : null;
+  return slug ? `/${slug}/enter` : null;
 }
 
 /**

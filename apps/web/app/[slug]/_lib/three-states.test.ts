@@ -42,10 +42,30 @@ const BODY = readFileSync(join(HERE, '..', '_components', 'site-body.tsx'), 'utf
 const WALL = readFileSync(join(HERE, '..', '_components', 'live-wall-block.tsx'), 'utf8');
 
 test('an empty gallery is a real answer, not the same as a broken read', () => {
-  assert.ok(
-    !/if \(photos\.length === 0\) return null;/.test(GALLERY),
-    'Zero photos returns null again — which is exactly what the catch returns, ' +
-      'so the two are indistinguishable and the section disappears for both.',
+  // 🪤 THIS ASSERTION USED TO NAME ONE SPELLING AND MISS ITS TWIN.
+  // It matched only the late `if (photos.length === 0) return null` that the
+  // 2026-07 fix deleted — while `if (!tags || tags.length === 0) return null`
+  // sat 118 lines ABOVE it, untouched, doing the identical harm to the far more
+  // common case. The guard passed, the module's docblock declared the bug
+  // fixed, and every untagged guest was told the page had failed to load her
+  // photos. 🔑 A GUARD THAT MATCHES A STRING DOES NOT WATCH THE ACT: match the
+  // ACT — returning the failure value for an EMPTY set, however it is spelled.
+  const earlyEmptyNull = [
+    ...GALLERY.matchAll(/if\s*\([^)]*\.length === 0[^)]*\)\s*return null;/g),
+  ];
+  assert.deepEqual(
+    earlyEmptyNull.map((m) => m[0]),
+    [],
+    'An empty set returns null again — which is exactly what the catch returns, ' +
+      'so "nobody has tagged you yet" and "the read broke" become one answer ' +
+      'and the guest is shown the wrong one of the two.',
+  );
+  // …and the empty case must reach a REAL result, not just avoid null.
+  assert.match(
+    GALLERY,
+    /if \(!tags \|\| tags\.length === 0\) return \{ photos: \[\], total: 0 \};/,
+    'The zero-tags path no longer returns a real empty result. That path is the ' +
+      'commonest state of every guest before the photographers finish tagging.',
   );
   // The catch must STAY: gallery trouble must never take the wedding page down.
   assert.match(
@@ -53,6 +73,37 @@ test('an empty gallery is a real answer, not the same as a broken read', () => {
     /\} catch \{\s*\n\s*return null; \/\/ gallery trouble must never break the wedding page/,
     'The catch was removed. A failing gallery must not break the page — null is ' +
       'the right answer there, and now it is the ONLY thing that means it.',
+  );
+});
+
+test('a REFUSED read is caught — every query checks .error, none of them throws', () => {
+  // A rejected query comes back `{ data: null, error }` and never throws, so a
+  // discarded `.error` renders as "you have no photos" over rows that exist.
+  // All three reads in this module must check it, or the contract above is a
+  // sentence rather than a mechanism.
+  assert.match(GALLERY, /error: tagsError/, 'the photo_tags read discards its error again');
+  assert.match(GALLERY, /if \(tagsError\) return null;/, 'a refused tag read no longer fails closed');
+  assert.equal(
+    [...GALLERY.matchAll(/if \('error' in \w+Res && \w+Res\.error\) return null;/g)].length,
+    2,
+    'Both media reads must check .error. Covering one leaves the other able to ' +
+      'report a broken read as an empty album.',
+  );
+});
+
+test('the Alaala wall maps that null onto its own not-measured flag', () => {
+  // The wall deliberately did NOT do this while `null` was ambiguous — doing it
+  // then would have raised "could not be loaded" at every untagged guest. Now
+  // that null means only failure, refusing to map it would be the opposite
+  // error: a broken gate printed as "no photos of you yet".
+  const WALL_DATA = readFileSync(
+    join(HERE, '..', '..', '..', 'lib', 'alaala-wall-data.ts'),
+    'utf8',
+  );
+  assert.match(
+    WALL_DATA,
+    /if \(!gallery\) return \{ refs: \[\], unreadable: true, saturated: false \};/,
+    'A failed attended read is reported as a successful empty one again.',
   );
 });
 

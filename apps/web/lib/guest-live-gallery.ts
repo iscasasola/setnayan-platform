@@ -15,6 +15,30 @@
  * are excluded (photo_type = 'photo'); the Living Moments strip owns clip
  * playback. Presigned 1h GET URLs; thumbnails only, capped small — this
  * renders on a venue-WiFi page.
+ *
+ * ── THE RETURN CONTRACT (and it is load-bearing) ────────────────────────────
+ *   `{ photos, total }` — the read SUCCEEDED. `photos` may be empty; an empty
+ *                         result is a real answer and the commonest one early
+ *                         in a day.
+ *   `null`              — the read FAILED. Only that. Nothing else returns it.
+ *
+ * The caller RENDERS DIFFERENT WORDS for the two (`_components/site-body.tsx`:
+ * *"We couldn't load your photos just now"* vs *"No one has tagged you yet"*),
+ * so collapsing them puts a false accusation in front of a guest.
+ *
+ * ⚠ THIS COMMENT USED TO BE FALSE, AND THE FALSE VERSION SURVIVED A GUARD
+ * WRITTEN TO CATCH EXACTLY IT. A 2026-07 fix deleted a late
+ * `if (photos.length === 0) return null` and wrote *"null means, and only
+ * means, that the read failed"* — while `if (!tags || tags.length === 0)
+ * return null` sat 118 lines ABOVE it, untouched. `three-states.test.ts`
+ * asserted the absence of the ONE DELETED SPELLING, so it passed over the
+ * surviving twin. 🔑 **A guard that matches a STRING does not watch the ACT** —
+ * the assertions there now match any early return on an empty tag list.
+ *
+ * The consequence was live and user-facing: **every guest who had not been
+ * tagged yet — the normal state of everyone before the photographers work
+ * through the album — was told the page had failed to load their photos.** The
+ * reassurance branch written for them was unreachable.
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -52,7 +76,7 @@ export async function getGuestLiveGallery(
 ): Promise<GuestLiveGallery | null> {
   try {
     const admin = createAdminClient();
-    const { data: tags } = await admin
+    const { data: tags, error: tagsError } = await admin
       .from('photo_tags')
       .select('source_table, source_id, created_at')
       .eq('event_id', eventId)
@@ -60,7 +84,13 @@ export async function getGuestLiveGallery(
       .is('removed_at', null) // a "not me" tombstone drops the photo from this guest
       .order('created_at', { ascending: false })
       .limit(60);
-    if (!tags || tags.length === 0) return null;
+    // A REFUSED QUERY IS NOT A THROWN ERROR. PostgREST answers a phantom
+    // column, a stale enum or a missing grant with `{ data: null, error }` and
+    // never throws, so `.error` is the ONLY way this failure is visible here.
+    if (tagsError) return null;
+    // Nobody has tagged this guest yet. That is a SUCCESSFUL read of an empty
+    // set, and the page has words for it — do not hand it the failure value.
+    if (!tags || tags.length === 0) return { photos: [], total: 0 };
 
     const photoIds = tags
       .filter((t) => t.source_table === 'papic_photos')
@@ -110,6 +140,12 @@ export async function getGuestLiveGallery(
             }[],
           }),
     ]);
+
+    // Same rule one level down: a refused media read comes back with `data`
+    // null and no throw, which would render as "you have no photos" over rows
+    // that exist. The tag feed already proved there are photos to find.
+    if ('error' in photosRes && photosRes.error) return null;
+    if ('error' in capturesRes && capturesRes.error) return null;
 
     // Re-order by the tag feed (newest tag first), then presign the cap. Serve the
     // cheap web copy (thumb → display) — lighter for a venue-WiFi thumbnail grid,
@@ -166,18 +202,9 @@ export async function getGuestLiveGallery(
       )
     ).filter((p): p is GuestLivePhoto => Boolean(p));
 
-    // 🔴 THIS USED TO `return null` WHEN photos.length === 0, WHICH IS THE SAME
-    // VALUE THE CATCH BELOW RETURNS. So "nobody has tagged you yet" and "the
-    // read broke" were one answer, and the invitation renders nothing for it:
-    // a guest photographed all evening opened her page and found no "Photos of
-    // you" area AT ALL — not an empty one, not an error, just nothing where it
-    // should be. She has no way to tell whether the photographers missed her or
-    // the page did.
-    //
-    // An empty result is now a REAL result. `null` means, and only means, that
-    // the read failed. Every other caller already handled an empty list —
-    // papic/me checks `photos.length === 0`, the library maps to `refs: []`,
-    // the hub reads `.photos`/`.total` — so nothing downstream changes shape.
+    // Every success path ends here, empty or not. See the return contract in
+    // the module header — `null` is now reachable ONLY from the three failure
+    // checks above and the catch below.
     return { photos, total: ordered.length };
   } catch {
     return null; // gallery trouble must never break the wedding page

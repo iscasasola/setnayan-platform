@@ -34,7 +34,8 @@ import {
  *  · ATTENDED media reuses `getGuestLiveGallery`, which returns ONLY the
  *    photos the viewer is TAGGED in, clean and not hidden. Nothing here
  *    widens that gate — an attended frame is, by construction, one the viewer
- *    could already see.
+ *    could already see. Its `null` means the read FAILED and nothing else, so
+ *    it maps straight onto `unreadable`.
  *  · FACES come from the moment graph, the SAME source the obsidian tile's
  *    face row uses. Deliberately not re-derived: `/dashboard/library` already
  *    carries a note that a second, drifting source of the same faces is the
@@ -238,13 +239,12 @@ async function attendedRefs(
   if (!guestId) return { refs: [], unreadable: false, saturated: false };
 
   const gallery = await getGuestLiveGallery(event.event_id, guestId, ROWS_PER_ATTENDED);
-  // ⚠ DELIBERATELY NOT `unreadable` — getGuestLiveGallery returns null BOTH for
-  // a failed read and for the ordinary "this guest has no tags yet", which is
-  // the normal state of every guest before the photographers work through the
-  // album. Raising the banner here would cry wolf at the entire guest
-  // population. Splitting those two needs that function's return contract to
-  // change; named as follow-up, not botched here.
-  if (!gallery) return { refs: [], unreadable: false, saturated: false };
+  // `null` now means ONE thing: the read failed. The ordinary "this guest has
+  // no tags yet" comes back as a real, empty result, so raising the banner here
+  // no longer cries wolf at the entire guest population — which is exactly why
+  // this was left as `unreadable: false` when the wall shipped, and why it
+  // could be closed once that contract was made honest.
+  if (!gallery) return { refs: [], unreadable: true, saturated: false };
 
   const refs: Ref[] = gallery.photos.map((p) => ({
     key: `${p.sourceTable}:${p.id}`,

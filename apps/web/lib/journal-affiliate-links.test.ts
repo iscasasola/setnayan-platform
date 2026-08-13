@@ -75,18 +75,23 @@ function shopBlocksIn(
 
 test('the outbound shop link is marked sponsored + nofollow + noopener + noreferrer', () => {
   const src = codeOnly(SHOP_LINK_SRC);
-  const relMatch = src.match(/rel\s*=\s*["']([^"']+)["']/);
+  // Narrowed through assert.ok, not `!`. A regex CAPTURE GROUP is
+  // `string | undefined` under noUncheckedIndexedAccess, and `relMatch!` only
+  // asserts the MATCH is non-null — never that group 1 exists. That is the
+  // documented CI-is-stricter-than-tsx trap, and it is what failed this PR's
+  // typecheck at 85:15 while the test passed locally 8/8.
+  const relValue = src.match(/rel\s*=\s*["']([^"']+)["']/)?.[1];
   assert.ok(
-    relMatch,
+    relValue,
     'ShopLink renders no rel= attribute at all. A commercial link without ' +
       'rel="sponsored" is read by Google as a paid link scheme and the penalty ' +
       'lands on the whole domain — every Journal article, not just this one.',
   );
-  const rel = relMatch![1].split(/\s+/);
+  const rel = relValue.split(/\s+/);
   for (const token of ['sponsored', 'nofollow', 'noopener', 'noreferrer']) {
     assert.ok(
       rel.includes(token),
-      `ShopLink's rel is "${relMatch![1]}" — missing "${token}". All four are ` +
+      `ShopLink's rel is "${relValue}" — missing "${token}". All four are ` +
         'load-bearing; see the component docblock before thinning this list.',
     );
   }

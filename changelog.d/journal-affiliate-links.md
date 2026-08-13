@@ -73,3 +73,26 @@ and decide whether the Journal's voice may carry commercial links at all.
 SPEC IMPACT: `03_Strategy` / iteration `0038_editorial_and_affiliates` — the
 affiliate-link mechanism named in § 3 now exists in code. Display ads (0039)
 remain **blocked** on a `/privacy` rewrite, recorded in `DECISION_LOG.md`.
+
+### 2026-08-13 · fix(journal): narrow the rel capture through assert, not `!`
+
+CI's typecheck failed at `journal-affiliate-links.test.ts:85:15` — `TS2532: Object
+is possibly 'undefined'` — while the same file passed 13/13 under `tsx --test`.
+`relMatch!` asserts the MATCH is non-null; it says nothing about capture group
+`[1]`, which is `string | undefined` under `noUncheckedIndexedAccess`. This is the
+documented CI-is-stricter-than-tsx trap.
+
+Narrowed through `assert.ok` on the captured value instead, which also makes the
+assertion slightly stronger (an empty group now fails too) and keeps both original
+messages verbatim.
+
+ONE ROOT CAUSE, TWO RED CHECKS: the `playwright e2e (chromium)` job produced no
+report at all ("No files were found with the provided path:
+apps/web/playwright-report/") because it builds before it runs — so it died on the
+same type error rather than on a test.
+
+Mutation-tested with the sabotage MEASURED, not assumed: dropping `sponsored` from
+the component's rel took its occurrence count 3 → 2, the guard went red naming the
+missing token, and restoring returned 13/13.
+
+SPEC IMPACT: None.

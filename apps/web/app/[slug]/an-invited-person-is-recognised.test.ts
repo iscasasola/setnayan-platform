@@ -37,7 +37,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
-import { eventBoardHref } from '@/lib/event-board';
+import { daysUntilEventDay, eventBoardHref } from '@/lib/event-board';
 
 const HERE = dirname(fileURLToPath(import.meta.url)); // apps/web/app/[slug]
 const APP = resolve(HERE, '..');
@@ -46,6 +46,7 @@ const SLUG_PAGE = resolve(HERE, 'page.tsx');
 const SEAT_LOOKUP = resolve(WEBROOT, 'lib', 'guest-membership-session.ts');
 const CONNECT_ROUTE = resolve(APP, 'join', '[eventId]', 'connect', 'route.ts');
 const LAUNCHER = resolve(APP, 'dashboard', '(launcher)', 'page.tsx');
+const AUTOSURFACE = resolve(WEBROOT, 'lib', 'account-autosurface.ts');
 
 const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 
@@ -249,5 +250,81 @@ test('"set up your first event" cannot print above events you were invited to', 
     /activeCount: upcoming\.length,/,
     'The "in motion" tile counts the organiser-only set again, so it reads 0 over ' +
       'a board full of invitations.',
+  );
+});
+
+// ── 5 · AN AUTO-SURFACED MEMBERSHIP NAMES ITS SEAT ──────────────────────────
+
+test('an auto-surfaced membership records WHICH SEAT it is about', () => {
+  // 🎟 It did not. `maybeAutoSurfaceEventForGuest` inserted member_type='guest'
+  // with a NULL guest_id, so the seat-holder gate (which requires a non-null
+  // guest_id) could never admit it: the "You were added" card and the board's
+  // invited card both landed the person on a lock screen telling them to scan an
+  // invitation QR they were never sent — for an event a couple had just added
+  // them to. `guestId` was a parameter all along.
+  assert.match(
+    read(AUTOSURFACE),
+    /member_type: 'guest',\s*guest_id: guestId,/,
+    'The auto-surfaced membership stopped recording its seat. Every card it puts ' +
+      'on that board then opens onto a lock screen.',
+  );
+});
+
+// ── 6 · ONE CLOCK ON THE CARD ───────────────────────────────────────────────
+
+test('the countdown and the shelf reduce "now" with the SAME clock', () => {
+  // 🔴 THEY DID NOT, and it was live for the length of one PR: the shelf used
+  // Asia/Manila while the countdown used the SERVER clock (UTC on Vercel), so
+  // between Manila 00:00 and 08:00 they disagreed by a day and the card read
+  // "Tomorrow" ON THE MORNING OF THE WEDDING. Correct on a PH laptop, wrong in
+  // production — which is why nobody would have caught it by looking.
+  const src = read(LAUNCHER);
+  assert.match(
+    src,
+    /const days = daysUntilEventDay\(event\.event_date, todayISO\);/,
+    'The countdown went back to a helper that reduces "now" with the server ' +
+      "clock, while the shelf reduces it in the venue's. Two clocks on one card.",
+  );
+  assert.equal(
+    count(src, /daysUntilEvent\(event\.event_date\)/),
+    0,
+    'The server-clock countdown is back.',
+  );
+  assert.ok(
+    count(src, /todayISO=\{todayISO\}/) >= 5,
+    'A card composition stopped being given the board\'s day, so it will fall ' +
+      'back to some other clock.',
+  );
+});
+
+test('the day arithmetic has no ambient timezone to disagree with', () => {
+  // Both sides are day STRINGS parsed identically — so this holds whatever TZ
+  // the test process runs under, which is the entire point.
+  assert.equal(daysUntilEventDay('2026-12-12', '2026-12-12'), 0);
+  assert.equal(daysUntilEventDay('2026-12-12', '2026-12-11'), 1);
+  assert.equal(daysUntilEventDay('2026-12-11', '2026-12-12'), -1);
+  assert.equal(daysUntilEventDay('2027-01-01', '2026-12-31'), 1, 'across a year boundary');
+  // Real calendar arithmetic, not a naive ±1: 2028 IS a leap year, so 28 Feb to
+  // 1 Mar is TWO days. (My first version of this assertion said 1 and was wrong —
+  // the function was right.)
+  assert.equal(daysUntilEventDay('2028-02-29', '2028-02-28'), 1, 'the leap day itself');
+  assert.equal(daysUntilEventDay('2028-03-01', '2028-02-28'), 2, 'across a leap day');
+  assert.equal(daysUntilEventDay('2027-03-01', '2027-02-28'), 1, 'non-leap year');
+  assert.equal(daysUntilEventDay(null, '2026-12-12'), null);
+  assert.equal(daysUntilEventDay('nonsense', '2026-12-12'), null);
+});
+
+// ── 7 · THE BOARD IS REACHABLE FOR SOMEBODY WHO ONLY HAS INVITATIONS ───────
+
+test('a supplier or admin invited to a wedding can still reach the board', () => {
+  // The console-user redirect had no hub escape and read the ORGANISER-only set,
+  // so a photographer with a shop and no event of her own was bounced to
+  // create-event — including when a client had just invited her and a card was
+  // waiting on this very board.
+  assert.match(
+    read(LAUNCHER),
+    /if \(active\.length === 0 && hasConsole && !wantsHub && boardEvents\.length === 0\) \{/,
+    'The console redirect fires again for somebody whose board is not empty, or ' +
+      'ignores an explicit hub request — making the shelves unreachable for them.',
   );
 });

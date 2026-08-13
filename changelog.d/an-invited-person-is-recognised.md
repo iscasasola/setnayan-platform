@@ -223,3 +223,81 @@ because the state they need cannot exist: a countdown-precedence reading whose
 scenario requires a future-dated slug-less event, and a variant of the same. The
 skeptics measured prod and killed them — which is the pass working in both
 directions.
+
+---
+
+## 2026-08-13 · fix: one clock on the card, and three more doors that slammed
+
+Review lenses 3 and 4 of the adversarial pass. **Four confirmed, each verified by
+two skeptics; two candidates were refuted and are not fixed.**
+
+### 🔴 ON THE MORNING OF THE WEDDING THE CARD SAID "TOMORROW" — user-facing
+
+The shelf boundary and the countdown **on the same card** were reducing "now" with
+two different clocks: `manilaTodayISO()` collapses the instant in **Asia/Manila**;
+`lib/checklist.daysUntilEvent` collapses it with `startOfDay(new Date())` — the
+**server's** clock, which is UTC on Vercel. Between Manila 00:00 and 08:00 the
+Manila day is already one ahead, so:
+
+```
+06:00 Manila on 12 Dec · event_date = 2026-12-12
+  shelf → "Coming up"     (manilaTodayISO = 2026-12-12)  ✅
+  card  → "Tomorrow"      (daysUntilEvent = 1)           ❌
+```
+
+**Measured both ways: `TZ=UTC` reads "Tomorrow", `TZ=Asia/Manila` reads "Happening
+today".** So it is *correct on a Philippine laptop and wrong in production* — the
+mirror image of the 2026-08-04 sweep's trap, and it hides from precisely the person
+most likely to test it. **I introduced the divergence** by adding a Manila-based
+day next to an existing server-based countdown.
+
+🔑 **The fix is ONE clock, not a better one.** `daysUntilEventDay(eventDate,
+todayISO)` differences two day STRINGS parsed identically — no ambient timezone to
+disagree with — and the `todayISO` it receives is the very value the shelf split
+used, not another derivation of it. Threaded to all three card compositions. The
+two suites are green under **UTC · Asia/Manila · America/New_York ·
+Pacific/Kiritimati**.
+
+### 🎟 An auto-surfaced membership named no seat
+
+`maybeAutoSurfaceEventForGuest` inserted `member_type: 'guest'` with a **NULL
+`guest_id`** — so the seat gate could never admit it, and the *"You were added"*
+card plus the board's invited card both landed the person on a lock screen telling
+them to **scan an invitation QR they were never sent**, for an event a couple had
+just added them to. `guestId` was a parameter all along; the row simply did not
+record which seat it was about. Fixed at the source. (Flag-dark, so latent.)
+
+### 🚪 A supplier invited to a client's wedding could not reach the board at all
+
+The console-user redirect (`no organiser events && hasConsole → create-event`) had
+**no hub escape**, unlike the auto-jump two lines above it, and read the
+organiser-only set. A photographer with a shop and no event of her own was bounced
+away — including when a client had just invited her and a card was waiting on this
+very board. Now it honours `?hub=1` (which the switcher's Home carries) and only
+fires when the board is genuinely empty. **Untouched for the person it was written
+for:** a console user with nothing at all still lands on create-event.
+
+### ⚖ Two were refuted, and that is the pass working
+
+A countdown-precedence reading and a variant both needed a **future-dated
+slug-less event**; the skeptics measured prod, found no shipped path produces one,
+and killed them. Not fixed, deliberately.
+
+### 📋 Four more of the same 404 family found, NOT fixed here — they are a separate PR
+
+All pre-existing, all on surfaces this PR does not touch, each needing its own
+care. Recorded so they are not lost:
+
+| where | what a guest gets |
+|---|---|
+| `library/_components/photos-tab.tsx` | an *Attended* album card links to the host's Papic studio — her own 12 thumbnails visible in the card, 404 behind it |
+| `dashboard/[eventId]/alaala/assignments/actions.ts` | the "tell your story" nudge emails a **working** link and pushes an in-app one that 404s |
+| `samahan/[communityId]/page.tsx` | the Events tab links a guest into the organiser dashboard — `fetchViewerEventIds` has no `member_type` filter, so a guest row renders the "you can open this" arrow |
+| `library/_components/editorials-tab.tsx` | an attended editorial whose event has no slug falls back to the host's editor |
+
+🔑 **This is the memory note from earlier today — *"assume a fifth exists"* — being
+right four times over.** Enumerate by the DESTINATION, not by the screen.
+
+🛡 **The matrix is now 26 sabotages, all occurrence-counted before → after, all 26
+caught, baseline green either side.** Verified: typecheck clean · **7930/7930**
+unit tests · all 22 lint scripts · both suites green under four timezones.

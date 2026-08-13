@@ -153,6 +153,48 @@ export function isFinishedEvent(
   return !!event.event_date && event.event_date.slice(0, 10) < todayISO;
 }
 
+/**
+ * Whole calendar days from `todayISO` to `eventDateISO`. NULL when either is
+ * unreadable.
+ *
+ * 🔴 WHY THIS EXISTS, AND IT WAS A LIVE BUG FOR THE LENGTH OF ONE PR.
+ * The board's shelf boundary and the countdown ON THE SAME CARD were reducing
+ * "now" with two different clocks: `manilaTodayISO()` collapses the instant in
+ * **Asia/Manila**, while `lib/checklist.daysUntilEvent` collapses it with
+ * `startOfDay(new Date())` — the **SERVER's** clock, which is UTC on Vercel.
+ * Between Manila 00:00 and 08:00 the Manila calendar day is already one ahead of
+ * the UTC one, so:
+ *
+ *     06:00 Manila on 12 Dec, event_date = 2026-12-12
+ *       shelf  → "Coming up"      (manilaTodayISO = 2026-12-12) ✅
+ *       card   → "Tomorrow"       (daysUntilEvent = 1)          ❌
+ *
+ * **On the morning of the wedding the card said "Tomorrow"** — measured, both
+ * ways: under `TZ=UTC` it reads "Tomorrow", under `TZ=Asia/Manila` it reads
+ * "Happening today". So it is correct on a Philippine laptop and wrong in
+ * production, which is the mirror image of the 2026-08-04 sweep's trap and hides
+ * from exactly the person most likely to test it.
+ *
+ * 🔑 THE FIX IS ONE CLOCK, NOT A BETTER ONE. Both sides are day STRINGS parsed
+ * identically, so the arithmetic has no ambient timezone to disagree with — and
+ * the `todayISO` passed in is the very same value the shelf split used, not
+ * another derivation of it.
+ */
+export function daysUntilEventDay(
+  eventDateISO: string | null | undefined,
+  todayISO: string,
+): number | null {
+  const day = (iso: string | null | undefined): number | null => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+    if (!m) return null;
+    return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  };
+  const a = day(eventDateISO);
+  const b = day(todayISO);
+  if (a === null || b === null) return null;
+  return Math.round((a - b) / 86_400_000);
+}
+
 export type EventBoard = {
   /** Date DESCENDING (furthest future first), UNDATED AT THE TAIL. */
   comingUp: EventWithRole[];

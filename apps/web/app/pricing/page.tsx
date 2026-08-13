@@ -270,7 +270,7 @@ export default async function PricingPage() {
   // the same lock, or the cheaper we make Papic the bigger the lie gets.
   //
   // Capacity is still expressed in the points currency the code enforces
-  // (1 photo = 1 pt · one 10-second clip = the constant in lib/papic-cameras.ts),
+  // (1 photo = 1 pt · one 10-second clip = the constant in lib/papic-cameras-pure.ts),
   // so the copy stays true if an admin retunes a rung.
   const papicOneLadder = papicOneTiers
     .map((tier) => {

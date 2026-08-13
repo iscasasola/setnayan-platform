@@ -102,7 +102,38 @@ function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
   return (
     <Link href={s.href} className="fd-item">
       <div className="fd-thumb">
-        THEIR STORY
+        {/* TWO GRAMMARS, decided by what the chapter actually IS — ported from
+            the shipped `StorytellerTile` on /realstories, which already made
+            this call: a poster when there is one, otherwise the opening line
+            as a typographic hero. A story told in writing is not a video with
+            a missing image, so it never renders an empty box.
+
+            This replaced the literal words "THEIR STORY" printed where the
+            picture goes — the same placeholder defect the SHOP card was
+            corrected for in #4400, on the card beside it on the same shelf.
+
+            🪤 A PLAIN <img>, NOT `next/image`, AND THE REASON IS LOAD-BEARING.
+            `youtubeThumbFromEmbedUrl` returns `https://i.ytimg.com/...`, and
+            `i.ytimg.com` is NOT in `remoteImagePatterns` in next.config.ts —
+            so `/_next/image?url=…` answers 400 and the poster silently never
+            appears. That is exactly how the R2 remotePattern shipped broken.
+            Measured: the ENFORCED CSP carries no `img-src` at all (only
+            frame-ancestors + frame-src), and the report-only policy already
+            lists `i.ytimg.com`, so a direct <img> is allowed now AND after
+            that policy is enforced. Do not "upgrade" this to next/image
+            without adding the host to BOTH lists first. */}
+        {s.thumbUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={s.thumbUrl} alt="" loading="lazy" decoding="async" />
+        ) : (
+          <p className="fd-thumb-read">
+            {/* TERMINAL FALLBACK. A chapter can legitimately have neither a
+                poster nor an excerpt (a very short story, or one whose first
+                paragraph is whitespace) — the kind is the floor, never an
+                empty box. Same fallback the shipped tile uses. */}
+            {s.excerpt ?? `A ${s.kindLabel.toLowerCase()} story`}
+          </p>
+        )}
         {/* A written chapter legitimately has no video. The card leads with
             the READ and marks a video as an extra, never as the whole point —
             which is the entire reason the storyteller shelf was empty.
@@ -286,6 +317,21 @@ export function FrontDoorFeed({
             {shownStories.slice(0, 6).map((s) => (
               <Link key={s.href} href={s.href} className="fd-story">
                 <div className="fd-sthumb">
+                  {/* The same two grammars as the big card. This box used to
+                      render NOTHING but a badge — a bare gradient rectangle
+                      beside article cards that all carry their cover, which
+                      reads as an image that failed to load rather than as a
+                      story told in writing. Plain <img> for the same reason
+                      as the big card: `i.ytimg.com` is not in
+                      `remoteImagePatterns`, so next/image would 400. */}
+                  {s.thumbUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={s.thumbUrl} alt="" loading="lazy" decoding="async" />
+                  ) : (
+                    <p className="fd-sread">
+                      {s.excerpt ?? `A ${s.kindLabel.toLowerCase()} story`}
+                    </p>
+                  )}
                   {s.readingMinutes !== null ? (
                     <span className="fd-min">{s.readingMinutes} MIN</span>
                   ) : s.hasVideo ? (

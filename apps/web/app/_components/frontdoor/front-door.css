@@ -978,3 +978,45 @@ h2.fd-sechead,
   letter-spacing: 0.06em;
   color: var(--fd-gold);
 }
+
+/* A story told in writing leads with its opening line, not with an empty box.
+   Same rule as the shop card one block up: the card shows what the thing IS —
+   never the words "THEIR STORY", which made a real couple's piece look like a
+   placeholder, and which is what the box printed until this shipped.
+
+   Bottom-aligned with the padding clearing the badges (`.fd-dur` bottom-right,
+   `.fd-hasvid` bottom-left, `.fd-min` top-left), which are painted after this
+   block and would otherwise sit on the excerpt's last line. */
+.fd-thumb-read,
+.fd-sread {
+  /* Anchored to the BOTTOM rather than filling the box, so the text sits where
+     a caption would and the clamp trims from the end. `.fd-min` sits top-left
+     on the 9:16 card and is cleared for free by bottom-anchoring. */
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--fd-m1);
+  /* `.fd-thumb` sets the placeholder's wide letter-spacing; prose needs none. */
+  letter-spacing: normal;
+  text-align: left;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+}
+.fd-thumb-read {
+  /* Bottom padding clears `.fd-dur` / `.fd-hasvid`, painted after this block. */
+  padding: 10px 12px 28px;
+  font-size: 13px;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+.fd-sread {
+  padding: 10px 10px 14px;
+  font-size: 12px;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+}

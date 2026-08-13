@@ -184,24 +184,69 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   },
 ];
 
-/** The negotiated tier above Enterprise — rendered as a teaser card, not a benefit list. */
-export const VENDOR_CUSTOM_TIER = {
-  name: 'Custom · from ₱8,999 / 28 days',
-  tagline:
-    'Everything in Enterprise, automatically, plus dials for what you need: more branches (₱999 each), reach up to nationwide, more team seats and event slots, a bigger portfolio, and your own domain. A dedicated account manager and quarterly business review come with it.',
-  // Custom-only dials, enumerated (owner 2026-07-05) so the /vendors benefit
-  // matrix AND the cross-tier benefit count reflect the full negotiated tier.
-  // Each is a real thing a Custom vendor gets. Consumed by buildCustomOnlyGroup()
-  // in vendor-tier-matrix.tsx and the overlay count in HomeOverlays.tsx — the
-  // single source of truth for the Custom column.
-  benefits: [
-    'Additional branches (₱999 each)',
-    'Nationwide reach',
-    'Your own custom domain',
-    'Dedicated account manager · white-glove',
-    'Negotiated team-seat ceiling',
-    'Negotiated event-slot ceiling',
-    'Unlimited portfolio',
-    'White-glove onboarding & data migration',
-  ] as string[],
+/**
+ * The negotiated tier above Enterprise — rendered as a teaser card, not a
+ * benefit list.
+ *
+ * ─── TWO PESO FIGURES USED TO BE TYPED HERE, AND THIS FILE FORBADE IT ────
+ * The `VendorTierSection` type twelve lines up already says *"prices are NOT
+ * stored here — the overlay resolves each tier's price from the live catalog …
+ * (never hardcode prices)"*. Directly below it, `name` read
+ * `'Custom · from ₱8,999 / 28 days'` and one dial read
+ * `'Additional branches (₱999 each)'`.
+ *
+ * Both were declared in `lib/public-price-literals.ts` rather than fixed, and
+ * the reason given for the first was that Custom "is not a DB catalog SKU
+ * (Custom is composed per plan)". **That was untrue.** `vendor_custom_base` is
+ * an active row in `vendor_billing_catalog` at ₱8,999, and
+ * `vendor_branch_28day` is an active row at ₱999 — the same two numbers, in the
+ * table an admin edits. `vendor-tier-matrix.tsx` then parsed "₱8,999" back out
+ * of `name` with a regex and carried its own literal as the fallback, so one
+ * reprice would have gone stale in three places at once.
+ *
+ * Both now come from `getVendorPrices()`. `name` names the tier and nothing
+ * else, and the priced dial is built at render time from the live figure.
+ *
+ * 🔑 THE COUNT MUST NOT NEED A PRICE. `HomeOverlays.tsx` sums these at MODULE
+ * level, where no catalog read exists, so the dials are a list of labels and
+ * only the one that mentions money takes an argument. Counting stays
+ * price-free; rendering resolves.
+ */
+export type CustomDial = {
+  label: string;
+  /** Set only on a dial whose label states a price. Given the live figure,
+   *  returns the full label. Never falls back to a typed peso value — a caller
+   *  with no price renders the bare label instead of a stale number. */
+  priced?: (price: string) => string;
 };
+
+export const VENDOR_CUSTOM_TIER = {
+  name: 'Custom',
+  tagline:
+    'Everything in Enterprise, automatically, plus dials for what you need: more branches, reach up to nationwide, more team seats and event slots, a bigger portfolio, and your own domain. A dedicated account manager and quarterly business review come with it.',
+  // Custom-only dials, enumerated (owner 2026-07-05) so the /vendors benefit
+  // surface AND the cross-tier benefit count reflect the full negotiated tier.
+  // Each is a real thing a Custom vendor gets — the single source of truth for
+  // the Custom column.
+  dials: [
+    { label: 'Additional branches', priced: (p: string) => `Additional branches (${p} each)` },
+    { label: 'Nationwide reach' },
+    { label: 'Your own custom domain' },
+    { label: 'Dedicated account manager · white-glove' },
+    { label: 'Negotiated team-seat ceiling' },
+    { label: 'Negotiated event-slot ceiling' },
+    { label: 'Unlimited portfolio' },
+    { label: 'White-glove onboarding & data migration' },
+  ] as CustomDial[],
+};
+
+/**
+ * The Custom dials as display strings. `branchPrice` is the live
+ * `vendor_branch_28day` figure; pass `null` when the catalog is unreadable and
+ * the priced dial degrades to its bare label rather than inventing a number.
+ */
+export function customTierDialLabels(branchPrice: string | null): string[] {
+  return VENDOR_CUSTOM_TIER.dials.map((d) =>
+    d.priced && branchPrice ? d.priced(branchPrice) : d.label,
+  );
+}

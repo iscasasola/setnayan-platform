@@ -112,6 +112,42 @@ test('SKU-backed literals are the ones the runtime audit will verify', () => {
   const backed = skuBackedLiterals();
   // Guards the split itself: if someone declares everything as sku:null the
   // runtime check silently has nothing to do and this whole guard is decorative.
-  assert.ok(backed.length >= 4, 'expected the real SKU prices to stay SKU-backed');
+  //
+  // ⚠ THE FLOOR WAS 4 AND IT PUNISHED THE RIGHT FIX (2026-08-13). Three
+  // SKU-backed entries were retired that day not by relabelling them but by
+  // DELETING THE LITERALS — the figures were resolved from the catalog instead,
+  // which is the outcome this whole file exists to push toward. A count cannot
+  // tell that apart from someone quietly relabelling prices as non-prices, and
+  // "lower the number until CI is green" is how a guard becomes a rubber stamp.
+  // So the floor is only a smoke test now, and the real check is below it.
+  assert.ok(backed.length >= 1, 'the runtime drift audit has nothing left to verify');
   for (const l of backed) assert.ok(l.sku.length > 0);
+});
+
+test('a "fallback" is never declared as a non-price', () => {
+  // 🔑 THE SHAPE THE ₱499 HID IN, WRITTEN DOWN. `app/pricing/page.tsx` declared
+  // ₱499 with `sku: null` and the reason "Last-resort fallback when the Setnayan
+  // AI catalog row is unreadable". `sku: null` is the category the runtime drift
+  // check deliberately SKIPS, so nothing ever compared it to the live catalog —
+  // and by the time it was found the real price was ₱2,499. Five times off, on
+  // the page where somebody decides to pay, for weeks, with green CI.
+  //
+  // A fallback for a catalog row is a SKU price BY DEFINITION: it is the number
+  // rendered in that SKU's place. So it can never honestly be a non-price. Name
+  // the SKU (and let the runtime audit check it), or — better — delete the
+  // literal and render nothing when the catalog is unreadable. A missing price
+  // is recoverable; a confidently wrong one is not.
+  const smell = /\b(fallback|default(s)? to|last[- ]resort)\b/i;
+  const offenders = PUBLIC_PRICE_LITERALS.filter((l) => l.sku === null && smell.test(l.reason)).map(
+    (l) => `${l.file} → ${l.literal}: "${l.reason}"`,
+  );
+  assert.deepEqual(
+    offenders,
+    [],
+    `A literal declared as a NON-price describes itself as a fallback:\n  ` +
+      offenders.join('\n  ') +
+      `\n\nIf it stands in for a catalog row it IS that row's price. Name the ` +
+      `sku so the runtime audit verifies it, or delete the literal and render ` +
+      `no figure when the catalog cannot be read.`,
+  );
 });

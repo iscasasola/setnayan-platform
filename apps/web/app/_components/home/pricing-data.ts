@@ -43,14 +43,18 @@
 import { fetchV2CustomerCatalog, getVendorPrices, formatPeso } from '@/lib/v2-catalog';
 
 export type PricingData = {
-  /** Setnayan AI price string — one-time, wedding-anchored (owner 2026-07-10: "₱499"). */
+  /** The REGULAR Setnayan AI price string — what it costs after sign-up. */
   aiPrice: string;
-  /** Legacy alias of aiPrice (one-time has no separate intro; kept for consumers). */
+  /** The SIGN-UP price string — what it costs if you take it while creating your
+   *  event. Equals `aiPrice` when the catalog row carries no sign-up price. */
   aiIntroPrice: string;
-  /** Raw catalog numbers for client-side math — the pop-up savings comparator
-   *  computes intro + regular × cycles off THESE (never re-hardcoded client-side). */
+  /** Raw catalog numbers for client-side math (never re-hardcoded client-side). */
   aiRegularPhp: number;
   aiIntroPhp: number;
+  /** True only when the two genuinely differ — the one thing a surface should
+   *  branch on. Derived here so no consumer re-invents the comparison, and so
+   *  "there is a sign-up price" can never be inferred from a stale literal. */
+  aiHasSignupPrice: boolean;
   /** recurrence suffix for the AI tier (e.g. "/28 days" or "/mo") */
   aiPeriod: string;
   /** Vendor tier prices (28-day + annual), resolved from the live catalog —
@@ -60,10 +64,59 @@ export type PricingData = {
 
 const peso = (n: number) => `₱${formatPeso(n)}`;
 
+/** Just the two fields this resolver cares about — so a test can pass a row
+ *  without inventing a whole `V2CustomerSku`. */
+export type AiPriceRow = {
+  retail_price_php?: number | null;
+  onboarding_price_php?: number | null;
+};
+
 /**
- * Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10 · a
- * single ₱499 charge, access until the event date). The prior ₱499→₱799/28-day
- * subscription is retired, so there is no recurrence suffix.
+ * THE ONE PLACE THE TWO SETNAYAN AI PRICES ARE DECIDED — used by this module and
+ * by `/pricing` directly, so the public page and the nav overlay can never
+ * disagree about whether there is a sign-up price.
+ *
+ * Four rules, each of which failed a different way before it was written down:
+ *
+ *  1 · NULL SIGN-UP MEANS "NO DISCOUNT ON THIS SERVICE", NEVER FREE. Most catalog
+ *      rows carry no `onboarding_price_php`. Reading NULL as 0 would hand the
+ *      product away, so it falls back to the regular price and never to zero —
+ *      deliberately the same rule, in the same words, as the checkout resolver
+ *      in `lib/setnayan-ai-event-pricing.ts`.
+ *  2 · A SIGN-UP PRICE AT OR ABOVE THE REGULAR ONE IS IGNORED. Showing it would
+ *      punish buying early. The checkout ladder already refuses that crossing in
+ *      `lib/setnayan-ai-price-display-matches-charge.test.ts`; display must not
+ *      be laxer than the charge.
+ *  3 · AN UNREADABLE ROW YIELDS ZERO, NOT A PESO GUESS. The `?? 499` that used to
+ *      live here was five times off the live ₱2,499 by the time anyone looked.
+ *      Callers render no figure at all rather than a confident wrong one.
+ *  4 · `hasSignupPrice` IS DERIVED HERE, not re-compared by each surface, so a
+ *      page can never claim a sign-up price it is not showing.
+ */
+export function resolveAiPrices(row: AiPriceRow | null | undefined): {
+  regularPhp: number;
+  introPhp: number;
+  hasSignupPrice: boolean;
+} {
+  const usable = (v: unknown): v is number =>
+    typeof v === 'number' && Number.isFinite(v) && v > 0;
+
+  const regularPhp = usable(row?.retail_price_php) ? row.retail_price_php : 0;
+  const signup = row?.onboarding_price_php;
+  const introPhp =
+    usable(signup) && regularPhp > 0 && signup < regularPhp ? signup : regularPhp;
+
+  return { regularPhp, introPhp, hasSignupPrice: regularPhp > 0 && introPhp < regularPhp };
+}
+
+/**
+ * Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10): one
+ * charge, access until the event date. The prior ₱499→₱799/28-day subscription
+ * is retired, so there is no recurrence suffix.
+ *
+ * ⚠ The figure that used to be quoted in this docblock is deliberately gone. It
+ * said ₱499 while the live catalog said ₱2,499 — a price written into a comment
+ * is a promise nobody re-reads, and this one had been wrong for weeks.
  */
 function aiPeriodSuffix(): string {
   return '';
@@ -77,25 +130,37 @@ export async function getHomePricingData(): Promise<PricingData> {
     getVendorPrices(),
   ]);
 
-  // Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10): a
-  // single ₱499 charge from the SETNAYAN_AI catalog row, access until the event
-  // date. The ₱499→₱799/28-day subscription (and its SETNAYAN_AI_RENEW row) is
-  // retired, so there is no intro/renewal split — aiRegularPhp === aiIntroPhp,
-  // which collapses any legacy two-tier consumer to the single price. The ₱499
-  // fallback renders only if the row is unreadable (CI / missing env), never a
-  // fresh hardcode.
+  // Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10):
+  // one charge, access until the event date. There is no renewal.
+  //
+  // 🔑 BUT THERE ARE TWO PRICES AGAIN, FOR A DIFFERENT REASON (owner 2026-08-12):
+  // a SIGN-UP price if you take it while creating your event, and a regular
+  // price afterwards. `aiIntroPhp`/`aiRegularPhp` were built for the retired
+  // ₱499→₱799 cadence and had been collapsed to one value with a comment saying
+  // there was no split. The comment was true of the old cadence and false of the
+  // live catalog: `onboarding_price_php` has been populated and CHARGED since
+  // 2026-08-12, while every public surface showed one number, because
+  // fetchV2CustomerCatalog never selected the column.
+  //
+  // ⚠ NULL MEANS "NO SIGN-UP PRICE ON THIS SERVICE", NEVER FREE — so the sign-up
+  // figure falls back to the regular one and never to zero. Same rule as the
+  // checkout resolver in lib/setnayan-ai-event-pricing.ts, deliberately worded
+  // the same way so the two cannot drift apart in meaning.
+  //
+  // ⚠ NO PESO FALLBACK. The old `?? 499` was FIVE TIMES off the live ₱2,499 by
+  // the time it was found, and nothing checked it because it was declared as a
+  // non-SKU literal. An unreadable catalog now yields null and the caller
+  // renders no figure at all — a missing price is recoverable; a confidently
+  // wrong one on the page where somebody decides to pay is not.
   const ai = catalog.find((s) => s.service_code === 'SETNAYAN_AI');
-  const aiRaw = Number(ai?.retail_price_php);
-  const aiIntroPhp = Number.isFinite(aiRaw) && aiRaw > 0 ? aiRaw : 499;
-  const aiRegularPhp = aiIntroPhp;
-  const aiIntroPrice = peso(aiIntroPhp);
-  const aiPrice = aiIntroPrice;
+  const { regularPhp, introPhp, hasSignupPrice } = resolveAiPrices(ai);
 
   return {
-    aiPrice,
-    aiIntroPrice,
-    aiRegularPhp,
-    aiIntroPhp,
+    aiPrice: regularPhp > 0 ? peso(regularPhp) : '',
+    aiIntroPrice: introPhp > 0 ? peso(introPhp) : '',
+    aiRegularPhp: regularPhp,
+    aiIntroPhp: introPhp,
+    aiHasSignupPrice: hasSignupPrice,
     aiPeriod: aiPeriodSuffix(),
     vendor,
   };

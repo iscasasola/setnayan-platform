@@ -30,6 +30,7 @@ import {
   readPapicFreeOneCameraPoints,
 } from '@/lib/papic-tier-config-read';
 import { PAPIC_FREE_ONE_CAMERA_COUNT } from '@/lib/papic-one';
+import { resolveAiPrices } from '@/app/_components/home/pricing-data';
 
 /**
  * Force dynamic rendering · skip static prerender.
@@ -224,14 +225,33 @@ export default async function PricingPage() {
       readPapicFreeOneCameraPoints(),
     ]);
 
-  // Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10): a
-  // single ₱499 charge, access until the event date. The prior ₱499→₱799/28-day
-  // subscription (and its SETNAYAN_AI_RENEW row) is retired — no renewal price.
-  // Reads live from the active catalog; the ₱499 fallback only renders if the
-  // row is unreadable. The period suffix comes from the row's billing_period
-  // (now `one_time` → empty).
+  // Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10): one
+  // charge, access until the event date. The prior ₱499→₱799/28-day subscription
+  // (and its SETNAYAN_AI_RENEW row) is retired — no renewal price.
+  //
+  // 🔑 IT HAS TWO PRICES (owner 2026-08-12) AND THIS PAGE SHOWED ONE. A sign-up
+  // price if you take it while creating your event, the regular price after.
+  // Both live in the catalog row and the sign-up one was already being CHARGED;
+  // it simply never reached a public surface. Read both, and let the card decide
+  // how to say it.
+  //
+  // ⚠ THE '₱499' FALLBACK IS GONE, AND IT WAS NOT HARMLESS. By the time it was
+  // found the live price was ₱2,499 — the "last-resort" number was FIVE TIMES
+  // off, on the page where somebody decides to pay, and nothing checked it
+  // because `public-price-literals.ts` declared it `sku: null` (a non-price),
+  // which is exactly the class of entry that is never drift-tested. An
+  // unreadable catalog now renders NO figure. A missing price is recoverable;
+  // a confidently wrong one is not.
+  //
+  // The period suffix comes from the row's billing_period (now `one_time` → '').
+  // ⚠ ONE RESOLVER, TWO SURFACES. `resolveAiPrices` is shared with the nav
+  // pricing overlay (`_components/home/pricing-data.ts`) so this page and that
+  // popup can never disagree about whether a sign-up price exists. Its docblock
+  // carries the four rules; do not re-implement them here.
   const setnayanAi = customerSkus.find((s) => s.service_code === 'SETNAYAN_AI');
-  const aiIntroLabel = setnayanAi ? `₱${formatPeso(setnayanAi.retail_price_php)}` : '₱499';
+  const ai = resolveAiPrices(setnayanAi);
+  const aiRegularLabel = ai.regularPhp > 0 ? `₱${formatPeso(ai.regularPhp)}` : null;
+  const aiSignupLabel = ai.hasSignupPrice ? `₱${formatPeso(ai.introPhp)}` : null;
   const aiPeriod = setnayanAi ? formatBillingPeriodSuffix(setnayanAi.billing_period) : '';
 
   // ── The Papic ONE ladder — DERIVED, never spelled ─────────────────────────
@@ -297,6 +317,9 @@ export default async function PricingPage() {
           service_code: 'PAPIC_CAMERAS',
           title: papicOneTitle,
           retail_price_php: papicFromPhp,
+          // Synthetic rows are composed from real rungs and are never bought
+          // directly, so they carry no sign-up price.
+          onboarding_price_php: null,
           saas_overhead_cost_php: 0,
           is_token_able: false,
           description:
@@ -367,6 +390,8 @@ export default async function PricingPage() {
           service_code: 'PAPIC_POOL',
           title: 'Papic',
           retail_price_php: papicPoolBuckets[0]!.pricePhp,
+          // Synthetic row — composed from real rungs, never bought directly.
+          onboarding_price_php: null,
           saas_overhead_cost_php: 0,
           is_token_able: false,
           description:
@@ -653,15 +678,39 @@ export default async function PricingPage() {
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
                 Setnayan AI
               </p>
-              <p className="flex items-baseline gap-2">
-                <span className="font-sans text-4xl font-semibold tracking-tight text-ink">
-                  {aiIntroLabel}
-                </span>
-                <span className="text-sm text-ink/55">{aiPeriod}</span>
-              </p>
-              <p className="text-sm font-medium text-ink/70">
-                One-time · access until your wedding.
-              </p>
+              {/* THE PRICE, AND THE SECOND ONE THAT WAS NEVER SHOWN.
+                  When the catalog carries a sign-up price, THAT is the headline
+                  figure — it is what this reader pays if they start now, and
+                  quoting the higher number first was quietly overcharging the
+                  page's own visitor. The regular price stays visible beside it
+                  so nobody discovers it later. When the row carries no sign-up
+                  price the block is a single figure, exactly as before; when the
+                  catalog is unreadable it renders nothing rather than a guess. */}
+              {aiRegularLabel ? (
+                <>
+                  <p className="flex items-baseline gap-2">
+                    <span className="font-sans text-4xl font-semibold tracking-tight text-ink">
+                      {aiSignupLabel ?? aiRegularLabel}
+                    </span>
+                    {aiSignupLabel ? (
+                      <span className="text-sm text-ink/55">
+                        <span className="line-through decoration-ink/30">{aiRegularLabel}</span>{' '}
+                        later
+                      </span>
+                    ) : null}
+                    <span className="text-sm text-ink/55">{aiPeriod}</span>
+                  </p>
+                  <p className="text-sm font-medium text-ink/70">
+                    {aiSignupLabel
+                      ? 'One-time · this price while you’re setting up your wedding · access until the day.'
+                      : 'One-time · access until your wedding.'}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm font-medium text-ink/70">
+                  One-time · access until your wedding. See the price when you start.
+                </p>
+              )}
               <p className="text-sm leading-relaxed text-ink/65">
                 The planner that matches, sorts and cross-references every
                 vendor for your exact wedding.

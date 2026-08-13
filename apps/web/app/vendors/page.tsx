@@ -2,8 +2,10 @@
  * /vendors — "Built to grow your business — free."
  *
  * Rebuilt 2026-07-05 to the owner-approved prototype (vendors_page_v2_final.html):
- * a free-forward, grow-with-us narrative → the full ~90-row tier MATRIX → a
- * "for those who need more" Custom callout → CTA. The persistent glass nav +
+ * a free-forward, grow-with-us narrative → the tier ladder → a "for those who
+ * need more" Custom callout → CTA. The ladder now LEADS with per-plan DELTAS
+ * (what each plan adds, once) and keeps the ~90-row matrix behind a disclosure
+ * inside the same section. The persistent glass nav +
  * footer are global site-chrome (SiteChrome) — this page renders neither.
  *
  * Narrative flow (top→bottom):
@@ -13,16 +15,19 @@
  *   never-spend-a-peso-that-doesn't-grow-you → free website that ranks (SEO/GEO)
  *   → analytics + only-inquiries-that-matter → trust earned not bought →
  *   no-fakes → reach that compounds → the tools → get paid your way →
- *   full 5-column tier MATRIX (Free·Verified / Solo / Pro / Enterprise / Custom)
+ *   tier DELTAS (Free·Verified / Solo / Pro / Enterprise / Custom), with the
+ *   full 5-column matrix collapsed behind "Compare every tier side by side"
  *   → Custom "for those who need more" → CTA.
  *
  * PRICE SOURCING (owner-locked "prices based on the admin page, not hardcoded"):
  *   Every vendor tier price comes from getVendorPrices() (live vendor_billing_
  *   catalog). force-dynamic keeps it always-live. The narrative sections speak
  *   the "free" thesis and render NO number; the matrix column price tags are the
- *   DB-resolved labels. Custom's "from ₱X" floor is the shared VENDOR_CUSTOM_TIER
- *   constant (composed per plan, not a DB SKU), parsed once — never a fresh
- *   hardcoded literal.
+ *   DB-resolved labels. ⚠ Custom's "from" floor USED to read that it was "the
+ *   shared VENDOR_CUSTOM_TIER constant (composed per plan, not a DB SKU)". That
+ *   was wrong: `vendor_custom_base` is an active catalog row and is where the
+ *   number came from. It now reads the catalog like every other price, as does
+ *   the branch dial — neither is typed anywhere.
  *
  * The matrix is DATA-DRIVEN (VENDOR_TIER_SECTIONS + TIER_CAPS via
  * VendorTierMatrix) — the ~90 rows are built from the canonical arrays, never
@@ -46,6 +51,7 @@ import {
   VendorGrowStyles,
 } from './_components/vendor-grow-sections';
 import { VendorTierMatrix } from './_components/vendor-tier-matrix';
+import { VendorTierDeltas } from './_components/vendor-tier-deltas';
 import { RevealOnView } from './_components/for-vendors-motion';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
@@ -216,19 +222,38 @@ export default async function ForVendorsPage() {
         <RevealOnView>
           <VendorGrowGetPaid />
         </RevealOnView>
-        {/* The full ~90-row tier MATRIX — data-driven from VENDOR_TIER_SECTIONS +
-            TIER_CAPS, 5 columns (Free·Verified / Solo / Pro / Enterprise /
-            Custom). Column price tags read the live catalog via getVendorPrices
-            (never hardcoded); the Custom "from" floor is the shared
-            VENDOR_CUSTOM_TIER constant. The section already carries its own
-            "for those who need more" Custom callout. */}
+        {/* THE TIER LADDER, AS DELTAS — each plan says what it ADDS, once.
+            The ~90-row × 5-column MATRIX is still here, behind a disclosure
+            inside this same section, because a grid is what the owner asked for
+            on 2026-07-04 and a vendor comparing two specific plans wants one.
+            What changed is which of the two a person reads first: the matrix
+            restated every benefit in every column above it, ~360 of ~450 cells
+            being restatement of the ~90 that carry information.
+
+            Both are built from the SAME canonical data (VENDOR_TIER_SECTIONS +
+            TIER_CAPS + VENDOR_CUSTOM_TIER), and every price — including Custom's
+            "from" floor and the branch dial, which used to be typed into the
+            shared constant — reads the live catalog via getVendorPrices. */}
         <RevealOnView>
-          <VendorTierMatrix
+          <VendorTierDeltas
             prices={{
               soloMonthly: p.soloMonthly,
               proMonthly: p.proMonthly,
               enterpriseMonthly: p.enterpriseMonthly,
+              customFrom: p.customFrom,
+              branch: p.branch,
             }}
+            matrix={
+              <VendorTierMatrix
+                prices={{
+                  soloMonthly: p.soloMonthly,
+                  proMonthly: p.proMonthly,
+                  enterpriseMonthly: p.enterpriseMonthly,
+                  customFrom: p.customFrom,
+                  branch: p.branch,
+                }}
+              />
+            }
           />
         </RevealOnView>
         <VendorGrowCTA />

@@ -23,6 +23,31 @@
  *
  * Adding an entry is deliberately a little annoying: you must say which SKU a
  * number mirrors, or state why it is not a price at all.
+ *
+ * ─── FOUR ENTRIES WERE RETIRED 2026-08-13, BY DELETING THE LITERALS ──────
+ * A BASELINE IS A BILL, NOT A DECISION. Each line here is a standing promise
+ * that somebody keeps a number in step by hand, and four of them turned out to
+ * be avoidable — the figures were sitting in the catalog the whole time:
+ *
+ *   • `vendor-benefits.ts` ₱8,999 + `vendor-tier-matrix.tsx` ₱8,999 — declared
+ *     on the reason that Custom "is not a DB catalog SKU (Custom is composed
+ *     per plan)". **`vendor_custom_base` is an active row at exactly ₱8,999.**
+ *     The stated justification for the exemption was factually wrong, and the
+ *     number lived in THREE places (a display label, a regex that parsed it back
+ *     out of that label, and the regex's fallback).
+ *   • `vendor-benefits.ts` ₱999 — `vendor_branch_28day`, likewise active.
+ *   • `app/pricing/page.tsx` ₱499 — the dangerous one. Declared `sku: null` as a
+ *     "last-resort fallback", which is the category the runtime drift check
+ *     deliberately does NOT verify. The live SETNAYAN_AI price was ₱2,499 by
+ *     then: the undrifted "non-price" was FIVE TIMES off, on the page where
+ *     somebody decides to pay. It now renders no figure at all when the catalog
+ *     is unreadable.
+ *
+ * 🔑 THE `sku: null` CATEGORY IS WHERE A STALE PRICE HIDES. It exists for genuine
+ * non-prices — a commission threshold, an illustrative budget — and nothing
+ * checks anything in it. Before writing `sku: null`, ask whether the number is
+ * a price that simply has no reachable SKU *yet*; if it is, it belongs in the
+ * catalog, not here.
  */
 
 export type PriceLiteral = {
@@ -63,24 +88,6 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
   },
 
   // ── vendor marketing · real SKU prices in tier copy ────────────────────────
-  {
-    file: 'app/_components/home/vendor-benefits.ts',
-    literal: '₱8,999',
-    sku: 'vendor_custom_base',
-    reason: 'Custom tier "from" floor in the shared VENDOR_CUSTOM_TIER label.',
-  },
-  {
-    file: 'app/_components/home/vendor-benefits.ts',
-    literal: '₱999',
-    sku: 'vendor_branch_28day',
-    reason: 'Additional-branch price named twice in the Custom tier dials.',
-  },
-  {
-    file: 'app/vendors/_components/vendor-tier-matrix.tsx',
-    literal: '₱8,999',
-    sku: 'vendor_custom_base',
-    reason: 'Fallback for the regex that reads the floor off VENDOR_CUSTOM_TIER.name.',
-  },
 
   // ── non-SKU figures: commission thresholds, free markers, examples ─────────
   {
@@ -106,13 +113,6 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     literal: '₱100,000',
     sku: null,
     reason: 'Same commission-tapering threshold.',
-  },
-  {
-    file: 'app/pricing/page.tsx',
-    literal: '₱499',
-    sku: null,
-    reason:
-      'Last-resort fallback when the Setnayan AI catalog row is unreadable; the live value is resolved from the catalog immediately above it.',
   },
   {
     file: 'app/onboarding/wedding/_components/onboarding-shell.tsx',

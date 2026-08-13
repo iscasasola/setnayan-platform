@@ -24,15 +24,25 @@
 
 import { Fragment, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from '@/app/_components/home/vendor-benefits';
+import {
+  VENDOR_TIER_SECTIONS,
+  customTierDialLabels,
+} from '@/app/_components/home/vendor-benefits';
 import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 
-// Custom's "from ₱X" floor is not a DB catalog SKU (Custom is composed per
-// plan) — it lives on the shared VENDOR_CUSTOM_TIER constant used across the
-// /vendors surfaces. Parse the "₱8,999" out of its name so the matrix header
-// and the benefit guide stay on ONE source; never a fresh hardcoded literal.
-const CUSTOM_FROM_PRICE =
-  VENDOR_CUSTOM_TIER.name.match(/₱[\d,]+/)?.[0] ?? '₱8,999';
+/*
+ * ⚠ CUSTOM'S "FROM" PRICE IS NOW A PROP, AND THE REGEX THAT USED TO FIND IT IS
+ * GONE. This file used to do:
+ *
+ *     const CUSTOM_FROM_PRICE = VENDOR_CUSTOM_TIER.name.match(/₱[\d,]+/)?.[0] ?? '₱8,999';
+ *
+ * — parsing a price back out of a display label, with a typed literal behind it,
+ * on the stated grounds that Custom "is not a DB catalog SKU". It is:
+ * `vendor_custom_base`, active, and the source of that very figure. One reprice
+ * would have left the label, the regex result and the fallback disagreeing.
+ * `prices.customFrom` comes from `getVendorPrices()` and may be `null`, in which
+ * case the header shows the tier without a figure rather than a stale one.
+ */
 
 // The five marketed columns. `verified` is the real free-vendor state
 // ("Free · Verified"); the legacy pre-verification `free` state is not a column.
@@ -66,6 +76,11 @@ export interface VendorTierMatrixPrices {
   soloMonthly: string;
   proMonthly: string;
   enterpriseMonthly: string;
+  /** `vendor_custom_base`, live. `null` when the catalog is unreadable — the
+   *  Custom header then shows no figure rather than a typed one. */
+  customFrom: string | null;
+  /** `vendor_branch_28day`, live — the one Custom dial that names a price. */
+  branch: string | null;
 }
 
 type Cell = { kind: 'yes' | 'no' | 'soon' | 'value'; value?: string };
@@ -184,7 +199,7 @@ function buildLimitsGroup(): Group {
  *  (that catalog stops at Enterprise), so they're defined here as the Custom
  *  column's exclusive adds, mirroring the prototype's "Scale as an organization"
  *  Custom-only lines. */
-function buildCustomOnlyGroup(): Group {
+function buildCustomOnlyGroup(branchPrice: string | null): Group {
   const onlyCustom = (): Record<Col, Cell> =>
     COLS.reduce(
       (acc, c) => {
@@ -197,7 +212,7 @@ function buildCustomOnlyGroup(): Group {
     title: 'Custom adds',
     // Canonical Custom-only dials live on VENDOR_CUSTOM_TIER.benefits (single
     // source of truth shared with the HomeOverlays cross-tier count).
-    rows: VENDOR_CUSTOM_TIER.benefits.map((label) => ({ label, cells: onlyCustom() })),
+    rows: customTierDialLabels(branchPrice).map((label) => ({ label, cells: onlyCustom() })),
   };
 }
 
@@ -253,8 +268,8 @@ function CellView({ cell, selected }: { cell: Cell; selected: boolean }) {
 export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices }) {
   const [selected, setSelected] = useState<Col>('pro');
   const groups = useMemo(
-    () => [buildLimitsGroup(), ...buildFeatureGroups(), buildCustomOnlyGroup()],
-    [],
+    () => [buildLimitsGroup(), ...buildFeatureGroups(), buildCustomOnlyGroup(prices.branch)],
+    [prices.branch],
   );
 
   const COL_META: Record<Col, { name: string; price: string; unit?: string }> = {
@@ -262,7 +277,11 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
     solo: { name: 'Solo', price: prices.soloMonthly, unit: '/ 28d' },
     pro: { name: 'Pro', price: prices.proMonthly, unit: '/ 28d' },
     enterprise: { name: 'Enterprise', price: prices.enterpriseMonthly, unit: '/ 28d' },
-    custom: { name: 'Custom', price: CUSTOM_FROM_PRICE, unit: 'from · negotiated' },
+    custom: {
+      name: 'Custom',
+      price: prices.customFrom ?? 'Custom',
+      unit: prices.customFrom ? 'from · negotiated' : 'negotiated',
+    },
   };
 
   return (
@@ -519,7 +538,8 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
               }}
             >
               <span aria-hidden style={{ width: 24, height: 1, background: 'var(--m-orange)' }} />
-              Custom · beyond Enterprise &middot; {CUSTOM_FROM_PRICE}
+              Custom · beyond Enterprise
+              {prices.customFrom ? <> &middot; {prices.customFrom}</> : null}
             </span>
             <h3 className="m-serif" style={{ fontSize: 28, fontWeight: 600, margin: '14px 0 8px', color: '#fff' }}>
               For those who need more.

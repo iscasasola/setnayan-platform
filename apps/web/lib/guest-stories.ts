@@ -406,9 +406,17 @@ async function pickMusic(): Promise<StoryMusic | null> {
   try {
     const { data, error } = await admin
       .from('reel_music_tracks')
-      .select('track_slug, display_name, source_url, beat_grid')
+      .select('track_slug, display_name, source_url, beat_grid, duration_sec')
       .eq('is_active', true)
       .eq('is_premium', false)
+      // ⚠ WITHOUT THIS THE FILM IS SILENT. 23 of prod's 24 active free rows are
+      // 2026-05-16 seed rows with NO audio file (`source_url IS NULL`,
+      // "Null until the licensed file is ingested"), and the ONE row that has a
+      // file is the NEWEST — so oldest-first could never reach it. The picker
+      // still returned a row, so the UI printed "<song> · owned catalogue"
+      // under a film with no sound. The sibling listMusicOptions has always
+      // dropped these ("un-ingested master → not offerable"); this one didn't.
+      .not('source_url', 'is', null)
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
@@ -420,6 +428,7 @@ async function pickMusic(): Promise<StoryMusic | null> {
           .select('track_slug, display_name, source_url')
           .eq('is_active', true)
           .eq('is_premium', false)
+          .not('source_url', 'is', null)
           .order('created_at', { ascending: true })
           .limit(1)
           .maybeSingle();
@@ -477,9 +486,14 @@ async function listMusicOptions(eventId: string): Promise<StoryMusic[]> {
       | null = null;
     const { data, error } = await admin
       .from('reel_music_tracks')
-      .select('track_slug, display_name, source_url, beat_grid')
+      .select('track_slug, display_name, source_url, beat_grid, duration_sec')
       .eq('is_active', true)
       .eq('is_premium', false)
+      // Skip un-ingested masters at the DB rather than after presigning — the
+      // JS guard below (`if (!url) continue`) already dropped them, so this
+      // only stops fetching rows we were always going to discard. NOT the fix
+      // for the silent-film defect; that was pickMusic, which had no guard.
+      .not('source_url', 'is', null)
       .order('created_at', { ascending: true })
       .limit(MUSIC_OPTIONS_MAX);
     if (error) {
@@ -490,6 +504,7 @@ async function listMusicOptions(eventId: string): Promise<StoryMusic[]> {
           .select('track_slug, display_name, source_url')
           .eq('is_active', true)
           .eq('is_premium', false)
+          .not('source_url', 'is', null)
           .order('created_at', { ascending: true })
           .limit(MUSIC_OPTIONS_MAX);
         rows = bare ?? null;

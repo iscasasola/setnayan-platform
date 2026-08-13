@@ -24,7 +24,11 @@ import {
 } from 'lucide-react';
 import { renderReel, type RenderClip } from '@/lib/reel-render';
 import { defaultCameraMove } from '@/lib/stories-camera-move';
-import { TEASER_FOOTER, TEASER_PALETTE } from '@/lib/creator-teaser-shared';
+import {
+  TEASER_END_CARD_SEC,
+  TEASER_FOOTER,
+  TEASER_PALETTE,
+} from '@/lib/creator-teaser-shared';
 import { prepareChapterTeaser, finalizeChapterTeaser } from '../actions';
 
 type Phase = 'idle' | 'preparing' | 'rendering' | 'uploading' | 'done' | 'error';
@@ -105,7 +109,16 @@ export function TeaserGenerator({
       }));
       const endCard = buildEndCardDataUrl();
       if (endCard) {
-        clips.push({ clipId: 'endcard', url: endCard, durationSec: null, kind: 'photo' });
+        // PIN the end card. Passing `durationSec: null` made it the last
+        // UNCAPPED source, and the scheduler hands the last source every
+        // second the photos didn't use — the card took 42% of a 6s film and
+        // would have taken 90% of a 30s one.
+        clips.push({
+          clipId: 'endcard',
+          url: endCard,
+          durationSec: TEASER_END_CARD_SEC,
+          kind: 'photo',
+        });
       }
 
       setPhase('rendering');

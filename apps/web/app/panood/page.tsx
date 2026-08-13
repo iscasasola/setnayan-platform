@@ -25,7 +25,7 @@
  */
 
 import Link from 'next/link';
-import { DoorwayPage } from '@/app/_components/marketing/_doorway';
+import { DoorwayPage, DOORWAY_TONE } from '@/app/_components/marketing/_doorway';
 
 export const dynamic = 'force-static';
 export const revalidate = 3600;
@@ -166,7 +166,7 @@ export default function PanoodLandingPage() {
       // YouTube-API-Services disclosure an OAuth reviewer looks for. The 2026-06-29
       // "never name YouTube" rule was REVERSED for exactly this paragraph.
       epilogue={
-        <p className="mt-5 text-center text-sm text-[#5F5E5A]">
+        <p className={`mt-5 text-center text-sm ${DOORWAY_TONE.muted}`}>
           Live Studio uses YouTube API Services. How we handle the Google data
           involved is set out in our{' '}
           <Link href="/privacy" className="underline underline-offset-4">

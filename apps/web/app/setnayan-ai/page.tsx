@@ -21,20 +21,19 @@
  * (public-surface hygiene) and quotes NO price (admin-managed + provisional —
  * links to /pricing). Framing per the locked free-vs-AI boundary: the planning
  * tools are free; Setnayan AI is the upgrade that does the finding for you.
+ *
+ * ─── PORTED ONTO THE SHARED DOORWAY KIT (design#6) ───────────────────────
+ * This page used to carry `_setnayan-ai-motion.tsx`: a private re-implementation
+ * of the hero, the how-it-works panel, the differentiator rows and the closing
+ * CTA — i.e. the whole archetype, written a second time, differing from the kit
+ * only in copy strings. Its spine mapped onto `DoorwayPage` one-for-one, so the
+ * fork is deleted rather than kept in step by hand. Every string below is
+ * VERBATIM from that file; nothing about this page's words, routes, CTAs,
+ * metadata or JSON-LD changed. What changed is that its colours are now the
+ * locked tokens, because they arrive from the kit.
  */
 
-// Client motion island (the page itself stays a force-static Server Component;
-// metadata + both JSON-LD scripts live here in the server file). The island
-// renders the hero so the serif line-reveal ref sits on the real <h1>, and wraps
-// the below-fold sections with the shared premium primitives. Additive-only: no
-// copy / route / IA / CTA / metadata / JSON-LD change.
-import {
-  SetnayanAiHero,
-  HowItWorks,
-  Matchmaking,
-  RevealBlock,
-  CtaPanel,
-} from './_setnayan-ai-motion';
+import { DoorwayPage, type DoorwayVersus } from '@/app/_components/marketing/_doorway';
 
 export const dynamic = 'force-static';
 export const revalidate = 3600;
@@ -149,7 +148,7 @@ const STEPS = [
   },
 ];
 
-const VS = [
+const VS: readonly DoorwayVersus[] = [
   ['A chatbot you have to remember to go ask', 'An assistant that watches and taps you'],
   ['Finds vendors once, then forgets them', 'Keeps an eye on them — price, availability, dates'],
   ['You track every deposit and deadline yourself', 'It flags a deposit or clash before it bites'],
@@ -158,43 +157,26 @@ const VS = [
 
 export default function SetnayanAiLandingPage() {
   return (
-    <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_LD) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
-      <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
-        {/* Hero — the signature self-composing line-reveal lives in the client
-            island so the ref sits on the real <h1>; eyebrow / subcopy / CTAs
-            settle in one quiet beat after. Copy / CTAs verbatim. */}
-        <SetnayanAiHero />
-
-        {/* How it works — the one PanelThread section (champagne stitch + quiet
-            card rise). 01/02/03 numerals + hover-lift preserved. */}
-        <HowItWorks steps={STEPS} />
-
-        {/* Not a generic chatbot — staggered row-rise only (no morph/collapse;
-            the static struck-through → affirmed contrast carries the idea). */}
-        <Matchmaking rows={VS} />
-
-        {/* FAQ (backs the FAQPage schema) — one incidental whole-block fade, no
-            per-row stagger (scannable reference). */}
-        <section className="mx-auto mt-16 max-w-2xl" aria-label="Setnayan AI questions">
-          <h2 className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">Questions, answered</h2>
-          <RevealBlock>
-            <dl className="mt-7 divide-y divide-[var(--m-ink)]/10 border-y border-[var(--m-ink)]/10">
-              {FAQ.map((f) => (
-                <div key={f.q} className="py-5">
-                  <dt className="font-serif text-base text-[var(--m-ink)]">{f.q}</dt>
-                  <dd className="mt-1.5 text-sm text-[#5F5E5A]">{f.a}</dd>
-                </div>
-              ))}
-            </dl>
-          </RevealBlock>
-        </section>
-
-        {/* CTA — headline line-reveal + button rise; gold stays a hairline
-            border on cream (no fill / no glow). */}
-        <CtaPanel />
-      </main>
-    </>
+    <DoorwayPage
+      title="It doesn’t chat. It watches your wedding for you."
+      lede="Every other wedding AI waits for you to ask a question. Setnayan AI keeps an eye on your vendors — the ones you’re eyeing and the ones you’ve booked — and taps you only when something needs you: a deposit due, a price that moved, a date about to clash. Every planning tool stays free; Setnayan AI is the paid brain on top."
+      primary={{ href: '/onboarding/wedding?from=setnayan-ai', label: 'Start planning · free' }}
+      secondary={{ href: '/pricing', label: 'See pricing' }}
+      productName="Setnayan AI"
+      steps={STEPS}
+      differentiator={{
+        heading: 'A chatbot waits. Setnayan AI watches.',
+        lede: 'Like a price watcher for flights or a home-search alert — but for your actual vendors, not the whole internet. It comes to you.',
+        rows: VS,
+      }}
+      faq={FAQ}
+      closing={{
+        heading: 'Let it watch your back',
+        body: 'Planning on Setnayan is free to start — guest list, RSVP, seating, budget, and your wedding website. Setnayan AI is the paid brain that watches your vendors so you don’t have to — a job you’d otherwise need a small team for. Add it when you want it; 0% vendor commission, so it recommends what fits you, never what pays us.',
+        href: '/onboarding/wedding?from=setnayan-ai',
+        label: 'Start planning · free',
+      }}
+      structuredData={[APP_LD, FAQ_LD]}
+    />
   );
 }

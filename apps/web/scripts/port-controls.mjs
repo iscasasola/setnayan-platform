@@ -231,7 +231,25 @@ const ICON_SOURCES = /^(lucide-react|react-icons|@heroicons|@radix-ui\/react-ico
 const IMPORT_RE = /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
 const JSX_EL_RE = /<([A-Z][\w$]*(?:\.[A-Z][\w$]*)?)[\s/>]/g;
 
-const HREF_RE = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|\{\s*`([^`]*)`\s*\}|\{\s*"([^"]*)"\s*\}|\{\s*'([^']*)'\s*\})/g;
+/**
+ * ⚠ WIDENED 2026-08-13 (second time, same disease as ACTION_EXPR_RE below).
+ * This used to require the JSX ATTRIBUTE form, `href="/pricing"`. The doorway
+ * port moved every public product page onto a shared kit that takes its links
+ * as DATA — `primary={{ href: '/pricing', label: 'See pricing' }}` — and an
+ * object property is `href:` not `href=`, so the extractor saw nothing.
+ *
+ * The consequence is the one this file already warns about for actions, and it
+ * had already happened: five ported doorways were baselined with
+ * `"destinations": []`. Their real links were not lost — they render fine — but
+ * the guard's memory of them was, so deleting "See pricing" from any of those
+ * pages would have passed CI in silence. The sanctioned fix for a reported loss
+ * is to regenerate the baseline, which is precisely how a blind spot becomes a
+ * recorded lie the guard then defends.
+ *
+ * `[:=]` covers both. A TYPE declaration (`href: string`) cannot match — the
+ * value has to be a quoted literal.
+ */
+const HREF_RE = /\bhref\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|\{\s*`([^`]*)`\s*\}|\{\s*"([^"]*)"\s*\}|\{\s*'([^']*)'\s*\})/g;
 /**
  * A bound server action.
  *

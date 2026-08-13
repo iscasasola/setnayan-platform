@@ -105,8 +105,15 @@ function code(src: string): string {
  *
  * So: a file that DECLARES a polymorphic `as` prop is a heading component, and
  * its literal `<h1>` is machinery, not a title. Only its call sites count.
- * `/setnayan-ai` is the counter-example that proves the rule — its hero renders
- * a fixed `<h1>` and takes no `as`, so that one IS the decision.
+ *
+ * ⚠ THE EXAMPLES ABOVE ARE NOW HISTORY, AND THE RULE IS NOT. All eight routes
+ * take their h1 from the kit as of design#6, so no doorway folder still holds a
+ * hero of its own: `/papic`'s private motion fork is reduced to its tile-settle
+ * and `/setnayan-ai`'s — which used to be the counter-example here, a fixed
+ * `<h1>` taking no `as` — is deleted outright. The polymorphic-heading rule
+ * stays because `countH1` still applies it to any file a future page adds, and
+ * because deleting a rule the moment its last instance disappears is how the
+ * instance comes back.
  */
 function isPolymorphicHeading(src: string): boolean {
   return /as = '|as\?:/.test(src);

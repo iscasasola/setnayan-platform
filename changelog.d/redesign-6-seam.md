@@ -144,44 +144,48 @@ bug; the idiom plus a constant `open` is.** Left alone, deliberately.
 
 Guarded, and the guard mutation-tested with the rest.
 
-### 🚨 The architecture was wrong twice, and the budget is what proved it
+### 🚨 It took FOUR attempts to fit in the shared bundle, and three of them were wrong
 
-**First cut:** the panel was imported **statically** into a context provider
-mounted in the **root layout** — putting `<SignInCard>`, the OAuth row, the
-Turnstile field and two stylesheets into the first-load JS of **every page**,
-for every visitor who never presses Sign in. That is this repo's own 2026-07-02
-perf-sweep finding #7 reintroduced at a larger blast radius, and my own comment
-asserted the opposite of what the code did.
+The shared client bundle is capped at **200 KB gzipped** (`DECISION_LOG`
+2026-05-22 KPI lock). Measured against three other PRs, `main` sits at
+**199.8 KB — 0.2 KB of headroom for the entire product.**
 
-**Second cut** made the panel a `dynamic()` import — and CI still failed:
-**200.4 KB against the 200 KB gzipped ceiling** locked in `DECISION_LOG`
-2026-05-22. Measured against three other PRs, `main` sits at **199.8 KB — 0.2 KB
-of headroom for the entire product.**
+| # | what I did | measured | why it was wrong |
+|---|---|---|---|
+| 1 | context provider in the ROOT LAYOUT, panel imported statically | 200.4 KB | everything the root layout's client tree touches lands in the shared chunk — the whole login form, on every page, for every visitor |
+| 2 | same provider, panel behind `dynamic()` | 200.4 KB | lazy children do not help: the provider itself is still in the shared tree |
+| 3 | provider and context DELETED; per-surface hook, panel behind `import()` | 200.4 KB | — |
+| 4 | static import; CSS folded into an existing sheet; one consumer dropped | **199.8 KB · webpack runtime 3.2 KB / 6 KB raw** | **identical to `main`** |
 
-**Third cut** removed the provider and the context entirely. `useSignInPanel()`
-gives each surface its own state, and every consumer — the front-door shell,
-the shop page's link, the marketplace save button — is a **route** chunk, while
-the marketing nav opens through `HomeOverlays`, already `dynamic(ssr:false)`
-and already paid for. **And it STILL measured 200.4 KB.**
+🔑 **At attempt 3 I stopped reasoning and diffed the per-chunk breakdown against
+a passing run.** Five of the six chunks were BYTE-IDENTICAL to `main`; the
+entire overage sat in `webpack-*.js` — the runtime carrying the **chunk
+manifest** — grown 3.2 → 3.8 KB gz. **The lazy `import()` I had added to save
+bytes was spending them:** a chunk that exists must be indexed, and the index
+ships to every page.
 
-🔑 **So I stopped guessing and diffed the per-chunk breakdown against a passing
-run. Five of the six chunks were BYTE-IDENTICAL to `main`. The entire overage
-was in `webpack-*.js` — the runtime that carries the CHUNK MANIFEST — which had
-grown 3.2 → 3.8 KB gz. The lazy `import()` WAS THE COST**: a new async chunk
-has to be indexed, and the index lives in the shared bundle.
+Attempt 4 removed every new *module boundary* rather than every new *byte*: the
+import is static, the terracotta rules live in `home-reskin.css` instead of a
+file of their own, and the login form is down to the consumers that justify it.
+Final shared delta: **zero. Not "within budget" — the same 199.8 KB and the
+same 3.2 KB runtime `main` reports.**
 
-The import is now **static**, the panel has no chunk of its own, and its code
-rides in chunks that were being fetched anyway. **Shared-bundle delta: zero.**
+🔑 **Splitting is not free.** Three revisions all "obviously" reduced cost and
+two of them raised it. One per-chunk diff answered what three rounds of
+reasoning got wrong.
 
-🔑 **Splitting is not free, and that is the lesson worth keeping.** Three
-revisions all "obviously" reduced cost; two of them raised it. The per-chunk
-diff answered in one read what three rounds of reasoning got wrong.
+🔑 **"Raise it by 0.4 KB" was never on the table.** The checker's own docblock
+says the decision log must move first, and it states the policy this landed on:
+per-route weight is fine, shared weight is precious. A ceiling you edit when you
+hit it is not a ceiling.
 
-🔑 **The budget is a KPI lock, so "raise it by 0.4 KB" was never on the table** —
-the checker's own docblock says the decision log must move first. A ceiling you
-edit when you hit it is not a ceiling. It is also the budget's own stated
-policy that per-route weight is fine and shared weight is precious, so this is
-the shape it was asking for.
+⏭ **The one deliberate scope cut:** the marketplace **Save** button keeps its
+old navigation, and is now the only sign-in in the product that leaves the page.
+A signed-out visitor never sees that button (`canSave` is false for them), so
+the only route there is a session that expired mid-read — the rarest sign-in
+there is, and wiring it made the login form's fifth importing chunk. `next=`
+still carries the page back, so the cost is a reload, not a lost destination.
+**Owner's call to reverse; the space would have to come from somewhere else.**
 
 ### 🪤 And a React trap the refactor introduced: portals escape the DOM, not the event tree
 

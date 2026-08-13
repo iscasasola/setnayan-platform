@@ -128,7 +128,6 @@ function SignInHerePanel({
 }) {
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
   const [oauth] = useState<SignInOAuth>(detectSignInOAuth);
   /*
     ⚠ READ FROM `window`, NOT `useSearchParams()` — and this is not a style
@@ -144,9 +143,28 @@ function SignInHerePanel({
   const [here, setHere] = useState('/');
 
   useEffect(() => {
-    setMounted(true);
     setHere(`${window.location.pathname}${window.location.search}`);
   }, []);
+  /*
+    🚨 THERE IS NO `mounted` GATE HERE, AND ADDING ONE BREAKS THE DIALOG
+    SILENTLY. `useModalA11y` reads `containerRef.current` inside an effect that
+    runs ONCE — its deps are `open` (a constant `true` here), the ref OBJECT and
+    the id, none of which change when a mount flag flips. So with an
+    `if (!mounted) return null` in front of the portal, the first render has no
+    DOM, the effect early-returns on a null ref, and it NEVER RUNS AGAIN:
+    Escape stops closing the panel, Tab wanders into the page behind it, and
+    the body never locks. Nothing throws and it looks completely fine.
+
+    The gate is also unnecessary. This component is rendered only from a click,
+    so `document` always exists by then — the panel is never part of the
+    server-rendered tree (the provider holds `null` until somebody presses Sign
+    in). The `typeof document` line below is a RENDER-TIME safety net, not a
+    state gate: it cannot delay the first real render the way state does, so
+    the ref is attached before the effect fires.
+
+    `app/login/_components/sign-in-card-modal.tsx` is the shape that works and
+    has always worked: no gate, `open: true`, ref attached on first commit.
+  */
   useModalA11y({ open: true, onClose, containerRef: ref });
 
   /*
@@ -175,7 +193,7 @@ function SignInHerePanel({
     [onClose, options, router],
   );
 
-  if (!mounted) return null;
+  if (typeof document === 'undefined') return null;
 
   return createPortal(
     <div

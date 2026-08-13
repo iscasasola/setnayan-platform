@@ -186,6 +186,38 @@ test('the front door signs you in without leaving', () => {
   );
 });
 
+test('the sign-in panel can actually trap focus, close on Escape and lock scroll', () => {
+  /*
+    🚨 A DEFECT THIS GUARD WAS WRITTEN FOR, FOUND IN MY OWN FIRST CUT.
+    `useModalA11y` reads `containerRef.current` inside an effect whose deps are
+    `open`, the ref OBJECT and an id — none of which change when a `mounted`
+    state flag flips. So a panel that renders `null` on its first pass gives the
+    effect a NULL ref, it early-returns, and IT NEVER RUNS AGAIN. Escape stops
+    closing, Tab walks into the page behind, the body never locks. Nothing
+    throws; the dialog just quietly is not one.
+
+    The panel is rendered only from a click, so `document` always exists by
+    then — the render-time `typeof document` bail is the SSR safety net and
+    cannot delay the first real render the way state does.
+  */
+  const src = code(read('_components/auth/sign-in-here.tsx'));
+  assert.match(
+    src,
+    /useModalA11y\(/,
+    'The panel is a dialog: it must trap focus and close on Escape.',
+  );
+  assert.doesNotMatch(
+    src,
+    /if\s*\(\s*!\s*mounted\s*\)\s*return\s+null/,
+    'A mount-state gate in front of the portal silently kills the focus trap, Escape and the scroll lock — the effect sees a null ref once and never re-runs.',
+  );
+  assert.doesNotMatch(
+    src,
+    /useState\(false\)/,
+    'No mount flag. If one is genuinely needed later, the dialog hook must be given a dep that changes with it.',
+  );
+});
+
 test('the panel stays put on success — refresh, never push', () => {
   const src = code(read('_components/auth/sign-in-here.tsx'));
   assert.match(
@@ -280,7 +312,16 @@ const APP_TREES = ['dashboard/', 'admin/', 'vendor-dashboard/'];
 
 test('the marketing top nav never appears inside the app', () => {
   const chrome = read('_components/marketing/site-chrome.tsx');
-  const routes = [...chrome.matchAll(/^\s*'(\/[^']*)',/gm)].map((m) => m[1]);
+  /*
+    ⚠ `.filter(Boolean)` IS REQUIRED, not tidiness. `noUncheckedIndexedAccess`
+    types a capture group as `string | undefined`, so the array is
+    `(string | undefined)[]` and `r.startsWith(...)` below does not compile.
+    CI caught this; a local typecheck on this machine never finished (three
+    sessions competing for 16 GB, killed at 137 — which is a KILL, not a pass).
+  */
+  const routes = [...chrome.matchAll(/^\s*'(\/[^']*)',/gm)]
+    .map((m) => m[1])
+    .filter((r): r is string => typeof r === 'string');
   assert.ok(routes.length > 20, `Expected the marketing route set, found ${routes.length}.`);
   const crossed = routes.filter((r) =>
     APP_TREES.some((tree) => r === `/${tree.slice(0, -1)}` || r.startsWith(`/${tree}`)),

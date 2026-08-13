@@ -118,15 +118,62 @@ public is a top bar, the app is a bottom bar, **never both, never crossed**.
 string that was removed, and a guard reading raw source would find
 `action="/auth/sign-out"` inside the note saying it is gone, and pass forever.
 
-### Trap paid on the way
+### 🚨 A defect in my own first cut, found by auditing rather than by a test
 
-⚠ **`useSearchParams()` was in the first cut of both new components and had to
-come out.** The provider is mounted in the ROOT LAYOUT, so it would have opted
+**The sign-in panel was not a dialog.** It gated its portal behind a `mounted`
+state flag — the usual SSR-safety idiom — and that silently killed everything
+`useModalA11y` does. The hook reads `containerRef.current` inside an effect
+whose deps are `open` (a constant `true` here), the ref OBJECT and an id, **none
+of which change when a mount flag flips**. So the first render handed the effect
+a null ref, it early-returned, and it never ran again: **Escape stopped closing
+the panel, Tab walked out into the page behind it, and the body never locked.**
+Nothing threw. It looked completely fine.
+
+The gate was also unnecessary — the panel renders only from a click, so
+`document` always exists by then. It is now a render-time `typeof document`
+bail, which cannot delay the first real render the way state does, so the ref is
+attached before the effect fires. `sign-in-card-modal.tsx` is the shape that
+always worked and is the reference.
+
+🔑 **The same construct is CORRECT in `HomeOverlays`' `OverlayShell`** — there
+the component is permanently mounted, so `mounted` is already true by the time
+`open` flips false→true and the effect re-runs on `open`. **The idiom is not the
+bug; the idiom plus a constant `open` is.** Left alone, deliberately.
+
+Guarded, and the guard mutation-tested with the rest.
+
+### Traps paid on the way
+
+**1 · `useSearchParams()` was in the first cut of both new components and had
+to come out.** The provider is mounted in the ROOT LAYOUT, so it would have opted
 **every page in the app** out of static rendering — the marketing pages and the
 front door are ISR/edge-cached. A site-wide performance regression shipped as a
 sign-in tweak, and `tsc` cannot see it; only a real `next build` can. Both read
 `window.location` instead, which is safe because the panel only ever mounts from
 a click.
+
+**2 · The form's initial state was an `export const` in a `'use server'`
+file** — a module that may export ONLY async functions. It typechecks perfectly
+green and **fails the production build**. Moved to its own module; now guarded.
+
+**3 · `lint-port-no-lost-controls.mjs` reported `/login` as having lost
+`signInWithPassword`. It had not** — a blind spot in the guard's own regex,
+which matched only a BARE identifier and went blind the moment a form chose its
+action conditionally. 🔑 **The sanctioned fix for a reported loss is to
+regenerate the baseline, so a blind spot there gets written down as a deliberate
+removal that never happened — and the guard then defends the lie.** Widened to
+record every identifier in the action expression (over-capture is safe by
+construction: missing → fail, added → pass), then re-mutation-tested on REAL
+route files. My first attempt to prove that mutated a file under
+`app/_components/`, which the guard does not attribute to any route, so it
+"passed" and proved nothing.
+
+**4 · CI caught a type error my machine never could.** `noUncheckedIndexedAccess`
+types a regex capture group as `string | undefined`. Three sessions were
+competing for 16 GB here and every local `pnpm typecheck` was **killed at 137 —
+a KILL, not a pass**. Fixed, then verified with a scoped typecheck over all 19
+changed files, itself proven to run by a positive control (rc 0 → 2 → 0) before
+its silence was trusted.
 
 ### Named, not built
 

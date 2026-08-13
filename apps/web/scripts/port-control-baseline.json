@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "096461db7",
+  "generatedFromRef": "e77566b48",
   "routeCount": 401,
-  "destinations": 678,
+  "destinations": 793,
   "actions": 522,
-  "blocks": 3552,
+  "blocks": 3538,
   "routes": {
     "/": {
       "files": [
@@ -653,28 +653,96 @@
       ],
       "destinations": [
         "/admin",
+        "/admin/account-deletions",
+        "/admin/accounts",
+        "/admin/accounts?tab=demo-vendors",
+        "/admin/accounts?tab=events",
+        "/admin/accounts?tab=users",
+        "/admin/accounts?tab=vendors",
+        "/admin/accounts?tab=venues",
         "/admin/app-performance",
+        "/admin/app-performance?tab=connection-logs",
+        "/admin/app-performance?tab=funnels",
+        "/admin/app-performance?tab=growth",
+        "/admin/app-performance?tab=intelligence",
+        "/admin/app-performance?tab=offline",
+        "/admin/app-performance?tab=operations",
+        "/admin/app-performance?tab=seo",
+        "/admin/approvals",
+        "/admin/background-videos",
+        "/admin/booking-fees",
+        "/admin/budget-planner",
+        "/admin/chat-flags",
         "/admin/completions",
+        "/admin/concierge-abuse",
         "/admin/corrections",
         "/admin/data-privacy",
+        "/admin/demand",
+        "/admin/directory",
+        "/admin/disputes",
         "/admin/editorial-review",
         "/admin/events",
+        "/admin/force-majeure",
+        "/admin/founder-seats",
         "/admin/fraud",
+        "/admin/help",
         "/admin/integrations",
+        "/admin/integrity-watch",
+        "/admin/live-studio-channels",
+        "/admin/money",
         "/admin/moodboard-library",
+        "/admin/more",
         "/admin/pakanta",
+        "/admin/papic-storage",
         "/admin/patiktok",
         "/admin/pax-changes",
+        "/admin/payment-options",
         "/admin/payments",
         "/admin/payouts",
+        "/admin/pricing?tab=custom-plans",
+        "/admin/pricing?tab=price-bands",
+        "/admin/pricing?tab=pricing",
+        "/admin/receipts",
         "/admin/repost-watch",
+        "/admin/reviews",
         "/admin/secrets",
+        "/admin/settings/payment-methods",
+        "/admin/settings?tab=compliance",
+        "/admin/settings?tab=demo-mode",
         "/admin/settings?tab=notifications",
+        "/admin/settings?tab=settings",
+        "/admin/studio",
+        "/admin/studio?tab=discount-codes",
+        "/admin/studio?tab=journal-spotlights",
+        "/admin/studio?tab=moodboard-library",
+        "/admin/studio?tab=patiktok",
+        "/admin/studio?tab=real-stories",
+        "/admin/studio?tab=recaps",
+        "/admin/studio?tab=referrals",
+        "/admin/studio?tab=reveal-studio",
+        "/admin/studio?tab=social-queue",
+        "/admin/studio?tab=songs",
+        "/admin/studio?tab=spotlight-awards",
+        "/admin/studio?tab=website",
+        "/admin/subscriptions",
+        "/admin/taxonomy",
+        "/admin/ugat",
+        "/admin/ugat/map",
+        "/admin/ugat?tab=brain",
+        "/admin/ugat?tab=menus",
+        "/admin/ugat?tab=onboarding",
+        "/admin/ugat?tab=wedding-traditions",
+        "/admin/user-reports",
         "/admin/users",
+        "/admin/vendor-partnerships",
+        "/admin/vendor-recommendations",
         "/admin/vendors",
+        "/admin/verification-docs",
         "/admin/verify",
         "/admin/website",
-        "/admin/work"
+        "/admin/website-media",
+        "/admin/work",
+        "/dashboard/profile"
       ],
       "actions": [],
       "blocks": [
@@ -2598,6 +2666,11 @@
       "destinations": [
         "/onboarding/wedding?from=alaala",
         "/our-story",
+        "/pa3d",
+        "/palogo",
+        "/panood",
+        "/papic",
+        "/pawebsite",
         "/pricing"
       ],
       "actions": [],
@@ -3123,6 +3196,7 @@
         "dashboard/(launcher)/page.tsx"
       ],
       "destinations": [
+        "/admin",
         "/dashboard",
         "/dashboard/[seg]",
         "/dashboard/create-event",
@@ -3132,10 +3206,13 @@
         "/dashboard/life-flash",
         "/dashboard/notifications",
         "/dashboard/people",
+        "/dashboard/profile",
+        "/dashboard/samahan",
         "/dashboard/samahan/new",
         "/dashboard/year",
         "/open-shop",
-        "/v/[seg]"
+        "/v/[seg]",
+        "/vendor-dashboard"
       ],
       "actions": [],
       "blocks": [
@@ -6367,6 +6444,12 @@
         "/dashboard/[seg]/vendors",
         "/explore",
         "/explore?browse=1",
+        "/explore?category=bridal_hmua",
+        "/explore?category=catering",
+        "/explore?category=photography",
+        "/explore?category=videography",
+        "/explore?category=wedding_cake",
+        "/explore?category=wedding_coordination",
         "/explore?match=0",
         "/signup",
         "/tour",
@@ -6547,6 +6630,7 @@
         "host/accept/[token]/page.tsx"
       ],
       "destinations": [
+        "/login?next=",
         "/login?next=[seg]",
         "/signup?next=[seg]&email=[seg]"
       ],
@@ -6873,7 +6957,10 @@
       "files": [
         "pa3d/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/onboarding/wedding?from=pa3d",
+        "/pricing"
+      ],
       "actions": [],
       "blocks": [
         "DoorwayPage"
@@ -6894,7 +6981,10 @@
       "files": [
         "palogo/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/monogram",
+        "/onboarding/wedding?from=palogo"
+      ],
       "actions": [],
       "blocks": [
         "DoorwayPage"
@@ -6907,6 +6997,8 @@
         "panood/page.tsx"
       ],
       "destinations": [
+        "/onboarding/wedding?from=panood",
+        "/pricing",
         "/privacy"
       ],
       "actions": [],
@@ -7074,21 +7166,17 @@
         "startPapicGuestPurchase"
       ],
       "blocks": [
+        "DoorwayPage",
         "HTMLDivElement",
-        "HTMLHeadingElement",
-        "HTMLUListElement",
-        "HowItWorksPanel",
-        "LineRevealHeading",
         "Link",
         "OfferForm",
-        "PanelThread",
         "PapicAnchor",
         "PapicBuyShell",
+        "PapicExceptions",
         "PersistSeatClipWebCopyResult",
         "RecordSeatCaptureResult",
         "Reveal",
         "RevealBand",
-        "RevealList",
         "SettleTiles",
         "TagSeatCaptureResult"
       ]
@@ -7293,7 +7381,10 @@
       "files": [
         "patiktok/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/onboarding/wedding?from=patiktok",
+        "/pricing"
+      ],
       "actions": [],
       "blocks": [
         "DoorwayPage"
@@ -7303,7 +7394,10 @@
       "files": [
         "pawebsite/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/onboarding/wedding?from=pawebsite",
+        "/pricing"
+      ],
       "actions": [],
       "blocks": [
         "DoorwayPage"
@@ -7410,6 +7504,7 @@
       "actions": [],
       "blocks": [
         "BoomerangVideo",
+        "Companions",
         "FacebookGlyph",
         "FacetRow",
         "HTMLDivElement",
@@ -7509,7 +7604,6 @@
     },
     "/setnayan-ai": {
       "files": [
-        "setnayan-ai/_setnayan-ai-motion.tsx",
         "setnayan-ai/page.tsx"
       ],
       "destinations": [
@@ -7518,16 +7612,7 @@
       ],
       "actions": [],
       "blocks": [
-        "CtaPanel",
-        "HTMLDivElement",
-        "HTMLElement",
-        "HTMLHeadingElement",
-        "HowItWorks",
-        "Link",
-        "Matchmaking",
-        "PanelThread",
-        "RevealBlock",
-        "SetnayanAiHero"
+        "DoorwayPage"
       ]
     },
     "/signup": {
@@ -7660,7 +7745,11 @@
       ],
       "destinations": [
         "/maria-and-jose",
-        "/onboarding/wedding?from=tour"
+        "/onboarding/wedding?from=tour",
+        "/tour/budget",
+        "/tour/gallery",
+        "/tour/seating",
+        "/tour/vendors"
       ],
       "actions": [],
       "blocks": [
@@ -7934,6 +8023,7 @@
         "/dashboard",
         "/explore",
         "/signup?as=vendor",
+        "/vendor-dashboard",
         "/vendor-dashboard/bookings",
         "/vendor-dashboard/calendar",
         "/vendor-dashboard/clients",
@@ -7942,6 +8032,8 @@
         "/vendor-dashboard/earnings",
         "/vendor-dashboard/locked-qr",
         "/vendor-dashboard/notifications",
+        "/vendor-dashboard/on-the-day",
+        "/vendor-dashboard/performance",
         "/vendor-dashboard/reviews",
         "/vendor-dashboard/shop",
         "/vendor-dashboard/subscription"
@@ -9378,9 +9470,23 @@
       ],
       "destinations": [
         "/open-shop",
+        "/vendor-dashboard/activities",
+        "/vendor-dashboard/attributes",
+        "/vendor-dashboard/creators",
+        "/vendor-dashboard/disputes",
+        "/vendor-dashboard/moodboard-library",
         "/vendor-dashboard/packages",
+        "/vendor-dashboard/partnerships",
+        "/vendor-dashboard/real-stories",
+        "/vendor-dashboard/recaps",
+        "/vendor-dashboard/recommendations",
+        "/vendor-dashboard/repertoire",
+        "/vendor-dashboard/reviews",
         "/vendor-dashboard/services",
         "/vendor-dashboard/subscription",
+        "/vendor-dashboard/team",
+        "/vendor-dashboard/theft-watch",
+        "/vendor-dashboard/track-record",
         "/vendor-dashboard/website"
       ],
       "actions": [

@@ -32,7 +32,17 @@ import { LineRevealHeading, RevealBand, RevealList, HowItWorksPanel } from './_p
  * parts and they carry their own directive.
  */
 
-export type DoorwayStep = { t: string; d: string };
+export type DoorwayStep = {
+  t: string;
+  d: string;
+  /** An illustration belonging to THIS step, rendered inside its card — e.g.
+   *  `/papic`'s tile-settle under "Every photo finds its people". It is the
+   *  step's own CONTENT, like `t` and `d`, not a layout escape: a page still
+   *  cannot move, resize or reorder the card that holds it. Without this the
+   *  port would have had to leave `/papic` on a private fork of the whole
+   *  spine to keep one animation. */
+  figure?: React.ReactNode;
+};
 export type DoorwayFaq = { q: string; a: string };
 /** `[what it is like without, what it is like with]` — struck-through, then affirmed. */
 export type DoorwayVersus = readonly [string, string];
@@ -66,8 +76,62 @@ export type DoorwayProps = {
   epilogue?: React.ReactNode;
 };
 
-const MUTED = 'text-[#5F5E5A]';
-const GOLD = 'text-[#8C6932]';
+/*
+ * ─── THE PALETTE, AS TOKENS ──────────────────────────────────────────────
+ * Every colour below is a locked `--m-*` token read from globals.css, never a
+ * hex typed here. That is the whole point: the Warm Editorial Archive lock
+ * moved FOUR times in three weeks, and `lib/palette-lock.test.ts` proves the
+ * TOKENS stay accessible — but it cannot see a hex a component typed instead.
+ * These eight pages were copy-pasted from one another, so each raw hex was
+ * eight pages wide.
+ *
+ * TWO THINGS CHANGED HERE, AND BOTH WERE DEFECTS RATHER THAN TASTE:
+ *
+ * 1 · THE CARDS WERE WHITE ON A CREAM PAGE. `bg-white/60` over `bg-cream`
+ *     composites to #FEFDFC — pure white for all practical purposes — on a
+ *     #FDFBF7 page. The lock says the page and its cards are BOTH cream and
+ *     are separated by a border and a shadow, so that is what they now are.
+ *
+ * 2 · THE STRUCK-THROUGH COLUMN FAILED AA. #9A8F86 measures 3.06:1 on cream,
+ *     below the 4.5:1 floor for normal text — on every doorway, in the one
+ *     section whose entire job is the comparison. `--m-slate-3` (3.55:1) fails
+ *     too; `--m-slate-2` clears it at 5.21:1 and still reads as the quiet half
+ *     against ink's 13.82:1, so the hierarchy survives the fix.
+ *     ⚠ `lint-label-on-fill-contrast.mjs` could never catch this: it judges
+ *     only pairings where BOTH sides are opaque, and the fill was an alpha
+ *     white over an unknown parent. `doorway-palette.test.ts` closes that gap.
+ *
+ * 🪤 SIZE AGAINST CREAM, NOT WHITE. Gold `--m-orange-2` on cream is 4.79:1 and
+ * passes; on `--m-paper-2` it is 4.42:1 and fails. That is why the step cards
+ * are `--m-paper` and only the zebra rows alternate into `--m-paper-2` — the
+ * rows carry no gold. Do not "tidy" the two to one value.
+ */
+/**
+ * EXPORTED, because one doorway cannot mount the spine. `/alaala` is the
+ * umbrella page for the other five — an orb, a five-way pillar grid and two
+ * closing destinations — so forcing it through `DoorwayPage` would mean
+ * INVENTING a how-it-works panel and a differentiator lede it has never had,
+ * and dropping one of its two CTAs. That is redrawing, not porting. It shares
+ * the archetype's COLOURS from here instead, so there is still exactly one
+ * place a doorway's palette is decided. `doorway-palette.test.ts` bans a raw
+ * hex in any of the eight, which is what makes that sharing enforced rather
+ * than merely offered.
+ */
+export const DOORWAY_TONE = {
+  /** Body copy, and the struck-through half of a differentiator row. */
+  muted: 'text-[var(--m-slate-2)]',
+  /** Mono eyebrows and step numerals. UI-scale gold only — never a fill. */
+  gold: 'text-[var(--m-orange-2)]',
+  /** A card on the cream page: same cream, told apart by a line and a shadow. */
+  card: 'rounded-2xl border border-[var(--m-line)] bg-[var(--m-paper)] shadow-[var(--m-shadow-sm)]',
+  /** The closing panel: a gold hairline on the pale gold wash, never a gold fill. */
+  closingPanel:
+    'rounded-3xl border border-[var(--m-orange)]/40 bg-[var(--m-orange-4)]',
+} as const;
+
+const MUTED = DOORWAY_TONE.muted;
+const GOLD = DOORWAY_TONE.gold;
+const CARD = DOORWAY_TONE.card;
 
 const PRIMARY_CTA =
   'inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full ' +
@@ -139,16 +203,13 @@ export function DoorwayPage({
           <HowItWorksPanel>
             <ol className="grid gap-6 sm:grid-cols-3">
               {steps.map((s, i) => (
-                <li
-                  key={s.t}
-                  data-premium-item
-                  className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/60 p-5"
-                >
+                <li key={s.t} data-premium-item className={`${CARD} p-5`}>
                   <span className={`font-mono text-xs ${GOLD}`}>
                     {String(i + 1).padStart(2, '0')}
                   </span>
                   <h2 className="mt-2 font-serif text-lg text-[var(--m-ink)]">{s.t}</h2>
                   <p className={`mt-1.5 text-sm ${MUTED}`}>{s.d}</p>
+                  {s.figure}
                 </li>
               ))}
             </ol>
@@ -167,7 +228,7 @@ export function DoorwayPage({
             {differentiator.lede}
           </p>
           <RevealList
-            className="mt-7 overflow-hidden rounded-2xl border border-[var(--m-ink)]/10"
+            className="mt-7 overflow-hidden rounded-2xl border border-[var(--m-line)] shadow-[var(--m-shadow-sm)]"
             stagger={0.06}
             y={12}
           >
@@ -175,9 +236,13 @@ export function DoorwayPage({
               <li
                 key={after}
                 data-reveal-item
-                className={`grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-6 ${i % 2 ? 'bg-white/40' : 'bg-white/70'}`}
+                className={`grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-6 ${
+                  i % 2 ? 'bg-[var(--m-paper-2)]' : 'bg-[var(--m-paper)]'
+                }`}
               >
-                <span className="text-sm text-[#9A8F86] line-through decoration-[#9A8F86]/40">
+                <span
+                  className={`text-sm line-through decoration-[var(--m-slate-3)] ${MUTED}`}
+                >
                   {before}
                 </span>
                 <span className="text-sm font-medium text-[var(--m-ink)]">{after}</span>
@@ -208,7 +273,9 @@ export function DoorwayPage({
 
         {/* Closing CTA */}
         <Reveal>
-          <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[var(--m-orange)]/40 bg-[#FBF6EA] px-6 py-10 text-center">
+          <section
+            className={`mx-auto mt-14 max-w-2xl px-6 py-10 text-center ${DOORWAY_TONE.closingPanel}`}
+          >
             <h2 className="font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
               {closing.heading}
             </h2>

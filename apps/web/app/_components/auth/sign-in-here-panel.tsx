@@ -33,7 +33,6 @@ import { SignInCard } from '@/app/login/_components/sign-in-card';
 import { detectSignInOAuth, type SignInOAuth } from './detect-oauth-shell';
 import type { OpenSignInOptions } from './sign-in-here-types';
 import '@/app/_components/home/home-reskin.css';
-import './sign-in-here.css';
 
 /**
  * The panel. Mounted only while open, so nothing about it — not the card, not

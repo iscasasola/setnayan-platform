@@ -299,14 +299,22 @@ test('there is exactly one sign-in panel', () => {
    ══════════════════════════════════════════════════════════════════════════ */
 
 test('the sign-in panel wears the locked terracotta, not the front door gold', () => {
-  const css = readFileSync(join(HERE, 'sign-in-here.css'), 'utf8');
+  // The rules live in home-reskin.css, not a file of their own: a separate
+  // stylesheet is one more module for the chunk manifest, and that manifest
+  // ships in the SHARED runtime every page downloads.
+  const css = readFileSync(join(APP, '_components/home/home-reskin.css'), 'utf8');
   assert.match(
     css.replace(/\/\*[\s\S]*?\*\//g, ''),
     /#c24e25/i,
     'The sign-in panel is the one place the two palettes meet, and it belongs to the app side: #C24E25 (palette lock 2026-08-01).',
   );
+  // Scoped check: the GOLD must not appear inside the panel's own block.
+  // (home-reskin.css is the marketing stylesheet — it is full of gold
+  // legitimately, so the whole-file check that worked on a dedicated file
+  // would now be a guard that cries wolf on every line it does not own.)
+  const block = css.slice(css.indexOf('.sn-signin-terra'));
   assert.doesNotMatch(
-    css.replace(/\/\*[\s\S]*?\*\//g, ''),
+    block.replace(/\/\*[\s\S]*?\*\//g, ''),
     /#8c6932|#a9834b/i,
     'The front door\'s gold must not appear on the panel — it is the first room inside, not the last step outside.',
   );

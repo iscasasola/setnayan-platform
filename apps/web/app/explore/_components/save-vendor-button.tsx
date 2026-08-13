@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react';
 import { Bookmark, Check, AlertCircle } from 'lucide-react';
-import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { saveVendorToPicks, type SaveVendorResult } from '../actions';
 
 type Props = {
@@ -37,7 +36,6 @@ export function SaveVendorButton({
   variant = 'card',
 }: Props) {
   const [pending, startTransition] = useTransition();
-  const { openSignIn, panel: signInPanel } = useSignInPanel();
   const [state, setState] = useState<LocalState>(
     initiallySaved ? { kind: 'saved' } : { kind: 'idle' },
   );
@@ -102,15 +100,7 @@ export function SaveVendorButton({
       ? 'border-danger-300/60 bg-danger-50 text-danger-900'
       : 'border-ink/15 bg-cream text-ink/80 hover:border-terracotta/50 hover:text-terracotta';
 
-  /*
-    🚨 THE PANEL IS A SIBLING OF THE FORM, NOT A CHILD. `createPortal` moves the
-    DOM to <body>, but REACT events still bubble through the REACT tree — so the
-    sign-in panel's own Continue press would bubble to THIS form's onSubmit and
-    fire the save again mid-sign-in. The portal escapes the DOM; it does not
-    escape the event tree.
-  */
   return (
-    <>
     <form
       onSubmit={(event) => {
         event.preventDefault();
@@ -161,7 +151,5 @@ export function SaveVendorButton({
         )}
       </button>
     </form>
-    {signInPanel}
-    </>
   );
 }

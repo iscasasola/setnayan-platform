@@ -28,6 +28,24 @@
  * present-and-refused. Nothing new is built for the invited case; the card
  * simply stops pointing at a door that would slam.
  *
+ * 🎟 AND THE PAGE RECOGNISES THEM FROM THEIR SEAT, NOT FROM A COOKIE. Guest
+ * identity there was a cookie with a HARD 60-day life carrying exactly ONE event
+ * id and no sliding refresh — so with save-the-dates going out 6–12 months ahead,
+ * the ORDINARY invited guest was a stranger on the page by the wedding day, and
+ * anyone invited to two events could only be recognised on one at a time. On a
+ * `private` event (3 of 5 in prod) they met a screen telling them to scan the QR
+ * they had already scanned. The page's own visibility gate now also admits a
+ * signed-in person holding a seat on that event — see lib/guest-membership-session.ts.
+ *
+ * 🚨 THIS HREF MUST STAY A PLAIN PAGE. A first cut pointed it at a
+ * `/{slug}/enter` GET route handler that minted the guest cookie — and a
+ * Next.js `<Link>` PREFETCHES, so a card merely scrolling into view executed the
+ * mint. For somebody invited to two weddings that silently rewrote which one
+ * their single cookie named: standing at wedding A, B's card comes into view, and
+ * going back to A they are a stranger. This repo had already written the rule
+ * down for sign-out — *"a row that can sign you out by being NEAR the pointer"* —
+ * and a form is what it used instead. **Never put a side effect behind a card.**
+ *
  * 🪤 A SLUG CAN BE NULL AND ONE IS IN PROD TODAY (4 of 5 events have a slug;
  * the finished wedding is the one that does not). `eventBoardHref` returns
  * NULL for that case rather than `/null` — the caller renders the card without
@@ -88,9 +106,15 @@ export function stanceLabel(stance: EventStance): string {
  * Where the card GOES — the whole point of naming the stance.
  *
  * organiser → the event dashboard, which admits them.
- * invited   → the event's own public address, where their photos, their table
- *             and their RSVP already live. NULL when the host has not opened
- *             one yet (a real prod state), so the caller renders no link.
+ * invited   → the event's own public address: a PLAIN PAGE, safe to prefetch,
+ *             which recognises them from their seat. NULL when the host has not
+ *             opened a public address yet (a real prod state), so the caller
+ *             renders no link at all.
+ *
+ * ⚠ NEVER RETURN A ROUTE-HANDLER PATH FROM HERE. Every value this function
+ * produces ends up as the `href` of a `<Link>`, and App Router prefetches those —
+ * so a handler with a side effect runs when a card scrolls past. A guard resolves
+ * each href to a file and requires `page.tsx`, never `route.ts`.
  */
 export function eventBoardHref(event: {
   event_id: string;
@@ -127,6 +151,48 @@ export function isFinishedEvent(
 ): boolean {
   if (event.archived) return true;
   return !!event.event_date && event.event_date.slice(0, 10) < todayISO;
+}
+
+/**
+ * Whole calendar days from `todayISO` to `eventDateISO`. NULL when either is
+ * unreadable.
+ *
+ * 🔴 WHY THIS EXISTS, AND IT WAS A LIVE BUG FOR THE LENGTH OF ONE PR.
+ * The board's shelf boundary and the countdown ON THE SAME CARD were reducing
+ * "now" with two different clocks: `manilaTodayISO()` collapses the instant in
+ * **Asia/Manila**, while `lib/checklist.daysUntilEvent` collapses it with
+ * `startOfDay(new Date())` — the **SERVER's** clock, which is UTC on Vercel.
+ * Between Manila 00:00 and 08:00 the Manila calendar day is already one ahead of
+ * the UTC one, so:
+ *
+ *     06:00 Manila on 12 Dec, event_date = 2026-12-12
+ *       shelf  → "Coming up"      (manilaTodayISO = 2026-12-12) ✅
+ *       card   → "Tomorrow"       (daysUntilEvent = 1)          ❌
+ *
+ * **On the morning of the wedding the card said "Tomorrow"** — measured, both
+ * ways: under `TZ=UTC` it reads "Tomorrow", under `TZ=Asia/Manila` it reads
+ * "Happening today". So it is correct on a Philippine laptop and wrong in
+ * production, which is the mirror image of the 2026-08-04 sweep's trap and hides
+ * from exactly the person most likely to test it.
+ *
+ * 🔑 THE FIX IS ONE CLOCK, NOT A BETTER ONE. Both sides are day STRINGS parsed
+ * identically, so the arithmetic has no ambient timezone to disagree with — and
+ * the `todayISO` passed in is the very same value the shelf split used, not
+ * another derivation of it.
+ */
+export function daysUntilEventDay(
+  eventDateISO: string | null | undefined,
+  todayISO: string,
+): number | null {
+  const day = (iso: string | null | undefined): number | null => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+    if (!m) return null;
+    return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  };
+  const a = day(eventDateISO);
+  const b = day(todayISO);
+  if (a === null || b === null) return null;
+  return Math.round((a - b) / 86_400_000);
 }
 
 export type EventBoard = {

@@ -25,6 +25,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, type EventWithRole } from '@/lib/events';
 import {
+  daysUntilEventDay,
   eventBoardHref,
   eventStance,
   isFinishedEvent,
@@ -342,6 +343,25 @@ export default async function LauncherPage({
   // them — this is the same answer the old inline date test gave.)
   const isPast = (e: EventWithRole) => isFinishedEvent(e, todayISO);
 
+  // ─── THE BOARD'S TWO SHELVES ────────────────────────────────────────────
+  // Timeline order (owner 2026-07-13): a Facebook-style feed — newest at the
+  // top, OLDER as you scroll down. Coming up runs date DESCENDING with UNDATED
+  // at the tail ("Date to be set" is a real state, not a missing value), then
+  // Finished continues oldest-toward-the-bottom. Both shelves ALWAYS RENDER
+  // (owner 2026-08-13) — the `?show=all` toggle that used to hide the second one
+  // is gone.
+  //
+  // This is the ONE place the invited memberships join the organiser ones: the
+  // board is the person's collection of events, whichever side of it they stand
+  // on. Ordering + the finished test + the stance/href derivation all live in
+  // lib/event-board.ts.
+  const dateKey = (e: EventWithRole) => e.event_date?.slice(0, 10) ?? '';
+  const boardEvents = mergeBoardMemberships(events, invitedEvents);
+  const { comingUp: upcoming, finished } = splitEventBoard(
+    boardEvents,
+    todayISO,
+  );
+
   // ─── LANDING ────────────────────────────────────────────────────────────
   // Owner 2026-07-04: "keep the auto-jump, HUB REACHABLE." Only the first half
   // ever shipped. The jump fired for every single-event non-console user, and
@@ -371,32 +391,28 @@ export default async function LauncherPage({
   if (soleUpcoming && !hasConsole && !wantsHub) {
     redirect(`/dashboard/${active[0]!.event_id}`);
   }
-  if (active.length === 0 && hasConsole) {
+  // 🚨 AND THIS ONE HAD NO HUB ESCAPE, so the board was unreachable for a whole
+  // persona. `active` is the ORGANISER-only set, so a supplier or admin who
+  // organises nothing was bounced to create-event — including one who had just
+  // been INVITED to a client's wedding and now has a card waiting on this very
+  // board. `?hub=1` (which the account switcher's Home carries) must win here for
+  // the same reason it wins over the auto-jump above: Home means the board from
+  // anywhere. The redirect itself is untouched for the person it was written for
+  // — a console user with nothing at all still lands on create-event.
+  if (active.length === 0 && hasConsole && !wantsHub && boardEvents.length === 0) {
     redirect('/dashboard/create-event');
   }
-  // ─── THE BOARD'S TWO SHELVES ────────────────────────────────────────────
-  // Timeline order (owner 2026-07-13): a Facebook-style feed — newest at the
-  // top, OLDER as you scroll down. Coming up runs date DESCENDING with UNDATED
-  // at the tail ("Date to be set" is a real state, not a missing value), then
-  // Finished continues oldest-toward-the-bottom. Both shelves ALWAYS RENDER
-  // (owner 2026-08-13) — the `?show=all` toggle that used to hide the second one
-  // is gone.
-  //
-  // This is the ONE place the invited memberships join the organiser ones: the
-  // board is the person's collection of events, whichever side of it they stand
-  // on. Ordering + the finished test + the stance/href derivation all live in
-  // lib/event-board.ts.
-  const dateKey = (e: EventWithRole) => e.event_date?.slice(0, 10) ?? '';
-  const boardEvents = mergeBoardMemberships(events, invitedEvents);
-  const { comingUp: upcoming, finished } = splitEventBoard(
-    boardEvents,
-    todayISO,
-  );
-
   const profile = profileRes.data;
   const greeting =
     profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
-  const noEvents = events.length === 0;
+  // 🚨 THE GREETING MUST COUNT THE SAME THING THE BOARD SHOWS. This read
+  // `events.length === 0` — the ORGANISER-only set — while the shelves below
+  // render the MERGED set. Before invited events reached the board the two were
+  // the same list and could not contradict each other; afterwards, somebody whose
+  // only events are ones they were invited to got **"Let's set up your first
+  // event"** printed directly above the weddings they had been invited to.
+  // Found by an adversarial pass 2026-08-13.
+  const noEvents = boardEvents.length === 0;
 
   // "% planned" per event — real done/total from the event checklist, fetched in
   // parallel (event count is small). Null when an event has no checklist rows yet
@@ -1014,7 +1030,11 @@ export default async function LauncherPage({
       )[0]
     : undefined;
   const boardTiles = buildHomeBoardTiles({
-    activeCount: active.length,
+    // Same rule as the greeting: this tile sits above the shelves, so it counts
+    // what the shelves show — the merged set, minus the finished ones — not the
+    // organiser-only set. It read `active.length` and would have said "0 in
+    // motion" over a board full of invitations.
+    activeCount: upcoming.length,
     needsTotal,
     nextEventLabel: soonest ? `Next: ${soonest.display_name}` : null,
     topWatchName: watchRows[0]?.name ?? null,
@@ -1099,6 +1119,7 @@ export default async function LauncherPage({
             <MobileEventHero
               event={upcoming[0]}
               pct={progressByEvent.get(upcoming[0].event_id) ?? null}
+              todayISO={todayISO}
             />
           ) : null}
           {upcoming.length > 1 ? (
@@ -1111,6 +1132,7 @@ export default async function LauncherPage({
                   key={event.event_id}
                   event={event}
                   pct={progressByEvent.get(event.event_id) ?? null}
+                  todayISO={todayISO}
                 />
               ))}
             </div>
@@ -1150,6 +1172,7 @@ export default async function LauncherPage({
               heroSrc={heroFor(event.event_type)}
               ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
               index={i}
+              todayISO={todayISO}
             />
           ))}
           <NewEventCard delay={0.5 + upcoming.length * 0.08} />
@@ -1192,6 +1215,7 @@ export default async function LauncherPage({
                   event={event}
                   pct={progressByEvent.get(event.event_id) ?? null}
                   finished
+                  todayISO={todayISO}
                 />
               ))}
             </div>
@@ -1207,6 +1231,7 @@ export default async function LauncherPage({
                   ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
                   finished
                   index={upcoming.length + i}
+                  todayISO={todayISO}
                 />
               ))}
             </div>
@@ -1653,15 +1678,40 @@ function StanceChip({ stance }: { stance: EventStance }) {
 }
 
 /**
- * A board card is a LINK when there is somewhere to send this person, and a
- * plain panel when there is not.
+ * The press + hover affordances. Stripped from a card that has nowhere to go —
+ * see CardShell. Kept as one list so "which classes make this look pressable"
+ * has a single answer.
+ */
+const PRESSABLE_CLASSES = ['sn-press', 'sn-lift-4'] as const;
+
+/**
+ * …and every `hover:` variant, because a named list is a bill you keep paying.
+ * The first cut stripped the two classes above and left `hover:border-mulberry/30`
+ * on the desktop card, so a dead card still lit its border under the pointer.
+ * Anything that changes on hover is an affordance.
+ */
+const isHoverAffordance = (c: string) => c.startsWith('hover:');
+
+/**
+ * A board card is a LINK when there is somewhere to send this person, and an
+ * INERT panel when there is not — inert in look as well as in behaviour.
  *
  * 🪤 An INVITED event whose host has never opened a public page has no guest
  * surface at all — and one prod event is in exactly that state. The old card
  * would have linked to `/dashboard/<id>`, which admits organisers only, so the
  * person told they belong would have been shown a 404. Rendering the card
  * without a link is the honest version: they ARE invited, there is just nothing
- * to open yet, and the card says so in its status line.
+ * to open yet, and `deriveEventView`'s `closedReason` puts that on the card.
+ *
+ * 🚨 AND THE FIRST CUT OF THIS SHELL WAS A DEAD CONTROL THAT LOOKED ALIVE.
+ * It passed the caller's `className` straight through to the `<div>`, and that
+ * string carries `sn-press` (`:active { scale: 0.97 }`) and `sn-lift-4`
+ * (`:hover { translateY(-4px) }`) — both plain class selectors in globals.css,
+ * so they fire on a div exactly as on a link. The card lifted when you pointed
+ * at it and squashed when you pressed it, and then did nothing. Found by an
+ * adversarial pass over my own merged work, 2026-08-13; the `cursor` never
+ * changed (those rules cover buttons and anchors only), which made it quieter
+ * still. **A control that animates under your finger has promised something.**
  */
 function CardShell({
   href,
@@ -1675,8 +1725,16 @@ function CardShell({
   children: ReactNode;
 }) {
   if (!href) {
+    const inert = className
+      .split(/\s+/)
+      .filter(
+        (c) =>
+          !(PRESSABLE_CLASSES as readonly string[]).includes(c) &&
+          !isHoverAffordance(c),
+      )
+      .join(' ');
     return (
-      <div className={className} style={style}>
+      <div className={inert} style={style}>
         {children}
       </div>
     );
@@ -1706,9 +1764,12 @@ function GlassEventCard({
   ownHeroSrc = null,
   finished,
   index = 0,
+  todayISO,
 }: {
   event: EventWithRole;
   pct: number | null;
+  /** The board's PH-local day — the countdown and the shelf must share it. */
+  todayISO: string;
   /** Resolved event-type hero (admin upload → repo asset) for the scene band.
    *  <EventScene> falls back to the branded gradient if it 404s. */
   heroSrc: string;
@@ -1720,12 +1781,12 @@ function GlassEventCard({
    *  stagger delays (computed, never hardcoded per card). */
   index?: number;
 }) {
-  const { badge, dateLabel, place, status, plannedLabel, stance } =
-    deriveEventView(event, pct, finished);
+  const { badge, dateLabel, place, status, plannedLabel, stance, href, closedReason } =
+    deriveEventView(event, pct, finished, todayISO);
 
   return (
     <CardShell
-      href={eventBoardHref(event)}
+      href={href}
       className={`sn-tile-glass sn-lift-4 sn-press sn-reveal group flex min-h-[196px] flex-col overflow-hidden rounded-2xl hover:border-mulberry/30 ${
         finished ? 'opacity-75 hover:opacity-100' : ''
       }`}
@@ -1824,6 +1885,12 @@ function GlassEventCard({
                 {plannedLabel}
               </p>
             ) : null}
+            {/* Why this card does not open. Rendered whenever there is no
+                destination, on EVERY shelf — a silent dead card reads as the
+                app being broken or the couple having pulled their page. */}
+            {closedReason ? (
+              <p className="text-[11px] leading-snug text-ink/45">{closedReason}</p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -1839,10 +1906,18 @@ function GlassEventCard({
 function deriveEventView(
   event: EventWithRole,
   pct: number | null,
-  finished?: boolean,
+  finished: boolean | undefined,
+  /** The SAME PH-local day string the shelf split used — see the note below. */
+  todayISO: string,
 ) {
   const badge = eventTypeBadge(event.event_type);
-  const days = daysUntilEvent(event.event_date);
+  // 🔴 ONE CLOCK. This used `daysUntilEvent(event.event_date)`, which reduces
+  // "now" with the SERVER's clock (UTC on Vercel) while the shelf reduced it in
+  // Asia/Manila — so between Manila 00:00 and 08:00 they disagreed by a day and
+  // the card read "Tomorrow" ON THE MORNING OF THE WEDDING. Measured under both
+  // timezones; correct on a PH laptop, wrong in production. See
+  // lib/event-board.daysUntilEventDay.
+  const days = daysUntilEventDay(event.event_date, todayISO);
   const place = placeLabel(event);
   const dateLabel = shortDate(event.event_date);
   // WHEN + WHERE on one line — the date leads, place trails. Never blank: an
@@ -1866,17 +1941,30 @@ function deriveEventView(
   // (vendor · coordinator), which `splitEventBoard` has already filtered out.
   const stance = eventStance(event.member_type);
   const invited = stance === 'invited';
+  // WHERE THIS CARD GOES — derived HERE, once, so the destination, the status
+  // line and the reason-it-cannot-be-opened can never disagree with each other.
+  const href = eventBoardHref(event);
+
+  // 🚨 WHY THIS IS NOT A `status` BRANCH. It was one, and the branch order was
+  // the bug: `finished` was tested BEFORE `invited`, so an invited event whose
+  // day had passed always read 'Celebrated' and the sentence written to explain
+  // an unopenable card was UNREACHABLE on the Finished shelf. Prod's one past
+  // event is also its one slug-less event and already carries a live join token,
+  // so one scan away a real person had a card that lifted, squashed, opened
+  // nothing and said nothing about why.
+  //
+  // The reason is now tied to the ACTUAL CONDITION — no destination — instead of
+  // being re-derived from a chain of stances. A card with nowhere to go says so
+  // on every shelf, in every composition, whatever else is true about it.
+  const closedReason =
+    href === null && invited ? 'The host hasn’t opened their page yet' : null;
+
   // An INVITED event has no plan to be underway and no tasks to be behind on —
-  // "Planning underway" would be describing somebody else's work. It gets the
-  // countdown, or the honest reason there is nothing to open: a host who has not
-  // opened a public page yet (a real prod state — `slug` is nullable).
+  // "Planning underway" would be describing somebody else's work.
   const status = finished
     ? 'Celebrated'
     : invited
-      ? (countdown ??
-        (event.slug?.trim()
-          ? 'You’re on the guest list'
-          : 'The host hasn’t opened their page yet'))
+      ? (countdown ?? 'You’re on the guest list')
       : (countdown ?? (pct != null ? 'Planning underway' : 'Just getting started'));
   // "% planned" is an ORGANISER's number. Never shown on an invited card.
   const plannedLabel = !invited && pct != null ? `${pct}% planned` : null;
@@ -1889,6 +1977,8 @@ function deriveEventView(
     status,
     plannedLabel,
     stance,
+    href,
+    closedReason,
   };
 }
 
@@ -1901,12 +1991,15 @@ function deriveEventView(
 function MobileEventHero({
   event,
   pct,
+  todayISO,
 }: {
   event: EventWithRole;
   pct: number | null;
+  /** The board's PH-local day — the countdown and the shelf must share it. */
+  todayISO: string;
 }) {
-  const { badge, dateLabel, countdown, plannedLabel, status, stance } =
-    deriveEventView(event, pct);
+  const { badge, dateLabel, countdown, plannedLabel, status, stance, href, closedReason } =
+    deriveEventView(event, pct, undefined, todayISO);
   // Attention/overdue lives ONLY in the mobile nudge row now (owner 2026-07-15:
   // one home for overdue counts). The hero keeps identity/date/progress facts.
   // An INVITED hero shows its status line instead of a plan percentage it has no
@@ -1914,11 +2007,12 @@ function MobileEventHero({
   const facts = [
     plannedLabel,
     stance === 'invited' ? status : null,
+    closedReason,
     dateLabel,
   ].filter(Boolean) as string[];
   return (
     <CardShell
-      href={eventBoardHref(event)}
+      href={href}
       className="sn-press sn-reveal block w-full rounded-2xl bg-ink p-4 text-cream shadow-[0_20px_44px_-26px_rgba(23,22,15,0.7)]"
       style={{ animationDelay: '0.5s' }}
     >
@@ -1977,19 +2071,23 @@ function MobileEventChip({
   event,
   pct,
   finished,
+  todayISO,
 }: {
   event: EventWithRole;
   pct: number | null;
   finished?: boolean;
+  /** The board's PH-local day — the countdown and the shelf must share it. */
+  todayISO: string;
 }) {
-  const { badge, dateLabel, status, stance } = deriveEventView(
+  const { badge, dateLabel, status, stance, href, closedReason } = deriveEventView(
     event,
     pct,
     finished,
+    todayISO,
   );
   return (
     <CardShell
-      href={eventBoardHref(event)}
+      href={href}
       className={`sn-press block rounded-2xl border border-ink/15 bg-white/60 p-3 text-left ${
         finished ? 'opacity-75' : ''
       }`}
@@ -2007,6 +2105,9 @@ function MobileEventChip({
         <p className="truncate text-[10.5px] font-semibold text-ink/45">
           {stanceLabel(stance)}
         </p>
+      ) : null}
+      {closedReason ? (
+        <p className="text-[10.5px] leading-snug text-ink/45">{closedReason}</p>
       ) : null}
     </CardShell>
   );

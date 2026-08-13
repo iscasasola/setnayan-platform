@@ -66,10 +66,25 @@ export async function maybeAutoSurfaceEventForGuest(
       .maybeSingle();
     if (existing) return;
 
+    // 🎟 `guest_id` IS THE SEAT BINDING, and this row was missing it — so an
+    // auto-surfaced membership named no seat. Consequence, found 2026-08-13: the
+    // "You were added" card and the board's invited card both open the event's
+    // public page, and that page recognises a signed-in person by their seat
+    // (`findGuestSeatForUser`, which requires a non-null `guest_id`). Without it
+    // they arrived at a lock screen telling them to **scan an invitation QR they
+    // were never sent** — reading as the couple shutting out somebody the couple
+    // had just added. `guestId` was a parameter all along; the row simply did not
+    // record which seat it was about.
+    //
+    // Safe against the partial unique `(event_id, guest_id) WHERE guest_id IS NOT
+    // NULL`: the early return above already refuses when this user is a member,
+    // one guest row maps to one person maps to one claimed account, and a genuine
+    // race trips the constraint and is handled as already-surfaced below.
     const { error: insErr } = await admin.from('event_members').insert({
       event_id: eventId,
       user_id: userId,
       member_type: 'guest',
+      guest_id: guestId,
       auto_surfaced: true,
     });
     // A race (the same (event_id,user_id) inserted concurrently) trips the UNIQUE

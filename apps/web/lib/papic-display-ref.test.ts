@@ -240,14 +240,23 @@ test('stableMediaPath maps r2:// → the streaming route, passes legacy through'
 // every breakpoint upscaled 1.3×–1.6× from a quality-50 source. Owner, on
 // seeing it: "the photos are pixelated."
 
-test('the large still prefers DISPLAY over thumb — that is the entire point', () => {
-  const row = {
+test('the large still prefers TILE, then display, then thumb', () => {
+  // 640 (tile) is the size a wall renders; 1280 (display) is 3–4× larger than
+  // any tile and costs 27× the bytes of a thumb — measured in prod, 4 KB vs
+  // 96 KB avg. 320 (thumb) upscales 1.3×–1.6× into the same tile.
+  const all = {
     photo_type: 'photo',
     r2_object_key: 'r2://b/raw.jpg',
     display_r2_key: 'r2://b/display.avif',
+    tile_r2_key: 'r2://b/tile.avif',
     thumb_r2_key: 'r2://b/thumb.avif',
   };
-  assert.equal(resolveLargeStillRef(row), 'r2://b/display.avif');
+  assert.equal(resolveLargeStillRef(all), 'r2://b/tile.avif');
+  // Rows captured before 2026-08-13 have no tile — sharp-and-heavy beats soft.
+  const { tile_r2_key, ...noTile } = all;
+  void tile_r2_key;
+  assert.equal(resolveLargeStillRef(noTile), 'r2://b/display.avif');
+  const row = noTile;
   // …and the two resolvers must DISAGREE here. If they ever agree on a row
   // carrying both, someone has collapsed them and every wall tile is a 320px
   // thumbnail again.
@@ -290,6 +299,11 @@ test('a clip never resolves to its raw MP4 in the image chain', () => {
     thumb_r2_key: 'r2://b/thumb.avif',
   };
   assert.equal(resolveLargeStillRef(clip), 'r2://b/poster.avif');
+  // …and a clip WITH a tile prefers it, without ever admitting the video.
+  assert.equal(
+    resolveLargeStillRef({ ...clip, tile_r2_key: 'r2://b/tile.avif' }),
+    'r2://b/tile.avif',
+  );
   assert.notEqual(
     resolveLargeStillRef(clip),
     'r2://b/clip.mp4',

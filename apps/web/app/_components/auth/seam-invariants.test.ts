@@ -327,10 +327,7 @@ test('the sign-in never enters the shared client bundle', () => {
     visitors never use, because everything the root layout's client tree
     touches lands in that chunk.
 
-    Two rules keep it out, and both are checked:
-      1. the root layout must not mount the sign-in at all;
-      2. the opener must reach the panel through a lazy `import()`, so even the
-         route chunks that DO offer sign-in only fetch the form on the press.
+    Three rules keep it out, and all three are checked below.
   */
   const layout = code(read('layout.tsx'));
   assert.doesNotMatch(
@@ -339,18 +336,33 @@ test('the sign-in never enters the shared client bundle', () => {
     'The root layout must not mount the sign-in — it would put the feature in every page\'s first-load JS.',
   );
 
+  /*
+    ⚠ AND NO NEW ASYNC CHUNK EITHER. Removing the provider was not enough: with
+    the panel behind a lazy `import()` the build STILL measured 200.4 KB, and
+    diffing the per-chunk breakdown against a passing run put the whole overage
+    in `webpack-*.js` — the runtime carrying the CHUNK MANIFEST — which grew
+    3.2 → 3.8 KB gz because a new async chunk existed to be indexed. Splitting
+    is not free. Every consumer here is already a route chunk or the
+    already-lazy HomeOverlays chunk, so the panel needs no chunk of its own.
+  */
   const hook = code(read('_components/auth/sign-in-here.tsx'));
-  assert.match(
+  assert.doesNotMatch(
     hook,
-    /import\('\.\/sign-in-here-panel'\)/,
-    'The panel must be reached by a lazy import(), fetched on the press.',
+    /import\(/,
+    'The panel must NOT get its own async chunk — the chunk manifest it adds to webpack-*.js costs more shared bytes than the budget has.',
   );
-  const heavy = [/SignInCard/, /home-reskin\.css/, /sign-in-here\.css/, /detect-oauth-shell/];
-  for (const re of heavy) {
+
+  /*
+    The rule this all protects: nothing in the ROOT-LAYOUT-mounted tree may
+    reach the sign-in. These two are mounted from the root layout on every
+    route, so an import here would put the login form in the shared bundle just
+    as surely as the provider did.
+  */
+  for (const rel of ['_components/marketing/site-chrome.tsx', '_components/marketing/site-nav.tsx']) {
     assert.doesNotMatch(
-      hook,
-      new RegExp(`^import[^;]*${re.source}`, 'm'),
-      `The opener must not statically import ${re.source} — that would defeat the split.`,
+      code(read(rel)),
+      /auth\/sign-in-here/,
+      `${rel} is mounted by the root layout on every route — it must not import the sign-in.`,
     );
   }
 });

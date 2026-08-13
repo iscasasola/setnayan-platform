@@ -156,20 +156,32 @@ asserted the opposite of what the code did.
 **Second cut** made the panel a `dynamic()` import — and CI still failed:
 **200.4 KB against the 200 KB gzipped ceiling** locked in `DECISION_LOG`
 2026-05-22. Measured against three other PRs, `main` sits at **199.8 KB — 0.2 KB
-of headroom for the entire product.** A provider in the root layout costs the
-shared chunk something no matter how lazy its children are, because everything
-the root layout's client tree touches lands there.
+of headroom for the entire product.**
 
-**So there is no provider and no context.** `useSignInPanel()` gives each
-surface its own state and lazily `import()`s the panel, and every consumer —
-the front-door shell, the shop page's link, the marketplace save button — is a
-**route** chunk. The marketing nav keeps opening through `HomeOverlays`, which
-was already `dynamic(ssr:false)` and already paid for. **Shared-bundle delta:
-zero.** The feature pays for itself where it is used.
+**Third cut** removed the provider and the context entirely. `useSignInPanel()`
+gives each surface its own state, and every consumer — the front-door shell,
+the shop page's link, the marketplace save button — is a **route** chunk, while
+the marketing nav opens through `HomeOverlays`, already `dynamic(ssr:false)`
+and already paid for. **And it STILL measured 200.4 KB.**
 
-🔑 **The budget is a KPI lock, so "raise it by 0.4 KB" was never on the table.**
-The checker's own docblock says the decision log must move first. A ceiling you
-edit when you hit it is not a ceiling.
+🔑 **So I stopped guessing and diffed the per-chunk breakdown against a passing
+run. Five of the six chunks were BYTE-IDENTICAL to `main`. The entire overage
+was in `webpack-*.js` — the runtime that carries the CHUNK MANIFEST — which had
+grown 3.2 → 3.8 KB gz. The lazy `import()` WAS THE COST**: a new async chunk
+has to be indexed, and the index lives in the shared bundle.
+
+The import is now **static**, the panel has no chunk of its own, and its code
+rides in chunks that were being fetched anyway. **Shared-bundle delta: zero.**
+
+🔑 **Splitting is not free, and that is the lesson worth keeping.** Three
+revisions all "obviously" reduced cost; two of them raised it. The per-chunk
+diff answered in one read what three rounds of reasoning got wrong.
+
+🔑 **The budget is a KPI lock, so "raise it by 0.4 KB" was never on the table** —
+the checker's own docblock says the decision log must move first. A ceiling you
+edit when you hit it is not a ceiling. It is also the budget's own stated
+policy that per-route weight is fine and shared weight is precious, so this is
+the shape it was asking for.
 
 ### 🪤 And a React trap the refactor introduced: portals escape the DOM, not the event tree
 

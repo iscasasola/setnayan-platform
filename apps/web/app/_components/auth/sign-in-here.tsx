@@ -17,32 +17,41 @@
  * reading. On a WRONG PASSWORD every one of them redirected to
  * `/login?error=…`: one typo and the page, plus anything typed into it, gone.
  *
- * ─── WHY THIS IS A HOOK AND NOT A CONTEXT PROVIDER ────────────────────────
+ * ─── WHY THIS IS A HOOK, NOT A PROVIDER — AND WHY THE IMPORT IS STATIC ────
  * 🚨 THE SHARED CLIENT BUNDLE IS FULL. `main` measures 199.8 KB gzipped
- * against a 200 KB ceiling locked in `DECISION_LOG.md` 2026-05-22 — 0.2 KB of
- * headroom for the whole product. The first cut of this change mounted a
- * context PROVIDER in the ROOT LAYOUT, and everything the root layout's client
- * tree touches lands in exactly that shared chunk: measured at 200.4 KB, over
- * budget, on a feature most visitors never use.
+ * against the 200 KB ceiling locked in `DECISION_LOG.md` 2026-05-22 — 0.2 KB
+ * of headroom for the whole product. This change took two goes to fit, and
+ * BOTH failures were measured rather than guessed:
  *
- * So there is no provider and no context. Each surface that offers sign-in
- * owns its own state through this hook, and every one of those surfaces —
- * the front door shell, the shop page's link, the marketplace save button —
- * lives in a ROUTE chunk. The marketing nav keeps using the lazily-loaded
- * `HomeOverlays` chunk it already had. **The feature pays for itself where it
- * is used, and a page that never offers sign-in carries none of it.**
+ *   1. A context PROVIDER in the ROOT LAYOUT → 200.4 KB. Everything the root
+ *      layout's client tree touches lands in the shared chunk, on every page,
+ *      for every visitor including the ones who never sign in.
+ *   2. Provider removed, panel behind a lazy `import()` → STILL 200.4 KB.
+ *      Diffing the per-chunk breakdown against a passing run showed five of
+ *      six chunks BYTE-IDENTICAL to `main`, and the whole overage in
+ *      `webpack-*.js` — the runtime that carries the CHUNK MANIFEST. It grew
+ *      3.2 KB → 3.8 KB gz because a NEW ASYNC CHUNK had been created. **The
+ *      lazy import was itself the cost.**
  *
- * 🔑 A raw `import()`, not `next/dynamic` — one less runtime, and the split is
- * the only thing being asked for.
+ * So the import is STATIC and the panel has no chunk of its own. Every
+ * consumer is already somewhere that is not the shared bundle — the front-door
+ * shell and the shop page's link and the marketplace save button are ROUTE
+ * chunks, and the marketing nav opens it through `HomeOverlays`, which was
+ * already `dynamic(ssr:false)` and already paid for. The panel's code simply
+ * rides along in chunks that already exist.
+ *
+ * 🔑 THAT IS THE BUDGET'S OWN POLICY, not a workaround: the checker counts the
+ * shared surface only, and says outright that "a single page can carry a
+ * heavier per-route bundle as long as the shared surface stays inside the
+ * budget". Splitting is not free — a split you do not need costs the runtime
+ * that indexes it.
  */
 
 import { useCallback, useState, type ReactNode } from 'react';
 import type { OpenSignInOptions } from './sign-in-here-types';
+import { SignInHerePanel } from './sign-in-here-panel';
 
 export type { OpenSignInOptions };
-
-type PanelProps = { options: OpenSignInOptions; onClose: () => void };
-type PanelComponent = (props: PanelProps) => ReactNode;
 
 /**
  * useSignInPanel — `openSignIn()` to open it, `panel` to render it.
@@ -64,25 +73,22 @@ export function useSignInPanel(): {
   panel: ReactNode;
 } {
   const [options, setOptions] = useState<OpenSignInOptions | null>(null);
-  const [Panel, setPanel] = useState<PanelComponent | null>(null);
 
   const openSignIn = useCallback((next?: OpenSignInOptions) => {
-    /*
-      Fetch the panel chunk, THEN open. Setting the options first would render
-      a hole where the dialog should be for as long as the chunk takes — on a
-      slow connection that reads as a broken button. `setPanel(() => …)` because
-      a bare component value would be treated as a state updater.
-    */
-    void import('./sign-in-here-panel').then((m) => {
-      setPanel(() => m.SignInHerePanel);
-      setOptions(next ?? {});
-    });
+    setOptions(next ?? {});
   }, []);
 
   const close = useCallback(() => setOptions(null), []);
 
+  /*
+    Nothing renders until it is opened — no portal, no backdrop, no effect —
+    so a visitor who never presses Sign in sees and runs none of it. What they
+    no longer avoid is DOWNLOADING it, and that is the deliberate trade: the
+    code rides in a route chunk that was being fetched anyway, instead of
+    costing every page in the product a bigger chunk manifest.
+  */
   return {
     openSignIn,
-    panel: options && Panel ? <Panel options={options} onClose={close} /> : null,
+    panel: options ? <SignInHerePanel options={options} onClose={close} /> : null,
   };
 }

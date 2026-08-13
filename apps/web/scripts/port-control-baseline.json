@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "75b62fb81",
+  "generatedFromRef": "e46d2f104",
   "routeCount": 401,
   "destinations": 677,
   "actions": 517,
-  "blocks": 3548,
+  "blocks": 3549,
   "routes": {
     "/": {
       "files": [
@@ -2640,6 +2640,7 @@
     "/blog/[slug]": {
       "files": [
         "blog/[slug]/_components/journal-partner-credit.tsx",
+        "blog/[slug]/_components/shop-link.tsx",
         "blog/[slug]/page.tsx"
       ],
       "destinations": [
@@ -2657,7 +2658,8 @@
         "Image",
         "JournalPartnerCredit",
         "Link",
-        "Logo"
+        "Logo",
+        "ShopLink"
       ]
     },
     "/claim/[token]": {

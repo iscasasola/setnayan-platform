@@ -1058,10 +1058,23 @@ export function articleHasShopLinks(
   return blocks.some((b) => b.type === 'shop');
 }
 
+/**
+ * Estimated reading time in minutes (~200 wpm, floor of 1) — from PLAIN TEXT.
+ *
+ * 🔑 THE RULE LIVES HERE, ONCE. Anything with a body a person reads should call
+ * this rather than re-deriving "words / some number": a storyteller's chapter
+ * is plain text, an article is blocks, and if those two ever disagree the same
+ * piece advertises two different lengths depending on which page you meet it
+ * on. `lint:dup-rule` already caught one such copy on the front door.
+ */
+export function readingMinutesFromText(text: string | null | undefined): number {
+  const words = (text ?? '').split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+}
+
 /** Estimated reading time in minutes (~200 wpm, floor of 1). */
 export function readingMinutes(blocks: ReadonlyArray<BlogBlock>): number {
-  const words = blogPlainText(blocks).split(' ').filter(Boolean).length;
-  return Math.max(1, Math.round(words / 200));
+  return readingMinutesFromText(blogPlainText(blocks));
 }
 
 /** Meta description — prefers the curated excerpt, trims at a word boundary. */

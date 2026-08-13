@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { readingMinutesFromText } from './blog';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   chapterExcerpt,
@@ -53,6 +54,15 @@ export type StorytellerTileItem = {
   thumbUrl: string | null;
   /** Plain-text lede, shown as the hero when there is no `thumbUrl`. */
   excerpt: string | null;
+  /**
+   * Reading time from the FULL body, or null when the body is empty.
+   *
+   * ⚠ NOT derived from `excerpt`. The front door's first cut estimated it from
+   * the truncated lede, which would read "1 min" on a piece that takes ten —
+   * an invented number on somebody else's wedding. It is computed HERE, where
+   * the whole body is in hand, using the one shared rule in `lib/blog.ts`.
+   */
+  readingMinutes: number | null;
   /**
    * Whether the chapter carries a video at all. NOT the same as `thumbUrl`:
    * only YouTube yields a derivable thumbnail, so an Instagram or TikTok
@@ -130,6 +140,7 @@ function toTile(
     viewCount: typeof row.view_count === 'number' ? row.view_count : Number(row.view_count ?? 0),
     thumbUrl: youtubeThumbFromEmbedUrl(row.embed_url),
     excerpt: chapterExcerpt(row.body ?? null),
+    readingMinutes: row.body?.trim() ? readingMinutesFromText(row.body) : null,
     hasVideo: Boolean(row.embed_url),
     publishedAt: row.published_at ?? null,
     eventId: row.event_id ?? null,

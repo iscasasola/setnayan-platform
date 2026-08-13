@@ -958,3 +958,23 @@ h2.fd-sechead,
     display: block;
   }
 }
+
+/* The shop card's mark. A real logo when the shop has one, its initials when
+   it does not — never the word "SHOP", which told a visitor nothing and made a
+   live business look like a placeholder. */
+.fd-thumb-shop {
+  background: var(--fd-wash);
+}
+.fd-shoplogo {
+  max-width: 62%;
+  max-height: 62%;
+  object-fit: contain;
+  display: block;
+}
+.fd-shopmark {
+  font-family: var(--fd-mono);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  color: var(--fd-gold);
+}

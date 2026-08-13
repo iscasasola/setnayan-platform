@@ -1,9 +1,22 @@
 /**
  * Creator "Adventure Chapter" — embed allowlist + normalization (CP-1/CP-2).
  *
- * The locked model: a Chapter EMBEDS the creator's finished edit hosted on
- * THEIR platform (Setnayan never hosts the full video). Embeds are an
- * XSS/clickjacking surface, so this module is the single choke point:
+ * THE MODEL (owner 2026-08-12, superseding the original lock): a Chapter is a
+ * STORY — the creator's own writing, in `creator_chapters.body`. It MAY also
+ * carry a video, and when it does that video stays hosted on THEIR platform and
+ * is embedded here (Setnayan never hosts the full video).
+ *
+ * ⚠ THE ORIGINAL LOCK READ "a Chapter EMBEDS the creator's finished edit", full
+ * stop, and that sentence is the single most expensive line in this subsystem.
+ * Read literally at four different layers it produced: a publish gate that
+ * required an external video account, three read paths that hid a written story
+ * from its own author, an admin control that never rendered, a route the
+ * middleware ate, and public copy telling visitors to "Watch" an essay. Prod
+ * held ZERO chapters for the entire life of the feature as a direct result.
+ * Nobody re-litigated it; everybody just believed it.
+ *
+ * Embeds remain an XSS/clickjacking surface, so this module is still the single
+ * choke point for the OPTIONAL video half:
  *
  *   • PROVIDER ALLOWLIST — only youtube / instagram / tiktok. Anything else is
  *     rejected (returns null) and never stored or rendered.
@@ -16,8 +29,15 @@
  *
  * Pure + side-effect-free so it runs in the server action AND is unit-testable.
  * Deliberately stricter than lib/video-embed.ts (which link-outs IG/TikTok):
- * a Chapter's whole point is the embed, so we resolve real embed srcs for all
- * three allowlisted providers.
+ * when a Chapter DOES carry a video it is played inline, so we resolve real
+ * embed srcs for all three allowlisted providers.
+ *
+ * ⚠ THIS SAID "a Chapter's whole point is the embed" until 2026-08-13. It
+ * stopped being true on 2026-08-12 — a chapter's point is the STORY, and the
+ * video is optional. The old sentence is the premise that, read at three
+ * different layers, hid a publish button, a route, an admin control and four
+ * pieces of public copy. It is corrected here because this file is where a
+ * reader goes to learn what a chapter is.
  */
 
 export const CHAPTER_KINDS = ['wedding', 'travel', 'food', 'lifestyle'] as const;

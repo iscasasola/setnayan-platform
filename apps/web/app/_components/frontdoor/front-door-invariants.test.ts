@@ -457,6 +457,9 @@ test('chapter reading time is computed from the body, never the excerpt', () => 
   assert.ok(
     !/\/\s*200\b/.test(code(story)),
     'storytellers.ts must not re-derive the words-per-minute rule',
+  );
+});
+
 /* ── 14 · THE ONE SHELF ACTUALLY USES THE SHARED CHIP RULE ────────────────
    `lib/front-door-composition.test.ts` proves `selectShelf` is right. That
    proves NOTHING about this page: extracting a pure core and testing it while
@@ -530,7 +533,7 @@ test('a story\'s video flag comes from the loader, never from its thumbnail', ()
 });
 
 /* ── 17 · THE LEAD/TRAILING BOUNDARY COMES FROM THE COMPOSER ──────────────
-   Same lesson as #11: the pure split is proven in
+   Same lesson as #14: the pure split is proven in
    `lib/front-door-composition.test.ts`, which proves nothing about this page
    unless the page actually uses it. A hard-coded `slice(4, …)` here silently
    drops articles the day the first chapter is featured. */
@@ -550,3 +553,5 @@ test('the shelf rows are split by the composer, not by a hard-coded index', () =
   assert.ok(
     !/shownArticles\.slice\(\s*4\s*,/.test(FEED_CODE),
     'the trailing row must not start at a hard-coded index',
+  );
+});

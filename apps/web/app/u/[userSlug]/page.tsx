@@ -361,9 +361,14 @@ export default async function AccountProfilePage({ params }: Props) {
             profile, and nothing while the feature is off. The holder's name is
             passed ONLY where the page already prints it publicly, so the island
             can never become a name oracle for a hidden/empty profile. */}
+        {/* ⚠ NOT `displayName` — that variable falls back to the literal
+            "Celebrations" when the account has no name set, which would print
+            "the next time you and Celebrations are at the same celebration".
+            Pass the REAL name or nothing; the island says "them" when it has
+            nothing, which is always readable. */}
         <MutualDays
           profileUserId={user.user_id}
-          profileName={hasPublicContent ? displayName : null}
+          profileName={hasPublicContent ? (user.display_name?.trim() || null) : null}
         />
 
         {hasChapters ? (

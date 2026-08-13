@@ -1,6 +1,6 @@
 /**
  * Panood camera-operator data-layer invariants (Node built-in test runner, run
- * via tsx). Guards the pure, deterministic behaviors of lib/panood-camera-seats.ts
+ * via tsx). Guards the pure, deterministic behaviors of lib/panood-camera-seats.ts + its -pure sibling
  * — the half of the camera-claim layer that doesn't touch Supabase:
  *
  *   1. TOKEN — generateCameraClaimToken() is URL-safe, has enough entropy to be
@@ -18,16 +18,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { fetchClaimedCameraForUser, fetchPanoodCameras } from './panood-camera-seats';
 import {
-  fetchClaimedCameraForUser,
-  fetchPanoodCameras,
   generateCameraClaimToken,
   missingCameraIndexes,
   panoodCameraAnonEnabled,
   panoodCameraCapForSku,
   panoodCameraClaimUrl,
   panoodCameraCapForTier,
-} from './panood-camera-seats';
+} from './panood-camera-seats-pure';
 
 // ── 1. Token ────────────────────────────────────────────────────────────────
 

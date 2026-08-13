@@ -34,7 +34,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { MARK_PATH } from './veil-shared';
-import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/reveal-config';
+import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/reveal-config-pure';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 
 type Props = {

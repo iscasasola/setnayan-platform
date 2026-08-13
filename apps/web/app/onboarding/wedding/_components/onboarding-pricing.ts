@@ -42,7 +42,7 @@ import {
   type V2BundleSku,
   type BuildStatus,
   formatSkuPriceLabel,
-} from '@/lib/v2-catalog';
+} from '@/lib/v2-catalog-pure';
 
 /**
  * The onboarding in-app service keys → their platform_retail_catalog_v2

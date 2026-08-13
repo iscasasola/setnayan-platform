@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { generateCameraClaimToken, panoodCameraClaimUrl } from '@/lib/panood-camera-seats';
+import { generateCameraClaimToken, panoodCameraClaimUrl } from '@/lib/panood-camera-seats-pure';
 import type { RoamZoneStatus } from '@/lib/live-studio-roam';
 
 /**

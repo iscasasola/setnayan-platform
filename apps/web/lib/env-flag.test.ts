@@ -100,7 +100,16 @@ const CONVERTED: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['lib/onboarding-v2-brief-flag.ts', ['NEXT_PUBLIC_ONBOARDING_V2_BRIEF_ENABLED']],
   ['lib/package-authoring-flag.ts', ['NEXT_PUBLIC_PACKAGE_AUTHORING']],
   ['lib/package-credit-flag.ts', ['NEXT_PUBLIC_PACKAGE_CREDIT']],
-  ['lib/panood-camera-seats.ts', ['NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED', 'NEXT_PUBLIC_PANOOD_STREAMING_ENABLED']],
+  // Both flags read from the PURE sibling, not `lib/panood-camera-seats.ts`.
+  // They moved there when the service-role chain was cut (2026-08-13): the
+  // streaming flag is read by `control-room.tsx` ('use client'), and a value
+  // import from the seat module reached `createAdminClient` via
+  // `eventSkuActive`. NEXT_PUBLIC_ inlining is the reason this row exists at
+  // all, and it is a browser concern — so the pure side is where it belongs.
+  [
+    'lib/panood-camera-seats-pure.ts',
+    ['NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED', 'NEXT_PUBLIC_PANOOD_STREAMING_ENABLED'],
+  ],
   ['lib/papic-seats.ts', ['NEXT_PUBLIC_PAPIC_SEAT_ANON_ENABLED']],
   ['lib/plausibility-scanner-flag.ts', ['NEXT_PUBLIC_PLAUSIBILITY_SCANNER_ENABLED']],
   ['lib/promo-free-windows.ts', ['PROMO_FREE_WINDOWS_ENABLED']],

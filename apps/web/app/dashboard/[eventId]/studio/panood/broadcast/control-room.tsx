@@ -31,7 +31,7 @@ import type { PanoodMomentRow } from '@/lib/panood-moments';
 import type { PanoodControlState } from '@/lib/panood-control';
 import { watchPanoodCameras, type PeerConnectionState } from '@/lib/panood-webrtc';
 import { getPanoodIceServers } from '@/app/panood/actions';
-import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
+import { panoodStreamingEnabled } from '@/lib/panood-camera-seats-pure';
 import { SetnayanOverlay } from './_components/setnayan-overlay';
 import { consoleFitHeight } from '@/lib/panood-console-fit';
 import {

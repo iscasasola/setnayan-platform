@@ -34,7 +34,7 @@ import {
   type ReadinessFacts,
 } from './live-studio-readiness';
 import { buildRoamManifest, type RoamStreamRow, type RoamZoneRow } from './live-studio-roam-provision';
-import { limitPublishedManifest } from './live-studio-publish';
+import { limitPublishedManifest } from './live-studio-publish-pure';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const repoFile = (p: string) => readFileSync(resolve(HERE, '..', p), 'utf8');

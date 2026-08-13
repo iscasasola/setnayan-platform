@@ -19,7 +19,7 @@ import {
   mergeRevealConfig,
   DEFAULT_EFFECTS_LOOK,
   DEFAULT_VEIL_LOOK,
-} from './reveal-config';
+} from './reveal-config-pure';
 
 test('effects: out-of-range sliders clamp to [0,100]', () => {
   const c = mergeRevealConfig({

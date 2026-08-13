@@ -7,7 +7,7 @@ import type {
   QrPosition,
   ResolvedOverlays,
 } from '@/lib/live-studio-overlays';
-import { programSourceAllowed, type ProgramAirDecision } from '@/lib/live-studio-publish';
+import { programSourceAllowed, type ProgramAirDecision } from '@/lib/live-studio-publish-pure';
 import {
   clampSplitRatio,
   EMPTY_FRAME,

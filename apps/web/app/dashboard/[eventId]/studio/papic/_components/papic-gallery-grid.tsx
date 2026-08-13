@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { Play, Download, Sparkles, X, Loader2, Gem } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource, PreservationTotals } from '@/lib/papic-gallery';
-import { PAPIC_POINTS_PER_CLIP } from '@/lib/papic-cameras';
+import { PAPIC_POINTS_PER_CLIP } from '@/lib/papic-cameras-pure';
 import {
   PRESERVATION_BLOCK_PHP,
   PRESERVATION_BLOCK_POINTS,

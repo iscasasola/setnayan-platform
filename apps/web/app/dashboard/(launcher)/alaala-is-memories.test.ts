@@ -265,6 +265,16 @@ test('wall tiles are served at DISPLAY resolution, both halves', () => {
       'display resolution. Either one falling back to a thumbnail makes half ' +
       'the wall soft, which is harder to notice than all of it.',
   );
+  // The column must be SELECTED, or the resolver falls back forever and the
+  // whole derivative is dead weight nobody notices — a phantom column and an
+  // unselected one are the same absence from the outside.
+  assert.equal(
+    count(s, /tile_r2_key/g),
+    2,
+    'Both owned reads must SELECT tile_r2_key. A column the query never names ' +
+      'is a column the resolver can never prefer, so every tile silently falls ' +
+      'back to the 1280px copy at ~4× the bytes — with nothing in any log.',
+  );
   assert.equal(
     count(s, /\bthumb_r2_key\b\s*as string/g),
     0,
@@ -291,6 +301,18 @@ test('the day-of venue grid still defaults to the small copy', () => {
     gallery,
     /const preferDisplay = opts\.prefer === 'display';/,
     'the size preference is gone — every caller now gets one size',
+  );
+  // The attended half must also SELECT and prefer the tile, or half the wall
+  // stays on the heavy copy while the other half is light.
+  assert.match(
+    gallery,
+    /r\.tile_r2_key \?\? r\.display_r2_key/,
+    'the wall-size branch stopped preferring the tile derivative',
+  );
+  assert.equal(
+    count(gallery, /tile_r2_key,/g),
+    2,
+    'both attended reads must SELECT tile_r2_key',
   );
   assert.match(
     gallery,

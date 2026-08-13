@@ -154,7 +154,7 @@ async function ownedRefs(
   const [photoRes, captureRes] = await Promise.all([
     supabase
       .from('papic_photos')
-      .select('photo_id, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, photo_type, captured_at')
+      .select('photo_id, r2_object_key, display_r2_key, tile_r2_key, thumb_r2_key, poster_r2_key, photo_type, captured_at')
       .eq('event_id', event.event_id)
       .eq('moderation_state', 'clean')
       .is('hidden_at', null)
@@ -162,7 +162,7 @@ async function ownedRefs(
       .limit(ROWS_PER_TABLE),
     supabase
       .from('papic_guest_captures')
-      .select('capture_id, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, media_type, captured_at')
+      .select('capture_id, r2_object_key, display_r2_key, tile_r2_key, thumb_r2_key, poster_r2_key, media_type, captured_at')
       .eq('event_id', event.event_id)
       .eq('moderation_state', 'clean')
       .is('hidden_at', null)

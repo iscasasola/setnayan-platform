@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6248
+# facts: 6252
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     672
-#   col       4511
+#   col       4515
 #   policy    840
 #   view      9
 #   func      212
@@ -2907,6 +2907,8 @@ col	public.papic_guest_captures.subject_center_x	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.subject_center_y	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.thumb_bytes	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.thumb_r2_key	anon=SIU authenticated=SIU
+col	public.papic_guest_captures.tile_bytes	anon=SIU authenticated=SIU
+col	public.papic_guest_captures.tile_r2_key	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.wall_hidden_at	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.wall_safe_r2_key	anon=SIU authenticated=SIU
 col	public.papic_limited_snapshots.activated_at	anon=SIU authenticated=SIU
@@ -3003,6 +3005,8 @@ col	public.papic_photos.size_bytes	anon=S authenticated=SIU
 col	public.papic_photos.superseded_at	anon=S authenticated=SIU
 col	public.papic_photos.thumb_bytes	anon=S authenticated=SIU
 col	public.papic_photos.thumb_r2_key	anon=S authenticated=SIU
+col	public.papic_photos.tile_bytes	anon=S authenticated=S
+col	public.papic_photos.tile_r2_key	anon=S authenticated=S
 col	public.papic_photos.wall_hidden_at	anon=S authenticated=SIU
 col	public.papic_photos.wall_safe_r2_key	anon=S authenticated=SIU
 col	public.papic_photos.width_px	anon=S authenticated=SIU

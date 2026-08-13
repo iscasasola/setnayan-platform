@@ -81,7 +81,9 @@ export async function getGuestLiveGallery(
      * day-of page's dense 3-across grid on venue WiFi, which is what this
      * function was written for.
      *
-     * `'display'` — long-edge 1280 q60. For surfaces whose tiles are big
+     * `'display'` — the WALL size: `tile_r2_key` (long-edge 640 q55) when the
+     * row has one, else `display_r2_key` (1280 q60) for rows captured before
+     * 2026-08-13. For surfaces whose tiles are big
      * enough that a 320px source visibly upscales (the Alaala wall renders
      * 105–192 CSS px squares = 310–383 device px, and `object-cover` on a
      * square scales a landscape thumb by its 240px HEIGHT). Costs bytes; ask
@@ -119,7 +121,7 @@ export async function getGuestLiveGallery(
       photoIds.length
         ? admin
             .from('papic_photos')
-            .select('photo_id, r2_object_key, thumb_r2_key, display_r2_key, captured_at')
+            .select('photo_id, r2_object_key, thumb_r2_key, tile_r2_key, display_r2_key, captured_at')
             .in('photo_id', photoIds)
             .eq('moderation_state', 'clean')
             .eq('photo_type', 'photo')
@@ -136,7 +138,7 @@ export async function getGuestLiveGallery(
       captureIds.length
         ? admin
             .from('papic_guest_captures')
-            .select('capture_id, r2_object_key, thumb_r2_key, display_r2_key, captured_at')
+            .select('capture_id, r2_object_key, thumb_r2_key, tile_r2_key, display_r2_key, captured_at')
             .in('capture_id', captureIds)
             .eq('moderation_state', 'clean')
             // Guest CLIPS (media_type='clip') are excluded — this gallery is
@@ -176,10 +178,13 @@ export async function getGuestLiveGallery(
     const webRef = (r: {
       r2_object_key: string;
       thumb_r2_key: string | null;
+      tile_r2_key?: string | null;
       display_r2_key: string | null;
     }): string | undefined =>
       (preferDisplay
-        ? (r.display_r2_key ?? r.thumb_r2_key)
+        ? // tile first — the size a wall renders; display is the fallback for
+          // rows captured before the tile derivative existed.
+          (r.tile_r2_key ?? r.display_r2_key ?? r.thumb_r2_key)
         : (r.thumb_r2_key ?? r.display_r2_key)) ?? undefined;
     const keyById = new Map<string, string>();
     // Capture time rides alongside the key so the chapters below read the moment

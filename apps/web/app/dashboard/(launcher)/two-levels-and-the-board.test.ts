@@ -490,10 +490,12 @@ test('a card with no destination is inert to look at, not just to press', () => 
     /PRESSABLE_CLASSES/,
     'CardShell stopped stripping the press/hover affordances from a linkless card.',
   );
+  // Anchored to the ACT (the named list is consulted by the strip), not to the
+  // exact formatting of the expression — a prettier run must not break CI.
   assert.match(
     body,
-    /\.filter\(\(c\) => !\(PRESSABLE_CLASSES as readonly string\[\]\)\.includes\(c\)\)/,
-    'The affordance strip is gone or no longer removes those classes.',
+    /\.filter\([\s\S]{0,200}?PRESSABLE_CLASSES as readonly string\[\]\)\.includes\(c\)/,
+    'The affordance strip is gone or no longer consults PRESSABLE_CLASSES.',
   );
   assert.match(
     launcher(),

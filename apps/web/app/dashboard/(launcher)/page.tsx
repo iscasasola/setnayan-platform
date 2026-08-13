@@ -1685,6 +1685,14 @@ function StanceChip({ stance }: { stance: EventStance }) {
 const PRESSABLE_CLASSES = ['sn-press', 'sn-lift-4'] as const;
 
 /**
+ * …and every `hover:` variant, because a named list is a bill you keep paying.
+ * The first cut stripped the two classes above and left `hover:border-mulberry/30`
+ * on the desktop card, so a dead card still lit its border under the pointer.
+ * Anything that changes on hover is an affordance.
+ */
+const isHoverAffordance = (c: string) => c.startsWith('hover:');
+
+/**
  * A board card is a LINK when there is somewhere to send this person, and an
  * INERT panel when there is not — inert in look as well as in behaviour.
  *
@@ -1719,7 +1727,11 @@ function CardShell({
   if (!href) {
     const inert = className
       .split(/\s+/)
-      .filter((c) => !(PRESSABLE_CLASSES as readonly string[]).includes(c))
+      .filter(
+        (c) =>
+          !(PRESSABLE_CLASSES as readonly string[]).includes(c) &&
+          !isHoverAffordance(c),
+      )
       .join(' ');
     return (
       <div className={inert} style={style}>

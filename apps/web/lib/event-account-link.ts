@@ -109,12 +109,30 @@ export async function connectEventForUser(
 ): Promise<{ connected: boolean }> {
   try {
     // 1. Cookie path (same browser).
+    //
+    // 🚨 THIS REPORTED SUCCESS FOR THE WRONG EVENT. `linkGuestSessionToUser`
+    // links whatever event the BROWSER'S guest cookie names — which need not be
+    // the `eventId` this call was asked about — and `guest_already_claimed` links
+    // nothing at all. Both were returned as `connected: true`, so the couple's
+    // "send them a sign-in link" could report a connection it had not made, and
+    // the caller then sent the person to an event they hold no seat on.
+    //
+    // The fix is to answer the question that was ASKED: is this user a member of
+    // THIS event now? The membership read below already exists for the
+    // second-click case; it is simply consulted before believing the cookie.
     const viaCookie = await linkGuestSessionToUser(userId);
-    if (viaCookie.linked || viaCookie.reason === 'guest_already_claimed') {
-      return { connected: true };
-    }
-
     const admin = createAdminClient();
+    if (viaCookie.linked || viaCookie.reason === 'guest_already_claimed') {
+      const { data: forThisEvent } = await admin
+        .from('event_members')
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (forThisEvent) return { connected: true };
+      // The cookie belonged to a different wedding (or claimed nothing). Fall
+      // through to the email-match path, which is scoped to THIS event.
+    }
 
     // Already a member of this event (e.g. a second click of the link)?
     // ⚠ `id`, NOT `member_id` — public.event_members' primary key is `id`.

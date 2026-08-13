@@ -66,6 +66,24 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * guest list — and it never did; the eviction paths are removing the membership
  * or soft-deleting the seat, and **both close this door**, see the gates below.
  *
+ * ⚠ **NAMED, NOT HIDDEN — A MIS-BOUND SEAT NO LONGER DECAYS.**
+ * One of the three writers, `linkGuestSessionToUser`, runs on **every login and
+ * every signup** (`app/login/actions.ts` · `app/signup/actions.ts` ×2) and creates
+ * the membership row from nothing but the guest cookie sitting in that browser.
+ * On a SHARED PHONE, then: a guest scans their QR for wedding X, and the next
+ * person to sign in on that handset inherits X's seat as a permanent row stamped
+ * `joined_via: 'guest_signup'`. Before this gate existed, that mis-binding decayed
+ * with the 60-day cookie; now it admits them to X's private page indefinitely.
+ *
+ * It is NOT fixed by excluding `'guest_signup'` — that is also the ordinary,
+ * legitimate path (scan the QR, then make an account), so excluding it would gut
+ * the feature for the main flow. And the mis-bound row is ALREADY load-bearing
+ * without this gate: it puts the event in that account's picker, in their Alaala
+ * "attended" album, and makes `connectEventForUser` report them connected — while
+ * `seedClaimedByOther` then refuses the RIGHT person, who is the one actually
+ * harmed. **So the defect is the binding, not the reading**, and it wants fixing
+ * where the row is written. Recorded rather than silently inherited.
+ *
  * 🔒 SCOPE: this admits a seat-holder to the event's own page — the page the
  * couple published and put them on the list for. It does NOT hand them a guest
  * session, so the per-guest surfaces that key on `guests.guest_id` (their table,

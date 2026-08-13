@@ -47,6 +47,7 @@ const SEAT_LOOKUP = resolve(WEBROOT, 'lib', 'guest-membership-session.ts');
 const CONNECT_ROUTE = resolve(APP, 'join', '[eventId]', 'connect', 'route.ts');
 const LAUNCHER = resolve(APP, 'dashboard', '(launcher)', 'page.tsx');
 const AUTOSURFACE = resolve(WEBROOT, 'lib', 'account-autosurface.ts');
+const ACCOUNT_LINK = resolve(WEBROOT, 'lib', 'event-account-link.ts');
 
 const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 
@@ -326,5 +327,43 @@ test('a supplier or admin invited to a wedding can still reach the board', () =>
     /if \(active\.length === 0 && hasConsole && !wantsHub && boardEvents\.length === 0\) \{/,
     'The console redirect fires again for somebody whose board is not empty, or ' +
       'ignores an explicit hub request — making the shelves unreachable for them.',
+  );
+});
+
+// ── 8 · CONNECTING MUST ANSWER THE QUESTION THAT WAS ASKED ──────────────────
+
+test('the cookie path cannot report success for a DIFFERENT wedding', () => {
+  // 🚨 It could. `linkGuestSessionToUser` links whatever event the BROWSER's
+  // cookie names — not necessarily the eventId asked about — and
+  // `guest_already_claimed` links nothing at all; both were returned as
+  // `connected: true`. So the couple's "send them a sign-in link" could report a
+  // connection it had not made, and the caller then sent the person to an event
+  // they hold no seat on.
+  const src = read(ACCOUNT_LINK);
+  assert.match(
+    src,
+    /if \(viaCookie\.linked \|\| viaCookie\.reason === 'guest_already_claimed'\) \{[\s\S]{0,400}?\.eq\('event_id', eventId\)/,
+    'The cookie path reports success without checking a membership for THIS ' +
+      'event. It then claims a connection it may not have made.',
+  );
+});
+
+// ── 9 · A DEAD CARD SHEDS EVERY AFFORDANCE, NOT TWO NAMED CLASSES ──────────
+
+test('a linkless card keeps no hover affordance either', () => {
+  // The first cut stripped `sn-press` and `sn-lift-4` and left
+  // `hover:border-mulberry/30`, so a dead card still lit its border under the
+  // pointer. A named list is a bill you keep paying.
+  const src = read(LAUNCHER);
+  assert.match(
+    src,
+    /const isHoverAffordance = \(c: string\) => c\.startsWith\('hover:'\);/,
+    'The hover-variant strip is gone, so a card with nowhere to go lights up ' +
+      'under the pointer again.',
+  );
+  assert.match(
+    src,
+    /!isHoverAffordance\(c\)/,
+    'The hover strip exists but the filter does not use it.',
   );
 });

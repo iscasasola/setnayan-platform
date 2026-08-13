@@ -329,3 +329,58 @@ which the old string-counting guard could not have seen.
 
 Verified: typecheck clean · **7933/7933** unit tests · all 22 lint scripts · both
 board suites green under UTC · Asia/Manila · America/New_York · Pacific/Kiritimati.
+
+---
+
+## 2026-08-13 · fix: the last two from lens 6 — and one trade-off named rather than inherited
+
+The adversarial pass finished **6/6 lenses, coverage complete** — 18 candidates
+across 42 agents, each surviving finding attacked by two independent skeptics.
+
+### 🚨 The couple's "send them a sign-in link" could report a connection it had not made
+
+`connectEventForUser` short-circuited on the cookie path **without ever comparing
+the cookie's event to the `eventId` it was asked about.** `linkGuestSessionToUser`
+links whatever wedding the browser's guest cookie names, and
+`guest_already_claimed` links *nothing at all* — and both were returned as
+`connected: true`. It now answers the question that was asked: is this user a
+member of **this** event? The membership read it needs already existed one branch
+below for the second-click case; it is simply consulted before the cookie is
+believed. Otherwise it falls through to the email-match path, which **is** scoped
+to this event.
+
+### 🖱 A dead card still lit its border under the pointer
+
+The earlier fix stripped `sn-press` and `sn-lift-4` and left
+`hover:border-mulberry/30`. **A named list is a bill you keep paying** — every
+`hover:` variant is now stripped from a linkless card, not two classes by name.
+
+### ⚠ A mis-bound seat no longer decays — named, not silently inherited
+
+`linkGuestSessionToUser` runs on **every login and every signup** and creates the
+membership row from nothing but the guest cookie in that browser. On a shared
+phone, the next person to sign in inherits that seat permanently
+(`joined_via: 'guest_signup'`). Before this gate, the mis-binding decayed with the
+60-day cookie; now it admits them to that event's private page indefinitely.
+
+**Deliberately not "fixed" by excluding `'guest_signup'`** — that is also the
+ordinary legitimate path (scan the QR, then make an account), so excluding it would
+gut the feature for the main flow. And the mis-bound row is **already load-bearing
+without this gate**: it puts the event in that account's picker and Alaala
+"attended" album, and `seedClaimedByOther` then refuses the RIGHT person, who is
+the one actually harmed. **So the defect is the binding, not the reading**, and it
+wants fixing where the row is written. Recorded in the module.
+
+🛡 **Final matrix: 31 sabotages, all occurrence-counted before → after, all 31
+caught, baseline green either side.** One run reported an `ANCHOR NOT FOUND` — a
+stale anchor in the harness after a reformat, not a guard hole; corrected and
+re-proved. 🔑 **That is why the harness refuses to score an unapplied sabotage as a
+pass.**
+
+⚠ One of my assertions was **coupled to formatting** (it pinned the exact text of a
+filter expression, so a prettier run would have broken CI for no behavioural
+reason). Re-anchored to the act.
+
+Verified: typecheck clean · **7935/7935** unit tests · all 22 lint scripts · both
+board suites green under **UTC · Asia/Manila · America/New_York ·
+Pacific/Kiritimati**.

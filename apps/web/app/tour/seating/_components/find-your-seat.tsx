@@ -89,7 +89,7 @@ export function FindYourSeat({ tables, seats, entrance }: Props) {
         <div className="relative mt-4">
           <Search
             aria-hidden
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9A8F86]"
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--m-slate-2)]"
           />
           <input
             type="text"
@@ -99,7 +99,7 @@ export function FindYourSeat({ tables, seats, entrance }: Props) {
             onChange={(e) => onChange(e.target.value)}
             placeholder="e.g. Maria"
             aria-label="Search for your name"
-            className="min-h-[48px] w-full rounded-full border border-[#1B1A17]/15 bg-white py-3 pl-10 pr-4 text-sm text-[#1B1A17] outline-none transition-colors placeholder:text-[#9A8F86] focus:border-[#A9834B] focus:ring-2 focus:ring-[#A9834B]/30"
+            className="min-h-[48px] w-full rounded-full border border-[#1B1A17]/15 bg-white py-3 pl-10 pr-4 text-sm text-[#1B1A17] outline-none transition-colors placeholder:text-[var(--m-slate-2)] focus:border-[#A9834B] focus:ring-2 focus:ring-[#A9834B]/30"
           />
         </div>
 
@@ -156,7 +156,7 @@ export function FindYourSeat({ tables, seats, entrance }: Props) {
       {/* Map column — the shipped read-only renderer, reused verbatim. */}
       <div>
         <WayfindingMap tables={tables} entrance={entrance} targetTableId={targetTableId} />
-        <p className="mt-3 text-center text-xs text-[#9A8F86]">
+        <p className="mt-3 text-center text-xs text-[var(--m-slate-2)]">
           The stage sits at the top; your table glows when you pick a name.
         </p>
       </div>

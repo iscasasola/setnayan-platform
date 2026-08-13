@@ -168,7 +168,7 @@ export default function WhySetnayanPage() {
                   {...settle}
                   className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/50 p-5"
                 >
-                  <h3 className="font-serif text-lg text-[#9A8F86]">{j.label}</h3>
+                  <h3 className="font-serif text-lg text-[var(--m-slate-2)]">{j.label}</h3>
                   <p className="mt-2 text-sm text-[#5F5E5A]">{j.line}</p>
                 </div>
               );

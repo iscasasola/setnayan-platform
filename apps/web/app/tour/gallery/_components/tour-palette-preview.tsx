@@ -139,7 +139,7 @@ export function TourPalettePreview({ groups }: { groups: TourSwatchGroup[] }) {
         className="mt-3 w-full accent-[#1B1A17]"
         aria-label="Shift the palette hue"
       />
-      <p className="mt-1.5 text-xs text-[#9A8F86]">
+      <p className="mt-1.5 text-xs text-[var(--m-slate-2)]">
         {hueShift === 0
           ? 'This is their real colour story. Drag to imagine a warmer or cooler one — nothing is saved.'
           : `Previewing a ${hueShift > 0 ? '+' : ''}${hueShift}° shift — a local sketch only.`}
@@ -165,7 +165,7 @@ export function TourPalettePreview({ groups }: { groups: TourSwatchGroup[] }) {
                     aria-label={`${g.label} colour ${color}`}
                   />
                   {g.slotLabels && g.slotLabels[i] ? (
-                    <span className="text-[10px] text-[#9A8F86]">{g.slotLabels[i]}</span>
+                    <span className="text-[10px] text-[var(--m-slate-2)]">{g.slotLabels[i]}</span>
                   ) : null}
                 </div>
               ))}

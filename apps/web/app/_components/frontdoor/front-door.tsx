@@ -9,6 +9,7 @@
 import 'server-only';
 
 import { createClient } from '@/lib/supabase/server';
+import { isAdminProfile } from '@/lib/admin/admin-predicate';
 import {
   WEDDING_FOLDER_LABEL,
   WEDDING_FOLDER_SLUG,
@@ -84,6 +85,7 @@ async function resolveAccount(): Promise<FrontDoorAccount> {
     signedIn: false,
     initials: '··',
     shopName: null,
+    isAdmin: false,
   };
 
   try {
@@ -96,7 +98,7 @@ async function resolveAccount(): Promise<FrontDoorAccount> {
     // ⚠ A REJECTED QUERY IS NOT A THROWN ERROR — `error` is checked, not
     // caught. A phantom column here would otherwise render a signed-in person
     // a signed-out rail with nothing said about it.
-    const [{ count: eventCount, error: eventErr }, { data: shop }] =
+    const [{ count: eventCount, error: eventErr }, { data: adminRow }, { data: shop }] =
       await Promise.all([
         /*
           ⚠ THE SAME NARROWING /dashboard USES, or the two numbers disagree.
@@ -115,6 +117,14 @@ async function resolveAccount(): Promise<FrontDoorAccount> {
           .eq('user_id', user.id)
           .is('hidden_at', null)
           .eq('events.archived', false),
+        // The admin predicate's THREE columns, read in the same round trip as
+        // the shop. Narrowing this to is_internal is what once locked Team Pool
+        // staff out of a queue they were hired to work — see admin-predicate.ts.
+        supabase
+          .from('users')
+          .select('is_internal, is_team_member, account_type')
+          .eq('user_id', user.id)
+          .maybeSingle(),
         supabase
           .from('vendor_profiles')
           // ⚠ THE COLUMN IS `user_id`, NOT `owner_user_id`. The first cut of
@@ -144,6 +154,11 @@ async function resolveAccount(): Promise<FrontDoorAccount> {
         shop && typeof shop.business_name === 'string'
           ? shop.business_name
           : null,
+      // A FAILED READ MUST NOT GRANT THE ROW. isAdminProfile(null) is false, so
+      // a rejected query hides HQ rather than offering a door that then refuses
+      // — the opposite direction from the counts above, and the right one: a
+      // missing row is a nuisance, an offered-then-denied one is a lie.
+      isAdmin: isAdminProfile(adminRow),
     };
   } catch {
     return signedOut;

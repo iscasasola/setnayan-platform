@@ -70,6 +70,15 @@ export type FrontDoorAccount = {
   alaalaCount?: number | null;
   /** A vendor also gets a row straight into their own shop. */
   shopName: string | null;
+  /**
+   * An admin gets a row straight into HQ (owner 2026-08-13: "user home and shop
+   * and admin will be on that sidebar"). Capability-gated like the shop row —
+   * absent for everyone else, never a greyed row. Decided by THE canonical
+   * predicate (lib/admin/admin-predicate.ts), which is three clauses wide:
+   * is_internal · is_team_member · account_type === 'admin'. A narrower copy
+   * once locked Team Pool staff out of a queue they were hired to work.
+   */
+  isAdmin: boolean;
 };
 
 type Props = {
@@ -370,6 +379,16 @@ export function FrontDoorShell({
                   <span className="fd-label-text">{account.shopName}</span>
                   <span className="fd-icon-caption">Shop</span>
                   <span className="fd-ct">your shop</span>
+                </Link>
+              ) : null}
+              {account.isAdmin ? (
+                <Link href="/admin" className="fd-row">
+                  <span className="fd-gi" aria-hidden="true">
+                    ⛨
+                  </span>
+                  <span className="fd-label-text">Setnayan HQ</span>
+                  <span className="fd-icon-caption">HQ</span>
+                  <span className="fd-ct">admin</span>
                 </Link>
               ) : null}
             </>

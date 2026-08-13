@@ -34,7 +34,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -319,5 +319,55 @@ test('the day-of venue grid still defaults to the small copy', () => {
     /prefer\?: 'thumb' \| 'display';/,
     'the preference must stay OPTIONAL so the day-of page keeps its small copy ' +
       'without naming it',
+  );
+});
+
+test('the tile backfill has a doorway a person can actually press', () => {
+  // 🚪 IT SHIPPED WITHOUT ONE. The backfill first existed as
+  // `POST /api/admin/papic/backfill-tiles` — no caller, no button, nothing in
+  // the app referencing it. A mechanism never proven reachable, written in the
+  // same session that quoted that rule twice. A page ships with its doorway.
+  const button = src(
+    resolve(WEB, 'app', 'admin', 'papic-storage', 'backfill-tiles-button.tsx'),
+  );
+  assert.match(
+    button,
+    /backfillTileDerivativesAction\(\)/,
+    'the button no longer calls the backfill action',
+  );
+  // IMPORTED IS NOT MOUNTED — a guard that only proved the import passed while
+  // the JSX was gone. Assert the ELEMENT.
+  const page = src(resolve(WEB, 'app', 'admin', 'papic-storage', 'page.tsx'));
+  assert.equal(
+    count(page, /<BackfillTilesButton\b/g),
+    1,
+    'The backfill button is imported but not RENDERED on /admin/papic-storage, ' +
+      'so the action is unreachable again.',
+  );
+  // …and the route it replaced must not come back as a second, callerless door.
+  assert.equal(
+    existsSync(resolve(WEB, 'app', 'api', 'admin', 'papic', 'backfill-tiles')),
+    false,
+    'The callerless API route is back. One doorway, and it is the admin page.',
+  );
+});
+
+test('the storage readout counts the third derivative', () => {
+  // A derivative nothing counts is storage we pay for and cannot see — and the
+  // ~8% web-copy ratio the pricing councils asked to lock from real data would
+  // read low forever.
+  const telemetry = src(resolve(WEB, 'lib', 'papic-storage-telemetry.ts'));
+  assert.match(
+    telemetry,
+    /pos\(row\.display_bytes\) \+ pos\(row\.tile_bytes\) \+ pos\(row\.thumb_bytes\)/,
+    'webCopyBytes() stopped counting tile_bytes, so every storage figure ' +
+      'under-reports by one derivative.',
+  );
+  const page = src(resolve(WEB, 'app', 'admin', 'papic-storage', 'page.tsx'));
+  assert.equal(
+    count(page, /\(r\.display_bytes \?\? 0\) \+ \(r\.thumb_bytes \?\? 0\)/g),
+    0,
+    'The page hand-sums the web copy again instead of calling webCopyBytes(). ' +
+      'Two definitions of one rule is how one of them silently goes stale.',
   );
 });

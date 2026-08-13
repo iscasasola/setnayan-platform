@@ -14,7 +14,7 @@ The loader already computes the honest answer (`hasVideo: Boolean(row.embed_url)
 
 That comment records the same substitution being made **once before**. It was made again here, one file away from the warning. Now carries `s.hasVideo` through.
 
-🔑 **Latent today, not theoretical**: prod holds 1 published chapter, 0 featured, 0 with video. It bites on the first non-YouTube chapter anyone features.
+🔑 **Unreachable today because of the DATA, not because of a flag** (see the live-page note at the end): prod holds 1 published chapter, 0 featured, 0 with video. The page is public; the bug bites on the first non-YouTube chapter anyone features.
 
 ### 2 · Once stories exist, two articles render nowhere
 

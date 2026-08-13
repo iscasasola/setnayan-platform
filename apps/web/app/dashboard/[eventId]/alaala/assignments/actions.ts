@@ -231,11 +231,24 @@ async function dispatchNudgeEmail(
       .maybeSingle();
 
     if (member?.user_id) {
+      // SAME REQUEST, SAME DOOR. This notification goes to the account resolved
+      // BY guest_id — by construction an invited person, never the couple — and
+      // it used to carry `/dashboard/${eventId}/alaala`, which the bell renders
+      // as an "Open" button. That shell admits member_type='couple' only, so
+      // the aunt asked to tell the first-dance story tapped Open and got
+      // not-found, with nothing telling her the email held a link that worked.
+      // The in-app twin now points where the email points: her own page.
+      //
+      // No slug → NO relatedUrl. notifications-list.tsx renders the "Open"
+      // button only when related_url is set, so the notification still arrives
+      // and still says what to do; it just stops offering a door to nowhere.
+      // (The email's own fallback is the Setnayan home, which is a page — a
+      // relative equivalent here would be a link to nothing in particular.)
       await emitNotification({
         userId: member.user_id as string,
         type: 'kwento_assignment_nudge',
         title: subject,
-        relatedUrl: `/dashboard/${eventId}/alaala`,
+        relatedUrl: slug ? `/${slug}` : null,
       });
     }
   } catch (e) {

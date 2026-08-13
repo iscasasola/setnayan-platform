@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlsForStoredAssets } from '@/lib/uploads';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
+import { eventAlbumHref } from '@/lib/event-board';
 import { getSwitcherData, type SwitcherEvent } from '@/app/_components/account-switcher/get-switcher-data';
 
 /**
@@ -50,8 +51,22 @@ export type Album = {
    * stranger with the link can actually load the page). Anchors the Facebook
    * share link; a private/unlisted event stays null so no dead-link share card
    * is ever offered. See getPhotosAlbums().
+   *
+   * ⚠ NOT A NAVIGATION VALUE. This answers "may we broadcast a link to this?",
+   * not "where may THIS PERSON go?". `href` below is the second question.
    */
   slug: string | null;
+  /**
+   * Where the card opens FOR THIS USER — `lib/event-board.eventAlbumHref`, the
+   * one place that answers "where may this member_type go".
+   *
+   * NULL is a real, renderable state: an invited person whose host has not
+   * opened a public address yet has nowhere to be sent, and the card says so
+   * rather than pointing at the host-only studio. Before 2026-08-13 this card
+   * built ONE destination for both roles and a guest pressed her own thumbnails
+   * into a 404.
+   */
+  href: string | null;
 };
 
 export type PhotosAlbumsData = {
@@ -169,8 +184,16 @@ export async function getPhotosAlbums(userId: string): Promise<PhotosAlbumsData>
   // scheduled-but-not-yet-due) event would hand out a link that lands the
   // recipient on a locked/404 page. resolveEffectiveVisibility is the same
   // gate app/[slug] renders through, so the share card and the page agree.
+  //
+  // The SAME read also collects the raw address (`addressByEvent`) for the
+  // card's own link. These are two different questions and only one of them is
+  // gated on effective-public: a broadcast share link must not reach an
+  // unlisted wedding, but an INVITED PERSON opening her own album may — that
+  // page is hers to see. Conflating them would strip the link from every
+  // invited card on an unlisted event.
   const supabase = await createClient();
   const slugByEvent = new Map<string, string>();
+  const addressByEvent = new Map<string, string>();
   if (events.length > 0) {
     try {
       const { data: slugRows } = await supabase
@@ -180,6 +203,7 @@ export async function getPhotosAlbums(userId: string): Promise<PhotosAlbumsData>
       for (const row of slugRows ?? []) {
         const slug = (row.slug as string | null) ?? null;
         if (!slug) continue;
+        addressByEvent.set(row.event_id as string, slug);
         const effective = resolveEffectiveVisibility({
           landing_page_visibility: row.landing_page_visibility as
             | 'public'
@@ -227,6 +251,11 @@ export async function getPhotosAlbums(userId: string): Promise<PhotosAlbumsData>
         count,
         thumbs,
         slug: slugByEvent.get(event.event_id) ?? null,
+        href: eventAlbumHref({
+          event_id: event.event_id,
+          slug: addressByEvent.get(event.event_id) ?? null,
+          member_type: event.role,
+        }),
       };
     }),
   );

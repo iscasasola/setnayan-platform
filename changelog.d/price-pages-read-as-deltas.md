@@ -46,6 +46,12 @@ Its only renderer, `vendor-tier-matrix.tsx`, deliberately un-deltas it — its o
 
 Also: the taper sentence in the new component is **derived** via `bookingFeeScheduleSummary()` instead of typing "₱100,000" like the four other surfaces do. That helper composes the whole claim from the same constant `bookingFeePhp()` charges from, is pinned by its own test — and **had zero callers until now**. It also states the ₱50 minimum, which the hand-typed copy omits and its docblock argues is a defect.
 
+### 6 · 🪤 AND THIS CHANGE INTRODUCED ONE OF ITS OWN, CAUGHT BY RE-READING THE CONSUMERS
+
+`aiIntroPhp` used to be an **alias** of the regular price, so the nav overlay's savings comparator doing `const mine = pricing.aiIntroPhp` was harmless. Giving the field its real meaning silently repointed that comparator at the **lower** figure — on a panel that already headlines `aiPrice`, the regular one. Two different prices on one card with no explanation, and every *"you save X"* below it quietly growing.
+
+🔑 **CHANGING WHAT A SHARED FIELD MEANS CHANGES EVERY READER OF IT.** Widening a type is visible to the compiler; narrowing a MEANING is not. The comparator now names `aiRegularPhp` explicitly, which UNDERSTATES the saving — the safe direction, since making it larger is a marketing claim and not a refactor. Guarded and mutation-proved (occurrences 0 → 1, caught).
+
 ### VERIFIED
 
 `tsc --noEmit` clean · **7,922/7,922** unit tests · **all 22** `lint-*.mjs` green · `next lint` adds no new warning · **5/5 mutations caught**, each verified to have landed by occurrence count (including the ₱499 declaration restored verbatim, and the catalog read stripped of the column).

@@ -138,6 +138,29 @@ test('/pricing renders BOTH figures, and gets them from the shared resolver', ()
   );
 });
 
+test('the savings comparator quotes the REGULAR price, not the sign-up one', () => {
+  // 🪤 A DEFECT INTRODUCED BY THIS VERY CHANGE, CAUGHT BY RE-READING THE
+  // CONSUMERS. `aiIntroPhp` used to be an ALIAS of the regular price, so
+  // `const mine = pricing.aiIntroPhp` was harmless. Giving the field its real
+  // meaning silently repointed the comparator at the LOWER figure — on a panel
+  // that already headlines `aiPrice` (the regular one). Two different prices on
+  // one card with no explanation, and every "you save X" quietly grows.
+  //
+  // 🔑 CHANGING WHAT A SHARED FIELD MEANS CHANGES EVERY READER OF IT. Widening a
+  // type is visible to the compiler; narrowing a MEANING is not.
+  //
+  // The regular price understates the saving, which is the safe direction for a
+  // marketing claim. Making it larger is the owner's call, not a refactor's.
+  const src = read('app/_components/home/HomeOverlays.tsx');
+  assert.match(
+    src,
+    /const mine = pricing\.aiRegularPhp;/,
+    'the savings comparator must value Setnayan AI at the REGULAR price — using ' +
+      'the sign-up price inflates every "you save X" on the panel and contradicts ' +
+      'the headline figure shown beside it',
+  );
+});
+
 test('no peso literal was reintroduced as a Setnayan AI fallback', () => {
   // The ₱499 that stood here was FIVE TIMES off the live ₱2,499 and nothing
   // checked it, because it was declared a non-price. Comments are stripped: a

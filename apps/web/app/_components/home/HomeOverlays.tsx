@@ -362,10 +362,18 @@ function SetnayanAiOverlay({
   const [rate, setRate] = useState(AI_COMPARE_RATE_DEFAULT_PHP);
 
   const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
-  // Setnayan AI is a ONE-TIME charge (owner 2026-07-10): a flat ₱499 that covers
+  // Setnayan AI is a ONE-TIME charge (owner 2026-07-10): one flat figure covering
   // the whole window no matter how many months — raw number from the catalog
   // resolve (pricing-data.ts). The comparison modes below still scale with the window.
-  const mine = pricing.aiIntroPhp;
+  //
+  // ⚠ THE **REGULAR** PRICE, DELIBERATELY, NOT THE SIGN-UP ONE. Since 2026-08-12
+  // there are two, and `aiIntroPhp` is now genuinely the lower of them rather than
+  // an alias of the regular price. Using it here would do two bad things at once:
+  // this panel already headlines `aiPrice` (the regular figure), so the same card
+  // would show two different numbers with no explanation — and every "you save X"
+  // below would silently grow, which is a marketing claim, not a refactor.
+  // The regular price UNDERSTATES the saving, which is the safe direction.
+  const mine = pricing.aiRegularPhp;
   // Every mode scales linearly toward its owner-set ceiling at 26 months.
   const frac = months / AI_COMPARE_MAX_MONTHS;
   const yearsNote = months === 13 ? ' · 1 year' : months === 26 ? ' · 2 years' : '';

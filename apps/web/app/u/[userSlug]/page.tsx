@@ -585,7 +585,9 @@ const UPROF_CSS = `
     gap: 0.9rem;
     padding: 0.95rem 1.1rem;
     border: 1px solid color-mix(in srgb, var(--m-ink, #1B1A17) 12%, transparent);
-    border-radius: 14px;
+    /* The same token as .uprof-card and .uprof-tl-card — a shared day is a card
+       in the same stack, so it must not round differently from its neighbours. */
+    border-radius: var(--m-r-lg, 22px);
     background: color-mix(in srgb, #FFFFFF 60%, transparent);
     text-decoration: none;
     transition: background-color 200ms, border-color 200ms;

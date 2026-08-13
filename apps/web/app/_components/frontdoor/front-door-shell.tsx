@@ -79,6 +79,18 @@ export type FrontDoorAccount = {
    * once locked Team Pool staff out of a queue they were hired to work.
    */
   isAdmin: boolean;
+  /**
+   * Chapters this person has written, any status. Same three states as the
+   * others: number → show it · null → we asked and the read FAILED · undefined
+   * → never asked.
+   *
+   * ⚠ A REAL 0 IS SHOWN HERE, deliberately. Writing is open to everyone
+   * ("creator = user", owner-locked 2026-07-16 — the apply/approve gate and the
+   * is_creator flag were both dropped), so zero chapters is an empty desk you
+   * own, not an absence of permission. The destination's own zero state is
+   * already a written invitation.
+   */
+  storyChapterCount?: number | null;
 };
 
 type Props = {
@@ -371,6 +383,42 @@ export function FrontDoorShell({
                 Family, godparents and friends together. Waiting on a legal
                 review.
               </div>
+              {/*
+                YOUR STORY — a thing you HAVE, not a thing you run, so it is
+                never gated. Writing is open to every signed-in person; gating
+                this row on "is a storyteller" (>=1 published chapter on a
+                public profile) would hide a desk 8 of 9 accounts are entitled
+                to sit at. Matches the shipped launcher, which shows the same
+                href whether you have chapters or none.
+              */}
+              <Link href="/dashboard/creator" className="fd-row">
+                <span className="fd-gi" aria-hidden="true">
+                  ✎
+                </span>
+                <span className="fd-label-text">Your Story</span>
+                <span className="fd-icon-caption">Story</span>
+                {typeof account.storyChapterCount === 'number' ? (
+                  <span className="fd-ct">{account.storyChapterCount}</span>
+                ) : account.storyChapterCount === null ? (
+                  <span className="fd-ct">couldn&apos;t load</span>
+                ) : null}
+              </Link>
+              {/*
+                WHAT YOU RUN — the second group, and the rule that decides
+                membership is one sentence: does this destination REFUSE a
+                signed-in person? No -> it is a desk you own, it lives above.
+                Yes -> it is a console only some people hold, it lives here and
+                renders only for the people the door admits.
+
+                The label and divider render ONLY when a row follows. A heading
+                over nothing is a fake door in label form.
+              */}
+              {account.shopName || account.isAdmin ? (
+                <>
+                  <div className="fd-rdiv" />
+                  <div className="fd-rlabel">What you run</div>
+                </>
+              ) : null}
               {account.shopName ? (
                 <Link href="/vendor-dashboard" className="fd-row">
                   <span className="fd-gi" aria-hidden="true">

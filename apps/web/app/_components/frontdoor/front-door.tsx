@@ -9,7 +9,7 @@
 import 'server-only';
 
 import { createClient } from '@/lib/supabase/server';
-import { isAdminProfile } from '@/lib/admin/admin-predicate';
+import { fetchUserRoleSummary } from '@/lib/roles';
 import {
   WEDDING_FOLDER_LABEL,
   WEDDING_FOLDER_SLUG,
@@ -98,8 +98,11 @@ async function resolveAccount(): Promise<FrontDoorAccount> {
     // ⚠ A REJECTED QUERY IS NOT A THROWN ERROR — `error` is checked, not
     // caught. A phantom column here would otherwise render a signed-in person
     // a signed-out rail with nothing said about it.
-    const [{ count: eventCount, error: eventErr }, { data: adminRow }, { data: shop }] =
-      await Promise.all([
+    const [
+      { count: eventCount, error: eventErr },
+      roles,
+      { count: storyCount, error: storyErr },
+    ] = await Promise.all([
         /*
           ⚠ THE SAME NARROWING /dashboard USES, or the two numbers disagree.
           `fetchUserEvents` filters `hidden_at IS NULL` (lib/events.ts) because
@@ -117,24 +120,24 @@ async function resolveAccount(): Promise<FrontDoorAccount> {
           .eq('user_id', user.id)
           .is('hidden_at', null)
           .eq('events.archived', false),
-        // The admin predicate's THREE columns, read in the same round trip as
-        // the shop. Narrowing this to is_internal is what once locked Team Pool
-        // staff out of a queue they were hired to work — see admin-predicate.ts.
+        /*
+          ONE ROLE SUMMARY, NOT THREE HAND-ROLLED READS. fetchUserRoleSummary
+          exists for exactly this question — "which consoles does this user
+          have access to right now" — is cache()d, and uses THE admin predicate.
+
+          ⚠ IT ALSO CLOSES A GAP THE HAND-ROLLED VERSION HAD. The rail gated the
+          shop row on owning a `vendor_profiles` row, while /vendor-dashboard
+          admits an OWNER **or** a `vendor_team_members` member. A shop's hired
+          team member could open the console and get no row offering it. Latent
+          today (prod: 0 team members who own nothing) — it bites the first hire.
+        */
+        fetchUserRoleSummary(supabase, user.id),
+        // How many chapters this person has written — the same set the
+        // destination lists as "Your chapters (N)", every status.
         supabase
-          .from('users')
-          .select('is_internal, is_team_member, account_type')
-          .eq('user_id', user.id)
-          .maybeSingle(),
-        supabase
-          .from('vendor_profiles')
-          // ⚠ THE COLUMN IS `user_id`, NOT `owner_user_id`. The first cut of
-          // this file named a column that does not exist — PostgREST would
-          // have REJECTED the query and returned no row, so a vendor would
-          // simply never see their own shop in the rail and nothing anywhere
-          // would have said why. Verified against the live schema.
-          .select('business_name')
-          .eq('user_id', user.id)
-          .maybeSingle(),
+          .from('creator_chapters')
+          .select('chapter_id', { count: 'exact', head: true })
+          .eq('user_id', user.id),
       ]);
 
     return {
@@ -150,15 +153,20 @@ async function resolveAccount(): Promise<FrontDoorAccount> {
       // have not measured is worse than no number. The row renders without a
       // count rather than claiming a failure that never happened.
       alaalaCount: undefined,
-      shopName:
-        shop && typeof shop.business_name === 'string'
-          ? shop.business_name
-          : null,
-      // A FAILED READ MUST NOT GRANT THE ROW. isAdminProfile(null) is false, so
-      // a rejected query hides HQ rather than offering a door that then refuses
-      // — the opposite direction from the counts above, and the right one: a
-      // missing row is a nuisance, an offered-then-denied one is a lie.
-      isAdmin: isAdminProfile(adminRow),
+      // Named from the summary so a TEAM MEMBER gets the row too, matching what
+      // /vendor-dashboard actually admits. Falls back to a neutral word rather
+      // than hiding the row when access is real but no name came back.
+      shopName: roles.hasVendorAccess
+        ? (roles.vendorProfiles[0]?.business_name ?? 'Your shop')
+        : null,
+      // A FAILED READ MUST NOT GRANT THE ROW — a rejected query hides HQ rather
+      // than offering a door that then refuses. The opposite direction from the
+      // counts, and the right one: a missing row is a nuisance, an
+      // offered-then-denied one is a lie.
+      isAdmin: roles.hasAdminAccess,
+      // null ⇒ "couldn't load". A real 0 is a real answer here — the desk is
+      // open to everyone, so nothing is being hidden by showing zero.
+      storyChapterCount: storyErr ? null : (storyCount ?? 0),
     };
   } catch {
     return signedOut;

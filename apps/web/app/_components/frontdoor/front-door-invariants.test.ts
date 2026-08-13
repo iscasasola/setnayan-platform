@@ -555,3 +555,103 @@ test('the shelf rows are split by the composer, not by a hard-coded index', () =
     'the trailing row must not start at a hard-coded index',
   );
 });
+
+/* ── 18 · A COUPLE'S STORY SHOWS ITSELF, NOT THE WORDS "THEIR STORY" ──────
+   #4400 fixed exactly this for the SHOP card (test 12) and did not sweep the
+   card beside it on the same shelf, which went on printing its own name where
+   the picture goes. 🔑 WHEN YOU FIX A CARD-SHAPED BUG, SWEEP EVERY CARD ON
+   THAT SHELF — this is the same lesson as the soft-404 that was fixed on one
+   route and left on its twin.
+
+   Both story renderings are covered: the 16:9 card AND the 9:16 one in the
+   story row, which rendered an empty gradient box beside article cards that
+   all carry a cover — an image that failed to load, rather than a story told
+   in writing. */
+test('a story card leads with its poster or its opening line, never a placeholder word', () => {
+  const storyCard = FEED_CODE.slice(
+    FEED_CODE.indexOf('function StoryCard'),
+    FEED_CODE.indexOf('function ShopCard'),
+  );
+  assert.ok(storyCard.length > 0, 'StoryCard not found');
+
+  // THE DEFECT: the literal words, anchored as a text node — not `>WORD<`,
+  // which test 12 records as having been slipped by a trailing newline.
+  assert.ok(
+    !/>\s*THEIR STORY\b/.test(storyCard),
+    'the literal words "THEIR STORY" must not be the card\'s mark — a real ' +
+      "couple's piece rendered as a placeholder is the defect this replaced",
+  );
+
+  // THE REPLACEMENT: both grammars, in both renderings.
+  for (const [label, src] of [
+    ['the 16:9 card', storyCard],
+    ['the story row', FEED_CODE.slice(FEED_CODE.indexOf('fd-storyrow'))],
+  ] as const) {
+    assert.ok(
+      /s\.thumbUrl \?/.test(src),
+      `${label} must branch on the chapter's poster`,
+    );
+    assert.ok(
+      /s\.excerpt \?\?/.test(src),
+      `${label} must fall back to the opening line, with a terminal fallback ` +
+        'under it — a chapter can legitimately have neither poster nor excerpt',
+    );
+  }
+
+  // THE OTHER END OF THE CHAIN. The loader has always had both fields; the
+  // front door simply never carried them, which is the whole reason the card
+  // printed a word instead of a picture. A card that branches on data nothing
+  // supplies renders the fallback forever and looks exactly like a design
+  // choice.
+  const DATA_CODE = code(readFileSync(join(HERE, 'data.ts'), 'utf8'));
+  for (const field of ['thumbUrl', 'excerpt']) {
+    assert.ok(
+      new RegExp(`${field}:\\s*s\\.${field}`).test(DATA_CODE),
+      `the front door must carry ${field} through from the loader — the card ` +
+        'branches on it',
+    );
+  }
+});
+
+/* ── 19 · THE POSTER IS A PLAIN <img>, BECAUSE next/image WOULD 400 ───────
+   `youtubeThumbFromEmbedUrl` returns `https://i.ytimg.com/...`, and that host
+   is NOT in `remoteImagePatterns` — so `/_next/image?url=…` answers 400 and
+   the poster silently never appears. That is precisely how the R2 remotePattern
+   shipped broken app-wide: a well-formed URL is not a picture arriving.
+
+   This guard exists because `next/image` is the obvious, house-style choice
+   here and it is the WRONG one until the host is allowed. It fails in both
+   directions: reach for next/image without adding the host, or add the host
+   and forget one of the two lists. */
+test('the story poster is not routed through the image optimizer', () => {
+  const storyCard = FEED_CODE.slice(
+    FEED_CODE.indexOf('function StoryCard'),
+    FEED_CODE.indexOf('function ShopCard'),
+  );
+  const rowStories = FEED_CODE.slice(
+    FEED_CODE.indexOf('fd-storyrow'),
+    FEED_CODE.indexOf('fd-sechead', FEED_CODE.indexOf('fd-storyrow')) + 1 ||
+      undefined,
+  );
+
+  const config = readFileSync(join(APP, '..', 'next.config.ts'), 'utf8');
+  const optimizerAllows = /hostname:\s*'i\.ytimg\.com'/.test(config);
+
+  for (const [label, src] of [
+    ['the 16:9 card', storyCard],
+    ['the story row', rowStories],
+  ] as const) {
+    // `<Image` (capital I) is the next/image component; `<img` is the plain tag.
+    const usesOptimizer = /<Image[\s>][\s\S]*?s\.thumbUrl/.test(src);
+    assert.ok(
+      !usesOptimizer || optimizerAllows,
+      `${label}: the poster is rendered with next/image, but i.ytimg.com is ` +
+        'not in remoteImagePatterns — the optimizer answers 400 and the ' +
+        'picture never appears, with nothing thrown and nothing logged',
+    );
+    assert.ok(
+      /<img\s[\s\S]*?src=\{s\.thumbUrl\}/.test(src) || usesOptimizer,
+      `${label}: the poster must actually be rendered from s.thumbUrl`,
+    );
+  }
+});

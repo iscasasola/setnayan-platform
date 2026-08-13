@@ -582,10 +582,16 @@
   flex: 1;
   min-width: 0;
 }
+/* TYPE SCALE — matched to the reference this page is built from (owner
+   2026-08-13: "look at the text size difference of youtube and setnayan").
+   Measured: ours was 15px/600 against the reference's 14px/500, and the byline
+   13px against 12px. Seven per cent on the title and a whole weight step is
+   enough to read as a different product — the grid is the same four columns, so
+   the chunkiness was all type. */
 .fd-ttl {
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.35;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
   margin: 0 0 4px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -594,7 +600,7 @@
   overflow: hidden;
 }
 .fd-by {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--fd-m2);
   line-height: 1.45;
   margin: 0;
@@ -911,7 +917,9 @@ h2.fd-sechead,
     background: var(--fd-cream);
   }
   .fd-ttl {
-    font-size: 14px;
+    /* Phone keeps a touch more than desktop — a 14px title at arm's length on a
+       375px screen is not the same read as 14px on a monitor. */
+    font-size: 14.5px;
   }
 }
 

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
+import { resolveLargeStillRef, type PapicDisplayRow } from '@/lib/papic-display-ref';
 import { fetchMomentGraph } from '@/lib/life-story-moment-graph';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
@@ -171,16 +172,14 @@ async function ownedRefs(
 
   const unreadable = Boolean(photoRes.error) || Boolean(captureRes.error);
 
-  const pick = (row: Record<string, unknown>, isClip: boolean): string | null =>
-    (row.thumb_r2_key as string | null) ??
-    (row.display_r2_key as string | null) ??
-    (isClip ? (row.poster_r2_key as string | null) : null) ??
-    (row.r2_object_key as string | null);
-
   const refs: Ref[] = [];
   for (const row of (photoRes.data ?? []) as Record<string, unknown>[]) {
     const isClip = row.photo_type === 'clip';
-    const storedRef = pick(row, isClip);
+    // DISPLAY resolution, not thumb. A hand-rolled picker here preferred
+    // `thumb_r2_key` — 320px q50, built for 80px album strips — and the wall
+    // renders 105–192 CSS px squares, i.e. 310–383 device px, upscaling
+    // 1.3×–1.6×. Owner, on seeing it: "the photos are pixelated."
+    const storedRef = resolveLargeStillRef(row as PapicDisplayRow);
     if (!storedRef) continue;
     refs.push({
       key: `papic_photos:${row.photo_id as string}`,
@@ -194,7 +193,7 @@ async function ownedRefs(
   }
   for (const row of (captureRes.data ?? []) as Record<string, unknown>[]) {
     const isClip = row.media_type === 'clip';
-    const storedRef = pick(row, isClip);
+    const storedRef = resolveLargeStillRef(row as PapicDisplayRow);
     if (!storedRef) continue;
     refs.push({
       key: `papic_guest_captures:${row.capture_id as string}`,
@@ -238,7 +237,12 @@ async function attendedRefs(
   const guestId = (member?.guest_id as string | null | undefined) ?? null;
   if (!guestId) return { refs: [], unreadable: false, saturated: false };
 
-  const gallery = await getGuestLiveGallery(event.event_id, guestId, ROWS_PER_ATTENDED);
+  // `prefer: 'display'` or half this wall stays soft: attended frames arrive
+  // already presigned, so the resolution is chosen inside that function, not
+  // here. Its default stays 'thumb' for the venue-WiFi day-of grid.
+  const gallery = await getGuestLiveGallery(event.event_id, guestId, ROWS_PER_ATTENDED, {
+    prefer: 'display',
+  });
   // `null` now means ONE thing: the read failed. The ordinary "this guest has
   // no tags yet" comes back as a real, empty result, so raising the banner here
   // no longer cries wolf at the entire guest population — which is exactly why

@@ -73,6 +73,22 @@ export async function getGuestLiveGallery(
   eventId: string,
   guestId: string,
   limit = 8,
+  opts: {
+    /**
+     * Which derivative to serve.
+     *
+     * `'thumb'` (DEFAULT, unchanged) — long-edge 320 q50. Correct for the
+     * day-of page's dense 3-across grid on venue WiFi, which is what this
+     * function was written for.
+     *
+     * `'display'` — long-edge 1280 q60. For surfaces whose tiles are big
+     * enough that a 320px source visibly upscales (the Alaala wall renders
+     * 105–192 CSS px squares = 310–383 device px, and `object-cover` on a
+     * square scales a landscape thumb by its 240px HEIGHT). Costs bytes; ask
+     * for it only where somebody is meant to look at the picture.
+     */
+    prefer?: 'thumb' | 'display';
+  } = {},
 ): Promise<GuestLiveGallery | null> {
   try {
     const admin = createAdminClient();
@@ -156,11 +172,15 @@ export async function getGuestLiveGallery(
     // derivatives are sharp-built with all EXIF/GPS dropped. A row with neither
     // derivative yet (capture still processing) is filtered out below rather than
     // served raw — it reappears once its web copy renders (seconds later).
+    const preferDisplay = opts.prefer === 'display';
     const webRef = (r: {
       r2_object_key: string;
       thumb_r2_key: string | null;
       display_r2_key: string | null;
-    }): string | undefined => r.thumb_r2_key ?? r.display_r2_key ?? undefined;
+    }): string | undefined =>
+      (preferDisplay
+        ? (r.display_r2_key ?? r.thumb_r2_key)
+        : (r.thumb_r2_key ?? r.display_r2_key)) ?? undefined;
     const keyById = new Map<string, string>();
     // Capture time rides alongside the key so the chapters below read the moment
     // the photo was SHOT, not the moment somebody tagged this guest into it.

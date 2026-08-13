@@ -64,6 +64,50 @@ export function resolveStillRef(row: PapicDisplayRow): string | null {
 }
 
 /**
+ * ALWAYS an image ref, at DISPLAY resolution — for tiles big enough that a
+ * thumbnail visibly falls apart.
+ *
+ * 🔑 THE DIFFERENCE FROM `resolveStillRef` IS THE ORDER, AND IT IS THE WHOLE
+ * POINT. That one prefers `thumb_r2_key`, which the pipeline builds at
+ * **long-edge 320, AVIF q50** — see `papic-derivatives.ts`, whose own comment
+ * says *"Grid tiles use thumb_r2_key (320px)"*. That is correct for the small
+ * strips it was written for (a 4-across album peek ≈ 80 CSS px).
+ *
+ * It is NOT correct for a wall. Measured against the Alaala wall's real grid:
+ *
+ *     home    lg:grid-cols-6   tile ≈ 192 CSS px → 383 device px @2×
+ *     library lg:grid-cols-6   tile ≈ 155 CSS px → 310 device px @2×
+ *     phone      grid-cols-3   tile ≈ 105 CSS px → 314 device px @3×
+ *
+ * …and because the tiles are `aspect-square` with `object-cover`, a LANDSCAPE
+ * thumb is scaled by its 240 px HEIGHT, not its 320 px width. So every
+ * breakpoint upscaled **1.3×–1.6×** from a quality-50 source. The owner's words
+ * were *"the photos are pixelated"* — and they were, on every screen size.
+ *
+ * `display_r2_key` is long-edge **1280, q60** — the pipeline calls it the
+ * "lightbox / full view" copy. It is the right source for anything a person is
+ * meant to actually look at.
+ *
+ *   photo: display_r2_key ?? thumb_r2_key ?? r2_object_key (unless dropped)
+ *   clip : display_r2_key ?? poster_r2_key ?? thumb_r2_key  (never the raw MP4)
+ *
+ * ⚠ Bigger bytes are the deliberate trade. Call this only for tiles a person
+ * looks AT; keep `resolveStillRef` for dense peek strips and venue-WiFi grids.
+ */
+export function resolveLargeStillRef(row: PapicDisplayRow): string | null {
+  if (isClipRow(row)) {
+    // display === poster for clips (papic-derivatives.ts), but both are named
+    // explicitly so a future divergence cannot silently fall through to thumb.
+    // r2_object_key is an MP4 and must NEVER appear in an image chain.
+    return firstRef(row.display_r2_key, row.poster_r2_key, row.thumb_r2_key);
+  }
+  // Same drop-safety as resolveStillRef: once the sweep replaces the original,
+  // `r2_object_key` is a dead pointer and must never reach a presigner.
+  const droppedRaw = row.full_res_dropped_at ? null : row.r2_object_key;
+  return firstRef(row.display_r2_key, row.thumb_r2_key, droppedRaw);
+}
+
+/**
  * ALWAYS a video ref — for `<video>` and reel playback input. Never a still.
  *
  *   clip: clip_web_r2_key ?? r2_object_key

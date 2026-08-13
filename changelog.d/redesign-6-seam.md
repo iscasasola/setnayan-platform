@@ -103,7 +103,7 @@ decision says nothing about.
 
 ### Guard
 
-`app/_components/auth/seam-invariants.test.ts` — 14 assertions, **all 14
+`app/_components/auth/seam-invariants.test.ts` — **16 assertions, all 16
 mutation-tested with the occurrence count printed before → after**, baseline
 green and restored green. It pins: sign-out in the account menus and nowhere
 else (**and still present in all three** — narrowing "one place" to "no place"
@@ -111,8 +111,10 @@ is the failure the first check cannot see); sign-out as a POST form, never a
 prefetchable link; both wordmark variants leaving the app; the in-event rail
 keeping its one-press route home; the front door intercepting both sign-ins;
 refresh-not-push; no `redirect()` in the in-place action; exactly one
-`<SignInCard>` host; the locked terracotta with no gold; and the phone rule —
-public is a top bar, the app is a bottom bar, **never both, never crossed**.
+`<SignInCard>` host; the locked terracotta with no gold; the `'use server'`
+export rule; that the panel is genuinely a dialog (no mount gate); and the phone
+rule — public is a top bar, the app is a bottom bar, **never both, never
+crossed**.
 
 🪤 It strips comments before matching. Every file here carries a note naming the
 string that was removed, and a guard reading raw source would find

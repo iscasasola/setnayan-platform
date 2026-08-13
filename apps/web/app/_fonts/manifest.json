@@ -1,0 +1,261 @@
+[
+  {
+    "family": "Cormorant Garamond",
+    "dir": "cormorant-garamond",
+    "file": "cormorant-garamond-400.woff2",
+    "weight": "400",
+    "style": "normal"
+  },
+  {
+    "family": "Cormorant Garamond",
+    "dir": "cormorant-garamond",
+    "file": "cormorant-garamond-500.woff2",
+    "weight": "500",
+    "style": "normal"
+  },
+  {
+    "family": "Cormorant Garamond",
+    "dir": "cormorant-garamond",
+    "file": "cormorant-garamond-600.woff2",
+    "weight": "600",
+    "style": "normal"
+  },
+  {
+    "family": "Cormorant Garamond",
+    "dir": "cormorant-garamond",
+    "file": "cormorant-garamond-700.woff2",
+    "weight": "700",
+    "style": "normal"
+  },
+  {
+    "family": "Fraunces",
+    "dir": "fraunces",
+    "file": "fraunces-300-italic.woff2",
+    "weight": "300",
+    "style": "italic"
+  },
+  {
+    "family": "Fraunces",
+    "dir": "fraunces",
+    "file": "fraunces-400-italic.woff2",
+    "weight": "400",
+    "style": "italic"
+  },
+  {
+    "family": "Fraunces",
+    "dir": "fraunces",
+    "file": "fraunces-500-italic.woff2",
+    "weight": "500",
+    "style": "italic"
+  },
+  {
+    "family": "Fraunces",
+    "dir": "fraunces",
+    "file": "fraunces-600-italic.woff2",
+    "weight": "600",
+    "style": "italic"
+  },
+  {
+    "family": "Fraunces",
+    "dir": "fraunces",
+    "file": "fraunces-300.woff2",
+    "weight": "300",
+    "style": "normal"
+  },
+  {
+    "family": "Fraunces",
+    "dir": "fraunces",
+    "file": "fraunces-400.woff2",
+    "weight": "400",
+    "style": "normal"
+  },
+  {
+    "family": "Fraunces",
+    "dir": "fraunces",
+    "file": "fraunces-500.woff2",
+    "weight": "500",
+    "style": "normal"
+  },
+  {
+    "family": "Fraunces",
+    "dir": "fraunces",
+    "file": "fraunces-600.woff2",
+    "weight": "600",
+    "style": "normal"
+  },
+  {
+    "family": "Manrope",
+    "dir": "manrope",
+    "file": "manrope-400.woff2",
+    "weight": "400",
+    "style": "normal"
+  },
+  {
+    "family": "Manrope",
+    "dir": "manrope",
+    "file": "manrope-500.woff2",
+    "weight": "500",
+    "style": "normal"
+  },
+  {
+    "family": "Manrope",
+    "dir": "manrope",
+    "file": "manrope-600.woff2",
+    "weight": "600",
+    "style": "normal"
+  },
+  {
+    "family": "Manrope",
+    "dir": "manrope",
+    "file": "manrope-700.woff2",
+    "weight": "700",
+    "style": "normal"
+  },
+  {
+    "family": "DM Mono",
+    "dir": "dm-mono",
+    "file": "dm-mono-400.woff2",
+    "weight": "400",
+    "style": "normal"
+  },
+  {
+    "family": "DM Mono",
+    "dir": "dm-mono",
+    "file": "dm-mono-500.woff2",
+    "weight": "500",
+    "style": "normal"
+  },
+  {
+    "family": "Hanken Grotesk",
+    "dir": "hanken-grotesk",
+    "file": "hanken-grotesk-400.woff2",
+    "weight": "400",
+    "style": "normal"
+  },
+  {
+    "family": "Hanken Grotesk",
+    "dir": "hanken-grotesk",
+    "file": "hanken-grotesk-500.woff2",
+    "weight": "500",
+    "style": "normal"
+  },
+  {
+    "family": "Hanken Grotesk",
+    "dir": "hanken-grotesk",
+    "file": "hanken-grotesk-600.woff2",
+    "weight": "600",
+    "style": "normal"
+  },
+  {
+    "family": "Hanken Grotesk",
+    "dir": "hanken-grotesk",
+    "file": "hanken-grotesk-700.woff2",
+    "weight": "700",
+    "style": "normal"
+  },
+  {
+    "family": "Hanken Grotesk",
+    "dir": "hanken-grotesk",
+    "file": "hanken-grotesk-800.woff2",
+    "weight": "800",
+    "style": "normal"
+  },
+  {
+    "family": "Space Mono",
+    "dir": "space-mono",
+    "file": "space-mono-400.woff2",
+    "weight": "400",
+    "style": "normal"
+  },
+  {
+    "family": "Space Mono",
+    "dir": "space-mono",
+    "file": "space-mono-700.woff2",
+    "weight": "700",
+    "style": "normal"
+  },
+  {
+    "family": "Cinzel",
+    "dir": "cinzel",
+    "file": "cinzel-400.woff2",
+    "weight": "400",
+    "style": "normal"
+  },
+  {
+    "family": "Cinzel",
+    "dir": "cinzel",
+    "file": "cinzel-600.woff2",
+    "weight": "600",
+    "style": "normal"
+  },
+  {
+    "family": "Playfair Display",
+    "dir": "playfair-display",
+    "file": "playfair-display-400-italic.woff2",
+    "weight": "400",
+    "style": "italic"
+  },
+  {
+    "family": "Playfair Display",
+    "dir": "playfair-display",
+    "file": "playfair-display-600-italic.woff2",
+    "weight": "600",
+    "style": "italic"
+  },
+  {
+    "family": "Playfair Display",
+    "dir": "playfair-display",
+    "file": "playfair-display-400.woff2",
+    "weight": "400",
+    "style": "normal"
+  },
+  {
+    "family": "Playfair Display",
+    "dir": "playfair-display",
+    "file": "playfair-display-600.woff2",
+    "weight": "600",
+    "style": "normal"
+  },
+  {
+    "family": "Great Vibes",
+    "dir": "great-vibes",
+    "file": "great-vibes-400.woff2",
+    "weight": "400",
+    "style": "normal"
+  },
+  {
+    "family": "Libre Caslon Display",
+    "dir": "libre-caslon-display",
+    "file": "libre-caslon-display-400.woff2",
+    "weight": "400",
+    "style": "normal"
+  },
+  {
+    "family": "Tangerine",
+    "dir": "tangerine",
+    "file": "tangerine-400.woff2",
+    "weight": "400",
+    "style": "normal"
+  },
+  {
+    "family": "Tangerine",
+    "dir": "tangerine",
+    "file": "tangerine-700.woff2",
+    "weight": "700",
+    "style": "normal"
+  },
+  {
+    "family": "Luxurious Script",
+    "dir": "luxurious-script",
+    "file": "luxurious-script-400.woff2",
+    "weight": "400",
+    "style": "normal"
+  },
+  {
+    "family": "Vidaloka",
+    "dir": "vidaloka",
+    "file": "vidaloka-400.woff2",
+    "weight": "400",
+    "style": "normal"
+  }
+]

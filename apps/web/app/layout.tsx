@@ -1,19 +1,12 @@
 import type { Metadata, Viewport } from 'next';
-import {
-  Cormorant_Garamond,
-  Fraunces,
-  Manrope,
-  DM_Mono,
-  Hanken_Grotesk,
-  Space_Mono,
-  Cinzel,
-  Playfair_Display,
-  Great_Vibes,
-  Libre_Caslon_Display,
-  Tangerine,
-  Luxurious_Script,
-  Vidaloka,
-} from 'next/font/google';
+// ⚠ LOCAL, NOT `next/font/google` — the build used to fetch every one of these
+// from fonts.gstatic.com and DIED when that fetch failed (twice on
+// 2026-08-13, on unrelated PRs, each time looking like a failure of the
+// change under test). Same faces, same weights, same latin subset — the
+// files now live in ./_fonts and are refreshed by
+// `node scripts/fetch-brand-fonts.mjs`, which is the ONLY thing that should
+// ever talk to Google about fonts again.
+import localFont from 'next/font/local';
 import Script from 'next/script';
 import './globals.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
@@ -63,7 +56,8 @@ const bootSplashScript = `(function(){try{
   document.documentElement.setAttribute('data-sn-boot','1');
 }catch(e){}})();`;
 
-// Brand typography — iteration 0015 § Brand. Self-hosted via next/font/google
+// Brand typography — iteration 0015 § Brand. Self-hosted from ./_fonts via
+// next/font/local (was next/font/google, which fetched at build time)
 // so the fonts ship in the same render lifecycle as the page (no FOUT, no
 // extra DNS roundtrip to fonts.gstatic.com on cold cache). The CSS variables
 // are wired into `tailwind.config.ts` so `font-display` / `font-sans` /
@@ -81,11 +75,18 @@ const bootSplashScript = `(function(){try{
 // webfont streams, so LCP measurements stay anchored to first paint instead
 // of font load. The weight subsets are minimal — only the weights we actually
 // reference — so payload stays under ~80KB total for all three families.
-const cormorant = Cormorant_Garamond({
-  subsets: ['latin'],
+const cormorant = localFont({
+  src: [
+    { path: './_fonts/cormorant-garamond/cormorant-garamond-400.woff2', weight: '400', style: 'normal' },
+    { path: './_fonts/cormorant-garamond/cormorant-garamond-500.woff2', weight: '500', style: 'normal' },
+    { path: './_fonts/cormorant-garamond/cormorant-garamond-600.woff2', weight: '600', style: 'normal' },
+    { path: './_fonts/cormorant-garamond/cormorant-garamond-700.woff2', weight: '700', style: 'normal' },
+  ],
   display: 'swap',
-  weight: ['400', '500', '600', '700'],
   variable: '--font-editorial-display',
+  // Metric-matched fallback while the face loads. next/font/google
+  // derived this per family; with local files it must be stated.
+  adjustFontFallback: 'Times New Roman',
 });
 
 // Pahina display face (guest-site design 2026-07-25 §3) — loaded under its OWN
@@ -98,26 +99,48 @@ const cormorant = Cormorant_Garamond({
 //   · app/global-error.tsx names 'Cormorant Garamond' directly.
 // Retiring it means first repointing --font-editorial-display at Fraunces, which
 // restyles the whole guest tree — a visual change, not a bundle cleanup.
-const fraunces = Fraunces({
-  subsets: ['latin'],
+const fraunces = localFont({
+  src: [
+    { path: './_fonts/fraunces/fraunces-300-italic.woff2', weight: '300', style: 'italic' },
+    { path: './_fonts/fraunces/fraunces-400-italic.woff2', weight: '400', style: 'italic' },
+    { path: './_fonts/fraunces/fraunces-500-italic.woff2', weight: '500', style: 'italic' },
+    { path: './_fonts/fraunces/fraunces-600-italic.woff2', weight: '600', style: 'italic' },
+    { path: './_fonts/fraunces/fraunces-300.woff2', weight: '300', style: 'normal' },
+    { path: './_fonts/fraunces/fraunces-400.woff2', weight: '400', style: 'normal' },
+    { path: './_fonts/fraunces/fraunces-500.woff2', weight: '500', style: 'normal' },
+    { path: './_fonts/fraunces/fraunces-600.woff2', weight: '600', style: 'normal' },
+  ],
   display: 'swap',
-  weight: ['300', '400', '500', '600'],
-  style: ['normal', 'italic'],
   variable: '--font-pahina-display',
+  // Metric-matched fallback while the face loads. next/font/google
+  // derived this per family; with local files it must be stated.
+  adjustFontFallback: 'Times New Roman',
 });
 
-const manrope = Manrope({
-  subsets: ['latin'],
+const manrope = localFont({
+  src: [
+    { path: './_fonts/manrope/manrope-400.woff2', weight: '400', style: 'normal' },
+    { path: './_fonts/manrope/manrope-500.woff2', weight: '500', style: 'normal' },
+    { path: './_fonts/manrope/manrope-600.woff2', weight: '600', style: 'normal' },
+    { path: './_fonts/manrope/manrope-700.woff2', weight: '700', style: 'normal' },
+  ],
   display: 'swap',
-  weight: ['400', '500', '600', '700'],
   variable: '--font-editorial-sans',
+  // Metric-matched fallback while the face loads. next/font/google
+  // derived this per family; with local files it must be stated.
+  adjustFontFallback: 'Arial',
 });
 
-const dmMono = DM_Mono({
-  subsets: ['latin'],
+const dmMono = localFont({
+  src: [
+    { path: './_fonts/dm-mono/dm-mono-400.woff2', weight: '400', style: 'normal' },
+    { path: './_fonts/dm-mono/dm-mono-500.woff2', weight: '500', style: 'normal' },
+  ],
   display: 'swap',
-  weight: ['400', '500'],
   variable: '--font-editorial-mono',
+  // Metric-matched fallback while the face loads. next/font/google
+  // derived this per family; with local files it must be stated.
+  adjustFontFallback: 'Arial',
 });
 
 // Atelier + macOS glass typography — owner-locked 2026-07-12 (design
@@ -129,18 +152,31 @@ const dmMono = DM_Mono({
 // shipped components don't churn. Cormorant/Manrope/DM Mono above stay LOADED
 // but are now guest-content faces only: the /[slug] invitation surfaces are
 // owner-excluded from the reskin and keep inheriting the root vars.
-const hanken = Hanken_Grotesk({
-  subsets: ['latin'],
+const hanken = localFont({
+  src: [
+    { path: './_fonts/hanken-grotesk/hanken-grotesk-400.woff2', weight: '400', style: 'normal' },
+    { path: './_fonts/hanken-grotesk/hanken-grotesk-500.woff2', weight: '500', style: 'normal' },
+    { path: './_fonts/hanken-grotesk/hanken-grotesk-600.woff2', weight: '600', style: 'normal' },
+    { path: './_fonts/hanken-grotesk/hanken-grotesk-700.woff2', weight: '700', style: 'normal' },
+    { path: './_fonts/hanken-grotesk/hanken-grotesk-800.woff2', weight: '800', style: 'normal' },
+  ],
   display: 'swap',
-  weight: ['400', '500', '600', '700', '800'],
   variable: '--font-hanken',
+  // Metric-matched fallback while the face loads. next/font/google
+  // derived this per family; with local files it must be stated.
+  adjustFontFallback: 'Arial',
 });
 
-const spaceMono = Space_Mono({
-  subsets: ['latin'],
+const spaceMono = localFont({
+  src: [
+    { path: './_fonts/space-mono/space-mono-400.woff2', weight: '400', style: 'normal' },
+    { path: './_fonts/space-mono/space-mono-700.woff2', weight: '700', style: 'normal' },
+  ],
   display: 'swap',
-  weight: ['400', '700'],
   variable: '--font-space-mono',
+  // Metric-matched fallback while the face loads. next/font/google
+  // derived this per family; with local files it must be stated.
+  adjustFontFallback: 'Arial',
 });
 
 // Monogram display faces — the couple's onboarding monogram renders in its
@@ -153,65 +189,90 @@ const spaceMono = Space_Mono({
 // on demand when a monogram surface mounts, display:swap covers the swap) while
 // removing ~7 wasted font preloads from the first-paint path site-wide.
 // (Perf sweep 2026-07-02, findings #5/#11/#12/#14.)
-const cinzel = Cinzel({
-  subsets: ['latin'],
+const cinzel = localFont({
+  src: [
+    { path: './_fonts/cinzel/cinzel-400.woff2', weight: '400', style: 'normal' },
+    { path: './_fonts/cinzel/cinzel-600.woff2', weight: '600', style: 'normal' },
+  ],
   display: 'swap',
-  weight: ['400', '600'],
   variable: '--font-cinzel',
-  preload: false,
+  // Metric-matched fallback while the face loads. next/font/google
+  // derived this per family; with local files it must be stated.
+  adjustFontFallback: 'Times New Roman',
 });
 
-const playfairDisplay = Playfair_Display({
-  subsets: ['latin'],
+const playfairDisplay = localFont({
+  src: [
+    { path: './_fonts/playfair-display/playfair-display-400-italic.woff2', weight: '400', style: 'italic' },
+    { path: './_fonts/playfair-display/playfair-display-600-italic.woff2', weight: '600', style: 'italic' },
+    { path: './_fonts/playfair-display/playfair-display-400.woff2', weight: '400', style: 'normal' },
+    { path: './_fonts/playfair-display/playfair-display-600.woff2', weight: '600', style: 'normal' },
+  ],
   display: 'swap',
-  weight: ['400', '600'],
-  style: ['normal', 'italic'],
   variable: '--font-playfair',
-  preload: false,
+  // Metric-matched fallback while the face loads. next/font/google
+  // derived this per family; with local files it must be stated.
+  adjustFontFallback: 'Times New Roman',
 });
 
-const greatVibes = Great_Vibes({
-  subsets: ['latin'],
+const greatVibes = localFont({
+  src: [
+    { path: './_fonts/great-vibes/great-vibes-400.woff2', weight: '400', style: 'normal' },
+  ],
   display: 'swap',
-  weight: '400',
   variable: '--font-script',
-  preload: false,
+  // Metric-matched fallback while the face loads. next/font/google
+  // derived this per family; with local files it must be stated.
+  adjustFontFallback: 'Times New Roman',
 });
 
 // Monogram typeface expansion — owner picks 2026-06-11 (font specimen session):
 // Libre Caslon Display · Tangerine · Luxurious Script · Vidaloka join the four
 // faces above in the Monogram Maker's typeface picker. Weight-minimal: the
 // monogram renders a 1–5 character mark, nothing else uses these families.
-const libreCaslon = Libre_Caslon_Display({
-  subsets: ['latin'],
+const libreCaslon = localFont({
+  src: [
+    { path: './_fonts/libre-caslon-display/libre-caslon-display-400.woff2', weight: '400', style: 'normal' },
+  ],
   display: 'swap',
-  weight: '400',
   variable: '--font-libre-caslon',
-  preload: false,
+  // Metric-matched fallback while the face loads. next/font/google
+  // derived this per family; with local files it must be stated.
+  adjustFontFallback: 'Times New Roman',
 });
 
-const tangerine = Tangerine({
-  subsets: ['latin'],
+const tangerine = localFont({
+  src: [
+    { path: './_fonts/tangerine/tangerine-400.woff2', weight: '400', style: 'normal' },
+    { path: './_fonts/tangerine/tangerine-700.woff2', weight: '700', style: 'normal' },
+  ],
   display: 'swap',
-  weight: ['400', '700'],
   variable: '--font-tangerine',
-  preload: false,
+  // Metric-matched fallback while the face loads. next/font/google
+  // derived this per family; with local files it must be stated.
+  adjustFontFallback: 'Times New Roman',
 });
 
-const luxuriousScript = Luxurious_Script({
-  subsets: ['latin'],
+const luxuriousScript = localFont({
+  src: [
+    { path: './_fonts/luxurious-script/luxurious-script-400.woff2', weight: '400', style: 'normal' },
+  ],
   display: 'swap',
-  weight: '400',
   variable: '--font-luxurious',
-  preload: false,
+  // Metric-matched fallback while the face loads. next/font/google
+  // derived this per family; with local files it must be stated.
+  adjustFontFallback: 'Times New Roman',
 });
 
-const vidaloka = Vidaloka({
-  subsets: ['latin'],
+const vidaloka = localFont({
+  src: [
+    { path: './_fonts/vidaloka/vidaloka-400.woff2', weight: '400', style: 'normal' },
+  ],
   display: 'swap',
-  weight: '400',
   variable: '--font-vidaloka',
-  preload: false,
+  // Metric-matched fallback while the face loads. next/font/google
+  // derived this per family; with local files it must be stated.
+  adjustFontFallback: 'Times New Roman',
 });
 
 // (RETIRED 2026-07-12 · Atelier finalization) The v2.1 marketing quartet —

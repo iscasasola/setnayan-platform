@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "07205a146",
+  "generatedFromRef": "096461db7",
   "routeCount": 401,
   "destinations": 678,
   "actions": 522,
-  "blocks": 3551,
+  "blocks": 3552,
   "routes": {
     "/": {
       "files": [
@@ -3150,6 +3150,7 @@
         "AttentionPill",
         "AutoSurfacedEvents",
         "BecomeStorytellerRow",
+        "CardShell",
         "CollabRow",
         "ComingSoonNote",
         "CountUp",
@@ -3179,8 +3180,8 @@
         "ProgressRing",
         "SectionLabel",
         "ShopLogo",
-        "ShowAllToggle",
         "SpaceRow",
+        "StanceChip",
         "Suspense",
         "UnreadBellBadge",
         "Wordmark",

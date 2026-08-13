@@ -35,6 +35,7 @@
 import Link from 'next/link';
 import { AlaalaOrb } from '@/app/_components/marketing/AlaalaOrb';
 import { Reveal } from '@/app/_components/marketing/_motion';
+import { DOORWAY_TONE } from '@/app/_components/marketing/_doorway';
 import {
   LineRevealHeading,
   RevealBand,
@@ -198,7 +199,7 @@ export default function AlaalaLandingPage() {
             A new way to remember.
           </LineRevealHeading>
           <RevealBand stagger={0.08} y={14}>
-            <p data-reveal-item className="mx-auto mt-4 max-w-xl text-base text-[var(--m-slate-2)] sm:text-lg">
+            <p data-reveal-item className={`mx-auto mt-4 max-w-xl text-base sm:text-lg ${DOORWAY_TONE.muted}`}>
               Albums freeze a day into a few still frames. Alaala holds what it was really like — moving,
               many-voiced, alive. Everything you make on Setnayan — Papic, Live Studio, your website, your plan, your
               mark — woven into one living memory you can open any time.
@@ -224,7 +225,7 @@ export default function AlaalaLandingPage() {
             cursor/gyro parallax can measure a stable ancestor. */}
         <section className="mt-14 flex flex-col items-center" aria-label="A living memory">
           <AlaalaOrb className="h-[260px] w-[260px] sm:h-[320px] sm:w-[320px]" />
-          <p className="mt-6 max-w-md text-center text-sm text-[var(--m-slate-2)]">
+          <p className={`mt-6 max-w-md text-center text-sm ${DOORWAY_TONE.muted}`}>
             Papic, Live Studio, Pawebsite, Pa3D, PaLogo — woven into one. Memories that move.
           </p>
         </section>
@@ -234,19 +235,19 @@ export default function AlaalaLandingPage() {
           <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
             Five pieces. One living memory.
           </LineRevealHeading>
-          <p className="mx-auto mt-3 max-w-xl text-center text-base text-[var(--m-slate-2)]">
+          <p className={`mx-auto mt-3 max-w-xl text-center text-base ${DOORWAY_TONE.muted}`}>
             Each one stands on its own — and together, they are your Alaala.
           </p>
           <HowItWorksPanel>
             <ol className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {PILLARS.map((p, i) => (
-                <li key={p.name} data-premium-item className="rounded-2xl border border-[var(--m-line)] bg-[var(--m-paper)] shadow-[var(--m-shadow-sm)]">
-                  <Link href={p.href} className="group block rounded-2xl p-5 transition-colors hover:bg-[var(--m-paper-2)]">
+                <li key={p.name} data-premium-item className={DOORWAY_TONE.card}>
+                  <Link href={p.href} className="group block rounded-2xl p-5 transition-shadow hover:shadow-[var(--m-shadow-md)]">
                     <span className="font-mono text-xs uppercase tracking-[0.18em] text-[var(--m-orange-2)]">
                       {String(i + 1).padStart(2, '0')} · {p.role}
                     </span>
                     <h2 className="mt-2 font-serif text-lg text-[var(--m-ink)]">{p.name}</h2>
-                    <p className="mt-1.5 text-sm text-[var(--m-slate-2)]">{p.desc}</p>
+                    <p className={`mt-1.5 text-sm ${DOORWAY_TONE.muted}`}>{p.desc}</p>
                     <span className="mt-3 inline-block text-sm font-medium text-[var(--m-ink)] group-hover:underline">
                       Explore {p.name} →
                     </span>
@@ -263,12 +264,12 @@ export default function AlaalaLandingPage() {
             All of it, in one home
           </LineRevealHeading>
           <RevealBand stagger={0.08} y={14}>
-            <p data-reveal-item className="mx-auto mt-3 max-w-xl text-base text-[var(--m-slate-2)]">
+            <p data-reveal-item className={`mx-auto mt-3 max-w-xl text-base ${DOORWAY_TONE.muted}`}>
               The five pieces don’t live in five places. They come together in one living memory — yours to
               relive, to share with the people you love, and to keep for good. Not a folder of files. A memory
               that moves.
             </p>
-            <p data-reveal-item className="mx-auto mt-4 max-w-xl text-base text-[var(--m-slate-2)]">
+            <p data-reveal-item className={`mx-auto mt-4 max-w-xl text-base ${DOORWAY_TONE.muted}`}>
               And it never gets in the way. The tech stays in the background, so you and your guests can simply
               be there — present for the day itself.
             </p>
@@ -287,7 +288,7 @@ export default function AlaalaLandingPage() {
                 data-reveal-item
                 className={`grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-6 ${i % 2 ? 'bg-[var(--m-paper-2)]' : 'bg-[var(--m-paper)]'}`}
               >
-                <span className="text-sm text-[var(--m-slate-2)] line-through decoration-[var(--m-slate-3)]">{before}</span>
+                <span className={`text-sm line-through decoration-[var(--m-slate-3)] ${DOORWAY_TONE.muted}`}>{before}</span>
                 <span className="text-sm font-medium text-[var(--m-ink)]">{after}</span>
               </li>
             ))}
@@ -304,7 +305,7 @@ export default function AlaalaLandingPage() {
               <Reveal key={f.q} delay={i * 40}>
                 <div className="py-5">
                   <dt className="font-serif text-base text-[var(--m-ink)]">{f.q}</dt>
-                  <dd className="mt-1.5 text-sm text-[var(--m-slate-2)]">{f.a}</dd>
+                  <dd className={`mt-1.5 text-sm ${DOORWAY_TONE.muted}`}>{f.a}</dd>
                 </div>
               </Reveal>
             ))}
@@ -313,9 +314,9 @@ export default function AlaalaLandingPage() {
 
         {/* CTA — incidental fade; gold capped to a single --m-orange hairline. */}
         <Reveal>
-          <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[var(--m-orange)]/40 bg-[var(--m-orange-4)] px-6 py-10 text-center">
+          <section className={`mx-auto mt-14 max-w-2xl px-6 py-10 text-center ${DOORWAY_TONE.closingPanel}`}>
             <h2 className="font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">Start the memory</h2>
-            <p className="mx-auto mt-3 max-w-lg text-base text-[var(--m-slate-2)]">
+            <p className={`mx-auto mt-3 max-w-lg text-base ${DOORWAY_TONE.muted}`}>
               Your Alaala gathers as you plan — free, from the first day. Begin your event, and your memory
               begins with it.
             </p>

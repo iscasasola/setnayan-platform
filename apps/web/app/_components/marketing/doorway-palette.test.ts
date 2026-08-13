@@ -231,6 +231,142 @@ test('every text/surface pairing the doorway kit renders clears AA', () => {
   );
 });
 
+/* ─── 2b · THE PAGE THAT IS NOT ON THE KIT ───────────────────────────────── */
+
+test('a doorway that pairs its OWN surface with gold keeps that pairing readable', () => {
+  /**
+   * 🚨 THIS EXISTS BECAUSE THE FIRST VERSION OF THIS FILE COULD NOT SEE
+   * `/alaala`, AND `/alaala` SHIPPED THE EXACT FAILURE THIS FILE DOCUMENTS.
+   *
+   * The test above derives its surfaces from `DOORWAY_TONE` and the kit's own
+   * zebra, which is strictly stronger than a hand-typed table — for the SEVEN
+   * pages that mount the kit. `/alaala` deliberately does not, so the only
+   * checks reaching it were the raw-hex scan (which `--m-paper-2` passes, it is
+   * a perfectly legal token) and the vacuity check.
+   *
+   * In that gap it shipped `hover:bg-[var(--m-paper-2)]` on a card whose eyebrow
+   * is `text-[var(--m-orange-2)]` — 4.42:1, below AA, on hover, on a live public
+   * page. The kit's docblock states that number verbatim as the reason its cards
+   * are `--m-paper`. The rule was written down and broken in the same commit.
+   *
+   * 🔑 GOLD HAS 0.29 OF HEADROOM ON CREAM (4.79 vs the 4.5 floor), so ANY
+   * surface tint under gold text fails — including the kit's own
+   * `hover:bg-[var(--m-ink)]/[0.04]`, which measures 4.47:1. A hover under gold
+   * must move the border or the shadow, never the fill.
+   *
+   * This scans EVERY doorway's own JSX, including `hover:` variants, which the
+   * pairing table cannot reach.
+   */
+  /**
+   * ⚠ THE ALPHA FORM IS THE WHOLE POINT, AND THE FIRST DRAFT OF THIS TEST MISSED
+   * IT — measured, by a mutation that landed (occurrences 2 → 3) and stayed
+   * GREEN. `bg-[var(--m-ink)]/[0.04]` is the KIT's own card hover and the most
+   * likely thing a future page copies in; under gold it measures 4.47:1 and
+   * fails. Skipping alphas is precisely why `lint-label-on-fill-contrast.mjs`
+   * could not see the original defect, so a guard written to close that blind
+   * spot must not reproduce it.
+   *
+   * These alphas sit on the CREAM page, so they are composited against
+   * `--m-paper` rather than guessed at — a known parent, unlike the general case
+   * that lint rightly declines to judge.
+   */
+  const TINT =
+    /\b(?:hover:|focus:|group-hover:)?bg-\[var\(--([a-z0-9-]+)\)\](?:\/\[?([\d.]+)%?\]?)?/g;
+  const GOLDS = new Set(['m-orange', 'm-orange-2', 'm-orange-3']);
+  const PAGE = token('m-paper');
+
+  /** Composite `hex` at `alpha` over the cream page. */
+  function composite(hex: string, alpha: number): string {
+    const mix = (i: number) => {
+      const f = parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16);
+      const b = parseInt(PAGE.slice(1 + i * 2, 3 + i * 2), 16);
+      return Math.round(f * alpha + b * (1 - alpha));
+    };
+    return (
+      '#' +
+      [0, 1, 2]
+        .map((i) => mix(i).toString(16).padStart(2, '0'))
+        .join('')
+        .toUpperCase()
+    );
+  }
+
+  const offences: string[] = [];
+  for (const { path, src } of allSources()) {
+    // An element that sets a gold text colour anywhere in the same className,
+    // plus any surface token in that same className, is a pairing.
+    for (const attr of src.match(/className=(?:"[^"]*"|\{`[^`]*`\})/g) ?? []) {
+      const goldHit = [...attr.matchAll(/text-\[var\(--([a-z0-9-]+)\)\]/g)]
+        .map((m) => m[1] ?? '')
+        .filter((t) => GOLDS.has(t));
+      if (goldHit.length === 0) continue;
+      for (const m of attr.matchAll(TINT)) {
+        const surface = m[1];
+        if (!surface) continue;
+        const rawAlpha = m[2];
+        const alpha = rawAlpha === undefined ? 1 : Number(rawAlpha) > 1 ? Number(rawAlpha) / 100 : Number(rawAlpha);
+        if (!Number.isFinite(alpha)) continue;
+        const bg = alpha === 1 ? token(surface) : composite(token(surface), alpha);
+        for (const gold of goldHit) {
+          const ratio = contrast(token(gold), bg);
+          if (ratio < AA) {
+            offences.push(
+              `${path}: --${gold} on ${alpha === 1 ? `--${surface}` : `--${surface} @${alpha} over cream (${bg})`} = ${ratio.toFixed(2)}:1 (in "${m[0]}")`,
+            );
+          }
+        }
+      }
+    }
+    /**
+     * The same pairing when the tint is on a PARENT and the gold on a CHILD —
+     * the shape that actually shipped on `/alaala`: `hover:` on the `<Link>`,
+     * the gold eyebrow on a `<span>` inside it. Two classNames, one hover.
+     *
+     * ⚠ SCOPED TO A WINDOW, NOT TO THE FILE. The first cut asked "does this file
+     * render gold anywhere?", which flagged the kit's SECONDARY_CTA — a button
+     * whose label is `--m-ink`, innocent — purely because a gold eyebrow exists
+     * 200 lines away. That is the file-level-match defect this repo has paid for
+     * before, and a guard that cries wolf teaches you to skim past the one time
+     * it is right. The gold that a parent's hover actually sits under is the
+     * gold in its own subtree, which in this markup is within a few hundred
+     * characters.
+     */
+    const WINDOW = 400;
+    for (const m of src.matchAll(
+      /\b(?:hover|focus|group-hover):bg-\[var\(--([a-z0-9-]+)\)\](?:\/\[?([\d.]+)%?\]?)?/g,
+    )) {
+      const surface = m[1];
+      if (!surface) continue;
+      const rawAlpha = m[2];
+      const alpha =
+        rawAlpha === undefined ? 1 : Number(rawAlpha) > 1 ? Number(rawAlpha) / 100 : Number(rawAlpha);
+      if (!Number.isFinite(alpha)) continue;
+      const bg = alpha === 1 ? token(surface) : composite(token(surface), alpha);
+      const subtree = src.slice(m.index ?? 0, (m.index ?? 0) + WINDOW);
+      for (const gold of ['m-orange', 'm-orange-2', 'm-orange-3']) {
+        if (!new RegExp(`text-\\[var\\(--${gold}\\)\\]`).test(subtree)) continue;
+        const ratio = contrast(token(gold), bg);
+        if (ratio < AA) {
+          offences.push(
+            `${path}: "${m[0]}" tints the surface under --${gold} text in the same block — ` +
+              `${ratio.toFixed(2)}:1, below AA`,
+          );
+        }
+      }
+    }
+  }
+
+  assert.deepEqual(
+    offences,
+    [],
+    `A doorway tints a surface underneath gold text, below the ${AA}:1 AA floor:\n  ` +
+      offences.join('\n  ') +
+      `\n\nGold clears AA on --m-paper (4.79:1) and on NOTHING darker: --m-paper-2 ` +
+      `is 4.42:1 and even --m-ink at 4% opacity is 4.47:1. A hover under gold ` +
+      `must move the BORDER or the SHADOW, not the fill.`,
+  );
+});
+
 test('the two cream surfaces are genuinely different, or the zebra is a lie', () => {
   // If someone collapses --m-paper and --m-paper-2 to the same value the rows
   // above still pass contrast, and the differentiator silently becomes a flat

@@ -138,6 +138,35 @@ test('/pricing renders BOTH figures, and gets them from the shared resolver', ()
   );
 });
 
+test('the nav overlay and /pricing tell the same story about the two prices', () => {
+  /**
+   * 🚨 `aiHasSignupPrice` SHIPPED WITH ZERO READERS. The field was added, derived
+   * correctly, tested in isolation — and nothing consumed it, so `/pricing` led
+   * with the sign-up figure while the nav "Prices" popup still showed only the
+   * regular one. The same visitor got two different prices for the same product
+   * depending on whether they opened a popup or the page.
+   *
+   * 🔑 A FIELD WITH NO READERS IS NOT A FEATURE, IT IS A GATE WITH NO HANDLE —
+   * the shape this repo has now hit five times. Deriving the right value is half
+   * the work; something has to ASK for it.
+   *
+   * Anchored to the READ, not to the import: the overlay must branch on the flag
+   * AND render the sign-up figure.
+   */
+  const src = read('app/_components/home/HomeOverlays.tsx');
+  assert.match(
+    src,
+    /pricing\.aiHasSignupPrice/,
+    'the nav pricing overlay stopped asking whether there is a sign-up price — it ' +
+      'will quote a different figure than /pricing for the same product',
+  );
+  assert.match(
+    src,
+    /pricing\.aiIntroPrice/,
+    'the overlay no longer renders the sign-up price it just branched on',
+  );
+});
+
 test('the savings comparator quotes the REGULAR price, not the sign-up one', () => {
   // 🪤 A DEFECT INTRODUCED BY THIS VERY CHANGE, CAUGHT BY RE-READING THE
   // CONSUMERS. `aiIntroPhp` used to be an ALIAS of the regular price, so

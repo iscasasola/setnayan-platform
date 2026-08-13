@@ -23,7 +23,7 @@
 import {
   PAPIC_POINTS_PER_PHOTO,
   PAPIC_PRESERVATION_UNITS_PER_CLIP,
-} from './papic-cameras';
+} from './papic-cameras-pure';
 
 /** Decimal GB (10^9), matching cloud-storage (R2) per-GB billing. */
 export const BYTES_PER_GB = 1_000_000_000;

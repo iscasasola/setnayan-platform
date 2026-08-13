@@ -22,7 +22,7 @@ import {
   type RevealStudioConfig,
   type RevealTemplateId,
   type VeilLook,
-} from '@/lib/reveal-config';
+} from '@/lib/reveal-config-pure';
 import { FourFlapEnvelope } from '@/app/[slug]/_components/reveal/four-flap';
 import { RigidReveal } from '@/app/[slug]/_components/reveal/rigid-reveal';
 import { StdTouchGlow } from '@/app/[slug]/_components/reveal/std-touch-glow';

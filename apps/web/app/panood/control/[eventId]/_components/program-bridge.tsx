@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { ExternalLink, MonitorPlay } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { installProgramBridge } from '@/lib/panood-program-bridge';
-import { programSourceAllowed, type ProgramAirDecision } from '@/lib/live-studio-publish';
+import { programSourceAllowed, type ProgramAirDecision } from '@/lib/live-studio-publish-pure';
 import { useCameraFeed } from './camera-feeds';
 
 /**

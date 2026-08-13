@@ -38,7 +38,7 @@
  * admin Data Privacy control (see lib/vendor-dayof-flags.ts).
  */
 
-import { PAPIC_CLIP_COST_MAX, PAPIC_POINTS_PER_PHOTO } from './papic-cameras';
+import { PAPIC_CLIP_COST_MAX, PAPIC_POINTS_PER_PHOTO } from './papic-cameras-pure';
 
 export type VendorPapicTier = 'lite' | 'ltd' | 'unli';
 export type VendorPapicMedia = 'photo' | 'clip';

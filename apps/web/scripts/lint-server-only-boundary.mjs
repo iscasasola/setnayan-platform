@@ -125,21 +125,29 @@ const isClient = (file) => /(^|\n)\s*['"]use client['"]/.test(source(file).clean
  * coincidence, and a privacy rule that cannot be unit-tested is a worse trade
  * than a boundary declared here.
  *
- * ⚠ THE SERVICE-ROLE CLIENT ITSELF IS NOT ON THIS LIST, AND THAT IS A KNOWN
- * GAP, NOT AN OVERSIGHT. `lib/supabase/admin.ts` bypasses RLS, and its own
- * docblock says "Never import this from a client component" — a sentence, not a
- * mechanism. Adding it here was tried on 2026-08-13 and reports **23**
- * pre-existing client→…→admin chains (reveal-config, entitlements,
- * promo-free-windows, papic-cameras, live-studio-*, v2-catalog). They compile
- * today because the bundler drops the unused edge, so this is latent risk
- * rather than a live leak — but 23 findings landed as a baseline would be a
- * bill nobody pays, and a guard that cries wolf 23 times teaches you to skim
- * past the one time it is right. Fixing those chains is its own piece of work.
+ * ✅ THE SERVICE-ROLE CLIENT IS ON THIS LIST AS OF 2026-08-13, AND THE BASELINE
+ * IS EMPTY. Adding it first reported **23** pre-existing client→…→admin chains
+ * (reveal-config, entitlements, promo-free-windows, papic-cameras,
+ * live-studio-*, v2-catalog). They compiled, because the bundler drops the
+ * unused edge — latent risk, not a live leak. All 23 were CLOSED rather than
+ * baselined, by splitting five `*-pure.ts` siblings out of the hub modules.
+ *
+ * 🪤 THIRTEEN HUBS WERE NAMED; ONLY THREE ACTUALLY IMPORTED THE ADMIN CLIENT.
+ * The rest were transitive hops, so the fix cascades and five files closed all
+ * thirteen — fix the deepest hub first and the ones above it come free. If this
+ * ever goes red again, resist the urge to split the module the error points at:
+ * walk the chain to the module that really imports `createAdminClient`, and
+ * check whether the client only ever wanted a constant. Every one of these 23
+ * did.
  */
 const EXTRA_BOUNDARY_MODULES = [
   // Reads the two-person story intersection through the service-role client.
   // Nothing in a browser bundle has any business reaching it.
   'lib/person-life-stories.ts',
+  // ⭐ THE SERVICE-ROLE CLIENT ITSELF. It bypasses RLS; its own docblock says
+  // "Never import this from a client component", and this line is what makes
+  // that a mechanism instead of a sentence.
+  'lib/supabase/admin.ts',
 ];
 const extraBoundaryPaths = new Set(
   EXTRA_BOUNDARY_MODULES.map((p) => join(WEB_ROOT, p)),

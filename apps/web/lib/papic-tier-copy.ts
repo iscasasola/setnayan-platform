@@ -28,7 +28,7 @@
  * this file and take their numbers as ARGUMENTS — points from papic_pass_tiers /
  * papic_one_tiers, price from platform_retail_catalog_v2. The clip weight moved
  * with that lock: one 10-second clip is 8 points, not 7, and it is written in
- * exactly one place (PAPIC_POINTS_PER_CLIP in lib/papic-cameras.ts), which is why
+ * exactly one place (PAPIC_POINTS_PER_CLIP in lib/papic-cameras-pure.ts), which is why
  * every sentence below interpolates it instead of spelling it.
  *
  * Deliberately framed as "about N photos (fewer if you shoot clips)" — the
@@ -45,7 +45,7 @@ import {
   PAPIC_FREE_CAMERA_COUNT,
   PAPIC_POINTS_PER_CLIP,
   PAPIC_POINTS_PER_PHOTO,
-} from '@/lib/papic-cameras';
+} from '@/lib/papic-cameras-pure';
 
 /** Tier vocabulary — mirrors the papic_tier_config.tier_code CHECK. */
 export type PapicTierCode = 'free' | 'mini' | 'roll' | 'ltd' | 'unlimited';
@@ -336,7 +336,7 @@ export function papicOneRungPhrase(points: number, pricePhp: number): string {
  *
  * This is the one sentence that makes every other Papic number legible: without
  * it "50 shots" and "8" are unrelated figures. Both weights interpolate the
- * constants in lib/papic-cameras.ts, so the 7 → 8 clip reprice (owner-locked
+ * constants in lib/papic-cameras-pure.ts, so the 7 → 8 clip reprice (owner-locked
  * 2026-07-29) moved this line without anyone editing a surface — which is the
  * entire reason it lives here and not in the card.
  */

@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { DEFAULT_EFFECTS_LOOK, type RevealEffectsLook } from '@/lib/reveal-config';
+import { DEFAULT_EFFECTS_LOOK, type RevealEffectsLook } from '@/lib/reveal-config-pure';
 
 export type RevealParticleKind = 'butterflies' | 'petals';
 

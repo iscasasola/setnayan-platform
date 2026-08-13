@@ -57,16 +57,24 @@ export function SaveVendorButton({
       }
       if (result.status === 'not_signed_in') {
         /*
-          THE SESSION EXPIRED WHILE THEY WERE READING.
-          This used to be `window.location.href = '/login?next=…'` — the page,
-          the scroll position and anything typed into it, gone, because a
-          cookie quietly aged out. Now the panel opens over the shop and, when
-          they are back in, the save they already pressed is RETRIED for them:
-          one press means one save, not a press followed by a round trip
-          followed by remembering to press again.
+          ⏭ DELIBERATELY LEFT AS A NAVIGATION — the one sign-in in the product
+          that still leaves the page, and a considered call rather than an
+          oversight.
 
+          A signed-out visitor never sees this button at all (`canSave` is false
+          for them), so the ONLY way here is a session that expired while
+          somebody was reading. Wiring the in-place panel to it — which I did,
+          and it worked — made this the FIFTH chunk importing the login form, at
+          which point webpack hoists a shared split chunk whose manifest entries
+          land in the SHARED runtime every page downloads. `main` has 0.2 KB of
+          headroom against a locked 200 KB ceiling, and the rarest sign-in in
+          the product is not what to spend it on.
+
+          `next=` still carries this page back, so the cost is a reload, not a
+          lost destination.
         */
-        openSignIn({ onSignedIn: attemptSave });
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/login?next=${next}`;
         return;
       }
       if (result.status === 'no_primary_event') {

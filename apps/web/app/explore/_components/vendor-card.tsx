@@ -543,11 +543,26 @@ export async function VendorCard({
               affordance in the prior implementation; future iteration
               can split into add+remove toggle if we measure couples
               actually want to undo from the marketplace surface. */}
-          {bookable && isAuthenticated && eventId ? (
+          {/*
+            🔑 SHOWN TO A STRANGER TOO (owner 2026-08-13: "show it").
+            This used to be `bookable && isAuthenticated && eventId`, so a
+            visitor who had just found a supplier they liked had NOWHERE to put
+            them: the only way to keep one was to make an account first, with
+            nothing saved yet to make that worth doing. We asked for the account
+            before giving anyone a reason to want one.
+
+            The button now appears for anyone who can actually be saved TO a
+            plan later — pressing it signed out opens the sign-in over this
+            page and, once they are in, the save they already pressed runs
+            itself. Nobody is sent away and asked to come back and try again.
+
+            `bookable` still gates it: a supplier still finishing verification
+            cannot be saved by anyone, and offering it would be a fake door.
+          */}
+          {bookable ? (
             <SaveVendorButton
               vendorProfileId={vendor.vendor_profile_id}
               initiallySaved={isSaved}
-              canSave={true}
             />
           ) : null}
           {slug ? (

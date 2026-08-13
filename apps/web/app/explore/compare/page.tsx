@@ -706,10 +706,16 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                     key={row.vendor_profile_id}
                     className="px-3 py-3 align-top"
                   >
+                    {/* Same rule as the marketplace card (owner 2026-08-13):
+                        a stranger comparing suppliers is exactly the person
+                        most likely to want to keep one. Pressing it signed out
+                        opens the sign-in over this page and then runs the save
+                        they already pressed. The two surfaces must agree —
+                        showing Save on the grid and hiding it on the comparison
+                        is the kind of split that reads as a bug. */}
                     <SaveVendorButton
                       vendorProfileId={row.vendor_profile_id}
                       initiallySaved={savedSet.has(row.vendor_profile_id)}
-                      canSave={user !== null && coupleEventId !== null}
                       variant="card"
                     />
                     {row.business_slug ? (

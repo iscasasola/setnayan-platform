@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { Bookmark, Check, AlertCircle } from 'lucide-react';
+import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { saveVendorToPicks, type SaveVendorResult } from '../actions';
 
 type Props = {
@@ -12,14 +14,15 @@ type Props = {
    * state means returning visitors see the correct label on first paint.
    */
   initiallySaved: boolean;
-  /**
-   * Whether the viewer can save right now. False for anonymous visitors
-   * AND for vendors viewing their own profile (self-save is nonsensical).
-   * The button hides entirely when this is false rather than showing a
-   * disabled state — the UX is "you can't see Save because there's
-   * nothing to save into" rather than "Save is blocked."
-   */
-  canSave: boolean;
+  /*
+    ⚠ `canSave` IS RETIRED (owner 2026-08-13 "show it"). It meant "the viewer
+    can save right now", and it was FALSE for every signed-out visitor — so the
+    one person most likely to want to keep a supplier was the one person who
+    could not see the button. Every call site now passes true, and a prop that
+    every caller answers the same way is not a choice, it is a lie about there
+    being one. The gate that remains is `bookable`, at the call site, where a
+    supplier still finishing verification genuinely cannot be saved by anyone.
+  */
   /** Compact variant for cramped marketplace cards. */
   variant?: 'card' | 'profile';
 };
@@ -27,15 +30,17 @@ type Props = {
 type LocalState =
   | { kind: 'idle' }
   | { kind: 'saved' }
+  /** Signed in, but no event yet — a next step, not a failure. */
+  | { kind: 'needs_event' }
   | { kind: 'error'; message: string };
 
 export function SaveVendorButton({
   vendorProfileId,
   initiallySaved,
-  canSave,
   variant = 'card',
 }: Props) {
   const [pending, startTransition] = useTransition();
+  const { openSignIn, panel: signInPanel } = useSignInPanel();
   const [state, setState] = useState<LocalState>(
     initiallySaved ? { kind: 'saved' } : { kind: 'idle' },
   );
@@ -57,31 +62,25 @@ export function SaveVendorButton({
       }
       if (result.status === 'not_signed_in') {
         /*
-          ⏭ DELIBERATELY LEFT AS A NAVIGATION — the one sign-in in the product
-          that still leaves the page, and a considered call rather than an
-          oversight.
-
-          A signed-out visitor never sees this button at all (`canSave` is false
-          for them), so the ONLY way here is a session that expired while
-          somebody was reading. Wiring the in-place panel to it — which I did,
-          and it worked — made this the FIFTH chunk importing the login form, at
-          which point webpack hoists a shared split chunk whose manifest entries
-          land in the SHARED runtime every page downloads. `main` has 0.2 KB of
-          headroom against a locked 200 KB ceiling, and the rarest sign-in in
-          the product is not what to spend it on.
-
-          `next=` still carries this page back, so the cost is a reload, not a
-          lost destination.
+          🔑 THE WHOLE POINT OF SHOWING THIS BUTTON TO A STRANGER.
+          The sign-in opens OVER the marketplace — the page, the scroll
+          position and the supplier they were looking at all stay — and when
+          they are in, `attemptSave` runs itself. One press means one save.
+          Being sent to a login screen and having to find the supplier again is
+          the version of this that loses the person.
         */
-        const next = encodeURIComponent(window.location.pathname + window.location.search);
-        window.location.href = `/login?next=${next}`;
+        openSignIn({ onSignedIn: attemptSave });
         return;
       }
       if (result.status === 'no_primary_event') {
-        setState({
-          kind: 'error',
-          message: 'Create an event first to save vendors.',
-        });
+        /*
+          Signed in, but nothing to save INTO — the honest state for somebody
+          who has just made an account. It is not an error and must not read
+          like one: it is the next step, so it renders as a doorway rather than
+          a sentence. (The action requires a primary event; that is its rule,
+          not a UI choice.)
+        */
+        setState({ kind: 'needs_event' });
         return;
       }
       if (result.status === 'vendor_not_found') {
@@ -91,8 +90,6 @@ export function SaveVendorButton({
       setState({ kind: 'error', message: result.message ?? 'Save failed.' });
     });
   }
-
-  if (!canSave) return null;
 
   const isSaved = state.kind === 'saved';
   const isError = state.kind === 'error';
@@ -108,7 +105,36 @@ export function SaveVendorButton({
       ? 'border-danger-300/60 bg-danger-50 text-danger-900'
       : 'border-ink/15 bg-cream text-ink/80 hover:border-terracotta/50 hover:text-terracotta';
 
+  /*
+    SIGNED IN, BUT NOTHING TO SAVE INTO — a doorway, not an apology.
+    This is where a brand-new account lands: they pressed Save, signed in, and
+    the retry told us they have no event yet. Ending on the sentence "Create an
+    event first" would leave the person who just did everything we asked with
+    a dead end and no button. The supplier they picked is not lost — it is one
+    press away on the other side of starting a plan.
+  */
+  if (state.kind === 'needs_event') {
+    return (
+      <>
+        <Link
+          href="/dashboard"
+          className={`${baseClasses} border-terracotta/40 bg-cream text-terracotta hover:border-terracotta`}
+          title="Start an event, then save suppliers to it"
+        >
+          <Bookmark
+            aria-hidden
+            className={variant === 'profile' ? 'h-4 w-4' : 'h-3.5 w-3.5'}
+            strokeWidth={1.75}
+          />
+          Start an event to save
+        </Link>
+        {signInPanel}
+      </>
+    );
+  }
+
   return (
+    <>
     <form
       onSubmit={(event) => {
         event.preventDefault();
@@ -159,5 +185,14 @@ export function SaveVendorButton({
         )}
       </button>
     </form>
+    {/*
+      🚨 A SIBLING OF THE FORM, NOT A CHILD. `createPortal` moves the panel's
+      DOM to <body>, but REACT events still bubble through the REACT tree — so
+      the sign-in's own Continue press would bubble to this form's onSubmit and
+      fire the save again mid-sign-in. The portal escapes the DOM; it does not
+      escape the event tree.
+    */}
+    {signInPanel}
+    </>
   );
 }

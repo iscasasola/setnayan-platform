@@ -1653,15 +1653,32 @@ function StanceChip({ stance }: { stance: EventStance }) {
 }
 
 /**
- * A board card is a LINK when there is somewhere to send this person, and a
- * plain panel when there is not.
+ * The press + hover affordances. Stripped from a card that has nowhere to go —
+ * see CardShell. Kept as one list so "which classes make this look pressable"
+ * has a single answer.
+ */
+const PRESSABLE_CLASSES = ['sn-press', 'sn-lift-4'] as const;
+
+/**
+ * A board card is a LINK when there is somewhere to send this person, and an
+ * INERT panel when there is not — inert in look as well as in behaviour.
  *
  * 🪤 An INVITED event whose host has never opened a public page has no guest
  * surface at all — and one prod event is in exactly that state. The old card
  * would have linked to `/dashboard/<id>`, which admits organisers only, so the
  * person told they belong would have been shown a 404. Rendering the card
  * without a link is the honest version: they ARE invited, there is just nothing
- * to open yet, and the card says so in its status line.
+ * to open yet, and `deriveEventView`'s `closedReason` puts that on the card.
+ *
+ * 🚨 AND THE FIRST CUT OF THIS SHELL WAS A DEAD CONTROL THAT LOOKED ALIVE.
+ * It passed the caller's `className` straight through to the `<div>`, and that
+ * string carries `sn-press` (`:active { scale: 0.97 }`) and `sn-lift-4`
+ * (`:hover { translateY(-4px) }`) — both plain class selectors in globals.css,
+ * so they fire on a div exactly as on a link. The card lifted when you pointed
+ * at it and squashed when you pressed it, and then did nothing. Found by an
+ * adversarial pass over my own merged work, 2026-08-13; the `cursor` never
+ * changed (those rules cover buttons and anchors only), which made it quieter
+ * still. **A control that animates under your finger has promised something.**
  */
 function CardShell({
   href,
@@ -1675,8 +1692,12 @@ function CardShell({
   children: ReactNode;
 }) {
   if (!href) {
+    const inert = className
+      .split(/\s+/)
+      .filter((c) => !(PRESSABLE_CLASSES as readonly string[]).includes(c))
+      .join(' ');
     return (
-      <div className={className} style={style}>
+      <div className={inert} style={style}>
         {children}
       </div>
     );
@@ -1720,12 +1741,12 @@ function GlassEventCard({
    *  stagger delays (computed, never hardcoded per card). */
   index?: number;
 }) {
-  const { badge, dateLabel, place, status, plannedLabel, stance } =
+  const { badge, dateLabel, place, status, plannedLabel, stance, href, closedReason } =
     deriveEventView(event, pct, finished);
 
   return (
     <CardShell
-      href={eventBoardHref(event)}
+      href={href}
       className={`sn-tile-glass sn-lift-4 sn-press sn-reveal group flex min-h-[196px] flex-col overflow-hidden rounded-2xl hover:border-mulberry/30 ${
         finished ? 'opacity-75 hover:opacity-100' : ''
       }`}
@@ -1824,6 +1845,12 @@ function GlassEventCard({
                 {plannedLabel}
               </p>
             ) : null}
+            {/* Why this card does not open. Rendered whenever there is no
+                destination, on EVERY shelf — a silent dead card reads as the
+                app being broken or the couple having pulled their page. */}
+            {closedReason ? (
+              <p className="text-[11px] leading-snug text-ink/45">{closedReason}</p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -1866,17 +1893,30 @@ function deriveEventView(
   // (vendor · coordinator), which `splitEventBoard` has already filtered out.
   const stance = eventStance(event.member_type);
   const invited = stance === 'invited';
+  // WHERE THIS CARD GOES — derived HERE, once, so the destination, the status
+  // line and the reason-it-cannot-be-opened can never disagree with each other.
+  const href = eventBoardHref(event);
+
+  // 🚨 WHY THIS IS NOT A `status` BRANCH. It was one, and the branch order was
+  // the bug: `finished` was tested BEFORE `invited`, so an invited event whose
+  // day had passed always read 'Celebrated' and the sentence written to explain
+  // an unopenable card was UNREACHABLE on the Finished shelf. Prod's one past
+  // event is also its one slug-less event and already carries a live join token,
+  // so one scan away a real person had a card that lifted, squashed, opened
+  // nothing and said nothing about why.
+  //
+  // The reason is now tied to the ACTUAL CONDITION — no destination — instead of
+  // being re-derived from a chain of stances. A card with nowhere to go says so
+  // on every shelf, in every composition, whatever else is true about it.
+  const closedReason =
+    href === null && invited ? 'The host hasn’t opened their page yet' : null;
+
   // An INVITED event has no plan to be underway and no tasks to be behind on —
-  // "Planning underway" would be describing somebody else's work. It gets the
-  // countdown, or the honest reason there is nothing to open: a host who has not
-  // opened a public page yet (a real prod state — `slug` is nullable).
+  // "Planning underway" would be describing somebody else's work.
   const status = finished
     ? 'Celebrated'
     : invited
-      ? (countdown ??
-        (event.slug?.trim()
-          ? 'You’re on the guest list'
-          : 'The host hasn’t opened their page yet'))
+      ? (countdown ?? 'You’re on the guest list')
       : (countdown ?? (pct != null ? 'Planning underway' : 'Just getting started'));
   // "% planned" is an ORGANISER's number. Never shown on an invited card.
   const plannedLabel = !invited && pct != null ? `${pct}% planned` : null;
@@ -1889,6 +1929,8 @@ function deriveEventView(
     status,
     plannedLabel,
     stance,
+    href,
+    closedReason,
   };
 }
 
@@ -1905,7 +1947,7 @@ function MobileEventHero({
   event: EventWithRole;
   pct: number | null;
 }) {
-  const { badge, dateLabel, countdown, plannedLabel, status, stance } =
+  const { badge, dateLabel, countdown, plannedLabel, status, stance, href, closedReason } =
     deriveEventView(event, pct);
   // Attention/overdue lives ONLY in the mobile nudge row now (owner 2026-07-15:
   // one home for overdue counts). The hero keeps identity/date/progress facts.
@@ -1914,11 +1956,12 @@ function MobileEventHero({
   const facts = [
     plannedLabel,
     stance === 'invited' ? status : null,
+    closedReason,
     dateLabel,
   ].filter(Boolean) as string[];
   return (
     <CardShell
-      href={eventBoardHref(event)}
+      href={href}
       className="sn-press sn-reveal block w-full rounded-2xl bg-ink p-4 text-cream shadow-[0_20px_44px_-26px_rgba(23,22,15,0.7)]"
       style={{ animationDelay: '0.5s' }}
     >
@@ -1982,14 +2025,14 @@ function MobileEventChip({
   pct: number | null;
   finished?: boolean;
 }) {
-  const { badge, dateLabel, status, stance } = deriveEventView(
+  const { badge, dateLabel, status, stance, href, closedReason } = deriveEventView(
     event,
     pct,
     finished,
   );
   return (
     <CardShell
-      href={eventBoardHref(event)}
+      href={href}
       className={`sn-press block rounded-2xl border border-ink/15 bg-white/60 p-3 text-left ${
         finished ? 'opacity-75' : ''
       }`}
@@ -2007,6 +2050,9 @@ function MobileEventChip({
         <p className="truncate text-[10.5px] font-semibold text-ink/45">
           {stanceLabel(stance)}
         </p>
+      ) : null}
+      {closedReason ? (
+        <p className="text-[10.5px] leading-snug text-ink/45">{closedReason}</p>
       ) : null}
     </CardShell>
   );

@@ -115,3 +115,55 @@ is a phantom.
 SPEC IMPACT: `DECISION_LOG.md` 2026-08-13 — a signed-in invited person is
 recognised from the seat binding they already hold; the emailed sign-in link lands
 them on the event, not on the organiser's dashboard.
+
+---
+
+## 2026-08-13 · fix(launcher): a dead card no longer animates, and it says why it cannot open
+
+**Found by an adversarial pass over my own merged work** (six review lenses, each
+finding attacked by two skeptics told to refute it). Both skeptics verified this
+one line by line and **could not refute it**; they also corrected two small
+overstatements in the original claim, which are reflected below.
+
+### 🚨 A card that lifted under the pointer, squashed under the finger, and opened nothing
+
+`CardShell` passed the caller's `className` **straight through** to the `<div>` it
+renders when there is no destination — and that string carries `sn-press`
+(`:active { scale: 0.97 }`) and `sn-lift-4` (`:hover { translateY(-4px) }`). Both
+are plain class selectors in `globals.css`, so they fire on a `div` exactly as on
+a link. **A control that animates under your finger has promised something.**
+(The cursor never changed — those rules cover buttons and anchors only — which
+made it quieter still. On the phone chip only `sn-press` applied, and `:active`
+may not fire on a non-interactive div in iOS Safari, so there the symptom is
+simply a card that does not respond.)
+
+### 🚨 And the sentence explaining an unopenable card was unreachable on the shelf that needed it
+
+`deriveEventView` tested `finished` **before** `invited`, so an invited event whose
+day had passed always read `'Celebrated'` — and *"The host hasn't opened their page
+yet"* could never print on the **Finished** shelf. `CardShell`'s own docblock
+asserted the opposite: *"the card says so in its status line."*
+
+🔑 **Not reachable-in-theory.** Prod's ONE past event is also its ONE slug-less
+event (`Song Desk Test Night`, 2026-08-01, `slug IS NULL`, not archived) and it
+**already carries a live join token and a guest seed row**. The join link is keyed
+on `event_id`, never on a slug, and `join/[eventId]/connect` sends a guest of a
+slug-less event to `/dashboard` — its own comment saying *"their board now carries
+the invited card."* So **one QR scan or one emailed link** on an event that exists
+today put a real person in front of a silent dead card.
+
+### The fix, at the source rather than the branch
+
+The reason is now tied to **the actual condition — no destination** — not
+re-derived from a chain of stances, so it cannot be true on one shelf and false on
+another. `deriveEventView` derives the href **once** and returns it alongside
+`closedReason`; all three card compositions take both from that one derivation, so
+where a card goes, what it says, and why it might not open can no longer disagree.
+`CardShell` strips `PRESSABLE_CLASSES` from a linkless card.
+
+🛡 **The matrix is now 24 sabotages, all occurrence-counted before → after, all 24
+caught, baseline green either side** — including re-introducing the branch-order
+bug, deleting the reason from each composition, restoring the affordances, and
+shrinking the affordance list so `sn-lift-4` survives.
+
+Verified again: typecheck clean · **7927/7927** unit tests · all 22 lint scripts.

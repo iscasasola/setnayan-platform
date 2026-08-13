@@ -357,18 +357,85 @@ test('no card on the board hardcodes the organiser dashboard path', () => {
       'that is a 404 shown to somebody who was told they belong — the destination ' +
       'must come from eventBoardHref().',
   );
+  // ONE DERIVATION. `deriveEventView` computes the href, and each card passes it
+  // through — so the destination, the status line and the reason-it-cannot-open
+  // can never disagree. (They did: the status branch tested `finished` before
+  // `invited`, which made the "nothing to open" sentence unreachable on the
+  // Finished shelf while the card still rendered with no link.)
+  assert.match(
+    fnBody(src, 'deriveEventView'),
+    /const href = eventBoardHref\(event\);/,
+    'deriveEventView stopped deriving the destination, so the card and its ' +
+      'status line can drift apart again.',
+  );
   for (const component of [
     'GlassEventCard',
     'MobileEventHero',
     'MobileEventChip',
   ]) {
+    const body = fnBody(src, component);
     assert.match(
-      fnBody(src, component),
-      /href=\{eventBoardHref\(event\)\}/,
-      `${component} resolves its own destination again instead of asking ` +
-        'eventBoardHref which door this member_type can actually open.',
+      body,
+      /href=\{href\}/,
+      `${component} no longer takes its destination from the shared derivation.`,
+    );
+    assert.match(
+      body,
+      /\bhref\b[^\n]*\}\s*=\s*deriveEventView|href,\s*closedReason\s*\}/,
+      `${component} does not read href out of deriveEventView.`,
     );
   }
+});
+
+test('a card with nowhere to go SAYS SO, on every shelf', () => {
+  // 🚨 THE REGRESSION THIS REPLACES. The reason was a `status` branch, and the
+  // branch order was the defect: `finished` was tested BEFORE `invited`, so an
+  // invited event whose day had passed always read "Celebrated" and the sentence
+  // explaining an unopenable card was UNREACHABLE on the Finished shelf. Prod's
+  // one past event is also its one slug-less event and already carries a live
+  // join token — one scan from a real person meeting a silent dead card.
+  const src = launcher();
+  assert.match(
+    fnBody(src, 'deriveEventView'),
+    /const closedReason =\s*href === null && invited/,
+    'The reason a card cannot be opened is derived from something other than "it ' +
+      'has no destination". Anything else can be true on one shelf and not another.',
+  );
+  assert.ok(
+    count(src, /\{closedReason\}/) >= 2,
+    'A card composition stopped rendering the reason. A dead card that explains ' +
+      'nothing reads as the app being broken, or as the couple pulling their page.',
+  );
+  assert.match(
+    fnBody(src, 'MobileEventHero'),
+    /closedReason,/,
+    'The phone hero dropped the reason from its facts line.',
+  );
+});
+
+test('a card with no destination is inert to look at, not just to press', () => {
+  // 🚨 The first cut passed the caller's className straight to the <div>, and it
+  // carries `sn-press` (:active scale 0.97) and `sn-lift-4` (:hover translateY).
+  // Both are plain class selectors in globals.css, so they fire on a div exactly
+  // as on a link: the card lifted under the pointer and squashed under the
+  // finger, then did nothing. A control that animates has promised something.
+  const body = fnBody(launcher(), 'CardShell');
+  assert.match(
+    body,
+    /PRESSABLE_CLASSES/,
+    'CardShell stopped stripping the press/hover affordances from a linkless card.',
+  );
+  assert.match(
+    body,
+    /\.filter\(\(c\) => !\(PRESSABLE_CLASSES as readonly string\[\]\)\.includes\(c\)\)/,
+    'The affordance strip is gone or no longer removes those classes.',
+  );
+  assert.match(
+    launcher(),
+    /const PRESSABLE_CLASSES = \['sn-press', 'sn-lift-4'\] as const;/,
+    'The affordance list changed. Every class that makes a card LOOK pressable ' +
+      'must be in it, or a dead card animates again.',
+  );
 });
 
 test('every card names the stance — checked per component, not per file', () => {

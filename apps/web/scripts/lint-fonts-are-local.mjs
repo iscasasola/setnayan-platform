@@ -37,7 +37,7 @@ function walk(dir, out = []) {
     if (e.isDirectory()) {
       if (e.name === 'node_modules' || e.name === '.next') continue;
       walk(p, out);
-    } else if (/\.tsx?$/.test(e.name)) out.push(p);
+    } else if (/\.(tsx?|css)$/.test(e.name)) out.push(p);
   }
   return out;
 }
@@ -61,6 +61,33 @@ for (const f of files) {
       `${relative(WEB, f)} imports next/font/google — the build would fetch ` +
         `from fonts.gstatic.com again. Add the face to scripts/fetch-brand-fonts.mjs, ` +
         `run it, and load it with next/font/local.`,
+    );
+  }
+}
+
+// ── 1b · nobody reaches Google for type at RUNTIME either ────────────────
+// Check 1 closes the BUILD-time door (`next/font/google`). This closes the
+// other one: a `<link rel="stylesheet" href="https://fonts.googleapis.com/…">`
+// or a CSS `@import` compiles perfectly and ships perfectly — and then every
+// VISITOR's page depends on Google being reachable, which is the same disease
+// one layer out. It would also sail past check 1 forever.
+//
+// Comments are stripped by `strip` above for the same reason check 1 needs it:
+// `app/layout.tsx` explains at length what it stopped doing, and naming
+// `fonts.gstatic.com` in that explanation must not trip the guard that the
+// explanation is about.
+//
+// ⚠ SCOPED TO app/ + components/ + lib/ ON PURPOSE. `next.config.ts` names both
+// hosts in the Content-Security-Policy, which is a policy statement rather than
+// a font load, and is not scanned here.
+for (const f of files) {
+  const src = strip(readFileSync(f, 'utf8'));
+  const hit = /fonts\.(googleapis|gstatic)\.com/.exec(src);
+  if (hit) {
+    problems.push(
+      `${relative(WEB, f)} points at ${hit[0]} — the FONT would be fetched from ` +
+        `Google in every visitor's browser. Self-host it: add the face to ` +
+        `scripts/fetch-brand-fonts.mjs, run it, and load it with next/font/local.`,
     );
   }
 }

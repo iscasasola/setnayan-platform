@@ -1,7 +1,7 @@
 {
-  "generatedFromRef": "e77566b48",
+  "generatedFromRef": "badc23e7b",
   "routeCount": 401,
-  "destinations": 793,
+  "destinations": 792,
   "actions": 522,
   "blocks": 3538,
   "routes": {
@@ -3127,7 +3127,6 @@
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]",
         "/dashboard/samahan"
       ],
       "actions": [

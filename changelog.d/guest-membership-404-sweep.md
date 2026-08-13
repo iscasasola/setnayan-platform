@@ -104,6 +104,22 @@ confirmed RED.** Three of them found real holes that reading had not:
 against CORRECT code because the fix's own comment quoted the defect it removed.
 Comments are prose; every assertion runs against the stripped body.
 
+### The port-controls baseline moves by exactly one line — deliberately
+
+`lint port keeps every control` failed on the samahan route: *"can no longer
+reach `/dashboard/[seg]`"*. **The claim is true and the escape hatch was checked
+before it was taken**, because regenerating a baseline is deciding that a
+removal is fine.
+
+It is fine here, and NOT because the organiser lost anything: `eventBoardHref`
+still returns `/dashboard/${event_id}` for a `couple` membership. The literal
+simply MOVED from the page into the helper, so a static per-route scan no longer
+sees it on that route. What actually changed is that the link became conditional
+on `member_type` instead of unconditional — which is the entire fix.
+
+Baseline regenerated in this same PR: 793 → 792 destinations, one readable
+deleted line. That is the guard working as designed, not being silenced.
+
 ### Named, not built
 
 - **Accepted moderators are absent from the samahan memberships map.** Prod

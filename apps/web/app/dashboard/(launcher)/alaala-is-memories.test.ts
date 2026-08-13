@@ -249,3 +249,53 @@ test('the read budgets PER LENS and counts on the uncapped set', () => {
       'simply had no room.',
   );
 });
+
+test('wall tiles are served at DISPLAY resolution, both halves', () => {
+  // 🖼 THE OWNER SAW THIS AND SAID SO: "the photos are pixelated."
+  // The wall hand-rolled a ref picker that preferred `thumb_r2_key` — long-edge
+  // 320 at AVIF q50, which papic-derivatives.ts builds for dense peek strips.
+  // The wall renders 105–192 CSS px squares (310–383 device px), and
+  // `object-cover` on a square scales a LANDSCAPE thumb by its 240px HEIGHT, so
+  // every breakpoint upscaled 1.3×–1.6×.
+  const s = src(DATA);
+  assert.equal(
+    count(s, /resolveLargeStillRef\(/g),
+    2,
+    'Both owned reads (papic_photos and papic_guest_captures) must resolve at ' +
+      'display resolution. Either one falling back to a thumbnail makes half ' +
+      'the wall soft, which is harder to notice than all of it.',
+  );
+  assert.equal(
+    count(s, /\bthumb_r2_key\b\s*as string/g),
+    0,
+    'A hand-rolled thumb-first picker came back. Use the canonical resolver — ' +
+      'that is where the drop-safety and the never-an-MP4 rule live.',
+  );
+  // The ATTENDED half arrives pre-presigned, so the resolution is chosen inside
+  // getGuestLiveGallery. Missing this leaves half the wall soft with the owned
+  // half sharp — the hardest version to spot.
+  assert.match(
+    s,
+    /getGuestLiveGallery\([\s\S]{0,200}?prefer: 'display'/,
+    'Attended frames no longer ask for display resolution, so they render from ' +
+      '320px thumbnails while owned frames are sharp.',
+  );
+});
+
+test('the day-of venue grid still defaults to the small copy', () => {
+  // The other direction is also a defect: forcing 1280px tiles onto the
+  // wedding-day page would push ~10× the bytes over venue WiFi, on the one
+  // surface where that matters most.
+  const gallery = src(resolve(WEB, 'lib', 'guest-live-gallery.ts'));
+  assert.match(
+    gallery,
+    /const preferDisplay = opts\.prefer === 'display';/,
+    'the size preference is gone — every caller now gets one size',
+  );
+  assert.match(
+    gallery,
+    /prefer\?: 'thumb' \| 'display';/,
+    'the preference must stay OPTIONAL so the day-of page keeps its small copy ' +
+      'without naming it',
+  );
+});

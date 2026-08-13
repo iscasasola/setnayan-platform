@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   isClipRow,
+  resolveLargeStillRef,
   resolveStillRef,
   resolvePlayRef,
   clipWebKeyDistinct,
@@ -229,4 +230,74 @@ test('stableMediaPath maps r2:// → the streaming route, passes legacy through'
   assert.equal(stableMediaPath(null), null);
   assert.equal(stableMediaPath(''), null);
   assert.equal(stableMediaPath('r2://bucketonly'), null); // malformed → null
+});
+
+// ── DISPLAY-RESOLUTION STILLS ──────────────────────────────────────────────
+// `resolveStillRef` prefers thumb_r2_key (long-edge 320, q50 — see
+// papic-derivatives.ts). That is right for an 80px album strip and WRONG for a
+// wall: the Alaala grid renders 105–192 CSS px squares (310–383 device px), and
+// `object-cover` on a square scales a LANDSCAPE thumb by its 240px height, so
+// every breakpoint upscaled 1.3×–1.6× from a quality-50 source. Owner, on
+// seeing it: "the photos are pixelated."
+
+test('the large still prefers DISPLAY over thumb — that is the entire point', () => {
+  const row = {
+    photo_type: 'photo',
+    r2_object_key: 'r2://b/raw.jpg',
+    display_r2_key: 'r2://b/display.avif',
+    thumb_r2_key: 'r2://b/thumb.avif',
+  };
+  assert.equal(resolveLargeStillRef(row), 'r2://b/display.avif');
+  // …and the two resolvers must DISAGREE here. If they ever agree on a row
+  // carrying both, someone has collapsed them and every wall tile is a 320px
+  // thumbnail again.
+  assert.notEqual(
+    resolveLargeStillRef(row),
+    resolveStillRef(row),
+    'resolveLargeStillRef and resolveStillRef returned the same ref for a row ' +
+      'with both derivatives. They exist precisely to differ — one feeds dense ' +
+      'peek strips, the other feeds tiles a person looks at.',
+  );
+});
+
+test('the large still falls back to thumb rather than nothing', () => {
+  assert.equal(
+    resolveLargeStillRef({ photo_type: 'photo', thumb_r2_key: 'r2://b/t.avif' }),
+    'r2://b/t.avif',
+  );
+});
+
+test('a dropped original is never handed to a presigner, at either size', () => {
+  const dropped = {
+    photo_type: 'photo',
+    r2_object_key: 'r2://b/raw.jpg',
+    full_res_dropped_at: '2026-01-01T00:00:00Z',
+  };
+  // The raw key survives as a dead pointer for Drive matching; resolving to it
+  // guarantees a 404, and null beats a guaranteed 404.
+  assert.equal(resolveLargeStillRef(dropped), null);
+  assert.equal(
+    resolveLargeStillRef({ ...dropped, display_r2_key: 'r2://b/d.avif' }),
+    'r2://b/d.avif',
+  );
+});
+
+test('a clip never resolves to its raw MP4 in the image chain', () => {
+  const clip = {
+    photo_type: 'clip',
+    r2_object_key: 'r2://b/clip.mp4',
+    poster_r2_key: 'r2://b/poster.avif',
+    thumb_r2_key: 'r2://b/thumb.avif',
+  };
+  assert.equal(resolveLargeStillRef(clip), 'r2://b/poster.avif');
+  assert.notEqual(
+    resolveLargeStillRef(clip),
+    'r2://b/clip.mp4',
+    'a video reached an <img> chain — it renders as a broken tile',
+  );
+  // guest-capture spelling of the same thing
+  assert.notEqual(
+    resolveLargeStillRef({ media_type: 'clip', r2_object_key: 'r2://b/c.mp4' }),
+    'r2://b/c.mp4',
+  );
 });

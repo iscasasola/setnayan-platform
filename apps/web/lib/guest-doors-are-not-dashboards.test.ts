@@ -385,7 +385,9 @@ test('SITE 4 · the "View editorial" BUTTON is gated too, not just the tile', ()
     'app/dashboard/(account)/library/_components/editorials-tab.tsx',
     'EditorialCard',
   );
-  const hrefBindings = [...body.matchAll(/href=\{([^}]*)\}/g)].map((m) => m[1].trim());
+  const hrefBindings = [...body.matchAll(/href=\{([^}]*)\}/g)].map((m) =>
+    (m[1] ?? '').trim(),
+  );
   assert.ok(hrefBindings.length > 0, 'no href bindings found in EditorialCard');
   for (const binding of hrefBindings) {
     assert.ok(

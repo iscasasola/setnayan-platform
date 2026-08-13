@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
 import { stampLastLogin } from '@/lib/login-activity';
-import { accountHomePath } from '@/lib/account-security';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
 import { captureEvent } from '@/lib/analytics';
 import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
@@ -81,9 +80,10 @@ async function exchangeCredentials(formData: FormData): Promise<
   // means "stay signed in"; anything else means session-only.
   const remember = String(formData.get('remember') ?? '') === 'on';
   const rawNext = safeNext(formData.get('next'));
-  // When no explicit next, use /dashboard as error-redirect fallback.
-  // Real post-auth destination is computed by account_type below.
-  const fallbackNext = rawNext === '/' ? '/dashboard' : rawNext;
+  // Signing in from the front door RETURNS YOU TO THE FRONT DOOR (owner
+  // 2026-08-13: "i thought that once we log in, it still looks like the public
+  // website, but we have added sidebar"). `/` is no longer rewritten away.
+  const fallbackNext = rawNext;
 
   if (!email || !password) {
     return { ok: false, error: 'missing', fallbackNext };
@@ -129,19 +129,32 @@ async function exchangeCredentials(formData: FormData): Promise<
     }
   }
 
-  // Route directly to the account's home when no explicit destination was given —
-  // avoids the double-hop where vendors landed on /dashboard then got bounced
-  // to /vendor-dashboard by dashboard/layout.tsx.
-  let destination = fallbackNext;
-  const userId = data.user?.id;
-  if (rawNext === '/' && userId) {
-    const { data: profile } = await supabase
-      .from('users')
-      .select('account_type')
-      .eq('user_id', userId)
-      .maybeSingle();
-    destination = accountHomePath(profile?.account_type);
-  }
+  /*
+    WHERE YOU LAND — and why this stopped calling accountHomePath().
+
+    This block used to send anyone arriving from `/` to their account home
+    (vendor → /vendor-dashboard · admin → /admin · else /dashboard), to avoid
+    "the double-hop where vendors landed on /dashboard then got bounced to
+    /vendor-dashboard by dashboard/layout.tsx".
+
+    THAT RULE WAS RIGHT, AND ITS PREMISE EXPIRED. It was written while `/` was
+    the ELN cinematic homepage, which had NOTHING for a signed-in person — so
+    leaving them there was the one thing you could not do. `/` became the front
+    door on 2026-08-13 and now carries a signed-in state of its own
+    (_components/frontdoor/front-door-shell.tsx: My Home with Events + Alaala,
+    the Marketplace group, the account cluster), and nothing redirects a
+    signed-in visitor away from it.
+
+    So `next` is now honoured for EVERY origin including `/`, which is what the
+    seam promises everywhere else: you come back where you started. The
+    double-hop it guarded against cannot return, because `/` is a real
+    destination rather than a redirect chain — dashboard/layout.tsx still owns
+    the vendor bounce for anyone who genuinely lands on /dashboard.
+
+    accountHomePath() is deliberately NOT deleted — /login?next=/dashboard and
+    every caller that asks for an account home still uses it.
+  */
+  const destination = fallbackNext;
 
   return { ok: true, destination };
 }

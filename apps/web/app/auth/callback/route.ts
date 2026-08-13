@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { safeNext } from '@/lib/auth';
 import { stampLastLogin } from '@/lib/login-activity';
-import { accountHomePath } from '@/lib/account-security';
 import { shouldPromoteToVendor } from '@/lib/oauth-signup';
 
 export async function GET(request: NextRequest) {
@@ -14,8 +13,10 @@ export async function GET(request: NextRequest) {
   // open redirect — anything in `?next=` lands the browser off-domain
   // after a successful exchange.
   const rawNext = safeNext(url.searchParams.get('next'));
-  // When no explicit destination, fall through to /dashboard after code exchange.
-  const fallbackNext = rawNext === '/' ? '/dashboard' : rawNext;
+  // `next` is honoured for EVERY origin, `/` included — signing in from the
+  // front door returns you to the front door (owner 2026-08-13). This must stay
+  // identical to app/login/actions.ts; see the note further down.
+  const fallbackNext = rawNext;
   // Vendor-signup intent, round-tripped by oauth-actions.ts (?as=vendor).
   const intent = url.searchParams.get('as');
 
@@ -70,12 +71,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Route directly to the (now-reconciled) account's home when no explicit
-    // destination was given. Vendor signups carry next=/open-shop, so they take
-    // the fallbackNext path below instead.
-    if (rawNext === '/' && userId) {
-      return NextResponse.redirect(new URL(accountHomePath(accountType), url.origin));
-    }
+    /*
+      NO ACCOUNT-HOME HOP HERE EITHER — this must agree with
+      app/login/actions.ts or the two sign-in doors disagree about where a
+      person ends up, which is the "two answers to one question" failure this
+      repo has already paid for (the wizard previewing a safe address while the
+      mint handed out a colliding one, 2026-08-11).
+
+      The block that stood here sent anyone arriving from `/` to
+      accountHomePath(). Correct while `/` was the ELN cinematic homepage with
+      nothing for a signed-in person; obsolete since `/` became the front door
+      on 2026-08-13 and grew a signed-in state. `next` is now honoured for every
+      origin, `/` included.
+
+      The vendor-signup path is unaffected: those carry next=/open-shop and
+      always took the fallbackNext line below.
+    */
   }
 
   return NextResponse.redirect(new URL(fallbackNext, url.origin));

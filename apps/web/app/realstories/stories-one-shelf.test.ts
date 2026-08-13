@@ -116,10 +116,33 @@ test('the two retired shelves are deleted, and nothing still imports them', () =
    `/storytellers` is a 302 to `/realstories#storytellers`. The anchor lived
    on the deleted section. Losing it turns a live redirect into a scroll to
    nowhere, with nothing anywhere reporting it. */
-test('the #storytellers anchor survived the merge', () => {
+test('the #storytellers anchor survived the merge — and only when there ARE storytellers', () => {
   assert.ok(
-    /id="storytellers"/.test(G),
+    /'storytellers'/.test(G),
     'the anchor the /storytellers redirect targets is gone from the shelf',
+  );
+
+  /*
+    \u{1F6A8} EXISTENCE IS NOT CORRECTNESS — this assertion is the one that was
+    missing, and its absence shipped a real bug into CI.
+
+    The first cut put the id on the companions CONTAINER, which renders when
+    EITHER kind is present. At today's real numbers — 0 featured chapters, 6
+    articles — the anchor existed and pointed at the Journal, so somebody
+    following "storytellers" landed on our own writing. The old assertion
+    checked the anchor was THERE. It was.
+    `creator-public-surfaces.spec.ts` caught it by asserting the ABSENCE at
+    zero chapters, which is the rule this shelf runs on: deny-by-default,
+    publish is not listed.
+  */
+  assert.ok(
+    /id=\{chapterMatches\.length > 0 \? 'storytellers' : undefined\}/.test(G),
+    'the anchor must be gated on the CHAPTER count — with none, /storytellers ' +
+      'points a visitor at whatever else happens to be on the shelf',
+  );
+  assert.ok(
+    !/id="storytellers"/.test(G),
+    'an unconditional id="storytellers" is exactly the bug the e2e caught',
   );
 
   // ANCHOR THE PREMISE: prove the redirect still points here, so this test

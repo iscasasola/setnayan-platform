@@ -270,7 +270,15 @@ export function StoriesSearch({
           not one card type: the editorial keeps the Chronicle tile, the
           chapter keeps the byline tile. What merged is the HEADINGS. */}
       {editorialResults.length > 0 || chapterResults.length > 0 ? (
-        <section id="storytellers" className="scroll-mt-24">
+        {/* 🚨 THE ANCHOR IS GATED ON CHAPTERS, NOT ON THIS SECTION. Before
+            the merge this section only existed when chapters did, so the id was
+            safe by construction; merging the two made the section render for
+            editorials alone, which would have pointed "storytellers" at
+            somebody else's content. Deny-by-default: no chapters, no anchor. */}
+        <section
+          id={chapterResults.length > 0 ? 'storytellers' : undefined}
+          className="scroll-mt-24"
+        >
           <SectionHead
             title="Everything to read"
             note={`${editorialResults.length + chapterResults.length} ${

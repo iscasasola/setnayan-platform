@@ -705,11 +705,22 @@ export function RealStoriesGallery({
               🪤 `id="storytellers"` LIVES HERE NOW. `/storytellers` is a 302
               to `/realstories#storytellers`; the id moved with the chapters
               rather than being deleted with their old section, so the live
-              redirect still lands on them. It is on the container, not on a
-              card, so it survives an empty chapter list. */}
+              redirect still lands on them.
+
+              🚨 AND IT IS CONDITIONAL ON **CHAPTERS**, NOT ON THIS CONTAINER.
+              The first cut put it on the container, which renders whenever
+              EITHER kind is present. With zero featured chapters and six
+              articles — TODAY'S EXACT STATE — the anchor existed and pointed
+              at OUR OWN WRITING: someone following "storytellers" would land
+              on the Journal, having asked for the opposite. Deny-by-default
+              governs this shelf (publish ≠ listed) and it has to hold for the
+              anchor too: no chapters, no anchor.
+              Caught by `creator-public-surfaces.spec.ts`, which asserts the
+              ABSENCE. My own unit guard only asserted the anchor EXISTED —
+              and it did. **Existence is not correctness.** */}
           {chapterMatches.length > 0 || articleMatches.length > 0 ? (
             <div
-              id="storytellers"
+              id={chapterMatches.length > 0 ? 'storytellers' : undefined}
               className="mt-4 grid scroll-mt-24 gap-4 sm:grid-cols-2 lg:grid-cols-3"
             >
               <Companions

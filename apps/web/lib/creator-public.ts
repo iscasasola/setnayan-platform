@@ -10,9 +10,12 @@
  * creator signal — there is no is_creator flag.
  *
  * Red lines honored:
- *   • embed only — we return the stored NORMALIZED embed_url (produced by
- *     lib/creator-chapters `normalizeEmbed`); rendering always goes through the
- *     sandboxed, allowlisted ChapterEmbedFrame. Setnayan never hosts the edit.
+ *   • WHEN THERE IS A VIDEO, embed only — we return the stored NORMALIZED
+ *     embed_url (produced by lib/creator-chapters `normalizeEmbed`); rendering
+ *     always goes through the sandboxed, allowlisted ChapterEmbedFrame, and
+ *     Setnayan never hosts the edit. A chapter may equally have NO video and be
+ *     told entirely in `body` (owner 2026-08-12) — that is not a degraded
+ *     chapter, it is the normal case.
  *   • timeline, not a feed — chapters come back newest-first, published only.
  *   • owned-music-only — teaser render is a different agent; teaser_r2_key is
  *     surfaced optional/absent here and never fabricated.
@@ -145,7 +148,10 @@ export async function fetchPublishedChapterByPublicId(
  * Resolve a PUBLISHED chapter by its public_id alone, together with its owner —
  * for surfaces addressed by the chapter id without a profile slug (the
  * /api/og/chapter/[publicId] share card). Applies the FULL public gate in one
- * place: chapter published + carries an embed, AND the owner's profile is
+ * place: chapter published + carries something to READ (a story, or a video —
+ * `chapterHasReadableContent`, NOT "carries an embed", which is what this line
+ * said until 2026-08-13 while the code 30 lines below already said otherwise),
+ * AND the owner's profile is
  * public, non-deleted, and slugged (the same conditions the chapter page's
  * resolve() enforces via resolvePublicProfile). Anything short of that returns
  * null — a chapter title / storyteller name is never surfaced for a page that

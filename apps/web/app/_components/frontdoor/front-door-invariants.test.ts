@@ -407,3 +407,55 @@ test('the storyteller count comes from the read result, not the array length', (
     'storyCount must not be a bare array length — that is the defect itself',
   );
 });
+
+/* ── 12 · A LIVE SHOP SHOWS ITSELF, NOT THE WORD "SHOP" ───────────────────
+   The card used to render the literal string "SHOP" as its thumbnail, so a
+   real approved business looked like an unfinished placeholder on the front
+   page. It must render the resolved logo, or the shop's initials — never a
+   hardcoded stand-in word. */
+test('the shop card renders a logo or initials, never a placeholder word', () => {
+  assert.ok(
+    /s\.logoUrl \?/.test(FEED_CODE),
+    'the shop card must branch on the resolved logo',
+  );
+  assert.ok(
+    /initialsOf\(s\.name\)/.test(FEED_CODE),
+    'the fallback must be the shop\'s own initials',
+  );
+  const shopCard = FEED_CODE.slice(
+    FEED_CODE.indexOf('function ShopCard'),
+    FEED_CODE.indexOf('export function FrontDoorFeed'),
+  );
+  assert.ok(shopCard.length > 0, 'ShopCard not found');
+  /* 🪤 An earlier cut of this assertion required `>SHOP<` — a literal `<`
+     immediately after the word. Inserting `>SHOP` followed by a newline
+     slipped straight past it. Mutation-proved decorative; anchored to the
+     word as a text node instead. */
+  assert.ok(
+    !/>\s*SHOP\b/.test(shopCard),
+    'the literal word "SHOP" must not be the card\'s mark — a live business ' +
+      'rendered as a placeholder is the defect this replaced',
+  );
+});
+
+/* ── 13 · A CHAPTER'S READING TIME COMES FROM ITS BODY ────────────────────
+   Deriving it from the truncated lede would read "1 min" on a piece that takes
+   ten — an invented number on somebody else's wedding. It is computed at the
+   loader, where the whole body exists, with the one shared rule. */
+test('chapter reading time is computed from the body, never the excerpt', () => {
+  const data = code(readFileSync(join(HERE, 'data.ts'), 'utf8'));
+  assert.ok(
+    !/excerpt[^;\n]*\/\s*2\d\d/.test(data) && !/excerpt.*split.*length\s*\/\s*\d/.test(data),
+    'reading time must not be derived from the excerpt',
+  );
+  const story = readFileSync(join(APP, '..', 'lib', 'storytellers.ts'), 'utf8');
+  assert.ok(
+    /readingMinutesFromText\(row\.body\)/.test(code(story)),
+    'the loader must compute reading time from the full body',
+  );
+  // ONE definition of the rule — a second "words / N" is how they drift.
+  assert.ok(
+    !/\/\s*200\b/.test(code(story)),
+    'storytellers.ts must not re-derive the words-per-minute rule',
+  );
+});

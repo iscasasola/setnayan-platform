@@ -36,6 +36,7 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { displayLogoUrl } from '@/lib/uploads';
 import {
   publishedBlogArticles,
   blogCategoryLabel,
@@ -78,9 +79,13 @@ export type FrontDoorStory = {
   kindLabel: string;
   /** A written chapter legitimately has no video. Never a reason to drop it. */
   hasVideo: boolean;
-  // No `readingMinutes` — see the note where these are built. The shared
-  // loader keeps only an excerpt, and a reading time derived from a preview is
-  // an invented number.
+  /**
+   * Reading time from the chapter's FULL body — computed at the loader, where
+   * the body exists, with the same rule the Journal uses. `null` when the
+   * chapter has no readable body yet; the card then shows no minutes rather
+   * than a guess.
+   */
+  readingMinutes: number | null;
 };
 
 export type FrontDoorShop = {
@@ -89,6 +94,14 @@ export type FrontDoorShop = {
   folderLabel: string;
   city: string | null;
   verified: boolean;
+  /**
+   * The shop's resolved logo, or null → the card falls back to initials.
+   *
+   * ⚠ `vendor_profiles.logo_url` holds an `r2://` tag, NOT a URL — putting the
+   * raw value in an <img> fails silently. `displayLogoUrl` resolves it (and
+   * passes a legacy https value straight through).
+   */
+  logoUrl: string | null;
 };
 
 export type FrontDoorData = {
@@ -159,7 +172,9 @@ async function loadLiveShops(
 
   const { data, error } = await admin
     .from('vendor_profiles')
-    .select('business_name, business_slug, location_city, services, verification_state')
+    .select(
+      'business_name, business_slug, location_city, services, verification_state, logo_url',
+    )
     .eq('public_visibility', 'verified')
     .eq('verification_state', 'verified')
     .order('created_at', { ascending: false })
@@ -180,6 +195,9 @@ async function loadLiveShops(
     shops.push({
       // The bare-root address is canonical; /v/[slug] is legacy.
       href: `/${slug}`,
+      logoUrl: await displayLogoUrl({
+        logo_url: typeof row.logo_url === 'string' ? row.logo_url : null,
+      }).catch(() => null),
       name,
       folderLabel: folder ? WEDDING_FOLDER_LABEL[folder] : 'Setnayan supplier',
       city: typeof row.location_city === 'string' ? row.location_city : null,
@@ -230,20 +248,9 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
     ownerName: s.ownerName,
     kindLabel: s.kindLabel,
     hasVideo: Boolean(s.thumbUrl),
-    /*
-      ⚠ NO READING TIME ON A STORYTELLER CARD, DELIBERATELY.
-
-      The prototype draws one, and the first cut computed it — from the
-      EXCERPT, because the shared shelf loader keeps only an excerpt and not
-      the body. A reading time derived from a truncated preview is a number we
-      invented: it would read "1 min" on a piece that takes ten, on somebody
-      else's wedding.
-
-      This page's whole rule is that a number it cannot stand behind does not
-      go on the screen. So the card carries what is TRUE — the kind, the
-      author, and whether there is video — and the minutes are left off until
-      the loader carries the body. That is follow-up work, not a defect here.
-    */
+    // Real now: computed at the loader from the FULL body, not guessed from
+    // the lede. Still null-able — a chapter with no body shows no minutes.
+    readingMinutes: s.readingMinutes,
   }));
 
   // ⚠ SAMPLES ARE NOT REAL WEDDINGS. `loadPublishedShowcases` deliberately

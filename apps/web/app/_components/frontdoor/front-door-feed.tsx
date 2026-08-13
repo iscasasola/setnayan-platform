@@ -103,6 +103,9 @@ function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
             which is the entire reason the storyteller shelf was empty.
             No minutes badge: see data.ts — we do not have the body, and a
             reading time guessed from an excerpt is an invented number. */}
+        {s.readingMinutes !== null ? (
+          <span className="fd-dur">{s.readingMinutes} min</span>
+        ) : null}
         {s.hasVideo ? <span className="fd-hasvid">▶ with video</span> : null}
       </div>
       <div className="fd-imeta">
@@ -125,7 +128,22 @@ function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
 function ShopCard({ s }: { s: FrontDoorData['shops'][number] }) {
   return (
     <Link href={s.href} className="fd-item">
-      <div className="fd-thumb">SHOP</div>
+      <div className="fd-thumb fd-thumb-shop">
+        {/*
+          A plain <img>, NOT next/image, and that is deliberate. An r2:// logo
+          resolves to a PRESIGNED url whose signature changes on every render —
+          next/image would re-transform it each time and Vercel bills per
+          transformation. A logo is small; optimising it is not worth a
+          per-render charge on the highest-traffic public page.
+          eslint-disable-next-line @next/next/no-img-element
+        */}
+        {s.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={s.logoUrl} alt="" className="fd-shoplogo" loading="lazy" />
+        ) : (
+          <span className="fd-shopmark">{initialsOf(s.name)}</span>
+        )}
+      </div>
       <div className="fd-imeta">
         <span className="fd-ava" aria-hidden="true">
           {initialsOf(s.name)}
@@ -256,8 +274,11 @@ export function FrontDoorFeed({
             {shownStories.slice(0, 6).map((s) => (
               <Link key={s.href} href={s.href} className="fd-story">
                 <div className="fd-sthumb">
-                  {/* Video is a fact we hold; minutes are not (see data.ts). */}
-                  {s.hasVideo ? <span className="fd-min">▶</span> : null}
+                  {s.readingMinutes !== null ? (
+                    <span className="fd-min">{s.readingMinutes} MIN</span>
+                  ) : s.hasVideo ? (
+                    <span className="fd-min">▶</span>
+                  ) : null}
                 </div>
                 <p className="fd-sttl">{s.title}</p>
                 <p className="fd-sby">Their story · {s.ownerName}</p>

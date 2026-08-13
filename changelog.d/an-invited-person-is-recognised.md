@@ -301,3 +301,31 @@ right four times over.** Enumerate by the DESTINATION, not by the screen.
 🛡 **The matrix is now 26 sabotages, all occurrence-counted before → after, all 26
 caught, baseline green either side.** Verified: typecheck clean · **7930/7930**
 unit tests · all 22 lint scripts · both suites green under four timezones.
+
+---
+
+## 2026-08-13 · fix(guards): three holes in MY OWN guards, found by auditing them
+
+Review lens 5 pointed at the test file rather than the code, and it was the most
+valuable of the six. All three would have shipped as decoration.
+
+| hole | what could have broken with everything green |
+|---|---|
+| Nothing asserted **`CardShell` renders a `<Link>` at all** — the per-component assertions only proved the href was *handed to* it | it could have returned a `<div>` in every case and **every card on the board would have stopped being clickable** |
+| Nothing asserted the invited rows are **used** — only that the launcher *calls* `fetchUserEvents(…, 'guest')` | the result could be dropped on the floor one word later and the board would be organiser-only again, i.e. exactly how it shipped before this work |
+| The "nothing gates the finished shelf" check counted three **identifiers** (`showAll`, `show=all`, `sp.show`) to zero | any other NAME for the same gate passed, and the `finished.map(` count was satisfied *inside an arbitrary condition* |
+
+🔑 **The third is this repo's own lesson landing on me: a guard can match a STRING
+instead of the ACT.** It is now anchored to the act — the Finished section is
+sliced out and the set of conditions standing in front of its cards must be exactly
+`{finished.length === 0}`. **Whatever it is named**, any other condition is a switch
+in front of somebody's memories, and the guard says so.
+
+🛡 **The matrix is now 29 sabotages, all occurrence-counted before → after, all 29
+caught, baseline green either side.** Three of them exist only to prove these
+three: making `CardShell` always return a `<div>`, passing `[]` where the invited
+rows go, and **re-gating the finished shelf under a different name** — the last of
+which the old string-counting guard could not have seen.
+
+Verified: typecheck clean · **7933/7933** unit tests · all 22 lint scripts · both
+board suites green under UTC · Asia/Manila · America/New_York · Pacific/Kiritimati.

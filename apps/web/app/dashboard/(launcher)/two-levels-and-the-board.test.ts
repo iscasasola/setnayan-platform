@@ -105,6 +105,27 @@ function fnBody(src: string, name: string): string {
   return next === -1 ? rest : rest.slice(0, next);
 }
 
+/**
+ * The body of a `<section id="NAME">` … `</section>` block, by brace-free
+ * scanning from the opening tag to the matching closing tag at the same depth.
+ */
+function sectionBody(src: string, id: string): string {
+  const open = src.indexOf(`id="${id}"`);
+  assert.notEqual(open, -1, `<section id="${id}"> is gone from the launcher.`);
+  const from = src.lastIndexOf('<section', open);
+  let depth = 0;
+  let i = from;
+  while (i < src.length) {
+    if (src.startsWith('<section', i)) depth++;
+    else if (src.startsWith('</section>', i)) {
+      depth--;
+      if (depth === 0) return src.slice(from, i + 10);
+    }
+    i++;
+  }
+  assert.fail(`<section id="${id}"> is never closed.`);
+}
+
 const TODAY = '2026-08-13';
 
 function ev(over: Partial<EventWithRole> & { event_id: string }): EventWithRole {
@@ -322,6 +343,32 @@ test('NOTHING gates the finished shelf behind a query param', () => {
   );
 });
 
+test('the finished cards are gated by NOTHING except emptiness', () => {
+  // 🚨 THE THIRD HOLE, and it is this file's claim #1 — somebody's memories must
+  // not sit behind a switch. It was enforced by counting three IDENTIFIERS
+  // (`showAll`, `show=all`, `sp.show`) to zero, so any other name for the same
+  // gate passed; and the `finished.map(` count was satisfied inside an arbitrary
+  // condition. **A guard can match a string instead of the act.**
+  //
+  // This asserts the ACT: inside the Finished section, the ONLY condition
+  // standing between a person and their memories is whether there are any.
+  const section = sectionBody(launcher(), 'finished');
+  const conditions = [...section.matchAll(/\{([^{}]+?)\s*\?\s*\(/g)].map((m) =>
+    m[1]!.trim(),
+  );
+  assert.deepEqual(
+    conditions,
+    ['finished.length === 0'],
+    'The Finished shelf has a condition other than "is it empty" standing in ' +
+      `front of it: ${JSON.stringify(conditions)}. Whatever it is named, that is ` +
+      'a switch in front of somebody\'s memories.',
+  );
+  assert.ok(
+    count(section, /finished\.map\(/) >= 2,
+    'The Finished section renders no cards on one of the two compositions.',
+  );
+});
+
 test('the empty Finished shelf explains the shelf and claims no zero', () => {
   const src = launcher();
   assert.match(
@@ -410,6 +457,27 @@ test('a card with nowhere to go SAYS SO, on every shelf', () => {
   );
 });
 
+test('CardShell actually renders a LINK when there is a destination', () => {
+  // 🚨 A HOLE IN MY OWN GUARD, found by an adversarial audit of this very file.
+  // This PR moved "turn an href into a link" out of the three card components and
+  // into CardShell — but the per-component assertions only prove the href is
+  // HANDED to CardShell. Nothing proved CardShell renders a <Link> at all, so it
+  // could have returned a <div> in every case and **every card on the board would
+  // have stopped being clickable with all tests green.**
+  const body = fnBody(launcher(), 'CardShell');
+  assert.match(
+    body,
+    /<Link href=\{href\} className=\{className\} style=\{style\}>/,
+    'CardShell stopped rendering a <Link>. Every card on the board is then dead, ' +
+      'and nothing else in this file would notice.',
+  );
+  assert.match(
+    body,
+    /if \(!href\) \{/,
+    'CardShell no longer distinguishes "has a destination" from "does not".',
+  );
+});
+
 test('a card with no destination is inert to look at, not just to press', () => {
   // 🚨 The first cut passed the caller's className straight to the <div>, and it
   // carries `sn-press` (:active scale 0.97) and `sn-lift-4` (:hover translateY).
@@ -462,6 +530,25 @@ test('the launcher asks for the invited memberships at all', () => {
     /fetchUserEvents\(supabase, user\.id, 'guest'\)/,
     'The launcher no longer reads guest memberships, so an invited event can never ' +
       'appear on the board.',
+  );
+});
+
+test('the invited memberships are actually PUT ON the board', () => {
+  // 🚨 THE SECOND HOLE. The headline feature is "invited events reach the board",
+  // and the only caller-side proof was that the launcher CALLS fetchUserEvents
+  // with 'guest'. Nothing asserted the RESULT was used — so dropping it on the
+  // floor one word later passed. A call is not a consequence.
+  const src = launcher();
+  assert.match(
+    src,
+    /const boardEvents = mergeBoardMemberships\(events, invitedEvents\);/,
+    'The invited rows are read and then discarded — the board is organiser-only ' +
+      'again, which is exactly how it shipped before this change.',
+  );
+  assert.match(
+    src,
+    /splitEventBoard\(\s*boardEvents,\s*todayISO,\s*\)/,
+    'The shelves are split from something other than the merged set.',
   );
 });
 

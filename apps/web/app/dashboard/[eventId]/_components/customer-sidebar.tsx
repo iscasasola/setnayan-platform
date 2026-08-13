@@ -49,7 +49,9 @@
  */
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 import { isDayOfOpen } from '@/lib/guest-journey';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
@@ -219,6 +221,47 @@ export function CustomerSidebar({
        *  now lives in DoorwaySidebarHeader's identity slot as the
        *  <SwitcherPlaqueTrigger> account menu — composed in layout.tsx, NOT
        *  here, so this rail can never ship two adjacent identity controls. */}
+
+      {/*
+        ← ALL YOUR EVENTS — the way UP a level, added 2026-08-13 with the seam.
+        Ported from `front_door_and_seam_2026-08-12.html`, which opens the
+        in-event rail with exactly this row: "Inside an event the rail opens
+        with the way OUT of it — the level above is never a guess."
+
+        🔑 IT IS ALSO WHAT KEEPS 1-CLICK HOME. In the same change the rail
+        wordmark became the way out of the APP (to the public front door, on
+        the owner's 2026-08-13 sentence), which would otherwise have left this
+        rail with no one-press route back to the board — the thing the
+        2026-07-16 council verdict was protecting. It is protected here
+        instead, one level closer to where it is needed.
+
+        ⚠ NEVER RENDERS ACTIVE, on purpose. You cannot be on the board and
+        inside an event at the same time, so it carries no active treatment and
+        no aria-current — it is a direction, not a location.
+      */}
+      <ul className="mb-1 flex flex-col gap-0.5">
+        <li>
+          <Link
+            href="/dashboard"
+            title="All your events"
+            className="relative flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:bg-[var(--m-sidebar-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            style={{
+              color: 'var(--m-sidebar-fg-soft)',
+              outlineColor: 'var(--m-sidebar-accent)',
+            }}
+          >
+            <ArrowLeft
+              aria-hidden
+              className="h-6 w-6 shrink-0"
+              strokeWidth={1.75}
+              style={{ color: 'var(--m-sidebar-fg-soft)' }}
+            />
+            <span className="truncate [[data-sidebar-collapsed='1']_&]:hidden">
+              All your events
+            </span>
+          </Link>
+        </li>
+      </ul>
       {groups.map((group) => (
         // `eyebrow` — Glass PR-2 shell polish: section labels render as `.sn-eye`
         // gold eyebrows on the customer doorway only (opt-in; vendor/admin adopt

@@ -1287,18 +1287,24 @@ export default async function ProfilePage({ searchParams }: Props) {
         ) : null}
         {isAnon ? (
           // Anon-draft: signing out destroys their only key to the plan (no
-          // password to get back in). Offer "Secure your plan" instead of a
-          // one-way "Sign out".
+          // password to get back in). Offer "Secure your plan" instead — this
+          // is NOT a sign-out and is unaffected by the rule below.
           <Link href="/signup?next=%2Fdashboard%2Fprofile" className="button-primary">
             Secure your plan
           </Link>
-        ) : (
-          <form action="/auth/sign-out" method="post">
-            <SubmitButton pendingLabel="Signing out…" className="button-secondary">
-              {tr('cta.sign_out')}
-            </SubmitButton>
-          </form>
-        )}
+        ) : null}
+        {/*
+          THE SIGNED-IN "SIGN OUT" BUTTON WAS HERE — retired 2026-08-13
+          (Redesign Session 6, "the seam"). Owner: *"sign out lives under the
+          avatar and nowhere else."*
+
+          🔑 A SECOND PLACE TO SIGN OUT IS NOT A CONVENIENCE, it is a second
+          thing to find. The avatar / plaque menu carries it on every screen in
+          the product including this one, and it is the menu people reach this
+          page THROUGH. Nobody is stranded; there is simply one gesture rather
+          than two. `app/_components/auth/seam-invariants.test.ts` fails if it
+          returns.
+        */}
       </section>
     </div>
   );

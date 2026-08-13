@@ -663,6 +663,16 @@ export default async function RootLayout({
             per-page navs had. Owner 2026-06-15 "one top nav for the whole
             website". */}
         <Providers brandMarkUrl={brandMarkUrl} loaderConfig={loaderConfig}>
+          {/* 🚨 THE IN-PLACE SIGN-IN IS DELIBERATELY *NOT* MOUNTED HERE.
+              A provider lived at this spot for one revision and cost 0.6 KB
+              gzipped in the SHARED client chunk — which `main` already fills
+              to 199.8 KB of its locked 200 KB ceiling — because everything the
+              root layout's client tree touches lands there, on every page, for
+              every visitor including the ones who never sign in.
+              Each surface now opens the panel itself via `useSignInPanel()`
+              and pays for it in its own route chunk; the marketing nav reuses
+              the lazily-loaded HomeOverlays chunk it already had. See
+              `_components/auth/sign-in-here.tsx`. */}
           <SiteChrome navSlots={navSlots} />
           {children}
           {/* SiteFooterChrome = the ONE persistent reskin footer, mounted

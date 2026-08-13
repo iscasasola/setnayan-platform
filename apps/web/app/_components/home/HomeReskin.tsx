@@ -582,15 +582,27 @@ export function HomeReskin({
           <button onClick={() => setOverlay('download')}>Download</button>
           <button onClick={() => setOverlay('vendors')}>Vendors</button>
         </div>
-        {/* Sign in → a popup overlay, consistent with Prices / Download /
-            Vendors (owner 2026-06-30 "login should be like the rest of the
-            upper menu — a popup"). The overlay hosts the REAL auth (Google +
-            Apple via OAuthButtonRow / the desktop loopback variant, plus
-            email/password — env-flag gated), wired to the same server actions
-            as /login. Not a mockup. */}
-        <button className="hr-signin hr-glass-dark" onClick={() => setOverlay('signin')}>
+        {/* Sign in → a popup, consistent with Prices / Download / Vendors
+            (owner 2026-06-30 "login should be like the rest of the upper menu
+            — a popup"). It is the REAL auth, not a mockup.
+            2026-08-13: it is now a real LINK whose press is intercepted —
+            it works before hydration and with JavaScript off, and middle-click
+            still opens /login — and the overlay it opens is the shared
+            in-place panel, so signing in lands you back here rather than on
+            the account board. `aria-haspopup="dialog"` keeps that honest to a
+            screen reader: a link, that opens a dialog. */}
+        <Link
+          className="hr-signin hr-glass-dark"
+          href="/login"
+          prefetch={false}
+          aria-haspopup="dialog"
+          onClick={(e) => {
+            e.preventDefault();
+            setOverlay('signin');
+          }}
+        >
           Sign in
-        </button>
+        </Link>
       </nav>
 
       {/* ── HERO — fullscreen, scroll locked ── */}

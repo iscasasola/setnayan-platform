@@ -3131,3 +3131,64 @@ html.hr-snap {
     transition: none;
   }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE SIGN-IN PANEL'S TERRACOTTA — the one place the two palettes meet.
+   (Redesign Session 6, 2026-08-13. `FRONT_DOOR_AND_SEAM_FINAL` §4b.)
+
+   The public site wears gold (#8C6932 / #A9834B); the app wears terracotta
+   (#C24E25, the 2026-08-01 palette lock). The sign-in panel is the threshold,
+   and §4b decides which side it belongs to: the APP's. "It is the first room
+   inside, not the last step outside. That turns the colour change from a
+   mismatch into a threshold you cross once, on purpose."
+
+   ⚠ IT LIVES HERE RATHER THAN IN ITS OWN FILE ON PURPOSE. A separate
+   stylesheet is another module for the webpack chunk manifest to index, and
+   that manifest ships in the SHARED runtime — which `main` already fills to
+   199.8 KB of its locked 200 KB. This file is already imported wherever the
+   panel is.
+
+   ⚠ EVERY SELECTOR IS SCOPED UNDER `.sn-signin-terra`. `.hr-si-*` is shared
+   with /login and the marketing overlays; recolouring the bare class would
+   repaint surfaces this decision says nothing about. This project has paid for
+   over-broad selectors three times in one session.
+
+   🔒 #C24E25 IS THE LOCKED ACTION COLOUR, not a shade picked here. Do not tune.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.home-reskin-ov .hr-ov-card.sn-signin-terra {
+  /* The card itself stays the greige panel — only what you ACT on changes
+     colour. Repainting the whole surface would read as a different product,
+     which is the opposite of the seam. */
+  border-top: 3px solid #c24e25;
+}
+
+/* The one button that takes you inside. */
+.home-reskin-ov .sn-signin-terra .hr-si-submit {
+  background: #c24e25;
+}
+.home-reskin-ov .sn-signin-terra .hr-si-submit:hover:not(:disabled) {
+  background: #b04722;
+}
+/* A focus ring the terracotta cannot swallow — the default ring is drawn for
+   the ink button and disappears on this one. */
+.home-reskin-ov .sn-signin-terra .hr-si-submit:focus-visible {
+  outline: 2px solid #2c2a29;
+  outline-offset: 2px;
+}
+
+/* In-card links (Forgot password · Create one, free) follow the same threshold
+   so the panel has ONE action colour rather than two. */
+.home-reskin-ov .sn-signin-terra .hr-si-link {
+  color: #c24e25;
+}
+
+/* "Stay signed in" — the tick is an action too. */
+.home-reskin-ov .sn-signin-terra .hr-si-remember input {
+  accent-color: #c24e25;
+}
+
+/* The eyebrow reads as the doorway label rather than more body copy. */
+.home-reskin-ov .sn-signin-terra .hr-ov-eyebrow {
+  color: #c24e25;
+}

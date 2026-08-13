@@ -87,10 +87,31 @@ export function Nav({
           {download && <button onClick={() => press('download')}>{download}</button>}
           {vendors && <button onClick={() => press('vendors')}>{vendors}</button>}
         </div>
+        {/*
+SIGN IN STILL GOES THROUGH THIS NAV'S OVERLAY STATE — deliberately.
+          HomeOverlays is already `dynamic(ssr:false)`, so the login form is
+          fetched on the press and costs the SHARED bundle nothing; moving it
+          to a root-layout provider cost 0.6 KB there and broke the budget.
+          What changed is WHAT the overlay renders: the in-place panel, which
+          carries the page you are on as the return destination. This nav's own
+          copy used to hardcode next='/', which is the single reason signing in
+          from an article dropped you off the article.
+          ⚠ Still a real link to /login: it works before hydration and with
+          JavaScript off, and middle-click still opens the page.
+        */}
         {signin && (
-          <button className="hr-signin hr-glass-dark" onClick={() => press('signin')}>
+          <Link
+            className="hr-signin hr-glass-dark"
+            href="/login"
+            prefetch={false}
+            aria-haspopup="dialog"
+            onClick={(e) => {
+              e.preventDefault();
+              press('signin');
+            }}
+          >
             {signin}
-          </button>
+          </Link>
         )}
       </nav>
     </div>

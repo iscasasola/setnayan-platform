@@ -40,6 +40,58 @@ export function SaveVendorButton({
     initiallySaved ? { kind: 'saved' } : { kind: 'idle' },
   );
 
+  /*
+    A FUNCTION DECLARATION, NOT A useCallback — it has to name ITSELF (the
+    retry-after-sign-in below), and a `const` arrow referencing its own
+    initializer is a TypeScript circular-inference error before it is anything
+    else. Declarations hoist, so this is the plain form of "try again".
+  */
+  function attemptSave() {
+    const fd = new FormData();
+    fd.set('vendor_profile_id', vendorProfileId);
+    startTransition(async () => {
+      const result: SaveVendorResult = await saveVendorToPicks(fd);
+      if (result.status === 'ok' || result.status === 'already_saved') {
+        setState({ kind: 'saved' });
+        return;
+      }
+      if (result.status === 'not_signed_in') {
+        /*
+          ⏭ DELIBERATELY LEFT AS A NAVIGATION — the one sign-in in the product
+          that still leaves the page, and a considered call rather than an
+          oversight.
+
+          A signed-out visitor never sees this button at all (`canSave` is false
+          for them), so the ONLY way here is a session that expired while
+          somebody was reading. Wiring the in-place panel to it — which I did,
+          and it worked — made this the FIFTH chunk importing the login form, at
+          which point webpack hoists a shared split chunk whose manifest entries
+          land in the SHARED runtime every page downloads. `main` has 0.2 KB of
+          headroom against a locked 200 KB ceiling, and the rarest sign-in in
+          the product is not what to spend it on.
+
+          `next=` still carries this page back, so the cost is a reload, not a
+          lost destination.
+        */
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/login?next=${next}`;
+        return;
+      }
+      if (result.status === 'no_primary_event') {
+        setState({
+          kind: 'error',
+          message: 'Create an event first to save vendors.',
+        });
+        return;
+      }
+      if (result.status === 'vendor_not_found') {
+        setState({ kind: 'error', message: 'Vendor unavailable.' });
+        return;
+      }
+      setState({ kind: 'error', message: result.message ?? 'Save failed.' });
+    });
+  }
+
   if (!canSave) return null;
 
   const isSaved = state.kind === 'saved';
@@ -61,34 +113,7 @@ export function SaveVendorButton({
       onSubmit={(event) => {
         event.preventDefault();
         if (isSaved || pending) return;
-        const fd = new FormData();
-        fd.set('vendor_profile_id', vendorProfileId);
-        startTransition(async () => {
-          const result: SaveVendorResult = await saveVendorToPicks(fd);
-          if (result.status === 'ok' || result.status === 'already_saved') {
-            setState({ kind: 'saved' });
-            return;
-          }
-          if (result.status === 'not_signed_in') {
-            // Bounce the visitor through login; after login they land back
-            // on this URL and can save again.
-            const next = encodeURIComponent(window.location.pathname + window.location.search);
-            window.location.href = `/login?next=${next}`;
-            return;
-          }
-          if (result.status === 'no_primary_event') {
-            setState({
-              kind: 'error',
-              message: 'Create an event first to save vendors.',
-            });
-            return;
-          }
-          if (result.status === 'vendor_not_found') {
-            setState({ kind: 'error', message: 'Vendor unavailable.' });
-            return;
-          }
-          setState({ kind: 'error', message: result.message ?? 'Save failed.' });
-        });
+        attemptSave();
       }}
       className="inline-flex"
     >

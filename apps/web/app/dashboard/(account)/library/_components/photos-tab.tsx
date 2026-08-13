@@ -2,11 +2,15 @@ import Link from 'next/link';
 import { ArrowRight, Camera, Play, Plus, Sparkles } from 'lucide-react';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { getPhotosAlbums, type Album } from '../_data/photos-albums';
+import { stanceClosedReason } from '@/lib/event-board';
 
 // Photos & Videos tab — the cross-event, album-per-event grid. One card per
-// event the user hosts (OWNED) or attended, each linking into the existing
-// per-event Papic studio (where the full PapicGalleryGrid + "Download all"
-// already live). Reuses: lib/papic-gallery.ts (owned visibility filter),
+// event the user hosts (OWNED) or attended. An OWNED card opens the per-event
+// Papic studio (where the full PapicGalleryGrid + "Download all" already live);
+// an ATTENDED card opens the event's own public address, because the studio —
+// and the whole /dashboard/[eventId] shell — admits member_type='couple' only.
+// The destination is decided once, in lib/event-board.eventAlbumHref.
+// Reuses: lib/papic-gallery.ts (owned visibility filter),
 // lib/guest-live-gallery.ts (attended tagged+clean privacy gate),
 // getSwitcherData (event list + monograms + role), EventMonogram, and the
 // rounded-2xl border-ink/10 card shell from
@@ -226,16 +230,21 @@ export async function PhotosTab({
 }
 
 function AlbumCard({ album }: { album: Album }) {
-  const { event, role, count, thumbs } = album;
+  const { event, role, count, thumbs, href } = album;
   const hosting = role === 'couple';
-  const studioHref = `/dashboard/${event.event_id}/studio/papic`;
   const hasMedia = count > 0;
 
-  return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm">
-      {/* Thumbnail strip */}
-      <Link href={studioHref} className="block">
-        <div className="grid grid-cols-4 gap-px bg-ink/5">
+  // WHERE THIS CARD GOES IS NOT A CONSTANT. Until 2026-08-13 it built one
+  // destination — the host's Papic studio — and rendered it twice, on a card
+  // that two lines below prints "Attended". An invited person saw her own
+  // thumbnails and pressed them into a 404, because
+  // app/dashboard/[eventId]/layout.tsx admits member_type='couple' only.
+  // `album.href` comes from lib/event-board.eventAlbumHref and is NULL when an
+  // invited person's host has not opened a public address — the card then
+  // renders the peek strip unwrapped and says why, which is true, instead of
+  // offering a door that slams.
+  const thumbStrip = (
+    <div className="grid grid-cols-4 gap-px bg-ink/5">
           {thumbs.length > 0
             ? thumbs.slice(0, 4).map((t, i) => (
                 <div key={i} className="relative aspect-square overflow-hidden bg-cream">
@@ -265,8 +274,19 @@ function AlbumCard({ album }: { album: Album }) {
                   ) : null}
                 </div>
               ))}
-        </div>
-      </Link>
+    </div>
+  );
+
+  return (
+    <article className="flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm">
+      {/* Thumbnail strip — linked only when this person has somewhere to go. */}
+      {href ? (
+        <Link href={href} className="block">
+          {thumbStrip}
+        </Link>
+      ) : (
+        thumbStrip
+      )}
 
       {/* Card body */}
       <div className="flex flex-1 flex-col gap-3 p-4">
@@ -295,13 +315,19 @@ function AlbumCard({ album }: { album: Album }) {
           </div>
         </div>
 
-        <Link
-          href={studioHref}
-          className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
-        >
-          {hasMedia ? 'View & download' : 'Open album'}
-          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </Link>
+        {href ? (
+          <Link
+            href={href}
+            className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
+          >
+            {hasMedia ? 'View & download' : 'Open album'}
+            <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </Link>
+        ) : (
+          <p className="mt-auto rounded-xl bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
+            {stanceClosedReason(role)}
+          </p>
+        )}
       </div>
     </article>
   );

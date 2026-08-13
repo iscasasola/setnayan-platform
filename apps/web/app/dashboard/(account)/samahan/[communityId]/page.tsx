@@ -20,10 +20,14 @@ import {
   fetchCommunityEvents,
   fetchCommunityRoster,
   fetchInviteToken,
-  fetchViewerEventIds,
+  fetchViewerEventMemberships,
   type CommunityEventRow,
   type CommunityRosterEntry,
 } from '@/lib/communities';
+import { eventBoardHref, stanceClosedReason } from '@/lib/event-board';
+import type { EventWithRole } from '@/lib/events';
+
+type EventMemberType = EventWithRole['member_type'];
 import {
   archiveCommunity,
   demoteMember,
@@ -92,14 +96,14 @@ export default async function SamahanSpacePage({
 
   // Per-tab data — fetched only for the active tab (plus the header's event
   // count, which reuses the events fetch when the Events tab is active).
-  const [roster, events, viewerEventIds, inviteToken] = await Promise.all([
+  const [roster, events, viewerMemberships, inviteToken] = await Promise.all([
     tab === 'members'
       ? fetchCommunityRoster(supabase, createAdminClient(), communityId, user.id)
       : Promise.resolve([] as CommunityRosterEntry[]),
     fetchCommunityEvents(supabase, communityId),
     tab === 'events'
-      ? fetchViewerEventIds(supabase, user.id)
-      : Promise.resolve(new Set<string>()),
+      ? fetchViewerEventMemberships(supabase, user.id)
+      : Promise.resolve(new Map<string, EventMemberType>()),
     isOrganizer && tab === 'overview'
       ? fetchInviteToken(supabase, communityId)
       : Promise.resolve(null),
@@ -221,7 +225,7 @@ export default async function SamahanSpacePage({
           communityId={community.community_id}
           events={events}
           isOrganizer={isOrganizer}
-          viewerEventIds={viewerEventIds}
+          viewerMemberships={viewerMemberships}
         />
       )}
     </div>
@@ -497,12 +501,12 @@ function EventsTab({
   communityId,
   events,
   isOrganizer,
-  viewerEventIds,
+  viewerMemberships,
 }: {
   communityId: string;
   events: CommunityEventRow[];
   isOrganizer: boolean;
-  viewerEventIds: Set<string>;
+  viewerMemberships: Map<string, EventMemberType>;
 }) {
   // Community event creation (plan §7 · PR-3): organizers only — the
   // create-event page and the server action both re-verify.
@@ -548,7 +552,25 @@ function EventsTab({
       ) : null}
       <div className="divide-y divide-ink/5">
         {events.map((e) => {
-          const isMember = viewerEventIds.has(e.event_id);
+          // "Am I on this event?" was never the question — "where may I go?"
+          // is. This row used to link EVERY membership into
+          // `/dashboard/[eventId]`, a shell that admits member_type='couple'
+          // only, so an invited person got a hover arrow promising a door and a
+          // 404 behind it — while the row for an event they are NOT on told the
+          // truth. eventBoardHref is the one place that answers this.
+          const memberType = viewerMemberships.get(e.event_id) ?? null;
+          const href = memberType
+            ? eventBoardHref({
+                event_id: e.event_id,
+                slug: e.slug,
+                member_type: memberType,
+              })
+            : null;
+          // An invited person with no page yet must NOT read "ask an organizer
+          // to add you" — they were added. Different state, different sentence.
+          const closedReason = memberType
+            ? stanceClosedReason(memberType)
+            : 'Ask an organizer to add you to this event.';
           const inner = (
             <>
               <span className="min-w-0 flex-1">
@@ -562,10 +584,10 @@ function EventsTab({
                 </span>
                 <span className="mt-0.5 block text-xs text-ink/45">
                   {shortDate(e.event_date) ?? 'Date to be set'}
-                  {!isMember ? ' · Ask an organizer to add you to this event.' : ''}
+                  {!href ? ` · ${closedReason}` : ''}
                 </span>
               </span>
-              {isMember ? (
+              {href ? (
                 <ArrowUpRight
                   aria-hidden
                   className="h-4 w-4 shrink-0 text-ink/30 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
@@ -573,10 +595,10 @@ function EventsTab({
               ) : null}
             </>
           );
-          return isMember ? (
+          return href ? (
             <Link
               key={e.event_id}
-              href={`/dashboard/${e.event_id}`}
+              href={href}
               className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-white/70"
             >
               {inner}

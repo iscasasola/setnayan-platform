@@ -6,6 +6,10 @@ import {
   isMissingRelationError,
   logQueryError,
 } from '@/lib/supabase/error-detect';
+import type { EventWithRole } from '@/lib/events';
+
+/** The four values of the shipped `public.member_type` enum. */
+type EventMemberType = EventWithRole['member_type'];
 
 // Samahan (Communities) — lib layer for the minimal cut (PR-2 of 4).
 // Spec: Samahan_Minimal_Build_Plan_2026-07-15.md §3 (spec corpus). Schema:
@@ -56,6 +60,13 @@ export type CommunityEventRow = {
   event_type: string;
   event_date: string | null;
   archived: boolean;
+  /**
+   * The event's public address, needed to decide where an INVITED viewer's row
+   * may go. `authenticated` holds a column-level SELECT grant on events.slug
+   * (verified against prod 2026-08-13), so naming it here cannot reject the
+   * query the way an ungranted column would.
+   */
+  slug: string | null;
 };
 
 type MembershipJoinRow = {
@@ -201,7 +212,7 @@ export async function fetchCommunityEvents(
 ): Promise<CommunityEventRow[]> {
   const { data, error } = await supabase
     .from('events')
-    .select('event_id, display_name, event_type, event_date, archived')
+    .select('event_id, display_name, event_type, event_date, archived, slug')
     .eq('community_id', communityId)
     .order('event_date', { ascending: true, nullsFirst: false });
   if (error) {
@@ -219,30 +230,63 @@ export async function fetchCommunityEvents(
 }
 
 /**
- * The event_ids the viewer is an event MEMBER of — decides which Events-tab
- * rows LINK into `/dashboard/[eventId]` vs render as static text ("Ask an
- * organizer to add you to this event.").
+ * The viewer's event memberships, BY member_type — which decides where each
+ * Events-tab row may send them.
+ *
+ * 🔑 RLS IS A FLOOR, NOT A SCOPE. This read is scoped by `.eq('user_id', …)`,
+ * so every row it returns really is the viewer's — but "is a member" was never
+ * the question the caller needed answered. It used to return a bare Set of
+ * event_ids with NO member_type filter, so an INVITED membership rendered the
+ * row as a link into `/dashboard/[eventId]` — a shell that admits
+ * member_type='couple' only (plus an accepted event_moderators row). The row
+ * grew a hover arrow meaning "you can open this" and then 404'd them, while the
+ * row for an event they are NOT on said the honest thing.
+ *
+ * Returning the member_type lets the caller ask lib/event-board.eventBoardHref
+ * where this person may actually go, instead of re-deriving that answer here.
+ *
+ * ⚠ MODERATORS ARE NOT IN THIS MAP. An accepted `event_moderators` row also
+ * opens the dashboard, and prod holds 3 of them, but they carry no
+ * `event_members` row — so they were already absent from the old Set and are
+ * absent from this one. That is a pre-existing wrong-but-safe state (they read
+ * "ask an organizer" instead of getting a link), NOT a regression introduced
+ * here, and it is named rather than quietly fixed: widening this read to a
+ * second table is a different change with its own blast radius.
+ *
+ * ⚠ NOT A ZERO-CLAIM READ. An error degrades to an EMPTY map, which is
+ * indistinguishable from "this viewer is on none of these events". Callers must
+ * therefore never print a count of the viewer's memberships from this value.
  */
-export async function fetchViewerEventIds(
+export async function fetchViewerEventMemberships(
   supabase: SupabaseClient,
   userId: string,
-): Promise<Set<string>> {
+): Promise<Map<string, EventMemberType>> {
   const { data, error } = await supabase
     .from('event_members')
-    .select('event_id')
+    .select('event_id, member_type')
     .eq('user_id', userId);
   if (error) {
     logQueryError(
-      'fetchViewerEventIds',
+      'fetchViewerEventMemberships',
       error,
       { user_id: userId },
       'graceful_degrade',
     );
-    return new Set();
+    return new Map();
   }
-  return new Set(
-    ((data ?? []) as Array<{ event_id: string }>).map((r) => r.event_id),
-  );
+  const byEvent = new Map<string, EventMemberType>();
+  for (const r of (data ?? []) as Array<{
+    event_id: string;
+    member_type: EventMemberType;
+  }>) {
+    // A person can hold more than one membership row on one event. 'couple'
+    // wins, because it is the door that opens onto more — the same precedent
+    // mergeBoardMemberships sets on the events board.
+    if (r.member_type === 'couple' || !byEvent.has(r.event_id)) {
+      byEvent.set(r.event_id, r.member_type);
+    }
+  }
+  return byEvent;
 }
 
 /**

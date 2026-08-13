@@ -105,6 +105,52 @@ export function eventBoardHref(event: {
 }
 
 /**
+ * The SAME stance question, asked by a card that opens an ALBUM rather than the
+ * event's front page — Library › Photos & Videos.
+ *
+ * organiser → the Papic studio, the album surface the dashboard already admits
+ *             them to.
+ * invited   → the event's own public address. `/{slug}` is where an invited
+ *             person's tagged photos already live; the studio is host-only, so
+ *             pointing them at it is the 404 this module exists to stop.
+ *
+ * ⚠ THE SLUG PASSED HERE MUST BE THE EVENT'S ACTUAL ADDRESS, NOT A SHARE-GATED
+ * ONE. `Album.slug` in the Library data layer is deliberately narrowed to
+ * EFFECTIVELY-PUBLIC events because it anchors a broadcast Facebook link — a
+ * different question with a different right answer. Reusing that value here
+ * would strip the link from an invited person on an unlisted or not-yet-launched
+ * wedding they can open perfectly well. Two questions, two values.
+ */
+export function eventAlbumHref(event: {
+  event_id: string;
+  slug?: string | null;
+  member_type: EventWithRole['member_type'];
+}): string | null {
+  const stance = eventStance(event.member_type);
+  if (stance === 'organiser') return `/dashboard/${event.event_id}/studio/papic`;
+  if (stance !== 'invited') return null;
+  const slug = event.slug?.trim();
+  return slug ? `/${slug}` : null;
+}
+
+/**
+ * What to SAY when there is no href — because silence reads as an unfinished
+ * feature, and the board's existing "Ask an organizer to add you to this event"
+ * is a lie told to somebody who was already added.
+ *
+ * The distinction that matters: a person with NO membership needs to be let in;
+ * an invited person whose host has not opened a page yet is already in and has
+ * nothing to press. Those are different sentences.
+ */
+export function stanceClosedReason(
+  memberType: EventWithRole['member_type'],
+): string {
+  return eventStance(memberType) === 'invited'
+    ? 'You’re invited — the organizer hasn’t opened this event’s page yet.'
+    : 'Ask an organizer to add you to this event.';
+}
+
+/**
  * PH-local "today" as an ISO date. The board's finished/coming-up boundary is a
  * CALENDAR DAY in the venue's country, never an instant — a wedding is not
  * "finished" at 08:00 PH because it is still yesterday in UTC.

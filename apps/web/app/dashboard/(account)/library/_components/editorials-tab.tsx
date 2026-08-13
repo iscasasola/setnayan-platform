@@ -80,22 +80,31 @@ function Section({
 
 function EditorialCard({ item }: { item: LibraryEditorial }) {
   // Link target:
-  //   · OWNED → the per-event editorial editor (always reachable to the host).
-  //   · ATTENDED (always published here) → the public /[slug] page.
+  //   · OWNED → the per-event editorial editor. Reachable: `owned` here means
+  //     member_type='couple' OR an accepted event_moderators row, and
+  //     app/dashboard/[eventId]/layout.tsx admits exactly those two.
+  //   · ATTENDED → the public /[slug] page, and NOTHING ELSE.
   // For an OWNED + PUBLISHED editorial the primary tile opens the editor; we add
   // a secondary "View page" link so the host can also see the live page.
+  //
+  // ⛔ NO `?? editorHref` FALLBACK ON THE ATTENDED BRANCH. `attended` is
+  // member_type='guest' by construction, and the editor is organiser-only — so
+  // the old `publicHref ?? editorHref` sent a guest whose event has no slug
+  // into a guaranteed 404. The gate above admits an attended card on
+  // visibility != private WITHOUT requiring a slug, so null is reachable by
+  // construction (no such row in prod today: the one slug-NULL event is
+  // private). A card with nowhere to go renders WITHOUT a link — the same call
+  // lib/event-board.eventBoardHref makes when it returns null rather than
+  // building `/null`.
   const editorHref = `/dashboard/${item.eventId}/website/editorial`;
   const publicHref = item.slug ? `/${item.slug}` : null;
-  const primaryHref =
-    item.relation === 'owned' ? editorHref : publicHref ?? editorHref;
+  const primaryHref = item.relation === 'owned' ? editorHref : publicHref;
 
   const monogram = (item.monogramColor ?? '#A9834B').trim();
   const initials = deriveInitials(item.displayName);
 
-  return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm transition-shadow hover:shadow-md">
-      <Link href={primaryHref} className="block">
-        <div className="relative aspect-[3/2] w-full overflow-hidden bg-cream">
+  const hero = (
+    <div className="relative aspect-[3/2] w-full overflow-hidden bg-cream">
           {item.heroImageUrl ? (
             // Presigned R2 URL — plain <img>, not next/image (the host isn't in
             // the next/image domain allowlist).
@@ -119,11 +128,21 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
               </span>
             </div>
           )}
-          <span className="absolute left-3 top-3">
-            <StatusChip published={item.published} />
-          </span>
-        </div>
-      </Link>
+      <span className="absolute left-3 top-3">
+        <StatusChip published={item.published} />
+      </span>
+    </div>
+  );
+
+  return (
+    <article className="group flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm transition-shadow hover:shadow-md">
+      {primaryHref ? (
+        <Link href={primaryHref} className="block">
+          {hero}
+        </Link>
+      ) : (
+        hero
+      )}
 
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="min-w-0">
@@ -157,14 +176,18 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
                 </Link>
               ) : null}
             </>
-          ) : (
+          ) : publicHref ? (
             <Link
-              href={publicHref ?? editorHref}
+              href={publicHref}
               className="inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-terracotta-800"
             >
               View editorial
               <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             </Link>
+          ) : (
+            <p className="rounded-xl bg-ink/[0.03] px-3 py-1.5 text-xs text-ink/55">
+              The organizer hasn’t opened this event’s page yet.
+            </p>
           )}
         </div>
       </div>

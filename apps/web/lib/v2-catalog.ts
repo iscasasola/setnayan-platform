@@ -48,6 +48,21 @@ export type V2CustomerSku = {
   service_code: string;
   title: string;
   retail_price_php: number;     // in pesos (NUMERIC from DB · already in PHP)
+  /**
+   * The SIGN-UP price — what this service costs if you take it while creating
+   * your event, versus `retail_price_php` afterwards (owner 2026-08-12).
+   *
+   * ⚠ NULLABLE, AND NULL MEANS "NO SIGN-UP DISCOUNT ON THIS SERVICE" — most rows
+   * have none. It does NOT mean free. Reading it as 0 would hand the product
+   * away, which is why every consumer falls back to the regular price and never
+   * to zero; `lib/setnayan-ai-event-pricing.ts` already states that rule for the
+   * checkout path and this is the same column.
+   *
+   * 🔑 IT WAS ALREADY IN THE DATABASE AND ALREADY CHARGED — it was just invisible
+   * to every PUBLIC surface, because this select did not ask for it. Setnayan AI
+   * has carried two prices since 2026-08-12 and `/pricing` showed one.
+   */
+  onboarding_price_php: number | null;
   saas_overhead_cost_php: number;
   is_token_able: boolean;
   description: string | null;
@@ -222,7 +237,7 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
   }
   let query = admin
     .from('platform_retail_catalog_v2')
-    .select('service_code, title, retail_price_php, saas_overhead_cost_php, is_token_able, description, billing_period, is_pax_priced, pax_floor, pax_floor_price_php, pax_increment_size, pax_increment_price_php')
+    .select('service_code, title, retail_price_php, onboarding_price_php, saas_overhead_cost_php, is_token_able, description, billing_period, is_pax_priced, pax_floor, pax_floor_price_php, pax_increment_size, pax_increment_price_php')
     // RETIRED SKUs must not surface on /pricing, /vendors, the admin discount
     // picker, or the onboarding bundle — honor the is_active flag (owner 2026-06-08:
     // the only way to retire a customer SKU is is_active=false). Previously this
@@ -255,6 +270,10 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
     service_code: row.service_code as string,
     title: row.title as string,
     retail_price_php: Number(row.retail_price_php),
+    // NULL stays NULL — "this service has no sign-up price", never 0. See the
+    // field's docblock on V2CustomerSku.
+    onboarding_price_php:
+      row.onboarding_price_php == null ? null : Number(row.onboarding_price_php),
     saas_overhead_cost_php: Number(row.saas_overhead_cost_php),
     is_token_able: Boolean(row.is_token_able),
     description: (row.description as string | null) ?? null,
@@ -347,6 +366,15 @@ export const getVendorPrices = cache(async () => {
   const entMo = price('enterprise_vendor_monthly');
   const entYr = price('enterprise_vendor_annual');
   const branch = price('vendor_branch_28day');
+  // The Custom tier's "from" floor. It WAS being typed into
+  // app/_components/home/vendor-benefits.ts on the stated grounds that Custom
+  // "is not a DB catalog SKU (Custom is composed per plan)" — untrue:
+  // `vendor_custom_base` is an active row, and it is the number that was typed.
+  // ⚠ NO PESO FALLBACK, deliberately, unlike the tier fields above. A "from"
+  // price that silently reverts to a stale literal is how the /vendors label,
+  // the matrix header and the matrix's own regex fallback ended up as three
+  // copies of one number. Unreadable → null → the surface omits the figure.
+  const customBase = price('vendor_custom_base');
   const pack = rows.find((r) => r.offering_type === 'token_pack' && r.token_grant_count);
   // Fallback mirrors the live flat ₱200/token ladder (2026-07-15 catalog
   // restructure: ₱1,000 = 5 tokens) so a DB-unreachable build never renders a
@@ -371,6 +399,8 @@ export const getVendorPrices = cache(async () => {
     enterpriseAnnual: fmt(entYr, '₱80,000'),
     enterpriseAnnualSave: save(entMo, entYr, '₱24,000'),
     branch: fmt(branch, '₱999'),
+    /** `null` when unreadable — callers render the bare label, never a guess. */
+    customFrom: customBase == null ? null : `₱${formatPeso(customBase)}`,
     tokenUnit: `₱${formatPeso(tokenUnit)}`,
     // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
     num: {

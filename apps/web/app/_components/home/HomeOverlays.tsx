@@ -118,7 +118,9 @@ const TOTAL_VENDOR_BENEFIT_COUNT = (() => {
     (n, s) => n + s.groups.reduce((m, g) => m + g.items.length, 0),
     0,
   );
-  const custom = VENDOR_CUSTOM_TIER.benefits?.length ?? 0;
+  // The dials are LABELS, deliberately price-free, so this module-level count
+  // needs no catalog read — see the docblock on VENDOR_CUSTOM_TIER.
+  const custom = VENDOR_CUSTOM_TIER.dials.length;
   return named + custom + PLAN_CAPABILITY_ROW_COUNT;
 })();
 const TOTAL_VENDOR_BENEFIT_LABEL = TOTAL_VENDOR_BENEFIT_COUNT >= 100 ? '100+' : String(TOTAL_VENDOR_BENEFIT_COUNT);

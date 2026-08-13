@@ -86,6 +86,23 @@ export type FrontDoorStory = {
    * than a guess.
    */
   readingMinutes: number | null;
+  /**
+   * The chapter's poster. `null` is COMMON and legitimate, not a failure:
+   * a thumbnail is only derivable from YouTube, so an Instagram or TikTok
+   * chapter has a real video and no poster, and a chapter told purely in
+   * writing has neither.
+   *
+   * ⚠ NOT THE SAME QUESTION AS `hasVideo` — see that field. Deciding "is there
+   * a video" from this is the bug fixed in #4402.
+   *
+   * ⚠ NEVER A PRESIGNED R2 URL. This shelf is ISR, so a signed poster baked
+   * into the HTML starts 403ing hours later with no deploy and nothing to
+   * blame. A YouTube thumb URL is stable and unsigned, which is exactly why
+   * the loader only derives one from YouTube.
+   */
+  thumbUrl: string | null;
+  /** The opening line — the hero for a chapter told in writing. */
+  excerpt: string | null;
 };
 
 export type FrontDoorShop = {
@@ -247,10 +264,32 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
     title: s.title,
     ownerName: s.ownerName,
     kindLabel: s.kindLabel,
-    hasVideo: Boolean(s.thumbUrl),
+    /*
+      ⚠ THE LOADER'S OWN `hasVideo`, NEVER `Boolean(thumbUrl)`.
+
+      `thumbUrl` is a YOUTUBE-DERIVED poster, and only YouTube yields a
+      derivable thumbnail — so an Instagram or TikTok chapter has a video and
+      no thumb. Deriving "has video" from the picture therefore answers NO for
+      a chapter that is entirely video, which drops it out of the "With video"
+      chip and strips the ▶ from its card.
+
+      `StorytellerTileItem` says this in the type itself, and records that the
+      same substitution was already made once ("Deciding the Watch/Read label
+      from the thumbnail labelled those 'Read'"). The first cut of this file
+      made it again. The loader already computes the honest answer from
+      `embed_url`; carry it.
+    */
+    hasVideo: s.hasVideo,
     // Real now: computed at the loader from the FULL body, not guessed from
     // the lede. Still null-able — a chapter with no body shows no minutes.
+    // (#4400 closed the debt this file used to name here.)
     readingMinutes: s.readingMinutes,
+    // The two the card leads with. The loader has always had both; the front
+    // door simply never carried them, so its card printed the WORDS "THEIR
+    // STORY" where the picture goes — the same placeholder the shop card was
+    // corrected for in #4400, on the card beside it.
+    thumbUrl: s.thumbUrl,
+    excerpt: s.excerpt,
   }));
 
   // ⚠ SAMPLES ARE NOT REAL WEDDINGS. `loadPublishedShowcases` deliberately

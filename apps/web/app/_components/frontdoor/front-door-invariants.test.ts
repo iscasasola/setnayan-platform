@@ -459,3 +459,199 @@ test('chapter reading time is computed from the body, never the excerpt', () => 
     'storytellers.ts must not re-derive the words-per-minute rule',
   );
 });
+
+/* ── 14 · THE ONE SHELF ACTUALLY USES THE SHARED CHIP RULE ────────────────
+   `lib/front-door-composition.test.ts` proves `selectShelf` is right. That
+   proves NOTHING about this page: extracting a pure core and testing it while
+   the call site quietly keeps its own copy is a guard watching the wrong
+   thing. So this asserts the ACT (the feed calls it) AND THE CONSEQUENCE (the
+   page renders what it returned, and holds no second copy of the rule). */
+test('the shelf contents come from the shared chip rule, not a local copy', () => {
+  assert.ok(
+    /selectShelf\(chip,/.test(FEED_CODE),
+    'the feed must ask the shared composer what the chip admits',
+  );
+
+  // THE CONSEQUENCE — the returned lists are what reach the screen. Without
+  // this, the feed could call selectShelf, discard it, and still pass.
+  for (const rendered of ['shownStories', 'shownArticles', 'nothingUnderChip']) {
+    assert.ok(
+      new RegExp(`\\b${rendered}\\b`).test(FEED_CODE),
+      `${rendered} is destructured but never used — the call would be decoration`,
+    );
+  }
+  assert.ok(
+    /leadStories\.map/.test(FEED_CODE) && /leadArticles\.map/.test(FEED_CODE),
+    'both kinds must render into the one shelf',
+  );
+
+  // NO SECOND COPY. A re-implemented ternary chain beside the call is how the
+  // page and the tested rule start disagreeing.
+  assert.ok(
+    !/chip === 'With video'\s*\?/.test(FEED_CODE),
+    'the chip rule must live in one place — this is a second copy of it',
+  );
+});
+
+/* ── 15 · THE KIND LIVES ON THE CARD ──────────────────────────────────────
+   The merge only works because each card says which kind it is. Lose the tag
+   and the shelf becomes an undifferentiated pile in which our own writing is
+   indistinguishable from a couple's story — which is the one thing the owner
+   asked the card, not the shelf, to carry. */
+test('every card in the one shelf declares its kind', () => {
+  assert.ok(
+    /fd-kindtag[^]*?>\s*Article\s*</.test(FEED_CODE),
+    'the article card must carry the word Article',
+  );
+  assert.ok(
+    /fd-kindtag[^]*?>\s*Their story\s*</.test(FEED_CODE),
+    'the story card must carry the words Their story',
+  );
+  // …and the shelf itself must NOT be split back into two headed rows.
+  assert.ok(
+    /one shelf/.test(FEED),
+    'the shelf still states the rule it exists to keep',
+  );
+});
+
+/* ── 16 · "WITH VIDEO" ASKS THE LOADER, NOT THE PICTURE ───────────────────
+   `thumbUrl` is YouTube-only. Deriving "has video" from it answers NO for a
+   chapter that is entirely video but hosted elsewhere, so that chapter falls
+   out of the one chip built to find it and loses its ▶. The tile type says so
+   in its own comment, and records the same substitution being made once
+   before. It was made again in data.ts. */
+test('a story\'s video flag comes from the loader, never from its thumbnail', () => {
+  const DATA_CODE = code(readFileSync(join(HERE, 'data.ts'), 'utf8'));
+  assert.ok(
+    /hasVideo:\s*s\.hasVideo\b/.test(DATA_CODE),
+    'the front door must carry the loader\'s hasVideo through',
+  );
+  assert.ok(
+    !/hasVideo:\s*Boolean\(\s*s\.thumbUrl\s*\)/.test(DATA_CODE),
+    'hasVideo derived from thumbUrl drops every non-YouTube chapter',
+  );
+});
+
+/* ── 17 · THE LEAD/TRAILING BOUNDARY COMES FROM THE COMPOSER ──────────────
+   Same lesson as #14: the pure split is proven in
+   `lib/front-door-composition.test.ts`, which proves nothing about this page
+   unless the page actually uses it. A hard-coded `slice(4, …)` here silently
+   drops articles the day the first chapter is featured. */
+test('the shelf rows are split by the composer, not by a hard-coded index', () => {
+  assert.ok(
+    /splitShelfRows\(/.test(FEED_CODE),
+    'the feed must ask the composer where the lead grid stops',
+  );
+  // THE CONSEQUENCE — all three returned rows must reach the screen.
+  assert.ok(
+    /leadStories\.map/.test(FEED_CODE) &&
+      /leadArticles\.map/.test(FEED_CODE) &&
+      /trailingArticles\.map/.test(FEED_CODE),
+    'a row that is computed and never rendered is an article nobody can read',
+  );
+  // NO HAND-TYPED BOUNDARY left beside it.
+  assert.ok(
+    !/shownArticles\.slice\(\s*4\s*,/.test(FEED_CODE),
+    'the trailing row must not start at a hard-coded index',
+  );
+});
+
+/* ── 18 · A COUPLE'S STORY SHOWS ITSELF, NOT THE WORDS "THEIR STORY" ──────
+   #4400 fixed exactly this for the SHOP card (test 12) and did not sweep the
+   card beside it on the same shelf, which went on printing its own name where
+   the picture goes. 🔑 WHEN YOU FIX A CARD-SHAPED BUG, SWEEP EVERY CARD ON
+   THAT SHELF — this is the same lesson as the soft-404 that was fixed on one
+   route and left on its twin.
+
+   Both story renderings are covered: the 16:9 card AND the 9:16 one in the
+   story row, which rendered an empty gradient box beside article cards that
+   all carry a cover — an image that failed to load, rather than a story told
+   in writing. */
+test('a story card leads with its poster or its opening line, never a placeholder word', () => {
+  const storyCard = FEED_CODE.slice(
+    FEED_CODE.indexOf('function StoryCard'),
+    FEED_CODE.indexOf('function ShopCard'),
+  );
+  assert.ok(storyCard.length > 0, 'StoryCard not found');
+
+  // THE DEFECT: the literal words, anchored as a text node — not `>WORD<`,
+  // which test 12 records as having been slipped by a trailing newline.
+  assert.ok(
+    !/>\s*THEIR STORY\b/.test(storyCard),
+    'the literal words "THEIR STORY" must not be the card\'s mark — a real ' +
+      "couple's piece rendered as a placeholder is the defect this replaced",
+  );
+
+  // THE REPLACEMENT: both grammars, in both renderings.
+  for (const [label, src] of [
+    ['the 16:9 card', storyCard],
+    ['the story row', FEED_CODE.slice(FEED_CODE.indexOf('fd-storyrow'))],
+  ] as const) {
+    assert.ok(
+      /s\.thumbUrl \?/.test(src),
+      `${label} must branch on the chapter's poster`,
+    );
+    assert.ok(
+      /s\.excerpt \?\?/.test(src),
+      `${label} must fall back to the opening line, with a terminal fallback ` +
+        'under it — a chapter can legitimately have neither poster nor excerpt',
+    );
+  }
+
+  // THE OTHER END OF THE CHAIN. The loader has always had both fields; the
+  // front door simply never carried them, which is the whole reason the card
+  // printed a word instead of a picture. A card that branches on data nothing
+  // supplies renders the fallback forever and looks exactly like a design
+  // choice.
+  const DATA_CODE = code(readFileSync(join(HERE, 'data.ts'), 'utf8'));
+  for (const field of ['thumbUrl', 'excerpt']) {
+    assert.ok(
+      new RegExp(`${field}:\\s*s\\.${field}`).test(DATA_CODE),
+      `the front door must carry ${field} through from the loader — the card ` +
+        'branches on it',
+    );
+  }
+});
+
+/* ── 19 · THE POSTER IS A PLAIN <img>, BECAUSE next/image WOULD 400 ───────
+   `youtubeThumbFromEmbedUrl` returns `https://i.ytimg.com/...`, and that host
+   is NOT in `remoteImagePatterns` — so `/_next/image?url=…` answers 400 and
+   the poster silently never appears. That is precisely how the R2 remotePattern
+   shipped broken app-wide: a well-formed URL is not a picture arriving.
+
+   This guard exists because `next/image` is the obvious, house-style choice
+   here and it is the WRONG one until the host is allowed. It fails in both
+   directions: reach for next/image without adding the host, or add the host
+   and forget one of the two lists. */
+test('the story poster is not routed through the image optimizer', () => {
+  const storyCard = FEED_CODE.slice(
+    FEED_CODE.indexOf('function StoryCard'),
+    FEED_CODE.indexOf('function ShopCard'),
+  );
+  const rowStories = FEED_CODE.slice(
+    FEED_CODE.indexOf('fd-storyrow'),
+    FEED_CODE.indexOf('fd-sechead', FEED_CODE.indexOf('fd-storyrow')) + 1 ||
+      undefined,
+  );
+
+  const config = readFileSync(join(APP, '..', 'next.config.ts'), 'utf8');
+  const optimizerAllows = /hostname:\s*'i\.ytimg\.com'/.test(config);
+
+  for (const [label, src] of [
+    ['the 16:9 card', storyCard],
+    ['the story row', rowStories],
+  ] as const) {
+    // `<Image` (capital I) is the next/image component; `<img` is the plain tag.
+    const usesOptimizer = /<Image[\s>][\s\S]*?s\.thumbUrl/.test(src);
+    assert.ok(
+      !usesOptimizer || optimizerAllows,
+      `${label}: the poster is rendered with next/image, but i.ytimg.com is ` +
+        'not in remoteImagePatterns — the optimizer answers 400 and the ' +
+        'picture never appears, with nothing thrown and nothing logged',
+    );
+    assert.ok(
+      /<img\s[\s\S]*?src=\{s\.thumbUrl\}/.test(src) || usesOptimizer,
+      `${label}: the poster must actually be rendered from s.thumbUrl`,
+    );
+  }
+});

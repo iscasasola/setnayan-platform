@@ -25,17 +25,22 @@
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { composeFrontDoor } from '@/lib/front-door-composition';
+import {
+  composeFrontDoor,
+  selectShelf,
+  splitShelfRows,
+  FRONT_DOOR_CHIPS as CHIPS,
+} from '@/lib/front-door-composition';
 
 import { type FrontDoorData } from './data';
 
-/** Chips are real links, so filtering works with no JavaScript at all. */
-const CHIPS = ['All', 'Articles', 'Their stories', 'With video'] as const;
-export type ChipKey = (typeof CHIPS)[number];
-
-export function isChip(v: string | undefined): v is ChipKey {
-  return !!v && (CHIPS as ReadonlyArray<string>).includes(v);
-}
+// The chip vocabulary and the rule for what each chip admits live in
+// `lib/front-door-composition.ts` beside the rail thresholds — a rule written
+// inside this file's JSX could not be tested, and "With video" quietly showing
+// nothing looks exactly like a quiet week. Re-exported so existing callers
+// keep importing them from the component they render.
+export { isChip, type ChipKey } from '@/lib/front-door-composition';
+import { type ChipKey } from '@/lib/front-door-composition';
 
 function initialsOf(name: string): string {
   return (
@@ -97,12 +102,49 @@ function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
   return (
     <Link href={s.href} className="fd-item">
       <div className="fd-thumb">
-        THEIR STORY
+        {/* TWO GRAMMARS, decided by what the chapter actually IS — ported from
+            the shipped `StorytellerTile` on /realstories, which already made
+            this call: a poster when there is one, otherwise the opening line
+            as a typographic hero. A story told in writing is not a video with
+            a missing image, so it never renders an empty box.
+
+            This replaced the literal words "THEIR STORY" printed where the
+            picture goes — the same placeholder defect the SHOP card was
+            corrected for in #4400, on the card beside it on the same shelf.
+
+            🪤 A PLAIN <img>, NOT `next/image`, AND THE REASON IS LOAD-BEARING.
+            `youtubeThumbFromEmbedUrl` returns `https://i.ytimg.com/...`, and
+            `i.ytimg.com` is NOT in `remoteImagePatterns` in next.config.ts —
+            so `/_next/image?url=…` answers 400 and the poster silently never
+            appears. That is exactly how the R2 remotePattern shipped broken.
+            Measured: the ENFORCED CSP carries no `img-src` at all (only
+            frame-ancestors + frame-src), and the report-only policy already
+            lists `i.ytimg.com`, so a direct <img> is allowed now AND after
+            that policy is enforced. Do not "upgrade" this to next/image
+            without adding the host to BOTH lists first. */}
+        {s.thumbUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={s.thumbUrl} alt="" loading="lazy" decoding="async" />
+        ) : (
+          <p className="fd-thumb-read">
+            {/* TERMINAL FALLBACK. A chapter can legitimately have neither a
+                poster nor an excerpt (a very short story, or one whose first
+                paragraph is whitespace) — the kind is the floor, never an
+                empty box. Same fallback the shipped tile uses. */}
+            {s.excerpt ?? `A ${s.kindLabel.toLowerCase()} story`}
+          </p>
+        )}
         {/* A written chapter legitimately has no video. The card leads with
             the READ and marks a video as an extra, never as the whole point —
             which is the entire reason the storyteller shelf was empty.
-            No minutes badge: see data.ts — we do not have the body, and a
-            reading time guessed from an excerpt is an invented number. */}
+
+            ⚠ This comment used to end "No minutes badge: we do not have the
+            body, and a reading time guessed from an excerpt is an invented
+            number." The badge was added directly beneath it and the sentence
+            was left standing, so the file told the next reader the opposite
+            of what the two lines under it do. The minutes are REAL now —
+            computed at the loader from the full body — and stay null-able,
+            which is why the badge is conditional rather than always drawn. */}
         {s.readingMinutes !== null ? (
           <span className="fd-dur">{s.readingMinutes} min</span>
         ) : null}
@@ -172,18 +214,21 @@ export function FrontDoorFeed({
     data;
 
   // The chip decides which KINDS are in the shelf. It never changes the page's
-  // structure — only what the one shelf contains.
-  const showArticles = chip === 'All' || chip === 'Articles';
-  const showStories = chip === 'All' || chip === 'Their stories' || chip === 'With video';
-  const shownArticles = showArticles ? articles : [];
-  const shownStories = showStories
-    ? chip === 'With video'
-      ? stories.filter((s) => s.hasVideo)
-      : stories
-    : [];
+  // structure — only what the one shelf contains. The rule itself lives in the
+  // shared composer so it is reachable from a test.
+  const {
+    articles: shownArticles,
+    stories: shownStories,
+    empty: nothingUnderChip,
+  } = selectShelf(chip, articles, stories);
 
-  const nothingUnderChip =
-    shownArticles.length === 0 && shownStories.length === 0;
+  // Where the lead grid stops and the rest of the writing starts — from the
+  // shared composer, because that boundary MOVES with the story count and
+  // hard-coding it silently drops articles (see splitShelfRows).
+  const { leadStories, leadArticles, trailingArticles } = splitShelfRows(
+    shownStories,
+    shownArticles,
+  );
 
   /*
     Every rail's shape comes from the shared composer, not from `if`s written
@@ -242,14 +287,12 @@ export function FrontDoorFeed({
               any, so a real couple's piece is never buried under our own
               writing. */}
           <div className="fd-grid">
-            {shownStories.slice(0, 4).map((s) => (
+            {leadStories.map((s) => (
               <StoryCard key={s.href} s={s} />
             ))}
-            {shownArticles
-              .slice(0, Math.max(0, 4 - shownStories.slice(0, 4).length))
-              .map((a) => (
-                <ArticleCard key={a.slug} a={a} />
-              ))}
+            {leadArticles.map((a) => (
+              <ArticleCard key={a.slug} a={a} />
+            ))}
           </div>
 
           <h2 className="fd-sechead">
@@ -274,6 +317,21 @@ export function FrontDoorFeed({
             {shownStories.slice(0, 6).map((s) => (
               <Link key={s.href} href={s.href} className="fd-story">
                 <div className="fd-sthumb">
+                  {/* The same two grammars as the big card. This box used to
+                      render NOTHING but a badge — a bare gradient rectangle
+                      beside article cards that all carry their cover, which
+                      reads as an image that failed to load rather than as a
+                      story told in writing. Plain <img> for the same reason
+                      as the big card: `i.ytimg.com` is not in
+                      `remoteImagePatterns`, so next/image would 400. */}
+                  {s.thumbUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={s.thumbUrl} alt="" loading="lazy" decoding="async" />
+                  ) : (
+                    <p className="fd-sread">
+                      {s.excerpt ?? `A ${s.kindLabel.toLowerCase()} story`}
+                    </p>
+                  )}
                   {s.readingMinutes !== null ? (
                     <span className="fd-min">{s.readingMinutes} MIN</span>
                   ) : s.hasVideo ? (
@@ -355,9 +413,9 @@ export function FrontDoorFeed({
       </div>
 
       {/* The rest of the writing. This is what actually fills the page today. */}
-      {shownArticles.length > 4 ? (
+      {trailingArticles.length > 0 ? (
         <div className="fd-grid">
-          {shownArticles.slice(4, 12).map((a) => (
+          {trailingArticles.map((a) => (
             <ArticleCard key={a.slug} a={a} />
           ))}
         </div>

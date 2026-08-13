@@ -40,6 +40,131 @@
  */
 export const TRENDING_MIN_LIVE_SHOPS = 12;
 
+// ---------------------------------------------------------------------------
+// ONE SHELF, TWO AUTHORS — which KINDS a chip admits.
+// ---------------------------------------------------------------------------
+
+/**
+ * The chips over the one shelf. Real links, so filtering works with no
+ * JavaScript at all.
+ *
+ * ⚠ THE CHIP CHANGES WHAT THE SHELF CONTAINS, NEVER THE PAGE'S STRUCTURE.
+ * There is one shelf and the CARD says which kind each piece is — that is the
+ * whole point of the merge (owner 2026-08-12). A chip that hid or added a
+ * SHELF would put us back where we started: a row that is permanently empty
+ * and therefore reads as broken rather than young.
+ */
+export const FRONT_DOOR_CHIPS = [
+  'All',
+  'Articles',
+  'Their stories',
+  'With video',
+] as const;
+
+export type ChipKey = (typeof FRONT_DOOR_CHIPS)[number];
+
+export function isChip(v: string | undefined): v is ChipKey {
+  return !!v && (FRONT_DOOR_CHIPS as ReadonlyArray<string>).includes(v);
+}
+
+/** What one chip admits into the shelf. */
+export type ShelfSelection<A, S> = {
+  articles: A[];
+  stories: S[];
+  /** Nothing at all under this chip — the page says so in a sentence. */
+  empty: boolean;
+};
+
+/**
+ * Decide what the one shelf holds under a chip.
+ *
+ * WHY THIS IS A FUNCTION AND NOT THREE TERNARIES INSIDE THE JSX — the same
+ * reason `composeFrontDoor` exists, written one screen above: a rule buried in
+ * an async server component's JSX is unreachable from any test, so its only
+ * symptom when it breaks is a customer finding nothing. "With video" showing an
+ * empty shelf on a day with three video chapters would look exactly like a
+ * quiet week.
+ *
+ * 🔑 "With video" MEANS A VIDEO, NOT A PICTURE OF ONE. A story's `hasVideo`
+ * must be the real signal from the loader. Deriving it from a thumbnail answers
+ * NO for every chapter whose video is not on YouTube — a chapter that is
+ * entirely video, dropped from the one chip that exists to find it.
+ *
+ * Articles carry no video of their own, so "With video" is stories-only. That
+ * is the ported prototype's rule, not an accident: `reads = (kind==='w' ||
+ * kind==='v') ? [] : arts`.
+ */
+export function selectShelf<A, S extends { hasVideo: boolean }>(
+  chip: ChipKey,
+  articles: readonly A[],
+  stories: readonly S[],
+): ShelfSelection<A, S> {
+  const wantsArticles = chip === 'All' || chip === 'Articles';
+  const wantsStories =
+    chip === 'All' || chip === 'Their stories' || chip === 'With video';
+
+  const pickedStories = wantsStories
+    ? chip === 'With video'
+      ? stories.filter((s) => s.hasVideo)
+      : [...stories]
+    : [];
+  const pickedArticles = wantsArticles ? [...articles] : [];
+
+  return {
+    articles: pickedArticles,
+    stories: pickedStories,
+    empty: pickedArticles.length === 0 && pickedStories.length === 0,
+  };
+}
+
+/** How the one shelf's pieces divide between the lead grid and the rest. */
+export type ShelfRows<A, S> = {
+  leadStories: S[];
+  leadArticles: A[];
+  /** The rest of the writing — starts where the lead grid stopped. */
+  trailingArticles: A[];
+};
+
+/**
+ * Divide the one shelf between the lead four-across grid and the trailing row.
+ *
+ * ⚠ THE TRAILING ROW'S START IS NOT A CONSTANT, AND HARD-CODING IT LOSES
+ * ARTICLES. The lead grid fills with STORIES first and tops up with articles,
+ * so how many articles it consumed depends on how many stories exist. The
+ * first cut hard-coded the trailing row to begin at index 4 — correct only on
+ * a day with no stories. With four stories the lead grid took ZERO articles
+ * and the trailing row still began at 4, so the 2nd and 3rd pieces of our
+ * writing rendered nowhere: no error, no hole in the layout, just two articles
+ * that stop existing the day the first chapter is featured.
+ *
+ * The rule this keeps: every article the shelf was handed is either in the
+ * lead grid or the trailing row, in order, with nothing skipped between them.
+ */
+export function splitShelfRows<A, S>(
+  stories: readonly S[],
+  articles: readonly A[],
+  opts?: { lead?: number; trailing?: number },
+): ShelfRows<A, S> {
+  const lead = Math.max(0, Math.floor(opts?.lead ?? 4));
+  const trailing = Math.max(0, Math.floor(opts?.trailing ?? 8));
+
+  const leadStories = stories.slice(0, lead);
+  const leadArticles = articles.slice(
+    0,
+    Math.max(0, lead - leadStories.length),
+  );
+  const trailingArticles = articles.slice(
+    leadArticles.length,
+    leadArticles.length + trailing,
+  );
+
+  return {
+    leadStories: [...leadStories],
+    leadArticles: [...leadArticles],
+    trailingArticles: [...trailingArticles],
+  };
+}
+
 /**
  * Below this, the stories shelf shows a written invitation instead of a grid.
  * Matches what the homepage already shipped before this port — not a new rule.

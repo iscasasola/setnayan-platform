@@ -7398,10 +7398,8 @@
     "/realstories": {
       "files": [
         "realstories/_components/gallery.tsx",
-        "realstories/_components/journal-rail.tsx",
         "realstories/_components/share-buttons.tsx",
         "realstories/_components/stories-search.tsx",
-        "realstories/_components/storytellers-shelf.tsx",
         "realstories/page.tsx"
       ],
       "destinations": [
@@ -7416,7 +7414,6 @@
         "HTMLDivElement",
         "HTMLInputElement",
         "HTMLVideoElement",
-        "JournalRail",
         "Link",
         "PinterestGlyph",
         "RealStoriesGallery",
@@ -7424,7 +7421,6 @@
         "StoriesSearch",
         "StoryCard",
         "StorytellerTile",
-        "StorytellersShelf",
         "Tile",
         "VendorCreditChip"
       ]

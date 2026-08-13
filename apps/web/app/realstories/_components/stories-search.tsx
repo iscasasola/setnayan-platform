@@ -9,16 +9,23 @@
 // the already-public featured+curated pool crosses STORIES_SEARCH_MIN_POOL — a
 // search box over a dozen items reads as a dead platform (Simplicity Canon:
 // don't build search before there's something to find). Below the gate the
-// page keeps its shelf layout (the editorial cascade + the Storytellers shelf);
-// this component never mounts.
+// page keeps its ONE shelf (the editorial cascade plus the chapters and the
+// Journal, merged 2026-08-13); this component never mounts.
 //
 // Facets span BOTH pools but results KEEP THEIR VOICE (the non-negotiable lock):
 //   • editorial → the Chronicle newspaper Tile (reused from gallery.tsx);
 //   • chapter   → the byline-forward StorytellerTile.
-// The two never blur into one grammar — they render in two labelled sections,
-// each filtered by the same shared facet state. Same-event cross-links (the
-// "Watch the storyteller's cut" / "Read the editorial" chips) ride along on the
-// tiles exactly as on the shelves.
+// The two never blur into one grammar.
+//
+// ⚠ CORRECTED 2026-08-13. This used to end "— they render in two labelled
+// sections", and that clause was read as part of the lock. It was the
+// IMPLEMENTATION of it. The lock is the GRAMMAR: an editorial must not look
+// like a chapter. The owner merged the headings onto one shelf ("option B");
+// both tiles are unchanged, so the lock holds. Guarded by
+// `stories-one-shelf.test.ts`, which nothing did before.
+//
+// Same-event cross-links (the "Watch the storyteller's cut" / "Read the
+// editorial" chips) ride along on the tiles exactly as on the shelf.
 //
 // READ-ONLY over the already-public pool: the page hands down only featured
 // chapters + consented/curated editorials, so nothing unpublished/unfeatured/
@@ -252,31 +259,39 @@ export function StoriesSearch({
         </>
       ) : null}
 
-      {/* Editorial results — Chronicle voice. Header only when there is content. */}
-      {editorialResults.length > 0 ? (
-        <>
-          <SectionHead
-            title="From the Editorial Desk"
-            note={`${editorialResults.length} ${editorialResults.length === 1 ? 'edition' : 'editions'}`}
-          />
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {editorialResults.map((r) => (
-              <Tile key={r.key} item={r.editorial} size="card" />
-            ))}
-          </div>
-        </>
-      ) : null}
+      {/* ONE SHELF AT VOLUME TOO — owner decision 2026-08-13 ("option B").
+          This used to render two labelled sections. Leaving it that way would
+          have been a trap with a long fuse: the shelf below the gate merged,
+          this one did not, so the page would silently SPLIT BACK INTO TWO the
+          day the pool crossed STORIES_SEARCH_MIN_POOL — a layout that reverts
+          itself on success, with nothing to blame and nobody watching.
 
-      {/* Storyteller results — byline voice. Kept visually distinct (the lock). */}
-      {chapterResults.length > 0 ? (
-        <section id="storytellers" className="scroll-mt-24">
+          🔒 The council lock is intact and is the reason this is one grid and
+          not one card type: the editorial keeps the Chronicle tile, the
+          chapter keeps the byline tile. What merged is the HEADINGS.
+
+          🚨 THE ANCHOR IS GATED ON CHAPTERS, NOT ON THIS SECTION. Before the
+          merge this section only existed when chapters did, so the id was safe
+          by construction; merging the two made it render for editorials alone,
+          which would have pointed "storytellers" at somebody else's content.
+          Deny-by-default: no chapters, no anchor. */}
+      {editorialResults.length > 0 || chapterResults.length > 0 ? (
+        <section
+          id={chapterResults.length > 0 ? 'storytellers' : undefined}
+          className="scroll-mt-24"
+        >
           <SectionHead
-            title="From Our Storytellers"
-            note={`${chapterResults.length} ${chapterResults.length === 1 ? 'chapter' : 'chapters'}`}
+            title="Everything to read"
+            note={`${editorialResults.length + chapterResults.length} ${
+              editorialResults.length + chapterResults.length === 1 ? 'piece' : 'pieces'
+            } · the card says which kind`}
           />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {chapterResults.map((r) => (
               <StorytellerTile key={r.key} item={r.chapter} editorialHref={r.chapter.editorialHref} />
+            ))}
+            {editorialResults.map((r) => (
+              <Tile key={r.key} item={r.editorial} size="card" tag="Their story" />
             ))}
           </div>
         </section>

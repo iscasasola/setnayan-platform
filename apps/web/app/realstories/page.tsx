@@ -9,7 +9,6 @@ import {
   type ChapterCut,
 } from '@/lib/storytellers';
 import { RealStoriesGallery, type GalleryItem } from './_components/gallery';
-import { StorytellersShelf } from './_components/storytellers-shelf';
 import {
   StoriesSearch,
   type EditorialSearchItem,
@@ -17,27 +16,35 @@ import {
 } from './_components/stories-search';
 import { STORIES_SEARCH_MIN_POOL } from '@/lib/stories-search-config';
 import { publishedBlogArticles } from '@/lib/blog';
-import { JournalRail } from './_components/journal-rail';
 
-// /realstories — THE single public stories hub (iteration 0046 + Storytellers
-// PR-D, council verdict 2026-07-16): two named, visually distinct shelves on
-// one page.
+// /realstories — THE single public stories hub. ONE SHELF, THREE VOICES
+// (owner decision 2026-08-13, "option B" — this block described TWO named
+// shelves until that day, and a third rail underneath).
 //
-// 1 · EDITORIAL SHELF — "a wall of living front pages": every published
-// editorial is a newspaper cover with its Chronicle nameplate, organised by
-// the dedup cascade (Cover → Most loved → Just published → Archive). Event
-// type filter chips let visitors browse by milestone; a search bar covers the
-// full haystack. Real, consent-gated editorials (loadPublishedShowcases) take
-// priority and link to each person's canonical editorial at /[slug] (0002
-// Phase 4). Until any real editorial qualifies (first = the founder's Dec 2026
-// wedding), the page falls back to curated, clearly-labelled SAMPLES.
+// Everything a person can read here shares one shelf, and the CARD says which
+// kind it is:
 //
-// 2 · STORYTELLERS SHELF — "From Our Storytellers" (#storytellers): ONLY
-// owner-featured creator chapters (deny-by-default — publish ≠ listed), in
-// their own byline-forward tile grammar, linking to each chapter's canonical
-// /u/[slug]/c/[id] page (which stays noindex; the hub keeps the SEO equity).
-// ZERO featured chapters ⇒ the shelf renders NOTHING — this page today is
-// byte-identical to its pre-PR-D self until the owner's first Feature click.
+//   · EDITORIALS — "a wall of living front pages": each published editorial is
+//     a newspaper cover with its Chronicle nameplate, organised by the dedup
+//     cascade (Cover → Most loved → Just published → Archive). Consent-gated
+//     (loadPublishedShowcases), linking to each person's canonical editorial
+//     at /[slug]. Until a real one qualifies the page falls back to curated,
+//     clearly-labelled SAMPLES.
+//   · STORYTELLERS' CHAPTERS — ONLY owner-featured (deny-by-default: publish ≠
+//     listed), in their byline-forward tile grammar, linking to the canonical
+//     /u/[slug]/c/[id] page (noindex; the hub keeps the SEO equity). Zero
+//     featured chapters ⇒ nothing renders, no empty heading.
+//   · THE JOURNAL — published articles in the Journal's own photo-led card.
+//
+// 🔒 THE COUNCIL LOCK OF 2026-07-16 IS INTACT AND IS NOW GUARDED. The lock is
+// that the voices never blur into ONE grammar; it is not that they need
+// separate headings. All three render through their own shipped components,
+// and `stories-one-shelf.test.ts` fails if any of them is redrawn here or if
+// a card stops declaring its kind.
+//
+// Event-type chips + the search box cover the shelf; the chips are
+// editorial+chapter only, because a Journal guide has a category and not an
+// event type (see the gallery).
 //
 // Cross-rails ride the creator_chapters.event_id join: editorial cards gain a
 // "Watch the storyteller's cut" chip; chapter tiles gain "Read the editorial".
@@ -285,25 +292,32 @@ export default async function RealStoriesIndexPage() {
             chapters={chapterSearchItems}
           />
         ) : (
-          <>
-            <RealStoriesGallery items={items} />
+          /* ONE SHELF — owner decision 2026-08-13 ("option B"), taken on the
+             drawn comparison in
+             `prototypes/stories_page_one_shelf_or_two_2026-08-13.html`.
 
-            {/* "From Our Storytellers" — renders NOTHING (not even a heading)
-                with zero featured chapters; the editorial cascade above is
-                untouched. */}
-            <StorytellersShelf
-              items={featuredChapters}
-              editorialHrefByEvent={editorialHrefByEvent}
-            />
-          </>
+             The editorials, the storytellers' chapters and the Journal now
+             share this one shelf, and each CARD says which kind it is. The
+             two headed sections that used to follow — "From Our Storytellers"
+             and "From our articles · practical guides" — are gone, not
+             hidden.
+
+             🔒 The council lock is intact: the three voices still render in
+             their own grammars (Chronicle / byline / Journal card). What
+             merged is the headings. `stories-one-shelf.test.ts` enforces it.
+
+             ⚠ Articles are capped at 6 here, not 3. The old rail took 3
+             because it was a footnote under the real content; on one shelf
+             they ARE much of the content — 33 published against one sample
+             story — and three would leave the shelf looking emptier than the
+             archive actually is. */
+          <RealStoriesGallery
+            items={items}
+            chapters={featuredChapters}
+            articles={publishedBlogArticles().slice(0, 6)}
+            editorialHrefByEvent={editorialHrefByEvent}
+          />
         )}
-
-        {/* "From our articles" (E4) — deliberately OUTSIDE the searchMode
-            ternary. Inside the else-branch it would silently disappear the day
-            the pool crosses STORIES_SEARCH_MIN_POOL: a rail that vanishes on
-            success. The guides are just as relevant above the gate as below it.
-            Self-gates to nothing under 2 published articles. */}
-        <JournalRail articles={publishedBlogArticles().slice(0, 3)} />
 
         <div className="mt-16 rounded-3xl border border-ink/10 bg-white/60 p-7 text-center sm:p-10">
           <h2 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">

@@ -110,13 +110,28 @@ export function buildHomeBoardTiles(input: {
     });
   }
 
-  // Alaala — the memory dimension. The only count this surface can state
-  // truthfully from the launcher's own data is how many events have FINISHED
-  // (those are the albums). Moment/media totals live behind AlaalaTile's own
-  // fetch, so quoting one here would be a second, drifting source of the same
-  // number. When nothing has finished yet the tile still renders — Alaala is a
-  // real destination on day one — but with no number attached rather than a
-  // hollow "0 kept".
+  // Alaala — the memory dimension.
+  //
+  // 🔴 THE SUBTITLE USED TO READ "Your moments gather here as events finish",
+  // AND IT WAS FALSE ON THE OWNER'S OWN SCREEN (2026-08-13). He had 14 photos
+  // and clips kept in Alaala and ZERO finished events — two weddings in
+  // December, and a "Movie Night" with no date at all, so `finishedCount` was
+  // 0. The tile told him his memories had not arrived while the wall further
+  // down the SAME PAGE was holding fourteen of them. He asked why.
+  //
+  // 🔑 A CLAIM ABOUT MEMORIES MADE FROM A COUNT OF EVENTS. Identical shape to
+  // "No events attended yet" printed from an absence of PHOTOS, fixed the same
+  // day — and it survived that sweep because it lives in a summary tile rather
+  // than in Alaala itself. Alaala keeps photographs; whether a party has ended
+  // says nothing about whether anything is kept.
+  //
+  // The subtitle is now a description of the DESTINATION, true on day one and
+  // true at year six, and it never conditions on an event count. The original
+  // reasoning below still holds and is why no media total is quoted here:
+  // moment/media totals live behind AlaalaTile's own fetch, and a second copy
+  // here would be a drifting source of the same number. `finishedCount` stays
+  // as the tile's VALUE — it is an honest count of celebrations, labelled as
+  // one, and hidden entirely at zero rather than shown as a hollow "0".
   tiles.push({
     key: 'alaala',
     href: '/dashboard/library',
@@ -124,10 +139,7 @@ export function buildHomeBoardTiles(input: {
     label: 'Alaala',
     value: input.finishedCount,
     unit: 'celebrated',
-    sub:
-      input.finishedCount > 0
-        ? 'Albums, moments & your Life-Flash'
-        : 'Your moments gather here as events finish',
+    sub: 'Every photo and clip you keep',
     dark: true,
     hideValueWhenZero: true,
   });

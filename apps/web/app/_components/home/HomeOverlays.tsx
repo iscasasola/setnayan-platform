@@ -171,12 +171,28 @@ function PricesOverlay({
         <li>Customized QR for each guest</li>
         <li>Keep all your memories — free</li>
       </ul>
-      {/* Quick paid-tier intro — Setnayan AI, priced live from the catalog. */}
-      {pricing ? (
+      {/* Quick paid-tier intro — Setnayan AI, priced live from the catalog.
+          ⚠ IT MUST SAY WHAT /pricing SAYS. Setnayan AI has carried TWO prices
+          since 2026-08-12, and when only one of the two surfaces shows the
+          sign-up figure, the same visitor is quoted two different prices
+          depending on whether they opened a popup or the page. `pricing` comes
+          from the SAME resolver /pricing uses, and `aiHasSignupPrice` is the
+          field that decides — it existed with zero readers until this line,
+          which is exactly how the two surfaces drifted apart in the first
+          place. */}
+      {pricing && pricing.aiPrice ? (
         <div className="hr-gintro">
           <span className="hr-gintro-h">Setnayan AI</span>
           <span className="hr-gintro-b">
-            the planning brain that filters your vendors — {pricing.aiPrice}, one-time · access until your wedding.
+            the planning brain that filters your vendors —{' '}
+            {pricing.aiHasSignupPrice ? (
+              <>
+                {pricing.aiIntroPrice} while you set your event up ({pricing.aiPrice} after)
+              </>
+            ) : (
+              pricing.aiPrice
+            )}
+            , one-time · access until your wedding.
           </span>
         </div>
       ) : null}

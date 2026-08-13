@@ -74,36 +74,44 @@ const LADDER: { cap: VendorTier; source: string; label: string }[] = [
  * delta. A row that reads the same as the tier below is not an upgrade and is
  * not shown; printing it back would be the matrix again, in a smaller box.
  */
+/**
+ * 🚨 EVERY NUMERIC CAP GOES THROUGH THIS. IT SHIPPED WITHOUT ONE AND A VENDOR
+ * READ THE WORD "Infinity" ON THE PUBLIC PAGE.
+ *
+ * Three of the seven rows below interpolated the raw cap — `${c.servicesPerLeaf}`
+ * — and `TIER_CAPS.enterprise.servicesPerLeaf` is the JavaScript value
+ * `Infinity`. So the live Enterprise card read:
+ *
+ *     Service listings / category   5 → Infinity
+ *
+ * Not a crash, not an error, nothing to notice: `String(Infinity)` is a perfectly
+ * good string. The four rows that DID handle it hid how easy the other three were
+ * to miss — the guard against this is one formatter, not seven correct authors.
+ *
+ * `unlimited` is a per-row word because "Unlimited" is right for photos and
+ * "All" is right for categories; `zero` likewise, because 0 seats means "—" but
+ * 0 km means the vendor is not searchable at all.
+ */
+function cap(
+  n: number,
+  { unlimited = 'Unlimited', zero = '—', suffix = '' }: { unlimited?: string; zero?: string; suffix?: string } = {},
+): string {
+  if (!Number.isFinite(n)) return unlimited;
+  if (n === 0) return zero;
+  return `${n}${suffix}`;
+}
+
 const LIMITS: { label: string; of: (c: (typeof TIER_CAPS)[VendorTier]) => string }[] = [
   {
     label: 'Service reach',
-    of: (c) =>
-      c.serviceRadiusKm === 0
-        ? '—'
-        : c.serviceRadiusKm === Infinity
-          ? 'Nationwide'
-          : `${c.serviceRadiusKm} km`,
+    of: (c) => cap(c.serviceRadiusKm, { unlimited: 'Nationwide', suffix: ' km' }),
   },
-  {
-    label: 'Parent categories',
-    of: (c) => (c.parentCategories === Infinity ? 'All' : `${c.parentCategories}`),
-  },
-  { label: 'Service listings / category', of: (c) => `${c.servicesPerLeaf}` },
-  { label: 'Team seats', of: (c) => (c.agentAccounts === 0 ? '—' : `${c.agentAccounts}`) },
-  { label: 'Bookable slots / day', of: (c) => (c.slotsPerDay === 0 ? '—' : `${c.slotsPerDay}`) },
-  {
-    label: 'Portfolio photos',
-    of: (c) => (c.portfolioPhotos === Infinity ? 'Unlimited' : `${c.portfolioPhotos}`),
-  },
-  {
-    label: 'Answer matched couples / week',
-    of: (c) =>
-      c.inAppCustomersPerWeek === Infinity
-        ? 'Unlimited'
-        : c.inAppCustomersPerWeek === 0
-          ? '—'
-          : `${c.inAppCustomersPerWeek}`,
-  },
+  { label: 'Parent categories', of: (c) => cap(c.parentCategories, { unlimited: 'All' }) },
+  { label: 'Service listings / category', of: (c) => cap(c.servicesPerLeaf) },
+  { label: 'Team seats', of: (c) => cap(c.agentAccounts) },
+  { label: 'Bookable slots / day', of: (c) => cap(c.slotsPerDay) },
+  { label: 'Portfolio photos', of: (c) => cap(c.portfolioPhotos) },
+  { label: 'Answer matched couples / week', of: (c) => cap(c.inAppCustomersPerWeek) },
 ];
 
 /** What changed between two rungs — `null` below means "this is the base rung". */

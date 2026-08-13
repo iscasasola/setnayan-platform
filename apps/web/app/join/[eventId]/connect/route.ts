@@ -21,12 +21,10 @@ import { connectEventForUser } from '@/lib/event-account-link';
  * the likeliest path a real invited guest ever takes — likelier than a QR — and
  * it ended on "not found".
  *
- * 🔑 **THE FIX IS THE ONE GATE, NOT A SECOND COOKIE WRITE HERE.** Success now
- * hands them to `/{slug}/enter`, which re-mints their guest session from the
- * binding this route just created and lands them on the event's own page. This
- * is a Route Handler so a cookie write would be *legal* here — but checking the
- * same thing in two places is two chances to forget, and the next surface makes
- * three. See lib/guest-membership-session.ts.
+ * 🔑 **THE FIX: SEND THEM TO THE EVENT'S OWN PAGE.** That page's visibility gate
+ * now also admits a signed-in person holding a seat on the event — the row this
+ * route has just written — so they arrive somewhere that works instead of
+ * somewhere that 404s. See lib/guest-membership-session.ts.
  *
  * ⚠ An event with no public address yet cannot be opened by a guest at all, so
  * that case keeps the account home rather than inventing a destination.
@@ -52,9 +50,10 @@ export async function GET(
 
   const { connected } = await connectEventForUser(eventId, user.id, user.email ?? null);
 
-  // Connected → into the event AS A GUEST, via the one gate that knows how to
-  // recognise them (`/{slug}/enter`). NOT `/dashboard/{eventId}`, which is the
-  // organiser's dashboard and 404s for the guest this route just created.
+  // Connected → into the event AS A GUEST: its own public page, whose visibility
+  // gate now recognises a signed-in person holding a seat — the row this route has
+  // just written. NOT `/dashboard/{eventId}`, which is the organiser's dashboard
+  // and 404s for the guest this route exists to welcome.
   //
   // The slug is read from the DATABASE, never built from the path — and a `null`
   // slug (a real prod state: 1 of 5 events) means there is no guest-facing page
@@ -69,7 +68,7 @@ export async function GET(
       .eq('event_id', eventId)
       .maybeSingle();
     const slug = (event?.slug as string | null)?.trim();
-    if (slug) dest = `/${slug}/enter`;
+    if (slug) dest = `/${slug}`;
   }
 
   // Set-password gate (owner directive): a passwordless email-link account is

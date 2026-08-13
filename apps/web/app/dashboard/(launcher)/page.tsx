@@ -396,7 +396,14 @@ export default async function LauncherPage({
   const profile = profileRes.data;
   const greeting =
     profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
-  const noEvents = events.length === 0;
+  // 🚨 THE GREETING MUST COUNT THE SAME THING THE BOARD SHOWS. This read
+  // `events.length === 0` — the ORGANISER-only set — while the shelves below
+  // render the MERGED set. Before invited events reached the board the two were
+  // the same list and could not contradict each other; afterwards, somebody whose
+  // only events are ones they were invited to got **"Let's set up your first
+  // event"** printed directly above the weddings they had been invited to.
+  // Found by an adversarial pass 2026-08-13.
+  const noEvents = boardEvents.length === 0;
 
   // "% planned" per event — real done/total from the event checklist, fetched in
   // parallel (event count is small). Null when an event has no checklist rows yet
@@ -1014,7 +1021,11 @@ export default async function LauncherPage({
       )[0]
     : undefined;
   const boardTiles = buildHomeBoardTiles({
-    activeCount: active.length,
+    // Same rule as the greeting: this tile sits above the shelves, so it counts
+    // what the shelves show — the merged set, minus the finished ones — not the
+    // organiser-only set. It read `active.length` and would have said "0 in
+    // motion" over a board full of invitations.
+    activeCount: upcoming.length,
     needsTotal,
     nextEventLabel: soonest ? `Next: ${soonest.display_name}` : null,
     topWatchName: watchRows[0]?.name ?? null,

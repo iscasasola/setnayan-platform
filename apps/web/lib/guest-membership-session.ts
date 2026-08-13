@@ -6,6 +6,17 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * guest-membership-session.ts — an invited person who is SIGNED IN should not be
  * asked to prove it again.
  *
+ * ⚠ THIS DOES NOT MINT ANYTHING, DELIBERATELY. The first cut of this module
+ * backed a `/{slug}/enter` GET route handler that wrote the guest cookie — and a
+ * Next.js `<Link>` PREFETCHES, so a board card scrolling into view executed the
+ * mint. For a person invited to two weddings that silently rewrote which one
+ * their single cookie named, and walking back to the first one they were a
+ * stranger: the exact lock-out this module exists to end, caused by looking at
+ * their own board. This repo had already written the rule for sign-out —
+ * *"a row that can sign you out by being NEAR the pointer"*, which is why that
+ * one is a form. **A side effect never goes behind a card.** So the seat is now
+ * read by the PAGE'S OWN GATE, at render time, with no cookie written at all.
+ *
  * ── THE PROBLEM, MEASURED 2026-08-13 ────────────────────────────────────────
  * Guest identity on a public event page is a cookie: `setnayan_guest_session`,
  * a signed JWT keyed to `guests.guest_id`. It is **NOT** `auth.uid()` — a
@@ -31,13 +42,14 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * a person who did exactly the right thing is asked to do it again, and it reads
  * as the couple shutting them out.
  *
- * 🔑 **THE BINDING ALREADY EXISTS IN THE DATABASE — ONLY THE COOKIE IS MISSING.**
+ * 🔑 **THE BINDING ALREADY EXISTS IN THE DATABASE — SO NO COOKIE IS NEEDED TO
+ * READ IT.**
  * `event_members` carries `guest_id` precisely to express "this account is that
  * seat" (lib/link-guest-account.ts's own docblock: *"the hub's 'attended' path
  * keys off `event_members.guest_id`"*), and it is written by every path that
  * creates a guest membership: the QR scan-to-join (`app/join/[eventId]/actions`),
  * the cookie link (`linkGuestSessionToUser`) and the cross-device magic link
- * (`connectEventForUser`). So this module **re-mints** a session from a binding
+ * (`connectEventForUser`). So this module ANSWERS FROM a binding
  * the person already earned. It does not create a new way to become a guest.
  *
  * ── WHY THIS IS NOT AN ESCALATION ───────────────────────────────────────────
@@ -47,26 +59,32 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * an emailed link sent to the address on the seat. Keyed on `auth.uid()` it is
  * the **stronger** of the two claims, not a weaker one.
  *
- * ⚠ **THE ONE TRADE-OFF, NAMED RATHER THAN HIDDEN — QR ROTATION.**
+ * ⚠ **QR ROTATION — no longer a trade-off, because nothing is minted.**
  * `app/[slug]/rotate-qr-actions.ts` exists so a host can kill sessions minted
- * from a **leaked** QR (council § 5.11). Re-minting from a membership row means
- * rotation alone no longer evicts a viewer who has **bound an account** to that
- * seat. That is deliberate and bounded:
- *   · a leaked QR can be bound to at most ONE account — `seedClaimedByOther`
- *     refuses to bind a seat another user already holds — so rotation still does
- *     its whole job against everybody else;
- *   · the eviction path for a BOUND account is removing the membership or
- *     soft-deleting the seat, and **both are honoured below**;
- *   · a rotated token is not stale here, because we always read the CURRENT
- *     `guests.qr_token` and mint with that, so `GUEST_SESSION_TOKEN_CHECK` keeps
- *     agreeing with the database.
- * If the owner ever wants rotation to evict bound accounts too, the fix is a
- * revocation stamp on the membership row — not removing this door, which would
- * put us back to asking invited people for a QR they may not have kept.
+ * from a leaked QR (council § 5.11). Since this module writes no session, that
+ * mechanism is untouched. What rotation does NOT do is remove somebody from the
+ * guest list — and it never did; the eviction paths are removing the membership
+ * or soft-deleting the seat, and **both close this door**, see the gates below.
+ *
+ * 🔒 SCOPE: this admits a seat-holder to the event's own page — the page the
+ * couple published and put them on the list for. It does NOT hand them a guest
+ * session, so the per-guest surfaces that key on `guests.guest_id` (their table,
+ * the photos of them, their RSVP) still require the cookie their invitation
+ * mints. **Turning those on for a signed-in seat-holder is a deliberate
+ * one-press act on that page and is NOT built here** — named, not silently
+ * skipped, because minting on render is impossible in Next.js and minting behind
+ * a link is the defect above.
  */
 
 export type GuestMembershipSeat = {
   guestId: string;
+  /**
+   * The seat's CURRENT token. No caller mints a session today (see the header),
+   * but it is read rather than dropped for two reasons: it proves the seat row is
+   * live and readable, and the deliberate one-press mint named above needs the
+   * live value — a stale token would put a minted cookie permanently at odds with
+   * `GUEST_SESSION_TOKEN_CHECK`, which compares it against the database.
+   */
   qrToken: string;
   /** The event's public address, as the DATABASE returned it. */
   slug: string;
@@ -81,7 +99,7 @@ export type GuestMembershipSeat = {
  *     handed a guest cookie; a `vendor`/`coordinator` row is a different stance
  *     with a different surface.
  *   · `guest_id IS NOT NULL` — an unbound membership names no seat, so there is
- *     nothing to re-mint. (`link-guest-account.ts` documents that unbound rows
+ *     nothing to answer from. (`link-guest-account.ts` documents that unbound rows
  *     exist: `member_type='guest' AND guest_id IS NULL`.)
  *   · `hidden_at IS NULL` — the opt-out / "Leave" stamp. `fetchUserEvents`
  *     already filters on it; a person who left must not be re-admitted.

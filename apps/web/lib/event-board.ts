@@ -28,17 +28,23 @@
  * present-and-refused. Nothing new is built for the invited case; the card
  * simply stops pointing at a door that would slam.
  *
- * 🎟 …BUT IT GOES VIA `/{slug}/enter`, NOT STRAIGHT TO `/{slug}`, AND THAT HOP
- * IS THE WHOLE PROMISE. Guest identity on that page is a cookie with a HARD
- * 60-day life carrying exactly ONE event id — no sliding refresh. Save-the-dates
- * go out 6–12 months ahead, so the ordinary guest is a STRANGER on the page by
- * the wedding day, and anyone invited to two events can only be recognised on
- * one of them at a time. `/enter` re-mints the session from the
- * `event_members.guest_id` binding they already earned, then lands them on the
- * page. Without the hop, this card sends an invited person to a screen telling
- * them to scan the QR they already scanned — measured 2026-08-13; 3 of 5 prod
- * events are `private`, where that screen is what they would get.
- * See lib/guest-membership-session.ts.
+ * 🎟 AND THE PAGE RECOGNISES THEM FROM THEIR SEAT, NOT FROM A COOKIE. Guest
+ * identity there was a cookie with a HARD 60-day life carrying exactly ONE event
+ * id and no sliding refresh — so with save-the-dates going out 6–12 months ahead,
+ * the ORDINARY invited guest was a stranger on the page by the wedding day, and
+ * anyone invited to two events could only be recognised on one at a time. On a
+ * `private` event (3 of 5 in prod) they met a screen telling them to scan the QR
+ * they had already scanned. The page's own visibility gate now also admits a
+ * signed-in person holding a seat on that event — see lib/guest-membership-session.ts.
+ *
+ * 🚨 THIS HREF MUST STAY A PLAIN PAGE. A first cut pointed it at a
+ * `/{slug}/enter` GET route handler that minted the guest cookie — and a
+ * Next.js `<Link>` PREFETCHES, so a card merely scrolling into view executed the
+ * mint. For somebody invited to two weddings that silently rewrote which one
+ * their single cookie named: standing at wedding A, B's card comes into view, and
+ * going back to A they are a stranger. This repo had already written the rule
+ * down for sign-out — *"a row that can sign you out by being NEAR the pointer"* —
+ * and a form is what it used instead. **Never put a side effect behind a card.**
  *
  * 🪤 A SLUG CAN BE NULL AND ONE IS IN PROD TODAY (4 of 5 events have a slug;
  * the finished wedding is the one that does not). `eventBoardHref` returns
@@ -100,16 +106,15 @@ export function stanceLabel(stance: EventStance): string {
  * Where the card GOES — the whole point of naming the stance.
  *
  * organiser → the event dashboard, which admits them.
- * invited   → `/{slug}/enter`, which re-mints their guest session from the seat
- *             binding they already hold and then lands them on the event's own
- *             public address, where their photos, their table and their RSVP
- *             live. NULL when the host has not opened a public address yet (a
- *             real prod state), so the caller renders no link at all.
+ * invited   → the event's own public address: a PLAIN PAGE, safe to prefetch,
+ *             which recognises them from their seat. NULL when the host has not
+ *             opened a public address yet (a real prod state), so the caller
+ *             renders no link at all.
  *
- * ⚠ The invited branch must stay a `/enter` hop. Pointing it at the bare
- * `/{slug}` compiles, passes review and looks right — and silently reverts the
- * card to "you are a stranger here" for every guest whose 60-day cookie has
- * lapsed or who was invited to a second event. A guard asserts the hop.
+ * ⚠ NEVER RETURN A ROUTE-HANDLER PATH FROM HERE. Every value this function
+ * produces ends up as the `href` of a `<Link>`, and App Router prefetches those —
+ * so a handler with a side effect runs when a card scrolls past. A guard resolves
+ * each href to a file and requires `page.tsx`, never `route.ts`.
  */
 export function eventBoardHref(event: {
   event_id: string;
@@ -120,7 +125,7 @@ export function eventBoardHref(event: {
   if (stance === 'organiser') return `/dashboard/${event.event_id}`;
   if (stance !== 'invited') return null;
   const slug = event.slug?.trim();
-  return slug ? `/${slug}/enter` : null;
+  return slug ? `/${slug}` : null;
 }
 
 /**

@@ -20,6 +20,7 @@ import { resolveRenamedPath } from '@/lib/slug-forwarding';
 // (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
 import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
 import { readGuestSession } from '@/lib/guest-session';
+import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import type { DoorwayFacts } from './_lib/site-nav';
 import {
@@ -423,6 +424,34 @@ async function InvitationBody({
     // `?phase=` preview gate below reuses this result instead of re-querying.
     // The cookie-scoped auth read stays HERE (never inside a cached loader).
     let isAuthedHost = false;
+    // Path C — a signed-in person the couple PUT ON THIS GUEST LIST, who has
+    // bound their account to that seat (`event_members.guest_id`).
+    //
+    // 🎟 WHY THIS PATH EXISTS. Guest identity here is the cookie above, and it
+    // has a HARD 60-day life carrying exactly ONE event_id with no sliding
+    // refresh. Save-the-dates go out 6–12 months ahead, so the ORDINARY invited
+    // guest — one who scanned their invitation the day it arrived — had no live
+    // session by the wedding day and met PrivateLanding: "Already invited? …scan
+    // your invitation QR." We were telling somebody whose membership row we hold
+    // to go and find a QR code. Anyone invited to two events could also only ever
+    // be recognised on one of them at a time. Now visible on their own board
+    // (2026-08-13), that dead end was one press away.
+    //
+    // 🔒 NOT A WIDENING. It is the SAME claim by a stronger key: the cookie says
+    // "this browser once held guest X's QR", the membership row says "this
+    // AUTHENTICATED ACCOUNT is bound to guest X" — and that binding was itself
+    // established by holding the QR or clicking a link emailed to the address on
+    // the seat. `findGuestSeatForUser` requires the caller's OWN row,
+    // member_type='guest', a non-null guest_id, no `hidden_at` (their own Leave)
+    // and no `guests.deleted_at` (the host's eviction) — so removing somebody
+    // from the list closes this in the same instant.
+    //
+    // ⚠ It admits them to the PAGE. It does NOT hand them a guest session, so the
+    // per-guest surfaces below still key on the cookie. Minting one here is
+    // impossible (a render cannot write cookies) and minting it behind the board
+    // card was a real defect — a `<Link>` prefetch executed it when a card merely
+    // scrolled into view. See lib/guest-membership-session.ts.
+    let isSeatHolder = false;
     if (!guestSessionMatches) {
       const supabase = await createClient();
       const {
@@ -430,10 +459,14 @@ async function InvitationBody({
       } = await supabase.auth.getUser();
       if (user) {
         isAuthedHost = await loadHostMembership(admin, event.event_id, user.id);
+        if (!isAuthedHost) {
+          isSeatHolder =
+            (await findGuestSeatForUser(event.event_id, user.id)) !== null;
+        }
       }
     }
 
-    if (!guestSessionMatches && !isAuthedHost) {
+    if (!guestSessionMatches && !isAuthedHost && !isSeatHolder) {
       return (
         <PrivateLanding
           event={event}

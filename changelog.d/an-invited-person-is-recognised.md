@@ -46,19 +46,24 @@ we are holding to go and find a QR code.** Same shape as the printed-invitation
 defect of 2026-08-11: a person who did the right thing is asked to do it again,
 and it reads as the couple shutting them out.
 
-🔑 **THE BINDING WAS ALREADY IN THE DATABASE — ONLY THE COOKIE WAS MISSING.**
-`event_members.guest_id` exists precisely to say *"this account is that seat"*
-and is written by **every** path that creates a guest membership (QR scan-to-join,
-the cookie link, the cross-device magic link). New: `/{slug}/enter` re-mints the
-session from that binding, then lands them on the page. **Nothing new was built
-to become a guest**, and the invited card now points at the hop.
+🔑 **THE BINDING WAS ALREADY IN THE DATABASE — SO NO COOKIE IS NEEDED TO READ
+IT.** `event_members.guest_id` exists precisely to say *"this account is that
+seat"* and is written by **every** path that creates a guest membership (QR
+scan-to-join, the cookie link, the cross-device magic link). The event page's own
+visibility gate now also admits a signed-in person holding a seat on that event.
+**Nothing new was built to become a guest**, and no session is written anywhere.
 
-- Placed at `app/[slug]/enter/` — under the event's own address, sibling to
-  `redeem` — so it needs **no new reserved top-level word** (the `/creators` ·
-  `/open-shop` lesson).
-- Both fixes go through that **one** gate. The connect route is a Route Handler,
-  so a second cookie write there would have been legal — but checking the same
-  thing in two places is two chances to forget and the next surface makes three.
+🔒 **Not a widening — the same claim by a stronger key.** The cookie says *"this
+browser once held guest X's QR"*; the membership row says *"this **authenticated
+account** is bound to guest X"*, and that binding was itself established by
+holding the QR or clicking a link emailed to the address on the seat.
+
+⚠ **What this does NOT do, named rather than skipped:** it admits them to the
+page; it does not hand them a guest session, so the per-guest surfaces that key on
+`guests.guest_id` (their table, the photos of them, their RSVP) still need the
+cookie their invitation mints. Turning those on for a signed-in seat-holder is a
+deliberate one-press act on that page — **not built here**, because a render
+cannot write cookies and a link must not.
 
 ### Why re-minting is not an escalation, and the one trade-off
 
@@ -73,42 +78,33 @@ Gates, each a real one: the caller's **own** row · `member_type='guest'` ·
 **fails closed** — both reads check `.error`, because a lost grant returning `[]`
 would silently restore the exact lock-out this exists to end.
 
-⚠ **NAMED, NOT HIDDEN — QR rotation.** Rotation exists to kill sessions minted
-from a *leaked* QR; it now no longer evicts a viewer who has **bound an account**
-to that seat. Bounded, because a leaked QR can be bound to at most one account
-(`seedClaimedByOther` refuses a second), so rotation still does its whole job
-against everyone else; and the eviction path for a bound account — removing the
-membership or soft-deleting the seat — **is honoured**. Minting always reads the
-**current** `qr_token`, so `GUEST_SESSION_TOKEN_CHECK` keeps agreeing with the
-database. If the owner wants rotation to evict bound accounts too, that is a
-revocation stamp on the membership row, not the removal of this door.
-
-Refusals disclose nothing: unsafe slug → site root (the open-redirect its sibling
-shipped to live prod on 2026-08-06); no seat → `/{slug}`, exactly what a direct
-visit gives them, so a refusal is neither a 404 nor an admission; renamed address
-→ forwarded.
+✅ **QR rotation is untouched, because nothing is minted.** Rotation kills
+sessions minted from a leaked QR; this writes no session. What rotation never did
+is remove somebody from the guest list — and the two paths that do (removing the
+membership, soft-deleting the seat) both close this door.
 
 ### Guard
 
-`app/[slug]/enter/an-invited-person-is-recognised.test.ts` — 11 assertions.
+`app/[slug]/an-invited-person-is-recognised.test.ts`.
 
-🔑 **The strongest one is derived from the HELPER OUTWARD:** it takes the path
-`eventBoardHref` actually returns and proves a Next.js route file sits at it. A
-destination nothing serves is the "never proven reachable" defect with a URL in
-front of it, and nobody writes a test for it.
+🔑 **Its strongest assertion is the GENERAL rule, not the specific bug** (see the
+third section below): every destination `eventBoardHref` can produce is resolved to
+a file on disk and must be a `page.tsx`. A `route.ts` is refused outright — no
+reasoning about whether *this* handler happens to be side-effect-free, because the
+next one will not be.
 
-🛡 **18 sabotages, every one occurrence-counted before → after, all 18 caught,
-baseline green either side** — including deleting the route file itself, and
-including each individual gate.
+🛡 **22 sabotages, every one occurrence-counted before → after, all 22 caught,
+baseline green either side** — including re-creating the minting route handler,
+pointing a card at a real handler path, and each gate individually.
 
 🪤 **AND THE SUITE RAN ZERO TESTS ON ITS FIRST INVOCATION, GREEN.**
-`tsx --test "app/[slug]/enter/x.test.ts"` prints `# tests 0 … # fail 0`: the
+`tsx --test "app/[slug]/<file>.test.ts"` prints `# tests 0 … # fail 0`: the
 brackets are a glob **character class**, so an explicit bracket path matches
-nothing and exits 0. Every run here uses a pattern (`app/*/enter/*.test.ts`), and
-the mutation harness refuses any run that reports zero tests. Recorded before,
+nothing and exits 0. Every run here uses a pattern (`app/*/an-invited-*.test.ts`),
+and the mutation harness refuses any run that reports zero tests. Recorded before,
 re-measured today.
 
-Verified: typecheck clean · **7925/7925** unit tests · all 22 lint scripts · every
+Verified: typecheck clean · **7926/7926** unit tests · all 22 lint scripts · every
 column named in the two new reads confirmed to exist in prod (9 of 9), so neither
 is a phantom.
 
@@ -167,3 +163,63 @@ bug, deleting the reason from each composition, restoring the affordances, and
 shrinking the affordance list so `sn-lift-4` survives.
 
 Verified again: typecheck clean · **7927/7927** unit tests · all 22 lint scripts.
+
+---
+
+## 2026-08-13 · fix: the invited card carried a SIDE EFFECT, and a `<Link>` prefetch fired it
+
+**Retracting my own design from earlier in this same PR**, on the adversarial
+pass's second lens. Both skeptics confirmed it against the installed framework
+(Next 15.5.21) and could not refute it.
+
+### 🚨 A card scrolling into view rewrote which wedding the browser was recognised at
+
+The first cut pointed the invited card at a `/{slug}/enter` **GET route handler**
+that minted the guest cookie. **App Router `<Link>` prefetches its href**, so a
+card merely entering the viewport executed the mint — and because that cookie
+holds exactly ONE `event_id`, somebody invited to two weddings had it silently
+rewritten by looking at their own board:
+
+> Ana holds a live session for wedding A and is standing at A's reception using
+> her seat pass. She opens her board; B's *"You're invited"* card scrolls past.
+> The prefetch runs, her cookie now names B, and back on A's page she is a
+> stranger — A is private, so she is told to *"scan your invitation QR."*
+
+**The exact lock-out this change existed to end, caused by looking at her own
+board.** It would also have stamped the other couple's scan history with a row for
+an invitation nobody opened.
+
+🔑 **AND THIS REPO HAD ALREADY WRITTEN THE RULE DOWN.** `front-door-shell.tsx`, on
+sign-out: *"⚠ SIGN OUT IS A FORM, NOT A LINK … It would also be prefetchable, i.e.
+a row that can sign you out by being NEAR the pointer."* I read that file's
+neighbours and not that line.
+
+### The fix removes the class of problem, not the instance
+
+- The `/{slug}/enter` route handler is **deleted**. The card points at the plain
+  public page again — safe to prefetch, no side effect.
+- The recognition moved to where it needs no cookie at all: **the event page's own
+  visibility gate** now admits a signed-in seat-holder. That was always the real
+  fix; the hop was a longer way round with a hazard attached.
+- `findGuestSeatForUser` survives unchanged and is now the gate's helper — the
+  gates were right, only the caller was wrong.
+
+🛡 **The guard is the GENERAL rule, not this bug:** every destination
+`eventBoardHref` can produce is resolved to a file and must be a `page.tsx`; a
+`route.ts` is refused outright. Two of the 22 sabotages target it directly —
+pointing a card at a real handler path, and re-creating the minting handler.
+
+### Two more from the same pass, both confirmed
+
+- **"Let's set up your first event" printed directly above the events you were
+  invited to.** The greeting read the organiser-only set while the shelves below
+  render the merged set; before invited events reached the board those were one
+  list and could not contradict each other. The *"in motion"* tile had the same
+  divergence and would have read **0** over a board full of invitations.
+- **A dead card that animated** — see the section above.
+
+⚖ **Two candidate findings from this pass were REFUTED and are not fixed**, both
+because the state they need cannot exist: a countdown-precedence reading whose
+scenario requires a future-dated slug-less event, and a variant of the same. The
+skeptics measured prod and killed them — which is the pass working in both
+directions.

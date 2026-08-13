@@ -289,11 +289,15 @@ export default async function VendorDashboardLayout({
         ariaUnreadSuffix="unread"
       />
       <span className="hidden text-sm text-ink/70 sm:inline">{displayName}</span>
-      <form action="/auth/sign-out" method="post">
-        <button className="button-secondary h-9 px-3 text-xs" type="submit">
-          Sign out
-        </button>
-      </form>
+      {/*
+        SIGN OUT USED TO SIT HERE, LOOSE IN THE TOP BAR — retired 2026-08-13
+        (Redesign Session 6, "the seam"), the same removal as the admin
+        doorway's. Owner: *"sign out lives under the avatar and nowhere else."*
+        Still one press away on every vendor screen: the rail's business plaque
+        and the mobile AccountSwitcher pill directly below both open the
+        account panel, which carries it.
+        `app/_components/auth/seam-invariants.test.ts` fails if it returns.
+      */}
       <div className="lg:hidden">
         <AccountSwitcher data={switcherData} />
       </div>

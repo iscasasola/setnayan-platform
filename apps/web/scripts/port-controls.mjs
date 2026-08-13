@@ -232,7 +232,24 @@ const IMPORT_RE = /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
 const JSX_EL_RE = /<([A-Z][\w$]*(?:\.[A-Z][\w$]*)?)[\s/>]/g;
 
 const HREF_RE = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|\{\s*`([^`]*)`\s*\}|\{\s*"([^"]*)"\s*\}|\{\s*'([^']*)'\s*\})/g;
-const ACTION_RE = /\b(?:form)?[aA]ction\s*=\s*\{\s*([A-Za-z_$][\w$]*)\s*\}/g;
+/**
+ * A bound server action.
+ *
+ * ⚠ WIDENED 2026-08-13. It used to require a BARE identifier —
+ * `action={signInWithPassword}` — so the moment a form chose its action
+ * conditionally, `action={inPlace ? submitInPlace : signInWithPassword}`, the
+ * extractor saw NOTHING and reported the route as having lost the action it
+ * still runs. That is worse than a miss: the sanctioned fix for a "loss" is to
+ * regenerate the baseline, so a blind spot here gets written down as a
+ * DELIBERATE REMOVAL THAT NEVER HAPPENED, and the guard then defends the lie.
+ *
+ * Now it takes the whole `{...}` expression and records every identifier in
+ * it. Over-capture is SAFE BY CONSTRUCTION in this guard: missing → fail,
+ * added → pass, so a few extra names can never hide a real removal. Under-
+ * capture was the only direction that could.
+ */
+const ACTION_EXPR_RE = /\b(?:form)?[aA]ction\s*=\s*\{([^{}]*)\}/g;
+const IDENT_RE = /[A-Za-z_$][\w$]*/g;
 /**
  * The `routes` builder from lib/routes.ts — the repo's own "no hand-typed
  * paths" guardrail. Two things this pattern had to learn the hard way:
@@ -269,7 +286,9 @@ export function extractControls(rawSource) {
     if (!href.startsWith('/')) continue;
     destinations.add(href);
   }
-  for (const m of source.matchAll(ACTION_RE)) actions.add(m[1]);
+  for (const m of source.matchAll(ACTION_EXPR_RE)) {
+    for (const id of m[1].match(IDENT_RE) ?? []) actions.add(id);
+  }
   for (const m of source.matchAll(ROUTES_RE)) actions.add(`routes${m[1]}`);
 
   return { destinations, actions, blocks: extractBlocks(source) };

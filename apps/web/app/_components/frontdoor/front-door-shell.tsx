@@ -39,6 +39,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSignInHere } from '@/app/_components/auth/sign-in-here';
 
 export type RailFolder = {
   slug: string;
@@ -101,6 +102,28 @@ export function FrontDoorShell({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const railId = useId();
+  const signInHere = useSignInHere();
+
+  /*
+    SIGNING IN DOES NOT LEAVE THIS PAGE (Redesign Session 6, "the seam").
+    Both Sign-in controls used to be <Link href="/login"> — a whole-page
+    navigation that replaced the front door with a login screen and, on
+    success, dropped the person on the account board. They never saw the one
+    thing this rail is built to do: the sign-in prompt being replaced IN PLACE
+    by their own destinations.
+
+    ⚠ STILL A REAL LINK TO /login, deliberately — the press is intercepted
+    only when the panel is actually mounted. A <button> would be a control that
+    does nothing the day the provider moves, and it would break middle-click
+    and open-in-new-tab, which people genuinely do with a sign-in. `prefetch`
+    is off because the fallback page is rarely taken; there is no point
+    fetching a route almost nobody will land on.
+  */
+  const openSignIn = (e: React.MouseEvent) => {
+    if (!signInHere.available) return;
+    e.preventDefault();
+    signInHere.open();
+  };
 
   // Escape closes whichever layer is open — the off-canvas rail first, since
   // it is the one that traps you.
@@ -208,9 +231,14 @@ export function FrontDoorShell({
                   small print. Same rule as the mic. */}
               {/* Signing IN wears the app's terracotta, not this page's gold —
                   it is the first room inside, not the last step outside. That
-                  is handled on the sign-in page itself; here it is a quiet
-                  control so the page never nags. */}
-              <Link href="/login" className="fd-btn-quiet">
+                  is handled on the panel itself; here it is a quiet control so
+                  the page never nags. */}
+              <Link
+                href="/login"
+                prefetch={false}
+                className="fd-btn-quiet"
+                onClick={openSignIn}
+              >
                 Sign in
               </Link>
             </>
@@ -280,11 +308,22 @@ export function FrontDoorShell({
           {account.signedIn ? (
             <>
               <div className="fd-rlabel">My Home</div>
+              {/*
+                🔑 "BACK TO YOUR EVENTS", NOT "EVENTS" — the seam's own words
+                (`FRONT_DOOR_AND_SEAM_FINAL` §3.6). A signed-in person on the
+                public site is a VISITOR HERE, not an ex-member: they pressed
+                the wordmark to come out and read, and this row is the way
+                back in. "Events" describes a list; "Back to your events"
+                describes what pressing it does for someone who is standing
+                outside their own app. Same destination, same count — the
+                sentence is the whole change, and it is the reason the trip
+                reads as a round trip rather than as two products.
+              */}
               <Link href="/dashboard" className="fd-row">
                 <span className="fd-gi" aria-hidden="true">
-                  ▦
+                  ←
                 </span>
-                <span className="fd-label-text">Events</span>
+                <span className="fd-label-text">Back to your events</span>
                 <span className="fd-icon-caption">Events</span>
                 <Count value={account.eventCount} />
               </Link>
@@ -323,7 +362,12 @@ export function FrontDoorShell({
                   Sign in to save suppliers, plan your event, and keep your
                   photos.
                 </p>
-                <Link href="/login" className="fd-btn-gold">
+                <Link
+                  href="/login"
+                  prefetch={false}
+                  className="fd-btn-gold"
+                  onClick={openSignIn}
+                >
                   Sign in
                 </Link>
               </div>

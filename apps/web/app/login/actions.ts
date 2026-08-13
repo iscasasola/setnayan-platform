@@ -55,7 +55,24 @@ function downgradeSupabaseCookiesToSessionOnly(
   }
 }
 
-export async function signInWithPassword(formData: FormData) {
+/**
+ * The credential exchange itself — everything BOTH sign-in surfaces do, with no
+ * opinion about where you end up.
+ *
+ * 🔑 EXTRACTED, NOT DUPLICATED. The two surfaces differ in exactly one way: the
+ * /login route REDIRECTS (it is a whole page; there is nothing behind it), and
+ * the in-place overlay must NOT (the whole point of the seam is that the page
+ * behind you survives). Everything before that fork — the remember-me cookie
+ * downgrade, the last_login_at stamp, the guest-session link, the account-type
+ * home resolution — is identical, and a copy of it would be a second thing to
+ * keep in step. There is exactly one copy, here.
+ *
+ * Returns the resolved destination on success so the caller can redirect to it,
+ * navigate to it, or ignore it and stay put.
+ */
+async function exchangeCredentials(formData: FormData): Promise<
+  { ok: true; destination: string } | { ok: false; error: string; fallbackNext: string }
+> {
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
   // Checkbox defaults CHECKED in the form. Browser submits 'on' when
@@ -69,7 +86,7 @@ export async function signInWithPassword(formData: FormData) {
   const fallbackNext = rawNext === '/' ? '/dashboard' : rawNext;
 
   if (!email || !password) {
-    return redirect(`/login?error=missing&next=${encodeURIComponent(fallbackNext)}`);
+    return { ok: false, error: 'missing', fallbackNext };
   }
 
   const supabase = await createClient();
@@ -83,9 +100,7 @@ export async function signInWithPassword(formData: FormData) {
   });
 
   if (error) {
-    return redirect(
-      `/login?error=${encodeURIComponent(error.message)}&next=${encodeURIComponent(fallbackNext)}`,
-    );
+    return { ok: false, error: error.message, fallbackNext };
   }
 
   if (!remember) {
@@ -128,5 +143,80 @@ export async function signInWithPassword(formData: FormData) {
     destination = accountHomePath(profile?.account_type);
   }
 
-  return redirect(destination);
+  return { ok: true, destination };
+}
+
+export async function signInWithPassword(formData: FormData) {
+  const result = await exchangeCredentials(formData);
+  if (!result.ok) {
+    return redirect(
+      `/login?error=${encodeURIComponent(result.error)}&next=${encodeURIComponent(result.fallbackNext)}`,
+    );
+  }
+  return redirect(result.destination);
+}
+
+export type SignInInPlaceState = {
+  /** Null until a submit has actually failed. */
+  error: string | null;
+  /** True only after the credentials were actually accepted by Supabase. */
+  ok: boolean;
+  /** Bumped on every completed submit so a repeated identical failure still
+   *  re-renders (two wrong attempts with the same password are two events). */
+  attempt: number;
+};
+
+/*
+  ⚠ THE INITIAL STATE IS NOT EXPORTED FROM HERE, and that is a hard rule, not a
+  preference. This module is `'use server'`, and Next allows a server-action
+  file to export ONLY async functions — a plain `export const` fails the
+  PRODUCTION BUILD with "Only async functions are allowed to be exported in a
+  'use server' file". `tsc` is perfectly happy with it, so the first cut of this
+  change typechecked green and would have broken the deploy. The constant lives
+  beside its consumer in `_components/sign-in-state.ts`.
+  (A `export type` is fine — types are erased before that check runs.)
+*/
+
+/**
+ * signInInPlace — the same sign-in, with the redirect removed.
+ *
+ * 🔑 WHY A SECOND ENTRY POINT AT ALL. `signInWithPassword` answers a wrong
+ * password by redirecting to `/login?error=…`. On a whole-page login that is
+ * right. Opened OVER a shop page it is the exact harm this session exists to
+ * remove: one typo and the page you were reading — and the enquiry you were
+ * half-way through writing — is gone, replaced by a login screen. Here the
+ * message comes back as a value and renders inside the card, on the page you
+ * never left.
+ *
+ * ⚠ IT NEVER REDIRECTS AND NEVER THROWS. A `redirect()` inside a server action
+ * consumed by `useActionState` unmounts the caller, which is the behaviour
+ * being avoided. The client decides what happens next: stay and refresh (the
+ * default), or navigate to `destination` when the sign-in had nowhere to
+ * return to.
+ */
+export async function signInInPlace(
+  prev: SignInInPlaceState,
+  formData: FormData,
+): Promise<SignInInPlaceState> {
+  const attempt = prev.attempt + 1;
+  const result = await exchangeCredentials(formData);
+  if (!result.ok) {
+    return {
+      error:
+        result.error === 'missing'
+          ? 'Enter your email and your password.'
+          : result.error,
+      ok: false,
+      attempt,
+    };
+  }
+  /*
+    `result.destination` is deliberately DROPPED here. In place, there is
+    nowhere to send anybody — the whole point is that the page you are on is
+    where you stay. Landing on the account board is the job of the /login
+    ROUTE, which is reached by a hard load or a redirect and genuinely has
+    nothing behind it. Returning a destination nobody navigates to would be a
+    value that looks like a decision and is not one.
+  */
+  return { error: null, ok: true, attempt };
 }

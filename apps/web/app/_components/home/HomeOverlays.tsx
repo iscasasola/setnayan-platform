@@ -31,8 +31,6 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import { ANY_OAUTH_ENABLED } from '@/app/_components/oauth-button-row';
-import { SignInCard } from '@/app/login/_components/sign-in-card';
 import type { PricingData } from './pricing-data';
 import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
 import { PapicDemoOverlay } from './papic-demo-overlay';
@@ -44,59 +42,12 @@ export type OverlayId =
   | 'prices'
   | 'download'
   | 'vendors'
-  | 'signin'
   | 'setnayan-ai'
   | 'papic-demo'
   | 'panood-demo'
   | 'plan3d-demo'
   | 'alaala-editorial'
   | null;
-
-/**
- * Shell-gated OAuth visibility. `show` mirrors /login's `showOAuth` (provider
- * enabled AND not the mobile WebView shell); `desktop` picks the Tauri loopback
- * variant over the web server-action row.
- *
- * Resolved CLIENT-SIDE now (was threaded from page.tsx's getClientShell). This
- * overlay is client-only (mounted via next/dynamic ssr:false), so it can read
- * navigator.userAgent + the client-type cookie directly — which lets page.tsx
- * drop its headers()/cookies() read and become edge-cacheable/ISR'd.
- * (Perf sweep 2026-07-02, homepage ISR.)
- */
-export type SignInOAuth = { show: boolean; desktop: boolean };
-
-/**
- * Client-side mirror of lib/request-platform.ts#getClientShell → OAuth gate.
- * Same rules: `SetnayanApp/desktop` UA → desktop; any other SetnayanApp UA or a
- * capacitor/tauri client-type cookie or a live Capacitor bridge → mobile
- * (WebView, OAuth hidden); else web. Safe before mount (returns hidden).
- */
-function detectSignInOAuth(): SignInOAuth {
-  if (typeof navigator === 'undefined' || typeof document === 'undefined') {
-    return { show: false, desktop: false };
-  }
-  const ua = navigator.userAgent || '';
-  let shell: 'web' | 'desktop' | 'mobile';
-  if (/SetnayanApp\/desktop/i.test(ua)) {
-    shell = 'desktop';
-  } else {
-    const clientType =
-      document.cookie
-        .split('; ')
-        .find((c) => c.startsWith('setnayan-client-type='))
-        ?.split('=')[1] ?? '';
-    const capacitor = Boolean(
-      (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
-        ?.isNativePlatform?.(),
-    );
-    shell =
-      /SetnayanApp/i.test(ua) || clientType === 'capacitor' || clientType === 'tauri' || capacitor
-        ? 'mobile'
-        : 'web';
-  }
-  const show = ANY_OAUTH_ENABLED && shell !== 'mobile';
-  return { show, desktop: show && shell === 'desktop' };
-}
 
 export function OverlayShell({
   id,
@@ -342,38 +293,6 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
           <span className="hr-gline-arw">→</span>
         </Link>
       </div>
-    </OverlayShell>
-  );
-}
-
-function SignInOverlay({
-  current,
-  onClose,
-  oauth,
-}: {
-  current: OverlayId;
-  onClose: () => void;
-  oauth: SignInOAuth;
-}) {
-  // The nav popup and /login now render the SAME greige card (SignInCard) —
-  // owner 2026-07-18 "we only want 1 login". `next='/'` lets signInWithPassword
-  // route to the account home by account_type (couple → /dashboard, vendor →
-  // /vendor-dashboard, …); no status banners here since this always opens on '/'.
-  return (
-    <OverlayShell
-      id="signin"
-      current={current}
-      onClose={onClose}
-      label="Sign in"
-      cardStyle={{ maxWidth: 460 }}
-    >
-      <SignInCard
-        next="/"
-        signupHref="/signup"
-        showOAuth={oauth.show}
-        desktopOAuth={oauth.desktop}
-        onNavigate={onClose}
-      />
     </OverlayShell>
   );
 }
@@ -655,10 +574,6 @@ export function HomeOverlays({
   pricing: PricingData | null;
   onOpenStory?: () => void;
 }) {
-  // OAuth visibility, resolved client-side (this overlay is ssr:false). Computed
-  // once on mount so the Sign-in overlay shows the right OAuth variant without
-  // page.tsx having to read headers()/cookies(). (Perf sweep 2026-07-02.)
-  const [oauth] = useState<SignInOAuth>(detectSignInOAuth);
   // Device-detect for the Download overlay (client-only).
   const [detected, setDetected] = useState('your device');
   const [match, setMatch] = useState<'mac' | 'win' | null>(null);
@@ -684,10 +599,17 @@ export function HomeOverlays({
       {pricing && (
         <SetnayanAiOverlay current={current} onClose={onClose} pricing={pricing} onOpenStory={onOpenStory} />
       )}
-      {/* Pricing-free overlays — always mounted, so Download / Sign in / the
-          demos work immediately regardless of the pricing fetch. */}
+      {/* Pricing-free overlays — always mounted, so Download and the demos work
+          immediately regardless of the pricing fetch.
+          ⚠ SIGN IN IS NO LONGER ONE OF THESE. It was retired here on
+          2026-08-13 (Redesign Session 6) in favour of the ONE in-place panel,
+          `app/_components/auth/sign-in-here.tsx`, mounted in the root layout.
+          This copy hardcoded next='/', so signing in from an article always
+          landed on the account board instead of back on the article — and a
+          wrong password redirected to /login, taking the page away entirely.
+          Do not reinstate a second sign-in here; "one login everywhere" is
+          owner-locked (2026-07-18). */}
       <DownloadOverlay current={current} onClose={onClose} detected={detected} match={match} />
-      <SignInOverlay current={current} onClose={onClose} oauth={oauth} />
       <PapicDemoOverlay current={current} onClose={onClose} />
       <PanoodDemoOverlay current={current} onClose={onClose} />
       <Plan3DDemoOverlay current={current} onClose={onClose} />

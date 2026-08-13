@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { Bookmark, Check, AlertCircle } from 'lucide-react';
+import { useSignInHere } from '@/app/_components/auth/sign-in-here';
 import { saveVendorToPicks, type SaveVendorResult } from '../actions';
 
 type Props = {
@@ -36,9 +37,61 @@ export function SaveVendorButton({
   variant = 'card',
 }: Props) {
   const [pending, startTransition] = useTransition();
+  const signInHere = useSignInHere();
   const [state, setState] = useState<LocalState>(
     initiallySaved ? { kind: 'saved' } : { kind: 'idle' },
   );
+
+  /*
+    A FUNCTION DECLARATION, NOT A useCallback — it has to name ITSELF (the
+    retry-after-sign-in below), and a `const` arrow referencing its own
+    initializer is a TypeScript circular-inference error before it is anything
+    else. Declarations hoist, so this is the plain form of "try again".
+  */
+  function attemptSave() {
+    const fd = new FormData();
+    fd.set('vendor_profile_id', vendorProfileId);
+    startTransition(async () => {
+      const result: SaveVendorResult = await saveVendorToPicks(fd);
+      if (result.status === 'ok' || result.status === 'already_saved') {
+        setState({ kind: 'saved' });
+        return;
+      }
+      if (result.status === 'not_signed_in') {
+        /*
+          THE SESSION EXPIRED WHILE THEY WERE READING.
+          This used to be `window.location.href = '/login?next=…'` — the page,
+          the scroll position and anything typed into it, gone, because a
+          cookie quietly aged out. Now the panel opens over the shop and, when
+          they are back in, the save they already pressed is RETRIED for them:
+          one press means one save, not a press followed by a round trip
+          followed by remembering to press again.
+
+          ⚠ It falls back to the old navigation when no panel is mounted —
+          being unable to sign in at all would be worse than leaving the page.
+        */
+        if (signInHere.available) {
+          signInHere.open({ onSignedIn: attemptSave });
+          return;
+        }
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/login?next=${next}`;
+        return;
+      }
+      if (result.status === 'no_primary_event') {
+        setState({
+          kind: 'error',
+          message: 'Create an event first to save vendors.',
+        });
+        return;
+      }
+      if (result.status === 'vendor_not_found') {
+        setState({ kind: 'error', message: 'Vendor unavailable.' });
+        return;
+      }
+      setState({ kind: 'error', message: result.message ?? 'Save failed.' });
+    });
+  }
 
   if (!canSave) return null;
 
@@ -61,34 +114,7 @@ export function SaveVendorButton({
       onSubmit={(event) => {
         event.preventDefault();
         if (isSaved || pending) return;
-        const fd = new FormData();
-        fd.set('vendor_profile_id', vendorProfileId);
-        startTransition(async () => {
-          const result: SaveVendorResult = await saveVendorToPicks(fd);
-          if (result.status === 'ok' || result.status === 'already_saved') {
-            setState({ kind: 'saved' });
-            return;
-          }
-          if (result.status === 'not_signed_in') {
-            // Bounce the visitor through login; after login they land back
-            // on this URL and can save again.
-            const next = encodeURIComponent(window.location.pathname + window.location.search);
-            window.location.href = `/login?next=${next}`;
-            return;
-          }
-          if (result.status === 'no_primary_event') {
-            setState({
-              kind: 'error',
-              message: 'Create an event first to save vendors.',
-            });
-            return;
-          }
-          if (result.status === 'vendor_not_found') {
-            setState({ kind: 'error', message: 'Vendor unavailable.' });
-            return;
-          }
-          setState({ kind: 'error', message: result.message ?? 'Save failed.' });
-        });
+        attemptSave();
       }}
       className="inline-flex"
     >

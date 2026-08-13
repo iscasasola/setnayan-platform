@@ -25,6 +25,7 @@ import { PILLARS, PILLAR_HEROES, PILLAR_SECTION_IDS, HOME_SCENE } from './pillar
 import type { OverlayId } from './HomeOverlays';
 import type { PricingData } from './pricing-data';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
+import { useSignInHere } from '@/app/_components/auth/sign-in-here';
 import { SetnayanAiHeroStory } from './setnayan-ai-story';
 // The shared reskin footer (extracted from the old private HomeFooter 2026-07-03)
 // — the same component the persistent SiteFooterChrome renders on every other
@@ -143,6 +144,7 @@ export function HomeReskin({
   const rootRef = useRef<HTMLDivElement>(null);
   const [opened, setOpened] = useState(false);
   const [overlay, setOverlay] = useState<OverlayId>(null);
+  const signInHere = useSignInHere();
   // Which dock pillar is selected (null = home scene). Drives the hero swap.
   const [activePillar, setActivePillar] = useState<number | null>(null);
   // Which feature card is selected per pillar widget (index into mocks).
@@ -582,15 +584,25 @@ export function HomeReskin({
           <button onClick={() => setOverlay('download')}>Download</button>
           <button onClick={() => setOverlay('vendors')}>Vendors</button>
         </div>
-        {/* Sign in → a popup overlay, consistent with Prices / Download /
-            Vendors (owner 2026-06-30 "login should be like the rest of the
-            upper menu — a popup"). The overlay hosts the REAL auth (Google +
-            Apple via OAuthButtonRow / the desktop loopback variant, plus
-            email/password — env-flag gated), wired to the same server actions
-            as /login. Not a mockup. */}
-        <button className="hr-signin hr-glass-dark" onClick={() => setOverlay('signin')}>
+        {/* Sign in → a popup, consistent with Prices / Download / Vendors
+            (owner 2026-06-30 "login should be like the rest of the upper menu
+            — a popup"). It is the REAL auth, not a mockup.
+            2026-08-13: the popup moved OUT of this page's overlay state into
+            the ONE shared in-place panel (SignInHereProvider), so every
+            surface signs in the same way and lands back where it was. Falls
+            back to a real /login navigation if no provider is mounted. */}
+        <Link
+          className="hr-signin hr-glass-dark"
+          href="/login"
+          prefetch={false}
+          onClick={(e) => {
+            if (!signInHere.available) return;
+            e.preventDefault();
+            signInHere.open();
+          }}
+        >
           Sign in
-        </button>
+        </Link>
       </nav>
 
       {/* ── HERO — fullscreen, scroll locked ── */}

@@ -37,6 +37,7 @@ import Link from 'next/link';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { OverlayId } from '@/app/_components/home/HomeOverlays';
+import { useSignInHere } from '@/app/_components/auth/sign-in-here';
 import { unpinFooter } from './footer-pin';
 
 export function Nav({
@@ -65,6 +66,8 @@ export function Nav({
   const vendors = label('public.site-nav.vendors-overlay', 'Vendors');
   const signin = label('public.site-nav.sign-in', 'Sign in');
 
+  const signInHere = useSignInHere();
+
   const press = (id: Exclude<OverlayId, null>) => {
     unpinFooter();
     onOpenOverlay(id);
@@ -87,10 +90,29 @@ export function Nav({
           {download && <button onClick={() => press('download')}>{download}</button>}
           {vendors && <button onClick={() => press('vendors')}>{vendors}</button>}
         </div>
+        {/*
+          SIGN IN NO LONGER GOES THROUGH THIS NAV'S OVERLAY STATE.
+          It opens the ONE shared in-place panel (SignInHereProvider), which
+          carries the page you are on as the return destination. The nav's own
+          copy always passed next='/' and so always landed you on the account
+          board — the single reason signing in from an article dropped you off
+          the article. Falls back to a real /login navigation when no provider
+          is mounted, so this control can never be dead.
+        */}
         {signin && (
-          <button className="hr-signin hr-glass-dark" onClick={() => press('signin')}>
+          <Link
+            className="hr-signin hr-glass-dark"
+            href="/login"
+            prefetch={false}
+            onClick={(e) => {
+              if (!signInHere.available) return;
+              e.preventDefault();
+              unpinFooter();
+              signInHere.open();
+            }}
+          >
             {signin}
-          </button>
+          </Link>
         )}
       </nav>
     </div>

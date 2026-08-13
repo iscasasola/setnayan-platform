@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
@@ -3856,12 +3857,21 @@ function VendorPackagesSection({
             );
           } else {
             cta = (
-              <Link
+              /*
+                THE SHOP YOU WERE READING (Redesign Session 6, "the seam").
+                This was a <Link href="/login"> — pressing it replaced the shop
+                with a login screen, and signing in then dropped the person on
+                their account board, not back on the package they were about to
+                customize. It is the exact journey the seam exists to fix, and
+                the one the owner named. Now the sign-in opens OVER the shop and
+                closes onto it, still scrolled to this package.
+              */
+              <SignInHereLink
                 href="/login"
                 className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep"
               >
                 Sign in to customize
-              </Link>
+              </SignInHereLink>
             );
           }
           return <PackageCard key={pkg.package_id} pkg={pkg} ctaSlot={cta} hidePrice={hidePrices} />;

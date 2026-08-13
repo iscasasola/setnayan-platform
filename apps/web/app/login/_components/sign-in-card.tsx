@@ -9,26 +9,30 @@
  *
  * Rendered inside a `.home-reskin-ov` > `.hr-ov-card` shell (the greige glass
  * modal). Two shells drive it:
- *   • the marketing nav — OverlayShell in HomeOverlays.tsx (state-driven popup);
- *   • the /login route — SignInCardModal.
+ *   • the /login route — SignInCardModal (whole page; REDIRECTS on success);
+ *   • every public surface — SignInHerePanel in _components/auth/sign-in-here
+ *     (opens OVER the page; STAYS on success — see `onSignedIn` below).
  * Styling is the `.hr-*` set in home-reskin.css, scoped under `.home-reskin-ov`.
  *
- * It renders the SAME OAuth row + email/password form as before, wired to the
- * SAME `signInWithPassword` server action, plus the status banners the /login
- * surface needs (error / check_email / ready) — these are simply absent on the
- * marketing overlay (it always opens on '/'), so the card looks unchanged there.
+ * It renders the SAME OAuth row + email/password form in both, and both wire to
+ * the same credential exchange in ../actions — `signInWithPassword` for the
+ * route, `signInInPlace` for the panel. The status banners (error / check_email
+ * / ready) come from searchParams and so only ever appear on the route.
  *
  * `next` is threaded through (hidden input + OAuth + signup link) so a sign-in
  * reached by a redirect — e.g. bounced off /vendor-dashboard — forwards the user
- * to their destination afterward. The marketing overlay passes next='/', letting
- * the action route to the account home by account_type.
+ * to their destination afterward. The in-place panel passes the URL the person
+ * is actually on, which is what brings an OAuth round trip back to the shop
+ * they were reading instead of dropping them on the account board.
  */
+import { useActionState, useEffect } from 'react';
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
-import { signInWithPassword } from '../actions';
+import { signInWithPassword, signInInPlace } from '../actions';
+import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
 
 export type SignInCardProps = {
   /** Post-sign-in destination. '/' lets the action route by account_type. */
@@ -48,6 +52,22 @@ export type SignInCardProps = {
    * route shells omit it (navigating unmounts the modal anyway).
    */
   onNavigate?: () => void;
+  /**
+   * IN-PLACE MODE. Passing this switches the form from `signInWithPassword`
+   * (which redirects, whole-page) to `signInInPlace` (which returns), and hands
+   * the result back instead of navigating.
+   *
+   * 🔑 THIS IS THE SEAM. On the public site the page behind the card is the
+   * whole point — a shop being read, a half-written enquiry. A redirect on
+   * success throws it away, and a redirect on a WRONG PASSWORD throws it away
+   * for a typo. In this mode neither happens: the error renders in the card and
+   * the caller decides where success goes.
+   *
+   * It takes no destination ON PURPOSE. In place there is nowhere to send
+   * anybody — staying is the feature. Landing on the account board belongs to
+   * the /login ROUTE, which really does have nothing behind it.
+   */
+  onSignedIn?: () => void;
 };
 
 export function SignInCard({
@@ -60,7 +80,27 @@ export function SignInCard({
   readyEmail = null,
   prefilledEmail = '',
   onNavigate,
+  onSignedIn,
 }: SignInCardProps) {
+  const inPlace = Boolean(onSignedIn);
+  const [state, submitInPlace] = useActionState(
+    signInInPlace,
+    SIGN_IN_IN_PLACE_INITIAL,
+  );
+
+  // Success is reported by the ACTION, not by the click — a submit that never
+  // reached the server must never look like a sign-in.
+  useEffect(() => {
+    if (state.attempt > 0 && state.ok && onSignedIn) {
+      onSignedIn();
+    }
+  }, [state.attempt, state.ok, onSignedIn]);
+
+  // One banner slot, two sources: the /login route's `?error=` and the in-place
+  // action's returned message. They can never both apply — the route surface
+  // has no in-place action and the overlay has no searchParams.
+  const shownError = inPlace ? state.error : errorMessage;
+
   return (
     <>
       <div className="hr-ov-eyebrow">Welcome back</div>
@@ -69,9 +109,9 @@ export function SignInCard({
         One account for couples and vendors. Pick up right where you left off.
       </p>
 
-      {errorMessage ? (
+      {shownError ? (
         <p role="alert" className="hr-si-banner hr-si-banner--error">
-          {errorMessage}
+          {shownError}
         </p>
       ) : null}
 
@@ -104,7 +144,10 @@ export function SignInCard({
         </div>
       ) : null}
 
-      <form action={signInWithPassword} className="hr-si-form">
+      <form
+        action={inPlace ? submitInPlace : signInWithPassword}
+        className="hr-si-form"
+      >
         <input type="hidden" name="next" value={next} />
         <TurnstileField action="login" />
         <div className="hr-si-field">

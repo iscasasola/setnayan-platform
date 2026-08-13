@@ -296,46 +296,34 @@ test('the homepage still emits both JSON-LD nodes', () => {
   assert.equal(scripts, 2, `expected 2 ld+json scripts, saw ${scripts}`);
 });
 
-/* ── 9 · THE SWAP IS GATED, AND BOTH SIDES ARE REACHABLE ──────────────────
-   The owner ruled the cinematic page retired, and it WILL be deleted — in the
-   flip commit, once he has looked at what replaces it. Until then both branches
-   must exist and the choice must be made by the flag, not by an edit.
+/* ── 9 · THE FLIP IS DONE — `/` RENDERS ONE THING ─────────────────────────
+   This slot used to assert the opposite: that the flag was read, that BOTH
+   branches existed, and that `<HomeReskin>` stayed mounted, because "deleting
+   it before the owner has seen the replacement is the one irreversible step
+   here". That condition is satisfied — the front door went live, the owner
+   looked at it and said retire it completely (`DECISION_LOG.md` 2026-08-13) —
+   so the flag, the branch and the cinematic page are gone.
 
-   The failure this catches is a half-done flip: the flag imported but the
-   branch hardcoded, so the page renders one thing forever while the switch
-   looks live. That is this project's "gate with no handle", inverted. */
-test('the front door is chosen by the flag, and both branches are reachable', () => {
+   🔑 THE GUARD IS NOT DELETED, IT IS INVERTED. The failure it now catches is a
+   half-done retirement: a stray flag read, or a conditional creeping back so
+   `/` renders something other than the front door depending on an env var
+   nobody sets. */
+test('the homepage renders the front door unconditionally', () => {
   const src = code(PAGE);
 
-  // The flag must be READ...
-  const readMatch = src.match(/const\s+(\w+)\s*=\s*newFrontDoorEnabled\(\)/);
+  assert.ok(/<FrontDoor\b/.test(src), 'the front door is missing from `/`');
   assert.ok(
-    readMatch || /newFrontDoorEnabled\(\)\s*\?/.test(src),
-    'the page must call newFrontDoorEnabled()',
-  );
-  // ...and its value must be what selects the branch.
-  const gate: string = readMatch?.[1] ?? 'newFrontDoorEnabled()';
-  assert.ok(
-    new RegExp(`\\{\\s*${gate.replace(/[()]/g, '\\$&')}\\s*\\?`).test(src),
-    `the rendered branch must be selected by ${gate}, not hardcoded`,
-  );
-
-  assert.ok(/<FrontDoor\b/.test(src), 'the new front door branch is missing');
-  assert.ok(
-    /<HomeReskin\b/.test(src),
-    'the retired page must stay mounted until the flip — deleting it before ' +
-      'the owner has seen the replacement is the one irreversible step here',
-  );
-
-  // A tautology or a flipped polarity would make one branch dead while looking
-  // considered. This repo has shipped `|| true` before.
-  assert.ok(
-    !new RegExp(`${gate.replace(/[()]/g, '\\$&')}\\s*(\\|\\||&&)\\s*(true|false)\\b`).test(src),
-    'the flag condition must not be neutered by a tautology',
+    !/<HomeReskin\b/.test(src),
+    'the cinematic homepage is retired — it must not be mounted',
   );
   assert.ok(
-    !new RegExp(`\\{\\s*!\\s*${gate.replace(/[()]/g, '\\$&')}\\s*\\?`).test(src),
-    'the flag must not be inverted — that ships the retired page when it is ON',
+    !/newFrontDoorEnabled/.test(src),
+    'the rollout flag is retired with the page it switched; a flag nobody can ' +
+      'flip is a gate with no handle',
+  );
+  assert.ok(
+    !/<FrontDoor[^>]*\/>\s*\)\s*:/.test(src) && !/\?\s*<FrontDoor/.test(src),
+    '`/` must not choose between pages — there is only one homepage now',
   );
 });
 

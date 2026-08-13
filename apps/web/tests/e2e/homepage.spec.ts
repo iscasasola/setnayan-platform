@@ -3,76 +3,63 @@ import { test, expect } from '@playwright/test';
 /**
  * Homepage critical-path tests (Task #35).
  *
- * Renders the marketing-site landing page and asserts the load-bearing CTAs are
- * present. If this test breaks, signup conversion is broken — every other test
- * in the suite assumes a couple can land on `/` and see the primary action
- * surface.
+ * `/` IS THE FRONT DOOR. The cinematic `HomeReskin` gate it replaced — the
+ * no-scroll opening + 5-pillar dock, owner-approved 2026-06-29 — was retired
+ * completely on the owner's word after he saw the replacement live
+ * (`DECISION_LOG.md` 2026-08-13). This file used to assert that gate's four
+ * elements; every one of them is gone, so every assertion here is new.
  *
- * 2026-06-29 — ELN-style homepage reskin (PR #2432). The homepage is now the
- * cinematic no-scroll gate rendered by `HomeReskin`
- * (apps/web/app/_components/home/HomeReskin.tsx). The OLD "_sections.tsx" hero
- * ("Your wedding is one day." / "Keep it forever.") was removed. These
- * assertions target the reskin's INITIAL gate state — everything checked here is
- * visible on load WITHOUT opening the gate (no scroll/unlock required):
- *   • h1 `.hr-htitle` → "Keep your memories." / "Plan your moments."
- *   • eyebrow `.hr-kick` → the brand phrase "Set na 'yan"
- *   • hero primary CTA → "Start planning · free" link → /onboarding/wedding
- *   • nav "Sign in" button → opens the login popup overlay (owner 2026-06-30:
- *     "login should be like the rest of the upper menu. a popup") — the real
- *     Google + Apple + email auth, now in a dialog instead of a link to /login
+ * What it pins now is what a visitor must be able to do on the front page:
+ *   • the page answers at all;
+ *   • the rail is there — the thing the whole design is built around;
+ *   • SEARCH works signed out, which is the single problem this page exists to
+ *     solve (the Marketplace GROUP is signed-in only; finding one supplier you
+ *     already need is not browsing a directory);
+ *   • Sign in opens OVER the page and does NOT navigate — owner 2026-06-30,
+ *     *"login should be like the rest of the upper menu. a popup"*.
  *
- * The gate is a client island, so the elements hydrate after first paint;
- * Playwright's auto-waiting handles that. All four assertions are above the
- * fold in the gate, so none depend on the unlock/scroll interaction.
+ * ⚠ IT ASSERTS BEHAVIOUR, NOT ELEMENT TYPES. An earlier version required the
+ * sign-in to be a `<button>`; it is a real `<Link>` whose press is intercepted,
+ * so that it works before hydration and with JavaScript off and so middle-click
+ * still reaches /login. Pinning the tag broke on a change that improved the
+ * control. The rule is "you did not leave the page", and that is what is
+ * checked.
  */
 test.describe('Homepage', () => {
-  test('renders with primary CTAs', async ({ page }) => {
+  test('renders the front door', async ({ page }) => {
+    const res = await page.goto('/');
+    expect(res?.status()).toBe(200);
+
+    // The rail — the design's spine. Present on every width (below 1024 it is
+    // off-canvas, so this asserts presence, not visibility).
+    await expect(page.locator('nav.fd-rail')).toHaveCount(1);
+
+    // The wordmark, and the brand spelled in full (brand lock: never STNYN).
+    await expect(page.getByRole('link', { name: 'SETNAYAN', exact: true }).first()).toBeVisible();
+
+    // Search answers a SIGNED-OUT person — deliberate, and the one thing this
+    // page exists for. It is a real GET form to the marketplace.
+    const search = page.getByRole('search').first();
+    await expect(search).toBeVisible();
+    await expect(search.getByRole('searchbox')).toBeVisible();
+  });
+
+  test('signing in opens over the page and does not navigate', async ({ page }) => {
     await page.goto('/');
-
-    // Hero headline — the reskin's h1 carries both lines (a <br> between them),
-    // so the accessible name is "Keep your memories.Plan your moments.". Match
-    // each line independently so a copy tweak to one doesn't fail the smoke test.
-    const heroHeading = page.getByRole('heading', { name: /Keep your memories/i });
-    await expect(heroHeading).toBeVisible();
-    await expect(heroHeading).toHaveText(/Plan your moments/i);
-
-    // Brand phrase — the eyebrow keeps "Set na 'yan" (any apostrophe codepoint).
-    await expect(page.getByText(/Set na/i).first()).toBeVisible();
-
-    // Hero primary CTA — "Start planning · free" → /onboarding/wedding. (Uses a
-    // non-breaking space around the middot, so match the leading words only.)
-    const startPlanning = page.getByRole('link', { name: /Start planning/i }).first();
-    await expect(startPlanning).toBeVisible();
-    await expect(startPlanning).toHaveAttribute('href', '/onboarding/wedding');
-
-    // Nav sign-in — owner 2026-06-30 "login should be like the rest of the upper
-    // menu. a popup." Pressing it must open the real login (Google + Apple +
-    // email) OVER this page and must NOT navigate.
-    //
-    // ⚠ THIS ASSERTED `getByRole('button')` UNTIL 2026-08-13, and that pinned
-    // the wrong thing. The control is now a real <Link href="/login"> whose
-    // press is intercepted — deliberately, so it still works before hydration
-    // and with JavaScript off, supports middle-click / open-in-new-tab, and
-    // satisfies `@next/next/no-html-link-for-pages`. `aria-haspopup="dialog"`
-    // keeps that truthful to a screen reader: a link, that opens a dialog.
-    //
-    // 🔑 SO THIS NOW ASSERTS THE RULE INSTEAD OF THE ELEMENT — the dialog opens
-    // AND THE URL DOES NOT CHANGE. The old version never checked the second
-    // half, which is the actual owner instruction: a popup, not a navigation.
-    // Element type is an implementation detail; "you did not leave the page" is
-    // the promise.
     const urlBefore = page.url();
+
+    // A real link, announced as opening a dialog — both halves true at once.
     const signIn = page.getByRole('link', { name: /^Sign in$/i }).first();
     await expect(signIn).toBeVisible();
     await expect(signIn).toHaveAttribute('aria-haspopup', 'dialog');
+
     await signIn.click();
-    // The popup is a role=dialog labelled "Sign in" carrying the email field +
-    // the "Continue" submit — assert it opens (the popup behavior the owner
-    // asked for).
+
     const dialog = page.getByRole('dialog', { name: /^Sign in$/i });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel(/^Email$/i)).toBeVisible();
-    // And we are still on the page we started on — no navigation happened.
+
+    // The whole point: still here.
     expect(page.url()).toBe(urlBefore);
   });
 

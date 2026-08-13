@@ -1,54 +1,48 @@
 /**
- * Homepage · / — THE FRONT DOOR (owner-ruled 2026-08-13).
+ * Homepage · / — THE FRONT DOOR.
  *
  * ─── WHAT THIS REPLACED, AND ON WHOSE WORD ───────────────────────────────
- * Until today `/` rendered `HomeReskin` — the ELN cinematic no-scroll gate +
+ * `/` used to render `HomeReskin` — the ELN cinematic no-scroll gate +
  * 5-pillar dock, owner-approved 2026-06-29. The owner was asked directly
  * whether the new front door replaces the homepage ("yes we want the new
  * website") and then what becomes of the cinematic opening: **"Retire it
  * completely."** He was told in the question itself that this discards
  * finished, approved work. `DECISION_LOG.md` 2026-08-13.
  *
- * So this is a REVERSAL OF AN OWNER LOCK, taken on the owner's own sentence —
- * not a redesign anyone drifted into.
+ * That ruling shipped in two steps, deliberately. The front door went live
+ * behind a flag first, because deleting an approved page before its
+ * replacement has been looked at on a real screen is the one step that cannot
+ * be undone. The owner has since seen it live and said delete — so the flag,
+ * the cinematic page and its four data reads are gone, and this file renders
+ * exactly one thing.
  *
  * ─── PORTED, NOT REDRAWN ─────────────────────────────────────────────────
  * Binding sources: `prototypes/front_door_and_seam_2026-08-12.html` (rev 3)
  * and `FRONT_DOOR_AND_SEAM_FINAL_2026-08-12.md`. A delta between this page and
  * the prototype is a defect in the PORT, not a fresh design decision.
  *
- * ─── PRESERVED, deliberately (no visual footprint) ───────────────────────
+ * ─── PRESERVED THROUGH BOTH STEPS, deliberately ──────────────────────────
  *   • GEO/SERP metadata + the WebSite + SoftwareApplication JSON-LD graph, so
  *     AI answer engines and search cards keep their extractable surface. The
  *     shape of the page changed; what a machine reads about the brand did not.
- *   • All three CRON-FREE after() jobs — the admin morning digest, the daily
- *     email jobs and the interconnection probes. These have no scheduler
- *     behind them; they piggyback on this page's guaranteed public traffic, so
- *     dropping them while rewriting the page would have silently stopped the
- *     anniversary digests, the renewal reminders and the Papic drop warning.
+ *   • 🚨 ALL THREE CRON-FREE after() JOBS — the admin morning digest, the daily
+ *     email jobs and the interconnection probes. THESE HAVE NO SCHEDULER
+ *     BEHIND THEM; they piggyback on this page's guaranteed public traffic.
+ *     Dropping them while rewriting the page would have silently stopped the
+ *     anniversary digests, the renewal reminders and the Papic drop warning,
+ *     and nothing would have reported it. If this file is ever rewritten
+ *     again, they move WITH it or they move somewhere else first.
  *
- * ⚠ RETIRED WITH THE REMOVED PAGE: the catalog-driven pricing read, the admin
- * background videos, and the Spotlight strip. They were props of the cinematic
- * homepage only. `/pricing` remains the source of truth for prices and is
- * untouched.
- *
- * The persistent SiteChrome top-nav stays suppressed on `/` (site-chrome.tsx
- * omits it) because the front door renders its own top bar — same reason as
- * before, different bar.
+ * ⚠ RETIRED WITH THE PAGE: the catalog-driven pricing read, the admin
+ * background videos, the published-showcase rail and the Spotlight strip.
+ * They were props of the cinematic homepage only. `/pricing` remains the
+ * source of truth for prices and is untouched, and `/api/home-pricing` still
+ * serves the marketing chrome's Prices popup from the same catalog reader.
  */
 
 import { after } from 'next/server';
-import './_components/home/home-reskin.css';
 import './_components/frontdoor/front-door.css';
-import { HomeReskin } from './_components/home/HomeReskin';
-import { HomeSpotlightStrip } from './_components/home/HomeSpotlightStrip';
-import { getHomePricingData } from './_components/home/pricing-data';
 import { FrontDoor } from './_components/frontdoor/front-door';
-import { newFrontDoorEnabled } from '@/lib/front-door-flag';
-import { fetchHomepageSpotlight } from '@/lib/spotlight-awards';
-import { loadPublishedShowcases } from '@/lib/showcase-db';
-import { publishedBlogArticles } from '@/lib/blog';
-import { fetchPublishedBackgroundVideos } from '@/lib/background-videos';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 import { maybeRunInterconnectionProbes } from '@/lib/interconnect/run';
@@ -216,64 +210,16 @@ export default async function HomePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  // These three reads are fully independent — none consumes another's output —
-  // so run them CONCURRENTLY. Each degrades to a safe fallback ([]/null) when the
-  // service-role key is absent, so this is safe at build-time prerender under ISR.
-  // (OAuth-button visibility is now resolved client-side in HomeOverlays, so this
-  // page no longer reads headers()/cookies() — that's what makes it cacheable.)
-  //
-  //   • getHomePricingData        — catalog-driven pricing for the Prices overlay
-  //   • fetchPublishedBackgroundVideos — admin homepage videos: slot 0 = hero
-  //                                 backdrop, slots 1-5 = pillar dock videos, in
-  //                                 PILLAR_HEROES order (each null until published,
-  //                                 falling back to the gradient scene).
-  //   • fetchHomepageSpotlight    — public Spotlight strip; DOUBLE-GATED + inert by
-  //                                 default (returns []).
-  // Real published weddings for the homepage rail. The four that shipped here
-  // were HARDCODED — "Claire & Ice", "Maria & Jose", "Lena turns 18", "The Reyes
-  // Reunion" — so a real couple publishing their day changed nothing on the front
-  // page. `loadPublishedShowcases` is the reader /realstories already uses, and it
-  // fails soft to [] (it even catches the admin-client constructor), so a failed
-  // read and a genuinely empty archive both arrive as zero. That is the right
-  // direction here: below the threshold the rail renders a written invitation
-  // instead of a grid, and an invitation is honest in both cases.
   /*
-    ⚠ AWAITING `searchParams` IS ITSELF A DYNAMIC OPT-OUT, IN BOTH BRANCHES.
-    An earlier cut awaited it unconditionally at the top of this function — so
-    the CURRENTLY LIVE homepage lost its static generation the moment this
-    landed, which is precisely the regression the `revalidate` note above says
-    was avoided. Reading a request-scoped value is dynamic whether or not the
-    value is used.
-
-    `newFrontDoorEnabled()` reads a NEXT_PUBLIC_* var, which is inlined at
-    build time — so with the flag off this expression is a compile-time false
-    and the await never appears in the executed path. Flag off ⇒ still ISR.
+    ⚠ AWAITING `searchParams` IS A DYNAMIC OPT-OUT. It is read because the
+    front door's chip row is a real filter carried in the URL, so this page is
+    request-rendered rather than static. That was already true the moment the
+    front door went live — the flag was compile-time TRUE and this await was
+    already on the executed path — so retiring the old page changes nothing
+    about how `/` renders.
   */
-  const newDoor = newFrontDoorEnabled();
-  const chipParam = newDoor ? (await searchParams).c : undefined;
+  const chipParam = (await searchParams).c;
   const chip = Array.isArray(chipParam) ? chipParam[0] : chipParam;
-
-  // The retired page's reads. They stay until the flag flips, at which point
-  // this block and the four imports above go with it — one commit, once
-  // somebody has actually seen what replaces it.
-  // ⚠ These four run in BOTH branches, deliberately. Gating them on the flag
-  // was tried and reverted: it forces every downstream prop nullable for a
-  // saving that only exists in the flag-ON state, and the adversarial review
-  // explicitly refuted "the retired reads are wasted work" as a defect. They
-  // disappear with the block below at the flip.
-  const [pricing, bg, spotlightVendors, showcases] = await Promise.all([
-    getHomePricingData(),
-    fetchPublishedBackgroundVideos(),
-    fetchHomepageSpotlight(),
-    loadPublishedShowcases(4).catch(() => []),
-  ]);
-
-  const bgVideos = {
-    main: bg.main?.url ?? null,
-    pillars: [1, 2, 3, 4, 5].map(
-      (slot) => bg.pillars.find((p) => p.slot === slot)?.url ?? null,
-    ),
-  };
 
   // Admin morning-digest flush — cron-free, piggybacks on the homepage's
   // guaranteed public traffic so the digest reaches an admin who isn't in the
@@ -302,25 +248,7 @@ export default async function HomePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
-      {newDoor ? (
-        <FrontDoor chip={chip} />
-      ) : (
-        <>
-          {/* The June cinematic homepage, still standing until the flip.
-              The owner HAS ruled it retired — this is about ORDER, not doubt:
-              deleting a finished, approved page before its replacement has
-              been looked at on a real screen is the one step here that cannot
-              be undone, and the standing rule is that the owner LOOKING beats
-              every automated check. */}
-          <HomeReskin
-            pricing={pricing}
-            bgVideos={bgVideos}
-            showcases={showcases}
-            articles={publishedBlogArticles().slice(0, 3)}
-          />
-          <HomeSpotlightStrip vendors={spotlightVendors} />
-        </>
-      )}
+      <FrontDoor chip={chip} />
     </>
   );
 }

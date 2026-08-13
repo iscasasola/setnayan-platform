@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e46d2f104",
+  "generatedFromRef": "07205a146",
   "routeCount": 401,
-  "destinations": 677,
-  "actions": 517,
-  "blocks": 3549,
+  "destinations": 678,
+  "actions": 522,
+  "blocks": 3551,
   "routes": {
     "/": {
       "files": [
@@ -31,8 +31,6 @@
         "FrontDoor",
         "GlobalHaptics",
         "GlobalSliderHint",
-        "HomeReskin",
-        "HomeSpotlightStrip",
         "Link",
         "LoaderConfigProvider",
         "LoaderOverlayProvider",
@@ -1658,11 +1656,15 @@
     },
     "/admin/papic-storage": {
       "files": [
+        "admin/papic-storage/actions.ts",
+        "admin/papic-storage/backfill-tiles-button.tsx",
         "admin/papic-storage/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
+        "BackfillResult",
+        "BackfillTilesButton",
         "Tile"
       ]
     },
@@ -3234,6 +3236,7 @@
         "dashboard/[eventId]/wizard-actions.ts"
       ],
       "destinations": [
+        "/dashboard",
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/clearance",
         "/dashboard/[seg]/date-selection",
@@ -5306,7 +5309,10 @@
         "/dashboard/[seg]/studio/papic",
         "/dashboard/[seg]/studio/papic/magazine"
       ],
-      "actions": [],
+      "actions": [
+        "publishRecap",
+        "unpublishRecap"
+      ],
       "blocks": [
         "DriveSafetyPanel",
         "Link",
@@ -6647,6 +6653,7 @@
         "login/_components/login-data.ts",
         "login/_components/sign-in-card-modal.tsx",
         "login/_components/sign-in-card.tsx",
+        "login/_components/sign-in-state.ts",
         "login/actions.ts",
         "login/page.tsx"
       ],
@@ -6654,7 +6661,8 @@
         "/forgot-password"
       ],
       "actions": [
-        "signInWithPassword"
+        "signInWithPassword",
+        "submitInPlace"
       ],
       "blocks": [
         "DesktopOAuthButtons",
@@ -6665,6 +6673,7 @@
         "OAuthButtonRow",
         "SignInCard",
         "SignInCardModal",
+        "SignInInPlaceState",
         "SubmitButton",
         "TurnstileField"
       ]
@@ -6950,6 +6959,7 @@
         "action",
         "addADay",
         "addRoamZone",
+        "clearControlManualAir",
         "clearControlWatchUrl",
         "clearMainStage",
         "createChannelJoinLink",
@@ -6960,6 +6970,7 @@
         "reissueChannelJoinLink",
         "renameRoamZone",
         "saveControlWatchUrl",
+        "setControlManualAir",
         "setEventQrOverlay",
         "setFeaturedRoamZone",
         "setGuestPick",
@@ -7847,6 +7858,7 @@
         "ServicesGallery",
         "ServicesPricingSection",
         "ShareButton",
+        "SignInHereLink",
         "StarRow",
         "StartServiceInquiryResult",
         "StorytellerTile",

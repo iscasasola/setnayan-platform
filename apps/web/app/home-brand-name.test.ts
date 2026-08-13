@@ -35,11 +35,30 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const HOME_PAGE = path.join(import.meta.dirname, 'page.tsx');
-const HOME_RESKIN = path.join(
+/*
+  🚨 THIS POINTED AT `_components/home/HomeReskin.tsx` UNTIL 2026-08-13, AND
+  THAT IS HOW IT FAILED. The front door replaced that page on `/` and rendered
+  the wordmark in ALL CAPS — the exact variant Google rejected on 2026-07-25 —
+  while this guard went on reading the retired file and passing. A guard that
+  outlives the page it guards does not protect anything; it only reports that
+  something which no longer runs is still correct.
+
+  Pointed at the live shell, and the assertions below are rewritten for how it
+  renders: the visible text is title-case "Setnayan" and the capitals come from
+  `text-transform: uppercase` in front-door.css, so the design is unchanged and
+  the STRING matches the consent screen.
+*/
+const FRONT_DOOR_SHELL = path.join(
   import.meta.dirname,
   '_components',
-  'home',
-  'HomeReskin.tsx',
+  'frontdoor',
+  'front-door-shell.tsx',
+);
+const FRONT_DOOR_CSS = path.join(
+  import.meta.dirname,
+  '_components',
+  'frontdoor',
+  'front-door.css',
 );
 
 /**
@@ -79,38 +98,40 @@ function metadataBlock(src: string): string {
   assert.fail('Unbalanced braces in app/page.tsx metadata object.');
 }
 
-/** The rendered `<nav className="hr-nav">…</nav>` element, brace-free of prose. */
-function homeNavMarkup(src: string): string {
-  const start = src.indexOf('<nav className="hr-nav">');
+/** The rendered `<header className="fd-topbar">…</header>`, prose stripped. */
+function topBarMarkup(src: string): string {
+  const start = src.indexOf('<header className="fd-topbar">');
   assert.notEqual(
     start,
     -1,
-    'The homepage nav (<nav className="hr-nav">) is gone from HomeReskin.tsx. It is ' +
-      'where the visible app name lives; if the nav moved, move this guard with it.',
+    'The front door top bar (<header className="fd-topbar">) is gone from ' +
+      'front-door-shell.tsx. It is where the visible app name lives; if the bar ' +
+      'moved, move this guard with it — do NOT leave it reading a file that no ' +
+      'longer renders, which is exactly how this guard failed once already.',
   );
-  const end = src.indexOf('</nav>', start);
-  assert.notEqual(end, -1, 'Unterminated <nav> in HomeReskin.tsx.');
+  const end = src.indexOf('</header>', start);
+  assert.notEqual(end, -1, 'Unterminated <header> in front-door-shell.tsx.');
   return src.slice(start, end);
 }
 
-test('the homepage nav renders the visible title-case wordmark "Setnayan"', () => {
-  const nav = homeNavMarkup(read(HOME_RESKIN));
+test('the front door renders the visible title-case wordmark "Setnayan"', () => {
+  const bar = topBarMarkup(read(FRONT_DOOR_SHELL));
 
   assert.match(
-    nav,
-    /className="hr-wordmark"\s*>\s*Setnayan\s*</,
-    'The visible <span className="hr-wordmark">Setnayan</span> is missing from the ' +
-      'homepage nav. Google\'s OAuth "App Homepage" checklist requires the consent-' +
-      'screen app name to be visible on the homepage; without this the page shows ' +
-      'only the glyph and brand verification fails the same way it did 2026-07-25. ' +
-      'It must be TEXT — an image or an aria-label does not satisfy the check.',
+    bar,
+    /className="fd-wordmark"\s*>\s*Setnayan\s*</,
+    'The visible <Link className="fd-wordmark">Setnayan</Link> is missing from the ' +
+      'front door top bar. Google\'s OAuth "App Homepage" checklist requires the ' +
+      'consent-screen app name to be visible on the homepage; without this the page ' +
+      'shows only the glyph and brand verification fails the same way it did ' +
+      '2026-07-25. It must be TEXT — an image or an aria-label does not satisfy it.',
   );
 });
 
 test('the wordmark is exactly "Setnayan", not an all-caps or styled variant', () => {
-  const nav = homeNavMarkup(read(HOME_RESKIN));
-  const match = /className="hr-wordmark"\s*>\s*([^<]*?)\s*</.exec(nav);
-  assert.ok(match, 'hr-wordmark span not found — see the previous test.');
+  const bar = topBarMarkup(read(FRONT_DOOR_SHELL));
+  const match = /className="fd-wordmark"\s*>\s*([^<]*?)\s*</.exec(bar);
+  assert.ok(match, 'fd-wordmark link not found — see the previous test.');
   assert.equal(
     match[1],
     'Setnayan',
@@ -156,5 +177,28 @@ test('the homepage openGraph/twitter override keeps the large brand card', () =>
     true,
     'The 1200×630 brand card must be restated in BOTH the openGraph and twitter ' +
       'overrides on the homepage. Overriding either object drops the layout\'s image.',
+  );
+});
+
+test('the capitals come from CSS, so the markup keeps the exact app name', () => {
+  /*
+    The approved prototype draws the wordmark in CAPITALS and that look is
+    preserved — but by `text-transform`, not by typing SETNAYAN into the markup.
+    Both halves matter and each fails differently:
+      • drop the CSS rule → the design changes;
+      • type the caps into the markup → the 2026-07-25 OAuth brand rejection
+        comes back, and it comes back SILENTLY, because nothing renders wrong.
+  */
+  const css = readFileSync(FRONT_DOOR_CSS, 'utf8');
+  const start = css.indexOf('.fd-wordmark {');
+  assert.notEqual(start, -1, '.fd-wordmark rule is gone from front-door.css.');
+  const block = css.slice(start, css.indexOf('}', start));
+  assert.match(
+    block.replace(/\/\*[\s\S]*?\*\//g, ''),
+    /text-transform:\s*uppercase/,
+    'The wordmark\'s capitals must come from CSS. Without this the front door ' +
+      'renders title case where the approved design shows caps — and the fix ' +
+      'somebody reaches for is typing SETNAYAN into the markup, which is the ' +
+      'rejected variant.',
   );
 });

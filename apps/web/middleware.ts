@@ -371,16 +371,37 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  // Signed-in visitors landing on the marketing homepage get bounced to
-  // the app shell. Doing the redirect here — instead of inside the page
-  // component — lets `/` stay fully static, which drops home-page TTFB
-  // from ~300 ms (SSR + auth roundtrip on every request) to edge-cache
-  // speed. Other auth-sensitive routes (`/login`, `/signup`) keep their
-  // existing page-level logic since those flows may have intentional
-  // signed-in render paths (e.g., account switching).
-  if (user && pathname === '/') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
+  /*
+    A SIGNED-IN VISITOR MAY SEE THE FRONT DOOR. The bounce that stood here —
+    `if (user && pathname === '/') redirect('/dashboard')` — is removed.
+
+    Owner 2026-08-13, after the login fix still did not do it: "still directed
+    here". It could not have. #4424 fixed where a SIGN-IN sends you, and this
+    line sent you away again on the very next request — and on every later
+    visit to `/` for as long as you stayed signed in. A member could never see
+    the front door at all.
+
+    ⚠ IT ALSO MADE FINISHED WORK UNREACHABLE. front-door-shell.tsx carries four
+    `account.signedIn` branches — My Home with Events + Alaala, the Marketplace
+    group, the account cluster. None of them could ever render.
+
+    🔑 AND ITS OWN JUSTIFICATION HAD ALREADY EXPIRED. It existed to keep `/`
+    "fully static … edge-cache speed" while `/` was the marketing homepage that
+    "does not read the session at all". The front door reads the session by
+    construction — app/page.tsx says so itself: `cookies()` is reached inside
+    <FrontDoor>, "with the flag on, this route renders per-request". The flag is
+    on and the front door is live, so the redirect was protecting a static
+    render that no longer exists. It cost the seam and bought nothing.
+
+    ⏭ The performance follow-up app/page.tsx already names stands, and is now
+    the real lever: if per-request rendering proves expensive under traffic,
+    cache the feed reads behind `unstable_cache` so only the session lookup is
+    per-request. That is a caching decision, not a reason to eject members from
+    the page.
+
+    Other auth-sensitive routes (`/login`, `/signup`) keep their page-level
+    logic — those flows have intentional signed-in render paths.
+  */
 
   return response;
 }

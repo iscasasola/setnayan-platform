@@ -66,7 +66,7 @@ export default async function TourIntroPage() {
               <div className="flex items-center justify-between">
                 <span className="font-mono text-xs text-[#8C6932]">{String(s.n).padStart(2, '0')}</span>
                 {!s.live && (
-                  <span className="font-mono text-[11px] uppercase tracking-wider text-[#9A8F86]">soon</span>
+                  <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--m-slate-2)]">soon</span>
                 )}
               </div>
               <h2 className="mt-2 font-serif text-lg text-[#1B1A17]">{s.title}</h2>

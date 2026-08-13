@@ -280,7 +280,7 @@ export default async function TourGalleryPage() {
         </Link>
         <Link
           href="/tour"
-          className="inline-flex min-h-[44px] items-center font-mono text-xs uppercase tracking-wider text-[#9A8F86] transition-opacity hover:opacity-80"
+          className="inline-flex min-h-[44px] items-center font-mono text-xs uppercase tracking-wider text-[var(--m-slate-2)] transition-opacity hover:opacity-80"
         >
           All stops
         </Link>

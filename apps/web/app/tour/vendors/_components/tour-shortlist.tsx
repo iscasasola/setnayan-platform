@@ -226,7 +226,7 @@ export function TourShortlist({
           <section key={cat.id}>
             <div className="flex items-baseline justify-between gap-3">
               <h2 className="font-serif text-2xl text-[#1B1A17]">{cat.label}</h2>
-              <span className="font-mono text-[11px] uppercase tracking-wider text-[#9A8F86]">
+              <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--m-slate-2)]">
                 {cat.vendors.length} found
               </span>
             </div>
@@ -238,7 +238,7 @@ export function TourShortlist({
                 ))}
               </div>
             ) : (
-              <p className="mt-3 rounded-xl border border-dashed border-[#1B1A17]/15 bg-white/50 p-5 text-sm text-[#9A8F86]">
+              <p className="mt-3 rounded-xl border border-dashed border-[#1B1A17]/15 bg-white/50 p-5 text-sm text-[var(--m-slate-2)]">
                 No sample vendors seeded in this category yet.
               </p>
             )}

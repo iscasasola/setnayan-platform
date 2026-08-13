@@ -137,7 +137,7 @@ export function TourLiveWall({
           </button>
         </div>
       ) : done && incomingTiles.length > 0 ? (
-        <p className="mt-5 text-center text-xs text-[#9A8F86]">
+        <p className="mt-5 text-center text-xs text-[var(--m-slate-2)]">
           That&rsquo;s the live feel &mdash; on the real day it never stops. Reload to replay.
         </p>
       ) : null}

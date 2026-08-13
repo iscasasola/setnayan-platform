@@ -60,8 +60,12 @@ function kitMounts(route: string): number {
 }
 
 /**
- * The public doorways. `/` is deliberately absent — it is the ELN cinematic
- * reskin, owner-approved 2026-06-29 and explicitly excluded from this work.
+ * The public doorways. `/` is deliberately absent — it is the FRONT DOOR, not a
+ * tool doorway. (Until 2026-08-13 the reason given here was "it is the ELN
+ * cinematic reskin, owner-approved 2026-06-29"; the owner retired that page
+ * completely, so the reason changed while the exclusion stayed correct. A
+ * retired reason left in place is how a guard ends up arguing for a decision
+ * nobody holds any more.)
  * `/features` is absent too: it is a different design language with a
  * bilingual twin at `/tl/features`, and it is its own job.
  */
@@ -197,10 +201,11 @@ test('every doorway keeps its SoftwareApplication + FAQPage structured data', ()
 });
 
 test('the excluded routes stay excluded', () => {
-  // `/` is the ELN cinematic reskin (owner-approved 2026-06-29) and `/features`
-  // is a separate design language with a bilingual twin. Neither belongs to
-  // this port, and adding either to DOORWAYS above would quietly widen the
-  // work — so the exclusion is asserted rather than remembered.
+  // `/` is the front door (owner-ruled 2026-08-13, replacing the retired ELN
+  // cinematic page) and `/features` is a separate design language with a
+  // bilingual twin. Neither is a TOOL doorway, and adding either to DOORWAYS
+  // above would quietly widen the work — so the exclusion is asserted rather
+  // than remembered.
   assert.ok(!(DOORWAYS as readonly string[]).includes(''), '/ must not be ported here');
   assert.ok(
     !(DOORWAYS as readonly string[]).includes('features'),

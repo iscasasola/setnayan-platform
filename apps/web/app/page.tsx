@@ -38,17 +38,14 @@
  */
 
 import { after } from 'next/server';
-import './_components/home/home-reskin.css';
+// ⚠ `home-reskin.css` is NOT imported here any more and MUST NOT BE DELETED.
+// Despite the name it is the shared MARKETING stylesheet — `site-chrome.tsx`,
+// `site-footer-chrome.tsx`, `sign-in-here-panel.tsx` and the login card each
+// import it themselves. The front door uses none of its `.hr-*` classes
+// (verified: zero occurrences across `_components/frontdoor/`), so only this
+// page's import goes.
 import './_components/frontdoor/front-door.css';
-import { HomeReskin } from './_components/home/HomeReskin';
-import { HomeSpotlightStrip } from './_components/home/HomeSpotlightStrip';
-import { getHomePricingData } from './_components/home/pricing-data';
 import { FrontDoor } from './_components/frontdoor/front-door';
-import { newFrontDoorEnabled } from '@/lib/front-door-flag';
-import { fetchHomepageSpotlight } from '@/lib/spotlight-awards';
-import { loadPublishedShowcases } from '@/lib/showcase-db';
-import { publishedBlogArticles } from '@/lib/blog';
-import { fetchPublishedBackgroundVideos } from '@/lib/background-videos';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 import { maybeRunInterconnectionProbes } from '@/lib/interconnect/run';
@@ -216,64 +213,31 @@ export default async function HomePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  // These three reads are fully independent — none consumes another's output —
-  // so run them CONCURRENTLY. Each degrades to a safe fallback ([]/null) when the
-  // service-role key is absent, so this is safe at build-time prerender under ISR.
-  // (OAuth-button visibility is now resolved client-side in HomeOverlays, so this
-  // page no longer reads headers()/cookies() — that's what makes it cacheable.)
+  // ⚠ THE FOUR READS THAT USED TO SIT HERE ARE GONE WITH THE PAGE THEY FED —
+  // the catalog pricing read, the admin background videos, the Spotlight strip
+  // and the published showcases were props of the cinematic homepage ONLY. The
+  // front door loads its own feed inside `<FrontDoor>`. `/pricing` remains the
+  // source of truth for prices and is untouched.
   //
-  //   • getHomePricingData        — catalog-driven pricing for the Prices overlay
-  //   • fetchPublishedBackgroundVideos — admin homepage videos: slot 0 = hero
-  //                                 backdrop, slots 1-5 = pillar dock videos, in
-  //                                 PILLAR_HEROES order (each null until published,
-  //                                 falling back to the gradient scene).
-  //   • fetchHomepageSpotlight    — public Spotlight strip; DOUBLE-GATED + inert by
-  //                                 default (returns []).
-  // Real published weddings for the homepage rail. The four that shipped here
-  // were HARDCODED — "Claire & Ice", "Maria & Jose", "Lena turns 18", "The Reyes
-  // Reunion" — so a real couple publishing their day changed nothing on the front
-  // page. `loadPublishedShowcases` is the reader /realstories already uses, and it
-  // fails soft to [] (it even catches the admin-client constructor), so a failed
-  // read and a genuinely empty archive both arrive as zero. That is the right
-  // direction here: below the threshold the rail renders a written invitation
-  // instead of a grid, and an invitation is honest in both cases.
-  /*
-    ⚠ AWAITING `searchParams` IS ITSELF A DYNAMIC OPT-OUT, IN BOTH BRANCHES.
-    An earlier cut awaited it unconditionally at the top of this function — so
-    the CURRENTLY LIVE homepage lost its static generation the moment this
-    landed, which is precisely the regression the `revalidate` note above says
-    was avoided. Reading a request-scoped value is dynamic whether or not the
-    value is used.
-
-    `newFrontDoorEnabled()` reads a NEXT_PUBLIC_* var, which is inlined at
-    build time — so with the flag off this expression is a compile-time false
-    and the await never appears in the executed path. Flag off ⇒ still ISR.
-  */
-  const newDoor = newFrontDoorEnabled();
-  const chipParam = newDoor ? (await searchParams).c : undefined;
+  // 🔑 Awaiting `searchParams` is a dynamic opt-out, and it is now
+  // UNCONDITIONAL — correct, not a regression. `<FrontDoor>` reads cookies to
+  // decide the signed-in rail, so this route is request-scoped either way. The
+  // old note here argued for preserving ISR in the flag-OFF branch; that branch
+  // no longer exists, so the argument retired with it rather than being
+  // silently left behind to mislead the next reader.
+  const chipParam = (await searchParams).c;
   const chip = Array.isArray(chipParam) ? chipParam[0] : chipParam;
 
-  // The retired page's reads. They stay until the flag flips, at which point
-  // this block and the four imports above go with it — one commit, once
-  // somebody has actually seen what replaces it.
-  // ⚠ These four run in BOTH branches, deliberately. Gating them on the flag
-  // was tried and reverted: it forces every downstream prop nullable for a
-  // saving that only exists in the flag-ON state, and the adversarial review
-  // explicitly refuted "the retired reads are wasted work" as a defect. They
-  // disappear with the block below at the flip.
-  const [pricing, bg, spotlightVendors, showcases] = await Promise.all([
-    getHomePricingData(),
-    fetchPublishedBackgroundVideos(),
-    fetchHomepageSpotlight(),
-    loadPublishedShowcases(4).catch(() => []),
-  ]);
-
-  const bgVideos = {
-    main: bg.main?.url ?? null,
-    pillars: [1, 2, 3, 4, 5].map(
-      (slot) => bg.pillars.find((p) => p.slot === slot)?.url ?? null,
-    ),
-  };
+  // ⚠ THE FOUR RETIRED READS ARE GONE WITH THE PAGE THEY FED — the catalog
+  // pricing read, the admin background videos, the Spotlight strip and the
+  // published showcases were props of the cinematic homepage ONLY. `/pricing`
+  // remains the source of truth for prices and is untouched.
+  //
+  // 🔑 Awaiting `searchParams` is a dynamic opt-out, and that is now
+  // unconditional — correct, not a regression. `<FrontDoor>` reads cookies to
+  // decide the signed-in rail, so this route is request-scoped either way. The
+  // old note about preserving ISR applied to the flag-OFF branch, which no
+  // longer exists.
 
   // Admin morning-digest flush — cron-free, piggybacks on the homepage's
   // guaranteed public traffic so the digest reaches an admin who isn't in the
@@ -302,25 +266,7 @@ export default async function HomePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
-      {newDoor ? (
-        <FrontDoor chip={chip} />
-      ) : (
-        <>
-          {/* The June cinematic homepage, still standing until the flip.
-              The owner HAS ruled it retired — this is about ORDER, not doubt:
-              deleting a finished, approved page before its replacement has
-              been looked at on a real screen is the one step here that cannot
-              be undone, and the standing rule is that the owner LOOKING beats
-              every automated check. */}
-          <HomeReskin
-            pricing={pricing}
-            bgVideos={bgVideos}
-            showcases={showcases}
-            articles={publishedBlogArticles().slice(0, 3)}
-          />
-          <HomeSpotlightStrip vendors={spotlightVendors} />
-        </>
-      )}
+      <FrontDoor chip={chip} />
     </>
   );
 }

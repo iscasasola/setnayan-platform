@@ -175,8 +175,18 @@ export function FrontDoorShell({
           >
             ☰
           </button>
+          {/* ⚠ TITLE CASE IN THE MARKUP, CAPS ON THE SCREEN — and the case is
+              NOT a style preference. Google's OAuth brand verification reads
+              the homepage for the consent-screen app name as VISIBLE TEXT,
+              character for character, and "SETNAYAN" in the markup is the
+              ORIGINAL 2026-07-25 REJECTION: the caps wordmark did not read as
+              a match. The ported prototype draws the wordmark in caps, which is
+              a LOOK — `text-transform: uppercase` in `.fd-wordmark` delivers
+              exactly that look while the DOM text a verifier reads stays
+              "Setnayan". Do not "fix" this back to literal caps.
+              Pinned by `app/home-brand-name.test.ts`. */}
           <Link href="/" className="fd-wordmark">
-            SETNAYAN
+            Setnayan
           </Link>
         </div>
 

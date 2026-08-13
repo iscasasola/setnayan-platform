@@ -8,15 +8,24 @@ import { test, expect } from '@playwright/test';
  * in the suite assumes a couple can land on `/` and see the primary action
  * surface.
  *
- * 2026-06-29 — ELN-style homepage reskin (PR #2432). The homepage is now the
- * cinematic no-scroll gate rendered by `HomeReskin`
- * (apps/web/app/_components/home/HomeReskin.tsx). The OLD "_sections.tsx" hero
- * ("Your wedding is one day." / "Keep it forever.") was removed. These
- * assertions target the reskin's INITIAL gate state — everything checked here is
- * visible on load WITHOUT opening the gate (no scroll/unlock required):
- *   • h1 `.hr-htitle` → "Keep your memories." / "Plan your moments."
- *   • eyebrow `.hr-kick` → the brand phrase "Set na 'yan"
- *   • hero primary CTA → "Start planning · free" link → /onboarding/wedding
+ * 2026-08-13 — `/` IS THE FRONT DOOR. The owner ruled the ELN cinematic
+ * homepage retired completely, and it is deleted along with its pillars, its
+ * Spotlight strip and the flag that used to choose between the two. The page is
+ * now `FrontDoor` (apps/web/app/_components/frontdoor/), ported from
+ * `prototypes/front_door_and_seam_2026-08-12.html`.
+ *
+ * ⚠ TWO THINGS THIS FILE USED TO ASSERT ARE GONE FROM THE PRODUCT, verified
+ * against the LIVE site rather than inferred: the hero headline ("Keep your
+ * memories." / "Plan your moments.") and the "Start planning · free" CTA to
+ * /onboarding/wedding — the front door carries NO /onboarding link at all.
+ * Planning is behind sign-in by design, which the rail states outright.
+ * The retired § 5 copy is preserved in the corpus at
+ * `RETIRED_ELN_HOMEPAGE_COPY_2026-08-13.md`.
+ *
+ * What is checked on load now:
+ *   • the accessible h1 → "Setnayan — plan your event, keep it for life"
+ *   • the brand phrase "Set na 'yan" (the one § 5 line that survived)
+ *   • the signed-out rail prompt → "Sign in to save suppliers…"
  *   • nav "Sign in" button → opens the login popup overlay (owner 2026-06-30:
  *     "login should be like the rest of the upper menu. a popup") — the real
  *     Google + Apple + email auth, now in a dialog instead of a link to /login
@@ -29,21 +38,37 @@ test.describe('Homepage', () => {
   test('renders with primary CTAs', async ({ page }) => {
     await page.goto('/');
 
-    // Hero headline — the reskin's h1 carries both lines (a <br> between them),
-    // so the accessible name is "Keep your memories.Plan your moments.". Match
-    // each line independently so a copy tweak to one doesn't fail the smoke test.
-    const heroHeading = page.getByRole('heading', { name: /Keep your memories/i });
-    await expect(heroHeading).toBeVisible();
-    await expect(heroHeading).toHaveText(/Plan your moments/i);
+    /* ⚠ RE-POINTED 2026-08-13 — `/` IS THE FRONT DOOR NOW.
+       This block asserted the ELN cinematic hero ("Keep your memories." /
+       "Plan your moments.") and a "Start planning · free" CTA pointing at
+       /onboarding/wedding. The owner retired that page completely, and BOTH
+       are gone from the live front door — verified against www.setnayan.com,
+       not inferred: the headline strings return 0 hits and there is no
+       /onboarding href anywhere on the page.
 
-    // Brand phrase — the eyebrow keeps "Set na 'yan" (any apostrophe codepoint).
+       🔑 THE MISSING CTA IS BY DESIGN, NOT A REGRESSION. The front door gates
+       planning behind sign-in — its own prompt says so in as many words ("Sign
+       in to save suppliers, plan your event, and keep your photos"), the same
+       ruling that made the Marketplace signed-in only. It is still a real
+       change to the funnel, so it is asserted here rather than merely deleted:
+       if a "Start planning" CTA ever returns to the front door, somebody
+       decided that, and this test should be the place they say so. */
+
+    // The page's accessible heading. It is visually hidden (`fd-sr-only`) — the
+    // front door leads with the feed, not a hero — so this asserts it EXISTS in
+    // the accessibility tree rather than that it is painted.
+    await expect(
+      page.getByRole('heading', { name: /Setnayan .* plan your event/i }),
+    ).toHaveCount(1);
+
+    // Brand phrase — the tagline survived the swap ("Set na 'yan", any
+    // apostrophe codepoint). Pinned in lib/home-front-copy.test.ts too.
     await expect(page.getByText(/Set na/i).first()).toBeVisible();
 
-    // Hero primary CTA — "Start planning · free" → /onboarding/wedding. (Uses a
-    // non-breaking space around the middot, so match the leading words only.)
-    const startPlanning = page.getByRole('link', { name: /Start planning/i }).first();
-    await expect(startPlanning).toBeVisible();
-    await expect(startPlanning).toHaveAttribute('href', '/onboarding/wedding');
+    // The signed-out rail's prompt — this is what replaced the hero CTA, and it
+    // is the only thing on the front door that tells a stranger what signing in
+    // buys them.
+    await expect(page.getByText(/Sign in to save suppliers/i).first()).toBeVisible();
 
     // Nav sign-in — owner 2026-06-30 "login should be like the rest of the upper
     // menu. a popup." Pressing it must open the real login (Google + Apple +

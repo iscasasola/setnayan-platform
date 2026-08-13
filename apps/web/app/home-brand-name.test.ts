@@ -35,11 +35,17 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const HOME_PAGE = path.join(import.meta.dirname, 'page.tsx');
-const HOME_RESKIN = path.join(
+/**
+ * The homepage's visible wordmark moved when the cinematic page was retired
+ * (owner 2026-08-13). This guard MOVED WITH IT rather than being deleted — its
+ * own failure message used to say "if the nav moved, move this guard with it",
+ * and the reason it exists is unchanged by the redesign.
+ */
+const FRONT_DOOR_SHELL = path.join(
   import.meta.dirname,
   '_components',
-  'home',
-  'HomeReskin.tsx',
+  'frontdoor',
+  'front-door-shell.tsx',
 );
 
 /**
@@ -79,27 +85,28 @@ function metadataBlock(src: string): string {
   assert.fail('Unbalanced braces in app/page.tsx metadata object.');
 }
 
-/** The rendered `<nav className="hr-nav">…</nav>` element, brace-free of prose. */
+/** The front door's top bar — where the visible app name lives. */
 function homeNavMarkup(src: string): string {
-  const start = src.indexOf('<nav className="hr-nav">');
+  const start = src.indexOf('<header className="fd-topbar">');
   assert.notEqual(
     start,
     -1,
-    'The homepage nav (<nav className="hr-nav">) is gone from HomeReskin.tsx. It is ' +
-      'where the visible app name lives; if the nav moved, move this guard with it.',
+    'The front door top bar (<header className="fd-topbar">) is gone from ' +
+      'front-door-shell.tsx. It is where the visible app name lives; if the bar ' +
+      'moved, move this guard with it.',
   );
-  const end = src.indexOf('</nav>', start);
-  assert.notEqual(end, -1, 'Unterminated <nav> in HomeReskin.tsx.');
+  const end = src.indexOf('</header>', start);
+  assert.notEqual(end, -1, 'Unterminated <header> in front-door-shell.tsx.');
   return src.slice(start, end);
 }
 
 test('the homepage nav renders the visible title-case wordmark "Setnayan"', () => {
-  const nav = homeNavMarkup(read(HOME_RESKIN));
+  const nav = homeNavMarkup(read(FRONT_DOOR_SHELL));
 
   assert.match(
     nav,
-    /className="hr-wordmark"\s*>\s*Setnayan\s*</,
-    'The visible <span className="hr-wordmark">Setnayan</span> is missing from the ' +
+    /className="fd-wordmark"\s*>\s*Setnayan\s*</,
+    'The visible <Link className="fd-wordmark">Setnayan</Link> is missing from the ' +
       'homepage nav. Google\'s OAuth "App Homepage" checklist requires the consent-' +
       'screen app name to be visible on the homepage; without this the page shows ' +
       'only the glyph and brand verification fails the same way it did 2026-07-25. ' +
@@ -108,15 +115,37 @@ test('the homepage nav renders the visible title-case wordmark "Setnayan"', () =
 });
 
 test('the wordmark is exactly "Setnayan", not an all-caps or styled variant', () => {
-  const nav = homeNavMarkup(read(HOME_RESKIN));
-  const match = /className="hr-wordmark"\s*>\s*([^<]*?)\s*</.exec(nav);
-  assert.ok(match, 'hr-wordmark span not found — see the previous test.');
+  const nav = homeNavMarkup(read(FRONT_DOOR_SHELL));
+  const match = /className="fd-wordmark"\s*>\s*([^<]*?)\s*</.exec(nav);
+  assert.ok(match, 'fd-wordmark element not found — see the previous test.');
   assert.equal(
     match[1],
     'Setnayan',
     'The homepage wordmark must read exactly "Setnayan" in title case, matching the ' +
       'OAuth consent-screen app name character for character. "SETNAYAN" was the ' +
-      'original 2026-07-25 rejection: the caps wordmark did not read as a match.',
+      'original 2026-07-25 rejection: the caps wordmark did not read as a match.\n\n' +
+      'The ported prototype DRAWS the wordmark in caps. That is a look, and it is ' +
+      'delivered by `text-transform: uppercase` on .fd-wordmark — the markup stays ' +
+      'title case so a verifier reading the DOM still finds the app name. If you ' +
+      'changed the markup to literal caps to match the drawing, you have ' +
+      'reintroduced the 2026-07-25 rejection.',
+  );
+});
+
+test('the caps LOOK comes from CSS, not from the markup', () => {
+  // The other half of the same rule: if someone removes the text-transform the
+  // wordmark silently stops matching the approved drawing, and the likely
+  // "fix" is to retype it in caps — which is the rejection again.
+  const css = read(
+    path.join(import.meta.dirname, '_components', 'frontdoor', 'front-door.css'),
+  );
+  const block = css.slice(css.indexOf('.fd-wordmark'), css.indexOf('}', css.indexOf('.fd-wordmark')));
+  assert.match(
+    block,
+    /text-transform:\s*uppercase/,
+    '.fd-wordmark lost `text-transform: uppercase`. The wordmark now renders title ' +
+      'case, which does not match the approved prototype — and the tempting fix ' +
+      '(retyping it as SETNAYAN) is the OAuth rejection. Restore the CSS instead.',
   );
 });
 

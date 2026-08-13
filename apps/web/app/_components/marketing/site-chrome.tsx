@@ -51,7 +51,7 @@ const HomeOverlays = dynamic(
 
 const NAV_ROUTES = new Set<string>([
   // NOTE: '/' is intentionally OMITTED. The homepage (ELN reskin · 2026-06-29)
-  // renders its OWN nav instance (HomeReskin), which carries the cinematic
+  // renders its OWN nav instance (the front door's fd-topbar), which carries the
   // gate state (white glass on the closed gate → ink glass once opened).
   // Mounting this chrome on top of it would double the nav.
   '/about',

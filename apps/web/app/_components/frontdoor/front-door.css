@@ -144,6 +144,12 @@
 }
 
 .fd-wordmark {
+  /* The prototype draws the wordmark in caps. That is a LOOK, and it is
+     delivered here rather than in the markup: the DOM text stays "Setnayan"
+     because Google's OAuth brand verification reads the homepage for the
+     consent-screen app name as visible text, and literal "SETNAYAN" is the
+     original 2026-07-25 rejection. Same pixels, verifiable text. */
+  text-transform: uppercase;
   font-weight: 800;
   letter-spacing: 0.14em;
   font-size: 15px;

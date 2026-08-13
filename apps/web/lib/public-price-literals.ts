@@ -122,22 +122,13 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
   },
 
   // ── homepage pillar mocks: an illustrative couple's budget, not a price list ──
-  ...(
-    [
-      ['₱420,000', 'Mock total budget in the planning-pillar screenshot.'],
-      ['₱120,000', 'Mock venue line in the same screenshot.'],
-      ['₱150,000', 'Mock catering line.'],
-      ['₱45,000', 'Mock photography line.'],
-      ['₱35,000', 'Mock coordination line.'],
-      ['₱85,000', 'Mock vendor quote chip.'],
-      ['₱8,000', 'Mock "quote changed −₱8,000" delta — a saving, not a price.'],
-    ] as const
-  ).map(([literal, reason]) => ({
-    file: 'app/_components/home/pillars.tsx',
-    literal,
-    sku: null,
-    reason,
-  })),
+  // ⚠ The seven mock peso figures that used to be declared here lived in
+  // `app/_components/home/pillars.tsx` — the cinematic homepage's planning
+  // screenshot. The owner retired that page completely on 2026-08-13 and the
+  // file is deleted, so the declarations went with it rather than being left
+  // pointing at nothing. They were MOCK figures in an illustration, never
+  // SKU-backed, so nothing the daily SEO audit verifies against live prod
+  // changed. This guard is what told us they were stale.
 ];
 
 /** '₱1,000' → 1000. Returns null for anything unparseable. */

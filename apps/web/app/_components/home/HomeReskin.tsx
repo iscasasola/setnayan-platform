@@ -25,7 +25,6 @@ import { PILLARS, PILLAR_HEROES, PILLAR_SECTION_IDS, HOME_SCENE } from './pillar
 import type { OverlayId } from './HomeOverlays';
 import type { PricingData } from './pricing-data';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
-import { useSignInHere } from '@/app/_components/auth/sign-in-here';
 import { SetnayanAiHeroStory } from './setnayan-ai-story';
 // The shared reskin footer (extracted from the old private HomeFooter 2026-07-03)
 // — the same component the persistent SiteFooterChrome renders on every other
@@ -144,7 +143,6 @@ export function HomeReskin({
   const rootRef = useRef<HTMLDivElement>(null);
   const [opened, setOpened] = useState(false);
   const [overlay, setOverlay] = useState<OverlayId>(null);
-  const signInHere = useSignInHere();
   // Which dock pillar is selected (null = home scene). Drives the hero swap.
   const [activePillar, setActivePillar] = useState<number | null>(null);
   // Which feature card is selected per pillar widget (index into mocks).
@@ -587,19 +585,20 @@ export function HomeReskin({
         {/* Sign in → a popup, consistent with Prices / Download / Vendors
             (owner 2026-06-30 "login should be like the rest of the upper menu
             — a popup"). It is the REAL auth, not a mockup.
-            2026-08-13: the popup moved OUT of this page's overlay state into
-            the ONE shared in-place panel (SignInHereProvider), so every
-            surface signs in the same way and lands back where it was. Falls
-            back to a real /login navigation if no provider is mounted. */}
+            2026-08-13: it is now a real LINK whose press is intercepted —
+            it works before hydration and with JavaScript off, and middle-click
+            still opens /login — and the overlay it opens is the shared
+            in-place panel, so signing in lands you back here rather than on
+            the account board. `aria-haspopup="dialog"` keeps that honest to a
+            screen reader: a link, that opens a dialog. */}
         <Link
           className="hr-signin hr-glass-dark"
           href="/login"
           prefetch={false}
           aria-haspopup="dialog"
           onClick={(e) => {
-            if (!signInHere.available) return;
             e.preventDefault();
-            signInHere.open();
+            setOverlay('signin');
           }}
         >
           Sign in

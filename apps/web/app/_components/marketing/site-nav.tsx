@@ -37,7 +37,6 @@ import Link from 'next/link';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { OverlayId } from '@/app/_components/home/HomeOverlays';
-import { useSignInHere } from '@/app/_components/auth/sign-in-here';
 import { unpinFooter } from './footer-pin';
 
 export function Nav({
@@ -66,8 +65,6 @@ export function Nav({
   const vendors = label('public.site-nav.vendors-overlay', 'Vendors');
   const signin = label('public.site-nav.sign-in', 'Sign in');
 
-  const signInHere = useSignInHere();
-
   const press = (id: Exclude<OverlayId, null>) => {
     unpinFooter();
     onOpenOverlay(id);
@@ -91,13 +88,16 @@ export function Nav({
           {vendors && <button onClick={() => press('vendors')}>{vendors}</button>}
         </div>
         {/*
-          SIGN IN NO LONGER GOES THROUGH THIS NAV'S OVERLAY STATE.
-          It opens the ONE shared in-place panel (SignInHereProvider), which
-          carries the page you are on as the return destination. The nav's own
-          copy always passed next='/' and so always landed you on the account
-          board — the single reason signing in from an article dropped you off
-          the article. Falls back to a real /login navigation when no provider
-          is mounted, so this control can never be dead.
+SIGN IN STILL GOES THROUGH THIS NAV'S OVERLAY STATE — deliberately.
+          HomeOverlays is already `dynamic(ssr:false)`, so the login form is
+          fetched on the press and costs the SHARED bundle nothing; moving it
+          to a root-layout provider cost 0.6 KB there and broke the budget.
+          What changed is WHAT the overlay renders: the in-place panel, which
+          carries the page you are on as the return destination. This nav's own
+          copy used to hardcode next='/', which is the single reason signing in
+          from an article dropped you off the article.
+          ⚠ Still a real link to /login: it works before hydration and with
+          JavaScript off, and middle-click still opens the page.
         */}
         {signin && (
           <Link
@@ -106,10 +106,8 @@ export function Nav({
             prefetch={false}
             aria-haspopup="dialog"
             onClick={(e) => {
-              if (!signInHere.available) return;
               e.preventDefault();
-              unpinFooter();
-              signInHere.open();
+              press('signin');
             }}
           >
             {signin}

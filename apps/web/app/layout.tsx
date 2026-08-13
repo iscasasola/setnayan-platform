@@ -17,7 +17,6 @@ import { OfflineDaemonMount } from './_components/offline-daemon-mount';
 import { NavProgress } from './_components/nav-progress';
 import { NavSlideController } from './_components/nav/nav-slide-controller';
 import { AppInitSplash } from './_components/app-init-splash';
-import { SignInHereProvider } from './_components/auth/sign-in-here';
 import { SiteChrome } from './_components/marketing/site-chrome';
 import { SiteFooterChrome } from './_components/marketing/site-footer-chrome';
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -664,21 +663,18 @@ export default async function RootLayout({
             per-page navs had. Owner 2026-06-15 "one top nav for the whole
             website". */}
         <Providers brandMarkUrl={brandMarkUrl} loaderConfig={loaderConfig}>
-          {/* SignInHereProvider = THE ONE sign-in panel, mounted once here so
-              every public surface can open it over itself instead of
-              navigating away (Redesign Session 6, "the seam"). It renders
-              NOTHING until somebody presses Sign in, and — because the panel
-              is a `dynamic()` import — DOWNLOADS nothing either, so a visitor
-              who never signs in pays nothing for it. (Rendering nothing and
-              costing nothing are different claims; only the second one needed
-              a code change to be true.)
-              Mounted at the root rather than per-page because the surfaces
-              that need it do not share an ancestor: the front door at '/',
-              the marketing nav, and the shop pages under '/[slug]' are three
-              different trees. */}
-          <SignInHereProvider>
-            <SiteChrome navSlots={navSlots} />
-            {children}
+          {/* 🚨 THE IN-PLACE SIGN-IN IS DELIBERATELY *NOT* MOUNTED HERE.
+              A provider lived at this spot for one revision and cost 0.6 KB
+              gzipped in the SHARED client chunk — which `main` already fills
+              to 199.8 KB of its locked 200 KB ceiling — because everything the
+              root layout's client tree touches lands there, on every page, for
+              every visitor including the ones who never sign in.
+              Each surface now opens the panel itself via `useSignInPanel()`
+              and pays for it in its own route chunk; the marketing nav reuses
+              the lazily-loaded HomeOverlays chunk it already had. See
+              `_components/auth/sign-in-here.tsx`. */}
+          <SiteChrome navSlots={navSlots} />
+          {children}
           {/* SiteFooterChrome = the ONE persistent reskin footer, mounted
               AFTER {children} so it sits at the end of every marketing page in
               normal flow, gated by the same route predicate as SiteChrome.
@@ -686,8 +682,7 @@ export default async function RootLayout({
               interaction: a footer link keeps the footer riding along as a
               bottom sheet until a top-nav press slides it away (owner
               2026-07-03). */}
-            <SiteFooterChrome />
-          </SignInHereProvider>
+          <SiteFooterChrome />
         </Providers>
         <ClientTypeDetector />
         <NativeBridge />

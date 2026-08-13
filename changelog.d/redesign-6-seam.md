@@ -144,26 +144,42 @@ bug; the idiom plus a constant `open` is.** Left alone, deliberately.
 
 Guarded, and the guard mutation-tested with the rest.
 
-### 🚨 A second defect in my own first cut: the provider shipped the login form to every page
+### 🚨 The architecture was wrong twice, and the budget is what proved it
 
-The panel was imported **statically** into `SignInHereProvider` — which is
-mounted in the **root layout**. That put `<SignInCard>`, the OAuth row, the
-Turnstile field and two stylesheets into the first-load JS of **every page in
-the product**, for every visitor who never presses Sign in.
+**First cut:** the panel was imported **statically** into a context provider
+mounted in the **root layout** — putting `<SignInCard>`, the OAuth row, the
+Turnstile field and two stylesheets into the first-load JS of **every page**,
+for every visitor who never presses Sign in. That is this repo's own 2026-07-02
+perf-sweep finding #7 reintroduced at a larger blast radius, and my own comment
+asserted the opposite of what the code did.
 
-🔑 **That is the exact defect this repo's own 2026-07-02 perf sweep already
-fixed once** (finding #7 — `HomeReskin` wraps `HomeOverlays` in
-`dynamic(…, { ssr: false })` precisely because it was *"CLOSED on first paint …
-yet statically imported into the homepage's first-load JS bundle"*) —
-reintroduced at a strictly **larger** blast radius, because the root layout is
-every route rather than one page.
+**Second cut** made the panel a `dynamic()` import — and CI still failed:
+**200.4 KB against the 200 KB gzipped ceiling** locked in `DECISION_LOG`
+2026-05-22. Measured against three other PRs, `main` sits at **199.8 KB — 0.2 KB
+of headroom for the entire product.** A provider in the root layout costs the
+shared chunk something no matter how lazy its children are, because everything
+the root layout's client tree touches lands there.
 
-And my own comment asserted the opposite: *"renders NOTHING until somebody
-presses Sign in … so a visitor who never signs in pays nothing for it."*
-**Rendering nothing and costing nothing are different claims**, and only the
-second one needed a code change to be true. The panel is now its own module
-behind a `dynamic()` import, and a guard asserts the provider never statically
-imports the card, the OAuth detector or either stylesheet.
+**So there is no provider and no context.** `useSignInPanel()` gives each
+surface its own state and lazily `import()`s the panel, and every consumer —
+the front-door shell, the shop page's link, the marketplace save button — is a
+**route** chunk. The marketing nav keeps opening through `HomeOverlays`, which
+was already `dynamic(ssr:false)` and already paid for. **Shared-bundle delta:
+zero.** The feature pays for itself where it is used.
+
+🔑 **The budget is a KPI lock, so "raise it by 0.4 KB" was never on the table.**
+The checker's own docblock says the decision log must move first. A ceiling you
+edit when you hit it is not a ceiling.
+
+### 🪤 And a React trap the refactor introduced: portals escape the DOM, not the event tree
+
+Rendering `{panel}` inside the `<Link>` and inside the save `<form>` looked
+harmless — `createPortal` moves the markup to `<body>`. **But React events
+bubble through the REACT tree, not the DOM tree.** Every click inside the
+dialog — into the email field, onto Continue — would have bubbled back to that
+anchor's `onClick` and remounted the panel, wiping what had just been typed;
+and on the save button, the panel's own submit would have re-fired the save
+mid-sign-in. The panel is now a **sibling** of both.
 
 ### 🎭 And an e2e test caught the one thing static checks cannot
 

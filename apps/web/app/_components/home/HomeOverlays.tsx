@@ -37,11 +37,13 @@ import { PapicDemoOverlay } from './papic-demo-overlay';
 import { PanoodDemoOverlay } from './panood-demo-overlay';
 import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
 import { AlaalaEditorialOverlay } from './alaala-editorial-overlay';
+import { SignInHerePanel } from '@/app/_components/auth/sign-in-here-panel';
 
 export type OverlayId =
   | 'prices'
   | 'download'
   | 'vendors'
+  | 'signin'
   | 'setnayan-ai'
   | 'papic-demo'
   | 'panood-demo'
@@ -599,16 +601,23 @@ export function HomeOverlays({
       {pricing && (
         <SetnayanAiOverlay current={current} onClose={onClose} pricing={pricing} onOpenStory={onOpenStory} />
       )}
-      {/* Pricing-free overlays — always mounted, so Download and the demos work
-          immediately regardless of the pricing fetch.
-          ⚠ SIGN IN IS NO LONGER ONE OF THESE. It was retired here on
-          2026-08-13 (Redesign Session 6) in favour of the ONE in-place panel,
-          `app/_components/auth/sign-in-here.tsx`, mounted in the root layout.
-          This copy hardcoded next='/', so signing in from an article always
-          landed on the account board instead of back on the article — and a
-          wrong password redirected to /login, taking the page away entirely.
-          Do not reinstate a second sign-in here; "one login everywhere" is
-          owner-locked (2026-07-18). */}
+      {/* Pricing-free overlays — always mounted, so Download / Sign in / the
+          demos work immediately regardless of the pricing fetch. */}
+      {/*
+        SIGN IN RENDERS THE SHARED IN-PLACE PANEL, not a copy of the card.
+        This chunk is `dynamic(ssr:false)` from SiteChrome, so the login form is
+        fetched on the press and costs the SHARED bundle nothing — which is why
+        the marketing nav stayed here rather than moving to a root-layout
+        provider (that cost 0.6 KB shared and broke the 200 KB budget).
+        ⚠ It is rendered DIRECTLY, not inside <OverlayShell> — the panel brings
+        its own backdrop, card and close button, and nesting them would draw two
+        scrims and trap focus twice.
+        ⚠ What this replaced hardcoded `next='/'`, which is why signing in from
+        an article always landed on the account board instead of the article.
+      */}
+      {current === 'signin' ? (
+        <SignInHerePanel options={{}} onClose={onClose} />
+      ) : null}
       <DownloadOverlay current={current} onClose={onClose} detected={detected} match={match} />
       <PapicDemoOverlay current={current} onClose={onClose} />
       <PanoodDemoOverlay current={current} onClose={onClose} />

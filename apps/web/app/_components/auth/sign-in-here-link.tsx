@@ -5,16 +5,15 @@
  *
  * The surfaces that most need the seam are server-rendered: the public shop
  * page (`app/v/[slug]/page.tsx`), the marketplace, the article reader. They
- * cannot call `useSignInHere()` themselves, and each hand-rolling its own
+ * cannot call `useSignInPanel()` themselves, and each hand-rolling its own
  * client wrapper is how five copies of one behaviour start. This is the one
  * copy.
  *
  * ⚠ IT IS A REAL LINK, AND THAT IS LOAD-BEARING — not a styled <button>.
  *   • <Link> server-renders a real <a href>, so it works with JavaScript off
- *     and before hydration.
- *   • It works if the provider is ever unmounted (the press is intercepted
- *     ONLY when the panel is actually available), so this can never become a
- *     control that looks pressable and does nothing.
+ *     and before hydration. A <button> pressed before hydration does NOTHING.
+ *   • `aria-haspopup="dialog"` keeps that honest to a screen reader: a link,
+ *     that opens a dialog.
  *   • Middle-click and open-in-new-tab keep working, which people genuinely do
  *     with a sign-in link.
  * `href` is that fallback destination, and callers pass it EXPLICITLY rather
@@ -34,7 +33,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSignInHere } from './sign-in-here';
+import { useSignInPanel } from './sign-in-here';
 
 export function SignInHereLink({
   href = '/login',
@@ -48,7 +47,7 @@ export function SignInHereLink({
   children: React.ReactNode;
   title?: string;
 }) {
-  const signInHere = useSignInHere();
+  const { openSignIn, panel } = useSignInPanel();
   /*
     ⚠ PATHNAME ONLY — no `useSearchParams()`. This link is rendered BY SERVER
     COMPONENTS (the public shop page), and `useSearchParams` in their tree opts
@@ -60,7 +59,17 @@ export function SignInHereLink({
   const here = pathname ?? '/';
   const fallback = here === '/' ? href : `${href}?next=${encodeURIComponent(here)}`;
 
+  /*
+    🚨 THE PANEL IS A SIBLING OF THE LINK, NOT A CHILD — and that is a bug fix,
+    not tidiness. `createPortal` moves the DOM to <body>, but REACT events still
+    bubble through the REACT tree. Rendered inside the <Link>, every click
+    inside the dialog — into the email field, onto Continue — would bubble to
+    this anchor's onClick, call `openSignIn()` again, and remount the panel,
+    wiping whatever had just been typed. The portal escapes the DOM; it does not
+    escape the event tree.
+  */
   return (
+    <>
     <Link
       href={fallback}
       prefetch={false}
@@ -68,15 +77,16 @@ export function SignInHereLink({
       title={title}
       aria-haspopup="dialog"
       onClick={(e) => {
-        if (!signInHere.available) return;
         // Let the browser handle the presses that mean "somewhere else":
         // new tab, new window, download, or a non-primary button.
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
         e.preventDefault();
-        signInHere.open();
+        openSignIn();
       }}
     >
       {children}
     </Link>
+    {panel}
+    </>
   );
 }

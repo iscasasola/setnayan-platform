@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * sign-in-here.tsx — signing in without leaving.
+ * sign-in-here.tsx — opening the sign-in panel from wherever you already are.
  *
  * Redesign Session 6, "the seam". Binding sources:
  * `FRONT_DOOR_AND_SEAM_FINAL_2026-08-12.md` §3 and
@@ -9,109 +9,80 @@
  *
  * ─── WHAT WAS WRONG ───────────────────────────────────────────────────────
  * Every public sign-in was a DEPARTURE. The front door's two Sign-in controls
- * were `<Link href="/login">`; the shop-page Save button did
- * `window.location.href = '/login?next=…'`. Both take the page away, and the
- * marketing nav's popup — the one surface that already opened over the page —
- * hardcoded `next='/'`, so it always dropped you on the account board and never
- * back on the shop you were reading. And on a WRONG PASSWORD every one of them
- * redirected to `/login?error=…`: one typo and the page, plus anything typed
- * into it, was gone.
+ * were `<Link href="/login">`; the shop page's "Sign in to customize" was too;
+ * the shop-save button did `window.location.href = '/login?next=…'`. All of
+ * them take the page away. And the marketing nav's popup — the one surface
+ * that already opened OVER the page — hardcoded `next='/'`, so it always
+ * dropped you on the account board and never back on the shop you were
+ * reading. On a WRONG PASSWORD every one of them redirected to
+ * `/login?error=…`: one typo and the page, plus anything typed into it, gone.
  *
- * ─── THE RULE ─────────────────────────────────────────────────────────────
- * The rail never leaves. Sign-in opens OVER the page, the page behind stays
- * mounted, and when it closes you are still where you were — signed in.
+ * ─── WHY THIS IS A HOOK AND NOT A CONTEXT PROVIDER ────────────────────────
+ * 🚨 THE SHARED CLIENT BUNDLE IS FULL. `main` measures 199.8 KB gzipped
+ * against a 200 KB ceiling locked in `DECISION_LOG.md` 2026-05-22 — 0.2 KB of
+ * headroom for the whole product. The first cut of this change mounted a
+ * context PROVIDER in the ROOT LAYOUT, and everything the root layout's client
+ * tree touches lands in exactly that shared chunk: measured at 200.4 KB, over
+ * budget, on a feature most visitors never use.
  *
- * ⚠ THERE IS NO "…UNLESS" BRANCH HERE, and that is a decision, not an
- * omission. The seam doc says a sign-in "with no destination lands on the
- * board". That case is the /login ROUTE — reached by a hard load, a bookmark
- * or a protected-route redirect, with genuinely nothing behind it — and it
- * already behaves that way, untouched. Every sign-in that opens OVER a page
- * has a destination by definition: the page it opened over. A `landOn`
- * parameter was written here and deleted for having no caller; an option
- * nothing passes is a decision nobody made.
+ * So there is no provider and no context. Each surface that offers sign-in
+ * owns its own state through this hook, and every one of those surfaces —
+ * the front door shell, the shop page's link, the marketplace save button —
+ * lives in a ROUTE chunk. The marketing nav keeps using the lazily-loaded
+ * `HomeOverlays` chunk it already had. **The feature pays for itself where it
+ * is used, and a page that never offers sign-in carries none of it.**
  *
- * ─── ONE LOGIN EVERYWHERE (owner-locked 2026-07-18) ───────────────────────
- * This does NOT add a second login. It renders the SAME <SignInCard> that
- * /login renders, in the SAME `.home-reskin-ov` shell, wired to the SAME
- * credential exchange — only the ending differs, and that difference lives in
- * `signInInPlace`, which shares its whole body with `signInWithPassword`.
- *
- * ─── COLOUR: THE ONE PLACE THE TWO PALETTES MEET ──────────────────────────
- * The panel wears the APP's terracotta (#C24E25), not the front door's gold.
- * It is the first room inside, not the last step outside — so the colour change
- * is a threshold you cross on purpose rather than a mismatch you notice.
- * (`FRONT_DOOR_AND_SEAM_FINAL` §4b.)
- *
- * ─── WHAT IS IN THIS FILE, AND WHY IT IS SO SMALL ────────────────────────
- * Only the context, the opener and a `dynamic()` reference. The panel — the
- * card, the OAuth row, the Turnstile field, two stylesheets — lives in
- * `sign-in-here-panel.tsx` and is fetched on the first press. See the note
- * there: this provider is in the ROOT LAYOUT, so anything it imports statically
- * ships on every page in the product.
+ * 🔑 A raw `import()`, not `next/dynamic` — one less runtime, and the split is
+ * the only thing being asked for.
  */
 
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import dynamic from 'next/dynamic';
+import { useCallback, useState, type ReactNode } from 'react';
 import type { OpenSignInOptions } from './sign-in-here-types';
 
 export type { OpenSignInOptions };
 
-/*
-  🚨 LAZY, AND THIS IS THE WHOLE REASON THE PANEL IS A SEPARATE FILE.
-  This provider is mounted in the ROOT LAYOUT. A static import of the panel
-  would put <SignInCard>, the OAuth row, the Turnstile field and two
-  stylesheets into the first-load JS of EVERY page — for every visitor who
-  never presses Sign in. That is the same defect the 2026-07-02 perf sweep
-  fixed for the homepage overlays (finding #7), at a larger blast radius.
-  `ssr: false` is safe: there is nothing to server-render while it is closed.
-*/
-const SignInHerePanel = dynamic(
-  () => import('./sign-in-here-panel').then((m) => m.SignInHerePanel),
-  { ssr: false },
-);
-
-type SignInHereApi = {
-  open: (options?: OpenSignInOptions) => void;
-  /** False when no provider is mounted — callers fall back to /login. */
-  available: boolean;
-};
-
-const SignInHereContext = createContext<SignInHereApi | null>(null);
+type PanelProps = { options: OpenSignInOptions; onClose: () => void };
+type PanelComponent = (props: PanelProps) => ReactNode;
 
 /**
- * useSignInHere — the opener.
+ * useSignInPanel — `openSignIn()` to open it, `panel` to render it.
  *
- * ⚠ ALWAYS CHECK `available`. A caller that assumes the provider is mounted
- * ships a dead control the day somebody renders it outside the root layout,
- * and a dead control is the one thing the front door forbids. Every caller in
- * this repo falls back to a real `/login` navigation.
+ * Usage:
+ *   const { openSignIn, panel } = useSignInPanel();
+ *   …
+ *   <Link href="/login" onClick={(e) => { e.preventDefault(); openSignIn(); }}>Sign in</Link>
+ *   {panel}
+ *
+ * ⚠ THE CALLER KEEPS A REAL `href`. The press is intercepted, but the control
+ * stays a genuine link so it works before hydration and with JavaScript off,
+ * and so middle-click / open-in-new-tab still reach `/login`. A `<button>`
+ * pressed before hydration does nothing at all — a dead control, which is the
+ * one thing the front door forbids.
  */
-export function useSignInHere(): SignInHereApi {
-  const ctx = useContext(SignInHereContext);
-  return (
-    ctx ?? {
-      open: () => {
-        /* No provider — the caller's href fallback does the work. */
-      },
-      available: false,
-    }
-  );
-}
-
-export function SignInHereProvider({ children }: { children: React.ReactNode }) {
+export function useSignInPanel(): {
+  openSignIn: (options?: OpenSignInOptions) => void;
+  panel: ReactNode;
+} {
   const [options, setOptions] = useState<OpenSignInOptions | null>(null);
-  const open = useCallback((next?: OpenSignInOptions) => {
-    setOptions(next ?? {});
+  const [Panel, setPanel] = useState<PanelComponent | null>(null);
+
+  const openSignIn = useCallback((next?: OpenSignInOptions) => {
+    /*
+      Fetch the panel chunk, THEN open. Setting the options first would render
+      a hole where the dialog should be for as long as the chunk takes — on a
+      slow connection that reads as a broken button. `setPanel(() => …)` because
+      a bare component value would be treated as a state updater.
+    */
+    void import('./sign-in-here-panel').then((m) => {
+      setPanel(() => m.SignInHerePanel);
+      setOptions(next ?? {});
+    });
   }, []);
-  const api = useMemo<SignInHereApi>(() => ({ open, available: true }), [open]);
 
-  return (
-    <SignInHereContext.Provider value={api}>
-      {children}
-      {options ? (
-        <SignInHerePanel options={options} onClose={() => setOptions(null)} />
-      ) : null}
-    </SignInHereContext.Provider>
-  );
+  const close = useCallback(() => setOptions(null), []);
+
+  return {
+    openSignIn,
+    panel: options && Panel ? <Panel options={options} onClose={close} /> : null,
+  };
 }
-

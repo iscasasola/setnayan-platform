@@ -173,7 +173,7 @@ test('the front door signs you in without leaving', () => {
     handler is exactly the regression, and it fails here.
   */
   const links = src.match(/href="\/login"/g) ?? [];
-  const intercepted = src.match(/onClick=\{openSignIn\}/g) ?? [];
+  const intercepted = src.match(/onClick=\{onSignInPress\}/g) ?? [];
   assert.equal(
     links.length,
     2,
@@ -318,27 +318,39 @@ test('the sign-in panel wears the locked terracotta, not the front door gold', (
   );
 });
 
-test('the root-layout provider costs a visitor who never signs in nothing', () => {
+test('the sign-in never enters the shared client bundle', () => {
   /*
-    🚨 THE PROVIDER IS IN THE ROOT LAYOUT, so anything it imports STATICALLY
-    ships in the first-load JS of every page in the product. The first cut of
-    this change pulled <SignInCard> — plus the OAuth row, Turnstile and two
-    stylesheets — into it, which is the same defect the 2026-07-02 perf sweep
-    already fixed for the homepage overlays (finding #7), at a larger blast
-    radius. Rendering nothing and COSTING nothing are different claims.
+    🚨 THE SHARED BUNDLE IS FULL. `main` measures 199.8 KB gzipped against the
+    200 KB ceiling locked in DECISION_LOG 2026-05-22 — 0.2 KB of headroom for
+    the entire product. A revision of this change mounted a context provider in
+    the ROOT LAYOUT and measured 200.4 KB: OVER BUDGET, on a feature most
+    visitors never use, because everything the root layout's client tree
+    touches lands in that chunk.
+
+    Two rules keep it out, and both are checked:
+      1. the root layout must not mount the sign-in at all;
+      2. the opener must reach the panel through a lazy `import()`, so even the
+         route chunks that DO offer sign-in only fetch the form on the press.
   */
-  const src = code(read('_components/auth/sign-in-here.tsx'));
+  const layout = code(read('layout.tsx'));
+  assert.doesNotMatch(
+    layout,
+    /SignInHere|useSignInPanel/,
+    'The root layout must not mount the sign-in — it would put the feature in every page\'s first-load JS.',
+  );
+
+  const hook = code(read('_components/auth/sign-in-here.tsx'));
   assert.match(
-    src,
-    /dynamic\(\s*\(\)\s*=>\s*import\('\.\/sign-in-here-panel'\)/,
-    'The panel must be a dynamic() import so it is fetched on the first press, not on every page load.',
+    hook,
+    /import\('\.\/sign-in-here-panel'\)/,
+    'The panel must be reached by a lazy import(), fetched on the press.',
   );
   const heavy = [/SignInCard/, /home-reskin\.css/, /sign-in-here\.css/, /detect-oauth-shell/];
   for (const re of heavy) {
     assert.doesNotMatch(
-      src,
-      new RegExp(`import[^;]*${re.source}`),
-      `The root-layout provider must not statically import ${re.source} — it would ship on every page.`,
+      hook,
+      new RegExp(`^import[^;]*${re.source}`, 'm'),
+      `The opener must not statically import ${re.source} — that would defeat the split.`,
     );
   }
 });

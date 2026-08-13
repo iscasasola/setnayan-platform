@@ -39,7 +39,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useSignInHere } from '@/app/_components/auth/sign-in-here';
+import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 
 export type RailFolder = {
   slug: string;
@@ -102,7 +102,7 @@ export function FrontDoorShell({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const railId = useId();
-  const signInHere = useSignInHere();
+  const { openSignIn, panel: signInPanel } = useSignInPanel();
 
   /*
     SIGNING IN DOES NOT LEAVE THIS PAGE (Redesign Session 6, "the seam").
@@ -112,17 +112,16 @@ export function FrontDoorShell({
     thing this rail is built to do: the sign-in prompt being replaced IN PLACE
     by their own destinations.
 
-    ⚠ STILL A REAL LINK TO /login, deliberately — the press is intercepted
-    only when the panel is actually mounted. A <button> would be a control that
-    does nothing the day the provider moves, and it would break middle-click
-    and open-in-new-tab, which people genuinely do with a sign-in. `prefetch`
-    is off because the fallback page is rarely taken; there is no point
-    fetching a route almost nobody will land on.
+    ⚠ STILL A REAL LINK TO /login, deliberately. A <button> pressed before
+    hydration does NOTHING — a dead control, the one thing this page forbids —
+    and it would break middle-click and open-in-new-tab, which people genuinely
+    do with a sign-in. `aria-haspopup="dialog"` keeps that truthful to a screen
+    reader: a link, that opens a dialog. `prefetch` is off because the fallback
+    page is rarely taken.
   */
-  const openSignIn = (e: React.MouseEvent) => {
-    if (!signInHere.available) return;
+  const onSignInPress = (e: React.MouseEvent) => {
     e.preventDefault();
-    signInHere.open();
+    openSignIn();
   };
 
   // Escape closes whichever layer is open — the off-canvas rail first, since
@@ -238,7 +237,7 @@ export function FrontDoorShell({
                 prefetch={false}
                 className="fd-btn-quiet"
                 aria-haspopup="dialog"
-                onClick={openSignIn}
+                onClick={onSignInPress}
               >
                 Sign in
               </Link>
@@ -368,7 +367,7 @@ export function FrontDoorShell({
                   prefetch={false}
                   className="fd-btn-gold"
                   aria-haspopup="dialog"
-                  onClick={openSignIn}
+                  onClick={onSignInPress}
                 >
                   Sign in
                 </Link>
@@ -465,6 +464,11 @@ export function FrontDoorShell({
           <div className="fd-col">{children}</div>
         </main>
       </div>
+      {/* The sign-in panel, when it is open. It portals to <body>, so where it
+          sits in this tree is irrelevant to layout — what matters is that it is
+          rendered by a ROUTE component, so its code never enters the shared
+          bundle. */}
+      {signInPanel}
     </div>
   );
 }

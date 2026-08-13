@@ -15,6 +15,8 @@
  *     `users.account_type = 'admin'`
  */
 import { cache } from 'react';
+
+import { isAdminProfile } from '@/lib/admin/admin-predicate';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
@@ -130,11 +132,12 @@ export const fetchUserRoleSummary = cache(async (
   }
 
   const profile = profileRes.data;
-  const hasAdminAccess = !!(
-    profile?.is_internal ||
-    profile?.is_team_member ||
-    profile?.account_type === 'admin'
-  );
+  // THE predicate, not a second copy of it. Identical truth table to the three
+  // clauses that stood here; `lib/admin/admin-predicate.ts` exists precisely so
+  // a security rule has one definition — its docblock records what a narrower
+  // copy cost (a Team Pool member could approve payouts and verify vendors but
+  // got a hard "Unauthorized" on the editorial queue).
+  const hasAdminAccess = isAdminProfile(profile);
 
   const owned = (ownedRes.data ?? []) as Array<{
     vendor_profile_id: string;

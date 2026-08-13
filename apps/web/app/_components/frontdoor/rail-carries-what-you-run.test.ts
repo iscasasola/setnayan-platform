@@ -24,6 +24,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SHELL = join(HERE, 'front-door-shell.tsx');
 const DATA = join(HERE, 'front-door.tsx');
 const CSS = join(HERE, 'front-door.css');
+const ROLES = join(HERE, '..', '..', '..', 'lib', 'roles.ts');
 
 function code(src: string): string {
   return src
@@ -34,7 +35,7 @@ function code(src: string): string {
 }
 
 test('the files are non-trivial — the guard cannot silently read nothing', () => {
-  for (const p of [SHELL, DATA, CSS]) {
+  for (const p of [SHELL, DATA, CSS, ROLES]) {
     assert.ok(readFileSync(p, 'utf8').length > 1000, `${p} is missing or a stub.`);
   }
 });
@@ -66,7 +67,10 @@ test('both rows are capability-gated — never a greyed door', () => {
 });
 
 test('the admin signal is decided by THE canonical predicate, and fails closed', () => {
-  const src = code(readFileSync(DATA, 'utf8'));
+  // RE-ANCHORED 2026-08-13: front-door.tsx no longer reads the columns itself —
+  // it asks lib/roles.ts, which is where the predicate now lives (one copy, not
+  // two). Pointing this at the old file would pass forever while proving nothing.
+  const src = code(readFileSync(ROLES, 'utf8'));
   assert.match(
     src,
     /isAdminProfile\s*\(/,
@@ -74,11 +78,56 @@ test('the admin signal is decided by THE canonical predicate, and fails closed',
       '— it is three clauses wide (is_internal · is_team_member · account_type), ' +
       'and a narrower copy once locked Team Pool staff out of their own queue.',
   );
+  // ORDER-INDEPENDENT ON PURPOSE. The first cut of this assertion demanded the
+  // three columns in one fixed order and went red against a select that named
+  // the same three in a different order — a guard failing on spelling rather
+  // than on the property it exists to hold. The property is "all three are
+  // read", nothing more.
+  for (const column of ['is_internal', 'is_team_member', 'account_type']) {
+    assert.ok(
+      new RegExp(`select\\([^)]*${column}`).test(src),
+      `The admin read does not select \`${column}\`. All three clauses are ` +
+        'load-bearing; selecting fewer silently narrows who counts as staff.',
+    );
+  }
+});
+
+test('the rail offers Your Story, and does NOT gate it', () => {
+  const src = code(readFileSync(SHELL, 'utf8'));
   assert.match(
     src,
-    /is_internal[\s\S]{0,60}is_team_member[\s\S]{0,60}account_type/,
-    'The admin read does not select all three predicate columns. Selecting fewer ' +
-      'silently narrows who counts as staff.',
+    /href="\/dashboard\/creator"/,
+    'The rail has no row into Your Story. The owner asked for storytelling, ' +
+      'events, shop and admin to be reachable here.',
+  );
+  assert.doesNotMatch(
+    src,
+    /account\.(isStoryteller|hasStory|storyChapterCount)\s*(\?|&&)[\s\S]{0,200}?dashboard\/creator/,
+    'Your Story is capability-gated. It must not be: writing is open to every ' +
+      'signed-in person ("creator = user", owner-locked 2026-07-16), so gating ' +
+      'it hides a desk the person is entitled to sit at.',
+  );
+});
+
+test('"What you run" renders only alongside a gated row', () => {
+  const src = code(readFileSync(SHELL, 'utf8'));
+  assert.match(
+    src,
+    /\{account\.shopName \|\| account\.isAdmin \?[\s\S]{0,220}?What you run/,
+    'The "What you run" heading is not gated on a row following it. A heading ' +
+      'over nothing is a fake door in label form.',
+  );
+});
+
+test('the shop row follows what /vendor-dashboard actually admits', () => {
+  const src = code(readFileSync(DATA, 'utf8'));
+  assert.match(
+    src,
+    /hasVendorAccess/,
+    'front-door.tsx decides the shop row some other way. /vendor-dashboard ' +
+      'admits an OWNER **or** a vendor_team_members member; gating the rail on ' +
+      'ownership alone gives a hired team member a console they can open and no ' +
+      'row offering it.',
   );
 });
 

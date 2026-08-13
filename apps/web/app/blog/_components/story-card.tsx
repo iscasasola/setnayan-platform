@@ -14,14 +14,20 @@ import {
 // `Eyebrow`, `metaLine` and `StoryCard` arrived here with every class string
 // byte-identical to what /blog already shipped. Nothing below is new design.
 //
-// WHY IT MOVED: the "From our articles" rail on /realstories
-// (app/realstories/_components/journal-rail.tsx) must render a REAL Journal
-// card, not a lookalike. Duplicating the markup would fork the grammar — the
-// two surfaces would drift the first time either is touched, which is the
-// paid-twice mistake the design programme exists to stop.
+// WHY IT MOVED: /realstories must render a REAL Journal card, not a lookalike.
+// Duplicating the markup would fork the grammar — the two surfaces would drift
+// the first time either is touched, which is the paid-twice mistake the design
+// programme exists to stop.
+//
+// ⚠ Its consumer there CHANGED on 2026-08-13. The "From our articles" rail
+// (`journal-rail.tsx`) is DELETED: the owner merged the stories page onto one
+// shelf, so this card is now rendered inline by `realstories/_components/
+// gallery.tsx` beside the Chronicle tile and the storyteller tile. That
+// three-voices-one-shelf arrangement is exactly why this card must keep its
+// own grammar — it is what tells a reader the piece is ours, not a couple's.
 //
 // Consumers: app/blog/page.tsx (the index grid + LeadCard's eyebrow/meta) and
-// app/realstories/_components/journal-rail.tsx.
+// app/realstories/_components/gallery.tsx.
 
 const MONTHS = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',

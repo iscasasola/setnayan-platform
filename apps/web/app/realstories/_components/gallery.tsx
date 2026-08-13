@@ -25,6 +25,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Search, X, ArrowRight, Play, BookOpen } from 'lucide-react';
 import { VendorCreditChip } from '@/app/_components/vendor-credit-chip';
+// The other two voices on this shelf. Imported, never re-drawn — each card
+// stays the grammar its own surface ships, which IS the council lock.
+import { StorytellerTile } from '@/app/_components/storyteller-tile';
+import type { StorytellerTileItem } from '@/lib/storytellers';
+import { StoryCard } from '@/app/blog/_components/story-card';
+import { blogCategoryLabel, type BlogArticle } from '@/lib/blog';
 
 export type GalleryItem = {
   href: string;
@@ -371,9 +377,98 @@ function SectionHead({ title, note }: { title: string; note?: string }) {
   );
 }
 
+/**
+ * The shelf's other two voices, as grid children.
+ *
+ * Returns a FRAGMENT, never its own grid — the whole point is that these sit
+ * in the same grid as the editorials. Wrapping them in a second grid would
+ * rebuild the two-shelf layout this replaced, one level down, and it would
+ * look almost right.
+ *
+ * Chapters lead: a real person's own chapter should never sit below our
+ * writing about weddings in general.
+ */
+function Companions({
+  chapters,
+  articles,
+  editorialHrefByEvent,
+}: {
+  chapters: StorytellerTileItem[];
+  articles: BlogArticle[];
+  editorialHrefByEvent?: ReadonlyMap<string, string>;
+}) {
+  return (
+    <>
+      {chapters.map((c) => (
+        <StorytellerTile
+          key={c.publicId}
+          item={c}
+          editorialHref={
+            c.eventId ? editorialHrefByEvent?.get(c.eventId) ?? null : null
+          }
+        />
+      ))}
+      {articles.map((a) => (
+        <div key={a.slug} className="flex flex-col">
+          {/* THE KIND, ON THE CARD. Without it a planning guide and somebody's
+              wedding are two photos in a row — which is exactly the confusion
+              the old "practical guides" heading prevented, and the reason the
+              heading could only be removed if the card took the job. */}
+          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
+            Article
+          </p>
+          <StoryCard article={a} />
+        </div>
+      ))}
+    </>
+  );
+}
+
 // ── Gallery ─────────────────────────────────────────────────────────────────
 
-export function RealStoriesGallery({ items }: { items: GalleryItem[] }) {
+/**
+ * ONE SHELF, THREE VOICES — owner decision 2026-08-13 ("option B").
+ *
+ * The page used to stack three headed sections: the editorial cascade, then
+ * "From Our Storytellers", then "From our articles · practical guides". On
+ * launch day that read as one made-up couple at the top, an empty heading
+ * under it, and a year of real writing filed at the bottom as guides.
+ *
+ * Now they share ONE shelf and the CARD says which kind it is.
+ *
+ * 🔒 WHAT THIS DOES **NOT** DO — the council lock of 2026-07-16 is intact.
+ * The lock is that the VOICES never blur into one grammar: an editorial is a
+ * Chronicle front page, a storyteller's chapter is byline-forward, a Journal
+ * piece is the Journal's own photo-led card. Every one of those is rendered
+ * here BY ITS OWN SHIPPED COMPONENT — `Tile`, `StorytellerTile`, `StoryCard`
+ * — so there is no third grammar and nothing was redrawn. What merged is the
+ * HEADINGS, not the cards. `stories-one-shelf.test.ts` now enforces that
+ * distinction, which nothing did before.
+ *
+ * ⚠ It DOES reverse a later spec decision: `FABLE_Public_Marketplace_Spec`
+ * § 4e chose "Journal-in-grid intent honored by E4's labelled rail instead",
+ * reading a uniform grid as erasing the lock. That reasoning holds for a
+ * UNIFORM grid; this shelf is not uniform. Owner ruled on the drawn
+ * comparison (`prototypes/stories_page_one_shelf_or_two_2026-08-13.html`).
+ *
+ * 🪤 THE `#storytellers` ANCHOR MUST SURVIVE THE MERGE. `/storytellers` is a
+ * 302 to `/realstories#storytellers` (`next.config.ts`), so deleting the old
+ * section without re-homing its id turns a live redirect into a scroll to
+ * nowhere — with nothing anywhere reporting it.
+ */
+export function RealStoriesGallery({
+  items,
+  chapters = [],
+  articles = [],
+  editorialHrefByEvent,
+}: {
+  items: GalleryItem[];
+  /** Owner-featured storyteller chapters — byline grammar, same shelf. */
+  chapters?: StorytellerTileItem[];
+  /** Published Journal pieces — the Journal's own card, same shelf. */
+  articles?: BlogArticle[];
+  editorialHrefByEvent?: ReadonlyMap<string, string>;
+}) {
   const [query, setQuery] = useState('');
   const [activeType, setActiveType] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -391,6 +486,44 @@ export function RealStoriesGallery({ items }: { items: GalleryItem[] }) {
     }
     return out;
   }, [items]);
+
+  /*
+    THE OTHER TWO VOICES, FILTERED BY THE SAME BOX.
+
+    A search that silently covers one third of a shelf is worse than no search:
+    a visitor typing a storyteller's name gets "No stories found" while their
+    chapter sits two rows below. So both companions carry their own searchable
+    text through the same `q`.
+
+    ⚠ THE MILESTONE CHIPS ARE EDITORIAL-ONLY, DELIBERATELY. `activeType` is an
+    event type (Wedding, Debut…). A chapter has one; a Journal article does
+    not — it has a category. Filtering to "Wedding" therefore drops articles,
+    which is correct: you asked for weddings, not for our writing about them.
+    Making articles answer an event-type chip would mean inventing an event
+    type for a guide, i.e. a fact we do not have.
+  */
+  const chapterMatches = useMemo(() => {
+    let out = chapters;
+    if (activeType) out = out.filter((c) => c.kindLabel === activeType);
+    if (q) {
+      out = out.filter((c) =>
+        `${c.title} ${c.ownerName} ${c.kindLabel} ${c.excerpt ?? ''}`
+          .toLowerCase()
+          .includes(q),
+      );
+    }
+    return out;
+  }, [chapters, activeType, q]);
+
+  const articleMatches = useMemo(() => {
+    if (activeType) return [];
+    if (!q) return articles;
+    return articles.filter((a) =>
+      `${a.title} ${a.excerpt} ${blogCategoryLabel(a.category)}`
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [articles, activeType, q]);
 
   // Filtered results when search or type filter is active.
   const filtered = useMemo(() => {
@@ -503,15 +636,22 @@ export function RealStoriesGallery({ items }: { items: GalleryItem[] }) {
             }
             note={q ? 'searching every editorial' : undefined}
           />
-          {filtered.length === 0 ? (
+          {filtered.length === 0 &&
+          chapterMatches.length === 0 &&
+          articleMatches.length === 0 ? (
             <p className="rounded-2xl border border-ink/10 bg-white/50 p-8 text-center text-sm text-ink/55">
-              No stories match yet — try a different name, city, or milestone type.
+              Nothing matches yet — try a different name, city, or milestone type.
             </p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((it) => (
-                <Tile key={it.href} item={it} size="card" />
+                <Tile key={it.href} item={it} size="card" tag="Their story" />
               ))}
+              <Companions
+                chapters={chapterMatches}
+                articles={articleMatches}
+                editorialHrefByEvent={editorialHrefByEvent}
+              />
             </div>
           )}
         </>
@@ -556,6 +696,28 @@ export function RealStoriesGallery({ items }: { items: GalleryItem[] }) {
                 ))}
               </div>
             </>
+          ) : null}
+
+          {/* The rest of the ONE shelf — no heading of its own, because a
+              heading is what made these separate shelves. Same grid, same
+              gap, so it reads as the shelf continuing.
+
+              🪤 `id="storytellers"` LIVES HERE NOW. `/storytellers` is a 302
+              to `/realstories#storytellers`; the id moved with the chapters
+              rather than being deleted with their old section, so the live
+              redirect still lands on them. It is on the container, not on a
+              card, so it survives an empty chapter list. */}
+          {chapterMatches.length > 0 || articleMatches.length > 0 ? (
+            <div
+              id="storytellers"
+              className="mt-4 grid scroll-mt-24 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            >
+              <Companions
+                chapters={chapterMatches}
+                articles={articleMatches}
+                editorialHrefByEvent={editorialHrefByEvent}
+              />
+            </div>
           ) : null}
         </>
       )}

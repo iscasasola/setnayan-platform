@@ -6,6 +6,7 @@ import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchApprovedSpotlightsForSlug } from '@/lib/journal-spotlights';
 import { JournalPartnerCredit } from './_components/journal-partner-credit';
+import { ShopLink } from './_components/shop-link';
 import {
   ALL_BLOG_ARTICLES,
   findBlogArticle,
@@ -14,6 +15,9 @@ import {
   blogPlainText,
   blogCategoryLabel,
   readingMinutes,
+  isValidShopHref,
+  articleHasShopLinks,
+  AFFILIATE_DISCLOSURE,
   type BlogBlock,
 } from '@/lib/blog';
 import {
@@ -121,10 +125,12 @@ function Block({
   block,
   lead,
   chapters,
+  slug,
 }: {
   block: BlogBlock;
   lead?: boolean;
   chapters: ResolvedChapters;
+  slug: string;
 }) {
   switch (block.type) {
     case 'h2':
@@ -215,6 +221,34 @@ function Block({
           </a>
         </div>
       );
+    // Affiliate / shopping recommendation. A MALFORMED HREF EARNS NOTHING AND
+    // LOOKS EXACTLY LIKE A WORKING ONE, so a bad one renders as prose with no
+    // button rather than as a dead link the reader taps and blames us for.
+    // isValidShopHref also rejects our OWN domains — marking an internal link
+    // rel="sponsored nofollow" would tell Google to distrust our own linking.
+    case 'shop': {
+      if (!isValidShopHref(block.href)) {
+        return (
+          <p className="mt-6 text-base leading-relaxed text-ink/75 sm:text-lg">
+            {block.text}
+          </p>
+        );
+      }
+      return (
+        <div className="my-8 rounded-2xl border border-mulberry/20 bg-accent-soft p-5 sm:p-6">
+          <p className="text-base leading-relaxed text-ink/80">{block.text}</p>
+          <ShopLink
+            href={block.href}
+            label={block.label}
+            merchant={block.merchant}
+            slug={slug}
+          />
+          <p className="mt-3 text-xs text-ink/50">
+            Takes you to {block.merchant}. We may earn a commission.
+          </p>
+        </div>
+      );
+    }
     // A storyteller's chapter, woven into the prose where the article cites it
     // (FABLE Public Marketplace § 3.4). Gold is the FRAME here, never a button.
     //
@@ -460,6 +494,17 @@ export default async function BlogArticlePage({ params }: Props) {
           </Link>
         </nav>
 
+        {/* Affiliate disclosure. Derived from the BLOCKS, never hand-added, so
+            an editor cannot ship a shopping link without it — and cannot leave
+            a stale one behind after removing the last link. It sits ABOVE the
+            prose on purpose: a disclosure a reader meets after they have
+            already clicked is not a disclosure. */}
+        {articleHasShopLinks(article.blocks) ? (
+          <p className="mb-8 rounded-xl border border-ink/10 bg-ink/[0.03] px-4 py-3 text-sm leading-relaxed text-ink/60">
+            {AFFILIATE_DISCLOSURE}
+          </p>
+        ) : null}
+
         <div>
           {article.blocks.map((block, i) => (
             <Block
@@ -467,6 +512,7 @@ export default async function BlogArticlePage({ params }: Props) {
               block={block}
               lead={i === firstParagraphIndex}
               chapters={chapters}
+              slug={article.slug}
             />
           ))}
         </div>

@@ -67,6 +67,30 @@ export type BlogBlock =
   // a prominent download button; `href` is a static /public path, `download`
   // forces save-as. Carries `.text` so blogPlainText's fallback stays type-safe.
   | { type: 'download'; text: string; href: string; label: string }
+  // Affiliate / shopping recommendation (iteration 0038 § 3 — the editorial
+  // revenue slice). `href` is an EXTERNAL merchant URL carrying our tracking
+  // tag; `merchant` names where the reader is about to land, because a link
+  // that hides its destination is the thing that makes affiliate content feel
+  // dishonest. `text` is the recommendation prose and feeds blogPlainText.
+  //
+  // 🔑 THE `rel` IS NOT COSMETIC. Google treats a commercial link without
+  // rel="sponsored" as participating in a link scheme, and the penalty lands on
+  // the WHOLE SITE — all 81 articles, i.e. exactly the traffic that makes the
+  // money. The renderer is the only place that can get this right, so it is
+  // pinned there and asserted by lib/journal-affiliate-links.test.ts.
+  //
+  // ⚠ NO TRACKING HAPPENS ON OUR SIDE. This is an ordinary outbound link; the
+  // merchant attributes the sale after the click. That is what keeps it clear
+  // of the /privacy promise that we run no third-party tracking — a promise
+  // display ads WOULD break. Do not "upgrade" this to a redirect through our
+  // own domain, or a pixel, without re-reading that page first.
+  | {
+      type: 'shop';
+      text: string;
+      href: string;
+      label: string;
+      merchant: string;
+    }
   // Embedded storyteller chapter (FABLE Public Marketplace § 3.4). `publicId`
   // is the chapter's S89C-… public_id, hand-typed by the editor; `note` is
   // optional framing prose that also feeds blogPlainText.
@@ -976,12 +1000,62 @@ export function blogPlainText(blocks: ReadonlyArray<BlogBlock>): string {
       // a chapter's own page is noindex, so folding their identity in here
       // would publish it somewhere they never agreed to.
       if (b.type === 'chapter') return b.note ?? '';
-      // p / h2 / quote / cta all carry a `.text` field.
+      // p / h2 / quote / cta / download / shop all carry a `.text` field. A
+      // shop block contributes only its recommendation prose — never the
+      // merchant name or the label — so the affiliate wording stays out of the
+      // meta description and the JSON-LD articleBody.
       return b.text;
     })
     .join(' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// ─── Affiliate / shopping links ──────────────────────────────────────────────
+
+/**
+ * The reader-facing disclosure. Rendered AUTOMATICALLY at the top of any
+ * article containing a `shop` block — an editor cannot forget it, because they
+ * never write it. Kept here (not in the page) so the test can assert the exact
+ * string the reader sees.
+ */
+export const AFFILIATE_DISCLOSURE =
+  'Some links in this article go to shops we partner with. If you buy through one, Setnayan may earn a small commission — at no extra cost to you. It never changes what we recommend.';
+
+/** Our own hosts. An affiliate link pointing at one of these is always a
+ *  mistake: it would mark an INTERNAL link rel="sponsored nofollow", telling
+ *  Google to distrust our own hub-and-spoke linking. Use a `cta` block for
+ *  anything on Setnayan. */
+const OWN_HOSTS = [
+  'setnayan.com',
+  'www.setnayan.com',
+  'setnayan.ph',
+  'www.setnayan.ph',
+];
+
+/**
+ * Is this a usable affiliate destination? Absolute `https://`, a real host, and
+ * not one of ours. Deliberately strict: a malformed affiliate href does not
+ * throw and does not 404 — it just quietly earns nothing, which is invisible.
+ */
+export function isValidShopHref(href: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:') return false;
+  const host = url.hostname.toLowerCase();
+  if (OWN_HOSTS.includes(host)) return false;
+  return host.includes('.');
+}
+
+/** Does this article carry at least one shopping link? Drives the disclosure. */
+export function articleHasShopLinks(
+  blocks: ReadonlyArray<BlogBlock>,
+): boolean {
+  return blocks.some((b) => b.type === 'shop');
 }
 
 /** Estimated reading time in minutes (~200 wpm, floor of 1). */

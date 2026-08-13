@@ -116,9 +116,23 @@ test('4 · the bare root forwards the query through to the renderer', () => {
   // its searchParams to the vendor renderer. If that hand-off is ever dropped
   // the tag dies here — with no error, on the one route the printed and
   // published links use.
-  assert.ok(
-    /renderVendorBySlug\(\{\s*slug,\s*searchParams\s*\}\)/.test(BARE_ROOT_CODE),
-    'the bare root must pass searchParams to the vendor renderer',
+  //
+  // ⚠ COUNT THE CALL SITES, DO NOT JUST FIND ONE. The dispatcher falls
+  // through to the shop from MORE THAN ONE place, and a guard satisfied by
+  // any single match would sit there green while the other path dropped the
+  // tag — which is how the printed-QR forward was missed on exactly this
+  // route: a resolver wired into the obvious call site is not wired in.
+  const callSites = BARE_ROOT_CODE.match(/renderVendorBySlug\(/g) ?? [];
+  const forwarding =
+    BARE_ROOT_CODE.match(/renderVendorBySlug\(\{\s*slug,\s*searchParams\s*\}\)/g) ??
+    [];
+  assert.ok(callSites.length > 0, 'the bare root must fall through to the shop');
+  assert.equal(
+    forwarding.length,
+    callSites.length,
+    `${callSites.length - forwarding.length} of ${callSites.length} bare-root ` +
+      'fall-throughs drop searchParams — a reader arriving on that path loses ' +
+      'the tag with no error anywhere',
   );
   assert.ok(
     /search\.src/.test(VENDOR_CODE),

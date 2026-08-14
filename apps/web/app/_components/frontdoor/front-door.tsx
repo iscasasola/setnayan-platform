@@ -20,7 +20,6 @@ import { FrontDoorFeed, isChip, type ChipKey } from './front-door-feed';
 // signed-in surfaces render the SAME rail from the SAME source. Behaviour is
 // byte-identical; see `rail-data.ts` for why one copy matters here.
 import { railToolsSignedOut, resolveRailAccount, toRailFolder } from './rail-data';
-import { DemoOverlayHost } from './demo-overlay-host';
 
 export async function FrontDoor({ chip }: { chip?: string }) {
   const [account, data] = await Promise.all([
@@ -35,19 +34,9 @@ export async function FrontDoor({ chip }: { chip?: string }) {
       account={account}
       visibleFolders={FRONT_DOOR_VISIBLE_FOLDERS.map(toRailFolder)}
       moreFolders={FRONT_DOOR_MORE_FOLDERS.map(toRailFolder)}
-      /*
-        THE DEMOS ARE OFFERED HERE, AND ONLY BECAUSE A HOST IS MOUNTED BELOW.
-        `true` means "a demo row can actually open something on this route".
-        `SiteChrome` — which mounts the overlays everywhere else — self-gates to
-        NAV_ROUTES and `/` is deliberately not one, so without <DemoOverlayHost>
-        these rows would be fake doors on the page every stranger lands on.
-        Owner 2026-08-14: "the side menu when signed out, it will be able to
-        show demo."
-      */
-      tools={railToolsSignedOut(true)}
+      tools={railToolsSignedOut()}
     >
       <FrontDoorFeed data={data} chip={activeChip} />
-      <DemoOverlayHost />
     </FrontDoorShell>
   );
 }

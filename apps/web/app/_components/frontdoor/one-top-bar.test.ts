@@ -299,11 +299,36 @@ test('the `shell-topbar` hide hook survived the move', () => {
     depending on whether the page's injected <style> happens to come after the
     stylesheet. A wrapper sets no display, so there is no tie to break.
   */
+  /*
+    🪤 THIS PINNED THE QUOTE STYLE, NOT THE ACT. It required the literal
+    `'shell-topbar fd-topwrap'` in single quotes, which only held while the
+    class was built by a ternary. When the wrapper became app-variant-only the
+    className turned into a plain attribute — `className="shell-topbar
+    fd-topwrap"` — and the guard went red against code that was MORE correct
+    than before. It now asks the two questions it always meant.
+  */
+  assert.match(
+    src,
+    /shell-topbar fd-topwrap/,
+    'The wrapper lost the `shell-topbar` hide hook.',
+  );
   assert.ok(
-    !/className="shell-topbar fd-topbar/.test(src) &&
-      /'shell-topbar fd-topwrap'/.test(src),
+    !/className=["']shell-topbar fd-topbar/.test(src),
     'The hide hook must sit on the wrapper (`fd-topwrap`), never on ' +
       '`.fd-topbar` — which sets `display:grid` and would fight the page rule.',
+  );
+  /*
+    AND THE FRONT DOOR MUST NOT BE WRAPPED AT ALL. `.fd-topbar` is
+    `position: sticky`, and sticky is constrained by its PARENT — inside a bare
+    wrapper its own height it has zero travel and scrolls away with the page.
+    That shipped live on 2026-08-14 and the owner reported it: "top nav moves up
+    with the main body." The wrapper is app-variant only.
+  */
+  assert.match(
+    src,
+    /\{inApp \? \(\s*<div\s+className="shell-topbar fd-topwrap"/,
+    'The sticky wrapper is not gated on the app variant. On the front door it ' +
+      'gives `.fd-topbar` zero travel room and the bar scrolls away.',
   );
 });
 

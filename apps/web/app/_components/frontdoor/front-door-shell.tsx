@@ -43,7 +43,7 @@ import { usePathname } from 'next/navigation';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { LogoMark } from '@/app/_components/brand-marks';
-import { openDemoOverlay, type DemoOverlayId } from '@/lib/demo-overlay-bus';
+import type { DemoOverlayId } from '@/lib/demo-overlay-bus';
 import { activeRailKey, railMatchRows } from './rail-active';
 
 /**
@@ -140,10 +140,18 @@ export type RailTool = {
    */
   line: string | null;
   /**
-   * Open this demo instead of navigating.
+   * This product HAS a live demo — so the row wears a quiet "try it" marker.
    *
-   * ⚠ ONLY SET WHERE AN OVERLAY ACTUALLY EXISTS (three of seven) AND ONLY WHERE
-   * ONE IS MOUNTED. A row offering a demo that cannot open is a fake door.
+   * 🔄 IT NO LONGER OPENS ONE. Owner 2026-08-15: *"we still want a feature
+   * description instead of directly just going to the demo."* For one day this
+   * field made the row a <button> that threw a stranger straight into a
+   * two-phone live demo before anything had said what the product was. The demo
+   * lives on the product's own page now (`_doorway.tsx`'s `demo` prop) and the
+   * page comes first.
+   *
+   * ⚠ ONLY SET WHERE AN OVERLAY ACTUALLY EXISTS (three of seven). The marker is
+   * a promise that the page you land on can be tried, and a promise the page
+   * cannot keep is the fake door this rail forbids.
    */
   demo?: DemoOverlayId;
 };
@@ -423,33 +431,12 @@ export function FrontDoorShell({
     ? [...visibleFolders, ...moreFolders]
     : visibleFolders;
 
-  return (
-    // `data-chrome` is the ONE switch the stylesheet reads. Below 1024 the app
-    // variant paints no chrome at all; the surface's own bars are untouched.
-    <div className="fd" data-chrome={variant}>
-      <>
-      {/*
-        🔑 `shell-topbar` IS A CONTRACT, NOT A CLASS NAME. Two shipped event
-        pages hide the strip outright — the Guests page renders its own bar
-        (`.shell-topbar{display:none}`) and the Vendors takeover hides it below
-        1024 — by injecting a style rule that names exactly this word. It was
-        `SidebarShell`'s hook and then `AdminStickyTopBar`'s; the shared bar
-        inherits it with the job, or those two pages silently grow a second bar
-        they deliberately removed.
-
-        ⚠ IT IS THE WRAPPER, NOT THE BAR, AND THAT IS THE WHOLE POINT. A
-        wrapper sets no `display` of its own, so `display:none` cannot lose a
-        specificity tie to `.fd-topbar{display:grid}` — a fight whose outcome
-        would otherwise depend on whether a page's injected <style> happens to
-        come after the stylesheet. It also has to be the sticky box: sticky is
-        constrained by its PARENT, so a header sticking inside a wrapper only
-        as tall as itself has nowhere to travel and stops being sticky at all.
-        Same shape `SidebarShell` and `AdminStickyTopBar` already use.
-      */}
-      <div
-        className={inApp ? 'shell-topbar fd-topwrap' : undefined}
-        data-hidden={barHidden ? 'true' : 'false'}
-      >
+  /*
+    THE BAR, DEFINED ONCE. The app variant wraps it in the sticky
+    `shell-topbar` box; the front door renders it directly as a child of `.fd`
+    so its own `position: sticky` has the whole page to travel in.
+  */
+  const topBarEl = (
       <header className="fd-topbar">
         <div className="fd-topleft">
           {inApp ? null : (
@@ -636,7 +623,61 @@ export function FrontDoorShell({
           )}
         </div>
       </header>
-      </div>
+  );
+
+  return (
+    // `data-chrome` is the ONE switch the stylesheet reads. Below 1024 the app
+    // variant paints no chrome at all; the surface's own bars are untouched.
+    <div className="fd" data-chrome={variant}>
+      <>
+      {/*
+        🔑 `shell-topbar` IS A CONTRACT, NOT A CLASS NAME. Two shipped event
+        pages hide the strip outright — the Guests page renders its own bar
+        (`.shell-topbar{display:none}`) and the Vendors takeover hides it below
+        1024 — by injecting a style rule that names exactly this word. It was
+        `SidebarShell`'s hook and then `AdminStickyTopBar`'s; the shared bar
+        inherits it with the job, or those two pages silently grow a second bar
+        they deliberately removed.
+
+        ⚠ IT IS THE WRAPPER, NOT THE BAR, AND THAT IS THE WHOLE POINT. A
+        wrapper sets no `display` of its own, so `display:none` cannot lose a
+        specificity tie to `.fd-topbar{display:grid}` — a fight whose outcome
+        would otherwise depend on whether a page's injected <style> happens to
+        come after the stylesheet. It also has to be the sticky box: sticky is
+        constrained by its PARENT, so a header sticking inside a wrapper only
+        as tall as itself has nowhere to travel and stops being sticky at all.
+        Same shape `SidebarShell` and `AdminStickyTopBar` already use.
+      */}
+      {/*
+        🔴 THE WRAPPER IS APP-VARIANT ONLY, AND THAT IS A BUG FIX.
+        It rendered UNCONDITIONALLY when the shared bar shipped, so on the
+        public front door `.fd-topbar` — `position: sticky; top: 0` — became the
+        only child of a bare, unstyled <div> exactly its own height. STICKY IS
+        CONSTRAINED BY ITS PARENT: with zero travel room the bar scrolled away
+        with the page. Owner, 2026-08-15: *"top nav moves up with the main
+        body."* Measured before the fix: parent 56px, bar 56px, travel room 0.
+
+        🪤 THE NOTE BELOW HAD ALREADY WRITTEN THIS RULE DOWN — "it also has to
+        be the sticky box: sticky is constrained by its PARENT, so a header
+        sticking inside a wrapper only as tall as itself has nowhere to travel
+        and stops being sticky at all." It was written FOR the app variant, and
+        the same commit then introduced the defect on the other one. Knowing a
+        rule and applying it to the branch in front of you are different acts.
+
+        ⚠ THE BAR ITSELF IS DEFINED ONCE, ABOVE, AND ONLY THE WRAPPER IS
+        CONDITIONAL. Writing the <header> out in both branches would be two
+        copies of the app's only top bar, free to drift.
+      */}
+      {inApp ? (
+        <div
+          className="shell-topbar fd-topwrap"
+          data-hidden={barHidden ? 'true' : 'false'}
+        >
+          {topBarEl}
+        </div>
+      ) : (
+        topBarEl
+      )}
 
       {/* Phone: the search gets its own row rather than squeezing the wordmark
           and the account cluster off the bar.
@@ -948,55 +989,46 @@ export function FrontDoorShell({
                 Studio <small>the things you make</small>
               </div>
               {/*
-                ONE ROW, TWO BEHAVIOURS (owner 2026-08-14). Signed out, a row
-                with a demo OPENS it rather than navigating — a stranger's
-                question is "what is this?" and the demo answers it better than
-                a page of copy. Signed in, `demo` is never set and every row is
-                a plain link into the person's own tool.
+                EVERY ROW IS A LINK TO THE PRODUCT'S OWN PAGE — owner
+                2026-08-15: *"we still want a feature description instead of
+                directly just going to the demo."*
 
-                🔑 THE DEMO ROW IS A <button> AND THE REST ARE <Link>s, because
-                they do genuinely different things: one opens a dialog in place,
-                the others navigate. Rendering the demo row as a link to "#"
-                with a click handler would break middle-click and open-in-new-tab
-                into a lie, and a control that looks navigable and is not is the
-                shape this page keeps paying for.
+                🔄 THIS REVERSES YESTERDAY'S SHAPE, DELIBERATELY. Three rows
+                were <button>s that opened the demo overlay in place. That
+                answered "the side menu … will be able to show demo" too
+                literally: pressing Papic threw a stranger straight into a
+                two-phone live demo before anything had told them what Papic
+                IS. The demo is still one press away — it lives on the product
+                page itself (`_doorway.tsx`'s `demo` prop) — but the page comes
+                first.
+
+                So: seven rows, seven links, each carrying the line that says
+                what the thing does. The three that have a demo keep a quiet
+                marker so a stranger can see which ones are try-able before
+                they commit a click.
               */}
-              {tools.map((t) =>
-                t.demo ? (
-                  <button
-                    key={t.key}
-                    type="button"
-                    className="fd-row fd-row-2l"
-                    aria-haspopup="dialog"
-                    onClick={() => openDemoOverlay(t.demo!)}
-                  >
-                    <span className="fd-dot" aria-hidden="true" />
-                    <span className="fd-toolwrap">
-                      <span className="fd-label-text">
-                        {t.name}
-                        <span className="fd-toolplay" aria-hidden="true">
-                          ▸ demo
-                        </span>
-                      </span>
-                      {t.line ? <span className="fd-toolline">{t.line}</span> : null}
+              {tools.map((t) => (
+                <Link
+                  key={t.key}
+                  href={t.href}
+                  className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
+                >
+                  <span className="fd-dot" aria-hidden="true" />
+                  <span className="fd-toolwrap">
+                    <span className="fd-label-text">
+                      {t.name}
+                      {/* A LABEL, NOT A VERB. "▸ demo" read as "this opens the
+                          demo" and that is exactly what it must no longer do.
+                          "try it" describes what the page you land on offers. */}
+                      {t.demo ? (
+                        <span className="fd-toolplay">try it</span>
+                      ) : null}
                     </span>
-                    <span className="fd-icon-caption">{t.name}</span>
-                  </button>
-                ) : (
-                  <Link
-                    key={t.key}
-                    href={t.href}
-                    className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
-                  >
-                    <span className="fd-dot" aria-hidden="true" />
-                    <span className="fd-toolwrap">
-                      <span className="fd-label-text">{t.name}</span>
-                      {t.line ? <span className="fd-toolline">{t.line}</span> : null}
-                    </span>
-                    <span className="fd-icon-caption">{t.name}</span>
-                  </Link>
-                ),
-              )}
+                    {t.line ? <span className="fd-toolline">{t.line}</span> : null}
+                  </span>
+                  <span className="fd-icon-caption">{t.name}</span>
+                </Link>
+              ))}
             </>
           )}
 

@@ -26,13 +26,13 @@ import type { RailTool } from '@/app/_components/frontdoor/front-door-shell';
  * The front door mounts its own host and passes true; anything else passes
  * false and the rows stay plain links.
  */
-export function railToolsSignedOut(withDemos: boolean): ReadonlyArray<RailTool> {
+export function railToolsSignedOut(): ReadonlyArray<RailTool> {
   return STUDIO_APPS.map((a) => ({
     key: a.key,
     href: a.href,
     name: a.name,
     line: a.railLine,
-    demo: withDemos ? a.demo : undefined,
+    demo: a.demo?.id,
   }));
 }
 
@@ -96,4 +96,4 @@ export function railToolsSignedIn(
  * asserts the seven hrefs; deriving it from the one source means a product can
  * never be renamed in the rail without its page moving too.
  */
-export const RAIL_TOOLS: ReadonlyArray<RailTool> = railToolsSignedOut(false);
+export const RAIL_TOOLS: ReadonlyArray<RailTool> = railToolsSignedOut();

@@ -73,17 +73,21 @@ import { CountUp } from '@/app/_components/count-up';
 import { AlaalaTile, AlaalaTileSkeleton } from './_components/alaala-tile';
 import { AlaalaWall, AlaalaWallSkeleton } from './_components/alaala-wall';
 import { CreatorBenefits } from './_components/creator-benefits';
-import { getDashboardShell } from '@/lib/dashboard-shell';
-import {
-  getSwitcherData,
-  type SwitcherData,
-} from '@/app/_components/account-switcher/get-switcher-data';
-import { HomeRail } from './_components/home-rail';
 import { HomeBoard, buildHomeBoardTiles } from './_components/home-board';
 import { HomePillNav } from './_components/home-pill-nav';
+/*
+  ⚠ THE BADGE AND THE TWO LABEL HELPERS NOW COME FROM THE SHARED INDEX, and
+  that direction is deliberate. The palette and this board must badge one event
+  with one word and print one date the same way; keeping a private copy here is
+  exactly how the two would start disagreeing about the same wedding. The date
+  helper in particular is tz-safe by construction (`DECISION_LOG.md`
+  2026-08-04 — "a date is not an instant"), and that is not worth having twice.
+*/
 import {
-  type HomeCommandItem,
-} from './_components/home-command-bar';
+  eventTypeBadge,
+  placeLabel,
+  shortDate,
+} from '@/app/_components/frontdoor/command-data';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { EventScene } from './_components/event-scene';
 import { getEventTypeVocab } from '@/lib/event-types-db';
@@ -176,52 +180,6 @@ export const metadata = {
  * AutoSurfacedEvents (`accountAutosurfaceEnabled`), and the person-spine
  * "Your story" block (`personLifeStoriesEnabled`).
  */
-
-/**
- * event_type → short badge. Filipino term where one is well established
- * (kasal · binyag · kaarawan · anibersaryo), else an uppercased English label —
- * matching the owner mockup (KASAL / BINYAG / DEBUT). Extend as verticals grow.
- */
-const EVENT_TYPE_BADGE: Record<string, string> = {
-  wedding: 'KASAL',
-  christening: 'BINYAG',
-  baptism: 'BINYAG',
-  debut: 'DEBUT',
-  birthday: 'KAARAWAN',
-  anniversary: 'ANIBERSARYO',
-};
-
-function eventTypeBadge(type: string): string {
-  return (
-    EVENT_TYPE_BADGE[type] ??
-    type
-      .split(/[_\s]+/)
-      .filter(Boolean)
-      .join(' ')
-      .toUpperCase()
-  );
-}
-
-/** Short "Mon D" date matching the mockup (tz-safe, date-only). */
-function shortDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  if (!m) return null;
-  return new Date(
-    Number(m[1]),
-    Number(m[2]) - 1,
-    Number(m[3]),
-  ).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-/** Best-effort place for the meta line. venue_name when set, else a leading
- *  segment of the free-text address (there is no venue_city column). */
-function placeLabel(event: EventWithRole): string | null {
-  if (event.venue_name?.trim()) return event.venue_name.trim();
-  const addr = event.venue_address?.trim();
-  if (!addr) return null;
-  return addr.split(',')[0]?.trim() || null;
-}
 
 export default async function LauncherPage({
   searchParams,
@@ -848,168 +806,21 @@ export default async function LauncherPage({
     });
   }
 
-  // The deterministic search index — the user's OWN events, spaces and account
-  // destinations, serialized for the HomeCommandBar client island (no functions
-  // across the RSC boundary; icons resolve from string keys client-side).
-  const commandItems: HomeCommandItem[] = [
-    // ⚠ THE JUMP TARGET IS `eventBoardHref`, NOT `/dashboard/${event_id}`.
-    // This list used to hardcode the dashboard path for every row — which, now
-    // that invited events reach the board, would put a 404 behind a search
-    // result for the person it was offered to (the couple dashboard admits
-    // organisers only). An invited event whose host has opened no public page
-    // has nowhere to jump, so it is dropped from the index rather than listed
-    // with a dead href.
-    ...[...upcoming, ...finished]
-      .map((e) => ({ e, href: eventBoardHref(e) }))
-      .filter((x): x is { e: EventWithRole; href: string } => x.href !== null)
-      .map(({ e, href }): HomeCommandItem => {
-      const dateLabel = shortDate(e.event_date);
-      const place = placeLabel(e);
-      const stance = eventStance(e.member_type);
-      return {
-        id: `event-${e.event_id}`,
-        label: e.display_name,
-        sublabel:
-          [
-            eventTypeBadge(e.event_type),
-            dateLabel ?? 'Date to be set',
-            place,
-            stance === 'invited' ? 'You’re invited' : null,
-          ]
-            .filter(Boolean)
-            .join(' · '),
-        href,
-        kind: 'event',
-        icon: 'calendar',
-      };
-    }),
-    ...spaces.map(
-      (s): HomeCommandItem => ({
-        id: `space-${s.id ?? s.title}`,
-        label: s.title,
-        sublabel: s.subtitle,
-        href: s.href,
-        kind: 'space',
-        icon: s.href === '/admin' ? 'shield' : 'store',
-      }),
-    ),
-    // Samahan jump items — one per community, findable by name (⌘K). Same
-    // mapping shape as spaces.map above.
-    ...communities.map(
-      (c): HomeCommandItem => ({
-        id: `samahan-${c.community_id}`,
-        label: c.name,
-        sublabel: samahanSubtitle(c),
-        href: `/dashboard/samahan/${c.community_id}`,
-        kind: 'space',
-        icon: 'users',
-      }),
-    ),
-    {
-      id: 'action-new-event',
-      label: 'New event',
-      sublabel: 'Start planning a new celebration',
-      href: '/dashboard/create-event',
-      kind: 'action',
-      icon: 'plus',
-    },
-    {
-      id: 'action-new-samahan',
-      label: 'Create a Samahan',
-      sublabel: 'A shared space for your barkada, parish, or clan',
-      href: '/dashboard/samahan/new',
-      kind: 'action',
-      icon: 'users',
-    },
-    {
-      // The ⌘K entry for /dashboard/library. It said "Memories Hub · Photos ·
-      // videos · saved vendors" — the old name, plus a promise ("saved
-      // vendors") the surface no longer leads with. The destination page is
-      // titled Alaala (owner 2026-07-31), so the palette says Alaala.
-      id: 'action-library',
-      label: 'Alaala',
-      sublabel: 'Photos · videos · editorials',
-      href: '/dashboard/library',
-      kind: 'action',
-      icon: 'sparkles',
-    },
-    {
-      id: 'action-saved-vendors',
-      label: 'Saved vendors',
-      sublabel: 'Your shortlist',
-      href: '/dashboard/library?tab=vendors',
-      kind: 'action',
-      icon: 'heart',
-    },
-    {
-      id: 'action-people',
-      label: 'People',
-      sublabel: 'Everyone across your events',
-      href: '/dashboard/people',
-      kind: 'action',
-      icon: 'users',
-    },
-    {
-      id: 'action-your-story',
-      label: 'Your Story',
-      sublabel:
-        chapterCount > 0
-          ? `${chapterCount} ${chapterCount === 1 ? 'chapter' : 'chapters'} · Storyteller`
-          : 'Become a Storyteller — publish your events as chapters',
-      href: '/dashboard/creator',
-      kind: 'action',
-      icon: 'clapperboard',
-    },
-    {
-      id: 'action-profile',
-      label: 'Profile & account',
-      sublabel: 'Personal info · security · privacy',
-      href: '/dashboard/profile',
-      kind: 'action',
-      icon: 'user',
-    },
-    // 🔒 REMOVED 2026-08-01 — the ACCOUNT-level "Setnayan AI" tile pointed at
-    // /dashboard/setnayan-ai, the per-USER subscription surface. Setnayan AI is
-    // PER EVENT (owner: "it is per event"), so an account-level doorway would be
-    // a door to nothing. The real surface is per event, at
-    // /dashboard/[eventId]/studio/setnayan-ai, reached from that event.
-    {
-      id: 'action-notifications',
-      label: 'Notifications',
-      sublabel: 'Everything waiting for you',
-      href: '/dashboard/notifications',
-      kind: 'action',
-      icon: 'bell',
-    },
-  ];
-
-  // ── Rail data (moved here from (launcher)/layout.tsx, 2026-07-30) ──────────
-  // The launcher's chrome now renders INSIDE the page so identity, search and
-  // the account capsule share one sticky row instead of stacking two. Both
-  // reads fail soft: a switcher fetch that throws degrades to a minimal panel
-  // (same fallback the layout used) rather than costing the user their only
-  // sign-out.
-  const minimalSwitcherFallback: SwitcherData = {
-    userId: user.id,
-    displayName: profile?.display_name ?? null,
-    email: user.email ?? '',
-    isAnonymous: !!user.is_anonymous,
-    photoUrl: null,
-    events: [],
-    context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
-  };
-  const [shellRes, switcherData] = await Promise.all([
-    getDashboardShell(user.id).catch(() => ({ unreadCount: 0 })),
-    getSwitcherData(user.id).catch((err: unknown) => {
-      logQueryError(
-        'LauncherPage (switcher data)',
-        err instanceof Error ? err : new Error(String(err)),
-        { user_id: user.id },
-      );
-      return minimalSwitcherFallback;
-    }),
-  ]);
-
+  /*
+    ⚠ THE INLINE `commandItems` INDEX THAT LIVED HERE IS GONE (One top bar,
+    2026-08-14). It is built ONCE now, for every signed-in tree, in
+    `app/_components/frontdoor/command-data.ts`, and the shared top bar renders
+    the palette. Two builders would have listed different things on /dashboard
+    than inside a wedding, with nothing to notice — and the palette was
+    reachable on this ONE screen out of ~300.
+  */
+  /*
+    ⚠ THE RAIL'S OWN READS (unread count + switcher) MOVED BACK TO
+    `(launcher)/layout.tsx` on 2026-08-14. They came down here on 2026-07-30 so
+    the one-line rail could sit inside the page; the bar is chrome again, and
+    chrome belongs to the layout — where four other trees now render the very
+    same one.
+  */
   // ── Board tiles — REAL aggregates only, all already computed above ─────────
   // `soonest` is the nearest DATED upcoming event; undated events legitimately
   // have nothing to say here, so the line is omitted rather than guessed.
@@ -1050,16 +861,6 @@ export default async function LauncherPage({
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-28 pt-5 sm:px-6 sm:pb-10 sm:pt-10 lg:px-8">
-      {/* ONE chrome row: identity · search · bell · account. Replaces the
-          layout's separate top bar AND the full-width search block that used to
-          sit under this header (owner 2026-07-30 — twice). */}
-      <HomeRail
-        userId={user.id}
-        unreadCount={shellRes.unreadCount}
-        switcherData={switcherData}
-        commandItems={commandItems}
-      />
-
       <header
         className="sn-reveal mb-5 space-y-2 sm:mb-6"
         style={{ animationDelay: '0.24s' }}

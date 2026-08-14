@@ -19,6 +19,7 @@
  */
 
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
+import { studioDescription } from '@/lib/studio-apps';
 
 export const dynamic = 'force-static';
 export const revalidate = 3600;
@@ -26,8 +27,17 @@ export const revalidate = 3600;
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
 const PAGE_TITLE = 'Palogo — Your Animated Wedding Monogram · Setnayan';
-const PAGE_DESCRIPTION =
-  'Palogo gives your wedding one mark of its own — your initials, drawn into a monogram that comes alive. It opens your save-the-date, signs your website, glows on the screen at the reception, and closes every video. One signature, carried beautifully across your whole day.';
+/*
+ * 🔑 THE DESCRIPTION IS NOT AUTHORED HERE ANY MORE — it is read from
+ * `lib/studio-apps.ts`, the ONE place the seven Studio products are
+ * described, so this page's search result and the rail's row for it can
+ * never disagree about what the product does. The string itself is
+ * UNCHANGED (moved verbatim); rewording it would have quietly rewritten a
+ * live, indexed search result.
+ * ⚠ Do not re-inline it. Two hand-typed strings that must agree is not a
+ * mechanism, it is a future drift.
+ */
+const PAGE_DESCRIPTION = studioDescription('palogo');
 const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 
 export const metadata = {

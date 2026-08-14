@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { claimCommandKey } from '@/lib/command-key-claim';
 import { ADMIN_NAV_GROUPS } from './admin-nav-groups';
 import { ADMIN_NAV_DESCRIPTIONS, ADMIN_NAV_ALIASES } from './admin-nav-descriptions';
 
@@ -121,6 +122,17 @@ export function AdminCommandPalette() {
   // without routing through here — my first draft only RESTORED focus and was
   // correctly rejected. Restoring is not trapping.
   useModalA11y({ open, onClose: close, containerRef: dialogRef });
+
+  /*
+    ⌘K IS OURS ON THIS DOORWAY (One top bar, 2026-08-14). The shared top bar
+    now mounts a palette over the person's own events on every signed-in
+    surface, this one included — and two ⌘K listeners open two stacked dialogs
+    with nothing thrown. This palette indexes all 108 admin surfaces, which the
+    shared one cannot see, so it keeps the shortcut here and the shared one
+    stands down. Pressing the bar's search box still opens the shared palette,
+    so neither control is ever dead.
+  */
+  useEffect(() => claimCommandKey(), []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

@@ -75,6 +75,20 @@
   /* The rail is 240px. The written spec says 248; the binding drawing says
      240 and the drawing wins. */
   --fd-rail: 240px;
+  /* ── THE TWO NUMBERS THE BAR IS MADE OF ─────────────────────────────────
+     `--fd-ctl` is the drawing's control height; `--fd-bar` is what the bar
+     therefore measures (40 + 8 + 8 padding), and it is what the sticky rail
+     and the chip strip clear.
+
+     🔴 THEY EXIST BECAUSE THE HAND-TYPED VERSION WAS ALREADY WRONG IN PROD.
+     `.fd-rail` and `.fd-chipbar` both pinned `top: 60px` against a bar that
+     renders **63px** — so the rail's first row and the chip strip have been
+     sitting 3px UNDERNEATH the top bar on the live front door, at every width
+     above 1024, since it shipped. Nobody reported it because 3px reads as a
+     tight layout rather than as a bug. A number typed in three places is a
+     number that will disagree with itself; now it is typed once. */
+  --fd-ctl: 40px;
+  --fd-bar: 56px;
 
   background: var(--fd-cream);
   color: var(--fd-ink);
@@ -107,10 +121,15 @@
   position: sticky;
   top: 0;
   z-index: 12;
-  border-bottom: 1px solid transparent;
 }
 
-.fd-topleft,
+/* The drawing's `.tb-l` gap is 14px between the hamburger and the wordmark;
+   the right cluster stays at 8. Not symmetric, and not a mistake. */
+.fd-topleft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .fd-topright {
   display: flex;
   align-items: center;
@@ -143,10 +162,18 @@
 }
 
 /* 44×44 is the locked tap target. The visual circle may read smaller, but the
-   pressable area never does. */
+   pressable area never does.
+   🔴 THAT SENTENCE WAS TRUE ONLY AS PROSE UNTIL 2026-08-14 — the rule beneath
+   it painted 44×44, implementing none of it, and every control on the bar had
+   been inflated the same way. The paint is now the drawing's 40; the press is
+   the lock's 44, carried by the expander below. */
 .fd-iconbtn {
-  width: 44px;
-  height: 44px;
+  width: var(--fd-ctl);
+  height: var(--fd-ctl);
+  /* ⚠ LOAD-BEARING: the hamburger is a real <button>, so without this it takes
+     globals' 44px floor and renders 40×44 — an ELLIPSE under border-radius:50%. */
+  min-height: 0;
+  position: relative;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -156,13 +183,20 @@
   color: var(--fd-ink);
   cursor: pointer;
 }
+.fd-iconbtn::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+}
 .fd-iconbtn:hover {
   background: var(--fd-hover);
 }
 
 .fd-wordmark {
   font-weight: 800;
-  letter-spacing: 0.14em;
+  /* The drawing says .15em. 107px → 114px — and the wordmark is the first
+     thing a side-by-side comparison lands on. */
+  letter-spacing: 0.15em;
   font-size: 15px;
   color: var(--fd-ink);
   text-decoration: none;
@@ -187,9 +221,23 @@
   align-items: center;
   border: 1px solid var(--fd-line);
   border-radius: var(--m-r-full);
-  overflow: hidden;
+  /* 🔴 `overflow: hidden` IS DELIBERATELY GONE. It rounded the submit button's
+     corners for free — and it also CLIPPED HIT-TESTING, so the expander that
+     gives `.fd-searchgo` its 44px tap target would be pure decoration inside
+     it. The rounding is restored on the button itself. */
   background: var(--fd-cream);
   min-width: 0;
+  /* THE MISSING DECLARATION — this is the whole 63px bar.
+     The binding drawing authors `.searchbox{height:40px}`; the port dropped
+     it, so the box was sized by its tallest child. That child is
+     `.fd-searchgo`, a real <button> declaring no height, which therefore
+     inherited `button { min-height: 44px }` from globals.css — a rule this
+     file never mentions. 44 + 2px border = 46, and 46 + 16 padding + a 1px
+     transparent border on the bar = 63.
+     🔑 A DEFECT IN THE SEAM BETWEEN TWO CORRECT FILES: neither the drawing
+     nor globals.css is wrong; the port stopped naming a number and something
+     else answered. */
+  height: var(--fd-ctl);
 }
 .fd-searchbox input {
   flex: 1;
@@ -201,10 +249,31 @@
   font-size: 14px;
   color: var(--fd-ink);
   padding: 0 14px;
-  min-height: 42px;
+  /* A `height` on the flex parent cannot shrink a child whose own min-height
+     is larger — 42 would have held the box at 44. The input stretches instead. */
+  min-height: 0;
+  align-self: stretch;
 }
 .fd-searchbox input::placeholder {
   color: var(--fd-m2);
+}
+
+/* ── THE ONE CONTROL THE EXPANDER TRICK CANNOT RESCUE ─────────────────────
+   An <input> renders no pseudo-element, so its BOX is its tap target. The
+   drawing's 40px field therefore lands under the 44px lock wherever fingers
+   are used — MEASURED at 375×812 with `(pointer: coarse)` matching: box 40,
+   input 38.
+   ⚠ It was 42 before this change and is 40 after, so without this rule the
+   pass would have made a touch target slightly WORSE while making the page
+   look right. Pointer-fine devices keep the drawing's 40; anything with a
+   coarse pointer gets the lock back. */
+@media (pointer: coarse) {
+  .fd-searchbox {
+    height: 44px;
+  }
+  .fd-searchbox input {
+    min-height: 42px;
+  }
 }
 /* The search has its OWN button — the reference does, and a field with no
    button reads as decoration on a page whose whole job is to answer a word. */
@@ -218,6 +287,20 @@
   border-left: 1px solid var(--fd-line);
   color: var(--fd-m1);
   cursor: pointer;
+  /* ⚠ LOAD-BEARING: without it this <button> takes globals' 44px floor and
+     re-inflates the whole bar. Deleting this line is a silent reversal. */
+  min-height: 0;
+  position: relative;
+  /* Replaces the rounding the parent's deleted `overflow: hidden` gave. */
+  border-radius: 0 var(--m-r-full) var(--m-r-full) 0;
+}
+/* The pressable area the paint no longer carries. The lock is a floor on the
+   PRESS, never on the paint — which is what line ~145 already claimed above a
+   rule that implemented none of it. */
+.fd-searchgo::after {
+  content: '';
+  position: absolute;
+  inset: -3px 0;
 }
 .fd-searchgo:hover {
   background: var(--fd-wash);
@@ -238,6 +321,10 @@
   background: var(--fd-wash);
 }
 
+/* ⚠ 44 STAYS ON THE BASE RULE. `front-door-shell.tsx` renders a `.fd-btn-gold`
+   inside the rail's sign-in prompt, directly above a `.fd-row` — shrinking it
+   there and hanging a vertical expander off it would steal 4px of that row's
+   clicks. Only the BAR's copies shrink; see the scoped rule below. */
 .fd-btn-gold {
   min-height: 44px;
   padding: 0 15px;
@@ -277,9 +364,17 @@
   background: var(--fd-hover);
 }
 
+/* 🔴 THIS WAS RENDERING AS AN ELLIPSE, LIVE, FOR EVERY SIGNED-IN PERSON —
+   including on the shared app bar. It is a <button> with `height: 36px` and no
+   `min-height`, so globals' `button { min-height: 44px }` won: used height =
+   max(36, 44) = 44 against a 36px width, under `border-radius: 50%`. Every
+   measurement pass missed it because the public front door is signed OUT and
+   never paints an avatar. 32px is the drawing's own number. */
 .fd-avatar {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
+  min-height: 0;
+  position: relative;
   border-radius: 50%;
   background: var(--fd-wash);
   border: 1px solid var(--fd-line);
@@ -289,6 +384,31 @@
   font-weight: 700;
   color: var(--fd-gold);
   font-family: var(--fd-mono);
+}
+.fd-avatar::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+/* ── THE BAR'S PILLS: the drawing's 36px paint, the lock's 44px press ──────
+   Scoped to `.fd-topbar` deliberately — see the note on `.fd-btn-gold`. Both
+   controls are <a> elements, so globals' `button { min-height: 44px }` never
+   reached them and `min-height` alone is the whole paint change. */
+.fd-topbar .fd-btn-gold,
+.fd-topbar .fd-btn-quiet {
+  min-height: 36px;
+  position: relative;
+}
+.fd-topbar .fd-btn-gold::after,
+.fd-topbar .fd-btn-quiet::after {
+  content: '';
+  position: absolute;
+  /* -5, not the -4 the arithmetic suggests. MEASURED: -4 produced a 42px
+     pressable height, not 44 — the boundary pixels round away. The lock is a
+     FLOOR, so this overshoots to 46 on purpose. Never tune this by arithmetic;
+     re-measure with elementFromPoint. */
+  inset: -5px 0;
 }
 
 /* ── BODY: rail + feed ───────────────────────────────────────────────────── */
@@ -301,8 +421,8 @@
   padding: 10px 8px 40px;
   overflow-y: auto;
   position: sticky;
-  top: 60px;
-  max-height: calc(100vh - 60px);
+  top: var(--fd-bar);
+  max-height: calc(100vh - var(--fd-bar));
 }
 
 /* A rail row. `min-height:44px` is the locked tap target. */
@@ -350,6 +470,45 @@
   color: var(--fd-m1);
   font-size: 15px;
 }
+/* ── A STUDIO ROW WITH ITS LINE ───────────────────────────────────────────
+   Owner 2026-08-14: "that is where we can talk about the different apps."
+   Signed out each product says what it is, so the row grows a second line and
+   stops being a fixed 44px. Signed in the line is absent and `.fd-row-2l` is
+   never applied, so those rows are byte-identical to before.
+   ⚠ The 44px tap floor is a MINIMUM, so a taller row is never a lock problem —
+   only a shorter one would be. */
+.fd-row-2l {
+  min-height: 56px;
+  align-items: flex-start;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.fd-row-2l .fd-dot {
+  margin-top: 7px;
+}
+.fd-toolwrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.fd-toolline {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--fd-m2);
+}
+/* The affordance that says this row opens a demo rather than navigating. It is
+   inside the label, so the icon-strip caption below 1280 never shows it. */
+.fd-toolplay {
+  margin-left: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--fd-gold);
+  white-space: nowrap;
+}
+/* At the 72px icon strip the labels are hidden already; make sure the line and
+   the demo affordance go with them rather than reflowing the strip. */
 .fd-dot {
   width: 6px;
   height: 6px;
@@ -494,21 +653,40 @@
 }
 
 /* ── FEED ─────────────────────────────────────────────────────────────────
-   The feed column is capped per breakpoint so the grid keeps its four-across
-   rhythm instead of stretching into five-across soup on a wide monitor. */
+   🔴 THE CAP IS THE "PROPORTION" COMPLAINT, AND ITS OLD REASON WAS FALSE.
+   Owner, 2026-08-14: *"button, text size, proportion is still not correct.
+   ours look too big as compared to the proper sizing."*
+
+   Measured against YouTube in the same browser at the same viewport: our TYPE
+   is already at or below the reference on six of seven elements. What was
+   wrong was the CARD. At 1920 the feed area is 1680px — the same 1680 YouTube
+   has — and this rule capped the column at 1064, so our cards rendered 254px
+   against YouTube's ~390px. A 14px title in a 254px card reads ~34% larger
+   relative to its card than the same title in a 390px one. That ratio is what
+   he was seeing, and no font change could have fixed it.
+
+   The old comment claimed the cap stopped the grid "stretching into
+   five-across soup". `.fd-grid` is a literal `repeat(4, 1fr)` and this file
+   contains no `auto-fit`/`auto-fill`, so five columns were arithmetically
+   impossible — the cap only ever made cards smaller. The binding drawing has
+   NO cap at all; it was drawn inside a 1400px device frame, and the port froze
+   that frame's proportions at every width.
+
+   What remains is a runaway guard for very wide monitors only: it does not
+   bind at 1512 or 1920. */
 .fd-main {
   padding: 0 24px 60px;
   min-width: 0;
 }
 .fd-col {
   width: 100%;
-  max-width: 1064px;
+  max-width: 1600px;
   margin: 0 auto;
 }
 
 .fd-chipbar {
   position: sticky;
-  top: 60px;
+  top: var(--fd-bar);
   background: var(--fd-cream);
   z-index: 8;
   display: flex;
@@ -520,15 +698,29 @@
   display: flex;
   gap: 8px;
   flex: 1;
+  /* See the note on `.fd-chip` — this pair is what stops the scroll container
+     clipping the chips' tap targets. */
+  padding: 6px 0;
+  margin: -6px 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
 .fd-chips::-webkit-scrollbar {
   display: none;
 }
+/* ⚠ THE CHIPS SHIP UNDER THE 44px LOCK TODAY — 36px of paint AND 36px of
+   press, measured, before this change touched anything. They are <a> elements,
+   so globals' `button { min-height: 44px }` never reached them. This lowers
+   the PAINT to the drawing's 32 and RAISES the press to the lock's 44.
+   🪤 THE PADDING/MARGIN PAIR ON `.fd-chips` IS LOAD-BEARING: that container is
+   `overflow-x: auto`, which forces computed `overflow-y: auto` — a scroll
+   container clips the expander to nothing. The padding gives the expander room
+   inside the scroller and the negative margin takes the layout space back.
+   Delete either half and the chips silently lose their tap target. */
 .fd-chip {
   flex: 0 0 auto;
-  min-height: 36px;
+  position: relative;
+  min-height: 32px;
   padding: 0 12px;
   border-radius: var(--m-r-sm);
   background: #f2ece0;
@@ -540,6 +732,11 @@
   text-decoration: none;
   display: inline-flex;
   align-items: center;
+}
+.fd-chip::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
 }
 .fd-chip:hover {
   background: #e9e1d2;
@@ -826,9 +1023,11 @@ h2.fd-sechead,
    1024–1279 rail collapses to a 72px icon strip · shorts 4-up
    <1024 rail goes off-canvas behind the hamburger · 3-up → 2-up on phone */
 @media (max-width: 1439.98px) {
-  .fd-col {
-    max-width: 960px;
-  }
+  /* ⚠ THE `.fd-col { max-width: 960px }` THAT SAT HERE IS DELETED. At a 1439px
+     window it squeezed a 1151px column down to 960 — 228px cards, the same
+     defect as the base cap and worse. The drawing has no such band; every
+     breakpoint in this file is the port's own invention (the drawing's three
+     media queries are all at 1240px and none touches the feed). */
   .fd-storyrow {
     grid-template-columns: repeat(5, 1fr);
   }
@@ -1108,6 +1307,17 @@ h2.fd-sechead,
         the plan names.                                                     */
 
 .fd[data-chrome='app'] {
+  /* 🔑 THE APP BAR IS 61px, AND THAT NUMBER IS MEASURED — NOT `56 + 1`.
+     The front door's 56 comes from ITS controls (40px + 16 padding). The app
+     variant's tallest child is not a front-door control at all: `topBarSlot`
+     hands in the host surface's own cluster, whose `<AccountSwitcher>` trigger
+     is `h-11` — 44px (`account-switcher.tsx:318`). So 44 + 16 padding + the
+     1px border on `.fd-topwrap` = 61.
+     ⚠ Deriving this as `calc(var(--fd-bar) + 1px)` would leave the app rail
+     4px underneath its own bar on all five signed-in trees — the exact defect
+     this file's own note two blocks down records fixing once already. If the
+     account cluster's height ever changes, MEASURE this again. */
+  --fd-bar: 61px;
   /* UNSET the page-level declarations. `.fd` is a PAGE on `/`; here it is a
      wrapper, and a wrapper that repaints the background, recolours the text
      and swaps the typeface is not a wrapper. See the amended file header. */
@@ -1129,10 +1339,85 @@ h2.fd-sechead,
      because there the rail and the feed share one cream page; here the
      content sits on the app's warm wash and the rail needs an edge. */
   border-right: 1px solid var(--fd-line);
-  /* No top bar in this variant, so the rail starts at the top and gets the
-     full viewport rather than `calc(100vh - 60px)` of it. */
+  /* ⚠ THE `top: 0; max-height: 100vh` OVERRIDE THAT SAT HERE IS GONE
+     (2026-08-14). It existed because "there is no top bar in this variant",
+     and there is one now — the shared bar. Left in place the rail would slide
+     up UNDER the bar and its first row would be unreachable. The inherited
+     `top: 60px` / `calc(100vh - 60px)` is the front door's own, which is what
+     "one shell" is supposed to mean. */
+}
+
+/* ══ THE SHARED TOP BAR, APP VARIANT (One top bar, owner 2026-08-14) ═══════
+   Owner, over three screenshots: "the issue is the top nav is not there?" —
+   the events board had a wordmark and a search and no "+ Create", Alaala had
+   a wordmark alone, and inside a wedding there was neither. Same bar now, on
+   all five signed-in trees.                                                 */
+
+/* The sticky wrapper. It carries `shell-topbar` too — the stable hook two
+   shipped event pages use to hide this strip — so it must set no `display` of
+   its own and it must be the sticky box, not the bar inside it. */
+.fd[data-chrome='app'] .fd-topwrap {
+  position: sticky;
   top: 0;
-  max-height: 100vh;
+  /* Under the account panel's portalled sheet, over the page and the rail. */
+  z-index: 20;
+  transition: transform 0.3s ease-out;
+  /* Frosted, not solid — the shipped idiom on all three bars this replaces
+     (`HomeRail`'s backdrop-blur, `AdminStickyTopBar`'s blur+saturate). A
+     transparent strip over scrolling content is unreadable; a solid one is the
+     "generic header" band the owner struck down on 2026-07-30. */
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border-bottom: 1px solid var(--fd-line);
+}
+
+/* The glyph beside (or, on a phone, instead of) the word. Hidden from 701px up,
+   where the wordmark itself reads and a mark beside it would be a second
+   logo. */
+.fd[data-chrome='app'] .fd-mark {
+  display: none;
+}
+@media (max-width: 700.98px) {
+  .fd[data-chrome='app'] .fd-mark {
+    display: block;
+  }
+}
+
+.fd[data-chrome='app'] .fd-topbar {
+  /* The WRAPPER paints and sticks; the bar is only the three-column grid. Two
+     sticky boxes nested would fight over the same offset. */
+  position: static;
+  background: transparent;
+  /* The bar is CHROME, so it keeps the front door's ink and face — the same
+     rule the rail follows two blocks up, and what makes the two read as one
+     shell rather than one shell and a lookalike. */
+  color: var(--fd-ink);
+  font-family: var(--fd-sys);
+}
+
+@media (max-width: 700.98px) {
+  /* ONE ROW AT EVERY WIDTH INSIDE THE APP. The front door drops its search to
+     a second row on a phone; the app must not, because a second chrome row is
+     precisely what the owner struck down on 2026-07-30 ("the search bar is
+     still on top") after the launcher spent its two best rows on furniture.
+     The shell renders no `.fd-searchrow` in this variant, so without this the
+     phone would have NO search at all — and the launcher ships one today. */
+  .fd[data-chrome='app'] .fd-searchwrap {
+    display: flex;
+  }
+  /* THE MARK REPLACES THE WORD ON A PHONE — the launcher's shipped grammar.
+     At 375px the letterspaced wordmark takes ~90px before the search field
+     gets any, and this bar carries identity + search + the account cluster on
+     ONE line (the second row is the thing the owner struck down 2026-07-30).
+     Front door untouched: its markup must keep the title-case name above the
+     fold for OAuth brand verification. */
+  .fd[data-chrome='app'] .fd-wordmark-text {
+    display: none;
+  }
+  /* The centre column is capped at 640px for the front door's centred search.
+     On a phone inside the app the three columns are auto/1fr/auto already
+     (inherited above), so the search simply takes the slack. */
 }
 
 /* The content column is a passthrough. Every account page already ships its
@@ -1197,6 +1482,22 @@ h2.fd-sechead,
   .fd[data-chrome='app'] .fd-rlabel-sub {
     display: none;
   }
+
+  /* 🪤 THESE LIVE HERE, IN THE EXISTING BLOCK, AND THAT IS THE POINT. Adding a
+     SECOND `@media (max-width: 1279.98px)` block for them broke a shipped guard
+     without breaking the code: `one-shell-event-rail.test.ts` finds the FIRST
+     1279 block and asserts the event name is hidden inside it, and the new
+     block came first. Correct code, red guard — the identical mistake this file
+     already records making with the 1024 band, made again two hours later.
+     ONE BLOCK PER BREAKPOINT. */
+  .fd-toolline,
+  .fd-toolplay {
+    display: none;
+  }
+  .fd-row-2l {
+    min-height: 44px;
+    align-items: center;
+  }
 }
 
 @media (max-width: 1023.98px) {
@@ -1212,4 +1513,35 @@ h2.fd-sechead,
     display: none;
     border-right: 0;
   }
+
+  /* HIDE ON SCROLL, PHONE ONLY — the app's universal top-nav rule (owner
+     2026-06-15) and exactly what `SidebarShell`'s sticky bar gave the event,
+     vendor and admin trees before they handed their cluster to this one.
+
+     🔑 NOT ON DESKTOP, deliberately. The rail sticks at `top: 60px` to clear
+     the bar; sliding the bar away on a wide screen would leave a 60px gap
+     above the rail with nothing in it. Below 1024 the rail does not render at
+     all, so there is nothing to misalign — and a phone is where reclaiming a
+     row of screen actually pays. */
+  .fd[data-chrome='app'] .fd-topwrap[data-hidden='true'] {
+    transform: translateY(-100%);
+  }
+
+  /* ⚠ "+ Create" IS DESKTOP-ONLY IN THE APP. A 360px row already carries
+     identity, the search and the account cluster. Creation is reached from
+     the board's create grid and the bottom bar — the phone's locked grammar.
+     NAMED, NOT FORGOTTEN: if the row ever gains space, this is the one line
+     to delete. */
+  .fd[data-chrome='app'] .fd-btn-gold {
+    display: none;
+  }
 }
+
+/* 🪤 ONE SUB-1024 BLOCK FOR THE APP VARIANT, NOT TWO. A second
+   `@media (max-width: 1023.98px)` block mentioning `[data-chrome='app']` was
+   added above this one on 2026-08-14 and immediately broke a SHIPPED GUARD —
+   `rail-active.test.ts` finds the FIRST narrow block naming the app variant
+   and asserts the rail is `display:none` inside it. The rule was still there,
+   in the other block; the guard was reading the wrong one and reported the
+   phone rail as painting. Correct code, red guard, and the next reader would
+   have "fixed" the guard. Keep every app-variant sub-1024 rule here. */

@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import {
@@ -8,7 +7,6 @@ import {
 } from '@/app/_components/account-switcher/get-switcher-data';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
-import { Wordmark } from '@/app/_components/brand-marks';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 
 /**
@@ -49,10 +47,24 @@ import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
  * signing in no longer changes the shape of the site. Deleting the history
  * would invite someone to reinstate the retired one.
  *
- * ⚠ WHAT IS NOT REVERSED: the slim top bar below stays, at every width, and
- * below 1024 this file renders exactly what it rendered before. The rail is
- * added BESIDE the bar, never in place of it — the bar carries the only
- * account menu and the only sign-out on these surfaces.
+ * ── AND, FROM 2026-08-14, THE SHARED TOP BAR (One top bar) ──────────────────
+ * The slim bar this layout drew is GONE, and its two controls were not: the
+ * bell and the AccountSwitcher are handed to the shared bar through
+ * `topBarSlot`, as the same elements, so the only account menu and the only
+ * sign-out on these surfaces are exactly where they were, one press from the
+ * same corner. What changed is that they now sit in the SAME bar the events
+ * board and every wedding carry.
+ *
+ * 🔑 THE WORDMARK BECAME THE SHARED BAR'S. This layout drew its own `<Wordmark>`
+ * linking to /dashboard; the shared bar draws one and points it at /dashboard
+ * inside the app. Same word, same destination, one implementation — the point
+ * of the owner's 2026-08-14 note, which was that Alaala had a wordmark, the
+ * board had a wordmark and a search, and a wedding had neither.
+ *
+ * ⚠ AND THESE SPOKES GAINED A SEARCH. They had none; the shared bar's palette
+ * reaches this person's own events, spaces and account destinations from here
+ * too. That is an addition, not a replacement — nothing was removed to make
+ * room for it.
  */
 export default async function AccountDashboardLayout({
   children,
@@ -87,23 +99,21 @@ export default async function AccountDashboardLayout({
     // the account spokes now sit on the SAME canvas as the launcher home they're
     // one click from, instead of the old plain-white background.
     <div className="sn-ambient min-h-dvh">
-      <AppRailShell>
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
-        <Link href="/dashboard" aria-label="Setnayan — home">
-          <Wordmark />
-        </Link>
-        <div className="flex items-center gap-2">
-          <UnreadBellBadge
-            userId={user.id}
-            initialUnread={unreadCount}
-            href="/dashboard/notifications"
-            ariaBaseLabel="Notifications"
-            ariaUnreadSuffix="unread"
-          />
-          <AccountSwitcher data={switcherData} />
-        </div>
-      </header>
-      <main>{children}</main>
+      <AppRailShell
+        topBarSlot={
+          <>
+            <UnreadBellBadge
+              userId={user.id}
+              initialUnread={unreadCount}
+              href="/dashboard/notifications"
+              ariaBaseLabel="Notifications"
+              ariaUnreadSuffix="unread"
+            />
+            <AccountSwitcher data={switcherData} />
+          </>
+        }
+      >
+        <main>{children}</main>
       </AppRailShell>
     </div>
   );

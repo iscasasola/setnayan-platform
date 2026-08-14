@@ -47,6 +47,9 @@ export type DoorwayFaq = { q: string; a: string };
 /** `[what it is like without, what it is like with]` — struck-through, then affirmed. */
 export type DoorwayVersus = readonly [string, string];
 
+import { TryTheDemoButton } from './try-the-demo-button';
+import type { DemoOverlayId } from '@/lib/demo-overlay-bus';
+
 export type DoorwayProps = {
   /** Mono eyebrow above the title. Omitted on `/papic`, which opens on its h1. */
   kicker?: string;
@@ -55,6 +58,29 @@ export type DoorwayProps = {
   lede: string;
   primary: { href: string; label: string };
   secondary: { href: string; label: string };
+  /**
+   * The product's LIVE demo — the one you can try from this page, right now,
+   * without an account.
+   *
+   * 🔑 RESTORED 2026-08-14, NOT INVENTED. Papic, Live Studio and 3D Plan have
+   * had working demos since 2026-07-03. They were opened from the cinematic
+   * homepage, which was deleted on 2026-08-13 — taking with it the only five
+   * `setOverlay(...)` call sites in the repo. The overlays stayed MOUNTED on
+   * every one of these doorways the whole time, unreachable. Owner, 2026-08-14:
+   * *"demo of Setnayan AI, Papic, Live Studio and 3D Plan is gone. we need to
+   * add them back."*
+   *
+   * ⚠ THIS IS THE RIGHT HOME FOR THEM, not the front door. The overlay is
+   * already mounted here, so this is a BUTTON, not a mount — whereas `/` is
+   * deliberately absent from `NAV_ROUTES` and mounts no overlays at all, and
+   * adding it there would render the marketing nav on top of the front door's
+   * own bar. A demo also belongs on the page that sells the thing.
+   *
+   * ⚠ SETNAYAN AI HAS NONE, and that is measured, not an omission: its
+   * homepage pop-up was a savings COMPARATOR, never a live trial. Do not add a
+   * `demo` to `/setnayan-ai` without building one first.
+   */
+  demo?: { id: DemoOverlayId; label: string; sublabel?: string };
   /** Anchors each `aria-label` to the product's own name — "How Pa3D works". */
   productName: string;
   steps: readonly DoorwayStep[];
@@ -151,6 +177,7 @@ export function DoorwayPage({
   lede,
   primary,
   secondary,
+  demo,
   productName,
   steps,
   differentiator,
@@ -195,6 +222,26 @@ export function DoorwayPage({
                 {secondary.label}
               </Link>
             </div>
+            {/*
+              THE LIVE DEMO — its own row under the two CTAs, not a third
+              pill beside them. It is a different KIND of offer: the CTAs send
+              you somewhere, this one happens here, on this page, with your
+              phone. Crowding it into the same row would read as a third
+              equal-weight destination and would wrap badly on a phone at three
+              items. It renders nothing at all when no demo is available or
+              when the chrome that hosts it is not mounted — see
+              `try-the-demo-button.tsx`; "no fake doors" is a locked rule and
+              this control's whole history is a button whose target vanished.
+            */}
+            {demo ? (
+              <div data-reveal-item className="mt-4 flex justify-center">
+                <TryTheDemoButton
+                  demo={demo.id}
+                  label={demo.label}
+                  sublabel={demo.sublabel}
+                />
+              </div>
+            ) : null}
           </RevealBand>
         </header>
 

@@ -41,6 +41,9 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
+import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
+import { LogoMark } from '@/app/_components/brand-marks';
+import { openDemoOverlay, type DemoOverlayId } from '@/lib/demo-overlay-bus';
 import { activeRailKey, railMatchRows } from './rail-active';
 
 /**
@@ -51,25 +54,60 @@ import { activeRailKey, railMatchRows } from './rail-active';
  * question, and the two would drift within a week.
  *
  *   variant="front-door"  `/` — top bar + search + off-canvas rail. Unchanged.
- *   variant="app"         a signed-in surface — THE RAIL ONLY, ≥1024 only.
+ *   variant="app"         a signed-in surface — the rail (≥1024) AND, from
+ *                         2026-08-14, THE SAME TOP BAR.
  *
- * 🔑 WHY THE APP VARIANT RENDERS NO TOP BAR. The signed-in surfaces already
- * carry their own: the launcher's one-line rail holds the ⌘K command bar, the
- * notification bell and the account switcher, and its own docblock names those
- * as a REACHABILITY CONTRACT — sign-out exists nowhere else on that surface.
- * Replacing it with this page's top bar would swap a command palette over your
- * own events for a search box that goes to the supplier marketplace, and drop
- * two doors on the way. That is the orphaned-doorway bug class this repo keeps
- * re-learning. The rail is what the owner asked to stay; the rail is what
- * moves. It also matches the three shipped `SidebarShell` mounts, which are
- * likewise a rail beside a surface that keeps its own top chrome.
+ * ─── THE TOP BAR IS NOW SHARED TOO (owner 2026-08-14) ────────────────────
+ * Owner, over three screenshots: *"the issue is the top nav is not there?"* —
+ * the events board had a wordmark and a search box and no "+ Create", Alaala
+ * had a wordmark and nothing else, and inside a wedding there was no wordmark
+ * and no search at all. Three screens, three bars. One shell has to mean one
+ * top bar, or the furniture still jumps as you move.
  *
- * ⚠ BELOW 1024 THE APP VARIANT RENDERS NO CHROME AT ALL. The phone's
- * bottom-bar grammar is locked, and a top bar plus a bottom bar is the double
- * render the plan names. There is no hamburger in this variant, so `railOpen`
- * can never become true, so the shipped `.fd-rail[data-open='false']
- * {display:none}` takes every row out of the tab order — a real mount
- * condition, not a style that looks like one.
+ * 🔴 THIS FILE PREVIOUSLY ARGUED THE OPPOSITE, AND THE ARGUMENT WAS RIGHT AT
+ * THE TIME. It said the app variant renders no top bar because each surface's
+ * own bar is a REACHABILITY CONTRACT — the launcher's holds the ⌘K palette,
+ * the notification bell and the account switcher, and sign-out exists nowhere
+ * else on it — so swapping in this page's bar would trade a palette over your
+ * own events for a search box aimed at the supplier marketplace and drop two
+ * doors on the way. Every word of that still holds. What changed is that the
+ * doors MOVED INTO the shared bar instead of being replaced by it:
+ *
+ *   `topBarSlot`  the host surface's OWN utility cluster, rendered verbatim —
+ *                 its live bell (with its own notifications href), its account
+ *                 switcher, and anything only it has (the event's unread chat,
+ *                 the admin's SLA pill). Nothing is re-implemented here, so
+ *                 nothing can be dropped in translation.
+ *   `search`      the launcher's command palette, promoted to the shared
+ *                 index. NOT this page's marketplace form — see below.
+ *
+ * 🔑 TWO SEARCHES, ONE QUESTION ANSWERED. The front door's box is a GET form
+ * to /explore (the supplier marketplace); the launcher's ⌘K is a palette over
+ * the person's own events. Inside the app, the palette is the correct one:
+ * everything this variant wraps is a room in the person's own house, and a box
+ * that answered "photographer" but not "Ana's wedding" would answer the wrong
+ * question on all five surfaces. The palette carries the marketplace as an
+ * escape row (`command-escape.ts`), so choosing it loses nothing; the reverse
+ * was impossible, because a GET form cannot reach your own wedding.
+ *
+ * ⚠ WHAT THE APP VARIANT STILL PAINTS NOTHING OF BELOW 1024: the rail, and
+ * the "+ Create" button. The phone's bottom-bar grammar is locked and there is
+ * no room on a 360px row beside identity, search and the account cluster —
+ * creation is reached from the board's create grid and the bottom bar. There
+ * is no hamburger in this variant, so `railOpen` can never become true, so the
+ * shipped `.fd-rail[data-open='false'] {display:none}` takes every row out of
+ * the tab order — a real mount condition, not a style that looks like one.
+ *
+ * ⚠ AND WHAT IT DOES ADD TO A PHONE, DELIBERATELY: the identity link and the
+ * search box, on the four trees that had neither. That is a departure from
+ * "below 1024 the app variant paints no chrome", and it is the smaller of two
+ * costs. Rendering the bar only at ≥1024 would mean each host keeps a second
+ * bar for phones — so the live bell and the account switcher would mount
+ * TWICE on every signed-in page, and `unread-bell-badge.tsx` carries a dated
+ * comment about the crash that double-mount already caused once. The
+ * alternative, hiding identity and search below 1024, deletes the launcher's
+ * only one-press home on mobile (its own docblock calls that load-bearing)
+ * and its phone search. One bar, one cluster, nothing mounted twice.
  */
 
 export type RailFolder = {
@@ -79,8 +117,35 @@ export type RailFolder = {
 };
 
 export type RailTool = {
+  /** Stable id from `lib/studio-apps.ts`. Also the React key. */
+  key: string;
   href: string;
   name: string;
+  /**
+   * The line under the name.
+   *
+   * SIGNED OUT it says what the product IS — owner 2026-08-14: *"that is where
+   * we can talk about the different apps."* Seven bare names teach a stranger
+   * nothing. The words come from `lib/studio-apps.ts`, the same record the
+   * product page's own `<meta name="description">` reads.
+   *
+   * 🔑 SIGNED IN IT IS `null`, DELIBERATELY. The line's job changes from
+   * selling to reporting, and we do not sell a person something they already
+   * bought. Reporting honestly means a real count — and a count we have not
+   * measured must render as NOTHING, never as 0, because filing an unmeasured
+   * thing under "you have none" puts it in the one place a person has been told
+   * they need not look. Resolving seven products' counts is seven reads on
+   * every signed-in page render, so today the honest answer is silence. NAMED,
+   * NOT FORGOTTEN: when a count can be read cheaply, it goes here.
+   */
+  line: string | null;
+  /**
+   * Open this demo instead of navigating.
+   *
+   * ⚠ ONLY SET WHERE AN OVERLAY ACTUALLY EXISTS (three of seven) AND ONLY WHERE
+   * ONE IS MOUNTED. A row offering a demo that cannot open is a fake door.
+   */
+  demo?: DemoOverlayId;
 };
 
 export type FrontDoorAccount = {
@@ -181,6 +246,29 @@ type Props = {
    * where the row is a plain destination, the registry wins.
    */
   navLabels?: RailNavLabels;
+  /**
+   * The host surface's OWN utility cluster, rendered verbatim at the right of
+   * the shared bar — its live bell (each tree has a different notifications
+   * inbox), its account switcher, and whatever only it has.
+   *
+   * 🔑 PASSED, NOT RE-IMPLEMENTED. The shell knows nothing about an admin's
+   * SLA pill or an event's unread chat count, and a shared bar that rebuilt a
+   * "standard" cluster would silently drop every control that exists on
+   * exactly one surface — which is most of them. Handing the existing element
+   * through is what makes "every door survives" a structural fact rather than
+   * a promise somebody has to keep checking.
+   *
+   * ⚠ WHEN THIS IS PRESENT THE SHELL RENDERS NO BELL AND NO ACCOUNT MENU OF
+   * ITS OWN. The slot carries both, and two account menus in one bar is two
+   * answers to "where do I sign out".
+   */
+  topBarSlot?: React.ReactNode;
+  /**
+   * The search control. Defaults to the front door's marketplace GET form.
+   * The app variant passes the command palette — see the file header for why
+   * that is the one question worth answering inside the app.
+   */
+  search?: React.ReactNode;
 };
 
 /** A count that failed to load says so. It NEVER says 0, and it never invents
@@ -202,6 +290,8 @@ export function FrontDoorShell({
   variant = 'front-door',
   railContext,
   navLabels,
+  topBarSlot,
+  search,
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -220,6 +310,20 @@ export function FrontDoorShell({
    */
   const MainEl = inApp ? 'div' : 'main';
   const pathname = usePathname();
+
+  /*
+    HIDE ON SCROLL — the app's universal top-nav rule (owner 2026-06-15), and
+    the behaviour `SidebarShell`'s own sticky bar has given the event, vendor
+    and admin trees since. Those trees hand their cluster to this bar now, so
+    the bar has to keep the rule or scrolling a wedding suddenly pins a strip
+    that used to slide away.
+
+    ⚠ APP VARIANT ONLY. `/` is a marketing page whose bar is an approved
+    prototype that stays put; changing it here would be a redraw of a signed-off
+    design smuggled in as a shared-component change. The hook is passed
+    `inApp`, so on the front door it never engages.
+  */
+  const barHidden = useHideOnScroll(inApp);
 
   /*
     WHICH ROW IS LIT — the whole reason this file changed.
@@ -323,10 +427,33 @@ export function FrontDoorShell({
     // `data-chrome` is the ONE switch the stylesheet reads. Below 1024 the app
     // variant paints no chrome at all; the surface's own bars are untouched.
     <div className="fd" data-chrome={variant}>
-      {inApp ? null : (
       <>
+      {/*
+        🔑 `shell-topbar` IS A CONTRACT, NOT A CLASS NAME. Two shipped event
+        pages hide the strip outright — the Guests page renders its own bar
+        (`.shell-topbar{display:none}`) and the Vendors takeover hides it below
+        1024 — by injecting a style rule that names exactly this word. It was
+        `SidebarShell`'s hook and then `AdminStickyTopBar`'s; the shared bar
+        inherits it with the job, or those two pages silently grow a second bar
+        they deliberately removed.
+
+        ⚠ IT IS THE WRAPPER, NOT THE BAR, AND THAT IS THE WHOLE POINT. A
+        wrapper sets no `display` of its own, so `display:none` cannot lose a
+        specificity tie to `.fd-topbar{display:grid}` — a fight whose outcome
+        would otherwise depend on whether a page's injected <style> happens to
+        come after the stylesheet. It also has to be the sticky box: sticky is
+        constrained by its PARENT, so a header sticking inside a wrapper only
+        as tall as itself has nowhere to travel and stops being sticky at all.
+        Same shape `SidebarShell` and `AdminStickyTopBar` already use.
+      */}
+      <div
+        className={inApp ? 'shell-topbar fd-topwrap' : undefined}
+        data-hidden={barHidden ? 'true' : 'false'}
+      >
       <header className="fd-topbar">
         <div className="fd-topleft">
+          {inApp ? null : (
+          <>
           {/*
             ⚠ ONLY WHERE THE RAIL IS ACTUALLY OFF-CANVAS (below 1024).
             It used to render at every width — so on a desktop it announced
@@ -347,6 +474,8 @@ export function FrontDoorShell({
           >
             ☰
           </button>
+          </>
+          )}
           {/*
             🔒 THE TEXT IS TITLE-CASE "Setnayan" AND THE CAPITALS COME FROM CSS.
             It looks identical to the approved prototype — `.fd-wordmark` carries
@@ -365,16 +494,65 @@ export function FrontDoorShell({
             passing because it was still reading the retired file. Ported here
             with the page.
           */}
-          <Link href="/" className="fd-wordmark">
-            Setnayan
-          </Link>
+          {/*
+            🔑 HOME MEANS A DIFFERENT ROOM DEPENDING ON WHERE YOU STAND.
+            On `/` the wordmark is the marketing site's own home. Inside the
+            app it is `/dashboard` — the launcher's docblock calls that "the
+            only 1-click home; load-bearing on mobile, where no other surface
+            renders a wordmark", and pointing it at `/` would eject somebody
+            mid-task onto the marketing page. The rail's first row still goes
+            to `/`, so the way out is not lost — it just is not the wordmark.
+            Same control, same word, one destination each side of the seam.
+          */}
+          {/*
+            🚨 THE TWO BRANCHES ARE NOT A TIDY-UP TARGET — THE FRONT DOOR'S
+            MARKUP IS COMPLIANCE-PINNED. `home-brand-name.test.ts` asserts the
+            literal `<Link className="fd-wordmark">Setnayan</Link>`, TEXT and
+            title case, because Google refused Setnayan's OAuth brand
+            verification on 2026-07-25 partly on "the app name on your consent
+            screen does not match your homepage" — the page showed the glyph
+            alone. Merging these into one element with a wrapping <span> turned
+            that guard red within a minute of trying it. An image or an
+            aria-label does not satisfy the requirement.
+
+            🔑 THE APP BRANCH IS THE LAUNCHER'S OWN SHIPPED GRAMMAR, restored
+            rather than dropped: `HomeRail` rendered a 28px mark on phones and
+            the word from `sm` up, because at 375px the letterspaced wordmark
+            takes ~90px before the search gets any — and this bar carries
+            identity, search and the account cluster on ONE line (the second
+            row being what the owner struck down on 2026-07-30). Same
+            constraint, same answer.
+          */}
+          {/*
+            🪤 THE APP BRANCH'S CLASS LIST IS `fd-wordmark fd-wordmark-app`,
+            AND THE SECOND WORD IS LOad-BEARING FOR A GUARD, not for a style.
+            `home-brand-name.test.ts` finds the front door's wordmark with
+            `/className="fd-wordmark"\s*>\s*([^<]*?)\s*</` and reads the text
+            inside it. With two elements carrying the bare class, that regex
+            took the FIRST — this one — and read the empty string before
+            `<LogoMark`, turning a correct front door red. Ordering the
+            branches the other way would have "fixed" it by accident, which is
+            the kind of pass this repo keeps paying for. A distinct class list
+            makes the front door's match UNIQUE by construction, and the
+            styling is unaffected because `.fd-wordmark` is still applied.
+          */}
+          {inApp ? (
+            <Link href="/dashboard" className="fd-wordmark fd-wordmark-app">
+              <LogoMark size={28} className="fd-mark" />
+              <span className="fd-wordmark-text">Setnayan</span>
+            </Link>
+          ) : (
+            <Link href="/" className="fd-wordmark">
+              Setnayan
+            </Link>
+          )}
         </div>
 
         {/* The search keeps its own button and a mic beside it. A field with
             no button reads as decoration on a page whose job is to answer a
             word somebody typed. */}
         <div className="fd-searchwrap">
-          <SearchBox />
+          {search ?? <SearchBox />}
           {/*
             🪤 THE PROTOTYPE DRAWS A MIC HERE AND IT IS NOT PORTED, ON PURPOSE.
             There is no voice search in this product. A focusable, labelled
@@ -388,30 +566,53 @@ export function FrontDoorShell({
         <div className="fd-topright" ref={menuRef}>
           {account.signedIn ? (
             <>
+              {/*
+                🔒 ONE CHROME, ONE BUTTON COLOUR — GOLD EVERYWHERE
+                (owner-locked 2026-08-14). `.fd-btn-gold` is the "+ Create"
+                treatment on both variants; do not restyle it per surface.
+
+                ⚠ HIDDEN BELOW 1024 in the app variant (CSS, not a branch).
+                A 360px row already carries identity, the search and the
+                account cluster; creation is reached from the board's create
+                grid and from the bottom bar, which is the phone's locked
+                grammar. Named, not forgotten.
+              */}
               <Link href="/dashboard" className="fd-btn-gold">
                 + Create
               </Link>
-              {/* A real destination, not an ornament — /dashboard/notifications
-                  ships. It was a handler-less button until the review. */}
-              <Link
-                href="/dashboard/notifications"
-                className="fd-iconbtn"
-                aria-label="Notifications"
-              >
-                🔔
-              </Link>
-              <button
-                type="button"
-                className="fd-avatar"
-                aria-label="Your account"
-                aria-expanded={menuOpen}
-                onClick={() => setMenuOpen((v) => !v)}
-              >
-                {account.initials}
-              </button>
-              {menuOpen ? (
-                <AccountMenu account={account} />
-              ) : null}
+              {/*
+                THE HOST'S OWN CLUSTER, OR THIS PAGE'S. When a surface hands
+                one in, it carries that surface's live bell (pointed at ITS
+                notifications inbox), its account switcher — which holds the
+                only Sign out on that surface — and anything only it has. The
+                shell renders NEITHER of its own alongside, because two bells
+                and two account menus in one bar is the double-door defect
+                wearing a tidy diff.
+              */}
+              {topBarSlot ?? (
+                <>
+                  {/* A real destination, not an ornament —
+                      /dashboard/notifications ships. It was a handler-less
+                      button until the review. */}
+                  <Link
+                    href="/dashboard/notifications"
+                    className="fd-iconbtn"
+                    aria-label="Notifications"
+                  >
+                    🔔
+                  </Link>
+                  <button
+                    type="button"
+                    className="fd-avatar"
+                    aria-label="Your account"
+                    aria-expanded={menuOpen}
+                    onClick={() => setMenuOpen((v) => !v)}
+                  >
+                    {account.initials}
+                  </button>
+                  {menuOpen ? <AccountMenu account={account} /> : null}
+                </>
+              )}
             </>
           ) : (
             <>
@@ -435,14 +636,22 @@ export function FrontDoorShell({
           )}
         </div>
       </header>
+      </div>
 
       {/* Phone: the search gets its own row rather than squeezing the wordmark
-          and the account cluster off the bar. */}
-      <div className="fd-searchrow">
-        <SearchBox />
-      </div>
-      </>
+          and the account cluster off the bar.
+
+          ⚠ FRONT DOOR ONLY. Inside the app a second row IS the thing the owner
+          rejected on 2026-07-30 — "the search bar is still on top" — after the
+          launcher spent its two most valuable rows on chrome. The app variant
+          keeps everything on ONE line at every width, which is what that
+          ruling settled. */}
+      {inApp ? null : (
+        <div className="fd-searchrow">
+          <SearchBox />
+        </div>
       )}
+      </>
 
       <div className="fd-body">
         {railOpen ? (
@@ -738,13 +947,56 @@ export function FrontDoorShell({
               <div className="fd-rlabel">
                 Studio <small>the things you make</small>
               </div>
-              {tools.map((t) => (
-                <Link key={t.href} href={t.href} className="fd-row">
-                  <span className="fd-dot" aria-hidden="true" />
-                  <span className="fd-label-text">{t.name}</span>
-                  <span className="fd-icon-caption">{t.name}</span>
-                </Link>
-              ))}
+              {/*
+                ONE ROW, TWO BEHAVIOURS (owner 2026-08-14). Signed out, a row
+                with a demo OPENS it rather than navigating — a stranger's
+                question is "what is this?" and the demo answers it better than
+                a page of copy. Signed in, `demo` is never set and every row is
+                a plain link into the person's own tool.
+
+                🔑 THE DEMO ROW IS A <button> AND THE REST ARE <Link>s, because
+                they do genuinely different things: one opens a dialog in place,
+                the others navigate. Rendering the demo row as a link to "#"
+                with a click handler would break middle-click and open-in-new-tab
+                into a lie, and a control that looks navigable and is not is the
+                shape this page keeps paying for.
+              */}
+              {tools.map((t) =>
+                t.demo ? (
+                  <button
+                    key={t.key}
+                    type="button"
+                    className="fd-row fd-row-2l"
+                    aria-haspopup="dialog"
+                    onClick={() => openDemoOverlay(t.demo!)}
+                  >
+                    <span className="fd-dot" aria-hidden="true" />
+                    <span className="fd-toolwrap">
+                      <span className="fd-label-text">
+                        {t.name}
+                        <span className="fd-toolplay" aria-hidden="true">
+                          ▸ demo
+                        </span>
+                      </span>
+                      {t.line ? <span className="fd-toolline">{t.line}</span> : null}
+                    </span>
+                    <span className="fd-icon-caption">{t.name}</span>
+                  </button>
+                ) : (
+                  <Link
+                    key={t.key}
+                    href={t.href}
+                    className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
+                  >
+                    <span className="fd-dot" aria-hidden="true" />
+                    <span className="fd-toolwrap">
+                      <span className="fd-label-text">{t.name}</span>
+                      {t.line ? <span className="fd-toolline">{t.line}</span> : null}
+                    </span>
+                    <span className="fd-icon-caption">{t.name}</span>
+                  </Link>
+                ),
+              )}
             </>
           )}
 

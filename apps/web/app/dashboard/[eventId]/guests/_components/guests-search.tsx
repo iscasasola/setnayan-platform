@@ -19,6 +19,7 @@
 
 import { useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
+import { claimCommandKey } from '@/lib/command-key-claim';
 import { LiveSearch } from './live-search';
 
 export function GuestsSearch({ initialValue }: { initialValue: string }) {
@@ -30,6 +31,17 @@ export function GuestsSearch({ initialValue }: { initialValue: string }) {
     requestAnimationFrame(() =>
       rootRef.current?.querySelector<HTMLInputElement>('input[type="search"]')?.focus(),
     );
+
+  /*
+    ⌘K IS OURS ON THIS PAGE (One top bar, 2026-08-14). The shared top bar now
+    mounts a palette over the person's own events on every signed-in surface,
+    this one included. Two ⌘K listeners on one keystroke would focus this field
+    AND open a dialog over it — the field the person asked for, behind a
+    dialog. On the guest list the question is always "which guest", so this
+    field keeps the key and the shared palette stands down; its own search box
+    is still one press away in the bar.
+  */
+  useEffect(() => claimCommandKey(), []);
 
   // ⌘K / Ctrl-K focuses the always-visible search (works in any state now —
   // there is no mode to switch into first).

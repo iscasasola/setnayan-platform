@@ -16,15 +16,33 @@
  * `front-door.tsx`.
  */
 import 'server-only';
+import { cache } from 'react';
 
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserRoleSummary } from '@/lib/roles';
+import { fetchUserEvents } from '@/lib/events';
 import {
   WEDDING_FOLDER_LABEL,
   WEDDING_FOLDER_SLUG,
   type WeddingFolder,
 } from '@/lib/taxonomy';
 import { FOLDER_SERVICE_COUNT } from '@/lib/taxonomy-folder-counts';
+
+import { resolveProfile, type EventTypeProfile } from '@/lib/event-type-profile';
+import { STUDIO_APPS } from '@/lib/studio-apps';
+/*
+  🔑 THE PURE ROW BUILDERS LIVE IN `lib/studio-rail.ts`, NOT HERE, and the
+  reason is testability rather than tidiness: this module is `server-only`, so
+  anything importing it — including a plain node test — dies on that import.
+  The builders are pure functions over STUDIO_APPS with no session and no I/O,
+  so they had no business behind that boundary. Re-exported so every existing
+  import path keeps working.
+*/
+export {
+  railToolsSignedIn,
+  railToolsSignedOut,
+  RAIL_TOOLS,
+} from '@/lib/studio-rail';
 
 import type { FrontDoorAccount, RailFolder, RailTool } from './front-door-shell';
 
@@ -45,7 +63,22 @@ export function toRailFolder(f: WeddingFolder): RailFolder {
 }
 
 /**
- * The Studio group.
+ * The Studio group — ONE ROW PER PRODUCT, TWO BEHAVIOURS.
+ *
+ * Owner, 2026-08-14: *"the side menu when signed out, it will be able to show
+ * demo. when logged in, it will be different view."*
+ *
+ *   SIGNED OUT → the row is a shop window. Where a live demo exists it OPENS
+ *                THE DEMO; a stranger's question is "what is this?", and the
+ *                demo answers it better than a page of copy. Every row also
+ *                carries one line saying what the product does.
+ *   SIGNED IN  → the row is a door into a thing they already own, and it must
+ *                not send them back out to read marketing about a product they
+ *                are paying for.
+ *
+ * 🔑 IT IS ONE ROW, NOT TWO — the same shape the shop and HQ rows already use.
+ * A separate "demo" row would double the group for signed-out visitors and go
+ * dead for everyone else.
  *
  * ⚠ SEVEN ROWS, EIGHT DOORWAYS. Alaala is the eighth public doorway but it
  * lives in the ACCOUNT SLOT ("What is Alaala?" signed out, "Alaala" signed
@@ -56,15 +89,54 @@ export function toRailFolder(f: WeddingFolder): RailFolder {
  * thing this page forbids, so putting it here would be a fake door.
  * `doorway-invariants.test.ts` pins the eight that DO have public pages.
  */
-export const RAIL_TOOLS: ReadonlyArray<RailTool> = [
-  { href: '/setnayan-ai', name: 'Setnayan AI' },
-  { href: '/pawebsite', name: 'Pawebsite' },
-  { href: '/papic', name: 'Papic' },
-  { href: '/panood', name: 'Live Studio' },
-  { href: '/patiktok', name: 'Patiktok' },
-  { href: '/pa3d', name: 'Pa3D' },
-  { href: '/palogo', name: 'Palogo' },
-];
+
+/**
+ * WHICH EVENT A SIGNED-IN PERSON'S STUDIO ROWS SHOULD OPEN — or none.
+ *
+ * Returns the single organiser event when there is exactly one, and `null`
+ * otherwise. `null` is a REAL ANSWER with two meanings the caller distinguishes
+ * by nothing: with no events the rows keep their public pages (the page that
+ * explains the product is what somebody without an event needs), and with
+ * several the rows point at `/dashboard`, the board that IS the picker.
+ *
+ * 🔑 IT NEVER GUESSES `events[0]`. That would open somebody's OTHER wedding,
+ * and the guest-doors work already settled that a door opening onto the wrong
+ * thing — or onto a refusal — is worse than a door that asks.
+ *
+ * Every read is React `cache()`d at source and shared with the rail's account
+ * resolver and the command index, so this adds no round trip. It fails soft to
+ * `{ eventId: null, count: 0 }`: a rail that throws is a blank page, and a rail
+ * pointing at public pages is a correct one.
+ */
+export const resolveRailStudioEvent = cache(
+  async (): Promise<{ eventId: string | null; count: number; profile: EventTypeProfile | null }> => {
+    const none = { eventId: null, count: 0, profile: null };
+    try {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return none;
+      // ORGANISER events only. A guest membership cannot open a Studio tool —
+      // the couple dashboard admits `member_type = 'couple'` and would 404.
+      const events = await fetchUserEvents(supabase, user.id, 'couple');
+      const live = events.filter((e) => !e.archived);
+      if (live.length !== 1) return { eventId: null, count: live.length, profile: null };
+      const only = live[0];
+      // Narrowing, not defence: `length !== 1` already returned above, so this
+      // can only be undefined if that check changes. Failing soft here keeps a
+      // future edit from throwing on the shared rail.
+      if (!only) return none;
+      return {
+        eventId: only.event_id,
+        count: 1,
+        profile: await resolveProfile(only.event_type ?? 'wedding'),
+      };
+    } catch {
+      return none;
+    }
+  },
+);
 
 function initialsFrom(email: string | null, name: string | null): string {
   const src = (name ?? '').trim() || (email ?? '').trim();

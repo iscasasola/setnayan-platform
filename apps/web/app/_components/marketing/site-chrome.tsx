@@ -39,6 +39,7 @@ import { Nav } from './site-nav';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { OverlayId } from '@/app/_components/home/HomeOverlays';
 import type { PricingData } from '@/app/_components/home/pricing-data';
+import { subscribeDemoOverlay } from '@/lib/demo-overlay-bus';
 import '@/app/_components/home/home-reskin.css';
 
 // The overlays chunk (pricing tables, vendor tier catalog, auth forms) stays
@@ -207,6 +208,28 @@ export function SiteChrome({
       setAttempt((a) => a + 1);
     }
   }, [overlay, pricing]);
+
+  /*
+    ─── THE DEMOS GET THEIR HANDLE BACK (2026-08-14) ────────────────────────
+    `HomeReskin.tsx` was deleted on 2026-08-13 and it held the ONLY five
+    `setOverlay(...)` call sites in the repo. `HomeOverlays` has been mounted
+    here on every marketing route ever since with nothing able to open the
+    Papic, Live Studio, 3D Plan or Alaala-editions overlays. This subscription
+    is the handle: a product page presses a button, `openDemoOverlay` fires,
+    and the overlay this component already mounts opens.
+
+    ⚠ SUBSCRIBED ONLY WHILE `active`, AND THE GATE IS IN THE EFFECT, NOT IN
+    THE EARLY RETURN BELOW. A first cut wrote `useEffect(… , [])` above the
+    `if (!active) return null` and described it as gated — but hooks run
+    regardless of what the render returns, so it subscribed on EVERY route in
+    the app, including the dashboards. `demoOverlayAvailable()` would then be
+    true where no overlay can render, and the button would come back as the
+    dead control this whole file is repairing. The dependency is `active`.
+  */
+  useEffect(() => {
+    if (!active) return;
+    return subscribeDemoOverlay(setOverlay);
+  }, [active]);
 
   if (!active) return null;
 

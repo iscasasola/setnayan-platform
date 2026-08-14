@@ -1,5 +1,12 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
+import { getDashboardShell } from '@/lib/dashboard-shell';
+import {
+  getSwitcherData,
+  type SwitcherData,
+} from '@/app/_components/account-switcher/get-switcher-data';
+import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 
 /**
@@ -39,11 +46,25 @@ import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
  * `DECISION_LOG.md` 2026-08-13 so no future session "restores" the chrome-less
  * launcher believing the older ruling still stands.
  *
- * ⚠ WHAT IS *NOT* REVERSED: the top bar. Below 1024 nothing changes at all,
- * and at every width `HomeRail` — wordmark, ⌘K command bar, bell, account
- * switcher — is untouched. Its docblock names those as a REACHABILITY
- * CONTRACT, and sign-out exists nowhere else on this surface. The rail is
- * added BESIDE it, never in place of it.
+ * ── AND, FROM 2026-08-14, THE SHARED TOP BAR (One top bar) ──────────────────
+ * 🔑 `HomeRail` IS RETIRED AND ITS CONTRACT IS KEPT, NOT DROPPED. The owner's
+ * 2026-07-30 ruling was about ROWS — "we do not want this header, it looks
+ * generic", then "the search bar is still on top" — and the answer was one
+ * line carrying identity, search and the account capsule. The shared bar IS
+ * that line, and it is now the same line on all five signed-in trees, which is
+ * what 2026-08-14 asked for: *"the issue is the top nav is not there?"*
+ *
+ * Every control `HomeRail` held is still rendered and every one is in the same
+ * order: identity (wordmark → /dashboard) · search (the palette) · bell ·
+ * AccountSwitcher. The bell and the switcher are the SAME components, handed
+ * to the bar through `topBarSlot` rather than rebuilt — so sign-out, profile
+ * and notifications cannot be lost in translation, which is the whole reason
+ * this layout's earlier flatten was done that way too.
+ *
+ * ⚠ THE DATA MOVED BACK UP HERE from `(launcher)/page.tsx`, where it went on
+ * 2026-07-30 so the rail could sit inside the page. The bar is chrome again,
+ * so it is the layout's. Both reads fail soft: a switcher fetch that throws
+ * degrades to a minimal panel rather than costing the user their only sign-out.
  */
 export default async function LauncherLayout({
   children,
@@ -53,13 +74,45 @@ export default async function LauncherLayout({
   const user = await getCurrentUser();
   if (!user) redirect(loginRedirectPath('/dashboard'));
 
+  const minimalSwitcherFallback: SwitcherData = {
+    userId: user.id,
+    displayName: null,
+    email: user.email ?? '',
+    isAnonymous: !!user.is_anonymous,
+    photoUrl: null,
+    events: [],
+    context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
+  };
+  const [shellRes, switcherData] = await Promise.all([
+    getDashboardShell(user.id).catch(() => ({ unreadCount: 0 })),
+    getSwitcherData(user.id).catch((err: unknown) => {
+      // eslint-disable-next-line no-console
+      console.error('[Launcher] switcher data fetch failed:', err);
+      return minimalSwitcherFallback;
+    }),
+  ]);
+
   return (
     // The ambient Atelier wash — the warm paper + gold/green/slate glows the
     // frosted home cards sit ON (canonical `.sn-ambient`, Glass PR-1). The rail
     // sits INSIDE the wash and paints its own cream, so the wash still reaches
     // the content column exactly as before.
     <div className="sn-ambient min-h-dvh">
-      <AppRailShell>
+      <AppRailShell
+        topBarSlot={
+          <>
+            <UnreadBellBadge
+              userId={user.id}
+              initialUnread={shellRes.unreadCount}
+              href="/dashboard/notifications"
+              ariaBaseLabel="Notifications"
+              ariaUnreadSuffix="unread"
+              pulse
+            />
+            <AccountSwitcher data={switcherData} />
+          </>
+        }
+      >
         <main>{children}</main>
       </AppRailShell>
     </div>

@@ -239,14 +239,39 @@ test('every rail row that can be a page is declared to the resolver', () => {
 
 /* ── 3 · ONE CHROME AT A TIME ─────────────────────────────────────────── */
 
-test('the app variant renders no top bar — never a bar AND a bottom bar', () => {
+test('the app variant renders the SAME bar — never a second one', () => {
+  /*
+    🔄 THIS ASSERTION WAS REVERSED ON 2026-08-14, DELIBERATELY. It used to
+    require the top bar to be gated `{inApp ? null : (` — the slice-0 rule that
+    the app variant renders no bar, because each signed-in surface carried its
+    own and those bars were reachability contracts (sign-out lived in them).
+
+    The owner then reported the consequence, over three screenshots: the events
+    board had a wordmark and a search, Alaala had a wordmark alone, and inside
+    a wedding there was neither. *"the issue is the top nav is not there?"*
+    Three screens, three bars.
+
+    🔑 THE OLD REASONING WAS RIGHT AND IS PRESERVED, NOT DISCARDED. Every one
+    of those doors still exists — the surfaces now HAND them to this bar
+    through `topBarSlot` instead of drawing their own. So what this guard
+    protects is the same thing it always did (nobody loses a door), asserted
+    from the other side: exactly ONE bar exists, and the surfaces feed it.
+    `one-top-bar.test.ts` holds the full contract, including that no tree
+    renders a `<header>` of its own any more.
+  */
   const barIdx = SHELL.indexOf('<header className="fd-topbar">');
-  assert.ok(barIdx > -1, 'the front door lost its top bar');
-  const before = SHELL.slice(Math.max(0, barIdx - 120), barIdx);
+  assert.ok(barIdx > -1, 'the shell lost its top bar');
+  const before = SHELL.slice(Math.max(0, barIdx - 400), barIdx);
   assert.ok(
-    /\{inApp \? null : \(/.test(before),
-    'the top bar is not gated on the variant. Below 1024 the signed-in rule is ' +
-      'bottom-bar-only, and rendering this bar too is the double render the plan names.',
+    !/\{inApp \? null : \(\s*<>\s*$/.test(before),
+    'the top bar is gated on the variant again — the app renders no bar, ' +
+      'which is exactly the state the owner reported on 2026-08-14.',
+  );
+  assert.equal(
+    (SHELL.match(/<header className="fd-topbar"/g) ?? []).length,
+    1,
+    'there must be exactly one top bar in this file. Two is a per-variant ' +
+      'fork, and the two drift within a week.',
   );
 });
 
@@ -305,8 +330,16 @@ test('both account layouts mount the shared rail', () => {
       /import \{ AppRailShell \}/.test(body),
       `${name}/layout.tsx does not import the shared rail`,
     );
+    /*
+      🪤 ANCHORED ON `<AppRailShell` + A BOUNDARY, NOT ON `<AppRailShell>`.
+      The literal closing bracket meant this guard passed only while the mount
+      took NO PROPS — so the day the launcher started passing `topBarSlot` it
+      reported a correctly-mounted rail as "imported but never rendered". A
+      guard that fires on correct code teaches you to skim past the one time it
+      is right, and this one would have been "fixed" by deleting it.
+    */
     assert.ok(
-      /<AppRailShell>/.test(body),
+      /<AppRailShell(?=[\s/>])/.test(body),
       `${name}/layout.tsx imports the rail but never renders it — imported is not mounted`,
     );
   }
@@ -335,5 +368,23 @@ test('mounting the rail did not strand the doors the surfaces already had', () =
   const body = code(ACCOUNT_LAYOUT);
   assert.ok(/<AccountSwitcher/.test(body), 'the account menu was removed from the spokes');
   assert.ok(/<UnreadBellBadge/.test(body), 'the notifications bell was removed from the spokes');
-  assert.ok(/<Wordmark \/>/.test(body), 'the wordmark home link was removed from the spokes');
+  /*
+    ⚠ THE WORDMARK CHECK MOVED TO THE SHELL ON 2026-08-14 — it is no longer
+    drawn by this layout. That is not the door being dropped: the shared bar
+    draws one wordmark for all five signed-in trees and points it at
+    `/dashboard` inside the app, which is the same destination this layout's
+    own `<Wordmark />` had. Asserting it HERE after the move would demand a
+    SECOND wordmark in a second bar — the very thing the owner reported.
+
+    🔑 SO THE ASSERTION FOLLOWS THE DOOR RATHER THAN THE FILE. It is checked
+    where the door now lives, and the layout is checked for the two controls it
+    still owns. `one-top-bar.test.ts` additionally proves this layout renders
+    no `<header>` of its own, so "the wordmark moved" cannot quietly become
+    "the wordmark is drawn twice".
+  */
+  assert.ok(
+    /<Link href="\/dashboard" className="fd-wordmark fd-wordmark-app">/.test(SHELL),
+    'the wordmark home link is gone from the shared bar — inside the app it ' +
+      'is the only one-press home, and no spoke draws its own any more',
+  );
 });

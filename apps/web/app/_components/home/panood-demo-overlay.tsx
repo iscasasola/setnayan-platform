@@ -8,7 +8,16 @@
  * claim order). The overlay then runs the control room: the program view
  * (selected camera fullscreen in the card) under a simple lower-third overlay
  * (monogram + "· LIVE"), with the two camera thumbnails as the switcher —
- * click to CUT between cam 1 and cam 2.
+ * click to CUT between CH 1 and CH 2.
+ *
+ * ⭐ AMENDED 2026-08-14 — IT NOW SHOWS THE CONTROL PANEL, not just a program
+ * view. Owner: *"Live studio is the 2 phone QR but show the control panel this
+ * time."* The two-phone QR flow is unchanged; what was added is the shipped
+ * controller's own furniture — the status strip with the OFF AIR / ON AIR chip,
+ * the "CH 1 · CONTROLLED SCREEN" label that names the monitor, the wide
+ * terracotta go-live transport, and CH numbering on the tiles. All four are
+ * ported from the approved controller, not invented here.
+ * 🔒 The transport moves the PANEL and never a broadcast — see `demoOnAir`.
  *
  * Video is WebRTC peer-to-peer (lib/demo-webrtc.ts): phone getUserMedia →
  * RTCPeerConnection → this viewer, signaled over a Supabase Realtime channel.
@@ -17,12 +26,20 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Volume2, VolumeX } from 'lucide-react';
+import { Loader2, Radio, Square, Volume2, VolumeX } from 'lucide-react';
 import { OverlayShell, type OverlayId } from './HomeOverlays';
 import { getDemoIceServers, startDemoSession, type DemoQrPair } from '@/app/_actions/demo-session-actions';
 import { watchDemoCameras, type CamSlot, type PeerConnectionState } from '@/lib/demo-webrtc';
 
-const SLOT_LABEL: Record<CamSlot, string> = { a: 'Camera 1', b: 'Camera 2' };
+/**
+ * ⚠ "CH 1" / "CH 2", NOT "Camera 1" / "Camera 2" — owner 2026-08-14: *"Live
+ * studio is the 2 phone QR but show the control panel this time."* The shipped
+ * controller calls every camera a CHANNEL and puts the selected one on
+ * "CH 1 · CONTROLLED SCREEN" (`prototypes/live_studio_control_2026-07-25.html`,
+ * `panood/control/[eventId]`). A demo that teaches a different vocabulary than
+ * the product is a demo of a product we do not sell.
+ */
+const SLOT_LABEL: Record<CamSlot, string> = { a: 'CH 1', b: 'CH 2' };
 
 /**
  * Keeps a <video> element fed with a (possibly changing) MediaStream. Muted by
@@ -128,6 +145,20 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
   // speaker toggle also lets a visitor mute if a same-room laptop + phone
   // start to feed back.
   const [audioOn, setAudioOn] = useState(true);
+  /**
+   * THE TRANSPORT'S STATE — the panel's single most recognisable control.
+   *
+   * 🔒 IT DRIVES THE PANEL, IT DOES NOT BROADCAST, AND THE SCREEN SAYS SO.
+   * The real transport calls `goLivePanood`, which needs the host's YouTube
+   * channel connected and Setnayan's app review cleared. A demo button wired to
+   * nothing would be a fake door — the exact defect this whole restoration is
+   * repairing — so it is not wired to nothing: it flips the controller's own
+   * ON-AIR states (the status chip, the tally border, the ON AIR tag) which is
+   * precisely what the owner asked to be shown, and the caption under it states
+   * plainly that nothing leaves the room. Demonstrating a control's behaviour
+   * is not the same as pretending it did something it did not.
+   */
+  const [demoOnAir, setDemoOnAir] = useState(false);
   const programRef = useRef(program);
   programRef.current = program;
 
@@ -144,6 +175,9 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
     setSlotStates({ a: 'waiting', b: 'waiting' });
     setProgram('a');
     setAudioOn(true);
+    // Reset the transport too, or reopening the demo shows a control room that
+    // claims to be ON AIR before a single camera has connected.
+    setDemoOnAir(false);
     startDemoSession('panood', window.location.origin)
       .then((p) => {
         if (!cancelled) setPair(p);
@@ -272,12 +306,62 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
           )}
         </>
       ) : (
-        /* ── Control room: program view + lower-third + the cut switcher ── */
+        /* ── THE CONTROL PANEL — the shipped controller's own shape ───────
+           Owner 2026-08-14: "show the control panel this time". Four things
+           the earlier cut left out, each taken from the approved controller
+           (`prototypes/live_studio_control_2026-07-25.html` · `.status`,
+           `.ch1`, `.transport`): the status strip, the CH 1 label naming the
+           monitor as the controlled screen, the go-live transport, and CH
+           numbering on the tiles. */
         <>
+          {/* STATUS — event, on-air chip. The real one also carries a viewer
+              count; this one does not, because a demo has no viewers and a
+              made-up number is the one thing a control room must never show. */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginTop: 16,
+              paddingBottom: 8,
+              borderBottom: '1px solid rgba(42,43,46,.10)',
+            }}
+          >
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: '#2a2925' }}>
+              Your event
+            </span>
+            <span style={{ flex: 1 }} />
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '3px 9px',
+                borderRadius: 'var(--m-r-full)',
+                background: demoOnAir ? 'rgba(226,87,76,.12)' : 'rgba(42,43,46,.07)',
+                color: demoOnAir ? '#c2372c' : '#6c675e',
+                fontSize: 10.5,
+                fontWeight: 700,
+                letterSpacing: '.08em',
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 'var(--m-r-full)',
+                  background: demoOnAir ? '#e2574c' : '#a8a4a0',
+                }}
+              />
+              {demoOnAir ? 'ON AIR' : 'OFF AIR'}
+            </span>
+          </div>
+
           <div
             style={{
               position: 'relative',
-              marginTop: 18,
+              marginTop: 12,
               aspectRatio: '16 / 9',
               borderRadius: 'var(--m-r-16, 16px)',
               overflow: 'hidden',
@@ -344,7 +428,72 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
             >
               PROGRAM · {SLOT_LABEL[streams[program] ? program : program === 'a' ? 'b' : 'a']}
             </span>
+            {/* The controller's own label for this monitor. It is what makes
+                the screen read as a control room rather than a video player:
+                CH 1 is not "the first camera", it is THE CONTROLLED SCREEN
+                that every other channel gets cut onto. */}
+            <span
+              style={{
+                position: 'absolute',
+                left: 12,
+                bottom: 10,
+                padding: '3px 9px',
+                borderRadius: 'var(--m-r-8, 8px)',
+                background: 'rgba(20,19,18,.62)',
+                color: '#fff',
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '.09em',
+              }}
+            >
+              CH 1 · CONTROLLED SCREEN
+            </span>
           </div>
+
+          {/* TRANSPORT — one wide, thumb-height control directly under the
+              monitor, terracotta → signal red on air. Same shape and the same
+              two words as the shipped `TransportRow`. */}
+          <button
+            type="button"
+            onClick={() => setDemoOnAir((v) => !v)}
+            style={{
+              marginTop: 12,
+              width: '100%',
+              minHeight: 46,
+              borderRadius: 'var(--m-r-12, 12px)',
+              border: 'none',
+              cursor: 'pointer',
+              background: demoOnAir ? '#c2372c' : 'var(--m-terra, #C24E25)',
+              color: '#fff',
+              fontSize: 14,
+              fontWeight: 700,
+              letterSpacing: '.01em',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            {demoOnAir ? (
+              <>
+                <Square aria-hidden size={14} strokeWidth={2.5} fill="#fff" /> End broadcast
+              </>
+            ) : (
+              <>
+                <Radio aria-hidden size={15} strokeWidth={2.5} /> Go live
+              </>
+            )}
+          </button>
+          {/*
+            🔒 THE HONEST LINE, AND IT IS NOT OPTIONAL. The button above moves
+            the panel, not a broadcast — the real one needs the host's own
+            YouTube channel. Saying so here is what keeps this a demonstration
+            instead of a claim.
+          */}
+          <p style={{ marginTop: 7, fontSize: 11, color: '#a8a4a0', textAlign: 'center' }}>
+            This is the real control panel. In the demo nothing is broadcast or
+            recorded — going live happens in your own Live Studio.
+          </p>
 
           <div style={{ display: 'flex', gap: 12, marginTop: 12, alignItems: 'stretch' }}>
             {(['a', 'b'] as const).map((slot) => {

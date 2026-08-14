@@ -9,7 +9,24 @@
  * Everything is under `.fd`. This page deliberately overrides the app's
  * terracotta + serif locks FOR THIS PAGE ONLY (owner 2026-08-11), exactly as
  * the retired homepage reskin did — so the scope prefix is load-bearing, not
- * tidiness. Nothing outside `/` may inherit a rule from this file.
+ * tidiness.
+ *
+ * ⚠ AMENDED 2026-08-13 — THE RAIL NOW RENDERS INSIDE THE APP TOO (One Shell
+ * slice 0, `DECISION_LOG.md` 2026-08-13). This file previously ended "nothing
+ * outside `/` may inherit a rule from this file", and that sentence is now
+ * WRONG rather than merely stale, so it is replaced instead of appended to.
+ *
+ * The rule it protected still holds and is now enforced by a real mechanism
+ * rather than by a sentence: under `[data-chrome='app']` the page-level
+ * declarations — background, colour, typeface, min-height — are UNSET, so the
+ * front door lends its CHROME and never its page styling. The app's own
+ * terracotta and serif reach the content column untouched. That matters
+ * because "which typeface does shared chrome wear" is an OPEN OWNER DECISION
+ * (`ONE_SHELL_PLAN_2026-08-13.md` §5.3); answering it by letting an inherited
+ * `font-family` leak onto ~15 pages would have decided it silently, which is
+ * how this project has twice ended up with a lock nobody remembers agreeing
+ * to. The rail keeps the front-door face; that is the plan's recommendation
+ * and it is confined to chrome.
  *
  * ─── WHAT IS LOCKED HERE (owner 2026-08-11, this page only) ──────────────
  *   • gold #8C6932 action buttons with cream labels — measured 4.86:1
@@ -1033,4 +1050,69 @@ h2.fd-sechead,
   font-size: 12px;
   -webkit-line-clamp: 5;
   line-clamp: 5;
+}
+
+/* ══ THE APP VARIANT — the same rail, mounted on a signed-in surface ═══════
+   One Shell slice 0 (owner 2026-08-13: "the sidebar should stay").
+   `DECISION_LOG.md` 2026-08-13 · `ONE_SHELL_PLAN_2026-08-13.md`.
+
+   Two rules, and everything below is one of them:
+     1. The chrome is the front door's. The CONTENT is the app's.
+     2. Below 1024 this variant paints NOTHING. The phone's bottom-bar
+        grammar is locked, and a rail plus a bottom bar is the double render
+        the plan names.                                                     */
+
+.fd[data-chrome='app'] {
+  /* UNSET the page-level declarations. `.fd` is a PAGE on `/`; here it is a
+     wrapper, and a wrapper that repaints the background, recolours the text
+     and swaps the typeface is not a wrapper. See the amended file header. */
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  min-height: 0;
+}
+
+/* The rail IS chrome, so it keeps the front door's face, ink and cream —
+   which is what makes the two surfaces read as one shell. Scoped to the rail
+   so not one declaration reaches the content column. */
+.fd[data-chrome='app'] .fd-rail {
+  color: var(--fd-ink);
+  font-family: var(--fd-sys);
+  background: var(--fd-cream);
+  /* The binding drawing puts a hairline here (`one_shell_2026-08-13.html`,
+     `.rail{border-right:1px solid var(--line)}`). The front door has none,
+     because there the rail and the feed share one cream page; here the
+     content sits on the app's warm wash and the rail needs an edge. */
+  border-right: 1px solid var(--fd-line);
+  /* No top bar in this variant, so the rail starts at the top and gets the
+     full viewport rather than `calc(100vh - 60px)` of it. */
+  top: 0;
+  max-height: 100vh;
+}
+
+/* The content column is a passthrough. Every account page already ships its
+   own `mx-auto max-w-* px-*` container; adding this file's 24px padding and
+   1064px cap on top would double-constrain all ~15 of them and break the
+   full-bleed surfaces the plan explicitly protects. */
+.fd[data-chrome='app'] .fd-main {
+  padding: 0;
+}
+.fd[data-chrome='app'] .fd-col {
+  max-width: none;
+  margin: 0;
+}
+
+@media (max-width: 1023.98px) {
+  /* Below the desktop breakpoint the app variant is inert: no grid, no rail,
+     no edge. The rail is already out of the tab order — this variant renders
+     no hamburger, so `data-open` is permanently "false" and the shipped
+     `.fd-rail[data-open='false']{display:none}` above applies. This block
+     only stops the rail's fixed-position and border rules from painting. */
+  .fd[data-chrome='app'] .fd-body {
+    display: block;
+  }
+  .fd[data-chrome='app'] .fd-rail {
+    display: none;
+    border-right: 0;
+  }
 }

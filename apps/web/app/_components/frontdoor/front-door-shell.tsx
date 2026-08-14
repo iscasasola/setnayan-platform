@@ -39,7 +39,38 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
+import { activeRailKey, railMatchRows } from './rail-active';
+
+/**
+ * ─── THE SAME RAIL, MOUNTED IN TWO PLACES (One Shell slice 0, 2026-08-13) ──
+ * Owner: *"the sidebar should stay… what you did was jumping back to the old
+ * dashboards."* `DECISION_LOG.md` 2026-08-13. This component is GENERALIZED IN
+ * PLACE rather than copied — a second rail would be a second answer to one
+ * question, and the two would drift within a week.
+ *
+ *   variant="front-door"  `/` — top bar + search + off-canvas rail. Unchanged.
+ *   variant="app"         a signed-in surface — THE RAIL ONLY, ≥1024 only.
+ *
+ * 🔑 WHY THE APP VARIANT RENDERS NO TOP BAR. The signed-in surfaces already
+ * carry their own: the launcher's one-line rail holds the ⌘K command bar, the
+ * notification bell and the account switcher, and its own docblock names those
+ * as a REACHABILITY CONTRACT — sign-out exists nowhere else on that surface.
+ * Replacing it with this page's top bar would swap a command palette over your
+ * own events for a search box that goes to the supplier marketplace, and drop
+ * two doors on the way. That is the orphaned-doorway bug class this repo keeps
+ * re-learning. The rail is what the owner asked to stay; the rail is what
+ * moves. It also matches the three shipped `SidebarShell` mounts, which are
+ * likewise a rail beside a surface that keeps its own top chrome.
+ *
+ * ⚠ BELOW 1024 THE APP VARIANT RENDERS NO CHROME AT ALL. The phone's
+ * bottom-bar grammar is locked, and a top bar plus a bottom bar is the double
+ * render the plan names. There is no hamburger in this variant, so `railOpen`
+ * can never become true, so the shipped `.fd-rail[data-open='false']
+ * {display:none}` takes every row out of the tab order — a real mount
+ * condition, not a style that looks like one.
+ */
 
 export type RailFolder = {
   slug: string;
@@ -93,12 +124,63 @@ export type FrontDoorAccount = {
   storyChapterCount?: number | null;
 };
 
+/**
+ * slot_key → the label an admin resolved for it, from `getNavSlotMap()`.
+ *
+ * ⚠ THE LABEL ONLY — `isHidden` is deliberately NOT read here. A first cut
+ * dropped rows an admin had hidden, and that is a SECOND authority on which
+ * rows exist: this rail's membership rule is capability ("does this
+ * destination refuse a signed-in person?"), and two rules for one question is
+ * how a row ends up present on the phone and absent on the desktop. It also
+ * collided head-on with the shipped guard pinning the Find-a-supplier gate to
+ * `account.signedIn` and its exact polarity — a guard written because that gate
+ * had already been got wrong once. Nobody asked for hiding; labels were the ask.
+ */
+export type RailNavLabels = Record<string, { label: string }>;
+
+/**
+ * The nav-registry slots the rail's rows are named by.
+ *
+ * 🔑 RENDER LABELS THROUGH THE REGISTRY OR AN ADMIN RENAME APPLIES ON THE
+ * PHONE AND NOT ON THE DESKTOP — two answers to one question, with no error.
+ * The mobile navs already read these slots; the rail now reads the same ones.
+ */
+const RAIL_SLOT = {
+  events: 'customer.account.events',
+  alaala: 'customer.account.library',
+  find: 'customer.account.marketplace',
+} as const;
+
 type Props = {
   account: FrontDoorAccount;
   visibleFolders: ReadonlyArray<RailFolder>;
   moreFolders: ReadonlyArray<RailFolder>;
   tools: ReadonlyArray<RailTool>;
   children: React.ReactNode;
+  /** See the variant note in the file header. Defaults to the public page. */
+  variant?: 'front-door' | 'app';
+  /**
+   * The per-surface context group — "In this event", "Your people", a shop's
+   * own menu. It PUSHES: everything above it stays exactly where it was, which
+   * is the whole point of one shell. When it is present the Marketplace and
+   * Studio groups collapse away, because those are front-page furniture (the
+   * drawing does the same, `prototypes/one_shell_2026-08-13.html`).
+   *
+   * Slice 0 passes nothing — the account spokes have no sub-navigation. The
+   * slot exists now so slice 1 mounts into it instead of re-opening this file.
+   */
+  railContext?: React.ReactNode;
+  /**
+   * Admin-resolved labels, `getNavSlotMap()`.
+   *
+   * ⚠ APPLIED IN THE APP VARIANT ONLY, deliberately. On `/` the events row
+   * reads "Back to your events" — a sentence chosen for someone standing
+   * OUTSIDE their own app (see the row's own note below), not the registry's
+   * "My Events". That divergence already ships and is intentional; piping the
+   * registry into the public page would silently revert it. Inside the app,
+   * where the row is a plain destination, the registry wins.
+   */
+  navLabels?: RailNavLabels;
 };
 
 /** A count that failed to load says so. It NEVER says 0, and it never invents
@@ -117,6 +199,9 @@ export function FrontDoorShell({
   moreFolders,
   tools,
   children,
+  variant = 'front-door',
+  railContext,
+  navLabels,
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -124,6 +209,60 @@ export function FrontDoorShell({
   const menuRef = useRef<HTMLDivElement | null>(null);
   const railId = useId();
   const { openSignIn, panel: signInPanel } = useSignInPanel();
+
+  const inApp = variant === 'app';
+  const pathname = usePathname();
+
+  /*
+    WHICH ROW IS LIT — the whole reason this file changed.
+
+    Every row that can ever be the current page is declared ONCE, in
+    `railMatchRows` — not here, so the tests can call the real list instead of
+    a copy of it — and the resolver picks the single most specific match. Rows
+    are NOT asked "are you active?" one at a time, because the shipped matcher
+    is prefix-based and `/dashboard` + `/dashboard/library` both answer yes.
+
+    🪤 THE MARKETPLACE FOLDER ROWS AND THE STUDIO TOOLS ARE ABSENT ON PURPOSE.
+    They point at `/explore?folder=…` and the eight public doorways — surfaces
+    no route converted in this slice can reach, so they can never be the
+    current page here and are never lit. Telling them apart from each other
+    needs the current QUERY, and reading the query in a client component pulls
+    in a Suspense contract this slice does not need. It arrives with the slice
+    that converts `/explore`; until then a row that cannot be right is better
+    left unlit than guessed. `activeRailKey` already accepts the params.
+  */
+  const matchRows = railMatchRows({
+    signedIn: account.signedIn,
+    hasShop: !!account.shopName,
+    isAdmin: account.isAdmin,
+  });
+  const activeKey = activeRailKey(matchRows, pathname);
+  /**
+   * Everything that makes one row read as "you are here".
+   *
+   * `data-on` is the style hook the stylesheet already reads; `aria-current`
+   * is the half a screen reader gets, and a rail that only looks right is only
+   * half right. NEVER a literal on either — that is the bug this closes.
+   *
+   * Returned as props rather than written out per row so the two can never
+   * disagree, and so each row stays one line: a shipped guard pins the string
+   * `<Link href="/explore"` to catch the gate on that row being tampered with,
+   * and splitting it across lines silently blinds that guard while looking
+   * like formatting.
+   */
+  const rowProps = (key: string) => ({
+    className: 'fd-row',
+    'data-on': activeKey === key ? 'true' : 'false',
+    'aria-current': activeKey === key ? ('page' as const) : undefined,
+  });
+
+  /**
+   * A row's label: the admin's rename when there is one, the in-code word
+   * otherwise. Front-door variant keeps its own deliberate copy (see the
+   * `navLabels` note on Props).
+   */
+  const slotLabel = (slot: string, fallback: string) =>
+    (inApp && navLabels?.[slot]?.label) || fallback;
 
   /*
     SIGNING IN DOES NOT LEAVE THIS PAGE (Redesign Session 6, "the seam").
@@ -173,7 +312,11 @@ export function FrontDoorShell({
     : visibleFolders;
 
   return (
-    <div className="fd">
+    // `data-chrome` is the ONE switch the stylesheet reads. Below 1024 the app
+    // variant paints no chrome at all; the surface's own bars are untouched.
+    <div className="fd" data-chrome={variant}>
+      {inApp ? null : (
+      <>
       <header className="fd-topbar">
         <div className="fd-topleft">
           {/*
@@ -290,6 +433,8 @@ export function FrontDoorShell({
       <div className="fd-searchrow">
         <SearchBox />
       </div>
+      </>
+      )}
 
       <div className="fd-body">
         {railOpen ? (
@@ -316,15 +461,19 @@ export function FrontDoorShell({
           */
           data-open={railOpen ? 'true' : 'false'}
         >
-          {/* 1 · DESTINATIONS */}
-          <Link href="/" className="fd-row" data-on="true">
+          {/* 1 · DESTINATIONS
+              `data-on` comes from the resolver on every row. It was the string
+              "true" on Home until 2026-08-13, which read correctly on the one
+              URL this rail rendered on and would have lit Home on all 296
+              pages the moment it rendered anywhere else. */}
+          <Link href="/" {...rowProps('home')}>
             <span className="fd-gi" aria-hidden="true">
               ⌂
             </span>
             <span className="fd-label-text">Home</span>
             <span className="fd-icon-caption">Home</span>
           </Link>
-          <Link href="/realstories" className="fd-row">
+          <Link href="/realstories" {...rowProps('stories')}>
             <span className="fd-gi" aria-hidden="true">
               ◎
             </span>
@@ -332,11 +481,13 @@ export function FrontDoorShell({
             <span className="fd-icon-caption">Stories</span>
           </Link>
           {account.signedIn ? (
-            <Link href="/explore" className="fd-row">
+            <Link href="/explore" {...rowProps('find')}>
               <span className="fd-gi" aria-hidden="true">
                 ⌕
               </span>
-              <span className="fd-label-text">Find a supplier</span>
+              <span className="fd-label-text">
+                {slotLabel(RAIL_SLOT.find, 'Find a supplier')}
+              </span>
               <span className="fd-icon-caption">Find</span>
             </Link>
           ) : null}
@@ -358,22 +509,37 @@ export function FrontDoorShell({
                 sentence is the whole change, and it is the reason the trip
                 reads as a round trip rather than as two products.
               */}
-              <Link href="/dashboard" className="fd-row">
-                <span className="fd-gi" aria-hidden="true">
-                  ←
-                </span>
-                <span className="fd-label-text">Back to your events</span>
-                <span className="fd-icon-caption">Events</span>
-                <Count value={account.eventCount} />
-              </Link>
-              <Link href="/dashboard/library" className="fd-row">
-                <span className="fd-gi" aria-hidden="true">
-                  ✧
-                </span>
-                <span className="fd-label-text">Alaala</span>
-                <span className="fd-icon-caption">Alaala</span>
-                <Count value={account.alaalaCount} />
-              </Link>
+              {/*
+                🔑 THE ARROW AND THE SENTENCE ARE FOR PEOPLE STANDING OUTSIDE.
+                "Back to your events" is the seam's own wording, and it is
+                right on `/`: you pressed the wordmark, you came out to read,
+                and this is the way back in. Inside the app it would be a lie —
+                you are already in, there is nothing to go back to — so the app
+                variant says what the row IS, under whatever name an admin has
+                given it in the nav registry. Same href, same count.
+              */}
+              <Link href="/dashboard" {...rowProps('events')}>
+                  <span className="fd-gi" aria-hidden="true">
+                    {inApp ? '▦' : '←'}
+                  </span>
+                  <span className="fd-label-text">
+                    {inApp
+                      ? slotLabel(RAIL_SLOT.events, 'Your events')
+                      : 'Back to your events'}
+                  </span>
+                  <span className="fd-icon-caption">Events</span>
+                  <Count value={account.eventCount} />
+                </Link>
+                <Link href="/dashboard/library" {...rowProps('alaala')}>
+                  <span className="fd-gi" aria-hidden="true">
+                    ✧
+                  </span>
+                  <span className="fd-label-text">
+                    {slotLabel(RAIL_SLOT.alaala, 'Alaala')}
+                  </span>
+                  <span className="fd-icon-caption">Alaala</span>
+                  <Count value={account.alaalaCount} />
+                </Link>
               {/* People is deliberately off pending legal review. A NOTICE,
                   not a door — no chevron, no hover, nothing to press. */}
               <div className="fd-notice">
@@ -391,7 +557,7 @@ export function FrontDoorShell({
                 to sit at. Matches the shipped launcher, which shows the same
                 href whether you have chapters or none.
               */}
-              <Link href="/dashboard/creator" className="fd-row">
+              <Link href="/dashboard/creator" {...rowProps('story')}>
                 <span className="fd-gi" aria-hidden="true">
                   ✎
                 </span>
@@ -420,7 +586,7 @@ export function FrontDoorShell({
                 </>
               ) : null}
               {account.shopName ? (
-                <Link href="/vendor-dashboard" className="fd-row">
+                <Link href="/vendor-dashboard" {...rowProps('shop')}>
                   <span className="fd-gi" aria-hidden="true">
                     ▣
                   </span>
@@ -430,7 +596,7 @@ export function FrontDoorShell({
                 </Link>
               ) : null}
               {account.isAdmin ? (
-                <Link href="/admin" className="fd-row">
+                <Link href="/admin" {...rowProps('hq')}>
                   <span className="fd-gi" aria-hidden="true">
                     ⛨
                   </span>
@@ -467,8 +633,31 @@ export function FrontDoorShell({
             </>
           )}
 
-          {/* 3 · MARKETPLACE — signed-in only. */}
+          {/*
+            2b · THE CONTEXT GROUP — it PUSHES, it does not swap.
+            Nothing above this line is removed when you go into an event or a
+            shop: your own rows stay exactly where they were, which is the
+            entire difference between one shell and two. Slice 0 passes
+            nothing, so this renders nothing.
+          */}
+          {railContext}
+
+          {/* 3 · MARKETPLACE — signed-in only.
+              ⚠ MARKETPLACE AND STUDIO ARE FRONT-PAGE FURNITURE and collapse
+              away whenever a context group is present, exactly as the drawing
+              has it. A rail carrying a wedding's own sections AND fifteen
+              supplier categories is a list, not a place. */}
           {account.signedIn ? (
+            /*
+              NESTED, NOT `&& !railContext`, deliberately. The shipped guard
+              pins this gate as the literal `{account.signedIn ?` — it exists
+              because the owner's signed-in-only rule was got wrong here once,
+              and it also rejects an INVERTED gate. Folding a second condition
+              into the same expression would have blinded it while reading as
+              a tidier line. The collapse is a separate question, so it gets a
+              separate branch.
+            */
+            railContext ? null : (
             <>
               <div className="fd-rdiv" />
               <div className="fd-rlabel">Marketplace</div>
@@ -502,20 +691,25 @@ export function FrontDoorShell({
                 <span className="fd-icon-caption">More</span>
               </button>
             </>
+            )
           ) : null}
 
-          {/* 4 · STUDIO — the things you make. */}
-          <div className="fd-rdiv" />
-          <div className="fd-rlabel">
-            Studio <small>the things you make</small>
-          </div>
-          {tools.map((t) => (
-            <Link key={t.href} href={t.href} className="fd-row">
-              <span className="fd-dot" aria-hidden="true" />
-              <span className="fd-label-text">{t.name}</span>
-              <span className="fd-icon-caption">{t.name}</span>
-            </Link>
-          ))}
+          {/* 4 · STUDIO — the things you make. Collapses with Marketplace. */}
+          {railContext ? null : (
+            <>
+              <div className="fd-rdiv" />
+              <div className="fd-rlabel">
+                Studio <small>the things you make</small>
+              </div>
+              {tools.map((t) => (
+                <Link key={t.href} href={t.href} className="fd-row">
+                  <span className="fd-dot" aria-hidden="true" />
+                  <span className="fd-label-text">{t.name}</span>
+                  <span className="fd-icon-caption">{t.name}</span>
+                </Link>
+              ))}
+            </>
+          )}
 
           {/* 5 · SMALL PRINT.
               ⚠ "Contact us" does not exist — there is no /contact route, and a
@@ -545,7 +739,18 @@ export function FrontDoorShell({
           never on something that merely looks like one.
         */}
         <main className="fd-main" inert={railOpen ? true : undefined}>
-          <h1 className="fd-sr-only">Setnayan — plan your event, keep it for life</h1>
+          {/*
+            ⚠ THE HIDDEN <h1> IS THE FRONT DOOR'S OWN, AND ONLY ITS OWN.
+            `/` is a feed with no visible heading, so it carries one for
+            screen readers and for search. Every account page already renders
+            its own — rendering this one too would put TWO <h1>s on all ~15,
+            which is the exact defect the doorway work measured and closed
+            ("exactly one <h1> each", 2026-08-13). A shared shell must not
+            bring the host page's headings with it.
+          */}
+          {inApp ? null : (
+            <h1 className="fd-sr-only">Setnayan — plan your event, keep it for life</h1>
+          )}
           <div className="fd-col">{children}</div>
         </main>
       </div>

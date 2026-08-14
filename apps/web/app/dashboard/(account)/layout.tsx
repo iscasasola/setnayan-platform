@@ -9,6 +9,7 @@ import {
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { Wordmark } from '@/app/_components/brand-marks';
+import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 
 /**
  * Account-scoped chrome — route group `(account)` (URL-transparent), covering
@@ -34,6 +35,24 @@ import { Wordmark } from '@/app/_components/brand-marks';
  * Auth/profile/deleted/vendor gating + the welcome tour stay in the parent
  * `dashboard/layout.tsx` (which already wraps children in `app-surface
  * min-h-dvh`). This layout owns only the top-bar data (unread count + switcher).
+ *
+ * ── AND, FROM 2026-08-13, THE SHARED RAIL ON DESKTOP ────────────────────────
+ * 🔒 THIS DELIBERATELY REVERSES THE OWNER LOCK DESCRIBED TWO PARAGRAPHS ABOVE.
+ * The 2026-07-13 ruling that made these spokes chrome-less was SUPERSEDED by
+ * the owner on 2026-08-13: *"the sidebar should stay … what you did was jumping
+ * back to the old dashboards. so what we want to see the dashboards converted
+ * for this desktop view."* `DECISION_LOG.md` 2026-08-13.
+ *
+ * 🔑 THE OLD PARAGRAPH IS LEFT STANDING ON PURPOSE — it explains why the
+ * RETIRED rail was retired, and that reasoning still holds: what came back is
+ * not `<SidebarShell>`/`<AccountSidebar>`, it is the front door's own rail, so
+ * signing in no longer changes the shape of the site. Deleting the history
+ * would invite someone to reinstate the retired one.
+ *
+ * ⚠ WHAT IS NOT REVERSED: the slim top bar below stays, at every width, and
+ * below 1024 this file renders exactly what it rendered before. The rail is
+ * added BESIDE the bar, never in place of it — the bar carries the only
+ * account menu and the only sign-out on these surfaces.
  */
 export default async function AccountDashboardLayout({
   children,
@@ -68,6 +87,7 @@ export default async function AccountDashboardLayout({
     // the account spokes now sit on the SAME canvas as the launcher home they're
     // one click from, instead of the old plain-white background.
     <div className="sn-ambient min-h-dvh">
+      <AppRailShell>
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
         <Link href="/dashboard" aria-label="Setnayan — home">
           <Wordmark />
@@ -84,6 +104,7 @@ export default async function AccountDashboardLayout({
         </div>
       </header>
       <main>{children}</main>
+      </AppRailShell>
     </div>
   );
 }

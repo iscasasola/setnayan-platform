@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
+import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 
 /**
  * Full-screen LAUNCHER chrome — route group `(launcher)`, covering only the
@@ -27,6 +28,22 @@ import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
  *
  * What remains here: auth and the ambient wash. Auth/profile/deleted/vendor
  * gating + the welcome tour stay in the parent `dashboard/layout.tsx`.
+ *
+ * ── AND, FROM 2026-08-13, THE SHARED RAIL ON DESKTOP ────────────────────────
+ * 🔒 THIS DELIBERATELY REVERSES AN OWNER LOCK. The 2026-06-14 chrome retirement
+ * and the owner's own rulings of 2026-07-09 ("splash screen … we do not want
+ * side bar and menu bars here") and 2026-07-13 made this surface chrome-less on
+ * purpose. The owner SUPERSEDED that on 2026-08-13, with three YouTube
+ * screenshots in which the left rail never leaves: *"the sidebar should stay …
+ * what you did was jumping back to the old dashboards."* Logged in
+ * `DECISION_LOG.md` 2026-08-13 so no future session "restores" the chrome-less
+ * launcher believing the older ruling still stands.
+ *
+ * ⚠ WHAT IS *NOT* REVERSED: the top bar. Below 1024 nothing changes at all,
+ * and at every width `HomeRail` — wordmark, ⌘K command bar, bell, account
+ * switcher — is untouched. Its docblock names those as a REACHABILITY
+ * CONTRACT, and sign-out exists nowhere else on this surface. The rail is
+ * added BESIDE it, never in place of it.
  */
 export default async function LauncherLayout({
   children,
@@ -38,9 +55,13 @@ export default async function LauncherLayout({
 
   return (
     // The ambient Atelier wash — the warm paper + gold/green/slate glows the
-    // frosted home cards sit ON (canonical `.sn-ambient`, Glass PR-1).
+    // frosted home cards sit ON (canonical `.sn-ambient`, Glass PR-1). The rail
+    // sits INSIDE the wash and paints its own cream, so the wash still reaches
+    // the content column exactly as before.
     <div className="sn-ambient min-h-dvh">
-      <main>{children}</main>
+      <AppRailShell>
+        <main>{children}</main>
+      </AppRailShell>
     </div>
   );
 }

@@ -22,7 +22,19 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { metadata } from './page';
+/*
+  🔑 IMPORTED FROM `./metadata`, NOT FROM `./page` (2026-08-15). This read the
+  page module directly until the page began mounting the shared app shell,
+  which carries `import 'server-only'` — a package the Next bundler aliases and
+  that is NOT in node_modules, so this file died with MODULE_NOT_FOUND. A guard
+  that a UI change can silence is worse than no guard, and the two obvious
+  escapes were both worse still: dropping the shell's `server-only` marker
+  (a real boundary), or re-reading the object out of source text with a regex
+  (matching a string instead of the act). The object moved to a dependency-free
+  sibling; the page still does a literal `export const metadata = …`, and the
+  assertions below still run against the REAL values, not a copy.
+*/
+import { GOOGLE_ACCESS_METADATA as metadata } from './metadata';
 
 const PAGE = path.join(import.meta.dirname, 'page.tsx');
 const WEB_ROOT = path.join(import.meta.dirname, '..', '..', '..');

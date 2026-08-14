@@ -61,7 +61,7 @@ export default async function PeoplePage({
     : { incoming: [], outgoing: [], confirmed: [] };
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Back to home
@@ -182,7 +182,7 @@ async function fetchMyConnections(userId: string): Promise<{
 /** The honest, non-interactive "coming soon" preview (flag OFF — production today). */
 function PeoplePreview() {
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Back to home

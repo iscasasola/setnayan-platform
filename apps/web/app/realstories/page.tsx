@@ -16,6 +16,19 @@ import {
 } from './_components/stories-search';
 import { STORIES_SEARCH_MIN_POOL } from '@/lib/stories-search-config';
 import { publishedBlogArticles } from '@/lib/blog';
+import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
+
+/*
+  🔴 force-dynamic IS LOAD-BEARING. This page mounts the shared shell, which
+  reads the session. It carried `revalidate = 3600` — ISR, not force-static, so
+  Trap 1 (the silent empty-cookie-jar) does not apply here — but a session read
+  would de-opt it at request time anyway, which is the same cost paid
+  accidentally instead of on purpose. Declared, so it is a decision.
+  ⚠ A LAYOUT CANNOT SET THIS: `dynamic` resolves nested-most-wins and the
+  children traversal completes before a parent layout's component is created.
+  It is one edit per page and missing one is invisible.
+*/
+export const dynamic = 'force-dynamic';
 
 // /realstories — THE single public stories hub. ONE SHELF, THREE VOICES
 // (owner decision 2026-08-13, "option B" — this block described TWO named
@@ -89,7 +102,6 @@ export const metadata: Metadata = {
 };
 
 // DB-backed (consent-gated showcases) → ISR. Degrades to samples gracefully.
-export const revalidate = 3600;
 
 // Load both shelves deep enough that the search display gate
 // (STORIES_SEARCH_MIN_POOL) is actually reachable — two shelves capped at the
@@ -251,6 +263,13 @@ export default async function RealStoriesIndexPage() {
   };
 
   return (
+    /*
+      The shared shell — this page keeps its own <main> and <h1>; the doorway
+      variant yields both. See `front-door-shell.tsx` for why `app` would be
+      wrong here (no hamburger below 1024, and a wordmark pointing at a route
+      that redirects a stranger to /login).
+    */
+    <AppRailShell variant="doorway">
     <>
       <script
         type="application/ld+json"
@@ -345,5 +364,6 @@ export default async function RealStoriesIndexPage() {
         </div>
       </main>
     </>
+    </AppRailShell>
   );
 }

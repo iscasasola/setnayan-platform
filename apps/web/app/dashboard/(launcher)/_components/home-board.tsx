@@ -52,7 +52,21 @@ export type HomeBoardTile = {
   /** Small caps label above the number. */
   label: string;
   /** The real count. */
-  value: number;
+  /**
+   * THREE STATES, because two would force a lie:
+   *   number → show it
+   *   null   → we ASKED and the read FAILED ⇒ say so, never a numeral
+   *
+   * 🔴 THIS WAS `number` AND THE DOCBLOCK ABOVE ALREADY FORBADE WHAT THAT
+   * ALLOWED — "a tile whose count cannot be established is simply not
+   * rendered, never rendered as zero-with-a-flourish. An empty state that
+   * lies is worse than a missing tile." The rule was stated and the TYPE made
+   * it unsayable, so `adminOpenTotal = 0` in a catch block reached the screen
+   * as a confident zero and the board said "Everything — quiet. Nothing needs
+   * you right now" over a read that had failed. The same file's own
+   * `alagaCount`/`connectionCount` were already using null for exactly this.
+   */
+  value: number | null;
   /** Unit shown next to the number ("in motion", "need you", …). */
   unit: string;
   /** One line of context under it. Omitted when there is nothing true to say. */
@@ -75,7 +89,9 @@ export function buildHomeBoardTiles(input: {
   shopCount: number;
   topShopName: string | null;
   hasAdminAccess: boolean;
-  adminOpenTotal: number;
+  /** null ⇒ the queue digest read FAILED. Never collapse it to 0 — see the
+   *  note on `value`. */
+  adminOpenTotal: number | null;
   finishedCount: number;
 }): HomeBoardTile[] {
   const tiles: HomeBoardTile[] = [];
@@ -166,7 +182,10 @@ export function buildHomeBoardTiles(input: {
       value: input.adminOpenTotal,
       unit: 'to review',
       sub: 'Payments · verifications · disputes',
-      needs: input.adminOpenTotal > 0,
+      /* An UNMEASURED queue is not a clear one. `null` sorts with the tiles
+         that want attention, because "we could not check" is a reason to look,
+         not a reason to relax. */
+      needs: input.adminOpenTotal === null || input.adminOpenTotal > 0,
     });
   }
 
@@ -219,7 +238,12 @@ export function HomeBoard({ tiles }: { tiles: HomeBoardTile[] }) {
                 />
                 {t.label}
               </span>
-              {t.hideValueWhenZero && t.value === 0 ? null : (
+              {t.value === null ? (
+                /* NOT a blank. A tile with no numeral reads as calm, which is
+                   the same harm one notch quieter — say that we could not
+                   read it. Same words the rail uses for the same state. */
+                <span className="text-sm italic text-ink/45">couldn&rsquo;t load</span>
+              ) : t.hideValueWhenZero && t.value === 0 ? null : (
               <span className="flex items-baseline gap-1.5">
                 <span
                   className={`font-mono text-[1.6rem] font-bold leading-none tracking-[-0.02em] ${

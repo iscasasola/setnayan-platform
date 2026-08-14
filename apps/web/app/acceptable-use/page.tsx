@@ -1,7 +1,18 @@
 import Link from 'next/link';
 import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome';
 
-export const revalidate = 3600;
+/*
+  🔴 force-dynamic IS LOAD-BEARING. This page mounts the shared shell, which
+  reads the session. It carried `revalidate = 3600` — ISR, not force-static, so
+  Trap 1 (the silent empty-cookie-jar) does not apply here — but a session read
+  would de-opt it at request time anyway, which is the same cost paid
+  accidentally instead of on purpose. Declared, so it is a decision.
+  ⚠ A LAYOUT CANNOT SET THIS: `dynamic` resolves nested-most-wins and the
+  children traversal completes before a parent layout's component is created.
+  It is one edit per page and missing one is invisible.
+*/
+export const dynamic = 'force-dynamic';
+
 
 export const metadata = {
   title: 'Acceptable use policy · Setnayan',

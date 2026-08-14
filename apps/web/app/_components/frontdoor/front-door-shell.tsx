@@ -211,6 +211,14 @@ export function FrontDoorShell({
   const { openSignIn, panel: signInPanel } = useSignInPanel();
 
   const inApp = variant === 'app';
+  /**
+   * The content column's TAG. See the long note at the element itself: on `/`
+   * this column IS the page's main landmark; inside the app the host surface
+   * already renders its own, so a second one here is a duplicated landmark on
+   * every converted page. Capitalised because React reads a lowercase name as
+   * a literal tag and this is a variable holding one.
+   */
+  const MainEl = inApp ? 'div' : 'main';
   const pathname = usePathname();
 
   /*
@@ -738,7 +746,31 @@ export function FrontDoorShell({
           rule as the closed rail's `display:none`: gate on a real condition,
           never on something that merely looks like one.
         */}
-        <main className="fd-main" inert={railOpen ? true : undefined}>
+        {/*
+          🔑 A <main> ON THE FRONT DOOR, A <div> INSIDE THE APP — AND THE TAG
+          IS THE WHOLE FIX.
+
+          `/` is a page, so its content column is the page's `<main>` landmark.
+          Every signed-in surface this shell wraps ALREADY RENDERS ITS OWN:
+          `(launcher)` and `(account)` each wrap their children in one, and the
+          event tree's `SidebarShell` renders the `.sn-vt-page` <main> that the
+          phone's page-slide is named after. Keeping this element a <main> in
+          the app variant therefore produced TWO <main> landmarks, nested, on
+          every converted page — invalid HTML and a duplicated landmark for
+          anyone navigating by landmark.
+
+          ⚠ IT IS EXACTLY THE DEFECT THIS FILE ALREADY GUARDS AGAINST ONE LINE
+          BELOW, in the other half: the sr-only <h1> is front-door-only so the
+          shell does not bring a second heading to a host page that has one.
+          The landmark needed the same rule and did not get it. The event
+          layout's own docblock had also written it down — "Nesting a second
+          <main> here produced two <main> elements in one tree" — for the
+          wrapper INSIDE this one.
+
+          Safe by measurement, not by hope: `.fd-main` has exactly one consumer
+          (this line) and every style keys off the CLASS, so nothing moves.
+        */}
+        <MainEl className="fd-main" inert={railOpen ? true : undefined}>
           {/*
             ⚠ THE HIDDEN <h1> IS THE FRONT DOOR'S OWN, AND ONLY ITS OWN.
             `/` is a feed with no visible heading, so it carries one for
@@ -752,7 +784,7 @@ export function FrontDoorShell({
             <h1 className="fd-sr-only">Setnayan — plan your event, keep it for life</h1>
           )}
           <div className="fd-col">{children}</div>
-        </main>
+        </MainEl>
       </div>
       {/* The sign-in panel, when it is open. It portals to <body>, so where it
           sits in this tree is irrelevant to layout — what matters is that it is

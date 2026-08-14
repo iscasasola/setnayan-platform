@@ -187,7 +187,21 @@ export function StickyMarketplaceHeader({
         // page's px-N container (page-level max-w-6xl cap retired 2026-05-30
         // per PR #655 — only the px-4/px-6/px-8 gutter remains); on mobile
         // `fixed left-0 right-0` already covers viewport-wide.
-        className="fixed bottom-0 left-0 right-0 z-30 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur sm:sticky sm:bottom-auto sm:top-0 sm:border-b sm:border-t-0 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+        /*
+          🔑 THE DESKTOP PIN PARKS UNDER THE SHARED TOP BAR, IT DOES NOT FIGHT
+          IT (2026-08-15). /explore now wears the shared shell, whose bar is
+          itself sticky at top:0 — two bars both claiming top:0 means the lower
+          one slides under the upper one and its controls become unclickable.
+          `var(--fd-bar)` is the shell's own bar-height token, so this follows
+          the bar rather than restating its height; `.fd-rail` and `.fd-chipbar`
+          already park exactly this way on the front page. z-8 matches
+          `.fd-chipbar` and sits BELOW the shell bar's own layer on purpose.
+          ⚠ The `0px` fallback keeps this correct if the component is ever
+          rendered outside `.fd`, where the token does not exist.
+          ⚠ The PHONE branch (`fixed bottom-0`, z-30) is untouched — down there
+          this bar is at the opposite edge of the screen and never meets it.
+        */
+        className="fixed bottom-0 left-0 right-0 z-30 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur sm:sticky sm:bottom-auto sm:top-[var(--fd-bar,0px)] sm:z-[8] sm:border-b sm:border-t-0 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         {/* Applied-count chip. Concise replacement for the retired

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "364f170b4",
+  "generatedFromRef": "f5cd3f2a7",
   "routeCount": 401,
-  "destinations": 792,
+  "destinations": 789,
   "actions": 522,
-  "blocks": 3537,
+  "blocks": 3543,
   "routes": {
     "/": {
       "files": [
@@ -592,6 +592,7 @@
     "/about": {
       "files": [
         "about/_about-motion.tsx",
+        "about/loading.tsx",
         "about/page.tsx"
       ],
       "destinations": [
@@ -606,6 +607,7 @@
       "actions": [],
       "blocks": [
         "AboutHero",
+        "AppRailShell",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLHeadingElement",
@@ -617,6 +619,7 @@
     },
     "/acceptable-use": {
       "files": [
+        "acceptable-use/loading.tsx",
         "acceptable-use/page.tsx"
       ],
       "destinations": [
@@ -2659,6 +2662,7 @@
     },
     "/alaala": {
       "files": [
+        "alaala/loading.tsx",
         "alaala/page.tsx"
       ],
       "destinations": [
@@ -2674,6 +2678,7 @@
       "actions": [],
       "blocks": [
         "AlaalaOrb",
+        "AppRailShell",
         "HowItWorksPanel",
         "LineRevealHeading",
         "Link",
@@ -2754,6 +2759,7 @@
     },
     "/cookies": {
       "files": [
+        "cookies/loading.tsx",
         "cookies/page.tsx"
       ],
       "destinations": [
@@ -6437,7 +6443,6 @@
         "explore/page.tsx"
       ],
       "destinations": [
-        "/",
         "/dashboard",
         "/dashboard/[seg]",
         "/dashboard/[seg]/vendors",
@@ -6450,7 +6455,6 @@
         "/explore?category=wedding_cake",
         "/explore?category=wedding_coordination",
         "/explore?match=0",
-        "/signup",
         "/tour",
         "/vendors"
       ],
@@ -6460,6 +6464,7 @@
       "blocks": [
         "ActivityBadges",
         "AddVenueToPlanResult",
+        "AppRailShell",
         "CatalogView",
         "CategoryTile",
         "CeremonyVenuePanel",
@@ -6511,8 +6516,7 @@
         "VendorHero",
         "VendorReviewPreview",
         "VendorsAvailabilityBanner",
-        "VenueFilterBanner",
-        "Wordmark"
+        "VenueFilterBanner"
       ]
     },
     "/explore/categories": {
@@ -6530,13 +6534,12 @@
         "explore/compare/page.tsx"
       ],
       "destinations": [
-        "/",
         "/explore",
         "/v/[seg]?src=explore"
       ],
       "actions": [],
       "blocks": [
-        "BrandLogo",
+        "AppRailShell",
         "CompareRowEl",
         "Link",
         "SaveVendorButton",
@@ -6587,6 +6590,7 @@
       "files": [
         "help/_components/help-search.tsx",
         "help/actions.ts",
+        "help/loading.tsx",
         "help/page.tsx"
       ],
       "destinations": [
@@ -6597,6 +6601,7 @@
         "submitHelpMessage"
       ],
       "blocks": [
+        "AppRailShell",
         "Article",
         "Field",
         "HelpSearch",
@@ -7412,6 +7417,7 @@
       "files": [
         "pricing/_papic-estimator.tsx",
         "pricing/_pricing-motion.tsx",
+        "pricing/loading.tsx",
         "pricing/page.tsx"
       ],
       "destinations": [
@@ -7421,6 +7427,7 @@
       ],
       "actions": [],
       "blocks": [
+        "AppRailShell",
         "BuildStatusChip",
         "HTMLDivElement",
         "HTMLHeadingElement",
@@ -7435,6 +7442,7 @@
     },
     "/privacy": {
       "files": [
+        "privacy/loading.tsx",
         "privacy/page.tsx"
       ],
       "destinations": [
@@ -7443,12 +7451,15 @@
       ],
       "actions": [],
       "blocks": [
+        "AppRailShell",
         "Link",
         "Section"
       ]
     },
     "/privacy/google-access": {
       "files": [
+        "privacy/google-access/loading.tsx",
+        "privacy/google-access/metadata.ts",
         "privacy/google-access/page.tsx"
       ],
       "destinations": [
@@ -7500,6 +7511,7 @@
         "realstories/_components/gallery.tsx",
         "realstories/_components/share-buttons.tsx",
         "realstories/_components/stories-search.tsx",
+        "realstories/loading.tsx",
         "realstories/page.tsx"
       ],
       "destinations": [
@@ -7508,6 +7520,7 @@
       ],
       "actions": [],
       "blocks": [
+        "AppRailShell",
         "BoomerangVideo",
         "Companions",
         "FacebookGlyph",
@@ -7553,6 +7566,7 @@
     },
     "/refunds": {
       "files": [
+        "refunds/loading.tsx",
         "refunds/page.tsx"
       ],
       "destinations": [
@@ -7681,6 +7695,7 @@
     },
     "/terms": {
       "files": [
+        "terms/loading.tsx",
         "terms/page.tsx"
       ],
       "destinations": [

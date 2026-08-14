@@ -215,6 +215,44 @@
   gap: 8px;
   min-width: 0;
 }
+
+/*
+  ─── THE PALETTE TRIGGER IS A CONTROL, SO IT IS CONTROL-HEIGHT ──────────────
+  🚨 THE BAR WAS 7px TALLER THAN ITS OWN TOKEN SAID, ON EVERY SHELLED PAGE.
+  `--fd-bar: 56px` is derived as 40 + 8 + 8, where 40 is `--fd-ctl`. That holds
+  on the front door, whose search is the `.fd-searchbox` GET form at exactly
+  `--fd-ctl`. Every OTHER page in the shell renders the command palette instead,
+  and its trigger came in at 46.5px (10px padding top and bottom + a 24.5px ⌘K
+  chip + two 1px borders) — so the bar measured 63px while everything that
+  parks beneath it read 56px from the token. MEASURED IN A BROWSER, not derived:
+  `.fd-topbar` 0→63, `.fd-rail` stuck at 56, a 7px overlap.
+
+  🔑 THE TOKEN WAS NOT THE THING TO CHANGE. `--fd-bar` is correct arithmetic
+  about a control-height bar; the palette trigger simply never went through the
+  control-sizing pass that gave `.fd-searchbox`, `.fd-iconbtn` and `.fd-chip`
+  their heights. Raising the token instead would have made the number match a
+  control that is out of step with every other control in the bar — and would
+  have moved the owner-approved front door's rail by 7px for no reason, since
+  the front door was already correct.
+
+  ⚠ THE 44px TAP TARGET IS PRESERVED, NOT DROPPED. That lock is a floor on the
+  PRESSABLE area, never on the paint: `min-height: 0` cancels the global
+  `button { min-height: 44px }`, and the `::after` expander restores a 44px hit
+  box around a 40px control — the same technique `.fd-searchgo`, `.fd-avatar`
+  and `.fd-chip` already use in this file.
+*/
+.fd-searchwrap > button {
+  height: var(--fd-ctl);
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  position: relative;
+}
+.fd-searchwrap > button::after {
+  content: '';
+  position: absolute;
+  inset: -2px 0;
+}
 .fd-searchbox {
   flex: 1;
   display: flex;
@@ -688,6 +726,31 @@
   width: 100%;
   max-width: 1600px;
   margin: 0 auto;
+}
+
+/*
+  ─── OPT-IN FULL BLEED (`bleed` on the shell) ────────────────────────────────
+  A converted page pays the rail's 240px to wear the shell; that is the shell.
+  These two rules give back the OTHER squeeze — `.fd-main`'s 48px of gutter and
+  `.fd-col`'s cap — for the surfaces that are a grid rather than prose.
+
+  🔑 MEASURED, on a 1440px laptop: rail 240 leaves 1200; the gutters take it to
+  1152 — which is exactly `max-w-6xl`, the cap the owner had explicitly struck
+  out of the supplier marketplace in PR #655. Shipping the conversion without
+  this would have re-imposed a retired cap as a side effect of unrelated work,
+  and nobody would have connected the two.
+
+  ⚠ SEPARATE RULES, NOT EDITS TO THE TWO ABOVE. `front-door-geometry.test.ts`
+  reads the base `.fd-col {` block by literal prefix; folding a conditional into
+  it would either break that guard or, worse, satisfy it while changing what
+  every unconverted doorway renders.
+*/
+.fd-main.fd-bleed {
+  padding-left: 0;
+  padding-right: 0;
+}
+.fd-col.fd-bleed {
+  max-width: none;
 }
 
 .fd-chipbar {

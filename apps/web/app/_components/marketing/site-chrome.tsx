@@ -85,11 +85,9 @@ const NAV_ROUTES = new Set<string>([
   '/our-story',
   '/blog',
   '/features',
-  '/explore',
   '/monogram',
   // "Pa-" feature landing pages (owner-approved 2026-06-27; Pa- naming LOCKED).
   '/why-setnayan',
-  '/alaala',
   '/tl/about',
   '/tl/how-it-works',
   // /tl/features shares FeaturesPageBody with /features (whose old in-body
@@ -100,12 +98,13 @@ const NAV_ROUTES = new Set<string>([
   // waitlist pages the homepage footer links to previously wore the legacy
   // SiteHeader, a page-local footer, or no chrome at all — they join the one
   // marketing shell so no footer link lands back on the old website.
-  // /privacy/google-access — the short "what connecting Google does" summary
-  // handed to Google's OAuth reviewer (2026-08-09). A NAV_ROUTE, not a
-  // FOOTER_ONLY prefix: it is a standalone legal page like its /privacy parent,
-  // and a bare page with no nav and no footer is the first thing a reviewer
-  // reads as an abandoned URL.
-  '/help',
+  // ⚠ THIS PARAGRAPH USED TO EXPLAIN WHY /privacy/google-access WAS LISTED
+  // HERE. That page left this set on 2026-08-15 when it joined the shared
+  // shell, and the reasoning survives in a different form: it is still never a
+  // bare page — the shell gives it chrome the OAuth reviewer reads as a live
+  // URL. /explore, /help and /alaala left the same way on the same day. A
+  // comment describing a member that is gone is how a reader concludes the set
+  // is bigger than it is.
   '/download',
   '/waitlist',
 ]);
@@ -137,7 +136,16 @@ const FOOTER_ONLY_PREFIXES = ['/blog/', '/help/', '/tour'];
 // 🛡 A guard now enforces it: scripts/lint-no-stacked-pinned-bars.mjs fails the
 // build if a NAV_ROUTE's page tree pins anything to the viewport top without
 // being listed here.
-const UNFIXED_ROUTES = new Set<string>(['/explore', '/features', '/tl/features']);
+/*
+  ⚠ '/explore' WAS REMOVED HERE 2026-08-15, NOT OVERLOOKED. This set is read
+  well after the early return for a non-NAV route, so the moment /explore left
+  NAV_ROUTES its entry became unreachable — and a dead entry in a safety set
+  reads as live protection. Its two pinned strips are now parked under the
+  shared bar at `top: var(--fd-bar)` (the same mechanism `.fd-rail` and
+  `.fd-chipbar` use), and `lint-no-stacked-pinned-bars.mjs` checks the shelled
+  routes for exactly that instead.
+*/
+const UNFIXED_ROUTES = new Set<string>(['/features', '/tl/features']);
 
 /** Routes that render the floating glass NAV (+ overlays + footer). */
 export function isNavRoute(pathname: string | null): pathname is string {

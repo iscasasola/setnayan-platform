@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { MessageSquare, Mail, Heart, Briefcase, Mailbox, Shield } from 'lucide-react';
 import { HELP_TOPICS, HELP_ROLES, type HelpRole } from '@/lib/help';
 import { createClient } from '@/lib/supabase/server';
@@ -7,10 +8,24 @@ import { Field } from '@/app/_components/forms/field';
 import { submitHelpMessage } from './actions';
 import { HelpSearch } from './_components/help-search';
 
-// SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
-// edge cache so static marketing routes serve Google's crawl rate-limit
-// budget without origin pressure. Each page rebuilds at most once per hour.
-export const revalidate = 3600;
+/*
+  ⚠ `export const revalidate = 3600` WAS REMOVED HERE (2026-08-15) and it was
+  ALREADY INERT: this page reads searchParams and cookies on every request, so
+  it has never actually been cached for an hour. The SEO/GEO note it carried
+  (1hr Vercel edge cache for static marketing routes) still holds for the 75
+  prerendered /help/<slug> ARTICLES, which are untouched.
+*/
+/*
+  🔴 force-dynamic IS LOAD-BEARING. This page mounts the shared shell, which
+  reads the session — and `next/dist/server/request/cookies.js` returns an
+  EMPTY cookie jar when `workStore.forceStatic` is set, BEFORE the
+  `dynamicShouldError` throw and before every bailout. So a cached build would
+  be green, silent, and permanently signed-out for every visitor.
+  ⚠ A LAYOUT CANNOT SET THIS: `dynamic` resolves nested-most-wins and the
+  children traversal completes before a parent layout's component is created.
+  It is one edit per page and missing one is invisible.
+*/
+export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: 'Help & support',
@@ -84,7 +99,19 @@ export default async function HelpPage({ searchParams }: Props) {
   const prefilledEmail = user?.email ?? '';
 
   return (
-    <>
+    /*
+      📚 THE HELP INDEX WEARS THE SHARED SHELL (2026-08-15). No `bleed` — this
+      is a reading page and wants the measured column.
+      🔑 The <main> below STAYS: the shell renders a <div> for the doorway
+      variant, so wrapping adds no second landmark.
+      ⏭ THE 75 /help/<slug> ARTICLES ARE DELIBERATELY NOT CONVERTED. They are
+      prerendered (`dynamicParams = false` + `generateStaticParams`), so
+      force-dynamic would drop the prerender on 75 indexed URLs, and their own
+      docblock forbids a loading.tsx because streaming would commit HTTP 200
+      before `notFound()` runs. They keep their reading masthead and the shared
+      footer — the same seam /blog and /blog/<slug> already ship.
+    */
+    <AppRailShell variant="doorway">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSONLD) }}
@@ -170,7 +197,12 @@ export default async function HelpPage({ searchParams }: Props) {
             aria-label="Help topics"
             className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]"
           >
-            <nav className="sticky top-4 self-start space-y-1 rounded-xl border border-ink/10 bg-cream p-3 lg:max-h-[calc(100dvh-4rem)] lg:overflow-y-auto">
+            <nav /* Parks below the shared top bar, not under it. `--fd-bar` is the
+                 shell's own height token, so this follows the bar instead of
+                 restating it; the max-height subtracts the same amount so the
+                 topic list still fits. The pinned-bar lint would NOT have
+                 caught this — its regex only matches `top-0`. */
+              className="sticky top-[calc(var(--fd-bar,0px)+1rem)] self-start space-y-1 rounded-xl border border-ink/10 bg-cream p-3 lg:max-h-[calc(100dvh-var(--fd-bar,0px)-4rem)] lg:overflow-y-auto">
               <p className="px-2 pb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
                 Topics
               </p>
@@ -297,6 +329,6 @@ export default async function HelpPage({ searchParams }: Props) {
         </div>
 
       </main>
-    </>
+    </AppRailShell>
   );
 }

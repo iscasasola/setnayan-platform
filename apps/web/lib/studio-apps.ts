@@ -66,7 +66,14 @@ export type StudioApp = {
    */
   railLine: string;
   /**
-   * The live demo a signed-out visitor can open from the rail, when one EXISTS.
+   * The product's live demo, when one EXISTS — read by BOTH the rail's "try it"
+   * marker and the demo button on the product's own page.
+   *
+   * 🔑 ONE FIELD, TWO READERS, AND THAT IS THE POINT. For one day the page's
+   * button was hand-typed on each page while the rail's marker came from here —
+   * two sources that had to agree about whether a product is try-able. The rail
+   * promising "try it" on a page with no demo button is a fake door, and nothing
+   * would have caught the drift.
    *
    * ⚠ ONLY THREE OF THE SEVEN HAVE ONE, and that is measured, not assumed.
    * `HomeOverlays` mounts exactly four demo overlays — papic, panood, plan3d
@@ -78,7 +85,14 @@ export type StudioApp = {
    * `doorway-invariants.test.ts` exists to catch. Rows without a demo keep
    * today's behaviour and open their product page.
    */
-  demo?: DemoOverlayId;
+  demo?: {
+    /** The overlay `HomeOverlays` renders. */
+    id: DemoOverlayId;
+    /** The button's own words on the product page. */
+    label: string;
+    /** The honest cost underneath: what the person has to hand. */
+    sublabel: string;
+  };
   /**
    * Where a SIGNED-IN person goes instead — the add-on key, resolved through
    * `addOnHref(key, eventId)`. Absent means "no in-app home", and the row keeps
@@ -135,7 +149,11 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     description:
       'Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each guest goes home with their own gallery — plus a personal video reel set to music. The candid wedding moments one photographer can’t be everywhere for, delivered to everyone. Philippines-first.',
     railLine: 'Turns your guests into your photo crew.',
-    demo: 'papic-demo',
+    demo: {
+      id: 'papic-demo',
+      label: 'Try it now with a friend',
+      sublabel: 'Two phones, one minute. No app, no sign-up — nothing is saved.',
+    },
     addOnKey: 'papic',
   },
   {
@@ -145,7 +163,11 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     description:
       'Live Studio brings the people who can’t be in the room into your day — live. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it: they watch your wedding as it happens, right on your own wedding website. Presence across distance, for everyone you love.',
     railLine: 'Brings the people who can’t be in the room into your day — live.',
-    demo: 'panood-demo',
+    demo: {
+      id: 'panood-demo',
+      label: 'Try the control room with two phones',
+      sublabel: 'Both phones scan one code and become cameras. You cut between them.',
+    },
     addOnKey: 'panood',
   },
   {
@@ -164,7 +186,11 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     description:
       'Pa3D lets you stand in your reception before it’s built. See the room the way your guests will — the head table, the dance floor, every seat — and know it’s right while there’s still time to change it. The free seating plan gets you there; Pa3D lets you walk it.',
     railLine: 'Stand in your reception before it’s built.',
-    demo: 'plan3d-demo',
+    demo: {
+      id: 'plan3d-demo',
+      label: 'Walk around a sample reception',
+      sublabel: 'Seat a guest, then scan to see the room as them — no sign-up.',
+    },
     addOnKey: 'seating',
   },
   {

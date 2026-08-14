@@ -43,7 +43,7 @@ import { usePathname } from 'next/navigation';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { LogoMark } from '@/app/_components/brand-marks';
-import { openDemoOverlay, type DemoOverlayId } from '@/lib/demo-overlay-bus';
+import type { DemoOverlayId } from '@/lib/demo-overlay-bus';
 import { activeRailKey, railMatchRows } from './rail-active';
 
 /**
@@ -140,10 +140,18 @@ export type RailTool = {
    */
   line: string | null;
   /**
-   * Open this demo instead of navigating.
+   * This product HAS a live demo — so the row wears a quiet "try it" marker.
    *
-   * ⚠ ONLY SET WHERE AN OVERLAY ACTUALLY EXISTS (three of seven) AND ONLY WHERE
-   * ONE IS MOUNTED. A row offering a demo that cannot open is a fake door.
+   * 🔄 IT NO LONGER OPENS ONE. Owner 2026-08-15: *"we still want a feature
+   * description instead of directly just going to the demo."* For one day this
+   * field made the row a <button> that threw a stranger straight into a
+   * two-phone live demo before anything had said what the product was. The demo
+   * lives on the product's own page now (`_doorway.tsx`'s `demo` prop) and the
+   * page comes first.
+   *
+   * ⚠ ONLY SET WHERE AN OVERLAY ACTUALLY EXISTS (three of seven). The marker is
+   * a promise that the page you land on can be tried, and a promise the page
+   * cannot keep is the fake door this rail forbids.
    */
   demo?: DemoOverlayId;
 };
@@ -948,55 +956,46 @@ export function FrontDoorShell({
                 Studio <small>the things you make</small>
               </div>
               {/*
-                ONE ROW, TWO BEHAVIOURS (owner 2026-08-14). Signed out, a row
-                with a demo OPENS it rather than navigating — a stranger's
-                question is "what is this?" and the demo answers it better than
-                a page of copy. Signed in, `demo` is never set and every row is
-                a plain link into the person's own tool.
+                EVERY ROW IS A LINK TO THE PRODUCT'S OWN PAGE — owner
+                2026-08-15: *"we still want a feature description instead of
+                directly just going to the demo."*
 
-                🔑 THE DEMO ROW IS A <button> AND THE REST ARE <Link>s, because
-                they do genuinely different things: one opens a dialog in place,
-                the others navigate. Rendering the demo row as a link to "#"
-                with a click handler would break middle-click and open-in-new-tab
-                into a lie, and a control that looks navigable and is not is the
-                shape this page keeps paying for.
+                🔄 THIS REVERSES YESTERDAY'S SHAPE, DELIBERATELY. Three rows
+                were <button>s that opened the demo overlay in place. That
+                answered "the side menu … will be able to show demo" too
+                literally: pressing Papic threw a stranger straight into a
+                two-phone live demo before anything had told them what Papic
+                IS. The demo is still one press away — it lives on the product
+                page itself (`_doorway.tsx`'s `demo` prop) — but the page comes
+                first.
+
+                So: seven rows, seven links, each carrying the line that says
+                what the thing does. The three that have a demo keep a quiet
+                marker so a stranger can see which ones are try-able before
+                they commit a click.
               */}
-              {tools.map((t) =>
-                t.demo ? (
-                  <button
-                    key={t.key}
-                    type="button"
-                    className="fd-row fd-row-2l"
-                    aria-haspopup="dialog"
-                    onClick={() => openDemoOverlay(t.demo!)}
-                  >
-                    <span className="fd-dot" aria-hidden="true" />
-                    <span className="fd-toolwrap">
-                      <span className="fd-label-text">
-                        {t.name}
-                        <span className="fd-toolplay" aria-hidden="true">
-                          ▸ demo
-                        </span>
-                      </span>
-                      {t.line ? <span className="fd-toolline">{t.line}</span> : null}
+              {tools.map((t) => (
+                <Link
+                  key={t.key}
+                  href={t.href}
+                  className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
+                >
+                  <span className="fd-dot" aria-hidden="true" />
+                  <span className="fd-toolwrap">
+                    <span className="fd-label-text">
+                      {t.name}
+                      {/* A LABEL, NOT A VERB. "▸ demo" read as "this opens the
+                          demo" and that is exactly what it must no longer do.
+                          "try it" describes what the page you land on offers. */}
+                      {t.demo ? (
+                        <span className="fd-toolplay">try it</span>
+                      ) : null}
                     </span>
-                    <span className="fd-icon-caption">{t.name}</span>
-                  </button>
-                ) : (
-                  <Link
-                    key={t.key}
-                    href={t.href}
-                    className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
-                  >
-                    <span className="fd-dot" aria-hidden="true" />
-                    <span className="fd-toolwrap">
-                      <span className="fd-label-text">{t.name}</span>
-                      {t.line ? <span className="fd-toolline">{t.line}</span> : null}
-                    </span>
-                    <span className="fd-icon-caption">{t.name}</span>
-                  </Link>
-                ),
-              )}
+                    {t.line ? <span className="fd-toolline">{t.line}</span> : null}
+                  </span>
+                  <span className="fd-icon-caption">{t.name}</span>
+                </Link>
+              ))}
             </>
           )}
 

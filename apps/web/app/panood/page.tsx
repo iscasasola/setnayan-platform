@@ -25,7 +25,7 @@
  */
 
 import Link from 'next/link';
-import { studioDescription } from '@/lib/studio-apps';
+import { studioApp, studioDescription } from '@/lib/studio-apps';
 import { DoorwayPage, DOORWAY_TONE } from '@/app/_components/marketing/_doorway';
 
 export const dynamic = 'force-static';
@@ -161,11 +161,7 @@ const VS = [
 export default function PanoodLandingPage() {
   return (
     <DoorwayPage
-      demo={{
-        id: 'panood-demo',
-        label: 'Try the control room with two phones',
-        sublabel: 'Both phones scan one code and become cameras. You cut between them.',
-      }}
+      demo={studioApp('panood')?.demo}
       kicker="In your wedding · live stream"
       title={'Everyone you love, in the room — even from afar.'}
       lede={'Live Studio brings the people who can’t be there into your day, live. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it — they watch your wedding as it happens, right on your own wedding website.'}

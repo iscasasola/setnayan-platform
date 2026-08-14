@@ -100,8 +100,8 @@ test('only products with a real overlay carry a demo', () => {
   assert.equal(withDemo.length, 3, 'exactly three Studio products have a demo');
   for (const a of withDemo) {
     assert.ok(
-      MOUNTED_DEMOS.has(a.demo!),
-      `${a.key} names the demo "${a.demo}", which HomeOverlays does not render.`,
+      MOUNTED_DEMOS.has(a.demo!.id),
+      `${a.key} names the demo "${a.demo!.id}", which HomeOverlays does not render.`,
     );
   }
   const ai = STUDIO_APPS.find((a) => a.key === 'setnayan-ai');
@@ -122,27 +122,66 @@ test('the overlay ids the rail can emit are exactly the ones that are rendered',
   for (const a of STUDIO_APPS) {
     if (!a.demo) continue;
     assert.ok(
-      overlays.includes(`current === '${a.demo}'`) || overlays.includes(a.demo),
-      `HomeOverlays does not mount "${a.demo}" — the row would open nothing.`,
+      overlays.includes(a.demo.id),
+      `HomeOverlays does not mount "${a.demo.id}" — the page button would open nothing.`,
     );
   }
 });
 
-test('demos are only offered where a host is mounted', () => {
-  // The signed-out rail takes an explicit flag; `false` must strip every demo.
-  const noHost = railToolsSignedOut(false);
-  assert.equal(
-    noHost.filter((t) => t.demo).length,
-    0,
-    'railToolsSignedOut(false) still offers demos. On a route with no overlay ' +
-      'host every one of those rows is a fake door.',
+test('the Studio rows NAVIGATE — they never open the demo directly', () => {
+  /*
+    🔄 OWNER 2026-08-15: *"we still want a feature description instead of
+    directly just going to the demo."* For one day the three rows with a demo
+    were <button>s that opened a two-phone live demo in place, before anything
+    had told a stranger what the product was. The row must land on the product's
+    page; the demo lives there.
+  */
+  const shell = readFileSync(
+    join(APP, '_components', 'frontdoor', 'front-door-shell.tsx'),
+    'utf8',
+  ).replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(
+    shell,
+    /onClick=\{\(\) => openDemoOverlay/,
+    'A Studio row opens the demo directly again. It must navigate to the ' +
+      "product's page — the feature description comes first.",
   );
-  const withHost = railToolsSignedOut(true);
-  assert.equal(withHost.filter((t) => t.demo).length, 3);
+  assert.match(
+    shell,
+    /tools\.map\(\(t\) => \(\s*<Link/,
+    'The Studio rows are no longer plain <Link>s. A row that is a <button> ' +
+      'cannot be middle-clicked, opened in a new tab, or crawled.',
+  );
+});
+
+test('a "try it" marker is backed by a real demo button on that page', () => {
+  /*
+    THE MARKER IS A PROMISE ABOUT ANOTHER PAGE. It says "this one is try-able",
+    and the thing that has to keep that promise is the demo button on the
+    product's own page. Both now read ONE field, so they cannot disagree — this
+    asserts the page actually passes it.
+  */
+  for (const a of STUDIO_APPS) {
+    const src = pageSource(a.key);
+    if (a.demo) {
+      assert.match(
+        src,
+        new RegExp(`demo=\\{studioApp\\('${a.key}'\\)\\?\\.demo\\}`),
+        `/${a.key} carries a "try it" marker in the rail but its page does not ` +
+          'render the demo button. The marker is a fake door.',
+      );
+    } else {
+      assert.doesNotMatch(
+        src,
+        /demo=\{/,
+        `/${a.key} has no demo in the source but its page passes one.`,
+      );
+    }
+  }
 });
 
 test('signed out, every row says what the product is', () => {
-  for (const t of railToolsSignedOut(true)) {
+  for (const t of railToolsSignedOut()) {
     assert.ok(
       t.line && t.line.length > 10,
       `${t.key} has no line. Seven bare names teach a stranger nothing — the ` +

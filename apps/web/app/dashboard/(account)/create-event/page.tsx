@@ -258,8 +258,18 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="mb-2 space-y-2">
+{/*
+          🔴 `?hub=1`, NOT A BARE `/dashboard`. The board AUTO-JUMPS a couple who
+          holds exactly one upcoming event straight back into that event
+          (`(launcher)/page.tsx:348`) — an owner ruling that stays. So the
+          routine way OUT of this page would have dumped them INSIDE their
+          wedding instead of on their events board, and `?hub=1` is the only
+          escape hatch that exists. This matters now because the rail's
+          "+ New event" points here (2026-08-15); before that, almost nobody
+          arrived from the board.
+        */}
         <Link
-          href={samahan ? `/dashboard/samahan/${samahan.communityId}?tab=events` : '/dashboard'}
+          href={samahan ? `/dashboard/samahan/${samahan.communityId}?tab=events` : '/dashboard?hub=1'}
           className="sn-chip sn-press w-fit"
         >
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

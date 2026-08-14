@@ -597,8 +597,25 @@ export function FrontDoorShell({
                 grid and from the bottom bar, which is the phone's locked
                 grammar. Named, not forgotten.
               */}
-              <Link href="/dashboard" className="fd-btn-gold">
-                + Create
+              {/*
+                🔴 IT NOW CREATES. Owner 2026-08-15: *"create should allow me to
+                create an event."* It pointed at `/dashboard` — the events BOARD
+                — which for somebody with exactly ONE upcoming event redirects
+                straight back into that event, so the button landed you on the
+                page you were already on.
+
+                RULE 0: the flow already ships and THIRTEEN other controls
+                already point at it (the ⌘K palette, the board's own create
+                grid, the phone pill, Samahan, Alaala, Life-Flash, Year, three
+                vendor-QR routes). Nothing was missing; one href was wrong.
+
+                ⚠ SIGNED OUT, THIS BUTTON DOES NOT RENDER AT ALL — the rail
+                shows the sign-in prompt instead — and that is the correct
+                answer, not a gap. Pointing a stranger at an event-type picker
+                they cannot submit would be a form behind a login wall.
+              */}
+              <Link href="/dashboard/create-event" className="fd-btn-gold">
+                + New event
               </Link>
               {/*
                 THE HOST'S OWN CLUSTER, OR THIS PAGE'S. When a surface hands
@@ -1080,6 +1097,31 @@ export function FrontDoorShell({
             <Link href="/privacy">Privacy</Link>
             <Link href="/acceptable-use">Acceptable use</Link>
             <Link href="/cookies">Cookies</Link>
+            <br />
+            {/*
+              🔴 THIS ROW EXISTS BECAUSE THE CONVERSION TOOK THE FOOTER AWAY AND
+              NOBODY MEASURED IT. Leaving `NAV_ROUTES` also leaves
+              `isMarketingRoute`, which is what `site-footer-chrome.tsx` gates
+              on — so on 2026-08-15 the seven product doorways silently lost the
+              shared footer along with the glass nav. Measured live afterwards:
+              `/about` still ships a Download link and Cookie settings, `/papic`
+              ships NEITHER.
+
+              `href="/download"` exists in exactly two files app-wide, both
+              gated by `isMarketingRoute` — so a converted page had NO ROUTE AT
+              ALL to the download page. Same for Refunds. The rail is the only
+              chrome those pages now have, so the rail has to carry them.
+
+              ⚠ Cookie settings is a real control, not a link: the consent
+              banner exposes a re-open handler and RA 10173 expects a standing
+              way to change the choice. It is rendered by the host page's own
+              banner, so this points at the page that hosts it.
+            */}
+            <Link href="/refunds">Refunds</Link>
+            <Link href="/download">Download</Link>
+            <Link href="/blog">Articles</Link>
+            <Link href="/creators">For storytellers</Link>
+            <Link href="/vendors">For suppliers</Link>
             <div className="fd-copy">© 2026 Setnayan</div>
             <div className="fd-tag2">Set na &rsquo;yan — that&rsquo;s all set.</div>
           </div>

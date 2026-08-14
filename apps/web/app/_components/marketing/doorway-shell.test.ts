@@ -150,7 +150,23 @@ test('no layout.tsx exists under any doorway — the descendants are unreachable
 /* ── 3 · ONE CHROME, NOT TWO ───────────────────────────────────────────── */
 
 test('no doorway is still a NAV_ROUTE', () => {
-  const src = read(join(HERE, 'site-chrome.tsx'));
+  /*
+    🪤 STRIP COMMENTS FIRST — ONE APOSTROPHE BLINDED THIS TO EIGHT ROUTES.
+    `site-chrome.tsx` contains the words "Google's OAuth reviewer" inside a
+    comment in this very block. Run over RAW source, `/'([^']+)'/g` treats that
+    apostrophe as an opening quote and swallows everything to the next one — so
+    the parser returned an entire comment paragraph AS A ROUTE and never saw
+    `/privacy/google-access`, `/terms`, `/refunds`, `/cookies`,
+    `/acceptable-use`, `/help`, `/download` or `/waitlist`. Six of those are
+    conversion targets, and the guard would have reported them absent from
+    NAV_ROUTES while they sat right there.
+
+    Measured: 26 "routes" from raw source, 25 from stripped — and the two sets
+    differ by eight in one direction and six in the other. The file already
+    ships a comment stripper (`code`) that every other assertion here uses;
+    this one simply did not call it.
+  */
+  const src = code(read(join(HERE, 'site-chrome.tsx')));
   const block = /const NAV_ROUTES = new Set<string>\(\[([\s\S]*?)\]\)/.exec(src);
   assert.ok(block, 'NAV_ROUTES not found — this guard would pass vacuously.');
   const listed = [...(block[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1]);
@@ -277,5 +293,89 @@ test('the doorway keeps a way to open the rail on a phone', () => {
     'The hamburger is gated on something other than the variant. The rail is ' +
       'display:none below 1024, so without the drawer a phone gets a product ' +
       'page with no navigation at all.',
+  );
+});
+
+/* ── 7 · THE GROUP DOES NOT CHANGE SHAPE AS YOU MOVE ───────────────────── */
+
+test('the Studio rows depend on WHO is looking, not on which page', () => {
+  /*
+    Owner 2026-08-15: *"same as studio and its sub mene also"* — pressing a
+    Studio row visibly changed the Studio group itself. Measured live before the
+    fix: seven descriptions and three "try it" markers on `/`, ZERO of each on
+    `/papic`, because the app mount asked for the signed-IN rows unconditionally
+    while the front door asked for the signed-OUT ones. `railToolsSignedIn` sets
+    `line: null` BY DESIGN, so the function was right and the caller never asked
+    the question.
+
+    Both mounts must branch on the same thing, or the group changes shape as a
+    person moves between two pages that are supposed to be one shell.
+  */
+  for (const [name, rel] of [
+    ['app-rail-shell', join(APP, '_components', 'frontdoor', 'app-rail-shell.tsx')],
+    ['front-door', join(APP, '_components', 'frontdoor', 'front-door.tsx')],
+  ] as const) {
+    const src = code(read(rel));
+    assert.match(
+      src,
+      /account\.signedIn\s*\?\s*railToolsSignedIn\([\s\S]{0,40}?\)\s*:\s*railToolsSignedOut\(\)/,
+      `${name} does not branch the Studio rows on account.signedIn. One mount ` +
+        'handing out signed-in rows while the other hands out signed-out ones ' +
+        'is what made the group change shape when a row was pressed.',
+    );
+  }
+});
+
+/* ── 8 · THE RAIL CARRIES WHAT THE FOOTER USED TO ──────────────────────── */
+
+test('the stranded footer destinations are reachable from the rail', () => {
+  /*
+    🔴 A REGRESSION THAT SHIPPED AND WAS NOT MEASURED. Leaving `NAV_ROUTES` also
+    leaves `isMarketingRoute`, which `site-footer-chrome.tsx` gates on — so the
+    seven doorways lost the shared FOOTER along with the glass nav. Measured
+    live afterwards: `/about` still shipped a Download link and Cookie settings;
+    `/papic` shipped neither. `href="/download"` existed in exactly two files
+    app-wide, both gated by `isMarketingRoute`, so a converted page had NO ROUTE
+    AT ALL to the download page.
+
+    The rail is the only chrome those pages have now, so the rail must carry
+    them.
+  */
+  const shell = code(read(join(APP, '_components', 'frontdoor', 'front-door-shell.tsx')));
+  for (const href of ['/refunds', '/download', '/blog', '/creators', '/vendors']) {
+    assert.match(
+      shell,
+      new RegExp(`<Link href="${href}">`),
+      `The rail's small print has lost ${href}. On a converted page the rail is ` +
+        'the only chrome, so a destination missing from it is unreachable.',
+    );
+  }
+});
+
+/* ── 9 · "+ CREATE" CREATES ────────────────────────────────────────────── */
+
+test('the gold button opens the create flow, not the board', () => {
+  /*
+    Owner 2026-08-15: *"create should allow me to create an event."* It pointed
+    at `/dashboard`, which for somebody with exactly one upcoming event
+    redirects back INTO that event — so the button landed you on the page you
+    were already on.
+  */
+  const shell = code(read(join(APP, '_components', 'frontdoor', 'front-door-shell.tsx')));
+  assert.match(
+    shell,
+    /<Link href="\/dashboard\/create-event" className="fd-btn-gold">/,
+    'The gold button no longer opens the create flow.',
+  );
+  /*
+    …and the way OUT of that flow must not re-fire the board's auto-jump.
+    `?hub=1` is the only escape from it.
+  */
+  const createPage = code(read(join(APP, 'dashboard', '(account)', 'create-event', 'page.tsx')));
+  assert.match(
+    createPage,
+    /'\/dashboard\?hub=1'/,
+    "The create page's back link dropped `?hub=1`, so leaving it dumps a " +
+      'one-event couple INSIDE their wedding rather than on their board.',
   );
 });

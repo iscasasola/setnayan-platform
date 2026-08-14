@@ -92,6 +92,15 @@ function legacyStripCommitted(e: Capture['events'][number]): number {
 // ── Legacy formula #2 ────────────────────────────────────────────────────────
 // lib/budget.ts:625-682 — snapshot.totals, which feeds the live card's
 // "Total to pay" AND (byte-identically) the Merkado Budget lens.
+//
+// ⚠ BUD-8 (2026-08-14): the Merkado lens is now WIRED to the resolver behind
+// `NEXT_PUBLIC_BUDGET_TRUTH_ENABLED`, exactly as `/budget` has been since BUD-2.
+// This transcription is still what BOTH surfaces print in production, because
+// that flag is OFF — so their rows below measure the gap that CLOSES the moment
+// it is switched on, not an outstanding defect. Deliberately not "fixed" to
+// print `ok`: this harness is evidence only while it transcribes the legacy
+// arithmetic verbatim, and editing the measuring stick to agree with the code
+// would destroy the only reason to run it.
 // Runs over EVERY vendor regardless of status; note the `> 0` branch tests
 // (R12) and the per-vendor `Math.max(0, …)` clamp with unclamped sums (R11).
 function legacyLiveCard(e: Capture['events'][number]): {
@@ -327,8 +336,13 @@ function main(): void {
   );
   if (anyDelta) {
     console.log(
-      'ℹ non-zero deltas above are the surfaces still on their own arithmetic. ' +
-        'Each BUD-2..BUD-8 slice should drive its own row to zero.',
+      'ℹ non-zero deltas above are what each surface prints TODAY (flag OFF) ' +
+        'beside what the resolver says.\n' +
+        '  WIRED to the resolver already: /budget strip · /budget live card ' +
+        '(BUD-2) · Checklist health (BUD-3) · Merkado Budget lens (BUD-8).\n' +
+        '  For those, the delta is the jump that happens when ' +
+        'NEXT_PUBLIC_BUDGET_TRUTH_ENABLED is switched on — NOT an unfixed surface.\n' +
+        '  Still on their own arithmetic: Allocation planner · Your team.',
     );
   }
   console.log('');

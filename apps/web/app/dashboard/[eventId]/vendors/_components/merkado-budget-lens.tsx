@@ -2,6 +2,9 @@ import Link from 'next/link';
 import { Wallet, Clock, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchBudgetSnapshot, buildBudgetLiveSummary, formatPhp } from '@/lib/budget';
+import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
+import { resolveEventMoney, type EventMoney } from '@/lib/budget-truth';
+import { budgetLiveSummaryMoney } from '@/lib/budget-page-money';
 
 /**
  * MerkadoBudgetLens — the Budget tab inside the Merkado (Services takeover).
@@ -9,16 +12,51 @@ import { fetchBudgetSnapshot, buildBudgetLiveSummary, formatPhp } from '@/lib/bu
  * The couple's full budget (target + median-anchored allotments + per-vendor
  * itemization + payment schedules + off-platform manual line items) already
  * lives, mature, at `/dashboard/[eventId]/budget`. This is a compact LENS of it
- * where the money decisions happen — the Merkado — reusing the exact same
- * `buildBudgetLiveSummary` the budget page's live card uses (no new math, no new
- * schema): payment progress + the next few due milestones, then a link to the
- * full surface for setting the budget, allotments, itemizing, and logging
- * payments. Removing the standalone "Budget" nav item (2026-07-10) is safe
- * because this tab — plus its "Open full budget" link — keeps that surface reachable.
+ * where the money decisions happen — the Merkado: payment progress + the next few
+ * due milestones, then a link to the full surface for setting the budget,
+ * allotments, itemizing, and logging payments. Removing the standalone "Budget"
+ * nav item (2026-07-10) is safe because this tab — plus its "Open full budget"
+ * link — keeps that surface reachable.
+ *
+ * OWNERSHIP (MARKETPLACE_FOUR_TABS_PLAN_2026-08-13 §5, settled): this lens owns
+ * paid-so-far · progress · next dues · ONE doorway, and is READ-ONLY, always. The
+ * target, allotments, itemization, manual lines, logging payments and export
+ * belong to `/budget`. The lens never re-declares an editor control.
+ *
+ * ─── BUD-8 · why this file reads the resolver ────────────────────────────────
+ * This lens and `/budget` are two screens a couple would both call "our money".
+ * `/budget` moved onto the shared calculator in BUD-2; this one had not, so the
+ * moment `NEXT_PUBLIC_BUDGET_TRUTH_ENABLED` is switched on the two print
+ * DIFFERENT NUMBERS FOR THE SAME WEDDING. Measured on the prod capture
+ * (`scripts/budget-parity.ts`, event `044f7e64…`): the lens says **₱80,000 to
+ * go** where `/budget` says **₱0 still owed**, because one `considering` vendor's
+ * headline is an ESTIMATE — a guess the couple has not agreed to pay — and the
+ * legacy formula folds it into the total anyway (§18.5 rules 2/3).
+ *
+ * So both surfaces now go through ONE core, `budgetLiveSummaryMoney`, with the
+ * SAME degrade-to-legacy rule `budget/page.tsx` uses: any resolver failure
+ * returns `null` and the lens falls back to the legacy figures rather than
+ * printing a confident ₱0.
+ *
+ * ⚠ THIS MUST LAND BEFORE ANYONE FLIPS THAT FLAG.
+ *
+ * FLAG OFF (production today) renders byte-identically to before: the resolver
+ * is not called, not one extra query is issued, and `budgetLiveSummaryMoney`
+ * returns the legacy summary verbatim.
  */
 export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
   const supabase = await createClient();
-  const snapshot = await fetchBudgetSnapshot(supabase, eventId).catch(() => null);
+  const budgetTruth = isBudgetTruthEnabled();
+
+  const [snapshot, money] = await Promise.all([
+    fetchBudgetSnapshot(supabase, eventId).catch(() => null),
+    // Degrade to the legacy figures on ANY resolver failure rather than printing
+    // a confident ₱0 — same rule, same shape, as `budget/page.tsx`. Flag OFF
+    // issues no extra query at all.
+    budgetTruth
+      ? resolveEventMoney(supabase, eventId).catch((): EventMoney | null => null)
+      : Promise.resolve<EventMoney | null>(null),
+  ]);
 
   const budgetHref = `/dashboard/${eventId}/budget`;
 
@@ -30,7 +68,15 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
     );
   }
 
-  const summary = buildBudgetLiveSummary(snapshot, 3);
+  // ONE core, shared with `/budget`'s live card. Flag OFF → `legacy` verbatim.
+  // The 3-milestone cap is this lens's own framing (the /budget card lists them
+  // all); `budgetLiveSummaryMoney` passes `upcoming` through untouched, so the
+  // cap survives the move onto the resolver.
+  const summary = budgetLiveSummaryMoney({
+    enabled: budgetTruth,
+    money,
+    legacy: buildBudgetLiveSummary(snapshot, 3),
+  });
   const hasBudget = summary.budget > 0;
 
   return (
@@ -58,7 +104,12 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
                 style={{ width: `${summary.percentPaid}%` }}
               />
             </div>
-            <p className="mt-1.5 text-xs text-ink/50">{summary.percentPaid}% of your itemized total is paid.</p>
+            {/* The base of this percentage CHANGES with the flag: legacy divides
+                by every vendor's itemized total, the resolver divides by what the
+                couple has actually committed. Naming the wrong base under a right
+                number is the same misleading-label defect the resolver exists to
+                end, so the noun follows the arithmetic. Flag OFF is byte-identical. */}
+            <p className="mt-1.5 text-xs text-ink/50">{summary.percentPaid}% of {budgetTruth ? 'what you have committed' : 'your itemized total'} is paid.</p>
           </>
         ) : (
           <p className="mt-2 text-sm text-ink/65">

@@ -13,7 +13,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
-  ROLE_SUBTYPES,
+  hostRolesForEventType,
   ROLE_SUBTYPE_LABEL,
   ROLE_SUBTYPE_HINT,
   DELEGATE_AREAS,
@@ -117,7 +117,11 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   // the userIds derived from these rows).
   const [{ data: eventRow }, { data: rows }, { data: logRows }, { data: coordRows }] =
     await Promise.all([
-      admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
+      admin
+        .from('events')
+        .select('display_name, event_type')
+        .eq('event_id', eventId)
+        .maybeSingle(),
       // All moderator rows (accepted + pending); revoked (removed_at) filtered out.
       admin
         .from('event_moderators')
@@ -149,6 +153,12 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         .in('status', ['contracted', 'deposit_paid', 'delivered', 'complete']),
     ]);
   const eventName = (eventRow as { display_name: string | null } | null)?.display_name ?? 'Your event';
+  // Phase 5 — the role picker offers this event type's OWN roles. It used to
+  // iterate all 13, so a birthday host chose between "Maid of honor" and "Best
+  // man". Unknown/missing types fail open to the full list rather than to an
+  // empty dropdown; see lib/host-roles.ts.
+  const eventType = (eventRow as { event_type: string | null } | null)?.event_type ?? null;
+  const roleChoices = hostRolesForEventType(eventType);
 
   const all = (rows ?? []) as ModeratorRow[];
   const accepted = all.filter((r) => r.accepted_at);
@@ -601,7 +611,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
               <option value="" disabled>
                 Pick a role
               </option>
-              {ROLE_SUBTYPES.map((r) => (
+              {roleChoices.map((r) => (
                 <option key={r} value={r}>
                   {ROLE_SUBTYPE_LABEL[r]} — {ROLE_SUBTYPE_HINT[r]}
                 </option>

@@ -15,23 +15,19 @@ import type { ModeratorPermissions as _ModeratorPermissions } from './delegate-a
 // (permissions_json column) so they can be overridden case-by-case; the
 // template just supplies the defaults at invite time.
 
-export const ROLE_SUBTYPES = [
-  'bride',
-  'groom',
-  'partner1',
-  'partner2',
-  'parent_of_bride',
-  'parent_of_groom',
-  'maid_of_honor',
-  'best_man',
-  'wedding_planner_external',
-  'ninong',
-  'ninang',
-  'family_helper',
-  'viewer',
-] as const;
-
-export type RoleSubtype = (typeof ROLE_SUBTYPES)[number];
+// The vocabulary itself moved to `./host-roles` (Phase 5) so the per-event-type
+// role map can be unit-tested without dragging this module's `server-only`
+// import into the test — the same split that already put the permission rule in
+// `./delegate-areas`. Re-exported here so every existing consumer of
+// `@/lib/event-moderators` is unchanged.
+export {
+  ROLE_SUBTYPES,
+  isRoleSubtype,
+  HOST_ROLES_BY_EVENT_TYPE,
+  hostRolesForEventType,
+} from './host-roles';
+export type { RoleSubtype } from './host-roles';
+import type { RoleSubtype } from './host-roles';
 
 export const ROLE_SUBTYPE_LABEL: Readonly<Record<RoleSubtype, string>> = {
   bride: 'Bride',
@@ -47,6 +43,11 @@ export const ROLE_SUBTYPE_LABEL: Readonly<Record<RoleSubtype, string>> = {
   ninang: 'Ninang (godmother sponsor)',
   family_helper: 'Family helper',
   viewer: 'Viewer (read-only)',
+  // Phase 5 — the generic roles the other 15 event types actually need.
+  celebrant: 'Celebrant',
+  parent: 'Parent',
+  host: 'Host',
+  co_host: 'Co-host',
 };
 
 // One-liner explanation per role so the invite UI helps the inviter pick
@@ -65,6 +66,10 @@ export const ROLE_SUBTYPE_HINT: Readonly<Record<RoleSubtype, string>> = {
   ninang: 'Edit. Filipino principal sponsor (godmother).',
   family_helper: "Limited edit. Tita Lita helping out — no payments, no host invites.",
   viewer: "Read-only. For relatives who want to see the plan but not change it.",
+  celebrant: 'Full edit + checkout. The one the day is for.',
+  parent: 'Edit + checkout. Often the one paying.',
+  host: 'Full edit + checkout + can invite more hosts.',
+  co_host: 'Edit + checkout + can invite. Sharing the organising.',
 };
 
 // Permission templates per role. Stored on each moderator row's
@@ -102,11 +107,14 @@ export const PERMISSION_TEMPLATES: Readonly<Record<RoleSubtype, _ModeratorPermis
   ninang: { edit_all: true, checkout: false, invite_hosts: false, remove_hosts: false },
   family_helper: { edit_all: false, checkout: false, invite_hosts: false, remove_hosts: false },
   viewer: { edit_all: false, checkout: false, invite_hosts: false, remove_hosts: false },
+  // Phase 5. `celebrant` and `host` are the non-wedding principals, so they get
+  // the bride/groom template; `parent` mirrors parent_of_bride (pays, does not
+  // invite); `co_host` may invite but not remove, like the external planner.
+  celebrant: { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: true },
+  parent: { edit_all: true, checkout: true, invite_hosts: false, remove_hosts: false },
+  host: { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: true },
+  co_host: { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: false },
 };
-
-export function isRoleSubtype(value: unknown): value is RoleSubtype {
-  return typeof value === 'string' && (ROLE_SUBTYPES as readonly string[]).includes(value);
-}
 
 /**
  * Generate a 32-byte URL-safe invitation token. Format: 43-char base64url.

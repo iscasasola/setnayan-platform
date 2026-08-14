@@ -18,6 +18,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
+import { rsvpSegments, rsvpSummary } from '@/lib/rsvp-segments';
 import { fetchEventUnreadCounts } from '@/lib/event-decisions';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import {
@@ -175,7 +176,10 @@ type DecisionItemView = {
 };
 
 type DecisionGroupView = {
-  id: 'book' | 'pay' | 'pick' | 'role';
+  // 'deadline' is the folded-in "What's next" rail (council verdict: the board
+  // is the ONE canonical action list, and dated items fold into it rather than
+  // standing beside it as a second thing to read).
+  id: 'book' | 'pay' | 'pick' | 'role' | 'deadline';
   title: string;
   sub: string;
   items: DecisionItemView[];
@@ -913,8 +917,46 @@ export async function EventDashboard({
 
   // AI re-rank: payments + the urgent booking first; free state keeps the
   // natural book → pick → pay → role order. Both deterministic.
-  const freeOrder: DecisionGroupView['id'][] = ['book', 'pick', 'pay', 'role'];
-  const aiOrder: DecisionGroupView['id'][] = ['book', 'pay', 'pick', 'role'];
+  // ---- Fold the AI "What's next" rail INTO the board (council verdict § 3:
+  // "Suri-ranked; What's next folds in"). It used to be a separate horizontal
+  // scroller below the board, which made the doorstep ask the couple to read
+  // two ranked lists and work out for themselves which one was the real one.
+  // Dated items are decisions with a clock on them, so they become a group.
+  //
+  // The de-dup rule still holds: these are all "only you can resolve" items
+  // (a payment falling due, a document deadline, a meeting). Nothing here is
+  // inbox volume — unread still lives only on the Conversations tile.
+  const deadlineGroup: DecisionGroupView | null =
+    aiActive && upcoming.items.length > 0
+      ? {
+          id: 'deadline',
+          title: 'Dates coming up',
+          sub: 'In the order Suri would take them',
+          items: upcoming.items.slice(0, 6).map((item: UpcomingItem) => ({
+            id: `u:${item.id}`,
+            label: item.title,
+            sub: item.subtitle,
+            chip: shortDate.format(item.date),
+            // Urgency by how close it is — the same judgement the rail made
+            // with its coloured dot, now expressed in the board's own vocabulary
+            // so one row cannot look urgent in one place and calm in the other.
+            chipTone:
+              item.daysFromNow <= 3 ? 'hot' : item.daysFromNow <= 14 ? 'warm' : 'calm',
+            ctaLabel: 'Open',
+            // Every producer in lib/upcoming-items.ts sets an href; the fallback
+            // exists so a future one that forgets degrades to the event home
+            // rather than dropping the deadline out of the list silently.
+            href: item.href ?? `${base}`,
+          })),
+        }
+      : null;
+  if (deadlineGroup) groupsUnordered.push(deadlineGroup);
+
+  // 'deadline' is listed in BOTH orders on purpose: `order.indexOf` returns -1
+  // for an unlisted id, which would sort it ABOVE everything else. Leaving it
+  // out of the free order would make a stray group jump to the top of the board.
+  const freeOrder: DecisionGroupView['id'][] = ['book', 'pick', 'pay', 'role', 'deadline'];
+  const aiOrder: DecisionGroupView['id'][] = ['book', 'pay', 'pick', 'role', 'deadline'];
   const order = aiActive ? aiOrder : freeOrder;
   const decisionGroups = [...groupsUnordered].sort(
     (a, b) => order.indexOf(a.id) - order.indexOf(b.id),
@@ -1084,7 +1126,11 @@ export async function EventDashboard({
     budgetTargetCentavos && budgetTargetCentavos > 0
       ? (committedCentavos / budgetTargetCentavos) * 100
       : 0;
-  const guestPct = stats.total > 0 ? (stats.attending / stats.total) * 100 : 0;
+  // Phase 4 — the four-state RSVP split for the segmented bar. Replaces the
+  // single `attending / total` percentage the old ring drew: that one number
+  // could not distinguish a settled "no" from a silence, which are the two the
+  // host acts on differently.
+  const guestSegments = rsvpSegments(stats);
   /** Have ANY replies come back yet? The honesty gate for the unanswered-RSVP row:
    *  before the first reply, a roster nobody has invited must not be nagged. */
   const rsvpRepliesStarted = stats.attending + stats.declined + stats.maybe > 0;
@@ -1209,23 +1255,56 @@ export async function EventDashboard({
           <Users aria-hidden strokeWidth={1.75} />
           Guests
         </span>
-        <span className="mt-3 flex items-center gap-3">
-          <ProgressRing
-            pct={guestPct}
-            size={46}
-            stroke={6}
-            color="var(--sn-gold-500)"
-            sweep={{ delayMs: 600 }}
-          />
-          <span className="min-w-0">
-            <span className="block font-mono text-[22px] font-bold leading-none text-ink">
-              <CountUp value={stats.attending} delayMs={600} />
-            </span>
-            <span className="mt-0.5 block text-[11.5px] text-ink/55">
-              attending of {stats.total} invited
-            </span>
-          </span>
+        <span className="mt-3 block font-mono text-[22px] font-bold leading-none text-ink">
+          <CountUp value={stats.attending} delayMs={600} />
         </span>
+        <span className="mt-0.5 block text-[11.5px] text-ink/55">
+          {rsvpSummary(stats)}
+        </span>
+        {/* Phase 4 — the shape carries the composition (council verdict
+         *  "shape-honest widgets"). A single ring could only ever say
+         *  `attending / total`, which folded declined, maybe and never-replied
+         *  into one grey remainder — three states that mean completely
+         *  different things to a host. The segments are apportioned in
+         *  lib/rsvp-segments.ts so the widths total exactly 100 and a state
+         *  with even one person in it can never render at zero width. */}
+        {guestSegments.length > 0 ? (
+          <>
+            <span
+              role="img"
+              aria-label={guestSegments.map((s) => s.label).join(', ')}
+              className="mt-2.5 flex h-1.5 gap-px overflow-hidden rounded-full"
+              style={{ background: 'rgba(30,26,18,.08)' }}
+            >
+              {guestSegments.map((seg) => (
+                <i
+                  key={seg.key}
+                  aria-hidden
+                  className="block h-full first:rounded-l-full last:rounded-r-full"
+                  style={{ width: `${seg.pct}%`, background: seg.color }}
+                />
+              ))}
+            </span>
+            {/* The legend is what makes the bar readable rather than
+             *  decorative — a colour with no key is a shape the host has to
+             *  guess at. Hidden from screen readers because the bar's own
+             *  aria-label already reads the same breakdown. */}
+            <span aria-hidden className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
+              {guestSegments.map((seg) => (
+                <span
+                  key={seg.key}
+                  className="inline-flex items-center gap-1 text-[10px] text-ink/55"
+                >
+                  <i
+                    className="block h-1.5 w-1.5 flex-none rounded-full"
+                    style={{ background: seg.color }}
+                  />
+                  {seg.label}
+                </span>
+              ))}
+            </span>
+          </>
+        ) : null}
         {miniFoot('Open the roster')}
       </Link>,
     );
@@ -1241,28 +1320,45 @@ export async function EventDashboard({
           <Wallet aria-hidden strokeWidth={1.75} />
           Budget
         </span>
-        <span className="mt-3 block font-mono text-[20px] font-bold leading-none text-ink">
-          {formatPeso(committedCentavos)}
-        </span>
-        <span className="mt-0.5 block text-[11.5px] text-ink/55">
-          {budgetTargetCentavos && budgetTargetCentavos > 0
-            ? `committed of ${formatPeso(budgetTargetCentavos)}`
-            : 'committed so far'}
-        </span>
+        {/* Phase 4 — committed-against-target is the one genuinely
+         *  part-of-whole number on this grid, so it takes the ring the Guests
+         *  tile just vacated. The flat bar it replaces could not hold its own
+         *  figure; the donut puts the percentage in the hole, which is the
+         *  point of the shape. With no target set there is no whole to be part
+         *  of, so the tile stays a plain figure rather than drawing a ring
+         *  against an invented denominator. */}
         {budgetTargetCentavos && budgetTargetCentavos > 0 ? (
-          <span
-            className="sn-bar mt-2.5 block h-1.5 overflow-hidden rounded-full"
-            style={{ background: 'rgba(30,26,18,.08)' }}
-          >
-            <i
-              className="block h-full rounded-full"
-              style={{
-                width: `${Math.min(100, budgetPct)}%`,
-                background: 'var(--sn-gold-500)',
-              }}
-            />
+          <span className="mt-3 flex items-center gap-3">
+            <ProgressRing
+              pct={budgetPct}
+              size={46}
+              stroke={6}
+              color="var(--sn-gold-500)"
+              sweep={{ delayMs: 600 }}
+            >
+              <span className="font-mono text-[11px] font-bold leading-none text-ink">
+                {Math.round(Math.min(100, budgetPct))}%
+              </span>
+            </ProgressRing>
+            <span className="min-w-0">
+              <span className="block font-mono text-[20px] font-bold leading-none text-ink">
+                {formatPeso(committedCentavos)}
+              </span>
+              <span className="mt-0.5 block text-[11.5px] text-ink/55">
+                committed of {formatPeso(budgetTargetCentavos)}
+              </span>
+            </span>
           </span>
-        ) : null}
+        ) : (
+          <>
+            <span className="mt-3 block font-mono text-[20px] font-bold leading-none text-ink">
+              {formatPeso(committedCentavos)}
+            </span>
+            <span className="mt-0.5 block text-[11.5px] text-ink/55">
+              committed so far
+            </span>
+          </>
+        )}
         {miniFoot('Open budget & payments')}
       </Link>,
     );
@@ -1940,7 +2036,9 @@ export async function EventDashboard({
                       ? Wallet
                       : group.id === 'role'
                         ? Users
-                        : Sparkles;
+                        : group.id === 'deadline'
+                          ? CalendarClock
+                          : Sparkles;
                 return (
                   <article key={group.id} className="sn-tile">
                     <div className="mb-2 flex items-center gap-2.5">
@@ -2059,61 +2157,6 @@ export async function EventDashboard({
             ) : null}
           </div>
         </section>
-
-        {/* ── What's next rail (AI) ────────────────────────────────────── */}
-        {aiActive && upcoming.items.length > 0 ? (
-          <section aria-label="What's next">
-            <div className="mb-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2 className="sn-sec">{spark}What&rsquo;s next</h2>
-              <p className="sn-sec-sub">
-                Your deadlines, in the order Suri would take them.
-              </p>
-            </div>
-            <div className="-mx-1 flex gap-0 overflow-x-auto px-1 pb-2 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {upcoming.items.map((item) => {
-                const dotColor =
-                  item.category === 'payment' || item.category === 'renewal'
-                    ? 'var(--sn-warning)'
-                    : item.category === 'document'
-                      ? 'var(--sn-info)'
-                      : 'var(--sn-success)';
-                return (
-                  <div key={item.id} className="relative min-w-[150px] flex-1 pr-3">
-                    <span
-                      aria-hidden
-                      className="absolute left-0 right-0 top-[5px] h-0.5"
-                      style={{ background: 'rgba(169,131,75,.25)' }}
-                    />
-                    <span
-                      aria-hidden
-                      className="relative z-[2] mb-2.5 block h-3 w-3 rounded-full"
-                      style={{ background: dotColor, boxShadow: `0 0 0 4px ${dotColor}22` }}
-                    />
-                    <p
-                      className="font-mono text-[11px] font-bold uppercase tracking-wide"
-                      style={{ color: 'var(--sn-gold-700)' }}
-                    >
-                      {shortDate.format(item.date)}
-                    </p>
-                    {item.href ? (
-                      <Link
-                        href={item.href}
-                        className="mt-0.5 block text-[13.5px] font-semibold leading-snug text-ink hover:text-ink/70"
-                      >
-                        {item.title}
-                      </Link>
-                    ) : (
-                      <p className="mt-0.5 text-[13.5px] font-semibold leading-snug text-ink">
-                        {item.title}
-                      </p>
-                    )}
-                    <p className="text-xs text-ink/55">{item.subtitle}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        ) : null}
 
         {/* ── Meanwhile — a delivery is waiting ──────────────────────────
          *  Renders ONLY when a vendor has delivered something still

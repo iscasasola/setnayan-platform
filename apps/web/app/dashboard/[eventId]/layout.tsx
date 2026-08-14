@@ -16,6 +16,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
+import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
+import { EventRailContext } from './_components/event-rail-context';
 import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { CustomerNavFab } from './_components/customer-nav-fab';
@@ -360,10 +362,25 @@ export default async function EventLayout({ children, params }: Props) {
         ariaBaseLabel={tr('nav.notifications')}
         ariaUnreadSuffix="unread"
       />
-      {/* AccountSwitcher — mobile only, rightmost corner of the top bar.
-          Desktop opens the same panel from the SwitcherPlaqueTrigger event
-          plaque in the sidebar header (Plaque-as-Menu, council 2026-07-16). */}
-      <div className="lg:hidden">
+      {/*
+        AccountSwitcher — now at EVERY width (One Shell slice 1, 2026-08-13).
+        It was `lg:hidden`, because on desktop the same panel opened from the
+        <SwitcherPlaqueTrigger> plaque in the sidebar header (Plaque-as-Menu,
+        council 2026-07-16).
+
+        🔑 THAT HEADER NO LONGER RENDERS ON DESKTOP — the shared rail owns the
+        left column now — and the council's acceptance criterion was never
+        about the PLAQUE, it was that this surface must always keep a path to
+        sign-out, profile and Setnayan AI. This top bar has no sign-out of its
+        own, so hiding the switcher here while removing the plaque would have
+        stranded all three behind no door at all on the couple's desktop. This
+        is the same shape as the launcher and the account spokes, which keep
+        their own slim bar BESIDE the rail for exactly this reason.
+
+        The event's IDENTITY is not lost with the plaque: the rail's context
+        group is headed by the event's name.
+      */}
+      <div>
         <AccountSwitcher data={switcherData} homeLabel={homeLabel} />
       </div>
     </div>
@@ -383,7 +400,59 @@ export default async function EventLayout({ children, params }: Props) {
 
   return (
     <>
+      {/*
+        ─── ONE SHELL, SLICE 1 (owner 2026-08-13) ────────────────────────────
+        *"the sidebar should stay. look at here as we navigate around. what you
+        did was jumping back to the old dashboards. so what we want to see the
+        dashboards converted for this desktop view."*
+        `ONE_SHELL_PLAN_2026-08-13.md` · `DECISION_LOG.md` 2026-08-13.
+
+        Opening a wedding no longer swaps the page furniture. The SAME rail the
+        person had on their events board stays exactly where it was, and the
+        event's own menu PUSHES in underneath their own rows.
+
+        ⚠ THE MOBILE CHROME IS DELIBERATELY OUTSIDE THIS WRAPPER. Below 1024
+        the app variant paints nothing, but keeping the bottom nav, the FAB and
+        the docked sub-nav as siblings of the rail rather than children of its
+        content column means the phone's DOM is untouched by this change — not
+        merely "styled back to the same place".
+      */}
+      <AppRailShell
+        railContext={
+          <EventRailContext
+            eventId={eventId}
+            /* Never blank — `plaqueName` falls back to the event type for an
+               unnamed draft (council acceptance criterion 2026-07-16). */
+            eventName={plaqueName}
+            navSlots={navSlots}
+            hideKeys={navHideKeys}
+            websiteEnabled={websiteEnabled}
+            monogramEnabled={monogramEnabled}
+            slug={(event.slug as string | null) ?? null}
+            guestCount={guestCount}
+          />
+        }
+      >
       <SidebarShell
+        /*
+          The rail above owns the desktop left column, so this shell renders no
+          <aside> and takes no desktop offset.
+
+          🪤 IT IS STILL MOUNTED, AND THAT IS THE POINT. Its <main> carries the
+          app's ONLY `.sn-vt-page` (`view-transition-name`), which is what the
+          phone's bottom-nav carousel slides, and `[data-shell-main]` inside it
+          is what gives the docked sub-nav its extra room. Dropping this
+          component for a "desktop-only" swap would have deleted both AT MOBILE
+          WIDTHS, where the rail does not even paint (plan § 3, trap #2).
+        */
+        desktopRailExternal
+        /*
+          `sidebar` + `sidebarHeader` are still passed on purpose. They render
+          nothing while the flag is set; keeping them means this conversion is
+          one word to reverse, instead of a delete to reconstruct. The
+          switcher panel the header used to open now lives in the top bar at
+          every width — see the note there.
+        */
         sidebarHeader={
           <DoorwaySidebarHeader
             label="Planning"
@@ -462,6 +531,7 @@ export default async function EventLayout({ children, params }: Props) {
           </div>
         </div>
       </SidebarShell>
+      </AppRailShell>
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}

@@ -385,6 +385,43 @@
   font-size: 11px;
 }
 
+/* ── THE CONTEXT GROUP — "you are in this place, and here is its menu" ─────
+   One Shell slice 1. Ported from the binding drawing's `.rctx` + `.rlab.sub`
+   (`prototypes/one_shell_2026-08-13.html`). The group PUSHES in below the
+   account rows; nothing above it is removed.                                */
+
+/* The place you are in. Terracotta, because that is what the drawing says and
+   because it is the one colour in this product that means "here".
+
+   🔑 DERIVED, NEVER RE-TYPED. `--m-mulberry` is the app's CTA token, declared
+   on `:root` in globals.css, so this moves when the palette moves. Typing
+   `#C24E25` here is precisely the defect design#6 shipped — a hand-typed
+   `#9A8F86` that no token owned and no contrast guard could follow.
+
+   ⚠ THE ARITHMETIC, because a colour pairing is a claim: terracotta #C24E25 on
+   the rail's cream #FDFBF7 is 4.61:1 — AA for normal text, and globals.css
+   states the same figure for the same pair. It is NOT gold: gold has 0.29 of
+   headroom on cream and fails under anything, which is why gold is UI-only. */
+.fd-rctx {
+  padding: 9px 12px 2px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: var(--m-mulberry);
+}
+
+/* The event's OWN section headings, one step quieter than a rail group label
+   so "Plan" reads as a heading inside a place rather than as a peer of
+   "My Home". */
+.fd-rlabel.fd-rsub {
+  padding: 10px 12px 3px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fd-m2);
+}
+
 /* The sign-in prompt — a plain prompt and plain rows, never a bordered block.
    Rev 1 tried to solve visibility with decoration when POSITION was the real
    answer, and the account slot is now the second group. */
@@ -813,6 +850,14 @@ h2.fd-sechead,
   .fd-rail .fd-label-text,
   .fd-rail .fd-ct,
   .fd-rlabel,
+  /* The event's name and its section headings are words, and this strip has
+     room for icons only — the drawing hides its own `.rctx` at this width for
+     the same reason. The ROWS stay: every destination is still one press away,
+     it is only the prose that goes. (This also takes the Guests head-count
+     with it, via `.fd-ct` above — the same thing already happens to the events
+     and Alaala counts on the account rows, so the rail stays consistent with
+     itself rather than growing an exception.) */
+  .fd-rctx,
   .fd-signin-prompt p,
   .fd-notice,
   .fd-smallprint {

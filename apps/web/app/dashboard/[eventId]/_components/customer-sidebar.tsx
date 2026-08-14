@@ -129,7 +129,15 @@ const CHILD_SLOT_KEYS: Record<string, string> = {
  * item. href/activeMatch + group structure stay in code. No-op when navSlots is
  * absent (fails open to the built-in nav).
  */
-function applyRegistry(
+/*
+  EXPORTED for the shared rail's event group (One Shell slice 1,
+  `_components/event-rail-context.tsx`). It is not copied there, deliberately:
+  an admin's rename must reach the desktop rail, the old sidebar and the phone
+  or none of them, and two overlays would drift into two answers for one
+  question with nothing thrown. Behaviour below is untouched — the only change
+  is the word `export`.
+*/
+export function applyRegistry(
   groups: NavGroup[],
   navSlots?: Record<string, NavSlotLite>,
 ): NavGroup[] {

@@ -90,9 +90,25 @@ Baseline green and restore green either side of every run.
 
 B1, B3 and B5 ride `isExploreReplanEnabled()`; the flag-OFF branch is untouched, so the kill-switch remains a true revert. B2's re-skin is unconditional **on purpose** — it is a token correction from the design programme, not part of the replan wave, and gating a colour behind a feature flag would leave the revert path carrying a retired glass fill. `flag-chokepoint-scan.test.ts` still passes: this file continues to call the helper.
 
+### 🪤 The first CI run went red — two ways I checked the wrong thing
+
+Worth recording, because both are cheap to repeat.
+
+1. **I typechecked BEFORE writing the tests and never again.** The guards were added after the clean run, and `noUncheckedIndexedAccess` makes `byColumn['current']` a `T | undefined` — 13 errors, all in the new test file. A green typecheck is green for *the files that existed when it ran*.
+2. **`pnpm --filter @setnayan/web typecheck` is not the command CI runs.** CI runs `pnpm typecheck` at the ROOT (turbo, both packages). The filtered command is a strictly smaller check, so passing it proves less than it appears to.
+
+Fixed with a `col()` helper that keeps the check instead of silencing it with `!` — "every column asked for gets a verdict" is a real property, and a missing key now fails by name rather than as an `undefined` deref.
+
+🔑 And the inverse also bit: `npx next lint --max-warnings=0` fails locally on ~10 **pre-existing** warnings in unrelated files, while CI runs plain `next lint` and passes. A local check that is *stricter* than CI produces a failure you can waste an hour chasing. Run the command the pipeline runs — in both directions.
+
 ### Verification
 
-- typecheck exit **0**, 0 errors · all **22** `lint-*.mjs` rc=0 · full unit suite green
+Every command below is the one CI runs, re-run after the fix:
+
+- `pnpm typecheck` (root) exit **0**, 0 errors · `pnpm lint` (root) exit **0**
+- all **22** `lint-*.mjs` rc=0, including `RADIUS_LINT_STRICT=1` which CI sets and the default run does not
+- full unit suite **8098/8098**, 0 fail — and all **21** new tests confirmed present in the TAP log by name, not assumed
+- DB replay `test:db:ci` **1209/1209** · `lint:dup-rule` exit 0
 - `flag-chokepoint-scan` · `team-summary-chip` · `bench-deep-link-anchor` — **29/29** pass
 - ⚠ **Not verified on the live site.** This surface sits behind a couple login on a specific event; confirming it renders would mean authenticating as a test account, which this session does not do. It is covered by tests and by CI's build, **not** by a live observation — do not upgrade that claim.
 - `pnpm build` cannot run on this machine (~7 GB heap). CI is the only valid build claim.

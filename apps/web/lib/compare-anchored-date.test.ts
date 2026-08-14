@@ -13,7 +13,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { anchoredDateByColumn } from './compare-anchored-date';
+import { anchoredDateByColumn, type AnchoredDateColumn } from './compare-anchored-date';
+
+/**
+ * Read one column, asserting it is there.
+ *
+ * `byColumn` is a Record, and this repo runs `noUncheckedIndexedAccess`, so
+ * indexing it yields `T | undefined`. Rather than silence that with `!`, the
+ * check is kept — "every column asked for gets a verdict" is a real property,
+ * and a missing key would otherwise surface as a confusing `undefined` deref
+ * instead of a named failure.
+ */
+function col(out: Record<string, AnchoredDateColumn>, key: string): AnchoredDateColumn {
+  const c = out[key];
+  assert.ok(c, `expected a verdict for column "${key}"`);
+  return c;
+}
 
 const nameOf = (id: string) => ({ v1: 'Alba Studios', v2: 'Kusina Rosa', v3: 'Tala Blooms' })[id] ?? id;
 
@@ -26,8 +41,8 @@ test('a plan whose connected vendors are all free says so', () => {
     ] as const),
     nameOf,
   });
-  assert.equal(out.current.checkedCount, 2);
-  assert.deepEqual(out.current.bookedNames, []);
+  assert.equal(col(out, 'current').checkedCount, 2);
+  assert.deepEqual(col(out, 'current').bookedNames, []);
 });
 
 test('a booked vendor is NAMED — the whole reason the row exists', () => {
@@ -41,8 +56,8 @@ test('a booked vendor is NAMED — the whole reason the row exists', () => {
     ] as const),
     nameOf,
   });
-  assert.deepEqual(out.current.bookedNames, ['Kusina Rosa']);
-  assert.equal(out.current.checkedCount, 2);
+  assert.deepEqual(col(out, 'current').bookedNames, ['Kusina Rosa']);
+  assert.equal(col(out, 'current').checkedCount, 2);
 });
 
 test('AN UNREADABLE CALENDAR IS NEVER REPORTED BOOKED', () => {
@@ -54,8 +69,8 @@ test('AN UNREADABLE CALENDAR IS NEVER REPORTED BOOKED', () => {
     dateFit: new Map([['v1', 'free']] as const),
     nameOf,
   });
-  assert.equal(out.current.checkedCount, 1, 'the unknown vendor is not counted as checked');
-  assert.deepEqual(out.current.bookedNames, [], 'and is certainly not named as booked');
+  assert.equal(col(out, 'current').checkedCount, 1, 'the unknown vendor is not counted as checked');
+  assert.deepEqual(col(out, 'current').bookedNames, [], 'and is certainly not named as booked');
 });
 
 test('a column with no connected vendors reports nothing to say', () => {
@@ -66,8 +81,8 @@ test('a column with no connected vendors reports nothing to say', () => {
     dateFit: new Map([['v1', 'free']] as const),
     nameOf,
   });
-  assert.equal(out.current.checkedCount, 0);
-  assert.deepEqual(out.current.bookedNames, []);
+  assert.equal(col(out, 'current').checkedCount, 0);
+  assert.deepEqual(col(out, 'current').bookedNames, []);
 });
 
 test('ONE VENDOR IS ONE CALENDAR — picked twice, named once', () => {
@@ -78,8 +93,8 @@ test('ONE VENDOR IS ONE CALENDAR — picked twice, named once', () => {
     dateFit: new Map([['v1', 'booked']] as const),
     nameOf,
   });
-  assert.equal(out.current.checkedCount, 1);
-  assert.deepEqual(out.current.bookedNames, ['Alba Studios']);
+  assert.equal(col(out, 'current').checkedCount, 1);
+  assert.deepEqual(col(out, 'current').bookedNames, ['Alba Studios']);
 });
 
 test('every column gets its own verdict, saved plans and Current alike', () => {
@@ -97,8 +112,8 @@ test('every column gets its own verdict, saved plans and Current alike', () => {
     ] as const),
     nameOf,
   });
-  assert.deepEqual(out['plan-a'].bookedNames, ['Alba Studios']);
-  assert.deepEqual(out.current.bookedNames, [], 'Current dodges the clash — that is the comparison');
+  assert.deepEqual(col(out, 'plan-a').bookedNames, ['Alba Studios']);
+  assert.deepEqual(col(out, 'current').bookedNames, [], 'Current dodges the clash — that is the comparison');
   assert.equal(Object.keys(out).length, 2);
 });
 
@@ -111,5 +126,5 @@ test('multiple booked vendors are all named, in pick order', () => {
     ] as const),
     nameOf,
   });
-  assert.deepEqual(out.current.bookedNames, ['Kusina Rosa', 'Alba Studios']);
+  assert.deepEqual(col(out, 'current').bookedNames, ['Kusina Rosa', 'Alba Studios']);
 });

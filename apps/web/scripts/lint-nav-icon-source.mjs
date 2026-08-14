@@ -59,7 +59,12 @@ const CHOKEPOINTS = [
   // nav-chrome surface is ever reintroduced, add it back here.
   'app/dashboard/[eventId]/_components/customer-sidebar.tsx',
   'app/dashboard/[eventId]/_components/customer-bottom-nav.tsx',
-  'app/vendor-dashboard/_components/vendor-sidebar.tsx',
+  // NOTE: the vendor doorway's desktop menu moved into the SHARED front-door
+  // rail on 2026-08-14 (One Shell slice 2), and `vendor-sidebar.tsx` was
+  // deleted with the rail that hosted it — it had no importers left. The
+  // registry consumer is now the destinations module that resolves the five
+  // rows, which is what the rail renders. Same rule, new address.
+  'app/vendor-dashboard/_components/vendor-nav-destinations.ts',
   'app/vendor-dashboard/_components/vendor-bottom-nav.tsx',
   'app/admin/_components/admin-sidebar.tsx',
   'app/admin/_components/admin-bottom-nav.tsx',

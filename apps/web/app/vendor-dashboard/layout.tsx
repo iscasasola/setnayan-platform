@@ -11,21 +11,16 @@ import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
-import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
-import { VendorSidebar, VendorSidebarFooter } from './_components/vendor-sidebar';
+import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
+import { VendorRailContext } from './_components/vendor-rail-context';
+import { resolveVendorDestinations } from './_components/vendor-nav-destinations';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { VendorAvatar, deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
-import { isMusicVendor } from '@/lib/songs';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { VendorNavFab } from './_components/vendor-nav-fab';
 import { resolveVendorRole } from '@/lib/vendor-role';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
-import {
-  AccountSwitcher,
-  SwitcherPlaqueTrigger,
-} from '@/app/_components/account-switcher/account-switcher';
+import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { ServerTimer } from '@/lib/server-timing';
@@ -186,23 +181,31 @@ export default async function VendorDashboardLayout({
       bookingsPendingPromise,
     ]));
   const profile = profileRes.data;
-  // Service-aware nav: Repertoire is a music-act surface only.
-  const showRepertoire = isMusicVendor(vendorProfile?.services);
+  /*
+    ⚠ `showRepertoire` (isMusicVendor) WAS COMPUTED HERE AND IS GONE
+    (One Shell slice 2, 2026-08-14). It gated a NESTED 'repertoire' child row,
+    and nested children stopped existing when the owner locked the five-page
+    IA on 2026-07-12 — so it has been reaching a filter with nothing to filter
+    for a month. The music-only rule itself is untouched and still enforced
+    where it matters, on the Repertoire surface and in the hub that offers it.
+  */
 
-  //   • verified      — public_visibility === 'verified' (matches the Overview
-  //                     page's isVerified derivation).
-  //   • initials      — up to 2 uppercase letters from the business name.
+  // The name the rail's context group announces the shop by. Never blank and
+  // never an id — a rail heading reading `s89v-…` is worse than a plain word.
   const vendorSidebarName =
     vendorProfile?.business_name ?? profile?.display_name ?? profile?.email ?? 'Vendor';
-  const vendorInitials = deriveInitials(vendorSidebarName);
-  const vendorIsVerified = vendorProfile?.public_visibility === 'verified';
-  // Identity-card avatar shows the uploaded logo when present (owner
-  // 2026-07-02), initials otherwise. Presign is local crypto (no network);
-  // best-effort — a hiccup just falls back to initials.
-  const vendorLogoUrl = vendorProfile?.logo_url
-    ? await displayUrlForStoredAsset(vendorProfile.logo_url).catch(() => null)
-    : null;
   const vendorTier = tierProbe.tier;
+
+  /*
+    ⚠ THE IDENTITY PLAQUE'S AVATAR, ITS "Verified vendor" LINE AND THE LOGO
+    PRESIGN THAT FED THEM WERE REMOVED HERE (One Shell slice 2, 2026-08-14),
+    with the `<SidebarShell>` rail that hosted them. The plaque's real JOB was
+    to open the account panel, and that panel is not lost: the top bar's
+    `<AccountSwitcher>` below is no longer `lg:hidden`, so the same panel — and
+    the only Sign out on this surface — is one press away at every width, which
+    is exactly the reachability contract the launcher's rail is held to.
+    The shop's name still leads the rail, from the context group's own header.
+  */
 
   // ⚠ THE evaluate_earned_token_expiry SWEEP THAT SAT HERE IS GONE (2026-08-08),
   // together with the wallet read that gated it (see the probe above). It was
@@ -298,9 +301,17 @@ export default async function VendorDashboardLayout({
         account panel, which carries it.
         `app/_components/auth/seam-invariants.test.ts` fails if it returns.
       */}
-      <div className="lg:hidden">
-        <AccountSwitcher data={switcherData} />
-      </div>
+      {/*
+        🔑 NO LONGER `lg:hidden` (One Shell slice 2, 2026-08-14). It was
+        mobile-only because desktop opened the same panel from the sidebar's
+        business plaque — and that plaque left with the sidebar. This panel
+        carries the ONLY Sign out on every vendor screen (owner 2026-08-13:
+        "sign out lives under the avatar and nowhere else"), so leaving the
+        breakpoint gate here would have stranded every desktop vendor with no
+        way to sign out and no error to notice. Matches what the account
+        spokes already render at all widths.
+      */}
+      <AccountSwitcher data={switcherData} />
     </div>
   );
 
@@ -308,43 +319,61 @@ export default async function VendorDashboardLayout({
 
   return (
     <div className="app-surface">
+      {/*
+        ── ONE SHELL, SLICE 2 (2026-08-14) ──────────────────────────────────
+        The shared front-door rail wraps the vendor tree, carrying this
+        person's own rows (their events, their Alaala, their story, their
+        shop, HQ) with the shop's own five PUSHED IN underneath. A supplier
+        moving between their shop and their own account no longer watches the
+        furniture change. Owner 2026-08-13; `ONE_SHELL_PLAN_2026-08-13.md`.
+
+        ⚠ AT WIDTHS BELOW 1024 THIS WRAPPER PAINTS NOTHING AT ALL — the app
+        variant is inert there by design, and the phone keeps its locked
+        bottom-bar grammar. Nothing about this change reaches a phone.
+      */}
+      <AppRailShell
+        railContext={
+          <VendorRailContext
+            shopName={vendorSidebarName}
+            destinations={resolveVendorDestinations({
+              role: vendorRole,
+              navSlots,
+              bookingsBadge: bookingsPending,
+              threadsBadge: threadsUnread,
+            })}
+            planHref="/vendor-dashboard/subscription"
+            tier={vendorTier}
+          />
+        }
+      >
       <SidebarShell
-        sidebarHeader={
-          <DoorwaySidebarHeader
-            label="Vendor"
-            accentColor="var(--m-sidebar-accent)"
-            identity={
-              <SwitcherPlaqueTrigger
-                data={switcherData}
-                chip={
-                  <VendorAvatar
-                    logoUrl={vendorLogoUrl}
-                    initials={vendorInitials}
-                    className="flex h-full w-full items-center justify-center rounded-lg text-[11px] font-semibold tracking-wide"
-                  />
-                }
-                title={vendorSidebarName}
-                metaLine={vendorIsVerified ? 'Verified vendor' : 'Unverified'}
-                ariaLabel={`${vendorSidebarName} — account menu`}
-              />
-            }
-          />
-        }
-        sidebar={
-          <VendorSidebar
-            role={vendorRole}
-            showRepertoire={showRepertoire}
-            navSlots={navSlots}
-            bookingsBadge={bookingsPending}
-            threadsBadge={threadsUnread}
-          />
-        }
-        sidebarFooter={<VendorSidebarFooter tier={vendorTier} />}
+        /*
+          🔴 `null` = NO DESKTOP RAIL, and this shell is still here on purpose.
+          It owns the `sn-vt-page` content <main> — the ONLY element carrying
+          `view-transition-name: sn-page` — which the mobile bottom-nav slide
+          freezes the document around. Dropping this shell to "convert the
+          desktop" would have broken the phone carousel at widths where the
+          rail never renders. It also owns the sticky hide-on-scroll top bar.
+          Session 9 retires it; until then it stands down its rail and keeps
+          doing both of those jobs.
+        */
+        /* ONE MECHANISM FOR "NO DESKTOP RAIL", NOT TWO.
+            This branch reached `sidebar={null}` independently while slice 1
+            was reaching `desktopRailExternal` for the same job. Slice 1 is
+            MERGED and two trees (event, admin) already depend on it, so the
+            shipped mechanism wins and this adopts it.
+            🔑 Two ways to say the same thing is two answers to one question —
+            the defect, not the fix. `sidebar` keeps carrying the real rail so
+            it still renders below 1024, where the phone's own chrome owns nav
+            and the shared rail paints nothing. */
+        desktopRailExternal
+        sidebar={null}
         topBar={topBar}
       >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
-            sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}
+            sidebar offset via its lg:pl-[var(--shell-main-offset)] math —
+            now zero, since the rail above is what occupies that column. */}
         <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">
           {/* Live vendor "free tier" promo announcement (self-gates to null when
               PROMO_FREE_WINDOWS_ENABLED is off or nothing is live). */}
@@ -352,6 +381,7 @@ export default async function VendorDashboardLayout({
           {children}
         </div>
       </SidebarShell>
+      </AppRailShell>
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}

@@ -4,10 +4,17 @@
  *
  * Part of the "Pa-" public-surface wave + the all-events website repositioning
  * (Website_Master_Plan_2026-06-28 §0/§6, Phase 1). Mirrors the /panood + /papic
- * pattern exactly: force-static Server Component, static `metadata`,
- * SoftwareApplication + FAQPage JSON-LD, hero + benefit sections + FAQ + a
- * Mulberry-accent primary CTA, and the layout-mounted SiteFooterChrome. The persistent
- * SiteChrome nav renders because '/alaala' is registered in NAV_ROUTES.
+ * pattern exactly: static `metadata`, SoftwareApplication + FAQPage JSON-LD,
+ * hero + benefit sections + FAQ + a Mulberry-accent primary CTA.
+ *
+ * ⚠ TWO SENTENCES HERE WERE TRUE UNTIL 2026-08-15 AND ARE NOW CORRECTED, not
+ * deleted, because a reader who acts on the old ones re-breaks the page: this
+ * was a `force-static` Server Component whose chrome came from the persistent
+ * `SiteChrome` nav, which rendered because '/alaala' sat in `NAV_ROUTES`. It is
+ * now `force-dynamic` and wears the shared shell; '/alaala' has LEFT
+ * `NAV_ROUTES`, and putting it back would stack the fixed glass nav (z-60, plus
+ * a 92px in-flow spacer) on top of the shell's bar — two Home links, two
+ * Sign-ins.
  *
  * DEFINITION (owner, 2026-06-28): Alaala is the COMBINATION of the five Pa-
  * services — Papic + Panood + Pawebsite + Pa3D + PaLogo — woven into one living
@@ -21,7 +28,9 @@
  * lede, and it closes on TWO destinations (start planning · read the whole
  * story). Forcing it through the archetype would mean inventing two sections it
  * has never had and deleting a live CTA — redrawing, which is the one thing the
- * port is not allowed to do. It takes the archetype's COLOURS from
+ * port is not allowed to do. ⚠ WEARING THE SHARED SHELL DID NOT CHANGE THIS —
+ * the chrome and the kit are two different questions, and this paragraph is the
+ * answer to the second one. It takes the archetype's COLOURS from
  * `DOORWAY_TONE` in that same file, so the palette still has exactly one home,
  * and `doorway-palette.test.ts` bans a raw hex here just as loudly as in the kit.
  *
@@ -32,6 +41,7 @@
  * price (admin-managed + provisional — links to /pricing).
  */
 
+import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import Link from 'next/link';
 import { AlaalaOrb } from '@/app/_components/marketing/AlaalaOrb';
 import { Reveal } from '@/app/_components/marketing/_motion';
@@ -43,8 +53,17 @@ import {
   HowItWorksPanel,
 } from '@/app/_components/marketing/_pa-motion';
 
-export const dynamic = 'force-static';
-export const revalidate = 3600;
+/*
+  🔴 force-dynamic IS LOAD-BEARING, and this page was force-static until
+  2026-08-15. It mounts the shared shell, which reads the session — and
+  `next/dist/server/request/cookies.js` returns an EMPTY cookie jar when
+  `workStore.forceStatic` is set, BEFORE the `dynamicShouldError` throw and
+  before every bailout. Left static, this page would have built green, cached,
+  and served a permanently signed-out rail to everyone including its owner.
+  `revalidate` is gone with it — the two cannot both apply.
+  ⚠ A LAYOUT CANNOT SET THIS: `dynamic` resolves nested-most-wins.
+*/
+export const dynamic = 'force-dynamic';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
@@ -182,7 +201,17 @@ const VS = [
 
 export default function AlaalaLandingPage() {
   return (
-    <>
+    /*
+      🕯 ALAALA WEARS THE SHARED SHELL — BY WRAPPER, NOT BY THE DOORWAY KIT
+      (2026-08-15). No `bleed`: this is a centred reading column by design.
+      🔑 THE TWO QUESTIONS ARE DIFFERENT, and conflating them is how this page
+      would get redrawn. Wearing the shared CHROME is what the owner asked for.
+      Being ported onto `DoorwayPage` is a different thing and is still REFUSED
+      — see the note below: the kit's `closing` takes one href (deleting the
+      "Read the whole story" CTA) and its `DoorwayStep` has no href at all
+      (stripping the links off all five pillar cards). That is redrawing.
+    */
+    <AppRailShell variant="doorway">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_LD) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
       <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
@@ -337,6 +366,6 @@ export default function AlaalaLandingPage() {
           </section>
         </Reveal>
       </main>
-    </>
+    </AppRailShell>
   );
 }

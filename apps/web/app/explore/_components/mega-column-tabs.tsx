@@ -142,7 +142,12 @@ export function FolderTabs({ tabs, totalCount, scopedFolder = null }: Props) {
   return (
     <nav
       aria-label="Wedding folders"
-      className="sticky top-0 z-20 -mx-4 mt-6 overflow-x-auto border-b border-ink/10 bg-cream/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+      /* Parks under the shared top bar (2026-08-15), like the marketplace
+         header and the folder strip. Found by
+         `lint-no-stacked-pinned-bars.mjs` on its FIRST run after the
+         shelled-route check was added — this was the third pinned bar on
+         /explore and the one nobody had listed. */
+      className="sticky top-[var(--fd-bar,0px)] z-[8] -mx-4 mt-6 overflow-x-auto border-b border-ink/10 bg-cream/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
     >
       <ul className="flex min-w-max items-center gap-2 sm:gap-2.5">
         <li>

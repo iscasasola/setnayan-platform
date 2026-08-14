@@ -183,7 +183,16 @@ export function IconTileFolderStrip({
       // the viewport minus only the responsive px-4/px-6/px-8 gutter,
       // matching the homepage's full-bleed feel.) backdrop-blur +
       // bg-cream/95 keeps the glassy stack feel.
-      className="sticky top-0 z-20 -mx-4 border-b border-ink/10 bg-cream/95 backdrop-blur sm:-mx-6 lg:-mx-8"
+      /*
+        🔑 STACKING AGAIN, AND THIS TIME DERIVED (2026-08-15). The comment above
+        records that this strip used to sit at a hand-typed `sm:top-[88px]`.
+        /explore now wears the shared shell, so it parks under the shell's bar
+        via that bar's OWN token instead of a number that has to be re-measured
+        every time the bar changes height. This branch has no `sm:` escape, so
+        unlike the marketplace header it collided at EVERY width — phones
+        included — which makes it the more important of the two.
+      */
+      className="sticky top-[var(--fd-bar,0px)] z-[8] -mx-4 border-b border-ink/10 bg-cream/95 backdrop-blur sm:-mx-6 lg:-mx-8"
     >
       <ul
         // snap-x snap-mandatory gives airpod-style click-to-tile snap on touch

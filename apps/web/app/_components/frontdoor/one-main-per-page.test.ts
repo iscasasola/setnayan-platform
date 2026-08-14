@@ -93,11 +93,24 @@ test('the shared content column is a <main> only on the public front door', () =
     declaration nothing uses is decoration, which is how a "fix" ships that
     changes nothing at all.
   */
+  /*
+    🪤 AND THIS PINNED A LITERAL TOO — the SECOND time in one file (2026-08-15).
+    It matched `<MainEl className="fd-main"` exactly, so when the shell gained
+    an opt-in full-bleed column and the class became
+    `className={bleed ? 'fd-main fd-bleed' : 'fd-main'}`, the guard went red
+    against code that satisfies its intent perfectly. The intent is: the ELEMENT
+    uses the tag variable, and it is still the content column. Neither of those
+    is a claim about how the class attribute is spelled.
+  */
+  const mainEl = /<MainEl\b[\s\S]{0,200}?>/.exec(src);
+  assert.ok(
+    mainEl,
+    'The tag variable is declared but no element uses it, so the fix is inert.',
+  );
   assert.match(
-    src,
-    /<MainEl className="fd-main"/,
-    'The tag variable is declared but the element still hardcodes its tag, so ' +
-      'the fix is inert.',
+    mainEl[0],
+    /\bfd-main\b/,
+    'The <MainEl> element is no longer the `fd-main` content column.',
   );
   const hardcoded = code(src).match(/<main\b/g) ?? [];
   assert.equal(

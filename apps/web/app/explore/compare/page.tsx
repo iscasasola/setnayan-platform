@@ -1,9 +1,9 @@
 import Link from 'next/link';
+import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ChevronLeft, MapPin, Star, FlaskConical } from 'lucide-react';
 
-import { Logo as BrandLogo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
@@ -346,23 +346,42 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
   const hasDemoContent = inDemoMode && demoRows.length > 0;
 
   return (
+    /*
+      🛒 THE COMPARE PAGE IS A MARKETPLACE SUB-PAGE, so it wears the same shell
+      (2026-08-15). Leaving it behind would recreate the exact jump this work
+      removes, one press from the compare banner on /explore. No `bleed`: this
+      page keeps its deliberate max-w-6xl reading width — a side-by-side table
+      is not a browse grid.
+
+      🗑 ITS OWN BRAND HEADER IS GONE. It rendered a logo linking home plus a
+      "Back to marketplace" link — a second brand bar under the shared one. Home
+      is in the shared bar; the marketplace is a rail row. The `<h1>` below is
+      untouched, so the page keeps exactly one heading.
+    */
+    <AppRailShell variant="doorway">
     <main className="min-h-dvh bg-cream">
-      <header className="border-b border-ink/5">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center text-ink">
-            <BrandLogo height={32} withWordmark />
-          </Link>
-          <Link
-            href="/explore"
-            className="inline-flex items-center gap-1 text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline"
-          >
-            <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Back to marketplace
-          </Link>
-        </div>
-      </header>
 
       <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+        {/*
+          🔴 "BACK TO MARKETPLACE" IS KEPT — it moved out of the deleted brand
+          header into the page body, and that is not tidiness. The shared rail's
+          marketplace group is SIGNED-IN ONLY (owner 2026-08-12), so for a
+          signed-out visitor the shell offers no route back to /explore at all.
+          Measured before restoring it: a signed-out render of this page
+          contained ZERO `href="/explore"`. Deleting it with the header would
+          have stranded exactly the person most likely to be comparing suppliers
+          before making an account.
+          🔑 It is CONTENT, not chrome: a back link to where you just came from
+          is a property of this page, which is why it does not belong in a bar
+          shared by every page.
+        */}
+        <Link
+          href="/explore"
+          className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline"
+        >
+          <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
+          Back to marketplace
+        </Link>
         <div className="mb-6 space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             Side-by-side comparison.
@@ -817,6 +836,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
         </div>
       </section>
     </main>
+    </AppRailShell>
   );
 }
 

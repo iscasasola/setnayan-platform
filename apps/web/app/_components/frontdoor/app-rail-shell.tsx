@@ -64,6 +64,7 @@ export async function AppRailShell({
   railContext,
   topBarSlot,
   variant = 'app',
+  bleed,
 }: {
   children: React.ReactNode;
   /**
@@ -97,6 +98,13 @@ export async function AppRailShell({
    * redirects a stranger to /login.
    */
   variant?: 'app' | 'doorway';
+  /**
+   * Run the content column edge-to-edge — no side gutters, no 1600px cap.
+   * Pure pass-through to the shell; see `FrontDoorShell`'s `bleed` for the
+   * measured reason it exists and why it is deliberately rare. Only a browse
+   * GRID should pass it; a reading page wants the measured column.
+   */
+  bleed?: boolean;
 }) {
   const [account, navLabels, commandItems, studioEvent] = await Promise.all([
     resolveRailAccount(),
@@ -139,6 +147,7 @@ export async function AppRailShell({
   return (
     <FrontDoorShell
       variant={variant}
+      bleed={bleed}
       account={account}
       navLabels={navLabels}
       visibleFolders={FRONT_DOOR_VISIBLE_FOLDERS.map(toRailFolder)}

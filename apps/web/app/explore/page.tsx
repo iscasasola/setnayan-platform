@@ -7,7 +7,6 @@ import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake, HeartHandshake } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
-import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { displayServiceLabel, formatPhp } from '@/lib/vendors';
@@ -40,6 +39,7 @@ import { SaveVendorButton } from './_components/save-vendor-button';
 import type { FolderTab } from './_components/mega-column-tabs';
 import { IconTileFolderStrip } from './_components/icon-tile-folder-strip';
 import { StickyMarketplaceHeader } from './_components/sticky-marketplace-header';
+import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { ExploreSearchHero, type ExploreChip } from './_components/explore-search-hero';
 import type { FilterDrawerProps } from './_components/filter-drawer';
 import {
@@ -1372,7 +1372,17 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
 
   if (isCatalogMode) {
     return (
-      <>
+      /*
+        🛒 THE MARKETPLACE WEARS THE SHARED SHELL (owner, twice: the marketplace
+        and its sub-menus "jump out of shell"). `bleed` because this is a browse
+        GRID — see the shell's own note: without it the column lands at exactly
+        1152px on a 1440px laptop, the `max-w-6xl` cap the owner struck out of
+        this very page in PR #655.
+        🔑 CatalogView keeps its own <main>. The shell renders a <div> for the
+        doorway variant (`MainEl = ownsMain ? 'div' : 'main'`), so there is no
+        second landmark — verify that before assuming, it reads backwards.
+      */
+      <AppRailShell variant="doorway" bleed>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(vendorsItemListJsonLd) }}
@@ -1385,7 +1395,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           venueAnchor={venueAnchor}
           coupleEventType={coupleEventType}
           currentEventId={coupleEventId}
-          isAuthenticated={user !== null}
           noticeKey={noticeKey}
           compareHref={compareHref}
           scopedFolder={filters.folder}
@@ -1394,7 +1403,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           faithFilter={filters.faithFilter}
           browseMode={browseMode}
         />
-      </>
+      </AppRailShell>
     );
   }
 
@@ -2588,6 +2597,16 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // so it also covers bare /explore visits.)
 
   return (
+    /*
+      🛒 SAME SHELL FOR THE FILTERED MARKETPLACE (owner, twice). `bleed` for the
+      same measured reason as the catalog branch above: this is a supplier GRID
+      the owner has told us to let run the full width.
+      🔑 THE <main> BELOW STAYS. The shell renders a <div> for the doorway
+      variant, so wrapping adds no second landmark.
+      ⚠ `after(() => runSocialFlush())` above must keep running AFTER every
+      cookies()/createClient() read — do not move it into this subtree.
+    */
+    <AppRailShell variant="doorway" bleed>
     <main className="min-h-dvh bg-cream">
       {/* SEO/GEO Bucket 6 · ItemList JSON-LD also emitted on non-catalog
           return so legacy single-page layouts continue to surface the
@@ -2963,6 +2982,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         />
       </section>
     </main>
+    </AppRailShell>
   );
 }
 
@@ -3495,7 +3515,6 @@ async function CatalogView({
   venueAnchor,
   coupleEventType,
   currentEventId,
-  isAuthenticated,
   noticeKey,
   compareHref,
   scopedFolder,
@@ -3516,9 +3535,11 @@ async function CatalogView({
   /** events.event_type — drives the tile-level multi-event applicability gate. */
   coupleEventType: string | null;
   currentEventId: string | null;
-  /** Whether the viewer has a Setnayan session. Drives the header CTA
-   *  ("Return to Dashboard" for couples, "Plan with Setnayan" for guests). */
-  isAuthenticated: boolean;
+  /* `isAuthenticated` was REMOVED 2026-08-15 with the page-local brand header
+     it existed to drive ("Return to Dashboard" vs "Plan with Setnayan"). Both
+     destinations now live in the shared rail's account slot, which asks the
+     session itself — so passing the answer down here would be a second source
+     of truth for the same question. */
   /** Allow-listed notice key from ?notice=… (Task #12). Null when absent or
    *  unknown. Surfaces a polite banner under the header explaining a
    *  redirected-from-deferred-feature landing. */
@@ -3893,30 +3914,19 @@ async function CatalogView({
   // owner directive "ONE clean universal search box … keep it dead simple."
 
   return (
+    /*
+      🗑 THE PAGE-LOCAL BRAND HEADER IS GONE (2026-08-15). It rendered a
+      wordmark linking home plus a "Return to Dashboard" / "Plan with Setnayan"
+      link — a SECOND brand bar sitting directly beneath the shared top bar,
+      which is the exact "furniture jumps" complaint this conversion answers.
+      Nothing was lost: the shared bar carries the wordmark home link, and the
+      rail carries both destinations in its account slot for each state.
+      ⚠ `lint-port-no-lost-controls.mjs` will correctly report the removed
+      <Wordmark> and two <Link>s. The baseline is regenerated in the same PR and
+      the removal is named in the PR body — regenerating it silently is what
+      turns that lint into decoration.
+    */
     <main className="min-h-dvh bg-cream">
-      <header className="border-b border-ink/5">
-        <div className="mx-auto flex w-full items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center text-ink">
-            <Wordmark size={22} />
-          </Link>
-          {isAuthenticated ? (
-            <Link
-              href="/dashboard"
-              className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
-            >
-              Return to Dashboard
-            </Link>
-          ) : (
-            <Link
-              href="/signup"
-              className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
-            >
-              Plan with Setnayan
-            </Link>
-          )}
-        </div>
-      </header>
-
       <NoticeBanner noticeKey={noticeKey} />
       <CompareShortlistBanner compareHref={compareHref} />
 

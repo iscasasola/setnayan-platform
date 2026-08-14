@@ -293,6 +293,26 @@ type Props = {
    * that is the one question worth answering inside the app.
    */
   search?: React.ReactNode;
+  /**
+   * Run the content column edge-to-edge inside the shell: no side gutters, no
+   * 1600px cap. OPT-IN, and deliberately rare.
+   *
+   * 🔑 WHY IT EXISTS. The shared shell costs a converted page the rail's 240px
+   * — that is the shell, and it is not negotiable. What IS negotiable is the
+   * further 48px of `.fd-main` gutter and the `.fd-col` cap, and on the
+   * supplier marketplace those two together are the difference between a grid
+   * that fills the screen and one that lands at exactly 1152px on a 1440px
+   * laptop — which is the `max-w-6xl` cap the owner explicitly struck out of
+   * that page in PR #655. A reading page wants the cap; a browse surface the
+   * owner has told us to "let maximize the full width" does not.
+   *
+   * ⚠ NOT A GENERAL ESCAPE HATCH. Every doorway that does NOT pass this keeps
+   * the measured column, so adding it to a page is a decision that page's
+   * content is a grid rather than prose. `front-door-geometry.test.ts` holds
+   * both the base geometry and this override, so neither can drift into the
+   * other.
+   */
+  bleed?: boolean;
 };
 
 /** A count that failed to load says so. It NEVER says 0, and it never invents
@@ -316,6 +336,7 @@ export function FrontDoorShell({
   navLabels,
   topBarSlot,
   search,
+  bleed,
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -1158,7 +1179,10 @@ export function FrontDoorShell({
           Safe by measurement, not by hope: `.fd-main` has exactly one consumer
           (this line) and every style keys off the CLASS, so nothing moves.
         */}
-        <MainEl className="fd-main" inert={railOpen ? true : undefined}>
+        <MainEl
+          className={bleed ? 'fd-main fd-bleed' : 'fd-main'}
+          inert={railOpen ? true : undefined}
+        >
           {/*
             ⚠ THE HIDDEN <h1> IS THE FRONT DOOR'S OWN, AND ONLY ITS OWN.
             `/` is a feed with no visible heading, so it carries one for
@@ -1171,7 +1195,7 @@ export function FrontDoorShell({
           {ownsHeading ? null : (
             <h1 className="fd-sr-only">Setnayan — plan your event, keep it for life</h1>
           )}
-          <div className="fd-col">{children}</div>
+          <div className={bleed ? 'fd-col fd-bleed' : 'fd-col'}>{children}</div>
         </MainEl>
       </div>
       {/* The sign-in panel, when it is open. It portals to <body>, so where it

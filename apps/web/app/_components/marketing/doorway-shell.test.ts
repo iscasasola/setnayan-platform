@@ -39,7 +39,15 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, '..', '..');
 
-/** The seven rail Studio rows. `/alaala` is NOT one — it keeps force-static. */
+/**
+ * The seven rail Studio rows.
+ *
+ * ⚠ THIS COMMENT SAID "`/alaala` is NOT one — it keeps force-static", which
+ * stopped being true on 2026-08-15. /alaala, /explore and /help now satisfy the
+ * SAME shell contract without being Studio rows, so they live in
+ * `SHELLED_PUBLIC` below rather than being folded in here. Widening DOORWAYS
+ * would make its count of 7 a lie about what a Studio row is.
+ */
 const DOORWAYS = [
   'setnayan-ai',
   'pawebsite',
@@ -49,6 +57,41 @@ const DOORWAYS = [
   'pa3d',
   'palogo',
 ] as const;
+
+/**
+ * Public pages that wear the shared shell WITHOUT being Studio doorways
+ * (2026-08-15). Same three-part contract — force-dynamic, a loading boundary,
+ * and out of NAV_ROUTES — enforced separately so each set keeps its own name
+ * and its own count.
+ *
+ * 🔑 THE CONTRACT IS THREE THINGS AND ALL THREE ARE LOAD-BEARING. Without
+ * force-dynamic the shell's session read gets a silently EMPTY cookie jar and
+ * the page caches signed-out forever. Without the loading boundary the route
+ * prefetches an empty tree and the rail press becomes a blank wait. Still in
+ * NAV_ROUTES, the old fixed glass nav renders ON TOP of the shell's bar.
+ * Any one missing looks fine in a browser on a fast connection while signed in.
+ */
+const SHELLED_PUBLIC = ['explore', 'help', 'alaala'] as const;
+
+/**
+ * NAV_ROUTES as the file actually declares it.
+ *
+ * ⚠ COMMENTS ARE STRIPPED FIRST, and that is not cosmetic: one apostrophe in
+ * prose ("Google's OAuth reviewer") inside the literal made the naive
+ * `/'([^']+)'/g` sweep miss eight real routes AND invent a comment fragment as
+ * a route. Measured: 26 "routes" from raw source vs 25 from stripped, differing
+ * by eight in one direction and six in the other.
+ *
+ * 🔑 EXTRACTED 2026-08-15 so the two tests that need it share ONE parser. It
+ * was inlined in a single test; the second caller would have been a copy, and
+ * a copied parser is two things that must be fixed together forever.
+ */
+function navRoutes(): string[] {
+  const src = code(read(join(HERE, 'site-chrome.tsx')));
+  const block = /const NAV_ROUTES = new Set<string>\(\[([\s\S]*?)\]\)/.exec(src);
+  assert.ok(block, 'NAV_ROUTES not found — this guard would pass vacuously.');
+  return [...(block[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1] ?? '');
+}
 
 function read(p: string): string {
   return readFileSync(p, 'utf8');
@@ -95,19 +138,80 @@ test('every doorway is force-dynamic, and NONE is force-static', () => {
   assert.equal(staticCount, 0, 'none may be force-static');
 });
 
-test('/alaala is deliberately NOT converted', () => {
+test('the shelled public pages keep all three halves of the contract', () => {
   /*
-    It is a rail row that still jumps out, and that is a NAMED gap rather than
-    an oversight: it does not render `DoorwayPage`, so it needs its own work.
-    Asserting it here stops a future sweep converting it by pattern-match and
-    silently paying the cache for a page that gains nothing.
+    /explore, /help and /alaala are not Studio doorways, but they wear the same
+    shell and therefore owe the same three things. Asserted as a set so a fourth
+    conversion is one line, and so a HALF-conversion — the failure mode that
+    looks completely fine in a browser — is impossible to ship.
+  */
+  for (const r of SHELLED_PUBLIC) {
+    const src = code(read(join(APP, r, 'page.tsx')));
+    assert.match(
+      src,
+      /^export const dynamic = 'force-dynamic';/m,
+      `/${r} is not force-dynamic. It mounts the shell, which reads the ` +
+        'session — and a session read on a cached page silently receives an ' +
+        'EMPTY cookie jar, so it would serve a permanently signed-out rail.',
+    );
+    assert.doesNotMatch(
+      src,
+      /^export const (dynamic = 'force-static'|revalidate)/m,
+      `/${r} declares force-static or revalidate alongside the shell. Those ` +
+        'are the two directives that produce the empty-cookie-jar bug.',
+    );
+    assert.ok(
+      existsSync(join(APP, r, 'loading.tsx')),
+      `/${r} has no loading.tsx. A force-dynamic route without one prefetches ` +
+        'an EMPTY tree (162 bytes, measured), so the rail press that points ' +
+        'here becomes a wait on a blank frame.',
+    );
+    assert.ok(
+      src.includes('<AppRailShell'),
+      `/${r} does not mount AppRailShell, so it pays force-dynamic for no shell.`,
+    );
+  }
+
+  const listed = navRoutes();
+  for (const r of SHELLED_PUBLIC) {
+    assert.ok(
+      !listed.includes(`/${r}`),
+      `/${r} is still a NAV_ROUTE, so the marketing glass nav renders ON TOP ` +
+        'of the shared bar: fixed/z-60 over sticky, two Home links, two Sign-ins.',
+    );
+  }
+});
+
+test('/alaala wears the shell but is still NOT on the doorway kit', () => {
+  /*
+    🔄 THIS TRIPWIRE FIRED AND WAS RE-AIMED, NOT DELETED (2026-08-15).
+
+    It used to pin /alaala to `force-static`, to stop a pattern-matching sweep
+    converting it and paying the cache for a page that mounted no shell. On
+    2026-08-15 the page was converted DELIBERATELY — it now wears the shared
+    shell by wrapper — so that assertion had done its job and become false.
+
+    🔑 THE HALF THAT STILL NEEDS GUARDING IS THE OTHER ONE. Wearing the shared
+    CHROME and being ported onto `DoorwayPage` are two different questions, and
+    the page's own docblock explains at length why the second is refused:
+    `DoorwayProps.closing` takes ONE href (so porting deletes the live "Read the
+    whole story" CTA) and `DoorwayStep` has no href at all (so it strips the
+    links off all five pillar cards). That is redrawing, which the port rules
+    forbid. A future sweep that sees `<AppRailShell>` here could easily conclude
+    the page is "already halfway" and finish the job.
   */
   const src = code(read(join(APP, 'alaala', 'page.tsx')));
+  assert.ok(
+    !src.includes('<DoorwayPage'),
+    '/alaala was ported onto DoorwayPage. That deletes the "Read the whole ' +
+      'story" CTA (closing takes one href) and strips the hrefs off all five ' +
+      'pillar cards (DoorwayStep has none). Wrap it, do not port it.',
+  );
   assert.match(
     src,
-    /^export const dynamic = 'force-static';/m,
-    '/alaala lost force-static. It does not mount the shell, so it pays the ' +
-      'cache for nothing.',
+    /<AppRailShell variant="doorway">/,
+    '/alaala stopped wearing the shared shell — its chrome would fall back to ' +
+      'nothing, since it has also left NAV_ROUTES.',
   );
 });
 
@@ -166,10 +270,7 @@ test('no doorway is still a NAV_ROUTE', () => {
     ships a comment stripper (`code`) that every other assertion here uses;
     this one simply did not call it.
   */
-  const src = code(read(join(HERE, 'site-chrome.tsx')));
-  const block = /const NAV_ROUTES = new Set<string>\(\[([\s\S]*?)\]\)/.exec(src);
-  assert.ok(block, 'NAV_ROUTES not found — this guard would pass vacuously.');
-  const listed = [...(block[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  const listed = navRoutes();
   /*
     🪤 THIS WAS `>= 20` AND IT FAILED THE DAY NINE ROUTES LEFT ON PURPOSE.
     A count floor tuned to today's size cries wolf every time the set shrinks
@@ -177,10 +278,20 @@ test('no doorway is still a NAV_ROUTE', () => {
     ends with a floor of 0 guarding nothing. A POSITIVE CONTROL cannot be
     satisfied by a broken parser: it has to find a route that is really there.
   */
+  /*
+    ⚠ REPOINTED 2026-08-15, NOT SOFTENED. This named /help and /explore as the
+    two "stable members" — and both were converted to the shared shell on that
+    date, so the control would have gone red for the WRONG reason while its own
+    message blamed the parser. A positive control has to name routes with a
+    REASON not to convert, or it re-fires every slice: /download and /waitlist
+    are pure marketing endpoints with no product surface behind them and nobody
+    has ever asked for them to be shelled.
+  */
   assert.ok(
-    listed.includes('/help') && listed.includes('/explore'),
-    `NAV_ROUTES parser did not find /help and /explore, both stable members — ` +
-      `it is broken and every assertion below would pass vacuously. Found ` +
+    listed.includes('/download') && listed.includes('/waitlist'),
+    `NAV_ROUTES parser did not find /download and /waitlist, both stable ` +
+      `members with no reason to convert — it is broken and every assertion ` +
+      `below would pass vacuously. Found ` +
       `${listed.length}: ${listed.slice(0, 6).join(', ')}`,
   );
   for (const d of DOORWAYS) {

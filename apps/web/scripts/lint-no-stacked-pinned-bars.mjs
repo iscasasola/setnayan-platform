@@ -83,13 +83,78 @@ if (!navRoutes || !unfixed) {
   );
   process.exit(1);
 }
-if (navRoutes.size < 10) {
-  console.error(`✗ Only ${navRoutes.size} NAV_ROUTES parsed — the parser is wrong.`);
-  process.exit(1);
+/*
+  🪤 THIS WAS `navRoutes.size < 10` AND IT WAS THE LAST COUNT FLOOR STANDING.
+  Both test files that guard this same set already replaced their own count
+  floors with positive controls, for a reason measured here: NAV_ROUTES drops
+  from 16 to 13 in the /explore + /help + /alaala conversion, and /vendors,
+  /creators, /blog and /features are all plausible next ones. A floor tuned to
+  today's size cries wolf every time the set shrinks ON PURPOSE, and the honest
+  response is always to lower the number — which ends at a floor of 0 guarding
+  nothing. A positive control is strictly stronger: a broken parser cannot
+  produce a route it never saw.
+*/
+for (const control of ['/download', '/waitlist']) {
+  if (!navRoutes.has(control)) {
+    console.error(
+      `✗ NAV_ROUTES parsed without ${control}, a stable member with no product\n` +
+        '  surface behind it — the parser is wrong and this guard would inspect\n' +
+        `  nothing. Parsed ${navRoutes.size}: ${[...navRoutes].slice(0, 6).join(', ')}`,
+    );
+    process.exit(1);
+  }
 }
 
-/** Does anything under this directory pin itself to the viewport top? */
-const PIN = /(?:sticky|fixed)\s+(?:inset-x-0\s+)?top-0|top-0[^"']*\b(?:sticky|fixed)\b/;
+/**
+ * Source with comments removed.
+ *
+ * 🪤 WITHOUT THIS THE GUARD CRIES WOLF ON ITS OWN SUBJECT MATTER. On the first
+ * run of the shelled-route check it reported `app/explore/page.tsx` as pinning
+ * a bar — the match was a COMMENT describing the behaviour being removed. A
+ * guard that fires on prose teaches you to skim past the one time it is right,
+ * and the file it will fire on most is the file someone is documenting.
+ * The same fix the NAV_ROUTES parser needed, for the same reason.
+ */
+function stripComments(src) {
+  return src
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+}
+
+/**
+ * Does anything under this directory pin itself to the viewport top?
+ *
+ * 🚨 THIS USED TO REQUIRE THE TWO TOKENS TO BE ADJACENT —
+ *   /(?:sticky|fixed)\s+(?:inset-x-0\s+)?top-0|top-0[^"']*\b(?:sticky|fixed)\b/
+ * — and Tailwind responsive prefixes broke it wide open. The supplier
+ * marketplace's own header reads `sm:sticky sm:bottom-auto sm:top-0`: prefixed,
+ * and with a class in between. It never matched, so THE BAR THIS GUARD MOST
+ * EXISTS TO SEE WAS INVISIBLE TO IT — on /explore, the one route in the app
+ * that genuinely stacks bars. Found by mutation: reverting that file to `top-0`
+ * left the lint GREEN while two sibling mutations turned it red.
+ *
+ * 🔑 IT NOW ASKS THE QUESTION PER CLASS ATTRIBUTE, which is the unit the
+ * question is actually about: does ONE element carry both a pinning position
+ * and a zero top offset? Testing the two tokens across a whole FILE would
+ * over-match (a `fixed` modal plus an unrelated `top-0`), and testing adjacency
+ * under-matches exactly as it did. Prefixes are allowed on either token because
+ * `sm:sticky sm:top-0` pins just as hard above 640px as `sticky top-0` does
+ * everywhere.
+ */
+const POS = /(?:^|\s)(?:[a-z]+:)?(?:sticky|fixed)(?=\s|$)/;
+const TOP0 = /(?:^|\s)(?:[a-z]+:)?top-0(?=\s|$)/;
+/** Every class attribute value in the source, however it is written. */
+const CLASS_ATTR = /class(?:Name)?\s*=\s*(?:"([^"]*)"|'([^']*)'|\{`([^`]*)`\})/g;
+
+function PIN_test(src) {
+  for (const m of src.matchAll(CLASS_ATTR)) {
+    const v = m[1] ?? m[2] ?? m[3] ?? '';
+    if (POS.test(v) && TOP0.test(v)) return true;
+  }
+  return false;
+}
+const PIN = { test: PIN_test };
 
 function pinnedFiles(dir) {
   const out = [];
@@ -98,7 +163,8 @@ function pinnedFiles(dir) {
       if (n === 'node_modules' || n === '.next') continue;
       const p = join(d, n);
       if (statSync(p).isDirectory()) walk(p);
-      else if (n.endsWith('.tsx') && PIN.test(readFileSync(p, 'utf8'))) out.push(p);
+      else if (n.endsWith('.tsx') && PIN.test(stripComments(readFileSync(p, 'utf8'))))
+        out.push(p);
     }
   };
   walk(dir);
@@ -173,4 +239,56 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log(`✓ no stacked pinned bars (${navRoutes.size} nav routes checked)`);
+/*
+  ─── THE OPPOSITE CHECK: ROUTES THAT LEFT NAV_ROUTES FOR THE SHARED SHELL ────
+
+  🚨 REMOVING A ROUTE FROM NAV_ROUTES TOOK IT OUT OF THE LOOP ABOVE AT THE EXACT
+  MOMENT THE COLLISION BECAME POSSIBLE — silently, with no message. /explore is
+  the one route in the app that genuinely pins two bars, and converting it to
+  the shared shell dropped it from this guard's scope entirely. site-chrome.tsx
+  already carries a comment recording this same trap from the seven doorways.
+
+  The rule inverts for a shelled route. Under the glass nav the fix was to make
+  the NAV non-fixed (UNFIXED_ROUTES). Under the shared shell the bar is the
+  point and must stay pinned, so the PAGE's own strip parks beneath it — at the
+  shell's own height token, never a hand-typed number and never bare `top-0`.
+*/
+const SHELL_ROUTES = ['/explore', '/help', '/alaala'];
+/** Parked under the shared bar: reads the shell's token, directly or in calc(). */
+const PARKED = /top-\[(?:calc\()?var\(--fd-bar/;
+
+const shellViolations = [];
+for (const route of SHELL_ROUTES) {
+  const hits = renderDirs(route)
+    .flatMap(pinnedFiles)
+    .filter((f) => !PARKED.test(stripComments(readFileSync(f, 'utf8'))));
+  if (hits.length > 0) {
+    shellViolations.push({
+      route,
+      hits: [...new Set(hits.map((h) => h.replace(ROOT + '/', '')))],
+    });
+  }
+}
+
+if (shellViolations.length > 0) {
+  console.error(
+    '\n✗ A shelled route pins a bar to the viewport top. The shared top bar is\n' +
+      '  already there, so this strip slides underneath it and its controls\n' +
+      '  become unclickable.\n\n' +
+      '  Fix: park it under the bar with the shell’s own token —\n' +
+      '    top-[var(--fd-bar,0px)]   (or top-[calc(var(--fd-bar,0px)+1rem)])\n' +
+      '  NOT a hand-typed pixel value: the bar is 56px on public pages and 61px\n' +
+      '  in the app variant, and it has changed twice.\n',
+  );
+  for (const v of shellViolations) {
+    console.error(`  ${v.route}`);
+    for (const h of v.hits) console.error(`      pins to viewport top: ${h}`);
+  }
+  console.error(`\n  ${shellViolations.length} route(s).\n`);
+  process.exit(1);
+}
+
+console.log(
+  `✓ no stacked pinned bars (${navRoutes.size} nav routes + ` +
+    `${SHELL_ROUTES.length} shelled routes checked)`,
+);

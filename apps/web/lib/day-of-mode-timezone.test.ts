@@ -15,7 +15,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getDayOfPhase } from './day-of-mode';
+import { getDayOfPhase, getMenuLifecyclePhase } from './day-of-mode';
 
 const MANILA = 'Asia/Manila';
 const DATE = '2026-12-18';
@@ -107,4 +107,62 @@ test('it starts noon the day before and ends noon the day after', () => {
   assert.equal(phaseAt(Date.UTC(2026, 11, 19, 3, 0, 0)), 'live');
   // 13:00 Manila the day after — over.
   assert.notEqual(phaseAt(Date.UTC(2026, 11, 19, 5, 0, 0)), 'live');
+});
+
+// ── The Event Lifecycle Menu phase (Phase 6 day-of takeover) ─────────────────
+//
+// `getMenuLifecyclePhase` gained `tz` on 2026-08-14 because the Overview now
+// HIDES the whole planning stack when it returns 'dayof'. Before that the only
+// consequence was which bottom-nav menu showed; now getting the boundary wrong
+// removes the couple's vendor list and budget from their own home page on the
+// wrong day. These pin the boundary in the venue's clock, not the server's.
+
+test('the takeover follows the venue clock, so a Manila reception is dayof', () => {
+  // A UTC server evaluating a Manila wedding: without a zone the anchor is 8
+  // hours early. The reception instant must read `dayof` either way here, so
+  // the sharper assertions are the boundary pair below.
+  assert.equal(
+    getMenuLifecyclePhase(DATE, null, MANILA, RECEPTION_UTC),
+    'dayof',
+    'the couple lost their live desk during their own reception',
+  );
+});
+
+test('the takeover starts at noon the day before — in Manila, not in UTC', () => {
+  // Manila midnight on the 18th is 2026-12-17T16:00Z. T-12h is 04:00Z on the
+  // 17th. One minute either side of that instant must disagree, and it is the
+  // ZONE that decides where the instant falls.
+  const startUtc = Date.UTC(2026, 11, 17, 4, 0, 0);
+  assert.equal(getMenuLifecyclePhase(DATE, null, MANILA, startUtc + 60_000), 'dayof');
+  assert.equal(getMenuLifecyclePhase(DATE, null, MANILA, startUtc - 60_000), 'plan');
+});
+
+test('a cleared event is After no matter where the clock is', () => {
+  assert.equal(
+    getMenuLifecyclePhase(DATE, '2026-12-19T00:00:00Z', MANILA, RECEPTION_UTC),
+    'after',
+  );
+});
+
+test('long past the window the event auto-clears to After', () => {
+  const wayPast = Date.UTC(2027, 0, 20, 0, 0, 0);
+  assert.equal(getMenuLifecyclePhase(DATE, null, MANILA, wayPast), 'after');
+});
+
+test('no date means Plan — the takeover can never fire on an undated event', () => {
+  assert.equal(getMenuLifecyclePhase(null, null, MANILA, RECEPTION_UTC), 'plan');
+  assert.equal(getMenuLifecyclePhase(undefined, null, MANILA, RECEPTION_UTC), 'plan');
+  assert.equal(getMenuLifecyclePhase('not-a-date', null, MANILA, RECEPTION_UTC), 'plan');
+});
+
+test('omitting the zone keeps the old behaviour, so no existing caller moved', () => {
+  // Backwards compatibility: the bottom nav and other callers pass no zone and
+  // must resolve exactly as they did before the parameter existed.
+  at(RECEPTION_UTC, () => {
+    const withoutTz = getMenuLifecyclePhase(DATE, null);
+    const explicitRuntime = getDayOfPhase(DATE);
+    const expected =
+      explicitRuntime === 'live' || explicitRuntime === 'post' ? 'dayof' : withoutTz;
+    assert.equal(withoutTz, expected);
+  });
 });

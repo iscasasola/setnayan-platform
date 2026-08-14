@@ -182,17 +182,31 @@ export type MenuLifecyclePhase = 'plan' | 'dayof' | 'after';
  * "not cleared", so this stays safe before the migration is applied).
  */
 // NOT the public-website phase resolver: that is `getLifecyclePhase` in lib/invitation-widgets.ts. Renamed from `getLifecyclePhase` (OPEN-BROWSE PR1) to end the name collision.
+/**
+ * ⚠ `tz` and `nowMs` added 2026-08-14 for the day-of takeover, and both are
+ * OPTIONAL so no existing caller changes meaning. Omitting `tz` keeps the
+ * previous runtime-local anchor — which on Vercel is UTC, so a Manila event's
+ * midnight lands 8 hours early and the phase can flip on the wrong side of the
+ * boundary. Any caller that knows the venue's zone should pass it.
+ *
+ * Every branch below still DELEGATES to `eventDateToEpoch` / `isEventDayActive`
+ * rather than re-deriving the window: a second copy of this arithmetic is
+ * exactly how the bottom nav once swapped into day-of mode while the surface it
+ * pointed at disagreed by up to 36 hours.
+ */
 export function getMenuLifecyclePhase(
   eventDate: string | Date | null | undefined,
   clearedAt: string | Date | null | undefined,
+  tz?: string,
+  nowMs?: number,
 ): MenuLifecyclePhase {
   if (clearedAt) return 'after';
   if (!eventDate) return 'plan';
-  const eventMs = eventDateToEpoch(eventDate);
+  const eventMs = eventDateToEpoch(eventDate, tz);
   if (!Number.isFinite(eventMs)) return 'plan';
-  if (isEventDayActive(eventDate)) return 'dayof';
+  if (isEventDayActive(eventDate, tz, nowMs)) return 'dayof';
   // Past the day-of window with no explicit close-out → auto-clear to After.
-  if (Date.now() > eventMs + POST_WINDOW_END_MS) return 'after';
+  if ((nowMs ?? Date.now()) > eventMs + POST_WINDOW_END_MS) return 'after';
   return 'plan';
 }
 

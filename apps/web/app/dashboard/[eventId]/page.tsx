@@ -102,7 +102,7 @@ export default async function EventHomePage({
   // pattern for migration drift between local + prod.
   const eventRes = await (async () => {
     const leanSelect =
-      'event_id, event_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, venue_latitude, venue_longitude, region, mahr_description, gender_separation';
+      'event_id, event_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation';
     const leanRes = await supabase
       .from('events')
       .select(leanSelect)
@@ -152,14 +152,26 @@ export default async function EventHomePage({
       })
     : ([] as Awaited<ReturnType<typeof fetchGuestsByEvent>>);
 
-  // Day-of mode (iteration 0031): inside the T-1h..T+8h window of the event
-  // date, load the schedule + seating + same-day + Pabati data for the live
-  // grid that takes over above the dashboard. Outside the window we render
-  // nothing extra and skip every query.
+  // Day-of mode (iteration 0031): inside the day-of window, load the schedule
+  // + seating + same-day + Pabati data for the live grid that takes over above
+  // the dashboard. Outside the window we render nothing extra and skip every
+  // query.
+  //
+  // ⚠ This comment used to state the window as "T-1h..T+8h". That has been
+  // wrong since 2026-08-05 — it is T-12h..T+36h (noon the day before → noon the
+  // day after), and `dayof` additionally counts the `post` phase out to T+60h.
+  // The bounds live in ONE place, lib/day-of-mode.ts; do not restate them here,
+  // because a comment that drifts is how a second, disagreeing copy gets
+  // written in the first place.
   const dayOfActive = event.event_date
     ? getMenuLifecyclePhase(
         event.event_date,
         (event as { cleared_at?: string | null }).cleared_at ?? null,
+        // The VENUE's clock, not the server's. Without it the anchor is the
+        // runtime's own midnight — UTC on Vercel — which for a Manila event is
+        // 8 hours out, enough to flip this on the wrong side of the boundary on
+        // the one day the couple opens the page all morning.
+        (event as { timezone?: string | null }).timezone ?? undefined,
       ) === 'dayof'
     : false;
   let dayOfBlocks: Awaited<ReturnType<typeof fetchScheduleBlocks>> = [];
@@ -521,18 +533,62 @@ export default async function EventHomePage({
         />
       ) : null}
 
-      {/* The dashboard — hero → at-a-glance bento → [overlays] → journey rail →
-       *  decisions → around-your-event, plus the AI extras (Suri briefing,
-       *  What's-next, Suri on watch) when Setnayan AI is active for the viewer
-       *  (or `?suri=preview` for internal accounts). */}
-      <EventDashboard
-        eventId={eventId}
-        suriPreviewParam={search.suri}
-        inspectId={search.inspect}
-        slotAfterBento={hasOverlays ? overlays : undefined}
-        dayOfActive={dayOfActive}
-        canViewPapicCounts={canViewPapicCounts}
-      />
+      {/* Day-of takeover (council verdict Phase 6, owner sign-off #4). On the
+       *  day itself the planning stack RECEDES: it is still one tap away, but
+       *  it stops being the thing the page leads with. A couple opening this at
+       *  the reception needs what is happening now — not "74% planned" and a
+       *  reminder to book a caterer they are currently eating the food of.
+       *
+       *  Receded, NOT removed. A host who genuinely needs the vendor list on
+       *  the day would otherwise be stranded, and the last hours before a
+       *  ceremony are the worst possible moment to hide a phone number. */}
+      {dayOfActive ? (
+        <>
+          <Link
+            href={`/dashboard/${eventId}/live`}
+            className="sn-tile sn-press flex items-center justify-between gap-3 text-left"
+          >
+            <span className="min-w-0">
+              <span className="block text-[15px] font-semibold text-ink">
+                Open the live desk
+              </span>
+              <span className="mt-0.5 block text-[12.5px] text-ink/55">
+                Announcements, the photo wall and what is happening now.
+              </span>
+            </span>
+            <ArrowRight aria-hidden className="h-4 w-4 flex-none text-ink/40" />
+          </Link>
+
+          <details className="sn-tile">
+            <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70">
+              Planning tools — still here if you need them
+            </summary>
+            <div className="mt-4 space-y-6">
+              <EventDashboard
+                eventId={eventId}
+                suriPreviewParam={search.suri}
+                inspectId={search.inspect}
+                slotAfterBento={hasOverlays ? overlays : undefined}
+                dayOfActive={dayOfActive}
+                canViewPapicCounts={canViewPapicCounts}
+              />
+            </div>
+          </details>
+        </>
+      ) : (
+        /* The dashboard — hero → at-a-glance bento → [overlays] → journey rail →
+         *  decisions → around-your-event, plus the AI extras (Suri briefing,
+         *  What's-next, Suri on watch) when Setnayan AI is active for the viewer
+         *  (or `?suri=preview` for internal accounts). */
+        <EventDashboard
+          eventId={eventId}
+          suriPreviewParam={search.suri}
+          inspectId={search.inspect}
+          slotAfterBento={hasOverlays ? overlays : undefined}
+          dayOfActive={dayOfActive}
+          canViewPapicCounts={canViewPapicCounts}
+        />
+      )}
     </>
   );
 }

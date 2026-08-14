@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "badc23e7b",
+  "generatedFromRef": "2c607805e",
   "routeCount": 401,
   "destinations": 792,
   "actions": 522,
-  "blocks": 3538,
+  "blocks": 3541,
   "routes": {
     "/": {
       "files": [
@@ -639,8 +639,9 @@
         "admin/_components/admin-nav-descriptions.ts",
         "admin/_components/admin-nav-fab.tsx",
         "admin/_components/admin-nav-groups.tsx",
-        "admin/_components/admin-sidebar-menu.tsx",
+        "admin/_components/admin-rail-context.tsx",
         "admin/_components/admin-sidebar.tsx",
+        "admin/_components/admin-sticky-top-bar.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/mobile-landing-accordion.tsx",
         "admin/_components/mobile-landing-grid.tsx",
@@ -752,13 +753,13 @@
         "AdminBottomNav",
         "AdminCommandPalette",
         "AdminNavFab",
-        "AdminSidebar",
-        "AdminSidebarMenu",
+        "AdminRailContext",
+        "AdminRailRow",
+        "AdminStickyTopBar",
+        "AppRailShell",
         "AppleSecretReminder",
-        "Badge",
         "BottomNav",
         "CountUp",
-        "DoorwaySidebarHeader",
         "GuidedTour",
         "HTMLDivElement",
         "HTMLInputElement",
@@ -768,12 +769,11 @@
         "Link",
         "MoreSearch",
         "NavFab",
+        "NavItem",
         "ProgressRing",
         "Screen",
-        "SidebarShell",
         "Sk",
         "SkLine",
-        "SwitcherPlaqueTrigger",
         "Tile",
         "UnreadBellBadge"
       ]
@@ -3223,6 +3223,7 @@
         "AlaalaTileSkeleton",
         "AlaalaWall",
         "AlaalaWallSkeleton",
+        "AppRailShell",
         "AttentionPill",
         "AutoSurfacedEvents",
         "BecomeStorytellerRow",
@@ -7861,6 +7862,7 @@
         "FollowButton",
         "Link",
         "Metadata",
+        "MutualDays",
         "ProfileShareButton",
         "ReportPageButton",
         "ViewBeacon"
@@ -9863,6 +9865,7 @@
         "vendors/_components/vendor-grow-hero.tsx",
         "vendors/_components/vendor-grow-sections.tsx",
         "vendors/_components/vendor-hero-gate.tsx",
+        "vendors/_components/vendor-tier-deltas.tsx",
         "vendors/_components/vendor-tier-matrix.tsx",
         "vendors/page.tsx"
       ],
@@ -9887,6 +9890,7 @@
         "Lede",
         "Link",
         "RevealOnView",
+        "SoonPill",
         "VendorGrowAI",
         "VendorGrowAnalytics",
         "VendorGrowCTA",
@@ -9902,6 +9906,7 @@
         "VendorGrowTrust",
         "VendorGrowWebsite",
         "VendorHeroGate",
+        "VendorTierDeltas",
         "VendorTierMatrix"
       ]
     },

@@ -20,14 +20,14 @@ import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
-import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
-import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
-import { AdminSidebar } from './_components/admin-sidebar';
+import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
+import { AdminRailContext } from './_components/admin-rail-context';
+import { AdminStickyTopBar } from './_components/admin-sticky-top-bar';
 import { AdminCommandPalette } from './_components/admin-command-palette';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
 import { AdminNavFab } from './_components/admin-nav-fab';
 import Link from 'next/link';
-import { TriangleAlert, Clock, ShieldCheck } from 'lucide-react';
+import { TriangleAlert, Clock } from 'lucide-react';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import {
   getAdminQueueDigest,
@@ -35,30 +35,55 @@ import {
   type AdminQueueCounts,
   type AdminQueueDigest,
 } from '@/lib/admin/queue-counts';
-import {
-  AccountSwitcher,
-  SwitcherPlaqueTrigger,
-} from '@/app/_components/account-switcher/account-switcher';
+import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
 export const metadata = { title: 'Setnayan HQ' };
 
 /**
- * Admin layout — v2.1 Navigation Phase 3 (admin doorway).
+ * Admin layout — the console, under the ONE shell (slice 3, 2026-08-14).
  *
- * STRUCTURE: SidebarShell owns the desktop layout split (sidebar at lg+,
- * main content area with offset). The sidebarHeader carries the brand
- * wordmark HOME-LINK + HQ eyebrow + the HQ identity plaque
- * (SwitcherPlaqueTrigger — the account-menu popup; Plaque-as-Menu council
- * verdict 2026-07-16, matching the customer + vendor doorway patterns; this
- * rail previously had no identity plaque, only the retired email pill). The
- * topBar is right-aligned: unread bell · role badge · display name ·
- * sign-out · AccountSwitcher (mobile-only pill; desktop uses the plaque).
+ * Owner, 2026-08-13, over three YouTube screenshots in which the left rail
+ * never leaves: *"the sidebar should stay. look at here as we navigate around.
+ * what you did was jumping back to the old dashboards. so what we want to see
+ * the dashboards converted for this desktop view."* `DECISION_LOG.md`
+ * 2026-08-13 · `ONE_SHELL_PLAN_2026-08-13.md` § 2, slice 3.
+ *
+ * STRUCTURE: `<AppRailShell>` owns the desktop split — the SAME rail a signed-in
+ * person saw on the front door and on their own account pages, carrying their
+ * events, their Alaala, their story, their shop and HQ. The console's own six
+ * menus PUSH IN BELOW those rows through the `railContext` slot
+ * (`admin-rail-context.tsx`); nothing above them is swapped out. Below 1024 the
+ * shell paints nothing at all and `<AdminBottomNav>` is the whole navigation,
+ * exactly as before — the phone's bottom-bar grammar is locked.
+ *
+ * ── WHAT WENT, AND WHERE ITS JOB WENT ─────────────────────────────────────
+ * `<SidebarShell>` + `<AdminSidebar>` + `<DoorwaySidebarHeader>` are no longer
+ * mounted here. Three things they quietly owned had to be re-homed rather than
+ * assumed, because each would have vanished without an error:
+ *
+ *  1. THE STICKY TOP BAR + the owner-locked hide-on-scroll rule (2026-06-15) —
+ *     now `<AdminStickyTopBar>`, which WRAPS the identical bar markup below.
+ *  2. `.sn-vt-page` ON THE CONTENT — the mobile bottom-nav page slide names
+ *     exactly one element (`view-transition-name: sn-page`) and freezes the
+ *     rest. `NavSlideController` treats `/admin` as a base tab, so losing the
+ *     name would have left the tap running a transition that animates NOTHING.
+ *     It is on the content wrapper below.
+ *  3. THE ACCOUNT MENU ON DESKTOP — it used to be the HQ plaque in the sidebar
+ *     header, with the top bar's `<AccountSwitcher>` marked `lg:hidden` as the
+ *     mobile twin. The header is gone, so the pill is now shown AT EVERY WIDTH.
+ *     🔒 It is the only route to sign-out on this doorway (the loose top-bar
+ *     sign-out was retired 2026-08-13, "sign out lives under the avatar and
+ *     nowhere else"), so leaving it `lg:hidden` would have stranded it.
+ *
+ * ⚠ NOT re-homed, because it did not need to be: the `--m-sidebar-*` tokens
+ * and the collapse key belonged to the old panel. The rail has its own width
+ * behaviour (a 72px icon strip between 1024 and 1280) and its own row grammar.
  *
  * EventSwitcher was retired from this doorway on 2026-06-18 — the unified
  * account panel owns identity + cross-console hopping on all three doorways,
- * consistent with the customer doorway; going HOME is the wordmark's job.
+ * consistent with the customer doorway; going HOME is the rail's job.
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -256,22 +281,35 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         SIGN OUT USED TO SIT HERE, LOOSE IN THE TOP BAR — retired 2026-08-13
         (Redesign Session 6, "the seam"). Owner: *"sign out lives under the
         avatar and nowhere else."* It is still one press away on every admin
-        screen: the rail's identity plaque (and the mobile AccountSwitcher pill
-        right below) open the account panel, which carries it. Putting it back
-        here would make the admin the one doorway where signing out is a
-        different gesture than everywhere else — and a control this
-        irreversible should be in exactly one place, found the same way every
-        time. `app/_components/auth/seam-invariants.test.ts` fails if it
-        returns.
+        screen: the AccountSwitcher pill right below opens the account panel,
+        which carries it. Putting it back here would make the admin the one
+        doorway where signing out is a different gesture than everywhere else —
+        and a control this irreversible should be in exactly one place, found
+        the same way every time.
+        `app/_components/auth/seam-invariants.test.ts` fails if it returns.
       */}
-      <div className="lg:hidden">
-        <AccountSwitcher data={switcherData} />
-      </div>
+      {/*
+        🔒 SHOWN AT EVERY WIDTH SINCE 2026-08-14 (One Shell slice 3). This was
+        `lg:hidden`, because on desktop the same panel opened from the HQ plaque
+        in the old sidebar header. That header is not mounted any more — the
+        shared rail has no account menu in its app variant, by design (the
+        surfaces it wraps keep their own). Left `lg:hidden`, the ONLY route to
+        sign out on this doorway would have disappeared on desktop, with the
+        console otherwise looking perfectly fine.
+        `admin-rail-context.test.ts` fails if the class comes back.
+      */}
+      <AccountSwitcher data={switcherData} />
     </div>
   );
 
   return (
-    <div className="app-surface">
+    // `app-surface` keeps the app typeface (Hanken) for the CONTENT — the rail
+    // deliberately unsets it and keeps the front door's face, which is the
+    // chrome-vs-content answer slice 0 settled (`ONE_SHELL_PLAN` § 5, #3).
+    // `sn-ambient` is the warm Atelier wash the old shell painted on its own
+    // root; the rail sits inside it and paints its own cream, exactly as on the
+    // launcher. Dropping it would have left the console on plain white.
+    <div className="app-surface sn-ambient min-h-dvh">
       {/* ⌘K / Ctrl-K anywhere in the admin. Mounted ONCE at the shell rather
           than per page, so the shortcut works on all 108 of them and there is
           only ever one overlay in the tree. It renders null until opened, so
@@ -281,42 +319,36 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           browsable at /admin/more ("All surfaces"). If a destination is ever
           reachable only by typing, that is a bug in the menu. */}
       <AdminCommandPalette />
-      <SidebarShell
-        sidebarHeader={
-          <DoorwaySidebarHeader
-            label="Setnayan HQ"
-            accentColor="var(--m-sidebar-accent)"
-            identity={
-              <SwitcherPlaqueTrigger
-                data={switcherData}
-                chip={<ShieldCheck aria-hidden className="h-5 w-5" strokeWidth={2} />}
-                title="Setnayan HQ"
-                metaLine={displayName}
-                ariaLabel="Setnayan HQ — account menu"
-              />
-            }
-          />
-        }
-        sidebar={
-          <AdminSidebar
+      <AppRailShell
+        railContext={
+          <AdminRailContext
             navSlots={navSlots}
             queueCounts={queueCounts}
             queueStates={urgency.states}
           />
         }
-        topBar={topBar}
       >
-        {/* Pad the bottom on mobile so the FLOATING BottomNav pill (12px float
+        <AdminStickyTopBar>{topBar}</AdminStickyTopBar>
+        {/* `sn-vt-page` → `view-transition-name: sn-page`. During the mobile
+            bottom-nav carousel slide (NavSlideController, which lists `/admin`
+            among its base tabs) ONLY this element slides; the rail and the
+            fixed pill live in the `root` snapshot, which the stylesheet
+            freezes. It used to ride on SidebarShell's <main>; carrying it here
+            is what keeps the slide from becoming a transition that animates
+            nothing at all.
+
+            Pad the bottom on mobile so the FLOATING BottomNav pill (12px float
             + ~64px bar + 16px breathing + the device's home-indicator inset)
             doesn't cover the last row of content — a fixed pb-20 under-reserved
-            on safe-area devices (council fix #4). SidebarShell already handles
-            the desktop sidebar offset via its lg:pl-[var(--shell-main-offset)]
-            math. */}
-        <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">{children}</div>
-      </SidebarShell>
+            on safe-area devices (council fix #4). The desktop offset is the
+            shell's grid now, so there is no padding math left here. */}
+        <div className="sn-vt-page pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">
+          {children}
+        </div>
+      </AppRailShell>
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
-          BottomNav primitive. Sits outside SidebarShell so it doesn't
-          inherit the desktop sidebar offset. */}
+          BottomNav primitive. Sits outside the shell so it doesn't
+          inherit the desktop content column. */}
       <AdminBottomNav
         navSlots={navSlots}
         queueCounts={queueCounts}

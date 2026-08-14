@@ -50,6 +50,28 @@ const HomeOverlays = dynamic(
   { ssr: false },
 );
 
+/*
+  🔑 THE SEVEN PRODUCT DOORWAYS LEFT THIS SET ON 2026-08-15, and that is what
+  stops them wearing two chromes at once. They now mount the shared shell from
+  `_doorway.tsx` — the same rail, bar and search as `/` — so the glass nav here
+  would sit ON TOP of it: `fixed; top:22px; z:60` over a `sticky; top:0; z:20`
+  bar, two Home links, two Sign-ins, ~39px of overlap, and no guard firing.
+  Owner 2026-08-15: *"still jumps out of the shell when the links on studio are
+  pressed."*
+
+  ⚠ THEY ARE NOT MOVED TO `FOOTER_ONLY_PREFIXES` EITHER. That list is
+  PREFIX-matched, so `/papic` there would hand the reskin footer to
+  `/papic/seat/[token]` — the paparazzo's camera, which is documented
+  "LOGIN-FREE … no dashboard chrome". The doorways now match `/`: shell, no
+  footer.
+
+  🪤 `lint-no-stacked-pinned-bars.mjs` ITERATES THIS SET, so removing seven
+  entries makes it go quiet on them WITHOUT SAYING SO — its non-vacuity floor is
+  `size < 10` against ~31 remaining. It was already blind here (it skips
+  underscore segments, so `_doorway.tsx` is unreachable to it, and the pin is a
+  CSS rule rather than a Tailwind string). `doorway-shell.test.ts` is the
+  replacement that actually watches this.
+*/
 const NAV_ROUTES = new Set<string>([
   // NOTE: '/' is intentionally OMITTED. The homepage (ELN reskin · 2026-06-29)
   // renders its OWN nav instance (HomeReskin), which carries the cinematic
@@ -68,14 +90,7 @@ const NAV_ROUTES = new Set<string>([
   '/features',
   '/explore',
   '/monogram',
-  '/papic',
-  '/setnayan-ai',
   // "Pa-" feature landing pages (owner-approved 2026-06-27; Pa- naming LOCKED).
-  '/panood',
-  '/pa3d',
-  '/palogo',
-  '/pawebsite',
-  '/patiktok',
   '/why-setnayan',
   '/alaala',
   '/tl/about',

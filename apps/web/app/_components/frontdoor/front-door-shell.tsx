@@ -231,7 +231,23 @@ type Props = {
   tools: ReadonlyArray<RailTool>;
   children: React.ReactNode;
   /** See the variant note in the file header. Defaults to the public page. */
-  variant?: 'front-door' | 'app';
+  /**
+   * `front-door`  `/` — top bar + search + off-canvas rail.
+   * `app`         a signed-in surface — the rail (≥1024) and the shared bar.
+   * `doorway`     a PUBLIC product page (/papic, /panood, …) — front-door
+   *               chrome on a page that already owns its own <main> and <h1>.
+   *
+   * 🔑 THE THIRD VARIANT EXISTS BECAUSE THE OTHER TWO ARE EACH WRONG HERE IN A
+   * DIFFERENT WAY, and both wrongs are silent:
+   *   `app` would drop the hamburger — and the rail is `display:none` below
+   *         1024, so a phone would get a product page with NO navigation at
+   *         all — and would point the wordmark at /dashboard, which 307s to
+   *         /login: a login trap for a stranger arriving from Google.
+   *   `front-door` would bring a second <main> and a second <h1> to a page
+   *         that already has both (`_doorway.tsx` renders them, and
+   *         `doorway-invariants.test.ts` pins exactly one of each).
+   */
+  variant?: 'front-door' | 'app' | 'doorway';
   /**
    * The per-surface context group — "In this event", "Your people", a shop's
    * own menu. It PUSHES: everything above it stays exactly where it was, which
@@ -309,6 +325,23 @@ export function FrontDoorShell({
   const { openSignIn, panel: signInPanel } = useSignInPanel();
 
   const inApp = variant === 'app';
+  /*
+    FOUR QUESTIONS, ASKED BY NAME. `inApp` used to answer all of them at once,
+    which was correct while there were two variants and silently wrong the
+    moment there were three — every one of these differs for the doorway.
+  */
+  /** Does the HOST page already render the page's <main> and its <h1>? */
+  const ownsMain = variant !== 'front-door';
+  const ownsHeading = variant !== 'front-door';
+  /** Is there an off-canvas rail to open below 1024? The app variant has none;
+   *  a public page must, or a phone has no navigation. */
+  const hasRailDrawer = variant !== 'app';
+  /** Home means a different room depending on where you stand — but ONLY the
+   *  signed-in app may point at /dashboard, which redirects a stranger to
+   *  /login. */
+  const homeHref = variant === 'app' ? '/dashboard' : '/';
+  /** The stylesheet's one switch. A doorway wears the front door's chrome. */
+  const chrome = variant === 'app' ? 'app' : 'front-door';
   /**
    * The content column's TAG. See the long note at the element itself: on `/`
    * this column IS the page's main landmark; inside the app the host surface
@@ -316,7 +349,7 @@ export function FrontDoorShell({
    * every converted page. Capitalised because React reads a lowercase name as
    * a literal tag and this is a variable holding one.
    */
-  const MainEl = inApp ? 'div' : 'main';
+  const MainEl = ownsMain ? 'div' : 'main';
   const pathname = usePathname();
 
   /*
@@ -439,7 +472,7 @@ export function FrontDoorShell({
   const topBarEl = (
       <header className="fd-topbar">
         <div className="fd-topleft">
-          {inApp ? null : (
+          {hasRailDrawer ? (
           <>
           {/*
             ⚠ ONLY WHERE THE RAIL IS ACTUALLY OFF-CANVAS (below 1024).
@@ -462,7 +495,7 @@ export function FrontDoorShell({
             ☰
           </button>
           </>
-          )}
+          ) : null}
           {/*
             🔒 THE TEXT IS TITLE-CASE "Setnayan" AND THE CAPITALS COME FROM CSS.
             It looks identical to the approved prototype — `.fd-wordmark` carries
@@ -524,7 +557,7 @@ export function FrontDoorShell({
             styling is unaffected because `.fd-wordmark` is still applied.
           */}
           {inApp ? (
-            <Link href="/dashboard" className="fd-wordmark fd-wordmark-app">
+            <Link href={homeHref} className="fd-wordmark fd-wordmark-app">
               <LogoMark size={28} className="fd-mark" />
               <span className="fd-wordmark-text">Setnayan</span>
             </Link>
@@ -628,7 +661,7 @@ export function FrontDoorShell({
   return (
     // `data-chrome` is the ONE switch the stylesheet reads. Below 1024 the app
     // variant paints no chrome at all; the surface's own bars are untouched.
-    <div className="fd" data-chrome={variant}>
+    <div className="fd" data-chrome={chrome}>
       <>
       {/*
         🔑 `shell-topbar` IS A CONTRACT, NOT A CLASS NAME. Two shipped event
@@ -1093,7 +1126,7 @@ export function FrontDoorShell({
             ("exactly one <h1> each", 2026-08-13). A shared shell must not
             bring the host page's headings with it.
           */}
-          {inApp ? null : (
+          {ownsHeading ? null : (
             <h1 className="fd-sr-only">Setnayan — plan your event, keep it for life</h1>
           )}
           <div className="fd-col">{children}</div>

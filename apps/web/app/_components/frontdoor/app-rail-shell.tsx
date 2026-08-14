@@ -22,10 +22,22 @@
  * So this mounts INSIDE the dashboard layouts, exactly as `SidebarShell` does
  * in the other three trees.
  *
- * ⚠ AND NOT ON PUBLIC PAGES. It reads the session, so mounting it on the blog,
- * Real Stories or the eight doorways would silently DE-CACHE them — they are
- * ISR today and would quietly become per-request renders, with no error and a
- * bill attached.
+ * ⚠ ON PUBLIC PAGES, ONLY WITH `variant="doorway"` AND ONLY WHERE THE PAGE HAS
+ * BEEN MADE DYNAMIC. This paragraph used to forbid public mounts outright, and
+ * its stated mechanism was WRONG — in the less dangerous direction.
+ *
+ * 🔴 THE REAL TRAP: on a `force-static` page, Next 15.5.21 does not de-cache
+ * and does not throw. `next/dist/server/request/cookies.js` returns an EMPTY
+ * COOKIE JAR — that branch sits BEFORE the `dynamicShouldError` throw and
+ * BEFORE every bailout — so the page builds green, stays edge-cached, and
+ * serves a PERMANENTLY SIGNED-OUT rail for an hour at a time. `headers.js`
+ * carries the byte-identical hole, so an audit grepping only for `cookies()`
+ * passes a page that is just as blind. A bill you can see is a nuisance; a
+ * signed-in person shown a signed-out shell with nothing logged is the disease.
+ *
+ * The seven product doorways therefore declare `dynamic = 'force-dynamic'`
+ * (2026-08-15) and mount this from `_doorway.tsx`. `/blog` and Real Stories are
+ * NOT mounted and would still need the same treatment first.
  */
 import 'server-only';
 
@@ -50,6 +62,7 @@ export async function AppRailShell({
   children,
   railContext,
   topBarSlot,
+  variant = 'app',
 }: {
   children: React.ReactNode;
   /**
@@ -72,6 +85,17 @@ export async function AppRailShell({
    * tree stops passing it.
    */
   topBarSlot?: React.ReactNode;
+  /**
+   * Which chrome. Defaults to the signed-in `app`.
+   *
+   * `doorway` is the PUBLIC product pages (/papic, /panood, …): front-door
+   * chrome, but the page owns its own <main> and <h1>. See the variant note in
+   * `front-door-shell.tsx` for why `app` is actively wrong there — it drops the
+   * hamburger on a surface whose rail is `display:none` below 1024, leaving a
+   * phone with no navigation, and points the wordmark at /dashboard, which
+   * redirects a stranger to /login.
+   */
+  variant?: 'app' | 'doorway';
 }) {
   const [account, navLabels, commandItems, studioEvent] = await Promise.all([
     resolveRailAccount(),
@@ -113,7 +137,7 @@ export async function AppRailShell({
 
   return (
     <FrontDoorShell
-      variant="app"
+      variant={variant}
       account={account}
       navLabels={navLabels}
       visibleFolders={FRONT_DOOR_VISIBLE_FOLDERS.map(toRailFolder)}

@@ -277,7 +277,7 @@ test('the app variant renders the SAME bar — never a second one', () => {
 
 test('the app variant does not bring the front door\'s hidden <h1> with it', () => {
   assert.ok(
-    /\{inApp \? null : \(\s*<h1 className="fd-sr-only"/.test(SHELL),
+    /\{\w+ \? null : \(\s*<h1 className="fd-sr-only"/.test(SHELL),
     'the sr-only <h1> is not gated on the variant — every account page would ' +
       'render two <h1>s, the defect the doorway work measured and closed.',
   );
@@ -346,7 +346,22 @@ test('both account layouts mount the shared rail', () => {
 });
 
 test('the app shell asks for the app variant, and reads the nav registry', () => {
-  assert.ok(/variant="app"/.test(APP_SHELL), 'the app mount does not request the app variant');
+  /*
+    🪤 THIS PINNED THE LITERAL `variant="app"`. `AppRailShell` now takes a
+    `variant` prop (default 'app') so the public product doorways can mount the
+    same shell as `variant="doorway"` — and the guard went red against that.
+    What it always meant is that the shell is asked for a variant and the app's
+    default is 'app'.
+  */
+  assert.ok(
+    /variant=\{variant\}/.test(APP_SHELL),
+    'the app mount does not pass a variant through to the shell',
+  );
+  assert.ok(
+    /variant = 'app'/.test(APP_SHELL),
+    "AppRailShell's variant no longer DEFAULTS to 'app' — every signed-in tree " +
+      'would silently change chrome.',
+  );
   assert.ok(
     /getNavSlotMap\(\)/.test(APP_SHELL),
     'labels bypass the nav registry — an admin rename would apply on the phone ' +
@@ -383,7 +398,8 @@ test('mounting the rail did not strand the doors the surfaces already had', () =
     "the wordmark is drawn twice".
   */
   assert.ok(
-    /<Link href="\/dashboard" className="fd-wordmark fd-wordmark-app">/.test(SHELL),
+    /<Link href=\{homeHref\} className="fd-wordmark fd-wordmark-app">/.test(SHELL) &&
+      /const homeHref = variant === 'app' \? '\/dashboard' : '\/'/.test(SHELL),
     'the wordmark home link is gone from the shared bar — inside the app it ' +
       'is the only one-press home, and no spoke draws its own any more',
   );

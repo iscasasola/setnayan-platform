@@ -19,12 +19,11 @@ import type { RailTool } from '@/app/_components/frontdoor/front-door-shell';
  * The signed-out rail: every product, its own line, and a demo where one
  * exists.
  *
- * ⚠ `withDemos` IS FALSE UNLESS AN OVERLAY HOST IS MOUNTED ON THIS ROUTE.
- * `HomeOverlays` renders from `SiteChrome`, which self-gates to `NAV_ROUTES` —
- * and `/` is deliberately NOT one. Passing a `demo` where nothing can open it
- * would put a fake door in front of every stranger who lands on the front page.
- * The front door mounts its own host and passes true; anything else passes
- * false and the rows stay plain links.
+ * ⚠ `demo` IS A MARKER, NOT AN OPENER (owner 2026-08-15: *"we still want a
+ * feature description instead of directly just going to the demo"*). The row
+ * navigates to the product's page; the demo button lives there. So there is no
+ * host to gate on and no flag: the marker simply says which products are
+ * try-able, and `studio-apps.test.ts` pins it to a page that really offers one.
  */
 export function railToolsSignedOut(): ReadonlyArray<RailTool> {
   return STUDIO_APPS.map((a) => ({

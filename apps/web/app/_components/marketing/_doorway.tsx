@@ -1,4 +1,16 @@
 import Link from 'next/link';
+/*
+  🔑 DOORWAY_TONE LIVES IN ITS OWN FILE AND IS RE-EXPORTED FROM HERE.
+  `/alaala` imports ONLY the tone — it does not render `DoorwayPage`. Once this
+  file began importing `AppRailShell` (which is `server-only` and pulls
+  `front-door.css`), that one import would have dragged the whole shared shell
+  into a page that keeps `force-static` and never renders it. Splitting the
+  constant costs one file and keeps the import graph honest.
+*/
+import { DOORWAY_TONE } from './_doorway-tone';
+import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
+import { DemoOverlayHost } from './demo-overlay-host';
+
 import { Reveal } from './_motion';
 import { LineRevealHeading, RevealBand, RevealList, HowItWorksPanel } from './_pa-motion';
 
@@ -31,6 +43,8 @@ import { LineRevealHeading, RevealBand, RevealList, HowItWorksPanel } from './_p
  * Server component: no 'use client'. The motion primitives are the only client
  * parts and they carry their own directive.
  */
+
+export { DOORWAY_TONE };
 
 export type DoorwayStep = {
   t: string;
@@ -143,17 +157,6 @@ export type DoorwayProps = {
  * hex in any of the eight, which is what makes that sharing enforced rather
  * than merely offered.
  */
-export const DOORWAY_TONE = {
-  /** Body copy, and the struck-through half of a differentiator row. */
-  muted: 'text-[var(--m-slate-2)]',
-  /** Mono eyebrows and step numerals. UI-scale gold only — never a fill. */
-  gold: 'text-[var(--m-orange-2)]',
-  /** A card on the cream page: same cream, told apart by a line and a shadow. */
-  card: 'rounded-2xl border border-[var(--m-line)] bg-[var(--m-paper)] shadow-[var(--m-shadow-sm)]',
-  /** The closing panel: a gold hairline on the pale gold wash, never a gold fill. */
-  closingPanel:
-    'rounded-3xl border border-[var(--m-orange)]/40 bg-[var(--m-orange-4)]',
-} as const;
 
 const MUTED = DOORWAY_TONE.muted;
 const GOLD = DOORWAY_TONE.gold;
@@ -188,7 +191,29 @@ export function DoorwayPage({
   epilogue,
 }: DoorwayProps) {
   return (
-    <>
+    /*
+      ─── THE DOORWAY WEARS THE SHARED SHELL (owner 2026-08-15) ─────────────
+      Owner: *"still jumps out of the shell when the links on studio are
+      pressed."* Pressing a Studio row used to swap the whole furniture — the
+      app's rail for the marketing glass nav. Now the product page keeps the
+      rail, the bar and the search, and only the CONTENT changes.
+
+      🔑 MOUNTED HERE, IN A COMPONENT, NOT IN A `layout.tsx`. A directory
+      layout wraps EVERY descendant, and beneath these seven directories live
+      the paparazzo's camera (`/papic/seat/[token]`), the guest gallery whose
+      URL is a bearer credential, the owner-locked live control room
+      (`/panood/control/[eventId]`, "nothing under and above it") and the
+      program pop-out the host's OBS window-CAPTURES AND BROADCASTS. Chrome on
+      that last one goes out on the wedding's live stream. This file is
+      imported by exactly the seven doorway pages, so all sixteen descendants
+      are out of reach BY CONSTRUCTION rather than by a boundary drawn
+      correctly.
+
+      ⚠ `variant="doorway"`, never `app`: the app variant has no hamburger, and
+      the rail is `display:none` below 1024 — a phone would get a product page
+      with no navigation at all. See the variant note in `front-door-shell.tsx`.
+    */
+    <AppRailShell variant="doorway">
       {structuredData.map((ld, i) => (
         <script
           key={i}
@@ -333,6 +358,10 @@ export function DoorwayPage({
           </section>
         </Reveal>
       </main>
-    </>
+      {/* The demo overlays' host. These pages left NAV_ROUTES, so SiteChrome —
+          which used to mount HomeOverlays for them — no longer runs here, and
+          without this the "Try the demo" button below becomes a fake door. */}
+      <DemoOverlayHost />
+    </AppRailShell>
   );
 }

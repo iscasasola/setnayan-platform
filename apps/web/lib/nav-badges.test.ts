@@ -41,7 +41,17 @@ const CUSTOMER_BAR = 'app/dashboard/[eventId]/_components/customer-bottom-nav.ts
 const CUSTOMER_SIDEBAR_CONFIG = 'app/dashboard/[eventId]/_components/customer-nav-config.ts';
 const CUSTOMER_LAYOUT = 'app/dashboard/[eventId]/layout.tsx';
 const VENDOR_BAR = 'app/vendor-dashboard/_components/vendor-bottom-nav.tsx';
-const VENDOR_SIDEBAR = 'app/vendor-dashboard/_components/vendor-sidebar.tsx';
+/**
+ * The vendor's DESKTOP badge derivation.
+ *
+ * ⚠ REPOINTED 2026-08-14, NOT DROPPED (One Shell slice 2). This was
+ * `_components/vendor-sidebar.tsx`, which the shared-rail conversion deleted
+ * — it had no importers left. The rule it is held to is unchanged: whatever
+ * derives the vendor's desktop counts must derive them from `nav-badges.ts`
+ * and must not hand-build a badge literal beside it.
+ */
+const VENDOR_DESKTOP_BADGES =
+  'app/vendor-dashboard/_components/vendor-nav-destinations.ts';
 const VENDOR_LAYOUT = 'app/vendor-dashboard/layout.tsx';
 
 // ── ZERO AND UNKNOWN ARE THE SAME VALUE HERE, AND NEITHER IS A BADGE ────────
@@ -88,7 +98,7 @@ test('one side present still badges', () => {
 // ── ONE RULE, NOT TWO COPIES ────────────────────────────────────────────────
 
 test('every nav that shows these counts derives them from this file', () => {
-  for (const f of [CUSTOMER_BAR, CUSTOMER_SIDEBAR_CONFIG, VENDOR_BAR, VENDOR_SIDEBAR]) {
+  for (const f of [CUSTOMER_BAR, CUSTOMER_SIDEBAR_CONFIG, VENDOR_BAR, VENDOR_DESKTOP_BADGES]) {
     assert.ok(
       /from '@\/lib\/nav-badges'/.test(read(f)),
       `${f} no longer imports the shared badge rule. Whatever replaced it is a ` +
@@ -99,7 +109,7 @@ test('every nav that shows these counts derives them from this file', () => {
 });
 
 test('nobody hand-builds a badge literal beside the shared helper', () => {
-  for (const f of [CUSTOMER_BAR, CUSTOMER_SIDEBAR_CONFIG, VENDOR_BAR, VENDOR_SIDEBAR]) {
+  for (const f of [CUSTOMER_BAR, CUSTOMER_SIDEBAR_CONFIG, VENDOR_BAR, VENDOR_DESKTOP_BADGES]) {
     assert.ok(
       !/badge:\s*\{\s*count:/.test(read(f)),
       `${f} constructs a badge object inline again. The helper exists so the ` +
@@ -176,10 +186,23 @@ test('both layouts pass their already-fetched counts to the phone bar', () => {
 test('the desktop sidebars still get their counts — this was additive', () => {
   // The port lesson from the same week: a change that makes one surface better
   // must be shown not to have quietly taken something from another.
-  const sidebar = jsxElement(read(VENDOR_LAYOUT), 'VendorSidebar');
+  //
+  // ⚠ RETARGETED 2026-08-14, NOT RELAXED (One Shell slice 2). The vendor's
+  // desktop menu is no longer `<VendorSidebar>` inside the old rail — it is
+  // `<VendorRailContext>` inside the shared front-door rail. The rule is
+  // unchanged and still one-directional: whatever renders the vendor's
+  // destinations on a laptop must be handed both counts. Only the name of the
+  // element that renders them moved.
+  //
+  // The counts now travel as object properties into the resolver rather than
+  // as JSX props, so the shapes below are `key: value` — asserting the old
+  // `prop={value}` spelling would have passed vacuously against a component
+  // that never receives them, which is the guard failing open.
+  const sidebar = jsxElement(read(VENDOR_LAYOUT), 'VendorRailContext');
   assert.ok(
-    /bookingsBadge=\{bookingsPending\}/.test(sidebar) && /threadsBadge=\{threadsUnread\}/.test(sidebar),
-    'The vendor SIDEBAR lost a count while the phone gained one.',
+    /bookingsBadge:\s*bookingsPending/.test(sidebar) &&
+      /threadsBadge:\s*threadsUnread/.test(sidebar),
+    'The vendor DESKTOP MENU lost a count while the phone gained one.',
   );
   assert.ok(
     /guestCount=\{guestCount\}/.test(jsxElement(read(CUSTOMER_LAYOUT), 'CustomerSidebar')),

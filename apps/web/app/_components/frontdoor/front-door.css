@@ -1147,6 +1147,58 @@ h2.fd-sechead,
   margin: 0;
 }
 
+/* ── THE CONTEXT GROUP — "you are inside this one thing" ──────────────────
+   The per-surface group that PUSHES in below the account rows (One Shell
+   slice 2, 2026-08-14). Scoped to the app variant because that is the only
+   variant that can ever render one: `/` has no context to be in.
+
+   ⚠ INK, NOT THE DRAWING'S TERRACOTTA — a deliberate, measured deviation.
+   `prototypes/one_shell_2026-08-13.html` paints `.rctx` in `--terra`
+   (#C24E25), which lands 4.62:1 on this cream. That passes AA by 0.12, and
+   this repo has already shipped one live AA failure from a hand-typed hex
+   that two contrast guards each honestly disowned (design#6, #9A8F86 at
+   3.06:1). Terracotta is also the CTA colour under the palette lock, and
+   this header is not a control. Ink carries the same emphasis with the
+   weight and size doing the work, and no headroom to lose. */
+.fd[data-chrome='app'] .fd-rctx {
+  padding: 9px 12px 2px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: var(--fd-ink);
+  /* A long business name truncates rather than wrapping the rail wider. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The eyebrow under it — smaller and quieter than a top-level rail label,
+   so the group reads as nested without indenting the rows (indented rows at
+   72px would collide with the icon strip). */
+.fd[data-chrome='app'] .fd-rlabel-sub {
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fd-m2);
+}
+
+/* The rail's own rows use glyph characters; the app's nav rows use Lucide
+   icons. Centre an SVG in the same 20px slot so the two read as one list. */
+.fd[data-chrome='app'] .fd-gi > svg {
+  display: block;
+  margin: 0 auto;
+}
+
+@media (max-width: 1279.98px) {
+  /* At the 72px icon strip the labels are already hidden, and a truncated
+     business name in a 72px column is a smear. The rows keep their captions,
+     so the group is still navigable — it just stops announcing itself. */
+  .fd[data-chrome='app'] .fd-rctx,
+  .fd[data-chrome='app'] .fd-rlabel-sub {
+    display: none;
+  }
+}
+
 @media (max-width: 1023.98px) {
   /* Below the desktop breakpoint the app variant is inert: no grid, no rail,
      no edge. The rail is already out of the tab order — this variant renders

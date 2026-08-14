@@ -548,15 +548,44 @@ export function FrontDoorShell({
                   <span className="fd-icon-caption">Alaala</span>
                   <Count value={account.alaalaCount} />
                 </Link>
-              {/* People is deliberately off pending legal review. A NOTICE,
-                  not a door — no chevron, no hover, nothing to press. */}
-              <div className="fd-notice">
-                <b>
-                  People <span className="fd-soon">coming soon</span>
-                </b>
-                Family, godparents and friends together. Waiting on a legal
-                review.
-              </div>
+              {/*
+                PEOPLE — A DOOR, NOT A NOTICE. This was a "coming soon · waiting
+                on a legal review" notice, and it was WRONG ON BOTH HALVES.
+
+                `/dashboard/people` ships, and its Samahan section WORKS TODAY —
+                a person can create a group, invite by link and see its members
+                right now. Telling them it is coming soon hides a feature they
+                already own, on the one surface built to lead them to it.
+
+                The legal half was wrong too. What is genuinely still to come is
+                the CONNECTIONS half (family · godparents · friends), and the
+                page's own copy already scopes the claim to exactly that — it
+                was corrected there once before, for the same reason, after the
+                wider sentence ("nothing to do on this page yet") was read by
+                the owner and was false for anyone holding a samahan.
+
+                🔑 A COMING-SOON LABEL IS A CLAIM ABOUT A WHOLE SURFACE. Scope
+                it to the part that is unfinished, or delete it. Never let it
+                cover a shipped feature standing beside the unfinished one.
+
+                Owner, twice: "also people is not coming soon" and then, naming
+                its contents, "where is the dependents, friends, ninong/ninang,
+                samahan, family". He was reading this row when he said it.
+              */}
+              <Link href="/dashboard/people" {...rowProps('people')}>
+                {/* PLAIN LABEL, DELIBERATELY. Every other account row reads
+                    its label from the nav registry so an admin rename reaches
+                    desktop and phone alike — but there is no
+                    `customer.account.people` slot, and `slotLabel` FAILS OPEN
+                    on a miss. Passing a key that does not exist would render
+                    correctly forever while quietly never being renameable:
+                    a reference that looks like a mechanism and is not.
+                    Add the registry entry first, then switch this line. */}
+                <span className="fd-icon" aria-hidden>
+                  People
+                </span>
+                <span className="fd-icon-caption">People</span>
+              </Link>
               {/*
                 YOUR STORY — a thing you HAVE, not a thing you run, so it is
                 never gated. Writing is open to every signed-in person; gating

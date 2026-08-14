@@ -98,6 +98,7 @@ export function railMatchRows(who: {
           // match here lights "your events" while you read your settings.
           { key: 'events', href: '/dashboard', exact: true },
           { key: 'alaala', href: '/dashboard/library' },
+          { key: 'people', href: '/dashboard/people' },
           { key: 'story', href: '/dashboard/creator' },
         ]
       : []),

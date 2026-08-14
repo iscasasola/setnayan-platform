@@ -47,6 +47,8 @@ Three existing guards were **re-anchored, not relaxed**, because code moved bene
 
 `matchesPath` accepts `Pick<NavItem, 'href' | 'matchPrefix'>` instead of a full `NavItem` — a pure type **widening** (it only ever read those two fields; a full `NavItem` demands a LucideIcon the glyph rail has no use for). Every existing caller still satisfies it; behaviour untouched. `resolveRailAccount`, the Studio group and the folder mapping moved out of `front-door.tsx` into `rail-data.ts` so both mounts resolve "which consoles does this person hold" and "how many suppliers in this category" from **one** source.
 
-Verified: typecheck exit 0 · 8024/8024 unit tests · all 16 `lint:*` scripts read for output, not just exit codes · eslint clean in every touched file.
+Verified: `pnpm typecheck` (the full turbo run, exit 0) · 8024/8024 unit tests · all 16 `lint:*` scripts run and their **output read**, not just exit codes · eslint clean in every touched file. `pnpm build` cannot run on this machine — CI is the only valid build claim.
+
+🪤 **`npx tsc --noEmit` inside `apps/web` IS NOT WHAT CI RUNS.** CI runs `pnpm typecheck` → `turbo run typecheck` across every package. This PR went red on its first CI run with two `noUncheckedIndexedAccess` errors **in its own new test file**, after a local per-package tsc had exited 0 — because that local run happened **before** the test file was written and was never repeated. Two lessons, both cheap: run the command CI runs, and re-run verification **after the last edit**, not before it. A green result from an earlier tree is not a green result.
 
 SPEC IMPACT: None — no SKU, price, schema or route change. Chrome only, desktop ≥1024. The owner-lock reversal is already recorded in `DECISION_LOG.md` 2026-08-13; both layouts now cite it inline.

@@ -178,7 +178,13 @@ test('NO rail row hardcodes its active state', () => {
     passed forever while checking an empty list, which is indistinguishable
     from a clean result. Both spellings are now checked, and both are counted.
   */
-  const produced = Array.from(SHELL.matchAll(/'data-on':\s*([^,\n]+)/g)).map((m) => m[1]);
+  // `noUncheckedIndexedAccess` types a capture group as `string | undefined`;
+  // narrow rather than assert, so a regex that stops capturing shrinks this
+  // list to zero and trips the "reading nothing" check below instead of
+  // throwing somewhere less obvious.
+  const produced = Array.from(SHELL.matchAll(/'data-on':\s*([^,\n]+)/g))
+    .map((m) => m[1])
+    .filter((v): v is string => v !== undefined);
   assert.ok(
     produced.length > 0,
     "no 'data-on' value is produced anywhere — this guard is reading nothing",

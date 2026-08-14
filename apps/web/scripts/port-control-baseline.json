@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "fe20f58dd",
+  "generatedFromRef": "364f170b4",
   "routeCount": 401,
   "destinations": 792,
   "actions": 522,
@@ -2839,8 +2839,8 @@
         "dashboard/(account)/create-event/wedding-guard.ts"
       ],
       "destinations": [
-        "/dashboard",
-        "/dashboard/[seg]"
+        "/dashboard/[seg]",
+        "/dashboard?hub=1"
       ],
       "actions": [
         "createWeddingEvent"
@@ -6954,6 +6954,7 @@
     },
     "/pa3d": {
       "files": [
+        "pa3d/loading.tsx",
         "pa3d/page.tsx"
       ],
       "destinations": [
@@ -6978,6 +6979,7 @@
     },
     "/palogo": {
       "files": [
+        "palogo/loading.tsx",
         "palogo/page.tsx"
       ],
       "destinations": [
@@ -6993,6 +6995,7 @@
       "files": [
         "panood/actions.ts",
         "panood/guest-pick-actions.ts",
+        "panood/loading.tsx",
         "panood/page.tsx"
       ],
       "destinations": [
@@ -7155,6 +7158,7 @@
         "papic/_papic-motion.tsx",
         "papic/actions.ts",
         "papic/face-enroll-actions.ts",
+        "papic/loading.tsx",
         "papic/page.tsx"
       ],
       "destinations": [
@@ -7378,6 +7382,7 @@
     },
     "/patiktok": {
       "files": [
+        "patiktok/loading.tsx",
         "patiktok/page.tsx"
       ],
       "destinations": [
@@ -7391,6 +7396,7 @@
     },
     "/pawebsite": {
       "files": [
+        "pawebsite/loading.tsx",
         "pawebsite/page.tsx"
       ],
       "destinations": [
@@ -7603,6 +7609,7 @@
     },
     "/setnayan-ai": {
       "files": [
+        "setnayan-ai/loading.tsx",
         "setnayan-ai/page.tsx"
       ],
       "destinations": [

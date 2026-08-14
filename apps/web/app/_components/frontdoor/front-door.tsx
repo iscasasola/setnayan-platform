@@ -19,12 +19,24 @@ import { FrontDoorFeed, isChip, type ChipKey } from './front-door-feed';
 // The account resolver and the Studio group moved out 2026-08-13 so the
 // signed-in surfaces render the SAME rail from the SAME source. Behaviour is
 // byte-identical; see `rail-data.ts` for why one copy matters here.
-import { railToolsSignedOut, resolveRailAccount, toRailFolder } from './rail-data';
+import {
+  railToolsSignedIn,
+  railToolsSignedOut,
+  resolveRailStudioEvent,
+  resolveRailAccount,
+  toRailFolder,
+} from './rail-data';
 
 export async function FrontDoor({ chip }: { chip?: string }) {
-  const [account, data] = await Promise.all([
+  const [account, data, studioEvent] = await Promise.all([
     resolveRailAccount(),
     loadFrontDoorData(),
+    /*
+      `/` is already dynamic (measured live: MISS, private, no-store), and every
+      read below is React cache()d and shared with the account resolver, so
+      asking which event a signed-in visitor holds costs nothing here.
+    */
+    resolveRailStudioEvent(),
   ]);
 
   const activeChip: ChipKey = isChip(chip) ? chip : 'All';
@@ -34,7 +46,15 @@ export async function FrontDoor({ chip }: { chip?: string }) {
       account={account}
       visibleFolders={FRONT_DOOR_VISIBLE_FOLDERS.map(toRailFolder)}
       moreFolders={FRONT_DOOR_MORE_FOLDERS.map(toRailFolder)}
-      tools={railToolsSignedOut()}
+      /*
+        THE SAME BRANCH THE APP MOUNT MAKES — see the note there. This handed
+        every visitor the signed-OUT rows, so a signed-in person on `/` was sent
+        to the page that SELLS a product they already own, and the group then
+        changed shape the moment they opened one.
+      */
+      tools={
+        account.signedIn ? railToolsSignedIn(studioEvent) : railToolsSignedOut()
+      }
     >
       <FrontDoorFeed data={data} chip={activeChip} />
     </FrontDoorShell>

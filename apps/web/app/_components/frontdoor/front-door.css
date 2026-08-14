@@ -326,6 +326,12 @@
    there and hanging a vertical expander off it would steal 4px of that row's
    clicks. Only the BAR's copies shrink; see the scoped rule below. */
 .fd-btn-gold {
+  /* "+ New event" is 11 characters where "+ Create" was 8, in a flex row that
+     declared no wrap rule. Measured: this button DOES render below 1024 on `/`
+     and on all seven doorways — the display:none is scoped to
+     [data-chrome='app'] — so a signed-in visitor meets it on a phone on eight
+     public pages. */
+  white-space: nowrap;
   min-height: 44px;
   padding: 0 15px;
   border-radius: var(--m-r-full);

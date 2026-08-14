@@ -51,6 +51,7 @@ import './front-door.css';
 import { FrontDoorShell, type RailNavLabels } from './front-door-shell';
 import {
   railToolsSignedIn,
+  railToolsSignedOut,
   resolveRailStudioEvent,
   resolveRailAccount,
   toRailFolder,
@@ -147,7 +148,24 @@ export async function AppRailShell({
         host, and a row offering a demo that cannot open is a fake door. It is
         also the wrong offer: these people own the product.
       */
-      tools={railToolsSignedIn(studioEvent)}
+      /*
+        🔴 WHO IS LOOKING, NOT WHICH PAGE THEY ARE ON. Owner 2026-08-15: *"same
+        as studio and its sub mene also"* — pressing a Studio row visibly
+        changed the Studio group itself. Measured live: seven descriptions and
+        three "try it" markers on `/`, ZERO of each on `/papic`, because this
+        line asked for the signed-IN rows unconditionally while the front door
+        asked for the signed-OUT ones. `railToolsSignedIn` sets `line: null` by
+        design ("signed in, silence beats selling") — the function was right,
+        the caller never asked the question.
+
+        Now BOTH mounts branch on the same thing, so the group cannot change
+        shape as you move between pages:
+          signed out → the descriptions and the "try it" markers
+          signed in  → your own tools, no selling copy
+      */
+      tools={
+        account.signedIn ? railToolsSignedIn(studioEvent) : railToolsSignedOut()
+      }
       railContext={railContext}
       topBarSlot={topBarSlot}
       /*

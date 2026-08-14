@@ -45,9 +45,28 @@ import { join } from 'node:path';
 const ROOT = process.cwd();
 const CHROME = join(ROOT, 'app/_components/marketing/site-chrome.tsx');
 
-/** Pull a `new Set<string>([...])` literal's members out of the source. */
+/**
+ * Pull a `new Set<string>([...])` literal's members out of the source.
+ *
+ * 🪤 COMMENTS ARE STRIPPED FIRST, AND ONE APOSTROPHE IS WHY. `site-chrome.tsx`
+ * carries the words "Google's OAuth reviewer" in a comment INSIDE the
+ * NAV_ROUTES literal. Run over raw source, `/'([^']+)'/g` reads that apostrophe
+ * as an opening quote and swallows everything to the next one — so this
+ * returned a whole comment paragraph as a "route" and NEVER SAW
+ * /privacy/google-access, /terms, /refunds, /cookies, /acceptable-use, /help,
+ * /download or /waitlist. This lint has therefore never once checked the legal
+ * family for a stacked pinned bar, silently, since it was written.
+ *
+ * Measured 2026-08-15: 26 members from raw source, 25 from stripped, differing
+ * by eight in one direction and six in the other.
+ */
 function setMembers(src, name) {
-  const m = src.match(new RegExp(`const ${name}\\s*=\\s*new Set<string>\\(\\[([\\s\\S]*?)\\]\\)`));
+  const clean = src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((l) => !l.trimStart().startsWith('//'))
+    .join('\n');
+  const m = clean.match(new RegExp(`const ${name}\\s*=\\s*new Set<string>\\(\\[([\\s\\S]*?)\\]\\)`));
   if (!m) return null;
   return new Set([...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]));
 }

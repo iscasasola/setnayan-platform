@@ -615,7 +615,10 @@ export function EventTypePicker({
             >
               Create {selected.label.toLowerCase()} event
             </SubmitButton>
-            <Link className="button-secondary w-full sm:w-auto" href="/dashboard">
+            {/* `?hub=1` for the same reason as the page's back chip: a bare
+                /dashboard auto-jumps a one-event couple INTO their wedding, so
+                Cancel would land them somewhere they did not ask for. */}
+            <Link className="button-secondary w-full sm:w-auto" href="/dashboard?hub=1">
               Cancel
             </Link>
           </div>

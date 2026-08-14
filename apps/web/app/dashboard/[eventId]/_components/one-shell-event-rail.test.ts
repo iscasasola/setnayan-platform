@@ -236,30 +236,50 @@ function realRows(): RailMatchRow[] {
   );
 }
 
-test('exactly one row lights on each real event URL', () => {
-  const base = `/dashboard/${EVENT_ID}`;
-  const cases: Array<[string, string | null]> = [
-    [base, 'home'],
-    [`${base}/guests`, 'guests'],
-    [`${base}/guests/anything`, 'guests'],
-    [`${base}/vendors`, 'explore'],
-    [`${base}/studio`, 'studio'],
-    [`${base}/schedule`, 'schedule'],
-    [`${base}/seating`, 'seat'],
-    [`${base}/budget`, 'budget'],
-    [`${base}/website/editor`, 'launch'],
-    // A route the rail does not list. `null` is a REAL answer and must render
-    // as "no row lit" — telling someone they are somewhere they are not is
-    // worse than telling them nothing.
-    [`${base}/messages`, null],
-  ];
-  for (const [pathname, expected] of cases) {
+test('every row in the SSOT lights itself, and only itself', () => {
+  /*
+    DERIVED FROM THE SSOT, NOT A HAND-TYPED ROUTE LIST.
+
+    🪤 A hardcoded list here would CRY WOLF on somebody else's correct change.
+    The owner ruled on 2026-08-14 that "Seat plan" is retired from this group
+    because the guest-journey step wins (`DECISION_LOG.md`), and a list naming
+    `/seating` → 'seat' would go red on the commit that carries out his own
+    ruling. A guard that fires on a legitimate change teaches you to skim past
+    the one time it is right.
+
+    What is actually worth pinning is the INVARIANT, and it survives any row
+    being added or retired: every destination the rail offers lights ITS OWN
+    row when you are on it. The sub-route and no-match cases below cannot be
+    derived, so they stay explicit.
+  */
+  const rows = realRows();
+  assert.ok(rows.length >= 5, `only ${rows.length} rows — the builder returned a stub.`);
+  for (const row of rows) {
     assert.equal(
-      activeRailKey(realRows(), pathname),
-      expected,
-      `${pathname} should light ${expected ?? 'nothing'}.`,
+      activeRailKey(rows, row.href),
+      row.key,
+      `${row.href} should light "${row.key}" and nothing else.`,
     );
   }
+});
+
+test('a sub-route lights its parent, and an unlisted route lights nothing', () => {
+  const base = `/dashboard/${EVENT_ID}`;
+  assert.equal(
+    activeRailKey(realRows(), `${base}/guests/anything`),
+    'guests',
+    'A page inside Guests must keep the Guests row lit.',
+  );
+  /*
+    `null` is a REAL answer and must render as "no row lit". Telling someone
+    they are somewhere they are not is worse than telling them nothing — and
+    it is why the resolver must never fall back to the first row.
+  */
+  assert.equal(
+    activeRailKey(realRows(), `${base}/messages`),
+    null,
+    'A route the rail does not list must light NOTHING, never a fallback row.',
+  );
 });
 
 test('Overview does not light on every other event route', () => {

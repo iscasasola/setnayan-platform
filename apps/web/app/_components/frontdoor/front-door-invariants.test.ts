@@ -24,6 +24,17 @@ const APP = resolve(HERE, '..', '..');
 const SHELL = readFileSync(join(HERE, 'front-door-shell.tsx'), 'utf8');
 const FEED = readFileSync(join(HERE, 'front-door-feed.tsx'), 'utf8');
 const DOOR = readFileSync(join(HERE, 'front-door.tsx'), 'utf8');
+/**
+ * ⚠ RE-ANCHORED 2026-08-13 (One Shell slice 0), NOT relaxed.
+ *
+ * The front door's server half is now TWO files: `front-door.tsx` composes the
+ * page, `rail-data.ts` holds the account resolver, the Studio group and the
+ * folder mapping — shared so the public page and the signed-in surfaces cannot
+ * quote different counts for one category. Checks about "what the front door
+ * reads" must read BOTH, or they pass by looking at the wrong half. This one
+ * went RED on the move, which is how the gap was found.
+ */
+const RAIL_DATA = readFileSync(join(HERE, 'rail-data.ts'), 'utf8');
 const PAGE = readFileSync(join(APP, 'page.tsx'), 'utf8');
 
 /** Strip comments so a rule mentioned in prose can never satisfy a check. */
@@ -37,6 +48,7 @@ function code(src: string): string {
 const SHELL_CODE = code(SHELL);
 const FEED_CODE = code(FEED);
 const DOOR_CODE = code(DOOR);
+const RAIL_DATA_CODE = code(RAIL_DATA);
 
 /**
  * Does this URL path resolve to a real App Router route?
@@ -339,7 +351,7 @@ test('the rail and explore both read the shared folder count', () => {
     the specific SYMBOL, and that neither side recomputes it.
   */
   assert.ok(
-    /FOLDER_SERVICE_COUNT/.test(DOOR_CODE),
+    /FOLDER_SERVICE_COUNT/.test(DOOR_CODE + RAIL_DATA_CODE),
     'the front door must import the shared FOLDER_SERVICE_COUNT',
   );
   const explore = code(readFileSync(join(APP, 'explore', 'page.tsx'), 'utf8'));
@@ -351,6 +363,7 @@ test('the rail and explore both read the shared folder count', () => {
   // Neither may derive its own copy from the taxonomy — that is the drift.
   for (const [name, src] of [
     ['front door', DOOR_CODE],
+    ['front door rail data', RAIL_DATA_CODE],
     ['explore', explore],
   ] as const) {
     assert.ok(

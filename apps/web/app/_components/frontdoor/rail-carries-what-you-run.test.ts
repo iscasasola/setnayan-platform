@@ -22,7 +22,16 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SHELL = join(HERE, 'front-door-shell.tsx');
-const DATA = join(HERE, 'front-door.tsx');
+/**
+ * ⚠ RE-ANCHORED 2026-08-13 (One Shell slice 0), NOT relaxed.
+ *
+ * The account resolver moved out of `front-door.tsx` into `rail-data.ts` so
+ * the public page and the signed-in surfaces resolve "which consoles does this
+ * person hold" from ONE place. This guard follows the code; the assertion
+ * below is unchanged, and it FAILED first (the shop-row check went red on the
+ * move and is what caught it), which is how we know it still reads something.
+ */
+const DATA = join(HERE, 'rail-data.ts');
 const CSS = join(HERE, 'front-door.css');
 const ROLES = join(HERE, '..', '..', '..', 'lib', 'roles.ts');
 

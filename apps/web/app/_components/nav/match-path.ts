@@ -84,7 +84,13 @@ function currentSatisfiesHrefQuery(
  * contract).
  */
 export function matchesPath(
-  item: NavItem,
+  // WIDENED, not changed: this function only ever reads `href` and
+  // `matchPrefix`, and a full NavItem also demands a `key`, a `label` and a
+  // LucideIcon. The front-door rail's rows are glyph characters, not Lucide
+  // icons, so requiring the whole shape would have forced either a cast or a
+  // second copy of this matcher. Every existing caller still satisfies this —
+  // a NavItem IS assignable to a Pick of itself. Behaviour is untouched.
+  item: Pick<NavItem, 'href' | 'matchPrefix'>,
   pathname: string,
   currentParams?: ParamGetter | null,
 ): boolean {

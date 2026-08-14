@@ -470,6 +470,45 @@
   color: var(--fd-m1);
   font-size: 15px;
 }
+/* ── A STUDIO ROW WITH ITS LINE ───────────────────────────────────────────
+   Owner 2026-08-14: "that is where we can talk about the different apps."
+   Signed out each product says what it is, so the row grows a second line and
+   stops being a fixed 44px. Signed in the line is absent and `.fd-row-2l` is
+   never applied, so those rows are byte-identical to before.
+   ⚠ The 44px tap floor is a MINIMUM, so a taller row is never a lock problem —
+   only a shorter one would be. */
+.fd-row-2l {
+  min-height: 56px;
+  align-items: flex-start;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.fd-row-2l .fd-dot {
+  margin-top: 7px;
+}
+.fd-toolwrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.fd-toolline {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--fd-m2);
+}
+/* The affordance that says this row opens a demo rather than navigating. It is
+   inside the label, so the icon-strip caption below 1280 never shows it. */
+.fd-toolplay {
+  margin-left: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--fd-gold);
+  white-space: nowrap;
+}
+/* At the 72px icon strip the labels are hidden already; make sure the line and
+   the demo affordance go with them rather than reflowing the strip. */
 .fd-dot {
   width: 6px;
   height: 6px;
@@ -1442,6 +1481,22 @@ h2.fd-sechead,
   .fd[data-chrome='app'] .fd-rctx,
   .fd[data-chrome='app'] .fd-rlabel-sub {
     display: none;
+  }
+
+  /* 🪤 THESE LIVE HERE, IN THE EXISTING BLOCK, AND THAT IS THE POINT. Adding a
+     SECOND `@media (max-width: 1279.98px)` block for them broke a shipped guard
+     without breaking the code: `one-shell-event-rail.test.ts` finds the FIRST
+     1279 block and asserts the event name is hidden inside it, and the new
+     block came first. Correct code, red guard — the identical mistake this file
+     already records making with the 1024 band, made again two hours later.
+     ONE BLOCK PER BREAKPOINT. */
+  .fd-toolline,
+  .fd-toolplay {
+    display: none;
+  }
+  .fd-row-2l {
+    min-height: 44px;
+    align-items: center;
   }
 }
 

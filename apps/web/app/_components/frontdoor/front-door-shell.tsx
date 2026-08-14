@@ -43,6 +43,7 @@ import { usePathname } from 'next/navigation';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { LogoMark } from '@/app/_components/brand-marks';
+import { openDemoOverlay, type DemoOverlayId } from '@/lib/demo-overlay-bus';
 import { activeRailKey, railMatchRows } from './rail-active';
 
 /**
@@ -116,8 +117,35 @@ export type RailFolder = {
 };
 
 export type RailTool = {
+  /** Stable id from `lib/studio-apps.ts`. Also the React key. */
+  key: string;
   href: string;
   name: string;
+  /**
+   * The line under the name.
+   *
+   * SIGNED OUT it says what the product IS — owner 2026-08-14: *"that is where
+   * we can talk about the different apps."* Seven bare names teach a stranger
+   * nothing. The words come from `lib/studio-apps.ts`, the same record the
+   * product page's own `<meta name="description">` reads.
+   *
+   * 🔑 SIGNED IN IT IS `null`, DELIBERATELY. The line's job changes from
+   * selling to reporting, and we do not sell a person something they already
+   * bought. Reporting honestly means a real count — and a count we have not
+   * measured must render as NOTHING, never as 0, because filing an unmeasured
+   * thing under "you have none" puts it in the one place a person has been told
+   * they need not look. Resolving seven products' counts is seven reads on
+   * every signed-in page render, so today the honest answer is silence. NAMED,
+   * NOT FORGOTTEN: when a count can be read cheaply, it goes here.
+   */
+  line: string | null;
+  /**
+   * Open this demo instead of navigating.
+   *
+   * ⚠ ONLY SET WHERE AN OVERLAY ACTUALLY EXISTS (three of seven) AND ONLY WHERE
+   * ONE IS MOUNTED. A row offering a demo that cannot open is a fake door.
+   */
+  demo?: DemoOverlayId;
 };
 
 export type FrontDoorAccount = {
@@ -919,13 +947,56 @@ export function FrontDoorShell({
               <div className="fd-rlabel">
                 Studio <small>the things you make</small>
               </div>
-              {tools.map((t) => (
-                <Link key={t.href} href={t.href} className="fd-row">
-                  <span className="fd-dot" aria-hidden="true" />
-                  <span className="fd-label-text">{t.name}</span>
-                  <span className="fd-icon-caption">{t.name}</span>
-                </Link>
-              ))}
+              {/*
+                ONE ROW, TWO BEHAVIOURS (owner 2026-08-14). Signed out, a row
+                with a demo OPENS it rather than navigating — a stranger's
+                question is "what is this?" and the demo answers it better than
+                a page of copy. Signed in, `demo` is never set and every row is
+                a plain link into the person's own tool.
+
+                🔑 THE DEMO ROW IS A <button> AND THE REST ARE <Link>s, because
+                they do genuinely different things: one opens a dialog in place,
+                the others navigate. Rendering the demo row as a link to "#"
+                with a click handler would break middle-click and open-in-new-tab
+                into a lie, and a control that looks navigable and is not is the
+                shape this page keeps paying for.
+              */}
+              {tools.map((t) =>
+                t.demo ? (
+                  <button
+                    key={t.key}
+                    type="button"
+                    className="fd-row fd-row-2l"
+                    aria-haspopup="dialog"
+                    onClick={() => openDemoOverlay(t.demo!)}
+                  >
+                    <span className="fd-dot" aria-hidden="true" />
+                    <span className="fd-toolwrap">
+                      <span className="fd-label-text">
+                        {t.name}
+                        <span className="fd-toolplay" aria-hidden="true">
+                          ▸ demo
+                        </span>
+                      </span>
+                      {t.line ? <span className="fd-toolline">{t.line}</span> : null}
+                    </span>
+                    <span className="fd-icon-caption">{t.name}</span>
+                  </button>
+                ) : (
+                  <Link
+                    key={t.key}
+                    href={t.href}
+                    className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
+                  >
+                    <span className="fd-dot" aria-hidden="true" />
+                    <span className="fd-toolwrap">
+                      <span className="fd-label-text">{t.name}</span>
+                      {t.line ? <span className="fd-toolline">{t.line}</span> : null}
+                    </span>
+                    <span className="fd-icon-caption">{t.name}</span>
+                  </Link>
+                ),
+              )}
             </>
           )}
 

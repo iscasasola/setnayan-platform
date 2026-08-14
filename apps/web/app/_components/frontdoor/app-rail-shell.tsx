@@ -37,7 +37,12 @@ import {
 
 import './front-door.css';
 import { FrontDoorShell, type RailNavLabels } from './front-door-shell';
-import { RAIL_TOOLS, resolveRailAccount, toRailFolder } from './rail-data';
+import {
+  railToolsSignedIn,
+  resolveRailStudioEvent,
+  resolveRailAccount,
+  toRailFolder,
+} from './rail-data';
 import { resolveCommandItems } from './command-data';
 import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
 
@@ -68,7 +73,7 @@ export async function AppRailShell({
    */
   topBarSlot?: React.ReactNode;
 }) {
-  const [account, navLabels, commandItems] = await Promise.all([
+  const [account, navLabels, commandItems, studioEvent] = await Promise.all([
     resolveRailAccount(),
     /*
       🔑 LABELS COME FROM THE NAV REGISTRY, which is where an admin renames
@@ -94,6 +99,16 @@ export async function AppRailShell({
       a working bar, a shell that throws is a blank screen.
     */
     resolveCommandItems(),
+    /*
+      WHICH EVENT THE STUDIO ROWS OPEN — owner 2026-08-14: *"when logged in, it
+      will be different view."* A signed-in person pressing "Papic" wants THEIR
+      Papic, not the page that sells it. Exactly one event opens straight into
+      the tool; several send them to the board (which is the picker) rather than
+      guessing which wedding they meant; none keeps the public page, because the
+      page that explains the product is what somebody without an event needs.
+      All reads are React cache()d and shared with the resolvers above.
+    */
+    resolveRailStudioEvent(),
   ]);
 
   return (
@@ -103,7 +118,12 @@ export async function AppRailShell({
       navLabels={navLabels}
       visibleFolders={FRONT_DOOR_VISIBLE_FOLDERS.map(toRailFolder)}
       moreFolders={FRONT_DOOR_MORE_FOLDERS.map(toRailFolder)}
-      tools={RAIL_TOOLS}
+      /*
+        ⚠ NO `demo` IS EVER PASSED HERE. Signed-in surfaces mount no overlay
+        host, and a row offering a demo that cannot open is a fake door. It is
+        also the wrong offer: these people own the product.
+      */
+      tools={railToolsSignedIn(studioEvent)}
       railContext={railContext}
       topBarSlot={topBarSlot}
       /*

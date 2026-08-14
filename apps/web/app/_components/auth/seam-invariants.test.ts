@@ -192,12 +192,34 @@ test('the front door signs you in without leaving', () => {
     what makes both halves true at once, and it is the attribute the e2e test
     now keys on instead of the element type.
   */
-  const announced = src.match(/aria-haspopup="dialog"/g) ?? [];
+  /*
+    🪤 THIS USED TO COUNT `aria-haspopup="dialog"` ACROSS THE WHOLE FILE and
+    require the total to equal the number of sign-in links. That is a file-level
+    count, and it cannot localise: it went red on 2026-08-14 the moment a
+    DIFFERENT control — the rail's Studio demo row, which genuinely opens a
+    dialog and is genuinely right to say so — added a third. Correct code, red
+    guard, and the tempting "fix" is to strip a true accessibility attribute
+    from an unrelated button.
+
+    It now checks the attribute ON each sign-in control, which is what the
+    sentence above always meant and is strictly stronger: adding a third
+    dialog-opening control elsewhere is silent, while a sign-in link that drops
+    the attribute still fails.
+  */
+  const signInControls = src.match(/<Link[^>]*href="\/login"[\s\S]*?>/g) ?? [];
   assert.equal(
-    announced.length,
+    signInControls.length,
     links.length,
-    'Every intercepted sign-in link must carry aria-haspopup="dialog".',
+    'A /login href was found outside a <Link> — this guard can no longer see it.',
   );
+  for (const [i, control] of signInControls.entries()) {
+    assert.match(
+      control,
+      /aria-haspopup="dialog"/,
+      `Sign-in control #${i + 1} does not carry aria-haspopup="dialog". It is a ` +
+        'link that hands the reader a dialog without saying so.',
+    );
+  }
 });
 
 test('the sign-in panel can actually trap focus, close on Escape and lock scroll', () => {

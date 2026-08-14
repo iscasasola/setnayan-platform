@@ -50,6 +50,7 @@
  */
 
 import Link from 'next/link';
+import { studioDescription } from '@/lib/studio-apps';
 import { Reveal } from '@/app/_components/marketing/_motion';
 import {
   DoorwayPage,
@@ -78,8 +79,17 @@ export const revalidate = 3600;
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
 const PAGE_TITLE = 'Papic — Guest Photo Gallery for Weddings · Setnayan';
-const PAGE_DESCRIPTION =
-  'Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each guest goes home with their own gallery — plus a personal video reel set to music. The candid wedding moments one photographer can’t be everywhere for, delivered to everyone. Philippines-first.';
+/*
+ * 🔑 THE DESCRIPTION IS NOT AUTHORED HERE ANY MORE — it is read from
+ * `lib/studio-apps.ts`, the ONE place the seven Studio products are
+ * described, so this page's search result and the rail's row for it can
+ * never disagree about what the product does. The string itself is
+ * UNCHANGED (moved verbatim); rewording it would have quietly rewritten a
+ * live, indexed search result.
+ * ⚠ Do not re-inline it. Two hand-typed strings that must agree is not a
+ * mechanism, it is a future drift.
+ */
+const PAGE_DESCRIPTION = studioDescription('papic');
 const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 
 export const metadata = {

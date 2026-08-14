@@ -114,6 +114,11 @@ const FLAGS: FlagSpec[] = [
       'app/dashboard/[eventId]/budget/page.tsx',
       // BUD-3 — the empty-`covers_plan_groups` skip (R2, ₱810,000).
       'lib/checklist-budget.ts',
+      // BUD-8 — the Merkado payments lens. The SECOND screen a couple calls
+      // "our money": if this one stops asking the flag while `/budget` keeps
+      // asking, the two print different totals for the same wedding on the day
+      // the flag flips (measured: ₱80,000 apart on prod event `044f7e64…`).
+      'app/dashboard/[eventId]/vendors/_components/merkado-budget-lens.tsx',
     ],
     pureCores: [
       // Take `enabled` as a parameter, so their suites drive BOTH states in one

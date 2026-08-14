@@ -331,14 +331,25 @@ export default async function EventLayout({ children, params }: Props) {
   );
   const homeLabel = 'Home · all your events';
 
-  // Top bar lives inside SidebarShell's topBar slot. Carries the event-
-  // scoped utilities cluster — AccountSwitcher (left), Marketplace + role-
-  // switch + unread bell + profile menu (right). Pre-Phase 1 this sat
-  // inside a <div className="sticky top-0 z-20 backdrop-blur"> wrapper
-  // owned by the layout; now SidebarShell owns the sticky chrome and we
-  // just inject the inner row.
+  /*
+    ─── THE EVENT'S OWN TOP-BAR CLUSTER (One top bar, 2026-08-14) ───────────
+    Owner, over three screenshots: *"the issue is the top nav is not there?"* —
+    inside a wedding there was no wordmark and no search, just chat, a bell and
+    an avatar. This cluster is now handed to the SHARED bar through
+    `topBarSlot`, which supplies the wordmark, the search and "+ Create" that
+    were missing, and every control below is unchanged.
+
+    🔑 IT MOVED OUT OF `SidebarShell`'s `topBar` SLOT, and that is the half
+    that matters beyond this screen: `SidebarShell` had two jobs — the sticky
+    hide-on-scroll bar AND the `<main>` carrying `.sn-vt-page`, the only
+    element with that view-transition name, which the phone's nav slide freezes
+    the document around. THE SHARED BAR HAS TAKEN THE FIRST JOB (it carries the
+    same hide-on-scroll rule, owner 2026-06-15). The second is untouched here
+    on purpose — retiring the shell is Session 9's, and it is unblocked by this
+    landing rather than done by it.
+  */
   const topBar = (
-    <div className="mx-auto flex w-full items-center justify-end gap-3 px-4 py-3 sm:px-6 lg:px-8">
+    <div className="flex items-center gap-3">
       {/* Planning escape (Event Lifecycle Menu) — day-of only, mobile only.
           Desktop uses the sidebar; bottom nav is the day-of command center. */}
       {phase === 'dayof' ? (
@@ -432,6 +443,7 @@ export default async function EventLayout({ children, params }: Props) {
             guestCount={guestCount}
           />
         }
+        topBarSlot={topBar}
       >
       <SidebarShell
         /*
@@ -509,7 +521,14 @@ export default async function EventLayout({ children, params }: Props) {
             unreadMessages={unreadMessages}
           />
         }
-        topBar={topBar}
+        /*
+          🔑 NO `topBar` ANY MORE — THE SHARED BAR HAS IT (2026-08-14). This
+          shell's sticky hide-on-scroll strip was one of its two jobs; the other
+          is the `<main>` carrying `.sn-vt-page`, which stays. Passing `topBar`
+          as well would render the event's cluster TWICE on every screen — one
+          of them a second bell opening a second Realtime channel, which
+          `unread-bell-badge.tsx` already carries a dated comment about.
+        */
       >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop

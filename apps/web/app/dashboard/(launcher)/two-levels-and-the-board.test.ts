@@ -555,7 +555,33 @@ test('the invited memberships are actually PUT ON the board', () => {
 });
 
 test('the ⌘K index cannot offer a dead jump', () => {
-  const src = launcher();
+  /*
+    🪤 THIS GUARD READ THE WRONG FILE FOR ONE COMMIT, AND THAT IS THE LESSON.
+    The index it protects moved on 2026-08-14 — out of `(launcher)/page.tsx`
+    and into `_components/frontdoor/command-data.ts`, because the shared top
+    bar renders the palette on all five signed-in trees and two builders would
+    have listed different things on /dashboard than inside a wedding. Left
+    pointed here the guard would have gone green over a file that no longer
+    contains an index at all: a guard reading a file that cannot contain the
+    defect is decoration.
+
+    🔑 WHAT IT PROTECTS IS UNCHANGED AND IS NOT NEGOTIABLE. The couple
+    dashboard admits ORGANISERS ONLY, so an index that derives
+    `/dashboard/${event_id}` puts a 404 behind a search result offered to the
+    very person who was just told they belong. `lib/event-board.ts` is the only
+    authority on where a membership may go — see
+    [[project_setnayan_guest_doors_are_not_dashboards]], where this rule has
+    now been broken NINE times across four PRs.
+  */
+  const src = readFileSync(
+    resolve(HERE, '..', '..', '_components', 'frontdoor', 'command-data.ts'),
+    'utf8',
+  );
+  assert.ok(
+    src.length > 500,
+    'command-data.ts is missing or a stub — every assertion below would pass ' +
+      'vacuously. The index has moved again; follow it, do not delete this.',
+  );
   assert.match(
     src,
     /\.map\(\(e\) => \(\{ e, href: eventBoardHref\(e\) \}\)\)/,
@@ -566,6 +592,13 @@ test('the ⌘K index cannot offer a dead jump', () => {
     /\.filter\(\(x\): x is \{ e: EventWithRole; href: string \}/,
     'The search index stopped dropping events with nowhere to go, so it can list a ' +
       'result that opens onto nothing.',
+  );
+  // …and the launcher must NOT have grown a second index back.
+  assert.doesNotMatch(
+    launcher(),
+    /const commandItems: HomeCommandItem\[\]/,
+    'The launcher is building its own palette index again, beside the shared ' +
+      'one. Two builders is two answers to one question.',
   );
 });
 

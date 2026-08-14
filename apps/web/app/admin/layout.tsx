@@ -22,7 +22,6 @@ import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { AdminRailContext } from './_components/admin-rail-context';
-import { AdminStickyTopBar } from './_components/admin-sticky-top-bar';
 import { AdminCommandPalette } from './_components/admin-command-palette';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
 import { AdminNavFab } from './_components/admin-nav-fab';
@@ -64,7 +63,11 @@ export const metadata = { title: 'Setnayan HQ' };
  * assumed, because each would have vanished without an error:
  *
  *  1. THE STICKY TOP BAR + the owner-locked hide-on-scroll rule (2026-06-15) —
- *     now `<AdminStickyTopBar>`, which WRAPS the identical bar markup below.
+ *     briefly `<AdminStickyTopBar>`; from 2026-08-14 THE SHARED BAR owns it,
+ *     for all five signed-in trees at once. That component is RETIRED, and its
+ *     three responsibilities went with the job rather than being assumed: the
+ *     sticky position, the frost, and the `shell-topbar` hide hook two event
+ *     pages inject a rule against. See `front-door-shell.tsx`.
  *  2. `.sn-vt-page` ON THE CONTENT — the mobile bottom-nav page slide names
  *     exactly one element (`view-transition-name: sn-page`) and freezes the
  *     rest. `NavSlideController` treats `/admin` as a base tab, so losing the
@@ -221,8 +224,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // council 2026-07-16). The overdue/due-soon escalation pill leads the
   // cluster so a breach is visible on EVERY admin page, not just when the
   // eye is on the Work nav group.
+  /*
+    ─── HQ'S OWN TOP-BAR CLUSTER (One top bar, 2026-08-14) ──────────────────
+    Handed to the SHARED bar through `topBarSlot`, which supplies the wordmark,
+    the search and "+ Create" this doorway never had. Every control below is
+    unchanged — the SLA escalation pill, the bell, the environment badge, the
+    display name and the AccountSwitcher carrying the only Sign out here.
+
+    ⚠ THE SLA PILL AND THE ENVIRONMENT BADGE EXIST ON THIS SURFACE AND NOWHERE
+    ELSE. That is exactly why the shared bar takes a SLOT rather than building
+    a "standard" cluster of its own: a shell that rebuilt the common parts
+    would have dropped both without a diff line to show for it.
+  */
   const topBar = (
-    <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-3 sm:gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
+    <div className="flex items-center gap-3 sm:gap-2">
       {/* SLA escalation pills — semantic red/warn classes (council fix #12:
           same color family per urgency state as the sidebar badges + overview
           tiles; the stock Untitled-UI hexes are retired). The ::before inset
@@ -327,8 +342,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             queueStates={urgency.states}
           />
         }
+        topBarSlot={topBar}
       >
-        <AdminStickyTopBar>{topBar}</AdminStickyTopBar>
         {/* `sn-vt-page` → `view-transition-name: sn-page`. During the mobile
             bottom-nav carousel slide (NavSlideController, which lists `/admin`
             among its base tabs) ONLY this element slides; the rail and the

@@ -279,8 +279,21 @@ export default async function VendorDashboardLayout({
   // mobile-only (lg:hidden); desktop users open the same panel from the
   // SwitcherPlaqueTrigger business plaque in the sidebar header
   // (Plaque-as-Menu, council 2026-07-16).
+  /*
+    ─── THE SHOP'S OWN TOP-BAR CLUSTER (One top bar, 2026-08-14) ────────────
+    Handed to the SHARED bar through `topBarSlot`, which supplies the wordmark,
+    the search and "+ Create" this doorway never had. Every control below is
+    unchanged, including the AccountSwitcher that carries the ONLY Sign out on
+    every vendor screen.
+
+    🔑 IT LEFT `SidebarShell`'s `topBar` SLOT. That shell kept two jobs after
+    slice 2 stood its rail down — the sticky hide-on-scroll bar and the `<main>`
+    carrying `.sn-vt-page`. The shared bar has taken the first (same
+    hide-on-scroll rule, owner 2026-06-15); the second stays here untouched,
+    because retiring the shell is Session 9's job.
+  */
   const topBar = (
-    <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
+    <div className="flex items-center gap-2">
       {/* The mobile "More" overflow link was removed 2026-07-16 with the /more
           landing it opened — under the 5-page IA the bottom nav already covers
           every hub, and every deeper surface lives as a tab inside its hub. */}
@@ -345,6 +358,7 @@ export default async function VendorDashboardLayout({
             tier={vendorTier}
           />
         }
+        topBarSlot={topBar}
       >
       <SidebarShell
         /*
@@ -353,9 +367,11 @@ export default async function VendorDashboardLayout({
           `view-transition-name: sn-page` — which the mobile bottom-nav slide
           freezes the document around. Dropping this shell to "convert the
           desktop" would have broken the phone carousel at widths where the
-          rail never renders. It also owns the sticky hide-on-scroll top bar.
-          Session 9 retires it; until then it stands down its rail and keeps
-          doing both of those jobs.
+          rail never renders.
+
+          ⚠ IT NO LONGER OWNS THE STICKY TOP BAR — the shared bar took that job
+          on 2026-08-14, so this shell is now down to ONE reason to exist.
+          Session 9 retires it; that retirement is unblocked by this landing.
         */
         /* ONE MECHANISM FOR "NO DESKTOP RAIL", NOT TWO.
             This branch reached `sidebar={null}` independently while slice 1
@@ -368,7 +384,11 @@ export default async function VendorDashboardLayout({
             and the shared rail paints nothing. */
         desktopRailExternal
         sidebar={null}
-        topBar={topBar}
+        /*
+          🔑 NO `topBar` ANY MORE — the shared bar has it. Passing it here too
+          would render the shop's cluster TWICE on every screen, including a
+          second live bell opening a second Realtime channel.
+        */
       >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop

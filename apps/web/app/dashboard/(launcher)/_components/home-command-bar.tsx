@@ -18,6 +18,8 @@ import {
   Heart,
 } from 'lucide-react';
 import { useModalA11y, anyModalOpen } from '@/lib/use-modal-a11y';
+import { commandKeyClaimed } from '@/lib/command-key-claim';
+import { marketplaceEscapeItem } from '@/app/_components/frontdoor/command-escape';
 
 /**
  * HomeCommandBar — the launcher's DETERMINISTIC "search or jump" bar
@@ -34,11 +36,24 @@ import { useModalA11y, anyModalOpen } from '@/lib/use-modal-a11y';
  * 2026-06-25 checkout audit class of bug). The ⌘K listener stands down while
  * any other useModalA11y dialog (e.g. the AccountSwitcher sheet) is open.
  *
- * ⌘K collision note: the guests Living Roster owns ⌘K on
- * /dashboard/[eventId]/guests (guests-search.tsx). This component only ever
- * mounts on the launcher route, so the two listeners never coexist.
+ * 🚨 ⌘K COLLISION — THE OLD NOTE HERE WAS RETIRED 2026-08-14 AND IS WHY THE
+ * CLAIM REGISTRY EXISTS. It read: *"This component only ever mounts on the
+ * launcher route, so the two listeners never coexist."* True when written,
+ * false the moment this became the shared top bar's search on every signed-in
+ * surface. Three other components bind ⌘K — the admin palette (108 pages), the
+ * Ugat console, and the guests Living Roster — and two listeners on one
+ * keystroke stack two dialogs with nothing thrown. `lib/command-key-claim.ts`
+ * lets the surface-specific owner announce itself; this one defers. See
+ * [[feedback_a_convention_is_not_a_control]] — the sentence was the mechanism.
  *
- * Client island per the launcher idiom: the server page builds the serializable
+ * ⚠ IT IS NO LONGER "the launcher's" BAR. It is mounted by `AppRailShell` for
+ * all five signed-in trees, and its index comes from ONE shared builder
+ * (`_components/frontdoor/command-data.ts`), not from the launcher page — two
+ * builders would list different things on `/dashboard` than inside a wedding,
+ * with no error. The file keeps its path only because moving it would churn
+ * every import for no behaviour change.
+ *
+ * Client island per the launcher idiom: the server builds the serializable
  * `items` array (ids, labels, hrefs — no functions); this component owns only
  * open/filter/selection state.
  */
@@ -119,12 +134,29 @@ export function HomeCommandBar({
     initialFocusRef: inputRef,
   });
 
+  /*
+    ONE SEARCH, BOTH QUESTIONS (One top bar, 2026-08-14).
+
+    This palette is now the search on EVERY signed-in surface, replacing a
+    marketplace GET form that could never reach your own wedding. The escape
+    row is what makes that lossless: whatever you typed is one press from
+    /explore.
+
+    🔑 APPENDED AFTER THE FILTER, NEVER THROUGH IT. Passing it through would
+    delete it whenever the typed words match nothing local — which is the one
+    moment it exists for.
+  */
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((i) =>
-      `${i.label} ${i.sublabel} ${KIND_LABEL[i.kind]}`.toLowerCase().includes(q),
-    );
+    const own = !q
+      ? items
+      : items.filter((i) =>
+          `${i.label} ${i.sublabel} ${KIND_LABEL[i.kind]}`
+            .toLowerCase()
+            .includes(q),
+        );
+    const escape = marketplaceEscapeItem(query);
+    return escape ? [...own, escape] : own;
   }, [items, query]);
 
   // Clamp the highlight when the filtered list shrinks.
@@ -136,6 +168,20 @@ export function HomeCommandBar({
         // Stand down while another modal (e.g. the AccountSwitcher sheet) is
         // open — never stack a second dialog underneath it.
         if (anyModalOpen()) return;
+        /*
+          🔑 AND STAND DOWN WHERE ANOTHER PALETTE OWNS THE KEY.
+          The docblock above used to say this component "only ever mounts on
+          the launcher route, so the two listeners never coexist." Mounting it
+          in the shared top bar made that false on ~300 screens at once, and
+          three other components bind ⌘K: the admin palette (108 pages), the
+          Ugat console, and the guests Living Roster. Two listeners on one
+          keystroke open two dialogs and nothing throws.
+
+          The richer, surface-specific palette wins where there is one — it
+          indexes things this one cannot see. The press-the-box path is
+          unaffected, so the control is never dead, only the shortcut defers.
+        */
+        if (commandKeyClaimed()) return;
         e.preventDefault();
         setOpen(true);
       }

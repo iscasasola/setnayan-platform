@@ -1129,10 +1129,85 @@ h2.fd-sechead,
      because there the rail and the feed share one cream page; here the
      content sits on the app's warm wash and the rail needs an edge. */
   border-right: 1px solid var(--fd-line);
-  /* No top bar in this variant, so the rail starts at the top and gets the
-     full viewport rather than `calc(100vh - 60px)` of it. */
+  /* ⚠ THE `top: 0; max-height: 100vh` OVERRIDE THAT SAT HERE IS GONE
+     (2026-08-14). It existed because "there is no top bar in this variant",
+     and there is one now — the shared bar. Left in place the rail would slide
+     up UNDER the bar and its first row would be unreachable. The inherited
+     `top: 60px` / `calc(100vh - 60px)` is the front door's own, which is what
+     "one shell" is supposed to mean. */
+}
+
+/* ══ THE SHARED TOP BAR, APP VARIANT (One top bar, owner 2026-08-14) ═══════
+   Owner, over three screenshots: "the issue is the top nav is not there?" —
+   the events board had a wordmark and a search and no "+ Create", Alaala had
+   a wordmark alone, and inside a wedding there was neither. Same bar now, on
+   all five signed-in trees.                                                 */
+
+/* The sticky wrapper. It carries `shell-topbar` too — the stable hook two
+   shipped event pages use to hide this strip — so it must set no `display` of
+   its own and it must be the sticky box, not the bar inside it. */
+.fd[data-chrome='app'] .fd-topwrap {
+  position: sticky;
   top: 0;
-  max-height: 100vh;
+  /* Under the account panel's portalled sheet, over the page and the rail. */
+  z-index: 20;
+  transition: transform 0.3s ease-out;
+  /* Frosted, not solid — the shipped idiom on all three bars this replaces
+     (`HomeRail`'s backdrop-blur, `AdminStickyTopBar`'s blur+saturate). A
+     transparent strip over scrolling content is unreadable; a solid one is the
+     "generic header" band the owner struck down on 2026-07-30. */
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border-bottom: 1px solid var(--fd-line);
+}
+
+/* The glyph beside (or, on a phone, instead of) the word. Hidden from 701px up,
+   where the wordmark itself reads and a mark beside it would be a second
+   logo. */
+.fd[data-chrome='app'] .fd-mark {
+  display: none;
+}
+@media (max-width: 700.98px) {
+  .fd[data-chrome='app'] .fd-mark {
+    display: block;
+  }
+}
+
+.fd[data-chrome='app'] .fd-topbar {
+  /* The WRAPPER paints and sticks; the bar is only the three-column grid. Two
+     sticky boxes nested would fight over the same offset. */
+  position: static;
+  background: transparent;
+  /* The bar is CHROME, so it keeps the front door's ink and face — the same
+     rule the rail follows two blocks up, and what makes the two read as one
+     shell rather than one shell and a lookalike. */
+  color: var(--fd-ink);
+  font-family: var(--fd-sys);
+}
+
+@media (max-width: 700.98px) {
+  /* ONE ROW AT EVERY WIDTH INSIDE THE APP. The front door drops its search to
+     a second row on a phone; the app must not, because a second chrome row is
+     precisely what the owner struck down on 2026-07-30 ("the search bar is
+     still on top") after the launcher spent its two best rows on furniture.
+     The shell renders no `.fd-searchrow` in this variant, so without this the
+     phone would have NO search at all — and the launcher ships one today. */
+  .fd[data-chrome='app'] .fd-searchwrap {
+    display: flex;
+  }
+  /* THE MARK REPLACES THE WORD ON A PHONE — the launcher's shipped grammar.
+     At 375px the letterspaced wordmark takes ~90px before the search field
+     gets any, and this bar carries identity + search + the account cluster on
+     ONE line (the second row is the thing the owner struck down 2026-07-30).
+     Front door untouched: its markup must keep the title-case name above the
+     fold for OAuth brand verification. */
+  .fd[data-chrome='app'] .fd-wordmark-text {
+    display: none;
+  }
+  /* The centre column is capped at 640px for the front door's centred search.
+     On a phone inside the app the three columns are auto/1fr/auto already
+     (inherited above), so the search simply takes the slack. */
 }
 
 /* The content column is a passthrough. Every account page already ships its
@@ -1212,4 +1287,35 @@ h2.fd-sechead,
     display: none;
     border-right: 0;
   }
+
+  /* HIDE ON SCROLL, PHONE ONLY — the app's universal top-nav rule (owner
+     2026-06-15) and exactly what `SidebarShell`'s sticky bar gave the event,
+     vendor and admin trees before they handed their cluster to this one.
+
+     🔑 NOT ON DESKTOP, deliberately. The rail sticks at `top: 60px` to clear
+     the bar; sliding the bar away on a wide screen would leave a 60px gap
+     above the rail with nothing in it. Below 1024 the rail does not render at
+     all, so there is nothing to misalign — and a phone is where reclaiming a
+     row of screen actually pays. */
+  .fd[data-chrome='app'] .fd-topwrap[data-hidden='true'] {
+    transform: translateY(-100%);
+  }
+
+  /* ⚠ "+ Create" IS DESKTOP-ONLY IN THE APP. A 360px row already carries
+     identity, the search and the account cluster. Creation is reached from
+     the board's create grid and the bottom bar — the phone's locked grammar.
+     NAMED, NOT FORGOTTEN: if the row ever gains space, this is the one line
+     to delete. */
+  .fd[data-chrome='app'] .fd-btn-gold {
+    display: none;
+  }
 }
+
+/* 🪤 ONE SUB-1024 BLOCK FOR THE APP VARIANT, NOT TWO. A second
+   `@media (max-width: 1023.98px)` block mentioning `[data-chrome='app']` was
+   added above this one on 2026-08-14 and immediately broke a SHIPPED GUARD —
+   `rail-active.test.ts` finds the FIRST narrow block naming the app variant
+   and asserts the rail is `display:none` inside it. The rule was still there,
+   in the other block; the guard was reading the wrong one and reported the
+   phone rail as painting. Correct code, red guard, and the next reader would
+   have "fixed" the guard. Keep every app-variant sub-1024 rule here. */

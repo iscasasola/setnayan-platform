@@ -9,6 +9,7 @@ import {
   useTransition,
 } from 'react';
 import Link from 'next/link';
+import { claimCommandKey } from '@/lib/command-key-claim';
 import {
   UGAT_TYPES,
   UGAT_TYPE_BY_ID,
@@ -1365,6 +1366,14 @@ function Omnibox({
   const [pending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const [strip, setStrip] = useState<string | null>(null);
+
+  /*
+    ⌘K IS OURS ON THIS PAGE (One top bar, 2026-08-14) — see
+    `lib/command-key-claim.ts`. Both the admin palette and the shared top bar's
+    palette also bind it; three listeners on one keystroke is two dialogs over
+    a focused field, with nothing thrown.
+  */
+  useEffect(() => claimCommandKey(), []);
 
   // ⌘K focus
   useEffect(() => {

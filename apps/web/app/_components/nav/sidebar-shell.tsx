@@ -63,11 +63,42 @@ type Props = {
   sidebarFooter?: ReactNode;
   /** Optional sticky top bar slot rendered above main content. */
   topBar?: ReactNode;
+  /**
+   * An OUTER shared rail already owns the desktop left column (One Shell —
+   * `ONE_SHELL_PLAN_2026-08-13.md`). This shell then renders NO `<aside>` and
+   * takes NO desktop offset; it keeps everything else exactly as it was.
+   *
+   * ─── WHY THIS IS A PROP AND NOT "JUST STOP USING SidebarShell" ──────────
+   * 🪤 THE SHELL WRAPS CONTENT AT **ALL** WIDTHS, NOT JUST DESKTOP. Its
+   * `<main>` carries `.sn-vt-page`, which is the ONLY element in the app with
+   * `view-transition-name: sn-page` — the mobile bottom-nav carousel slide
+   * freezes everything else and slides exactly that one element. The docked
+   * sub-nav's extra bottom room keys off `[data-shell-main]` inside it. So a
+   * "desktop-only" conversion that DROPS this component silently removes the
+   * phone's page-slide and its sub-nav padding, at mobile widths, where the
+   * new rail does not even paint. The plan lists this as trap #2.
+   *
+   * Below 1024 this flag therefore changes NOTHING: the `<aside>` was already
+   * `hidden lg:flex`, and the offset only ever applied at `lg`.
+   *
+   * ⚠ THE CALLER OWNS THE CONSEQUENCE. Anything that lived only in the
+   * `sidebar` / `sidebarHeader` slots stops rendering on desktop — including,
+   * on the couple doorway, the plaque that is that surface's only sign-out.
+   * Move it before setting this, don't discover it after.
+   */
+  desktopRailExternal?: boolean;
   /** Main content area — scrollable. */
   children: ReactNode;
 };
 
-export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, children }: Props) {
+export function SidebarShell({
+  sidebar,
+  sidebarHeader,
+  sidebarFooter,
+  topBar,
+  desktopRailExternal = false,
+  children,
+}: Props) {
   // Default expanded. Hydrate from localStorage on mount so SSR + initial
   // client render agree (both render expanded), then flip if persisted
   // state says otherwise. Avoids hydration mismatch.
@@ -112,7 +143,12 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ch
       // 2026-07-12): warm wash + three soft radial tints, fixed attachment.
       className="sn-ambient min-h-screen"
     >
-      {/* Desktop sidebar — hidden < lg so mobile chrome (caller-injected) owns nav. */}
+      {/* Desktop sidebar — hidden < lg so mobile chrome (caller-injected) owns nav.
+          Not rendered AT ALL when an outer shared rail owns the desktop column:
+          a real mount condition, never `display:none` on a dozen focusable
+          links, which would leave them reachable by keyboard behind the rail —
+          the exact defect this repo has already paid for once. */}
+      {desktopRailExternal ? null : (
       <aside
         aria-label="Primary navigation"
         // `sn-sidebar` paints the Atelier frosted-glass panel + remaps the
@@ -178,6 +214,7 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ch
           </button>
         </div>
       </aside>
+      )}
 
       {/* Main column — offset left by sidebar width on desktop. The CSS calc
           via inline style mirrors the sidebar's width so a future drag-to-
@@ -197,9 +234,14 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ch
             // collapsed state, so use a runtime media query via inline style with
             // a CSS custom property. The wrapper sets --shell-main-offset which
             // the inner div consumes.
-            ['--shell-main-offset' as string]: collapsed
-              ? '4rem'
-              : 'var(--sidebar-width, 16rem)',
+            // Zero when an outer rail owns the desktop column — otherwise the
+            // content would be pushed a second sidebar's width to the right,
+            // past a rail that is already occupying that space.
+            ['--shell-main-offset' as string]: desktopRailExternal
+              ? '0px'
+              : collapsed
+                ? '4rem'
+                : 'var(--sidebar-width, 16rem)',
           }}
         >
           {/* Sticky top bar slot — caller-owned. The shell guarantees the slot

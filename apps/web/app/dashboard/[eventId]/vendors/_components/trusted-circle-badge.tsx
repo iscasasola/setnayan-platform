@@ -88,7 +88,7 @@ export async function TrustedCircleBadge({ eventId, vendorProfileId }: Props) {
 
   return (
     <div className="flex items-start gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3">
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-ink/10 bg-white/60 text-ink/70">
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-ink/10 bg-cream text-ink/70">
         <HeartHandshake aria-hidden className="h-4 w-4" strokeWidth={1.75} />
       </div>
       <div className="min-w-0 space-y-0.5">

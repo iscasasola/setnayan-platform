@@ -43,6 +43,29 @@ import { budgetLiveSummaryMoney } from '@/lib/budget-page-money';
  * FLAG OFF (production today) renders byte-identically to before: the resolver
  * is not called, not one extra query is issued, and `budgetLiveSummaryMoney`
  * returns the legacy summary verbatim.
+ *
+ * ── B2 · WARM-EDITORIAL SKIN (2026-08-14) ───────────────────────────────────
+ * The 2026-08-08 pass that made the app flat-cream shipped as ONE edit to the
+ * shared `.sn-*` recipes, on the measured argument that `.sn-tile` had 417 uses
+ * across 186 files. It therefore reached every surface that USES those classes —
+ * the event Overview carries 19 of them — and no surface that hand-rolls its own
+ * chrome. This whole Marketplace hand-rolled its own: measured 2026-08-14, its
+ * seven components carried ZERO `.sn-tile` / `.sn-card` / `.sn-glass` between
+ * them, which is precisely why the skin swap missed it and why it still read
+ * glass-era next to a re-skinned Overview.
+ *
+ * Two concrete drifts, both now gone from this file: `rounded-2xl` is 22px
+ * (`--m-r-lg`, the glass radius) where the approved card is 14px, and one panel
+ * still carried `bg-white/60` — the translucent fill design#6 stripped from the
+ * public doorways on 2026-08-13.
+ *
+ * Values are DERIVED, not re-typed: `.sn-tile` is the recipe. Padding is kept
+ * explicit (`p-5`) because Tailwind utilities win over the class's own 18px, so
+ * nothing reflows — the shipped `sn-tile p-4 sm:p-5` convention on other
+ * dashboard surfaces.
+ *
+ * The skin is class-level and touches no money path: BUD-8's resolver wiring
+ * above is untouched by it, and the two changes met only in this docblock.
  */
 export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
   const supabase = await createClient();
@@ -62,7 +85,7 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
 
   if (!snapshot) {
     return (
-      <div className="rounded-2xl border border-ink/10 bg-cream p-5 text-sm text-ink/65">
+      <div className="sn-tile p-5 text-sm text-ink/65">
         Your budget lives here. <Link href={budgetHref} className="font-medium text-terracotta hover:underline">Open budget &amp; payments</Link> to set a target and track costs.
       </div>
     );
@@ -82,7 +105,7 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
   return (
     <div className="space-y-4">
       {/* Payment progress — reuses the budget page's live-summary math verbatim. */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-5">
+      <div className="sn-tile p-5">
         <div className="flex items-baseline justify-between gap-3">
           <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
             <Wallet className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} aria-hidden />
@@ -120,7 +143,7 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
 
       {/* Upcoming milestones — soonest first (past-due sort to the top). */}
       {summary.upcoming.length > 0 ? (
-        <div className="rounded-2xl border border-ink/10 bg-white/60 p-5">
+        <div className="sn-tile p-5">
           <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
             Upcoming payments
           </p>
@@ -153,7 +176,7 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
           per-vendor itemization + off-platform manual line items, log payments. */}
       <Link
         href={budgetHref}
-        className="flex items-center justify-between gap-2 rounded-2xl border border-ink/10 bg-cream px-5 py-4 transition hover:border-terracotta/50"
+        className="sn-tile flex items-center justify-between gap-2 px-5 py-4 hover:border-terracotta/50"
       >
         <span className="text-sm text-ink/75">
           <span className="font-medium text-ink">Open budget &amp; payments</span> — set a target, plan

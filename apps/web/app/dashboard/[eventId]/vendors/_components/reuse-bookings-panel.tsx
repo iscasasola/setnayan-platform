@@ -83,7 +83,7 @@ export async function ReuseBookingsPanel() {
           {requests.map((r) => (
             <li
               key={r.requestId}
-              className="rounded-xl border border-ink/10 bg-white/70 px-3 py-2 text-sm"
+              className="rounded-xl border border-ink/10 bg-cream px-3 py-2 text-sm"
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0">

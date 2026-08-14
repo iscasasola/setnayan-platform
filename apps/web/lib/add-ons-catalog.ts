@@ -64,13 +64,20 @@ export type InAppServiceCategory = PlanGroupId | 'digital_services' | 'tool';
  * (/dashboard/[eventId]/studio). Independent of `category` (which drives the
  * Services/vendors-tab placement). The 4 sections ARE Studio's docked sub-nav
  * (owner-locked 2026-06-17 customer-menu redesign — Studio absorbed Design):
- *   • setnayan_ai → info gathered → personalized outputs (AI planner · playlist)
- *   • website     → the public site: Save the Date · RSVP · Event · Editorial
+ *   • setnayan_ai → plan the event: the AI planner · playlist, and (refiled
+ *                   2026-08-14, sign-off #1) the planning/layout tools —
+ *                   Mood Board · Seat Plan · Indoor Blueprint
+ *   • website     → the public site. ONE doorway — Your Website — plus the two
+ *                   parts that own their own job: Save the Date · RSVP.
+ *                   Event + Editorial are chips ON the Your Website card
+ *                   (2026-08-14); their entries live on under `utility`.
  *   • capture     → make a record of the day (Papic / Panood / Photo / TikTok)
- *   • branding    → the couple's identity: monogram · wax stamp · mood board ·
- *                   LED background · Pakanta · custom QR · indoor blueprint
- *   • utility     → NOT a Studio section card (Orders); hidden from the hub.
- *                   Paprint/Supplies was removed (not a Setnayan service for now).
+ *   • branding    → the couple's identity, now honestly pure: monogram ·
+ *                   custom QR · Pakanta
+ *   • utility     → NOT a Studio section card; hidden from BOTH hubs while the
+ *                   entry, its href and its deep links stay alive. This is how
+ *                   a card is retired without stranding links (Orders ·
+ *                   photo-delivery 2026-07-22 · event + editorial 2026-08-14).
  */
 export type StudioGroup =
   | 'setnayan_ai'
@@ -227,10 +234,14 @@ export function addOnHref(key: string, eventId: string): string {
  *     destination.
  */
 export function appStoreDetailHref(key: string, eventId: string): string {
-  // landing-page: the "Whole website" card opens the unified editor (the
-  // website-parts consolidation this comment used to await — 2026-07-25), which
-  // differs from addOnHref('landing-page') (the /website hub).
-  if (key === 'landing-page') return `/dashboard/${eventId}/website/editor`;
+  // landing-page: the special case that sent this key to /website/editor was
+  // REMOVED 2026-08-14. It existed while the card was called "Whole website"
+  // and stood beside four part-cards. Now it IS the one website doorway and
+  // carries the Event page + Editorial chips — so the card must open the
+  // /website HUB (the map of every part), or the card and its own first chip
+  // land on the identical page and the chip is a distinction a couple can see
+  // is fake. `opensDirect` already routes it there via addOnHref; the branch
+  // below does it with no special case.
   // Everything else is data-driven by the `opensDirect` catalog flag — no
   // per-feature hardcoding. opensDirect → open the service's own surface
   // (addOnHref); otherwise → the shared /studio/about/<key> learn-more page.
@@ -310,12 +321,19 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
       iconBadgeClass: 'bg-warn-100/20 text-warn-100',
     },
   },
-  // The three other "parts" of the couple's website (the 4-path lifecycle ·
-  // lib/invitation-widgets.ts). Each is its OWN Studio card + its own editor
-  // page — separating the content the way couples think about it (Save the Date ·
-  // RSVP · Event · Editorial), instead of one catch-all "website" entry. All
-  // free; each opens the full-screen editor jumped to that phase (addOnHref /
-  // appStoreDetailHref → /site-editor/[eventId]/<phase>).
+  // The other "parts" of the couple's website (the 4-path lifecycle ·
+  // lib/invitation-widgets.ts).
+  //
+  // ⚠ THE PART-CARDS ARE NO LONGER FIVE DOORWAYS. Council verdict
+  // `Event_Studio_Replot_Council_Verdict_2026-07-17.md` §2 defect 1, owner
+  // sign-off #2 2026-08-14 ("yes. same as the menu on admin and shop"):
+  // `landing-page` + save-the-date/rsvp/event/editorial were FIVE hub doorways
+  // for ONE product. Resolution, verbatim from the verdict: one free "Your
+  // Website" card with exactly TWO always-visible deep-link chips (Event page ·
+  // Editorial); **Save the Date and RSVP keep standalone rows** because each
+  // owns its own SKU / its own guest-tool job — chipping them would be a
+  // miniaturized re-dupe of the very defect. So `rsvp` and `save-the-date`
+  // stay `studioGroup: 'website'` below; `event` and `editorial` do not.
   {
     key: 'rsvp',
     tags: ['Website', 'Invitation', 'Guests', 'Free'],
@@ -351,7 +369,15 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'tool',
     blurb: 'The live day-of page your guests open at the venue — schedule, seats, and what’s happening now.',
     cta: 'Edit your event-day page',
-    studioGroup: 'website',
+    // STANDALONE CARD RETIRED 2026-08-14 (verdict §2 defect 1 · owner sign-off
+    // #2) — it is now the "Event page" chip on the Your Website card. Retired
+    // the SAME way photo-delivery was on 2026-07-22: `studioGroup: 'utility'`
+    // drops it from both hubs' section grids while the ENTRY, its key, its
+    // href and its /studio/event redirect all stay alive — so no deep link,
+    // recommendation target or strip config is left holding a raw slug.
+    // Deleting the entry instead is what leaves raw slugs on the ~33 surfaces
+    // that read this catalog.
+    studioGroup: 'utility',
     tier: 'free',
     poster: {
       motion: 'pulse',
@@ -374,7 +400,10 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'tool',
     blurb: 'After the day — your event told as a story, with the gallery and a thank-you note.',
     cta: 'Edit your editorial',
-    studioGroup: 'website',
+    // STANDALONE CARD RETIRED 2026-08-14 — now the "Editorial" chip on the Your
+    // Website card. Same `utility` mechanism as `event` above; the entry and
+    // every link to it stay live.
+    studioGroup: 'utility',
     tier: 'free',
     poster: {
       motion: 'scan',
@@ -424,13 +453,19 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     tags: ['Website', 'Free'],
     surface: 'website',
     opensDirect: true,
-    label: 'Whole website',
+    // THE ONE WEBSITE DOORWAY (2026-08-14 · verdict §2 defect 1, owner
+    // sign-off #2). Was "Whole website" sitting beside four part-cards that
+    // were the same product. addOnHref('landing-page') already resolves to the
+    // /website HUB — which links the editor, Our Story, the invitation,
+    // privacy and Editorial — so retiring the part-cards costs no reachability;
+    // the hub is the map, and the two chips are the shortcuts.
+    label: 'Your Website',
     Icon: Globe2,
     iteration: '0002',
     status: 'web_v1',
     category: 'tool',
-    blurb: 'All four parts of your website in one editor — save-the-date, RSVP, day-of, and editorial.',
-    cta: 'Open the editor',
+    blurb: 'One place for your whole website — the run-up page, the day itself, and the story after.',
+    cta: 'Open your website',
     studioGroup: 'website',
     tier: 'free',
     poster: {
@@ -818,7 +853,13 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'tool',
     blurb: 'A guided path so every guest walks straight from the door to their table.',
     cta: 'Map my venue',
-    studioGroup: 'branding',
+    // TAB-1 REFILE 2026-08-14 — verdict §2 defect 5, owner sign-off #1
+    // (approved 2026-07-17, shipped only now because it was gated behind
+    // sign-off #2). This is a planning/layout tool, not identity; it sat under
+    // `branding` purely as an expedient (see the `seating` note below), which
+    // is the defect. Branding is now honestly pure identity: monogram · QR ·
+    // Pakanta. Section LABELS and the locked 4-section count are untouched.
+    studioGroup: 'setnayan_ai',
     tier: 'free',
     opensDirect: true,
     poster: {
@@ -840,7 +881,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'tool',
     blurb: 'Pick your palette — and it flows into every Setnayan piece you make.',
     cta: 'Open board',
-    studioGroup: 'branding',
+    // TAB-1 REFILE 2026-08-14 — see indoor-blueprint above.
+    studioGroup: 'setnayan_ai',
     tier: 'free',
     poster: {
       motion: 'drift',
@@ -853,9 +895,12 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     // Free core planning tool, surfaced on the Studio hub (owner ask
-    // 2026-06-21). Nested under `branding` to match the existing layout-tool
-    // precedent (indoor-blueprint + mood-board live here) without touching the
-    // owner-locked 4-section sub-nav. Its href is flag-aware — see addOnHref.
+    // 2026-06-21). It was nested under `branding` to match the then-existing
+    // layout-tool precedent without touching the owner-locked 4-section
+    // sub-nav — an expedient, never a design call, and the verdict named it
+    // defect 5. REFILED to `setnayan_ai` 2026-08-14 (sign-off #1); the sub-nav
+    // labels + count are still untouched. Its href is flag-aware — see
+    // addOnHref (2D editor vs the 3D lab).
     key: 'seating',
     tags: ['Planning', 'Guests', 'Free'],
     opensDirect: true,
@@ -866,7 +911,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'tool',
     blurb: 'Lay out your tables and seat every guest with simple drag-and-drop.',
     cta: 'Open seat plan',
-    studioGroup: 'branding',
+    studioGroup: 'setnayan_ai',
     tier: 'free',
     poster: {
       motion: 'drift',

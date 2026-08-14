@@ -283,10 +283,13 @@ test('the Suite free layer is exactly the reviewed set (any change is a consciou
   // 2026-07-23: indoor-blueprint ADDED — owner "indoor blueprint is free and uses
   // the 2D Plan for free"; the retired paid ₱1,499 SKU is now a free tool riding
   // on the free 2D seat plan (tier:'free', opensDirect).
+  // 2026-08-14: 'event' + 'editorial' DROPPED — consciously. The website
+  // consolidation (verdict §2 defect 1 · owner sign-off #2) retires both
+  // standalone cards into chips on the "Your Website" card. Same mechanism as
+  // photo-delivery 2026-07-22: studioGroup 'utility', so the card leaves the
+  // grid while the entry + every deep link to it stay alive. Locked below.
   assert.deepEqual(suiteFreeLayerKeys().sort(), [
     'animated-monogram',
-    'editorial',
-    'event',
     'indoor-blueprint',
     'landing-page',
     'mood-board',
@@ -296,6 +299,77 @@ test('the Suite free layer is exactly the reviewed set (any change is a consciou
     'save-the-date',
     'seating',
   ]);
+});
+
+// ── 2026-08-14 · the website consolidation + the Tab-1 refile ─────────────────
+
+test('the website section is ONE doorway plus the two parts that own their own job', () => {
+  const website = ADD_ONS.filter((a) => a.studioGroup === 'website').map((a) => a.key).sort();
+  // Verdict §2 defect 1: five doorways for one product became three. Save the
+  // Date (own SKU) and RSVP (own guest-tool job) deliberately KEEP standalone
+  // rows — chipping them would be a miniaturized re-dupe. If a sixth website
+  // doorway ever appears, this fails and someone has to justify it.
+  assert.deepEqual(website, ['landing-page', 'rsvp', 'save-the-date', 'website-pro']);
+});
+
+test('a retired part-card keeps its entry, its label and a working doorway', () => {
+  // The retirement must NOT be a deletion. Deleting the entry is what leaves
+  // raw slugs on the ~33 surfaces that read this catalog, and it would 404 the
+  // /studio/<key> redirect that still serves old bookmarks.
+  for (const key of ['event', 'editorial']) {
+    const entry = ADD_ONS.find((a) => a.key === key);
+    assert.ok(entry, `${key}: entry was DELETED — retire it via studioGroup 'utility' instead`);
+    assert.equal(entry!.studioGroup, 'utility', `${key}: must be retired to 'utility'`);
+    assert.ok(routeExists(addOnHref(key, EVT)), `${key}: doorway no longer lands on a page`);
+  }
+});
+
+test('the Your Website card MOUNTS both chips, and they are two different places', () => {
+  // Mounted, not merely defined: the chips must reach the card. A guard that
+  // only proves the array exists passes while the prop is unwired.
+  const chipBlock = suiteSource.match(/const websiteChips[\s\S]*?\n  \];/);
+  assert.ok(chipBlock, 'suite/page.tsx must define websiteChips');
+  assert.match(
+    suiteSource,
+    /links=\{a\.key === 'landing-page' \? websiteChips : undefined\}/,
+    'websiteChips is defined but never passed to the card — the chips would not render',
+  );
+  const hrefs = (chipBlock![0].match(/href: `[^`]+`/g) ?? []).map((h) =>
+    h.slice(7, -1).replace('${eventId}', EVT),
+  );
+  assert.equal(hrefs.length, 2, 'the verdict specifies exactly two chips');
+  assert.equal(
+    new Set(hrefs).size,
+    2,
+    'both chips point at the SAME url — that is a distinction a couple can see is fake',
+  );
+  for (const h of hrefs) {
+    assert.ok(routeExists(h), `chip href has no page: ${h}`);
+  }
+  // …and none may collide with the CARD's own destination. Checking the chips
+  // only against EACH OTHER misses the likelier mistake: the card opens the
+  // editor and the first chip is labelled "Event page" pointing at the same
+  // editor. (That is exactly what this card did before 2026-08-14, when
+  // appStoreDetailHref carried a landing-page special case.)
+  const cardHref = appStoreDetailHref('landing-page', EVT);
+  for (const h of hrefs) {
+    assert.notEqual(
+      h,
+      cardHref,
+      `a chip points at the card's own destination (${cardHref}) — the chip adds nothing`,
+    );
+  }
+});
+
+test('the Tab-1 refile holds: planning tools are not filed as identity', () => {
+  // Verdict §2 defect 5 · owner sign-off #1. Branding is now honestly pure
+  // identity; Mood Board / Seat Plan / Indoor Blueprint are planning tools.
+  const groupOf = (k: string) => ADD_ONS.find((a) => a.key === k)?.studioGroup;
+  for (const k of ['mood-board', 'seating', 'indoor-blueprint']) {
+    assert.equal(groupOf(k), 'setnayan_ai', `${k}: refiled out of 'branding' 2026-08-14`);
+  }
+  const branding = ADD_ONS.filter((a) => a.studioGroup === 'branding').map((a) => a.key).sort();
+  assert.deepEqual(branding, ['animated-monogram', 'custom-qr-guest', 'pakanta']);
 });
 
 // ── 5 · free label ≠ paid SKU: every shipped entry's doorway works ─────────────

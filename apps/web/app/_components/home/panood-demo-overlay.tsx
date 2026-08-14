@@ -337,7 +337,7 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
                 alignItems: 'center',
                 gap: 6,
                 padding: '3px 9px',
-                borderRadius: 999,
+                borderRadius: 'var(--m-r-full)',
                 background: demoOnAir ? 'rgba(226,87,76,.12)' : 'rgba(42,43,46,.07)',
                 color: demoOnAir ? '#c2372c' : '#6c675e',
                 fontSize: 10.5,
@@ -350,7 +350,7 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
                 style={{
                   width: 6,
                   height: 6,
-                  borderRadius: 999,
+                  borderRadius: 'var(--m-r-full)',
                   background: demoOnAir ? '#e2574c' : '#a8a4a0',
                 }}
               />

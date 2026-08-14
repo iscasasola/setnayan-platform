@@ -1,7 +1,32 @@
 'use client';
 
 /**
- * AdminSidebar — admin doorway desktop nav (NavGroup[] source of truth).
+ * admin-sidebar.tsx — the admin nav DERIVATION (NavGroup[] source of truth).
+ *
+ * ─── 2026-08-14 · THIS FILE NO LONGER RENDERS ANYTHING ────────────────────
+ * One Shell slice 3. The `<AdminSidebar>` component that used to live at the
+ * bottom of this file is GONE, and so is its `<AdminSidebarMenu>` row: the
+ * admin console now wears the SHARED rail (`AppRailShell` →
+ * `_components/frontdoor/front-door-shell.tsx`, variant `app`), and its six
+ * menus render as rail rows in `admin-rail-context.tsx`. Owner, 2026-08-13:
+ * *"the sidebar should stay… what you did was jumping back to the old
+ * dashboards."* `DECISION_LOG.md` 2026-08-13 · `ONE_SHELL_PLAN_2026-08-13.md`.
+ *
+ * 🔑 WHAT SURVIVES HERE IS THE PART THAT WAS NEVER ABOUT PIXELS: the six
+ * groups, their hubs, the registry overlay, the queue badges, the roll-up and
+ * the active-row rule. Copying any of it into the new component would have
+ * been a second answer to one question — the exact failure this repo keeps
+ * paying for. The renderer changed; the derivation did not move.
+ *
+ * 🪤 AND THE FILENAME IS LOAD-BEARING. `admin-nav-groups.test.ts` reads
+ * `MENU_HUBS` OUT OF THIS FILE BY PATH (`admin-sidebar.tsx`) as text, because
+ * it is the one source that survived the 2026-08-02 deletion of two whole nav
+ * groups. Renaming or moving this file blinds that guard while every test
+ * stays green. Leave the name alone.
+ *
+ * The historical notes below are kept deliberately: they explain why the six
+ * groups are the six groups, and why they are FLAT. That reasoning still
+ * governs — only the element the rows are drawn with has changed.
  *
  * WHY: CLAUDE.md 2026-05-23 row 2 locks the admin console. Originally 8
  * categories (0023 § 1), remapped 2026-06-04 to 6 topic-groups, re-cut
@@ -124,9 +149,8 @@ import {
   LayoutGrid,
   type LucideIcon,
 } from 'lucide-react';
-import { usePathname } from 'next/navigation';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
-import { AdminSidebarMenu } from './admin-sidebar-menu';
+import { matchesPath, type ParamGetter } from '@/app/_components/nav/match-path';
 import type {
   NavGroup,
   NavItem,
@@ -154,7 +178,7 @@ import { ADMIN_NAV_GROUPS } from './admin-nav-groups';
  * navSlots is absent (fails open). href/matchPrefix + group structure stay in
  * code. (Admin nav has no role-gating, so no pre-filter step.)
  */
-function applyAdminRegistry(
+export function applyAdminRegistry(
   groups: NavGroup[],
   navSlots?: Record<string, NavSlotLite>,
 ): NavGroup[] {
@@ -188,7 +212,7 @@ function badgeTone(state?: AdminQueueDueState): 'red' | 'amber' | 'neutral' {
  * untouched. Runs AFTER the registry overlay so an admin-renamed label keeps
  * its count.
  */
-function applyQueueBadges(
+export function applyQueueBadges(
   groups: NavGroup[],
   queueCounts?: AdminQueueCounts,
   queueStates?: Record<string, AdminQueueDueState>,
@@ -263,7 +287,7 @@ const MENU_HUBS: Record<
  * cockpit row) is dropped from the children — the parent row already links
  * there, so keeping it would render a duplicate label directly under itself.
  */
-function deriveSixMenus(groups: NavGroup[]): NavItem[] {
+export function deriveSixMenus(groups: NavGroup[]): NavItem[] {
   return groups.map((group) => {
     const hub = MENU_HUBS[group.key];
     const href = hub?.href ?? group.items[0]?.href ?? '/admin';
@@ -285,7 +309,7 @@ function deriveSixMenus(groups: NavGroup[]): NavItem[] {
  * This is what keeps SLA pressure visible while the queue links are folded
  * behind the Overview menu.
  */
-function aggregateParentBadge(children: NavItem[]): NavBadge | undefined {
+export function aggregateParentBadge(children: NavItem[]): NavBadge | undefined {
   let count = 0;
   let tone: NavBadgeTone = 'neutral';
   let overdue = false;
@@ -307,7 +331,41 @@ function aggregateParentBadge(children: NavItem[]): NavBadge | undefined {
   };
 }
 
-export function AdminSidebar({
+/**
+ * ALL SURFACES — the whole map, and the reason the six rows can stay short.
+ * The 2026-07-15 flatten turned each menu into a plain doorway, which left 108
+ * admin pages with no single browsable index on desktop; /admin/more had one
+ * the entire time, hidden behind an lg:hidden on the premise that "the sidebar
+ * handles overflow", which the flatten had already stopped being true.
+ *
+ * 🔒 DELIBERATELY NOT A SEVENTH ENTRY IN `ADMIN_NAV_GROUPS`: it is a link to a
+ * page, not a group of items, and adding it there would break the
+ * groups-to-MENU_HUBS parity that `admin-nav-groups.test.ts` asserts — the
+ * guard written after a cleanup commit silently deleted two whole groups. It
+ * is appended to the RENDER list here, exactly as it was appended to the old
+ * sidebar's <ul>, and `admin-rail-context.test.ts` pins both halves of that:
+ * present in the rail, absent from the groups.
+ */
+export const ALL_SURFACES_MENU: NavItem = {
+  key: 'all-surfaces',
+  label: 'All surfaces',
+  href: '/admin/more',
+  icon: LayoutGrid,
+  description: 'Every admin page, grouped and searchable.',
+};
+
+/**
+ * The rows the admin rail draws, in order: the six derived menus, then All
+ * surfaces.
+ *
+ * This is the WHOLE of what the old `<AdminSidebar>` computed — registry
+ * overlay, then queue badges, then the six hubs, then the roll-up. It is a
+ * function rather than inline in the component so a test can call the REAL
+ * list instead of a copy of it: on 2026-08-13 a rail test declared its own row
+ * list and a mutation that deleted `exact: true` from the real one passed
+ * every behaviour assertion. Testing the primitive is not testing the caller.
+ */
+export function adminRailMenus({
   navSlots,
   queueCounts,
   queueStates,
@@ -315,8 +373,7 @@ export function AdminSidebar({
   navSlots?: Record<string, NavSlotLite>;
   queueCounts?: AdminQueueCounts;
   queueStates?: Record<string, AdminQueueDueState>;
-}) {
-  const pathname = usePathname() ?? '/admin';
+}): NavItem[] {
   const groups = applyQueueBadges(
     applyAdminRegistry(ADMIN_NAV_GROUPS, navSlots),
     queueCounts,
@@ -326,43 +383,77 @@ export function AdminSidebar({
     ...menu,
     badge: aggregateParentBadge(menu.children ?? []),
   }));
+  return [...menus, ALL_SURFACES_MENU];
+}
 
+/**
+ * Does this menu own the current URL?
+ *
+ * THE RULE IS THE SHIPPED ONE, MOVED NOT REWRITTEN (it was `AdminSidebarMenu`'s
+ * `inSection`): a menu lights when its own hub matches OR when ANY of its
+ * group's child routes matches. The children live on DISJOINT path roots
+ * (Money's landing is /admin/money, its children are /admin/pricing,
+ * /admin/settings, /admin/token-purchases …), so a single `matchPrefix` on the
+ * hub cannot cover them. That is what keeps /admin/pricing?tab=token-bands
+ * lighting "Money" and /admin/verify lighting "Overview".
+ *
+ * The `children` array exists ONLY as this input and as the badge-rollup
+ * input. It is never rendered as a sub-list — that is the whole point of the
+ * 2026-07-15 flatten.
+ */
+function menuOwnsUrl(
+  menu: NavItem,
+  pathname: string,
+  currentParams?: ParamGetter | null,
+): boolean {
   return (
-    <section className="px-2 pb-2" aria-label="Admin menu">
-      <ul className="flex flex-col gap-0.5">
-        {menus.map((item) => (
-          // FLAT (owner 2026-07-15 "solid menu with no submenus"): each of the
-          // six menus renders as a plain doorway to its hub landing — no chevron,
-          // no inline children. The group's child routes still light their parent
-          // (AdminSidebarMenu computes active-state across the group items) and
-          // the rolled-up queue badge still shows; the children themselves are
-          // reachable from the landing pages / tabbed studios / the work list.
-          <AdminSidebarMenu key={item.key} menu={item} pathname={pathname} />
-        ))}
-
-        {/* ALL SURFACES — the whole map, and the reason the six rows above can
-            stay short. The 2026-07-15 flatten turned each menu into a plain
-            doorway, which left 108 admin pages with no single browsable index on
-            desktop; /admin/more had one the entire time, hidden behind an
-            lg:hidden on the premise that "the sidebar handles overflow", which
-            the flatten had already stopped being true.
-
-            Deliberately NOT a seventh entry in ADMIN_NAV_GROUPS: it is a link to
-            a page, not a group of items, and adding it there would break the
-            groups-to-MENU_HUBS parity that admin-nav-groups.test.ts asserts
-            after a cleanup commit silently deleted two whole groups. */}
-        <AdminSidebarMenu
-          key="all-surfaces"
-          menu={{
-            key: 'all-surfaces',
-            label: 'All surfaces',
-            href: '/admin/more',
-            icon: LayoutGrid,
-            description: 'Every admin page, grouped and searchable.',
-          }}
-          pathname={pathname}
-        />
-      </ul>
-    </section>
+    matchesPath(menu, pathname, currentParams) ||
+    (menu.children ?? []).some((child) => matchesPath(child, pathname, currentParams))
   );
+}
+
+/**
+ * The key of the ONE menu that should read as active, or `null`.
+ *
+ * ⚠ WHY A "WHICH ONE" FUNCTION AND NOT A PER-ROW BOOLEAN — the same lesson
+ * `rail-active.ts` records for the shared rows. The old sidebar asked each row
+ * "are you active?" independently, which is safe only while no two menus can
+ * match one URL; the matcher is prefix-based, so that is a property of today's
+ * route table, not a guarantee. Two lit rows is not a smaller bug than zero —
+ * it tells the reader they are in two places at once. So among every menu that
+ * matches, the LONGEST matched href path wins.
+ *
+ * 🔑 THIS CANNOT LIGHT A MENU THE SHIPPED PREDICATE WOULD NOT HAVE LIT. The
+ * membership test is unchanged (`menuOwnsUrl`); only the tie-break is new. A
+ * URL that lit exactly one menu before lights exactly that menu now.
+ *
+ * `null` IS A REAL ANSWER and must render as "no row lit" — never as a
+ * fallback to the first row.
+ */
+export function activeAdminMenuKey(
+  menus: ReadonlyArray<NavItem>,
+  pathname: string,
+  currentParams?: ParamGetter | null,
+): string | null {
+  let bestKey: string | null = null;
+  let bestScore = -1;
+
+  for (const menu of menus) {
+    if (!menuOwnsUrl(menu, pathname, currentParams)) continue;
+    // The most specific thing that matched: the hub when the hub matched,
+    // otherwise the longest matching child. Path length only — no admin menu
+    // hub declares a query.
+    const hubPath = menu.href.split('?')[0] ?? menu.href;
+    const own = matchesPath(menu, pathname, currentParams) ? hubPath.length : -1;
+    const viaChild = (menu.children ?? [])
+      .filter((child) => matchesPath(child, pathname, currentParams))
+      .reduce((max, child) => Math.max(max, (child.href.split('?')[0] ?? '').length), -1);
+    const score = Math.max(own, viaChild);
+    if (score > bestScore) {
+      bestScore = score;
+      bestKey = menu.key;
+    }
+  }
+
+  return bestKey;
 }

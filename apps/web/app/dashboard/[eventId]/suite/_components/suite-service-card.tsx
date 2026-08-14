@@ -32,6 +32,7 @@ export function SuiteServiceCard({
   gradient,
   pill,
   tags,
+  links,
 }: {
   href: string | null;
   label: string;
@@ -40,6 +41,14 @@ export function SuiteServiceCard({
   gradient: string;
   pill: RowPill;
   tags?: readonly string[];
+  /**
+   * Always-visible deep-link chips rendered INSIDE the tile, under a divider.
+   * Exists for the consolidated "Your Website" card (verdict §2 defect 1,
+   * owner sign-off #2 2026-08-14): the retired Event + Editorial part-cards
+   * become chips here, so one card replaces five doorways without putting
+   * either destination further away than one tap.
+   */
+  links?: readonly { label: string; href: string }[];
 }) {
   const body = (
     <>
@@ -82,12 +91,40 @@ export function SuiteServiceCard({
     );
   }
 
+  const interactive =
+    'hover:border-ink/20 hover:bg-cream/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta';
+
+  // WITH CHIPS — the tile stops being one <Link> and becomes a bordered SHELL
+  // holding a link plus sibling chip links. It is NOT a nested anchor: an <a>
+  // inside an <a> is invalid HTML, and browsers recover by splitting the outer
+  // link, which silently breaks the card's own tap target. So the shell owns
+  // the border and the main link fills it flush.
+  if (links && links.length > 0) {
+    return (
+      <li className="list-none" data-reveal-item>
+        <div className={`${cardClass} p-0`}>
+          <Link href={href} className={`flex flex-1 flex-col rounded-t-xl p-4 ${interactive}`}>
+            {body}
+          </Link>
+          <div className="flex flex-wrap gap-2 border-t border-ink/10 px-4 py-3">
+            {links.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="rounded-full bg-ink/[0.06] px-3 py-1 text-xs font-semibold text-mulberry transition-colors hover:bg-ink/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+              >
+                {l.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </li>
+    );
+  }
+
   return (
     <li className="list-none" data-reveal-item>
-      <Link
-        href={href}
-        className={`${cardClass} hover:border-ink/20 hover:bg-cream/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta`}
-      >
+      <Link href={href} className={`${cardClass} ${interactive}`}>
         {body}
       </Link>
     </li>

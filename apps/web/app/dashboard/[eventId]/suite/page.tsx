@@ -469,6 +469,22 @@ export default async function SuitePage({ params }: Props) {
     }))
     .filter((s) => s.items.length > 0);
 
+  // The two always-visible deep-link chips on the consolidated "Your Website"
+  // card (verdict §2 defect 1 · owner sign-off #2 2026-08-14). These are the
+  // two part-cards that RETIRED into it — Event and Editorial — so neither
+  // destination moved further than one tap.
+  //
+  // ⚠ They are DIFFERENT destinations on purpose. The verdict was written while
+  // each part had its own /site-editor/<phase> page; those pages are now retired
+  // redirects into the ONE unified editor (2026-07-25), so pointing both chips
+  // at addOnHref() would render two chips that go to the same URL — a
+  // distinction a couple can see is fake. Editorial keeps its own editor at
+  // /website/editorial, which the /website hub already links to.
+  const websiteChips: readonly { label: string; href: string }[] = [
+    { label: 'Event page', href: `/dashboard/${eventId}/website/editor` },
+    { label: 'Editorial', href: `/dashboard/${eventId}/website/editorial` },
+  ];
+
   // A catalog service → a Suite grid tile (box). Owner 2026-07-23: the Suite
   // reads as an app-store grid of many features, not full-width rows.
   const cardFor = (a: AddOnEntry) => (
@@ -481,6 +497,7 @@ export default async function SuitePage({ params }: Props) {
       gradient={a.poster.baseBackground}
       pill={pillFor(a)}
       tags={a.tags}
+      links={a.key === 'landing-page' ? websiteChips : undefined}
     />
   );
 

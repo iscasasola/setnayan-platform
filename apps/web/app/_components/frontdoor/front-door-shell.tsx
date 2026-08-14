@@ -431,33 +431,12 @@ export function FrontDoorShell({
     ? [...visibleFolders, ...moreFolders]
     : visibleFolders;
 
-  return (
-    // `data-chrome` is the ONE switch the stylesheet reads. Below 1024 the app
-    // variant paints no chrome at all; the surface's own bars are untouched.
-    <div className="fd" data-chrome={variant}>
-      <>
-      {/*
-        🔑 `shell-topbar` IS A CONTRACT, NOT A CLASS NAME. Two shipped event
-        pages hide the strip outright — the Guests page renders its own bar
-        (`.shell-topbar{display:none}`) and the Vendors takeover hides it below
-        1024 — by injecting a style rule that names exactly this word. It was
-        `SidebarShell`'s hook and then `AdminStickyTopBar`'s; the shared bar
-        inherits it with the job, or those two pages silently grow a second bar
-        they deliberately removed.
-
-        ⚠ IT IS THE WRAPPER, NOT THE BAR, AND THAT IS THE WHOLE POINT. A
-        wrapper sets no `display` of its own, so `display:none` cannot lose a
-        specificity tie to `.fd-topbar{display:grid}` — a fight whose outcome
-        would otherwise depend on whether a page's injected <style> happens to
-        come after the stylesheet. It also has to be the sticky box: sticky is
-        constrained by its PARENT, so a header sticking inside a wrapper only
-        as tall as itself has nowhere to travel and stops being sticky at all.
-        Same shape `SidebarShell` and `AdminStickyTopBar` already use.
-      */}
-      <div
-        className={inApp ? 'shell-topbar fd-topwrap' : undefined}
-        data-hidden={barHidden ? 'true' : 'false'}
-      >
+  /*
+    THE BAR, DEFINED ONCE. The app variant wraps it in the sticky
+    `shell-topbar` box; the front door renders it directly as a child of `.fd`
+    so its own `position: sticky` has the whole page to travel in.
+  */
+  const topBarEl = (
       <header className="fd-topbar">
         <div className="fd-topleft">
           {inApp ? null : (
@@ -644,7 +623,61 @@ export function FrontDoorShell({
           )}
         </div>
       </header>
-      </div>
+  );
+
+  return (
+    // `data-chrome` is the ONE switch the stylesheet reads. Below 1024 the app
+    // variant paints no chrome at all; the surface's own bars are untouched.
+    <div className="fd" data-chrome={variant}>
+      <>
+      {/*
+        🔑 `shell-topbar` IS A CONTRACT, NOT A CLASS NAME. Two shipped event
+        pages hide the strip outright — the Guests page renders its own bar
+        (`.shell-topbar{display:none}`) and the Vendors takeover hides it below
+        1024 — by injecting a style rule that names exactly this word. It was
+        `SidebarShell`'s hook and then `AdminStickyTopBar`'s; the shared bar
+        inherits it with the job, or those two pages silently grow a second bar
+        they deliberately removed.
+
+        ⚠ IT IS THE WRAPPER, NOT THE BAR, AND THAT IS THE WHOLE POINT. A
+        wrapper sets no `display` of its own, so `display:none` cannot lose a
+        specificity tie to `.fd-topbar{display:grid}` — a fight whose outcome
+        would otherwise depend on whether a page's injected <style> happens to
+        come after the stylesheet. It also has to be the sticky box: sticky is
+        constrained by its PARENT, so a header sticking inside a wrapper only
+        as tall as itself has nowhere to travel and stops being sticky at all.
+        Same shape `SidebarShell` and `AdminStickyTopBar` already use.
+      */}
+      {/*
+        🔴 THE WRAPPER IS APP-VARIANT ONLY, AND THAT IS A BUG FIX.
+        It rendered UNCONDITIONALLY when the shared bar shipped, so on the
+        public front door `.fd-topbar` — `position: sticky; top: 0` — became the
+        only child of a bare, unstyled <div> exactly its own height. STICKY IS
+        CONSTRAINED BY ITS PARENT: with zero travel room the bar scrolled away
+        with the page. Owner, 2026-08-15: *"top nav moves up with the main
+        body."* Measured before the fix: parent 56px, bar 56px, travel room 0.
+
+        🪤 THE NOTE BELOW HAD ALREADY WRITTEN THIS RULE DOWN — "it also has to
+        be the sticky box: sticky is constrained by its PARENT, so a header
+        sticking inside a wrapper only as tall as itself has nowhere to travel
+        and stops being sticky at all." It was written FOR the app variant, and
+        the same commit then introduced the defect on the other one. Knowing a
+        rule and applying it to the branch in front of you are different acts.
+
+        ⚠ THE BAR ITSELF IS DEFINED ONCE, ABOVE, AND ONLY THE WRAPPER IS
+        CONDITIONAL. Writing the <header> out in both branches would be two
+        copies of the app's only top bar, free to drift.
+      */}
+      {inApp ? (
+        <div
+          className="shell-topbar fd-topwrap"
+          data-hidden={barHidden ? 'true' : 'false'}
+        >
+          {topBarEl}
+        </div>
+      ) : (
+        topBarEl
+      )}
 
       {/* Phone: the search gets its own row rather than squeezing the wordmark
           and the account cluster off the bar.

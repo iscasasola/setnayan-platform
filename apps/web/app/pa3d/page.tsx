@@ -138,6 +138,11 @@ const VS = [
 export default function Pa3DLandingPage() {
   return (
     <DoorwayPage
+      demo={{
+        id: 'plan3d-demo',
+        label: 'Walk around a sample reception',
+        sublabel: 'Seat a guest, then scan to see the room as them — no sign-up.',
+      }}
       kicker="In your wedding · 3D reception"
       title={'Walk your reception before it’s built.'}
       lede={'Pa3D lets you stand inside your reception before it’s real. See the room the way your guests will — the head table, the dance floor, every seat — and know it’s right while there’s still time to change it.'}

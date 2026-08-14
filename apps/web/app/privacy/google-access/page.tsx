@@ -1,6 +1,18 @@
 import Link from 'next/link';
 import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome';
 
+/*
+  🔴 force-dynamic IS LOAD-BEARING. This page mounts the shared shell, which
+  reads the session. It carried `revalidate = 3600` — ISR, not force-static, so
+  Trap 1 (the silent empty-cookie-jar) does not apply here — but a session read
+  would de-opt it at request time anyway, which is the same cost paid
+  accidentally instead of on purpose. Declared, so it is a decision.
+  ⚠ A LAYOUT CANNOT SET THIS: `dynamic` resolves nested-most-wins and the
+  children traversal completes before a parent layout's component is created.
+  It is one edit per page and missing one is invisible.
+*/
+export const dynamic = 'force-dynamic';
+
 /**
  * `/privacy/google-access` — the ONE short page a Google reviewer (or a couple)
  * can be handed that answers "what does connecting Google actually do?".
@@ -32,58 +44,18 @@ import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome'
  * restating it, so the two can never drift into contradicting each other.
  */
 
-export const revalidate = 3600;
 
-const TITLE = 'What connecting Google does · Setnayan';
-const DESCRIPTION =
-  'Plain-English explanation of the two optional Google connections Setnayan offers: YouTube, to set up the live broadcast of a wedding, and Google Drive, so photos land in a folder the couple owns. Setnayan only ever touches files it created itself.';
+import { GOOGLE_ACCESS_METADATA } from './metadata';
 
-/** The shared 1200×630 brand card, same asset the root layout and `/` serve. */
-const OG_IMAGE = '/brand/og-card.webp';
-
-export const metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  applicationName: 'Setnayan',
-  alternates: { canonical: '/privacy/google-access' },
-  // 🚨 `openGraph` and `twitter` are REPLACED wholesale by a child segment, not
-  // deep-merged (next/dist/lib/metadata/resolve-metadata.js does
-  // `target.openGraph = resolveOpenGraph(source.openGraph, …)` on a plain
-  // `case 'openGraph':`). The homepage learned this the hard way on 2026-08-09.
-  // So BOTH objects below are stated in full:
-  //   • without `images`, this URL would drop the root layout's 1200×630 card
-  //     and share as a bare link;
-  //   • without a `twitter` object at all, the root layout's twitter card would
-  //     survive intact — meaning this legal summary would be shared under the
-  //     homepage's MARKETING title and description.
-  // 🔑 An override object must be COMPLETE, not a patch. If you add a key to the
-  // root layout's openGraph/twitter, add it here too. Guarded by
-  // app/privacy/google-access/google-access.test.ts, which derives the required
-  // key set from app/layout.tsx rather than from a hand-typed list.
-  openGraph: {
-    type: 'website',
-    siteName: 'Setnayan',
-    locale: 'en_PH',
-    title: TITLE,
-    description: DESCRIPTION,
-    url: '/privacy/google-access',
-    images: [
-      {
-        url: OG_IMAGE,
-        width: 1200,
-        height: 630,
-        alt: "Setnayan · Set na 'yan. · Filipino wedding planning · verified vendors · 0% commission",
-        type: 'image/webp',
-      },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: TITLE,
-    description: DESCRIPTION,
-    images: [OG_IMAGE],
-  },
-};
+/*
+  🔑 The object lives in `./metadata.ts` so `google-access.test.ts` can import
+  the REAL values without pulling this page's shared shell — and with it
+  `server-only`, which the Next bundler aliases and node cannot resolve — into a
+  plain node test. See that file's header for the two alternatives rejected.
+  This stays a literal `export const metadata`, not a re-export, so Next's
+  static analysis sees exactly the export shape it looks for.
+*/
+export const metadata = GOOGLE_ACCESS_METADATA;
 
 export default function GoogleAccessPage() {
   return (

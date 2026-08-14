@@ -7,6 +7,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { HELP_TOPICS } from '@/lib/help';
+import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 // Client motion island (the page itself stays a force-static Server Component).
 // Renders the hero so the serif line-reveal ref sits on the real <h1>, and
 // provides container wrappers that attach the shared quiet reveal to
@@ -23,8 +24,17 @@ import {
 // AboutPage + Organization + BreadcrumbList + FAQPage JSON-LD; the FAQ reuses
 // the already-approved about-setnayan help copy (single source of truth in
 // lib/help.ts).
-export const dynamic = 'force-static';
-export const revalidate = 3600;
+/*
+  🔴 force-dynamic IS LOAD-BEARING. This page mounts the shared shell, which
+  reads the session. It carried `revalidate = 3600` — ISR, not force-static, so
+  Trap 1 (the silent empty-cookie-jar) does not apply here — but a session read
+  would de-opt it at request time anyway, which is the same cost paid
+  accidentally instead of on purpose. Declared, so it is a decision.
+  ⚠ A LAYOUT CANNOT SET THIS: `dynamic` resolves nested-most-wins and the
+  children traversal completes before a parent layout's component is created.
+  It is one edit per page and missing one is invisible.
+*/
+export const dynamic = 'force-dynamic';
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -137,6 +147,13 @@ export default function AboutPage() {
   };
 
   return (
+    /*
+      The shared shell — this page keeps its own <main> and <h1>; the doorway
+      variant yields both. See `front-door-shell.tsx` for why `app` would be
+      wrong here (no hamburger below 1024, and a wordmark pointing at a route
+      that redirects a stranger to /login).
+    */
+    <AppRailShell variant="doorway">
     <>
       <script
         type="application/ld+json"
@@ -306,5 +323,6 @@ export default function AboutPage() {
       </main>
 
     </>
+    </AppRailShell>
   );
 }

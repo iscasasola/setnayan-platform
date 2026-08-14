@@ -143,7 +143,7 @@ export default async function AlaalaPage({
   const wall = lens ? await getAlaalaWall(user.id) : null;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       {/* The account spokes' documented convention is a "Back to home" link
           (see (account)/layout.tsx) — and home is where the Alaala tile lives,
           so "back to events" named the wrong thing on the wrong surface. */}

@@ -415,7 +415,24 @@ test('the marketing top nav never appears inside the app', () => {
   const routes = [...chrome.matchAll(/^\s*'(\/[^']*)',/gm)]
     .map((m) => m[1])
     .filter((r): r is string => typeof r === 'string');
-  assert.ok(routes.length > 20, `Expected the marketing route set, found ${routes.length}.`);
+  /*
+    🪤 A BARE COUNT FLOOR IS THE WRONG NON-VACUITY CHECK, and this proved it:
+    nine routes legitimately LEFT this set on 2026-08-15 (they wear the shared
+    shell now), the count fell 25 → 16, and the guard failed saying "Expected
+    the marketing route set" — against a correct file. A floor tuned to today's
+    size fails every time the set shrinks on purpose, which teaches you to lower
+    it, which is how it ends up at 0 and stops guarding anything.
+
+    A POSITIVE CONTROL is strictly stronger: a broken parser cannot produce a
+    route it never saw. `/help` is a stable member — footer-only detail pages
+    depend on it and it is not a conversion candidate.
+  */
+  assert.ok(
+    routes.includes('/help'),
+    `The marketing route parser did not find /help, a stable member — it is ` +
+      `broken and every assertion below would pass vacuously. Found ${routes.length}: ` +
+      routes.slice(0, 6).join(', '),
+  );
   const crossed = routes.filter((r) =>
     APP_TREES.some((tree) => r === `/${tree.slice(0, -1)}` || r.startsWith(`/${tree}`)),
   );

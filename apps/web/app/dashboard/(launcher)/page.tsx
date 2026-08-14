@@ -505,16 +505,38 @@ export default async function LauncherPage({
   // so ongoing support volume doesn't inflate the count next to real gating
   // decisions (payments, verification, disputes, approvals). Gated to admins, so
   // the per-queue count fan-out never runs for a plain couple.
-  let adminOpenTotal = 0;
+  /*
+    🔴 `null` MEANS "WE COULD NOT READ IT", AND IT IS NOT THE SAME AS 0.
+    This was `let adminOpenTotal = 0` with `= 0` again in the catch, so a failed
+    digest read reached the board as a confident zero and the tile said the
+    queues were clear. `count === null` means NOT MEASURED — filing an
+    unmeasured queue under "nothing needs you" puts it in the one place a
+    person has been told they need not look.
+  */
+  let adminOpenTotal: number | null = 0;
   if (roles.hasAdminAccess) {
     try {
       const digest = await getAdminQueueDigest();
       for (const [key, meta] of Object.entries(ADMIN_QUEUE_META)) {
         if (meta.lane === 'support') continue;
-        adminOpenTotal += Math.max(0, digest[key]?.count ?? 0);
+        /*
+          🪤 AND THE SAME TRAP LIVES ONE LEVEL DOWN, PER QUEUE. A queue whose
+          own read failed arrives here as `count: null`, and `?? 0` would fold
+          it into the sum as a confident zero — the total would then look
+          measured while one lane inside it was never read. One unreadable
+          queue makes the WHOLE number unreadable, because a sum missing an
+          unknown addend is not a smaller sum, it is not a number.
+        */
+        const count = digest[key]?.count;
+        if (count === null || count === undefined) {
+          adminOpenTotal = null;
+          break;
+        }
+        if (adminOpenTotal !== null) adminOpenTotal += Math.max(0, count);
       }
     } catch {
-      adminOpenTotal = 0;
+      // The read failed. Say so — do not report a clear desk.
+      adminOpenTotal = null;
     }
   }
 
@@ -769,8 +791,19 @@ export default async function LauncherPage({
       title: 'HQ',
       subtitle: 'Admin console',
       tone: 'admin',
+      /*
+        🔴 THREE STATES, NOT TWO. A number worth acting on, a desk that is
+        genuinely clear (say nothing — silence is correct there), and a read
+        that FAILED. The third one used to look exactly like the second. It now
+        says so, because "we could not check" is a reason to open the console,
+        and the whole point of this line is to tell someone whether to.
+      */
       attention:
-        adminOpenTotal > 0 ? `${adminOpenTotal} awaiting review` : undefined,
+        adminOpenTotal === null
+          ? "Couldn't check the queues"
+          : adminOpenTotal > 0
+            ? `${adminOpenTotal} awaiting review`
+            : undefined,
     });
   }
 

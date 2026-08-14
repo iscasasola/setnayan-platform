@@ -97,7 +97,7 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
   const successKey = Object.keys(FLASH).find((k) => search[k]);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Back to home

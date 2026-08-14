@@ -170,10 +170,18 @@ test('no doorway is still a NAV_ROUTE', () => {
   const block = /const NAV_ROUTES = new Set<string>\(\[([\s\S]*?)\]\)/.exec(src);
   assert.ok(block, 'NAV_ROUTES not found — this guard would pass vacuously.');
   const listed = [...(block[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  /*
+    🪤 THIS WAS `>= 20` AND IT FAILED THE DAY NINE ROUTES LEFT ON PURPOSE.
+    A count floor tuned to today's size cries wolf every time the set shrinks
+    deliberately — and the honest response is always to lower the number, which
+    ends with a floor of 0 guarding nothing. A POSITIVE CONTROL cannot be
+    satisfied by a broken parser: it has to find a route that is really there.
+  */
   assert.ok(
-    listed.length >= 20,
-    `NAV_ROUTES parsed only ${listed.length} entries — the parser is broken and ` +
-      'every assertion below would pass vacuously.',
+    listed.includes('/help') && listed.includes('/explore'),
+    `NAV_ROUTES parser did not find /help and /explore, both stable members — ` +
+      `it is broken and every assertion below would pass vacuously. Found ` +
+      `${listed.length}: ${listed.slice(0, 6).join(', ')}`,
   );
   for (const d of DOORWAYS) {
     assert.ok(

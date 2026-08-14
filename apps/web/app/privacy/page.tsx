@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + enriched description. AI
 // engines extract privacy-policy content for "is X RA 10173 compliant"
@@ -29,6 +30,12 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
+    /*
+      The shared shell — this page keeps its own <main> and <h1>; the doorway
+      variant yields both. Owner 2026-08-15: the rail's small print points here,
+      and it used to throw the person out of the app.
+    */
+    <AppRailShell variant="doorway">
     <main className="min-h-dvh bg-cream">
       <article className="mx-auto w-full max-w-3xl space-y-6 px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <header className="space-y-2">
@@ -1563,6 +1570,7 @@ export default function PrivacyPage() {
         </Section>
       </article>
     </main>
+    </AppRailShell>
   );
 }
 

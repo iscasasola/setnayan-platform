@@ -31,6 +31,7 @@ import {
 } from '@/lib/papic-tier-config-read';
 import { PAPIC_FREE_ONE_CAMERA_COUNT } from '@/lib/papic-one';
 import { resolveAiPrices } from '@/app/_components/home/pricing-data';
+import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 
 /**
  * Force dynamic rendering · skip static prerender.
@@ -589,7 +590,13 @@ export default async function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-cream text-ink">
+    /*
+      The shared shell. ⚠ THIS PAGE OWNS NO <main> — measured live, main=0 — so
+      the wrapper below becomes one: the doorway variant yields the landmark to
+      the host, and a page with none would end up with zero.
+    */
+    <AppRailShell variant="doorway">
+    <main className="min-h-screen bg-cream text-ink">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }}
@@ -597,7 +604,11 @@ export default async function PricingPage() {
 
       {/* Hero */}
       <section className="border-b border-ink/5">
-        <div className="mx-auto w-full max-w-5xl px-4 pt-20 pb-12 sm:px-6 sm:pt-28 sm:pb-16 lg:px-8 lg:pt-32 lg:pb-20">
+        <div /* The tall top padding existed to clear the FIXED glass nav. That nav no
+             longer renders here (this page left NAV_ROUTES with the shell
+             conversion), so keeping it would leave ~128px of dead cream above
+             the first heading. */
+          className="mx-auto w-full max-w-5xl px-4 pt-8 pb-12 sm:px-6 sm:pt-10 sm:pb-16 lg:px-8 lg:pb-20">
           <p className="m-eyebrow">Set na &apos;yan · Pricing</p>
           <LineRevealHeading
             as="h1"
@@ -963,6 +974,7 @@ export default async function PricingPage() {
           </div>
         </div>
       </section>
-    </div>
+    </main>
+    </AppRailShell>
   );
 }

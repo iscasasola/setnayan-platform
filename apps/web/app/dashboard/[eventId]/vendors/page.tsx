@@ -102,6 +102,7 @@ import { getCategoryBuildStates } from './build-3state-actions';
 import { BuildLocked } from './_components/build-locked';
 import { ReuseBookingsPanel } from './_components/reuse-bookings-panel';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
+import { anchoredDateByColumn } from '@/lib/compare-anchored-date';
 import { type SavedPlanBuild, type PlanBuildSnapshot } from './build-actions';
 import {
   getAvailableDaysForVendorSet,
@@ -1639,6 +1640,42 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         return null;
       }
     })();
+
+    // ── B5 · The anchored-date verdict per plan column (2026-08-14) ──────────
+    // The window row above answers "which days could work" and is gated to
+    // year/month precision. Both real production events are day-precision, so
+    // that row has never been reachable on real data. Once the date is
+    // committed the useful question changes: is everyone in THIS plan free on
+    // THAT day, and if not, who is not.
+    //
+    // NO NEW QUERY. `dateFitByVendorId` is already built above for the bench's
+    // date badge, from the batched `getBatchVendorAvailableDays`, under exactly
+    // the same `matchPrecision === 'day'` condition. This only regroups it by
+    // plan column, so the row is free.
+    //
+    // Fail-soft in the same direction as the map it reads: a vendor with no
+    // calendar signal is simply absent from the map and is not counted as
+    // checked, so an unreadable calendar can never print "booked" about a
+    // vendor who is not. Silence beats a false accusation about somebody's
+    // supplier.
+    const compareAnchoredDate = (() => {
+      if (dateFitByVendorId.size === 0 || !matchFormattedDate) return null;
+      return {
+        dateLabel: matchFormattedDate,
+        byColumn: anchoredDateByColumn({
+          columns: [
+            ...savedBuilds.map((b) => ({ key: b.build_id, picks: b.snapshot.picks ?? [] })),
+            { key: 'current', picks: currentPlan.picks },
+          ],
+          dateFit: dateFitByVendorId,
+          nameOf: (vendorId) =>
+            marketplaceCardByVendorId.get(vendorId)?.name ??
+            vendors.find((v) => v.vendor_id === vendorId)?.vendor_name ??
+            'A vendor',
+        }),
+      };
+    })();
+
     // Build-tab anchors (PR D) — Date/Budget/Location with Flag/Pin. State lives
     // on the existing events columns (populated = Pinned, empty = Flagged); no
     // migration. Reuses the already-computed matchFormattedDate + precision.
@@ -1832,6 +1869,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             currentPlan={currentPlan}
             savedBuilds={savedBuilds}
             availability={compareAvailability}
+            anchoredDate={compareAnchoredDate}
           />
         }
       />

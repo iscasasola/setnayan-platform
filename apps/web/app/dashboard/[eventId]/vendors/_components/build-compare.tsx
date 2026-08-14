@@ -85,18 +85,52 @@ export type CompareAvailability = {
   byColumn: Record<string, CompareDatesInfo>;
 };
 
+// ── B5 · The anchored-date verdict (2026-08-14) ─────────────────────────────
+// `CompareAvailability` above answers "which days COULD work" and only renders
+// for year/month-precision events. Both real production events are
+// day-precision, so that row has never once been reachable on real data —
+// dormant, not broken.
+//
+// Once a couple has COMMITTED to a date, "17 days free in November" is the
+// wrong question; the only one left is whether the people in this plan are free
+// on THAT day. So this is a separate shape rather than a widening of the one
+// above: different question, different sentence, mutually exclusive by
+// precision — exactly one of the two is ever non-null.
+//
+// The per-vendor free/booked data is NOT re-queried. `page.tsx` already
+// computes `dateFitByVendorId` for the bench's date badge via the batched
+// `getBatchVendorAvailableDays`; this reuses that map, so the row costs zero
+// extra calendar reads.
+export type CompareAnchoredDate = {
+  /** The couple's committed date, pre-formatted ("12 Dec 2026"). */
+  dateLabel: string;
+  /** Keyed by build_id, plus 'current' for the live column. */
+  byColumn: Record<
+    string,
+    {
+      /** Connected vendors in this column whose calendar we could actually read. */
+      checkedCount: number;
+      /** Names of those booked on the day — the whole point of the row. */
+      bookedNames: string[];
+    }
+  >;
+};
+
 export function BuildCompare({
   eventId,
   budgetPhp,
   currentPlan,
   savedBuilds,
   availability = null,
+  anchoredDate = null,
 }: {
   eventId: string;
   budgetPhp: number | null;
   currentPlan: PlanBuildSnapshot;
   savedBuilds: SavedPlanBuild[];
   availability?: CompareAvailability | null;
+  /** B5 — the day-precision counterpart of `availability`. Never both. */
+  anchoredDate?: CompareAnchoredDate | null;
 }) {
   const router = useRouter();
   // PR-F: every user-visible delta below is gated on this. Read once so the
@@ -324,7 +358,7 @@ export function BuildCompare({
           compares plans. A MOVE: flag ON this renders nothing, and
           `TeamSavePlan` is the only save bar on the page. */}
       {replan ? null : (
-        <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
+        <div className="sn-tile space-y-2 p-4">
           <div className="flex flex-wrap items-center gap-2 text-sm text-ink/80">
             <Bookmark className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} aria-hidden />
             Save your current plan as
@@ -376,7 +410,7 @@ export function BuildCompare({
           Its counterpart, "Clear candidates", now lives on Your team (PR-E ·
           spec §8.3) — the surface that owns the team owns emptying it. */}
       {replan ? (
-        <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
+        <div className="sn-tile space-y-2 p-4">
           <h3 className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
             Your saved plans
           </h3>
@@ -468,13 +502,13 @@ export function BuildCompare({
 
       {/* Side-by-side comparison */}
       {rows.length === 0 ? (
-        <div className="rounded-2xl border border-ink/10 bg-cream px-4 py-10 text-center text-sm text-ink/60">
+        <div className="sn-tile px-4 py-10 text-center text-sm text-ink/60">
           {replan
             ? 'No vendors in your team yet. Add some candidates from the bench, then save them under a name to compare plans side by side.'
             : 'No vendors in your plan yet. Shortlist some and add them on the Build tab, then save a plan to compare versions side by side.'}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-ink/10">
+        <div className="sn-tile overflow-x-auto p-0">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="bg-ink/[0.03] text-left">
@@ -673,6 +707,43 @@ export function BuildCompare({
                             {a.dayLabels.length > 0
                               ? ` · ${a.dayLabels.join(' · ')}${a.moreCount > 0 ? ` +${a.moreCount}` : ''}`
                               : ''}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ) : null}
+              {/* B5 — the anchored-date verdict. Renders instead of the window
+                  row above once the couple has committed to a day. Three
+                  states, and the middle one is the reason the row exists: a
+                  plan can be affordable and still be impossible. */}
+              {anchoredDate ? (
+                <tr className="border-t border-ink/10">
+                  <td className="px-3 py-2 align-top text-[11px] leading-snug text-ink/55">
+                    On your date
+                    <span className="block text-[10px] text-ink/40">
+                      {anchoredDate.dateLabel}
+                    </span>
+                  </td>
+                  {columns.map((c) => {
+                    const a = anchoredDate.byColumn[c.key];
+                    return (
+                      <td key={c.key} className="px-2 py-2 text-right align-top">
+                        {!a || a.checkedCount === 0 ? (
+                          <span
+                            className="text-[10px] text-ink/35"
+                            title="No Setnayan-connected vendors in this plan to check calendars for"
+                          >
+                            —
+                          </span>
+                        ) : a.bookedNames.length === 0 ? (
+                          <span className="block text-[10px] leading-snug text-success-700">
+                            Everyone here is free
+                          </span>
+                        ) : (
+                          <span className="block text-[10px] leading-snug text-danger-700">
+                            {a.bookedNames.join(', ')} booked that day
                           </span>
                         )}
                       </td>

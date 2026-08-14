@@ -36,6 +36,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ChevronDown, Info, Sparkles, X } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   BUDGET_BUILD_TABS,
   TAB_META,
@@ -87,12 +88,13 @@ const SECTION_HEADING: Record<BudgetBuildTab, string> = {
 };
 
 export function ServicesTakeover({
-  // `eventId` stays in the props contract (the page passes it) but is no longer
-  // read in the body since the floating "back X" that used it was removed
-  // 2026-06-15. Not destructured → no unused-var lint, caller API unchanged.
-  // `initialTab` likewise stays in the props contract but is no longer read:
-  // it only seeded the removed desktop strip's highlight — the on-mount ?tab=
+  // `eventId` is READ AGAIN as of B1 (2026-08-14): the masthead's back chevron
+  // needs the event root. It had been undestructured since 2026-06-15, when the
+  // floating "back X" that previously used it was removed.
+  // `initialTab` still stays in the props contract but is not read: it only
+  // seeded the removed desktop strip's highlight — the on-mount ?tab=
   // adoption below still handles deep-link scrolling.
+  eventId,
   shortlistSlot,
   buildSlot,
   budgetSlot,
@@ -182,27 +184,79 @@ export function ServicesTakeover({
           strip lives in the content area and won't collide. (Review 2026-06-09.) */}
       <style>{`@media (max-width:1023px){.shell-topbar{display:none}}`}</style>
 
+      {/* ── B1 · PAGE IDENTITY ────────────────────────────────────────────────
+          This page had NO <h1> at all (measured 2026-08-14: the only h1s under
+          `vendors/` are its SUB-routes — review, workspace, categories,
+          packages). The shell supplies the <main> landmark and no heading, the
+          desktop tab strip went in 2026-07-15 and the mobile dock went under the
+          replan flag, so on a phone — where there is no sidebar to read — nothing
+          on screen said which page this was.
+
+          `<PageMasthead>` is the shipped component for exactly this (8 sibling
+          dashboard pages already use it); it is NOT re-drawn here. Its back
+          chevron is the "crumb" the plan asks for — this product has no
+          breadcrumb component and the masthead's own docblock says so. */}
+      {replan ? (
+        <PageMasthead
+          className="mb-4"
+          title="Marketplace"
+          back={`/dashboard/${eventId}`}
+          backLabel="Back to your event"
+          lede="Everyone you could hire, everyone you have chosen, and what you owe them — on one page."
+        />
+      ) : null}
+
       {/* Premium tier crest (S5) — shows only when Setnayan AI is active, marking
-          the Marketplace as the couple's premium planning surface. Gold-accented,
-          presentational; the AI features it names (smart matching, watch guard)
-          are already live behind the same gate. */}
+          the Marketplace as the couple's premium planning surface.
+          Presentational; the AI features it names are live behind the same gate.
+
+          ── B2 · THE HONESTY STRING (2026-08-14) ──────────────────────────────
+          This read "Your Marketplace is on the premium tier" to EVERY couple.
+          `premium` is `aiActive`, and while the AI paywall is off `aiActive` is
+          true for every event — so a line meant to mark a paid tier was telling
+          all of them they had bought something. The features named are genuinely
+          on; what was false was "premium tier". It now says the features are on
+          and free right now, which is true in both worlds and does not have to
+          be revisited when the paywall flips.
+
+          Chrome moves off the amber warn-* ramp onto the warm-editorial card
+          (`.sn-tile`, 14px + cream + line), keeping gold as the ACCENT only —
+          gold has 0.29 of contrast headroom on cream, so it may never become a
+          fill or a tint behind text (design#6, 2026-08-13). */}
       {premium ? (
-        <div className="mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-xl border border-warn-300/50 bg-warn-50 px-4 py-2.5">
-          <Sparkles className="h-4 w-4 shrink-0 text-warn-600" strokeWidth={2} aria-hidden />
-          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-warn-800">
+        <div className="sn-tile mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1 px-4 py-2.5">
+          {/* `terracotta` is the token that HOLDS gold #A9834B (globals.css
+              `--color-terracotta`) — the same class this file already uses for
+              its accent. Gold is 3.37:1 and is UI-ONLY: legal on an icon, never
+              on the sentence beside it. */}
+          <Sparkles className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} aria-hidden />
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/70">
             Setnayan&nbsp;AI
           </span>
           <span className="text-xs text-ink/60">
-            Your Marketplace is on the premium tier — smart matching, fit scoring, and the watch guard are on.
+            Smart matching, fit scoring, and the watch guard are on — free while we are in launch.
           </span>
         </div>
       ) : null}
 
-      {/* No desktop section nav — the two-column layout puts every section on
-          screen at once (removed 2026-07-15, owner). The mobile section nav
-          lives in the EVENT LAYOUT: <CustomerSectionSubnav> drives section
-          switches over the shared BB_TAB_EVENT bus, which the `goToSection`
-          listener above consumes (scrolling, not swapping). */}
+      {/* ── B1 · SECTION CHIPS ───────────────────────────────────────────────
+          The desktop strip was removed 2026-07-15 because the two-column layout
+          shows every section at once. That reasoning never held on a PHONE,
+          where the columns stack and Plans + Payments sit below a bench that is
+          ~10 folders and ~53 tiles long — so reaching your money meant scrolling
+          past all of it (seam S1). The dock that used to solve this was removed
+          under the replan flag and is not coming back (owner lock, twice).
+
+          These are NOT tabs and they swap nothing. Each chip calls the SHIPPED
+          `goToBuildTab`, which dispatches the existing BB_TAB_EVENT that the
+          `goToSection` listener above already consumes — so a chip does exactly
+          what the mobile dock did: scroll, mirror `?tab=`, and expand a
+          collapsed section. No new key, no new anchor, no new bus.
+
+          Not sticky, deliberately: the bottom nav and the team chip already dock
+          on mobile, and a third pinned bar is the stacked-bars defect
+          `lint-no-stacked-pinned-bars.mjs` exists to prevent. */}
+      {replan ? <SectionChips /> : null}
 
       {/* Merkado layout (S1 · 2026-07-09): MOBILE stacks (shortlist → build →
           compare) exactly as before — the grid collapses to one column and the
@@ -246,15 +300,10 @@ export function ServicesTakeover({
               DOM order — they resolve by id. */}
           {replan ? (
             <>
-              <ServiceSection
-                tab="compare"
-                heading={SECTION_HEADING.compare}
-                collapsible
-                open={compareOpen}
-                onToggle={() => setCompareOpen((v) => !v)}
-              >
-                {compareSlot ?? <SectionStub tab="compare" />}
-              </ServiceSection>
+              {/* B3 moved "Your plans" OUT of this rail — it is now the
+                  full-width row below the grid (see the `compare` mount after
+                  this grid closes). Payments stays, and is now the last thing
+                  in the rail. */}
               <ServiceSection
                 tab="budget"
                 heading={SECTION_HEADING.budget}
@@ -293,6 +342,47 @@ export function ServicesTakeover({
             </>
           )}
         </div>
+
+        {/* ── B3 · "YOUR PLANS" LEAVES THE 380px RAIL ──────────────────────────
+            Plans is a SIDE-BY-SIDE TABLE — one column per saved plan plus
+            Current, each carrying a name, a total, an over/under and (B5) a date
+            verdict. The rail is a FIXED 380px, so that table had ~330px of
+            usable width and an `overflow-x-auto`: the one thing the panel exists
+            to do was the one thing its home could not accommodate.
+
+            It is a THIRD GRID CHILD spanning both columns, not a second copy.
+            `lg:hidden` + `hidden lg:block` would have been two mounts — and
+            because those are `display`, not conditional rendering, BOTH would
+            sit in the DOM: duplicate `#svc-compare` ids and two mounts of the
+            panel's client state. One mount, placed by the grid.
+
+            Safe to move because every key resolves BY ID, never by DOM position:
+            `#svc-compare`, `?tab=compare`, BB_TAB_EVENT and `?open=` all still
+            find it. `scroll-mt-24` on the section keeps the deep-link landing
+            correct in its new position.
+
+            ⚖ ONE CONSEQUENCE, DELIBERATE AND OWNER-VISIBLE: Plans now comes
+            AFTER Payments at every width, where the 2026-07-29 §3 order put it
+            between Your team and Payments. Moving it full-width under both
+            columns already reorders it on desktop — that IS the requested
+            change — and leaving mobile alone would have meant two mounts. So
+            mobile follows desktop rather than the two disagreeing. The §3
+            reasoning that Plans "sits next to the team it branches from" is what
+            is being traded for a table that fits; the owner is judging exactly
+            this. */}
+        {replan ? (
+          <div className="min-w-0 lg:col-span-2">
+            <ServiceSection
+              tab="compare"
+              heading={SECTION_HEADING.compare}
+              collapsible
+              open={compareOpen}
+              onToggle={() => setCompareOpen((v) => !v)}
+            >
+              {compareSlot ?? <SectionStub tab="compare" />}
+            </ServiceSection>
+          </div>
+        ) : null}
       </div>
     </section>
   );
@@ -439,6 +529,51 @@ function ExploreInfoToggle() {
         </span>
       ) : null}
     </span>
+  );
+}
+
+/**
+ * SectionChips (B1) — the in-page wayfinding row.
+ *
+ * ── WHAT IT IS NOT ──────────────────────────────────────────────────────────
+ * NOT tabs, and it swaps nothing. The desktop tab strip was removed 2026-07-15
+ * because the two-column layout already shows every section, and rebuilding
+ * panel-switching is the paid-twice mistake this surface already made once.
+ * Each chip calls the SHIPPED `goToBuildTab`, which dispatches the existing
+ * `BB_TAB_EVENT` that `goToSection` above already handles — so a chip does
+ * exactly what the removed mobile dock did: scroll to `#svc-<tab>`, mirror
+ * `?tab=`, and expand the section if it is collapsed. No new key, no new
+ * anchor, no new bus, no new state.
+ *
+ * ── WHY IT READS `tabLabel()` ───────────────────────────────────────────────
+ * `tabLabel()` is the single label authority (`lib/budget-build.ts`) and is
+ * itself flag-gated, so the chips say "Payments" and "Plans" with the flag on
+ * and the pre-rename words with it off — the two can never drift. Authoring
+ * strings here is exactly what that helper exists to prevent.
+ *
+ * The section HEADINGS are deliberately longer than these chips ("Your team"
+ * vs "Build"): a chip wants a short word, a heading wants a sentence's worth of
+ * orientation. Both are flag-aware, so neither can outlive a rename.
+ *
+ * ── ORDER ───────────────────────────────────────────────────────────────────
+ * `BUDGET_BUILD_TABS` is `shortlist · build · budget · compare`, which after B3
+ * moved Plans below the grid is the on-page order exactly. Iterated, never
+ * re-listed, so a future reorder happens in one place.
+ */
+function SectionChips() {
+  return (
+    <nav aria-label="Jump to a section" className="mb-6 flex flex-wrap gap-2">
+      {BUDGET_BUILD_TABS.map((tab) => (
+        <button
+          key={tab}
+          type="button"
+          onClick={() => goToBuildTab(tab)}
+          className="inline-flex items-center rounded-full border border-ink/15 bg-cream px-3.5 py-1.5 text-xs font-medium text-ink/70 transition hover:border-ink/30 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+        >
+          {tabLabel(tab)}
+        </button>
+      ))}
+    </nav>
   );
 }
 

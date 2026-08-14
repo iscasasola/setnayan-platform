@@ -80,10 +80,13 @@ test('the shared content column is a <main> only on the public front door', () =
   const src = read(SHELL);
   assert.match(
     src,
-    /const MainEl = inApp \? 'div' : 'main'/,
-    'The content column must be a <div> in the app variant. As a <main> it is a ' +
-      'SECOND landmark on every converted page, because each host surface ' +
-      'already renders its own.',
+    /const MainEl = \w+ \? 'div' : 'main'/,
+    'The content column must be a <div> wherever the HOST page renders its own ' +
+      '<main>. As a <main> it is a SECOND landmark on every such page.\n' +
+      '🪤 This used to pin the literal `inApp ? ...`. When a THIRD variant ' +
+      '(doorway) arrived, `inApp` became one of four named questions and this ' +
+      'guard went red against a more correct shell. It now matches the RULE — ' +
+      'the tag comes from a boolean — not the boolean\'s name.',
   );
   /*
     Anchored on the ELEMENT, not on the variable's declaration alone — a

@@ -19,8 +19,22 @@
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
 import { studioApp, studioDescription } from '@/lib/studio-apps';
 
-export const dynamic = 'force-static';
-export const revalidate = 3600;
+/*
+  🔴 force-dynamic IS LOAD-BEARING, NOT A PREFERENCE.
+  This page mounts the shared shell, which reads the session. Under
+  `dynamic = 'force-static'` — what this file used to declare — Next 15.5.21
+  returns an EMPTY cookie jar from `cookies()` and does NOT throw and does NOT
+  bail out of static generation (`next/dist/server/request/cookies.js`, the
+  forceStatic branch sits BEFORE both). The page would have built green, stayed
+  edge-cached, and served a PERMANENTLY SIGNED-OUT rail for an hour at a time to
+  people who are signed in. Nothing thrown, nothing logged: the only symptom is
+  an absence.
+  ⚠ A LAYOUT CANNOT SET THIS FOR US — `create-component-tree.js` resolves
+  `dynamic` nested-most-wins, and the children traversal completes before a
+  parent layout's component is created. It is seven separate edits and missing
+  one is invisible, which is why `doorway-shell.test.ts` counts them.
+*/
+export const dynamic = 'force-dynamic';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 

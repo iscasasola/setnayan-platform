@@ -77,12 +77,27 @@ function sourcesFor(route: string): Source[] {
     .map((f) => ({ path: `app/${route}/${f}`, src: code(readFileSync(join(dir, f), 'utf8')) }));
 }
 
+/*
+  🪤 THE KIT IS TWO FILES NOW, AND READING ONLY ONE MADE THIS GUARD GO RED ON
+  CORRECT CODE. `DOORWAY_TONE` moved to `_doorway-tone.ts` on 2026-08-15 so that
+  `/alaala` — which imports the tone and nothing else — would stop transitively
+  pulling in the shared shell (`_doorway.tsx` now imports `AppRailShell`, which
+  is `server-only` and carries `front-door.css`). This guard read `_doorway.tsx`
+  alone and reported the tone "gone from the kit". Both halves are the kit.
+*/
 const KIT_REL = 'app/_components/marketing/_doorway.tsx';
 const KIT_ABS = join(HERE, '_doorway.tsx');
+const TONE_REL = 'app/_components/marketing/_doorway-tone.ts';
+const TONE_ABS = join(HERE, '_doorway-tone.ts');
 
 function allSources(): Source[] {
   const kit = existsSync(KIT_ABS)
-    ? [{ path: KIT_REL, src: code(readFileSync(KIT_ABS, 'utf8')) }]
+    ? [
+        { path: KIT_REL, src: code(readFileSync(KIT_ABS, 'utf8')) },
+        ...(existsSync(TONE_ABS)
+          ? [{ path: TONE_REL, src: code(readFileSync(TONE_ABS, 'utf8')) }]
+          : []),
+      ]
     : [];
   return [...kit, ...DOORWAYS.flatMap(sourcesFor)];
 }
@@ -163,8 +178,25 @@ test('no public doorway hand-types a colour — the palette comes from tokens', 
  * against the surface the page will actually render.
  */
 function toneEntry(name: string): string {
-  const kit = readFileSync(KIT_ABS, 'utf8');
-  const block = kit.slice(kit.indexOf('export const DOORWAY_TONE'));
+  /*
+    🪤 READ FROM WHEREVER THE TONE ACTUALLY LIVES. This read `_doorway.tsx`
+    only, and on 2026-08-15 `DOORWAY_TONE` moved to its own module — so
+    `kit.indexOf('export const DOORWAY_TONE')` returned -1, `slice(-1)` handed
+    back the LAST CHARACTER of the file, and every lookup failed with "gone from
+    the kit" against code that was more correct than before. `.indexOf` → -1 →
+    `.slice(-1)` is a silent, plausible-looking wrong answer, which is why this
+    now asserts the anchor was found instead of slicing on it blindly.
+  */
+  const src = existsSync(TONE_ABS)
+    ? readFileSync(TONE_ABS, 'utf8')
+    : readFileSync(KIT_ABS, 'utf8');
+  const at = src.indexOf('export const DOORWAY_TONE');
+  assert.ok(
+    at !== -1,
+    'DOORWAY_TONE was not found in either half of the kit — this guard would ' +
+      'otherwise slice from -1 and report every entry missing.',
+  );
+  const block = src.slice(at);
   const m = block.match(new RegExp(`\\b${name}:\\s*\\n?\\s*'([^']+)'`));
   const value = m?.[1];
   assert.ok(value, `DOORWAY_TONE.${name} is gone from the kit — renamed or deleted?`);

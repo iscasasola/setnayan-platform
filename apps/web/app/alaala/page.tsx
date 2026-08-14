@@ -35,7 +35,7 @@
 import Link from 'next/link';
 import { AlaalaOrb } from '@/app/_components/marketing/AlaalaOrb';
 import { Reveal } from '@/app/_components/marketing/_motion';
-import { DOORWAY_TONE } from '@/app/_components/marketing/_doorway';
+import { DOORWAY_TONE } from '@/app/_components/marketing/_doorway-tone';
 import {
   LineRevealHeading,
   RevealBand,

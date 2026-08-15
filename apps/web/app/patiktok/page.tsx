@@ -97,7 +97,7 @@ const APP_LD = {
     'The moments that travel, made the moment they happen',
     'Pick your favourite beats and a reel composes itself',
     'Perfect for sharing the day with everyone, fast',
-    'Lives alongside your gallery and wedding website',
+    'Lives alongside your gallery and Event Hub',
   ],
   areaServed: 'Philippines',
   publisher: { '@id': `${SITE_URL}/#organization` },

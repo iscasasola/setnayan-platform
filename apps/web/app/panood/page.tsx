@@ -102,11 +102,11 @@ const APP_LD = {
   description: PAGE_DESCRIPTION,
   featureList: [
     'Live-streams your wedding to guests who can’t attend',
-    'Watched right on your own wedding website — no separate app',
+    'Watched right on your own Event Hub — no separate app',
     'Family overseas join in real time',
     'No login or install for the people watching',
     'Costs the same whether ten watch or ten thousand',
-    'Auto-archived on YouTube, with the watch link kept on your wedding website afterwards',
+    'Auto-archived on YouTube, with the watch link kept on your Event Hub afterwards',
   ],
   areaServed: 'Philippines',
   publisher: { '@id': `${SITE_URL}/#organization` },
@@ -115,7 +115,7 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'How do my guests watch?',
-    a: 'They open your wedding website and press play — that’s it. No app to download, no account to make, no link to lose. It works on any phone, tablet, or laptop, anywhere in the world.',
+    a: 'They open your Event Hub and press play — that’s it. No app to download, no account to make, no link to lose. It works on any phone, tablet, or laptop, anywhere in the world.',
   },
   {
     q: 'Will it work for family overseas?',
@@ -127,7 +127,7 @@ const FAQ = [
   },
   {
     q: 'Can we keep the recording?',
-    a: 'Yes — YouTube keeps the broadcast after the day, and the watch link stays on your wedding website so anyone who missed it can watch it back. If it ran on your own YouTube channel, the recording is yours to keep, edit, or delete in YouTube Studio. If it ran on a Setnayan channel, we keep it as an unlisted video and give you the watch link — and we will delete it if you ask.',
+    a: 'Yes — YouTube keeps the broadcast after the day, and the watch link stays on your Event Hub so anyone who missed it can watch it back. If it ran on your own YouTube channel, the recording is yours to keep, edit, or delete in YouTube Studio. If it ran on a Setnayan channel, we keep it as an unlisted video and give you the watch link — and we will delete it if you ask.',
   },
   {
     q: 'Does it replace our videographer?',
@@ -135,7 +135,7 @@ const FAQ = [
   },
   {
     q: 'How does the stream actually work?',
-    a: 'Live Studio broadcasts through YouTube. Setnayan sets the broadcast up and embeds it on your wedding website, always unlisted — it never appears in YouTube search, and only people with your website or the link can watch. It runs on your own YouTube channel when you connect one, or on a Setnayan channel where we supply it. Your own streaming software, like OBS, sends the video to YouTube; Setnayan does not carry the video itself. How we handle the Google data involved is set out at setnayan.com/privacy.',
+    a: 'Live Studio broadcasts through YouTube. Setnayan sets the broadcast up and embeds it on your Event Hub, always unlisted — it never appears in YouTube search, and only people with your Event Hub or the link can watch. It runs on your own YouTube channel when you connect one, or on a Setnayan channel where we supply it. Your own streaming software, like OBS, sends the video to YouTube; Setnayan does not carry the video itself. How we handle the Google data involved is set out at setnayan.com/privacy.',
   },
 ];
 
@@ -152,11 +152,11 @@ const FAQ_LD = {
 const STEPS = [
   {
     t: 'Turn it on for your day',
-    d: 'Live Studio lives inside your Setnayan wedding. Switch it on for the day, and a live broadcast appears right on your own wedding website — nothing for your guests to set up.',
+    d: 'Live Studio lives inside your Setnayan wedding. Switch it on for the day, and a live broadcast appears right on your own Event Hub — nothing for your guests to set up.',
   },
   {
     t: 'Everyone who can’t be there, watches',
-    d: 'Share your wedding website and they’re in. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it — all in the room, together, in real time.',
+    d: 'Share your Event Hub and they’re in. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it — all in the room, together, in real time.',
   },
   {
     t: 'And it stays after',
@@ -165,7 +165,7 @@ const STEPS = [
 ];
 
 const VS = [
-  ['A private link people lose', 'Right on your own wedding website'],
+  ['A private link people lose', 'Right on your own Event Hub'],
   ['Guests fumble with an app', 'They just press play'],
   ['Costs more as more tune in', 'Same for ten or ten thousand'],
   ['Gone the moment it ends', 'Stays with your wedding afterwards'],
@@ -178,7 +178,7 @@ export default function PanoodLandingPage() {
       demo={studioApp('panood')?.demo}
       kicker="In your wedding · live stream"
       title={'Everyone you love, in the room — even from afar.'}
-      lede={'Live Studio brings the people who can’t be there into your day, live. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it — they watch your wedding as it happens, right on your own wedding website.'}
+      lede={'Live Studio brings the people who can’t be there into your day, live. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it — they watch your wedding as it happens, right on your own Event Hub.'}
       primary={{ href: '/onboarding/wedding?from=panood', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Panood"

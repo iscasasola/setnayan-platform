@@ -152,7 +152,7 @@ export function SectionsPanel({
                               ? 'Show it as soon as it has content.'
                               : m === 'shown'
                                 ? 'Always show it.'
-                                : 'Keep it off your website.'
+                                : 'Keep it off your Event Hub.'
                         }
                         className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[0.62rem] font-semibold capitalize ${
                           active

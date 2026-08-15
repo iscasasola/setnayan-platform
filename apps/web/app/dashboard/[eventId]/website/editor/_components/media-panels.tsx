@@ -198,7 +198,7 @@ export function VisibilityPanel({
       <ReturnTo eventId={eventId} rowKey="visibility" />
       <fieldset>
         <legend className="mb-1.5 text-[0.7rem] font-semibold text-ink/60">
-          Who can open your website
+          Who can open your Event Hub
         </legend>
         {(
           [

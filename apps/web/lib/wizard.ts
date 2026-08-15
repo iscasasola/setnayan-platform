@@ -368,7 +368,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Schedule your prenup shoot',
     whyItMatters:
-      "Three milestones — the shoot itself at T-6mo, the teaser (15-30s) at T-5mo which you can share as your save-the-date, and the full prenup video (2-4 min) at T-3mo which lands on your website hero + reception roll-in. Lock the shoot date here; mark teaser + full video as received when your photographer delivers.",
+      "Three milestones — the shoot itself at T-6mo, the teaser (15-30s) at T-5mo which you can share as your save-the-date, and the full prenup video (2-4 min) at T-3mo which lands on your Event Hub hero + reception roll-in. Lock the shoot date here; mark teaser + full video as received when your photographer delivers.",
     pillLabel: 'Foundation',
     prerequisites: ['photography'],
   },
@@ -604,7 +604,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     order: 16,
     phase: 'programming',
     kind: 'data_input',
-    title: 'Create your wedding website',
+    title: 'Create your Event Hub',
     whyItMatters:
       "Your landing page lives at setnayan.com/{your-slug}. Guests scan a QR to land here for the schedule, RSVP, gifts, and dress code. Setting it up takes minutes.",
     pillLabel: 'Programming',
@@ -623,9 +623,9 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     order: 16.5,
     phase: 'programming',
     kind: 'external_process',
-    title: 'Upgrade your website',
+    title: 'Upgrade your Event Hub',
     whyItMatters:
-      "Two paid upgrades transform your wedding website. Monogram Hero gives you the animated SVG-trace monogram + custom video or photo background. Live Schedule lights up the 'Happening now' card on the day, auto-scrolling through ceremony → cocktails → reception. Optional · the free version still ships beautifully. (See current prices when you add them.)",
+      "Two paid upgrades transform your Event Hub. Monogram Hero gives you the animated SVG-trace monogram + custom video or photo background. Live Schedule lights up the 'Happening now' card on the day, auto-scrolling through ceremony → cocktails → reception. Optional · the free version still ships beautifully. (See current prices when you add them.)",
     pillLabel: 'Programming',
     prerequisites: ['create_website'],
   },
@@ -643,7 +643,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Choose your Save the Date',
     whyItMatters:
-      "Pick how your wedding page opens for guests — a reveal (envelope or bridal veil) that uncovers your Save the Date. It recolours to your Mood Board and plays automatically on your live page. Free, included with your website — preview it and choose the one you love.",
+      "Pick how your wedding page opens for guests — a reveal (envelope or bridal veil) that uncovers your Save the Date. It recolours to your Mood Board and plays automatically on your live page. Free, included with your Event Hub — preview it and choose the one you love.",
     pillLabel: 'Programming',
     prerequisites: ['engagement_prenup_shoot'],
   },
@@ -814,7 +814,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Set up your gift registry',
     whyItMatters:
-      "Rustans · SM Home · cash-only Bills Manila · or a curated wishlist on a registry app. Pick one (or none — entirely optional) and capture the link here. We'll surface it on your wedding website and inside your invitation cards.",
+      "Rustans · SM Home · cash-only Bills Manila · or a curated wishlist on a registry app. Pick one (or none — entirely optional) and capture the link here. We'll surface it on your Event Hub and inside your invitation cards.",
     pillLabel: 'Programming',
     prerequisites: ['set_wedding_date'],
   },

@@ -774,7 +774,7 @@ export function StdBuilderClient({
               </p>
               <h2 className="font-serif text-xl italic">Set the mood</h2>
               <p className="text-sm text-ink/65">
-                Your film plays your website song. Add or change it, or turn music off for a silent film.
+                Your film plays your Event Hub song. Add or change it, or turn music off for a silent film.
               </p>
             </div>
 

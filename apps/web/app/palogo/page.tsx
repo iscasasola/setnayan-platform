@@ -112,7 +112,7 @@ const FAQ = [
   },
   {
     q: 'Where does it show up?',
-    a: 'Everywhere that matters. It opens your save-the-date, signs your wedding website, glows on the screen at the reception, marks your signage, and closes every Setnayan video you make for the day.',
+    a: 'Everywhere that matters. It opens your save-the-date, signs your Event Hub, glows on the screen at the reception, marks your signage, and closes every Setnayan video you make for the day.',
   },
   {
     q: 'Can I make it look the way I want?',
@@ -120,7 +120,7 @@ const FAQ = [
   },
   {
     q: 'Is it really animated, or just an image?',
-    a: 'Both. You get the still mark for print and small spaces, and a living version that draws itself in for screens, your website, and your videos.',
+    a: 'Both. You get the still mark for print and small spaces, and a living version that draws itself in for screens, your Event Hub, and your videos.',
   },
   {
     q: 'Can I try one first?',
@@ -149,7 +149,7 @@ const STEPS = [
   },
   {
     t: 'It follows you everywhere',
-    d: 'Your monogram opens your save-the-date, signs your website, glows at the reception, and closes every video — one mark, carried beautifully across the day.',
+    d: 'Your monogram opens your save-the-date, signs your Event Hub, glows at the reception, and closes every video — one mark, carried beautifully across the day.',
   },
 ];
 
@@ -166,7 +166,7 @@ export default function PalogoLandingPage() {
     <DoorwayPage
       kicker="In your wedding · animated monogram"
       title={'One mark, alive across your whole wedding.'}
-      lede={'Palogo gives your wedding a signature of its own — your initials, drawn into a monogram that comes alive. It opens your save-the-date, signs your website, glows at the reception, and closes every video.'}
+      lede={'Palogo gives your wedding a signature of its own — your initials, drawn into a monogram that comes alive. It opens your save-the-date, signs your Event Hub, glows at the reception, and closes every video.'}
       primary={{ href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
       secondary={{ href: '/monogram', label: 'Preview yours · free' }}
       productName="Palogo"

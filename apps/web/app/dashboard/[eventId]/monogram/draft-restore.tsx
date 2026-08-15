@@ -72,7 +72,7 @@ export function MonogramDraftRestore({ eventId, hasCustomMark }: { eventId: stri
           <h2 className="mt-1 text-lg font-semibold tracking-tight">Pick up the monogram you designed</h2>
           <p className="mt-1 max-w-prose text-sm text-ink/65">
             You started this on our free studio before signing up. Make it your wedding&rsquo;s official mark — it
-            shows on your website, QR codes, and save-the-date.
+            shows on your Event Hub, QR codes, and save-the-date.
           </p>
           <div className="mt-3.5 flex flex-wrap items-center gap-3">
             <form action={saveStudioAction}>

@@ -123,7 +123,7 @@ export function MarkEverywhere({ svg }: { svg: string }) {
       ),
     },
     {
-      label: 'Your wedding website',
+      label: 'Your Event Hub',
       body: (
         <div className="flex h-full flex-col" style={{ background: 'radial-gradient(120% 90% at 50% 30%, #2b2638 0%, #14111c 60%, #0a0810 100%)' }}>
           <div className="flex items-center gap-1.5 px-4 py-2.5 opacity-50">
@@ -176,10 +176,10 @@ export function MarkEverywhere({ svg }: { svg: string }) {
           <div className="space-y-4 px-6 py-8 text-center" data-testid="everywhere-final">
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-gold-deep">Set na &rsquo;yan.</p>
             <h3 className="text-2xl font-semibold tracking-tight text-ink">
-              Your mark is now on your QR codes, your website, and your film.
+              Your mark is now on your QR codes, your Event Hub, and your film.
             </h3>
             <p className="mx-auto max-w-sm text-sm text-ink/65">
-              Every invitation, every table QR, your wedding website&rsquo;s hero, and your
+              Every invitation, every table QR, your Event Hub&rsquo;s hero, and your
               save-the-date now carry this monogram — automatically.
             </p>
             <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">

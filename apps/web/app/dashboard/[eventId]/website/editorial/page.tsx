@@ -159,8 +159,8 @@ export default async function EditorialEditorPage({
     isPro = false;
   }
 
-  // ── Website PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
-  // Editorial editing is now a Website PRO perk (isEditorialProActive = the
+  // ── Event Hub PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
+  // Editorial editing is now a Event Hub PRO perk (isEditorialProActive = the
   // à-la-carte EDITORIAL_PRO OR the Couple Website PRO umbrella). The gate =
   // (NOT PRO) AND (no editorial content authored yet). A couple that already
   // saved editorial content (draft_json is non-empty OR it's published) keeps
@@ -177,7 +177,7 @@ export default async function EditorialEditorPage({
           featureName="Author your front-page story"
           description={`Write and design your ${eventNoun(
             event.event_type,
-          )}'s editorial — your own words, photos, and layout. It's part of Website PRO.`}
+          )}'s editorial — your own words, photos, and layout. It's part of Event Hub PRO.`}
         />
       </main>
     );
@@ -249,7 +249,7 @@ export default async function EditorialEditorPage({
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink/65 transition-colors hover:text-burgundy focus-visible:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        <span>Back to website</span>
+        <span>Back to Event Hub</span>
       </Link>
 
       <header className="sn-reveal mb-8 space-y-2">

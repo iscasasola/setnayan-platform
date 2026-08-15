@@ -325,7 +325,7 @@ What is LIVE today: a household's own event(s); the wedding automatically becomi
 - [Why Setnayan](${url('/why-setnayan')}) — Setnayan versus a spreadsheet, a coordinator, and international platforms.
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
 - [Features](${url('/features')}) — Planning tools and in-app services.
-- Service landing pages: [Papic](${url('/papic')}) · [Live Studio](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Animated Monogram](${url('/palogo')}) · [Event Website](${url('/pawebsite')}) · [Patiktok](${url('/patiktok')}) · [Alaala](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
+- Service landing pages: [Papic](${url('/papic')}) · [Live Studio](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Animated Monogram](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Patiktok](${url('/patiktok')}) · [Alaala](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
 - [How It Works](${url('/how-it-works')}) · [About](${url('/about')}) · [Stories](${url('/weddings')}) · [Help](${url('/help')}) · [Articles](${url('/blog')}) · [Download](${url('/download')}).
 - [Sign in](${url('/login')}) · [Create account](${url('/signup')}) · [Privacy](${url('/privacy')}) · [Terms](${url('/terms')}) — RA 10173 compliant. NPC registration in progress.
 
@@ -357,8 +357,8 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Thank You Video** — ${R('PAPIC_ADDON_THANK_YOU')}. Compiled thank-you video for all attendees.
 - **Live Photo Wall** — free. Live photo collage with live attendance count, shown on a screen at the venue and mirrored on every guest's own phone during the celebration.
 - **Animated Monogram** — ${R('ANIMATED_MONOGRAM')}. Bespoke monogram with animation, generated from the couple's inputs.
-- **Event Website** — free. The 4-in-1 couple website (Save the Date, RSVP, on-the-day, Editorial) with unlimited RSVP.
-- **Website PRO** — ${R('COUPLE_WEBSITE_PRO')}. Unlocks every premium website touch — the Save-the-Date Cinematic Reveal and Editorial PRO — across the whole site, and removes the Setnayan watermark.
+- **Event Hub** — free. The 4-in-1 couple website (Save the Date, RSVP, on-the-day, Editorial) with unlimited RSVP.
+- **Event Hub PRO** — ${R('COUPLE_WEBSITE_PRO')}. Unlocks every premium touch — the Save-the-Date Cinematic Reveal and Editorial PRO — across the whole site, and removes the Setnayan watermark.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Patiktok** — ${R('PATIKTOK_COMPILER')}. Mimic-station booth; unlimited 9:16 vertical recordings compiled into post-ready reels.
 - **Pabati** — ${R('PABATI')} per day. Guest-recorded greeting videos.
@@ -396,7 +396,7 @@ Vendor-side: public profile editor · inquiry inbox · calendar with intra-day b
 ## Common questions Setnayan answers
 
 - **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Setnayan AI is the one paid planning tier, priced by event type: ${aiLadderLine}. Everything else is à la carte, no bundles. Vendor side: Verified free during launch, Solo ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')}/28-day block), Pro ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), Enterprise ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). 0% commission.
-- **Is Setnayan free?** Starting is free and the planning workspace stays free. The 4-in-1 event website with unlimited RSVP is free; premium touches come with Website PRO ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is free.
+- **Is Setnayan free?** Starting is free and the planning workspace stays free. The 4-in-1 Event Hub with unlimited RSVP is free; premium touches come with Event Hub PRO ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is free.
 - **What is Setnayan AI?** The assisted-planning tier. One-time, access until the event date, priced by how much planning load the event type carries — a wedding at ${aiA} down to ${peso(ladder[3]!.php)} for a casual outing.
 - **What is Papic?** Guests' phones become a coordinated capture crew. You buy shots once — 50 free on every event, then ${R('PAPIC_GUEST_100')}/100 · ${R('PAPIC_GUEST')}/3,000 · ${R('PAPIC_GUEST_10K')}/10,000 · ${R('PAPIC_GUEST_20K')}/20,000 — and every guest shoots from that shared pot. The host can set some of it aside for one camera's QR, so the person they trust with the important moments has shots nobody else can spend; when those run out that camera carries on from the pot. Cameras are free and unlimited. Photos auto-tag to guests and feed per-guest highlight reels, and every guest goes home with their own copy.
 - **What is Live Studio?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} per event-day; single-camera streaming is free, and rehearsing with up to 12 cameras is free.

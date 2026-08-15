@@ -36,7 +36,7 @@ const SKU_CODE = 'EDITORIAL_PRO';
  *   • Owns Editorial PRO directly (or has a pending order) → no buy drawer;
  *     show "Unlocked" / "Payment under review" + a link into the editor.
  *   • Owns the COUPLE_WEBSITE_PRO umbrella → Editorial PRO is ALREADY theirs
- *     (SKU_OWNERSHIP_ALIASES) → "Included in your Website PRO" + editor link,
+ *     (SKU_OWNERSHIP_ALIASES) → "Included in your Event Hub PRO" + editor link,
  *     never a second charge.
  *   • Owns nothing → the working buy drawer + a Website-PRO cross-sell line.
  */
@@ -77,7 +77,7 @@ export default async function EditorialProBuyPage({ params }: Props) {
     eventOwnsEditorialPro(admin, eventId).catch(() => false),
     // Editorial PRO is bundle-only (2026-07-22): once its catalog row is
     // is_active=false, a standalone drawer would dead-end at checkout, so gate on
-    // real sellability and upsell Website PRO instead. Reads DB is_active →
+    // real sellability and upsell Event Hub PRO instead. Reads DB is_active →
     // self-heals through the migration-push window.
     resolveServiceSellability(SKU_CODE),
   ]);
@@ -122,14 +122,14 @@ export default async function EditorialProBuyPage({ params }: Props) {
       </ul>
 
       {ownsUmbrella ? (
-        /* ── Already included via the Website PRO umbrella. No second buy. ── */
+        /* ── Already included via the Event Hub PRO umbrella. No second buy. ── */
         <div className="rounded-xl border border-success-200 bg-success-50 p-5">
           <p className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-success-800">
-            <CheckCircle2 aria-hidden className="h-5 w-5" strokeWidth={2} /> Included in your Website
-            PRO
+            <CheckCircle2 aria-hidden className="h-5 w-5" strokeWidth={2} /> Included in your Event
+            Hub PRO
           </p>
           <p className="text-sm text-ink/70">
-            Editorial PRO is part of your Website PRO — you already have every authorship perk. No
+            Editorial PRO is part of your Event Hub PRO — you already have every authorship perk. No
             need to buy it again.
           </p>
           <Link
@@ -186,32 +186,32 @@ export default async function EditorialProBuyPage({ params }: Props) {
             settings={settings}
             triggerLabel="Unlock Editorial PRO"
           />
-          {/* Sibling cross-sell — Website PRO covers this and more. */}
+          {/* Sibling cross-sell — Event Hub PRO covers this and more. */}
           <p className="text-sm text-ink/60">
-            Want it all? Website PRO covers this plus your Save the Date, RSVP and on-the-day page —{' '}
+            Want it all? Event Hub PRO covers this plus your Save the Date, RSVP and on-the-day page —{' '}
             <Link
               href={WEBSITE_PRO_HREF(eventId)}
               className="font-medium text-terracotta underline underline-offset-2 hover:no-underline"
             >
-              see Website PRO
+              see Event Hub PRO
             </Link>
             .
           </p>
         </div>
       ) : (
-        /* ── Bundle-only: Editorial PRO comes with Website PRO. Upsell it (a real
+        /* ── Bundle-only: Editorial PRO comes with Event Hub PRO. Upsell it (a real
              buy surface) rather than a standalone drawer that would be rejected. ── */
         <div className="rounded-xl border border-mulberry/20 bg-mulberry/5 p-5">
-          <p className="mb-1 text-sm font-semibold text-ink">Editorial PRO is part of Website PRO</p>
+          <p className="mb-1 text-sm font-semibold text-ink">Editorial PRO is part of Event Hub PRO</p>
           <p className="text-sm text-ink/70">
             Author your front-page story — plus the Save-the-Date Cinematic Reveal, RSVP, and your
-            on-the-day page — all in one unlock with Website PRO.
+            on-the-day page — all in one unlock with Event Hub PRO.
           </p>
           <Link
             href={WEBSITE_PRO_HREF(eventId)}
             className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600"
           >
-            Unlock Website PRO
+            Unlock Event Hub PRO
             <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
           </Link>
         </div>

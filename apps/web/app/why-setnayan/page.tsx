@@ -69,7 +69,7 @@ const FAQ = [
   },
   {
     q: 'Is it really free?',
-    a: 'Yes — the planning is free to start: guest list, RSVP, seating, budget, and a 4-in-1 wedding website. You only pay for the premium experiences (like Papic or Setnayan AI) if and when you want them.',
+    a: 'Yes — the planning is free to start: guest list, RSVP, seating, budget, and a 4-in-1 Event Hub. You only pay for the premium experiences (like Papic or Setnayan AI) if and when you want them.',
   },
   {
     q: 'Does it work for Filipino weddings specifically?',
@@ -118,7 +118,7 @@ const JUGGLE = [
 ];
 
 const BRINGS = [
-  ['All your planning, free', 'Guest list, RSVP, seating, budget, and a 4-in-1 wedding website — free to start.'],
+  ['All your planning, free', 'Guest list, RSVP, seating, budget, and a 4-in-1 Event Hub — free to start.'],
   ['A live guest photo gallery', 'Papic: every guest gets their own face-tagged photos and a personal video reel.'],
   ['An AI that finds your vendors', 'Setnayan AI ranks a shortlist that fits your style, budget, and date — not a thousand listings.'],
   ['0% commission, Filipino-first', 'Built for Filipino weddings and customs; book your vendors at zero commission, always.'],

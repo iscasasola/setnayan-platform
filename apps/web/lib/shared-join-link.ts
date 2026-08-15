@@ -83,7 +83,7 @@ export function sharedJoinLinkState(opts: {
       state: 'no_address',
       usable: false,
       notice:
-        'This event does not have its own web address yet, so there is no link to share. Give it one on your event website page, then come back.',
+        'This event does not have its own web address yet, so there is no link to share. Give it one on your Event Hub page, then come back.',
     };
   }
 

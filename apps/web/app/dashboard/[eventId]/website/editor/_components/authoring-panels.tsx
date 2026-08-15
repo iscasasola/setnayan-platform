@@ -246,7 +246,7 @@ export function EditorialPanel({
         <li>Your thank-you note (Special message)</li>
       </ul>
       <p className="mt-2 text-[0.7rem] font-semibold text-amber-800">
-        Website Pro — the editor&rsquo;s desk
+        Event Hub PRO — the editor&rsquo;s desk
       </p>
       <ul className="mt-0.5 list-disc pl-4 text-[0.7rem] text-ink/60">
         <li>Write and arrange the story yourself — chapters, captions, order</li>
@@ -265,7 +265,7 @@ export function EditorialPanel({
           href={unlockHref}
           className="mt-2 inline-flex items-center rounded-full bg-amber-400 px-3.5 py-1.5 text-[0.7rem] font-semibold text-ink hover:bg-amber-300"
         >
-          Unlock Website Pro · ₱3,500
+          Unlock Event Hub PRO · ₱3,500
         </Link>
       )}
     </div>

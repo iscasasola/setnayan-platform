@@ -4,6 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  editorialAllowsEventType,
+  UNNAMED_EDITORIAL_LABEL,
+} from '@/lib/editorial-event-types';
 import { emitNotification } from '@/lib/notification-emit';
 import { sendVendorFeaturedInStoryEmail } from '@/lib/vendor-email-triggers';
 
@@ -81,11 +85,19 @@ async function assertEligibleShowcase(
     .eq('event_id', eventId)
     .maybeSingle();
   if (!ev) return null;
-  if (ev.event_type !== 'wedding') return null;
+  // The KIND question — every celebration may be written up unless the owner
+  // has ruled a kind out; see lib/editorial-event-types.ts, which is the ONE
+  // place that answers it. This line used to read `!== 'wedding'`, refusing
+  // fifteen of sixteen live event types before consent was even read.
+  if (!editorialAllowsEventType(ev.event_type as string | null)) return null;
   if (!ev.slug) return null;
   if (!ev.event_date || (ev.event_date as string) > cutoff) return null;
 
-  // A couple member of this event must have opted in to public showcase inclusion.
+  // A HOST member of this event must have opted in to public showcase
+  // inclusion. ⚠ `member_type = 'couple'` is the generic principal slot, not a
+  // wedding-only one — non-wedding events carry it too (verified in prod), so
+  // this consent gate already worked for every kind; only the refusal above
+  // stopped them.
   const { data: members } = await admin
     .from('event_members')
     .select('user_id')
@@ -103,7 +115,7 @@ async function assertEligibleShowcase(
     .limit(1);
   if (!consenters || consenters.length === 0) return null;
 
-  return (ev.display_name as string | null)?.trim() || 'A Setnayan wedding';
+  return (ev.display_name as string | null)?.trim() || UNNAMED_EDITORIAL_LABEL;
 }
 
 /**

@@ -543,7 +543,7 @@ export function GenericOnboarding(props: Props) {
           setError(null);
         } else {
           setError(
-            'You already have one of these in planning. Finish or archive it first.',
+            'You already have one of these in planning. Finish it first, or open it and choose “Put this away”.',
           );
         }
         return;

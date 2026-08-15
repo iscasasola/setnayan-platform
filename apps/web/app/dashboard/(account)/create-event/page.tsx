@@ -45,7 +45,7 @@ const ERROR_COPY: Record<string, string> = {
   missing_sub_type: 'Pick a tradition for the ceremony type you chose.',
   missing_secondary: 'Pick a secondary ceremony for your interfaith wedding.',
   wedding_exists:
-    'You already have a wedding in planning — you can only plan one wedding at a time. Finish or archive it first to start a new one.',
+    'You already have a wedding in planning — you can only plan one wedding at a time. Finish it first, or open it and choose “Put this away”.',
   samahan_invalid_type:
     'That event type belongs to a person, not a samahan — pick a community event type.',
   samahan_not_organizer:

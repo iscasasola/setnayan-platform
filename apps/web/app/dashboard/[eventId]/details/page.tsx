@@ -11,6 +11,7 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { DetailsForm } from './_components/details-form';
 import { GovernedFields } from './_components/governed-fields';
 import { PaxSettingsCard } from './_components/pax-settings-card';
+import { PutAwayCard } from './_components/put-away-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,7 +61,7 @@ export default async function PersonalizationPage({
     // read path; same columns, same row shape, guests get zero rows.
     .from('events_host')
     .select(
-      'event_id, display_name, event_type, bride_name, groom_name, region, mood_feel_key, ' +
+      'event_id, display_name, event_type, archived, bride_name, groom_name, region, mood_feel_key, ' +
         'estimated_budget_centavos, budget_band, ceremony_type, secondary_ceremony_type, ' +
         'ceremony_type_locked_at, event_date, event_date_precision, date_mode, date_candidates, ' +
         'date_window_start, date_window_end, estimated_pax, venue_setting, ' +
@@ -238,6 +239,19 @@ export default async function PersonalizationPage({
         </span>
         <ArrowRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
       </Link>
+
+      {/* Band 4 — putting it away. Last on the page on purpose: it is the one
+          control here that changes where the celebration LIVES rather than what
+          it says, so it sits after everything a couple came to edit. */}
+      <PutAwayCard
+        eventId={eventId}
+        archived={Boolean(e.archived)}
+        eventName={
+          typeof e.display_name === 'string' && e.display_name.trim()
+            ? e.display_name
+            : 'this celebration'
+        }
+      />
     </section>
   );
 }

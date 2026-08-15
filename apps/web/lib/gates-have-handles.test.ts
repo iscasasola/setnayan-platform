@@ -52,6 +52,17 @@ const SWITCHES: {
   whatBreaksWhenStuck: string;
   /** Set when the ONLY writer is an RPC parameter — see rpcWritersOf. */
   writtenViaRpcParam?: string;
+  /**
+   * The table the column lives on. Defaults to `events`.
+   *
+   * 🚨 ADDED 2026-08-16 BECAUSE THE DETECTOR WAS TABLE-BLIND, and that made it
+   * blind to the very instance it was next asked to hold. `archived` is a
+   * column on BOTH `events` and `communities`, and `samahan/actions.ts` writes
+   * `communities.archived` — so this register reported "events.archived has a
+   * writer" while `events.archived` had none, for two years. Measured, not
+   * inferred: with both new writer files deleted, the suite still passed 9/9.
+   */
+  table?: string;
 }[] = [
   {
     column: 'live_media_public',
@@ -87,6 +98,10 @@ const SWITCHES: {
     // check would have concluded: the column name appears in an admin export
     // list, an anon-column-scope migration and a db test, so it looks
     // thoroughly wired from every angle except the one that matters.
+    // Lives on `vendor_profiles`, not `events` — declared explicitly now that
+    // the detector is table-scoped. Before 2026-08-16 the check was table-blind,
+    // so this passed by accident rather than by aim.
+    table: 'vendor_profiles',
     column: 'is_founder',
     whoFlips: 'an admin, on the vendor plan page (/admin/vendors/[id]/plan)',
     whatBreaksWhenStuck:
@@ -113,6 +128,32 @@ const SWITCHES: {
       'the photo wall plays on every invited guest’s phone for the whole ' +
       'celebration and the couple cannot stop it — revoking every venue screen ' +
       'code, the only “off” the product offers them, leaves it running',
+  },
+  {
+    // 🚨 SIXTH INSTANCE, registered 2026-08-16 — and the longest-lived. Unlike
+    // the five above, `events.archived` was never obscure: it shipped with the
+    // FIRST migration, a dozen screens read it, eleven database objects
+    // reference it, and the RLS policy plus the column grant have always let an
+    // organiser set it. Everything was in place except a way to press it.
+    //
+    // 🔑 THE TELL WAS NOT SILENCE — IT WAS FIVE SCREENS TELLING PEOPLE TO USE
+    // IT. "Finish or archive it first" is what a couple was told when they
+    // tried to plan a second wedding; the admin console's delete warning
+    // recommended "archiving instead if you might restore later". Every one of
+    // those sentences named a control that did not exist, for two years.
+    //
+    // The owner was personally behind that instruction: holding two upcoming
+    // weddings, a third was refused with nothing to press.
+    //
+    // ⚠ AND IT LOOKED HALF-BUILT, WHICH IS WORSE THAN LOOKING ABSENT. A reader
+    // checking "does archive exist?" finds a column, readers, a filter in the
+    // admin console and an `?archived=1` query param, and concludes yes.
+    column: 'archived',
+    whoFlips: 'a host, on the event’s Personalization page (“Put this away”)',
+    whatBreaksWhenStuck:
+      'no celebration can ever be put away, so a couple who has finished one ' +
+      'wedding can never start another — the refusal tells them to archive it ' +
+      'and there is nothing anywhere to press',
   },
 ];
 
@@ -143,9 +184,29 @@ const FILES = sourceFiles(WEB);
  */
 function writersOf(column: string): string[] {
   const found: string[] = [];
-  // `.update({ ... column: ... })` / `.insert({ ... column: ... })`, allowing
-  // whitespace and other keys, non-greedy up to the closing brace.
-  const pattern = new RegExp(`\\.(update|insert|upsert)\\(\\s*[\\[{][\\s\\S]{0,600}?\\b${column}\\b\\s*:`);
+  const table = SWITCHES.find((s) => s.column === column)?.table ?? 'events';
+  /*
+    `.from('<table>') … .update({ … column … })` — three corrections, all made
+    2026-08-16 after this detector passed on a column with no writer at all:
+
+    1 · 🚨 SCOPED TO THE TABLE. `archived` exists on `events` AND on
+        `communities`, and a real write to `communities.archived` satisfied the
+        old table-blind pattern. A guard that accepts a write to a DIFFERENT
+        table is not checking the thing it names.
+    2 · 🚨 SHORTHAND COUNTS. `{ archived, updated_at }` is the ordinary way to
+        write a variable of the same name, and the old `column\\s*:` form could
+        not see it — so a perfectly good writer read as absent. Both failure
+        directions were live in the same check.
+    3 · The chain is matched from `.from(` so the two halves cannot come from
+        unrelated statements in one long file.
+
+    Order note: supabase-js allows `.from(t).update(...)` only in that order, so
+    anchoring on `.from(` first is safe and is what scopes the table.
+  */
+  const pattern = new RegExp(
+    `\\.from\\(\\s*['"\`]${table}['"\`]\\s*\\)[\\s\\S]{0,300}?` +
+      `\\.(update|insert|upsert)\\(\\s*[\\[{][\\s\\S]{0,600}?\\b${column}\\b\\s*[:,}]`,
+  );
   for (const file of FILES) {
     const src = readFileSync(file, 'utf8');
     if (!src.includes(column)) continue;

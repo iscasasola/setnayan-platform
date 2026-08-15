@@ -302,7 +302,7 @@ export async function EventsSurface({
                         message={
                           paidVendorCount > 0
                             ? `Hard-delete "${e.display_name}"? This event has ${paidVendorCount} paid vendor${paidVendorCount === 1 ? '' : 's'} — their order rows survive but lose the event link. Guests, members, seating, budget, schedule all cascade-delete. Not reversible.`
-                            : `Hard-delete "${e.display_name}"? Guests, members, seating, budget, schedule all cascade-delete. Not reversible — consider archiving instead if you might restore later.`
+                            : `Hard-delete "${e.display_name}"? Guests, members, seating, budget, schedule all cascade-delete. Not reversible — the host can put it away instead from its Personalization page if they might want it back.`
                         }
                       >
                         <input type="hidden" name="event_id" value={e.event_id} />

@@ -65,6 +65,10 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import {
+  resolveEventTypeKeysForToken,
+  type EventTypeSearchOption,
+} from '@/lib/event-type-search';
+import {
   fetchTopVendorNamesByService,
   fetchVendorCountsByService,
   getCanonicalBuckets,
@@ -206,8 +210,10 @@ const TAXONOMY_OPTIONS: ReadonlyArray<TaxonomyOption> = Object.entries(
 // their search").
 //
 // Each whitespace token must match SOMETHING: the vendor's business name, its
-// tagline, its city, OR a service it lists (resolved against the 192-item
-// taxonomy by label/key substring). One PostgREST `.or()` group per token (OR
+// tagline, its city, a service it lists (resolved against the 192-item taxonomy
+// by label/key substring), OR a KIND OF CELEBRATION it serves (resolved against
+// the live event_type_vocab — owner 2026-08-15, "they can also search by type of
+// event"). One PostgREST `.or()` group per token (OR
 // across those fields); chaining one `.or()` per token ANDs the groups, so
 // multiple tokens INTERSECT — "photographer tagaytay" returns photography
 // vendors in Tagaytay only, not the union. Tokens are stripped to [a-z0-9],
@@ -234,6 +240,16 @@ type OrFilterable = { or: (filters: string) => OrFilterable };
 function applyMarketplaceTextSearch(
   builder: OrFilterable,
   rawQuery: string,
+  /**
+   * The live event-type roster, so a typed occasion resolves to the same keys
+   * the `?event_type=` filter already understands. Passed in — never imported —
+   * because the vocabulary is admin-managed and grows with zero deploys; see
+   * `lib/event-type-search.ts` for why a local copy would be a defect.
+   *
+   * Defaulted to empty so a caller that has not loaded the vocab degrades to
+   * exactly the previous four-axis behaviour rather than throwing.
+   */
+  eventTypeOptions: ReadonlyArray<EventTypeSearchOption> = [],
 ): OrFilterable {
   const tokens = rawQuery
     .toLowerCase()
@@ -253,6 +269,13 @@ function applyMarketplaceTextSearch(
       // existing `compatible_ceremony_types.cs.{…}` usage further below. The
       // {…} literal lists the candidate canonical_service keys for this token.
       orParts.push(`services.ov.{${serviceKeys.join(',')}}`);
+    }
+    // The occasion axis. Same array-overlap shape as services, against the
+    // SAME column the `?event_type=` chip filters on, so typing "debut" and
+    // picking Debut from the filter reach identical rows by identical means.
+    const eventTypeKeys = resolveEventTypeKeysForToken(token, eventTypeOptions);
+    if (eventTypeKeys.length > 0) {
+      orParts.push(`event_types.ov.{${eventTypeKeys.join(',')}}`);
     }
     q = q.or(orParts.join(','));
   }
@@ -1122,6 +1145,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   if (filters.eventType && !eventTypeKeys.has(filters.eventType)) {
     filters = { ...filters, eventType: null };
   }
+  // The occasion axis of the free-text search + the occasion picker both read
+  // this ONE list, so a kind of celebration a visitor can TYPE is always a kind
+  // they can also PICK, and vice versa. Owner 2026-08-15.
+  const eventTypeSearchOptions: EventTypeSearchOption[] = eventTypeVocab.map(
+    (t) => ({ key: t.key, label: t.label }),
+  );
 
   // 0043 compatibility hooks — resolve the viewer's couple-side primary event
   // BEFORE the marketplace query is built so the compatibility filter can
@@ -1535,10 +1564,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   if (filters.q.length > 0) {
     // Unified multi-field search — see applyMarketplaceTextSearch. Replaces the
     // old business_name-only ilike so a free-text query matches across vendor
-    // name, tagline, city, and listed services, combinable across tokens.
+    // name, tagline, city, listed services, and the kinds of celebration the
+    // vendor serves, combinable across tokens.
     query = applyMarketplaceTextSearch(
       query as unknown as OrFilterable,
       filters.q,
+      eventTypeSearchOptions,
     ) as unknown as typeof query;
   }
   // 10-parent model (2026-05-31) — tile-scoped grid. `?tile=<slug>` overlaps
@@ -1787,9 +1818,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     if (filters.q.length > 0) {
       // Same multi-field search as the main query so the broadened-count
       // empty-state framing stays consistent with what the search matched.
+      // The occasion axis MUST be passed here too: omitting it would let the
+      // broadened count exceed the narrow count for an occasion word, and the
+      // empty state would offer to "widen" a search that was already wider.
       broadened = applyMarketplaceTextSearch(
         broadened as unknown as OrFilterable,
         filters.q,
+        eventTypeSearchOptions,
       ) as unknown as typeof broadened;
     }
     if (filters.category) {
@@ -2735,6 +2770,16 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                   value: FAITH_KEY_TO_URL[k],
                   label: FAITH_KEY_TO_LABEL[k],
                 })),
+                // 2026-08-15 — the occasion narrow's handle. The live vocab in
+                // its own sort_order, so the drawer offers exactly the kinds of
+                // celebration the filter accepts and a kind launched in admin
+                // appears here with no deploy. ACTIVE (not enabled-only): a
+                // supplier may serve a kind before it opens to couples, so
+                // narrowing to it is a legitimate search even pre-launch.
+                eventTypeOptions: eventTypeVocab.map((t) => ({
+                  value: t.key,
+                  label: t.label,
+                })),
                 matchableEvent,
                 hostVenueSetting,
                 hostVenueLabel: hostVenueSetting
@@ -2755,7 +2800,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                   // 2026-05-30 PM — Clear button surfaces when faith narrow
                   // is active so couples can clear back to baseline without
                   // hunting for a sub-select option.
-                  filters.faithFilter !== null,
+                  filters.faithFilter !== null ||
+                  // 2026-08-15 — same reason for the occasion narrow, and it
+                  // matters more here: a couple's own event auto-applies this
+                  // filter without them ever choosing it, so Clear is the only
+                  // way back to every supplier.
+                  filters.eventType !== null,
               } as FilterDrawerProps}
             />
 
@@ -3713,6 +3763,32 @@ async function CatalogView({
     }));
   const heroChips = popularChips.length > 0 ? popularChips : EXPLORE_HERO_CHIPS;
 
+  // Occasion chips (owner 2026-08-15 — "they can also search by type of
+  // event"). The landing is catalog mode, which renders no FilterDrawer, so
+  // without this row the `?event_type=` filter has NO handle on the one public
+  // page built for discovery.
+  //
+  // `getEventTypeVocab` is React `cache()`d at source, so this is the same read
+  // the page body already performed — no extra round trip.
+  //
+  // ENABLED, not merely active: `enabled` is the couple-side launch lever, so
+  // this row advertises exactly the celebrations Setnayan is publicly open for.
+  // (The drawer offers the wider ACTIVE roster, because a supplier may serve a
+  // kind before it opens to couples and narrowing to it is still legitimate.)
+  //
+  // ⚖ NO SLICE. Every enabled kind renders. A `.slice(0, 6)` here would decide
+  // in a source file which celebrations are worth showing, and hide the rest
+  // behind nothing — there is no "all occasions" page to send anyone to, so a
+  // capped row would be a silent boundary. Which kinds appear is a real
+  // product decision and it already has a home: the `enabled` lever at
+  // /admin/event-types, which changes this row with zero deploys.
+  const occasionChips: ReadonlyArray<ExploreChip> = (await getEventTypeVocab())
+    .filter((t) => t.enabled)
+    .map((t) => ({
+      label: t.label,
+      href: `/explore?event_type=${encodeURIComponent(t.key)}`,
+    }));
+
   // Religion-default-on: when the couple has a faith (ceremony_type maps to
   // Catholic/Christian/INC/Muslim/Cultural), hide tiles tagged for OTHER
   // faiths. Untagged tiles always surface — they're the cross-faith base.
@@ -4055,6 +4131,7 @@ async function CatalogView({
                 folder: scopedFolder,
               }}
               chips={heroChips}
+              occasionChips={occasionChips}
             />
 
             {religionFilteringActive ? (

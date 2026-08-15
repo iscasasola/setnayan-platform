@@ -183,9 +183,15 @@ export default async function RealStoriesIndexPage() {
         searchText:
           `${s.coupleNames} ${s.city ?? ''} ${s.dateLabel ?? ''} ${s.serviceCategories.join(' ')}`.toLowerCase(),
         // Kept null so the below-gate Chronicle tile is byte-identical (no new
-        // milestone pill). The Wedding milestone the search facet needs is
-        // supplied only on the search items below (every consented editorial in
-        // this loader is an events.event_type = 'wedding' row).
+        // milestone pill).
+        //
+        // ⚠ THE OLD REASON FOR THE `?? 'Wedding'` BELOW DIED ON 2026-08-15 and
+        // this comment used to carry it: "every consented editorial in this
+        // loader is an events.event_type = 'wedding' row". That was true only
+        // while `showcase-db.ts` carried five `.eq('event_type','wedding')`
+        // filters, and those were removed the same day — the owner ruled that
+        // every kind of celebration gets an editorial, not just weddings. The
+        // loader now returns debuts, graduations and reunions too.
         eventType: null,
         witnessQuote: null,
         witnessAttribution: null,
@@ -217,10 +223,25 @@ export default async function RealStoriesIndexPage() {
 
   const editorialSearchItems: EditorialSearchItem[] = items.map((it) => ({
     ...it,
-    // Milestone facet: samples already carry their own eventType; real
-    // consented editorials are all weddings (this loader's event_type filter),
-    // so fall back to 'Wedding' when the tile-level pill was left off above.
-    eventType: it.eventType ?? 'Wedding',
+    // Milestone facet: samples carry their own eventType and keep it.
+    //
+    // 🛑 THIS USED TO READ `it.eventType ?? 'Wedding'`, and on 2026-08-15 that
+    // fallback turned into a LIE. It was written when `showcase-db.ts` refused
+    // every non-wedding celebration in five places; those refusals were removed
+    // the same day (owner: "each event they create will have an editorial not
+    // just wedding"), so the first debut or graduation editorial to publish
+    // would have been filed under Wedding — in the one control on this page
+    // whose entire job is to say what KIND of celebration a story is.
+    //
+    // Null is the honest value while the loader does not read the column: an
+    // unknown kind sits under "All" and joins no milestone, rather than
+    // claiming the wrong one. ⏭ THE REAL REMEDY is for `loadPublishedShowcases`
+    // to SELECT `events.event_type` and carry it on `PublishedShowcase` — it is
+    // already in scope in every one of that loader's queries. Until then this
+    // facet is incomplete, which is a smaller wrong than being confident and
+    // incorrect. Harmless today either way: the facet UI is behind
+    // STORIES_SEARCH_MIN_POOL and does not mount.
+    eventType: it.eventType,
     serviceCategories: it.serviceCategories ?? [],
   }));
   const chapterSearchItems: ChapterSearchItem[] = featuredChapters.map((c) => {

@@ -91,6 +91,28 @@ export type FilterDrawerProps = {
   faithOptions?: ReadonlyArray<{ value: string; label: string }>;
 
   /**
+   * Occasion narrow — the kinds of celebration a supplier can serve.
+   *
+   * 🔴 THIS IS THE HANDLE THE `?event_type=` FILTER NEVER HAD. Owner
+   * 2026-08-15: *"they can also search by type of event."* The filter itself
+   * has shipped since Iteration 0041 — parsed, vocab-validated, applied as
+   * `event_types @> [key]`, mirrored in the broadened count, preserved through
+   * every form — and until now the ONLY things that could set it were a
+   * signed-in couple's own primary event and a hand-typed URL. An anonymous
+   * visitor could not reach it. Every occurrence of `name="event_type"` in the
+   * public app was a hidden input preserving a value somebody else had chosen.
+   *
+   * Option `value` is the `event_type_vocab` key written verbatim into
+   * `?event_type=` (`'debut'`, `'gender_reveal'`). The empty
+   * `{value: '', label: 'Any occasion'}` option is prepended by the drawer
+   * itself, exactly as the Faith section does, so a visitor can clear the
+   * narrow without leaving the sheet. Callers pass the live roster; an empty
+   * or absent list hides the section and falls back to preserving whatever was
+   * already on the URL.
+   */
+  eventTypeOptions?: ReadonlyArray<{ value: string; label: string }>;
+
+  /**
    * Host's event metadata — only present when an authenticated couple has at
    * least one in-progress event. Drives whether Match-my-wedding checkbox
    * renders + the Show-all-venues toggle's host-setting copy.
@@ -116,6 +138,7 @@ export function FilterDrawer({
   filters,
   sortOptions,
   faithOptions,
+  eventTypeOptions,
   matchableEvent,
   hostVenueSetting: _hostVenueSetting,
   hostVenueLabel,
@@ -126,6 +149,7 @@ export function FilterDrawer({
   const cityId = useId();
   const sortId = useId();
   const faithId = useId();
+  const eventTypeId = useId();
   const verifiedId = useId();
   const matchId = useId();
   const venueId = useId();
@@ -253,6 +277,53 @@ export function FilterDrawer({
                 ))}
               </select>
             </div>
+
+            {/* Occasion — 2026-08-15. Owner, looking at the browse page:
+                *"they can also search by type of event."* Sits ABOVE Faith
+                deliberately: the kind of celebration is the wider question and
+                for fifteen of the sixteen kinds the faith narrow is not even
+                the right one to ask next.
+
+                PORTED FROM THE FAITH SECTION BELOW, NOT INVENTED — same
+                `.input-field` select, same prepended empty option, same
+                hidden-input fallback when the section cannot render. One
+                control grammar in this drawer; a second one would read as a
+                different product.
+
+                The empty option is worded "Any occasion" rather than "All
+                occasions": this narrows SUPPLIERS by the celebrations they
+                serve, and "all" would read as a promise that each result
+                serves every kind. */}
+            {eventTypeOptions && eventTypeOptions.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor={eventTypeId}
+                  className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
+                >
+                  Occasion
+                </label>
+                <select
+                  id={eventTypeId}
+                  name="event_type"
+                  defaultValue={filters.eventType ?? ''}
+                  className="input-field"
+                >
+                  <option value="">Any occasion</option>
+                  {eventTypeOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : filters.eventType ? (
+              /* Same edge case the Faith narrow guards: the visitor already
+                 carries ?event_type=… but this render has no roster to offer
+                 (a vocab read that degraded to empty). Preserve the narrow as
+                 a hidden input so submitting the drawer does not silently drop
+                 a filter the visitor never chose to clear. */
+              <input type="hidden" name="event_type" value={filters.eventType} />
+            ) : null}
 
             {/* Faith — 2026-05-30 PM. Owner directive *"why are these still
                 showing. they should be embedded inside the filter"*. The

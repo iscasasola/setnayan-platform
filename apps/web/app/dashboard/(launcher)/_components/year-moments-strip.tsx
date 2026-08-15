@@ -1,17 +1,24 @@
+import Link from 'next/link';
+
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
-import { buildYearMoments, type MomentEvent } from '@/lib/year-moments';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import {
+  buildYearMoments,
+  buildSelfMoments,
+  type MomentEvent,
+  type SelfForMoments,
+} from '@/lib/year-moments';
 import { YearMomentsList, type YearMomentView } from './year-moments-list';
 
 /**
  * "Your year" home strip (date-anchor model). A compact, self-fetching preview
- * of the couple's DERIVED moments (anniversaries · wedding countdowns), surfaced
- * on the launcher home so the lifecycle model is felt where users land — the
- * design's "Year view ≈ the Membership home surface".
+ * of the DERIVED moments (own birthday · anniversaries · wedding countdowns),
+ * surfaced on the launcher home so the lifecycle model is felt where users land
+ * — the design's "Year view ≈ the Membership home surface".
  *
  * Holidays are intentionally excluded here (they live in the full /dashboard/year
- * view) so the home strip stays PERSONAL. Renders nothing when the user has no
- * anchors yet — zero home clutter, zero PII (no birthdate path; that's PR-D).
+ * view) so the home strip stays PERSONAL.
  *
  * The strip shows the first few moments and expands the rest INLINE via
  * <YearMomentsList>, AND carries that list's "See the year →" door to the full
@@ -19,6 +26,39 @@ import { YearMomentsList, type YearMomentView } from './year-moments-list';
  * orphaned" directive, superseding the 2026-07-13 de-link that had left the
  * full Year view without an in-app doorway). Event moments still deep-link into
  * their dashboards.
+ *
+ * ── 🚨 IT USED TO RETURN null WHEN EMPTY, AND THAT SEALED THE ONLY DOOR ─────
+ * The list this strip renders carries the ONLY in-app link to /dashboard/year
+ * that exists — measured 2026-08-15: a repo-wide sweep for `dashboard/year`
+ * finds one href, and it is inside <YearMomentsList>. So `return null` did not
+ * merely hide a strip; it made the whole Year view unreachable by clicking, for
+ * every person whose moments happened to be empty. Three real classes were
+ * locked out: a brand-new account with no events, an account whose events are
+ * all ones they were INVITED to (this strip reads organiser rows only), and one
+ * whose events are all archived. The page they could not reach renders content
+ * for them — its own call passes no options, so `includeHolidays` defaults true
+ * and Christmas and Valentine's are sitting on it.
+ *
+ * 🔑 A DOORWAY THAT ONLY OPENS WHEN THERE IS ALREADY SOMETHING BEHIND IT IS NOT
+ * A DOORWAY. The empty branch below is the fix, and it is deliberately the
+ * branch that carries the two links: the page, and the profile field that fills
+ * it. `Route_Wayfinding_Audit_2026-07-15`: a nav row is not a doorway; a
+ * rendered link is.
+ *
+ * The "zero home clutter" instinct the null return came from is still honoured —
+ * the empty branch is one small tile that says something true and offers the two
+ * things that make it stop being empty, not a placeholder pretending to be data.
+ *
+ * ── THE ORGANISER FILTER STAYS, DELIBERATELY ────────────────────────────────
+ * The event read below is `member_type = 'couple'` while the board above it
+ * renders the MERGED organiser+invited set, and that mismatch is the reason an
+ * invited-only person got no strip. It is NOT widened here, because every label
+ * `buildYearMoments` produces is written in the first person — "Your 3rd wedding
+ * anniversary", "your wedding" — and saying that to somebody who was a GUEST at
+ * that wedding is worse than saying nothing. What actually fixed that person's
+ * case is the own-birthday moment, which needs no event at all, plus the empty
+ * branch's door. Widening the filter means rewriting the labels per membership
+ * first; that is a product change, not a query change.
  */
 
 const HOME_LIMIT = 3;
@@ -43,26 +83,47 @@ function countdown(days: number): string {
 
 export async function YearMomentsStrip({ userId }: { userId: string }) {
   const supabase = await createClient();
-  const { data: rows } = await supabase
-    .from('event_members')
-    .select(
-      `member_type,
+  const today = manilaToday();
+
+  const [{ data: rows, error: rowsErr }, { data: selfRow, error: selfErr }] = await Promise.all([
+    supabase
+      .from('event_members')
+      .select(
+        `member_type,
        events:event_id (
          event_id, event_type, display_name, event_date,
          anchor_date, anchor_origin, recurs, archived
        )`,
-    )
-    .eq('user_id', userId)
-    .eq('member_type', 'couple');
+      )
+      .eq('user_id', userId)
+      .eq('member_type', 'couple'),
+    // THEIR OWN birthday, from their own profile. Not gated on
+    // `public_greeting_opt_in` — that flag governs greeting somebody PUBLICLY
+    // (the admin social queue selects on it and must keep doing so); showing
+    // you your own date on your own home publishes nothing.
+    supabase.from('users').select('birth_date, sex').eq('user_id', userId).maybeSingle(),
+  ]);
+
+  // Supabase RESOLVES with an error, it does not throw — an unlogged failed
+  // read here would render as a confident "nothing comes back around yet".
+  if (rowsErr) logQueryError('YearMomentsStrip (event_members)', rowsErr);
+  if (selfErr) logQueryError('YearMomentsStrip (users birthday)', selfErr);
 
   const events: MomentEvent[] = (rows ?? []).flatMap((r) => {
     const e = (r as { events: MomentEvent | MomentEvent[] | null }).events;
     return e ? (Array.isArray(e) ? e : [e]) : [];
   });
 
-  // Personal anchor moments only — holidays stay in the full Year view.
-  const moments = buildYearMoments(events, manilaToday(), { includeHolidays: false });
-  if (moments.length === 0) return null;
+  // Personal anchor moments only — holidays stay in the full Year view. The own
+  // birthday is folded in HERE rather than inside buildYearMoments because it
+  // comes from the profile, not from an event: it is the one moment an account
+  // can offer before it has a single event on it.
+  const moments = [
+    ...buildYearMoments(events, today, { includeHolidays: false }),
+    ...buildSelfMoments((selfRow as SelfForMoments | null) ?? null, today),
+  ].sort((a, b) => a.daysUntil - b.daysUntil || a.label.localeCompare(b.label));
+
+  if (moments.length === 0) return <EmptyYear />;
 
   // Precompute display strings server-side (Asia/Manila) so the client list
   // never re-derives dates or timezones.
@@ -79,14 +140,65 @@ export async function YearMomentsStrip({ userId }: { userId: string }) {
   // "This year" glass row — the strip renders INSIDE the Alaala section
   // (owner-approved final home design 2026-07-15); its old standalone
   // "Your year" section merged into Alaala, killing the events/year dupe.
-  // The glass panel lives HERE (not around the call site) so the no-moments
-  // null return never leaves an empty frame on the page.
+  // The glass panel lives HERE (not around the call site) so the tile never
+  // leaves an empty frame on the page.
+  return (
+    <Tile>
+      <YearMomentsList moments={views} initial={HOME_LIMIT} />
+    </Tile>
+  );
+}
+
+/**
+ * The one glass panel both branches render through. Shared on purpose: two
+ * copies of the shell is how a heading, a radius or a padding change lands on
+ * the populated tile and never on the empty one — and the empty one is the
+ * tile a brand-new account actually sees.
+ */
+function Tile({ children }: { children: React.ReactNode }) {
   return (
     <div className="sn-tile-glass sn-lift-3 rounded-2xl p-4 sm:p-[18px]">
       <h3 className="mb-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
         This year
       </h3>
-      <YearMomentsList moments={views} initial={HOME_LIMIT} />
+      {children}
     </div>
+  );
+}
+
+/**
+ * Nothing comes back around yet — say so, and offer the two things that change
+ * it. This branch exists because the alternative (`return null`) took the only
+ * link to the Year view down with it; see the 🚨 note at the top of this file.
+ *
+ * The copy states the RULE rather than the user's state, because it is also
+ * shown in the one edge case where a birthday IS stored but unusable (a date in
+ * the current or a future year — `buildSelfMoments` drops those rather than
+ * print "turning 0"). "Add your birthday" is a correct instruction either way;
+ * "you haven't added one" would not be.
+ */
+function EmptyYear() {
+  return (
+    <Tile>
+      <p className="text-sm text-ink/70">Nothing comes back around yet.</p>
+      <p className="mt-1.5 text-xs leading-relaxed text-ink/50">
+        Your birthday, an anniversary, anything you mark as a yearly thing — it lands here and
+        returns every year.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Link
+          href="/dashboard/profile"
+          className="text-xs font-semibold text-[color:var(--sn-gold-700)] underline-offset-4 hover:underline"
+        >
+          Add your birthday
+        </Link>
+        <Link
+          href="/dashboard/year"
+          className="text-xs font-semibold text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+        >
+          See the year →
+        </Link>
+      </div>
+    </Tile>
   );
 }

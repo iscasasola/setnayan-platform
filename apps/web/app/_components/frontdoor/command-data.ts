@@ -279,6 +279,23 @@ export const resolveCommandItems = cache(
           icon: 'users',
         },
         {
+          // 🚨 ADDED 2026-08-15 BECAUSE IT WAS THE ONLY ACCOUNT SPOKE WITH NO
+          // DOOR. `(account)/layout.tsx` lists `year` among the spokes it owns,
+          // and every other one on that list is reachable from this palette —
+          // this route was not, from here or from any rail, bottom nav, account
+          // menu or home tile. Its single in-app link lived inside the "This
+          // year" home strip, which used to return null when the derived list
+          // was empty, so the page sealed itself shut for exactly the people
+          // with nothing on it yet. The strip's empty branch now holds that
+          // door open too; this row is the one that does not depend on it.
+          id: 'action-year',
+          label: 'Your year',
+          sublabel: 'Birthdays · anniversaries · the dates that come back',
+          href: '/dashboard/year',
+          kind: 'action',
+          icon: 'calendar',
+        },
+        {
           id: 'action-your-story',
           label: 'Your Story',
           sublabel:

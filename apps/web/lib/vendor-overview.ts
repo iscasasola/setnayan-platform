@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { fetchVendorThreads } from '@/lib/chat';
 import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorContracts } from '@/lib/contracts';
@@ -56,6 +57,20 @@ export type WhatsNewCard =
   // Pre-accept inquiry — masked by construction (no couple identity, no
   // `eventName`); see `vendor-overview-inquiry-card.ts`.
   | InquiryWhatsNewCard
+  // PR-H step 2 — the couple ASKED, the supplier has not answered. Its own kind
+  // on purpose: the 'lock' card below is step 5 (confirm the DEPOSIT, keyed on
+  // payment proof) and overloading it would put two different questions, at two
+  // different rungs, behind one button.
+  | {
+      kind: 'lock_request';
+      id: string;
+      eventId: string;
+      eventVendorId: string;
+      eventDate: string | null;
+      requestedAt: string;
+      /** Materialized on the row by the guard trigger — shown AND enforced. */
+      expiresAt: string | null;
+    }
   | {
       kind: 'lock';
       id: string;
@@ -185,9 +200,14 @@ export async function fetchVendorOverviewData(
   const eventIds = [...new Set([...inquiryEventIds, ...bookingEventIds])];
   // eventMeta needs the ids derived from step 1; lockRequests needs only the
   // vendor id — they're independent, so run them together (2026-07-01 perf).
-  const [eventMeta, lockRequests] = await Promise.all([
+  const [eventMeta, lockRequests, lockAgreementRequests] = await Promise.all([
     fetchEventMeta(admin, eventIds),
     fetchLockRequests(admin, vendorProfileId),
+    // Flag-gated so the extra read does not even run while the handshake is
+    // dark. This file is registered as a GATE for exactly this call.
+    isLockHandshakeEnabled()
+      ? fetchLockAgreementRequests(admin, vendorProfileId)
+      : Promise.resolve([] as LockAgreementRequest[]),
   ]);
 
   // --- Assemble WHAT'S NEW ---------------------------------------------------
@@ -213,6 +233,21 @@ export async function fetchVendorOverviewData(
         category: vendorCategory,
       }),
     );
+  }
+
+  // PR-H step 2 FIRST: being ASKED outranks confirming a deposit, because it
+  // carries a 7-day fuse and the other one does not.
+  for (const ar of lockAgreementRequests) {
+    const meta = eventMeta.get(ar.eventId);
+    whatsNew.push({
+      kind: 'lock_request',
+      id: `lockreq-${ar.eventVendorId}`,
+      eventId: ar.eventId,
+      eventVendorId: ar.eventVendorId,
+      eventDate: meta?.eventDate ?? null,
+      requestedAt: ar.requestedAt,
+      expiresAt: ar.expiresAt,
+    });
   }
 
   for (const lr of lockRequests) {
@@ -271,6 +306,17 @@ export async function fetchVendorOverviewData(
       label: `Reply to ${t.event?.display_name ?? 'a new inquiry'}`,
       dueChip: awaitingChip(t.created_at),
       href: `/vendor-dashboard/messages/${t.thread_id}`,
+    });
+  }
+
+  // The open-task list must report the ask too, or a supplier's own "what do I
+  // owe anyone" list under-reports the one item with a deadline on it.
+  for (const ar of lockAgreementRequests) {
+    ongoing.push({
+      id: `ong-lockreq-${ar.eventVendorId}`,
+      label: 'Agree to a booking, or turn it down',
+      dueChip: awaitingChip(ar.requestedAt),
+      href: '/vendor-dashboard',
     });
   }
 
@@ -396,6 +442,12 @@ function cardTimestamp(card: WhatsNewCard): Date {
       return new Date(card.createdAt);
     case 'lock':
       return new Date(card.recordedAt);
+    // The ASK is ordered by when it was made, so the oldest — the one closest to
+    // its 7-day deadline — sorts to the top of the feed. (This switch is
+    // exhaustive over the union: adding a card kind without a sort key is a
+    // typecheck failure, which is how this line got written.)
+    case 'lock_request':
+      return new Date(card.requestedAt);
     case 'review':
       return new Date(card.createdAt);
     case 'dispute':
@@ -469,6 +521,54 @@ type LockRequest = {
   proofUrl: string | null;
   recordedAt: string;
 };
+
+/**
+ * "Which couples are waiting on ME to answer?"
+ *
+ * event_vendors carries couple-only RLS, so this runs on the admin client
+ * scoped to the caller's own vendor_profile_id — the same shape as
+ * fetchLockRequests, and the reason a vendor SELECT policy on event_vendors is
+ * deliberately not opened (it would hand suppliers the couple's whole booking
+ * row, budget figures included).
+ */
+type LockAgreementRequest = {
+  eventId: string;
+  eventVendorId: string;
+  requestedAt: string;
+  expiresAt: string | null;
+};
+
+async function fetchLockAgreementRequests(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+): Promise<LockAgreementRequest[]> {
+  const { data } = await admin
+    .from('event_vendors')
+    .select('vendor_id, event_id, lock_requested_at, lock_request_expires_at')
+    .eq('marketplace_vendor_id', vendorProfileId)
+    .eq('lock_request_state', 'pending')
+    // A confirmed row can carry a stale 'pending' marker — the printed Locked-QR
+    // path promotes to deposit_paid without touching any lock_* column — and
+    // offering that supplier an "agree?" card for a booking they have already
+    // been paid for is nonsense. Same floor the sweeps carry.
+    .not('status', 'in', '("contracted","deposit_paid","delivered","complete")')
+    // A covered cascade line carries no request of its own; only the anchor is
+    // asked. An archived row is a withdrawn booking.
+    .or('package_role.is.null,package_role.eq.anchor')
+    .is('archived_at', null)
+    .order('lock_requested_at', { ascending: true });
+  return ((data ?? []) as Array<{
+    vendor_id: string;
+    event_id: string;
+    lock_requested_at: string;
+    lock_request_expires_at: string | null;
+  }>).map((r) => ({
+    eventId: r.event_id,
+    eventVendorId: r.vendor_id,
+    requestedAt: r.lock_requested_at,
+    expiresAt: r.lock_request_expires_at,
+  }));
+}
 
 async function fetchLockRequests(
   admin: SupabaseClient,

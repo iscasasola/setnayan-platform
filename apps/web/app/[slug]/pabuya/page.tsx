@@ -115,7 +115,7 @@ export default async function PabuyaPublicPage({
 
       <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
         <div className="mb-8 text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold">
+          <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold-deep">
             The pabuya · digital money dance
           </p>
           <h1 className="mt-2 font-display text-3xl font-medium italic sm:text-4xl">

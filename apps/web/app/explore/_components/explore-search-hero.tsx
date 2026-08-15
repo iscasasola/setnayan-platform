@@ -45,6 +45,7 @@ export function ExploreSearchHero({
   scopedFolder,
   preserve,
   chips,
+  occasionChips = [],
 }: {
   taxonomyOptions: ReadonlyArray<TaxonomyOption>;
   /**
@@ -65,6 +66,26 @@ export function ExploreSearchHero({
   };
   /** A few suggested quick-search chips rendered under the field. */
   chips: ReadonlyArray<ExploreChip>;
+  /**
+   * Occasion chips — one per kind of celebration, linking to
+   * `/explore?event_type=<key>`.
+   *
+   * 🔴 WHY THIS ROW EXISTS AT ALL. Owner 2026-08-15: *"they can also search by
+   * type of event."* The `?event_type=` filter has shipped since Iteration
+   * 0041 and nothing on any public surface could set it — the drawer that
+   * would be its natural home does not even RENDER on this landing, because
+   * the landing is catalog mode and the drawer belongs to the vendor grid. So
+   * without this row an anonymous visitor standing on /explore has no way to
+   * ask for their kind of celebration at all.
+   *
+   * Kept as a separate row from `chips` rather than merged into it: those are
+   * SERVICES ("Photographers", "Caterers") and these are OCCASIONS. One
+   * undifferentiated row would read as one list where "Debut" and "Florists"
+   * answer the same question, and they do not.
+   *
+   * Empty array renders nothing.
+   */
+  occasionChips?: ReadonlyArray<ExploreChip>;
 }) {
   return (
     <section
@@ -106,6 +127,23 @@ export function ExploreSearchHero({
               Popular
             </span>
             {chips.map((chip) => (
+              <Link
+                key={chip.href}
+                href={chip.href}
+                className="inline-flex items-center rounded-full border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3.5 py-1.5 text-[13px] font-medium text-[color:var(--m-slate)] transition-colors hover:border-[color:var(--m-orange)] hover:text-[color:var(--m-ink)]"
+              >
+                {chip.label}
+              </Link>
+            ))}
+          </div>
+        ) : null}
+
+        {occasionChips.length > 0 ? (
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[color:var(--m-slate-3)]">
+              Occasion
+            </span>
+            {occasionChips.map((chip) => (
               <Link
                 key={chip.href}
                 href={chip.href}

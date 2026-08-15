@@ -15,6 +15,7 @@ import {
   type ChapterSearchItem,
 } from './_components/stories-search';
 import { STORIES_SEARCH_MIN_POOL } from '@/lib/stories-search-config';
+import { sampleStoriesAreShowing } from '@/lib/sample-stories';
 import { publishedBlogArticles } from '@/lib/blog';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 
@@ -130,73 +131,112 @@ export default async function RealStoriesIndexPage() {
     showcases.filter((s) => !s.isSample).map((s) => [s.eventId, s.href]),
   );
   // Fall back to the in-code curated samples only when the DB path is empty.
-  const showingSamples = showcases.length === 0;
+  /*
+    🚨 THIS LINE USED TO READ `showcases.length === 0`, AND IT HID NINE
+    FINISHED PAGES.
+
+    Prod holds ONE curated sample event in the database. That made
+    `showcases.length` equal 1, so the page concluded it had stories and
+    switched the entire in-code sample set off — while `sitemap-weddings.xml`
+    went on handing all nine of their URLs to Google. Measured live
+    2026-08-15: nine complete, well-written sample stories, reachable by URL,
+    linked from nowhere on the site.
+
+    🔑 A ROW IS NOT A STORY. The database's own sample is a published row and
+    is NOT a real story; counting rows conflated the two. The rule is about
+    REAL stories, so the count filters `isSample` first.
+
+    The threshold is the owner's (2026-08-15): samples retire when five real
+    stories are public. It lives in `lib/sample-stories.ts` because the sitemap
+    must answer the same question — splitting it across two files is what
+    produced the orphans above.
+  */
+  const realStories = showcases.filter((s) => !s.isSample);
+  const showingSamples = sampleStoriesAreShowing(realStories.length);
   // Truth-in-UI: the "published with their consent" header copy is only honest
   // once a REAL consented couple is on the page. The DB path now also includes
   // the curated SAMPLE event (badged "Sample"), so when EVERY DB card is a
   // sample we keep the samples framing in the header (the per-card "Sample"
   // badge already disambiguates each card either way).
-  const hasRealStory = showcases.some((s) => !s.isSample);
+  const hasRealStory = realStories.length > 0;
 
+  const dbItems: GalleryItem[] = showcases.map((s) => ({
+      href: s.href,
+      coupleNames: s.coupleNames,
+      // Style-Twin Discovery — credited vendors tap through to /v/[slug].
+      vendors: s.vendors,
+      metaLine: [s.city, s.dateLabel].filter(Boolean).join(' · ') || 'Real story',
+      city: s.city,
+      palette: s.monogramColor ? [s.monogramColor] : ['#6B4E3D'],
+      heroImageUrl: s.heroImageUrl,
+      heroVideoUrl: s.heroVideoUrl,
+      featureRank: s.featureRank,
+      publishedSort: s.eventDate ?? '',
+      // The DB path now includes the curated SAMPLE event (Maria & Jose),
+      // which keeps its honest "Sample" badge — so carry the loader's flag
+      // through instead of hardcoding false. Real consented editorials are
+      // always isSample=false.
+      isSample: s.isSample,
+      searchText:
+        `${s.coupleNames} ${s.city ?? ''} ${s.dateLabel ?? ''} ${s.serviceCategories.join(' ')}`.toLowerCase(),
+      // Kept null so the below-gate Chronicle tile is byte-identical (no new
+      // milestone pill).
+      //
+      // ⚠ THE OLD REASON FOR THE `?? 'Wedding'` BELOW DIED ON 2026-08-15 and
+      // this comment used to carry it: "every consented editorial in this
+      // loader is an events.event_type = 'wedding' row". That was true only
+      // while `showcase-db.ts` carried five `.eq('event_type','wedding')`
+      // filters, and those were removed the same day — the owner ruled that
+      // every kind of celebration gets an editorial, not just weddings. The
+      // loader now returns debuts, graduations and reunions too.
+      eventType: null,
+      witnessQuote: null,
+      witnessAttribution: null,
+      services: null,
+      editionNumber: null,
+      // Credited vendors' canonical categories → the service facet axis.
+      serviceCategories: s.serviceCategories,
+      // Cross-rail chip — the storyteller's cut of this same event, if any.
+      storytellerCutHref: chapterCutByEvent.get(s.eventId)?.href ?? null,
+      storytellerCutHasVideo: chapterCutByEvent.get(s.eventId)?.hasVideo ?? false,
+  }));
+  const sampleItems: GalleryItem[] = ALL_REAL_WEDDINGS.map((w) => ({
+      href: `/realstories/${w.slug}`,
+      coupleNames: w.coupleNames,
+      metaLine: [w.eventType, w.city].filter(Boolean).join(' · '),
+      ceremonyType: w.ceremonyType,
+      venueSetting: w.venueSetting,
+      theme: w.theme,
+      city: w.city,
+      palette: [...w.palette],
+      heroImageUrl: w.heroImageUrl ?? null,
+      heroVideoUrl: w.heroVideoUrl ?? null,
+      featureRank: w.featureRank ?? null,
+      publishedSort: w.publishedAt,
+      isSample: true,
+      searchText:
+        `${w.coupleNames} ${w.city} ${w.eventType} ${w.ceremonyType} ${w.venueSetting} ${w.theme} ${w.excerpt}`.toLowerCase(),
+      eventType: w.eventType,
+      witnessQuote: w.witnessQuote ?? null,
+      witnessAttribution: w.witnessAttribution ?? null,
+      services: w.services ?? null,
+      editionNumber: w.editionNumber ?? null,
+      // Samples credit no marketplace vendors → no service facet values.
+      serviceCategories: [],
+  }));
+  /*
+    BOTH SHELVES WHILE THE SAMPLES ARE SHOWING.
+
+    This used to be an either/or — the database path OR the curated set,
+    never both — and that is what let one seeded row hide the whole sample
+    library. Below the threshold the page shows what it actually has: every
+    real story published so far AND the samples, so the first four real ones
+    appear beside them instead of replacing them, and the fifth retires the
+    samples on its own.
+  */
   const items: GalleryItem[] = showingSamples
-    ? ALL_REAL_WEDDINGS.map((w) => ({
-        href: `/realstories/${w.slug}`,
-        coupleNames: w.coupleNames,
-        metaLine: [w.eventType, w.city].filter(Boolean).join(' · '),
-        ceremonyType: w.ceremonyType,
-        venueSetting: w.venueSetting,
-        theme: w.theme,
-        city: w.city,
-        palette: [...w.palette],
-        heroImageUrl: w.heroImageUrl ?? null,
-        heroVideoUrl: w.heroVideoUrl ?? null,
-        featureRank: w.featureRank ?? null,
-        publishedSort: w.publishedAt,
-        isSample: true,
-        searchText:
-          `${w.coupleNames} ${w.city} ${w.eventType} ${w.ceremonyType} ${w.venueSetting} ${w.theme} ${w.excerpt}`.toLowerCase(),
-        eventType: w.eventType,
-        witnessQuote: w.witnessQuote ?? null,
-        witnessAttribution: w.witnessAttribution ?? null,
-        services: w.services ?? null,
-        editionNumber: w.editionNumber ?? null,
-        // Samples credit no marketplace vendors → no service facet values.
-        serviceCategories: [],
-      }))
-    : showcases.map((s) => ({
-        href: s.href,
-        coupleNames: s.coupleNames,
-        // Style-Twin Discovery — credited vendors tap through to /v/[slug].
-        vendors: s.vendors,
-        metaLine: [s.city, s.dateLabel].filter(Boolean).join(' · ') || 'Real story',
-        city: s.city,
-        palette: s.monogramColor ? [s.monogramColor] : ['#6B4E3D'],
-        heroImageUrl: s.heroImageUrl,
-        heroVideoUrl: s.heroVideoUrl,
-        featureRank: s.featureRank,
-        publishedSort: s.eventDate ?? '',
-        // The DB path now includes the curated SAMPLE event (Maria & Jose),
-        // which keeps its honest "Sample" badge — so carry the loader's flag
-        // through instead of hardcoding false. Real consented editorials are
-        // always isSample=false.
-        isSample: s.isSample,
-        searchText:
-          `${s.coupleNames} ${s.city ?? ''} ${s.dateLabel ?? ''} ${s.serviceCategories.join(' ')}`.toLowerCase(),
-        // Kept null so the below-gate Chronicle tile is byte-identical (no new
-        // milestone pill). The Wedding milestone the search facet needs is
-        // supplied only on the search items below (every consented editorial in
-        // this loader is an events.event_type = 'wedding' row).
-        eventType: null,
-        witnessQuote: null,
-        witnessAttribution: null,
-        services: null,
-        editionNumber: null,
-        // Credited vendors' canonical categories → the service facet axis.
-        serviceCategories: s.serviceCategories,
-        // Cross-rail chip — the storyteller's cut of this same event, if any.
-        storytellerCutHref: chapterCutByEvent.get(s.eventId)?.href ?? null,
-        storytellerCutHasVideo: chapterCutByEvent.get(s.eventId)?.hasVideo ?? false,
-      }));
+    ? [...dbItems, ...sampleItems]
+    : dbItems;
 
   // ── Stories SEARCH display gate (P4+ · volume-gated) ─────────────────────
   // The place/service/kind facet UI mounts ONLY when the already-public
@@ -217,10 +257,25 @@ export default async function RealStoriesIndexPage() {
 
   const editorialSearchItems: EditorialSearchItem[] = items.map((it) => ({
     ...it,
-    // Milestone facet: samples already carry their own eventType; real
-    // consented editorials are all weddings (this loader's event_type filter),
-    // so fall back to 'Wedding' when the tile-level pill was left off above.
-    eventType: it.eventType ?? 'Wedding',
+    // Milestone facet: samples carry their own eventType and keep it.
+    //
+    // 🛑 THIS USED TO READ `it.eventType ?? 'Wedding'`, and on 2026-08-15 that
+    // fallback turned into a LIE. It was written when `showcase-db.ts` refused
+    // every non-wedding celebration in five places; those refusals were removed
+    // the same day (owner: "each event they create will have an editorial not
+    // just wedding"), so the first debut or graduation editorial to publish
+    // would have been filed under Wedding — in the one control on this page
+    // whose entire job is to say what KIND of celebration a story is.
+    //
+    // Null is the honest value while the loader does not read the column: an
+    // unknown kind sits under "All" and joins no milestone, rather than
+    // claiming the wrong one. ⏭ THE REAL REMEDY is for `loadPublishedShowcases`
+    // to SELECT `events.event_type` and carry it on `PublishedShowcase` — it is
+    // already in scope in every one of that loader's queries. Until then this
+    // facet is incomplete, which is a smaller wrong than being confident and
+    // incorrect. Harmless today either way: the facet UI is behind
+    // STORIES_SEARCH_MIN_POOL and does not mount.
+    eventType: it.eventType,
     serviceCategories: it.serviceCategories ?? [],
   }));
   const chapterSearchItems: ChapterSearchItem[] = featuredChapters.map((c) => {

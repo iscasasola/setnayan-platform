@@ -124,7 +124,7 @@ export function ScriptComposer({
           {pending ? 'Saving…' : isDraft && !dirty ? 'Keep this line' : 'Save line'}
         </button>
         {saved ? (
-          <span className="flex items-center gap-1 text-xs text-sage">
+          <span className="flex items-center gap-1 text-xs text-sage-deep">
             <Check className="h-3.5 w-3.5" aria-hidden />
             {state.message}
           </span>

@@ -210,7 +210,7 @@ export default async function FinalizeClaimPage({ params }: Props) {
 
 function ErrorShell({ title, body }: { title: string; body?: string }) {
   return (
-    <main className="min-h-screen bg-page px-4 py-20">
+    <main className="min-h-screen bg-cream px-4 py-20">
       <div className="mx-auto max-w-md space-y-4 rounded-xl bg-cream p-8 text-center ring-1 ring-inset ring-ink/10">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Setnayan · Claim

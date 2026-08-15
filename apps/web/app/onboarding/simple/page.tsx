@@ -13,7 +13,19 @@ export const metadata = { title: 'Create a Simple Event' };
 const ERROR_COPY: Record<string, string> = {
   missing_name: 'Please give your event a name.',
   missing_date: 'Please pick a date for your event.',
+  // Kept apart deliberately — see the same pair in the create-event picker.
+  // `create_failed` = nothing survived, retrying is safe. `create_incomplete` =
+  // a half-made event could not be rolled back, so "try again" would duplicate.
+  create_failed:
+    'We couldn’t create that event. Nothing was charged — please try again.',
+  create_incomplete:
+    'We couldn’t finish creating that event, and part of it may have been saved. Please contact us before trying again so we don’t make a duplicate.',
 };
+
+/** Anything we did not write copy for. NEVER the raw value — it was the
+ *  database's own message, and this page used to print it to the customer. */
+const GENERIC_ERROR =
+  'We couldn’t create that event. Nothing was charged — please try again.';
 
 type SearchParams = Promise<{ error?: string }>;
 
@@ -42,7 +54,7 @@ export default async function SimpleOnboardingPage({
   }
 
   const params = await searchParams;
-  const errorMessage = params.error ? (ERROR_COPY[params.error] ?? params.error) : null;
+  const errorMessage = params.error ? (ERROR_COPY[params.error] ?? GENERIC_ERROR) : null;
 
   // The services step. This route is NOT a wizard — it is one form — so "adding
   // the step" means adding the card beneath the form, not inserting a screen.

@@ -52,13 +52,16 @@ export type PublicChapter = {
   embed_provider: EmbedProvider | null;
   teaser_r2_key: string | null;
   substrate: ChapterSubstrate;
+  /** The celebration this chapter is about — the column that had no writer
+   *  until 2026-08-15, and the reason the cross-links could never appear. */
+  event_id: string | null;
   published_at: string | null;
   /** Aggregate public views (no PII) — the audience-layer counter. */
   view_count: number;
 };
 
 const CHAPTER_FIELDS =
-  'chapter_id, public_id, title, kind, body, embed_url, embed_provider, teaser_r2_key, substrate, published_at, view_count';
+  'chapter_id, public_id, title, kind, body, embed_url, embed_provider, teaser_r2_key, substrate, event_id, published_at, view_count';
 
 function coerceSubstrate(raw: unknown): ChapterSubstrate {
   if (!raw || typeof raw !== 'object') return {};
@@ -87,6 +90,7 @@ function mapRow(row: Record<string, unknown>): PublicChapter {
     embed_provider: (row.embed_provider as EmbedProvider | null) ?? null,
     teaser_r2_key: (row.teaser_r2_key as string | null) ?? null,
     substrate: coerceSubstrate(row.substrate),
+    event_id: (row.event_id as string | null) ?? null,
     published_at: (row.published_at as string | null) ?? null,
     view_count:
       typeof row.view_count === 'number' ? row.view_count : Number(row.view_count ?? 0),
@@ -409,6 +413,10 @@ async function resolveLinkedVendorProfileIds(
   }
 
   // 2. Genuine booking tying the vendor to the chapter's event.
+  // ⚠ THIS ONLY FILTERS — it decides whether a vendor the AUTHOR NAMED is
+  // linked. It never SOURCES the list. Sourcing is `loadBookedVendorProfileIds`
+  // below, and the difference is why "Shop this event" stayed empty even on a
+  // chapter attached to a day whose suppliers the product already knew.
   const eventId = context.eventId?.trim() || null;
   if (eventId) {
     try {
@@ -426,4 +434,48 @@ async function resolveLinkedVendorProfileIds(
   }
 
   return linked;
+}
+
+/**
+ * The suppliers who actually worked a celebration — the source for "Shop this
+ * event" when the author has not narrowed the list themselves.
+ *
+ * 🔴 WHY THIS EXISTS. The product already knew, in `event_vendors`, exactly who
+ * was booked on the day — and used that knowledge ONLY to filter a list the
+ * author had to type by hand. So a chapter attached to a real celebration still
+ * showed no suppliers unless somebody pasted their ids, and nobody ever did:
+ * production's one published chapter carries none.
+ * 🔑 THE SAME FACT, ALREADY STORED, WAS BEING CHECKED AGAINST BUT NEVER READ
+ * FROM. Knowing something and offering it are different things.
+ *
+ * ⚠ Only ever the day's OWN suppliers. This sources candidates; every one of
+ * them still goes through `resolveShoppableVendors`, which re-derives the tie
+ * and renders an unlinked name as plain text. It can therefore widen who is
+ * CREDITED, never who is presented as bookable on a claim that isn't real.
+ *
+ * Best-effort: any failure returns [] so the chapter renders without the
+ * shelf rather than not at all.
+ */
+export async function loadBookedVendorProfileIds(eventId: string): Promise<string[]> {
+  const id = eventId.trim();
+  if (!id) return [];
+  const admin = createAdminClient();
+  try {
+    const { data, error } = await admin
+      .from('event_vendors')
+      .select('linked_vendor_profile_id')
+      .eq('event_id', id)
+      .not('linked_vendor_profile_id', 'is', null);
+    // 🪤 A REJECTED QUERY IS NOT A THROWN ERROR — Supabase resolves with
+    // { error }, so an unchecked read would make a lost grant look like
+    // "this day had no suppliers", which is indistinguishable from the truth.
+    if (error || !data) return [];
+    const ids = new Set<string>();
+    for (const row of data as Array<{ linked_vendor_profile_id: string | null }>) {
+      if (row.linked_vendor_profile_id) ids.add(row.linked_vendor_profile_id);
+    }
+    return [...ids];
+  } catch {
+    return [];
+  }
 }

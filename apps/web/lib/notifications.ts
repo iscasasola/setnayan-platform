@@ -139,6 +139,16 @@ export type NotificationType =
   // createVendorChallengeAction; only ever emitted when the games flag is on
   // (the create wrapper no-ops otherwise, so the emit path is never reached).
   | 'papic_challenge_pending'
+  // PR-H, the lock handshake (owner 2026-07-27). The couple's Lock ASKS; the
+  // supplier's yes is what books them. `nudge` is the day-5 reminder the owner
+  // ordered (§6.3) and echoes the 2026-06-02 lock, "the vendor is nudged not to
+  // drag it". All five are EMAIL-enabled: a request carries a 7-day fuse, and
+  // the nudge exists specifically for the supplier who never opens the app.
+  | 'lock_request_received'
+  | 'lock_request_nudge'
+  | 'lock_request_agreed'
+  | 'lock_request_declined'
+  | 'lock_request_expired'
   | 'pax_surcharge_changed'
   | 'vendor_joined'
   | 'editorial_decision'
@@ -297,6 +307,11 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   vendor_review_reply: 'Vendor replied to your review',
   schedule_suggestion: 'Schedule suggestion',
   papic_challenge_pending: 'Papic Challenge to approve',
+  lock_request_received: 'Booking request — agree?',
+  lock_request_nudge: 'Booking request — 2 days left',
+  lock_request_agreed: 'Booking confirmed',
+  lock_request_declined: 'Booking request declined',
+  lock_request_expired: 'Booking request expired',
   pax_surcharge_changed: 'Guest-count charge updated',
   vendor_joined: 'Vendor joined',
   editorial_decision: 'Editorial decision',
@@ -396,6 +411,15 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   schedule_suggestion: 'bg-warn-100 text-warn-900',
   // A vendor's photo challenge needs the couple's okay before it reaches guests → amber.
   papic_challenge_pending: 'bg-warn-100 text-warn-900',
+  // The supplier owes an answer inside a 7-day window → amber, on both the ask
+  // and the day-5 reminder.
+  lock_request_received: 'bg-warn-100 text-warn-900',
+  lock_request_nudge: 'bg-warn-100 text-warn-900',
+  // The one good-news member of the family: the booking is real now.
+  lock_request_agreed: 'bg-success-100 text-success-900',
+  // A no and a timeout both need the couple to pick somebody else → amber.
+  lock_request_declined: 'bg-warn-100 text-warn-900',
+  lock_request_expired: 'bg-warn-100 text-warn-900',
   // A changed guest-count charge needs the couple's attention/confirm → amber.
   pax_surcharge_changed: 'bg-warn-100 text-warn-900',
   // An invited vendor accepting/claiming = a positive arrival → emerald.

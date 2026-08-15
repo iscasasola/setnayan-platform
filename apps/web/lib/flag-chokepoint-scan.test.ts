@@ -129,6 +129,33 @@ const FLAGS: FlagSpec[] = [
     ],
     locals: ['budgetTruth'],
   },
+  {
+    // PR-H · the vendor-agrees step (owner ruling 2026-07-27; funnel locked in
+    // Service_Schedule_and_Quotation_Flow_2026-06-02.md). A couple pressing
+    // Lock ASKS; the supplier's yes is what books them.
+    env: 'NEXT_PUBLIC_LOCK_HANDSHAKE_ENABLED',
+    helper: 'lib/lock-handshake-flag.ts',
+    fn: 'isLockHandshakeEnabled',
+    gates: [
+      // The ONE lock path. `handshakeAsk` decides, in a single expression,
+      // whether this press asks or books — and the whole slice hangs off it:
+      // the date gate is skipped, the downpayment gate is disarmed, the slot
+      // acquire is bypassed, the write records a request, and the action
+      // returns before every effect that announces a booking.
+      'app/dashboard/[eventId]/vendors/actions.ts',
+    ],
+    pureCores: [
+      // Takes `enabled` as a PARAMETER — six surfaces derive their state from
+      // it, so it must answer both worlds in one process. A gate that receives
+      // the flag would redden property 2; this is the other bucket on purpose.
+      'lib/lock-request-state.ts',
+    ],
+    // ⚠ `lib/lock-request-expiry.ts` is deliberately in NEITHER list: the sweep
+    // does not read the flag at all. Gating it would strand every in-flight
+    // request the moment the flag went back off — the pending indexes are DB
+    // objects and keep holding their slot whatever the app believes.
+    locals: ['handshakeAsk'],
+  },
 ];
 
 /** Strip comments — a docblock naming the helper must not read as a call. */

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
+import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
@@ -147,6 +148,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Fired from ADMIN traffic so the heavy matview REFRESH never rides an
   // end-user request; daily DB claim + device-fingerprint gate inside. Never throws.
   after(() => maybeRunFraudClusterSweep().catch(() => {}));
+  // PR-H · nudge at day 5, close at day 7. Mounted in BOTH layouts on purpose:
+  // the DB compare-and-swap picks exactly one winner per gap window, and an
+  // admin-only mount would wait for an admin page view — production is
+  // pre-launch-quiet, so a supplier's 7-day fuse would hang on somebody
+  // opening /admin. NOT flag-gated: closing a stale request is safe either
+  // way, and a gated sweep strands every in-flight request when the flag
+  // goes back off.
+  after(() => maybeRunLockRequestExpiry().catch(() => {}));
   // SEO health audit + Google Search Console pull — CRON-FREE: admin traffic +
   // a daily DB claim (replaces the retired /api/cron/seo-{health,gsc}). Both
   // feed /admin/seo; a skipped day only leaves the dashboard a day stale.

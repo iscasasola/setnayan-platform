@@ -49,6 +49,9 @@ import {
   type ServicesStepSelection,
 } from '@/lib/onboarding-services-selection';
 import { SpecialtyFields } from './specialty-fields';
+// Same reporter the wedding flow uses for a rejected commit — one failure, one
+// place to read it, rather than a silent console line on the customer's phone.
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 type Props = {
   eventType: string;
@@ -481,16 +484,38 @@ export function GenericOnboarding(props: Props) {
       // every rung from the live catalog; no amount is sent from here.
       servicesSelection,
     };
-    // Anon-draft commit mints a Supabase anonymous session that global captcha
-    // gates — mint a Turnstile token (no-op/undefined when unconfigured).
-    payload.captchaToken = await mintTurnstileToken('onboarding');
-    const res = await commitOnboardingEvent(payload);
-    if (res.ok) {
-      try {
-        localStorage.removeItem(draftKey);
-      } catch {
-        /* ignore */
-      }
+    /*
+      🔴 EVERY AWAIT BELOW IS INSIDE THIS TRY, AND THAT IS THE WHOLE POINT.
+      Without it a REJECTED server action — a 500, a serverless timeout, a
+      dropped RSC transport on a wobbly mobile connection — rejected unhandled
+      out of this async click handler. `setCommitting(false)` lives only on the
+      paths BELOW, so the button stayed `disabled` reading "Creating…" forever,
+      with no error and nothing to tap. React error boundaries do not catch an
+      unhandled rejection from an async onClick, so nothing anywhere noticed.
+
+      🔑 THIS IS THE OWNER'S OWN 2026-06-03 BUG ("never loaded"), IN ITS SECOND
+      COSTUME. It was fixed then in `onboarding/wedding/_components/
+      onboarding-shell.tsx` — and this file, which serves EVERY OTHER event
+      type (birthday · debut · christening · anniversary · corporate · reunion
+      · …), kept it. A fix applied to one route and not swept across its
+      siblings is half a fix; a 19-screen flow that dies silently on the last
+      button is the most expensive place to lose somebody.
+
+      ⚠ THE SUCCESS PATH DELIBERATELY LEAVES `committing` TRUE — the navigation
+      is already in flight and re-enabling the button would invite a second
+      event. Only the failure paths unwind it.
+    */
+    try {
+      // Anon-draft commit mints a Supabase anonymous session that global captcha
+      // gates — mint a Turnstile token (no-op/undefined when unconfigured).
+      payload.captchaToken = await mintTurnstileToken('onboarding');
+      const res = await commitOnboardingEvent(payload);
+      if (res.ok) {
+        try {
+          localStorage.removeItem(draftKey);
+        } catch {
+          /* ignore */
+        }
       // Plain "continue free" finish: if the couple was sent here from a
       // vendor-invite claim to create their first event, return them to it
       // (/vendor-invite/[slug]) to finish shortlisting; else land on the
@@ -501,33 +526,48 @@ export function GenericOnboarding(props: Props) {
       // couple who came from a vendor invite is mid-errand, and the payment
       // banner is waiting for them in the studio either way. Absent ⇒ nothing
       // was bought, or the order could not be minted ⇒ ordinary landing.
-      router.replace(nextPath ?? res.paymentPath ?? `/dashboard/${res.eventId}`);
-      return;
-    }
-    setCommitting(false);
-    if (res.error === 'life_event_exists') {
-      // NOT an error state — a real product rule (one in-planning event per
-      // person, per kind). Walk the user back to the honoree question instead
-      // of stranding them on the last screen with "try again": retrying is
-      // exactly what CANNOT work, and there is no archive control anywhere in
-      // the app to clear the other event.
-      setBlockedBy(res.blocking ?? null);
-      const idx = screens.indexOf('honoree');
-      if (idx >= 0) {
-        setStep(idx);
-        setError(null);
-      } else {
-        setError(
-          'You already have one of these in planning. Finish or archive it first.',
-        );
+        router.replace(nextPath ?? res.paymentPath ?? `/dashboard/${res.eventId}`);
+        return;
       }
-      return;
+      setCommitting(false);
+      if (res.error === 'life_event_exists') {
+        // NOT an error state — a real product rule (one in-planning event per
+        // person, per kind). Walk the user back to the honoree question instead
+        // of stranding them on the last screen with "try again": retrying is
+        // exactly what CANNOT work, and there is no archive control anywhere in
+        // the app to clear the other event.
+        setBlockedBy(res.blocking ?? null);
+        const idx = screens.indexOf('honoree');
+        if (idx >= 0) {
+          setStep(idx);
+          setError(null);
+        } else {
+          setError(
+            'You already have one of these in planning. Finish or archive it first.',
+          );
+        }
+        return;
+      }
+      setError(
+        res.error === 'not_authenticated'
+          ? 'sign_in'
+          : 'Something went wrong saving your plan. Please try again.',
+      );
+    } catch (err) {
+      // Unwind everything and let them press the button again. Same words the
+      // wedding flow settled on, so two people describing the same failure to
+      // support describe it identically.
+      console.error('[onboarding] commit rejected', err);
+      void trackFailure({
+        eventType: 'SUPABASE_SAVE_ERROR',
+        elementName: 'Onboarding · commit event plan (rejected)',
+        filePath: 'app/onboarding/[type]/_components/generic-onboarding.tsx',
+        error: err,
+        payload: { action: 'commitOnboardingEvent', eventType },
+      });
+      setCommitting(false);
+      setError('Something went wrong saving your plan. Please try again.');
     }
-    setError(
-      res.error === 'not_authenticated'
-        ? 'sign_in'
-        : 'Something went wrong saving your plan. Please try again.',
-    );
   }
 
   // ---- render helpers --------------------------------------------------------

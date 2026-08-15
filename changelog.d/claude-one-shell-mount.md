@@ -111,15 +111,17 @@ because all twenty fallbacks return null. React context is worse: the pages are
 server components, so the setter runs after paint and mis-paints in **both**
 directions.
 
-🔑 It is a SEGMENT name — a directory — so a guard can prove every entry resolves
-to a real `app/(shell)/<seg>/page.tsx`. This repo keeps paying for lists that
-silently stop matching anything; a list is acceptable only when it is checkable.
+🔑 Every entry still maps to a directory under `app/(shell)/`, so a guard proves
+each one resolves to a real page — and that it starts with `/`, since a bare
+segment would never match `usePathname()` and the route would silently lose its
+width. This repo keeps paying for lists that silently stop matching anything; a
+list is acceptable only when it is checkable.
 
 ### Guards
 
 - New `app/(shell)/one-shell-mount.test.ts` (5) — exactly one mount and it is the
   layout · no page re-declares a route directive · no nested layout/template
-  that could remount · every bleed segment resolves on disk · a positive control
+  that could remount · every bleed path resolves on disk · a positive control
   so the file cannot walk an empty directory. **Four mutations, each verified to
   land by occurrence count, all red.**
 - New route-group guard in `lib/reserved-slugs.test.ts`, mutation-verified by

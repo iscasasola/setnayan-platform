@@ -1,3 +1,4 @@
+import { normalizeVisibility, openToStrangers, type EventVisibility } from '@/lib/event-visibility';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
@@ -16,7 +17,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 /** The visibility-bearing event fields these helpers read. */
 export type LaunchState = {
-  landing_page_visibility?: 'public' | 'unlisted' | 'private' | null;
+  landing_page_visibility?: EventVisibility | null;
   scheduled_launch_at?: string | null;
   std_launched_at?: string | null;
 };
@@ -30,8 +31,14 @@ export function isScheduledLaunchDue(
   event: LaunchState,
   now: number = Date.now(),
 ): boolean {
-  const visibility = event.landing_page_visibility ?? 'private';
-  if (visibility !== 'private') return false;
+  // 🔑 NAMED, NOT EXCLUDED. A scheduled launch flips a PRIVATE page public at
+  // its moment — that is the only case it was built for. Any other setting is a
+  // deliberate choice by the couple, and 'invited_accounts' especially must
+  // never be auto-flipped to public by a timer they set months earlier. The old
+  // spelling (`!== 'private'`) happened to decline too, but only by accident of
+  // which side of the test the new value landed on.
+  const autoLaunchable = normalizeVisibility(event.landing_page_visibility) === 'private';
+  if (!autoLaunchable) return false;
   if (!event.scheduled_launch_at) return false;
   const due = new Date(event.scheduled_launch_at).getTime();
   return Number.isFinite(due) && due <= now;
@@ -45,9 +52,11 @@ export function isScheduledLaunchDue(
 export function resolveEffectiveVisibility(
   event: LaunchState,
   now: number = Date.now(),
-): 'public' | 'unlisted' | 'private' {
+): EventVisibility {
   if (isScheduledLaunchDue(event, now)) return 'public';
-  return event.landing_page_visibility ?? 'private';
+  // Normalised, not cast: an unknown value must fail to 'private', never leak
+  // through as itself and get compared by exclusion downstream.
+  return normalizeVisibility(event.landing_page_visibility);
 }
 
 /**
@@ -103,8 +112,11 @@ export async function publishSaveTheDate(
 export type SiteReachability = {
   /** Can a person who opens the link see the page right now? */
   reachable: boolean;
-  /** Public (indexable) · unlisted (link-only) · private (locked screen). */
-  visibility: 'public' | 'unlisted' | 'private';
+  /**
+   * public (indexable) · unlisted (link-only) · invited_accounts (guest list,
+   * signed in) · private (locked screen).
+   */
+  visibility: EventVisibility;
   /** They launched, but the page is private anyway — explain, don't just deny. */
   launchedButHidden: boolean;
   /** A launch is set for the future and has not arrived yet. */
@@ -118,11 +130,16 @@ export function resolveSiteReachability(
   const visibility = resolveEffectiveVisibility(event, now);
   // No slug means there is no address to open, whatever the visibility says.
   const hasAddress = Boolean(event.slug);
-  const reachable = hasAddress && visibility !== 'private';
+  // 🔑 ALLOW-LIST, NOT `!== 'private'`. "Reachable" here means a person who was
+  // sent the address can open it. 'invited_accounts' fails that — the link
+  // alone does nothing — so the old exclusion test would have told the host
+  // their site was reachable when it was not.
+  const reachable = hasAddress && openToStrangers(visibility);
   return {
     reachable,
     visibility,
-    launchedButHidden: Boolean(event.std_launched_at) && visibility === 'private',
+    launchedButHidden:
+      Boolean(event.std_launched_at) && !openToStrangers(visibility),
     scheduled:
       visibility === 'private' &&
       Boolean(event.scheduled_launch_at) &&

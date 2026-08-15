@@ -23,6 +23,7 @@
  */
 
 import { ALL_REAL_WEDDINGS, REAL_WEDDINGS_LASTMOD } from '@/lib/real-weddings';
+import { sampleStoriesAreShowing } from '@/lib/sample-stories';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -71,9 +72,27 @@ export async function GET(): Promise<Response> {
         priority: '0.6',
       });
     }
-  } else {
-    // Fallback: the curated sample(s) at /realstories/[slug] — NEVER the
-    // sample's own future-dated /[slug] — until a real wedding exists.
+  }
+
+  /*
+    THE SAMPLES, ON THE SAME RULE THE PAGE USES — and no longer in an `else`.
+
+    🚨 THIS BRANCH IS HALF OF HOW NINE PAGES BECAME ORPHANS. It listed every
+    sample whenever no real editorial existed, while /realstories decided
+    separately (and, because prod holds one seeded sample ROW, decided to show
+    none of them). Measured live 2026-08-15: nine sample stories in this
+    sitemap, linked from nowhere on the site — submitted to Google, unreachable
+    by clicking.
+
+    🔑 A SITEMAP THAT OUTLIVES ITS PAGE ROTS SILENTLY. When the samples retire,
+    a page that stops rendering them is obvious in a second; a sitemap still
+    offering twenty fictional URLs is visible to nobody but a crawler. Both
+    sides now ask `sampleStoriesAreShowing`, so they cannot disagree.
+
+    Still `/realstories/[slug]` and NEVER the sample's own future-dated
+    `/[slug]` — that part was always right.
+  */
+  if (sampleStoriesAreShowing(realShowcases.length)) {
     for (const w of ALL_REAL_WEDDINGS.filter((w) => w.isSample)) {
       rows.push({
         loc: `${baseUrl}/realstories/${w.slug}`,

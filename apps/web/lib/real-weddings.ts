@@ -470,7 +470,6 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     ],
     setnayanNote:
       'The Cruz family coordinated a cross-generational 250-guest celebration — from the parish mass to the banquet floor — with shared call sheets on Setnayan for all five siblings.',
-    heroImageUrl: '/realstories/romy-beth-pasig.jpg',
   },
 
   // ── Graduation ───────────────────────────────────────────────────────────────
@@ -514,7 +513,6 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     ],
     setnayanNote:
       'Bea and her family planned the garden party — catering, florals, and a run-of-programme — in one Setnayan workspace, with a shared checklist the whole family could update.',
-    heroImageUrl: '/realstories/bea-aquino-quezon.jpg',
   },
 
   // ── Reunion ──────────────────────────────────────────────────────────────────
@@ -558,7 +556,680 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     ],
     setnayanNote:
       'The Dela Cruz family coordinated arrivals, room assignments, a shared programme, and vendor payments for a four-generation beach reunion from one Setnayan workspace.',
-    heroImageUrl: '/realstories/dela-cruz-cebu.jpg',
+  },
+
+  // ── Christening ──────────────────────────────────────────────────────────────
+  {
+    slug: 'noah-santos-antipolo-christening',
+    coupleNames: 'Noah Santos',
+    isSample: true,
+    publishedAt: '2026-06-20',
+    eventDateLabel: 'April 2026',
+    city: 'Antipolo',
+    eventType: 'Christening',
+    ceremonyType: 'Catholic',
+    venueSetting: 'Parish church',
+    venueName: 'A hillside parish overlooking the valley',
+    theme: 'White & sage',
+    palette: ['#F7F5EF', '#9CAF88', '#D8CFC0', '#2E3B2F'],
+    guestCount: '80 guests',
+    excerpt:
+      'Noah slept through his own christening, woke for the lechon, and was passed between forty pairs of arms before the rice was served — a morning in Antipolo that turned two families into one guest list.',
+    heroQuote: 'We counted the ninongs twice because we kept losing track.',
+    witnessQuote: 'He cried at the water and laughed at the lechon. Correct priorities.',
+    witnessAttribution: 'Ninang Cecil, godmother',
+    services: ['Papic', 'Setnayan AI'],
+    editionNumber: 10,
+    story: [
+      {
+        type: 'p',
+        text: 'Ten in the morning, a hillside parish, and a baby in a gown his mother wore at the same age — let out at the sleeves by a tita who insisted on doing it by hand.',
+      },
+      { type: 'h2', text: 'The counting problem' },
+      {
+        type: 'p',
+        text: 'Fourteen ninongs and ninangs were invited. Nineteen arrived. Nobody was turned away, and the priest, who has seen this before, simply widened the semicircle and carried on.',
+      },
+      { type: 'h2', text: 'The water' },
+      {
+        type: 'p',
+        text: 'Noah objected loudly and briefly. His lolo, who had not held a baby in eleven years, took him afterward and did not give him back for the rest of the ceremony.',
+      },
+      { type: 'h2', text: 'Lunch at the house' },
+      {
+        type: 'p',
+        text: 'The reception was a twenty-minute drive down the hill: long tables in a garage, lechon at one end, pancit at the other, and a plastic tub of San Miguel that nobody admitted to refilling.',
+      },
+      { type: 'h2', text: 'What the guests said' },
+      {
+        type: 'ul',
+        items: [
+          '“He cried at the water and laughed at the lechon. Correct priorities.” — Ninang Cecil',
+          '“I have not seen my cousins in four years. We are booking the next one already.” — Tito Ramil',
+          '“The gown is older than three of the ninongs.” — Lola Pacing',
+          '“I got sent forty photos before I even got home.” — Ate Jhoy',
+        ],
+      },
+      { type: 'h2', text: 'What stayed' },
+      {
+        type: 'p',
+        text: 'The last picture of the day is not the ceremony. It is Noah asleep on a folded tablecloth in the middle of the long table, ringed by paper plates, while the karaoke started up behind him.',
+      },
+    ],
+    team: [
+      { role: 'Church coordination', href: '/explore' },
+      { role: 'Catering', href: '/explore' },
+      { role: 'Photography', href: '/explore' },
+      { role: 'Cake & desserts', href: '/explore' },
+    ],
+    setnayanNote:
+      'Noah’s parents ran the guest list, the ninong-and-ninang roster, and the lunch headcount from one Setnayan page — and every relative who came home with a phone full of photos had already been sent theirs.',
+  },
+
+  // ── Birthday ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'lolo-tony-laguna-80th-birthday',
+    coupleNames: 'Lolo Tony',
+    isSample: true,
+    publishedAt: '2026-06-24',
+    eventDateLabel: 'May 2026',
+    city: 'Laguna',
+    eventType: 'Birthday',
+    ceremonyType: 'Family celebration',
+    venueSetting: 'Backyard',
+    venueName: 'The family house he built in 1979',
+    theme: 'Barong & banig',
+    palette: ['#C9A227', '#7A5230', '#EFE3C8', '#2B2B2B'],
+    guestCount: '120 guests',
+    excerpt:
+      'Eighty years, four generations, one backyard, and a karaoke machine that was never once switched off — Lolo Tony’s birthday in Laguna, held in the house he built himself.',
+    heroQuote: 'I built this house for a family I did not have yet. Look at it now.',
+    witnessQuote: 'He sang first. He always sings first. That is the whole point of him.',
+    witnessAttribution: 'Tita Belen, eldest daughter',
+    services: ['Papic', 'Live Studio'],
+    editionNumber: 11,
+    story: [
+      {
+        type: 'p',
+        text: 'Lolo Tony asked for no program. He got one anyway, written by nine grandchildren on the back of a calendar page, and he pretended to be annoyed about it for exactly four minutes.',
+      },
+      { type: 'h2', text: 'The house' },
+      {
+        type: 'p',
+        text: 'He laid the first blocks in 1979 with money from three years abroad. Every child, grandchild and great-grandchild present that day had slept under that roof at least once.',
+      },
+      { type: 'h2', text: 'The ones who could not come' },
+      {
+        type: 'p',
+        text: 'Two of his children work overseas. A laptop on a monobloc chair at the head table carried them through the whole afternoon — including, at one point, a duet across nine time zones that nobody in the yard was ready for.',
+      },
+      { type: 'h2', text: 'Four generations' },
+      {
+        type: 'p',
+        text: 'The photo everyone wanted took eleven minutes to arrange: Lolo Tony seated, his four children standing, eleven grandchildren kneeling, and three great-grandchildren refusing, on principle, to face the camera.',
+      },
+      { type: 'h2', text: 'What the guests said' },
+      {
+        type: 'ul',
+        items: [
+          '“He sang first. He always sings first. That is the whole point of him.” — Tita Belen',
+          '“My father taught me to drive in this yard. I hit that post.” — Tito Danny',
+          '“Eighty and he still carried the ice himself.” — Kuya Jun, neighbour',
+          '“I watched from Dubai and cried into my keyboard.” — Ate Mimi, second daughter',
+        ],
+      },
+      { type: 'h2', text: 'The last song' },
+      {
+        type: 'p',
+        text: 'Half past nine, most of the plastic chairs stacked, and the man himself doing an unhurried Matud Nila to a yard of people who had all heard him sing it before and wanted to hear it again.',
+      },
+    ],
+    team: [
+      { role: 'Catering', href: '/explore' },
+      { role: 'Lechon', href: '/explore' },
+      { role: 'Sound & lights', href: '/explore' },
+      { role: 'Photography', href: '/explore' },
+    ],
+    setnayanNote:
+      'The grandchildren ran the whole day from one Setnayan page — the program, the food count, and a live link so the two children working abroad were at the table, not just on the phone.',
+  },
+
+  // ── Gender Reveal ────────────────────────────────────────────────────────────
+  {
+    slug: 'the-lims-quezon-city-gender-reveal',
+    coupleNames: 'The Lim Family',
+    isSample: true,
+    publishedAt: '2026-06-27',
+    eventDateLabel: 'May 2026',
+    city: 'Quezon City',
+    eventType: 'Gender Reveal',
+    ceremonyType: 'Family celebration',
+    venueSetting: 'Rooftop deck',
+    venueName: 'A neighbour’s rooftop, borrowed for an afternoon',
+    theme: 'Confetti & citrus',
+    palette: ['#F2B5A0', '#8FBFD6', '#FBF3E4', '#33404A'],
+    guestCount: '45 guests',
+    excerpt:
+      'Two families, one sealed envelope carried by a lola who did not peek, and forty-five people on a borrowed Quezon City rooftop finding out at the same second.',
+    heroQuote: 'Only my mother knew. For nine days. She has never been prouder.',
+    witnessQuote: 'I held that envelope for nine days and I did not look. Not once. Ask anyone.',
+    witnessAttribution: 'Lola Remy, keeper of the envelope',
+    services: ['Papic', 'Patiktok'],
+    editionNumber: 12,
+    story: [
+      {
+        type: 'p',
+        text: 'The clinic sealed the result in an envelope. The envelope went to Lola Remy, who guarded it for nine days and told every single person that she was guarding it.',
+      },
+      { type: 'h2', text: 'The rooftop' },
+      {
+        type: 'p',
+        text: 'A neighbour offered her roof deck for the afternoon on the condition that she be invited. She was invited. She brought bibingka.',
+      },
+      { type: 'h2', text: 'The moment' },
+      {
+        type: 'p',
+        text: 'Both grandmothers pulled the cord together, because neither would agree to let the other do it alone. Blue, everywhere, and a five-year-old cousin who screamed before the smoke had cleared because she had wanted a girl.',
+      },
+      { type: 'h2', text: 'What the guests said' },
+      {
+        type: 'ul',
+        items: [
+          '“I held that envelope for nine days and I did not look. Not once. Ask anyone.” — Lola Remy',
+          '“We have a name picked for a boy. We have had it since 2019.” — Marco, father',
+          '“I wanted a girl. I am okay now. Mostly.” — Cousin Adie, age five',
+          '“Best rooftop I have lent anyone.” — Mrs. Villanueva, neighbour',
+        ],
+      },
+      { type: 'h2', text: 'Afterwards' },
+      {
+        type: 'p',
+        text: 'The blue smoke hung over the street for a good minute. Two floors down, somebody who had no idea what was happening leaned out and shouted congratulations anyway.',
+      },
+    ],
+    team: [
+      { role: 'Styling & balloons', href: '/explore' },
+      { role: 'Catering', href: '/explore' },
+      { role: 'Photography', href: '/explore' },
+    ],
+    setnayanNote:
+      'Everyone on that roof had their own photos before they got down the stairs — and the short clip of the two lolas pulling together was cut on a phone that evening.',
+  },
+
+  // ── Celebration ──────────────────────────────────────────────────────────────
+  {
+    slug: 'aling-nena-marikina-tenth-year',
+    coupleNames: 'Aling Nena’s Store',
+    isSample: true,
+    publishedAt: '2026-07-01',
+    eventDateLabel: 'June 2026',
+    city: 'Marikina',
+    eventType: 'Celebration',
+    ceremonyType: 'Community celebration',
+    venueSetting: 'Street corner',
+    venueName: 'The corner she has swept every morning for ten years',
+    theme: 'Sari-sari bright',
+    palette: ['#E4572E', '#F2C14E', '#F6F1E5', '#2F2F2F'],
+    guestCount: '60 neighbours',
+    excerpt:
+      'Ten years of utang na loob written in a notebook, one street closed for an afternoon, and a whole barangay turning up to thank a woman who never once asked them to.',
+    heroQuote: 'Ten years. I know what every child on this street likes to buy.',
+    witnessQuote: 'She fed this street through the pandemic on credit and never chased one peso.',
+    witnessAttribution: 'Kap Boy, barangay councillor',
+    services: ['Papic'],
+    editionNumber: 13,
+    story: [
+      {
+        type: 'p',
+        text: 'It began as a small thank-you and turned into a street party, because word travels quickly on a road where everyone owes the same person a small kindness.',
+      },
+      { type: 'h2', text: 'The notebook' },
+      {
+        type: 'p',
+        text: 'Ten years of lista, kept in spiral notebooks stacked under the counter. Aling Nena refused to display them. Someone displayed them anyway, closed, as a stack — the point being their height, not their contents.',
+      },
+      { type: 'h2', text: 'The street' },
+      {
+        type: 'p',
+        text: 'The barangay lent two tables and a tarpaulin. A tricycle driver lent his speaker. The neighbour with the good grill did what the neighbour with the good grill always does.',
+      },
+      { type: 'h2', text: 'What the neighbours said' },
+      {
+        type: 'ul',
+        items: [
+          '“She fed this street through the pandemic on credit and never chased one peso.” — Kap Boy',
+          '“My first job was counting her bottles. I am an accountant now.” — Marvin, age 26',
+          '“She knows my order before I open my mouth.” — Ate Susan',
+          '“Ten years and the store has never once been closed on a Sunday.” — Mang Ely',
+        ],
+      },
+      { type: 'h2', text: 'What she said' },
+      {
+        type: 'p',
+        text: 'Asked to give a speech, she gave four sentences, thanked her late husband, and went back behind the counter because two children were waiting to buy ice candy.',
+      },
+    ],
+    team: [
+      { role: 'Catering', href: '/explore' },
+      { role: 'Sound & lights', href: '/explore' },
+      { role: 'Photography', href: '/explore' },
+    ],
+    setnayanNote:
+      'A neighbour set the whole thing up on Setnayan in an evening — who was bringing what, and one link so every family on the street could pull their own photos afterwards.',
+  },
+
+  // ── Travel ───────────────────────────────────────────────────────────────────
+  {
+    slug: 'the-ramos-family-el-nido-trip',
+    coupleNames: 'The Ramos Family',
+    isSample: true,
+    publishedAt: '2026-07-05',
+    eventDateLabel: 'June 2026',
+    city: 'El Nido',
+    eventType: 'Travel',
+    ceremonyType: 'Family trip',
+    venueSetting: 'Island',
+    venueName: 'Four islands, one bangka, five days',
+    theme: 'Salt & sun',
+    palette: ['#2E8B8B', '#F4E4C1', '#E8A87C', '#1F3A44'],
+    guestCount: '9 travellers',
+    excerpt:
+      'Three siblings, their children, and one grandmother who had never seen Palawan — five days in El Nido that took two years and one shared spreadsheet to arrange.',
+    heroQuote: 'Mama said she would only come if we all came. So we all came.',
+    witnessQuote: 'Seventy-three years old and she went in the water first.',
+    witnessAttribution: 'Tito Erwin, middle child',
+    services: ['Papic', 'Patiktok'],
+    editionNumber: 14,
+    story: [
+      {
+        type: 'p',
+        text: 'The trip was proposed in a group chat in 2024 and nearly died there four times. What saved it was a single date everyone agreed to before anyone booked anything.',
+      },
+      { type: 'h2', text: 'The condition' },
+      {
+        type: 'p',
+        text: 'Lola Rosing, who had never been further south than Batangas, said she would come only if all three of her children came. Two of them had not taken leave in the same month since 2019.',
+      },
+      { type: 'h2', text: 'Day three' },
+      {
+        type: 'p',
+        text: 'The lagoon, early, before the other boats. Nine people, one bangka, and a seventy-three-year-old woman who got into the water before any of her grandchildren had finished putting on their vests.',
+      },
+      { type: 'h2', text: 'What they said' },
+      {
+        type: 'ul',
+        items: [
+          '“Seventy-three years old and she went in the water first.” — Tito Erwin',
+          '“I have four hundred photos and I am in eleven of them. Worth it.” — Ate Cha, the family photographer',
+          '“We are doing this every two years now. It is decided.” — Tita Let',
+          '“I did not know the sea could be that colour.” — Lola Rosing',
+        ],
+      },
+      { type: 'h2', text: 'The last night' },
+      {
+        type: 'p',
+        text: 'Grilled fish on a plastic table, nine people sunburnt in nine different patterns, and a plan for 2028 that three of them are already treating as binding.',
+      },
+    ],
+    team: [
+      { role: 'Island tours', href: '/explore' },
+      { role: 'Accommodation', href: '/explore' },
+      { role: 'Transfers', href: '/explore' },
+    ],
+    setnayanNote:
+      'Flights, boat days and who was sharing which room lived on one Setnayan page — and the four hundred photos landed in one place instead of five phones and a dead group chat.',
+  },
+
+  // ── Corporate ────────────────────────────────────────────────────────────────
+  {
+    slug: 'bayanihan-tech-makati-year-end',
+    coupleNames: 'Bayanihan Tech',
+    isSample: true,
+    publishedAt: '2026-07-09',
+    eventDateLabel: 'December 2025',
+    city: 'Makati',
+    eventType: 'Corporate',
+    ceremonyType: 'Company event',
+    venueSetting: 'Function hall',
+    venueName: 'A function hall two floors above the office',
+    theme: 'Barong casual',
+    palette: ['#1F4E5F', '#C89B3C', '#F0EDE6', '#22262A'],
+    guestCount: '180 employees',
+    excerpt:
+      'A year-end party for a company that had been fully remote for three years — where forty people met colleagues face to face for the first time and the awards ran ninety minutes long.',
+    heroQuote: 'Half this room had never been in the same room.',
+    witnessQuote: 'I have managed her for two years. I met her at 6:40 this evening.',
+    witnessAttribution: 'Paolo, engineering lead',
+    services: ['Papic', 'Live Studio', 'Monogram'],
+    editionNumber: 15,
+    story: [
+      {
+        type: 'p',
+        text: 'Bayanihan Tech hired remotely for three years and, by the end of it, had a headcount of 180 people, forty of whom had never physically met a single colleague.',
+      },
+      { type: 'h2', text: 'The name tags' },
+      {
+        type: 'p',
+        text: 'Somebody had the sense to print the handles people actually use at work under the legal names. It cut the awkwardness of the first hour roughly in half.',
+      },
+      { type: 'h2', text: 'The ones who could not fly in' },
+      {
+        type: 'p',
+        text: 'Twenty-two staff across Visayas and Mindanao joined on a stream that ran the whole evening, including the awards, including the part where the CEO forgot a name and was helped by the chat.',
+      },
+      { type: 'h2', text: 'The awards' },
+      {
+        type: 'p',
+        text: 'Budgeted at forty minutes. Ran ninety. Nobody complained, because the categories had been written by the teams themselves and several of them were extremely personal.',
+      },
+      { type: 'h2', text: 'What people said' },
+      {
+        type: 'ul',
+        items: [
+          '“I have managed her for two years. I met her at 6:40 this evening.” — Paolo, engineering lead',
+          '“He is much taller than his video call.” — Rhea, support',
+          '“I flew from Davao and I would do it again.” — Kenneth, QA',
+          '“The chat carried the CEO. That is culture.” — Anon, submitted award nomination',
+        ],
+      },
+      { type: 'h2', text: 'After' },
+      {
+        type: 'p',
+        text: 'The formal night ended at ten. A group of about thirty relocated downstairs and stayed until the security guard began, politely, to hover.',
+      },
+    ],
+    team: [
+      { role: 'Venue', href: '/explore' },
+      { role: 'Catering', href: '/explore' },
+      { role: 'Sound & lights', href: '/explore' },
+      { role: 'Photo & video', href: '/explore' },
+      { role: 'Hosting', href: '/explore' },
+    ],
+    setnayanNote:
+      'RSVPs, dietary needs, the awards run-sheet and the stream for the twenty-two who could not fly in were all run from one Setnayan page by an admin team of two.',
+  },
+
+  // ── Tournament ───────────────────────────────────────────────────────────────
+  {
+    slug: 'barangay-liga-cebu-finals',
+    coupleNames: 'Barangay Liga Finals',
+    isSample: true,
+    publishedAt: '2026-07-13',
+    eventDateLabel: 'April 2026',
+    city: 'Cebu',
+    eventType: 'Tournament',
+    ceremonyType: 'Community league',
+    venueSetting: 'Covered court',
+    venueName: 'The covered court, packed to the rafters',
+    theme: 'Jersey & chalk',
+    palette: ['#C0392B', '#2C3E50', '#F4F1EA', '#1B1B1B'],
+    guestCount: '400 spectators',
+    excerpt:
+      'Six weeks, eight teams, one covered court, and a final decided by a free throw taken by a nineteen-year-old whose entire street had stopped breathing.',
+    heroQuote: 'The whole barangay was in that court. I could hear my mother.',
+    witnessQuote: 'I have called games here for eleven years. That was the loudest it has ever been.',
+    witnessAttribution: 'Kuya Dodong, courtside announcer',
+    services: ['Live Studio', 'Papic'],
+    editionNumber: 16,
+    story: [
+      {
+        type: 'p',
+        text: 'The liga runs every summer. This year eight teams entered, six weeks of Sunday games, and a final that went to a single free throw with four seconds left.',
+      },
+      { type: 'h2', text: 'The bracket' },
+      {
+        type: 'p',
+        text: 'Kept on a whiteboard by the sari-sari store, photographed daily and posted, because half the barangay works shifts and could not come to read it in person.',
+      },
+      { type: 'h2', text: 'The final' },
+      {
+        type: 'p',
+        text: 'Four seconds, one point down, and a nineteen-year-old at the line who had missed the same shot in last year’s semi-final and had been reminded of it, kindly and unkindly, for twelve months.',
+      },
+      { type: 'h2', text: 'He made it' },
+      {
+        type: 'p',
+        text: 'Both of them. The court emptied onto the floor before the second ball came down, which the referee allowed because there was nothing else he could reasonably have done.',
+      },
+      { type: 'h2', text: 'What they said' },
+      {
+        type: 'ul',
+        items: [
+          '“I have called games here for eleven years. That was the loudest it has ever been.” — Kuya Dodong',
+          '“I watched from Qatar on my break. I shouted in a break room alone.” — Tatay Rene, father of the player',
+          '“We are buying him his own ball.” — Team captain',
+          '“Next year we enter ten teams.” — Kap Junjun',
+        ],
+      },
+      { type: 'h2', text: 'The trophy' },
+      {
+        type: 'p',
+        text: 'It is not big. It sits in the barangay hall, and the name of every winning team since 2011 is engraved on a plate underneath it, some of them by hand.',
+      },
+    ],
+    team: [
+      { role: 'Sound & lights', href: '/explore' },
+      { role: 'Photo & video', href: '/explore' },
+      { role: 'Catering', href: '/explore' },
+    ],
+    setnayanNote:
+      'The bracket, the game schedule and the stream for the families working abroad all ran from one Setnayan page — and every player got their own photos without asking anyone.',
+  },
+
+  // ── Gala Night ───────────────────────────────────────────────────────────────
+  {
+    slug: 'tahanan-foundation-pasig-gala',
+    coupleNames: 'Tahanan Foundation',
+    isSample: true,
+    publishedAt: '2026-07-17',
+    eventDateLabel: 'February 2026',
+    city: 'Pasig',
+    eventType: 'Gala Night',
+    ceremonyType: 'Charity gala',
+    venueSetting: 'Hotel ballroom',
+    venueName: 'A ballroom lent at cost by a board member',
+    theme: 'Black tie, Filipino',
+    palette: ['#12213A', '#C9A227', '#F3EFE7', '#0B0B0B'],
+    guestCount: '260 guests',
+    excerpt:
+      'A scholarship fund’s annual gala where the loudest applause of the night went not to a donor but to a scholar who stood up and read four paragraphs she had written that morning.',
+    heroQuote: 'We do not auction the students. We let them speak.',
+    witnessQuote: 'I have been to thirty of these. I have never seen a room go that quiet.',
+    witnessAttribution: 'Mrs. Alvarez, donor since 2014',
+    services: ['Live Studio', 'Papic', 'Monogram'],
+    editionNumber: 17,
+    story: [
+      {
+        type: 'p',
+        text: 'Tahanan has put 400 students through college since 2009. The gala is how it raises the following year’s intake, and it is the one night the scholars and the donors are in the same room.',
+      },
+      { type: 'h2', text: 'The rule' },
+      {
+        type: 'p',
+        text: 'No scholar is ever named on stage without agreeing to it first, and no photograph of a scholar goes out without their say-so. It is written into the programme and it is enforced.',
+      },
+      { type: 'h2', text: 'The speech' },
+      {
+        type: 'p',
+        text: 'Four paragraphs, handwritten that morning, read by a second-year engineering student who had not told her family she was speaking. Two of them found out watching the stream at home.',
+      },
+      { type: 'h2', text: 'The board' },
+      {
+        type: 'p',
+        text: 'The ballroom was lent at cost. The wine was donated. The printing was donated. The foundation is loud about this, because every peso that does not go to overheads is roughly one week of somebody’s tuition.',
+      },
+      { type: 'h2', text: 'What was said' },
+      {
+        type: 'ul',
+        items: [
+          '“I have been to thirty of these. I have never seen a room go that quiet.” — Mrs. Alvarez',
+          '“I did not tell my mother. She watched at home and called me eleven times.” — Angela, second year',
+          '“We raised next year in ninety minutes.” — Foundation treasurer',
+          '“The students run the programme now. That is the whole plan working.” — Board chair',
+        ],
+      },
+      { type: 'h2', text: 'The total' },
+      {
+        type: 'p',
+        text: 'Announced at the end, to the peso, on a screen — which is the foundation’s habit and the reason a lot of people in that room keep coming back.',
+      },
+    ],
+    team: [
+      { role: 'Venue', href: '/explore' },
+      { role: 'Catering', href: '/explore' },
+      { role: 'Photo & video', href: '/explore' },
+      { role: 'Hosting', href: '/explore' },
+      { role: 'Florals & styling', href: '/explore' },
+    ],
+    setnayanNote:
+      'Seating, donor tables, the run-sheet and the consent record for every scholar photographed that night were held in one Setnayan page — and the stream reached the families who could not travel.',
+  },
+
+  // ── Simple Event ─────────────────────────────────────────────────────────────
+  {
+    slug: 'ramos-house-blessing-cavite',
+    coupleNames: 'The Ramos Household',
+    isSample: true,
+    publishedAt: '2026-07-21',
+    eventDateLabel: 'June 2026',
+    city: 'Cavite',
+    eventType: 'Simple Event',
+    ceremonyType: 'House blessing',
+    venueSetting: 'New home',
+    venueName: 'A two-bedroom house, eleven years saved for',
+    theme: 'Bare walls, full table',
+    palette: ['#D9C4A9', '#7C8C77', '#F6F2EA', '#33302C'],
+    guestCount: '30 guests',
+    excerpt:
+      'Eleven years of saving, one priest, a bowl of holy water carried room to room, and thirty people eating off a table that was the only furniture in the house.',
+    heroQuote: 'We have no sofa yet. We have a house.',
+    witnessQuote: 'They fed thirty people in a house with one table and no curtains. That is a home already.',
+    witnessAttribution: 'Tita Baby, aunt',
+    services: ['Papic'],
+    editionNumber: 18,
+    story: [
+      {
+        type: 'p',
+        text: 'The keys came in April. The blessing waited until June, because the whole point was to do it with everybody there, and everybody has shifts.',
+      },
+      { type: 'h2', text: 'Room to room' },
+      {
+        type: 'p',
+        text: 'The priest went through every room including the bathroom and the small back area that is, for now, a bedroom and a storage room at the same time.',
+      },
+      { type: 'h2', text: 'The table' },
+      {
+        type: 'p',
+        text: 'One table, borrowed chairs, and food that arrived in the hands of almost everyone who came, because that is how it works and nobody needed to be asked.',
+      },
+      { type: 'h2', text: 'What they said' },
+      {
+        type: 'ul',
+        items: [
+          '“They fed thirty people in a house with one table and no curtains. That is a home already.” — Tita Baby',
+          '“Eleven years. I remember when they started saving.” — Nanay Cora',
+          '“I claimed the back room. They said no.” — Cousin Jek',
+          '“Next year, a sofa.” — Rina Ramos',
+        ],
+      },
+    ],
+    team: [{ role: 'Catering', href: '/explore' }],
+    setnayanNote:
+      'A small day, run the same way as a big one — who was coming, who was bringing what, and one link so everybody went home with the photos of a house that had been eleven years coming.',
+  },
+
+  // ── Date ─────────────────────────────────────────────────────────────────────
+  {
+    slug: 'nica-and-paul-intramuros-date',
+    coupleNames: 'Nica & Paul',
+    isSample: true,
+    publishedAt: '2026-07-25',
+    eventDateLabel: 'July 2026',
+    city: 'Manila',
+    eventType: 'Date',
+    ceremonyType: 'Just the two of them',
+    venueSetting: 'Old city',
+    venueName: 'Intramuros, on foot, on a Wednesday',
+    theme: 'Walking shoes',
+    palette: ['#8C6A4A', '#B9A38C', '#F4EFE6', '#2A2622'],
+    guestCount: '2',
+    excerpt:
+      'A Wednesday off, no plan past the first stop, and two people who have been together nine years walking the old city until their feet gave out.',
+    heroQuote: 'Nine years and we still cannot pick a restaurant.',
+    services: ['Papic'],
+    editionNumber: 19,
+    story: [
+      {
+        type: 'p',
+        text: 'They both had the Wednesday off for the first time in seven months. The plan was Intramuros and nothing after that, deliberately.',
+      },
+      { type: 'h2', text: 'The walk' },
+      {
+        type: 'p',
+        text: 'San Agustin first, then the walls, then a long detour caused entirely by an argument about which gate they had come in through.',
+      },
+      { type: 'h2', text: 'The photo' },
+      {
+        type: 'p',
+        text: 'A stranger offered. It is slightly crooked and both of them are laughing at something off-frame that neither can now remember. It is the one they printed.',
+      },
+    ],
+    team: [],
+    setnayanNote:
+      'Not every day needs a guest list. This one is here because a day worth keeping is a day worth keeping — two people, one link, and the crooked photo that outlasted the plan.',
+  },
+
+  // ── Hangout ──────────────────────────────────────────────────────────────────
+  {
+    slug: 'barkada-movie-night-quezon-city',
+    coupleNames: 'The Thursday Barkada',
+    isSample: true,
+    publishedAt: '2026-07-29',
+    eventDateLabel: 'July 2026',
+    city: 'Quezon City',
+    eventType: 'Hangout',
+    ceremonyType: 'Monthly, non-negotiable',
+    venueSetting: 'Living room',
+    venueName: 'Whoever’s living room it is that month',
+    theme: 'Projector & floor cushions',
+    palette: ['#4A5568', '#E2B04A', '#F5F2EC', '#1E1E22'],
+    guestCount: '7 friends',
+    excerpt:
+      'Seven friends, one projector, a rotating living room, and a rule agreed in 2019 that has survived three moves, two breakups and one migration.',
+    heroQuote: 'We have missed weddings. We have not missed a Thursday.',
+    witnessQuote: 'It is the only thing in my calendar I have never moved.',
+    witnessAttribution: 'Denise, founding member',
+    services: ['Papic'],
+    editionNumber: 20,
+    story: [
+      {
+        type: 'p',
+        text: 'It started in 2019 as a way to finish a series. It is now a standing monthly appointment that has outlasted two of the original jobs and one of the original apartments.',
+      },
+      { type: 'h2', text: 'The rules' },
+      {
+        type: 'p',
+        text: 'Host picks the film. Everyone else brings something. Nobody checks their phone during. The third rule is the one that gets broken.',
+      },
+      { type: 'h2', text: 'The one abroad' },
+      {
+        type: 'p',
+        text: 'One of them moved to Singapore in 2023 and still joins on a laptop propped against the snacks, on a delay of about two seconds, which everyone has stopped noticing.',
+      },
+      { type: 'h2', text: 'What they said' },
+      {
+        type: 'ul',
+        items: [
+          '“It is the only thing in my calendar I have never moved.” — Denise',
+          '“I have watched forty films on a two-second delay and I regret nothing.” — Migs, from Singapore',
+          '“The rule about phones is aspirational.” — Kim',
+          '“We are on our seventh living room.” — Chris',
+        ],
+      },
+    ],
+    team: [],
+    setnayanNote:
+      'Small, repeating and easy to lose track of — which is exactly why it is on Setnayan: whose turn it is, who is coming, and every photo from seven years of Thursdays in one place.',
   },
 ];
 

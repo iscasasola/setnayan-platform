@@ -547,7 +547,7 @@ export function PabuyaManager({
 
           <div className="rounded-2xl bg-white/60 p-4">
             <div className="mb-4 text-center">
-              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-gold">
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-gold-deep">
                 Pabuya
               </p>
               <p className="mt-1 font-display text-xl italic text-ink">

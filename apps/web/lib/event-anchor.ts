@@ -67,11 +67,21 @@ export const FALLBACK_ANCHOR: TypeAnchorDefault = { kind: 'fixed_date', dateMode
 
 /**
  * Anniversary typed origins — WHAT a recurring memorable date celebrates.
- * POSITIVE origins only (the DB CHECK on events.anchor_origin enforces the same
- * set): no memorial/death option, so generalized anniversaries can't backdoor
- * babang-luksa (burial retirement 2026-05-16).
+ * POSITIVE, TYPED origins only (the DB CHECK on events.anchor_origin enforces
+ * the same set): no memorial/death option, so generalized anniversaries can't
+ * backdoor babang-luksa (burial retirement 2026-05-16).
+ *
+ * 🔴 `'matters'` ("A date that matters to us") WAS HERE AND IS RETIRED
+ * 2026-08-15. The 2026-07-12 flow-check council ruled it out in writing — *"A
+ * user can enter a parent's death anniversary; #3176 then fires an annual
+ * reminder = a death-anniversary tracker, exactly what 2026-05-16 killed …
+ * Label-only guardrails don't hold."* — the owner accepted it, and it never
+ * reached the code: the CHECK still admitted it, this constant still carried it,
+ * and two screens still offered it. A per-event repeat CADENCE is the widening
+ * that makes it live, so it goes in the same change. Prod had zero rows using
+ * it. **Do not re-add it — the guardrail has to be the absence of the option.**
  */
-export const ANCHOR_ORIGINS = ['wedding', 'relationship', 'milestone', 'matters'] as const;
+export const ANCHOR_ORIGINS = ['wedding', 'relationship', 'milestone'] as const;
 export type AnchorOrigin = (typeof ANCHOR_ORIGINS)[number];
 
 /** Human labels for the typed-origin picker (§ 3b of the setup design). */
@@ -79,7 +89,6 @@ export const ANCHOR_ORIGIN_LABELS: Record<AnchorOrigin, string> = {
   wedding: 'Our wedding',
   relationship: 'Our relationship',
   milestone: 'A milestone we’re proud of',
-  matters: 'A date that matters to us',
 };
 
 export function isAnchorOrigin(v: unknown): v is AnchorOrigin {
@@ -87,22 +96,215 @@ export function isAnchorOrigin(v: unknown): v is AnchorOrigin {
 }
 
 /**
- * Types that show the "Make it a yearly thing?" toggle at creation (owner:
- * "travel can be annual or one-time"). Anniversary + birthday recur by nature
- * (no toggle needed); wedding/debut/christening/gender_reveal/graduation are
- * one-time. The rest are user's choice.
+ * Types that ASK whether this repeats — everything that CAN repeat and is not
+ * forced to.
+ *
+ * 🔑 DERIVED FROM `CADENCES_BY_TYPE`, NOT HAND-MAINTAINED BESIDE IT. It used to
+ * be a literal list, and a second literal list in `event-recurrence.ts` gave a
+ * different answer for the same question; that divergence is what let a birthday
+ * created one way never appear on the Year view. A derived list cannot drift
+ * from the map it is derived from.
+ *
+ * (Definition lives below `CADENCES_BY_TYPE` for ordering; see `canToggleRecur`.)
  */
-export const RECUR_TOGGLE_TYPES = [
-  'travel',
-  'celebration',
-  'corporate',
-  'gala_night',
-  'reunion',
-  'tournament',
-] as const;
-
 export function canToggleRecur(eventType: string | null | undefined): boolean {
-  return !!eventType && (RECUR_TOGGLE_TYPES as readonly string[]).includes(eventType);
+  // The create-time control is a YES/NO box labelled "Make it a yearly thing",
+  // so it may only be offered where ANNUAL is actually on the ladder. `date` and
+  // `hangout` can repeat (weekly/monthly) but not yearly — they are set from the
+  // Personalization picker instead, never from a box that promises a year.
+  return (
+    canRepeat(eventType) &&
+    !cadenceIsForced(eventType) &&
+    cadencesForType(eventType).includes('annual')
+  );
+}
+
+// ── HOW OFTEN — the cadence ladder (owner 2026-08-15) ───────────────────────
+
+/**
+ * The five cadences. Ordered coarsest-last so a UI can render them in this
+ * order and a comparison reads naturally.
+ */
+export const RECUR_CADENCES = ['weekly', 'monthly', 'quarterly', 'semestral', 'annual'] as const;
+export type RecurCadence = (typeof RECUR_CADENCES)[number];
+
+export function isRecurCadence(v: unknown): v is RecurCadence {
+  return typeof v === 'string' && (RECUR_CADENCES as readonly string[]).includes(v);
+}
+
+/** What each cadence is called on screen — the Year view's existing register. */
+export const CADENCE_LABELS: Record<RecurCadence, string> = {
+  weekly: 'Every week',
+  monthly: 'Every month',
+  quarterly: 'Every 3 months',
+  semestral: 'Every 6 months',
+  annual: 'Every year',
+};
+
+/**
+ * WHICH CADENCES EACH EVENT TYPE MAY USE — the ONE per-type map.
+ *
+ * ── 🔴 IT REPLACES THREE LISTS THAT DISAGREED WITH EACH OTHER ───────────────
+ * Before this, "can this repeat?" had three different answers in three files:
+ *   · RECUR_TOGGLE_TYPES (above)          — 6 types get asked at creation
+ *   · RECURRENCE_CAPABLE_TYPES            — 4 types get the "Plan next year" button
+ *   · the create/onboarding actions       — force birthday + anniversary true
+ * Only `reunion` and `corporate` were in both lists. **Birthday was in one and
+ * not the other, and that is a live defect**: a birthday created from the
+ * create-event grid gets `recurs = false`, so the Year view's birthday branch
+ * (`event_type === 'birthday' && e.recurs`) never fires and that person's
+ * birthday never appears — while the onboarding path sets it true for the same
+ * type. Same event, two answers.
+ *
+ * The owner's *"only choose events that this can work"* is a request to make
+ * ONE list, not a fourth. `RECUR_TOGGLE_TYPES` is now DERIVED from this map
+ * (below) rather than hand-maintained beside it.
+ *
+ * ── HOW A ROW IS DECIDED ────────────────────────────────────────────────────
+ * By what the type IS, not by taste:
+ *   · An empty list means the thing happens ONCE. A wedding does not repeat —
+ *     it PRODUCES an anniversary; offering it a repeat offers a second wedding.
+ *     A debut, a christening, a gender reveal and a graduation are each one per
+ *     person or one per pregnancy.
+ *   · `annual` alone is for a date that IS the return of one date. Owner:
+ *     "Birthday, anniversary can only be annual."
+ *   · The full ladder is only honest where sub-annual instances are really the
+ *     same event: a corporate standup/townhall/kickoff/review/conference, and
+ *     the untyped `simple_event`, which is where "reminder app" actually lives.
+ *   · `weekly` is offered on FOUR types only. Weekly plus a reminder email is
+ *     how this feature becomes spam, and the corpus already carries an
+ *     anti-nagging ruling (2026-07-12: never nag annually on ordinary years).
+ *
+ * ⚠ DEFAULT IS ALWAYS OFF where a choice exists. A repeat the person did not
+ * ask for is a repeat they will resent. `annual` is FORCED only where the type
+ * is definitionally a return.
+ *
+ * ⚠ A TYPE MISSING FROM THIS MAP CANNOT REPEAT. That is the safe direction: an
+ * admin can add an event type at runtime (`event_type_vocab` is dynamic), and a
+ * new type silently gaining a weekly email would be worse than one that has to
+ * be added here deliberately. `event-type-coverage.test.ts` pins the 16 live
+ * types so a new one is a conversation, not a surprise.
+ */
+export const CADENCES_BY_TYPE: Record<string, readonly RecurCadence[]> = {
+  // Happens once. Empty on purpose — see the docblock.
+  wedding: [],
+  debut: [],
+  christening: [],
+  gender_reveal: [],
+  graduation: [],
+
+  // Definitionally the return of one date (owner-locked).
+  anniversary: ['annual'],
+  birthday: ['annual'],
+
+  // A season is a quarter or a half; a weekly tournament is a league fixture,
+  // which this model does not represent.
+  tournament: ['quarterly', 'semestral', 'annual'],
+  // Family and school reunions are annual, occasionally twice-yearly.
+  reunion: ['semestral', 'annual'],
+  // A gala is a once-a-year set-piece; a monthly gala is not a gala.
+  gala_night: ['annual'],
+  // A trip is a date RANGE; sub-annual travel is an itinerary, a different
+  // product. Owner already ruled "travel can be annual or one-time".
+  travel: ['annual'],
+  // The catch-all for anything worth marking. Monthly is the floor — below that
+  // it stops being a celebration and becomes a chore, which simple_event is for.
+  celebration: ['monthly', 'quarterly', 'semestral', 'annual'],
+
+  // The full ladder, and the only two rows where it is honest.
+  corporate: ['weekly', 'monthly', 'quarterly', 'semestral', 'annual'],
+  simple_event: ['weekly', 'monthly', 'quarterly', 'semestral', 'annual'],
+
+  // "Date night" and a barkada standing meet-up are the canonical weekly-or-
+  // monthly human things. Anything yearly here is an anniversary.
+  date: ['weekly', 'monthly'],
+  hangout: ['weekly', 'monthly'],
+};
+
+/** The cadences this type may use — empty means it cannot repeat at all. */
+export function cadencesForType(eventType: string | null | undefined): readonly RecurCadence[] {
+  if (!eventType) return [];
+  return CADENCES_BY_TYPE[eventType] ?? [];
+}
+
+/** TRUE when this type can repeat at all (at any cadence). */
+export function canRepeat(eventType: string | null | undefined): boolean {
+  return cadencesForType(eventType).length > 0;
+}
+
+/**
+ * Types whose repeat is NOT a choice — they return by definition, so nothing is
+ * asked and the answer cannot be turned off.
+ *
+ * ⚠ THIS IS SEPARATE FROM "only one cadence is allowed", AND CONFLATING THEM IS
+ * A REAL BUG I WROTE AND CAUGHT. Deriving "forced" from `cadences.length === 1`
+ * reads travel and gala_night — both `['annual']`, meaning *if* it repeats it is
+ * yearly — as ALWAYS repeating, which would have quietly turned every one-off
+ * trip into an annual one. "Which cadences are legal" and "does it repeat at
+ * all" are two questions and need two answers.
+ */
+export const FORCED_RECUR_TYPES = ['anniversary', 'birthday'] as const;
+
+/**
+ * TRUE when the repeat is definitional: no picker, no off switch, and the single
+ * legal cadence is the answer.
+ */
+export function cadenceIsForced(eventType: string | null | undefined): boolean {
+  return !!eventType && (FORCED_RECUR_TYPES as readonly string[]).includes(eventType);
+}
+
+/**
+ * The cadence to store for this type, given what (if anything) the person chose.
+ *
+ * 🔑 ONE FUNCTION DECIDES, so the create path, the onboarding path and the edit
+ * path cannot disagree — which is exactly how the birthday defect happened.
+ * Returns null when the type cannot repeat, so a caller that also writes
+ * `recurs` has a single source for both halves.
+ */
+export function resolveCadence(
+  eventType: string | null | undefined,
+  chosen: unknown,
+): RecurCadence | null {
+  const allowed = cadencesForType(eventType);
+  if (allowed.length === 0) return null; // cannot repeat at all
+  // Definitional: the answer is the single legal cadence, whatever was posted.
+  if (cadenceIsForced(eventType)) return allowed[0] ?? null;
+  // Offered: honour a legal choice, and treat anything else as "no repeat".
+  // A one-cadence type (travel, gala) still has to be CHOSEN — see
+  // FORCED_RECUR_TYPES for why length is not the test.
+  if (isRecurCadence(chosen) && allowed.includes(chosen)) return chosen;
+  // 🪤 THE LEGACY CHECKBOX MEANS ANNUAL, NOT "THE FIRST LEGAL CADENCE".
+  // The shipped create form posts `recurs=on` under the words "Make it a yearly
+  // thing", and `canToggleRecur('corporate')` is true — so `allowed[0]` would
+  // have silently turned every corporate event ticked with that box into a
+  // WEEKLY one, because corporate's ladder starts at weekly. Annual is what the
+  // person was told they were choosing; the coarsest legal cadence is the
+  // fallback only for a type where annual is not on the ladder at all.
+  if (chosen === true || chosen === 'on') {
+    // ⚠ AND IT NEVER INVENTS A CADENCE THE LABEL DID NOT PROMISE. Falling back
+    // to the coarsest legal one stored MONTHLY for a `date` or `hangout` — whose
+    // ladder has no annual rung — under a box that says "Make it a yearly
+    // thing" and a wizard screen that asks "Is this a yearly thing? / Yes —
+    // every year". Answering "yes, yearly" and getting a monthly repeat is
+    // worse than getting none. `canToggleRecur` now also requires an annual
+    // rung, so those two types are never ASKED this question in the first
+    // place; this is the second half of the same rule.
+    return allowed.includes('annual') ? 'annual' : null;
+  }
+  return null;
+}
+
+/**
+ * What a stored row MEANS. `recurs = true` with no cadence is every row written
+ * before 2026-08-15, and the only thing the boolean ever meant was annual — so
+ * it reads as annual rather than being backfilled.
+ */
+export function effectiveCadence(
+  recurs: boolean | null | undefined,
+  stored: string | null | undefined,
+): RecurCadence | null {
+  if (!recurs) return null;
+  return isRecurCadence(stored) ? stored : 'annual';
 }
 
 export function anchorForType(eventType: string | null | undefined): TypeAnchorDefault {
@@ -254,6 +456,65 @@ export function nextMonthsary(anchorISO: string, fromISO: string): MonthsaryOccu
     candidate = addMonths(anchor, n);
   }
   return { n, dateISO: toISO(candidate) };
+}
+
+/** Add whole weeks. The one stepper the cadence ladder did not already have. */
+export function addWeeks(dt: Date, weeks: number): Date {
+  return addDays(dt, weeks * 7);
+}
+
+/**
+ * The next return of `anchorISO` at `cadence`, on or after `fromISO`.
+ *
+ * 🔑 EVERY STEP REUSES MACHINERY THAT WAS ALREADY TESTED. `addMonths` already
+ * clamps day-of-month overflow (Jan 31 → Feb 28/29), which is the hardest part
+ * of monthly/quarterly/semestral stepping, and `nextOccurrence` already handles
+ * a Feb 29 anchor in a non-leap year. Quarterly and semestral are `addMonths`
+ * with a bigger step — not a new engine.
+ *
+ * Pure, and it stores nothing: the caller supplies both dates.
+ */
+export function nextByCadence(
+  anchorISO: string,
+  cadence: RecurCadence,
+  fromISO: string,
+): string | null {
+  if (cadence === 'annual') return nextOccurrence(anchorISO, fromISO);
+
+  const anchor = parseISO(anchorISO);
+  const from = parseISO(fromISO);
+  if (!anchor || !from) return null;
+
+  const stepMonths = cadence === 'monthly' ? 1 : cadence === 'quarterly' ? 3 : cadence === 'semestral' ? 6 : 0;
+
+  if (stepMonths > 0) {
+    // Walk forward in whole steps from the anchor. Starting from the anchor
+    // rather than from `from` keeps every occurrence on the anchor's rhythm —
+    // stepping from today would silently re-phase the series on every read.
+    let n = 0;
+    // Jump most of the way in one multiplication, then walk — bounded so a
+    // nonsense anchor can never spin.
+    const roughMonths = Math.max(
+      0,
+      (from.getUTCFullYear() - anchor.getUTCFullYear()) * 12 + (from.getUTCMonth() - anchor.getUTCMonth()) - stepMonths,
+    );
+    n = Math.floor(roughMonths / stepMonths);
+    for (let guard = 0; guard < 64; guard += 1) {
+      const candidate = addMonths(anchor, n * stepMonths);
+      if (candidate.getTime() >= from.getTime()) return toISO(candidate);
+      n += 1;
+    }
+    return null;
+  }
+
+  if (cadence === 'weekly') {
+    const DAY = 86400000;
+    const diffDays = Math.ceil((from.getTime() - anchor.getTime()) / DAY);
+    const steps = Math.max(0, Math.ceil(diffDays / 7));
+    return toISO(addWeeks(anchor, steps));
+  }
+
+  return null;
 }
 
 export type MilestoneOccurrence = { age: number; dateISO: string; tier: NudgeTier };

@@ -133,6 +133,17 @@ jobs:
         continue-on-error: true
         run: RADIUS_LINT_STRICT=1 node apps/web/scripts/lint-radius.mjs
 
+      # Every column added to public.events after the 20271007100000 lockdown must
+      # carry its own GRANT SELECT (col). The table revokes table-level SELECT and
+      # re-grants a computed allowlist, so an ungranted column is unreadable through
+      # a user session — PostgREST refuses the WHOLE query and the surface goes
+      # silently empty. The db coverage tests cannot catch this: their before()
+      # re-applies the lockdown, which recomputes the allowlist over the new column.
+      - name: Lint events column grants
+        id: guard_events_grants
+        continue-on-error: true
+        run: node apps/web/scripts/lint-events-column-grants.mjs
+
       # Fails when TODO / FIXME / HACK / WIP survives in RENDERED UI text under
       # apps/web/app (comments are stripped first, so a marker where it belongs
       # is always fine). The copy rule — "no TODO, no skeleton, no placeholder
@@ -371,6 +382,7 @@ jobs:
           EMAIL_LINKS: ${{ steps.guard_email_links.outcome }}
           ADMIN_CHAT: ${{ steps.guard_admin_chat.outcome }}
           RADIUS: ${{ steps.guard_radius.outcome }}
+          EVENTS_GRANTS: ${{ steps.guard_events_grants.outcome }}
           UI_NOTES: ${{ steps.guard_ui_notes.outcome }}
           PINNED_BARS: ${{ steps.guard_pinned_bars.outcome }}
           BOOTH_POSTER: ${{ steps.guard_booth_poster.outcome }}
@@ -400,6 +412,7 @@ jobs:
           check 'lint email template links'   "$EMAIL_LINKS"
           check 'lint admin chat-guard'       "$ADMIN_CHAT"
           check 'lint radius tokens'          "$RADIUS"
+          check 'lint events column grants'  "$EVENTS_GRANTS"
           check 'lint engineering notes in ui' "$UI_NOTES"
           check 'lint stacked pinned bars'   "$PINNED_BARS"
           check 'lint booth poster placement' "$BOOTH_POSTER"

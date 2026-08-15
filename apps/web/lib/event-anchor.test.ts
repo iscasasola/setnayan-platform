@@ -15,7 +15,13 @@ import {
   ANCHOR_ORIGIN_LABELS,
   isAnchorOrigin,
   canToggleRecur,
-  RECUR_TOGGLE_TYPES,
+  nextByCadence,
+  effectiveCadence,
+  resolveCadence,
+  cadenceIsForced,
+  canRepeat,
+  cadencesForType,
+  CADENCES_BY_TYPE,
   FALLBACK_ANCHOR,
   milestoneAges,
   parseISO,
@@ -81,17 +87,37 @@ test('isAnchorOrigin: accepts the four positive origins, rejects everything else
 });
 
 test('ANCHOR_ORIGINS: no memorial/death option exists (babang-luksa guardrail)', () => {
-  assert.equal(ANCHOR_ORIGINS.length, 4);
-  assert.ok(!ANCHOR_ORIGINS.some((o) => /memorial|death|luksa|passing/i.test(o)));
+  // 🪤 THIS GUARD PASSED FOR A YEAR WHILE THE HOLE WAS OPEN. It searched the
+  // origin KEYS for /memorial|death|luksa|passing/ — and the origin that
+  // actually reopened the retired territory was called `'matters'` ("A date
+  // that matters to us"), which matches none of those words. The 2026-07-12
+  // council named that exact value as the leak; the regex could never have
+  // caught it. **A deny-list of words is not a guard against a catch-all** —
+  // the shape to assert is the ALLOW-LIST, so anything new has to be added here
+  // on purpose.
+  assert.deepEqual([...ANCHOR_ORIGINS], ['wedding', 'relationship', 'milestone']);
+  assert.ok(!ANCHOR_ORIGINS.some((o) => /memorial|death|luksa|passing|matters/i.test(o)));
   for (const o of ANCHOR_ORIGINS) assert.ok(ANCHOR_ORIGIN_LABELS[o]);
+  // Every label must be a POSITIVE, specific thing — no open-ended catch-all
+  // that a person could answer with a bereavement.
+  for (const label of Object.values(ANCHOR_ORIGIN_LABELS)) {
+    assert.ok(!/matters|anything|other/i.test(label), `open-ended origin label: "${label}"`);
+  }
 });
 
 // ── recur toggle eligibility ────────────────────────────────────────────────
 
 test('canToggleRecur: travel/corporate/gala/etc show the yearly toggle', () => {
-  for (const t of RECUR_TOGGLE_TYPES) assert.equal(canToggleRecur(t), true);
-  assert.equal(canToggleRecur('travel'), true);
-  assert.equal(canToggleRecur('corporate'), true);
+  // The literal RECUR_TOGGLE_TYPES list is gone — the answer is now DERIVED
+  // from CADENCES_BY_TYPE (can repeat, and not forced), so the six that used to
+  // be hand-listed are asserted by name and the derivation is asserted below.
+  for (const t of ['travel', 'celebration', 'corporate', 'gala_night', 'reunion', 'tournament']) {
+    assert.equal(canToggleRecur(t), true, `${t} should still be asked`);
+  }
+  // Forced types are never asked; one-time types are never asked.
+  assert.equal(canToggleRecur('anniversary'), false);
+  assert.equal(canToggleRecur('birthday'), false);
+  assert.equal(canToggleRecur('wedding'), false);
 });
 
 test('canToggleRecur: anniversary/birthday (auto-recur) + one-time types do NOT toggle', () => {
@@ -248,4 +274,130 @@ test('nextMonthsary: clamps day-of-month overflow (31st anchor → short months)
   // Jan 31 anchor: the Feb monthsary clamps to Feb 28/29.
   assert.equal(nextMonthsary('2024-01-31', '2024-02-01')!.dateISO, '2024-02-29');
   assert.equal(nextMonthsary('2024-01-31', '2024-03-15')!.dateISO, '2024-03-31');
+});
+
+// ── the repeat cadence (owner 2026-08-15) ───────────────────────────────────
+
+test('CADENCES_BY_TYPE: the five one-time types can never repeat', () => {
+  // A wedding PRODUCES an anniversary; offering it a repeat offers a second
+  // wedding. The other four are one per person or one per pregnancy.
+  for (const t of ['wedding', 'debut', 'christening', 'gender_reveal', 'graduation']) {
+    assert.deepEqual([...cadencesForType(t)], [], `${t} must not repeat`);
+    assert.equal(canRepeat(t), false);
+    assert.equal(resolveCadence(t, 'annual'), null, `${t} must refuse a posted cadence`);
+  }
+});
+
+test('birthday and anniversary are annual ONLY, and forced', () => {
+  for (const t of ['birthday', 'anniversary']) {
+    assert.deepEqual([...cadencesForType(t)], ['annual']);
+    assert.equal(cadenceIsForced(t), true);
+    // Forced means the posted value is irrelevant — including a hostile one.
+    assert.equal(resolveCadence(t, 'weekly'), 'annual');
+    assert.equal(resolveCadence(t, null), 'annual');
+    assert.equal(resolveCadence(t, 'nonsense'), 'annual');
+  }
+});
+
+test('a one-cadence type that is NOT forced still has to be chosen', () => {
+  // 🪤 The bug I wrote and caught: deriving "forced" from `cadences.length === 1`
+  // reads travel and gala_night — ['annual'], meaning *if* it repeats it is
+  // yearly — as ALWAYS repeating, turning every one-off trip into an annual one.
+  for (const t of ['travel', 'gala_night']) {
+    assert.deepEqual([...cadencesForType(t)], ['annual']);
+    assert.equal(cadenceIsForced(t), false, `${t} must not be forced`);
+    assert.equal(resolveCadence(t, null), null, `${t} defaults to NOT repeating`);
+    assert.equal(resolveCadence(t, 'annual'), 'annual');
+  }
+});
+
+test('an illegal cadence for a type is refused, not clamped', () => {
+  assert.equal(resolveCadence('reunion', 'weekly'), null); // reunion is semestral+
+  assert.equal(resolveCadence('date', 'annual'), null); // a yearly date is an anniversary
+  assert.equal(resolveCadence('gala_night', 'monthly'), null);
+  assert.equal(resolveCadence('corporate', 'weekly'), 'weekly'); // the one honest full ladder
+});
+
+test('weekly is offered on exactly four types', () => {
+  const weekly = Object.keys(CADENCES_BY_TYPE).filter((t) =>
+    (CADENCES_BY_TYPE[t] ?? []).includes('weekly'),
+  );
+  // Weekly + a reminder email is how this becomes spam; the corpus carries an
+  // anti-nagging ruling. Pinned so widening it is a decision, not a drift.
+  assert.deepEqual(weekly.sort(), ['corporate', 'date', 'hangout', 'simple_event']);
+});
+
+test('the legacy checkbox means ANNUAL, never "the first legal cadence"', () => {
+  // 🪤 A REAL DEFECT I ALMOST SHIPPED. The create form posts `recurs=on` under
+  // the words "Make it a yearly thing", and canToggleRecur('corporate') is true.
+  // Mapping that to `allowed[0]` turned every ticked corporate event into a
+  // WEEKLY one, because corporate's ladder starts at weekly. Annual is what the
+  // person was told they were choosing.
+  assert.equal(resolveCadence('travel', 'on'), 'annual');
+  assert.equal(resolveCadence('corporate', 'on'), 'annual');
+  assert.equal(resolveCadence('simple_event', 'on'), 'annual');
+  assert.equal(resolveCadence('reunion', 'on'), 'annual');
+  // ⚠ AND A TYPE WITH NO ANNUAL RUNG GETS NOTHING, not a guess. Falling back to
+  // the coarsest legal cadence stored MONTHLY for a `date`/`hangout` under a box
+  // that says "yearly" — answering "yes, yearly" and getting a monthly repeat is
+  // worse than getting none. Those two types are no longer ASKED the yes/no
+  // question at all (canToggleRecur requires an annual rung); this is the other
+  // half of that rule.
+  assert.equal(resolveCadence('date', 'on'), null);
+  assert.equal(resolveCadence('hangout', 'on'), null);
+  assert.equal(canToggleRecur('date'), false);
+  assert.equal(canToggleRecur('hangout'), false);
+  assert.equal(resolveCadence('wedding', 'on'), null);
+});
+
+test('effectiveCadence: a row written before the cadence existed reads as annual', () => {
+  // No backfill was run, deliberately — this is what makes that safe.
+  assert.equal(effectiveCadence(true, null), 'annual');
+  assert.equal(effectiveCadence(true, undefined), 'annual');
+  assert.equal(effectiveCadence(true, 'monthly'), 'monthly');
+  assert.equal(effectiveCadence(true, 'garbage'), 'annual');
+  // recurs=false means it does not repeat, whatever is stored beside it.
+  assert.equal(effectiveCadence(false, 'weekly'), null);
+  assert.equal(effectiveCadence(null, 'weekly'), null);
+});
+
+test('nextByCadence: every cadence steps off the ANCHOR, not off today', () => {
+  const anchor = '2026-01-15';
+  // Stepping from today would silently re-phase the series on every read.
+  assert.equal(nextByCadence(anchor, 'annual', '2026-08-15'), '2027-01-15');
+  // 2026-08-15 IS itself a monthly occurrence of a Jan-15 anchor (same day of
+  // month), and "on or after" means today counts — my first expectation here
+  // was wrong and the function was right.
+  assert.equal(nextByCadence(anchor, 'monthly', '2026-08-15'), '2026-08-15');
+  assert.equal(nextByCadence(anchor, 'monthly', '2026-08-16'), '2026-09-15');
+  assert.equal(nextByCadence(anchor, 'quarterly', '2026-08-15'), '2026-10-15');
+  assert.equal(nextByCadence(anchor, 'semestral', '2026-08-15'), '2027-01-15');
+  // Weekly lands on the anchor's weekday, always.
+  const w = nextByCadence(anchor, 'weekly', '2026-08-15');
+  assert.ok(w && w > '2026-08-15');
+  assert.equal(
+    new Date(`${w}T00:00:00Z`).getUTCDay(),
+    new Date(`${anchor}T00:00:00Z`).getUTCDay(),
+    'a weekly repeat must keep its weekday',
+  );
+});
+
+test('nextByCadence: on the day itself returns today, not the next step', () => {
+  assert.equal(nextByCadence('2026-01-15', 'monthly', '2026-09-15'), '2026-09-15');
+  assert.equal(nextByCadence('2026-01-15', 'weekly', '2026-01-15'), '2026-01-15');
+  assert.equal(nextByCadence('2026-01-15', 'annual', '2026-01-15'), '2026-01-15');
+});
+
+test('nextByCadence: month-end anchors clamp instead of skidding into next month', () => {
+  // Jan 31 monthly must not become Mar 3. addMonths already clamps; this pins
+  // that the cadence path actually uses it.
+  assert.equal(nextByCadence('2026-01-31', 'monthly', '2026-02-01'), '2026-02-28');
+  assert.equal(nextByCadence('2024-01-31', 'monthly', '2024-02-01'), '2024-02-29'); // leap
+  assert.equal(nextByCadence('2026-08-31', 'monthly', '2026-09-01'), '2026-09-30');
+});
+
+test('nextByCadence: a far-past anchor still resolves and does not spin', () => {
+  const r = nextByCadence('1990-03-07', 'quarterly', '2026-08-15');
+  assert.ok(r && r >= '2026-08-15', `expected a future date, got ${r}`);
+  assert.equal(nextByCadence('bad-date', 'monthly', '2026-08-15'), null);
 });

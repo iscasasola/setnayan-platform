@@ -265,7 +265,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
           routine way OUT of this page would have dumped them INSIDE their
           wedding instead of on their events board, and `?hub=1` is the only
           escape hatch that exists. This matters now because the rail's
-          "+ New event" points here (2026-08-15); before that, almost nobody
+          "+ Create event" points here (2026-08-15); before that, almost nobody
           arrived from the board.
         */}
         <Link

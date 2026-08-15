@@ -63,3 +63,32 @@ the vendor-ids box once vendors are offered as toggles from the linked day.
 
 SPEC IMPACT: `STORIES_AND_EDITORIAL_INTEGRATION_2026-08-15.md` D1–D3 · § 8
 Phase 1 · `DECISION_LOG.md` 2026-08-15.
+
+### Same PR, second commit — the day brings its own team
+
+🔴 **THE PRODUCT ALREADY KNEW WHO WORKED THE DAY AND NEVER OFFERED IT.**
+`event_vendors.linked_vendor_profile_id` records exactly which suppliers were
+booked, and `resolveLinkedVendorProfileIds` used it **only to FILTER** a list the
+author had typed. So a chapter attached to a real celebration still rendered an
+**empty "Shop this event"** unless somebody pasted supplier ids — and nobody
+ever did.
+🔑 **KNOWING SOMETHING AND OFFERING IT ARE DIFFERENT THINGS.** The same stored
+fact was being checked against but never read from.
+
+`loadBookedVendorProfileIds()` now SOURCES the candidates when the author has
+named none. An author who *has* named a list keeps it — sourcing is the
+fallback, not an override, so narrowing still belongs to them.
+
+🔒 **IT CANNOT INVENT A CLAIM.** Every sourced candidate still passes through
+`resolveShoppableVendors`, which re-derives the tie and renders an unlinked name
+as plain text. This widens who is **credited**, never who is presented as
+bookable on a tie that isn't real.
+
+**And the last machine-id box is gone.** The comma-separated supplier-ids field
+is deleted; attaching the celebration is now the single action that makes the
+suppliers appear. ⚠ Narrowing *which* of them show is a later refinement —
+**nobody can narrow a list they never had.**
+
+🛡 +2 guards (8 total). Three more sabotages, each verified landed by occurrence
+count — sourcing call 1→0 · the box 0→1 · the loader's export 1→0 — all caught.
+✅ 8341 unit tests pass · typecheck clean.

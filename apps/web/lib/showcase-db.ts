@@ -235,11 +235,23 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
           .from('events')
           .select(FEATURED_COLS),
       )
-        // Defense-in-depth (owner 2026-06-20 private-by-default): never surface a
-        // page the couple kept private — even if they consented to the showcase,
-        // a private page must not leak its canonical /[slug] into /realstories or
-        // the sitemap.
-        .neq('landing_page_visibility', 'private')
+        // 🔴 ONLY 'public' IS PUBLIC. This read `.neq(…, 'private')` until
+        // 2026-08-15, which admitted **'unlisted'** — the setting the couple's
+        // own privacy screen sells as "link only". A link-only celebration
+        // could therefore be listed on /realstories AND emitted into
+        // sitemap-weddings.xml, i.e. handed to Google, while its owner had
+        // chosen that only people with the link should find it.
+        //
+        // Owner, 2026-08-15: "it is the owner's choice if they want this in
+        // public or link only or tagged accounts only" — the event owner's
+        // choice governs. Their showcase consent answers a DIFFERENT question
+        // ("may Setnayan write about us?"); it is not permission to re-list a
+        // page they deliberately unlisted. Both gates must pass.
+        //
+        // 🔑 The old spelling failed OPEN on a value it never named. An
+        // exclusion test over an enum that can grow admits every future member
+        // by default — say what IS allowed, not what is not.
+        .eq('landing_page_visibility', 'public')
         .in('event_id', eventIds)
         .lte('event_date', cutoff)
         .not('slug', 'is', null)
@@ -250,9 +262,21 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
 
       if (featuredAware.error) {
         // Pre-migration fallback — drop the featuring columns + ordering.
+        //
+        // 🚨 THIS PATH HAD NO VISIBILITY GATE AT ALL until 2026-08-15, while
+        // the primary query above it did. It is reached whenever the primary
+        // query returns ANY error — not only the unknown-column case it was
+        // written for — so a transient failure downgraded the shelf to a read
+        // that would list a celebration whose owner had set their page
+        // PRIVATE. Found by `showcase-visibility.test.ts` counting reads
+        // against gates, not by reading the file.
+        // 🔑 A FAIL-SOFT PATH MUST BE AT LEAST AS STRICT AS THE ONE IT
+        // REPLACES. Degrading ordering is graceful; degrading a privacy gate
+        // is a leak that only appears on a bad day, when nobody is looking.
         const legacy = await withEditorialEventTypes(
           admin.from('events').select(LEGACY_COLS),
         )
+          .eq('landing_page_visibility', 'public')
           .in('event_id', eventIds)
           .lte('event_date', cutoff)
           .not('slug', 'is', null)
@@ -277,7 +301,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
         admin.from('events').select(FEATURED_COLS),
       )
         .eq('is_sample', true)
-        .neq('landing_page_visibility', 'private')
+        .eq('landing_page_visibility', 'public')
         .not('slug', 'is', null)
         .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
         .order('showcase_featured_at', { ascending: false, nullsFirst: false })
@@ -289,7 +313,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
           admin.from('events').select(LEGACY_COLS),
         )
           .eq('is_sample', true)
-          .neq('landing_page_visibility', 'private')
+          .eq('landing_page_visibility', 'public')
           .not('slug', 'is', null)
           .order('event_date', { ascending: false })
           .limit(limit);
@@ -522,7 +546,7 @@ export async function loadShowcaseCandidatesForAdmin(
       // Private pages aren't featurable (they'd never render in the public
       // showcase anyway — see loadPublishedShowcases) — keep them out of the
       // admin candidate queue too.
-      .neq('landing_page_visibility', 'private')
+      .eq('landing_page_visibility', 'public')
       .in('event_id', eventIds)
       .lte('event_date', cutoff)
       .not('slug', 'is', null)

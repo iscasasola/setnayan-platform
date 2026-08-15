@@ -8,7 +8,7 @@
  * columns. The wedding commit is NOT touched.
  */
 import type { GenericOnboardingPayload } from './types';
-import { anchorForType, isAnchorOrigin } from '../event-anchor';
+import { anchorForType, isAnchorOrigin, resolveCadence } from '../event-anchor';
 import { initialLandingVisibility } from './initial-visibility';
 
 export type GenericInsertOpts = {
@@ -83,6 +83,10 @@ export function buildGenericEventInsert(
     // dropped rather than passed through to fail the insert.
     anchor_origin: isAnchorOrigin(payload.anchorOrigin) ? payload.anchorOrigin : null,
     recurs: payload.recurs === true,
+    // The cadence beside the switch. `resolveCadence` is the ONE decider — the
+    // create path and the edit path call the same function, which is what stops
+    // the three-way disagreement that left birthdays invisible on the Year view.
+    recur_cadence: resolveCadence(payload.eventType, payload.recurCadence ?? payload.recurs),
     event_date: null,
     venue_name: null,
     venue_address: null,

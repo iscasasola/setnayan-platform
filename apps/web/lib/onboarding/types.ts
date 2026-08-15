@@ -63,8 +63,14 @@ export type GenericOnboardingPayload = {
    * (babang-luksa stays out of this product).
    */
   anchorOrigin?: string | null;
-  /** Does it come back every year? (→ `events.recurs`) */
+  /** Does it come back at all? (→ `events.recurs`) */
   recurs?: boolean;
+  /**
+   * HOW OFTEN it comes back (→ `events.recur_cadence`). Absent means the
+   * boolean's original meaning — annual — so every payload written before
+   * 2026-08-15 keeps its behaviour; `resolveCadence` does that reading.
+   */
+  recurCadence?: string | null;
   region: string | null;
   /** Reception/venue anchor coords from the primary area pick (→ events.venue_latitude/longitude). */
   venueLatitude: number | null;

@@ -18,6 +18,9 @@ import {
   nextAnniversary,
   nextMonthsary,
   nextOccurrence,
+  nextByCadence,
+  effectiveCadence,
+  CADENCE_LABELS,
   nextBirthday,
   milestoneAges,
   parseISO,
@@ -34,6 +37,8 @@ export type MomentEvent = {
   anchor_date: string | null;
   anchor_origin: string | null;
   recurs: boolean | null;
+  /** `events.recur_cadence` — NULL with recurs=true reads as 'annual'. */
+  recur_cadence?: string | null;
   archived?: boolean | null;
 };
 
@@ -92,7 +97,9 @@ function anniversaryLabel(origin: string | null, n: number, displayName: string)
     case 'relationship':
       return `Your ${nth} anniversary together`;
     case 'milestone':
-    case 'matters':
+    // 'matters' was a fourth origin, retired 2026-08-15 with the repeat-cadence
+    // work — it is gone from the DB CHECK and from ANCHOR_ORIGINS, so no stored
+    // row can carry it. `default` still catches anything unrecognised.
     default:
       return `${displayName} — ${nth} year`;
   }
@@ -282,17 +289,25 @@ export function buildYearMoments(
       continue;
     }
 
-    // Generic recurring event (travel/corporate/gala/celebration/reunion/
-    // tournament with the yearly toggle) → its next annual occurrence off the
+    // Generic recurring event → its next occurrence AT ITS OWN CADENCE off the
     // chosen event_date.
+    //
+    // 🔑 THIS BRANCH USED TO BE ANNUAL-ONLY, and that was the whole ceiling of
+    // the feature: `recurs` is a boolean, so "repeats" could only ever mean
+    // "yearly". `effectiveCadence` reads a row written before 2026-08-15 —
+    // recurs=true with no cadence — as 'annual', which is exactly what the
+    // boolean meant, so no backfill was needed and no existing row changes
+    // behaviour. The detail line is the cadence's own label rather than a
+    // hardcoded "Every year".
     if (e.recurs && e.event_date) {
-      const dateISO = nextOccurrence(e.event_date, todayISO);
-      if (dateISO) {
+      const cadence = effectiveCadence(e.recurs, e.recur_cadence);
+      const dateISO = cadence ? nextByCadence(e.event_date, cadence, todayISO) : null;
+      if (dateISO && cadence) {
         out.push({
           dateISO,
           daysUntil: daysBetween(todayISO, dateISO),
           label: e.display_name,
-          detail: 'Every year',
+          detail: CADENCE_LABELS[cadence],
           kind: 'recurring',
           eventId: e.event_id,
           isMilestone: false,

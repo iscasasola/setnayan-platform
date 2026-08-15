@@ -6,6 +6,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   buildYearMoments,
   buildSelfMoments,
+  mergeSelfMoments,
   type MomentEvent,
   type SelfForMoments,
 } from '@/lib/year-moments';
@@ -104,10 +105,12 @@ export async function YearMomentsStrip({ userId }: { userId: string }) {
     supabase.from('users').select('birth_date, sex').eq('user_id', userId).maybeSingle(),
   ]);
 
-  // Supabase RESOLVES with an error, it does not throw — an unlogged failed
-  // read here would render as a confident "nothing comes back around yet".
+  // Supabase RESOLVES with an error, it does not throw. Logging it is half the
+  // job; the other half is NOT STATING A FACT WE DID NOT ESTABLISH — see
+  // <EmptyYear>'s `unsure` branch.
   if (rowsErr) logQueryError('YearMomentsStrip (event_members)', rowsErr);
   if (selfErr) logQueryError('YearMomentsStrip (users birthday)', selfErr);
+  const readFailed = Boolean(rowsErr) || Boolean(selfErr);
 
   const events: MomentEvent[] = (rows ?? []).flatMap((r) => {
     const e = (r as { events: MomentEvent | MomentEvent[] | null }).events;
@@ -117,13 +120,14 @@ export async function YearMomentsStrip({ userId }: { userId: string }) {
   // Personal anchor moments only — holidays stay in the full Year view. The own
   // birthday is folded in HERE rather than inside buildYearMoments because it
   // comes from the profile, not from an event: it is the one moment an account
-  // can offer before it has a single event on it.
-  const moments = [
-    ...buildYearMoments(events, today, { includeHolidays: false }),
-    ...buildSelfMoments((selfRow as SelfForMoments | null) ?? null, today),
-  ].sort((a, b) => a.daysUntil - b.daysUntil || a.label.localeCompare(b.label));
+  // can offer before it has a single event on it. `mergeSelfMoments` drops it
+  // when an event already holds that day, so one date never prints twice.
+  const moments = mergeSelfMoments(
+    buildYearMoments(events, today, { includeHolidays: false }),
+    buildSelfMoments((selfRow as SelfForMoments | null) ?? null, today),
+  );
 
-  if (moments.length === 0) return <EmptyYear />;
+  if (moments.length === 0) return <EmptyYear unsure={readFailed} />;
 
   // Precompute display strings server-side (Asia/Manila) so the client list
   // never re-derives dates or timezones.
@@ -167,23 +171,50 @@ function Tile({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Nothing comes back around yet — say so, and offer the two things that change
+ * Nothing to show — say only what is true, and offer the two things that change
  * it. This branch exists because the alternative (`return null`) took the only
  * link to the Year view down with it; see the 🚨 note at the top of this file.
  *
- * The copy states the RULE rather than the user's state, because it is also
- * shown in the one edge case where a birthday IS stored but unusable (a date in
- * the current or a future year — `buildSelfMoments` drops those rather than
- * print "turning 0"). "Add your birthday" is a correct instruction either way;
- * "you haven't added one" would not be.
+ * ── 🚨 ITS FIRST CUT ASSERTED SOMETHING FALSE, TWICE OVER ───────────────────
+ * It said *"Nothing comes back around yet."* — a claim about the person's whole
+ * life, made from a list that is filtered to **366 days**. Two states reached
+ * it and neither is "nothing":
+ *
+ *   · A couple whose wedding is more than a year out. Measured: a 2028-02-14
+ *     wedding yields ZERO moments today. The board directly above the tile shows
+ *     that wedding as a card with its date, and the tile underneath told them
+ *     nothing comes back around. **Same screen, two contradictory statements**,
+ *     and the sentence is the one a person believes.
+ *   · A refused read. `return null` used to make that invisible — a silent
+ *     absence, but never a false statement. Turning it into a tile turned it
+ *     into a lie, and the comment at the read site had already named that exact
+ *     risk while fixing only the logging half of it.
+ *
+ * 🔑 **A COMPONENT THAT REPLACES `null` INHERITS THE OBLIGATION TO BE TRUE.**
+ * Hiding says nothing and is safe; speaking is a claim, and every state that
+ * reaches it has to make the claim correct. The copy is now scoped to the window
+ * the derivation actually used ("in the year ahead"), and `unsure` swaps the
+ * claim out entirely for a read we could not complete — the doors stay in both,
+ * because holding the door open is this branch's whole job.
+ *
+ * The invitation line states the RULE rather than the person's state, because it
+ * also shows in the edge case where a birthday IS stored but unusable (a date in
+ * the current or a future year — `buildSelfMoments` drops those rather than print
+ * "turning 0"). "Add your birthday" is a correct instruction either way; "you
+ * haven't added one" would not be.
  */
-function EmptyYear() {
+function EmptyYear({ unsure = false }: { unsure?: boolean }) {
   return (
     <Tile>
-      <p className="text-sm text-ink/70">Nothing comes back around yet.</p>
+      {unsure ? (
+        <p className="text-sm text-ink/70">We couldn’t load your dates just now.</p>
+      ) : (
+        <p className="text-sm text-ink/70">Nothing in the year ahead yet.</p>
+      )}
       <p className="mt-1.5 text-xs leading-relaxed text-ink/50">
-        Your birthday, an anniversary, anything you mark as a yearly thing — it lands here and
-        returns every year.
+        {unsure
+          ? 'Your year is still there — open it below, or try again in a moment.'
+          : 'Your birthday, an anniversary, anything you mark as a yearly thing — it lands here and returns every year.'}
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         <Link

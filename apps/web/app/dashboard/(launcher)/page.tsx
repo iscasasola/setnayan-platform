@@ -1377,9 +1377,11 @@ export default async function LauncherPage({
             <AlaalaWall userId={user.id} />
           </Suspense>
 
-          {/* Date-anchor model — the couple's next few derived moments
-              (anniversaries · wedding countdowns). Self-fetching; renders
-              nothing when there are no anchors. */}
+          {/* Date-anchor model — the next few derived moments (own birthday ·
+              anniversaries · wedding countdowns). Self-fetching, and it ALWAYS
+              renders: with nothing to list it shows a written invitation, because
+              the list it draws carries the only in-app link to /dashboard/year
+              and returning null used to take that door down with it. */}
           <Suspense fallback={null}>
             <YearMomentsStrip userId={user.id} />
           </Suspense>

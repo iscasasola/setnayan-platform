@@ -63,6 +63,7 @@ import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { LogoMark } from '@/app/_components/brand-marks';
 import type { DemoOverlayId } from '@/lib/demo-overlay-bus';
 import { activeRailKey, railMatchRows } from './rail-active';
+import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
 
 /**
  * ─── THE SAME RAIL, MOUNTED IN TWO PLACES (One Shell slice 0, 2026-08-13) ──
@@ -1261,6 +1262,14 @@ export function FrontDoorShell({
  * ⚠ IT ANSWERS A SIGNED-OUT PERSON. The Marketplace GROUP is signed-in only,
  * but finding the one supplier you already need is not browsing a directory,
  * and cutting it would remove the single thing this page exists to solve.
+ *
+ * 🔑 THE PLACEHOLDER IS DERIVED, NOT TYPED. It read "Search suppliers, stories
+ * and guides" from the day it shipped while /explore searched suppliers and
+ * nothing else — two nouns with no code path behind them, for anyone who typed
+ * an article title. /explore now also answers stories and guides (see
+ * `lib/site-search.ts`), and these words are built from the same list the
+ * resolvers are checked against (`lib/public-search-nouns.ts`), so the promise
+ * and the mechanism cannot drift apart again without a red test.
  */
 function SearchBox() {
   return (
@@ -1268,7 +1277,7 @@ function SearchBox() {
       <input
         type="search"
         name="q"
-        placeholder="Search suppliers, stories and guides"
+        placeholder={publicSearchPlaceholder()}
         aria-label="Search Setnayan"
       />
       <button type="submit" className="fd-searchgo" aria-label="Search">

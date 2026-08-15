@@ -93,6 +93,7 @@ import {
 import { fetchLatestReviewsByVendor } from '@/lib/vendor-reviews-preview';
 import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
 import { PARTNERSHIP_RANK, isPartnershipKind } from '@/lib/vendor-partnership-kinds';
+import { searchReads, type ReadHit } from '@/lib/site-search';
 
 // Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
 // (no event linked) AND civil ceremonies (secular by nature — no faith tag
@@ -2596,6 +2597,24 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // (runAdminDigestFlush is hooked earlier — before the catalog-mode return —
   // so it also covers bare /explore visits.)
 
+  /* Stories + guides for the typed words — the two nouns the public search box
+     promises that this page could not answer. Only on a real text search:
+     /explore is browsed by category far more often than it is searched, and a
+     reading list under a category browse is noise, not help.
+
+     ⚠ FAIL-SOFT. The guide half is in code and cannot fail; the story half is
+     a database read that already degrades to [] inside `searchReads`. A throw
+     here must never take the marketplace down with it — the vendors are the
+     page. */
+  let readHits: ReadHit[] = [];
+  if (filters.q.trim().length > 0) {
+    try {
+      readHits = await searchReads(filters.q);
+    } catch (err) {
+      console.error('[explore] site search failed', err);
+    }
+  }
+
   return (
     /*
       🛒 SAME SHELL FOR THE FILTERED MARKETPLACE (owner, twice). `bleed` for the
@@ -2980,6 +2999,19 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           totalPages={totalPages}
           total={totalCount ?? rows.length}
         />
+
+        {/* THE OTHER TWO NOUNS. The box that sends people here says "suppliers,
+            stories and guides"; until 2026-08-15 this page answered the first
+            and had no code path for the other two, so an article title typed
+            into it returned "No vendors match exactly" while the article sat
+            live and indexed. Restored from the binding front-door drawing,
+            whose search returned three labelled groups.
+
+            🔒 BELOW the vendor results, always. This is the marketplace; a
+            reader who came for a supplier must not have to scroll past our
+            writing to reach one. When the vendor list is empty this section is
+            simply the first thing with an answer in it. */}
+        <ReadsResults hits={readHits} query={filters.q} />
       </section>
     </main>
     </AppRailShell>
@@ -3148,6 +3180,52 @@ function FocusedModeSearchForm({
     </form>
   );
 }
+/**
+ * Stories and guides matching the typed words.
+ *
+ * Renders NOTHING when there are no hits — an empty "Stories and guides"
+ * heading would turn one dead end into two, and this section exists precisely
+ * because a dead end was what the box already gave people.
+ *
+ * Each row says what it is ("Guide · Planning", "Help · Payments", "Story"),
+ * because a reader who searched for a supplier needs to see at a glance that
+ * these are things to read, not shops to hire.
+ */
+function ReadsResults({ hits, query }: { hits: ReadHit[]; query: string }) {
+  if (hits.length === 0) return null;
+  return (
+    <section className="mt-12 border-t border-ink/10 pt-8" aria-label="Stories and guides">
+      <h2 className="text-base font-semibold tracking-tight text-ink sm:text-lg">
+        Stories and guides
+      </h2>
+      <p className="mt-1 text-sm text-ink/55">
+        {hits.length} {hits.length === 1 ? 'thing' : 'things'} to read for
+        &ldquo;{query}&rdquo;
+      </p>
+      <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+        {hits.map((h) => (
+          <li key={h.href}>
+            <Link
+              href={h.href}
+              className="block h-full rounded-2xl border border-ink/10 bg-white/60 p-4 transition hover:border-terracotta/40 hover:bg-white"
+            >
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+                {h.tag}
+              </span>
+              <span className="mt-1.5 block text-[15px] font-medium leading-snug text-ink">
+                {h.title}
+              </span>
+              <span className="mt-1 block text-sm leading-relaxed text-ink/60">
+                {h.blurb}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function EmptyState({
   filters,
   broadenedCount,

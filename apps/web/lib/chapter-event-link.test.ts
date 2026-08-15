@@ -105,3 +105,32 @@ test('the public chapter reads the column first, and can still render old rows',
       'reads as null forever, which is how this looked fixed while staying dead',
   );
 });
+
+test('the day sources its own suppliers — not just filters a typed list', () => {
+  const loader = codeOnly(read('lib/creator-public.ts'));
+  assert.ok(
+    /export async function loadBookedVendorProfileIds/.test(loader),
+    'the booked suppliers of a linked celebration must be readable as a SOURCE; ' +
+      'the product recorded them and only ever used them to filter a hand-typed list',
+  );
+  const page = codeOnly(read(CHAPTER_PAGE));
+  assert.ok(
+    /loadBookedVendorProfileIds\(linkedEventId\)/.test(page),
+    'the chapter page must fall back to the day’s own suppliers when the author ' +
+      'named none — otherwise "Shop this event" stays empty on a chapter that IS ' +
+      'attached to a real celebration',
+  );
+  assert.ok(
+    /namedVendorIds\.length > 0/.test(page),
+    'an author who DID name a list must keep it — sourcing is the fallback, not an override',
+  );
+});
+
+test('the last machine-id box is gone from the composer', () => {
+  const code = codeOnly(read(COMPOSER));
+  assert.ok(
+    !/name="vendor_ids"/.test(code),
+    'the comma-separated supplier-id field must not come back — nobody ever filled it, ' +
+      'and the day already knows who worked it',
+  );
+});

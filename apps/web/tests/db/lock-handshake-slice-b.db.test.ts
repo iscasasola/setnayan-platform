@@ -127,7 +127,8 @@ before(async () => {
   db = replay.db;
 });
 after(async () => {
-  await replay?.close?.();
+  await setAuthUid(db, null);
+  await db?.close();
 });
 beforeEach(async () => {
   await db.exec('RESET ROLE').catch(() => {});

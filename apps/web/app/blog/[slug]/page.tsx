@@ -290,8 +290,19 @@ function Block({
               <p className="text-sm font-semibold leading-snug text-ink">
                 Chapter: {resolved.chapter.title}
               </p>
+              {/* The storyteller's name is a door to their own page. No
+                  restructuring needed here and that is worth stating: this
+                  byline is a plain sibling, NOT inside the block's "Open"
+                  anchor, so wrapping it creates no nested link. The two
+                  destinations are deliberately different — "Open" goes to this
+                  chapter, the name goes to everything they have written. */}
               <p className="mt-0.5 text-xs text-ink/60">
-                {resolved.ownerName}
+                <Link
+                  href={`/u/${resolved.ownerSlug}`}
+                  className="font-medium text-ink/75 underline-offset-2 transition-colors hover:text-ink hover:underline"
+                >
+                  {resolved.ownerName}
+                </Link>
                 {provider ? ` · plays on ${EMBED_PROVIDER_LABEL[provider]}` : null}
               </p>
             </div>

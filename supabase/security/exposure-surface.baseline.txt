@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6253
+# facts: 6254
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     672
-#   col       4516
+#   col       4517
 #   policy    840
 #   view      9
 #   func      212

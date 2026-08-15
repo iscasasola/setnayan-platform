@@ -15,6 +15,7 @@ import {
   ANCHOR_ORIGIN_LABELS,
   isAnchorOrigin,
   canToggleRecur,
+  RECUR_CADENCES,
   nextByCadence,
   effectiveCadence,
   resolveCadence,
@@ -400,4 +401,26 @@ test('nextByCadence: a far-past anchor still resolves and does not spin', () => 
   const r = nextByCadence('1990-03-07', 'quarterly', '2026-08-15');
   assert.ok(r && r >= '2026-08-15', `expected a future date, got ${r}`);
   assert.equal(nextByCadence('bad-date', 'monthly', '2026-08-15'), null);
+});
+
+test('🚨 an occurrence can never precede the thing that recurs', () => {
+  // A gala booked for 2027-11-05 was appearing on the Year view on 2026-11-05,
+  // labelled "Every year · in 82 days" — a countdown to a date the event is not
+  // on, twelve months early. `nextOccurrence` builds its candidate in FROM's
+  // year and only bumps when that is strictly earlier than `from`, so an anchor
+  // more than a year out returns this year's month/day.
+  //
+  // Annual was the ONLY cadence that could go backwards: the other four step
+  // forward from the anchor. Measured by brute-forcing millions of anchor/from
+  // pairs against a naive step-from-anchor reference.
+  assert.equal(nextByCadence('2027-11-05', 'annual', '2026-08-15'), '2027-11-05');
+  assert.equal(nextByCadence('2028-02-29', 'annual', '2026-08-15'), '2028-02-29');
+  // The clamp must not disturb a PAST anchor, which is the ordinary case.
+  assert.equal(nextByCadence('2000-12-25', 'annual', '2026-08-15'), '2026-12-25');
+  assert.equal(nextByCadence('2024-03-01', 'annual', '2026-08-15'), '2027-03-01');
+  // And no cadence may ever return a date before its anchor.
+  for (const c of RECUR_CADENCES) {
+    const r = nextByCadence('2027-11-05', c, '2026-08-15');
+    if (r) assert.ok(r >= '2027-11-05', `${c} returned ${r}, before its anchor`);
+  }
 });

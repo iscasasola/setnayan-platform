@@ -427,3 +427,19 @@ test('a genuine 1st birthday from a PRIOR birth year still counts as a milestone
   assert.equal(m.label, 'Your 1st birthday');
   assert.equal(m.isMilestone, true);
 });
+
+test('a future-dated recurring event does not appear a YEAR EARLY', () => {
+  // 🚨 A gala booked for 2027-11-05 was showing on 2026-11-05 as "Every year ·
+  // in 82 days" — a countdown to a date the event is not on. `nextOccurrence`
+  // returns this year's month/day for an anchor more than a year out; the
+  // annual path in nextByCadence now clamps to the anchor.
+  const ev: MomentEvent = {
+    ...base, event_id: 'g', event_type: 'gala_night', display_name: 'Company gala',
+    event_date: '2027-11-05', recurs: true, recur_cadence: 'annual',
+  };
+  assert.deepEqual(buildYearMoments([ev], '2026-08-15', { includeHolidays: false }), []);
+  // Once it is inside the window it appears on its OWN date, not a year before.
+  const m = buildYearMoments([ev], '2027-06-01', { includeHolidays: false })[0];
+  assert.ok(m);
+  assert.equal(m.dateISO, '2027-11-05');
+});

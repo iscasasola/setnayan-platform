@@ -479,11 +479,32 @@ export function nextByCadence(
   cadence: RecurCadence,
   fromISO: string,
 ): string | null {
-  if (cadence === 'annual') return nextOccurrence(anchorISO, fromISO);
-
   const anchor = parseISO(anchorISO);
   const from = parseISO(fromISO);
   if (!anchor || !from) return null;
+
+  if (cadence === 'annual') {
+    // 🚨 AN OCCURRENCE CANNOT PRECEDE THE THING THAT RECURS. `nextOccurrence`
+    // builds its candidate in FROM's year and only bumps when that candidate is
+    // strictly earlier than `from` — so for an event whose chosen date is more
+    // than a year out, the month/day in the CURRENT year is still in the future
+    // and gets returned as-is. A company gala booked for 2027-11-05 appeared on
+    // the Year view on 2026-11-05 labelled "Every year, in 82 days": a countdown
+    // to a date the event is not on, twelve months early.
+    //
+    // The four cadences added in this change all step FORWARD FROM THE ANCHOR
+    // and were already correct in that state (the same row at `quarterly`
+    // returns nothing). Annual was the only one that could go backwards —
+    // measured by brute-forcing 3.6M anchor/from pairs against a naive
+    // step-from-anchor reference, where it was the ONLY mismatch class.
+    //
+    // ⚠ Clamped HERE and not inside `nextOccurrence`, whose other callers
+    // (holidays, birthdays) legitimately pass an anchor in the PAST and rely on
+    // getting this year's return.
+    const next = nextOccurrence(anchorISO, fromISO);
+    if (!next) return null;
+    return next < anchorISO ? anchorISO : next;
+  }
 
   const stepMonths = cadence === 'monthly' ? 1 : cadence === 'quarterly' ? 3 : cadence === 'semestral' ? 6 : 0;
 

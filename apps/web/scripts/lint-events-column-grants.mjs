@@ -73,6 +73,14 @@ const NO_GRANT_NEEDED = new Set([
   'date_forced_by_lock_of',
   'papic_vendor_challenges_enabled',
   'panood_manual_on_air_at',
+
+  // ⚠ HAS ITS GRANT, BUT IS ABSENT FROM events_host — verified in production
+  // (auth SELECT = 1, in_host_view = 0). Nothing has rebuilt the view since it
+  // was added, so any code reading it through the host view gets a phantom
+  // column. Whether that is live depends on whether anything reads it that way;
+  // that is its own investigation, not this change's. Listed so a NEW column
+  // cannot hide behind it.
+  'face_tagging_declined_by_couple',
 ]);
 
 const files = readdirSync(DIR)
@@ -83,6 +91,8 @@ const files = readdirSync(DIR)
 // column -> the migration that added it
 const added = new Map();
 const granted = new Set();
+/** Migrations that rebuild the events_host projection. */
+const rebuildsHostView = new Set();
 
 for (const f of files) {
   const sql = readFileSync(join(DIR, f), 'utf8');
@@ -97,6 +107,11 @@ for (const f of files) {
   for (const m of code.matchAll(/GRANT\s+SELECT\s*\(\s*([a-z_][a-z0-9_]*)\s*\)\s+ON\s+(?:public\.)?events/gi)) {
     granted.add(m[1]);
   }
+  // The other half of the same obligation — see the HOST VIEW block below.
+  // 🪤 `\b` IS LOAD-BEARING. Without it this matched `events_hostX`, so the
+  // mutation that renamed the view away left the guard GREEN — the same prefix
+  // trap as `f.event_dateX`, hit for the third time in this repo today.
+  if (/CREATE\s+VIEW\s+(?:public\.)?events_host\b/i.test(code)) rebuildsHostView.add(f);
   // A migration that RE-GRANTS THE WHOLE COMPUTED ALLOWLIST covers every column
   // that exists when it runs.
   //
@@ -117,21 +132,63 @@ for (const f of files) {
 
 const missing = [...added.entries()].filter(([col]) => !granted.has(col) && !NO_GRANT_NEEDED.has(col));
 
-if (missing.length === 0) {
-  console.log(`✓ every events column added after ${LOCKDOWN} carries its SELECT grant (${added.size} checked)`);
+/**
+ * ── THE HOST VIEW IS THE OTHER HALF, AND IT IS THE HALF THAT 500s A PAGE ────
+ * `public.events_host` is a VIEW with an EXPLICIT column projection, not
+ * `SELECT *`. A column added to the base table is a PHANTOM COLUMN on the view,
+ * and `/dashboard/[eventId]/details` throws on a query error — so the whole
+ * Personalization surface dies for every host, on every event type.
+ *
+ * 🪤 THE FIRST CUT OF THIS GUARD CHECKED ONLY THE GRANT. Deleting the view
+ * rebuild while keeping the grant left the lint GREEN, 53 unit tests green, and
+ * the exposure baseline untouched (it holds one whole-view fact, no per-column
+ * facts) — while the page was dead. The guard's own error text said "rebuild
+ * public.events_host", which is **a sentence, not a mechanism**. This is that
+ * mechanism.
+ *
+ * A migration that adds a column must rebuild the view IN THE SAME FILE, because
+ * the projection is computed from the grants as they stand when it runs.
+ */
+// ⚠ A LATER MIGRATION THAT REBUILDS THE VIEW ALSO COVERS THE COLUMN — the
+// projection is recomputed over everything that exists at that moment. The
+// first cut demanded the rebuild in the SAME file and cried wolf on
+// `std_media_nsfw`, which prod confirms IS in the view (a later rebuild picked
+// it up). Verified before loosening: `std_media_nsfw` in_host_view=1,
+// `face_tagging_declined_by_couple` in_host_view=0.
+const rebuildAfter = [...rebuildsHostView].sort();
+const missingRebuild = [...added.entries()].filter(
+  ([col, f]) => !NO_GRANT_NEEDED.has(col) && !rebuildAfter.some((r) => r >= f),
+);
+
+if (missing.length === 0 && missingRebuild.length === 0) {
+  console.log(
+    `✓ every events column added after ${LOCKDOWN} carries its SELECT grant and its events_host rebuild (${added.size} checked)`,
+  );
   process.exit(0);
 }
 
-console.error(
-  `✗ ${missing.length} column(s) added to public.events with NO \`GRANT SELECT (col)\`.\n` +
-    '  events revokes table-level SELECT and re-grants a per-column allowlist, so an\n' +
-    '  ungranted column is unreadable through a user session — PostgREST refuses the\n' +
-    '  WHOLE query, supabase-js resolves with an error, and the surface reading it goes\n' +
-    '  silently empty. The db coverage tests CANNOT catch this: their before() re-applies\n' +
-    '  the lockdown, which recomputes the allowlist over the new column.\n',
-);
-for (const [col, f] of missing) console.error(`  ${col.padEnd(34)} added in ${f}`);
-console.error('\n  Add `GRANT SELECT (col) ON public.events TO authenticated;` (and UPDATE/INSERT if');
-console.error('  the app writes it), and rebuild public.events_host — its projection is computed');
-console.error('  from that grant, so a missing one also drops the column from the host view.');
+if (missing.length > 0) {
+  console.error(
+    `✗ ${missing.length} column(s) added to public.events with NO \`GRANT SELECT (col)\`.\n` +
+      '  events revokes table-level SELECT and re-grants a per-column allowlist, so an\n' +
+      '  ungranted column is unreadable through a user session — PostgREST refuses the\n' +
+      '  WHOLE query and the surface reading it goes silently empty. The db coverage\n' +
+      '  tests CANNOT catch this: their before() re-applies the lockdown, which\n' +
+      '  recomputes the allowlist over the new column.\n',
+  );
+  for (const [col, f] of missing) console.error(`  ${col.padEnd(34)} added in ${f}`);
+  console.error('');
+}
+
+if (missingRebuild.length > 0) {
+  console.error(
+    `✗ ${missingRebuild.length} column(s) added to public.events WITHOUT rebuilding public.events_host.\n` +
+      '  That view has an EXPLICIT column projection, so the new column is a phantom\n' +
+      '  column on it — and /dashboard/[eventId]/details THROWS on a query error, which\n' +
+      '  kills Personalization for every host on every event type.\n' +
+      '  Add the DROP VIEW + CREATE VIEW block (copy it from 20271025120000) to the SAME\n' +
+      '  migration, AFTER the GRANT — the projection is computed from the grants.\n',
+  );
+  for (const [col, f] of missingRebuild) console.error(`  ${col.padEnd(34)} added in ${f}`);
+}
 process.exit(1);

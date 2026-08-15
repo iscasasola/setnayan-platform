@@ -73,4 +73,16 @@ New `lint-events-column-grants.mjs` reads the **migration text**, which no harne
 
 🛡 The exposure baseline records exactly one changed fact — `col public.events.recur_cadence anon=- authenticated=SIU` — and **nothing else moved in 6,253 facts**, which is the proof the view rebuild did not widen anything.
 
+### 🔬 AND THE ADVERSARIAL PASS FOUND TWO MORE AFTER THE PUSH — both fixed on the branch
+
+**🚨 AN OCCURRENCE COULD PRECEDE THE THING THAT RECURS.** `nextOccurrence` builds its candidate in FROM's year and only bumps when that is strictly earlier than `from`, so an event dated more than a year out returned **this year's** month/day. A gala booked for **2027-11-05** appeared on the Year view on **2026-11-05** — *"Every year · in 82 days"*, a countdown to a date the event is not on, twelve months early.
+
+⚖ **The four cadences this change ADDS were already correct** — they step forward from the anchor, and the identical row at `quarterly` returns nothing. Annual was the only one that could go backwards, confirmed by brute-forcing **3.6M anchor/from pairs** against a naive step-from-anchor reference: it was the sole mismatch class. Pre-existing — but this change makes `nextByCadence` the single entry point and its docblock asserted the annual path was safe, so it is now mine. Clamped in `nextByCadence` only, **not** inside `nextOccurrence`, whose other callers (holidays, birthdays) legitimately pass a PAST anchor and rely on getting this year's return.
+
+**🛡 AND MY NEW GUARD COVERED ONLY HALF THE OBLIGATION.** Deleting the `events_host` rebuild — **the half that 500s the whole Personalization page** — while keeping the GRANT left the lint green, the unit suite green, and the exposure baseline untouched (it holds one whole-view fact, no per-column facts). The guard's own error text said *"rebuild public.events_host"*: **a sentence, not a mechanism.** It now checks for the rebuild.
+
+🪤 **And that check hit the prefix trap** — `/CREATE VIEW …events_host/` matched `events_hostX`, so renaming the view away kept it GREEN. **Third time today**, twice in code I wrote while citing the lesson. Anchored with `\b`; both halves now mutation-proved (rename → red, block removed → red, grant removed → red, green on restore).
+
+⚠ **It also cried wolf once, and prod settled it.** It demanded the rebuild in the SAME migration and flagged `std_media_nsfw` — which production confirms **is** in the view, picked up by a later rebuild. The rule now accepts any rebuild at-or-after the column. The same check found a genuine one: **`face_tagging_declined_by_couple` has its grant and is NOT in the host view** (verified: auth SELECT = 1, in_host_view = 0). Listed with its measurement, not silently swept in.
+
 SPEC IMPACT: `DECISION_LOG.md` — new row 2026-08-15 recording the cadence ladder, the per-type matrix, the retirement of the `matters` origin, and that the repeat is editable after creation.

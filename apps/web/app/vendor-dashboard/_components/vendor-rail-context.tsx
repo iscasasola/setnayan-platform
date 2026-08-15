@@ -34,7 +34,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Zap } from 'lucide-react';
 import { activeRailKey } from '@/app/_components/frontdoor/rail-active';
-import type { NavItem } from '@/app/_components/nav/types';
+import { resolveVendorDestinations } from './vendor-nav-destinations';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
+import type { VendorTeamRole } from '@/lib/vendor-team';
 import { TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 
 /**
@@ -61,14 +63,40 @@ const CAPTION: Record<string, string> = {
 
 export function VendorRailContext({
   shopName,
-  destinations,
+  role,
+  navSlots,
+  bookingsBadge = 0,
+  threadsBadge = 0,
   planHref,
   tier,
 }: {
   /** The business name, or a neutral word — never blank, never an id. */
   shopName: string;
-  /** Already role-filtered, already named by the registry, already badged. */
-  destinations: readonly NavItem[];
+  /*
+    ── EVERY PROP BELOW IS SERIALIZABLE, ON PURPOSE ──────────────────────────
+    🔴 THIS USED TO TAKE A FINISHED `destinations: NavItem[]`, WHICH TOOK THE
+    WHOLE VENDOR DASHBOARD DOWN. `NavItem.icon` is a React component, so
+    building the list meant `layout.tsx` — a SERVER component — calling
+    `navIconComponent` out of a `'use client'` module. That throws. Every
+    supplier, every screen, from 2026-08-14 until this landed.
+
+    So the rail is now handed the same four raw values the phone's bottom bar
+    already gets, and resolves the rows HERE, where the icons live. The two
+    surfaces cannot disagree about a renamed row or a count, because they run
+    the identical resolver over the identical input.
+
+    ⚠ DO NOT "TIDY" THIS BACK INTO A PREPARED LIST. Any prop whose value is a
+    component puts the resolution back on the server and takes the shop down
+    again — with a full-page error, not a wrong pixel.
+  */
+  /** This person's team role; gates WHICH rows they get. Null = not staff. */
+  role: VendorTeamRole | null;
+  /** The admin nav registry's serializable slot map — labels + icon descriptors. */
+  navSlots?: Record<string, NavSlotLite>;
+  /** Pending-inquiry count. Real layout data; 0 omits the badge. */
+  bookingsBadge?: number;
+  /** Unread-thread count. Real layout data; 0 omits the badge. */
+  threadsBadge?: number;
   /**
    * The Plan hub. It is passed in rather than hardcoded so the ONE door to it
    * is declared at the mount site, where a reviewer can see it survived.
@@ -78,6 +106,19 @@ export function VendorRailContext({
   tier: string | null;
 }) {
   const pathname = usePathname() ?? '/vendor-dashboard';
+
+  /*
+    Role filter → registry labels → badges, in that order, by the ONE shared
+    resolver. Calling it here rather than upstream is the entire fix: the
+    sentinel, the staff scoping and the badge rule are unchanged and still
+    live in exactly one file.
+  */
+  const destinations = resolveVendorDestinations({
+    role,
+    navSlots,
+    bookingsBadge,
+    threadsBadge,
+  });
 
   /*
     ONE WINNER, RESOLVED BY THE SHIPPED RESOLVER — not a per-row boolean.

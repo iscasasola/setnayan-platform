@@ -1,5 +1,25 @@
+'use client';
+
 /**
  * vendor-nav-destinations.ts — THE five, once.
+ *
+ * ─── 🔴 THIS FILE IS CLIENT-ONLY, AND THAT IS NOT A STYLE CHOICE ──────────
+ * It calls `navIconComponent`, which lives in a `'use client'` module and
+ * returns a React COMPONENT. Calling a client module's function from a server
+ * component throws — and between 2026-08-14 and 2026-08-15 that is exactly
+ * what happened: `layout.tsx` is a server component, it called
+ * `resolveVendorDestinations`, the registry always serves a slot for
+ * `vendor.sidebar.overview`, so the icon branch ran on EVERY request and every
+ * one of a supplier's 63 screens answered with the "Something on our end
+ * didn't work" page. Nothing was wrong with the menu; the resolution was
+ * simply happening on the wrong side of the boundary.
+ *
+ * 🔑 THE TWO SIBLING RAILS ALREADY HAD THIS RIGHT. `admin-rail-context.tsx`
+ * and `event-rail-context.tsx` are handed the SERIALIZABLE `navSlots` map and
+ * resolve their own icons; only this one resolved on the server, and the sole
+ * instance of a pattern is a tell. Whoever calls `resolveVendorDestinations`
+ * must be a client component — `vendor-rail-context.tsx` is, and
+ * `vendor-nav-boundary.test.ts` fails if a server one starts calling it again.
  *
  * One Shell slice 2 (2026-08-14). The shop's own menu now renders in the shared
  * front-door rail (`vendor-rail-context.tsx`) instead of the retiring

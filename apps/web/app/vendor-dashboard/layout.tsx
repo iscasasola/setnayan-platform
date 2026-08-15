@@ -13,7 +13,6 @@ import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { VendorRailContext } from './_components/vendor-rail-context';
-import { resolveVendorDestinations } from './_components/vendor-nav-destinations';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { VendorNavFab } from './_components/vendor-nav-fab';
@@ -346,14 +345,22 @@ export default async function VendorDashboardLayout({
       */}
       <AppRailShell
         railContext={
+          /*
+            🔴 RAW VALUES ONLY — THIS LAYOUT IS A SERVER COMPONENT.
+            It used to build the finished row list here, which meant calling
+            `navIconComponent` (a client module) on the server. That throws,
+            and from 2026-08-14 to 2026-08-15 it answered every one of a
+            supplier's 63 screens with the full-page error card. The rail is a
+            client component and resolves its own rows now; these four props
+            are the SAME four the phone's bottom bar below already receives.
+            Never pass a built `destinations` list back in.
+          */
           <VendorRailContext
             shopName={vendorSidebarName}
-            destinations={resolveVendorDestinations({
-              role: vendorRole,
-              navSlots,
-              bookingsBadge: bookingsPending,
-              threadsBadge: threadsUnread,
-            })}
+            role={vendorRole}
+            navSlots={navSlots}
+            bookingsBadge={bookingsPending}
+            threadsBadge={threadsUnread}
             planHref="/vendor-dashboard/subscription"
             tier={vendorTier}
           />

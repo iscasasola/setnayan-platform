@@ -194,14 +194,18 @@ test('the desktop sidebars still get their counts — this was additive', () => 
   // destinations on a laptop must be handed both counts. Only the name of the
   // element that renders them moved.
   //
-  // The counts now travel as object properties into the resolver rather than
-  // as JSX props, so the shapes below are `key: value` — asserting the old
-  // `prop={value}` spelling would have passed vacuously against a component
-  // that never receives them, which is the guard failing open.
+  // ⚠ RESPELLED 2026-08-15, NOT RELAXED. Slice 2 passed the counts as object
+  // properties into a resolver CALLED IN THE LAYOUT — and that call is what
+  // took the whole vendor dashboard down, because building a row list on the
+  // server means resolving a React icon component on the server. The rail is
+  // a client component and resolves its own rows now, so the counts travel as
+  // JSX props again. Same one-directional rule, same two values, same
+  // element; only the punctuation between them changed.
+  // See `app/vendor-dashboard/_components/vendor-nav-boundary.test.ts`.
   const sidebar = jsxElement(read(VENDOR_LAYOUT), 'VendorRailContext');
   assert.ok(
-    /bookingsBadge:\s*bookingsPending/.test(sidebar) &&
-      /threadsBadge:\s*threadsUnread/.test(sidebar),
+    /bookingsBadge=\{bookingsPending\}/.test(sidebar) &&
+      /threadsBadge=\{threadsUnread\}/.test(sidebar),
     'The vendor DESKTOP MENU lost a count while the phone gained one.',
   );
   assert.ok(

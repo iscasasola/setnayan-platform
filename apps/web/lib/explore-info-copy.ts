@@ -116,6 +116,7 @@ export function coverageTileLabel(args: {
   vendorCount: number;
   lockedCount: number;
   buildCount: number;
+  askedCount?: number;
   isNext: boolean;
 }): string {
   const state =
@@ -123,11 +124,16 @@ export function coverageTileLabel(args: {
       ? 'covered'
       : args.state === 'locked'
         ? `${args.lockedCount} locked`
-        : args.state === 'picked'
-          ? `${args.buildCount} in your build`
-          : args.state === 'exploring'
-            ? `${args.vendorCount} shortlisted`
-            : 'not started';
+        : // PR-H · the screen-reader label must not borrow "locked" for a
+          // supplier who has not answered. This is the one place a couple using
+          // a screen reader learns the state at all.
+          args.state === 'asked'
+          ? `${args.askedCount ?? 0} asked, waiting`
+          : args.state === 'picked'
+            ? `${args.buildCount} in your build`
+            : args.state === 'exploring'
+              ? `${args.vendorCount} shortlisted`
+              : 'not started';
   return `${args.label} — ${state}${args.isNext ? `, ${COVERAGE_NEXT_SR}` : ''}`;
 }
 

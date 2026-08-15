@@ -61,6 +61,15 @@ to nothing, and the date would survive the decline because the write is
 supplier says yes — and the one message the couple is guaranteed to receive about
 that agreement is the message that tells them their date was set.
 
+🪤 **AND ONE OF MY OWN NEW TESTS WAS DECORATION — THE MUTATION RUN IS WHAT SAID
+SO.** The coverage-strip clock test used `'photographer'`, which is a vendor
+CATEGORY and not a catalogue TILE, so `planGroupsForTile` returned `[]` and the
+assertion only ever exercised the no-groups early return; sabotaging the real
+branch left it green. Repaired to a tile that genuinely resolves
+(`'photo_video'` → `photography`), with the resolution itself asserted so the
+fixture cannot go vacuous again. **A test that names the right behaviour can
+still be measuring the wrong branch.**
+
 🖥 **FIVE COUPLE SURFACES, NOT THE FOUR THE BRIEF NAMED** — counted by grepping
 the derivations rather than trusting the list: the bench card, the coverage
 strip, "Your team", the workspace, and `vendors-plan-budget`'s own planning
@@ -82,8 +91,9 @@ And the client card's `isInquiry` became `preAgreement` (= `!isBooked`): keyed o
 one stage it was correct with two rungs and would have dropped an asked supplier
 straight into the BOOKED render the moment a third arrived.
 
-🛡 **NINE MUTATIONS, ALL MEASURED BY OCCURRENCE COUNT BEFORE → AFTER, ALL
-CAUGHT.** Both harnesses refuse to run against a red baseline. The four SQL
+🛡 **THIRTEEN MUTATIONS, ALL MEASURED BY OCCURRENCE COUNT BEFORE → AFTER —
+TWELVE CAUGHT ON THE FIRST RUN, AND THE THIRTEENTH CAUGHT A DEFECT IN MY OWN
+TEST (above) rather than in the code.** Both harnesses refuse to run against a red baseline. The four SQL
 sabotages include the exact "obvious repair" the migration header warns against;
 the five app-side ones include deleting the withdraw call site, which correctly
 recreates the zero-callers defect and reddens the new guard.

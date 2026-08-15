@@ -396,6 +396,8 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .ctile .lb{font-family:var(--sans);font-size:9.5px;line-height:1.15;text-align:center;color:var(--ink-soft);max-width:66px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .slcat .ctile.st-exploring .ic,.slcat .ctile.st-picked .ic{border-style:solid;border-color:var(--gold);background:rgba(169,131,75,.1);color:var(--gold-deep)}
 .slcat .ctile.st-picked .lb{color:var(--gold-deep)}
+.slcat .ctile.st-asked .ic{border-style:dashed;border-width:2px;border-color:var(--gold);background:rgba(169,131,75,.08);color:var(--gold-deep)}
+.slcat .ctile.st-asked .lb{color:var(--gold-deep)}
 .slcat .ctile.st-locked .ic{border-style:solid;border-width:2.5px;border-color:var(--gold);background:rgba(169,131,75,.16);color:var(--gold-deep);box-shadow:0 2px 8px rgba(169,131,75,.3)}
 .slcat .ctile.st-locked .lb{color:var(--gold-deep);font-weight:700}
 .slcat .ctile.st-covered .ic{border-style:solid;border-width:2.5px;border-color:#2e7d4f;background:rgba(46,125,79,.12);color:#2e7d4f}
@@ -404,6 +406,7 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .ctile .mini{position:absolute;right:-3px;bottom:-3px;min-width:17px;height:17px;padding:0 3px;border-radius:var(--m-r-full);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9.5px;font-weight:700;color:#fff;border:2px solid var(--card)}
 .slcat .ctile .mini.dn{background:#2e7d4f}
 .slcat .ctile .mini.lk{background:var(--gold-deep)}
+.slcat .ctile .mini.ak{background:var(--card);color:var(--gold-deep);border-color:var(--gold);border-style:dashed}
 .slcat .ctile .mini.bd{background:var(--card);color:var(--gold-deep);border-color:var(--gold)}
 .slcat .ctile .nx{position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:7.5px;letter-spacing:.12em;background:var(--gold-deep);color:#fff;border-radius:var(--m-r-full);padding:1px 6px;font-weight:700;line-height:1.6}
 /* folder-head summary pills — "● N locked · N to decide · ＋N more" */
@@ -1167,6 +1170,9 @@ export function ShortlistCategories({
           label: t.label,
           vendorCount: t.vendors.length,
           lockedCount: t.vendors.filter((v) => v.status === 'locked').length,
+          // PR-H · derived upstream by the one shared core and read here, never
+          // re-worked out. Always 0 while the flag is off.
+          askedCount: t.vendors.filter((v) => v.lockRequestState === 'requested').length,
           buildCount: t.vendors.filter((v) => buildPickSet.has(v.vendorId)).length,
           covered: Boolean(coveredByTile[t.tile]),
           order: walk++,
@@ -1373,6 +1379,7 @@ export function ShortlistCategories({
                     vendorCount: t.vendorCount,
                     lockedCount: t.lockedCount,
                     buildCount: t.buildCount,
+                    askedCount: t.askedCount,
                     isNext,
                   })}
                   onClick={() => openPlan(t.folder, t.tile, t.slug)}
@@ -1386,7 +1393,18 @@ export function ShortlistCategories({
                     <Icon size={21} strokeWidth={1.6} aria-hidden />
                     {badge ? (
                       <span
-                        className={`mini ${badge.kind === 'covered' ? 'dn' : badge.kind === 'locked' ? 'lk' : 'bd'}`}
+                        className={`mini ${
+                          badge.kind === 'covered'
+                            ? 'dn'
+                            : badge.kind === 'locked'
+                              ? 'lk'
+                              : // PR-H · an asked count must not wear the LOCKED
+                                // badge's solid gold fill. Its own class, dashed
+                                // like the tile it sits on.
+                                badge.kind === 'asked'
+                                ? 'ak'
+                                : 'bd'
+                        }`}
                         aria-hidden
                       >
                         {badge.text}

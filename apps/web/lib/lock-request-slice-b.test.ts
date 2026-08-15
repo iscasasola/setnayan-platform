@@ -16,7 +16,14 @@ import assert from 'node:assert/strict';
 import { planChatLockBooking } from './chat-lock-booking';
 import { resolveBenchCardActions, type BenchCardVendor } from './bench-card-actions';
 import { timelineStatusOf } from './vendors-plan-budget';
-import { waitingOnSupplier } from './explore-info-copy';
+import { waitingOnSupplier, coverageTileLabel } from './explore-info-copy';
+import {
+  coverageStateOf,
+  coverageBadgeOf,
+  timelineStatusForTile,
+  planGroupsForTile,
+  type CoverageTile,
+} from './coverage-strip';
 import { lockRequestStateOf } from './lock-request-state';
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -160,6 +167,83 @@ test('the waiting line rounds UP and never types a hardcoded 7', () => {
   assert.doesNotMatch(waitingOnSupplier(null, now), /\d/);
   assert.doesNotMatch(waitingOnSupplier('not-a-date', now), /\d/);
   // MUTATION: swap Math.ceil for Math.floor ⇒ the 30-hour case says "1 day".
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 4b · THE COVERAGE STRIP — the fifth surface, and the one the brief's list of
+//      four would have left counting an asked category down.
+// ───────────────────────────────────────────────────────────────────────────
+
+// A FULL CoverageTile, not the structural subset `coverageStateOf` accepts:
+// `coverageBadgeOf` takes the whole shape, and a fixture that satisfies only the
+// looser signature would not typecheck against it — which is how a badge
+// assertion ends up testing a shape the real caller never passes.
+const tile = (over: Partial<CoverageTile> = {}): CoverageTile => ({
+  tile: 'photo_video',
+  folder: 'look',
+  slug: 'photo-video',
+  label: 'Photo & video',
+  vendorCount: 3,
+  lockedCount: 0,
+  buildCount: 0,
+  covered: false,
+  order: 0,
+  ...over,
+});
+
+test("the strip · an outstanding ask is 'asked', not 'exploring'", () => {
+  assert.equal(coverageStateOf(tile({ askedCount: 1 })), 'asked');
+  // Without this the tile read 'exploring' and kept its overdue clock, telling
+  // the couple to go and do the thing they had already done.
+  assert.equal(coverageStateOf(tile()), 'exploring');
+});
+
+test('the strip · a real booking in the tile outranks an ask in it', () => {
+  assert.equal(
+    coverageStateOf(tile({ lockedCount: 1, askedCount: 1 })),
+    'locked',
+    'the same precedence lockRequestStateOf applies row by row',
+  );
+  assert.equal(coverageStateOf(tile({ covered: true, askedCount: 1 })), 'covered');
+  // …and 'asked' still beats a mere build pick.
+  assert.equal(coverageStateOf(tile({ buildCount: 2, askedCount: 1 })), 'asked');
+});
+
+test('the strip · an asked tile stops the planning clock', () => {
+  // 🪤 THE FIRST VERSION OF THIS TEST WAS DECORATION, and the mutation run is
+  // what said so: it used `'photographer'`, which is a VENDOR CATEGORY and not a
+  // catalogue TILE, so `planGroupsForTile` returned [] and the assertion only
+  // ever exercised the no-groups early return. Sabotaging the real branch left
+  // it green. `'photo_video'` is a tile that genuinely resolves to a plan group
+  // (`photography`), so this now measures the mapping it claims to measure.
+  assert.deepEqual(planGroupsForTile('photo_video'), ['photography'], 'the fixture must resolve, or this test is vacuous');
+  // At 30 days out that lead time makes an unasked tile OVERDUE. The ask is what
+  // silences it — and silencing is the whole point: the couple has already done
+  // the only thing the countdown was pressing them to do.
+  assert.equal(timelineStatusForTile('photo_video', 30, 'exploring'), 'overdue');
+  assert.equal(timelineStatusForTile('photo_video', 30, 'asked'), 'awaiting');
+  // And a tile with no plan groups at all takes the other branch, which must
+  // agree rather than fall back to the quiet default.
+  assert.deepEqual(planGroupsForTile('photographer'), []);
+  assert.equal(timelineStatusForTile('photographer', 30, 'asked'), 'awaiting');
+});
+
+test('the strip · the badge and the screen-reader label never borrow "locked"', () => {
+  const b = coverageBadgeOf(tile({ askedCount: 2 }));
+  assert.deepEqual(b, { kind: 'asked', text: '2' });
+  const label = coverageTileLabel({
+    label: 'Photographer',
+    state: 'asked',
+    vendorCount: 3,
+    lockedCount: 0,
+    buildCount: 0,
+    askedCount: 2,
+    isNext: false,
+  });
+  assert.match(label, /asked, waiting/);
+  assert.doesNotMatch(label, /locked/);
+  // This label is the ONLY way a couple using a screen reader learns the state,
+  // so "2 locked" here would be the loudest possible version of the lie.
 });
 
 // ───────────────────────────────────────────────────────────────────────────

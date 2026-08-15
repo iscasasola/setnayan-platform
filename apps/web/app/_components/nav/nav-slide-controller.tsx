@@ -19,9 +19,16 @@ import { usePrefersReducedMotion, useIsMobile } from '@/lib/use-responsive';
  * live DOM tab order (so it's automatically phase-aware / role-scoped / registry-
  * override-aware — no hardcoded tab list), derives the direction, and drives the
  * navigation inside `document.startViewTransition`. `bottom-nav.tsx` is untouched;
- * the only paired change is `view-transition-name: sn-page` on the shared content
- * <main> (sidebar-shell.tsx) so ONLY the content slides — the fixed pill, sidebar
- * and top bar live in `root`, which the CSS freezes.
+ * the only paired change is `view-transition-name: sn-page` on the content
+ * element each signed-in tree renders — `.sn-vt-page`, carried by the layout's
+ * own `<main>` in the event and vendor trees and by a wrapper `<div>` in the
+ * admin one — so ONLY the content slides; the fixed pill, the rail and the top
+ * bar live in `root`, which the CSS freezes.
+ *
+ * ⚠ IT USED TO LIVE IN `sidebar-shell.tsx`, WHICH IS DELETED (2026-08-15).
+ * Exactly one element in the whole app may carry that name: zero leaves this
+ * controller starting a transition that animates NOTHING, and two make the
+ * browser skip the transition outright. Both are silent.
  *
  * Progressive enhancement — the slide runs ONLY when ALL hold: mobile viewport
  * (<lg), motion allowed, View Transitions supported (iOS Safari 18.2+ / Chrome

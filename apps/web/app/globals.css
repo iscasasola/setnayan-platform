@@ -993,12 +993,12 @@ html.subnav-docked [data-shell-main] {
   --m-shadow-lg: 0 40px 80px -30px rgba(30,26,18,.28), 0 10px 30px -8px rgba(30,26,18,.10);
 
   /*
-   * Desktop sidebar rail width (DESK-1 · Responsive_and_Mobile_UI_Ruleset).
-   * `sidebar-shell.tsx` consumed `var(--sidebar-width, 16rem)` but the token was
-   * never defined — it always fell back to 16rem. Defining it here makes the
-   * value explicit + themeable (same 16rem, so zero visual change).
+   * ⚠ `--sidebar-width` IS GONE (2026-08-15). It existed for one reader,
+   * `sidebar-shell.tsx`, and that file was deleted when the shared rail took
+   * the desktop column on all five signed-in trees. The rail carries its own
+   * width (`--fd-rail`, in front-door.css). A themeable token nothing reads is
+   * a token the next session will wire something to by mistake.
    */
-  --sidebar-width: 16rem;
 
   /*
    * ── Sidebar chrome — Atelier frosted glass (2026-07-12; was the dark
@@ -1013,11 +1013,14 @@ html.subnav-docked [data-shell-main] {
    * 2026-07-15).
    *
    * Consumed EXPLICITLY by the shared nav primitives (sidebar-item ·
-   * sidebar-section · admin-sidebar-menu) + the sidebar-owned chrome
-   * (doorway-sidebar-header · vendor identity card + footer · sidebar-shell).
-   * The `.sn-sidebar` scope below ALSO remaps the base --m-* tokens that the
-   * shared AccountSwitcher TRIGGER consumes (it renders here but its panel is
-   * portaled to <body>, outside this scope, so the panel stays light).
+   * sidebar-section) + the sidebar-owned chrome (doorway-sidebar-header ·
+   * customer-sidebar).
+   *
+   * ⚠ NONE OF THOSE IS MOUNTED ANY MORE (the shared rail took the desktop
+   * column, One Shell slices 1-3), and the `.sn-sidebar` scope class that used
+   * to remap these onto the panel went with `sidebar-shell.tsx` on 2026-08-15.
+   * The TOKENS are kept because those components are still on disk and still
+   * read them; if they are deleted too, this block goes with them.
    */
   --m-sidebar-bg:        rgba(255,255,255,.45);  /* Atelier frosted panel (kit glass, 2026-07-12) */
   --m-sidebar-bg-2:      rgba(255,255,255,.62);  /* elevated tiles — switcher · identity · footer chips */
@@ -1044,32 +1047,18 @@ html.subnav-docked [data-shell-main] {
 }
 
 /*
- * `.sn-sidebar` — applied to the desktop sidebar <aside> (sidebar-shell.tsx).
- * Paints the obsidian panel and remaps the base --m-* tokens that the ONE
- * shared descendant we don't restyle by hand — the AccountSwitcher trigger row
- * — reads from, so the whole panel goes dark from a single place. The portaled
- * switcher PANEL renders in <body> (outside this subtree) and inherits :root, so
- * it stays light. (The former `--violet` admin-accent fork was retired in
- * Glass PR-1, 2026-07-15 — every doorway now shares the gold accent.)
+ * ⚠ `.sn-sidebar` IS GONE (2026-08-15). It was applied to exactly one element
+ * in the app — the desktop `<aside>` inside `sidebar-shell.tsx` — and that
+ * file was deleted once all five signed-in trees wore the shared rail. It
+ * painted the Atelier frosted panel and, inside its own scope, remapped the
+ * base --m-* tokens so the AccountSwitcher trigger row it contained followed
+ * the panel rather than the page.
+ *
+ * 🔑 NOTHING IS LOST BY DELETING IT, because a scope class with no element is
+ * not dormant styling — it is a rule that can never match. The remapped tokens
+ * (`--m-paper`, `--m-line`, `--m-nav-active`, …) keep their `:root` values
+ * everywhere, which is what every surface outside that panel always read.
  */
-.sn-sidebar {
-  background: var(--m-sidebar-bg);
-  backdrop-filter: blur(24px) saturate(1.5);
-  -webkit-backdrop-filter: blur(24px) saturate(1.5);
-  box-shadow: 0 20px 50px -30px rgba(30,26,18,.4);
-  color: var(--m-sidebar-fg);
-  --m-paper:   var(--m-sidebar-hover);
-  --m-paper-2: var(--m-sidebar-bg-2);
-  --m-line:    var(--m-sidebar-line);
-  --m-ink:     var(--m-sidebar-fg);
-  --m-slate:   var(--m-sidebar-fg-soft);
-  --m-slate-2: var(--m-sidebar-fg-muted);
-  --m-slate-3: var(--m-sidebar-fg-muted);
-  --m-nav-active:      var(--m-sidebar-accent);
-  --m-nav-active-soft: var(--m-sidebar-accent-soft);
-  /* (The dark-panel contrast lift for the AccountSwitcher gold initials is
-   * gone with the obsidian panel — base gold-700 reads ≥4.5:1 on glass.) */
-}
 
 /*
  * Backend dashboard surface — opt-in. Applied to the root element of the

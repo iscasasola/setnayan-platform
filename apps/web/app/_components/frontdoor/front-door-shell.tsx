@@ -1203,8 +1203,10 @@ export function FrontDoorShell({
           `/` is a page, so its content column is the page's `<main>` landmark.
           Every signed-in surface this shell wraps ALREADY RENDERS ITS OWN:
           `(launcher)` and `(account)` each wrap their children in one, and the
-          event tree's `SidebarShell` renders the `.sn-vt-page` <main> that the
-          phone's page-slide is named after. Keeping this element a <main> in
+          event and vendor trees render `<main className="sn-vt-page">` — the
+          element the phone's page-slide is named after. (Those two used to get
+          it from `SidebarShell`; that component was deleted on 2026-08-15 and
+          each layout carries the element itself.) Keeping this element a <main> in
           the app variant therefore produced TWO <main> landmarks, nested, on
           every converted page — invalid HTML and a duplicated landmark for
           anyone navigating by landmark.

@@ -133,6 +133,16 @@ jobs:
         continue-on-error: true
         run: RADIUS_LINT_STRICT=1 node apps/web/scripts/lint-radius.mjs
 
+      # Fails when a Tailwind COLOUR UTILITY names a palette entry that does not
+      # exist. Tailwind DROPS such a class silently — no error, no warning, the
+      # rule is simply absent and the element falls back to preflight styling.
+      # Found `gold` (78 uses), `champagne` (17) and `sage` (4) dead in the
+      # stylesheet for months. See apps/web/scripts/lint-colour-exists.mjs.
+      - name: Lint colour names resolve
+        id: guard_colour_exists
+        continue-on-error: true
+        run: node apps/web/scripts/lint-colour-exists.mjs
+
       # Fails when TODO / FIXME / HACK / WIP survives in RENDERED UI text under
       # apps/web/app (comments are stripped first, so a marker where it belongs
       # is always fine). The copy rule — "no TODO, no skeleton, no placeholder
@@ -371,6 +381,7 @@ jobs:
           EMAIL_LINKS: ${{ steps.guard_email_links.outcome }}
           ADMIN_CHAT: ${{ steps.guard_admin_chat.outcome }}
           RADIUS: ${{ steps.guard_radius.outcome }}
+          COLOUR_EXISTS: ${{ steps.guard_colour_exists.outcome }}
           UI_NOTES: ${{ steps.guard_ui_notes.outcome }}
           PINNED_BARS: ${{ steps.guard_pinned_bars.outcome }}
           BOOTH_POSTER: ${{ steps.guard_booth_poster.outcome }}
@@ -400,6 +411,7 @@ jobs:
           check 'lint email template links'   "$EMAIL_LINKS"
           check 'lint admin chat-guard'       "$ADMIN_CHAT"
           check 'lint radius tokens'          "$RADIUS"
+          check 'lint colour names resolve'   "$COLOUR_EXISTS"
           check 'lint engineering notes in ui' "$UI_NOTES"
           check 'lint stacked pinned bars'   "$PINNED_BARS"
           check 'lint booth poster placement' "$BOOTH_POSTER"

@@ -180,7 +180,7 @@ export default async function LiveStudioChannelsPage({
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a
           href="/api/oauth/youtube/pool/start"
-          className="rounded-md border border-ink/20 bg-ink px-4 py-2 text-sm font-semibold text-canvas hover:bg-ink/90"
+          className="rounded-md border border-ink/20 bg-ink px-4 py-2 text-sm font-semibold text-cream hover:bg-ink/90"
         >
           Connect a Setnayan channel
         </a>
@@ -199,7 +199,7 @@ export default async function LiveStudioChannelsPage({
           const held = row.status === 'checked_out';
           const orphaned = held && !row.checked_out_event_id;
           return (
-            <li key={row.id} className="rounded-xl border border-ink/15 bg-canvas px-4 py-3.5">
+            <li key={row.id} className="rounded-xl border border-ink/15 bg-cream px-4 py-3.5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold text-ink">{row.label ?? `Channel #${row.id}`}</p>

@@ -164,7 +164,7 @@ export async function ScriptTab({
 
       {prefilled > 0 ? (
         <p className="flex items-start gap-2 rounded-xl border border-sage/30 bg-sage/10 px-3 py-2 text-sm text-ink/75">
-          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-sage" aria-hidden />
+          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-sage-deep" aria-hidden />
           <span>
             <strong className="text-ink">Drafted from your lines</strong> — {prefilled} of{' '}
             {workbook.entries.length} moments arrived already written, in your words with their

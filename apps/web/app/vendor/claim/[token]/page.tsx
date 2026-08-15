@@ -390,7 +390,7 @@ export default async function VendorClaimPage({ params }: Props) {
 
 function ClaimShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-page py-12 px-4 sm:py-20">
+    <main className="min-h-screen bg-cream py-12 px-4 sm:py-20">
       <div className="mx-auto max-w-xl">{children}</div>
     </main>
   );

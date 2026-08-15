@@ -109,16 +109,45 @@ function mapRow(row: Record<string, unknown>): PublicChapter {
 export async function fetchPublishedChapters(
   userId: string,
 ): Promise<PublicChapter[]> {
+  return (await fetchPublishedChaptersResult(userId)).items;
+}
+
+/**
+ * The same read, but it says whether it WORKED.
+ *
+ * 🔑 WHY THIS EXISTS. A rejected Supabase query resolves `{ data: null, error }`
+ * — it does not throw — so the plain version above cannot tell "this person has
+ * published nothing" from "the read was refused". Both come back as an empty
+ * array, and the profile page then draws a very different page for each without
+ * knowing which it is: with zero chapters and exactly one ongoing public event
+ * it REDIRECTS, so a failed read could send somebody who pressed a
+ * storyteller's name onto a stranger's wedding page instead of that person's
+ * own. The failure is silent, the destination is plausible, and nothing
+ * anywhere says a read went wrong.
+ *
+ * ⚠ THE OMISSION WAS INCONSISTENT WITHIN THIS ONE FILE — `fetchPublishedChapterForShare`
+ * below has always checked its `error`. Same module, same table, two habits.
+ */
+export async function fetchPublishedChaptersResult(
+  userId: string,
+): Promise<{ items: PublicChapter[]; ok: boolean }> {
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from('creator_chapters')
     .select(CHAPTER_FIELDS)
     .eq('user_id', userId)
     .eq('status', 'published')
     .order('published_at', { ascending: false });
-  return ((data ?? []) as Record<string, unknown>[])
-    .map(mapRow)
-    .filter(chapterHasReadableContent);
+  if (error) {
+    console.error('[creator-public] published chapters read failed', error);
+    return { items: [], ok: false };
+  }
+  return {
+    items: ((data ?? []) as Record<string, unknown>[])
+      .map(mapRow)
+      .filter(chapterHasReadableContent),
+    ok: true,
+  };
 }
 
 /**

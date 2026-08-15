@@ -12,7 +12,7 @@ import {
 } from '@/lib/couple-website-pro';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
-export const metadata = { title: 'Website PRO · Setnayan' };
+export const metadata = { title: 'Event Hub PRO · Setnayan' };
 
 const SKU_CODE = 'COUPLE_WEBSITE_PRO';
 
@@ -29,7 +29,7 @@ const SKU_CODE = 'COUPLE_WEBSITE_PRO';
  *   • Active (admin-approved) → "Unlocked" + a link into the website hub.
  *   • Owned but pending → "Payment under review", no second drawer.
  *   • Owned nothing → the working buy drawer.
- * Website PRO is the top tier, so there's no cross-sell line up from it.
+ * Event Hub PRO is the top tier, so there's no cross-sell line up from it.
  */
 
 type Props = { params: Promise<{ eventId: string }> };
@@ -82,10 +82,10 @@ export default async function WebsiteProBuyPage({ params }: Props) {
           <Globe2 aria-hidden className="h-6 w-6" strokeWidth={1.75} />
         </span>
         <div>
-          <p className="sn-eye">Website</p>
-          <h1 className="sn-h1">Website PRO</h1>
+          <p className="sn-eye">Event Hub</p>
+          <h1 className="sn-h1">Event Hub PRO</h1>
           <p className="mt-1 text-sm text-ink/65">
-            Every premium touch across your whole website — one unlock.
+            Every premium touch across your whole Event Hub — one unlock.
           </p>
         </div>
       </header>
@@ -107,13 +107,13 @@ export default async function WebsiteProBuyPage({ params }: Props) {
             <CheckCircle2 aria-hidden className="h-5 w-5" strokeWidth={2} /> Unlocked
           </p>
           <p className="text-sm text-ink/70">
-            Website PRO is active. Every premium touch is on across your website, watermark-free.
+            Event Hub PRO is active. Every premium touch is on across your Event Hub, watermark-free.
           </p>
           <Link
             href={WEBSITE_HUB_HREF(eventId)}
             className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600"
           >
-            Open your website
+            Open your Event Hub
             <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
           </Link>
         </div>
@@ -124,7 +124,7 @@ export default async function WebsiteProBuyPage({ params }: Props) {
             <Clock aria-hidden className="h-5 w-5" strokeWidth={1.75} /> Payment under review
           </p>
           <p className="text-sm text-ink/70">
-            We&rsquo;ve received your Website PRO order. Our team reconciles within one business day —
+            We&rsquo;ve received your Event Hub PRO order. Our team reconciles within one business day —
             you&rsquo;ll get an email when it moves to approved, and every premium touch unlocks
             automatically.
           </p>
@@ -139,11 +139,11 @@ export default async function WebsiteProBuyPage({ params }: Props) {
         /* ── NOT OWNED — the working buy drawer. ── */
         <InlineCheckoutDrawer
           serviceKey={SKU_CODE}
-          displayName="Website PRO"
+          displayName="Event Hub PRO"
           originalPriceCentavos={String(priceCentavos)}
           eventId={eventId}
           settings={settings}
-          triggerLabel="Unlock Website PRO"
+          triggerLabel="Unlock Event Hub PRO"
         />
       ) : (
         <p className="text-sm text-ink/65">

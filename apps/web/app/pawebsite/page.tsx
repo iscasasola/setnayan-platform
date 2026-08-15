@@ -1,9 +1,17 @@
 /**
- * /pawebsite — public marketing landing page for Pawebsite, the editorial
- * wedding website (www.setnayan.com/pawebsite).
+ * /pawebsite — public marketing landing page for the EVENT HUB, the editorial
+ * event website (www.setnayan.com/pawebsite).
  *
- * Part of the "Pa-" public-surface wave (owner-approved 2026-06-27; Pa- naming
- * LOCKED). Mirrors the /papic + /setnayan-ai pattern exactly: force-static
+ * ⚠ THE NAME AND THE ROUTE DIVERGE ON PURPOSE (owner 2026-08-15). The product
+ * was renamed "Pawebsite" → "Event Hub"; the route stays `/pawebsite` because
+ * it is sitemapped and indexed, and moving it would forfeit that search history
+ * to rename a string no visitor reads. Live Studio already ships in exactly
+ * this shape — named "Live Studio", served from `/panood`. Do NOT reconcile
+ * them by moving the route.
+ *
+ * Part of the "Pa-" public-surface wave (owner-approved 2026-06-27; the Pa-
+ * ROUTES stay locked, the display names do not). Mirrors /papic + /setnayan-ai
+ * exactly: force-static
  * Server Component, static `metadata`, SoftwareApplication + FAQPage JSON-LD,
  * hero + benefit sections + FAQ + a Mulberry-accent primary CTA, and the shared
  * SiteFooter. The persistent SiteChrome nav renders because '/pawebsite' is
@@ -38,7 +46,13 @@ export const dynamic = 'force-dynamic';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PAGE_TITLE = 'Pawebsite — Your Editorial Wedding Website · Setnayan';
+/*
+ * 🔑 "Wedding Website" STAYS IN THE TITLE ON PURPOSE. It is the phrase couples
+ * actually type into Google; "Event Hub" is the phrase they will only know
+ * after they meet us. The brand leads, the search term follows it — the same
+ * split every product page makes between what a thing is CALLED and what it IS.
+ */
+const PAGE_TITLE = 'Event Hub — Your Editorial Wedding Website · Setnayan';
 /*
  * 🔑 THE DESCRIPTION IS NOT AUTHORED HERE ANY MORE — it is read from
  * `lib/studio-apps.ts`, the ONE place the seven Studio products are
@@ -63,7 +77,7 @@ export const metadata = {
     'wedding RSVP website',
     'save the date website',
     'editorial wedding website',
-    'Pawebsite',
+    'Setnayan Event Hub',
     'Setnayan',
   ],
   openGraph: {
@@ -71,7 +85,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/pawebsite',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Pawebsite — your editorial wedding website' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Event Hub — your editorial wedding website' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -86,7 +100,7 @@ export const metadata = {
 const APP_LD = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Pawebsite — Editorial Wedding Website',
+  name: 'Event Hub — Editorial Wedding Website',
   url: `${SITE_URL}/pawebsite`,
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Any (web browser)',
@@ -162,12 +176,12 @@ const VS = [
 export default function PawebsiteLandingPage() {
   return (
     <DoorwayPage
-      kicker="In your wedding · editorial website"
+      kicker="In your event · editorial website"
       title={'One beautiful home for your whole wedding.'}
-      lede={'Pawebsite brings your save-the-date, your RSVP, your event details, and your love story under one address — told like a magazine feature. Share it once, and everything your guests need is there.'}
+      lede={'Your Event Hub brings your save-the-date, your RSVP, your event details, and your love story under one address — told like a magazine feature. Share it once, and everything your guests need is there.'}
       primary={{ href: '/onboarding/wedding?from=pawebsite', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
-      productName="Pawebsite"
+      productName="Event Hub"
       steps={STEPS}
       differentiator={{
         heading: 'Not just a wedding form',
@@ -177,7 +191,7 @@ export default function PawebsiteLandingPage() {
       faq={FAQ}
       closing={{
         heading: 'Give your wedding its home',
-        body: 'Your wedding website lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating, and gallery. Start planning free, and make it yours.',
+        body: 'Your Event Hub lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating, and gallery. Start planning free, and make it yours.',
         href: '/onboarding/wedding?from=pawebsite',
         label: 'Start planning · free',
       }}

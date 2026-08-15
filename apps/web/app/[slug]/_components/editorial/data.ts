@@ -101,12 +101,12 @@ export const EDITORIAL_TIMELINE_PHOTO_CAP = 48;
 const SERVICE_LABELS: Record<string, string> = {
   ANIMATED_MONOGRAM: 'Animated Monogram',
   CAMERA_BRIDGE: 'Camera Bridge',
-  COUPLE_WEBSITE_PRO: 'Website PRO',
+  COUPLE_WEBSITE_PRO: 'Event Hub PRO',
   CUSTOM_QR_GUEST: 'Custom Guest QR',
   // EDITORIAL_PRO + STD_PREMIUM_OPENINGS are bundle-only (2026-07-22 · via Website
   // PRO). Kept here so existing/bundle owners still get a clean "Powered by" label.
   EDITORIAL_PRO: 'Editorial PRO',
-  EVENT_WEBSITE: 'Event Website',
+  EVENT_WEBSITE: 'Event Hub',
   // LIVE_BACKGROUND removed 2026-08-11 with the LED wall backdrop itself. No
   // order was ever placed under it, so no "Powered by" label loses its name.
   STD_PREMIUM_OPENINGS: 'Cinematic Reveal',
@@ -2616,7 +2616,7 @@ function mariaAndJuan(): EditorialData {
       { author: 'Maria & Juan', role: 'couple', quote: 'We planned the whole thing on Setnayan — and on the day, everything was just set.', stars: 5 },
       { author: 'Tita Bing', role: 'guest', quote: 'The most organized wedding I have been to — everyone knew where to go and when.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Live Studio', 'Pakanta'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Studio', 'Pakanta'],
     galleryPhotos: [
       '/realstories/maria-juan-g1.jpg',
       '/realstories/maria-juan-g2.jpg',
@@ -2773,7 +2773,7 @@ function jackAndJill(): EditorialData {
       { author: 'Jack & Jill', role: 'couple', quote: 'We planned a whole beach wedding from two phones. By sunset, everything was just set.', stars: 5 },
       { author: 'Kuya Ramon', role: 'guest', quote: 'Worth the boat ride. The timeline ran like clockwork even on the sand.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic'],
     galleryPhotos: [
       '/realstories/jack-jill-g1.jpg',
       '/realstories/jack-jill-g2.jpg',
@@ -2872,7 +2872,7 @@ function johnAndJane(): EditorialData {
       { author: 'John & Jane', role: 'couple', quote: 'Small wedding, zero chaos. Everyone knew the plan because the plan lived in one place.', stars: 5 },
       { author: 'Atty. Cruz', role: 'guest', quote: 'The most precisely run sixty-person dinner I have attended.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Website'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub'],
     galleryPhotos: [
       '/realstories/john-jane-g1.jpg',
       '/realstories/john-jane-g2.jpg',
@@ -2972,7 +2972,7 @@ function peterAndMary(): EditorialData {
       { author: 'Peter & Mary', role: 'couple', quote: 'A 150-guest wedding sounds impossible until every vendor is reading the same timeline.', stars: 5 },
       { author: 'Lola Pacing', role: 'guest', quote: 'Big wedding, but it felt warm and personal. Nobody was lost, everyone was fed.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Live Studio'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Studio'],
     galleryPhotos: [
       '/realstories/peter-mary-g1.jpg',
       '/realstories/peter-mary-g2.jpg',
@@ -3072,7 +3072,7 @@ function jackAndRose(): EditorialData {
       { author: 'Jack & Rose', role: 'couple', quote: 'Planning an out-of-town wedding from the lowlands was the easy part. One workspace held it all.', stars: 5 },
       { author: 'Ate Glenda', role: 'guest', quote: 'Even with the fog and the drive, everything started on time. Magical and organized.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Pakanta'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Pakanta'],
     galleryPhotos: [
       '/realstories/jack-rose-g1.jpg',
       '/realstories/jack-rose-g2.jpg',

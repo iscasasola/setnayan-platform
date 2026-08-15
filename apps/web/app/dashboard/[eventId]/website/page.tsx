@@ -23,7 +23,7 @@ import { eventNoun, eventNounCap } from '@/lib/event-noun';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { resolveSiteReachability } from '@/lib/launch-save-the-date';
 
-export const metadata = { title: 'Event website' };
+export const metadata = { title: 'Event Hub' };
 
 /**
  * /dashboard/[eventId]/website — the wedding-website HUB.
@@ -141,7 +141,7 @@ export default async function WebsiteHubPage({
       <header className="sn-reveal space-y-2">
         <p className="sn-eye flex items-center gap-2">
           <Globe aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Your {eventNoun(event.event_type)} website
+          Your Event Hub
         </p>
         <h1 className="sn-h1">
           {event.display_name || `Your ${eventNounCap(event.event_type)} page`}

@@ -171,7 +171,7 @@ async function BlueprintStudioView({
               </Link>
             ) : (
               <span className="text-ink/55">
-                publish your wedding website to share the guest link
+                publish your Event Hub to share the guest link
               </span>
             )}
             .

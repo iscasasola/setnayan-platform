@@ -134,11 +134,17 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'pawebsite',
-    name: 'Pawebsite',
+    // ⚠ NAME ≠ ROUTE, DELIBERATELY (owner 2026-08-15). The product is "Event
+    // Hub"; the address stays `/pawebsite` so the sitemapped, indexed URL keeps
+    // its search history. This is EXACTLY the shape Live Studio already ships
+    // in — it is named "Live Studio" and lives at `/panood`. Do not "fix" the
+    // mismatch by moving the route: that costs real search traffic and buys
+    // nothing a reader can see.
+    name: 'Event Hub',
     href: '/pawebsite',
     description:
-      'Pawebsite is one beautiful home for your whole wedding — your save-the-date, your RSVP, your event details, and your love story, told like a magazine feature. One address you share once, and everything your guests need is there.',
-    railLine: 'One home for your save-the-date, RSVP, details and love story.',
+      'Your Event Hub is one beautiful home for your whole event — your save-the-date, your RSVP, your event details, and your love story, told like a magazine feature. One address you share once, and everything your guests need is there.',
+    railLine: 'One link for your save-the-date, RSVP, details and love story.',
     addOnKey: 'landing-page',
     surface: 'website',
   },
@@ -161,7 +167,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Live Studio',
     href: '/panood',
     description:
-      'Live Studio brings the people who can’t be in the room into your day — live. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it: they watch your wedding as it happens, right on your own wedding website. Presence across distance, for everyone you love.',
+      'Live Studio brings the people who can’t be in the room into your day — live. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it: they watch your wedding as it happens, right on your own Event Hub. Presence across distance, for everyone you love.',
     railLine: 'Brings the people who can’t be in the room into your day — live.',
     demo: {
       id: 'panood-demo',

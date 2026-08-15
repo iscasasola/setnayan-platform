@@ -91,7 +91,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
-        body: 'Starting is free — schedule, budget, guest list, seat plan, and mood board are free with every account, plus marketplace browse and a preview of your vendor matches. Premium tools like Setnayan AI (a one-time purchase with access through your wedding day), the Event Website, and premium RSVP are optional paid software. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
+        body: 'Starting is free — schedule, budget, guest list, seat plan, and mood board are free with every account, plus marketplace browse and a preview of your vendor matches. Premium tools like Setnayan AI (a one-time purchase with access through your wedding day), the Event Hub, and premium RSVP are optional paid software. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
@@ -141,7 +141,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-panood',
         title: 'What is Live Studio?',
-        body: 'Live streaming for your wedding, embedded directly on your event website — priced per day (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
+        body: 'Live streaming for your wedding, embedded directly on your Event Hub — priced per day (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
       },
       {
         slug: 'what-is-pakulay',

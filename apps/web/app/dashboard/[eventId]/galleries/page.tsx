@@ -149,8 +149,8 @@ export default async function GalleriesHubPage({ params }: Props) {
       key: 'our-photos',
       name: 'Your photos',
       blurb: ready
-        ? 'The photos you chose for your website.'
-        : 'Add your own photos to your wedding website.',
+        ? 'The photos you chose for your Event Hub.'
+        : 'Add your own photos to your Event Hub.',
       state: ready ? 'ready' : 'collecting',
       count: ready ? ourPhotos.length : null,
       viewLabel: ready ? 'View & manage' : 'Add photos',

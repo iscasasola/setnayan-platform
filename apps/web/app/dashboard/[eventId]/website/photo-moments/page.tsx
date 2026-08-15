@@ -62,7 +62,7 @@ export default async function PhotoMomentsEditorPage({
           className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
         >
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Back to wedding website
+          Back to Event Hub
         </Link>
         <div className="space-y-1.5">
           <p className="sn-eye flex items-center gap-2">

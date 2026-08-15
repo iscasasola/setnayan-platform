@@ -91,7 +91,7 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: 'Free ba ang Setnayan para sa couples?',
-    a: 'Free ang simula — schedule, budget, guest list, seat plan, at mood board, kasama na ang marketplace browse at preview ng vendor matches mo. Bayad ang premium tools tulad ng Setnayan AI, Event Website, at premium RSVP. Babayaran mo lang ang gusto mong i-add.',
+    a: 'Free ang simula — schedule, budget, guest list, seat plan, at mood board, kasama na ang marketplace browse at preview ng vendor matches mo. Bayad ang premium tools tulad ng Setnayan AI, Event Hub, at premium RSVP. Babayaran mo lang ang gusto mong i-add.',
   },
   {
     q: 'May commission ba ang Setnayan sa vendor bookings?',

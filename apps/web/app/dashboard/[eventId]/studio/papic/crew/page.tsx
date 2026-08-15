@@ -330,7 +330,7 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
                     href={`/dashboard/${eventId}/website`}
                     className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
                   >
-                    Open your event website settings
+                    Open your Event Hub settings
                   </Link>
                 ) : null}
                 <p className="pt-1 text-xs text-ink/50">

@@ -306,7 +306,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0024',
     status: 'live',
     category: 'photography',
-    blurb: 'A save-the-date film that plays itself, in your colors — free; add the cinematic reveal with Website PRO.',
+    blurb: 'A save-the-date film that plays itself, in your colors — free; add the cinematic reveal with Event Hub PRO.',
     cta: 'Choose your reveal',
     studioGroup: 'website',
     // The content film is FREE; the cinematic openings are a paid in-surface
@@ -430,13 +430,13 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     tags: ['Website', 'Upgrade', 'Popular'],
     surface: 'website',
     opensDirect: true,
-    label: 'Website PRO',
+    label: 'Event Hub PRO',
     Icon: Globe2,
     iteration: '0002',
     status: 'live',
     category: 'digital_services',
-    blurb: 'One upgrade for your whole site — the cinematic reveal, Editorial PRO authoring, and no watermark.',
-    cta: 'Unlock Website PRO',
+    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, Editorial PRO authoring, and no watermark.',
+    cta: 'Unlock Event Hub PRO',
     studioGroup: 'website',
     serviceKey: 'COUPLE_WEBSITE_PRO',
     poster: {
@@ -459,13 +459,13 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // /website HUB — which links the editor, Our Story, the invitation,
     // privacy and Editorial — so retiring the part-cards costs no reachability;
     // the hub is the map, and the two chips are the shortcuts.
-    label: 'Your Website',
+    label: 'Event Hub',
     Icon: Globe2,
     iteration: '0002',
     status: 'web_v1',
     category: 'tool',
-    blurb: 'One place for your whole website — the run-up page, the day itself, and the story after.',
-    cta: 'Open your website',
+    blurb: 'One link for your whole event — the run-up page, the day itself, and the story after.',
+    cta: 'Open your Event Hub',
     studioGroup: 'website',
     tier: 'free',
     poster: {

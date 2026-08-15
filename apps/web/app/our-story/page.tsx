@@ -123,7 +123,7 @@ export default async function OurStoryPage() {
                 <span className="text-[var(--m-slate)]">
                   Guest list &amp; RSVPs, a seating chart, a budget with
                   payment-deadline reminders, your run-of-show timeline, a mood
-                  board, and a personal wedding website with QR invitations —
+                  board, and a personal Event Hub with QR invitations —
                   free.
                 </span>
               </li>

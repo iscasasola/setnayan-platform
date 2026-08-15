@@ -75,7 +75,7 @@ export default async function OurStoryEditorPage({
           className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
         >
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Back to website
+          Back to Event Hub
         </Link>
         <div>
           <p className="sn-eye flex items-center gap-2">
@@ -85,7 +85,7 @@ export default async function OurStoryEditorPage({
           <h1 className="sn-h1 mt-1">The story you tell your guests</h1>
           <p className="mt-2 max-w-prose text-sm text-ink/65">
             How you met, the spark, the yes — and your own timeline of moments. Your
-            website weaves the story into the &ldquo;Our Story&rdquo; section on the
+            Event Hub weaves the story into the &ldquo;Our Story&rdquo; section on the
             save-the-date, RSVP, and wedding-day pages, and the rest shapes how
             Setnayan tells your story in the keepsakes you create. Every line is
             optional; what you leave blank simply isn&rsquo;t told.
@@ -98,7 +98,7 @@ export default async function OurStoryEditorPage({
             className="inline-flex items-center gap-2 rounded-md border border-success-300/60 bg-success-50 px-3 py-2 text-sm text-success-800"
           >
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Saved — your story is live on your website.
+            Saved — your story is live on your Event Hub.
           </div>
         ) : null}
         {error ? (

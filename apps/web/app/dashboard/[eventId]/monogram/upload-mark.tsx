@@ -199,7 +199,7 @@ export function UploadMark({
               studio's §5.3 honesty (gap audit 2026-07-17): the pick previews
               free, but plays live for guests only with Animated Monogram. */}
           {ownsAnimated ? (
-            <p className="text-xs text-success-800">The reveal you pick here plays live on your wedding website.</p>
+            <p className="text-xs text-success-800">The reveal you pick here plays live on your Event Hub.</p>
           ) : (
             <p className="text-xs text-ink/60">
               Previewing the reveal is free — guests see it play live with{' '}

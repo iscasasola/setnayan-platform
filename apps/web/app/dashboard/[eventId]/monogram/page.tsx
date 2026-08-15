@@ -150,7 +150,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
         </h1>
         <p className="max-w-prose text-base text-ink/65">
           Design your mark from scratch in the Vector Studio. It shows on your
-          wedding website, your QR codes, and across your dashboard.
+          Event Hub, your QR codes, and across your dashboard.
         </p>
       </header>
 
@@ -180,7 +180,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
       {ownsAnimated ? (
         <p className="inline-flex items-center gap-2 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
           <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-          The reveal you pick in the studio plays live on your wedding website.
+          The reveal you pick in the studio plays live on your Event Hub.
         </p>
       ) : (
         <p className="flex items-start gap-2 rounded-xl border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/70">

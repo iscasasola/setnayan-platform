@@ -8,17 +8,22 @@
  * the event-anchor derivation engine), so it's trivially unit-testable and free
  * to run anywhere (Rule 1).
  *
- * PRIVACY: this first cut derives ONLY from anchor/wedding dates + fixed
- * holidays — zero PII, no birthdates. Milestone birthdays arrive with the
- * counsel-gated dependent People layer (PR-D); they are deliberately absent here.
+ * PRIVACY: `buildYearMoments` derives ONLY from anchor/wedding dates + fixed
+ * holidays — zero PII, no birthdates. `buildSelfMoments` (below) adds exactly
+ * ONE birthdate: the signed-in person's OWN, shown only to themselves. Somebody
+ * ELSE's birthdate still arrives with the counsel-gated dependent People layer
+ * (PR-D) and is deliberately absent from both.
  */
 import {
   nextAnniversary,
   nextMonthsary,
   nextOccurrence,
+  nextBirthday,
+  milestoneAges,
   parseISO,
   leadTimeFor,
   type NudgeTier,
+  type Sex,
 } from './event-anchor';
 
 export type MomentEvent = {
@@ -317,4 +322,85 @@ export function buildYearMoments(
   return out
     .filter((m) => m.daysUntil >= 0 && m.daysUntil <= withinDays)
     .sort((a, b) => a.daysUntil - b.daysUntil || a.label.localeCompare(b.label));
+}
+
+/** The signed-in person's own profile fields the year derivation can use. */
+export type SelfForMoments = {
+  /** `users.birth_date` — THEIR OWN, typed by them into their own profile. */
+  birth_date: string | null;
+  /** `users.sex` — optional; only narrows which ages count as milestones. */
+  sex?: Sex;
+};
+
+/**
+ * THE ONE DATE EVERY ACCOUNT HAS THAT COMES BACK EVERY YEAR — the signed-in
+ * person's own birthday.
+ *
+ * ── WHY THIS EXISTS (owner, 2026-08-15) ─────────────────────────────────────
+ * *"we used to have a plan. for events that are upcoming for them. based on
+ * their account. events that are celebrated always."* The plan shipped and was
+ * silent, because every moment `buildYearMoments` can produce is derived inside
+ * its `for (const e of events)` loop: with no events there are no moments, and
+ * "celebrated always" had nothing to stand on. Meanwhile the profile has asked
+ * for a birthday since it was built — *"Optional — so we can greet you on your
+ * day 🎂"* — and the ADMIN social queue already reads it to greet people, so
+ * the platform was using the date on the user's behalf and never showing it
+ * back to them.
+ *
+ * ── WHY IT IS NOT COUNSEL-GATED, unlike every other birthdate here ──────────
+ * This is the person's OWN date, typed by them into their own profile, rendered
+ * only on their own screens. That is the self-consented Phase-1 slate of the
+ * Family Life-OS plan (§D Phase 1 item 1), explicitly un-gated — as opposed to
+ * `dependents.birth_date` (somebody else's, often a minor's), which stays
+ * behind `dependentPeopleEnabled()` + counsel. **Do not widen this to read any
+ * other person's birthdate.** `people.birth_date` in particular has no writer
+ * in the app and is a third party's; it is not a shortcut to a fuller year.
+ *
+ * ── WHY IT IS NOT GATED ON `public_greeting_opt_in` ─────────────────────────
+ * That flag governs Setnayan greeting somebody PUBLICLY (the admin social
+ * queue selects on it, and must keep doing so). Showing you your own birthday
+ * on your own home publishes nothing, so gating on it would hide a person's
+ * date from the one person it is already known to.
+ *
+ * ── SHAPE ───────────────────────────────────────────────────────────────────
+ * ONE line, not two: the next birthday, marked as a milestone when its age
+ * lands on the PH ladder (1 · 7 · 18F/21M · 60 — `milestoneAges`). Emitting
+ * both an "ordinary" and a "milestone" row would print the same date twice.
+ * `eventId` is null because a birthday is a SUGGESTION until the person taps to
+ * plan it — the same go-signal rule the rest of this module obeys, and the
+ * reason nothing here is ever auto-created.
+ *
+ * Pure: the caller supplies the date, this module stores nothing.
+ */
+export function buildSelfMoments(
+  self: SelfForMoments | null,
+  todayISO: string,
+  opts: { withinDays?: number } = {},
+): YearMoment[] {
+  const withinDays = opts.withinDays ?? 366;
+  const birthISO = self?.birth_date ?? null;
+  if (!birthISO) return [];
+
+  const next = nextBirthday(birthISO, todayISO);
+  // `age < 1` is not a real birthday to celebrate — it means the stored date is
+  // today's year or in the future (a typo, or a date picker's default). Showing
+  // "turning 0" would be worse than showing nothing.
+  if (!next || next.age < 1) return [];
+
+  const isMilestone = milestoneAges(self?.sex ?? null).includes(next.age);
+  const daysUntil = daysBetween(todayISO, next.dateISO);
+  if (daysUntil < 0 || daysUntil > withinDays) return [];
+
+  return [
+    {
+      dateISO: next.dateISO,
+      daysUntil,
+      label: isMilestone ? `Your ${ordinal(next.age)} birthday` : `Your birthday — turning ${next.age}`,
+      detail: isMilestone ? 'A milestone year' : 'Every year',
+      kind: isMilestone ? 'milestone' : 'recurring',
+      eventId: null,
+      isMilestone,
+      tier: leadTimeFor('birthday', isMilestone ? next.age : null).tier,
+    },
+  ];
 }

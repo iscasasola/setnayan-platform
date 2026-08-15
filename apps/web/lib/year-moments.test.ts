@@ -10,9 +10,11 @@ import assert from 'node:assert/strict';
 
 import {
   buildYearMoments,
+  buildSelfMoments,
   ordinal,
   CALENDAR_HOLIDAYS,
   type MomentEvent,
+  type SelfForMoments,
   type YearMoment,
 } from './year-moments';
 
@@ -247,4 +249,98 @@ test('a NON-recurring generic event produces no moment', () => {
 test('archived events produce no moments', () => {
   const ev: MomentEvent = { ...base, anchor_date: '2026-01-17', anchor_origin: 'wedding', recurs: true, archived: true };
   assert.equal(buildYearMoments([ev], '2026-07-12', { includeHolidays: false }).length, 0);
+});
+
+// ── buildSelfMoments — the account's OWN birthday ────────────────────────────
+// The one moment that exists before any event does. Every case below is the
+// PURE derivation; the callers' reads are asserted in year-door.test.ts.
+
+/** The single self moment, asserted present. */
+function selfOne(self: SelfForMoments | null, today: string): YearMoment {
+  const m = buildSelfMoments(self, today)[0];
+  assert.ok(m, 'expected one self moment');
+  return m;
+}
+
+test('no birthdate ⇒ no self moment (and null input is safe)', () => {
+  assert.equal(buildSelfMoments(null, '2026-08-15').length, 0);
+  assert.equal(buildSelfMoments({ birth_date: null }, '2026-08-15').length, 0);
+  assert.equal(buildSelfMoments({ birth_date: '' }, '2026-08-15').length, 0);
+});
+
+test('an ordinary birthday is one quiet line with the age you turn', () => {
+  const m = selfOne({ birth_date: '1992-12-04' }, '2026-08-15');
+  assert.equal(m.dateISO, '2026-12-04');
+  assert.equal(m.label, 'Your birthday — turning 34');
+  assert.equal(m.detail, 'Every year');
+  assert.equal(m.kind, 'recurring');
+  assert.equal(m.isMilestone, false);
+  assert.equal(m.tier, 'light');
+  // A suggestion, never an event — the go-signal rule.
+  assert.equal(m.eventId, null);
+});
+
+test('it rolls to NEXT year once this year’s birthday has passed', () => {
+  const m = selfOne({ birth_date: '1992-03-01' }, '2026-08-15');
+  assert.equal(m.dateISO, '2027-03-01');
+  assert.equal(m.label, 'Your birthday — turning 35');
+});
+
+test('the birthday ON the day itself still shows, at zero days', () => {
+  const m = selfOne({ birth_date: '1992-08-15' }, '2026-08-15');
+  assert.equal(m.dateISO, '2026-08-15');
+  assert.equal(m.daysUntil, 0);
+});
+
+test('a 60th is a milestone: different label, different detail, grand tier', () => {
+  const m = selfOne({ birth_date: '1966-10-02' }, '2026-08-15');
+  assert.equal(m.label, 'Your 60th birthday');
+  assert.equal(m.detail, 'A milestone year');
+  assert.equal(m.kind, 'milestone');
+  assert.equal(m.isMilestone, true);
+  assert.equal(m.tier, 'grand');
+});
+
+test('sex narrows the debut rung: 18 counts for female, 21 for male', () => {
+  // Turning 18 in the window.
+  assert.equal(selfOne({ birth_date: '2008-10-02', sex: 'female' }, '2026-08-15').isMilestone, true);
+  assert.equal(selfOne({ birth_date: '2008-10-02', sex: 'male' }, '2026-08-15').isMilestone, false);
+  // Turning 21 in the window.
+  assert.equal(selfOne({ birth_date: '2005-10-02', sex: 'male' }, '2026-08-15').isMilestone, true);
+  assert.equal(selfOne({ birth_date: '2005-10-02', sex: 'female' }, '2026-08-15').isMilestone, false);
+});
+
+test('unknown sex treats BOTH 18 and 21 as milestones — never guesses', () => {
+  assert.equal(selfOne({ birth_date: '2008-10-02' }, '2026-08-15').isMilestone, true);
+  assert.equal(selfOne({ birth_date: '2005-10-02', sex: null }, '2026-08-15').isMilestone, true);
+});
+
+test('an ordinary year between rungs is NOT a milestone', () => {
+  assert.equal(selfOne({ birth_date: '1996-10-02' }, '2026-08-15').isMilestone, false); // turning 30
+});
+
+test('a Feb-29 birthday lands on Feb 28 in a non-leap year', () => {
+  const m = selfOne({ birth_date: '1996-02-29' }, '2026-08-15');
+  assert.equal(m.dateISO, '2027-02-28');
+});
+
+test('a birthdate in the FUTURE (or this year) produces nothing — never "turning 0"', () => {
+  // A date-picker default or a typo. age would be 0 on the next occurrence.
+  assert.equal(buildSelfMoments({ birth_date: '2026-12-04' }, '2026-08-15').length, 0);
+  assert.equal(buildSelfMoments({ birth_date: '2030-01-01' }, '2026-08-15').length, 0);
+});
+
+test('a garbage birthdate produces nothing rather than throwing', () => {
+  assert.equal(buildSelfMoments({ birth_date: 'not-a-date' }, '2026-08-15').length, 0);
+});
+
+test('withinDays clips the self moment like every other', () => {
+  // Birthday ~3 months out; a 30-day window must not include it.
+  assert.equal(buildSelfMoments({ birth_date: '1992-11-20' }, '2026-08-15', { withinDays: 30 }).length, 0);
+  assert.equal(buildSelfMoments({ birth_date: '1992-11-20' }, '2026-08-15').length, 1);
+});
+
+test('a person with NO events still gets a moment — the whole point', () => {
+  assert.equal(buildYearMoments([], '2026-08-15', { includeHolidays: false }).length, 0);
+  assert.equal(buildSelfMoments({ birth_date: '1992-12-04' }, '2026-08-15').length, 1);
 });

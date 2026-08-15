@@ -3,7 +3,13 @@ import Link from 'next/link';
 import { ArrowLeft, CalendarHeart, Sparkles, Gift } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
-import { buildYearMoments, type MomentEvent, type YearMoment } from '@/lib/year-moments';
+import {
+  buildYearMoments,
+  buildSelfMoments,
+  type MomentEvent,
+  type SelfForMoments,
+  type YearMoment,
+} from '@/lib/year-moments';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { buildDependentMoments, type DependentForMoments } from '@/lib/dependent-moments';
 import { buildDependentRiteMoments, type DependentForRites } from '@/lib/faith-rites';
@@ -108,7 +114,18 @@ export default async function YearPage() {
     ];
   }
 
-  const moments = [...buildYearMoments(events, today), ...dependentMoments].sort(
+  // Their OWN birthday — the one date an account carries before it carries a
+  // single event. Un-gated on purpose: it is self-consented data on the
+  // person's own screen, unlike the dependents above. See buildSelfMoments.
+  const { data: selfRow } = await supabase
+    .from('users')
+    .select('birth_date, sex')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  const selfMoments = buildSelfMoments((selfRow as SelfForMoments | null) ?? null, today);
+
+  const moments = [...buildYearMoments(events, today), ...selfMoments, ...dependentMoments].sort(
     (a, b) => a.daysUntil - b.daysUntil || a.label.localeCompare(b.label),
   );
   const nudges = moments.filter((m) => m.isMilestone);
@@ -130,6 +147,19 @@ export default async function YearPage() {
           on your plate yet; tap one when you’re ready to plan it.
         </p>
       </header>
+
+      {/* The one date this page can offer before the account has any events —
+          and the only reason it would be missing is that nobody has typed it.
+          Shown only when it IS missing, so it disappears the moment it is
+          answered rather than nagging someone who already did. */}
+      {selfMoments.length === 0 ? (
+        <p className="sn-row mt-6 px-4 py-3 text-sm text-ink/65">
+          <Link className="font-medium text-ink underline underline-offset-4" href="/dashboard/profile">
+            Add your birthday
+          </Link>{' '}
+          and it will be here every year.
+        </p>
+      ) : null}
 
       {nudges.length > 0 ? (
         <section className="mt-8">

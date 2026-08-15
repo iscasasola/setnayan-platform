@@ -25,6 +25,9 @@ import {
   type EditorialData,
   type EditorialOrderKey,
 } from './data';
+// From the pure module, not the re-export in `./data` — same predicate, but this
+// path carries no `server-only`, so the guard stays reachable to a unit test.
+import { isSampleEditorialId } from './sample-ids';
 import {
   editorialPhotoBlocks,
   editorialGalleryAnchorKey,
@@ -166,17 +169,32 @@ export async function EditorialContent({
   // (animates iff they own the paid ANIMATED_MONOGRAM). Best-effort + wrapped so
   // this component keeps its "never throws" contract; null → the text-circle
   // fallback below. Admin client: the editorial is publicly viewable.
+  /*
+    🔴 A CURATED SAMPLE HAS NO EVENT ROW, SO IT MUST NOT BE LOOKED UP.
+    `loadEditorialData` above already returns the fixture without touching the
+    database — but this query and the perk probe below carried straight on with
+    the same id, and `sample-maria-and-juan` is not a UUID. Postgres rejected
+    both (`22P02`) on every render of all six sample stories from 2026-07-31.
+    Nothing looked wrong, because null is exactly the right answer for a sample
+    (the fixture's own monogram draws below), which is why it ran for a
+    fortnight — it cost two doomed round trips and two red 400s per page in the
+    log a real fault has to be spotted in. The predicate lives beside the
+    fixture table so a seventh sample cannot teach only half the code.
+  */
+  const isSample = isSampleEditorialId(eventId);
   let mono: HeroMonogramData | null = null;
-  try {
-    const admin = createAdminClient();
-    const { data: monoRow } = await admin
-      .from('events')
-      .select(HERO_MONOGRAM_COLUMNS)
-      .eq('event_id', eventId)
-      .maybeSingle();
-    mono = await resolveEventMonogram(admin, eventId, monoRow);
-  } catch {
-    mono = null;
+  if (!isSample) {
+    try {
+      const admin = createAdminClient();
+      const { data: monoRow } = await admin
+        .from('events')
+        .select(HERO_MONOGRAM_COLUMNS)
+        .eq('event_id', eventId)
+        .maybeSingle();
+      mono = await resolveEventMonogram(admin, eventId, monoRow);
+    } catch {
+      mono = null;
+    }
   }
 
   // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when ACTIVE (admin-approved), the
@@ -187,11 +205,18 @@ export async function EditorialContent({
   // wrapped to keep this component's "never throws" contract → false (keep the
   // watermark) on any error. eventCoupleWebsiteProActive already
   // graceful-degrades on orders-table drift; the catch guards the rest.
+  //
+  // 🔴 SKIPPED FOR A CURATED SAMPLE, same reason as the monogram above: this
+  // probes `orders` by event id, and a sample's id is a sentinel string, not a
+  // UUID. `false` (keep the watermark) is both the pre-existing behaviour for a
+  // sample and the right one — a fixture has bought nothing.
   let hideWatermark = false;
-  try {
-    hideWatermark = await eventCoupleWebsiteProActive(createAdminClient(), eventId);
-  } catch {
-    hideWatermark = false;
+  if (!isSample) {
+    try {
+      hideWatermark = await eventCoupleWebsiteProActive(createAdminClient(), eventId);
+    } catch {
+      hideWatermark = false;
+    }
   }
 
   return (

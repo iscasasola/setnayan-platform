@@ -34,6 +34,7 @@ import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captchaOptions, captchaTokenFromForm, isCaptchaRefusal } from '@/lib/turnstile';
 import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
 import { captureWindowState } from '@/lib/papic-window';
+import { eventAcceptsNewCaptures } from '@/lib/event-accepts-captures';
 
 // Server-side 10-second clip cap (owner 2026-07-22 · §0 · not configurable). The
 // client enforces 10s with a recorder timer; this tolerance (10.5s) absorbs
@@ -337,6 +338,29 @@ export async function recordSeatCapture(
       }
       if (windowState === 'closed') {
         return { ok: false, error: 'capture_window_closed' };
+      }
+
+      // ── PUT AWAY = the shutter stops (owner 2026-08-16) ─────────────────
+      // Placed HERE, beside the window gate, and NOT inside the credit
+      // reservation below: that call is skipped entirely for an event holding
+      // the Papic Unlock pass, so a gate there would be missing on exactly the
+      // events that paid the most. Fails OPEN — see the helper for why a read
+      // failure must never stop a live wedding's cameras.
+      // Its own admin client: the one above lives inside the `if (!cameraTier)`
+      // block and is long out of scope here. Wrapped, because an unavailable
+      // admin client must take the same fail-OPEN branch as an unreadable row —
+      // a config error must never be the thing that stops a wedding's cameras.
+      let acceptsCaptures = true;
+      try {
+        acceptsCaptures = await eventAcceptsNewCaptures(
+          createAdminClient(),
+          seat.event_id as string,
+        );
+      } catch {
+        acceptsCaptures = true;
+      }
+      if (!acceptsCaptures) {
+        return { ok: false, error: 'event_put_away' };
       }
 
       // Papic Unlock (the "Unlock all of Papic" pass · PR9 #2269 grants the

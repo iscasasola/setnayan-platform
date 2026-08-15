@@ -1,4 +1,5 @@
 import { NextResponse, after } from 'next/server';
+import { eventAcceptsNewCaptures } from '@/lib/event-accepts-captures';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
@@ -375,6 +376,15 @@ export async function POST(req: Request) {
   // a 20/day cap this surface has never had — so a guest who never bought
   // anything must not touch that path. This keeps the whole feature invisible
   // to everyone except the people who paid for it.
+  // ── PUT AWAY = the shutter stops (owner 2026-08-16) ─────────────────────
+  // The SECOND of the two capture entry points; they share no code path, which
+  // is why the rule lives in one helper rather than being written twice. Fails
+  // OPEN on an unreadable row — see the helper for why a read failure must
+  // never stop a live celebration's cameras.
+  if (!(await eventAcceptsNewCaptures(admin, session.event_id))) {
+    return NextResponse.json({ status: 'event_put_away' }, { status: 409 });
+  }
+
   const ownCamera = await resolveGuestOwnCamera(admin, session.event_id, session.guest_id);
   const spendOwn = (ownCamera?.dedicated ?? 0) > 0;
 

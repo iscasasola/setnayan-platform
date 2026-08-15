@@ -14,6 +14,7 @@ import { buildChapterTeaserPlan, type TeaserPlan } from '@/lib/creator-teaser';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { R2_BUCKETS } from '@/lib/r2';
 import { notifyFollowersOfNewChapter } from '@/lib/creator-notify';
+import { resolveEventTie } from '@/lib/chapter-event-participation';
 
 const SURFACE = '/dashboard/creator';
 
@@ -162,18 +163,10 @@ async function readEventLink(
   const picked = typeof raw === 'string' ? raw.trim() : '';
   if (!picked) return null; // "Not about one of my celebrations."
 
-  const { data, error } = await supabase
-    .from('event_members')
-    .select('event_id')
-    .eq('user_id', userId)
-    .eq('event_id', picked)
-    .eq('member_type', 'couple')
-    .maybeSingle();
-  // 🪤 A REJECTED QUERY IS NOT A THROWN ERROR — Supabase resolves with
-  // { error }, so an unchecked read would let a failed permission check look
-  // like a successful one. Refuse, and say why.
-  if (error) fail('Could not check that celebration — please try again.');
-  if (!data) fail('You can only attach a celebration you host.');
+  // 🔒 The tie is proven server-side — a form can be posted with any id, and
+  // attaching surfaces that day's name, date, venue and booked suppliers.
+  const tie = await resolveEventTie(userId, picked);
+  if (!tie) fail('You can only attach a celebration you host or worked on.');
   return picked;
 }
 

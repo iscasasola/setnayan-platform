@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
+import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fees.server';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
@@ -270,6 +271,14 @@ export default async function VendorDashboardLayout({
   // an unanswered discount offer past its window RELEASES the vendor's held reach
   // token (refund). Global + idempotent; any vendor's visit sweeps the fleet.
   after(() => maybeSweepExpiredCreatorOffers().catch(() => {}));
+  // PR-H · nudge at day 5, close at day 7. Mounted in BOTH layouts on purpose:
+  // the DB compare-and-swap picks exactly one winner per gap window, and an
+  // admin-only mount would wait for an admin page view — production is
+  // pre-launch-quiet, so a supplier's 7-day fuse would hang on somebody
+  // opening /admin. NOT flag-gated: closing a stale request is safe either
+  // way, and a gated sweep strands every in-flight request when the flag
+  // goes back off.
+  after(() => maybeRunLockRequestExpiry().catch(() => {}));
   // Booking-fee notification sweep (CRON-FREE · surfacing layer). Because the
   // fee-charge create path is a parallel lane we must NOT hook, the vendor's
   // "your booking fee is due" notification is DERIVED post-response from the

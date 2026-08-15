@@ -334,6 +334,10 @@ test('all four cron-free sweeps still ride on this layout', () => {
     'maybeSweepExpiredCreatorOffers',
     'maybeSweepVendorBookingFeeNotifications',
     'sweep_vendor_tier_expiry',
+    // PR-H — the day-5 nudge and the 7-day close. It rides BOTH layouts because
+    // production is pre-launch-quiet: an admin-only mount would hang a
+    // supplier's deadline on somebody opening /admin.
+    'maybeRunLockRequestExpiry',
   ]) {
     assert.ok(
       new RegExp(`\\b${sweep}\\b`).test(src),
@@ -342,7 +346,7 @@ test('all four cron-free sweeps still ride on this layout', () => {
   }
   assert.equal(
     (src.match(/\bafter\(/g) ?? []).length,
-    4,
+    5,
     'the count of post-response jobs changed',
   );
 });

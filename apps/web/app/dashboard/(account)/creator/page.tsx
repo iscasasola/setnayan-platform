@@ -781,15 +781,20 @@ function ChapterFields({
             </>
           )}
         </label>
-        <label className="block space-y-1">
-          <span className="block text-xs font-medium text-ink/80">Vendor ids</span>
-          <input
-            name="vendor_ids"
-            defaultValue={(substrate?.vendor_ids ?? []).join(', ')}
-            placeholder="optional — comma-separated; shown as vendor cards on your published chapter"
-            className="input-field"
-          />
-        </label>
+        {/* 🔴 THE LAST MACHINE-ID BOX IS GONE. It asked for comma-separated
+            supplier ids; production's one published chapter carries none, which
+            is the whole story of whether anyone would ever fill it.
+            🔑 The day already knows who worked it — the product recorded exactly
+            that in the booking, and used it ONLY to check a list the author had
+            to type. It is now the SOURCE, so attaching a celebration is the one
+            action that makes the suppliers appear. Narrowing which of them show
+            is a later refinement; nobody can narrow a list they never had. */}
+        <p className="text-[11px] text-ink/55">
+          The suppliers who worked your celebration appear on your published
+          chapter on their own, once you attach the day above — there&rsquo;s
+          nothing to type. Anyone your story merely mentions in writing stays
+          plain text, never a bookable card.
+        </p>
       </fieldset>
     </>
   );

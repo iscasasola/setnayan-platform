@@ -10,7 +10,7 @@
  *
  * ─── IT PUSHES, IT DOES NOT SWAP ──────────────────────────────────────────
  * This is the `railContext` slot of the shared shell. Everything above it —
- * Home, Stories, Find a supplier, and the person's own My Home rows — STAYS
+ * Home, Stories, Marketplace, and the person's own My Home rows — STAYS
  * EXACTLY WHERE IT WAS when you walk into HQ. That is the entire difference
  * between one shell and two, and it is why this is a fragment of rows rather
  * than a component that owns a rail.

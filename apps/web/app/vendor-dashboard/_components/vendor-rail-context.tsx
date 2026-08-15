@@ -10,7 +10,7 @@
  *
  * ─── IT PUSHES; IT DOES NOT SWAP ─────────────────────────────────────────
  * This mounts into `<FrontDoorShell railContext>`. Everything above it — Home,
- * Stories, Find a supplier, your events, your Alaala, your story, your shop,
+ * Stories, Marketplace, your events, your Alaala, your story, your shop,
  * HQ — stays exactly where it was. That is the entire difference between one
  * shell and two, and it is why a supplier moving between their shop and their
  * own account never changes product. The binding drawing does the same

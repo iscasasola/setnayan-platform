@@ -792,10 +792,20 @@ export function FrontDoorShell({
           rejected on 2026-07-30 — "the search bar is still on top" — after the
           launcher spent its two most valuable rows on chrome. The app variant
           keeps everything on ONE line at every width, which is what that
-          ruling settled. */}
+          ruling settled.
+
+          🔴 IT RENDERS THE SAME CONTROL AS THE DESKTOP ROW, NOT A SECOND
+          ANSWER. This line read `<SearchBox />` outright until 2026-08-16, so
+          a doorway page — which hands in the palette — showed the palette at
+          ≥701px and the MARKETPLACE FORM below it, because `.fd-searchwrap`
+          is `display:none` on a phone and this row takes over. Measured live
+          on all seven product doorways: two searches, one page, decided by
+          how wide the window happened to be. The `?? <SearchBox />` fallback
+          is the same one the desktop row uses, so a page that hands in
+          nothing is byte-identical to before. */}
       {inApp ? null : (
         <div className="fd-searchrow">
-          <SearchBox />
+          {search ?? <SearchBox />}
         </div>
       )}
       </>

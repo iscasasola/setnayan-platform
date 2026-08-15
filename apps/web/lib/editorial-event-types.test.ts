@@ -110,3 +110,20 @@ test('a ruling, if one lands, still excludes exactly what it names', () => {
   assert.equal(withRuling(['date', 'hangout'], 'wedding'), true);
   assert.equal(withRuling(['date', 'hangout'], 'debut'), true);
 });
+
+test('the owner ruled all sixteen kinds stay eligible — the set is empty', () => {
+  // Owner 2026-08-15: "making it public will be the user's decision ... so yes."
+  // Whether a day is public belongs to the people whose day it is
+  // (events.landing_page_visibility), NOT to a list of approved occasion types.
+  // 🔑 An entry here would say "nobody may ever publish this kind of day,
+  // whatever they choose" — stronger than anything the product claims today. So
+  // adding one must be a deliberate act that also edits this test, never a
+  // quiet append.
+  assert.deepEqual(
+    [...EDITORIAL_EXCLUDED_EVENT_TYPES],
+    [],
+    'a kind was excluded without a new owner ruling',
+  );
+  assert.equal(editorialAllowsEventType('date'), true);
+  assert.equal(editorialAllowsEventType('hangout'), true);
+});

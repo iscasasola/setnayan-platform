@@ -51,6 +51,8 @@ type ChapterRow = {
   embed_url: string | null;
   embed_provider: EmbedProvider | null;
   substrate: Record<string, unknown> | null;
+  /** The celebration this chapter is about — the column that had no writer. */
+  event_id: string | null;
   teaser_r2_key: string | null;
   status: ChapterStatus;
   published_at: string | null;
@@ -164,6 +166,51 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
   );
 }
 
+/**
+ * The celebrations this account may attach a chapter to — the ones they HOST.
+ *
+ * ⚠ HOSTS ONLY, AND THAT IS THE WHOLE LIST FOR NOW. A guest or a booked
+ * supplier legitimately wants to tell the story of a day they attended, but
+ * that needs the couple's yes — a request-and-approve step that does not exist
+ * yet. An empty list is the honest answer until it does; the alternative is
+ * granting somebody a public page hung off another family's wedding.
+ *
+ * 🪤 A failed read must not look like "you host nothing". It returns an empty
+ * list either way, so the picker degrades to the same copy a genuine
+ * non-host sees — acceptable because the ACTION re-checks membership before
+ * storing anything, so a lost list can never become a wrong link.
+ */
+async function loadLinkableEvents(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<LinkableEvent[]> {
+  const { data, error } = await supabase
+    .from('event_members')
+    .select('event_id, events:event_id ( display_name, event_date, event_type )')
+    .eq('user_id', userId)
+    .eq('member_type', 'couple');
+  if (error || !data) return [];
+
+  return data
+    .map((row) => {
+      const embedded = (row as { events?: unknown }).events;
+      const ev = (Array.isArray(embedded) ? embedded[0] : embedded) as
+        | { display_name?: string | null; event_date?: string | null; event_type?: string | null }
+        | undefined;
+      const name = ev?.display_name?.trim();
+      // The date is what tells two celebrations apart when they share a name,
+      // and it is printed as a plain day string — never parsed into a Date,
+      // which is how a 12 Dec wedding once read as 11 Dec west of Greenwich.
+      const day = ev?.event_date ? ` · ${ev.event_date.slice(0, 10)}` : '';
+      const kind = ev?.event_type ? ev.event_type.replace(/_/g, ' ') : 'celebration';
+      return {
+        event_id: (row as { event_id: string }).event_id,
+        label: `${name || `Your ${kind}`}${day}`,
+      };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
 async function CreatorBody({
   supabase,
   userId,
@@ -175,15 +222,16 @@ async function CreatorBody({
   slug: string | null;
   publicProfileEnabled: boolean;
 }) {
-  const [{ data }, inbox] = await Promise.all([
+  const [{ data }, inbox, myEvents] = await Promise.all([
     supabase
       .from('creator_chapters')
       .select(
-        'chapter_id, public_id, title, kind, body, embed_url, embed_provider, substrate, teaser_r2_key, status, published_at, updated_at',
+        'chapter_id, public_id, title, kind, body, embed_url, embed_provider, substrate, event_id, teaser_r2_key, status, published_at, updated_at',
       )
       .eq('user_id', userId)
       .order('updated_at', { ascending: false }),
     fetchCreatorInbox(supabase, userId),
+    loadLinkableEvents(supabase, userId),
   ]);
   const chapters = (data ?? []) as ChapterRow[];
   const publishedChapters = chapters.filter((c) => c.status === 'published');
@@ -209,7 +257,7 @@ async function CreatorBody({
       <section className="sn-tile mb-8 space-y-4">
         <h2 className="sn-sec">New chapter</h2>
         <form action={createChapter} className="space-y-4">
-          <ChapterFields />
+          <ChapterFields myEvents={myEvents} />
           <SubmitButton
             className="button-primary inline-flex items-center justify-center gap-2"
             pendingLabel="Creating…"
@@ -242,6 +290,7 @@ async function CreatorBody({
                   slug={slug}
                   publicProfileEnabled={publicProfileEnabled}
                   teaserUrl={teaserUrls.get(c.chapter_id) ?? null}
+                  myEvents={myEvents}
                 />
               </li>
             ))}
@@ -434,11 +483,13 @@ function ChapterCard({
   slug,
   publicProfileEnabled,
   teaserUrl,
+  myEvents,
 }: {
   chapter: ChapterRow;
   slug: string | null;
   publicProfileEnabled: boolean;
   teaserUrl: string | null;
+  myEvents: LinkableEvent[];
 }) {
   const substrate = (c.substrate ?? {}) as {
     papic_gallery_id?: string;
@@ -524,7 +575,7 @@ function ChapterCard({
         </summary>
         <form action={updateChapter} className="mt-3 space-y-4">
           <input type="hidden" name="chapter_id" value={c.chapter_id} />
-          <ChapterFields chapter={c} substrate={substrate} />
+          <ChapterFields chapter={c} substrate={substrate} myEvents={myEvents} />
           <SubmitButton
             className="button-primary inline-flex items-center justify-center gap-2"
             pendingLabel="Saving…"
@@ -606,12 +657,17 @@ function ChapterCard({
   );
 }
 
+/** A celebration this account hosts, offered in the picker. */
+type LinkableEvent = { event_id: string; label: string };
+
 function ChapterFields({
   chapter,
   substrate,
+  myEvents = [],
 }: {
   chapter?: ChapterRow;
   substrate?: { papic_gallery_id?: string; vendor_ids?: string[] };
+  myEvents?: LinkableEvent[];
 }) {
   return (
     <>
@@ -682,19 +738,48 @@ function ChapterFields({
         <legend className="px-1 text-xs font-medium text-ink">
           Behind the chapter — all optional
         </legend>
+        {/* 🔴 THIS REPLACED A BOX THAT ASKED FOR A RAW EVENT ID — and a second
+            one beside it asking for comma-separated vendor ids. Nobody ever
+            filled either: production's one published chapter carries neither,
+            so "the real day underneath" was a door that opened for nobody.
+            🔑 The day is asked ONCE, here. The gallery value the teaser reads
+            is derived from this answer in the action — never a second box. */}
         <label className="block space-y-1">
-          <span className="block text-xs font-medium text-ink/80">Papic gallery id</span>
-          <input
-            name="papic_gallery_id"
-            maxLength={200}
-            defaultValue={substrate?.papic_gallery_id ?? ''}
-            placeholder="optional — the event id whose Papic gallery seeds the teaser"
-            className="input-field"
-          />
-          <span className="block text-[11px] text-ink/55">
-            Set this to power the owned-music teaser — it’s built from this
-            gallery’s photos. Only galleries you have access to can be used.
+          <span className="block text-xs font-medium text-ink/80">
+            Which celebration is this about?
           </span>
+          {myEvents.length > 0 ? (
+            <>
+              <select
+                name="event_id"
+                defaultValue={chapter?.event_id ?? substrate?.papic_gallery_id ?? ''}
+                className="input-field"
+              >
+                <option value="">Not about one of my celebrations</option>
+                {myEvents.map((e) => (
+                  <option key={e.event_id} value={e.event_id}>
+                    {e.label}
+                  </option>
+                ))}
+              </select>
+              <span className="block text-[11px] text-ink/55">
+                Attach the day and your chapter stands on it — its photos, and
+                the suppliers who were really there. Setnayan’s own write-up of
+                the same day will link to your chapter, and yours to it. You can
+                detach it at any time; your film and your words stay.
+              </span>
+            </>
+          ) : (
+            <>
+              <input type="hidden" name="event_id" value="" />
+              <span className="block text-[11px] text-ink/55">
+                You don’t host a celebration on Setnayan yet, so there’s nothing
+                to attach — your chapter stands on its own. If you were a guest
+                or a supplier at someone else’s day, asking them to link it is
+                coming.
+              </span>
+            </>
+          )}
         </label>
         <label className="block space-y-1">
           <span className="block text-xs font-medium text-ink/80">Vendor ids</span>

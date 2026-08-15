@@ -39,7 +39,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSelectedLayoutSegment } from 'next/navigation';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { LogoMark } from '@/app/_components/brand-marks';
@@ -313,6 +313,17 @@ type Props = {
    * other.
    */
   bleed?: boolean;
+  /**
+   * Route segments (directory names under `app/(shell)/`) that should render
+   * full-bleed. Supplied by `AppRailShell` for the doorway variant only.
+   *
+   * 🔑 THE SHELL LIVES IN A LAYOUT NOW, so a page cannot hand it `bleed` — the
+   * layout renders above the page. The shell asks the router which segment is
+   * active instead, DURING RENDER, so the right geometry is in the first byte
+   * of the server HTML rather than corrected after paint. See
+   * `shell-bleed.ts` for the three alternatives and why each of them flashes.
+   */
+  bleedSegments?: readonly string[];
 };
 
 /** A count that failed to load says so. It NEVER says 0, and it never invents
@@ -337,6 +348,7 @@ export function FrontDoorShell({
   topBarSlot,
   search,
   bleed,
+  bleedSegments,
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -372,6 +384,15 @@ export function FrontDoorShell({
    */
   const MainEl = ownsMain ? 'div' : 'main';
   const pathname = usePathname();
+  /*
+    ⚠ `useSelectedLayoutSegment()` NOT `usePathname()`. The segment is the
+    directory directly under this layout, so it is stable against query strings
+    and against any nested route the page later grows. Read during render, so
+    the class is server-rendered — not applied in an effect after paint.
+    An explicit `bleed` prop still wins, for the signed-in trees.
+  */
+  const segment = useSelectedLayoutSegment();
+  const isBleed = bleed || (bleedSegments?.includes(segment ?? '') ?? false);
 
   /*
     HIDE ON SCROLL — the app's universal top-nav rule (owner 2026-06-15), and
@@ -1180,7 +1201,7 @@ export function FrontDoorShell({
           (this line) and every style keys off the CLASS, so nothing moves.
         */}
         <MainEl
-          className={bleed ? 'fd-main fd-bleed' : 'fd-main'}
+          className={isBleed ? 'fd-main fd-bleed' : 'fd-main'}
           inert={railOpen ? true : undefined}
         >
           {/*
@@ -1195,7 +1216,7 @@ export function FrontDoorShell({
           {ownsHeading ? null : (
             <h1 className="fd-sr-only">Setnayan — plan your event, keep it for life</h1>
           )}
-          <div className={bleed ? 'fd-col fd-bleed' : 'fd-col'}>{children}</div>
+          <div className={isBleed ? 'fd-col fd-bleed' : 'fd-col'}>{children}</div>
         </MainEl>
       </div>
       {/* The sign-in panel, when it is open. It portals to <body>, so where it

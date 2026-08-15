@@ -1,4 +1,3 @@
-import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 // Shared body scaffold for the standalone legal/compliance pages (privacy,
 // terms, refunds, cookies, acceptable-use).
 //
@@ -26,17 +25,21 @@ export function LegalLayout({
       The rail's small print points at Terms · Privacy · Acceptable use ·
       Cookies · Refunds, and every one of them threw the person out of the app.
 
-      🔑 ONE COMPONENT EDIT COVERS FIVE PAGES, because this layout already owns
-      both the <main> and the <h1> — which is exactly what `variant="doorway"`
-      expects to be handed. No page below needs to change its markup.
+      🔑 THE SHELL IS NO LONGER MOUNTED HERE. It lives in
+      `app/(shell)/layout.tsx` — one mount for the whole public group — because
+      only a LAYOUT survives navigation. Mounted in this component it sat inside
+      the subtree Next swaps, so the bar and rail were torn down and rebuilt on
+      every click. This file supplies the <main> and the <h1>, which is exactly
+      what the doorway variant expects to be handed.
 
-      ⚠ EACH PAGE STILL NEEDS ITS OWN `force-dynamic` AND ITS OWN
-      `loading.tsx`. A layout cannot set `dynamic` — it resolves nested-most
-      wins and the children traversal completes before a parent layout's
-      component is created — and a dynamic route with no loading boundary
-      prefetches an EMPTY tree. Five files each, not one.
+      🛑 AND THE PARAGRAPH THAT STOOD HERE WAS WRONG. It said "a layout cannot
+      set `dynamic` — it resolves nested-most wins and the children traversal
+      completes before a parent layout's component is created", so each page
+      needed its own copy. FALSE, and never tested: measured in a scratch build,
+      `force-dynamic` on a group layout alone moved its children from
+      `○ (Static)` to `ƒ (Dynamic)`. The five per-page directives are deleted
+      and the group layout carries one.
     */
-    <AppRailShell variant="doorway">
     <main className="min-h-dvh bg-cream">
       <article className="mx-auto w-full max-w-3xl space-y-6 px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <header className="space-y-2">
@@ -48,7 +51,6 @@ export function LegalLayout({
         {children}
       </article>
     </main>
-    </AppRailShell>
   );
 }
 

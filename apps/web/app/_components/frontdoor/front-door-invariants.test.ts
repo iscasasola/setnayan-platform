@@ -20,6 +20,16 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, '..', '..');
+/*
+  🔑 THE SHELLED PUBLIC ROUTES LIVE IN A ROUTE GROUP. `app/(shell)/` mounts the
+  shared shell once, in a layout, so it survives navigation. A route group is
+  INVISIBLE in the URL and PRESENT in the filesystem path — `/explore` still
+  serves from `app/(shell)/explore/page.tsx` — and that asymmetry is exactly
+  what broke seventeen guards on 2026-08-15. Resolve route directories through
+  this constant, never by joining APP directly.
+*/
+const SHELLED = join(APP, '(shell)');
+
 
 const SHELL = readFileSync(join(HERE, 'front-door-shell.tsx'), 'utf8');
 const FEED = readFileSync(join(HERE, 'front-door-feed.tsx'), 'utf8');
@@ -354,7 +364,7 @@ test('the rail and explore both read the shared folder count', () => {
     /FOLDER_SERVICE_COUNT/.test(DOOR_CODE + RAIL_DATA_CODE),
     'the front door must import the shared FOLDER_SERVICE_COUNT',
   );
-  const explore = code(readFileSync(join(APP, 'explore', 'page.tsx'), 'utf8'));
+  const explore = code(readFileSync(join(SHELLED, 'explore', 'page.tsx'), 'utf8'));
   assert.ok(
     /FOLDER_SERVICE_COUNT/.test(explore),
     'explore must use the shared FOLDER_SERVICE_COUNT',

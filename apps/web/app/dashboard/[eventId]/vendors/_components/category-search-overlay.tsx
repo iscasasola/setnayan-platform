@@ -21,7 +21,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { createPortal } from 'react-dom';
-import { saveVendorToPicks } from '@/app/explore/actions';
+import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import { haptic } from '@/lib/haptics';
 import { VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
 import {

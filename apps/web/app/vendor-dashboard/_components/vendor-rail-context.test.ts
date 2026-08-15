@@ -259,18 +259,67 @@ test('the shared rail is mounted, and the shop menu is pushed into it', () => {
   assert.match(src, /<VendorRailContext/, 'the shop menu component is not rendered');
 });
 
-test('SidebarShell is STILL mounted, standing its rail down rather than leaving', () => {
+test('the shop content still carries the view-transition name, on a <main>', () => {
+  /*
+    ⚠ THIS USED TO ASSERT `<SidebarShell>` WAS STILL MOUNTED. That component is
+    deleted (2026-08-15) — it had been rendering no `<aside>` at any width
+    since slice 2 and no top bar since slice 4, leaving it as a wrapper for the
+    three things below. The RULE did not go with it, so the assertion moved to
+    the wrapper that owns the job instead of being dropped.
+
+    `.sn-vt-page` is the only element in the app with
+    `view-transition-name: sn-page`; the phone's bottom-nav carousel freezes
+    the document around exactly it. ZERO leaves the tap animating NOTHING at
+    widths where the rail never paints; TWO makes the browser skip the
+    transition outright. And it must be a `<main>` — the shared shell yields
+    its landmark in the app variant, so a `<div>` here gives this tree none.
+  */
+  const src = code(read(LAYOUT));
+  const named = src.match(/\bsn-vt-page\b/g) ?? [];
+  assert.equal(
+    named.length,
+    1,
+    `expected exactly one sn-vt-page in the vendor layout, saw ${named.length}.`,
+  );
+  assert.match(
+    src,
+    /<main className="sn-vt-page"/,
+    'The named element is not a <main>; this tree would have no landmark.',
+  );
+  assert.equal(
+    (src.match(/<main\b/g) ?? []).length,
+    1,
+    'One landmark per page.',
+  );
+  assert.equal(
+    (src.match(/<aside\b/g) ?? []).length,
+    0,
+    'The vendor layout draws its own <aside> — that stacks a second rail ' +
+      'under the shared one at 1024+.',
+  );
+});
+
+test('the shop content still stands on the warm ground, and not on the slide', () => {
+  /*
+    🔑 THE ONE THAT WOULD HAVE SHOWN. This tree's outer <div> is `app-surface`
+    with NO background at all — `.sn-ambient` came from the deleted shell's own
+    root, inside the content column. Dropping it puts all 63 supplier screens
+    on plain white, with nothing thrown.
+
+    ⚠ It must stay a SEPARATE element from `.sn-vt-page`: merged, the painted
+    ground enters the view-transition snapshot and slides with the page.
+  */
   const src = code(read(LAYOUT));
   assert.match(
     src,
-    /<SidebarShell/,
-    'SidebarShell owns the `sn-vt-page` content <main> — the only element ' +
-      'carrying view-transition-name: sn-page, which the mobile bottom-nav ' +
-      'slide freezes the document around. Removing it to "convert the ' +
-      'desktop" breaks the phone carousel at widths where the rail never ' +
-      'renders. It must stay until session 9 retires it properly.',
+    /className="sn-ambient min-h-screen"/,
+    'The `.sn-ambient` ground is gone from the vendor content column.',
   );
-  assert.match(src, /sidebar=\{null\}/, 'two rails would render side by side at 1024+');
+  assert.doesNotMatch(
+    src,
+    /className="[^"]*\bsn-ambient\b[^"]*\bsn-vt-page\b|className="[^"]*\bsn-vt-page\b[^"]*\bsn-ambient\b/,
+    'The ground and the view-transition name are on the same element.',
+  );
 });
 
 test('all four cron-free sweeps still ride on this layout', () => {

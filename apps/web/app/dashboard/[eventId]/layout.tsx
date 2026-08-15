@@ -15,25 +15,16 @@ import { getLocale, makeT } from '@/lib/i18n';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
-import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { EventRailContext } from './_components/event-rail-context';
-import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { CustomerNavFab } from './_components/customer-nav-fab';
 import { CustomerSectionSubnav } from './_components/customer-section-subnav';
 import { getNavSlotMap } from '@/lib/nav-registry';
-import {
-  AccountSwitcher,
-  SwitcherPlaqueTrigger,
-} from '@/app/_components/account-switcher/account-switcher';
-import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
-import { eventInitials } from '@/lib/event-initials';
-import { EventMonogram } from '@/app/_components/event-monogram';
+import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { PromoFreeWindowBanner } from '@/app/_components/promo-free-window-banner';
-import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 type Props = {
   children: React.ReactNode;
@@ -41,52 +32,42 @@ type Props = {
 };
 
 /**
- * Event-scoped customer layout — v2.1 Navigation Phase 1 (customer doorway).
+ * Event-scoped customer layout — under the ONE shell.
  *
- * WHY: CLAUDE.md tenth 2026-05-28 row v2.1 brief canonical lock + 14th
- * 2026-05-28 row System Wiring Map audit + 2026-05-23 row 2 admin pattern
- * (PR #606 admin doorway shipped the SidebarShell + SidebarSection +
- * SidebarItem + BottomNav primitives). Phase 1 retires the legacy 5-tab
- * pill bar at apps/web/app/dashboard/[eventId]/_components/bottom-nav.tsx
- * (the file stays on disk for historical context only — no longer imported
- * here) and adopts the shared primitives for both desktop sidebar + mobile
- * BottomNav.
+ * STRUCTURE: `<AppRailShell>` owns the desktop split — the SAME rail a
+ * signed-in person saw on their events board, with the event's own menu
+ * PUSHED IN below their rows through `railContext`. It also owns the sticky
+ * top bar, into which this layout hands its own utility cluster through
+ * `topBarSlot`. Below 1024 the shell paints nothing at all and
+ * `<CustomerBottomNav>` is the whole navigation, exactly as before — the
+ * phone's bottom-bar grammar is locked.
  *
- * STRUCTURE: SidebarShell owns the desktop layout split (sidebar at lg+,
- * main content area with offset). topBar slot carries the AccountSwitcher
- * + utility cluster (Marketplace link · role-switch pill · unread bell ·
- * profile menu). Mobile chrome (CustomerBottomNav at bottom) is rendered
- * as a sibling of SidebarShell — both auto-hide / show via their own
- * breakpoint primitives (sidebar lg:flex, bottom-nav lg:hidden).
+ * ── WHAT WENT, AND WHERE ITS JOB WENT ─────────────────────────────────────
+ * `<SidebarShell>` + `<CustomerSidebar>` + `<DoorwaySidebarHeader>` are no
+ * longer mounted here, and from 2026-08-15 the shell does not exist at all.
+ * It shed its jobs over four slices and each was re-homed, never assumed:
  *
- * RETIRED from the previous layout shape:
- *   - Per-instance sticky top strip rendered inline. SidebarShell now
- *     owns the sticky top-bar slot; we just inject the AccountSwitcher +
- *     utilities into it.
- *   - <BottomNav> from ./_components/bottom-nav.tsx (legacy 5-tab pill +
- *     desktop sidebar variant). The new CustomerBottomNav uses the shared
- *     primitive and the new CustomerSidebar owns desktop nav structure.
- *   - <SidebarResizeHandle>. The legacy custom drag handle drove
- *     --sidebar-width on the document root for the legacy sidebar to
- *     consume. SidebarShell ships its own collapse/expand affordance
- *     (chevron in the sidebar footer + localStorage persistence under
- *     `setnayan.nav.sidebar.collapsed`). Resizable freeform width is
- *     deferred to a follow-up — the collapse toggle covers 95% of the
- *     "give me more reading room" use case.
- *   - `lg:-ml-60` outer-cancellation hack (removed 2026-06-14 chrome
- *     retirement). The legacy cream OuterDashboardHeader + its `lg:pl-60`
- *     gutter moved OUT of the shared parent layout into the `(account)`
- *     route group, so the parent no longer renders any chrome or gutter on
- *     event routes — there is nothing left to cancel. SidebarShell handles
- *     the desktop offset internally via --shell-main-offset. This is what
- *     killed the "old cream chrome flashes, then the paper chrome takes
- *     over" effect on event-route navigations (the cream shell used to paint
- *     server-side and be suppressed only by a client usePathname() guard).
+ *   · THE DESKTOP `<aside>` → the shared rail (slice 1, 2026-08-13).
+ *   · THE STICKY HIDE-ON-SCROLL BAR → the shared bar (slice 4, 2026-08-14),
+ *     which carries the same owner-locked rule (2026-06-15) for all five
+ *     signed-in trees at once.
+ *   · THE ACCOUNT MENU ON DESKTOP → the top bar's `<AccountSwitcher>`, now at
+ *     EVERY width. 🔒 It is this surface's only route to sign-out / profile /
+ *     Setnayan AI, so the `lg:hidden` it used to carry would have stranded all
+ *     three the moment the sidebar plaque stopped rendering.
+ *     `one-shell-event-rail.test.ts` fails if that class returns.
+ *   · `.sn-ambient`, `.sn-vt-page` AND THE `<main>` LANDMARK → the content
+ *     wrapper below. See the long note at the JSX; all three are silent
+ *     failures, and one of them only shows on a phone.
  *
- * AUTHORIZATION + DATA FETCHING preserved verbatim from the prior layout
- * — see in-flow comments at the membership check + the 5th-hotfix Promise.
- * all defensive wrapping. Nav Phase 1 is purely a chrome refactor; no
- * server-side semantics changed.
+ * ⚠ NOT re-homed, because it did not need to be: the collapse key
+ * (`setnayan.nav.sidebar.collapsed`), `--sidebar-width` and the `.sn-sidebar`
+ * glass fork all belonged to the panel that is gone. The rail has its own
+ * width behaviour (a 72px icon strip between 1024 and 1280) and its own rows.
+ *
+ * AUTHORIZATION + DATA FETCHING are untouched by any of that — see the
+ * in-flow comments at the membership check + the 5th-hotfix Promise. Every
+ * shell slice has been chrome only; no server-side semantics changed.
  */
 export default async function EventLayout({ children, params }: Props) {
   const { eventId } = await params;
@@ -297,38 +278,28 @@ export default async function EventLayout({ children, params }: Props) {
 
   const tr = makeT(locale);
 
-  // Event identity plaque meta line — "{Type} · {short date}" for the rail's
-  // SwitcherPlaqueTrigger (DoorwaySidebarHeader identity slot). Formatted
-  // server-side so the mono date never hydration-splits on timezone. Date
-  // omitted when unset. (The plaque's own countdown lives in the dashboard
-  // body; this is just the plaque label.)
+  /*
+    THE NAME THE RAIL'S CONTEXT GROUP ANNOUNCES THE EVENT BY.
+
+    ⚠ THE PLAQUE'S META LINE, ITS MONOGRAM CHIP AND THE `<SwitcherPlaqueTrigger>`
+    THEY FED ARE GONE (SidebarShell retirement, 2026-08-15), with the sidebar
+    header that hosted them — that header had already stopped rendering on
+    2026-08-13, when the shared rail took the desktop column. What the council
+    actually locked on 2026-07-16 was not the plaque: it was that this surface
+    must always keep a path to sign-out / profile / Setnayan AI. That path is
+    the top bar's `<AccountSwitcher>`, which has been at EVERY width since the
+    plaque stopped rendering, and `one-shell-event-rail.test.ts` fails if it
+    goes back behind `lg:hidden`.
+
+    It MUST always resolve — a rail heading reading `s89e-…`, or nothing at
+    all, is worse than a plain word — so an unnamed draft falls back to its
+    event type.
+  */
   const plaqueTypeLabel = ((event.event_type as string | null) ?? 'wedding')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
-  const plaqueDate = (event.event_date as string | null) ?? null;
-  const plaqueDateShort = plaqueDate
-    ? new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric' }).format(
-        new Date(`${plaqueDate}T00:00:00`),
-      )
-    : null;
-  const eventPlaqueMeta = plaqueDateShort
-    ? `${plaqueTypeLabel} · ${plaqueDateShort}`
-    : plaqueTypeLabel;
-
-  // Plaque title MUST always resolve (council acceptance criterion,
-  // 2026-07-16): the plaque trigger is the couple desktop's ONLY path to
-  // sign-out / profile / Setnayan AI (this top bar has no sign-out and its
-  // AccountSwitcher pill is lg:hidden). An unnamed draft event falls back to
-  // the type label — never render no trigger.
   const plaqueName =
     ((event.display_name as string | null) ?? '').trim() || `Your ${plaqueTypeLabel}`;
-  // The couple's EFFECTIVE mark for the plaque chip — same `uploaded ?? custom`
-  // precedence every other surface resolves (hero, QR centre, save-the-date).
-  // Both columns are already in this layout's select; only the chip ignored them.
-  // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
-  const plaqueMarkSvg = resolveEventMonogramSvg(
-    event as { monogram_uploaded_svg?: string | null; monogram_custom_svg?: string | null },
-  );
   const homeLabel = 'Home · all your events';
 
   /*
@@ -339,14 +310,13 @@ export default async function EventLayout({ children, params }: Props) {
     `topBarSlot`, which supplies the wordmark, the search and "+ Create" that
     were missing, and every control below is unchanged.
 
-    🔑 IT MOVED OUT OF `SidebarShell`'s `topBar` SLOT, and that is the half
-    that matters beyond this screen: `SidebarShell` had two jobs — the sticky
-    hide-on-scroll bar AND the `<main>` carrying `.sn-vt-page`, the only
-    element with that view-transition name, which the phone's nav slide freezes
-    the document around. THE SHARED BAR HAS TAKEN THE FIRST JOB (it carries the
-    same hide-on-scroll rule, owner 2026-06-15). The second is untouched here
-    on purpose — retiring the shell is Session 9's, and it is unblocked by this
-    landing rather than done by it.
+    🔑 IT MOVED OUT OF `SidebarShell`'s `topBar` SLOT — and that slot no longer
+    exists. `SidebarShell` had two jobs left: the sticky hide-on-scroll bar AND
+    the `<main>` carrying `.sn-vt-page`, the only element with that
+    view-transition name, which the phone's nav slide freezes the document
+    around. THE SHARED BAR TOOK THE FIRST (same hide-on-scroll rule, owner
+    2026-06-15); the content wrapper further down took the second, and the
+    shell was deleted on 2026-08-15.
   */
   const topBar = (
     <div className="flex items-center gap-3">
@@ -445,115 +415,60 @@ export default async function EventLayout({ children, params }: Props) {
         }
         topBarSlot={topBar}
       >
-      <SidebarShell
-        /*
-          The rail above owns the desktop left column, so this shell renders no
-          <aside> and takes no desktop offset.
+      {/*
+        ─── `<SidebarShell>` IS RETIRED (2026-08-15) — THIS IS WHERE ITS LAST
+            THREE JOBS WENT ────────────────────────────────────────────────
+        Slice 1 handed the desktop column to the rail above and slice 4 handed
+        the sticky bar to the shared one, which left the shell rendering no
+        `<aside>` at any width and existing only for what this wrapper now
+        carries. Each of the three would have vanished WITHOUT AN ERROR, so
+        each is re-homed deliberately rather than assumed:
 
-          🪤 IT IS STILL MOUNTED, AND THAT IS THE POINT. Its <main> carries the
-          app's ONLY `.sn-vt-page` (`view-transition-name`), which is what the
-          phone's bottom-nav carousel slides, and `[data-shell-main]` inside it
-          is what gives the docked sub-nav its extra room. Dropping this
-          component for a "desktop-only" swap would have deleted both AT MOBILE
-          WIDTHS, where the rail does not even paint (plan § 3, trap #2).
-        */
-        desktopRailExternal
-        /*
-          `sidebar` + `sidebarHeader` are still passed on purpose. They render
-          nothing while the flag is set; keeping them means this conversion is
-          one word to reverse, instead of a delete to reconstruct. The
-          switcher panel the header used to open now lives in the top bar at
-          every width — see the note there.
-        */
-        sidebarHeader={
-          <DoorwaySidebarHeader
-            label="Planning"
-            accentColor="var(--m-sidebar-accent)"
-            identity={
-              <SwitcherPlaqueTrigger
-                data={switcherData}
-                chip={
-                  // The plaque chip shows the couple's REAL mark when they have
-                  // one — restoring the owner lock 2026-06-15 ("show the custom
-                  // SVG everywhere … the chrome icon matches the website hero;
-                  // no letters-in-chrome / SVG-on-hero split"), which the
-                  // Plaque-as-Menu redesign (#3282) regressed by hardcoding
-                  // text initials. The council locked the plaque's INTERACTION
-                  // grammar, not its chip content — the vendor doorway already
-                  // passes a <VendorAvatar> here, so a component chip is the
-                  // established pattern. EventMonogram brings its own cream
-                  // tile + object-contain, so the mark reads at 36px instead of
-                  // going dark-on-bronze. Precedence mirrors every other
-                  // surface: uploaded ?? custom. No mark → initials, unchanged.
-                  plaqueMarkSvg ? (
-                    <EventMonogram
-                      event={{
-                        display_name: event.display_name as string | null,
-                        monogram_text: event.monogram_text as string | null,
-                        monogram_color: event.monogram_color as string | null,
-                        monogram_custom_svg: plaqueMarkSvg,
-                      }}
-                      size="md"
-                      shape="square"
-                    />
-                  ) : (
-                    eventInitials(plaqueName, (event.monogram_text as string | null) ?? null)
-                  )
-                }
-                title={plaqueName}
-                metaLine={eventPlaqueMeta}
-                ariaLabel={`${plaqueName} — account menu`}
-                homeLabel={homeLabel}
-              />
-            }
-          />
-        }
-        sidebar={
-          <CustomerSidebar
-            eventId={eventId}
-            navSlots={navSlots}
-            eventDate={(event.event_date as string | null) ?? null}
-            hideKeys={navHideKeys}
-            websiteEnabled={websiteEnabled}
-            monogramEnabled={monogramEnabled}
-            slug={(event.slug as string | null) ?? null}
-            guestCount={guestCount}
-            unreadMessages={unreadMessages}
-          />
-        }
-        /*
-          🔑 NO `topBar` ANY MORE — THE SHARED BAR HAS IT (2026-08-14). This
-          shell's sticky hide-on-scroll strip was one of its two jobs; the other
-          is the `<main>` carrying `.sn-vt-page`, which stays. Passing `topBar`
-          as well would render the event's cluster TWICE on every screen — one
-          of them a second bell opening a second Realtime channel, which
-          `unread-bell-badge.tsx` already carries a dated comment about.
-        */
-      >
-        {/* Pad the bottom on mobile so BottomNav doesn't cover the last
-            row of content. SidebarShell already handles the desktop
-            sidebar offset via its lg:pl-[var(--shell-main-offset)] math.
-            `data-shell-main` is the hook globals.css uses to add EXTRA bottom
-            room on routes where <CustomerSectionSubnav> docks a second floating
-            pill above the bottom nav (see globals.css `html.subnav-docked`). */}
-        <div data-shell-main className="pb-20 lg:pb-0">
-          {/* Inner content wrapper is a <div>, not a <main>: SidebarShell
-              already renders the single <main> landmark around its children
-              (see sidebar-shell.tsx). Nesting a second <main> here produced
-              two <main> elements in one tree — invalid HTML / duplicate
-              landmark. */}
-          <div className="mx-auto w-full px-4 py-6 sm:px-6 lg:px-8">
-            {/* Live "free this weekend" promo announcement (self-gates to null
-                when PROMO_FREE_WINDOWS_ENABLED is off or nothing is live). */}
-            <PromoFreeWindowBanner />
-            {children}
+         1. `.sn-ambient` — the warm Atelier ground (Glass PR-1). It sat on the
+            shell's own root INSIDE the content column, so it paints over the
+            rail's cream. Dropped, this tree would quietly change colour.
+            🔑 The admin tree puts its copy on the OUTERMOST div, where the
+            rail's own `background` covers it; that position is NOT
+            interchangeable with this one, so it is not copied.
+         2. `.sn-vt-page` — the ONE element in the app with
+            `view-transition-name: sn-page`. The phone's bottom-nav carousel
+            freezes the document around exactly this element, so losing it
+            leaves the tap running a transition that animates NOTHING. It
+            wraps at ALL widths, not just desktop, which is why "the rail
+            replaced the shell on desktop" was never the whole story.
+         3. THE `<main>` LANDMARK. The shared shell renders a `<div>` in its
+            app variant precisely because the host owns the landmark
+            (`one-main-per-page.test.ts`), so this must be a `<main>` — a
+            `<div>` here would leave the tree with NONE.
+
+        ⚠ THEY STAY TWO ELEMENTS, NOT ONE TIDY WRAPPER. Merging the ground
+        into the named element would put the whole painted slab inside the
+        view-transition snapshot, so the background would SLIDE with the page
+        instead of standing still behind it — a visible change to the one
+        animation this block exists to protect.
+      */}
+      <div className="sn-ambient min-h-screen">
+        <main className="sn-vt-page">
+          {/* Pad the bottom on mobile so BottomNav doesn't cover the last
+              row of content. The desktop offset is the rail's grid now, so
+              there is no padding math left here.
+              `data-shell-main` is the hook globals.css uses to add EXTRA bottom
+              room on routes where <CustomerSectionSubnav> docks a second floating
+              pill above the bottom nav (see globals.css `html.subnav-docked`). */}
+          <div data-shell-main className="pb-20 lg:pb-0">
+            <div className="mx-auto w-full px-4 py-6 sm:px-6 lg:px-8">
+              {/* Live "free this weekend" promo announcement (self-gates to null
+                  when PROMO_FREE_WINDOWS_ENABLED is off or nothing is live). */}
+              <PromoFreeWindowBanner />
+              {children}
+            </div>
           </div>
-        </div>
-      </SidebarShell>
+        </main>
+      </div>
       </AppRailShell>
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
-          BottomNav primitive. Sits outside SidebarShell so it doesn't
-          inherit the desktop sidebar offset. */}
+          BottomNav primitive. Sits outside the rail's content column so it
+          doesn't inherit it. */}
       <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} />
       {/* NAV-2 broken-out primary action (the Shazam satellite) — a SIBLING of
           the locked BottomNav pill, never a 7th tab. Floats above the pill's

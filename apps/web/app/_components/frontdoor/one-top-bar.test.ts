@@ -436,17 +436,22 @@ test('the shared bar brings no landmark and no heading with it', () => {
 });
 
 test('each tree still renders exactly one landmark of its own', () => {
+  /*
+    ⚠ THE `<SidebarShell>` ESCAPE HATCH IS GONE (2026-08-15) — the component is
+    deleted, so "delegates to the shell" is no longer an answer any tree can
+    give. Four of the five now render the <main> themselves; the admin console
+    is the one that carries `.sn-vt-page` on a plain <div> and has NO landmark
+    of its own, which is a real gap kept visible here rather than asserted away.
+  */
   for (const tree of TREES) {
     const src = read(tree.file);
     const opens = count(code(src), /<main\b/g);
-    const viaShell = /<SidebarShell\b/.test(code(src));
     const viaVtPage = /sn-vt-page/.test(code(src));
     assert.ok(
-      opens === 1 || viaShell || viaVtPage,
-      `${tree.name} renders ${opens} <main> element(s) and delegates to ` +
-        'neither SidebarShell nor its own `.sn-vt-page` wrapper. With the ' +
-        'shell yielding its landmark in the app variant, this page would have ' +
-        'NO main landmark at all.',
+      opens === 1 || viaVtPage,
+      `${tree.name} renders ${opens} <main> element(s) and has no ` +
+        '`.sn-vt-page` wrapper either. With the shell yielding its landmark ' +
+        'in the app variant, this page would have NO main landmark at all.',
     );
     assert.ok(
       opens <= 1,

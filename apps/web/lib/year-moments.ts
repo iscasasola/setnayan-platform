@@ -324,6 +324,33 @@ export function buildYearMoments(
     .sort((a, b) => a.daysUntil - b.daysUntil || a.label.localeCompare(b.label));
 }
 
+/**
+ * Merge the account's own-birthday moment into the event-derived ones, dropping
+ * it when an event already occupies that calendar day.
+ *
+ * 🚨 WITHOUT THIS THE SAME DAY PRINTS TWICE. `/onboarding/[type]` hardcodes
+ * `recurs: true` for `event_type = 'birthday'`, so a person who creates their own
+ * birthday through onboarding AND has the date on their profile produced two rows
+ * on one date — *"My 30th Birthday"* and *"Your birthday — turning 30"*. Measured,
+ * not theorised. On the home strip only three rows are visible, so the duplicate
+ * ate two of them and pushed a real moment behind "Show 1 more".
+ *
+ * 🔑 THE EVENT WINS, NOT THE PROFILE. The event row is tappable (it deep-links to
+ * its dashboard), it carries the name the person chose, and it is the thing they
+ * are actually planning. The profile line is the fallback for when no event
+ * exists — which is the whole reason it was added.
+ *
+ * Lives here rather than in each caller because two callers merging by hand is
+ * two chances to merge differently, and the strip and the page must not disagree
+ * about how many lines one day gets.
+ */
+export function mergeSelfMoments(fromEvents: YearMoment[], self: YearMoment[]): YearMoment[] {
+  const taken = new Set(fromEvents.map((m) => m.dateISO));
+  return [...fromEvents, ...self.filter((m) => !taken.has(m.dateISO))].sort(
+    (a, b) => a.daysUntil - b.daysUntil || a.label.localeCompare(b.label),
+  );
+}
+
 /** The signed-in person's own profile fields the year derivation can use. */
 export type SelfForMoments = {
   /** `users.birth_date` — THEIR OWN, typed by them into their own profile. */
@@ -381,10 +408,33 @@ export function buildSelfMoments(
   const birthISO = self?.birth_date ?? null;
   if (!birthISO) return [];
 
+  const birth = parseISO(birthISO);
+  const today = parseISO(todayISO);
+  if (!birth || !today) return [];
+
+  // 🚨 REJECT ON THE BIRTH YEAR, NOT ON THE DERIVED AGE.
+  //
+  // The first cut tested `next.age < 1` and its comment claimed that covered
+  // "today's year or in the future (a typo, or a date picker's default)". It did
+  // not. `age` comes off the NEXT occurrence, so it only caught a mistyped date
+  // still ahead in the current year; once the month/day had passed, the next
+  // occurrence rolled into next year and `age` came back **1** — which sits on
+  // the first rung of the PH milestone ladder. Measured over every in-year date
+  // on 2026-08-15: **210 of 336 rendered "Your 1st birthday · A milestone year"**
+  // to an adult, in the gold highlighted "Worth planning for" band, while the
+  // other 126 were dropped. The same slip produced a confident falsehood or a
+  // silent nothing depending only on the month.
+  //
+  // The profile field is a bare <input type="date"> with no `max`, the save
+  // action checks only the SHAPE, and no CHECK constraint exists — so a year
+  // left at the picker's default saves fine and is the ordinary way in.
+  //
+  // Nobody holding an account was born this year, so a birth year at or after
+  // today's is provably wrong for a SELF moment. This is the rule the original
+  // comment described; the old test only ever exercised the half that worked.
+  if (birth.getUTCFullYear() >= today.getUTCFullYear()) return [];
+
   const next = nextBirthday(birthISO, todayISO);
-  // `age < 1` is not a real birthday to celebrate — it means the stored date is
-  // today's year or in the future (a typo, or a date picker's default). Showing
-  // "turning 0" would be worse than showing nothing.
   if (!next || next.age < 1) return [];
 
   const isMilestone = milestoneAges(self?.sex ?? null).includes(next.age);

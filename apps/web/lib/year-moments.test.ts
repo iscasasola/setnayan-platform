@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import {
   buildYearMoments,
   buildSelfMoments,
+  mergeSelfMoments,
   ordinal,
   CALENDAR_HOLIDAYS,
   type MomentEvent,
@@ -253,7 +254,11 @@ test('archived events produce no moments', () => {
 
 // ── buildSelfMoments — the account's OWN birthday ────────────────────────────
 // The one moment that exists before any event does. Every case below is the
-// PURE derivation; the callers' reads are asserted in year-door.test.ts.
+// PURE derivation. The callers' WIRING (that the strip and the Year page
+// actually call this and select birth_date) is asserted in
+// year-view-has-a-door.test.ts — a file name this comment previously got wrong,
+// which would have told the next reader coverage existed under a name that does
+// not exist in the repo.
 
 /** The single self moment, asserted present. */
 function selfOne(self: SelfForMoments | null, today: string): YearMoment {
@@ -293,6 +298,11 @@ test('the birthday ON the day itself still shows, at zero days', () => {
 });
 
 test('a 60th is a milestone: different label, different detail, grand tier', () => {
+  // ONE line, not two — the docblock's explicit promise. selfOne() takes [0] and
+  // would happily ignore a second row, so the length is asserted here directly:
+  // a milestone that ALSO emitted the ordinary line would print the same date
+  // twice on both surfaces.
+  assert.equal(buildSelfMoments({ birth_date: '1966-10-02' }, '2026-08-15').length, 1);
   const m = selfOne({ birth_date: '1966-10-02' }, '2026-08-15');
   assert.equal(m.label, 'Your 60th birthday');
   assert.equal(m.detail, 'A milestone year');
@@ -343,4 +353,77 @@ test('withinDays clips the self moment like every other', () => {
 test('a person with NO events still gets a moment — the whole point', () => {
   assert.equal(buildYearMoments([], '2026-08-15', { includeHolidays: false }).length, 0);
   assert.equal(buildSelfMoments({ birth_date: '1992-12-04' }, '2026-08-15').length, 1);
+});
+
+// ── mergeSelfMoments — one calendar day, one line ────────────────────────────
+
+test('an event on the same day as your birthday wins — the day is not printed twice', () => {
+  // A birthday created through /onboarding is `recurs: true` by default, so this
+  // collision is the normal case for anyone who does both, not an edge case.
+  const ev: MomentEvent = {
+    ...base, event_id: 'b1', event_type: 'birthday', display_name: 'My 30th Birthday',
+    event_date: '2026-11-02', recurs: true,
+  };
+  const fromEvents = buildYearMoments([ev], '2026-08-15', { includeHolidays: false });
+  const self = buildSelfMoments({ birth_date: '1996-11-02' }, '2026-08-15');
+  assert.equal(fromEvents.length, 1, 'precondition: the event yields a moment');
+  assert.equal(self.length, 1, 'precondition: the profile yields a moment');
+  assert.equal(fromEvents[0]?.dateISO, self[0]?.dateISO, 'precondition: same day');
+
+  const merged = mergeSelfMoments(fromEvents, self);
+  assert.equal(merged.length, 1, 'the day must appear once');
+  // The EVENT wins: it is tappable and carries the name the person chose.
+  assert.equal(merged[0]?.label, 'My 30th Birthday');
+  assert.equal(merged[0]?.eventId, 'b1');
+});
+
+test('a birthday on a FREE day still shows alongside the events', () => {
+  const ev: MomentEvent = {
+    ...base, event_id: 'w1', event_type: 'wedding', display_name: 'Cale & Ice',
+    event_date: '2026-12-18',
+  };
+  const merged = mergeSelfMoments(
+    buildYearMoments([ev], '2026-08-15', { includeHolidays: false }),
+    buildSelfMoments({ birth_date: '1992-11-02' }, '2026-08-15'),
+  );
+  assert.equal(merged.length, 2);
+  // Soonest first — the birthday (Nov 2) before the wedding (Dec 18).
+  assert.equal(merged[0]?.dateISO, '2026-11-02');
+  assert.equal(merged[1]?.dateISO, '2026-12-18');
+});
+
+test('mergeSelfMoments with nothing on either side is empty, not a crash', () => {
+  assert.equal(mergeSelfMoments([], []).length, 0);
+});
+
+test('a birthdate in the CURRENT year never renders — in EITHER direction', () => {
+  // 🚨 The regression this pins: the old guard tested the derived age, so a
+  // current-year date whose month/day had PASSED rolled to next year, came back
+  // age 1, landed on the milestone ladder, and printed "Your 1st birthday ·
+  // A milestone year" to an adult in the gold highlight band. Measured: 210 of
+  // 336 in-year dates did this; only the still-ahead 126 were dropped. Both
+  // halves are asserted here, because testing only the working half is exactly
+  // how it shipped.
+  const today = '2026-08-15';
+  let rendered = 0;
+  for (let m = 1; m <= 12; m += 1) {
+    for (let d = 1; d <= 28; d += 1) {
+      const iso = `2026-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      rendered += buildSelfMoments({ birth_date: iso }, today).length;
+    }
+  }
+  assert.equal(rendered, 0, 'no date in the current year may produce a self moment');
+  // The specific shapes, named so a failure reads clearly.
+  assert.equal(buildSelfMoments({ birth_date: '2026-01-10' }, today).length, 0); // passed
+  assert.equal(buildSelfMoments({ birth_date: '2026-12-04' }, today).length, 0); // ahead
+  // And the boundary the fix must NOT over-reach: last year still counts.
+  assert.equal(buildSelfMoments({ birth_date: '2025-01-10' }, today).length, 1);
+});
+
+test('a genuine 1st birthday from a PRIOR birth year still counts as a milestone', () => {
+  // Guards the fix from becoming "reject age 1": a person born last year has a
+  // real 1st birthday, and the ladder's first rung must survive.
+  const m = selfOne({ birth_date: '2025-11-02' }, '2026-08-15');
+  assert.equal(m.label, 'Your 1st birthday');
+  assert.equal(m.isMilestone, true);
 });

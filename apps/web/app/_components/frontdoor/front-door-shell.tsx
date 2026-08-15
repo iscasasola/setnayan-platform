@@ -13,9 +13,10 @@
  * component) and passes straight through.
  *
  * ─── THE RAIL'S FIVE GROUPS, IN ORDER ────────────────────────────────────
- *   1 · Destinations   Home · Stories · Find a supplier (signed in only)
+ *   1 · Destinations   Home · Stories · Marketplace (signed in only)
  *   2 · THE ACCOUNT SLOT  ← second, above the categories
- *   3 · Marketplace    the five visible folders + Show more (signed in only)
+ *   3 · Browse by category  the five visible folders + Show more (signed in
+ *                           only) — the shortcuts INTO the Marketplace row
  *   4 · Studio         the seven tools
  *   5 · Small print    + a copyright line
  *
@@ -25,11 +26,28 @@
  * ONE slot, two states. It never greys out and is never absent, which is what
  * makes it the page's single front-and-centre doorway.
  *
- * ⚠ MARKETPLACE IS SIGNED-IN ONLY (owner 2026-08-12), and "Find a supplier"
- * goes with it because it is the SAME destination under another word — hiding
- * a group while leaving its synonym in the list would defeat the instruction
- * with a label. Search still answers a signed-out person; that is deliberate
- * and is the one thing this page exists to solve.
+ * ⚠ MARKETPLACE IS SIGNED-IN ONLY (owner 2026-08-12): the destination row AND
+ * the category group both go, because they are one destination — hiding the
+ * group while leaving a second door to it in the list would defeat the
+ * instruction with a label. Search still answers a signed-out person; that is
+ * deliberate and is the one thing this page exists to solve.
+ *
+ * 🏷 ONE WORD, NOT THREE (owner 2026-08-15, asked directly: *"why do we have a
+ * find a supplier. and sometime it is marketplace?"*). This row USED to read
+ * "Find a supplier" here and "Marketplace" inside the app — because
+ * `slotLabel` applies the nav registry in the `app` variant only, and the
+ * registry's `customer.account.marketplace` slot has said "Marketplace" since
+ * 2026-07-27 (owner: *"just use Marketplace so it is easier to understand"*).
+ * So ONE row carried TWO words depending on which page you were standing on,
+ * and a third heading below it carried the second word again. The fallback now
+ * matches the registry, and the category group is titled by what it does.
+ * 🔑 The binding prototype disagreed with ITSELF — `front_door_and_seam_
+ * 2026-08-12.html` renders "Find a supplier" at line 851 while its own seam
+ * note at line 1598 says *"Signed out it is called Marketplace on the front
+ * door; signed in it is called Marketplace here. Same word, both sides."* The
+ * port was faithful to the drawing and inherited the contradiction. **A
+ * prototype is binding about COMPOSITION; where it contradicts its own written
+ * intent, the intent is the decision.**
  *
  * NAMED COST, not a side effect: a crawler is always signed out, so those
  * category links leave the front page for Google too. The category pages stay
@@ -831,9 +849,13 @@ export function FrontDoorShell({
                 ⌕
               </span>
               <span className="fd-label-text">
-                {slotLabel(RAIL_SLOT.find, 'Find a supplier')}
+                {/* Fallback MUST equal the registry's label for this slot
+                    (`customer.account.marketplace` = "Marketplace"). They
+                    diverged, and the same row read two different words on two
+                    pages. `front-door-invariants.test` now pins them equal. */}
+                {slotLabel(RAIL_SLOT.find, 'Marketplace')}
               </span>
-              <span className="fd-icon-caption">Find</span>
+              <span className="fd-icon-caption">Market</span>
             </Link>
           ) : null}
 
@@ -1034,7 +1056,10 @@ export function FrontDoorShell({
             railContext ? null : (
             <>
               <div className="fd-rdiv" />
-              <div className="fd-rlabel">Marketplace</div>
+              {/* NOT "Marketplace" — that is the row above, and the same word
+                  twice in one rail reads as two different places. These are
+                  shortcuts INTO it (`/explore?folder=…`). See the header. */}
+              <div className="fd-rlabel">Browse by category</div>
               {folders.map((f) => (
                 <Link
                   key={f.slug}

@@ -149,6 +149,7 @@ export type NotificationType =
   | 'lock_request_agreed'
   | 'lock_request_declined'
   | 'lock_request_expired'
+  | 'lock_request_withdrawn'
   | 'pax_surcharge_changed'
   | 'vendor_joined'
   | 'editorial_decision'
@@ -312,6 +313,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   lock_request_agreed: 'Booking confirmed',
   lock_request_declined: 'Booking request declined',
   lock_request_expired: 'Booking request expired',
+  lock_request_withdrawn: 'Booking request withdrawn',
   pax_surcharge_changed: 'Guest-count charge updated',
   vendor_joined: 'Vendor joined',
   editorial_decision: 'Editorial decision',
@@ -420,6 +422,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // A no and a timeout both need the couple to pick somebody else → amber.
   lock_request_declined: 'bg-warn-100 text-warn-900',
   lock_request_expired: 'bg-warn-100 text-warn-900',
+  lock_request_withdrawn: 'bg-warn-100 text-warn-900',
   // A changed guest-count charge needs the couple's attention/confirm → amber.
   pax_surcharge_changed: 'bg-warn-100 text-warn-900',
   // An invited vendor accepting/claiming = a positive arrival → emerald.

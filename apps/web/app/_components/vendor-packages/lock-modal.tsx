@@ -370,7 +370,16 @@ export function LockPackageModal({
           ? { extra_hours: { ...totals.chargeableExtraHours } }
           : {}),
       });
-      if (result.status === 'ok' || result.status === 'already_locked') {
+      // PR-H · an ASK and a BOOKING land on the same page, and that is correct:
+      // the package detail screen is where the couple watches for the answer.
+      // They are separate branches anyway so that a later change to either one
+      // cannot silently inherit the other's behaviour — and so this file names
+      // the state instead of quietly treating "we asked them" as "it's yours".
+      if (
+        result.status === 'ok' ||
+        result.status === 'already_locked' ||
+        result.status === 'lock_requested'
+      ) {
         setOpen(false);
         router.push(`/dashboard/${eventId}/vendors/packages/${result.bookingId}`);
         router.refresh();

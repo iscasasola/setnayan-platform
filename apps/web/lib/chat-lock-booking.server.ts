@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { planChatLockBooking } from '@/lib/chat-lock-booking';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 
 /**
  * `bookVendorAtChatLock` — the SHARED lock primitive behind the couple's chat
@@ -33,6 +34,12 @@ export type ChatLockBookingOutcome =
   // First lock committed at the negotiated total; fee attempted (`feeCharged` =
   // a 6th+ paid order was minted, vs free-5 / flag-off / off-platform).
   | { status: 'booked'; feeCharged: boolean }
+  // PR-H · the press ASKED. The negotiated total is recorded and the supplier
+  // has been asked; nobody is booked. A distinct value, not a flavour of
+  // 'booked', so a caller cannot render the booked copy by forgetting a branch.
+  | { status: 'requested' }
+  // PR-H · an ask was already outstanding on this row. Nothing written.
+  | { status: 'already_requested' }
   // Already booked (re-lock / the other entry point won): no rewrite; the fee was
   // (idempotently) re-checked.
   | { status: 'already_booked'; feeCharged: boolean }
@@ -65,16 +72,71 @@ export async function bookVendorAtChatLock(
   // we never overwrite the frozen price on an already-booked row.
   const { data: cur } = await authed
     .from('event_vendors')
-    .select('status')
+    .select('status, lock_request_state')
     .eq('vendor_id', eventVendorId)
     .eq('event_id', eventId)
     .maybeSingle();
-  const currentStatus = (cur as { status?: string | null } | null)?.status ?? null;
+  const curRow = (cur ?? null) as {
+    status?: string | null;
+    lock_request_state?: string | null;
+  } | null;
+  const currentStatus = curRow?.status ?? null;
 
-  const action = planChatLockBooking({ marketplaceVendorId, verified, currentStatus });
+  const action = planChatLockBooking({
+    marketplaceVendorId,
+    verified,
+    currentStatus,
+    handshakeEnabled: isLockHandshakeEnabled(),
+    lockRequestState: curRow?.lock_request_state ?? null,
+  });
 
   if (action === 'skip_no_link') return { status: 'no_marketplace_link' };
   if (action === 'blocked_not_verified') return { status: 'not_verified' };
+  if (action === 'already_requested') return { status: 'already_requested' };
+
+  // ── PR-H · THE THIRD LOCK PATH, AND THE EASIEST ONE TO WALK PAST ─────────
+  // This site bills and books from a CHAT MESSAGE, not a lock screen — the same
+  // reason the booking-fee move nearly missed it, recorded in this file's own
+  // note below. Slice A converted `finalizeVendor` and left this one flipping
+  // straight to 'contracted', so the SAME supplier was "asked" from the vendor
+  // page and "booked" from the chat thread, decided purely by which screen the
+  // couple happened to be on.
+  //
+  // The negotiated total is still written — it is the number the couple and the
+  // supplier agreed in the thread, and losing it would make them re-agree it —
+  // but the status stays 'considering' and the row carries the request. The
+  // supplier's yes is what books them, in `vendor_agree_to_lock`.
+  //
+  // NO `selection_match_rank` / `linked_vendor_profile_id` HERE, for the exact
+  // reason `finalizeVendor` withholds them on an ask: they mean "this is our
+  // chosen supplier", the public editorial reader keys `isFirstPick` off them
+  // with NO status filter, and the only thing that clears them refuses unless
+  // the row is already confirmed. On an ask later declined they would be
+  // permanent. The agree RPC stamps both.
+  if (action === 'request') {
+    const { error } = await authed
+      .from('event_vendors')
+      .update({
+        total_cost_php: agreedTotalPhp,
+        lock_request_state: 'pending',
+        lock_requested_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('vendor_id', eventVendorId)
+      .eq('event_id', eventId)
+      .not('status', 'in', '("deposit_paid","delivered","complete")');
+    if (error) {
+      // 23505 here is the one-pending-request index: another ask is already out
+      // in this hard-single category. Same couple-facing outcome as losing the
+      // confirmed race — they switch from the vendor page, which owns the modal.
+      if (error.code === '23505') return { status: 'hard_single_blocked' };
+      if (error.code === '23514' && /vendor_not_verified/.test(error.message ?? '')) {
+        return { status: 'not_verified' };
+      }
+      return { status: 'error', message: error.message };
+    }
+    return { status: 'requested' };
+  }
 
   if (action === 'book') {
     // Write the NEGOTIATED total + flip to 'contracted' in one update. The

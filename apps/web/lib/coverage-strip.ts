@@ -96,7 +96,11 @@ const URGENCY_RANK: Record<TimelineStatus, number> = {
   due_soon: 1,
   start_now: 2,
   upcoming: 3,
-  locked: 4,
+  // PR-H · asked and unanswered. Ranked BELOW every actionable status (there is
+  // nothing for the couple to do) and ABOVE 'locked' (it is not settled, and a
+  // decline on day six puts it straight back in the queue).
+  awaiting: 4,
+  locked: 5,
 };
 
 /**

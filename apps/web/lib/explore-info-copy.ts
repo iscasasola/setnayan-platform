@@ -243,6 +243,37 @@ export function cardCheckInquiryLabel(name: string): string {
 export const CARD_LOCK = 'Lock this';
 export const CARD_LOCKING = 'Requesting…';
 
+/**
+ * PR-H slice B · what a couple reads while nobody has answered yet.
+ *
+ * 🗣 THE WORD IS "ASKED", NEVER "BOOKED". The whole point of the handshake is
+ * that pressing Lock starts a conversation, so the screen may not describe a
+ * booking that does not exist. Nor may it read as an error: waiting is the
+ * normal, expected middle of this flow, and the supplier has seven days.
+ *
+ * ⚠ NO NUMBER IS TYPED HERE. `waitingOnSupplier` takes the deadline the
+ * DATABASE materialized and formats it, so the days a couple is shown are the
+ * days the fuse will actually burn. A hand-typed "7 days" in copy is how the
+ * screen and the enforcement drift apart the first time the window changes.
+ */
+export const CARD_ASK_SENT = 'Waiting on them';
+export const CARD_WITHDRAW = 'Take it back';
+export const CARD_WITHDRAWING = 'Taking it back…';
+export function cardWithdrawLabel(name: string): string {
+  return `Withdraw your booking request to ${name}`;
+}
+export function waitingOnSupplier(expiresAtIso: string | null, now: Date = new Date()): string {
+  if (!expiresAtIso) return 'Asked — waiting for them to answer.';
+  const ms = new Date(expiresAtIso).getTime() - now.getTime();
+  if (!Number.isFinite(ms)) return 'Asked — waiting for them to answer.';
+  // Round UP: with 30 hours left a couple is in their second-to-last day, and
+  // "1 day left" would read as the last one.
+  const days = Math.ceil(ms / 86_400_000);
+  if (days <= 0) return 'Asked — their time to answer is up.';
+  if (days === 1) return 'Asked — they have 1 day left to answer.';
+  return `Asked — they have ${days} days left to answer.`;
+}
+
 /** Collapsed category rows name what is already locked there (decision #8). */
 export function lockedNamesLine(names: readonly string[]): string {
   return names.join(' · ');

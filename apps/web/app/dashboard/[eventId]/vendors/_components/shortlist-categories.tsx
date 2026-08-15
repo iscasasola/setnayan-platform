@@ -586,7 +586,14 @@ function VendorCard({
         ) : (
           <span className="ini">{initials(v.name)}</span>
         )}
-        {v.status === 'locked' ? <span className="pcorner">★ Chosen</span> : null}
+        {/* PR-H · "★ Chosen" is a claim about a settled booking. An ask is not
+            one, so the corner says what is true instead of borrowing the word
+            for a supplier who has not answered and may decline. */}
+        {v.status === 'locked' ? (
+          <span className="pcorner">★ Chosen</span>
+        ) : v.lockRequestState === 'requested' ? (
+          <span className="pcorner">Asked</span>
+        ) : null}
         {reason && v.status !== 'locked' ? (
           <span className={`rpill ${reason.tone}`}>{reason.label}</span>
         ) : null}
@@ -633,7 +640,10 @@ function VendorCard({
   // exactly as it shipped. Only when there ARE actions does the rail item
   // become a wrapper: `.vcw` takes over the carousel sizing + snap so `.vc`
   // keeps its look and the actions sit beneath it, inside the same snap unit.
-  if (!actions || (!actions.build && !actions.inquiry && !actions.lockGroupId)) {
+  if (
+    !actions ||
+    (!actions.build && !actions.inquiry && !actions.lockGroupId && !actions.withdraw)
+  ) {
     // A clashing card with nothing to offer still sits behind the divider, so
     // it still reads as sunk. (`buildFit` is only ever populated under the flag,
     // so this branch cannot fire in pre-replan production.)
@@ -651,6 +661,7 @@ function VendorCard({
         vendorName={v.name}
         groupLabel={tileLabel}
         verifiedState={v.verifiedState}
+        lockRequestExpiresAt={v.lockRequestExpiresAt}
       />
     </div>
   );

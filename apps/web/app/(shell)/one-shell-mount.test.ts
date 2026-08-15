@@ -160,37 +160,56 @@ test('the group holds no nested layout that could remount the shell', () => {
   );
 });
 
-test('every bleed segment resolves to a real page in this group', () => {
+test('every bleed path resolves to a real page in this group', () => {
   /*
-    `DOORWAY_BLEED_SEGMENTS` is how the one full-bleed route tells the
+    `DOORWAY_BLEED_PATHS` is how the one full-bleed route tells the
     layout-rendered shell to drop its gutters and cap. It is a list, and this
     repo has been bitten repeatedly by lists that silently stop matching
     anything — a route list resolving to nothing, a word list fifteen entries
     stale, a lint whose targets arrived as an empty array.
 
-    🔑 A LIST IS ACCEPTABLE ONLY BECAUSE IT IS CHECKABLE: every entry is a
-    DIRECTORY NAME, so it can be proven to exist on disk.
+    🔑 A LIST IS ACCEPTABLE ONLY BECAUSE IT IS CHECKABLE: every entry maps to a
+    directory under `app/(shell)/`, so it can be proven to exist on disk.
   */
   const src = read(
     path.join(GROUP, '..', '_components', 'frontdoor', 'shell-bleed.ts'),
   );
-  const m = /DOORWAY_BLEED_SEGMENTS = \[([^\]]*)\]/.exec(src);
-  assert.ok(m, 'DOORWAY_BLEED_SEGMENTS not found — this guard would be vacuous.');
-  const segs = [...(m[1] ?? '').matchAll(/'([^']+)'/g)].map((x) => x[1]);
+  const m = /DOORWAY_BLEED_PATHS = \[([^\]]*)\]/.exec(src);
+  assert.ok(m, 'DOORWAY_BLEED_PATHS not found — this guard would be vacuous.');
+  const paths = [...(m[1] ?? '').matchAll(/'([^']+)'/g)].map((x) => x[1]);
 
   assert.ok(
-    segs.length > 0,
-    'DOORWAY_BLEED_SEGMENTS is empty. If no route is full-bleed any more, ' +
-      'delete the mechanism deliberately rather than leaving an empty list ' +
-      'that reads as protection.',
+    paths.length > 0,
+    'DOORWAY_BLEED_PATHS is empty. If no route is full-bleed any more, delete ' +
+      'the mechanism deliberately rather than leaving an empty list that reads ' +
+      'as protection.',
   );
-  for (const seg of segs) {
+  for (const p of paths) {
     assert.ok(
-      existsSync(path.join(GROUP, seg!, 'page.tsx')),
-      `'${seg}' is listed as full-bleed but app/(shell)/${seg}/page.tsx does ` +
-        'not exist. The marketplace would silently lose its full width.',
+      p!.startsWith('/'),
+      `'${p}' is not a path. These are matched against usePathname() EXACTLY — ` +
+        'a bare segment would never match and the route would silently lose ' +
+        'its full width.',
+    );
+    assert.ok(
+      existsSync(path.join(GROUP, p!.slice(1), 'page.tsx')),
+      `'${p}' is listed as full-bleed but app/(shell)${p}/page.tsx does not ` +
+        'exist. The marketplace would silently lose its full width.',
     );
   }
+
+  /*
+    🪤 AND THE CHILD MUST NOT INHERIT IT. The first cut used
+    `useSelectedLayoutSegment()`, which returns 'explore' for BOTH `/explore`
+    and `/explore/compare` — so the compare page silently became full-bleed
+    against its own stated design (a side-by-side table is not a browse grid).
+    Exact-path matching is what fixes that, so assert the distinction directly.
+  */
+  assert.ok(
+    !paths.includes('/explore/compare'),
+    '/explore/compare is listed as full-bleed. It deliberately keeps its ' +
+      'narrower reading width.',
+  );
 });
 
 test('the group really holds the public routes — this file is not vacuous', () => {

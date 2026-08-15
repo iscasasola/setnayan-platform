@@ -80,13 +80,29 @@ happened to stay at the top level. Partial protection reads exactly like full
 protection. The scanner now descends into route groups (a group contributes no
 word of its own), and a guard proves it, mutation-verified.
 
-### The width signal
+### The width signal — and a bug the bundle guard caught
 
 `/explore` runs full-bleed; a layout cannot receive a page's props. The shell
-reads `useSelectedLayoutSegment()` **during render**, so the correct class is in
-the first byte of server HTML — measured: `fd-bleed` present on `/explore`,
-absent on `/help`, `/pricing`, `/alaala`, `/terms`, `/papic`. Live click test:
-entering `/explore` → 1200px (1440 − 240 rail); leaving → 1152px capped.
+reads `usePathname()` **during render**, so the correct class is in the first
+byte of server HTML — measured: `fd-bleed` on `/explore` and
+`/explore?category=photo`, absent on `/explore/compare`, `/help`, `/pricing`,
+`/alaala`, `/terms`, `/papic`. Live click test: entering `/explore` → 1200px
+(1440 − 240 rail); leaving → 1152px capped.
+
+🪤 **THE FIRST CUT USED `useSelectedLayoutSegment()` AND WAS WRONG TWICE.** It
+returns the same segment — `'explore'` — for BOTH `/explore` and
+`/explore/compare`, so **the compare page silently became full-bleed** against
+its own stated design (a side-by-side table is not a browse grid; measured
+`fd-bleed` ×2 on a page whose comment says it deliberately keeps `max-w-6xl`).
+A segment cannot tell a route from its children. And the hook was NEW to this
+codebase: it cost **0.5KB gzipped** in the globally-shared chunk and broke the
+owner-locked 200KB budget (main was at 199.8KB with 0.2KB headroom).
+
+🔑 **THE BUNDLE GUARD FOUND A BEHAVIOUR BUG, NOT JUST A SIZE.** Investigating
+the 0.3KB overage is what surfaced the compare-page regression — which no test
+would have caught, because it renders perfectly, just at the wrong width.
+`usePathname()` already ships in this component, matches whole paths, and
+excludes the query string. The budget was NOT raised.
 
 The alternatives all flash, which is why this one was chosen. A page-authored
 marker (`:has()`, injected `<style>`) lives INSIDE the page's Suspense boundary,

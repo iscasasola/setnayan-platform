@@ -8,8 +8,8 @@
  * props, so `bleed` — which /explore alone needs — has to reach the shell some
  * other way.
  *
- * 🔑 THIS IS A SEGMENT NAME, NOT A PATHNAME. Every entry is a DIRECTORY under
- * `app/(shell)/`, so a guard can prove each one resolves to a real
+ * 🔑 EVERY ENTRY IS STILL CHECKABLE ON DISK. A path here maps to a directory
+ * under `app/(shell)/`, so a guard proves each one resolves to a real
  * `app/(shell)/<name>/page.tsx` — see `one-shell-mount.test.ts`. That is the
  * whole difference between a list that can silently stop matching anything and
  * one that cannot. This repo has paid for the other kind repeatedly: a route
@@ -18,11 +18,21 @@
  * is checkable.
  *
  * ⚠ AND IT IS READ DURING RENDER, NOT IN AN EFFECT. `FrontDoorShell` calls
- * `useSelectedLayoutSegment()`, whose value comes from the same router state
- * that produced the navigation — so the correct class is in the FIRST BYTE of
- * the server HTML. Measured in a scratch Next 15.5.21 build:
- * `class="fd-col fd-bleed"` on /explore, `class="fd-col"` on /papic and /help,
- * server-rendered, no hydration jump.
+ * `usePathname()`, whose value comes from the same router state that produced
+ * the navigation — so the correct class is in the FIRST BYTE of the server
+ * HTML. Measured: `class="fd-col fd-bleed"` on /explore, `class="fd-col"` on
+ * /papic, /help, /pricing, /alaala and /terms, server-rendered, no hydration
+ * jump.
+ *
+ * 🪤 IT MATCHES A WHOLE PATH, NOT A SEGMENT — and the first cut got this
+ * WRONG. `useSelectedLayoutSegment()` returns the segment directly under the
+ * layout, which is `'explore'` for BOTH `/explore` AND `/explore/compare`. So
+ * the compare page silently became full-bleed (measured: `fd-bleed` x2 on a
+ * page whose own comment says it deliberately keeps `max-w-6xl`, because a
+ * side-by-side table is not a browse grid). A segment cannot tell a route from
+ * its children. `usePathname()` can, already ships in this component, and —
+ * measured — pulling in `useSelectedLayoutSegment` cost 0.5KB gzipped in the
+ * globally-shared chunk and broke the 200KB budget.
  *
  * 🪤 THE ALTERNATIVES ALL FLASH, WHICH IS WHY THIS ONE WAS CHOSEN:
  *   • A page-authored marker (a `:has()` target, an injected `<style>`) lives
@@ -35,7 +45,7 @@
  *     directions — entering /explore paints capped then snaps wide; leaving it
  *     paints prose at zero gutter then snaps back.
  *
- * To make another route full-bleed: add its directory name here and the guard
- * will confirm the directory exists. To stop one, remove it. Nothing else.
+ * To make another route full-bleed: add its path here and the guard will
+ * confirm a real page exists at it. To stop one, remove it. Nothing else.
  */
-export const DOORWAY_BLEED_SEGMENTS = ['explore'] as const;
+export const DOORWAY_BLEED_PATHS = ['/explore'] as const;

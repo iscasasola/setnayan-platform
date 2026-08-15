@@ -95,19 +95,28 @@ function readBody(formData: FormData): string | undefined {
  * (the story), and leaving a second home for the same value is how the old
  * travel-shaped name comes back.
  */
-function readSubstrate(formData: FormData): Record<string, unknown> | undefined {
-  if (!formData.has('papic_gallery_id') && !formData.has('vendor_ids')) {
-    return undefined;
-  }
-  const galleryRaw = formData.get('papic_gallery_id');
+function readSubstrate(
+  formData: FormData,
+  eventId: string | null | undefined,
+): Record<string, unknown> | undefined {
   const vendorsRaw = formData.get('vendor_ids');
+  const hasVendors = typeof vendorsRaw === 'string' && vendorsRaw.trim().length > 0;
+  if (eventId === undefined && !hasVendors) return undefined;
 
   const substrate: Record<string, unknown> = {};
-  if (typeof galleryRaw === 'string' && galleryRaw.trim()) {
-    substrate.papic_gallery_id = galleryRaw.trim().slice(0, 200);
-  }
-  if (typeof vendorsRaw === 'string' && vendorsRaw.trim()) {
-    const ids = vendorsRaw
+
+  // 🔑 ONE HOME FOR THE DAY, DERIVED — NEVER ASKED FOR TWICE.
+  // `papic_gallery_id` used to be its own text box asking the author to paste a
+  // raw event id. It is now WRITTEN FROM `event_id`, so the author answers the
+  // question once, in a picker, and both consumers stay fed: the shoppable
+  // vendor cards read the column, and the teaser generator reads this.
+  // Two homes for one fact is exactly how the shipped feature ended up half
+  // working — the box the author could fill drove "shop this event", while the
+  // real column drove the cross-links and was never written at all.
+  if (eventId) substrate.papic_gallery_id = eventId;
+
+  if (hasVendors) {
+    const ids = (vendorsRaw as string)
       .split(/[,\s]+/)
       .map((s) => s.trim())
       .filter(Boolean)
@@ -117,12 +126,64 @@ function readSubstrate(formData: FormData): Record<string, unknown> | undefined 
   return substrate;
 }
 
+/**
+ * Which celebration is this chapter about?
+ *
+ * Returns the event id when the author picked one, `null` when they explicitly
+ * chose "not about one of my celebrations", and `undefined` when the field was
+ * not submitted at all (leave the column untouched).
+ *
+ * 🔑 THE PICKER REPLACED A BOX THAT ASKED FOR A MACHINE ID. To put a real day
+ * behind their story an author previously had to paste a raw event id, and
+ * comma-separated vendor ids beside it. Nobody ever did: the one published
+ * chapter in production carries neither, so "the real event underneath" — the
+ * whole reason a chapter beats a bare video link — was a door that opened for
+ * nobody.
+ *
+ * 🔒 THE SUBMITTED VALUE IS NEVER TRUSTED. The form is a list, but a form can be
+ * posted with anything, so the id is re-checked against the celebrations this
+ * account actually HOSTS before it is stored. Attaching a chapter to a day
+ * surfaces that day's name, date, venue and booked suppliers on a public page —
+ * a stranger must not be able to hang their page off somebody else's wedding.
+ *
+ * ⚠ HOSTS ONLY, FOR NOW, AND DELIBERATELY. A guest or a booked supplier
+ * legitimately wants to tell the story of a day they attended, but that needs
+ * the couple's yes — a request-and-approve step that does not exist yet. Until
+ * it does, the honest behaviour is that their list is empty rather than a
+ * silent grant over somebody else's celebration.
+ */
+async function readEventLink(
+  formData: FormData,
+  supabase: Awaited<ReturnType<typeof requireUser>>['supabase'],
+  userId: string,
+): Promise<string | null | undefined> {
+  if (!formData.has('event_id')) return undefined;
+  const raw = formData.get('event_id');
+  const picked = typeof raw === 'string' ? raw.trim() : '';
+  if (!picked) return null; // "Not about one of my celebrations."
+
+  const { data, error } = await supabase
+    .from('event_members')
+    .select('event_id')
+    .eq('user_id', userId)
+    .eq('event_id', picked)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  // 🪤 A REJECTED QUERY IS NOT A THROWN ERROR — Supabase resolves with
+  // { error }, so an unchecked read would let a failed permission check look
+  // like a successful one. Refuse, and say why.
+  if (error) fail('Could not check that celebration — please try again.');
+  if (!data) fail('You can only attach a celebration you host.');
+  return picked;
+}
+
 export async function createChapter(formData: FormData) {
   const { supabase, userId } = await requireUser();
   const title = readTitle(formData);
   const kind = readKind(formData);
   const embed = readEmbed(formData, { allowEmpty: true });
-  const substrate = readSubstrate(formData);
+  const eventId = await readEventLink(formData, supabase, userId);
+  const substrate = readSubstrate(formData, eventId);
 
   const body = readBody(formData);
 
@@ -132,6 +193,12 @@ export async function createChapter(formData: FormData) {
     insert.embed_provider = embed.embed_provider;
   }
   if (body !== undefined) insert.body = body;
+  // 🔴 THE WRITER THIS COLUMN NEVER HAD. `creator_chapters.event_id` was
+  // selected, joined and commented about in three files, and set by NOTHING —
+  // so the cross-links between a couple's own chapter and Setnayan's editorial
+  // about the same day could never once appear. Production: one published
+  // chapter, event_id NULL.
+  if (eventId !== undefined) insert.event_id = eventId;
   if (substrate) insert.substrate = substrate;
 
   const { error } = await supabase.from('creator_chapters').insert(insert);
@@ -158,7 +225,11 @@ export async function updateChapter(formData: FormData) {
   }
   const body = readBody(formData);
   if (body !== undefined) update.body = body;
-  const substrate = readSubstrate(formData);
+  const eventId = await readEventLink(formData, supabase, userId);
+  // Unlinking is a real answer, so `null` must be written, not skipped —
+  // `undefined` (field absent) is the only case that leaves the column alone.
+  if (eventId !== undefined) update.event_id = eventId;
+  const substrate = readSubstrate(formData, eventId);
   if (substrate) update.substrate = substrate;
 
   const { error } = await supabase

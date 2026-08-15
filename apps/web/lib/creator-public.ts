@@ -52,13 +52,16 @@ export type PublicChapter = {
   embed_provider: EmbedProvider | null;
   teaser_r2_key: string | null;
   substrate: ChapterSubstrate;
+  /** The celebration this chapter is about — the column that had no writer
+   *  until 2026-08-15, and the reason the cross-links could never appear. */
+  event_id: string | null;
   published_at: string | null;
   /** Aggregate public views (no PII) — the audience-layer counter. */
   view_count: number;
 };
 
 const CHAPTER_FIELDS =
-  'chapter_id, public_id, title, kind, body, embed_url, embed_provider, teaser_r2_key, substrate, published_at, view_count';
+  'chapter_id, public_id, title, kind, body, embed_url, embed_provider, teaser_r2_key, substrate, event_id, published_at, view_count';
 
 function coerceSubstrate(raw: unknown): ChapterSubstrate {
   if (!raw || typeof raw !== 'object') return {};
@@ -87,6 +90,7 @@ function mapRow(row: Record<string, unknown>): PublicChapter {
     embed_provider: (row.embed_provider as EmbedProvider | null) ?? null,
     teaser_r2_key: (row.teaser_r2_key as string | null) ?? null,
     substrate: coerceSubstrate(row.substrate),
+    event_id: (row.event_id as string | null) ?? null,
     published_at: (row.published_at as string | null) ?? null,
     view_count:
       typeof row.view_count === 'number' ? row.view_count : Number(row.view_count ?? 0),

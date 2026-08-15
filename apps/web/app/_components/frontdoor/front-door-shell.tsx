@@ -609,8 +609,9 @@ export function FrontDoorShell({
             <>
               {/*
                 🔒 ONE CHROME, ONE BUTTON COLOUR — GOLD EVERYWHERE
-                (owner-locked 2026-08-14). `.fd-btn-gold` is the "+ Create"
-                treatment on both variants; do not restyle it per surface.
+                (owner-locked 2026-08-14). `.fd-btn-gold` is the
+                "+ Create event" treatment on both variants; do not restyle it
+                per surface.
 
                 ⚠ HIDDEN BELOW 1024 in the app variant (CSS, not a branch).
                 A 360px row already carries identity, the search and the
@@ -635,8 +636,23 @@ export function FrontDoorShell({
                 answer, not a gap. Pointing a stranger at an event-type picker
                 they cannot submit would be a form behind a login wall.
               */}
+              {/*
+                🔴 THE WORD "CREATE" STAYS IN THE LABEL. Owner 2026-08-15,
+                hours after the href fix above: *"create button is gone."* It
+                was not gone — it was RENAMED "+ New event" in the same commit
+                that repointed it, and he scanned the bar for the word he knew
+                and did not find it. The button he looks for is the word, not
+                the position.
+
+                🔑 A RENAME IS A REMOVAL TO WHOEVER WAS LOOKING FOR THE OLD
+                NAME. The href was the only thing he asked to change; the label
+                came along as an unrequested side effect and cost a round trip.
+                "Create event" keeps his word AND stays honest about the one
+                thing this button makes — which is why it is not reverted to
+                the bare "+ Create" that used to point at the wrong page.
+              */}
               <Link href="/dashboard/create-event" className="fd-btn-gold">
-                + New event
+                + Create event
               </Link>
               {/*
                 THE HOST'S OWN CLUSTER, OR THIS PAGE'S. When a surface hands

@@ -431,9 +431,21 @@ export async function createWeddingEvent(formData: FormData) {
     .single();
 
   if (insertError || !insertedEvent) {
-    return redirect(
-      `/dashboard/create-event?error=${encodeURIComponent(insertError?.message ?? 'unknown')}`,
-    );
+    /*
+      🔴 A STABLE CODE, NEVER THE DATABASE'S OWN SENTENCE. This used to put
+      `insertError.message` straight into the query string, and the page then
+      rendered any unrecognised value VERBATIM — so a couple on a
+      wedding-planning site met Postgres prose about rows violating check
+      constraints, in a red box, with nothing in it they could act on.
+
+      🔑 AND A QUERY STRING IS NOT A PRIVATE CHANNEL. It lands in browser
+      history, in the referrer of anything the page loads, and in any analytics
+      that records URLs — so a constraint name, a column name, sometimes a
+      value, left the server every time this fired. The real message belongs in
+      the server log, where we can read it and the customer cannot.
+    */
+    console.error('[create-event] insert failed', insertError);
+    return redirect('/dashboard/create-event?error=create_failed');
   }
 
   // Arm the free Papic pool (owner-locked 2026-07-27 · 50 pts). Papic is switched
@@ -458,9 +470,33 @@ export async function createWeddingEvent(formData: FormData) {
   });
 
   if (memberError) {
-    return redirect(
-      `/dashboard/create-event?error=${encodeURIComponent('member_link_failed: ' + memberError.message)}`,
-    );
+    /*
+      🚨 THE EVENT ALREADY EXISTS AT THIS POINT, AND NOBODY OWNS IT. The row is
+      written; only the link naming its organiser failed. So the old advice —
+      "please try again" — was the one instruction that must NOT be followed:
+      retrying writes a SECOND event nobody owns, and neither is reachable by
+      the person who made them (the dashboard admits members, and there are no
+      members).
+
+      🔑 A FORWARD STEP THAT CANNOT BE UNDONE IS HALF A STEP. Roll the event
+      back so retrying is genuinely safe, and only then say "try again". If the
+      rollback ITSELF fails we must not say it either — an orphan survives, and
+      a different code carries a different, truthful sentence.
+    */
+    console.error('[create-event] member link failed', memberError);
+    const { error: rollbackError } = await admin
+      .from('events')
+      .delete()
+      .eq('event_id', insertedEvent.event_id);
+    if (rollbackError) {
+      console.error(
+        '[create-event] ORPHANED EVENT — rollback failed',
+        insertedEvent.event_id,
+        rollbackError,
+      );
+      return redirect('/dashboard/create-event?error=create_incomplete');
+    }
+    return redirect('/dashboard/create-event?error=create_failed');
   }
 
   // Funnel event. Fire-and-forget; never block the redirect to the new
@@ -611,9 +647,10 @@ export async function planNextYearEvent(formData: FormData) {
     .single();
 
   if (insertError || !inserted) {
-    return redirect(
-      `/dashboard/${sourceId}?error=${encodeURIComponent('plan_next_year_failed: ' + (insertError?.message ?? 'unknown'))}`,
-    );
+    // Same rule as the create path above: a stable code out, the real message
+    // to the server log — never into the customer's URL bar.
+    console.error('[plan-next-year] insert failed', insertError);
+    return redirect(`/dashboard/${sourceId}?error=plan_next_year_failed`);
   }
 
   // Arm the free Papic pool for the CLONE (owner-locked 2026-07-27 · 50 pts). A
@@ -636,9 +673,23 @@ export async function planNextYearEvent(formData: FormData) {
     joined_via: 'created_event',
   });
   if (memberError) {
-    return redirect(
-      `/dashboard/${sourceId}?error=${encodeURIComponent('member_link_failed: ' + memberError.message)}`,
-    );
+    // The clone exists and nobody owns it — roll it back so "try again" is
+    // true. See the identical block in the create path for why retrying an
+    // un-rolled-back failure is the one thing that must not be advised.
+    console.error('[plan-next-year] member link failed', memberError);
+    const { error: rollbackError } = await admin
+      .from('events')
+      .delete()
+      .eq('event_id', inserted.event_id);
+    if (rollbackError) {
+      console.error(
+        '[plan-next-year] ORPHANED EVENT — rollback failed',
+        inserted.event_id,
+        rollbackError,
+      );
+      return redirect(`/dashboard/${sourceId}?error=create_incomplete`);
+    }
+    return redirect(`/dashboard/${sourceId}?error=plan_next_year_failed`);
   }
 
   try {

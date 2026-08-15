@@ -22,10 +22,14 @@
  *     visible focus ring, a dismissible panel, and **no persistence** — the
  *     panel always starts closed, because it is help, not a setting.
  *
- * ⚠ The lock-handshake line reflects the §7 amendment: a lock is a REQUEST until
- * the vendor accepts the payment. Customer-facing copy must not promise "it's
- * final" before that step. When PR-H/PR-I ship the request states, update the
- * line HERE — not in the components.
+ * ⚠ The lock-handshake line must describe WHAT THE CODE DOES, not what §7 wants
+ * it to do. It spent months describing the target — "you request the lock, the
+ * vendor agrees" — while `finalizeVendor` booked the vendor outright and told
+ * them afterwards. Corrected 2026-08-15; see the const's own docblock.
+ * 🔑 Copy is not a plan. A sentence describing an unbuilt step is a promise the
+ * product breaks every time someone reads it. When PR-H ships step 2, flip this
+ * line as a function of the flag — never ahead of the flag.
+ * Update the line HERE — not in the components.
  */
 
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
@@ -50,9 +54,28 @@ export const EXPLORE_INFO_WHAT =
 export const EXPLORE_INFO_STRIP =
   'The strip at the top is your event, one tile per category you chose during onboarding. It is ordered by what needs deciding soonest, categories you are done with sink to the right, and NEXT marks the one to pick up now.';
 
-/** §11.1 — the lock handshake, one line (spec §7). */
+/**
+ * §11.1 — what locking actually does, one line (spec §7).
+ *
+ * 🔴 THIS LINE DESCRIBES TODAY, NOT THE TARGET. It previously read "you request
+ * the lock, the vendor agrees, …" — describing the §7 handshake. Steps 1, 3, 4
+ * and 5 of that handshake ship; **step 2 does not exist**. `finalizeVendor`
+ * writes `status='contracted'` outright and the vendor is TOLD, never ASKED
+ * (`emitNotification('booking_confirmed')`, "You have a new confirmed booking").
+ * So the sentence promised a veto no vendor has ever been offered, on the one
+ * screen that exists to explain the mechanism.
+ *
+ * What is kept is what is TRUE today: the couple pays the vendor directly,
+ * off-platform, and the date is reserved on the vendor's calendar only at
+ * `acknowledge_vendor_deposit` (which is what calls `acquireSchedulePoolsForBooking`).
+ *
+ * ⚠ WHEN PR-H SHIPS, THIS FLIPS BACK — but as a function of the flag, not a
+ * constant: `exploreInfoHandshake(handshakeEnabled)`, ON = the handshake
+ * sentence (true at last), OFF = this one. Both branches pinned in
+ * `explore-info-copy.test.ts`. Do not restore the promise ahead of the step.
+ */
 export const EXPLORE_INFO_HANDSHAKE =
-  'Locking is a handshake, not a switch: you request the lock, the vendor agrees, you pay and send the receipt, the vendor accepts it — only then is your date reserved.';
+  'Locking books this vendor and tells them straight away. You then pay them directly and send the receipt — once they accept it, your date is reserved on their calendar.';
 
 /**
  * §11.1 — the state-glyph legend, in journey order. Glyphs come from

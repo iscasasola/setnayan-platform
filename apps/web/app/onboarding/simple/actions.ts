@@ -104,9 +104,11 @@ export async function commitSimpleEvent(formData: FormData) {
     .single();
 
   if (insertError || !insertedEvent) {
-    return redirect(
-      `/onboarding/simple?error=${encodeURIComponent(insertError?.message ?? 'unknown')}`,
-    );
+    // A stable code out, the real message to the server log. Identical rule to
+    // the create-event path: the query string is not a private channel, and an
+    // unrecognised code used to render to the customer verbatim.
+    console.error('[simple-event] insert failed', insertError);
+    return redirect('/onboarding/simple?error=create_failed');
   }
 
   // Arm the free Papic pool (owner-locked 2026-07-27 · 50 pts). A Simple Event is
@@ -128,9 +130,23 @@ export async function commitSimpleEvent(formData: FormData) {
     joined_via: 'created_event',
   });
   if (memberError) {
-    return redirect(
-      `/onboarding/simple?error=${encodeURIComponent('member_link_failed: ' + memberError.message)}`,
-    );
+    // The event exists and nobody owns it. Roll it back so retrying is safe —
+    // otherwise "try again" quietly mints a second unreachable event. See the
+    // create-event path for the full reasoning.
+    console.error('[simple-event] member link failed', memberError);
+    const { error: rollbackError } = await admin
+      .from('events')
+      .delete()
+      .eq('event_id', insertedEvent.event_id);
+    if (rollbackError) {
+      console.error(
+        '[simple-event] ORPHANED EVENT — rollback failed',
+        insertedEvent.event_id,
+        rollbackError,
+      );
+      return redirect('/onboarding/simple?error=create_incomplete');
+    }
+    return redirect('/onboarding/simple?error=create_failed');
   }
 
   // Funnel event — fire-and-forget, never blocks the redirect.

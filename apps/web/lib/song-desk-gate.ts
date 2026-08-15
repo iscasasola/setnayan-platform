@@ -84,12 +84,36 @@ export async function resolveSongDeskAccess(
   services: string[],
   eventId: string,
   bookedEventIds: string[],
+  /**
+   * The event's tiles, when the caller ALREADY KNOWS them — pass `undefined` to
+   * have them fetched here (every vendor-facing caller does).
+   *
+   * 🔴 THIS EXISTS BECAUSE THE HEALTH PROBE COULD NOT SEE WHAT IT WAS BUILT TO
+   * WATCH. `fetchBookedTiles` reads `get_vendor_event_brief`, whose gate refuses
+   * anyone who is not a vendor booked on that event. The interconnection probe
+   * runs as the trusted server, so the call returned `42501 not_a_vendor` every
+   * six hours — and because that helper reads only `data`, the refusal arrived
+   * as `null`, which this function's contract defines as *"decline to narrow"*.
+   * So the probe whose whole job is *"the event-tile narrowing does not lock out
+   * entitled acts"* was measuring a narrowing that never happened, and would
+   * have reported all-clear through the exact outage it was written after.
+   *
+   * The probe already holds these tiles: `interconnect_booked_vocabularies`
+   * hands it `booked_categories` for every booking, and its sibling probe reads
+   * them directly. So it passes what it has rather than asking through a door
+   * it cannot open — no gate is widened, and the narrowing is finally real.
+   *
+   * ⚠ NOT a way to hand-supply tiles on a vendor path. Every caller with a
+   * vendor's own session omits it and gets the fetched answer.
+   */
+  knownEventTiles?: string[] | null,
 ): Promise<SongDeskAccess> {
   if (!bookedEventIds.includes(eventId)) {
     return { ok: false, error: 'You are not booked on this event.' };
   }
 
-  const eventTiles = await fetchBookedTiles(supabase, eventId);
+  const eventTiles =
+    knownEventTiles !== undefined ? knownEventTiles : await fetchBookedTiles(supabase, eventId);
   const access = await resolveVendorSpecializationAccessForVendor(supabase, vendorProfileId, {
     services,
     eventTiles,

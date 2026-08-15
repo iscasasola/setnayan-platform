@@ -5,6 +5,7 @@ import {
   JOIN_DOOR_ERROR_KEY,
   JOIN_DOOR_THROTTLED_MESSAGE,
 } from '@/lib/join-door-throttle';
+import { isUuid } from '@/lib/is-uuid';
 import { JoinFlow } from './_components/join-flow';
 import { InvalidTokenScreen } from './_components/join-shell';
 
@@ -24,6 +25,22 @@ export default async function JoinPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const search = await searchParams;
   const token = search.token ?? '';
+
+  /*
+    🔑 A URL SEGMENT IS WHATEVER A STRANGER TYPED, AND `event_id` IS A `uuid`.
+    Handed something that is not one, PostgREST does not return an empty
+    result — it rejects the whole query with `22P02 invalid input syntax for
+    type uuid`, which this repo's detector files as a production fault. That is
+    what `/join/zzzbad` did on 2026-08-15. The visitor's outcome was already
+    correct ("this link isn't valid"), so nothing ever looked wrong; the cost
+    was a red 400 in the log a REAL fault has to be spotted in, mintable by
+    anyone who can type a URL.
+
+    Refusing here is the same answer one step earlier, with no round trip.
+  */
+  if (!isUuid(eventId)) {
+    return <InvalidTokenScreen />;
+  }
 
   // Validate the token (admin client bypasses RLS).
   const admin = createAdminClient();

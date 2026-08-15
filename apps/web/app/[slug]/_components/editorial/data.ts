@@ -16,6 +16,7 @@
 
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isSampleEditorialId, type SampleEditorialId } from './sample-ids';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
@@ -634,8 +635,16 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // fixture renders through THIS exact component (via the /realstories sample page),
   // so the sample always tracks the live editorial format. Returns without
   // touching the DB; real event ids fall straight through to the loader below.
-  const sampleFixture = SAMPLE_EDITORIALS[eventId];
-  if (sampleFixture) return sampleFixture();
+  //
+  // 🪤 THIS WAS `const f = SAMPLE_EDITORIALS[eventId]; if (f) return f();` and
+  // that lookup walks the PROTOTYPE: an event whose id was the string
+  // 'constructor' or 'toString' would have been served a fixture — or, more
+  // precisely, `f` would be a function and calling it would return nonsense —
+  // instead of their own wedding. Nothing in prod has such an id, so it never
+  // bit; the predicate is a list membership test with no prototype to inherit
+  // from, and it is the SAME predicate the editorial component uses to decide
+  // whether to query at all. One definition of "is this a sample", not two.
+  if (isSampleEditorialId(eventId)) return SAMPLE_EDITORIALS[eventId]();
 
   let admin: ReturnType<typeof createAdminClient>;
   try {
@@ -2512,7 +2521,14 @@ function deriveMonogramFallback(displayName: string): string {
 // one of these (via SAMPLE_EDITORIAL_IDS) and renders through the real
 // EditorialContent engine, so a sample looks EXACTLY like a real couple's
 // website editorial — including their own hero photo.
-const SAMPLE_EDITORIALS: Record<string, () => EditorialData> = {
+//
+// 🔑 KEYED BY `SampleEditorialId`, NOT BY `string`, ON PURPOSE. The id set also
+// lives in `sample-ids.ts`, where `EditorialContent` and the unit tests can
+// reach it without dragging `server-only` along. Two lists of the same thing is
+// how a seventh sample gets added and only half the code learns about it — so
+// this annotation makes TypeScript refuse a missing member OR an extra key.
+// The correspondence is a mechanism, not a promise.
+const SAMPLE_EDITORIALS: Record<SampleEditorialId, () => EditorialData> = {
   'sample-maria-and-juan': mariaAndJuan,
   'sample-jack-and-jill': jackAndJill,
   'sample-john-and-jane': johnAndJane,
@@ -2533,6 +2549,20 @@ export const SAMPLE_EDITORIAL_IDS: Record<string, string> = {
 
 // Back-compat: original single-sample export still points at Maria & Juan.
 export const SAMPLE_EDITORIAL_EVENT_ID = 'sample-maria-and-juan';
+
+/**
+ * Re-exported so a reader who lands in this file finds the predicate beside the
+ * fixtures. It is DEFINED in `./sample-ids`, which carries no `server-only`
+ * import and is therefore reachable from `tsx --test` — this module is not.
+ *
+ * 🔴 IT EXISTS BECAUSE `loadEditorialData` WAS NOT THE ONLY PLACE THAT NEEDED
+ * TO KNOW. It short-circuits the sentinel above and returns without touching
+ * the database — but `EditorialContent` then ran TWO MORE queries with the same
+ * id (the masthead monogram row on `events`, and the paid-perk probe on
+ * `orders`), and a sentinel is not a UUID. See `./sample-ids` for the full
+ * account.
+ */
+export { isSampleEditorialId, type SampleEditorialId } from './sample-ids';
 
 function mariaAndJuan(): EditorialData {
   const guests = 120;

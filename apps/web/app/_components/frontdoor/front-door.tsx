@@ -16,6 +16,7 @@ import {
 import { loadFrontDoorData } from './data';
 import { FrontDoorShell } from './front-door-shell';
 import { FrontDoorFeed, isChip, type ChipKey } from './front-door-feed';
+import { SignedInCluster } from './signed-in-cluster';
 // The account resolver and the Studio group moved out 2026-08-13 so the
 // signed-in surfaces render the SAME rail from the SAME source. Behaviour is
 // byte-identical; see `rail-data.ts` for why one copy matters here.
@@ -55,6 +56,23 @@ export async function FrontDoor({ chip }: { chip?: string }) {
       tools={
         account.signedIn ? railToolsSignedIn(studioEvent) : railToolsSignedOut()
       }
+      /*
+        🔴 THE SAME FALLBACK LEAK THE DOORWAY PAGES HAD — this is the page in
+        the owner's second screenshot. `/` handed in no cluster, so a signed-in
+        visitor got the shell's stranger-facing "🔔" emoji and a plain initials
+        circle, while every page inside the app showed the live bell and the
+        account switcher. Owner 2026-08-15: *"why does the top nav differ?"*
+
+        This page is ALREADY dynamic (its own note above: "measured live: MISS,
+        private, no-store") and already resolves the account, so the cluster's
+        two reads cost nothing new here.
+
+        ⚠ THE SEARCH STAYS THE MARKETPLACE FORM ON THIS PAGE, deliberately —
+        that is the settled 2026-08-14 split (this is the public shopfront;
+        inside the app the palette answers "where is MY thing"). Only the
+        cluster was ever accidental.
+      */
+      topBarSlot={account.signedIn ? <SignedInCluster /> : undefined}
     >
       <FrontDoorFeed data={data} chip={activeChip} />
     </FrontDoorShell>

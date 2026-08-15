@@ -105,6 +105,57 @@ test('the anchor: every file this guard reasons about exists', () => {
   }
 });
 
+/*
+  ─── THE FALLBACK MUST NOT REACH A SIGNED-IN PERSON ───────────────────────
+  🔴 THIS FILE ALREADY NAMED THIS HAZARD AND DID NOT COVER IT. Its own header
+  says: "a tree that stops passing `topBarSlot` still renders a perfectly
+  good-looking bar — this shell has a fallback bell and account menu for `/`."
+  The five TREES above were checked. `/` and every `variant="doorway"` page
+  were never in that list, so for a day they served a signed-in visitor a "🔔"
+  EMOJI that can never show an unread count, while every page inside the app
+  showed the live badge. Owner 2026-08-15, two screenshots: *"why does the top
+  nav differ?"*
+
+  🔑 THE GUARD WAS RIGHT ABOUT THE DISEASE AND WRONG ABOUT THE PATIENT LIST.
+  Both surfaces now default to `SignedInCluster`, and these hold it.
+*/
+test('the two surfaces that hand in no cluster fall back to the real one', () => {
+  const doorway = code(read(RAIL_SHELL));
+  assert.match(
+    doorway,
+    /topBarSlot=\{topBarSlot \?\? \(account\.signedIn \? <SignedInCluster/,
+    'A doorway page passes no topBarSlot. Signed in it must default to the ' +
+      'real cluster, not the shell’s emoji-bell placeholder, which cannot ' +
+      'carry an unread count.',
+  );
+
+  const frontDoor = code(read(join(HERE, 'front-door.tsx')));
+  assert.match(
+    frontDoor,
+    /topBarSlot=\{account\.signedIn \? <SignedInCluster/,
+    '`/` is the page in the owner’s screenshot. Signed in it must render ' +
+      'the same bell and account switcher as every surface inside the app.',
+  );
+});
+
+test('the shared cluster is the app\'s own two controls, not a second copy', () => {
+  const src = code(read(join(HERE, 'signed-in-cluster.tsx')));
+  /*
+    🔑 REUSED, NOT REBUILT. A second bell or a second account menu would drift
+    from the real one within a week — the exact failure one shared bar exists
+    to prevent. Anchored on the RENDERED elements, not the imports: an import
+    with the JSX deleted must not satisfy this.
+  */
+  assert.match(src, /<UnreadBellBadge\b/, 'Must render the live bell, not a static link.');
+  assert.match(src, /<AccountSwitcher\b/, 'Must render the real account switcher.');
+  assert.match(
+    src,
+    /if \(!user\) return null/,
+    'Must render nothing for a signed-out visitor, so the public doorway is ' +
+      'unchanged and the rail’s sign-in prompt still owns that corner.',
+  );
+});
+
 /* ─── 1 · EXACTLY ONE TOP BAR, AND IT IS THE SHARED ONE ─────────────────── */
 
 test('the shell renders its top bar in BOTH variants', () => {

@@ -57,6 +57,7 @@ import {
   toRailFolder,
 } from './rail-data';
 import { resolveCommandItems } from './command-data';
+import { SignedInCluster } from './signed-in-cluster';
 import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
 
 export async function AppRailShell({
@@ -176,7 +177,21 @@ export async function AppRailShell({
         account.signedIn ? railToolsSignedIn(studioEvent) : railToolsSignedOut()
       }
       railContext={railContext}
-      topBarSlot={topBarSlot}
+      /*
+        🔴 A DOORWAY PAGE HANDS IN NO CLUSTER, AND THE SHELL'S FALLBACK IS
+        WRITTEN FOR A STRANGER. Owner 2026-08-15, two screenshots: *"why does
+        the top nav differ?"* The five app trees pass `topBarSlot` and got the
+        real bell + switcher; `variant="doorway"` pages (About, Alaala, Explore,
+        Real Stories, the eight product pages, the legal chrome) passed nothing
+        and fell through to a "🔔" EMOJI that can never carry an unread count.
+        Signed in, that is not a placeholder — it is a worse bar.
+
+        So the DEFAULT for a signed-in visitor is now the real cluster, and a
+        host that hands in its own still wins. `SignedInCluster` returns null
+        when nobody is signed in, so the signed-out doorway is byte-identical.
+        See `signed-in-cluster.tsx` for the measured no-cost note.
+      */
+      topBarSlot={topBarSlot ?? (account.signedIn ? <SignedInCluster /> : undefined)}
       /*
         THE SEARCH INSIDE THE APP IS THE PALETTE, NOT THE MARKETPLACE FORM.
         See the shell's file header: everything this variant wraps is a room in

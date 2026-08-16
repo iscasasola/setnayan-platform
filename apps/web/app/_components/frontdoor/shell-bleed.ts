@@ -30,9 +30,17 @@
  * the compare page silently became full-bleed (measured: `fd-bleed` x2 on a
  * page whose own comment says it deliberately keeps `max-w-6xl`, because a
  * side-by-side table is not a browse grid). A segment cannot tell a route from
- * its children. `usePathname()` can, already ships in this component, and —
- * measured — pulling in `useSelectedLayoutSegment` cost 0.5KB gzipped in the
- * globally-shared chunk and broke the 200KB budget.
+ * its children. `usePathname()` can, and already ships in this component.
+ *
+ * 🛑 AND THE OTHER HALF OF THAT SENTENCE WAS WRONG — RETRACTED. It said the
+ * hook "cost 0.5KB gzipped in the globally-shared chunk and broke the 200KB
+ * budget." It did not. Removing it moved the measured total by ZERO bytes; the
+ * whole 0.5KB was `webpack.js` (3.2 → 3.7KB), the ROUTING MANIFEST, which grew
+ * because twenty routes moved into a route group. Every application chunk was
+ * byte-identical before and after. **The compare-page bug above is the ONLY
+ * reason this uses paths** — a correct fix that I justified with a cause I had
+ * not verified, which is how a wrong explanation outlives the change that
+ * carried it.
  *
  * 🪤 THE ALTERNATIVES ALL FLASH, WHICH IS WHY THIS ONE WAS CHOSEN:
  *   • A page-authored marker (a `:has()` target, an injected `<style>`) lives

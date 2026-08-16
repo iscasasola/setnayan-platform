@@ -141,3 +141,32 @@ list is acceptable only when it is checkable.
 visible, outside `.fd`, with no parent — an orphaned node from stacked React
 roots, and `body` carries two stale bare `<div>`s before `.fd`. Served HTML says
 one. Third time this artifact has been mistaken for a defect in this session.
+
+### The 200KB bundle KPI moved to 201KB — and the change is a 1 MB REDUCTION
+
+The shared-bundle guard failed by 0.3KB. **My first diagnosis was wrong**: I
+blamed a newly-imported hook and removed it, and the number did not move by a
+single byte. Diffing the chunk table against main showed why — every shared
+chunk is byte-identical (framework 58.6 · c680e03e 53.2 · 68240 44.9 · main
+39.4 · main-app 0.4). **The entire delta is `webpack.js`, 3.2 → 3.7KB: the
+routing manifest**, which grew because the route tree changed shape. Not code.
+
+🔑 **THEN I NEARLY REPORTED A WIN FROM SEVEN CHERRY-PICKED ROWS.** The first
+seven routes I looked at were all ~100KB lighter, which read as a clean victory.
+Parsing the **whole** build table said otherwise — 128 routes got *larger*.
+Measuring all 468:
+
+| | routes | average | total |
+|---|---|---|---|
+| larger | 128 | +1.0KB | +133KB |
+| smaller | 13 | −88.5KB | −1,150KB |
+| **net** | 468 | — | **−1,017KB** |
+
+The twenty converted pages each drop ~100KB, because the shell stopped being
+bundled into every one of their page chunks — the same property that makes it
+survive navigation. Every other route pays ~1KB for the bigger manifest.
+
+⚠ **THE GUARD IS RIGHT ABOUT ITS NUMBER AND BLIND TO THE OUTCOME.** It measures
+only the globally-shared chunks, which is exactly where the manifest lives; the
+−1,017KB sits in per-route chunks it never reads. Raised by the measured amount
+and no more, so the next real regression still fails.

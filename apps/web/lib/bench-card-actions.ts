@@ -21,12 +21,17 @@
 
 import { hasLiveInquiry } from '@/lib/shortlist-taxonomy';
 import { isHardSinglePickGroup, type PlanGroupId } from '@/lib/wedding-plan-groups';
+import type { LockRequestState } from '@/lib/lock-request-state';
 
 /** The subset of `ShortlistVendor` this resolver reads. Structural on purpose:
  *  the test fixtures stay small and a new card field can't silently join the
  *  decision without being declared here. */
 export type BenchCardVendor = {
   status: 'considering' | 'locked';
+  /** PR-H · where the booking actually is. `'requested'` is the one that changes
+   *  this resolver's answer; every other value behaves exactly as before, and
+   *  the flag-off world is pinned to `'none'` upstream. */
+  lockRequestState?: LockRequestState;
   marketplaceVendorId: string | null;
   threadId: string | null;
   inquiryStatus: string | null;
@@ -67,16 +72,28 @@ export type BenchInquiryAction =
   /** A live thread exists → link straight to it. No server call, no transition. */
   | { kind: 'check'; threadId: string };
 
+/** Third action, PR-H · slice B. Present ONLY while an ask is outstanding. */
+export type BenchWithdrawAction = { kind: 'withdraw' };
+
 export type BenchCardActions = {
   build: BenchBuildAction | null;
   inquiry: BenchInquiryAction | null;
+  /** Non-null ⇒ the couple has asked and nobody has answered. The card says so
+   *  and offers to take the ask back (`withdrawVendorLockRequest`). Null in
+   *  every other state, including the whole flag-off world. */
+  withdraw: BenchWithdrawAction | null;
   /** Non-null ⇒ render the shipped `AccordionLockButton` for THIS group, so the
    *  conflict gate, date-lock modal, milestone toast and undo all carry. Null ⇒
    *  hide Lock entirely — NEVER pass a null group id into the lock button. */
   lockGroupId: string | null;
 };
 
-const NO_ACTIONS: BenchCardActions = { build: null, inquiry: null, lockGroupId: null };
+const NO_ACTIONS: BenchCardActions = {
+  build: null,
+  inquiry: null,
+  withdraw: null,
+  lockGroupId: null,
+};
 
 /**
  * Which of the three actions does this card show?
@@ -96,6 +113,15 @@ const NO_ACTIONS: BenchCardActions = { build: null, inquiry: null, lockGroupId: 
  *     those. The inquiry leg survives ("Ask anyway"), because a date the couple
  *     can still change is a conversation, not a wall. A vendor already in the
  *     build is exempt: it helped DEFINE the window, and it keeps its Remove.
+ *  6. PR-H · AN OUTSTANDING ASK REPLACES LOCK WITH WITHDRAW. Under the handshake
+ *     the couple's Lock only ASKS, and the row stays 'considering' — so rule 2
+ *     does not fire and the card would have gone on offering Lock to a couple
+ *     who had already pressed it, on a supplier already sitting on the request.
+ *     Pressing it again is not harmless: the DB's one-pending-request-per-group
+ *     unique index rejects the second write, and the couple meets an error for
+ *     doing the only thing the screen offered. Build is withheld for the same
+ *     reason as rule 2 (the category is no longer open), and INQUIRY SURVIVES —
+ *     a couple waiting on an answer is exactly who most needs to send a message.
  */
 export function resolveBenchCardActions(args: {
   enabled: boolean;
@@ -106,6 +132,12 @@ export function resolveBenchCardActions(args: {
   const { enabled, vendor, inBuild } = args;
   if (!enabled) return NO_ACTIONS;
   if (vendor.status === 'locked') return NO_ACTIONS;
+
+  // Rule 6 — the ask is outstanding. Resolved BEFORE the build/lock legs so
+  // neither can be handed a group id: withholding them later would leave two
+  // places that have to remember, which is how the coverage strip and the bench
+  // disagreed about the same category once already.
+  const awaitingAnswer = vendor.lockRequestState === 'requested';
 
   // Rule 5 — the SOFT schedule tier (PR-G1). A vendor already IN the build can
   // never be sunk by the window it helps define, so `inBuild` wins: the couple
@@ -132,7 +164,12 @@ export function resolveBenchCardActions(args: {
 
   // Lock is withheld on a clash for the same reason Add is — but the group id
   // is NOT forgotten anywhere else, so nothing downstream degrades.
-  return { build, inquiry, lockGroupId: clashes ? null : vendor.planGroupId };
+  return {
+    build: awaitingAnswer ? null : build,
+    inquiry,
+    withdraw: awaitingAnswer ? { kind: 'withdraw' } : null,
+    lockGroupId: awaitingAnswer || clashes ? null : vendor.planGroupId,
+  };
 }
 
 /**

@@ -1,12 +1,25 @@
 // ============================================================================
 // Real Weddings — published-showcase DB browse (iteration 0046)
 // ============================================================================
-// Server-only. Returns the consent-gated set of REAL weddings to surface on
-// /realstories, newest first. A wedding qualifies ONLY when ALL hold:
-//   • it's a wedding (events.event_type = 'wedding') with a public slug,
+// Server-only. Returns the consent-gated set of REAL celebrations to surface on
+// /realstories, newest first. A celebration qualifies ONLY when ALL hold:
+//   • its KIND may be written up at all (lib/editorial-event-types.ts) and it
+//     has a public slug,
 //   • it's past the T+30d grace window (event_date <= today − 30 days),
-//   • a couple member's account opted in to public showcase inclusion
+//   • a host member's account opted in to public showcase inclusion
 //     (users.public_summary_consent_at IS NOT NULL, account not deleted).
+//
+// 🔴 EVERY KIND OF CELEBRATION, NOT ONLY WEDDINGS (owner 2026-08-15). This file
+// used to carry five `.eq('event_type', 'wedding')` filters that refused a
+// debut, a graduation, a christening or a reunion an editorial before consent
+// was even read. The kind question now has exactly one home — see that module
+// for why it is an exclusion set rather than an allowlist.
+//
+// ⚠ `member_type = 'couple'` below reads as wedding-shaped and is NOT. It is
+// the generic PRINCIPAL/host slot: verified in prod, non-wedding events carry
+// it too (a `date` and a `simple_event` both have one). Read it as "the people
+// whose celebration this is". Renaming it is a separate migration, not this
+// change.
 //
 // That is the RA 10173 consent gate (CLAUDE.md decision-log rows 426 + 428; the
 // `users.public_summary_consent_at` column shipped in
@@ -23,6 +36,10 @@
 // /[slug] (0002 Phase 4) — never a duplicate copy under /realstories.
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  EDITORIAL_EXCLUDED_EVENT_TYPES,
+  UNNAMED_EDITORIAL_LABEL,
+} from '@/lib/editorial-event-types';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { tierCaps, isTrueNameTier } from '@/lib/vendor-tier-caps';
@@ -44,6 +61,30 @@ export type ShowcaseVendorCredit = {
   slug: string;
   logoUrl: string | null;
 };
+
+/**
+ * Apply the KIND exclusion to an events query — the one filter that replaced
+ * five hardcoded `.eq('event_type', 'wedding')` calls.
+ *
+ * 🔑 IT ADDS NOTHING WHEN THE EXCLUSION SET IS EMPTY, which is the point: with
+ * no ruling in force every celebration is eligible, so the query must not
+ * constrain the type at all. Filtering in SQL rather than after the read is
+ * load-bearing — an excluded row dropped in JS would still have consumed one of
+ * the `limit` slots and silently shortened the shelf.
+ *
+ * Structurally typed over `.not()` so it composes with whichever query builder
+ * stage it is handed, without importing Supabase's internal builder types.
+ */
+function withEditorialEventTypes<Q extends { not(c: string, o: string, v: string): Q }>(
+  query: Q,
+): Q {
+  if (EDITORIAL_EXCLUDED_EVENT_TYPES.length === 0) return query;
+  return query.not(
+    'event_type',
+    'in',
+    `(${EDITORIAL_EXCLUDED_EVENT_TYPES.join(',')})`,
+  );
+}
 
 export type ShowcaseEntry = {
   href: string; // canonical editorial — the couple's own /[slug] page
@@ -189,15 +230,28 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
     // featured-first. Skipped entirely when no real couple has consented yet.
     let consentedEvents: EventRow[] = [];
     if (eventIds.length > 0) {
-      const featuredAware = await admin
-        .from('events')
-        .select(FEATURED_COLS)
-        .eq('event_type', 'wedding')
-        // Defense-in-depth (owner 2026-06-20 private-by-default): never surface a
-        // page the couple kept private — even if they consented to the showcase,
-        // a private page must not leak its canonical /[slug] into /realstories or
-        // the sitemap.
-        .neq('landing_page_visibility', 'private')
+      const featuredAware = await withEditorialEventTypes(
+        admin
+          .from('events')
+          .select(FEATURED_COLS),
+      )
+        // 🔴 ONLY 'public' IS PUBLIC. This read `.neq(…, 'private')` until
+        // 2026-08-15, which admitted **'unlisted'** — the setting the couple's
+        // own privacy screen sells as "link only". A link-only celebration
+        // could therefore be listed on /realstories AND emitted into
+        // sitemap-weddings.xml, i.e. handed to Google, while its owner had
+        // chosen that only people with the link should find it.
+        //
+        // Owner, 2026-08-15: "it is the owner's choice if they want this in
+        // public or link only or tagged accounts only" — the event owner's
+        // choice governs. Their showcase consent answers a DIFFERENT question
+        // ("may Setnayan write about us?"); it is not permission to re-list a
+        // page they deliberately unlisted. Both gates must pass.
+        //
+        // 🔑 The old spelling failed OPEN on a value it never named. An
+        // exclusion test over an enum that can grow admits every future member
+        // by default — say what IS allowed, not what is not.
+        .eq('landing_page_visibility', 'public')
         .in('event_id', eventIds)
         .lte('event_date', cutoff)
         .not('slug', 'is', null)
@@ -208,10 +262,21 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
 
       if (featuredAware.error) {
         // Pre-migration fallback — drop the featuring columns + ordering.
-        const legacy = await admin
-          .from('events')
-          .select(LEGACY_COLS)
-          .eq('event_type', 'wedding')
+        //
+        // 🚨 THIS PATH HAD NO VISIBILITY GATE AT ALL until 2026-08-15, while
+        // the primary query above it did. It is reached whenever the primary
+        // query returns ANY error — not only the unknown-column case it was
+        // written for — so a transient failure downgraded the shelf to a read
+        // that would list a celebration whose owner had set their page
+        // PRIVATE. Found by `showcase-visibility.test.ts` counting reads
+        // against gates, not by reading the file.
+        // 🔑 A FAIL-SOFT PATH MUST BE AT LEAST AS STRICT AS THE ONE IT
+        // REPLACES. Degrading ordering is graceful; degrading a privacy gate
+        // is a leak that only appears on a bad day, when nobody is looking.
+        const legacy = await withEditorialEventTypes(
+          admin.from('events').select(LEGACY_COLS),
+        )
+          .eq('landing_page_visibility', 'public')
           .in('event_id', eventIds)
           .lte('event_date', cutoff)
           .not('slug', 'is', null)
@@ -232,12 +297,11 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
     // ordering as the real path. Graceful-degrade identical to 3a.
     let sampleEvents: EventRow[] = [];
     {
-      const sampleFeatured = await admin
-        .from('events')
-        .select(FEATURED_COLS)
-        .eq('event_type', 'wedding')
+      const sampleFeatured = await withEditorialEventTypes(
+        admin.from('events').select(FEATURED_COLS),
+      )
         .eq('is_sample', true)
-        .neq('landing_page_visibility', 'private')
+        .eq('landing_page_visibility', 'public')
         .not('slug', 'is', null)
         .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
         .order('showcase_featured_at', { ascending: false, nullsFirst: false })
@@ -245,12 +309,11 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
         .limit(limit);
 
       if (sampleFeatured.error) {
-        const sampleLegacy = await admin
-          .from('events')
-          .select(LEGACY_COLS)
-          .eq('event_type', 'wedding')
+        const sampleLegacy = await withEditorialEventTypes(
+          admin.from('events').select(LEGACY_COLS),
+        )
           .eq('is_sample', true)
-          .neq('landing_page_visibility', 'private')
+          .eq('landing_page_visibility', 'public')
           .not('slug', 'is', null)
           .order('event_date', { ascending: false })
           .limit(limit);
@@ -379,7 +442,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
         href: `/${e.slug as string}`,
         eventId: e.event_id,
         slug: e.slug as string,
-        coupleNames: e.display_name?.trim() || 'A Setnayan wedding',
+        coupleNames: e.display_name?.trim() || UNNAMED_EDITORIAL_LABEL,
         vendors: creditsByEvent.get(e.event_id) ?? [],
         city: deriveCity(e.venue_name, e.venue_address),
         dateLabel: monthYear(e.event_date),
@@ -473,16 +536,17 @@ export async function loadShowcaseCandidatesForAdmin(
     );
     if (eventIds.length === 0) return { ok: true, rows: [] };
 
-    const { data, error } = await admin
-      .from('events')
-      .select(
-        'event_id, slug, display_name, event_date, venue_name, venue_address, showcase_featured_at, showcase_feature_rank',
-      )
-      .eq('event_type', 'wedding')
+    const { data, error } = await withEditorialEventTypes(
+      admin
+        .from('events')
+        .select(
+          'event_id, slug, display_name, event_date, venue_name, venue_address, showcase_featured_at, showcase_feature_rank',
+        ),
+    )
       // Private pages aren't featurable (they'd never render in the public
       // showcase anyway — see loadPublishedShowcases) — keep them out of the
       // admin candidate queue too.
-      .neq('landing_page_visibility', 'private')
+      .eq('landing_page_visibility', 'public')
       .in('event_id', eventIds)
       .lte('event_date', cutoff)
       .not('slug', 'is', null)
@@ -503,7 +567,8 @@ export async function loadShowcaseCandidatesForAdmin(
     const rows: ShowcaseAdminRow[] = (data ?? []).map((e) => ({
       eventId: e.event_id as string,
       slug: e.slug as string,
-      coupleNames: (e.display_name as string | null)?.trim() || 'A Setnayan wedding',
+      coupleNames:
+        (e.display_name as string | null)?.trim() || UNNAMED_EDITORIAL_LABEL,
       city: deriveCity(e.venue_name as string | null, e.venue_address as string | null),
       dateLabel: monthYear(e.event_date as string | null),
       eventDate: (e.event_date as string | null) ?? null,

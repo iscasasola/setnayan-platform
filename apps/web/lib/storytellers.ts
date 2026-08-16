@@ -10,6 +10,7 @@ import {
   CHAPTER_KIND_LABEL,
 } from '@/lib/creator-chapters';
 import { deriveCity } from '@/lib/showcase-db';
+import { isReservedSlug } from '@/lib/reserved-slugs';
 import { isPubliclyVisible, parseVisibility } from '@/lib/vendor-visibility';
 
 // ============================================================================
@@ -107,14 +108,34 @@ async function fetchPublicOwners(
 ): Promise<Map<string, { slug: string; name: string }>> {
   const out = new Map<string, { slug: string; name: string }>();
   if (userIds.length === 0) return out;
-  const { data } = await admin
+  const { data, error } = await admin
     .from('users')
     .select('user_id, slug, display_name, public_profile_enabled, deleted_at')
     .in('user_id', userIds);
+  // A rejected query resolves `{ data: null, error }` rather than throwing, and
+  // an unowned chapter is dropped by the caller — so a refused read here empties
+  // the whole shelf and looks exactly like a quiet week. Say so.
+  if (error) console.error('[storytellers] owner read failed', error);
   for (const u of (data ?? []) as OwnerRow[]) {
     if (u.public_profile_enabled !== true) continue;
     if (u.deleted_at) continue;
     if (!u.slug) continue; // no public /u page → no linkable byline
+    /*
+      🔑 THIS FUNCTION IS THE GATE THAT MAKES A BYLINE SAFE TO PRESS, so it has
+      to ask every question `/u/[userSlug]` asks — and one was missing.
+
+      `resolvePublicProfile` refuses a reserved word on its first line, so a
+      handle that collides with a route folder 404s. RESERVED_SLUGS is GENERATED
+      from the folders on disk, so the set GROWS every time a new top-level page
+      ships; a handle is validated when it is claimed and never re-checked. A
+      storyteller who claimed theirs before that folder existed keeps a handle
+      whose page has quietly stopped resolving.
+
+      Dropping them from the shelf is the honest answer, not a smaller one: the
+      chapter link `/u/{slug}/c/{id}` was already dead for the same reason. This
+      removes a card that could not be opened — it does not hide a working one.
+    */
+    if (isReservedSlug(u.slug)) continue;
     out.set(u.user_id, {
       slug: u.slug,
       name: u.display_name?.trim() || 'A Setnayan storyteller',

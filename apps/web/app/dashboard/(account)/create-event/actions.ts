@@ -13,7 +13,7 @@ import { resolveProfile } from '@/lib/event-type-profile';
 import { safeNext } from '@/lib/auth';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { resolveCreateCapture } from '@/lib/create-event-capture';
-import { anchorForType, isAnchorOrigin, parseISO, canToggleRecur } from '@/lib/event-anchor';
+import { anchorForType, isAnchorOrigin, parseISO, canToggleRecur, resolveCadence } from '@/lib/event-anchor';
 import {
   buildNextYearClonePayload,
   canPlanNextYear,
@@ -133,12 +133,21 @@ export async function createWeddingEvent(formData: FormData) {
   const anniversaryDate = isAnniversary && parseISO(rawAnnivDate) ? rawAnnivDate : null;
   const anniversaryOrigin = isAnniversary && isAnchorOrigin(rawAnnivOrigin) ? rawAnnivOrigin : null;
 
-  // Date-anchor model (PR-E): the "yearly?" toggle. Anniversary recurs by nature;
-  // recur-eligible types (travel/corporate/gala/celebration/reunion/tournament)
-  // set recurs from the checkbox. Everything else is one-time.
-  const recurs =
-    isAnniversary ||
-    (canToggleRecur(event_type) && String(formData.get('recurs') ?? '') === 'on');
+  // Date-anchor model — the repeat, now a CADENCE rather than a yes/no.
+  //
+  // 🔴 THIS LINE USED TO OMIT BIRTHDAY, AND THAT WAS A LIVE DEFECT. It read
+  // `isAnniversary || (canToggleRecur(type) && checkbox)`, and `canToggleRecur`
+  // has never included 'birthday' — so a birthday created here landed with
+  // `recurs = false`, the Year view's birthday branch
+  // (`event_type === 'birthday' && e.recurs`) never fired, and that person's
+  // birthday NEVER appeared on the surface built for it. The onboarding path set
+  // it TRUE for the same type. One event type, two answers, and no screen could
+  // correct it afterwards.
+  //
+  // `resolveCadence` is now the ONE decider for both halves, so the create path,
+  // the onboarding path and the edit path cannot disagree again.
+  const recurCadence = resolveCadence(event_type, formData.get('recur_cadence') ?? formData.get('recurs'));
+  const recurs = recurCadence !== null;
 
   // Iteration 0043 + Task #44 (2026-05-22) — picker fields. Read raw values
   // from the form only when the event_type is wedding; non-wedding
@@ -367,6 +376,7 @@ export async function createWeddingEvent(formData: FormData) {
       anchor_date: anniversaryDate,
       anchor_origin: anniversaryOrigin,
       recurs,
+      recur_cadence: recurCadence,
       // Optional non-wedding capture (all null for weddings + name-only creation).
       // event_date stays NULL — the LOCKED single date is chosen later (date-as-
       // output; the date-selection lock ceremony). What's captured here is the
@@ -431,9 +441,21 @@ export async function createWeddingEvent(formData: FormData) {
     .single();
 
   if (insertError || !insertedEvent) {
-    return redirect(
-      `/dashboard/create-event?error=${encodeURIComponent(insertError?.message ?? 'unknown')}`,
-    );
+    /*
+      🔴 A STABLE CODE, NEVER THE DATABASE'S OWN SENTENCE. This used to put
+      `insertError.message` straight into the query string, and the page then
+      rendered any unrecognised value VERBATIM — so a couple on a
+      wedding-planning site met Postgres prose about rows violating check
+      constraints, in a red box, with nothing in it they could act on.
+
+      🔑 AND A QUERY STRING IS NOT A PRIVATE CHANNEL. It lands in browser
+      history, in the referrer of anything the page loads, and in any analytics
+      that records URLs — so a constraint name, a column name, sometimes a
+      value, left the server every time this fired. The real message belongs in
+      the server log, where we can read it and the customer cannot.
+    */
+    console.error('[create-event] insert failed', insertError);
+    return redirect('/dashboard/create-event?error=create_failed');
   }
 
   // Arm the free Papic pool (owner-locked 2026-07-27 · 50 pts). Papic is switched
@@ -458,9 +480,33 @@ export async function createWeddingEvent(formData: FormData) {
   });
 
   if (memberError) {
-    return redirect(
-      `/dashboard/create-event?error=${encodeURIComponent('member_link_failed: ' + memberError.message)}`,
-    );
+    /*
+      🚨 THE EVENT ALREADY EXISTS AT THIS POINT, AND NOBODY OWNS IT. The row is
+      written; only the link naming its organiser failed. So the old advice —
+      "please try again" — was the one instruction that must NOT be followed:
+      retrying writes a SECOND event nobody owns, and neither is reachable by
+      the person who made them (the dashboard admits members, and there are no
+      members).
+
+      🔑 A FORWARD STEP THAT CANNOT BE UNDONE IS HALF A STEP. Roll the event
+      back so retrying is genuinely safe, and only then say "try again". If the
+      rollback ITSELF fails we must not say it either — an orphan survives, and
+      a different code carries a different, truthful sentence.
+    */
+    console.error('[create-event] member link failed', memberError);
+    const { error: rollbackError } = await admin
+      .from('events')
+      .delete()
+      .eq('event_id', insertedEvent.event_id);
+    if (rollbackError) {
+      console.error(
+        '[create-event] ORPHANED EVENT — rollback failed',
+        insertedEvent.event_id,
+        rollbackError,
+      );
+      return redirect('/dashboard/create-event?error=create_incomplete');
+    }
+    return redirect('/dashboard/create-event?error=create_failed');
   }
 
   // Funnel event. Fire-and-forget; never block the redirect to the new
@@ -564,7 +610,7 @@ export async function planNextYearEvent(formData: FormData) {
     // read path; same columns, same row shape, guests get zero rows.
     .from('events_host')
     .select(
-      'event_type, display_name, honoree_label, honoree_dependent_id, signature_details, anchor_kind, anchor_date, anchor_origin, estimated_pax, budget_band, estimated_budget_centavos, region, venue_latitude, venue_longitude, style_preferences',
+      'event_type, display_name, honoree_label, honoree_dependent_id, signature_details, anchor_kind, anchor_date, anchor_origin, recurs, recur_cadence, estimated_pax, budget_band, estimated_budget_centavos, region, venue_latitude, venue_longitude, style_preferences',
     )
     .eq('event_id', sourceId)
     .maybeSingle();
@@ -611,9 +657,10 @@ export async function planNextYearEvent(formData: FormData) {
     .single();
 
   if (insertError || !inserted) {
-    return redirect(
-      `/dashboard/${sourceId}?error=${encodeURIComponent('plan_next_year_failed: ' + (insertError?.message ?? 'unknown'))}`,
-    );
+    // Same rule as the create path above: a stable code out, the real message
+    // to the server log — never into the customer's URL bar.
+    console.error('[plan-next-year] insert failed', insertError);
+    return redirect(`/dashboard/${sourceId}?error=plan_next_year_failed`);
   }
 
   // Arm the free Papic pool for the CLONE (owner-locked 2026-07-27 · 50 pts). A
@@ -636,9 +683,23 @@ export async function planNextYearEvent(formData: FormData) {
     joined_via: 'created_event',
   });
   if (memberError) {
-    return redirect(
-      `/dashboard/${sourceId}?error=${encodeURIComponent('member_link_failed: ' + memberError.message)}`,
-    );
+    // The clone exists and nobody owns it — roll it back so "try again" is
+    // true. See the identical block in the create path for why retrying an
+    // un-rolled-back failure is the one thing that must not be advised.
+    console.error('[plan-next-year] member link failed', memberError);
+    const { error: rollbackError } = await admin
+      .from('events')
+      .delete()
+      .eq('event_id', inserted.event_id);
+    if (rollbackError) {
+      console.error(
+        '[plan-next-year] ORPHANED EVENT — rollback failed',
+        inserted.event_id,
+        rollbackError,
+      );
+      return redirect(`/dashboard/${sourceId}?error=create_incomplete`);
+    }
+    return redirect(`/dashboard/${sourceId}?error=plan_next_year_failed`);
   }
 
   try {

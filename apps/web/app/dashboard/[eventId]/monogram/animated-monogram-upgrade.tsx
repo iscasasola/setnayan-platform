@@ -168,14 +168,14 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
         <p className="max-w-prose text-sm text-ink/65">
           {bespokeSvg ? (
             <>
-              Your monogram already opens your wedding website. This upgrade makes it
+              Your monogram already opens your Event Hub. This upgrade makes it
               draw itself in — playing the reveal you picked in the studio above
               (Handwriting, Bloom, Petal Fall, Molten Gold, or the Medallion
               Turn) the moment a guest lands.
             </>
           ) : (
             <>
-              Your monogram already opens your wedding website. This upgrade makes it
+              Your monogram already opens your Event Hub. This upgrade makes it
               draw itself in — pick from six motion signatures (Drawn, Foil, Bloom,
               Editorial, Halo, Stardust) and it plays the moment a guest lands.
             </>
@@ -251,8 +251,8 @@ function OwnedView({
         <p className="inline-flex items-center gap-2 text-sm font-medium text-success-800">
           <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
           {bespokeSvg
-            ? `Your monogram plays your ${revealLabel} reveal on your wedding website.`
-            : `Your monogram plays the ${motionLabel} motion on your wedding website.`}
+            ? `Your monogram plays your ${revealLabel} reveal on your Event Hub.`
+            : `Your monogram plays the ${motionLabel} motion on your Event Hub.`}
         </p>
         {publicLandingUrl ? (
           <a
@@ -313,7 +313,7 @@ function OwnedView({
           )}
         </div>
         <p className="mt-5 text-sm text-ink/60">
-          This is exactly how it animates on your wedding website&rsquo;s hero.
+          This is exactly how it animates on your Event Hub&rsquo;s hero.
           {bespokeSvg
             ? ' Change your mark or reveal in the studio above and the site follows.'
             : ' Change your mark or motion in the studio above and the animation follows.'}
@@ -490,7 +490,7 @@ async function UnownedView({
           </li>
           <li className="flex items-start gap-2">
             <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-            Plays on your wedding website&rsquo;s hero every time a guest lands.
+            Plays on your Event Hub&rsquo;s hero every time a guest lands.
           </li>
           <li className="flex items-start gap-2">
             <PencilLine aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />

@@ -38,6 +38,7 @@ import {
   type PlanCardPick,
   type EventVendorRowInput,
 } from '@/lib/wedding-plan-groups';
+import { lockRequestStateOf } from '@/lib/lock-request-state';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import {
   WEDDING_FOLDER_ORDER,
@@ -158,7 +159,19 @@ const LOCKED_STATUSES = new Set([
   'complete',
 ]);
 
-export type ChildState = 'empty' | 'considering' | 'finalized';
+/**
+ * PR-H adds `'awaiting'` — the couple has ASKED and nobody has answered.
+ *
+ * 🔑 IT IS NOT 'considering' AND IT IS NOT 'finalized', AND BOTH MISREADINGS
+ * COST THE COUPLE SOMETHING. Filed as 'considering', the planning clock keeps
+ * counting the category down and "What to lock next" tells them to lock a
+ * supplier they already asked — twice, since the DB's one-pending-request-per-
+ * group index would reject the second press. Filed as 'finalized', the strip
+ * says the slot is settled, the budget treats the number as fixed, and a decline
+ * six days later arrives on a category the couple was told was done.
+ * Asked is its own place on the clock: not open, not closed.
+ */
+export type ChildState = 'empty' | 'considering' | 'awaiting' | 'finalized';
 
 /**
  * Where a category sits on the planning clock, derived from the wedding date
@@ -171,6 +184,8 @@ export type ChildState = 'empty' | 'considering' | 'finalized';
  *   locked    — the couple has finalized a pick here.
  */
 export type TimelineStatus =
+  /** PR-H · asked, nobody has answered. Not actionable and not settled. */
+  | 'awaiting'
   | 'upcoming'
   | 'start_now'
   | 'due_soon'
@@ -512,6 +527,11 @@ export function timelineStatusOf(
   state: ChildState,
 ): TimelineStatus {
   if (state === 'finalized') return 'locked';
+  // An outstanding ask silences the clock for this category: the couple has done
+  // the thing the countdown was pressing them to do, and the only remaining
+  // actor is the supplier. Deliberately checked BEFORE the date branch, so it
+  // holds on an event with no date set too.
+  if (state === 'awaiting') return 'awaiting';
   if (daysUntilWedding === null) return 'upcoming';
   const floor = LEAD_DAYS[groupId] ?? DEFAULT_LEAD_DAYS;
   const start = START_DAYS[groupId] ?? DEFAULT_START_DAYS;
@@ -522,10 +542,30 @@ export function timelineStatusOf(
   return 'upcoming';
 }
 
-function childStateOf(picks: AccordionPick[], hardSingle: boolean): ChildState {
+function childStateOf(
+  picks: AccordionPick[],
+  hardSingle: boolean,
+  lockHandshakeEnabled: boolean,
+): ChildState {
   if (picks.length === 0) return 'empty';
   const hasLocked = picks.some((p) => p.raw_status && LOCKED_STATUSES.has(p.raw_status));
   if (hasLocked) return 'finalized';
+  // PR-H · an outstanding ask. Derived by the ONE shared core rather than by
+  // reading `raw_lock_request_state` here: that column can carry a stale
+  // 'pending' on a row the printed-QR path already promoted, the flag-off world
+  // must never reach this state at all, and both of those rules live in
+  // `lockRequestStateOf` — re-deciding them here is how six surfaces drift.
+  if (
+    picks.some(
+      (p) =>
+        lockRequestStateOf(
+          { status: p.raw_status, lock_request_state: p.raw_lock_request_state ?? null },
+          lockHandshakeEnabled,
+        ) === 'requested',
+    )
+  ) {
+    return 'awaiting';
+  }
   // Multi-pick groups are "finalized" only when at least one is locked; a
   // shortlist with no lock is still "considering".
   return 'considering';
@@ -577,6 +617,10 @@ export function buildPlanBudgetModel(args: {
    *  category for single-pick groups; several for multi-pick (Look/Booths/Prints).
    *  Absent / empty → no build pick. */
   buildPicksByGroup?: ReadonlyMap<string, string[]>;
+  /** `isLockHandshakeEnabled()`, passed IN — this module is a pure core and must
+   *  never read the env itself. Default `false` reproduces today's production
+   *  exactly: no category can ever reach the `'awaiting'` state. */
+  lockHandshakeEnabled?: boolean;
 }): PlanBudgetModel {
   const {
     vendorRows,
@@ -584,6 +628,7 @@ export function buildPlanBudgetModel(args: {
     daysUntilWedding,
     ceremonyType,
     venueSetting,
+    lockHandshakeEnabled = false,
     transportByVendorId,
     crewMealByVendorId,
     eyeingByVendorId,
@@ -778,7 +823,7 @@ export function buildPlanBudgetModel(args: {
     }
 
     const hardSingle = HARD_SINGLE_PICK_GROUPS.has(group.id);
-    const state = childStateOf(picks, hardSingle);
+    const state = childStateOf(picks, hardSingle, lockHandshakeEnabled);
     const timelineStatus = timelineStatusOf(group.id, daysUntilWedding, state);
     const lockedTotal = picks
       .filter((p) => p.raw_status && LOCKED_STATUSES.has(p.raw_status))

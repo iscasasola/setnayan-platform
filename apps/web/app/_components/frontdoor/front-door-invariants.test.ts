@@ -143,11 +143,11 @@ test('sign out is submitted as a form, not linked', () => {
   );
 });
 
-/* ── 3 · MARKETPLACE AND ITS SYNONYM MOVE TOGETHER ────────────────────────
-   Owner 2026-08-12: the Marketplace is signed-in only. "Find a supplier" is
-   the SAME destination under another word, so hiding the group while leaving
-   the synonym would defeat the instruction with a label. */
-test('Find a supplier is gated on the same condition as the Marketplace group', () => {
+/* ── 3 · THE MARKETPLACE ROW AND ITS CATEGORY GROUP MOVE TOGETHER ─────────
+   Owner 2026-08-12: the Marketplace is signed-in only. The category group is
+   the SAME destination by another door, so hiding the group while leaving the
+   row would defeat the instruction with a label. */
+test('the Marketplace row is gated on the same condition as its category group', () => {
   /*
     🔑 The first cut looked backwards from the row for the nearest
     `account.signedIn` — which an INVERTED gate (`!account.signedIn ?`) also
@@ -155,7 +155,7 @@ test('Find a supplier is gated on the same condition as the Marketplace group', 
     polarity, and require the Marketplace group to carry the identical one.
   */
   const linkIdx = SHELL_CODE.indexOf('<Link href="/explore"');
-  assert.ok(linkIdx > -1, 'the Find a supplier row is missing');
+  assert.ok(linkIdx > -1, 'the Marketplace row is missing');
 
   /*
     🔑 THE NEAREST GATE, NOT ANY EARLIER ONE. A first rewrite scanned BACKWARDS
@@ -166,23 +166,71 @@ test('Find a supplier is gated on the same condition as the Marketplace group', 
   const window = SHELL_CODE.slice(Math.max(0, linkIdx - 160), linkIdx);
   assert.ok(
     /\{\s*account\.signedIn\s*\?[^{}]*$/.test(window),
-    'Find a supplier must be gated directly by account.signedIn — its own ' +
+    'the Marketplace row must be gated directly by account.signedIn — its own ' +
       `nearest gate, not one inherited from a block above. Saw: ...${window.slice(-90)}`,
   );
   assert.ok(
     !/!\s*account\.signedIn/.test(window),
-    'Find a supplier is gated on NOT signed in — it must show only when signed IN',
+    'the Marketplace row is gated on NOT signed in — it must show only when signed IN',
   );
 
-  // The Marketplace group must be gated the same way, or the owner's rule is
+  // The category group must be gated the same way, or the owner's rule is
   // kept by one and broken by the other.
-  const mkt = SHELL_CODE.indexOf('>Marketplace<');
-  assert.ok(mkt > -1, 'the Marketplace group label is missing');
+  const mkt = SHELL_CODE.indexOf('>Browse by category<');
+  assert.ok(mkt > -1, 'the category group label is missing');
   const mktWindow = SHELL_CODE.slice(Math.max(0, mkt - 400), mkt);
   assert.ok(
     /\{\s*account\.signedIn\s*\?/.test(mktWindow) &&
       !/!\s*account\.signedIn/.test(mktWindow),
-    'the Marketplace group must show only when signed IN',
+    'the category group must show only when signed IN',
+  );
+});
+
+/* ── 3b · ONE ROW MAY NOT CARRY TWO WORDS ─────────────────────────────────
+   Owner 2026-08-15, asked directly: *"why do we have a find a supplier. and
+   sometime it is marketplace?"*
+
+   `slotLabel` applies the nav registry in the `app` variant ONLY (deliberate —
+   see its note in the shell). So the hardcoded fallback is what the PUBLIC
+   front page shows, and the registry label is what the SIGNED-IN surfaces
+   show. When those two strings differ, one row reads two different words
+   depending on which page the person is standing on, with no error anywhere.
+   That is exactly what shipped: "Find a supplier" on `/`, "Marketplace"
+   inside the app, for three days.
+
+   🔑 This is a guard over TWO FILES that must agree. A check that only read
+   the shell could never have seen it — the shell alone is self-consistent. */
+test('the rail fallback for the marketplace row equals its nav-registry label', () => {
+  const registry = readFileSync(
+    join(APP, '..', 'lib', 'nav-registry-defaults.ts'),
+    'utf8',
+  );
+
+  // The slot the row renders through, read from the shell rather than retyped.
+  const slotKey = /find:\s*'([^']+)'/.exec(SHELL_CODE)?.[1];
+  assert.equal(
+    slotKey,
+    'customer.account.marketplace',
+    'RAIL_SLOT.find no longer names the account marketplace slot',
+  );
+
+  // The registry entry for that key, and the label it carries.
+  const entry = new RegExp(
+    `key:\\s*"${slotKey}"[\\s\\S]{0,400}?label:\\s*"([^"]+)"`,
+  ).exec(registry);
+  assert.ok(entry, `no nav-registry default found for ${slotKey}`);
+
+  // The fallback passed alongside that slot in the shell.
+  const fallback = new RegExp(
+    `slotLabel\\(\\s*RAIL_SLOT\\.find\\s*,\\s*'([^']+)'\\s*\\)`,
+  ).exec(SHELL_CODE)?.[1];
+  assert.ok(fallback, 'the marketplace row no longer renders through slotLabel');
+
+  assert.equal(
+    fallback,
+    entry![1],
+    `the front page would say "${fallback}" and the signed-in rail "${entry![1]}" ` +
+      'for the SAME row and the SAME destination. One word or the other — not both.',
   );
 });
 

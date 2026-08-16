@@ -16,6 +16,7 @@
 
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isSampleEditorialId, type SampleEditorialId } from './sample-ids';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
@@ -101,12 +102,12 @@ export const EDITORIAL_TIMELINE_PHOTO_CAP = 48;
 const SERVICE_LABELS: Record<string, string> = {
   ANIMATED_MONOGRAM: 'Animated Monogram',
   CAMERA_BRIDGE: 'Camera Bridge',
-  COUPLE_WEBSITE_PRO: 'Website PRO',
+  COUPLE_WEBSITE_PRO: 'Event Hub PRO',
   CUSTOM_QR_GUEST: 'Custom Guest QR',
   // EDITORIAL_PRO + STD_PREMIUM_OPENINGS are bundle-only (2026-07-22 · via Website
   // PRO). Kept here so existing/bundle owners still get a clean "Powered by" label.
   EDITORIAL_PRO: 'Editorial PRO',
-  EVENT_WEBSITE: 'Event Website',
+  EVENT_WEBSITE: 'Event Hub',
   // LIVE_BACKGROUND removed 2026-08-11 with the LED wall backdrop itself. No
   // order was ever placed under it, so no "Powered by" label loses its name.
   STD_PREMIUM_OPENINGS: 'Cinematic Reveal',
@@ -634,8 +635,16 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // fixture renders through THIS exact component (via the /realstories sample page),
   // so the sample always tracks the live editorial format. Returns without
   // touching the DB; real event ids fall straight through to the loader below.
-  const sampleFixture = SAMPLE_EDITORIALS[eventId];
-  if (sampleFixture) return sampleFixture();
+  //
+  // 🪤 THIS WAS `const f = SAMPLE_EDITORIALS[eventId]; if (f) return f();` and
+  // that lookup walks the PROTOTYPE: an event whose id was the string
+  // 'constructor' or 'toString' would have been served a fixture — or, more
+  // precisely, `f` would be a function and calling it would return nonsense —
+  // instead of their own wedding. Nothing in prod has such an id, so it never
+  // bit; the predicate is a list membership test with no prototype to inherit
+  // from, and it is the SAME predicate the editorial component uses to decide
+  // whether to query at all. One definition of "is this a sample", not two.
+  if (isSampleEditorialId(eventId)) return SAMPLE_EDITORIALS[eventId]();
 
   let admin: ReturnType<typeof createAdminClient>;
   try {
@@ -2512,7 +2521,14 @@ function deriveMonogramFallback(displayName: string): string {
 // one of these (via SAMPLE_EDITORIAL_IDS) and renders through the real
 // EditorialContent engine, so a sample looks EXACTLY like a real couple's
 // website editorial — including their own hero photo.
-const SAMPLE_EDITORIALS: Record<string, () => EditorialData> = {
+//
+// 🔑 KEYED BY `SampleEditorialId`, NOT BY `string`, ON PURPOSE. The id set also
+// lives in `sample-ids.ts`, where `EditorialContent` and the unit tests can
+// reach it without dragging `server-only` along. Two lists of the same thing is
+// how a seventh sample gets added and only half the code learns about it — so
+// this annotation makes TypeScript refuse a missing member OR an extra key.
+// The correspondence is a mechanism, not a promise.
+const SAMPLE_EDITORIALS: Record<SampleEditorialId, () => EditorialData> = {
   'sample-maria-and-juan': mariaAndJuan,
   'sample-jack-and-jill': jackAndJill,
   'sample-john-and-jane': johnAndJane,
@@ -2533,6 +2549,20 @@ export const SAMPLE_EDITORIAL_IDS: Record<string, string> = {
 
 // Back-compat: original single-sample export still points at Maria & Juan.
 export const SAMPLE_EDITORIAL_EVENT_ID = 'sample-maria-and-juan';
+
+/**
+ * Re-exported so a reader who lands in this file finds the predicate beside the
+ * fixtures. It is DEFINED in `./sample-ids`, which carries no `server-only`
+ * import and is therefore reachable from `tsx --test` — this module is not.
+ *
+ * 🔴 IT EXISTS BECAUSE `loadEditorialData` WAS NOT THE ONLY PLACE THAT NEEDED
+ * TO KNOW. It short-circuits the sentinel above and returns without touching
+ * the database — but `EditorialContent` then ran TWO MORE queries with the same
+ * id (the masthead monogram row on `events`, and the paid-perk probe on
+ * `orders`), and a sentinel is not a UUID. See `./sample-ids` for the full
+ * account.
+ */
+export { isSampleEditorialId, type SampleEditorialId } from './sample-ids';
 
 function mariaAndJuan(): EditorialData {
   const guests = 120;
@@ -2616,7 +2646,7 @@ function mariaAndJuan(): EditorialData {
       { author: 'Maria & Juan', role: 'couple', quote: 'We planned the whole thing on Setnayan — and on the day, everything was just set.', stars: 5 },
       { author: 'Tita Bing', role: 'guest', quote: 'The most organized wedding I have been to — everyone knew where to go and when.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Live Studio', 'Pakanta'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Studio', 'Pakanta'],
     galleryPhotos: [
       '/realstories/maria-juan-g1.jpg',
       '/realstories/maria-juan-g2.jpg',
@@ -2773,7 +2803,7 @@ function jackAndJill(): EditorialData {
       { author: 'Jack & Jill', role: 'couple', quote: 'We planned a whole beach wedding from two phones. By sunset, everything was just set.', stars: 5 },
       { author: 'Kuya Ramon', role: 'guest', quote: 'Worth the boat ride. The timeline ran like clockwork even on the sand.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic'],
     galleryPhotos: [
       '/realstories/jack-jill-g1.jpg',
       '/realstories/jack-jill-g2.jpg',
@@ -2872,7 +2902,7 @@ function johnAndJane(): EditorialData {
       { author: 'John & Jane', role: 'couple', quote: 'Small wedding, zero chaos. Everyone knew the plan because the plan lived in one place.', stars: 5 },
       { author: 'Atty. Cruz', role: 'guest', quote: 'The most precisely run sixty-person dinner I have attended.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Website'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub'],
     galleryPhotos: [
       '/realstories/john-jane-g1.jpg',
       '/realstories/john-jane-g2.jpg',
@@ -2972,7 +3002,7 @@ function peterAndMary(): EditorialData {
       { author: 'Peter & Mary', role: 'couple', quote: 'A 150-guest wedding sounds impossible until every vendor is reading the same timeline.', stars: 5 },
       { author: 'Lola Pacing', role: 'guest', quote: 'Big wedding, but it felt warm and personal. Nobody was lost, everyone was fed.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Live Studio'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Studio'],
     galleryPhotos: [
       '/realstories/peter-mary-g1.jpg',
       '/realstories/peter-mary-g2.jpg',
@@ -3072,7 +3102,7 @@ function jackAndRose(): EditorialData {
       { author: 'Jack & Rose', role: 'couple', quote: 'Planning an out-of-town wedding from the lowlands was the easy part. One workspace held it all.', stars: 5 },
       { author: 'Ate Glenda', role: 'guest', quote: 'Even with the fog and the drive, everything started on time. Magical and organized.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Pakanta'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Pakanta'],
     galleryPhotos: [
       '/realstories/jack-rose-g1.jpg',
       '/realstories/jack-rose-g2.jpg',

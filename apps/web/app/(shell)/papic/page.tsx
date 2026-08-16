@@ -151,7 +151,7 @@ const APP_LD = {
     'Each guest gets their own personal gallery',
     'Personal souvenir video reels set to music',
     '10-second candid clips, not just photos',
-    'Lives on the couple’s own wedding website',
+    'Lives on the couple’s own Event Hub',
     'The couple receives every photo, tagged or not',
   ],
   areaServed: 'Philippines',
@@ -214,7 +214,7 @@ const VS: readonly DoorwayVersus[] = [
   ['A shared link everyone digs through', 'Each guest’s own gallery, sorted as you shoot'],
   ['Photos only', 'Photos and 10-second candid clips'],
   ['You scroll to find yourself', 'Your photos find you'],
-  ['A separate site that expires', 'Lives on your own wedding website'],
+  ['A separate site that expires', 'Lives on your own Event Hub'],
   ['Some moments get lost', 'The couple receives every photo, guaranteed'],
 ];
 

@@ -125,7 +125,7 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
   },
 
   'landing-page': {
-    eyebrow: 'Your Website',
+    eyebrow: 'Event Hub',
     heroTitle: 'The page that says it all.',
     tagline:
       'One beautiful page for your names, your story, and every detail — behind every QR you share.',

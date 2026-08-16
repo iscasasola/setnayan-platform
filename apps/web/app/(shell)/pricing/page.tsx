@@ -194,7 +194,7 @@ const ADDON_GROUPS: CatalogGroup[] = [
     ],
   },
   {
-    title: 'Your website',
+    title: 'Your Event Hub',
     items: [
       // Website PRO REACTIVATED + repriced ₱3,500 (owner 2026-07-22): the umbrella
       // and the ONLY way to get Editorial PRO + the Cinematic Reveal, both now
@@ -500,7 +500,7 @@ export default async function PricingPage() {
       ],
     },
     {
-      title: 'Your free website',
+      title: 'Your free Event Hub',
       items: [
         { n: 'Save-the-Date page' },
         { n: 'RSVP page', note: 'unlimited RSVP collection' },
@@ -669,13 +669,13 @@ export default async function PricingPage() {
                 <span className="text-sm text-ink/55">/ forever</span>
               </p>
               <p className="text-sm leading-relaxed text-ink/65">
-                A whole planning workspace, your wedding website, and the tools
+                A whole planning workspace, your Event Hub, and the tools
                 to share your day.
               </p>
               <ul className="mt-2 space-y-2 text-sm">
                 {[
                   'All five planning tools',
-                  'Your free 4-in-1 wedding website',
+                  'Your free 4-in-1 Event Hub',
                   'Unlimited RSVP collection',
                   'Browse vendors + a match preview',
                   'Single-camera livestream & free Custom QR',
@@ -854,8 +854,8 @@ export default async function PricingPage() {
               Everything you get for free.
             </LineRevealHeading>
             <p className="text-base leading-relaxed text-ink/65">
-              The complete free plan — a full planning workspace, your wedding
-              website, and the tools to capture and share the day. No card, no
+              The complete free plan — a full planning workspace, your Event
+              Hub, and the tools to capture and share the day. No card, no
               trial clock.
             </p>
           </div>

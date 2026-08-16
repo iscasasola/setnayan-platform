@@ -21,7 +21,7 @@ import { resolveRenamedPath } from '@/lib/slug-forwarding';
 import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
 import { readGuestSession } from '@/lib/guest-session';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
-import { canViewSlugEvent } from '@/lib/slug-access';
+import { canViewSlugEvent, isInvitedAccount } from '@/lib/slug-access';
 import type { DoorwayFacts } from './_lib/site-nav';
 import {
   resolveEffectiveVisibility,
@@ -413,7 +413,18 @@ async function InvitationBody({
   }
   const visibility = resolveEffectiveVisibility(event);
 
-  if (visibility === 'private') {
+  // 🔴 'invited_accounts' TAKES THE SAME LOCKED PATH AS 'private' — deliberately.
+  // It is the fourth audience (owner 2026-08-15): only somebody on this event's
+  // guest list who is signed in, plus the hosts. A stranger AND a person merely
+  // holding the link both get the identical PrivateLanding screen, because a
+  // different message for the link-holder would confirm the address is real.
+  // The one extra way in is Path D below.
+  //
+  // ⚠ IT MUST NOT BE FOLDED INTO `!== 'public'` OR ANY OTHER EXCLUSION TEST.
+  // This file and `lib/slug-access.ts` are the two places that decide who reads
+  // a celebration, and the exclusion spelling is exactly what made the sibling
+  // helper treat a brand-new private setting as fully public across 31 callers.
+  if (visibility === 'private' || visibility === 'invited_accounts') {
     // Path A — guest cookie session for this exact event. Legitimate
     // invited guest already redeemed their personal link.
     const guestSessionMatches = session?.event_id === event.event_id;
@@ -462,6 +473,18 @@ async function InvitationBody({
         if (!isAuthedHost) {
           isSeatHolder =
             (await findGuestSeatForUser(event.event_id, user.id)) !== null;
+          // Path D — 'invited_accounts' ONLY. A guest whose account is not bound
+          // to a seat, but who owns a person the hosts put on the list (their
+          // email resolved to a `people` row this account has claimed). They
+          // never redeemed anything, which is exactly the case this setting
+          // exists for: "anyone on the guest list who has an account".
+          //
+          // 🔒 NOT EXTENDED TO 'private'. That setting has always meant hosts
+          // plus a redeemed invitation, and quietly widening it here would
+          // change a promise the couple already made to themselves.
+          if (!isSeatHolder && visibility === 'invited_accounts') {
+            isSeatHolder = await isInvitedAccount(event.event_id, user.id);
+          }
         }
       }
     }

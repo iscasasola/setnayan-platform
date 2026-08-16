@@ -38,6 +38,14 @@ export type ChatLockAction =
   // Row is ALREADY booked (a re-lock, or the vendor-page finalize won the race):
   // do NOT rewrite the frozen price — just (idempotently) ensure the fee exists.
   | 'refresh_fee_only'
+  // PR-H · the ask is ALREADY OUT on this row and nobody has answered. A second
+  // press must not re-open it: the one-pending-request-per-group unique index
+  // would reject the write, and the couple would meet a raw error for pressing
+  // the button the screen offered them. Idempotent no-op, reported honestly.
+  | 'already_requested'
+  // PR-H · first press, handshake ON: record the negotiated total AND the
+  // REQUEST. The status stays 'considering' until the supplier agrees.
+  | 'request'
   // First lock: write the negotiated total + flip to 'contracted', then charge.
   | 'book';
 
@@ -50,11 +58,24 @@ export function planChatLockBooking(args: {
   marketplaceVendorId: string | null;
   verified: boolean;
   currentStatus: string | null;
+  /**
+   * PR-H · `isLockHandshakeEnabled()`, passed IN — this module is pure and must
+   * never read the env. Default `false` reproduces today's production exactly:
+   * neither new action is reachable.
+   */
+  handshakeEnabled?: boolean;
+  /** The row's `lock_request_state` before the press. */
+  lockRequestState?: string | null;
 }): ChatLockAction {
   if (!args.marketplaceVendorId) return 'skip_no_link';
   if (!args.verified) return 'blocked_not_verified';
+  // A CONFIRMED status outranks every marker — the same precedence
+  // `lockRequestStateOf` applies, and the reason a Locked-QR row carrying a
+  // stale 'pending' is a real booking rather than an outstanding question.
   if (args.currentStatus && CONFIRMED_LOCK_STATUSES.has(args.currentStatus)) {
     return 'refresh_fee_only';
   }
-  return 'book';
+  if (!args.handshakeEnabled) return 'book';
+  if (args.lockRequestState === 'pending') return 'already_requested';
+  return 'request';
 }

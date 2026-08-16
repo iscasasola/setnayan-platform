@@ -417,7 +417,7 @@ export function PublicMonogramStudio() {
         <p className="font-serif text-lg text-[#1E2229]">Make it your wedding&rsquo;s monogram</p>
         <p className="mt-1.5 text-sm text-[#5F5E5A]">
           Start planning free and we&rsquo;ll keep this design — pick it up in the Monogram Maker to make it your
-          official mark. From there it flows everywhere: your wedding website, QR invitations, and save-the-date.
+          official mark. From there it flows everywhere: your Event Hub, QR invitations, and save-the-date.
         </p>
         <Link
           href="/onboarding/wedding?from=monogram"

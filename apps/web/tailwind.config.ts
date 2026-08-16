@@ -236,6 +236,79 @@ const config: Config = {
           900: '#5f3021',
           950: '#34170f',
         },
+        /**
+         * `gold` — the owner-locked brand gold (`#A9834B`, UI-only), which was
+         * being USED in 78 places and had never existed as a colour key.
+         *
+         * 🚨 EVERY ONE OF THOSE 78 UTILITIES GENERATED ZERO CSS. `text-gold`,
+         * `text-gold-deep`, `bg-gold/15`, `border-gold/40` and their siblings are
+         * silently dropped by Tailwind when `gold` is not a key — no error, no
+         * warning, the class just is not in the output. Measured with this very
+         * config: `npx tailwindcss` then `grep -c "\.bg-gold" out.css` → 0, while
+         * the control `border-ink/10` → 3. **Rejected, not thrown; the only
+         * symptom is an absence** — the same disease as the phantom column, the
+         * phantom enum value and the blocked iframe.
+         *
+         * What a person lost: the milestone highlight on the Year view's "Worth
+         * planning for" band and on the home "This year" row rendered with NO
+         * fill and Tailwind preflight's default cool-grey border (#e5e7eb) — the
+         * row meant to be the most emphasised was the only off-palette one on the
+         * tile. Unseen because nothing had ever produced a milestone for an
+         * ordinary account until the own-birthday moment shipped (2026-08-15).
+         *
+         * ⚠ THE SHADES ARE CHOSEN BY MEASURED CONTRAST, not by taste. Against
+         * cream `#FDFBF7`, AA text needs 4.5:1 —
+         *   DEFAULT #A9834B → 3.37  ✗ text   ✓ fills · borders · decorative icons (>3:1 non-text)
+         *   deep    #8A6B39 → 4.79  ✓ text                      (= --sn-gold-700)
+         *   dark    #5C4726 → 8.52  ✓ text on a gold wash        (= --sn-gold-800)
+         * So DEFAULT is the brand gold for FILLS, and any real text uses `deep`
+         * or `dark`. Two label sites that used `text-gold` are moved to
+         * `text-gold-deep` in this change for exactly that reason; the rest of the
+         * `text-gold` uses are `aria-hidden` icons, which are non-text.
+         *
+         * Values mirror `--sn-gold-*` in globals.css — the same ladder the
+         * `warn` semantic already carries. Registered under its own name rather
+         * than pointed at `warn` because a celebration is not a warning, and a
+         * stored/authored value whose NAME misleads is a defect this repo has
+         * already paid for twice (`sponsored_included`, `tagged_only`).
+         */
+        gold: {
+          DEFAULT: '#A9834B', // --sn-gold-500 · fills, borders, decorative icons
+          deep: '#8A6B39', // --sn-gold-700 · the readable one — use for TEXT
+          dark: '#5C4726', // --sn-gold-800 · text on a gold wash
+          100: '#F3ECDF',
+          300: '#CBA766',
+          500: '#A9834B',
+          600: '#95713D',
+          700: '#8A6B39',
+          800: '#5C4726',
+        },
+        /**
+         * `champagne` — the second dead colour family, found by the guard this
+         * change adds: 17 uses of `bg-champagne-gold` · `ring-champagne-gold` ·
+         * `border-champagne-gold`, none of which emitted a rule. The hex is not
+         * invented — line 194 of this file already names it
+         * (`champagne gold (--m-orange #C5A059 / --m-orange-2 #A88340)`), and
+         * `globals.css` already states its contrast lock verbatim:
+         * *"champagne on cream  3.37:1  NON-TEXT UI + LARGE TEXT ONLY"* — which
+         * is exactly why every shipped use is a fill, a ring or a border.
+         */
+        champagne: {
+          DEFAULT: '#C5A059',
+          gold: '#C5A059', // --m-orange
+          deep: '#A88340', // --m-orange-2
+        },
+        /**
+         * `sage` — the third. 4 uses (`text-sage` · `border-sage` · `bg-sage`)
+         * against tokens that have existed all along as `--m-sage` /
+         * `--m-sage-deep`; the config had folded them into the `success`
+         * semantic and nothing carried the plain name the components use.
+         * `DEFAULT` is the pale fill, `deep` the readable text tone.
+         */
+        sage: {
+          DEFAULT: '#C5D2BD', // --m-sage
+          deep: '#4F6B4A', // --m-sage-deep
+        },
         // `info` ← INFO-SLATE (Atelier-Glass kit `--sn-info` #4E6C82). The
         // sanctioned NEUTRAL semantic — for outcomes that are neither success
         // nor danger (e.g. a dispute resolved for the couple, or a high skill

@@ -142,6 +142,13 @@ function countAppliedFilters(
   // non-empty string (the URL param value: 'catholic'/'christian'/'inc'/
   // 'muslim'/'cultural') counts as one applied filter on the badge.
   if (filters.faith && filters.faith.length > 0) n += 1;
+  // 2026-08-15 — count the occasion narrow, now that the drawer can SET it
+  // (owner: "they can also search by type of event"). It has always been
+  // applyable via the URL and via a couple's auto-applied primary event, and
+  // it has never been counted — so the badge read "no filters" on a grid that
+  // was silently narrowed to one kind of celebration. Counting it is the same
+  // honesty rule the faith narrow was given above.
+  if (filters.eventType && filters.eventType.length > 0) n += 1;
   // 2026-05-30 — count an active contextual narrow (Faith, Style, etc.)
   // so the applied-filter badge stays honest. The "All" option uses
   // value=null and is never active, so we count any option active where

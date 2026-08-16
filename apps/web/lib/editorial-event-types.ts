@@ -1,0 +1,87 @@
+// ============================================================================
+// Which celebrations can be written up as a Setnayan editorial
+// ============================================================================
+// THE ONE PLACE. Owner, 2026-08-15, twice: "not all stories will be wedding.
+// each event they create will have an editorial not just wedding" and "each
+// event can create a similar editorial."
+//
+// 🔴 WHAT THIS REPLACED, AND WHY IT IS A SINGLE MODULE.
+// The editorial path used to refuse every non-wedding celebration in SIX
+// separate places — `event_type !== 'wedding'` in the admin eligibility check
+// plus five `.eq('event_type', 'wedding')` filters in `showcase-db.ts` — and
+// each refusal fired BEFORE consent was even read. Fifteen of the sixteen live
+// event types could therefore never be written up, at any consent setting, and
+// prod already held two non-wedding celebrations with public slugs that were
+// permanently uncoverable.
+//
+// Meanwhile the product promised the opposite in three places: /realstories'
+// own public description names "weddings, debuts, anniversaries, graduations,
+// travels, and reunions"; `GalleryItem.eventType` is typed for them; and the
+// curated sample fallback (`lib/real-weddings.ts`) is ALREADY MIXED — 5 weddings
+// plus a Debut, an Anniversary, a Graduation and a Reunion. The shelf already
+// SHOWED non-wedding editorials; only real ones were refused.
+// 🔑 The promise shipped and the gate never opened.
+//
+// ⚖ WHY AN EXCLUSION SET AND NOT AN ALLOWLIST — this is deliberate, do not
+// "tighten" it into a list of permitted types. `event_type_vocab` is
+// admin-managed and grows. An allowlist would mean a newly added celebration
+// silently cannot be written up — which is EXACTLY the defect above, rebuilt.
+// The default must be "every celebration can be written up", because that is
+// the owner's model. This is the rare case where failing OPEN is correct, and
+// it is safe because nothing here is a permission: the consent gate
+// (`users.public_summary_consent_at`), the public-slug requirement, the
+// private-page check and the post-event grace window all still apply on top,
+// unchanged. This set answers a different question — "would Setnayan ever
+// publish about this KIND of occasion at all?" — not "did these people agree?"
+//
+// ✅ THE OWNER RULED, 2026-08-15 — THIS SET STAYS EMPTY. ALL SIXTEEN KINDS.
+// The open question was whether Setnayan should ever publish about the most
+// intimate kinds (`date`, `hangout`). Owner, verbatim: *"making it public will
+// be the user's decision. this is already the era where hanging out or meeting
+// with friends are content that people view. so yes."*
+//
+// 🔑 SO THE KIND OF OCCASION IS NOT SETNAYAN'S QUESTION AT ALL. Whether a day
+// is public is decided by the people whose day it is, through
+// `events.landing_page_visibility` — not by a list of approved occasion types
+// held here. My standing recommendation (allow all, but never SOLICIT the
+// intimate ones) is superseded: the owner declined to treat any kind as
+// categorically un-publishable, and the audience control is where the choice
+// belongs.
+//
+// ⚠ DO NOT ADD TO THIS SET WITHOUT A NEW OWNER RULING. It exists as the single
+// place such a ruling would land — not as a list awaiting curation. An entry
+// here says "nobody may ever publish this kind of day, whatever they choose",
+// which is a stronger claim than anything the product currently makes.
+
+/**
+ * Event types that may never become a public Setnayan editorial, regardless of
+ * consent. Empty by design — see the module docblock before adding to it.
+ *
+ * Keys are `event_type_vocab.event_type` values (e.g. 'date', 'hangout').
+ */
+export const EDITORIAL_EXCLUDED_EVENT_TYPES: readonly string[] = [];
+
+/**
+ * Whether this kind of celebration may be written up at all.
+ *
+ * This is the KIND question only. Consent, the public slug, the private-page
+ * check and the grace window are separate gates and are applied by the callers
+ * — a `true` here never means "publish it".
+ */
+export function editorialAllowsEventType(
+  eventType: string | null | undefined,
+): boolean {
+  if (!eventType) return false;
+  return !EDITORIAL_EXCLUDED_EVENT_TYPES.includes(eventType);
+}
+
+/**
+ * Display fallback when a celebration has no name of its own.
+ *
+ * Deliberately KIND-NEUTRAL. The old string was 'A Setnayan wedding', which
+ * became a lie the moment a debut could be written up. Deriving the word from
+ * the event type would need a second hardcoded copy of the vocabulary, and a
+ * hardcoded vocabulary drifting from the admin-managed one is the same disease
+ * this module exists to cure — so one true word for all sixteen kinds.
+ */
+export const UNNAMED_EDITORIAL_LABEL = 'A Setnayan celebration';

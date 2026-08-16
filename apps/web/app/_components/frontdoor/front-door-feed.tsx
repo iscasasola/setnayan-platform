@@ -98,9 +98,59 @@ function ArticleCard({ a }: { a: FrontDoorData['articles'][number] }) {
   );
 }
 
+/**
+ * THE CHANNEL LINE IS A DOOR. The storyteller's name presses through to their
+ * own page at `/u/{ownerSlug}` — the thing the reference this page is ported
+ * from has always done, and the one part of it the port left as printed text.
+ * `FRONT_DOOR_AND_SEAM_FINAL_2026-08-12.md` calls this line "the channel line"
+ * for exactly that reason, so an inert name here is a defect in the PORT, not
+ * a design choice anybody made.
+ *
+ * ⚠ THIS IS A SECOND ANCHOR ON A CARD THAT IS ITSELF A PRESS TARGET, AND THE
+ * TWO MUST NEVER NEST. An `<a>` inside an `<a>` is invalid HTML; browsers
+ * recover by SPLITTING the outer link, which silently breaks the card's own
+ * tap target — already written down in this repo on the suite service card.
+ * **Nothing in CI catches it**: `lint-nested-forms.mjs` counts `<form>` depth
+ * only and does not tokenize anchors at all, so a nested one ships in silence.
+ * That is why the card is a shell whose TITLE carries the stretched link and
+ * whose channel line is raised above it — siblings, never descendants.
+ *
+ * 🔑 WHY THE TITLE CARRIES THE STRETCH AND NOT AN EMPTY OVERLAY ANCHOR. Both
+ * work geometrically; only this one gets its accessible name right. An empty
+ * stretched `<a aria-label={title}>` announces the title, and then the visible
+ * `<p>` announces it a second time. Anchoring the real title text means the
+ * accessible name IS the visible name, with nothing said twice.
+ *
+ * 🔑 WHY NOT THE REPO'S OTHER IDIOM. The established alternative — a sibling
+ * chip in its own strip BELOW the card (`storyteller-tile.tsx`'s editorial
+ * chip, the Team chips) — is right for a CHIP and wrong for a BYLINE: it lifts
+ * the name out of the card's meta block. `front-door.css` opens by saying a
+ * delta from the binding drawing "is a defect in the PORT, not a fresh design
+ * decision"; moving the byline would be such a delta.
+ */
+function ChannelLink({
+  slug,
+  name,
+  className,
+}: {
+  slug: string;
+  name: string;
+  className: string;
+}) {
+  // ONE definition of where a byline goes. Two hand-written `/u/${...}` links
+  // in one file do not stay equal — this file already carries a scar from
+  // exactly that (the reading-time rule it deliberately imports rather than
+  // re-deriving).
+  return (
+    <Link href={`/u/${slug}`} className={className}>
+      {name}
+    </Link>
+  );
+}
+
 function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
   return (
-    <Link href={s.href} className="fd-item">
+    <div className="fd-item">
       <div className="fd-thumb">
         {/* TWO GRAMMARS, decided by what the chapter actually IS — ported from
             the shipped `StorytellerTile` on /realstories, which already made
@@ -151,19 +201,30 @@ function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
         {s.hasVideo ? <span className="fd-hasvid">▶ with video</span> : null}
       </div>
       <div className="fd-imeta">
+        {/* The avatar stays DECORATIVE on purpose. The reference links it too,
+            but it is `aria-hidden` initials here, and an aria-hidden anchor is
+            an accessibility fault (a focusable node hidden from the tree). The
+            name beside it is the door; two doors to one room is not worth
+            breaking the tree for. */}
         <span className="fd-ava" aria-hidden="true">
           {initialsOf(s.ownerName)}
         </span>
         <div className="fd-itxt">
-          <p className="fd-ttl">{s.title}</p>
+          <p className="fd-ttl">
+            {/* The card's press target. `.fd-stretch::after` covers the whole
+                card, so the poster and the title still open the story. */}
+            <Link href={s.href} className="fd-stretch">
+              {s.title}
+            </Link>
+          </p>
           <p className="fd-by">
             <span className="fd-kindtag fd-kindtag-w">Their story</span>{' '}
-            {s.ownerName}
+            <ChannelLink slug={s.ownerSlug} name={s.ownerName} className="fd-chan" />
           </p>
           <p className="fd-by">{s.kindLabel}</p>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -314,8 +375,12 @@ export function FrontDoorFeed({
           </h2>
 
           <div className="fd-storyrow">
+            {/* THE SAME CARD, A SECOND TIME. This shelf renders the same story
+                as the 16:9 card above it, and a fix applied to one rendering
+                and not the other is the exact shape `front-door-invariants`
+                already guards for. The channel line is a door in BOTH. */}
             {shownStories.slice(0, 6).map((s) => (
-              <Link key={s.href} href={s.href} className="fd-story">
+              <div key={s.href} className="fd-story">
                 <div className="fd-sthumb">
                   {/* The same two grammars as the big card. This box used to
                       render NOTHING but a badge — a bare gradient rectangle
@@ -338,9 +403,16 @@ export function FrontDoorFeed({
                     <span className="fd-min">▶</span>
                   ) : null}
                 </div>
-                <p className="fd-sttl">{s.title}</p>
-                <p className="fd-sby">Their story · {s.ownerName}</p>
-              </Link>
+                <p className="fd-sttl">
+                  <Link href={s.href} className="fd-stretch">
+                    {s.title}
+                  </Link>
+                </p>
+                <p className="fd-sby">
+                  Their story ·{' '}
+                  <ChannelLink slug={s.ownerSlug} name={s.ownerName} className="fd-chan" />
+                </p>
+              </div>
             ))}
             {shownArticles
               .slice(0, Math.max(0, 6 - shownStories.slice(0, 6).length))

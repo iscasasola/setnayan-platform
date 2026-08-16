@@ -18,7 +18,7 @@ import {
   rankChaptersByPublishedAt,
   youtubeThumbFromEmbedUrl,
 } from '@/lib/creator-chapters';
-import { fetchPublishedChapters, type PublicChapter } from '@/lib/creator-public';
+import { fetchPublishedChaptersResult, type PublicChapter } from '@/lib/creator-public';
 import {
   fetchCreatorInfluence,
   type CreatorInfluenceVendor,
@@ -162,7 +162,8 @@ export default async function AccountProfilePage({ params }: Props) {
   // creator (no is_creator flag). We're already past the enabled/owner-preview
   // gate, so load the timeline here; when it's non-empty we NEVER auto-redirect
   // into a single event — the chapters are the point of the page.
-  const chapters: PublicChapter[] = await fetchPublishedChapters(user.user_id);
+  const chaptersRead = await fetchPublishedChaptersResult(user.user_id);
+  const chapters: PublicChapter[] = chaptersRead.items;
   const hasChapters = chapters.length > 0;
 
   // Creator "influence" — accepted vendor partnerships (aggregate, public). Only
@@ -186,7 +187,14 @@ export default async function AccountProfilePage({ params }: Props) {
   // 1 ongoing → jump straight in (skip for the owner previewing their own
   // hidden shell so they actually see the profile page they're checking, and
   // for creators whose profile is the chapter timeline).
-  if (ongoing.length === 1 && !isOwnerPreview && !hasChapters) {
+  //
+  // ⚠ AND NEVER ON A FAILED READ. `hasChapters` is false both when somebody
+  // has published nothing and when the chapters query was REFUSED — a rejected
+  // Supabase query resolves rather than throwing. Redirecting on the second
+  // case sends a visitor who pressed this person's name in a byline onto a
+  // WEDDING PAGE instead of the person's own, with nothing on screen wrong.
+  // A read that failed knows nothing, so it decides nothing.
+  if (ongoing.length === 1 && !isOwnerPreview && !hasChapters && chaptersRead.ok) {
     redirect(`/u/${canonicalSlug}/${ongoing[0]!.slug}`);
   }
 

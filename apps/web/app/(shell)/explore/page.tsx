@@ -64,6 +64,10 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import {
+  resolveEventTypeKeysForToken,
+  type EventTypeSearchOption,
+} from '@/lib/event-type-search';
+import {
   fetchTopVendorNamesByService,
   fetchVendorCountsByService,
   getCanonicalBuckets,
@@ -92,6 +96,7 @@ import {
 import { fetchLatestReviewsByVendor } from '@/lib/vendor-reviews-preview';
 import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
 import { PARTNERSHIP_RANK, isPartnershipKind } from '@/lib/vendor-partnership-kinds';
+import { searchReads, type ReadHit } from '@/lib/site-search';
 
 // Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
 // (no event linked) AND civil ceremonies (secular by nature — no faith tag
@@ -204,8 +209,10 @@ const TAXONOMY_OPTIONS: ReadonlyArray<TaxonomyOption> = Object.entries(
 // their search").
 //
 // Each whitespace token must match SOMETHING: the vendor's business name, its
-// tagline, its city, OR a service it lists (resolved against the 192-item
-// taxonomy by label/key substring). One PostgREST `.or()` group per token (OR
+// tagline, its city, a service it lists (resolved against the 192-item taxonomy
+// by label/key substring), OR a KIND OF CELEBRATION it serves (resolved against
+// the live event_type_vocab — owner 2026-08-15, "they can also search by type of
+// event"). One PostgREST `.or()` group per token (OR
 // across those fields); chaining one `.or()` per token ANDs the groups, so
 // multiple tokens INTERSECT — "photographer tagaytay" returns photography
 // vendors in Tagaytay only, not the union. Tokens are stripped to [a-z0-9],
@@ -232,6 +239,16 @@ type OrFilterable = { or: (filters: string) => OrFilterable };
 function applyMarketplaceTextSearch(
   builder: OrFilterable,
   rawQuery: string,
+  /**
+   * The live event-type roster, so a typed occasion resolves to the same keys
+   * the `?event_type=` filter already understands. Passed in — never imported —
+   * because the vocabulary is admin-managed and grows with zero deploys; see
+   * `lib/event-type-search.ts` for why a local copy would be a defect.
+   *
+   * Defaulted to empty so a caller that has not loaded the vocab degrades to
+   * exactly the previous four-axis behaviour rather than throwing.
+   */
+  eventTypeOptions: ReadonlyArray<EventTypeSearchOption> = [],
 ): OrFilterable {
   const tokens = rawQuery
     .toLowerCase()
@@ -251,6 +268,13 @@ function applyMarketplaceTextSearch(
       // existing `compatible_ceremony_types.cs.{…}` usage further below. The
       // {…} literal lists the candidate canonical_service keys for this token.
       orParts.push(`services.ov.{${serviceKeys.join(',')}}`);
+    }
+    // The occasion axis. Same array-overlap shape as services, against the
+    // SAME column the `?event_type=` chip filters on, so typing "debut" and
+    // picking Debut from the filter reach identical rows by identical means.
+    const eventTypeKeys = resolveEventTypeKeysForToken(token, eventTypeOptions);
+    if (eventTypeKeys.length > 0) {
+      orParts.push(`event_types.ov.{${eventTypeKeys.join(',')}}`);
     }
     q = q.or(orParts.join(','));
   }
@@ -1130,6 +1154,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   if (filters.eventType && !eventTypeKeys.has(filters.eventType)) {
     filters = { ...filters, eventType: null };
   }
+  // The occasion axis of the free-text search + the occasion picker both read
+  // this ONE list, so a kind of celebration a visitor can TYPE is always a kind
+  // they can also PICK, and vice versa. Owner 2026-08-15.
+  const eventTypeSearchOptions: EventTypeSearchOption[] = eventTypeVocab.map(
+    (t) => ({ key: t.key, label: t.label }),
+  );
 
   // 0043 compatibility hooks — resolve the viewer's couple-side primary event
   // BEFORE the marketplace query is built so the compatibility filter can
@@ -1543,10 +1573,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   if (filters.q.length > 0) {
     // Unified multi-field search — see applyMarketplaceTextSearch. Replaces the
     // old business_name-only ilike so a free-text query matches across vendor
-    // name, tagline, city, and listed services, combinable across tokens.
+    // name, tagline, city, listed services, and the kinds of celebration the
+    // vendor serves, combinable across tokens.
     query = applyMarketplaceTextSearch(
       query as unknown as OrFilterable,
       filters.q,
+      eventTypeSearchOptions,
     ) as unknown as typeof query;
   }
   // 10-parent model (2026-05-31) — tile-scoped grid. `?tile=<slug>` overlaps
@@ -1795,9 +1827,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     if (filters.q.length > 0) {
       // Same multi-field search as the main query so the broadened-count
       // empty-state framing stays consistent with what the search matched.
+      // The occasion axis MUST be passed here too: omitting it would let the
+      // broadened count exceed the narrow count for an occasion word, and the
+      // empty state would offer to "widen" a search that was already wider.
       broadened = applyMarketplaceTextSearch(
         broadened as unknown as OrFilterable,
         filters.q,
+        eventTypeSearchOptions,
       ) as unknown as typeof broadened;
     }
     if (filters.category) {
@@ -2605,6 +2641,24 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // (runAdminDigestFlush is hooked earlier — before the catalog-mode return —
   // so it also covers bare /explore visits.)
 
+  /* Stories + guides for the typed words — the two nouns the public search box
+     promises that this page could not answer. Only on a real text search:
+     /explore is browsed by category far more often than it is searched, and a
+     reading list under a category browse is noise, not help.
+
+     ⚠ FAIL-SOFT. The guide half is in code and cannot fail; the story half is
+     a database read that already degrades to [] inside `searchReads`. A throw
+     here must never take the marketplace down with it — the vendors are the
+     page. */
+  let readHits: ReadHit[] = [];
+  if (filters.q.trim().length > 0) {
+    try {
+      readHits = await searchReads(filters.q);
+    } catch (err) {
+      console.error('[explore] site search failed', err);
+    }
+  }
+
   return (
     /*
       🛒 SAME SHELL FOR THE FILTERED MARKETPLACE (owner, twice). `bleed` for the
@@ -2724,6 +2778,16 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                   value: FAITH_KEY_TO_URL[k],
                   label: FAITH_KEY_TO_LABEL[k],
                 })),
+                // 2026-08-15 — the occasion narrow's handle. The live vocab in
+                // its own sort_order, so the drawer offers exactly the kinds of
+                // celebration the filter accepts and a kind launched in admin
+                // appears here with no deploy. ACTIVE (not enabled-only): a
+                // supplier may serve a kind before it opens to couples, so
+                // narrowing to it is a legitimate search even pre-launch.
+                eventTypeOptions: eventTypeVocab.map((t) => ({
+                  value: t.key,
+                  label: t.label,
+                })),
                 matchableEvent,
                 hostVenueSetting,
                 hostVenueLabel: hostVenueSetting
@@ -2744,7 +2808,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                   // 2026-05-30 PM — Clear button surfaces when faith narrow
                   // is active so couples can clear back to baseline without
                   // hunting for a sub-select option.
-                  filters.faithFilter !== null,
+                  filters.faithFilter !== null ||
+                  // 2026-08-15 — same reason for the occasion narrow, and it
+                  // matters more here: a couple's own event auto-applies this
+                  // filter without them ever choosing it, so Clear is the only
+                  // way back to every supplier.
+                  filters.eventType !== null,
               } as FilterDrawerProps}
             />
 
@@ -2988,6 +3057,19 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           totalPages={totalPages}
           total={totalCount ?? rows.length}
         />
+
+        {/* THE OTHER TWO NOUNS. The box that sends people here says "suppliers,
+            stories and guides"; until 2026-08-15 this page answered the first
+            and had no code path for the other two, so an article title typed
+            into it returned "No vendors match exactly" while the article sat
+            live and indexed. Restored from the binding front-door drawing,
+            whose search returned three labelled groups.
+
+            🔒 BELOW the vendor results, always. This is the marketplace; a
+            reader who came for a supplier must not have to scroll past our
+            writing to reach one. When the vendor list is empty this section is
+            simply the first thing with an answer in it. */}
+        <ReadsResults hits={readHits} query={filters.q} />
       </section>
     </main>
   );
@@ -3155,6 +3237,52 @@ function FocusedModeSearchForm({
     </form>
   );
 }
+/**
+ * Stories and guides matching the typed words.
+ *
+ * Renders NOTHING when there are no hits — an empty "Stories and guides"
+ * heading would turn one dead end into two, and this section exists precisely
+ * because a dead end was what the box already gave people.
+ *
+ * Each row says what it is ("Guide · Planning", "Help · Payments", "Story"),
+ * because a reader who searched for a supplier needs to see at a glance that
+ * these are things to read, not shops to hire.
+ */
+function ReadsResults({ hits, query }: { hits: ReadHit[]; query: string }) {
+  if (hits.length === 0) return null;
+  return (
+    <section className="mt-12 border-t border-ink/10 pt-8" aria-label="Stories and guides">
+      <h2 className="text-base font-semibold tracking-tight text-ink sm:text-lg">
+        Stories and guides
+      </h2>
+      <p className="mt-1 text-sm text-ink/55">
+        {hits.length} {hits.length === 1 ? 'thing' : 'things'} to read for
+        &ldquo;{query}&rdquo;
+      </p>
+      <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+        {hits.map((h) => (
+          <li key={h.href}>
+            <Link
+              href={h.href}
+              className="block h-full rounded-2xl border border-ink/10 bg-white/60 p-4 transition hover:border-terracotta/40 hover:bg-white"
+            >
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+                {h.tag}
+              </span>
+              <span className="mt-1.5 block text-[15px] font-medium leading-snug text-ink">
+                {h.title}
+              </span>
+              <span className="mt-1 block text-sm leading-relaxed text-ink/60">
+                {h.blurb}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function EmptyState({
   filters,
   broadenedCount,
@@ -3642,6 +3770,32 @@ async function CatalogView({
     }));
   const heroChips = popularChips.length > 0 ? popularChips : EXPLORE_HERO_CHIPS;
 
+  // Occasion chips (owner 2026-08-15 — "they can also search by type of
+  // event"). The landing is catalog mode, which renders no FilterDrawer, so
+  // without this row the `?event_type=` filter has NO handle on the one public
+  // page built for discovery.
+  //
+  // `getEventTypeVocab` is React `cache()`d at source, so this is the same read
+  // the page body already performed — no extra round trip.
+  //
+  // ENABLED, not merely active: `enabled` is the couple-side launch lever, so
+  // this row advertises exactly the celebrations Setnayan is publicly open for.
+  // (The drawer offers the wider ACTIVE roster, because a supplier may serve a
+  // kind before it opens to couples and narrowing to it is still legitimate.)
+  //
+  // ⚖ NO SLICE. Every enabled kind renders. A `.slice(0, 6)` here would decide
+  // in a source file which celebrations are worth showing, and hide the rest
+  // behind nothing — there is no "all occasions" page to send anyone to, so a
+  // capped row would be a silent boundary. Which kinds appear is a real
+  // product decision and it already has a home: the `enabled` lever at
+  // /admin/event-types, which changes this row with zero deploys.
+  const occasionChips: ReadonlyArray<ExploreChip> = (await getEventTypeVocab())
+    .filter((t) => t.enabled)
+    .map((t) => ({
+      label: t.label,
+      href: `/explore?event_type=${encodeURIComponent(t.key)}`,
+    }));
+
   // Religion-default-on: when the couple has a faith (ceremony_type maps to
   // Catholic/Christian/INC/Muslim/Cultural), hide tiles tagged for OTHER
   // faiths. Untagged tiles always surface — they're the cross-faith base.
@@ -3984,6 +4138,7 @@ async function CatalogView({
                 folder: scopedFolder,
               }}
               chips={heroChips}
+              occasionChips={occasionChips}
             />
 
             {religionFilteringActive ? (

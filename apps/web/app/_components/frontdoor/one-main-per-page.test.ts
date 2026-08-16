@@ -15,7 +15,10 @@ import { fileURLToPath } from 'node:url';
  *
  *   dashboard/(launcher)/layout.tsx   <main>{children}</main>
  *   dashboard/(account)/layout.tsx    <main>{children}</main>
- *   dashboard/[eventId]/layout.tsx    SidebarShell's `.sn-vt-page` <main>
+ *   dashboard/[eventId]/layout.tsx    <main className="sn-vt-page">
+ *
+ * (That third one read `SidebarShell's .sn-vt-page <main>` until 2026-08-15,
+ * when the shell was deleted and the layout took the element over directly.)
  *
  * So every converted page shipped TWO nested `<main>` landmarks — invalid
  * HTML, and a duplicated landmark for anyone navigating by landmark. It was
@@ -54,10 +57,17 @@ function read(p: string): string {
  *
  * 🪤 THIS FILE'S FIRST RUN CRIED WOLF ON ITS OWN PROSE. Both `<main>` counts
  * went red against correct code, because these files TALK about `<main>` at
- * length — the shell's docblock explains the landmark rule and SidebarShell's
- * explains why its `<main>` carries `.sn-vt-page`. A guard that counts a
+ * length — the shell's docblock explains the landmark rule, and every layout's
+ * explains why its content element carries `.sn-vt-page`. A guard that counts a
  * string counts it in the comments too, and a guard that fires on correct
  * code teaches you to skim past the one time it is right.
+ *
+ * 🪤 AND IT HAPPENED AGAIN IN A SIBLING (2026-08-15). `nav-badges.test.ts`
+ * sliced a JSX element from the first `<Tag` it found and was anchored onto a
+ * SENTENCE naming that tag, added by the SidebarShell retirement. It reported
+ * that the phone had lost its badge counts, which was false. Same lesson, a
+ * different file, four weeks later — so that stripper is this one, copied, not
+ * re-invented.
  */
 function code(src: string): string {
   return src
@@ -127,28 +137,48 @@ test('each rail-wrapped layout still renders exactly one landmark of its own', (
     host actually has one — otherwise these pages would end up with NONE, which
     is a different accessibility bug wearing the fix's clothes. So both halves
     are asserted together and neither can be "tidied" alone.
+
+    ⚠ THE `viaShell` ESCAPE HATCH IS GONE, AND SO IS THE DELEGATION IT ALLOWED.
+    Two of these three used to hand their landmark to `<SidebarShell>`; that
+    component was deleted on 2026-08-15 and each layout now renders the <main>
+    itself, on the element carrying `.sn-vt-page`. So the rule is simply the
+    count — no tree delegates any more, and none may go back to it without
+    something to delegate to.
   */
   for (const p of HOSTS) {
-    const src = read(p);
-    const opens = (code(src).match(/<main\b/g) ?? []).length;
-    const viaShell = /<SidebarShell\b/.test(src);
-    assert.ok(
-      opens === 1 || viaShell,
-      `${p} renders ${opens} <main> element(s) and does not delegate to ` +
-        'SidebarShell. With the shell now yielding its landmark, this page ' +
-        'would have NO main landmark at all.',
+    const opens = (code(read(p)).match(/<main\b/g) ?? []).length;
+    assert.equal(
+      opens,
+      1,
+      `${p} renders ${opens} <main> element(s). The shared shell yields its ` +
+        'landmark inside the app, so ZERO leaves this page with none at all, ' +
+        'and TWO is the nested-landmark defect this file was written for.',
     );
   }
 });
 
-test('SidebarShell still carries the landmark for the trees that delegate to it', () => {
-  const shell = read(join(APP, '_components', 'nav', 'sidebar-shell.tsx'));
-  const opens = (code(shell).match(/<main\b/g) ?? []).length;
-  assert.equal(
-    opens,
-    1,
-    `SidebarShell must render exactly one <main>; found ${opens}. The event ` +
-      'tree relies on it for both its landmark AND the `.sn-vt-page` name the ' +
-      "phone's page-slide animates.",
-  );
+test('the landmark and the page-slide name are the same element in every tree', () => {
+  /*
+    ⚠ THIS REPLACES 'SidebarShell still carries the landmark…'. The shell
+    carried BOTH jobs on one `<main>`, and when it was deleted they could have
+    been split across two elements without any error: the landmark on one, the
+    view-transition name on another. That still renders, still validates, and
+    still slides — so nothing would have said it was wrong.
+
+    Keeping them fused is what makes "did this tree keep its landmark?" and
+    "did this tree keep its page-slide?" one question with one answer. The
+    admin tree is deliberately not in HOSTS: it carries `.sn-vt-page` on a
+    plain <div> and has no <main> of its own — a real gap, named here rather
+    than quietly normalised, and NOT a licence to copy that shape.
+  */
+  for (const p of HOSTS) {
+    const src = code(read(p));
+    if (!/\bsn-vt-page\b/.test(src)) continue;
+    assert.match(
+      src,
+      /<main className="sn-vt-page"/,
+      `${p} carries \`.sn-vt-page\` on something that is not its <main>. The ` +
+        'landmark and the element the phone slides must be the same one.',
+    );
+  }
 });

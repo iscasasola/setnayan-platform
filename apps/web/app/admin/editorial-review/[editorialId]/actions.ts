@@ -154,7 +154,7 @@ export async function unlockForCouple(editorialId: string) {
     admin,
     editorialId,
     'Your editorial is approved',
-    'Setnayan reviewed your wedding editorial and it’s cleared — it can now go live on your event website.',
+    'Setnayan reviewed your wedding editorial and it’s cleared — it can now go live on your Event Hub.',
   );
 
   revalidatePath(`/admin/editorial-review/${editorialId}`);

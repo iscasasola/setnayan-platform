@@ -4,6 +4,7 @@
 // circular imports. OPEN-BROWSE PR2 adds the `_lib/loaders.ts` return types
 // (EventMedia · LiveLayerData · GuestContext) — all type-only imports, so the
 // module stays value-free for the client components that import from it.
+import type { EventVisibility } from '@/lib/event-visibility';
 import type { GuestRole } from '@/lib/guests';
 import type { RoamManifest } from '@/lib/live-studio-roam';
 import type { GuestPickCamera } from '@/lib/live-studio-guest-pick';
@@ -172,7 +173,7 @@ export type EventRow = {
   } | null;
   // Landing page visibility lever from PR #381 — ‹public, unlisted, private›.
   // Private renders <PrivateLanding> for non-guest visitors.
-  landing_page_visibility?: 'public' | 'unlisted' | 'private' | null;
+  landing_page_visibility?: EventVisibility | null;
   // r2://-tagged ref to the hero photo uploaded via
   // /dashboard/[eventId]/website/hero-photo (migration 20260605020000).
   // Null = render the monogram-only hero (legacy/default behavior).

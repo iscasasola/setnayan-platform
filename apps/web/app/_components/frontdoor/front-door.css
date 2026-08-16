@@ -364,11 +364,12 @@
    there and hanging a vertical expander off it would steal 4px of that row's
    clicks. Only the BAR's copies shrink; see the scoped rule below. */
 .fd-btn-gold {
-  /* "+ New event" is 11 characters where "+ Create" was 8, in a flex row that
-     declared no wrap rule. Measured: this button DOES render below 1024 on `/`
-     and on all seven doorways — the display:none is scoped to
+  /* "+ Create event" is 14 characters where "+ Create" was 8, in a flex row
+     that declared no wrap rule. Measured: this button DOES render below 1024
+     on `/` and on all seven doorways — the display:none is scoped to
      [data-chrome='app'] — so a signed-in visitor meets it on a phone on eight
-     public pages. */
+     public pages. The nowrap below is what keeps the longest label on one
+     line; do not drop it when the label changes again. */
   white-space: nowrap;
   min-height: 44px;
   padding: 0 15px;
@@ -924,6 +925,58 @@
   color: var(--fd-m2);
   line-height: 1.45;
   margin: 0;
+}
+
+/* ── THE CHANNEL LINE IS A DOOR ───────────────────────────────────────────
+   Two press targets on one card: the whole card opens the story, the
+   storyteller's name opens their page. They are SIBLING anchors — an <a>
+   inside an <a> is invalid HTML and browsers recover by splitting the outer
+   link, silently breaking the card's own tap target. Nothing in CI catches a
+   nested anchor, so the structure is the only guard there is.
+
+   `.fd-stretch` is the real title anchor; its ::after covers the card, so the
+   poster and the title both still open the story. `.fd-chan` is raised one
+   layer above that overlay, which is what makes it reachable.
+
+   🔑 THE STACKING ORDER IS THE WHOLE MECHANISM. Drop the z-index on .fd-chan
+   and the name is still underlined, still coloured, still announced as a link
+   — and completely unpressable, because the title's overlay sits on top of it.
+   It would look exactly like a working feature. */
+.fd-item,
+.fd-story {
+  position: relative;
+}
+.fd-stretch {
+  color: inherit;
+  text-decoration: none;
+}
+.fd-stretch::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: var(--m-r-md);
+}
+.fd-chan {
+  position: relative;
+  z-index: 2;
+  /* ⚠ A DELIBERATE DELTA FROM THE PORT, AND THE ONLY ONE HERE.
+     The drawing renders the channel line in the same `--fd-m2` grey as the
+     metadata beside it. Measured on the cream page ground #fdfbf7, #8a857b is
+     **3.55:1** — below the 4.5:1 floor for text this size. Shipping a NEW
+     interactive control at that ratio is not defensible in a repo that has
+     already treated 4.42:1 and 3.06:1 as real public-page defects, so the link
+     alone steps up to `--fd-m1` #6e6a62 = **5.21:1**. Nothing else moves.
+     ⏭ The surrounding `.fd-by` / `.fd-sby` text is STILL 3.55:1 and always has
+     been — page-wide, pre-existing, and a palette decision rather than a port
+     fix, so it is named here and deliberately not changed under this one. */
+  color: var(--fd-m1);
+  text-decoration: none;
+}
+.fd-chan:hover,
+.fd-chan:focus-visible {
+  color: var(--fd-ink);
+  text-decoration: underline;
 }
 
 /* The card says which KIND it is, so the shelf does not have to — which is

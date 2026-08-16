@@ -152,15 +152,38 @@ test("the vendor's phone bar applies the customers badge AFTER the label overlay
 // ── THE COUNTS REACH THE BARS AT ALL ────────────────────────────────────────
 
 /**
+ * Source with comments removed, so a guard can never be satisfied — or FOOLED —
+ * by prose ABOUT the thing.
+ *
+ * 🪤 THIS FILE CRIED WOLF ON CORRECT CODE (2026-08-15). `jsxElement` sliced from
+ * the FIRST `<Tag` it found, and the SidebarShell retirement added a docblock
+ * naming `<VendorBottomNav>` in a sentence. The slicer anchored on the sentence,
+ * ran to the next `/>` — nowhere near the real element — and reported that the
+ * phone had been starved of its counts, which was false in both layouts.
+ * A guard that fires on a correct change teaches you to skim past the one time
+ * it is right, so the stripper is copied from `one-main-per-page.test.ts`
+ * deliberately rather than re-invented.
+ */
+function code(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((l) => !l.trimStart().startsWith('//') && !l.trimStart().startsWith('*'))
+    .join('\n');
+}
+
+/**
  * Slice exactly one JSX element by tag name, `<Tag` through its closing `/>`.
  *
  * A windowed regex (`<Tag[\s\S]{0,240}prop=`) is NOT good enough here, and that
  * is not hypothetical: the vendor layout mentions `bookingsPending` four times,
- * including on the SIDEBAR a few lines above. A window wide enough to cover the
- * bottom nav's props also swept up the sidebar's, so the guard would have passed
- * on a layout that fed the desktop and starved the phone — the precise bug.
+ * including on the DESKTOP MENU a few lines above. A window wide enough to cover
+ * the bottom nav's props also swept up the other's, so the guard would have
+ * passed on a layout that fed the desktop and starved the phone — the precise
+ * bug.
  */
-function jsxElement(src: string, tag: string): string {
+function jsxElement(raw: string, tag: string): string {
+  const src = code(raw);
   const start = src.indexOf(`<${tag}`);
   assert.ok(start >= 0, `${tag} is not rendered at all`);
   const end = src.indexOf('/>', start);
@@ -194,18 +217,31 @@ test('the desktop sidebars still get their counts — this was additive', () => 
   // destinations on a laptop must be handed both counts. Only the name of the
   // element that renders them moved.
   //
-  // The counts now travel as object properties into the resolver rather than
-  // as JSX props, so the shapes below are `key: value` — asserting the old
-  // `prop={value}` spelling would have passed vacuously against a component
-  // that never receives them, which is the guard failing open.
-  const sidebar = jsxElement(read(VENDOR_LAYOUT), 'VendorRailContext');
+  // ⚠ RESPELLED 2026-08-15, NOT RELAXED. Slice 2 passed the counts as object
+  // properties into a resolver CALLED IN THE LAYOUT — and that call is what
+  // took the whole vendor dashboard down, because building a row list on the
+  // server means resolving a React icon component on the server. The rail is
+  // a client component and resolves its own rows now, so the counts travel as
+  // JSX props again. Same one-directional rule, same two values, same
+  // element; only the punctuation between them changed.
+  // See `app/vendor-dashboard/_components/vendor-nav-boundary.test.ts`.
+  //
+  // ⚠ THE COUPLE HALF WAS RETARGETED 2026-08-15, NOT RELAXED — the same move
+  // the vendor half made a day earlier, for the same reason and one slice
+  // later. `<CustomerSidebar>` inside `<SidebarShell>` is not the couple's
+  // desktop menu any more; `<EventRailContext>` inside the shared rail is, and
+  // `sidebar-shell.tsx` no longer exists to mount the old one. The rule is
+  // untouched and still one-directional: whatever renders the couple's
+  // destinations on a laptop must be handed the guest count, so a change that
+  // helps the phone can never be shown to have quietly cost the laptop.
+  const desktop = jsxElement(read(VENDOR_LAYOUT), 'VendorRailContext');
   assert.ok(
-    /bookingsBadge:\s*bookingsPending/.test(sidebar) &&
-      /threadsBadge:\s*threadsUnread/.test(sidebar),
+    /bookingsBadge=\{bookingsPending\}/.test(desktop) &&
+      /threadsBadge=\{threadsUnread\}/.test(desktop),
     'The vendor DESKTOP MENU lost a count while the phone gained one.',
   );
   assert.ok(
-    /guestCount=\{guestCount\}/.test(jsxElement(read(CUSTOMER_LAYOUT), 'CustomerSidebar')),
-    'The couple SIDEBAR lost its guest count.',
+    /guestCount=\{guestCount\}/.test(jsxElement(read(CUSTOMER_LAYOUT), 'EventRailContext')),
+    'The couple DESKTOP MENU lost its guest count.',
   );
 });

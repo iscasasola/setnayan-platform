@@ -219,7 +219,7 @@ export function VectorStudio({
         <p className="max-w-prose text-sm text-ink/65">
           Your real initials, freely composed — drag to move, resize with the gold handle, weave or merge
           where they cross, and frame them with a mirrored pen. Save it and it becomes your monogram everywhere:
-          your dashboard, QR codes, wedding website, and save-the-date.
+          your dashboard, QR codes, Event Hub, and save-the-date.
         </p>
       </header>
 

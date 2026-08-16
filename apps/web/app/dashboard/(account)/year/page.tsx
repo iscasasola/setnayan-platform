@@ -3,11 +3,19 @@ import Link from 'next/link';
 import { ArrowLeft, CalendarHeart, Sparkles, Gift } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
-import { buildYearMoments, type MomentEvent, type YearMoment } from '@/lib/year-moments';
+import {
+  buildYearMoments,
+  buildSelfMoments,
+  mergeSelfMoments,
+  type MomentEvent,
+  type SelfForMoments,
+  type YearMoment,
+} from '@/lib/year-moments';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { buildDependentMoments, type DependentForMoments } from '@/lib/dependent-moments';
 import { buildDependentRiteMoments, type DependentForRites } from '@/lib/faith-rites';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export const metadata = { title: 'Your year' };
 
@@ -19,8 +27,17 @@ export const metadata = { title: 'Your year' };
  * and Valentine's return every year. Nothing here is a stored row — a moment
  * becomes an event only when the couple taps to plan it (the go-signal).
  *
- * Deterministic + free (Rule 1); zero PII in this first cut (no birthdate path
- * — milestone birthdays arrive with the counsel-gated dependent People layer).
+ * Deterministic + free (Rule 1).
+ *
+ * ⚠ PII: this docblock used to say "zero PII in this first cut (no birthdate
+ * path)" and that stopped being true on 2026-08-15, twelve lines above the read
+ * that broke it. It reads ONE birthdate — `users.birth_date`, the SIGNED-IN
+ * PERSON'S OWN, typed by them into their own profile and rendered only to them
+ * (the self-consented Phase-1 slate, un-gated). Somebody ELSE's birthdate still
+ * arrives only with the counsel-gated dependent People layer below, which is
+ * why that gate is still here and still closed. Corrected because the DPO is
+ * the owner and the next person auditing which surfaces touch personal data
+ * greps this page, reads the old sentence, and stops.
  */
 
 const FMT = new Intl.DateTimeFormat('en-US', {
@@ -64,7 +81,7 @@ export default async function YearPage() {
       `member_type,
        events:event_id (
          event_id, event_type, display_name, event_date,
-         anchor_date, anchor_origin, recurs, archived
+         anchor_date, anchor_origin, recurs, recur_cadence, archived
        )`,
     )
     .eq('user_id', user.id)
@@ -108,9 +125,30 @@ export default async function YearPage() {
     ];
   }
 
-  const moments = [...buildYearMoments(events, today), ...dependentMoments].sort(
-    (a, b) => a.daysUntil - b.daysUntil || a.label.localeCompare(b.label),
-  );
+  // Their OWN birthday — the one date an account carries before it carries a
+  // single event. Un-gated on purpose: it is self-consented data on the
+  // person's own screen, unlike the dependents above. See buildSelfMoments.
+  const { data: selfRow, error: selfErr } = await supabase
+    .from('users')
+    .select('birth_date, sex')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  // Its twin in year-moments-strip.tsx checks this and this one did not, in the
+  // same change. A rejected read (a column revoke, a policy narrowing) resolves
+  // with `error` and never throws, so it would leave `selfMoments` empty and
+  // print "Add your birthday" to somebody who typed theirs months ago — forever,
+  // with nothing in the logs to find it by.
+  if (selfErr) logQueryError('YearPage (users birthday)', selfErr);
+
+  const selfMoments = buildSelfMoments((selfRow as SelfForMoments | null) ?? null, today);
+
+  // mergeSelfMoments drops the profile birthday when an event already holds that
+  // calendar day, so one date never prints twice (a birthday created through
+  // onboarding is `recurs: true` by default and collides exactly).
+  const moments = [
+    ...mergeSelfMoments(buildYearMoments(events, today), selfMoments),
+    ...dependentMoments,
+  ].sort((a, b) => a.daysUntil - b.daysUntil || a.label.localeCompare(b.label));
   const nudges = moments.filter((m) => m.isMilestone);
 
   return (
@@ -130,6 +168,19 @@ export default async function YearPage() {
           on your plate yet; tap one when you’re ready to plan it.
         </p>
       </header>
+
+      {/* The one date this page can offer before the account has any events —
+          and the only reason it would be missing is that nobody has typed it.
+          Shown only when it IS missing, so it disappears the moment it is
+          answered rather than nagging someone who already did. */}
+      {selfMoments.length === 0 ? (
+        <p className="sn-row mt-6 px-4 py-3 text-sm text-ink/65">
+          <Link className="font-medium text-ink underline underline-offset-4" href="/dashboard/profile">
+            Add your birthday
+          </Link>{' '}
+          and it will be here every year.
+        </p>
+      ) : null}
 
       {nudges.length > 0 ? (
         <section className="mt-8">

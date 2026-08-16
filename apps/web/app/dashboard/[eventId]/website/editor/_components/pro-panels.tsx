@@ -45,7 +45,7 @@ export function ProLockPanel({
     <div className="border-t border-dashed border-amber-300/60 bg-amber-50/60 p-3">
       <p className="flex items-center gap-1.5 text-[0.72rem] font-semibold text-amber-900">
         <Lock aria-hidden className="h-3 w-3" strokeWidth={2.5} />
-        {featureName} is part of Website Pro
+        {featureName} is part of Event Hub PRO
       </p>
       <p className="mt-1 text-[0.7rem] leading-relaxed text-ink/60">
         One unlock covers all seven: {WEBSITE_PRO_ITEMS.join(' · ')}. It also removes the
@@ -55,7 +55,7 @@ export function ProLockPanel({
         href={unlockHref}
         className="mt-2 inline-flex items-center rounded-full bg-amber-400 px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-amber-300"
       >
-        Unlock Website Pro · ₱3,500
+        Unlock Event Hub PRO · ₱3,500
       </Link>
     </div>
   );

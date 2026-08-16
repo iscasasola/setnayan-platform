@@ -20,15 +20,20 @@ import { buildCustomerNavGroups } from './customer-nav-config';
  * no error, no red CI, and in three cases no visible symptom at the width the
  * author was looking at:
  *
- *   · Removing `<SidebarShell>` for a "desktop-only" swap deletes the app's
- *     ONLY `.sn-vt-page` and the `[data-shell-main]` hook — i.e. it breaks the
- *     PHONE, at widths where the new rail does not paint at all.
- *   · Forgetting `desktopRailExternal` renders two sidebars, one on top of the
+ *   · Losing the content wrapper's `.sn-vt-page` or its `[data-shell-main]`
+ *     hook breaks the PHONE, at widths where the rail does not paint at all.
+ *   · Losing its `.sn-ambient` ground changes the colour of every event screen.
+ *   · A second `<aside>` in this layout renders two rails, one on top of the
  *     other, both correct in isolation.
  *   · Restoring `lg:hidden` on the switcher strands sign-out on the couple's
  *     desktop, because the plaque that used to carry it no longer renders.
  *   · A hand-typed terracotta is invisible to every contrast guard in the repo
  *     — the exact defect design#6 shipped as `#9A8F86`.
+ *
+ * ⚠ THESE USED TO READ `sidebar-shell.tsx`, WHICH IS DELETED (2026-08-15).
+ * The component is gone; the RULES it carried are not, so each assertion was
+ * re-pointed at the layout that owns the job now rather than removed. A guard
+ * deleted to go green is a rule deleted.
  *
  * 🔑 THE BEHAVIOUR TESTS CALL THE REAL BUILDER, NOT A COPY OF IT. A first cut
  * of the sibling rail guard declared its own row list, so a mutation that
@@ -39,7 +44,6 @@ import { buildCustomerNavGroups } from './customer-nav-config';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LAYOUT = join(HERE, '..', 'layout.tsx');
 const RAIL = join(HERE, 'event-rail-context.tsx');
-const SHELL = join(HERE, '..', '..', '..', '_components', 'nav', 'sidebar-shell.tsx');
 const CSS = join(
   HERE, '..', '..', '..', '_components', 'frontdoor', 'front-door.css',
 );
@@ -61,7 +65,7 @@ function code(src: string): string {
   file — which is how a mutation run reports zero failures and means nothing.
 */
 test('the anchor: every file this guard reads exists and is real', () => {
-  for (const p of [LAYOUT, RAIL, SHELL, CSS]) {
+  for (const p of [LAYOUT, RAIL, CSS]) {
     assert.ok(
       readFileSync(p, 'utf8').length > 1000,
       `${p} is missing or a stub — every other test in this file would pass vacuously.`,
@@ -93,18 +97,20 @@ test('the event layout mounts the shared rail and pushes the event group into it
   );
 });
 
-/* ══ 2 · THE MOBILE TRAP — SidebarShell STAYS MOUNTED ════════════════════ */
+/* ══ 2 · THE MOBILE TRAP — THE CONTENT WRAPPER CARRIES THE SLIDE ═════════ */
 
-test('SidebarShell is still mounted — dropping it breaks the PHONE, not the desktop', () => {
+test('the event content still carries the view-transition name and the sub-nav hook', () => {
   const src = code(readFileSync(LAYOUT, 'utf8'));
-  assert.match(
-    src,
-    /<SidebarShell\b/,
-    'SidebarShell was removed from the event layout. Its <main> carries the ' +
-      "app's only `.sn-vt-page` (view-transition-name), which is what the " +
-      'mobile bottom-nav carousel slides, and `[data-shell-main]` inside it is ' +
-      'what gives the docked sub-nav its extra room. Both die at MOBILE widths, ' +
-      'where the new rail does not even paint. Plan § 3, trap #2.',
+  const named = src.match(/\bsn-vt-page\b/g) ?? [];
+  assert.equal(
+    named.length,
+    1,
+    `expected exactly one sn-vt-page in the event layout, saw ${named.length}. ` +
+      'ZERO kills the mobile bottom-nav page slide silently — the tap still ' +
+      'starts a view transition and animates NOTHING, at widths where the rail ' +
+      'does not even paint. TWO is a duplicate view-transition-name, which ' +
+      'makes the browser skip the transition entirely. ' +
+      'It used to ride on SidebarShell\'s <main>; that component is deleted.',
   );
   assert.match(
     src,
@@ -114,51 +120,94 @@ test('SidebarShell is still mounted — dropping it breaks the PHONE, not the de
   );
 });
 
-test('the shell keeps rendering the one .sn-vt-page at ALL widths', () => {
-  const src = code(readFileSync(SHELL, 'utf8'));
-  const hits = src.match(/\bsn-vt-page\b/g) ?? [];
-  assert.equal(
-    hits.length,
-    1,
-    'SidebarShell must render `.sn-vt-page` exactly once, unconditionally. ' +
-      'Putting it behind a breakpoint or a flag silently disables the mobile ' +
-      `page-slide; found ${hits.length} occurrence(s).`,
-  );
-  // It must not have been moved inside the branch that the new flag removes.
-  assert.doesNotMatch(
-    src,
-    /desktopRailExternal[^\n]*\n[^\n]*sn-vt-page/,
-    'The `.sn-vt-page` <main> was moved under the desktopRailExternal branch — ' +
-      'setting the flag would then delete the mobile page-slide.',
-  );
-});
-
-/* ══ 3 · THE FLAG IS SET, AND THE SHELL ACTUALLY HONOURS IT ══════════════ */
-
-test('the event layout hands the desktop column to the rail', () => {
+test('the named element is a <main>, and it is the only landmark here', () => {
+  /*
+    TWO RULES IN ONE ELEMENT, and they are only both satisfiable by a <main>.
+    `FrontDoorShell` renders a <div> in its app variant precisely BECAUSE the
+    host owns the landmark (`one-main-per-page.test.ts`), so a <div> here
+    leaves the whole event tree with no <main> at all — invisible, and exactly
+    the state the admin tree is in today.
+  */
   const src = code(readFileSync(LAYOUT, 'utf8'));
   assert.match(
     src,
-    /\bdesktopRailExternal\b/,
-    'Without this the old <aside> renders UNDER the new rail: two sidebars, ' +
-      'and the content is offset by a sidebar width it no longer has.',
+    /<main className="sn-vt-page"/,
+    'The `.sn-vt-page` element is no longer a <main>. It must be both: the ' +
+      'view-transition name AND this tree\'s only landmark.',
+  );
+  assert.equal(
+    (src.match(/<main\b/g) ?? []).length,
+    1,
+    'One landmark per page. Two <main> elements is invalid HTML and a ' +
+      'duplicated landmark for anyone navigating by landmark.',
   );
 });
 
-test('desktopRailExternal is a real mount condition, not a style', () => {
-  const src = code(readFileSync(SHELL, 'utf8'));
-  assert.match(
+test('the slide wrapper is unconditional — never behind a breakpoint or a flag', () => {
+  /*
+    🪤 THE WHOLE TRAP IN ONE LINE. The rail replaced a DESKTOP sidebar, so
+    every instinct here is to gate on `lg:`. This element wraps content at ALL
+    widths, and the thing it protects only runs on a PHONE. A `lg:` prefix or a
+    ternary would read as tidy and disable the carousel where nobody testing a
+    desktop conversion would look.
+  */
+  const src = code(readFileSync(LAYOUT, 'utf8'));
+  assert.doesNotMatch(
     src,
-    /desktopRailExternal\s*\?\s*null\s*:/,
-    'The <aside> must not RENDER when an outer rail owns the column. Hiding it ' +
-      'with CSS would leave a dozen focusable links reachable by keyboard ' +
-      'behind the rail — the defect this repo has already paid for once.',
+    /(?:lg|md|sm):[^"'\s]*sn-vt-page|sn-vt-page[^"']*\s(?:lg|md|sm):hidden/,
+    'The `.sn-vt-page` wrapper is gated on a breakpoint. It must wrap content ' +
+      'at every width — the page slide it names is a PHONE behaviour.',
   );
+  assert.doesNotMatch(
+    src,
+    /\?[^\n]*\bsn-vt-page\b|\bsn-vt-page\b[^\n]*:\s*(?:null|undefined|'')/,
+    'The `.sn-vt-page` wrapper moved behind a conditional. Rendered sometimes, ' +
+      'the mobile page-slide works sometimes, and nothing anywhere says which.',
+  );
+});
+
+/* ══ 3 · ONE RAIL, AND THE GROUND IT PAINTS ON ══════════════════════════ */
+
+test('the event layout draws no sidebar of its own', () => {
+  /*
+    The old `<aside>` left with `sidebar-shell.tsx`. If one comes back here it
+    renders UNDER the shared rail — two sidebars, both correct in isolation.
+  */
+  const src = code(readFileSync(LAYOUT, 'utf8'));
+  assert.equal(
+    (src.match(/<aside\b/g) ?? []).length,
+    0,
+    'The event layout renders its own <aside>. The shared rail already owns ' +
+      'the desktop left column; a second one stacks on top of it.',
+  );
+});
+
+test('the warm ground survived the shell, and is a SEPARATE element from the slide', () => {
+  /*
+    🔑 THE SILENT COLOUR CHANGE. `.sn-ambient` sat on SidebarShell's own root,
+    INSIDE the content column, so it paints over the rail's cream. Nothing
+    else in this tree sets it — the parent dashboard layout paints
+    `var(--m-paper)` and the rail paints `--fd-cream`, both different — so
+    dropping it recolours every event screen with nothing thrown.
+
+    ⚠ AND IT MUST NOT BE MERGED ONTO THE NAMED ELEMENT. `view-transition-name`
+    snapshots the element it names; folding the painted ground into it makes
+    the BACKGROUND slide with the page instead of standing still behind it —
+    a visible change to the one animation the test above exists to protect.
+  */
+  const src = code(readFileSync(LAYOUT, 'utf8'));
   assert.match(
     src,
-    /desktopRailExternal\s*\n?\s*\?\s*'0px'/,
-    'The desktop offset is not zeroed, so the content column is pushed a ' +
-      'second sidebar width to the right past a rail already sitting there.',
+    /className="sn-ambient min-h-screen"/,
+    'The `.sn-ambient` ground (with its `min-h-screen`, or a short page shows ' +
+      'the layer underneath) is gone from the event content column.',
+  );
+  assert.doesNotMatch(
+    src,
+    /className="[^"]*\bsn-ambient\b[^"]*\bsn-vt-page\b|className="[^"]*\bsn-vt-page\b[^"]*\bsn-ambient\b/,
+    'The ground and the view-transition name are on the SAME element. The ' +
+      'painted background is then inside the transition snapshot and slides ' +
+      'with the page. They must stay nested, not merged.',
   );
 });
 

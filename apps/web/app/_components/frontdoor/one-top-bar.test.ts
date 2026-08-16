@@ -105,6 +105,57 @@ test('the anchor: every file this guard reasons about exists', () => {
   }
 });
 
+/*
+  ─── THE FALLBACK MUST NOT REACH A SIGNED-IN PERSON ───────────────────────
+  🔴 THIS FILE ALREADY NAMED THIS HAZARD AND DID NOT COVER IT. Its own header
+  says: "a tree that stops passing `topBarSlot` still renders a perfectly
+  good-looking bar — this shell has a fallback bell and account menu for `/`."
+  The five TREES above were checked. `/` and every `variant="doorway"` page
+  were never in that list, so for a day they served a signed-in visitor a "🔔"
+  EMOJI that can never show an unread count, while every page inside the app
+  showed the live badge. Owner 2026-08-15, two screenshots: *"why does the top
+  nav differ?"*
+
+  🔑 THE GUARD WAS RIGHT ABOUT THE DISEASE AND WRONG ABOUT THE PATIENT LIST.
+  Both surfaces now default to `SignedInCluster`, and these hold it.
+*/
+test('the two surfaces that hand in no cluster fall back to the real one', () => {
+  const doorway = code(read(RAIL_SHELL));
+  assert.match(
+    doorway,
+    /topBarSlot=\{topBarSlot \?\? \(account\.signedIn \? <SignedInCluster/,
+    'A doorway page passes no topBarSlot. Signed in it must default to the ' +
+      'real cluster, not the shell’s emoji-bell placeholder, which cannot ' +
+      'carry an unread count.',
+  );
+
+  const frontDoor = code(read(join(HERE, 'front-door.tsx')));
+  assert.match(
+    frontDoor,
+    /topBarSlot=\{account\.signedIn \? <SignedInCluster/,
+    '`/` is the page in the owner’s screenshot. Signed in it must render ' +
+      'the same bell and account switcher as every surface inside the app.',
+  );
+});
+
+test('the shared cluster is the app\'s own two controls, not a second copy', () => {
+  const src = code(read(join(HERE, 'signed-in-cluster.tsx')));
+  /*
+    🔑 REUSED, NOT REBUILT. A second bell or a second account menu would drift
+    from the real one within a week — the exact failure one shared bar exists
+    to prevent. Anchored on the RENDERED elements, not the imports: an import
+    with the JSX deleted must not satisfy this.
+  */
+  assert.match(src, /<UnreadBellBadge\b/, 'Must render the live bell, not a static link.');
+  assert.match(src, /<AccountSwitcher\b/, 'Must render the real account switcher.');
+  assert.match(
+    src,
+    /if \(!user\) return null/,
+    'Must render nothing for a signed-out visitor, so the public doorway is ' +
+      'unchanged and the rail’s sign-in prompt still owns that corner.',
+  );
+});
+
 /* ─── 1 · EXACTLY ONE TOP BAR, AND IT IS THE SHARED ONE ─────────────────── */
 
 test('the shell renders its top bar in BOTH variants', () => {
@@ -356,6 +407,45 @@ test('"+ Create" is desktop-only inside the app', () => {
   );
 });
 
+/*
+  🔴 THE OWNER LOOKS FOR A WORD, NOT A POSITION. On 2026-08-15 the button was
+  repointed at the create flow and RENAMED "+ New event" in the same commit.
+  Hours later: *"create button is gone."* It was not gone — it sat in the same
+  place, in the same gold, one link away from where he was standing. He scanned
+  the bar for "Create" and the scan came back empty, which is indistinguishable
+  from a deleted button.
+
+  🔑 A RENAME IS A REMOVAL TO WHOEVER WAS LOOKING FOR THE OLD NAME — and the
+  rename was never asked for. This holds BOTH halves: the button still exists
+  (href + gold class, the ACT) and it still says the word.
+
+  🪤 Anchored inside `code()` on purpose. The docblock above the JSX says
+  "Create event" four times; a file-level substring match would pass with the
+  button deleted outright.
+*/
+test('the bar\'s create button exists and still says "Create"', () => {
+  const src = code(read(SHELL));
+  const button = src.match(
+    /<Link href="\/dashboard\/create-event" className="fd-btn-gold">([\s\S]*?)<\/Link>/,
+  );
+  assert.ok(
+    button,
+    'The shared bar must render a gold Link to /dashboard/create-event. ' +
+      'Deleting it removes the only create door a signed-in person meets ' +
+      'above 1024 on every surface that is not the events board.',
+  );
+  /* `noUncheckedIndexedAccess` is on repo-wide, so the capture group is
+     `string | undefined`. Defaulting to '' keeps the assertion honest: an
+     empty label fails the match, which is the correct verdict anyway. */
+  assert.match(
+    button[1] ?? '',
+    /\bCreate\b/,
+    'The create button must carry the word "Create". It was renamed ' +
+      '"+ New event" on 2026-08-15 and the owner reported it GONE the same ' +
+      'day — a label he does not scan for is a button he cannot find.',
+  );
+});
+
 test('the app variant renders no second search row', () => {
   const src = code(read(SHELL));
   /*
@@ -397,17 +487,22 @@ test('the shared bar brings no landmark and no heading with it', () => {
 });
 
 test('each tree still renders exactly one landmark of its own', () => {
+  /*
+    ⚠ THE `<SidebarShell>` ESCAPE HATCH IS GONE (2026-08-15) — the component is
+    deleted, so "delegates to the shell" is no longer an answer any tree can
+    give. Four of the five now render the <main> themselves; the admin console
+    is the one that carries `.sn-vt-page` on a plain <div> and has NO landmark
+    of its own, which is a real gap kept visible here rather than asserted away.
+  */
   for (const tree of TREES) {
     const src = read(tree.file);
     const opens = count(code(src), /<main\b/g);
-    const viaShell = /<SidebarShell\b/.test(code(src));
     const viaVtPage = /sn-vt-page/.test(code(src));
     assert.ok(
-      opens === 1 || viaShell || viaVtPage,
-      `${tree.name} renders ${opens} <main> element(s) and delegates to ` +
-        'neither SidebarShell nor its own `.sn-vt-page` wrapper. With the ' +
-        'shell yielding its landmark in the app variant, this page would have ' +
-        'NO main landmark at all.',
+      opens === 1 || viaVtPage,
+      `${tree.name} renders ${opens} <main> element(s) and has no ` +
+        '`.sn-vt-page` wrapper either. With the shell yielding its landmark ' +
+        'in the app variant, this page would have NO main landmark at all.',
     );
     assert.ok(
       opens <= 1,
@@ -495,5 +590,116 @@ test('⌘K cannot be bound by two palettes at once', () => {
     /if \(commandKeyClaimed\(\)\) return;/.test(bar),
     'The shared palette does not check the claim, so it will fire alongside ' +
       'whichever surface-specific palette owns the key.',
+  );
+});
+
+/* ─── 6 · ONE SEARCH PER PERSON, NOT PER PAGE ───────────────────────────── */
+
+/*
+  🔴 WHAT THE OWNER SAW, 2026-08-16, two screenshots of two PUBLIC pages:
+  *"i think the top nav is still not fixed. the search tab looks different. i
+  thought this was already fixed?"* He had — the 2026-08-14 ruling settled that
+  one bar means one search. What it settled it ON was five signed-in trees:
+  "the palette wins, because every surface this bar mounts on is INSIDE the
+  person's own app."
+
+  🔑 THEN THE PREMISE MOVED AND NOBODY RE-ASKED THE QUESTION. On 2026-08-15 the
+  eight product doorways, About, Explore, Pricing, Real Stories and the legal
+  chrome mounted the same shell with `variant="doorway"` — thirteen PUBLIC
+  pages, where the visitor is a stranger with no events, no people and no
+  vendors. Measured live on all thirteen before this change:
+
+    /                 the marketplace box
+    the other twelve  a palette labelled "Search events, people, vendors"
+
+  and `resolveCommandItems` returns `[]` without a session, so that palette
+  opened EMPTY and, once typed into, offered exactly one row — the marketplace
+  escape. Two presses for what `/` answers with Enter, under a label naming two
+  things it could not search.
+
+  These guards hold the rule that replaced it: the search follows WHO IS
+  LOOKING, not which page they are on — the same answer this file family
+  already gave for the Studio rows and the account cluster.
+*/
+
+const FRONT_DOOR = join(HERE, 'front-door.tsx');
+
+test('the anchor: the front-door mount exists and is not a stub', () => {
+  assert.ok(
+    existsSync(FRONT_DOOR) && read(FRONT_DOOR).length > 500,
+    `${FRONT_DOOR} is missing or a stub — the assertions below would pass ` +
+      'vacuously, which is how a guard becomes decoration.',
+  );
+});
+
+/**
+ * The two places a `search` is handed to the shared shell. If a third ever
+ * appears it must join this list, or it will decide the question on its own.
+ */
+const SEARCH_MOUNTS = [
+  { name: 'the public front door (/)', file: FRONT_DOOR },
+  { name: 'the shared rail (app trees + the 13 doorway pages)', file: RAIL_SHELL },
+] as const;
+
+test('neither mount hands out the palette without asking who is looking', () => {
+  for (const m of SEARCH_MOUNTS) {
+    const src = code(read(m.file));
+    /*
+      🪤 ANCHORED ON THE WHOLE TERNARY, NOT ON `account.signedIn` ANYWHERE IN
+      THE FILE. Both files already branch on `account.signedIn` for the Studio
+      rows and the cluster, so a guard that merely finds that string passes
+      while the search goes back to unconditional — it would be measuring the
+      wrong two lines and reporting green.
+    */
+    assert.match(
+      src,
+      /search=\{\s*account\.signedIn \? \(\s*<HomeCommandBar items=\{commandItems\} variant="rail" \/>\s*\) : undefined\s*\}/,
+      `${m.name} no longer branches its search on whether anybody is signed ` +
+        'in. Signed out, the palette searches events, people and vendors the ' +
+        'visitor does not have: the index is empty without a session, so it ' +
+        'opens a blank list. The shell falls back to the marketplace box, ' +
+        'which is the box `/` has always shown — that fallback is the point.',
+    );
+  }
+});
+
+test('both mounts answer it the same way', () => {
+  /*
+    🔑 THE SPLIT THE OWNER PHOTOGRAPHED WAS TWO CORRECT FILES DISAGREEING.
+    Neither was broken on its own; `/` had a comment explaining why its search
+    was the marketplace form "deliberately", and the rail had one explaining
+    why its search was the palette. Both were written before the doorways
+    joined, and holding both is what put two answers on the public web. So the
+    expression is compared BETWEEN the files, not just checked within each.
+  */
+  const expr = (src: string) =>
+    (code(src).match(/search=\{[\s\S]*?\n      \}/) ?? [''])[0].replace(/\s+/g, ' ');
+  const [a, b] = SEARCH_MOUNTS.map((m) => expr(read(m.file)));
+  assert.ok(a && a.length > 40, 'The front door mount matched no search expression at all.');
+  assert.equal(
+    a,
+    b,
+    'The two mounts hand the shell DIFFERENT search controls. One bar means ' +
+      'one search; a visitor who crosses from / to /papic — or from their ' +
+      'dashboard to /pricing — must not watch the box change shape.',
+  );
+});
+
+test('the phone row shows the same search as the desktop row', () => {
+  const src = code(read(SHELL));
+  /*
+    🚨 THIS IS THE HALF THAT WAS LIVE AND INVISIBLE ON A LAPTOP. `.fd-searchwrap`
+    is `display:none` below 701px and `.fd-searchrow` takes over, and that row
+    rendered `<SearchBox />` outright — so every doorway page showed the palette
+    at 701px and the marketplace form at 700px. One page, two searches, decided
+    by the width of the window. Nothing errors, and you cannot see it without
+    resizing.
+  */
+  assert.match(
+    src,
+    /\{inApp \? null : \(\s*<div className="fd-searchrow">\s*\{search \?\? <SearchBox \/>\}/,
+    'The phone search row must render the SAME control the desktop row does ' +
+      '(`search ?? <SearchBox />`). Hardcoding <SearchBox /> here gives one ' +
+      'page two different searches depending on how wide the window is.',
   );
 });

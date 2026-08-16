@@ -8,17 +8,25 @@
  * the event-anchor derivation engine), so it's trivially unit-testable and free
  * to run anywhere (Rule 1).
  *
- * PRIVACY: this first cut derives ONLY from anchor/wedding dates + fixed
- * holidays — zero PII, no birthdates. Milestone birthdays arrive with the
- * counsel-gated dependent People layer (PR-D); they are deliberately absent here.
+ * PRIVACY: `buildYearMoments` derives ONLY from anchor/wedding dates + fixed
+ * holidays — zero PII, no birthdates. `buildSelfMoments` (below) adds exactly
+ * ONE birthdate: the signed-in person's OWN, shown only to themselves. Somebody
+ * ELSE's birthdate still arrives with the counsel-gated dependent People layer
+ * (PR-D) and is deliberately absent from both.
  */
 import {
   nextAnniversary,
   nextMonthsary,
   nextOccurrence,
+  nextByCadence,
+  effectiveCadence,
+  CADENCE_LABELS,
+  nextBirthday,
+  milestoneAges,
   parseISO,
   leadTimeFor,
   type NudgeTier,
+  type Sex,
 } from './event-anchor';
 
 export type MomentEvent = {
@@ -29,6 +37,8 @@ export type MomentEvent = {
   anchor_date: string | null;
   anchor_origin: string | null;
   recurs: boolean | null;
+  /** `events.recur_cadence` — NULL with recurs=true reads as 'annual'. */
+  recur_cadence?: string | null;
   archived?: boolean | null;
 };
 
@@ -87,7 +97,9 @@ function anniversaryLabel(origin: string | null, n: number, displayName: string)
     case 'relationship':
       return `Your ${nth} anniversary together`;
     case 'milestone':
-    case 'matters':
+    // 'matters' was a fourth origin, retired 2026-08-15 with the repeat-cadence
+    // work — it is gone from the DB CHECK and from ANCHOR_ORIGINS, so no stored
+    // row can carry it. `default` still catches anything unrecognised.
     default:
       return `${displayName} — ${nth} year`;
   }
@@ -277,17 +289,25 @@ export function buildYearMoments(
       continue;
     }
 
-    // Generic recurring event (travel/corporate/gala/celebration/reunion/
-    // tournament with the yearly toggle) → its next annual occurrence off the
+    // Generic recurring event → its next occurrence AT ITS OWN CADENCE off the
     // chosen event_date.
+    //
+    // 🔑 THIS BRANCH USED TO BE ANNUAL-ONLY, and that was the whole ceiling of
+    // the feature: `recurs` is a boolean, so "repeats" could only ever mean
+    // "yearly". `effectiveCadence` reads a row written before 2026-08-15 —
+    // recurs=true with no cadence — as 'annual', which is exactly what the
+    // boolean meant, so no backfill was needed and no existing row changes
+    // behaviour. The detail line is the cadence's own label rather than a
+    // hardcoded "Every year".
     if (e.recurs && e.event_date) {
-      const dateISO = nextOccurrence(e.event_date, todayISO);
-      if (dateISO) {
+      const cadence = effectiveCadence(e.recurs, e.recur_cadence);
+      const dateISO = cadence ? nextByCadence(e.event_date, cadence, todayISO) : null;
+      if (dateISO && cadence) {
         out.push({
           dateISO,
           daysUntil: daysBetween(todayISO, dateISO),
           label: e.display_name,
-          detail: 'Every year',
+          detail: CADENCE_LABELS[cadence],
           kind: 'recurring',
           eventId: e.event_id,
           isMilestone: false,
@@ -317,4 +337,135 @@ export function buildYearMoments(
   return out
     .filter((m) => m.daysUntil >= 0 && m.daysUntil <= withinDays)
     .sort((a, b) => a.daysUntil - b.daysUntil || a.label.localeCompare(b.label));
+}
+
+/**
+ * Merge the account's own-birthday moment into the event-derived ones, dropping
+ * it when an event already occupies that calendar day.
+ *
+ * 🚨 WITHOUT THIS THE SAME DAY PRINTS TWICE. `/onboarding/[type]` hardcodes
+ * `recurs: true` for `event_type = 'birthday'`, so a person who creates their own
+ * birthday through onboarding AND has the date on their profile produced two rows
+ * on one date — *"My 30th Birthday"* and *"Your birthday — turning 30"*. Measured,
+ * not theorised. On the home strip only three rows are visible, so the duplicate
+ * ate two of them and pushed a real moment behind "Show 1 more".
+ *
+ * 🔑 THE EVENT WINS, NOT THE PROFILE. The event row is tappable (it deep-links to
+ * its dashboard), it carries the name the person chose, and it is the thing they
+ * are actually planning. The profile line is the fallback for when no event
+ * exists — which is the whole reason it was added.
+ *
+ * Lives here rather than in each caller because two callers merging by hand is
+ * two chances to merge differently, and the strip and the page must not disagree
+ * about how many lines one day gets.
+ */
+export function mergeSelfMoments(fromEvents: YearMoment[], self: YearMoment[]): YearMoment[] {
+  const taken = new Set(fromEvents.map((m) => m.dateISO));
+  return [...fromEvents, ...self.filter((m) => !taken.has(m.dateISO))].sort(
+    (a, b) => a.daysUntil - b.daysUntil || a.label.localeCompare(b.label),
+  );
+}
+
+/** The signed-in person's own profile fields the year derivation can use. */
+export type SelfForMoments = {
+  /** `users.birth_date` — THEIR OWN, typed by them into their own profile. */
+  birth_date: string | null;
+  /** `users.sex` — optional; only narrows which ages count as milestones. */
+  sex?: Sex;
+};
+
+/**
+ * THE ONE DATE EVERY ACCOUNT HAS THAT COMES BACK EVERY YEAR — the signed-in
+ * person's own birthday.
+ *
+ * ── WHY THIS EXISTS (owner, 2026-08-15) ─────────────────────────────────────
+ * *"we used to have a plan. for events that are upcoming for them. based on
+ * their account. events that are celebrated always."* The plan shipped and was
+ * silent, because every moment `buildYearMoments` can produce is derived inside
+ * its `for (const e of events)` loop: with no events there are no moments, and
+ * "celebrated always" had nothing to stand on. Meanwhile the profile has asked
+ * for a birthday since it was built — *"Optional — so we can greet you on your
+ * day 🎂"* — and the ADMIN social queue already reads it to greet people, so
+ * the platform was using the date on the user's behalf and never showing it
+ * back to them.
+ *
+ * ── WHY IT IS NOT COUNSEL-GATED, unlike every other birthdate here ──────────
+ * This is the person's OWN date, typed by them into their own profile, rendered
+ * only on their own screens. That is the self-consented Phase-1 slate of the
+ * Family Life-OS plan (§D Phase 1 item 1), explicitly un-gated — as opposed to
+ * `dependents.birth_date` (somebody else's, often a minor's), which stays
+ * behind `dependentPeopleEnabled()` + counsel. **Do not widen this to read any
+ * other person's birthdate.** `people.birth_date` in particular has no writer
+ * in the app and is a third party's; it is not a shortcut to a fuller year.
+ *
+ * ── WHY IT IS NOT GATED ON `public_greeting_opt_in` ─────────────────────────
+ * That flag governs Setnayan greeting somebody PUBLICLY (the admin social
+ * queue selects on it, and must keep doing so). Showing you your own birthday
+ * on your own home publishes nothing, so gating on it would hide a person's
+ * date from the one person it is already known to.
+ *
+ * ── SHAPE ───────────────────────────────────────────────────────────────────
+ * ONE line, not two: the next birthday, marked as a milestone when its age
+ * lands on the PH ladder (1 · 7 · 18F/21M · 60 — `milestoneAges`). Emitting
+ * both an "ordinary" and a "milestone" row would print the same date twice.
+ * `eventId` is null because a birthday is a SUGGESTION until the person taps to
+ * plan it — the same go-signal rule the rest of this module obeys, and the
+ * reason nothing here is ever auto-created.
+ *
+ * Pure: the caller supplies the date, this module stores nothing.
+ */
+export function buildSelfMoments(
+  self: SelfForMoments | null,
+  todayISO: string,
+  opts: { withinDays?: number } = {},
+): YearMoment[] {
+  const withinDays = opts.withinDays ?? 366;
+  const birthISO = self?.birth_date ?? null;
+  if (!birthISO) return [];
+
+  const birth = parseISO(birthISO);
+  const today = parseISO(todayISO);
+  if (!birth || !today) return [];
+
+  // 🚨 REJECT ON THE BIRTH YEAR, NOT ON THE DERIVED AGE.
+  //
+  // The first cut tested `next.age < 1` and its comment claimed that covered
+  // "today's year or in the future (a typo, or a date picker's default)". It did
+  // not. `age` comes off the NEXT occurrence, so it only caught a mistyped date
+  // still ahead in the current year; once the month/day had passed, the next
+  // occurrence rolled into next year and `age` came back **1** — which sits on
+  // the first rung of the PH milestone ladder. Measured over every in-year date
+  // on 2026-08-15: **210 of 336 rendered "Your 1st birthday · A milestone year"**
+  // to an adult, in the gold highlighted "Worth planning for" band, while the
+  // other 126 were dropped. The same slip produced a confident falsehood or a
+  // silent nothing depending only on the month.
+  //
+  // The profile field is a bare <input type="date"> with no `max`, the save
+  // action checks only the SHAPE, and no CHECK constraint exists — so a year
+  // left at the picker's default saves fine and is the ordinary way in.
+  //
+  // Nobody holding an account was born this year, so a birth year at or after
+  // today's is provably wrong for a SELF moment. This is the rule the original
+  // comment described; the old test only ever exercised the half that worked.
+  if (birth.getUTCFullYear() >= today.getUTCFullYear()) return [];
+
+  const next = nextBirthday(birthISO, todayISO);
+  if (!next || next.age < 1) return [];
+
+  const isMilestone = milestoneAges(self?.sex ?? null).includes(next.age);
+  const daysUntil = daysBetween(todayISO, next.dateISO);
+  if (daysUntil < 0 || daysUntil > withinDays) return [];
+
+  return [
+    {
+      dateISO: next.dateISO,
+      daysUntil,
+      label: isMilestone ? `Your ${ordinal(next.age)} birthday` : `Your birthday — turning ${next.age}`,
+      detail: isMilestone ? 'A milestone year' : 'Every year',
+      kind: isMilestone ? 'milestone' : 'recurring',
+      eventId: null,
+      isMilestone,
+      tier: leadTimeFor('birthday', isMilestone ? next.age : null).tier,
+    },
+  ];
 }

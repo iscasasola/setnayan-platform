@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { EVENT_VISIBILITIES, type EventVisibility } from '@/lib/event-visibility';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveReturnTo } from '@/lib/editor-return';
@@ -22,7 +23,7 @@ import { resolveReturnTo } from '@/lib/editor-return';
  * model from PR #183 (2026-05-20).
  */
 
-const ALLOWED_VISIBILITY = new Set(['public', 'unlisted', 'private']);
+const ALLOWED_VISIBILITY = new Set<string>(EVENT_VISIBILITIES);
 
 async function requireHostMembership(
   eventId: string,
@@ -86,7 +87,7 @@ export async function updateLandingPageVisibility(formData: FormData) {
   if (typeof visibilityRaw !== 'string' || !ALLOWED_VISIBILITY.has(visibilityRaw)) {
     throw new Error('Invalid visibility value.');
   }
-  const visibility = visibilityRaw as 'public' | 'unlisted' | 'private';
+  const visibility = visibilityRaw as EventVisibility;
 
   // Anon can set 'private' (harmless), but going public/unlisted requires a
   // secured account.

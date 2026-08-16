@@ -226,8 +226,8 @@ export async function saveEditorial(
       ? (existing.draft_json as Record<string, unknown>)
       : {};
 
-  // ── Website PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
-  // Editorial editing is a Website PRO perk. Defense-in-depth mirror of the page
+  // ── Event Hub PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
+  // Editorial editing is a Event Hub PRO perk. Defense-in-depth mirror of the page
   // gate: a NOT-PRO couple with NO authored editorial (empty draft_json AND never
   // published) can't create one via a crafted request. A couple that already
   // authored editorial (grandfathered) OR owns PRO saves freely — and we never
@@ -236,7 +236,7 @@ export async function saveEditorial(
   const hasExistingEditorial =
     Object.keys(base).length > 0 || existing?.published_at != null;
   if (!isPro && !hasExistingEditorial) {
-    return { ok: false, error: 'Editing your editorial is part of Website PRO.' };
+    return { ok: false, error: 'Editing your editorial is part of Event Hub PRO.' };
   }
 
   const t = (s: string) => s.trim();

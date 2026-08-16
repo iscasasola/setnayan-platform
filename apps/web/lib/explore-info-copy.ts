@@ -22,10 +22,14 @@
  *     visible focus ring, a dismissible panel, and **no persistence** — the
  *     panel always starts closed, because it is help, not a setting.
  *
- * ⚠ The lock-handshake line reflects the §7 amendment: a lock is a REQUEST until
- * the vendor accepts the payment. Customer-facing copy must not promise "it's
- * final" before that step. When PR-H/PR-I ship the request states, update the
- * line HERE — not in the components.
+ * ⚠ The lock-handshake line must describe WHAT THE CODE DOES, not what §7 wants
+ * it to do. It spent months describing the target — "you request the lock, the
+ * vendor agrees" — while `finalizeVendor` booked the vendor outright and told
+ * them afterwards. Corrected 2026-08-15; see the const's own docblock.
+ * 🔑 Copy is not a plan. A sentence describing an unbuilt step is a promise the
+ * product breaks every time someone reads it. When PR-H ships step 2, flip this
+ * line as a function of the flag — never ahead of the flag.
+ * Update the line HERE — not in the components.
  */
 
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
@@ -50,9 +54,28 @@ export const EXPLORE_INFO_WHAT =
 export const EXPLORE_INFO_STRIP =
   'The strip at the top is your event, one tile per category you chose during onboarding. It is ordered by what needs deciding soonest, categories you are done with sink to the right, and NEXT marks the one to pick up now.';
 
-/** §11.1 — the lock handshake, one line (spec §7). */
+/**
+ * §11.1 — what locking actually does, one line (spec §7).
+ *
+ * 🔴 THIS LINE DESCRIBES TODAY, NOT THE TARGET. It previously read "you request
+ * the lock, the vendor agrees, …" — describing the §7 handshake. Steps 1, 3, 4
+ * and 5 of that handshake ship; **step 2 does not exist**. `finalizeVendor`
+ * writes `status='contracted'` outright and the vendor is TOLD, never ASKED
+ * (`emitNotification('booking_confirmed')`, "You have a new confirmed booking").
+ * So the sentence promised a veto no vendor has ever been offered, on the one
+ * screen that exists to explain the mechanism.
+ *
+ * What is kept is what is TRUE today: the couple pays the vendor directly,
+ * off-platform, and the date is reserved on the vendor's calendar only at
+ * `acknowledge_vendor_deposit` (which is what calls `acquireSchedulePoolsForBooking`).
+ *
+ * ⚠ WHEN PR-H SHIPS, THIS FLIPS BACK — but as a function of the flag, not a
+ * constant: `exploreInfoHandshake(handshakeEnabled)`, ON = the handshake
+ * sentence (true at last), OFF = this one. Both branches pinned in
+ * `explore-info-copy.test.ts`. Do not restore the promise ahead of the step.
+ */
 export const EXPLORE_INFO_HANDSHAKE =
-  'Locking is a handshake, not a switch: you request the lock, the vendor agrees, you pay and send the receipt, the vendor accepts it — only then is your date reserved.';
+  'Locking books this vendor and tells them straight away. You then pay them directly and send the receipt — once they accept it, your date is reserved on their calendar.';
 
 /**
  * §11.1 — the state-glyph legend, in journey order. Glyphs come from
@@ -93,6 +116,7 @@ export function coverageTileLabel(args: {
   vendorCount: number;
   lockedCount: number;
   buildCount: number;
+  askedCount?: number;
   isNext: boolean;
 }): string {
   const state =
@@ -100,11 +124,16 @@ export function coverageTileLabel(args: {
       ? 'covered'
       : args.state === 'locked'
         ? `${args.lockedCount} locked`
-        : args.state === 'picked'
-          ? `${args.buildCount} in your build`
-          : args.state === 'exploring'
-            ? `${args.vendorCount} shortlisted`
-            : 'not started';
+        : // PR-H · the screen-reader label must not borrow "locked" for a
+          // supplier who has not answered. This is the one place a couple using
+          // a screen reader learns the state at all.
+          args.state === 'asked'
+          ? `${args.askedCount ?? 0} asked, waiting`
+          : args.state === 'picked'
+            ? `${args.buildCount} in your build`
+            : args.state === 'exploring'
+              ? `${args.vendorCount} shortlisted`
+              : 'not started';
   return `${args.label} — ${state}${args.isNext ? `, ${COVERAGE_NEXT_SR}` : ''}`;
 }
 
@@ -219,6 +248,37 @@ export function cardCheckInquiryLabel(name: string): string {
  */
 export const CARD_LOCK = 'Lock this';
 export const CARD_LOCKING = 'Requesting…';
+
+/**
+ * PR-H slice B · what a couple reads while nobody has answered yet.
+ *
+ * 🗣 THE WORD IS "ASKED", NEVER "BOOKED". The whole point of the handshake is
+ * that pressing Lock starts a conversation, so the screen may not describe a
+ * booking that does not exist. Nor may it read as an error: waiting is the
+ * normal, expected middle of this flow, and the supplier has seven days.
+ *
+ * ⚠ NO NUMBER IS TYPED HERE. `waitingOnSupplier` takes the deadline the
+ * DATABASE materialized and formats it, so the days a couple is shown are the
+ * days the fuse will actually burn. A hand-typed "7 days" in copy is how the
+ * screen and the enforcement drift apart the first time the window changes.
+ */
+export const CARD_ASK_SENT = 'Waiting on them';
+export const CARD_WITHDRAW = 'Take it back';
+export const CARD_WITHDRAWING = 'Taking it back…';
+export function cardWithdrawLabel(name: string): string {
+  return `Withdraw your booking request to ${name}`;
+}
+export function waitingOnSupplier(expiresAtIso: string | null, now: Date = new Date()): string {
+  if (!expiresAtIso) return 'Asked — waiting for them to answer.';
+  const ms = new Date(expiresAtIso).getTime() - now.getTime();
+  if (!Number.isFinite(ms)) return 'Asked — waiting for them to answer.';
+  // Round UP: with 30 hours left a couple is in their second-to-last day, and
+  // "1 day left" would read as the last one.
+  const days = Math.ceil(ms / 86_400_000);
+  if (days <= 0) return 'Asked — their time to answer is up.';
+  if (days === 1) return 'Asked — they have 1 day left to answer.';
+  return `Asked — they have ${days} days left to answer.`;
+}
 
 /** Collapsed category rows name what is already locked there (decision #8). */
 export function lockedNamesLine(names: readonly string[]): string {

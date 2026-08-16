@@ -225,7 +225,7 @@ export function EditorShell({
           Website editor
         </p>
         <p className="min-w-0 truncate text-sm font-semibold text-ink">
-          {publicLandingUrl ? `setnayan.com${publicLandingUrl}` : 'Set your website address'}
+          {publicLandingUrl ? `setnayan.com${publicLandingUrl}` : 'Set your Event Hub address'}
         </p>
         <div className="ml-auto flex items-center gap-2">
           <button
@@ -406,7 +406,7 @@ export function EditorShell({
               own Pro, so an owner's rail isn't nagged. One CTA for all seven. */}
           {showProCta ? (
             <div className="mt-2 rounded-2xl bg-ink px-4 py-3.5 text-cream">
-              <p className="text-xs font-semibold text-cream">Website Pro</p>
+              <p className="text-xs font-semibold text-cream">Event Hub PRO</p>
               <p className="mt-0.5 text-[0.7rem] leading-relaxed text-cream/70">
                 Seven upgrades, one unlock — Cinematic Reveal · Save-the-Date video ·
                 Photo gallery · Background music · Editorial editing · Background color ·
@@ -416,7 +416,7 @@ export function EditorShell({
                 href={proUnlockHref}
                 className="mt-2.5 inline-flex items-center rounded-full bg-amber-400 px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-amber-300"
               >
-                Unlock Website Pro · ₱3,500
+                Unlock Event Hub PRO · ₱3,500
               </Link>
             </div>
           ) : null}
@@ -505,7 +505,7 @@ export function EditorShell({
                 ref={frameRef}
                 key={tabKey}
                 src={previewSrc}
-                title="Your website preview"
+                title="Your Event Hub preview"
                 className={`h-full w-full rounded-t-2xl border border-ink/10 bg-white shadow-lg transition-[max-width] duration-300 ${
                   device === 'mobile' ? 'max-w-[430px]' : 'max-w-none'
                 }`}
@@ -517,7 +517,7 @@ export function EditorShell({
                 }`}
               >
                 <p className="text-sm text-ink/55">
-                  Set your website address to see a live preview here.
+                  Set your Event Hub address to see a live preview here.
                 </p>
               </div>
             )}

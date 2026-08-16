@@ -103,7 +103,7 @@ export function SubscriptionCards({
           'Real business name shown day one',
           'Unlimited in-app inquiries',
           'Listed in marketplace search',
-          'Your own event website',
+          'Your own shop page',
         ].map((line) => (
           <span key={line} className="inline-flex items-center gap-1.5">
             <Check className="h-3.5 w-3.5 shrink-0 text-success-600" strokeWidth={2.25} aria-hidden />

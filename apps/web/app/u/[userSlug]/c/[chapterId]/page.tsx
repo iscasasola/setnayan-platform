@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { resolvePublicProfile } from '@/lib/public-profile';
 import {
   fetchPublishedChapterByPublicId,
+  loadBookedVendorProfileIds,
   resolveShoppableVendors,
   type ShoppableVendor,
 } from '@/lib/creator-public';
@@ -124,15 +125,42 @@ export default async function ChapterDetailPage({ params }: Props) {
 
   const paragraphs = splitChapterParagraphs(chapter.body);
   const { papic_gallery_id, vendor_ids } = chapter.substrate;
+  // 🔑 THE COLUMN FIRST, THE OLD BAG ONLY AS A FALLBACK. `event_id` is now the
+  // one place the author's answer lives — the composer writes it and derives
+  // the gallery value from it. Reading the column first is what makes "shop
+  // this event" and the cross-links describe the SAME day; they used to read
+  // two different homes for one fact, and only the hand-typed one was ever
+  // filled. The fallback keeps any chapter written before the picker working.
+  const linkedEventId = chapter.event_id ?? papic_gallery_id ?? null;
+
+  // 🔴 THE DAY BRINGS ITS OWN TEAM. When the author has not named anyone, the
+  // suppliers come from the celebration itself — the product already recorded
+  // exactly who was booked, and used that ONLY to check a list the author had
+  // to type by hand. So a chapter attached to a real day still showed an empty
+  // "Shop this event" unless somebody pasted supplier ids, and nobody ever did.
+  // 🔑 Knowing something and offering it are different things.
+  //
+  // An author who HAS named a list keeps it — that is them narrowing, and their
+  // page is theirs. Every candidate still goes through resolveShoppableVendors
+  // below, which re-derives the tie, so this can widen who is CREDITED and never
+  // who is presented as bookable on a claim that isn't real.
+  const namedVendorIds = vendor_ids ?? [];
+  const candidateVendorIds =
+    namedVendorIds.length > 0
+      ? namedVendorIds
+      : linkedEventId
+        ? await loadBookedVendorProfileIds(linkedEventId)
+        : [];
+
   // GAP-3: pass the relationship context so a vendor is only rendered as a
   // shoppable/bookable card when a real tie exists (accepted collab with THIS
   // creator, or a booking on THIS chapter's event). Unrelated self-asserted
   // vendor_ids come back `linked:false` and render as plain text.
-  const vendors: ShoppableVendor[] = await resolveShoppableVendors(vendor_ids, {
+  const vendors: ShoppableVendor[] = await resolveShoppableVendors(candidateVendorIds, {
     creatorUserId: user.user_id,
-    eventId: papic_gallery_id ?? null,
+    eventId: linkedEventId,
   });
-  const hasSubstrate = !!papic_gallery_id || vendors.length > 0;
+  const hasSubstrate = !!linkedEventId || vendors.length > 0;
 
   // Creator Economy PR-C — the viewer promo. For each shoppable vendor with an
   // ACCEPTED collab (this chapter's creator ↔ that vendor) carrying an audience
@@ -206,7 +234,7 @@ export default async function ChapterDetailPage({ params }: Props) {
           <section className="uchap-sub" aria-label="Behind the chapter">
             <h2 className="m-serif uchap-sub-head">Behind the chapter</h2>
 
-            {papic_gallery_id ? (
+            {linkedEventId ? (
               <div className="uchap-block">
                 <p className="uchap-block-label">Gallery</p>
                 <p className="uchap-note">

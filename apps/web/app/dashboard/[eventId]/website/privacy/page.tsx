@@ -10,6 +10,7 @@ import {
   CalendarClock,
   Rocket,
   Radio,
+  Users,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -22,6 +23,7 @@ import {
 } from './actions';
 import { eventNoun } from '@/lib/event-noun';
 import { resolveSiteReachability } from '@/lib/launch-save-the-date';
+import type { EventVisibility } from '@/lib/event-visibility';
 
 export const metadata = { title: 'Who can view your event page' };
 
@@ -74,6 +76,7 @@ export default async function PrivacyEditorPage({
   const currentVisibility = (event.landing_page_visibility ?? 'public') as
     | 'public'
     | 'unlisted'
+    | 'invited_accounts'
     | 'private';
   const saved = search.saved === '1';
 
@@ -237,6 +240,22 @@ export default async function PrivacyEditorPage({
             blurb="The URL works for anyone you share it with, but your landing page won't be indexed by search engines or surfaced on Setnayan's public pages."
           />
 
+          {/* Owner 2026-08-15 — the fourth audience, between "link only" and
+              "private": narrower than a link, wider than yourself.
+              🔑 THE BLURB STATES THE HONEST CONSEQUENCE. Recognising a guest
+              needs their email written on the list AND that person signed up,
+              so on a list of names this admits nobody and reads exactly like
+              Private. Saying so here is what stops it being reported as broken;
+              a setting that silently shows the page to no one looks like a
+              fault, not a choice. */}
+          <VisibilityCard
+            value="invited_accounts"
+            currentValue={currentVisibility}
+            icon={<Users aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
+            title="Only guests with a Setnayan account"
+            blurb="People on your guest list who are signed in to Setnayan can view it. Anyone else — including someone you send the link to — sees the locked screen. Guests are recognised by the email on their guest-list entry, so a guest with no email saved, or who hasn't signed up, won't be let in yet."
+          />
+
           <VisibilityCard
             value="private"
             currentValue={currentVisibility}
@@ -380,8 +399,8 @@ function VisibilityCard({
   title,
   blurb,
 }: {
-  value: 'public' | 'unlisted' | 'private';
-  currentValue: 'public' | 'unlisted' | 'private';
+  value: EventVisibility;
+  currentValue: EventVisibility;
   icon: React.ReactNode;
   title: string;
   blurb: string;

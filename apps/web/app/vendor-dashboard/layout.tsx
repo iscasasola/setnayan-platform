@@ -5,15 +5,14 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
+import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fees.server';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
-import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { VendorRailContext } from './_components/vendor-rail-context';
-import { resolveVendorDestinations } from './_components/vendor-nav-destinations';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { VendorNavFab } from './_components/vendor-nav-fab';
@@ -27,19 +26,35 @@ import { ServerTimer } from '@/lib/server-timing';
 import { PromoFreeWindowBannerVendor } from '@/app/_components/promo-free-window-banner-vendor';
 
 /**
- * Vendor dashboard layout — v2.1 Navigation Phase 2 (vendor doorway).
+ * Vendor dashboard layout — the shop, under the ONE shell.
  *
- * STRUCTURE: SidebarShell owns the desktop layout split (sidebar at lg+,
- * main content area with offset). The sidebarHeader carries the brand
- * wordmark HOME-LINK + Vendor eyebrow + the business identity plaque
- * (SwitcherPlaqueTrigger — the account-menu popup; Plaque-as-Menu council
- * verdict 2026-07-16, matching the customer and admin doorway patterns).
- * The topBar is right-aligned: unread bell · display name · sign-out ·
- * AccountSwitcher (mobile-only pill; desktop uses the sidebar plaque).
+ * STRUCTURE: `<AppRailShell>` owns the desktop split — the SAME rail this
+ * person had on their own account pages, with the shop's own five menus
+ * PUSHED IN below their rows through `railContext`. It also owns the sticky
+ * top bar, into which this layout hands its own cluster through `topBarSlot`.
+ * Below 1024 the shell paints nothing at all and `<VendorBottomNav>` is the
+ * whole navigation, exactly as before.
+ *
+ * ── WHAT WENT, AND WHERE ITS JOB WENT ─────────────────────────────────────
+ * `<SidebarShell>` is no longer mounted here, and from 2026-08-15 it does not
+ * exist at all. It shed its jobs over three slices and each was re-homed:
+ *
+ *   · THE DESKTOP `<aside>` + the business identity plaque → the shared rail
+ *     (slice 2, 2026-08-14); the shop's name leads the rail's context group.
+ *   · THE STICKY HIDE-ON-SCROLL BAR → the shared bar (slice 4, 2026-08-14).
+ *   · THE ACCOUNT MENU ON DESKTOP → the top bar's `<AccountSwitcher>`, now at
+ *     EVERY width. 🔒 It carries the ONLY Sign out on every vendor screen
+ *     (owner 2026-08-13, "sign out lives under the avatar and nowhere else"),
+ *     so the `lg:hidden` it used to carry would have stranded every desktop
+ *     supplier with no way out and no error to notice.
+ *     `vendor-rail-context.test.ts` fails if that class returns.
+ *   · `.sn-ambient`, `.sn-vt-page` AND THE `<main>` LANDMARK → the content
+ *     wrapper below. See the long note at the JSX — all three fail silently,
+ *     and one of them only on a phone.
  *
  * EventSwitcher was retired from this doorway on 2026-06-18 — the unified
- * account panel owns identity + cross-console hopping on all three doorways,
- * consistent with the customer doorway; going HOME is the wordmark's job.
+ * account panel owns identity + cross-console hopping on all three doorways;
+ * going HOME is the rail's job.
  */
 export default async function VendorDashboardLayout({
   children,
@@ -256,6 +271,14 @@ export default async function VendorDashboardLayout({
   // an unanswered discount offer past its window RELEASES the vendor's held reach
   // token (refund). Global + idempotent; any vendor's visit sweeps the fleet.
   after(() => maybeSweepExpiredCreatorOffers().catch(() => {}));
+  // PR-H · nudge at day 5, close at day 7. Mounted in BOTH layouts on purpose:
+  // the DB compare-and-swap picks exactly one winner per gap window, and an
+  // admin-only mount would wait for an admin page view — production is
+  // pre-launch-quiet, so a supplier's 7-day fuse would hang on somebody
+  // opening /admin. NOT flag-gated: closing a stale request is safe either
+  // way, and a gated sweep strands every in-flight request when the flag
+  // goes back off.
+  after(() => maybeRunLockRequestExpiry().catch(() => {}));
   // Booking-fee notification sweep (CRON-FREE · surfacing layer). Because the
   // fee-charge create path is a parallel lane we must NOT hook, the vendor's
   // "your booking fee is due" notification is DERIVED post-response from the
@@ -286,11 +309,12 @@ export default async function VendorDashboardLayout({
     unchanged, including the AccountSwitcher that carries the ONLY Sign out on
     every vendor screen.
 
-    🔑 IT LEFT `SidebarShell`'s `topBar` SLOT. That shell kept two jobs after
-    slice 2 stood its rail down — the sticky hide-on-scroll bar and the `<main>`
-    carrying `.sn-vt-page`. The shared bar has taken the first (same
-    hide-on-scroll rule, owner 2026-06-15); the second stays here untouched,
-    because retiring the shell is Session 9's job.
+    🔑 IT LEFT `SidebarShell`'s `topBar` SLOT — and that slot no longer exists.
+    After slice 2 stood its rail down, that shell kept two jobs: the sticky
+    hide-on-scroll bar and the `<main>` carrying `.sn-vt-page`. The shared bar
+    took the first (same hide-on-scroll rule, owner 2026-06-15); the content
+    wrapper further down took the second, and the shell was deleted on
+    2026-08-15.
   */
   const topBar = (
     <div className="flex items-center gap-2">
@@ -346,65 +370,73 @@ export default async function VendorDashboardLayout({
       */}
       <AppRailShell
         railContext={
+          /*
+            🔴 RAW VALUES ONLY — THIS LAYOUT IS A SERVER COMPONENT.
+            It used to build the finished row list here, which meant calling
+            `navIconComponent` (a client module) on the server. That throws,
+            and from 2026-08-14 to 2026-08-15 it answered every one of a
+            supplier's 63 screens with the full-page error card. The rail is a
+            client component and resolves its own rows now; these four props
+            are the SAME four the phone's bottom bar below already receives.
+            Never pass a built `destinations` list back in.
+          */
           <VendorRailContext
             shopName={vendorSidebarName}
-            destinations={resolveVendorDestinations({
-              role: vendorRole,
-              navSlots,
-              bookingsBadge: bookingsPending,
-              threadsBadge: threadsUnread,
-            })}
+            role={vendorRole}
+            navSlots={navSlots}
+            bookingsBadge={bookingsPending}
+            threadsBadge={threadsUnread}
             planHref="/vendor-dashboard/subscription"
             tier={vendorTier}
           />
         }
         topBarSlot={topBar}
       >
-      <SidebarShell
-        /*
-          🔴 `null` = NO DESKTOP RAIL, and this shell is still here on purpose.
-          It owns the `sn-vt-page` content <main> — the ONLY element carrying
-          `view-transition-name: sn-page` — which the mobile bottom-nav slide
-          freezes the document around. Dropping this shell to "convert the
-          desktop" would have broken the phone carousel at widths where the
-          rail never renders.
+      {/*
+        ─── `<SidebarShell>` IS RETIRED (2026-08-15) — ITS LAST THREE JOBS ARE
+            HERE ───────────────────────────────────────────────────────────
+        Slice 2 stood its rail down and slice 4 handed the sticky bar to the
+        shared one, leaving the shell rendering no `<aside>` at any width and
+        existing only for what this wrapper now carries. Each of the three
+        would have vanished WITHOUT AN ERROR:
 
-          ⚠ IT NO LONGER OWNS THE STICKY TOP BAR — the shared bar took that job
-          on 2026-08-14, so this shell is now down to ONE reason to exist.
-          Session 9 retires it; that retirement is unblocked by this landing.
-        */
-        /* ONE MECHANISM FOR "NO DESKTOP RAIL", NOT TWO.
-            This branch reached `sidebar={null}` independently while slice 1
-            was reaching `desktopRailExternal` for the same job. Slice 1 is
-            MERGED and two trees (event, admin) already depend on it, so the
-            shipped mechanism wins and this adopts it.
-            🔑 Two ways to say the same thing is two answers to one question —
-            the defect, not the fix. `sidebar` keeps carrying the real rail so
-            it still renders below 1024, where the phone's own chrome owns nav
-            and the shared rail paints nothing. */
-        desktopRailExternal
-        sidebar={null}
-        /*
-          🔑 NO `topBar` ANY MORE — the shared bar has it. Passing it here too
-          would render the shop's cluster TWICE on every screen, including a
-          second live bell opening a second Realtime channel.
-        */
-      >
-        {/* Pad the bottom on mobile so BottomNav doesn't cover the last
-            row of content. SidebarShell already handles the desktop
-            sidebar offset via its lg:pl-[var(--shell-main-offset)] math —
-            now zero, since the rail above is what occupies that column. */}
-        <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">
-          {/* Live vendor "free tier" promo announcement (self-gates to null when
-              PROMO_FREE_WINDOWS_ENABLED is off or nothing is live). */}
-          <PromoFreeWindowBannerVendor />
-          {children}
-        </div>
-      </SidebarShell>
+         1. `.sn-ambient` — the warm Atelier ground. It sat on the shell's own
+            root INSIDE the content column, so it paints over the rail's cream.
+            This tree's outer `<div>` sets no background at all, so dropping it
+            would have put every one of a supplier's 63 screens on plain white.
+            🔑 The admin tree's copy sits on its OUTERMOST div, where the rail's
+            own background covers it — the same class, a different job. Not
+            interchangeable, so not copied.
+         2. `.sn-vt-page` — the ONE element in the app with
+            `view-transition-name: sn-page`, which the phone's bottom-nav
+            carousel freezes the document around. It wraps at ALL widths, not
+            just desktop; losing it leaves the tap animating NOTHING.
+         3. THE `<main>` LANDMARK. The shared shell renders a `<div>` in its app
+            variant because the host owns the landmark, so this must be a
+            `<main>` — a `<div>` here would leave the tree with NONE.
+
+        ⚠ THEY STAY TWO ELEMENTS, NOT ONE TIDY WRAPPER. Merging the ground into
+        the named element puts the painted slab inside the view-transition
+        snapshot, so the background would SLIDE with the page instead of
+        standing still behind it.
+      */}
+      <div className="sn-ambient min-h-screen">
+        <main className="sn-vt-page">
+          {/* Pad the bottom on mobile so BottomNav doesn't cover the last
+              row of content. The desktop offset is the rail's grid now, so
+              there is no padding math left here. */}
+          <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">
+            {/* Live vendor "free tier" promo announcement (self-gates to null when
+                PROMO_FREE_WINDOWS_ENABLED is off or nothing is live). */}
+            <PromoFreeWindowBannerVendor />
+            {children}
+          </div>
+        </main>
+      </div>
       </AppRailShell>
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
-          BottomNav primitive. Sits outside SidebarShell so it doesn't
-          inherit the desktop sidebar offset. */}
+          BottomNav primitive. Sits outside the rail's content column so it
+          doesn't inherit it. */}
       <VendorBottomNav
         role={vendorRole}
         navSlots={navSlots}

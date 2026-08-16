@@ -2795,7 +2795,7 @@ export function OnboardingShell({
       show,
       monoA: monoBi || 'M',
       monoB: monoGi || 'C',
-      names: hasNames ? coupleDisplay : 'Your wedding website',
+      names: hasNames ? coupleDisplay : 'Your Event Hub',
       chips,
     };
   }, [
@@ -3203,7 +3203,7 @@ export function OnboardingShell({
               onClick={peekMirror}
               role="button"
               tabIndex={0}
-              aria-label="Your wedding website preview"
+              aria-label="Your Event Hub preview"
             >
               <div className="mir-card">
                 <div className="mir-mono">
@@ -3484,7 +3484,7 @@ export function OnboardingShell({
           </section>
 
           {/* ════════════════ LOVE STAGE (6 screens · website "Our Love Story") ════════════════
-              COVERT: couple-facing copy names ONLY "your wedding website" / "…website story".
+              COVERT: couple-facing copy names ONLY "your Event Hub" / "…Event Hub story".
               S0 hook · S1 spark+almost · S2 the yes · S3 little things · S4 voice · S5 reveal.
               Ported faithfully from Onboarding_Wedding_Adaptive_Flow_2026-06-07.html. ════════ */}
 
@@ -3492,7 +3492,7 @@ export function OnboardingShell({
           <section className={`screen${activeId === 'love_intro' ? ' active' : ''}`} id="screen-love-intro">
             <div className="viewzone">
               <div className="loveglyph">{'♡'}</div>
-              <div className="eyebrow">Your wedding website</div>
+              <div className="eyebrow">Your Event Hub</div>
               <h1 className="q">How did the two of you happen?</h1>
               <div className="duet">
                 <span className="vpill muted"><span className="dot her" />{loveDuetBride}</span>

@@ -68,7 +68,7 @@ const SUITE_NAME = 'Suite';
  *  studioGroup to an outcome label. */
 const OUTCOME_LABEL: Record<StudioGroup, string> = {
   setnayan_ai: 'Plan your event',
-  website: 'Your website',
+  website: 'Your Event Hub',
   capture: 'Your event, captured',
   branding: 'Your look & keepsakes',
   utility: 'More',

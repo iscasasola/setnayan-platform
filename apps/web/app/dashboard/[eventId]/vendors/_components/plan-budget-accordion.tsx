@@ -828,8 +828,10 @@ export function PlanBudgetAccordion({
   return (
     <div className="pbacc" ref={rootRef}>
       <style>{PBA_CSS}</style>
-      {/* overscroll-behavior-y:none — the page scrolls on the WINDOW
-          (SidebarShell main is min-h-screen, no inner overflow), so dragging
+      {/* overscroll-behavior-y:none — the page scrolls on the WINDOW (the event
+          layout's content wrapper is min-h-screen with no inner overflow — it
+          was SidebarShell's root until that component was deleted on
+          2026-08-15, and the property that matters here is unchanged), so dragging
           past the recap rubber-banded the document down into the bare html
           background (a gap below the surface — owner 2026-06-01 "should not
           move up like this"). Pinning the document over-scroll stops that

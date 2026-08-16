@@ -224,6 +224,21 @@ const songRequestsHaveAnAudience: Probe = {
  * Minting a real login session for a real vendor on a schedule would close the
  * gap and is deliberately not done — standing credentials for real accounts are
  * a worse risk than the one they would retire.
+ *
+ * 🔴 AND UNTIL 2026-08-15 IT PROVED NOTHING AT ALL — the paragraph above was
+ * written about running under service_role WITHOUT NOTICING that the narrowing
+ * input itself came from a call service_role is refused. `resolveSongDeskAccess`
+ * fetched the event's tiles through `get_vendor_event_brief`, whose gate answers
+ * `42501 not_a_vendor` to anyone who is not a booked vendor; the helper reads
+ * only `data`, so the refusal arrived as `null` — which the gate's own contract
+ * defines as "decline to narrow". Both of the two calls below were therefore the
+ * SAME call, their difference was always zero, and this probe would have reported
+ * all-clear straight through the outage it was written after. The tiles are
+ * passed in now, from `booked_categories` this file already holds.
+ *
+ * 🔑 The warning three paragraphs up — *"a check that is structurally incapable
+ * of failing is worse than no check"* — was true of this probe, in the same file
+ * that says it, for as long as it has existed.
  */
 const songDeskNarrowingLockout: Probe = {
   key: 'song-desk-narrowing',
@@ -250,12 +265,34 @@ const songDeskNarrowingLockout: Probe = {
       if (!holdsSpecialization(bare, 'song_desk')) continue; // honest paywall
       entitled += 1;
 
+      /*
+        🔴 THE NARROWING IS PASSED IN, AND UNTIL 2026-08-15 THERE WAS NONE.
+        `resolveSongDeskAccess` used to fetch the event's tiles itself, through
+        `get_vendor_event_brief` — a gate that refuses anyone who is not a
+        vendor booked on that event. This probe runs as the trusted server, so
+        that call answered `42501 not_a_vendor` every six hours, and the helper
+        reading only `data` turned the refusal into `null`, which the gate's own
+        contract reads as "decline to narrow".
+
+        So THIS PROBE — "the event-tile narrowing does not lock out entitled
+        acts" — was measuring a narrowing that never ran, and would have
+        reported all-clear straight through the outage it was written after. A
+        health check that cannot fail is worse than none: it is a standing
+        claim that somebody looked.
+
+        `fetchBookedPairs` already carries `booked_categories` for every
+        booking, and `deskIsReachable` above already maps them with the same
+        function. Passing them here uses what we hold instead of knocking on a
+        door this caller can never open — no gate widened, and the narrowing is
+        finally the real one.
+      */
       const real = await resolveSongDeskAccess(
         admin,
         pair.vendorProfileId,
         pair.services,
         pair.eventId,
         booked,
+        tilesForVendorCategories(pair.bookedCategories),
       );
       if (real.ok) reaching += 1;
     }

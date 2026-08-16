@@ -187,7 +187,7 @@ export default async function SaveTheDatePage({ params }: Props) {
       fetchRevealConfig(),
       // The Cinematic Reveal is bundle-only (2026-07-22): once its catalog row is
       // is_active=false, the standalone drawer would dead-end at checkout, so we
-      // gate on real sellability and upsell Website PRO instead. Reads DB
+      // gate on real sellability and upsell Event Hub PRO instead. Reads DB
       // is_active → self-heals through the migration-push window.
       resolveServiceSellability(STD_PREMIUM_OPENINGS_SERVICE_KEY),
       formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
@@ -398,7 +398,7 @@ export default async function SaveTheDatePage({ params }: Props) {
           </div>
         </section>
       ) : (
-        // Bundle-only: the cinematic opening comes with Website PRO. Upsell it
+        // Bundle-only: the cinematic opening comes with Event Hub PRO. Upsell it
         // (a real, working buy surface) rather than a standalone checkout that
         // would be rejected — owners already hit the "unlocked" branch above.
         <section className="space-y-3 rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5 sm:p-6">
@@ -409,11 +409,11 @@ export default async function SaveTheDatePage({ params }: Props) {
               strokeWidth={1.75}
             />
             <div className="space-y-1">
-              <h2 className="font-serif text-lg italic">The cinematic opening is part of Website PRO</h2>
+              <h2 className="font-serif text-lg italic">The cinematic opening is part of Event Hub PRO</h2>
               <p className="max-w-prose text-sm text-ink/70">
                 Your film is free. The{' '}
                 <span className="font-medium text-ink">cinematic opening</span> — plus Editorial
-                PRO and every premium touch across your site — comes with Website PRO.
+                PRO and every premium touch across your site — comes with Event Hub PRO.
               </p>
             </div>
           </div>
@@ -434,7 +434,7 @@ export default async function SaveTheDatePage({ params }: Props) {
               href={`/dashboard/${eventId}/studio/website-pro`}
               className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
             >
-              Unlock Website PRO
+              Unlock Event Hub PRO
             </Link>
           </div>
         </section>

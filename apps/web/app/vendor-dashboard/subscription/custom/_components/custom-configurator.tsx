@@ -227,7 +227,7 @@ export function CustomConfigurator({
         <ToggleControl
           icon={<Globe className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
           label="Custom domain"
-          hint="Serve your event website on your own domain."
+          hint="Serve your shop page on your own domain."
           checked={comp.domain}
           disabled={!editable}
           onChange={(v) => set('domain', v)}

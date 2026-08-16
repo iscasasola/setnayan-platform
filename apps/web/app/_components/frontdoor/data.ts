@@ -76,6 +76,24 @@ export type FrontDoorStory = {
   href: string;
   title: string;
   ownerName: string;
+  /**
+   * The storyteller's handle — what makes the byline a DOOR to their page at
+   * `/u/{ownerSlug}` rather than printed text.
+   *
+   * ⚠ CARRIED, NEVER PARSED OUT OF `href`. `href` happens to be
+   * `/u/{ownerSlug}/c/{publicId}` today, so a slice of it would work — until
+   * the chapter route moves, at which point the byline would silently point at
+   * a fragment of a URL and 404. The loader already has the field
+   * (`StorytellerTileItem.ownerSlug`); a card must not re-derive what the
+   * loader knows.
+   *
+   * 🔑 NON-NULL BY CONSTRUCTION, and that is what makes the door safe:
+   * `fetchPublicOwners` refuses any owner without `public_profile_enabled`,
+   * without a slug, or soft-deleted — so a story only reaches this shelf when
+   * `/u/{ownerSlug}` is a page that renders. The card and its byline pass the
+   * same gate, evaluated once, by the same function.
+   */
+  ownerSlug: string;
   kindLabel: string;
   /** A written chapter legitimately has no video. Never a reason to drop it. */
   hasVideo: boolean;
@@ -263,6 +281,9 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
     href: s.href,
     title: s.title,
     ownerName: s.ownerName,
+    // The handle, carried so the byline can be a door. See the field's note on
+    // the type: never sliced back out of `href`.
+    ownerSlug: s.ownerSlug,
     kindLabel: s.kindLabel,
     /*
       ⚠ THE LOADER'S OWN `hasVideo`, NEVER `Boolean(thumbUrl)`.

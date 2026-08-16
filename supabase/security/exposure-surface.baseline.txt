@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6252
+# facts: 6254
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     672
-#   col       4515
+#   col       4517
 #   policy    840
 #   view      9
 #   func      212
@@ -1932,6 +1932,7 @@ col	public.event_vendors.lock_decline_reason	anon=SIU authenticated=SIU
 col	public.event_vendors.lock_declined_at	anon=SIU authenticated=SIU
 col	public.event_vendors.lock_request_cancelled_at	anon=SIU authenticated=SIU
 col	public.event_vendors.lock_request_expires_at	anon=SIU authenticated=SIU
+col	public.event_vendors.lock_request_nudged_at	anon=SIU authenticated=SIU
 col	public.event_vendors.lock_request_state	anon=SIU authenticated=SIU
 col	public.event_vendors.lock_requested_at	anon=SIU authenticated=SIU
 col	public.event_vendors.lock_requested_by_user_id	anon=SIU authenticated=SIU
@@ -2103,6 +2104,7 @@ col	public.events.pool_gallery_open	anon=S authenticated=S
 col	public.events.public_id	anon=S authenticated=S
 col	public.events.recap_social_optout_at	anon=SIU authenticated=SIU
 col	public.events.reception_design	anon=SIU authenticated=SIU
+col	public.events.recur_cadence	anon=- authenticated=SIU
 col	public.events.recurs	anon=SIU authenticated=SIU
 col	public.events.region	anon=SIU authenticated=SIU
 col	public.events.roadmap_completed	anon=SIU authenticated=SIU

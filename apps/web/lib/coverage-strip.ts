@@ -33,13 +33,24 @@ import type { WeddingTile } from '@/lib/taxonomy';
  * the plan/budget model, so PR-B passes that set down rather than adding a
  * query; if a caller omits it, the state simply degrades to 'exploring'.
  */
-export type CoverageState = 'empty' | 'exploring' | 'picked' | 'locked' | 'covered';
+/**
+ * PR-H adds `'asked'` between 'picked' and 'locked'. Without it the strip is the
+ * one couple surface still counting an asked category DOWN: nothing here knew
+ * about a request, so a tile the couple had already acted on kept reading
+ * "exploring" and kept its overdue clock — telling them to go do the thing they
+ * had done. It is NOT 'locked' either: a decline on day six puts the tile
+ * straight back in the queue, and painting it settled would hide that.
+ */
+export type CoverageState = 'empty' | 'exploring' | 'picked' | 'asked' | 'locked' | 'covered';
 
 /** The state-glyph legend (spec §11.1). Kept beside the states it names. */
 export const COVERAGE_GLYPH: Record<CoverageState, string> = {
   empty: '○',
   exploring: '◔',
   picked: '◕',
+  // Half-filled and hollow-centred: further along than a build pick, and
+  // deliberately NOT the solid dot that means a booking exists.
+  asked: '◑',
   locked: '●',
   covered: '✓',
 };
@@ -55,6 +66,10 @@ export type CoverageTile = {
   vendorCount: number;
   /** Considered vendors already contracted/paid/delivered/complete. */
   lockedCount: number;
+  /** PR-H · vendors in this tile the couple has ASKED and who have not answered.
+   *  Optional: a caller that never resolves it (and every pre-handshake fixture)
+   *  leaves it undefined, which reads as zero — today's behaviour exactly. */
+  askedCount?: number;
   /** Considered vendors pinned to the working build (`event_build_picks`). */
   buildCount: number;
   /** The couple answered "I'm done" here (slice A's `complete` decision). */
@@ -82,9 +97,14 @@ export function coverageStateOf(t: {
   lockedCount: number;
   buildCount: number;
   covered: boolean;
+  askedCount?: number;
 }): CoverageState {
   if (t.covered) return 'covered';
   if (t.lockedCount > 0) return 'locked';
+  // BELOW locked, ABOVE picked. A real booking in the tile outranks an
+  // outstanding question about a different vendor in it — the same precedence
+  // `lockRequestStateOf` applies row by row.
+  if ((t.askedCount ?? 0) > 0) return 'asked';
   if (t.buildCount > 0) return 'picked';
   if (t.vendorCount > 0) return 'exploring';
   return 'empty';
@@ -96,7 +116,11 @@ const URGENCY_RANK: Record<TimelineStatus, number> = {
   due_soon: 1,
   start_now: 2,
   upcoming: 3,
-  locked: 4,
+  // PR-H · asked and unanswered. Ranked BELOW every actionable status (there is
+  // nothing for the couple to do) and ABOVE 'locked' (it is not settled, and a
+  // decline on day six puts it straight back in the queue).
+  awaiting: 4,
+  locked: 5,
 };
 
 /**
@@ -110,9 +134,18 @@ export function timelineStatusForTile(
   state: CoverageState,
 ): TimelineStatus {
   const groups = planGroupsForTile(tile);
-  if (groups.length === 0) return state === 'locked' || state === 'covered' ? 'locked' : 'upcoming';
-  // 'covered' and 'locked' both mean "this slot is settled" for the clock.
-  const childState = state === 'locked' || state === 'covered' ? 'finalized' : 'empty';
+  if (groups.length === 0) {
+    if (state === 'locked' || state === 'covered') return 'locked';
+    return state === 'asked' ? 'awaiting' : 'upcoming';
+  }
+  // 'covered' and 'locked' both mean "this slot is settled" for the clock;
+  // 'asked' means the clock has nothing left to ask of the couple.
+  const childState: 'finalized' | 'awaiting' | 'empty' =
+    state === 'locked' || state === 'covered'
+      ? 'finalized'
+      : state === 'asked'
+        ? 'awaiting'
+        : 'empty';
   let best: TimelineStatus = 'locked';
   for (const g of groups) {
     const s = timelineStatusOf(g, daysUntilWedding, childState);
@@ -184,10 +217,12 @@ export function coverageSummary(ordered: readonly CoverageTile[]): {
 export function coverageBadgeOf(t: CoverageTile):
   | { kind: 'covered'; text: '✓' }
   | { kind: 'locked'; text: string }
+  | { kind: 'asked'; text: string }
   | { kind: 'build'; text: string }
   | null {
   if (t.covered) return { kind: 'covered', text: '✓' };
   if (t.lockedCount > 0) return { kind: 'locked', text: String(t.lockedCount) };
+  if ((t.askedCount ?? 0) > 0) return { kind: 'asked', text: String(t.askedCount) };
   if (t.buildCount > 0) return { kind: 'build', text: String(t.buildCount) };
   return null;
 }

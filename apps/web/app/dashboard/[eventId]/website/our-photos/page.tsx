@@ -69,7 +69,7 @@ export default async function OurPhotosEditorPage({
         eventId={eventId}
         backHref={`/dashboard/${eventId}/website`}
         featureName="Your own photo gallery"
-        description="Add your engagement or pre-wedding photos as a gallery on your wedding website. It's part of Website PRO."
+        description="Add your engagement or pre-wedding photos as a gallery on your Event Hub. It's part of Event Hub PRO."
       />
     );
   }
@@ -96,7 +96,7 @@ export default async function OurPhotosEditorPage({
           className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
         >
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Back to website
+          Back to Event Hub
         </Link>
         <div>
           <p className="sn-eye flex items-center gap-2">
@@ -109,7 +109,7 @@ export default async function OurPhotosEditorPage({
           <p className="mt-2 max-w-prose text-sm text-ink/65">
             Add a few of your favourite photos — your engagement shoot, a
             pre-wedding session, or candid moments. They appear as a gallery on
-            your wedding website. Leave it empty to hide the section. JPG, PNG,
+            your Event Hub. Leave it empty to hide the section. JPG, PNG,
             or WebP up to 10 MB each · up to {MAX_PHOTOS} photos.
           </p>
         </div>
@@ -120,7 +120,7 @@ export default async function OurPhotosEditorPage({
             className="inline-flex items-center gap-2 rounded-md border border-success-300/60 bg-success-50 px-3 py-2 text-sm text-success-800"
           >
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Saved — your guests will see this gallery on the wedding website.
+            Saved — your guests will see this gallery on your Event Hub.
           </div>
         ) : null}
         {error ? (

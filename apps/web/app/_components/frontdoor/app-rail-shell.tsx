@@ -58,6 +58,7 @@ import {
   toRailFolder,
 } from './rail-data';
 import { resolveCommandItems } from './command-data';
+import { SignedInCluster } from './signed-in-cluster';
 import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
 
 export async function AppRailShell({
@@ -182,14 +183,55 @@ export async function AppRailShell({
         account.signedIn ? railToolsSignedIn(studioEvent) : railToolsSignedOut()
       }
       railContext={railContext}
-      topBarSlot={topBarSlot}
       /*
-        THE SEARCH INSIDE THE APP IS THE PALETTE, NOT THE MARKETPLACE FORM.
-        See the shell's file header: everything this variant wraps is a room in
-        the person's own house, so "where is my thing" is the question, and the
-        palette carries the marketplace as an escape row so nothing is lost.
+        🔴 A DOORWAY PAGE HANDS IN NO CLUSTER, AND THE SHELL'S FALLBACK IS
+        WRITTEN FOR A STRANGER. Owner 2026-08-15, two screenshots: *"why does
+        the top nav differ?"* The five app trees pass `topBarSlot` and got the
+        real bell + switcher; `variant="doorway"` pages (About, Alaala, Explore,
+        Real Stories, the eight product pages, the legal chrome) passed nothing
+        and fell through to a "🔔" EMOJI that can never carry an unread count.
+        Signed in, that is not a placeholder — it is a worse bar.
+
+        So the DEFAULT for a signed-in visitor is now the real cluster, and a
+        host that hands in its own still wins. `SignedInCluster` returns null
+        when nobody is signed in, so the signed-out doorway is byte-identical.
+        See `signed-in-cluster.tsx` for the measured no-cost note.
       */
-      search={<HomeCommandBar items={commandItems} variant="rail" />}
+      topBarSlot={topBarSlot ?? (account.signedIn ? <SignedInCluster /> : undefined)}
+      /*
+        THE SEARCH FOLLOWS WHO IS LOOKING, NOT WHICH PAGE THEY ARE ON — the
+        third time this file settles that question the same way (the Studio
+        rows above, the account cluster above that).
+
+        🔴 THIS LINE WAS UNCONDITIONAL AND ITS PREMISE HAD MOVED. The 2026-08-14
+        ruling — "the palette wins, because every surface this bar mounts on is
+        INSIDE the person's own app" — was TRUE THE DAY IT WAS WRITTEN: slice 0
+        mounted five signed-in trees. On 2026-08-15 the eight product doorways,
+        About, Explore, Real Stories, Pricing and the legal chrome mounted this
+        same shell with `variant="doorway"`, and nobody re-asked the search
+        question. A stranger on /setnayan-ai was then offered a palette
+        labelled "Search events, people, vendors" over events, people and
+        vendors they do not have: `resolveCommandItems` returns `[]` with no
+        session, so pressing it opened an EMPTY list, and typing produced
+        exactly one row — the marketplace escape. Two presses to reach what
+        the front door answers with Enter. Owner 2026-08-16, two screenshots:
+        *"i think the top nav is still not fixed. the search tab looks
+        different."*
+
+        So: signed in → the palette (their own things, marketplace escape row
+        keeps it lossless). Signed out → `undefined`, which the shell falls
+        back to the marketplace GET form — the SAME box `/` has always shown.
+        One search per person across every public page and every app tree.
+
+        💸 The palette is not even BUILT for a stranger now: `commandItems` is
+        `[]` either way, and this stops mounting a client component and its
+        ⌘K listener on a page whose visitor it can never answer.
+      */
+      search={
+        account.signedIn ? (
+          <HomeCommandBar items={commandItems} variant="rail" />
+        ) : undefined
+      }
     >
       {children}
     </FrontDoorShell>

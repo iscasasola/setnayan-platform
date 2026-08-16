@@ -886,10 +886,25 @@ export async function renderVendorBySlug({
 
   // Favorites count (owner 2026-07-02: favorites PUBLIC / viewers vendor-only) —
   // distinct couples who follow OR saved this vendor (count_saves_for_vendor
-  // combines vendor_follows + guest_saved_vendors). Read via the service-role
-  // client server-side (the RPC's EXECUTE grant is authenticated-only, but a
-  // public render needs it), then min-N floored in-app (FAVORITES_MIN_DISPLAY)
-  // so a tiny count never publishes as vanity or de-anonymizes. Fail-soft → 0.
+  // combines vendor_follows + guest_saved_vendors), then min-N floored in-app
+  // (FAVORITES_MIN_DISPLAY) so a tiny count never publishes as vanity or
+  // de-anonymizes.
+  //
+  // 🔴 THIS RENDERED ZERO ON EVERY PUBLIC SHOP PAGE FROM THE DAY IT SHIPPED
+  // UNTIL 2026-08-15, and the badge therefore never drew. The comment that used
+  // to sit here said the service-role client covers it because *"the RPC's
+  // EXECUTE grant is authenticated-only, but a public render needs it"* — true
+  // about the GRANT, and silent about the OWNER/ADMIN GATE inside the function
+  // body, which service role does not satisfy either. **Service role bypasses
+  // RLS, not a hand-written `RAISE EXCEPTION` in a SECURITY DEFINER function.**
+  // Every call raised P0001 `forbidden`, and the fail-soft below turned that
+  // refusal into the number 0 — indistinguishable from "nobody saved them".
+  // Migration `20271141980127` admits the trusted server to that gate (owner
+  // and admin unchanged; `anon` still refused). See it for why that grants the
+  // server nothing it could not already do.
+  //
+  // The fail-soft stays: a transient blip must hide the badge, never break a
+  // public shop page. But it is now the LAST resort rather than the only path.
   const favoritesCount = await (async () => {
     const { data, error } = await admin.rpc('count_saves_for_vendor', {
       p_vendor_profile_id: vendor.vendor_profile_id,

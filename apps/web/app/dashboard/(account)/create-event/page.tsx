@@ -27,6 +27,16 @@ import { EventTypePicker } from './_components/event-type-picker';
 export const metadata = { title: 'Create event' };
 
 const ERROR_COPY: Record<string, string> = {
+  // The two outcomes of a failed write, kept apart on purpose. `create_failed`
+  // means nothing survived — retrying is safe and is the right advice.
+  // `create_incomplete` means a half-made event could NOT be rolled back, so
+  // telling them to try again would mint a second one nobody owns.
+  create_failed:
+    'We couldn’t create that event. Nothing was charged — please try again.',
+  create_incomplete:
+    'We couldn’t finish creating that event, and part of it may have been saved. Please contact us before trying again so we don’t make a duplicate.',
+  plan_next_year_failed:
+    'We couldn’t set up next year’s event. Nothing was charged — please try again.',
   missing_name: 'Please give the event a name.',
   invalid_type:
     "That event type isn't available yet — pick one to continue.",
@@ -77,7 +87,22 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
       ? params.event_type
       : undefined;
   const rawError = params.error ? decodeURIComponent(params.error) : null;
-  const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
+  /*
+    🔴 AN UNRECOGNISED CODE NEVER RENDERS ITSELF. The fallback used to be
+    `?? rawError` — the raw string — and the raw string was the DATABASE's own
+    message, so a couple met Postgres prose about check constraints in a red
+    box on a wedding-planning site. It told them nothing they could act on and
+    read as a broken product rather than a rule they could satisfy.
+
+    🔑 THE FALLBACK IS THE WHOLE DEFECT. Every code we recognise already has
+    human copy above; the only thing `?? rawError` ever printed was something
+    nobody wrote for a customer to read. Anything unknown now gets one plain
+    sentence, and the real message is in the server log where we can read it.
+  */
+  const errorMessage = rawError
+    ? (ERROR_COPY[rawError] ??
+      'We couldn’t create that event. Nothing was charged — please try again.')
+    : null;
 
   // Wedding cardinality (owner-locked 2026-07-12 · flow-check reconciled): if the
   // user has a wedding still IN PLANNING, the picker shows a guided router (edit
@@ -265,7 +290,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
           routine way OUT of this page would have dumped them INSIDE their
           wedding instead of on their events board, and `?hub=1` is the only
           escape hatch that exists. This matters now because the rail's
-          "+ New event" points here (2026-08-15); before that, almost nobody
+          "+ Create event" points here (2026-08-15); before that, almost nobody
           arrived from the board.
         */}
         <Link

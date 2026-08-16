@@ -13,9 +13,10 @@
  * component) and passes straight through.
  *
  * ─── THE RAIL'S FIVE GROUPS, IN ORDER ────────────────────────────────────
- *   1 · Destinations   Home · Stories · Find a supplier (signed in only)
+ *   1 · Destinations   Home · Stories · Marketplace (signed in only)
  *   2 · THE ACCOUNT SLOT  ← second, above the categories
- *   3 · Marketplace    the five visible folders + Show more (signed in only)
+ *   3 · Browse by category  the five visible folders + Show more (signed in
+ *                           only) — the shortcuts INTO the Marketplace row
  *   4 · Studio         the seven tools
  *   5 · Small print    + a copyright line
  *
@@ -25,11 +26,28 @@
  * ONE slot, two states. It never greys out and is never absent, which is what
  * makes it the page's single front-and-centre doorway.
  *
- * ⚠ MARKETPLACE IS SIGNED-IN ONLY (owner 2026-08-12), and "Find a supplier"
- * goes with it because it is the SAME destination under another word — hiding
- * a group while leaving its synonym in the list would defeat the instruction
- * with a label. Search still answers a signed-out person; that is deliberate
- * and is the one thing this page exists to solve.
+ * ⚠ MARKETPLACE IS SIGNED-IN ONLY (owner 2026-08-12): the destination row AND
+ * the category group both go, because they are one destination — hiding the
+ * group while leaving a second door to it in the list would defeat the
+ * instruction with a label. Search still answers a signed-out person; that is
+ * deliberate and is the one thing this page exists to solve.
+ *
+ * 🏷 ONE WORD, NOT THREE (owner 2026-08-15, asked directly: *"why do we have a
+ * find a supplier. and sometime it is marketplace?"*). This row USED to read
+ * "Find a supplier" here and "Marketplace" inside the app — because
+ * `slotLabel` applies the nav registry in the `app` variant only, and the
+ * registry's `customer.account.marketplace` slot has said "Marketplace" since
+ * 2026-07-27 (owner: *"just use Marketplace so it is easier to understand"*).
+ * So ONE row carried TWO words depending on which page you were standing on,
+ * and a third heading below it carried the second word again. The fallback now
+ * matches the registry, and the category group is titled by what it does.
+ * 🔑 The binding prototype disagreed with ITSELF — `front_door_and_seam_
+ * 2026-08-12.html` renders "Find a supplier" at line 851 while its own seam
+ * note at line 1598 says *"Signed out it is called Marketplace on the front
+ * door; signed in it is called Marketplace here. Same word, both sides."* The
+ * port was faithful to the drawing and inherited the contradiction. **A
+ * prototype is binding about COMPOSITION; where it contradicts its own written
+ * intent, the intent is the decision.**
  *
  * NAMED COST, not a side effect: a crawler is always signed out, so those
  * category links leave the front page for Google too. The category pages stay
@@ -45,6 +63,7 @@ import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { LogoMark } from '@/app/_components/brand-marks';
 import type { DemoOverlayId } from '@/lib/demo-overlay-bus';
 import { activeRailKey, railMatchRows } from './rail-active';
+import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
 
 /**
  * ─── THE SAME RAIL, MOUNTED IN TWO PLACES (One Shell slice 0, 2026-08-13) ──
@@ -631,8 +650,9 @@ export function FrontDoorShell({
             <>
               {/*
                 🔒 ONE CHROME, ONE BUTTON COLOUR — GOLD EVERYWHERE
-                (owner-locked 2026-08-14). `.fd-btn-gold` is the "+ Create"
-                treatment on both variants; do not restyle it per surface.
+                (owner-locked 2026-08-14). `.fd-btn-gold` is the
+                "+ Create event" treatment on both variants; do not restyle it
+                per surface.
 
                 ⚠ HIDDEN BELOW 1024 in the app variant (CSS, not a branch).
                 A 360px row already carries identity, the search and the
@@ -657,8 +677,23 @@ export function FrontDoorShell({
                 answer, not a gap. Pointing a stranger at an event-type picker
                 they cannot submit would be a form behind a login wall.
               */}
+              {/*
+                🔴 THE WORD "CREATE" STAYS IN THE LABEL. Owner 2026-08-15,
+                hours after the href fix above: *"create button is gone."* It
+                was not gone — it was RENAMED "+ New event" in the same commit
+                that repointed it, and he scanned the bar for the word he knew
+                and did not find it. The button he looks for is the word, not
+                the position.
+
+                🔑 A RENAME IS A REMOVAL TO WHOEVER WAS LOOKING FOR THE OLD
+                NAME. The href was the only thing he asked to change; the label
+                came along as an unrequested side effect and cost a round trip.
+                "Create event" keeps his word AND stays honest about the one
+                thing this button makes — which is why it is not reverted to
+                the bare "+ Create" that used to point at the wrong page.
+              */}
               <Link href="/dashboard/create-event" className="fd-btn-gold">
-                + New event
+                + Create event
               </Link>
               {/*
                 THE HOST'S OWN CLUSTER, OR THIS PAGE'S. When a surface hands
@@ -779,10 +814,20 @@ export function FrontDoorShell({
           rejected on 2026-07-30 — "the search bar is still on top" — after the
           launcher spent its two most valuable rows on chrome. The app variant
           keeps everything on ONE line at every width, which is what that
-          ruling settled. */}
+          ruling settled.
+
+          🔴 IT RENDERS THE SAME CONTROL AS THE DESKTOP ROW, NOT A SECOND
+          ANSWER. This line read `<SearchBox />` outright until 2026-08-16, so
+          a doorway page — which hands in the palette — showed the palette at
+          ≥701px and the MARKETPLACE FORM below it, because `.fd-searchwrap`
+          is `display:none` on a phone and this row takes over. Measured live
+          on all seven product doorways: two searches, one page, decided by
+          how wide the window happened to be. The `?? <SearchBox />` fallback
+          is the same one the desktop row uses, so a page that hands in
+          nothing is byte-identical to before. */}
       {inApp ? null : (
         <div className="fd-searchrow">
-          <SearchBox />
+          {search ?? <SearchBox />}
         </div>
       )}
       </>
@@ -837,9 +882,13 @@ export function FrontDoorShell({
                 ⌕
               </span>
               <span className="fd-label-text">
-                {slotLabel(RAIL_SLOT.find, 'Find a supplier')}
+                {/* Fallback MUST equal the registry's label for this slot
+                    (`customer.account.marketplace` = "Marketplace"). They
+                    diverged, and the same row read two different words on two
+                    pages. `front-door-invariants.test` now pins them equal. */}
+                {slotLabel(RAIL_SLOT.find, 'Marketplace')}
               </span>
-              <span className="fd-icon-caption">Find</span>
+              <span className="fd-icon-caption">Market</span>
             </Link>
           ) : null}
 
@@ -1040,7 +1089,10 @@ export function FrontDoorShell({
             railContext ? null : (
             <>
               <div className="fd-rdiv" />
-              <div className="fd-rlabel">Marketplace</div>
+              {/* NOT "Marketplace" — that is the row above, and the same word
+                  twice in one rail reads as two different places. These are
+                  shortcuts INTO it (`/explore?folder=…`). See the header. */}
+              <div className="fd-rlabel">Browse by category</div>
               {folders.map((f) => (
                 <Link
                   key={f.slug}
@@ -1184,8 +1236,10 @@ export function FrontDoorShell({
           `/` is a page, so its content column is the page's `<main>` landmark.
           Every signed-in surface this shell wraps ALREADY RENDERS ITS OWN:
           `(launcher)` and `(account)` each wrap their children in one, and the
-          event tree's `SidebarShell` renders the `.sn-vt-page` <main> that the
-          phone's page-slide is named after. Keeping this element a <main> in
+          event and vendor trees render `<main className="sn-vt-page">` — the
+          element the phone's page-slide is named after. (Those two used to get
+          it from `SidebarShell`; that component was deleted on 2026-08-15 and
+          each layout carries the element itself.) Keeping this element a <main> in
           the app variant therefore produced TWO <main> landmarks, nested, on
           every converted page — invalid HTML and a duplicated landmark for
           anyone navigating by landmark.
@@ -1240,6 +1294,14 @@ export function FrontDoorShell({
  * ⚠ IT ANSWERS A SIGNED-OUT PERSON. The Marketplace GROUP is signed-in only,
  * but finding the one supplier you already need is not browsing a directory,
  * and cutting it would remove the single thing this page exists to solve.
+ *
+ * 🔑 THE PLACEHOLDER IS DERIVED, NOT TYPED. It read "Search suppliers, stories
+ * and guides" from the day it shipped while /explore searched suppliers and
+ * nothing else — two nouns with no code path behind them, for anyone who typed
+ * an article title. /explore now also answers stories and guides (see
+ * `lib/site-search.ts`), and these words are built from the same list the
+ * resolvers are checked against (`lib/public-search-nouns.ts`), so the promise
+ * and the mechanism cannot drift apart again without a red test.
  */
 function SearchBox() {
   return (
@@ -1247,7 +1309,7 @@ function SearchBox() {
       <input
         type="search"
         name="q"
-        placeholder="Search suppliers, stories and guides"
+        placeholder={publicSearchPlaceholder()}
         aria-label="Search Setnayan"
       />
       <button type="submit" className="fd-searchgo" aria-label="Search">

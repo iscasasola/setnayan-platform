@@ -257,7 +257,7 @@ const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
     ),
   },
   {
-    caption: 'It opens your wedding website.',
+    caption: 'It opens your Event Hub.',
     hint: 'Guests see it bloom in as the page loads.',
     scene: (
       <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-ink" style={{ background: `linear-gradient(${BLUSH}, #f7f2ea)` }}>
@@ -818,7 +818,7 @@ const SETNAYAN_AI_SCENES: RichFrame[] = [
   },
 ];
 
-// ── Event Website — share → style → RSVP → recap ──
+// ── Event Hub — share → style → RSVP → recap ──
 const LANDING_PAGE_SCENES: RichFrame[] = [
   {
     caption: 'One page behind every link you share.',

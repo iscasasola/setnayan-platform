@@ -22,7 +22,7 @@
  * ⚠️ IF YOU ARE CHANGING THE ADMIN CHROME AND THIS TEST FAILS, the fix is to
  * carry the `after()` calls into the new layout — NOT to delete the test.
  *
- * ➕ ADDING A THIRTEENTH JOB? Add it to `JOBS` in the same commit. The count
+ * ➕ ADDING A FOURTEENTH JOB? Add it to `JOBS` in the same commit. The count
  * assertion below is deliberate: a bare "each named job is present" check
  * cannot notice a job that was never named, and this list is exactly the kind
  * of list that quietly stops matching reality. Making an addition edit this
@@ -62,6 +62,11 @@ const JOBS = [
   { fn: 'maybeRunDriveCopyRetry', what: 'the Google Drive copy retry' },
   { fn: 'maybeRunAnonDraftSweep', what: 'the abandoned anonymous-draft cleanup' },
   { fn: 'maybeRunPhotoDeliveryDrain', what: 'the stalled "Release to Drive" drainer' },
+  // PR-H. Nudges a supplier at day 5 and closes an unanswered booking request at
+  // day 7. Mounted here AND on the vendor layout: the DB claim picks one winner
+  // per window, and an admin-only mount would leave a supplier's fuse waiting on
+  // somebody opening /admin.
+  { fn: 'maybeRunLockRequestExpiry', what: 'the lock-request nudge + 7-day expiry' },
 ] as const;
 
 test('ANCHOR — the layout source was actually read, and stripping left code behind', () => {

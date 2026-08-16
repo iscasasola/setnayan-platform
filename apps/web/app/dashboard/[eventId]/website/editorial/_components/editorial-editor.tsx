@@ -1096,7 +1096,7 @@ export function EditorialEditor({
             </div>
           ) : (
             <p className="mt-4 text-sm text-ink/55">
-              Set your website link first, then come back to share.
+              Set your Event Hub link first, then come back to share.
             </p>
           )}
 
@@ -1135,7 +1135,7 @@ export function EditorialEditor({
               <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
                 <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
                 <span>
-                  Your website is <strong>Private</strong>, so it won&rsquo;t appear in Real
+                  Your Event Hub is <strong>Private</strong>, so it won&rsquo;t appear in Real
                   Stories yet. Make it Public or Unlisted in{' '}
                   <Link
                     href={`/dashboard/${eventId}/website/privacy`}

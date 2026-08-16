@@ -39,6 +39,7 @@
  * (2026-08-15) and mount this from `_doorway.tsx`. `/blog` and Real Stories are
  * NOT mounted and would still need the same treatment first.
  */
+import { DOORWAY_BLEED_PATHS } from './shell-bleed';
 import 'server-only';
 
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -149,6 +150,11 @@ export async function AppRailShell({
     <FrontDoorShell
       variant={variant}
       bleed={bleed}
+      /*
+        Only the public route group has full-bleed routes. The signed-in trees
+        get `undefined` and pass `bleed` explicitly if they ever need it.
+      */
+      bleedPaths={variant === 'doorway' ? DOORWAY_BLEED_PATHS : undefined}
       account={account}
       navLabels={navLabels}
       visibleFolders={FRONT_DOOR_VISIBLE_FOLDERS.map(toRailFolder)}

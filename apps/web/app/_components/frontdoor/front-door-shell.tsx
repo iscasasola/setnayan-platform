@@ -332,6 +332,20 @@ type Props = {
    * other.
    */
   bleed?: boolean;
+  /**
+   * Exact paths that should render full-bleed. Supplied by `AppRailShell` for
+   * the doorway variant only.
+   *
+   * 🔑 THE SHELL LIVES IN A LAYOUT NOW, so a page cannot hand it `bleed` — the
+   * layout renders above the page. The shell asks the router where it is
+   * instead, DURING RENDER, so the right geometry is in the first byte of the
+   * server HTML rather than corrected after paint.
+   *
+   * 🪤 WHOLE PATHS, NOT SEGMENTS. `useSelectedLayoutSegment()` returns the same
+   * segment for `/explore` and `/explore/compare`, which silently made the
+   * compare page full-bleed against its own design. See `shell-bleed.ts`.
+   */
+  bleedPaths?: readonly string[];
 };
 
 /** A count that failed to load says so. It NEVER says 0, and it never invents
@@ -356,6 +370,7 @@ export function FrontDoorShell({
   topBarSlot,
   search,
   bleed,
+  bleedPaths,
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -391,6 +406,13 @@ export function FrontDoorShell({
    */
   const MainEl = ownsMain ? 'div' : 'main';
   const pathname = usePathname();
+  /*
+    ⚠ EXACT PATH MATCH, read during render so the class is server-rendered
+    rather than applied in an effect after paint. `usePathname()` already
+    excludes the query string, so `/explore?category=photo` still matches.
+    An explicit `bleed` prop still wins, for the signed-in trees.
+  */
+  const isBleed = bleed || (bleedPaths?.includes(pathname ?? '') ?? false);
 
   /*
     HIDE ON SCROLL — the app's universal top-nav rule (owner 2026-06-15), and
@@ -1234,7 +1256,7 @@ export function FrontDoorShell({
           (this line) and every style keys off the CLASS, so nothing moves.
         */}
         <MainEl
-          className={bleed ? 'fd-main fd-bleed' : 'fd-main'}
+          className={isBleed ? 'fd-main fd-bleed' : 'fd-main'}
           inert={railOpen ? true : undefined}
         >
           {/*
@@ -1249,7 +1271,7 @@ export function FrontDoorShell({
           {ownsHeading ? null : (
             <h1 className="fd-sr-only">Setnayan — plan your event, keep it for life</h1>
           )}
-          <div className={bleed ? 'fd-col fd-bleed' : 'fd-col'}>{children}</div>
+          <div className={isBleed ? 'fd-col fd-bleed' : 'fd-col'}>{children}</div>
         </MainEl>
       </div>
       {/* The sign-in panel, when it is open. It portals to <body>, so where it

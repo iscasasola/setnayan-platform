@@ -110,7 +110,7 @@ test('the couple can actually choose every one of them', () => {
 });
 
 test('both Explore label maps cover every one of them', () => {
-  const src = read('app/explore/page.tsx');
+  const src = read('app/(shell)/explore/page.tsx');
   for (const setting of VENUE_SETTINGS) {
     // Either quote style — `civil_registrar`'s label is double-quoted because
     // it contains an apostrophe ("Civil Registrar's Office"). A single-quote

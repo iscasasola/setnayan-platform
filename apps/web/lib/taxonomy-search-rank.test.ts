@@ -21,7 +21,7 @@ import { rankTaxonomyOptions, MIN_QUERY_LEN } from './taxonomy-search-rank';
 import { TAXONOMY_MAP, WEDDING_FOLDER_SHORT_LABEL } from './taxonomy';
 
 /**
- * Mirrors `taxonomyLabel` in app/explore/page.tsx — the key→label derivation the
+ * Mirrors `taxonomyLabel` in app/(shell)/explore/page.tsx — the key→label derivation the
  * autocomplete list is actually built with. Kept in step by the folder
  * assertions below, which fail if a real service stops being reachable.
  */

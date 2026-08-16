@@ -49,6 +49,16 @@
 # facts: 115
 #   shadow  21
 #   omit    94
+shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
+shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
+shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
+shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_ORDER	lib/taxonomy.ts
+shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_SHORT_LABEL	lib/taxonomy.ts
+shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_SLUG	lib/taxonomy.ts
+shadow	app/(shell)/explore/page.tsx	WEDDING_TILES_BY_PARENT	lib/taxonomy.ts
+shadow	app/(shell)/explore/page.tsx	WEDDING_TILE_LABEL	lib/taxonomy.ts
+shadow	app/(shell)/explore/page.tsx	WEDDING_TILE_ORDER	lib/taxonomy.ts
+shadow	app/(shell)/explore/page.tsx	WEDDING_TILE_SLUG	lib/taxonomy.ts
 shadow	app/_components/plan3d/plan3d-scene.tsx	damp	app/_components/plan3d/kit/index.ts
 shadow	app/admin/disputes/page.tsx	tierRank	lib/vendor-tier-caps.ts
 shadow	app/admin/pricing/_surfaces/price-bands-surface.tsx	regionLabel	lib/region-source.ts
@@ -56,16 +66,6 @@ shadow	app/admin/taxonomy/actions.ts	VALID_PHOTO	lib/refinements-mutations.ts
 shadow	app/admin/users/[userId]/page.tsx	ORDER_STATUS_LABEL	lib/orders.ts
 shadow	app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx	SIDE_LABELS	lib/guests.ts
 shadow	app/dashboard/[eventId]/website/editor/_components/sections-panel.tsx	hasContent	lib/invitation-widgets.ts
-shadow	app/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
-shadow	app/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
-shadow	app/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
-shadow	app/explore/page.tsx	WEDDING_FOLDER_ORDER	lib/taxonomy.ts
-shadow	app/explore/page.tsx	WEDDING_FOLDER_SHORT_LABEL	lib/taxonomy.ts
-shadow	app/explore/page.tsx	WEDDING_FOLDER_SLUG	lib/taxonomy.ts
-shadow	app/explore/page.tsx	WEDDING_TILES_BY_PARENT	lib/taxonomy.ts
-shadow	app/explore/page.tsx	WEDDING_TILE_LABEL	lib/taxonomy.ts
-shadow	app/explore/page.tsx	WEDDING_TILE_ORDER	lib/taxonomy.ts
-shadow	app/explore/page.tsx	WEDDING_TILE_SLUG	lib/taxonomy.ts
 shadow	app/onboarding/wedding/_components/onboarding-shell.tsx	cap	app/onboarding/wedding/_components/weave-story.ts
 shadow	app/onboarding/wedding/_components/onboarding-shell.tsx	firstInitial	app/onboarding/wedding/_components/weave-story.ts
 shadow	app/vendor-dashboard/shop/page.tsx	TIER_LABEL	lib/vendor-tier-caps.ts

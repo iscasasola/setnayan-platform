@@ -39,7 +39,19 @@ function source(rel: string): string {
     .replace(/^\s*\/\/.*$/gm, '');
 }
 
-const PAGE = source('page.tsx');
+/*
+  ⚠ page.tsx IS NOT BESIDE THIS TEST (2026-08-15). Only `page.tsx` and
+  `loading.tsx` moved into `app/(shell)/realstories/`, where the group layout
+  mounts the shared shell ONCE so it survives navigation. `_components/`,
+  `[slug]/` and this test stayed put — deliberately, because
+  `app/realstories/[slug]` is `revalidate = false` and must remain statically
+  generated, which the group layout's force-dynamic would have taken away.
+
+  🔑 A route group is INVISIBLE in the URL and PRESENT in the filesystem path,
+  so a sibling-relative read that was correct yesterday throws ENOENT today.
+  That is the loud failure; the quiet one would be a glob matching nothing.
+*/
+const PAGE = source(join('..', '(shell)', 'realstories', 'page.tsx'));
 const GALLERY = source('_components/gallery.tsx');
 const SEARCH = source('_components/stories-search.tsx');
 

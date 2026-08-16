@@ -218,7 +218,7 @@ export function HubShell({
 
       {/* Bottom toggle menu — ≤5 primary tabs + a More overflow sheet. */}
       <nav
-        aria-label="Event hub"
+        aria-label="Live hub"
         className="shrink-0 border-t border-ink/10 bg-cream/92 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur"
       >
         <div
@@ -231,7 +231,7 @@ export function HubShell({
           <div
             ref={tablistRef}
             role="tablist"
-            aria-label="Event hub sections"
+            aria-label="Live hub sections"
             aria-orientation="horizontal"
             onKeyDown={onTablistKeyDown}
             className="contents"

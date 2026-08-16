@@ -643,7 +643,7 @@ export function RealStoriesGallery({
               Nothing matches yet — try a different name, city, or milestone type.
             </p>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filtered.map((it) => (
                 <Tile key={it.href} item={it} size="card" tag="Their story" />
               ))}
@@ -668,7 +668,12 @@ export function RealStoriesGallery({
           {sections.loved.length > 0 ? (
             <>
               <SectionHead title="Most loved" note="editors' picks" />
-              <div className="grid gap-4 sm:grid-cols-2">
+              {/* Two-across was drawn inside a 1024px page. In the shell's
+                  1600px column two `loved` tiles are ~770px each — a "pick"
+                  the size of a billboard. Three at xl keeps them visibly
+                  LARGER than the `card` grid below (which goes four) without
+                  the page reading as two posters. */}
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {sections.loved.map((it) => (
                   <Tile key={it.href} item={it} size="loved" />
                 ))}
@@ -679,7 +684,7 @@ export function RealStoriesGallery({
           {sections.fresh.length > 0 ? (
             <>
               <SectionHead title="Just published" note="the latest editions" />
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {sections.fresh.map((it) => (
                   <Tile key={it.href} item={it} size="card" tag="New" />
                 ))}
@@ -690,7 +695,7 @@ export function RealStoriesGallery({
           {sections.archive.length > 0 ? (
             <>
               <SectionHead title="The archive" note="every edition" />
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {sections.archive.map((it) => (
                   <Tile key={it.href} item={it} size="card" />
                 ))}
@@ -721,7 +726,12 @@ export function RealStoriesGallery({
           {chapterMatches.length > 0 || articleMatches.length > 0 ? (
             <div
               id={chapterMatches.length > 0 ? 'storytellers' : undefined}
-              className="mt-4 grid scroll-mt-24 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+              /* 🔒 THIS GRID MUST TRACK THE TWO ABOVE, COLUMN FOR COLUMN. It
+                 has no heading precisely so it reads as the same shelf
+                 continuing — widen "Just published" / "The archive" to four
+                 and leave this at three and the shelf visibly snaps, which is
+                 the separation the one-shelf decision removed. */
+              className="mt-4 grid scroll-mt-24 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             >
               <Companions
                 chapters={chapterMatches}

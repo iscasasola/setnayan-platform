@@ -334,7 +334,34 @@ export default async function RealStoriesIndexPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
-      <main className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+      {/*
+        ─── THE COLUMN IS THE SHELL'S, NOT THIS PAGE'S ────────────────────────
+        Owner, 2026-08-16, on a screenshot of Home beside this page: *"why is
+        it on home, you fill the main body corner to corner while other pages
+        are not?"*
+
+        He was right, and it is the SAME complaint as 2026-08-14 ("ours look
+        too big as compared to the proper sizing"), one page over. That one was
+        fixed at the source: `.fd-col` was uncapped from 1064 to 1600 so the
+        feed's cards stopped rendering 254px against YouTube's ~390. Home got
+        the wide column. This page kept the `max-w-5xl` (1024px) it was written
+        with back when it had no rail beside it — so inside a 1600px shell it
+        painted a 1024px strip with ~280px of dead cream on each side, and Home
+        → Stories read as two different products one rail-click apart.
+
+        🔑 A PAGE THAT WEARS A SHARED SHELL MUST NOT RE-CAP THE SHELL'S COLUMN.
+        `.fd-col` already caps at 1600 and centres; `.fd-main` already pays the
+        gutter (24px, 16px below 1024). A second `mx-auto max-w-*` on top is
+        not "safe extra" — it is a narrower answer to a question the shell has
+        already answered, and it wins. The marketplace hit this exact wall and
+        went further still (`bleed`), on the owner's word, in PR #655.
+
+        ⚠ THE READING WIDTH IS NOT DELETED, IT MOVED DOWN A LEVEL. The intro
+        below keeps `max-w-2xl` and the CTA keeps `max-w-xl`, because a
+        1552px-wide line of prose is unreadable. What widens is the SHELF —
+        which is the only thing on this page that wanted the room.
+      */}
+      <main className="w-full py-12 sm:py-16">
         <div className="max-w-2xl space-y-3">
           <h1 className="text-balance text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
             The front-page story of their life.

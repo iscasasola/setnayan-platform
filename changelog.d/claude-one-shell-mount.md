@@ -170,3 +170,24 @@ survive navigation. Every other route pays ~1KB for the bigger manifest.
 only the globally-shared chunks, which is exactly where the manifest lives; the
 −1,017KB sits in per-route chunks it never reads. Raised by the measured amount
 and no more, so the next real regression still fails.
+
+### 🪤 MY LINT SWEEP HAD A HOLE THE WHOLE TIME — it globbed `lint-*.mjs`
+
+I verified every slice of this work by running `scripts/lint-*.mjs`. CI's
+`typecheck + lint` job then failed on `lint:dup-rule`, which is
+`scripts/lint-dup-rule.ts` — **a `.ts` file, so the glob could never match it**.
+One of seventeen `lint:*` scripts was invisible to every local check I ran, and
+it stayed invisible because the other twenty-six passed and twenty-six greens
+read as complete coverage.
+
+🔑 **ENUMERATE BY THE REGISTRY, NOT BY A FILENAME PATTERN.** The scripts are
+declared in `package.json`; running them by NAME cannot miss one for having a
+different extension. Same shape as "enumerate by the column, not the remembered
+list" — a pattern that looks exhaustive is not a registry.
+
+What it caught was real and harmless: the duplication baseline is keyed by file
+path, so moving `app/explore/page.tsx` made its 10 entries vanish and reappear
+under `app/(shell)/`. Regenerated — and **diffed rather than trusted**: exactly
+10 removed, exactly 10 added, same symbols, same source module, total unchanged
+at 166. *A baseline is a bill, not a decision*, so regenerating one without
+reading its diff is how new debt gets laundered through a rename.

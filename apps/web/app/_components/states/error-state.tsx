@@ -23,6 +23,13 @@ type Props = {
 // State 06 · ERROR — reports in three fixed beats: broke → survived → do.
 // Never a full-viewport takeover: the surviving rows stay on screen and
 // workable underneath the report.
+//
+// The three beat labels are ink/70, NOT ink/45: measured on this component's
+// own bg-mulberry/5 panel, ink/45 is 2.44:1 in the light theme — a hard AA fail
+// for 10px text — while ink/70 is 4.94:1 light / 8.40:1 dark. Corrected
+// 2026-08-17 when the admin console table became the first consumer of these
+// primitives; they had shipped unmounted, so nothing was live. Both themes
+// checked: the light-only check is what waves this through.
 export function ErrorState({ title, broke, survived, todo, actions, children }: Props) {
   return (
     <div className="flex flex-col px-4 py-6">
@@ -32,19 +39,19 @@ export function ErrorState({ title, broke, survived, todo, actions, children }: 
           <h3 className="text-base font-extrabold tracking-tight text-ink">{title}</h3>
           <dl className="mt-2 space-y-1.5 text-sm text-ink/70">
             <div className="flex gap-2">
-              <dt className="w-16 shrink-0 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/45 leading-5">
+              <dt className="w-16 shrink-0 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/70 leading-5">
                 Broke
               </dt>
               <dd>{broke}</dd>
             </div>
             <div className="flex gap-2">
-              <dt className="w-16 shrink-0 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/45 leading-5">
+              <dt className="w-16 shrink-0 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/70 leading-5">
                 Survived
               </dt>
               <dd>{survived}</dd>
             </div>
             <div className="flex gap-2">
-              <dt className="w-16 shrink-0 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/45 leading-5">
+              <dt className="w-16 shrink-0 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/70 leading-5">
                 Do
               </dt>
               <dd>{todo}</dd>

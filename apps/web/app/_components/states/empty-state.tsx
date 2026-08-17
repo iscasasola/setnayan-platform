@@ -38,7 +38,12 @@ export function EmptyState({ Icon, title, blurb, action, verifiedNote }: Props) 
       <h3 className="text-lg font-extrabold tracking-tight text-ink">{title}</h3>
       <p className="mt-2 max-w-sm text-sm text-ink/65">{blurb}</p>
       {action ? <div className="mt-5">{action}</div> : null}
-      <span className="mt-6 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-ink/45">
+      {/* ink/70, not ink/45 — measured on the cream page, ink/45 is 2.62:1 in
+          the light theme, a hard AA fail for text at 9px (no large-text
+          exception applies). ink/70 measures 5.29:1 light / 8.93:1 dark.
+          Corrected 2026-08-17 when the admin console table became this
+          component's first consumer; it had shipped unmounted until then. */}
+      <span className="mt-6 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-ink/70">
         {verifiedNote ?? 'Verified: read permitted · 0 rows'}
       </span>
     </div>

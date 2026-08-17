@@ -2,6 +2,8 @@ import { TrendingUp } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Pax changes · Admin' };
@@ -16,7 +18,15 @@ export const metadata = { title: 'Pax changes · Admin' };
  * Read-only by design — the parties act on their own surfaces; HQ only observes.
  * Auth is enforced at the layout level (`app/admin/layout.tsx` → notFound() for
  * non-admins); the table's RLS is admin-read only and this page uses the admin
- * client. Graceful-degrades to an empty state if the migration isn't applied.
+ * client.
+ *
+ * ⚠ IT NO LONGER "GRACEFUL-DEGRADES TO AN EMPTY STATE" — that line used to sit
+ * here and describe a defect as a feature. A rejected read (unapplied
+ * migration, phantom column, stale enum) resolves as `{ error }` with `data:
+ * null`, and `data ?? []` turned that into "No pax-driven cost changes yet."
+ * shown to a mediator asking why a vendor's cost jumped, mid-dispute. The read
+ * error now reaches `ConsoleTable`, which reports it instead of counting it as
+ * zero. Corrected 2026-08-17.
  */
 
 type AuditRow = {
@@ -38,6 +48,9 @@ type AuditRow = {
 const peso = (n: number | null) =>
   n == null ? '—' : `₱${Math.round(n).toLocaleString('en-PH')}`;
 
+/** Passed to ConsoleTable as `cap` so a full page says so instead of implying it is the whole trail. */
+const ROW_LIMIT = 200;
+
 export default async function AdminPaxChangesPage() {
   await requireAdmin();
   const admin = createAdminClient();
@@ -48,17 +61,21 @@ export default async function AdminPaxChangesPage() {
       'audit_id, event_id, vendor_profile_id, action, live_pax, quote_base_pax, prev_pax, rate_php, prev_surcharge_php, new_surcharge_php, prev_total_php, new_total_php, created_at',
     )
     .order('created_at', { ascending: false })
-    .limit(200);
+    .limit(ROW_LIMIT);
   if (error) {
     logQueryError('AdminPaxChangesPage', error, {}, 'graceful_degrade');
   }
-  const rows = (data ?? []) as AuditRow[];
+  // NULL, not []: a refused read must stay distinguishable from a real zero all
+  // the way to the render. `?? []` here is what printed "no changes yet" over a
+  // broken query.
+  const rows = data as AuditRow[] | null;
 
   // Resolve vendor + event display labels in two batched reads.
+  const listed = rows ?? [];
   const vendorIds = Array.from(
-    new Set(rows.map((r) => r.vendor_profile_id).filter((v): v is string => !!v)),
+    new Set(listed.map((r) => r.vendor_profile_id).filter((v): v is string => !!v)),
   );
-  const eventIds = Array.from(new Set(rows.map((r) => r.event_id)));
+  const eventIds = Array.from(new Set(listed.map((r) => r.event_id)));
   const vendorName = new Map<string, string>();
   const eventName = new Map<string, string>();
   if (vendorIds.length > 0) {
@@ -78,80 +95,92 @@ export default async function AdminPaxChangesPage() {
 
   return (
     <section className="space-y-6">
-      <header className="flex items-end justify-between gap-3">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-            Adaptive pax pricing
-          </p>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <TrendingUp className="h-6 w-6 text-terracotta" strokeWidth={1.75} aria-hidden />
-            Pax-driven cost changes
-          </h1>
-          <p className="mt-1 text-sm text-ink/60">
-            Every vendor Accept/Decline of a guest-count surcharge. Read-only — for
-            dispute mediation.
-          </p>
-        </div>
-      </header>
+      <PageMasthead
+        title="Pax-driven cost changes"
+        lede="Every vendor Accept/Decline of a guest-count surcharge. Read-only — for dispute mediation."
+      />
 
-      {rows.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-ink/60">
-          No pax-driven cost changes yet.
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink/10">
-          <table className="w-full min-w-[760px] text-sm">
-            <thead className="bg-ink/[0.03] text-left font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-              <tr>
-                <th className="px-3 py-2.5">When</th>
-                <th className="px-3 py-2.5">Vendor · Event</th>
-                <th className="px-3 py-2.5">Action</th>
-                <th className="px-3 py-2.5">Guests</th>
-                <th className="px-3 py-2.5">Surcharge</th>
-                <th className="px-3 py-2.5">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink/8">
-              {rows.map((r) => (
-                <tr key={r.audit_id} className="align-top">
-                  <td className="whitespace-nowrap px-3 py-2.5 text-ink/60">
-                    {relativeTime(r.created_at)}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <div className="font-medium text-ink">
-                      {r.vendor_profile_id ? vendorName.get(r.vendor_profile_id) ?? '—' : '—'}
-                    </div>
-                    <div className="text-xs text-ink/55">
-                      {eventName.get(r.event_id) ?? '—'}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        r.action === 'accept'
-                          ? 'bg-success-100 text-success-800'
-                          : 'bg-ink/10 text-ink/70'
-                      }`}
-                    >
-                      {r.action === 'accept' ? 'Accepted' : 'Held price'}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-ink/70">
-                    {r.prev_pax ?? '—'} → <span className="font-semibold text-ink">{r.live_pax ?? '—'}</span>
-                    <span className="text-xs text-ink/45"> (quoted {r.quote_base_pax ?? '—'})</span>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-ink/70">
-                    {peso(r.prev_surcharge_php)} → {peso(r.new_surcharge_php)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-ink/70">
-                    {peso(r.prev_total_php)} → <span className="font-semibold text-ink">{peso(r.new_total_php)}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <ConsoleTable
+        rows={rows}
+        readPermitted
+        readError={error}
+        reads="the pax-change trail"
+        cap={ROW_LIMIT}
+        label="Pax-driven cost changes"
+        minWidth="47.5rem"
+        note="Read-only. The couple and the vendor each act on their own screen; HQ only observes, so there is deliberately nothing to press here."
+        rowKey={(r) => String(r.audit_id)}
+        empty={{
+          Icon: TrendingUp,
+          title: 'No pax-driven cost changes yet',
+          blurb:
+            'A row lands here the moment a vendor accepts or holds a surcharge after the couple’s guest count moved a booked cost. Nothing to do — it fills itself.',
+        }}
+        columns={[
+          {
+            header: 'When',
+            mono: true,
+            cell: (r) => relativeTime(r.created_at),
+          },
+          {
+            header: 'Vendor · Event',
+            cell: (r) => (
+              <>
+                <div className="font-medium text-ink">
+                  {r.vendor_profile_id ? vendorName.get(r.vendor_profile_id) ?? '—' : '—'}
+                </div>
+                <div className="text-xs text-ink/70">{eventName.get(r.event_id) ?? '—'}</div>
+              </>
+            ),
+          },
+          {
+            header: 'Action',
+            cell: (r) => (
+              <span
+                className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
+                  r.action === 'accept'
+                    ? 'bg-success-100 text-success-800'
+                    : 'bg-ink/10 text-ink/70'
+                }`}
+              >
+                {r.action === 'accept' ? 'Accepted' : 'Held price'}
+              </span>
+            ),
+          },
+          {
+            header: 'Guests',
+            hideBelow: 'md',
+            cell: (r) => (
+              <span className="whitespace-nowrap text-ink/70">
+                {r.prev_pax ?? '—'} →{' '}
+                <span className="font-semibold text-ink">{r.live_pax ?? '—'}</span>
+                <span className="text-xs text-ink/70"> (quoted {r.quote_base_pax ?? '—'})</span>
+              </span>
+            ),
+          },
+          {
+            header: 'Surcharge',
+            hideBelow: 'lg',
+            mono: true,
+            cell: (r) => (
+              <span className="whitespace-nowrap text-ink/70">
+                {peso(r.prev_surcharge_php)} → {peso(r.new_surcharge_php)}
+              </span>
+            ),
+          },
+          {
+            header: 'Total',
+            mono: true,
+            align: 'right',
+            cell: (r) => (
+              <span className="whitespace-nowrap text-ink/70">
+                {peso(r.prev_total_php)} →{' '}
+                <span className="font-semibold text-ink">{peso(r.new_total_php)}</span>
+              </span>
+            ),
+          },
+        ]}
+      />
     </section>
   );
 }

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "78b3470d2",
-  "routeCount": 401,
-  "destinations": 794,
-  "actions": 525,
-  "blocks": 3536,
+  "generatedFromRef": "c3dc3848a",
+  "routeCount": 402,
+  "destinations": 796,
+  "actions": 526,
+  "blocks": 3546,
   "routes": {
     "/": {
       "files": [
@@ -1034,6 +1034,7 @@
         "admin/_components/admin-nav-groups.tsx",
         "admin/_components/admin-rail-context.tsx",
         "admin/_components/admin-sidebar.tsx",
+        "admin/_components/console-table.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/mobile-landing-accordion.tsx",
         "admin/_components/mobile-landing-grid.tsx",
@@ -1151,6 +1152,8 @@
         "AppleSecretReminder",
         "BottomNav",
         "CountUp",
+        "EmptyState",
+        "ErrorState",
         "GuidedTour",
         "HTMLDivElement",
         "HTMLInputElement",
@@ -1162,6 +1165,7 @@
         "NavFab",
         "NavItem",
         "ProgressRing",
+        "Row",
         "Screen",
         "Sk",
         "SkLine",
@@ -2142,7 +2146,10 @@
       ],
       "destinations": [],
       "actions": [],
-      "blocks": []
+      "blocks": [
+        "ConsoleTable",
+        "PageMasthead"
+      ]
     },
     "/admin/payment-options": {
       "files": [
@@ -2311,8 +2318,9 @@
       ],
       "actions": [],
       "blocks": [
-        "Link",
-        "Stat"
+        "ConsoleTable",
+        "KpiStatCard",
+        "Link"
       ]
     },
     "/admin/referrals": {
@@ -6686,6 +6694,25 @@
       "destinations": [],
       "actions": [],
       "blocks": []
+    },
+    "/dashboard/[eventId]/website/stories": {
+      "files": [
+        "dashboard/[eventId]/website/stories/actions.ts",
+        "dashboard/[eventId]/website/stories/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/website",
+        "/u/[seg]/c/[seg]"
+      ],
+      "actions": [
+        "setChapterOnMyDay"
+      ],
+      "blocks": [
+        "FormFlash",
+        "Link",
+        "PageMasthead",
+        "SubmitButton"
+      ]
     },
     "/dashboard/[eventId]/website/what-to-bring": {
       "files": [

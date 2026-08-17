@@ -59,6 +59,12 @@ The Tailwind slot named `terracotta` holds the atelier **gold `#A9834B`** (3.37:
 - Typecheck clean. Every CI lint above run from the working directory `ci.yml` gives it.
 - ⚠ **Nothing here is observable from a session.** Admin sits behind a login, so this is test-proved and hand-measured, never seen. Do not upgrade it to "verified live".
 
+### The guard had a hole and it was found by sabotage, not by reading
+
+🚨 **Deleting one line from `CONVERTED` left the guard GREEN — 10/10.** Every rule that does the work iterates that list, so a shorter list simply checks fewer files: any surface's read-error handling, cap disclosure and gold-as-text could have been switched off one line at a time with CI silent. The bill above it can only shrink; this list could shrink too, and it is the half carrying the assertions.
+
+🔑 **A guard whose subject list is hand-maintained is only as wide as that list** — the same shape as the hand-enumerated door list that missed three doors earlier today, and the stale deny-list in #4364. Membership is now DERIVED: an 11th assertion pins `CONVERTED` equal to the measured set of admin files importing `ConsoleTable`. Mutation-checked both ways, counts printed — delete a line (5 → 4 entries): 10 pass / **1 fail**; add a bogus one (5 → 6): 7 pass / **4 fail**.
+
 ### Found while passing through, NOT fixed
 
 Seven other `/admin/studio` surfaces carry **19 occurrences of gold-as-text** (`social-queue` alone has 11). They are unguarded because the colour rule only iterates `CONVERTED`, and none of them hand-rolls a table, so none is on the bill. Separate work, named here so it is not lost.

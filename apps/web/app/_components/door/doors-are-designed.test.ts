@@ -15,12 +15,25 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, '..', '..');
+
+/** Every .tsx under app/, excluding tests — the input to the shape rule. */
+function walk(dir: string, out: string[] = []): string[] {
+  for (const entry of readdirSync(dir)) {
+    if (entry === 'node_modules' || entry === '.next') continue;
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) walk(full, out);
+    else if (entry.endsWith('.tsx') && !entry.includes('.test.')) out.push(full);
+  }
+  return out;
+}
+
+const TSX_FILES = walk(APP);
 
 /**
  * Strip comments before matching.
@@ -57,6 +70,19 @@ const read = (rel: string) => readFileSync(join(APP, rel), 'utf8');
  */
 const DOORS = [
   'claim/[token]/page.tsx',
+  // ⚠ ADDED AFTER THE FACT, AND THAT IS THE POINT. The first cut of this list
+  // MISSED /host/accept — a token-gated co-host invitation whose wrapper was
+  // BYTE-IDENTICAL to the Samahan one being deleted three files away, carrying
+  // the same two 3.37:1 gold eyebrows. The Samahan page's own comment says it
+  // "mirrors /host/accept/[token]" and that sentence was read and not followed.
+  // 🔑 A HAND-ENUMERATED LIST IS A LIST OF THE DOORS YOU THOUGHT OF. That is why
+  // the shape rule below exists — it does not need to know the door's name.
+  'host/accept/[token]/page.tsx',
+  // ⚠ AND SO WAS THIS ONE — the +1 guest confirming their name after scanning a
+  // QR. Its wrapper differed from JoinShell's by one word (`gap-8` vs `gap-6`)
+  // and it was invisible to the first shape rule because it framed the page with
+  // a `<div>` inside a bare `<main>`, not with the `<main>` itself.
+  '[slug]/welcome/page.tsx',
   'vendor/claim/[token]/page.tsx',
   'vendor/claim/[token]/finalize/page.tsx',
   'join/[eventId]/page.tsx',
@@ -140,6 +166,52 @@ test('the doors actually reach the shared shell — a rule nothing satisfies is 
     `Only ${wearing.length} of ${DOORS.length} doors import DoorShell. Rule 2 ` +
       'passes vacuously on a file that renders nothing — this is the check that ' +
       'says the shell is actually worn.',
+  );
+});
+
+/**
+ * THE RULE THAT DOES NOT NEED THE LIST.
+ *
+ * Rules 1 and 2 only ever look at DOORS — so they are exactly as good as my
+ * memory of what a door is, and my memory already missed one. This rule instead
+ * matches the SHAPE of the defect: a page outside the three authenticated trees
+ * that opens its own full-height, centred, single-column card frame. That is
+ * what all seven hand-rolled wrappers were, and it is what a NEW one would be.
+ *
+ * Scoped to `page.tsx` outside dashboard/admin/vendor-dashboard: inside the app
+ * a centred frame is ordinary layout, and the marketing tree builds its frames
+ * from `--m-*` inline styles rather than these utilities, so neither produces a
+ * false positive. Measured at 0 offenders once the eight doors were ported, so
+ * it is a WALL, not a ratchet — there is no baseline to pay down.
+ *
+ * 🪤 IT MATCHES `<div>` AS WELL AS `<main>`, AND THAT IS NOT BELT-AND-BRACES.
+ * The first cut matched `<main>` only. An adversarial pass then rebuilt a door's
+ * frame as a `<div>` wrapped around the shell and the rule stayed GREEN — and
+ * widening it immediately surfaced a REAL eighth door (`[slug]/welcome`) that
+ * frames its page exactly that way and had been missed. The evasion and the
+ * genuine miss turned out to be the same blind spot.
+ */
+test('no public page hand-rolls a centred card page frame — the shape, not the list', () => {
+  const offenders: string[] = [];
+  const TREES = ['dashboard/', 'admin/', 'vendor-dashboard/'];
+  for (const file of TSX_FILES) {
+    const rel = file.slice(APP.length + 1);
+    if (!rel.endsWith('page.tsx')) continue;
+    if (TREES.some((t) => rel.startsWith(t))) continue;
+    const src = code(readFileSync(file, 'utf8'));
+    for (const tag of src.match(/<(?:main|div)[^>]*className="[^"]*"/g) ?? []) {
+      const fullHeight = /min-h-(screen|dvh)/.test(tag);
+      const centred = /(items-center|justify-center|mx-auto)/.test(tag);
+      const column = /max-w-|w-full/.test(tag);
+      if (fullHeight && centred && column) offenders.push(`${rel} → ${tag.slice(0, 90)}`);
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    'This is the exact shape of the six wrappers <DoorShell> replaced, and of the ' +
+      'seventh that was missed. If the page is a door, render <DoorShell>. If it is ' +
+      `genuinely not, it still should not invent a page frame. Found: ${offenders.join(' | ')}`,
   );
 });
 

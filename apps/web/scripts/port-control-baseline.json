@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d69bb0897",
+  "generatedFromRef": "54b45894f",
   "routeCount": 401,
-  "destinations": 796,
+  "destinations": 794,
   "actions": 525,
-  "blocks": 3529,
+  "blocks": 3533,
   "routes": {
     "/": {
       "files": [
@@ -1233,6 +1233,7 @@
         "viewReceipt"
       ],
       "blocks": [
+        "BrowserBlocksSurface",
         "ChartCard",
         "CockpitSurface",
         "ConnectionLogsSurface",
@@ -6809,17 +6810,17 @@
         "forgot-password/page.tsx"
       ],
       "destinations": [
-        "/",
         "/login"
       ],
       "actions": [
         "requestPasswordReset"
       ],
       "blocks": [
+        "DoorNotice",
+        "DoorShell",
         "Link",
         "SubmitButton",
-        "TurnstileField",
-        "Wordmark"
+        "TurnstileField"
       ]
     },
     "/help/[slug]": {
@@ -7595,7 +7596,6 @@
         "reset-password/page.tsx"
       ],
       "destinations": [
-        "/",
         "/forgot-password",
         "/login"
       ],
@@ -7603,9 +7603,11 @@
         "completePasswordReset"
       ],
       "blocks": [
+        "DoorActions",
+        "DoorNotice",
+        "DoorShell",
         "Link",
-        "SubmitButton",
-        "Wordmark"
+        "SubmitButton"
       ]
     },
     "/samahan/join/[token]": {

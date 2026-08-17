@@ -69,3 +69,22 @@ and hiding it would be a new product decision.
 
 SPEC IMPACT: None — routing and an access rule on existing surfaces. No price, SKU, schema or
 flag change.
+
+## 2026-08-18 · the guard that blocked this was pinning a spelling
+
+`no-redirect-cycle.test.ts` refused this change for two days, and it was asking the
+right question with the wrong shape. It asserted the hop to the vendor tree EXISTS
+and is conditioned on real access — so it failed the one change that makes the cycle
+impossible: **deleting the hop altogether.**
+
+🔑 **NO HOP IS STRICTLY SAFER THAN A CORRECTLY GUARDED HOP** — there is no edge left
+to close a loop with. A guard that pins an implementation's spelling fails its own
+refactor. Pin the QUESTION — "can /dashboard send someone to the vendor tree on a
+bare label?" — and let the answer be either "there is no hop" or "the hop checks the
+fact".
+
+Both assertions widened to accept absence, and **mutation-proved they still catch the
+2026-08-10 outage**: reintroducing the bare-label hop takes them red (occurrences
+0 → 1, two assertions fail), restoring makes them green. The cost assertion is
+widened the same way — with no hop there is no label branch to nest a query inside,
+which is the cheapest outcome available, not a violation.

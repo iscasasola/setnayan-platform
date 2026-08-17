@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e30fd95db",
+  "generatedFromRef": "28568dea4",
   "routeCount": 402,
   "destinations": 849,
   "actions": 579,
-  "blocks": 3684,
+  "blocks": 3686,
   "routes": {
     "/": {
       "files": [
@@ -1243,6 +1243,7 @@
         "BlacklistTable",
         "CompGrantsPanel",
         "ConfirmForm",
+        "ConsoleTable",
         "DemoVendorActions",
         "DemoVendorsSurface",
         "EventsSurface",
@@ -1250,9 +1251,10 @@
         "Icon",
         "Image",
         "InviteVendorForm",
+        "KpiStatCard",
         "Link",
         "MiniTour",
-        "Stat",
+        "PageMasthead",
         "SubmitButton",
         "UsersSurface",
         "UsersTable",

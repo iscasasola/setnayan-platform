@@ -41,3 +41,22 @@ It derives the question from the disk: every underscore folder that exists must 
 ⏭ **This is what unblocks PR #4519 (lane D).** Its `lint port keeps every control` failure was a blocking required check, and one of its four reported "losses" was this false positive: a back link handed to `PageMasthead`. With the extractor fixed, that lane can regenerate and absorb only its three genuine component removals.
 
 SPEC IMPACT: None — build tooling and a guard. No product surface, no schema, no migration.
+
+---
+
+### 🪤 AND THE STALE-TREE TRAP BIT ME, IN THE EXACT WAY I HAD WARNED FOUR LANES ABOUT
+
+This PR's first push generated the baseline at `e30fd95db`. Lane A merged at `88876d9d5` while it sat in CI, and CI tests a PR as a **merge with main** — so the tree under test contained lane A's changes while my baseline did not. `lint port keeps every control` failed, and it was a **required blocking check**.
+
+🔑 **AND THE FAILURE WAS CAUSED BY THIS PR WORKING.** Lane A's five files are `accounts/_surfaces/*` — among the 41 the extractor had never read — so when A merged, its deliberate `Stat` → `KpiStatCard` swap was **invisible** to the guard and its PR passed. Widening the reach made that removal visible for the first time, correctly, on my branch.
+
+Rebased onto `88876d9d5` and regenerated there. **Absorption re-checked per route, every loss named so each could be judged:**
+
+```
+  /admin/accounts  −blocks: Stat
+  TOTALS → routes gone 0 · destinations lost 0 · actions lost 0
+```
+
+Exactly one, and it is lane A's own deliberate replacement — read in their diff and cleared before their merge, and the reason `KpiStatCard` exists is that the local `Stat` took `value: number` and could not render "unknown". **0 destinations, 0 actions, 0 routes.**
+
+⚖ **So the rule I gave the lanes is the rule that saved this PR: regenerate ONLY after rebasing, and check absorption per route rather than by totals.** A totals check would have shown destinations and actions unchanged and waved it through without ever naming the one block that moved.

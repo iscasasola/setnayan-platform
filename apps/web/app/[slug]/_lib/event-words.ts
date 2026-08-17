@@ -59,7 +59,41 @@ export type EventWords = {
   TheOrganizerPossessive: string;
   /** 'wedding' · 'birthday' · 'graduation' · 'event'. */
   eventWord: string;
+  /**
+   * IS THIS WORD THE PERSON THE EVENT IS *ABOUT*, RATHER THAN THE PERSON WHO
+   * *RUNS* IT? (owner ruling 2026-08-18)
+   *
+   * The owner kept all five words — `couple` · `host` · `organizer` ·
+   * `celebrant` · `graduate` — and he is right that they read better than two
+   * would: *"Your greeting is on its way to the celebrant"* is warmer and more
+   * accurate than "to the host", and a gift really is for the celebrant.
+   *
+   * But two of the five name the HONOURED person, not the organiser, and the
+   * page has a handful of sentences about ADMIN work — publishing a seating
+   * plan, arranging a venue, posting a programme. **At a seven-year-old's
+   * birthday the celebrant is the seven-year-old**, so *"The celebrant is still
+   * arranging the venue layout"* names the wrong person entirely. Same for a
+   * graduation: the graduate is rarely the one doing the seating chart.
+   *
+   * So the six admin sentences drop the person when this is TRUE, and keep
+   * naming them when it is FALSE. Every other sentence — greetings, gifts,
+   * whose guest list, whose gallery — names them in all five cases, because
+   * there the honoured person IS the right person.
+   *
+   * 🔒 A WEDDING IS UNAFFECTED and that is not a coincidence: the couple both
+   * run the event and are honoured by it, which is exactly why `couple` works
+   * where `celebrant` does not.
+   */
+  organizerIsHonoree: boolean;
 };
+
+/**
+ * The two words that name who the event is ABOUT. Anything else — including a
+ * word added later — is treated as the organiser and keeps being named, which
+ * is today's behaviour and the safe direction: naming a real organiser reads
+ * fine, naming a child who arranged nothing does not.
+ */
+const HONOREE_NOUNS = new Set(['celebrant', 'graduate']);
 
 /** 'couple' → 'couple’s'. A noun already ending in s takes the bare mark
  *  ('parents' → 'parents’'), which is why this is a function and not a `+ "’s"`
@@ -88,6 +122,7 @@ export function eventWordsFromProfile(profile: EventTypeProfile): EventWords {
     theOrganizerPossessive: `the ${possessive}`,
     TheOrganizerPossessive: `The ${possessive}`,
     eventWord,
+    organizerIsHonoree: HONOREE_NOUNS.has(organizer),
   };
 }
 

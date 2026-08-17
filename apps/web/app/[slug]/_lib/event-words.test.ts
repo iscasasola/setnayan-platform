@@ -144,6 +144,63 @@ test('a blank noun from the admin table never renders an empty gap', () => {
   assert.equal(w.eventWord, 'event');
 });
 
+// ── 4 · THE HONOREE / ORGANISER SPLIT (owner ruling 2026-08-18) ─────────────
+
+test('couple, host and organizer RUN the event — they keep being named', () => {
+  // The owner kept all five words. Three of them name whoever runs the event,
+  // so an admin sentence may name them without saying anything untrue.
+  for (const noun of ['couple', 'host', 'organizer']) {
+    const w = eventWordsFromProfile(profileWith(noun));
+    assert.equal(w.organizerIsHonoree, false, `${noun} was treated as the honoree`);
+  }
+  assert.equal(eventWordsFromProfile(WEDDING_PROFILE).organizerIsHonoree, false);
+});
+
+test('celebrant and graduate are the person the event is ABOUT', () => {
+  // At a seven-year-old's birthday the celebrant is the seven-year-old, so the
+  // six admin sentences must not say he arranged the venue.
+  for (const noun of ['celebrant', 'graduate']) {
+    assert.equal(
+      eventWordsFromProfile(profileWith(noun)).organizerIsHonoree,
+      true,
+      `${noun} is being named as the person who does the admin`,
+    );
+  }
+});
+
+test('an unrecognised word is treated as an organiser, not an honoree', () => {
+  // The safe direction: naming a real organiser reads fine; naming a child who
+  // arranged nothing does not. A word added later keeps today's behaviour.
+  assert.equal(eventWordsFromProfile(profileWith('convenor')).organizerIsHonoree, false);
+});
+
+test('the six admin sentences read correctly for BOTH kinds of word', () => {
+  const child = eventWordsFromProfile(profileWith('celebrant', 'birthday'));
+  const host = eventWordsFromProfile(profileWith('host'));
+  const wed = eventWordsFromProfile(WEDDING_PROFILE);
+
+  const seats = (w: ReturnType<typeof eventWordsFromProfile>) =>
+    w.organizerIsHonoree
+      ? 'Seats will be assigned closer to the day.'
+      : `${w.TheOrganizer} will assign seats closer to the day.`;
+
+  assert.equal(seats(child), 'Seats will be assigned closer to the day.');
+  assert.equal(seats(host), 'The host will assign seats closer to the day.');
+  // 🔒 And the wedding is untouched — the couple both run it and are honoured
+  // by it, which is exactly why `couple` works where `celebrant` does not.
+  assert.equal(seats(wed), 'The couple will assign seats closer to the day.');
+});
+
+test('the sentences that are genuinely ABOUT the honoree still name them', () => {
+  // A birthday greeting really is for the celebrant, and a gift really is too.
+  // This split must not leak into those.
+  const child = eventWordsFromProfile(profileWith('celebrant', 'birthday'));
+  assert.equal(
+    `Your greeting is on its way to ${child.theOrganizer}.`,
+    'Your greeting is on its way to the celebrant.',
+  );
+});
+
 test('the typographic apostrophe is used, never the straight one', () => {
   // The guest tree is set in an editorial face; a straight quote is visible.
   const w = eventWordsFromProfile(WEDDING_PROFILE);

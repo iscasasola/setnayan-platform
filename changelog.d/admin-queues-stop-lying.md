@@ -48,3 +48,29 @@ The merge conflict in the shared guard file was resolved by the published protoc
 ⚠ **NOT OBSERVED.** `/admin` sits behind a login, so every claim here is test-proved and hand-measured, never seen on a screen. Do not upgrade it to "verified live".
 
 SPEC IMPACT: None — internal admin surfaces, one shared loader, no schema, no migration.
+
+---
+
+### 🔬 REVIEWED BY THE LANE-C SESSION — four findings, all of them right
+
+I asked for this because nobody had read my diff while I was reading and gating everyone else's, and because every measurement error of mine today was caught by a lane session rather than by me. All four are fixed here.
+
+**1 · MY EXEMPTION WAS PINNED TO NOTHING — the fourth instance of that shape in one day.** `FAILS_CLOSED_ON_NULL` was a `Set` of `file:varname` strings carrying its justification in a comment. The claim was true (verified in both predicate implementations: null → false → denied) but lane C **proved the exemption outlived its reason**: replacing `return isAdminProfile(profile)` with `return Boolean(profile)` left the guard GREEN, and so did routing that value into a rendered expression instead of the auth decision. The key was the variable NAME — the one thing that will not change when the failure mode does.
+⇒ Each entry now carries a `proof` regex that must still match the file, and the exemption **VOIDS** otherwise. Mutation-proved with the count printed: `return isAdminProfile(profile)` 1 → 0, guard 11 pass → **10 pass / 1 fail**, restored green.
+🔑 Same shape as the `CONVERTED` list, the hand-enumerated bill, and `PRIVATE_SUBDIRS`. **A list entry that decides what gets checked has to be pinned to something measured.**
+
+**2 · TWO CONFIDENT ZEROS IN MY OWN PR.** `Budget bands (onboarding) ({budgetBands.length})` and `Benchmark seeding ({benchmarks.length})` printed **`(0)` in the heading directly above my own banner saying the bands could not be read** — while `/admin/approvals`, in the same PR, did it correctly with an em-dash. The rule passed them because the errors *are* bound; the heading was a second, unguarded channel. **This PR's own thesis, turned on itself, in a smaller box.**
+
+**3 · LOGGING NEVER CHANGED THE RENDER — that sentence is from the file I was fixing.** On the two studio surfaces I bound the label error and only `logQueryError`'d it. Worse than silent: `'—'` is **already** the legitimate value for a name genuinely absent, so the dash was ambiguous between *"nothing on file"* and *"we could not read it"* — error-vs-empty, one field down. Both now render the caveat. **No principled asymmetry existed; I had done the minimum that satisfied my own rule.**
+
+**4 · THE COPY HAD DRIFTED INTO AN INCIDENT REPORT**, in three places, all on fraud. *"it must never wear the green tick"* is UI internals addressed to the next engineer inside a sentence meant for the reader. *"the column, value or view it names is the thing to check"* asks an admin to diagnose a Postgres error. And the raw message was pasted as an instruction rather than evidence. Now: **"Show this to an engineer: …"**, and the action says what to ASSUME while it is broken — *signals may be open, do not treat this screen as a clear queue* — which is what `/admin/approvals` already did well and fraud lacked. Stripped-source count of both phrases: **0**.
+🪤 **And the lint that exists for this is blind to it:** `lint-no-engineering-notes-in-ui.mjs` matches only `\b(TODO|FIXME|HACK|WIP)\b`, so it passes "green tick" and the rest. Its green is not evidence for this class.
+
+### Cleared by that review, measured rather than trusted
+
+- **The one-caller claim on `fetchAllocationAggregates` is correct** — verified by grepping the FUNCTION, not the module (which has 11 importers taking other exports).
+- **The three-way splits are exhaustive and mutually exclusive on all four pages**; nothing renders both an error and an empty state.
+- **The new destructure-rename rule is not decoration** — an injected `const { data: sneaky }` took it 0 → 1 and turned the guard red.
+- **Zero controls lost**, extracted per route rather than by totals.
+- ⚖ **`readMessage` reaching the UI: the boundary is named.** A refused SELECT carries schema/permission/timeout text and cannot enumerate rows; the shape that CAN carry a row value is a constraint violation from a WRITE, and none of these are writes. Recorded so the reasoning is not inherited by an author who passes a write's error into `readError`.
+- ⚠ **And the port lint was re-run after merging the regenerated baseline**, because the earlier green was measured against the baseline `#4522` replaced: **402 routes / 1,428 controls** (up from 1,322 — the widened extractor now sees these very routes) and **nothing lost**.

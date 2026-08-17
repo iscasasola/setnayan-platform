@@ -172,7 +172,35 @@ const CLOSED_IN_BATCH_3 = [
 ];
 
 /** Every table closed so far. Later batches append their own list above. */
-const CLOSED = [...CLOSED_IN_BATCH_1, ...CLOSED_IN_BATCH_2, ...CLOSED_IN_BATCH_3];
+/**
+ * Batch 5 (20271148202591) — THE "NO POLICY AT ALL" CATEGORY, CLOSED COMPLETELY.
+ *
+ * These five are the safest revokes in the whole sweep, and for a reason no earlier
+ * batch could claim: each has RLS ENABLED and ZERO policies, so Postgres already
+ * denied anon everything. The grant opened nothing. Nothing observable changes.
+ *
+ * 🔑 AFTER THIS THE CATEGORY IS EMPTY. Every remaining candidate has policies that
+ * merely EXCLUDE anon — a different and far more delicate question, because the app
+ * reaches many of them through the service role, so a wrong revoke is felt only at
+ * runtime and only by a signed-out visitor.
+ *
+ * ⚠ ORDERING NOTE FOR WHOEVER MERGES THIS: batch 4 (#4524) edits this same file and
+ * was open when batch 5 was written. Whichever lands second must merge, not force.
+ */
+const CLOSED_IN_BATCH_5 = [
+  'drive_copy_artifacts',
+  'event_software_activations_v2',
+  'live_studio_roam_streams',
+  'panood_broadcasts',
+  'vendor_wallets',
+] as const;
+
+const CLOSED = [
+  ...CLOSED_IN_BATCH_1,
+  ...CLOSED_IN_BATCH_2,
+  ...CLOSED_IN_BATCH_3,
+  ...CLOSED_IN_BATCH_5,
+];
 
 /** Every verb PostgREST can reach, plus the one RLS does not cover. */
 const VERBS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE'] as const;

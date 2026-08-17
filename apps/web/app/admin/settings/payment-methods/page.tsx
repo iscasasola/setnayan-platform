@@ -14,6 +14,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { QrUploadForm } from '../_components/qr-upload-form';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { removeMerchantQr, savePaymentInstruments } from '../actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -142,7 +143,16 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
     logQueryError('AdminPaymentMethodsPage (setnayan_pay_methods)', error);
   }
 
-  const rows = ((data ?? []) as PaymentMethodRow[]);
+  /**
+   * ⚠ THIS SURFACE ALREADY GOT THE REFUSED READ RIGHT, AND THE CONVERSION MUST
+   * NOT WEAKEN IT. It branched on `error` FIRST, so the `?? []` below it was
+   * unreachable and never became a lie — one of only two admin surfaces where
+   * that held. `ConsoleTable` resolves in the same order (error beats empty, via
+   * the shared resolver), so the hand-rolled branch is replaced by the archetype
+   * rather than simply deleted, and `null` now carries the distinction to the
+   * render instead of the branch carrying it here.
+   */
+  const rows = data as PaymentMethodRow[] | null;
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -316,93 +326,79 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
           </p>
         </header>
 
-        {error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-          >
-            Payment methods couldn&apos;t load right now. We&apos;ve logged the
-            issue — refresh in a moment or check Sentry for the full detail.
-          </p>
-        ) : rows.length === 0 ? (
-          <p className="rounded-md border border-dashed border-ink/15 bg-white/50 p-3 text-sm text-ink/55">
-            No historical Setnayan Pay rows recorded. (V2 doesn&apos;t write to
-            this table; this is expected on fresh environments.)
-          </p>
-        ) : (
-          <div className="sn-tile overflow-x-auto !p-0">
-            <table className="min-w-full divide-y divide-ink/10 text-sm">
-              <thead className="bg-ink/5">
-                <tr>
-                  <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Method
-                  </th>
-                  <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Gateway fee
-                  </th>
-                  <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Setnayan Pay
-                  </th>
-                  <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Min fee
-                  </th>
-                  <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Total
-                  </th>
-                  <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/10">
-                {rows.map((m) => {
-                  const gatewayPct = Number(m.gateway_fee_pct) * 100;
-                  const setnayanPct = Number(m.setnayan_pay_pct) * 100;
-                  const totalPct = gatewayPct + setnayanPct;
-                  // Coalesce a NULL (pre-migration env) to the canonical ₱50
-                  // floor for display — keeps the cell stable across mixed
-                  // migration states. Post-migration every row carries 5000
-                  // by default.
-                  const minFeeCentavos = m.min_fee_centavos ?? 5000;
-                  const minFeePhp = Math.round(minFeeCentavos / 100);
-                  return (
-                    <tr key={m.method_code} className={m.is_active ? '' : 'opacity-50'}>
-                      <td className="px-3 py-2">
-                        <div className="font-medium text-ink">{m.display_name}</div>
-                        <div className="font-mono text-[11px] text-ink/55">
-                          {m.method_code}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {gatewayPct.toFixed(2)}%
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {setnayanPct.toFixed(2)}%
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        ₱{minFeePhp.toLocaleString('en-PH')}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono font-semibold">
-                        {totalPct.toFixed(2)}%
-                      </td>
-                      <td className="px-3 py-2 text-xs">
-                        {m.is_active ? (
-                          <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 font-medium text-success-800">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center rounded-full bg-ink/10 px-2 py-0.5 font-medium text-ink/55">
-                            Inactive
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <ConsoleTable
+          rows={rows}
+          readPermitted
+          readError={error}
+          reads="the retired Setnayan Pay rates"
+          label="Legacy Setnayan Pay methods"
+          minWidth="46rem"
+          note="Read-only history. Setnayan Pay is not the checkout rail any more, so there is deliberately nothing to press — these rows are kept so an old order's fee can still be explained."
+          rowKey={(m) => m.method_code}
+          empty={{
+            Icon: Wallet,
+            title: 'No historical Setnayan Pay rows',
+            blurb:
+              'V2 never writes to this table, so an empty list is the expected state on a fresh environment — not a sign anything is missing.',
+          }}
+          columns={[
+            {
+              header: 'Method',
+              cell: (m) => (
+                <>
+                  <div className="font-medium text-ink">{m.display_name}</div>
+                  <div className="font-mono text-[11px] text-ink/70">{m.method_code}</div>
+                </>
+              ),
+            },
+            {
+              header: 'Gateway fee',
+              align: 'right',
+              mono: true,
+              hideBelow: 'md',
+              cell: (m) => `${(Number(m.gateway_fee_pct) * 100).toFixed(2)}%`,
+            },
+            {
+              header: 'Setnayan Pay',
+              align: 'right',
+              mono: true,
+              hideBelow: 'md',
+              cell: (m) => `${(Number(m.setnayan_pay_pct) * 100).toFixed(2)}%`,
+            },
+            {
+              header: 'Min fee',
+              align: 'right',
+              mono: true,
+              hideBelow: 'lg',
+              // Coalesce a NULL (pre-migration env) to the canonical ₱50 floor
+              // for display. Post-migration every row carries 5000 by default.
+              cell: (m) => `₱${Math.round((m.min_fee_centavos ?? 5000) / 100).toLocaleString('en-PH')}`,
+            },
+            {
+              header: 'Total',
+              align: 'right',
+              mono: true,
+              cell: (m) => (
+                <span className="font-semibold">
+                  {(Number(m.gateway_fee_pct) * 100 + Number(m.setnayan_pay_pct) * 100).toFixed(2)}%
+                </span>
+              ),
+            },
+            {
+              header: 'Status',
+              cell: (m) =>
+                m.is_active ? (
+                  <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-xs font-medium text-success-800">
+                    Active
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-ink/10 px-2 py-0.5 text-xs font-medium text-ink/70">
+                    Inactive
+                  </span>
+                ),
+            },
+          ]}
+        />
 
         <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
           Source · spec corpus 2026-05-16 (a0fa3c7) · flat 5.0% lock 2026-05-16

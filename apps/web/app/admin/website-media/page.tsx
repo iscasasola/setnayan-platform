@@ -152,7 +152,7 @@ export default async function AdminWebsiteMediaPage() {
                     />
                   ) : null}
 
-                  <MediaTable rows={g.rows} unreadable={Boolean(g.listingError)} />
+                  <MediaTable rows={g.rows} listingError={g.listingError ?? null} />
                 </section>
               ))}
             </div>

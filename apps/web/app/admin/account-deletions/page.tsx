@@ -1,9 +1,13 @@
-import { UserX, Trash2, Ban } from 'lucide-react';
+import { UserX, Trash2, Ban, Inbox } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { EmptyState } from '@/app/_components/states/empty-state';
+import { ErrorState } from '@/app/_components/states/error-state';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 import {
   approveAndBlacklist,
   approveAndDelete,
@@ -47,42 +51,48 @@ type Props = {
   searchParams: Promise<{ actioned?: string }>;
 };
 
+/**
+ * Both reads cap. The recent list passes its own number to ConsoleTable as
+ * `cap`; the pending queue discloses its own below. Two hand-typed copies of a
+ * number is not a guard — these are the constants the queries use.
+ */
+const PENDING_LIMIT = 200;
+const RECENT_LIMIT = 50;
+
 export default async function AdminAccountDeletionsPage({ searchParams }: Props) {
   await requireAdmin();
   const { actioned } = await searchParams;
   const admin = createAdminClient();
-
-  let pending: RequestRow[] = [];
-  let recent: RequestRow[] = [];
-  let queryError: string | null = null;
 
   const { data: pendingData, error: pendingErr } = await admin
     .from('account_deletion_requests')
     .select('request_id,user_id,status,reason,created_at,reviewed_at,admin_note')
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
-    .limit(200);
+    .limit(PENDING_LIMIT);
   if (pendingErr) {
     logQueryError('AdminAccountDeletionsPage (pending)', pendingErr, {}, 'graceful_degrade');
-    queryError = pendingErr.message;
   }
-  pending = (pendingData ?? []) as RequestRow[];
+  // NULL, not []: a refused read must stay distinguishable from a real zero all
+  // the way to the render. `?? []` here is what printed "No pending deletion
+  // requests" on a queue with a 24-hour SLA.
+  const pending = pendingData as RequestRow[] | null;
 
   const { data: recentData, error: recentErr } = await admin
     .from('account_deletion_requests')
     .select('request_id,user_id,status,reason,created_at,reviewed_at,admin_note')
     .neq('status', 'pending')
     .order('created_at', { ascending: false })
-    .limit(50);
+    .limit(RECENT_LIMIT);
   if (recentErr) {
     logQueryError('AdminAccountDeletionsPage (recent)', recentErr, {}, 'graceful_degrade');
   }
-  recent = (recentData ?? []) as RequestRow[];
+  const recent = recentData as RequestRow[] | null;
 
   // Resolve the user behind each request (email / type / internal-guard) in a
   // single IN query — matches the lookup style on /admin/users.
   const userIds = Array.from(
-    new Set([...pending, ...recent].map((r) => r.user_id)),
+    new Set([...(pending ?? []), ...(recent ?? [])].map((r) => r.user_id)),
   );
   const usersById = new Map<string, UserLite>();
   if (userIds.length > 0) {
@@ -97,17 +107,11 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <UserX aria-hidden className="h-6 w-6 text-ink/70" strokeWidth={1.75} />
-          Account deletions
-        </h1>
-        <p className="text-sm text-ink/60">
-          Self-serve deletion requests from Profile &rarr; Privacy &amp; data. Review within 24
-          hours. Approving runs the same hard-delete (or delete + blacklist) as the Users surface,
-          after you&rsquo;ve checked for active events, bookings, or an outstanding balance.
-        </p>
-      </header>
+      <PageMasthead
+        className="mb-6"
+        title="Account deletions"
+        lede="Self-serve deletion requests from Profile → Privacy & data. Review within 24 hours. Approving runs the same hard-delete (or delete + blacklist) as the Users surface, after you’ve checked for active events, bookings, or an outstanding balance."
+      />
 
       {actioned ? (
         <p
@@ -118,23 +122,32 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
         </p>
       ) : null}
 
-      {queryError ? (
-        <p
-          role="alert"
-          className="mb-6 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
-          {queryError}
-        </p>
-      ) : null}
-
       <section className="mb-10">
-        <h2 className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Pending ({pending.length})
+        <h2 className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/70">
+          Pending {pending ? `(${pending.length})` : '(not measured)'}
         </h2>
-        {pending.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-ink/15 px-4 py-8 text-center text-sm text-ink/55">
-            No pending deletion requests. New requests show up here within seconds of being filed.
-          </p>
+        {/* The pending queue is a card list, not a table — ConsoleTable does not
+            apply — but it owes the same distinction, so it resolves against the
+            same two primitives by hand: a refused read reports, and only a read
+            that actually completed may say the queue is clear. */}
+        {pending === null ? (
+          <ErrorState
+            title="Couldn’t read the pending deletion queue"
+            broke={
+              pendingErr?.message
+                ? `The read was refused: ${pendingErr.message}`
+                : 'The read did not complete.'
+            }
+            survived="Nothing loaded, so this is NOT a statement that there are no pending requests — it is a statement that we do not know. Any request filed is still filed, and its 24-hour clock is still running."
+            todo="Reload. If it repeats, the query is being rejected rather than returning nothing, and the column, value or migration it names is the thing to check."
+          />
+        ) : pending.length === 0 ? (
+          <EmptyState
+            Icon={Inbox}
+            readPermitted
+            title="No pending deletion requests"
+            blurb="New requests show up here within seconds of someone filing one from Profile → Privacy & data."
+          />
         ) : (
           <ul className="space-y-4">
             {pending.map((req) => {
@@ -237,57 +250,70 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
       </section>
 
       <section>
-        <h2 className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <h2 className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/70">
           Recently reviewed
         </h2>
-        {recent.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-ink/15 px-4 py-6 text-center text-sm text-ink/55">
-            No reviewed requests yet.
-          </p>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-ink/10">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
-                <tr>
-                  <th className="px-3 py-3 font-medium">Account</th>
-                  <th className="px-3 py-3 font-medium">Status</th>
-                  <th className="hidden px-3 py-3 font-medium md:table-cell">Reviewed</th>
-                  <th className="px-3 py-3 font-medium">Note</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map((req) => {
-                  const u = usersById.get(req.user_id);
-                  return (
-                    <tr key={req.request_id} className="border-t border-ink/5">
-                      <td className="px-3 py-3">
-                        <p className="font-medium text-ink">{u?.email ?? '—'}</p>
-                        <p className="font-mono text-[11px] text-ink/45">{req.request_id}</p>
-                      </td>
-                      <td className="px-3 py-3">
-                        <span
-                          className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                            req.status === 'approved'
-                              ? 'bg-danger-100 text-danger-800'
-                              : req.status === 'rejected'
-                                ? 'bg-warn-100 text-warn-900'
-                                : 'bg-ink/10 text-ink/60'
-                          }`}
-                        >
-                          {req.status}
-                        </span>
-                      </td>
-                      <td className="hidden px-3 py-3 font-mono text-[11px] text-ink/55 md:table-cell">
-                        {req.reviewed_at ? req.reviewed_at.slice(0, 10) : '—'}
-                      </td>
-                      <td className="px-3 py-3 text-ink/70">{req.admin_note ?? '—'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <ConsoleTable
+          rows={recent}
+          readPermitted
+          readError={recentErr}
+          reads="the reviewed deletion requests"
+          cap={RECENT_LIMIT}
+          label="Recently reviewed deletion requests"
+          minWidth="44rem"
+          rowKey={(req) => req.request_id}
+          empty={{
+            Icon: UserX,
+            title: 'No reviewed requests yet',
+            blurb:
+              'Every request you approve or reject above lands here, with the note you left, so the decision stays readable months later.',
+          }}
+          columns={[
+            {
+              header: 'Account',
+              cell: (req) => {
+                const u = usersById.get(req.user_id);
+                return (
+                  <>
+                    <p className="font-medium text-ink">{u?.email ?? '—'}</p>
+                    <p className="font-mono text-[11px] text-ink/70">{req.request_id}</p>
+                  </>
+                );
+              },
+            },
+            {
+              header: 'Status',
+              cell: (req) => (
+                <span
+                  className={`whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                    req.status === 'approved'
+                      ? 'bg-danger-100 text-danger-800'
+                      : req.status === 'rejected'
+                        ? 'bg-warn-100 text-warn-900'
+                        : 'bg-ink/10 text-ink/70'
+                  }`}
+                >
+                  {req.status}
+                </span>
+              ),
+            },
+            {
+              header: 'Reviewed',
+              hideBelow: 'md',
+              mono: true,
+              cell: (req) => (
+                <span className="whitespace-nowrap text-ink/70">
+                  {req.reviewed_at ? req.reviewed_at.slice(0, 10) : '—'}
+                </span>
+              ),
+            },
+            {
+              header: 'Note',
+              hideBelow: 'lg',
+              cell: (req) => <span className="text-ink/70">{req.admin_note ?? '—'}</span>,
+            },
+          ]}
+        />
       </section>
     </div>
   );

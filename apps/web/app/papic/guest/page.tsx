@@ -1,4 +1,5 @@
 import { Camera } from 'lucide-react';
+import { DoorShell } from '@/app/_components/door/door-shell';
 import Link from 'next/link';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -30,17 +31,6 @@ import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-pane
 
 export const dynamic = 'force-dynamic';
 
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
-      <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center shadow-sm">
-        <Camera aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
-        {children}
-      </div>
-    </main>
-  );
-}
-
 export default async function PapicGuestPage({
   searchParams,
 }: {
@@ -51,23 +41,25 @@ export default async function PapicGuestPage({
 
   if (!session) {
     return (
-      <Shell>
-        <h1 className="mt-3 text-xl font-semibold tracking-tight">Open your invitation first</h1>
-        <p className="mt-2 text-sm text-ink/65">
-          Scan your personal QR or open your invite link, then come back here to
-          start shooting candids for the host.
-        </p>
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Guest camera
+          </>
+        }
+        title="Open your invitation first."
+        sub="Scan your personal QR or open your invite link, then come back here to start shooting candids for the host."
+      >
         {/* ⚠ THIS PAGE USED TO END HERE — a heading, a sentence, and nothing to
             press. It is reached from the day-of bar by exactly the people who do
             NOT have an invite (the cousin who scanned the poster at the venue),
             so the browser back button was their only way out on the wedding day. */}
-        <Link
-          href="/"
-          className="mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full border border-ink/20 px-5 text-sm font-medium text-ink transition-colors hover:bg-ink/[0.04]"
-        >
+        <Link href="/" className="button-secondary">
           Back to Setnayan
         </Link>
-      </Shell>
+      </DoorShell>
     );
   }
 
@@ -99,13 +91,17 @@ export default async function PapicGuestPage({
 
   if (!owns) {
     return (
-      <Shell>
-        <h1 className="mt-3 text-xl font-semibold tracking-tight">Guest cameras aren&rsquo;t on yet</h1>
-        <p className="mt-2 text-sm text-ink/65">
-          Guest cameras haven&rsquo;t been turned on for {eventName} yet. Sit
-          back and enjoy the celebration!
-        </p>
-      </Shell>
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Guest camera
+          </>
+        }
+        title="Guest cameras aren’t on yet."
+        sub={`Guest cameras haven’t been turned on for ${eventName} yet. Sit back and enjoy the celebration!`}
+      />
     );
   }
 
@@ -127,14 +123,21 @@ export default async function PapicGuestPage({
   });
   if (gate.state !== 'open') {
     return (
-      <Shell>
-        <h1 className="mt-3 text-xl font-semibold tracking-tight">
-          {gate.state === 'not_open_yet'
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Guest camera
+          </>
+        }
+        title={
+          gate.state === 'not_open_yet'
             ? 'Guest cameras open on the day'
-            : 'Guest cameras have closed'}
-        </h1>
-        <p className="mt-2 text-sm text-ink/65">
-          {gate.state === 'not_open_yet' ? (
+            : 'Guest cameras have closed'
+        }
+        sub={
+          gate.state === 'not_open_yet' ? (
             <>
               Your camera for {eventName} switches on
               {gate.eventDay ? ` on ${gate.eventDay}` : ' on the day of the event'}.
@@ -146,9 +149,9 @@ export default async function PapicGuestPage({
               Thanks for shooting at {eventName} — the cameras are closed now.
               Your photos are still in your gallery.
             </>
-          )}
-        </p>
-      </Shell>
+          )
+        }
+      />
     );
   }
 
@@ -216,14 +219,17 @@ export default async function PapicGuestPage({
 
   if (blockRow) {
     return (
-      <Shell>
-        <h1 className="mt-3 text-xl font-semibold tracking-tight">Camera unavailable</h1>
-        <p className="mt-2 text-sm text-ink/65">
-          Your guest camera for {eventName} has been turned off. Photos you
-          already shared stay in the gallery. If you think this is a mistake,
-          reach out to the host directly.
-        </p>
-      </Shell>
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Guest camera
+          </>
+        }
+        title="Camera unavailable."
+        sub={`Your guest camera for ${eventName} has been turned off. Photos you already shared stay in the gallery. If you think this is a mistake, reach out to the host directly.`}
+      />
     );
   }
 

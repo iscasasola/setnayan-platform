@@ -90,6 +90,18 @@ const DOORS = [
   // 🔑 A CLONE INHERITS THE BUG ITS TWIN ALREADY FIXED. When you fix a page,
   // grep for its own docblock's word "clone".
   'panood/cam/[token]/page.tsx',
+  // The seven gate/dead-end screens ported on the owner's ruling 2026-08-17
+  // ("do all nine"): on every one of them the card only ever said "you can't
+  // come in — go get your link" or "this link is dead". The camera itself is a
+  // different branch and never wore it, so porting could not change any camera.
+  'papic/me/[token]/page.tsx',
+  'papic/seat/[token]/page.tsx',
+  'papic/guest/page.tsx',
+  'papic/decorate/page.tsx',
+  '3d_plan/demo/[token]/page.tsx',
+  // ⚠ pool + pabati are NOT here: they keep a <main> for their live gallery /
+  // recorder, which rule 2 would (correctly) refuse. Their gold was fixed in
+  // the same pass; the colour rule simply does not cover them.
   'vendor/claim/[token]/page.tsx',
   'vendor/claim/[token]/finalize/page.tsx',
   'join/[eventId]/page.tsx',
@@ -228,15 +240,13 @@ const DOOR_CARD_FRAME =
  * and can only shrink.
  */
 const KNOWN_DOOR_CARD_CLONES = [
-  '3d_plan/demo/[token]/page.tsx',
-  'pabati/[eventId]/page.tsx',
+  // Both of these ported their DEAD END to <DoorShell> and keep this card for
+  // their LIVE demo — which is correct: a doorway's wordmark, eyebrow and
+  // threshold edge would announce an entrance to somebody already inside the
+  // thing. They are on the list because the shape is still present, not because
+  // anything is owed.
   'panood/demo/[token]/page.tsx',
-  'papic/decorate/page.tsx',
   'papic/demo/[token]/page.tsx',
-  'papic/guest/page.tsx',
-  'papic/me/[token]/page.tsx',
-  'papic/pool/page.tsx',
-  'papic/seat/[token]/page.tsx',
 ].sort();
 
 test('the door card is not copied onto a new page — the shape, not the list', () => {

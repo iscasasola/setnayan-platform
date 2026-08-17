@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Images } from 'lucide-react';
+import { DoorShell } from '@/app/_components/door/door-shell';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
@@ -29,30 +30,23 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
-      <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center shadow-sm">
-        <Images aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
-        {children}
-      </div>
-    </main>
-  );
-}
-
 export default async function PapicPoolPage() {
   if (!(await papicPoolGalleryActive())) notFound();
 
   const session = await readGuestSession();
   if (!session) {
     return (
-      <Shell>
-        <h1 className="mt-3 text-xl font-semibold tracking-tight">Open your invitation first</h1>
-        <p className="mt-2 text-sm text-ink/65">
-          Scan your personal QR or open your invite link, then come back here to
-          browse everyone&rsquo;s photos.
-        </p>
-      </Shell>
+            <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <Images aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Shared photos
+          </>
+        }
+        title="Open your invitation first."
+        sub="Scan your personal QR or open your invite link, then come back here to browse everyone's photos."
+      />
     );
   }
 
@@ -72,7 +66,7 @@ export default async function PapicPoolPage() {
   return (
     <main className="min-h-screen bg-cream px-4 py-8 text-ink">
       <div className="mx-auto w-full max-w-2xl">
-        <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+        <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-mulberry">
           <Images aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Everyone&rsquo;s photos
         </p>

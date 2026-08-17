@@ -114,7 +114,7 @@ export async function JoinFlow({
                   tap; the hidden select still submits its default "guest" when
                   the details stay collapsed. */}
               <details className="group">
-                <summary className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-terracotta underline-offset-2 hover:underline">
+                <summary className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-link underline-offset-2 hover:underline">
                   My role is special — sponsor, bearer, entourage…
                 </summary>
                 <select
@@ -157,7 +157,7 @@ export async function JoinFlow({
           <p className="mt-4 text-sm text-ink/60">
             Have an account?{' '}
             <Link
-              className="font-medium text-terracotta underline-offset-2 hover:underline"
+              className="font-medium text-link underline-offset-2 hover:underline"
               href={loginHref}
             >
               Sign in
@@ -253,7 +253,7 @@ export async function JoinFlow({
             almost everyone.
           </p>
           <details className="group">
-            <summary className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-terracotta underline-offset-2 hover:underline">
+            <summary className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-link underline-offset-2 hover:underline">
               My role is special — sponsor, bearer, entourage…
             </summary>
             <select

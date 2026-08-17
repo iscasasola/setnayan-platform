@@ -6,6 +6,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { papicSeatAnonEnabled } from '@/lib/papic-seats';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
+import { DoorShell, DoorNotice } from '@/app/_components/door/door-shell';
 
 // Papic · seat claim (public)
 //
@@ -35,16 +36,6 @@ type Props = {
   searchParams: Promise<{ state?: string }>;
 };
 
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
-      <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 shadow-sm">
-        {children}
-      </div>
-    </main>
-  );
-}
-
 export default async function PapicClaimPage({ params, searchParams }: Props) {
   const { token } = await params;
   const { state } = await searchParams;
@@ -60,16 +51,21 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
   // Already taken by someone else.
   if (state === 'taken') {
     return (
-      <Shell>
-        <h1 className="mt-3 flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <CircleAlert aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-          This seat&rsquo;s already taken
-        </h1>
-        <p className="mt-3 text-sm text-ink/65">
-          Someone else in the crew already claimed this one. Ask the host to
-          send you a fresh seat link and you&rsquo;ll be good to go.
-        </p>
-      </Shell>
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <CircleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Papic seat
+          </>
+        }
+        title="This seat's already taken."
+        sub="Someone else in the crew already claimed this one. Ask the host to send you a fresh seat link and you'll be good to go."
+      >
+        <Link href="/" className="button-secondary">
+          Back to Setnayan
+        </Link>
+      </DoorShell>
     );
   }
 
@@ -83,16 +79,21 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
   // Invalid / expired / soft error.
   if (state === 'invalid' || state === 'error') {
     return (
-      <Shell>
-        <h1 className="mt-3 flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <CircleAlert aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-          This link isn&rsquo;t active
-        </h1>
-        <p className="mt-3 text-sm text-ink/65">
-          The host may have reissued this seat. Ask them for your latest
-          claim link and try again.
-        </p>
-      </Shell>
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <CircleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Papic seat
+          </>
+        }
+        title="This link isn't active."
+        sub="The host may have reissued this seat. Ask them for your latest claim link and try again."
+      >
+        <Link href="/" className="button-secondary">
+          Back to Setnayan
+        </Link>
+      </DoorShell>
     );
   }
 
@@ -102,27 +103,30 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
   // signed-in and the login-free (no-account) paths.
   const showSignedInAs = Boolean(user && !isPlaceholderEmail(user.email));
   const claimCta = (
-    <Shell>
-      <h1 className="mt-3 flex items-center gap-2 text-2xl font-semibold tracking-tight">
-        <Sparkles aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-        Claim your photo-crew seat
-      </h1>
-      <p className="mt-3 text-sm text-ink/65">
-        Tap once and your phone turns into a candid camera for the day. Every
-        photo you shoot lands straight in the host&rsquo;s gallery — no app to
-        install{user ? '' : ', no sign-up'}.
-      </p>
+    <DoorShell
+      eyebrow={
+        <>
+          <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Papic
+        </>
+      }
+      title="Claim your photo-crew seat"
+      sub={
+        <>
+          Tap once and your phone turns into a candid camera for the day. Every photo you
+          shoot lands straight in the host&rsquo;s gallery — no app to install
+          {user ? '' : ', no sign-up'}.
+        </>
+      }
+    >
       {botCheckRefused ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-2 text-sm text-ink/80"
-        >
-          That didn&rsquo;t get past our quick &ldquo;are you a robot?&rdquo;
-          check &mdash; usually just a tap that landed a second too early.
-          Your link is fine. Give it one more go.
-        </p>
+        <DoorNotice kind="alert">
+          That didn&rsquo;t get past our quick &ldquo;are you a robot?&rdquo; check &mdash;
+          usually just a tap that landed a second too early. Your link is fine. Give it one
+          more go.
+        </DoorNotice>
       ) : null}
-      <form action={claimPapicSeat} className="mt-5">
+      <form action={claimPapicSeat}>
         <input type="hidden" name="token" value={token} />
         {/*
           🔴 THE STAMP THE ACTION ALREADY ASKED FOR. claimPapicSeat has read
@@ -135,17 +139,15 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
           until a site key is set.
         */}
         <TurnstileField action="papic_seat_claim" />
-        <SubmitButton pendingLabel="Starting…" className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600">
+        <SubmitButton pendingLabel="Starting…" className="button-primary w-full gap-2">
           <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
           {user ? 'Claim my seat & start shooting' : 'Start shooting'}
         </SubmitButton>
       </form>
       {showSignedInAs ? (
-        <p className="mt-3 text-xs text-ink/50">
-          Signed in as {user?.email ?? 'your account'}.
-        </p>
+        <p className="text-xs text-ink/55">Signed in as {user?.email ?? 'your account'}.</p>
       ) : null}
-    </Shell>
+    </DoorShell>
   );
 
   // Signed in (any account, incl. a returning anonymous claimer) → claim CTA.
@@ -157,32 +159,32 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
 
   // Not signed in + login-free OFF → the original sign-in gate (graceful degrade).
   return (
-    <Shell>
-      <h1 className="mt-3 flex items-center gap-2 text-2xl font-semibold tracking-tight">
-        <Camera aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-        You&rsquo;re invited to shoot
-      </h1>
-      {/* Type-neutral, like the signed-in branch above. Papic ships on all 16
-          event types, and this seat may belong to a birthday, a reunion or a
-          Simple Event — "one of the couple … their wedding photo crew" is wrong
-          for 15 of them, and this page has no event loaded to derive a noun
-          from (it resolves a SEAT TOKEN, not an event).
-          🪤 This branch survived the 2026-07-31 copy sweep because it is the
-          SIGNED-OUT one: every pass through this page was made while signed in,
-          so the reviewed render was the other branch. A conditional's other
-          arm is a surface you have not looked at. */}
-      <p className="mt-3 text-sm text-ink/65">
-        Someone asked you to be part of their photo crew. Sign in to claim your
-        seat — then your phone becomes a candid camera and every shot lands in
-        their gallery.
-      </p>
+    <DoorShell
+      eyebrow={
+        <>
+          <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Papic
+        </>
+      }
+      title="You're invited to shoot"
+      /* Type-neutral, like the signed-in branch above. Papic ships on all 16
+         event types, and this seat may belong to a birthday, a reunion or a
+         Simple Event — "one of the couple … their wedding photo crew" is wrong
+         for 15 of them, and this page has no event loaded to derive a noun
+         from (it resolves a SEAT TOKEN, not an event).
+         🪤 This branch survived the 2026-07-31 copy sweep because it is the
+         SIGNED-OUT one: every pass through this page was made while signed in,
+         so the reviewed render was the other branch. A conditional's other
+         arm is a surface you have not looked at. */
+      sub="Someone asked you to be part of their photo crew. Sign in to claim your seat — then your phone becomes a candid camera and every shot lands in their gallery."
+    >
       <Link
         href={`/login?next=${encodeURIComponent(`/papic/claim/${token}`)}`}
-        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600"
+        className="button-primary w-full gap-2"
       >
         <LogIn aria-hidden className="h-4 w-4" strokeWidth={2} />
         Sign in to claim my seat
       </Link>
-    </Shell>
+    </DoorShell>
   );
 }

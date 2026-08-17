@@ -383,7 +383,11 @@ test('vendor capability · the grant is bound to the event it was resolved again
   const cap = await resolveVendorCapability({
     eventId: 'event-A',
     viewerUserId: 'u1',
-    checkVendorBooking: async () => ({ vendorProfileId: 'vp1', businessName: 'San Marco' }),
+    checkVendorBooking: async () => ({
+      vendorProfileId: 'vp1',
+      businessName: 'San Marco',
+      bookingStatus: 'contracted',
+    }),
   });
   assert.equal(cap?.vendorEventId, 'event-A');
   assert.equal(cap?.vendorUserId, 'u1');

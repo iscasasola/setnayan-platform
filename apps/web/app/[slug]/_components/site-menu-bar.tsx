@@ -253,10 +253,11 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
         breakpoint or the pair drifts, which is the whole reason this element
         lives beside the bar rather than on a page wrapper. `rail-fits.test.ts`
         asserts they agree. */}
-    <div
-      aria-hidden
-      className="h-[calc(3.5rem+env(safe-area-inset-bottom))] print:hidden xl:hidden"
-    />
+    {/* ⚠ KEPT ON ONE LINE ON PURPOSE. `bottom-edge.test.ts` matches this
+        attribute order as a single string; splitting it across lines for
+        readability broke that guard in CI. The guard is right and the
+        formatting was mine, so the formatting gives way. */}
+    <div aria-hidden className="h-[calc(3.5rem+env(safe-area-inset-bottom))] print:hidden xl:hidden" />
     {/* The reason, said out loud. Sits ABOVE the bar so it is never the thing
         the bar is covering, and dismisses on its own tap — no click-away layer
         to fight the tabs underneath it. */}

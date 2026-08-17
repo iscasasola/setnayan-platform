@@ -325,10 +325,21 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
         <h2 className="mb-1 sn-eye">
           Add partnership (HQ entry)
         </h2>
-        <p className="mb-4 text-xs text-ink/55">
+        <p className="mb-4 text-xs text-ink/70">
           Propose a partnership on a vendor&apos;s behalf. It lands in the recommended
           vendor&apos;s partnerships inbox — the badge only goes live once THEY accept it.
         </p>
+
+        {/* A truncated PICKER fails worse than a truncated list: the vendor is
+            simply not in the dropdown, and nothing says why. `cap` is a table
+            idea and this is a <select>, so it discloses itself in words. */}
+        {vendorOptions.length >= VENDOR_OPTIONS_LIMIT ? (
+          <p className="mb-4 rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
+            The vendor lists below stop at the first{' '}
+            {VENDOR_OPTIONS_LIMIT.toLocaleString()} shops by name. A shop past that point cannot
+            be picked here yet — it is missing from the list, not missing from Setnayan.
+          </p>
+        ) : null}
 
         <form action={createPartnershipHq} className="grid gap-4 sm:grid-cols-2">
           {/* Recommending vendor */}

@@ -149,6 +149,13 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
             blurb="New requests show up here within seconds of someone filing one from Profile → Privacy & data."
           />
         ) : (
+          <>
+            {pending.length >= PENDING_LIMIT ? (
+              <p className="mb-3 text-xs text-ink/70">
+                Showing the first {PENDING_LIMIT.toLocaleString()}. There are more — this is not
+                the whole queue.
+              </p>
+            ) : null}
           <ul className="space-y-4">
             {pending.map((req) => {
               const u = usersById.get(req.user_id);
@@ -246,6 +253,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
               );
             })}
           </ul>
+          </>
         )}
       </section>
 

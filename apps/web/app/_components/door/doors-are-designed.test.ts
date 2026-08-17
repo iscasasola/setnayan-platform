@@ -247,6 +247,14 @@ const KNOWN_DOOR_CARD_CLONES = [
   // anything is owed.
   'panood/demo/[token]/page.tsx',
   'papic/demo/[token]/page.tsx',
+  // /signup wears the door REGISTER (paper card, 3px terracotta top edge,
+  // terracotta eyebrow and action) but keeps its own 960px TWO-COLUMN
+  // composition — a brand panel beside the form, which <DoorShell> is not and
+  // should not become. It is on this list because the shape is present and the
+  // rule is honest about it, not because a port is owed.
+  // 🔑 The guard caught this the moment the port landed, which is the whole
+  // point of matching a shape rather than a filename.
+  'signup/page.tsx',
 ].sort();
 
 test('the door card is not copied onto a new page — the shape, not the list', () => {

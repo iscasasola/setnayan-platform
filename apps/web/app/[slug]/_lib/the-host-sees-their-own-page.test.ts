@@ -90,12 +90,28 @@ test('the host is recognised from the server-verified capability, not from a req
   // a real auth user whose host membership of THIS event the database confirmed.
   // The event-id comparison is what stops a capability for one event unlocking
   // the host body on another.
+  /*
+   * ⚠ REPOINTED 2026-08-17, AND MAIN WAS RED UNTIL IT WAS.
+   *
+   * This pinned the LITERAL expression `ownerCapability !== null &&
+   * ownerCapability.ownerEventId === event.event_id`. PR #4495 then extracted
+   * exactly that comparison into the shared `viewerIsEventHost(...)` so the
+   * ribbon and the body could not drift apart — a strictly better shape, which
+   * this assertion nonetheless failed, because it pinned the CHARACTERS rather
+   * than the RULE.
+   *
+   * 🔑 A guard that pins an implementation's spelling fails its own refactor.
+   * Pin the question being asked — "is this viewer a verified host of THIS
+   * event?" — and let the answer move. The two things that must stay true are
+   * that it reads the server-verified capability, and that the event id is
+   * compared; `viewerIsEventHost` does both and is itself tested.
+   */
   assert.match(
     BODY,
-    /const viewerIsHost\s*=\s*\n?\s*ownerCapability !== null && ownerCapability\.ownerEventId === event\.event_id;/,
-    'viewerIsHost is no longer `ownerCapability !== null && ownerCapability.ownerEventId === ' +
-      'event.event_id`. If it now keys on a prop, a param or the ribbon model, the host body ' +
-      'is reachable by something other than verified host membership — or silently unreachable.',
+    /const viewerIsHost\s*=\s*viewerIsEventHost\(\s*ownerCapability,\s*event\.event_id,?\s*\)/,
+    'viewerIsHost no longer asks viewerIsEventHost(ownerCapability, event.event_id). ' +
+      'If it now keys on a prop, a param or the ribbon model, the host body is reachable ' +
+      'by something other than verified host membership — or silently unreachable.',
   );
 });
 

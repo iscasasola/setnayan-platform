@@ -1,5 +1,5 @@
 -- ============================================================================
--- THE SECOND LOCK — batch 1 of N. 18 tables no code can reach and anon cannot read.
+-- THE SECOND LOCK — batch 1 of N. 16 tables no code can reach and anon cannot read.
 --
 -- ── WHAT IS ACTUALLY TRUE TODAY (measured in prod 2026-08-17) ──────────────
 --   383 public tables · RLS enabled on ALL 383 · 306 grant `anon` something
@@ -44,11 +44,36 @@
 --      532 of them; none of them are in this batch)
 --   4. NO application code performs `from('<table>')` on it (verified by scan)
 --   5. The table name appears NOWHERE in application source (verified by scan)
+--   6. It is NOT reachable by anon through a `security_invoker` VIEW CHAIN
 --
 -- (4) and (5) together mean there is no query path to change the behaviour of.
 -- 175 of the 212 fail (4) and are deliberately NOT touched here; the 19 that
 -- pass (4) but fail (5) are held back for the next batch, where each mention
 -- gets read first.
+--
+-- 🚨 GATE 6 EXISTS BECAUSE THE FIRST CUT OF THIS MIGRATION WOULD HAVE BROKEN
+-- THE PUBLIC MARKETPLACE, and CI caught it. A `security_invoker` view runs with
+-- the CALLER'S privileges on its base tables, so anon reading such a view needs
+-- the grant on every table underneath it — even though no application code ever
+-- names that table. Gates 4 and 5 look for `from('<table>')` in app source and
+-- find nothing, because the app queries the VIEW.
+--
+--     vendor_market_stats (invoker, anon)
+--       └─ vendor_active_ads (invoker, anon)
+--            └─ vendor_ad_subscriptions   ← was in this batch
+--
+-- Revoking it would have emptied the marketplace listing for every signed-out
+-- visitor. **AND THERE WAS A SECOND ONE THE TEST DID NOT NAME:**
+-- `vendor_tool_bundles` feeds `vendor_active_tools` the same way, with no test
+-- asserting it — so fixing only what CI reported would have shipped the other.
+-- Both are removed from the batch. Enumerate the dependency graph, do not fix
+-- the one instance the failure happened to name.
+--
+-- The check, for the next batch:
+--   walk pg_rewrite/pg_depend from every anon-readable view carrying
+--   `security_invoker=true`, recursively, and exclude every base table it
+--   reaches. A matview or a definer view does NOT count — those run as their
+--   owner and do not consult the caller's grants.
 --
 -- 🪤 READ THE COLUMN DEFAULT BEFORE YOU REVOKE — checked, and it does not
 -- apply: that trap bites when a revoke removes the app's ability to NAME a
@@ -58,7 +83,7 @@
 -- no policy on any of these tables, so no insert can be reaching them now.
 --
 -- ── HOW TO CONTINUE ────────────────────────────────────────────────────────
--- Same five gates, next 20 tables, one migration each, verified in prod by the
+-- Same SIX gates, next ~18 tables, one migration each, verified in prod by the
 -- object between batches. Do NOT convert this into one sweeping
 -- `REVOKE ... ON ALL TABLES` — that is precisely the blunt instrument that
 -- would take the column grants and the reachable tables with it.
@@ -74,14 +99,12 @@ REVOKE ALL ON public.seo_suggestions               FROM anon;
 REVOKE ALL ON public.supplies_order_line_items     FROM anon;
 REVOKE ALL ON public.token_grants_log              FROM anon;
 REVOKE ALL ON public.token_rewards_log             FROM anon;
-REVOKE ALL ON public.vendor_ad_subscriptions       FROM anon;
 REVOKE ALL ON public.vendor_bid_submissions        FROM anon;
 REVOKE ALL ON public.vendor_guest_deliveries       FROM anon;
 REVOKE ALL ON public.vendor_screen_name_sequences  FROM anon;
 REVOKE ALL ON public.vendor_token_boosters         FROM anon;
-REVOKE ALL ON public.vendor_tool_bundles           FROM anon;
 
--- ── TWO OF THE EIGHTEEN EXIST IN PRODUCTION AND IN NO MIGRATION ────────────
+-- ── TWO OF THE SIXTEEN EXIST IN PRODUCTION AND IN NO MIGRATION ─────────────
 -- `event_service_deliveries` and `pioneer_incentive_logs` are real tables in
 -- prod, carrying the same wide anon grant as the rest — and NOTHING in
 -- supabase/migrations/ creates either one. There is no `CREATE TABLE` for them

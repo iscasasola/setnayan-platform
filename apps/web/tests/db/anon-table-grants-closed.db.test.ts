@@ -45,6 +45,21 @@ let db: PGlite;
  * runs against has never heard of them, and asserting on them here would fail
  * for a reason that has nothing to do with grants. The migration revokes them
  * behind a `to_regclass` guard so production is still closed.
+ *
+ * 🚨 `vendor_ad_subscriptions` AND `vendor_tool_bundles` WERE IN THIS BATCH AND
+ * WERE PULLED BACK OUT — the sixth gate, learned here. A `security_invoker`
+ * view runs with the CALLER'S privileges on its base tables, so anon reading
+ * such a view needs the grant on everything underneath it, even though no
+ * application code ever names that table:
+ *
+ *     vendor_market_stats → vendor_active_ads  → vendor_ad_subscriptions
+ *     vendor_active_tools                      → vendor_tool_bundles
+ *
+ * Revoking the first would have emptied the marketplace listing for every
+ * signed-out visitor. CI caught that one. **It did not catch the second** — no
+ * test asserts `vendor_active_tools` — so fixing only the reported failure
+ * would have shipped the other. Enumerate the dependency graph; do not fix the
+ * one instance the failure happened to name.
  */
 const CLOSED_IN_BATCH_1 = [
   'anon_onboarding_ip_throttle',
@@ -57,12 +72,10 @@ const CLOSED_IN_BATCH_1 = [
   'supplies_order_line_items',
   'token_grants_log',
   'token_rewards_log',
-  'vendor_ad_subscriptions',
   'vendor_bid_submissions',
   'vendor_guest_deliveries',
   'vendor_screen_name_sequences',
   'vendor_token_boosters',
-  'vendor_tool_bundles',
 ];
 
 /** Every verb PostgREST can reach, plus the one RLS does not cover. */
@@ -82,7 +95,7 @@ test('META · the replay has the anon role and these tables, so a pass means som
   // Anti-vacuity. `has_table_privilege` on a missing role or relation throws
   // rather than returning false, but a typo'd list would simply be empty and
   // every assertion below would pass by inspecting nothing.
-  assert.ok(CLOSED_IN_BATCH_1.length >= 16, 'the batch list has shrunk — did someone trim it to go green?');
+  assert.ok(CLOSED_IN_BATCH_1.length >= 14, 'the batch list has shrunk — did someone trim it to go green?');
 
   const { rows } = await db.query<{ n: number }>(
     `SELECT count(*)::int AS n FROM pg_class c
@@ -136,6 +149,38 @@ test('the supplier written-off count stays closed to BOTH principals', async () 
       `${role} can read the unredacted completed-event count. Subtracting the public count ` +
         `from it gives that supplier's written-off jobs. If you are building the vendor's own ` +
         `backend card, scope the reader to the caller instead of restoring a blanket grant.`,
+    );
+  }
+});
+
+/**
+ * The other direction of the sixth gate. These two tables LOOK exactly like
+ * batch-1 candidates — anon has the grant, no policy admits anon, no column
+ * grants, and no application code names them anywhere — and revoking either
+ * one breaks a public page, because a `security_invoker` view reads them with
+ * the caller's privileges.
+ *
+ * This test exists so the next batch cannot quietly re-add them by re-running
+ * the same five-gate scan that already picked them once.
+ */
+test('anon KEEPS the grants that a security_invoker view reads on its behalf', async () => {
+  const viewBacked: [string, string][] = [
+    ['vendor_ad_subscriptions', 'vendor_active_ads → vendor_market_stats (the public marketplace listing)'],
+    ['vendor_tool_bundles', 'vendor_active_tools'],
+  ];
+  for (const [table, chain] of viewBacked) {
+    const { rows } = await db.query<{ ok: boolean }>(
+      `SELECT has_table_privilege('anon', $1, 'SELECT') AS ok`,
+      [`public.${table}`],
+    );
+    assert.equal(
+      rows[0]?.ok,
+      true,
+      `anon lost SELECT on ${table}. It is read through ${chain}, and a ` +
+        `security_invoker view uses the CALLER'S privileges on its base tables — so ` +
+        `this revoke empties that view for every signed-out visitor. No application ` +
+        `code names this table, which is exactly why a source scan says it is safe ` +
+        `to revoke and is wrong.`,
     );
   }
 });

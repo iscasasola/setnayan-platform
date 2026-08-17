@@ -110,6 +110,79 @@ export type VendorFunnel = {
  * sliced breakdown is computed separately by the surfaces so each can apply its
  * own min-N suppression presentation. This returns the four whole-vendor totals.
  */
+/**
+ * The same four totals, plus whether they were actually counted.
+ *
+ * ⚠ THIS FILE'S OWN HISTORY IS THE ARGUMENT FOR IT. The note above
+ * `BOOKED_EVENT_VENDOR_STATUSES` records four queries that were rejected by
+ * Postgres for months over a phantom enum label — and the only symptom was a
+ * booked count of zero, because `count ?? 0` cannot tell a refusal from an
+ * empty result. A caller that must SHOW these numbers to somebody needs the
+ * difference; `fetchVendorFunnelTotals` below keeps the plain shape for
+ * callers that only aggregate.
+ */
+export async function fetchVendorFunnelTotalsResult(
+  client: {
+    from: (table: string) => {
+      select: (
+        cols: string,
+        opts?: { count?: 'exact'; head?: boolean },
+      ) => any;
+    };
+  },
+  vendorProfileId: string,
+  sinceIso: string,
+): Promise<{
+  totals: { views: number; inquiries: number; quotes: number; booked: number } | null;
+  error: { message: string } | null;
+}> {
+  const [viewsRes, inquiriesRes, quotesRes, bookedRes] = await Promise.all([
+    client
+      .from('vendor_profile_views')
+      .select('view_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfileId)
+      .gte('viewed_at', sinceIso),
+    client
+      .from('chat_threads')
+      .select('thread_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfileId)
+      .gte('created_at', sinceIso),
+    client
+      .from('vendor_proposals')
+      .select('proposal_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfileId)
+      .in('status', SENT_PROPOSAL_STATUSES as unknown as string[])
+      .gte('created_at', sinceIso),
+    client
+      .from('event_vendors')
+      .select('vendor_id', { count: 'exact', head: true })
+      .eq('marketplace_vendor_id', vendorProfileId)
+      .in('status', BOOKED_EVENT_VENDOR_STATUSES as unknown as string[])
+      .gte('created_at', sinceIso),
+  ]);
+
+  const parts = [viewsRes, inquiriesRes, quotesRes, bookedRes];
+  const failed = parts.find((p) => p.error)?.error ?? null;
+  if (failed || parts.some((p) => p.count === null)) {
+    return {
+      totals: null,
+      error: failed
+        ? { message: String(failed.message ?? failed) }
+        : { message: 'A stage of this funnel returned no count.' },
+    };
+  }
+
+  return {
+    totals: {
+      views: viewsRes.count as number,
+      inquiries: inquiriesRes.count as number,
+      quotes: quotesRes.count as number,
+      booked: bookedRes.count as number,
+    },
+    error: null,
+  };
+}
+
 export async function fetchVendorFunnelTotals(
   // Loosely typed to accept either the RLS server client or the admin client —
   // both share the PostgREST query surface we use here.

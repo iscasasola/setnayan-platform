@@ -57,11 +57,6 @@ const code = (src: string): string =>
 const read = (rel: string) => readFileSync(join(ADMIN, rel), 'utf8');
 const ARCHETYPE = '_components/console-table.tsx';
 
-/**
- * Reads whose NULL result denies rather than renders. Each entry is a claim that
- * an absence here fails CLOSED, and must cite why. A line is not an excuse — it is
- * a measured statement about the failure mode, and it belongs nowhere else.
- */
 const FAILS_CLOSED_ON_NULL: Array<{ file: string; varName: string; proof: RegExp }> = [
   {
     file: 'accounts/_surfaces/demo-vendors-surface.tsx',
@@ -97,6 +92,7 @@ function exemptionHolds(rel: string, varName: string, src: string): boolean {
   return e.proof.test(src);
 }
 
+
 /**
  * The converted surfaces. The first tranche was deliberately the pure records
  * lists, where the whole page IS the table — those prove the archetype on real
@@ -113,12 +109,10 @@ function exemptionHolds(rel: string, varName: string, src: string): boolean {
 const CONVERTED = [
   // The judgement queues + the money desks, 2026-08-17.
   // ⚠ ON TWO OF THESE THE TABLE WAS NOT WHERE THE LIE WAS: /admin/fraud's queue and
-  // /admin/approvals' pending list are <ul>s of cards, and their <table> is the
-  // audit trail at the bottom. Converting the table alone would have fixed the
-  // trail and left the reassuring sentence where it was — a GREEN TICK over "No
-  // open fraud signals.", and "No approvals pending. Set na 'yan." on the queue
-  // whose only job is that a second admin looks. The card lists use <ErrorState>
-  // directly; it is not table-specific.
+  // /admin/approvals' pending list are <ul>s of cards; their <table> is the audit
+  // trail at the bottom. Converting the table alone would have fixed the trail and
+  // left a GREEN TICK over "No open fraud signals." exactly where it was. The card
+  // lists use <ErrorState> directly — it is not table-specific.
   // 🔑 CONVERTING A FILE'S TABLE IS NOT THE SAME AS MAKING THAT FILE HONEST.
   'approvals/page.tsx',
   'budget-planner/page.tsx',
@@ -147,6 +141,15 @@ const CONVERTED = [
   'studio/_surfaces/real-stories-surface.tsx',
   'studio/_surfaces/referrals-surface.tsx',
   'studio/_surfaces/storytellers-surface.tsx',
+  // The App Performance studio — six surfaces, seven tables. These are the
+  // MEASUREMENT screens, where a zero printed over a refused read is not a
+  // small error: it is a graph saying the business stopped.
+  'app-performance/_components/expenses.tsx',
+  'app-performance/_surfaces/browser-blocks-surface.tsx',
+  'app-performance/_surfaces/funnels-surface.tsx',
+  'app-performance/_surfaces/intelligence-surface.tsx',
+  'app-performance/_surfaces/operations-surface.tsx',
+  'app-performance/_surfaces/seo-surface.tsx',
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -178,12 +181,7 @@ const CONVERTED = [
 const RAW_TABLE_BILL = [
   'account-deletions/page.tsx',
   // The five `accounts/_surfaces/*` lines were here. Converted 2026-08-17.
-  'app-performance/_components/expenses.tsx',
-  'app-performance/_surfaces/browser-blocks-surface.tsx',
-  'app-performance/_surfaces/funnels-surface.tsx',
-  'app-performance/_surfaces/intelligence-surface.tsx',
-  'app-performance/_surfaces/operations-surface.tsx',
-  'app-performance/_surfaces/seo-surface.tsx',
+  // The six `app-performance/*` lines were here. Converted 2026-08-17.
   'completions/page.tsx',
   'compliance/data-sheet/page.tsx',
   'demo-vendors/inquiries/page.tsx',

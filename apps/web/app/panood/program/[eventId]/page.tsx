@@ -26,7 +26,7 @@ import { deriveMonogram } from '@/lib/monogram';
 import { PanoodProgramSurface } from './program-surface';
 
 export const metadata = {
-  title: 'Program output · Setnayan',
+  title: 'Program output',
   // A capture surface, never a page anyone should reach from search.
   robots: { index: false, follow: false },
 };

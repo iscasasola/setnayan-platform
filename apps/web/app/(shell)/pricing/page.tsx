@@ -77,7 +77,7 @@ import { resolveAiPrices } from '@/app/_components/home/pricing-data';
 */
 
 export const metadata = {
-  title: 'Pricing · Setnayan',
+  title: 'Pricing',
   description:
     'Plan for free. Add Setnayan AI and the software you actually use at your event, at transparent PHP prices. 0% commission on vendor bookings. Vendors keep 100%.',
   alternates: { canonical: '/pricing' },

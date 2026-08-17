@@ -53,7 +53,7 @@ import { CandidateDatePicker, type CandidateInsight } from './_components/candid
 import { ChineseSpecialistNudge } from './_components/chinese-specialist-nudge';
 import { markDateUndecided } from './actions';
 
-export const metadata = { title: 'Pick your date · Setnayan' };
+export const metadata = { title: 'Pick your date' };
 
 // `isCeremonyType` is imported from lib/auspicious-date.ts. This READ path used
 // to carry its OWN 8-member copy while the write path (./actions.ts) accepted

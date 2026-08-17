@@ -38,7 +38,7 @@ import { formatCalendarDate } from '@/lib/events';
 // a short-lived booth session token so any phone scanning the QR can access
 // the dashboard without a Setnayan account — see TODO(0017-phase4.2).
 
-export const metadata = { title: 'Patiktok Booth · Setnayan' };
+export const metadata = { title: 'Patiktok Booth' };
 
 type Props = {
   params: Promise<{ eventId: string }>;

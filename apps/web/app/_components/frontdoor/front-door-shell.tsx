@@ -1269,7 +1269,7 @@ export function FrontDoorShell({
             bring the host page's headings with it.
           */}
           {ownsHeading ? null : (
-            <h1 className="fd-sr-only">Setnayan — plan your event, keep it for life</h1>
+            <h1 className="fd-sr-only">Setnayan — plan your event, keep it together</h1>
           )}
           <div className={isBleed ? 'fd-col fd-bleed' : 'fd-col'}>{children}</div>
         </MainEl>

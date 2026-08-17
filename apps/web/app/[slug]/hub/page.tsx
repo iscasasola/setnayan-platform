@@ -99,7 +99,7 @@ export const metadata: Metadata = {
   // page. Static on purpose: the event's name is behind the canViewSlugEvent
   // gate below, and a private event's name must not leak into a tab title or a
   // bookmark on a page that is deliberately noindex.
-  title: 'Live hub · Setnayan',
+  title: 'Live hub',
   robots: { index: false, follow: false },
 };
 

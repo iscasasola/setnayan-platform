@@ -10,7 +10,7 @@ import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
 import { acceptCommunityInvite } from './actions';
 
 export const metadata = {
-  title: 'Join a Samahan · Setnayan',
+  title: 'Join a Samahan',
   robots: { index: false, follow: false },
 };
 

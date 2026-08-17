@@ -18,7 +18,7 @@ import {
   type AdminQueueDueState,
 } from '@/lib/admin/queue-counts';
 
-export const metadata = { title: 'Overview · Setnayan HQ' };
+export const metadata = { title: 'Overview HQ' };
 
 function take(c: number | null | undefined): number | null {
   return typeof c === 'number' ? c : null;

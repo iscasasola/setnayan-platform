@@ -72,7 +72,7 @@ const ARC: ReadonlyArray<Stage> = [
     ],
   },
   {
-    eyebrow: 'Kept forever',
+    eyebrow: 'Kept together',
     title: 'Your front-page story',
     line: 'One living page that moves and grows — yours to keep, and to hold in your hands when you want to.',
     chips: [{ key: 'landing-page' }, { key: 'photo-delivery' }, { key: 'indoor-blueprint' }],

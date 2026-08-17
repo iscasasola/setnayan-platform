@@ -10,7 +10,7 @@ import { fetchEntrance } from '@/lib/indoor-blueprint';
 import { BlueprintStudio } from './_components/blueprint-studio';
 import { saveEntrance } from './actions';
 
-export const metadata = { title: 'Indoor Blueprint · Setnayan' };
+export const metadata = { title: 'Indoor Blueprint' };
 
 /**
  * /dashboard/[eventId]/studio/indoor-blueprint — the couple-facing Indoor

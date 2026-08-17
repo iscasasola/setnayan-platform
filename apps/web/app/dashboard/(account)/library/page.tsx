@@ -156,7 +156,7 @@ export default async function AlaalaPage({
         <div className="space-y-2">
           <p className="sn-eye">
             <Sparkles aria-hidden strokeWidth={1.75} />
-            Kept for life
+            All in one place
           </p>
           <h1 className="sn-h1">Alaala</h1>
           <p className="max-w-prose text-base text-ink/65">

@@ -119,7 +119,7 @@ export function LifeStoryInline() {
         />
         <Facet
           icon={InfinityIcon}
-          title="Kept for life"
+          title="All in one place"
           body="Yours to revisit, gathered while you’re living it."
         />
       </div>

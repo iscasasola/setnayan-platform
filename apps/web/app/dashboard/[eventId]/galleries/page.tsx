@@ -11,7 +11,7 @@ import { resolveAddOnState } from '@/lib/add-on-state';
 import { liveStudioControllerHref } from '@/lib/live-studio-control';
 import { RevealList } from '@/app/_components/reveal-list';
 
-export const metadata = { title: 'Galleries · Setnayan' };
+export const metadata = { title: 'Galleries' };
 
 type Props = { params: Promise<{ eventId: string }> };
 

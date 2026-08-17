@@ -15,7 +15,7 @@ import type { EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 
-export const metadata = { title: 'Find your table · Setnayan' };
+export const metadata = { title: 'Find your table' };
 
 // Guest-facing, gated, behind a session cookie — never statically cached.
 export const dynamic = 'force-dynamic';

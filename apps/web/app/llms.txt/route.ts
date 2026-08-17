@@ -37,7 +37,7 @@ const HEADERS = {
 const FALLBACK = `# Setnayan
 
 > Setnayan (SET-na-yan) is the Philippines-first life-events platform — plan a
-> celebration, capture it with the people who came, and keep it for life.
+> celebration, capture it with the people who came, and keep it together.
 > Built and operated in the Philippines. 0% commission on vendor bookings.
 
 Live pricing could not be resolved for this render, and this file never quotes a

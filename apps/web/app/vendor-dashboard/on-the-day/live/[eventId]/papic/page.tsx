@@ -10,7 +10,7 @@ import { fetchVendorPapicAllowance } from '@/lib/vendor-papic-grants';
 import { PapicCaptureController } from '../_components/papic-capture-controller';
 import { OwnCapturesStrip } from '../_components/own-captures-strip';
 
-export const metadata = { title: 'Papic capture · On the Day · Setnayan' };
+export const metadata = { title: 'Papic capture · On the Day' };
 
 /** PH wall-clock today (UTC+8) as 'YYYY-MM-DD'. */
 function phToday(): string {

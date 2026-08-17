@@ -1131,7 +1131,7 @@ const BUNDLE_BENEFIT: Record<string, string> = {
   advanced_website: "One link replaces 200 group-chat messages. RSVP, schedule, dress code, photos — your guests find their own answers, you stay present.",
   papic_guest: "One shared pool of shots that every guest's phone can spend from — their candids land in your gallery live, so you keep the unposed moments a single photographer would miss. Top it up any time; what you add stacks on what you already have.",
   guest_stories: "Tito Boy's joke, Lola's blessing, your maid of honor's tears — short video greetings captured at the event, before the night blurs.",
-  pabati: "A video guestbook — short wishes from everyone you love, kept forever. Better than a signed card you'll file away and forget.",
+  pabati: "A video guestbook — short wishes from everyone you love, kept. Better than a signed card you'll file away and forget.",
   papic_seats: "A camera of its own for the friend who always sees the moment first — its own QR, its own shots that nobody else can spend. Add as many as you like, reload any of them whenever one runs low.",
   animated_monogram: "Your monogram drawn in gold the moment a guest opens the invite — the small detail that says we took our wedding seriously.",
   thank_you: "A personalised thank-you video to send after the wedding — beats handwriting 200 cards, feels more like you.",

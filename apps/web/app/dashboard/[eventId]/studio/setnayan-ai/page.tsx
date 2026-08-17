@@ -19,7 +19,7 @@ import type { AiValueTerms } from './_components/setnayan-ai-value-copy';
 import { setPlanningMode } from '@/app/dashboard/[eventId]/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
-export const metadata = { title: 'Setnayan AI · Setnayan' };
+export const metadata = { title: 'Setnayan AI' };
 
 /**
  * /dashboard/[eventId]/studio/setnayan-ai — the BUY surface for the Setnayan AI

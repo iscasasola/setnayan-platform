@@ -20,7 +20,7 @@ import { CamJoinFlow } from './_components/cam-join-flow';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Live Studio demo · Setnayan',
+  title: 'Live Studio demo',
   description: 'A live, no-signup demo of the Setnayan Live Studio control room.',
   robots: { index: false, follow: false },
 };

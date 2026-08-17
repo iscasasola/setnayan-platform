@@ -18,7 +18,7 @@ import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome'
 */
 
 export const metadata = {
-  title: 'Terms of service · Setnayan',
+  title: 'Terms of service',
   description:
     'The terms couples and vendors agree to when using Setnayan. Eligibility, account responsibilities, payments and refunds, content ownership, vendor rules, liability, and governing law (Philippines).',
   alternates: { canonical: '/terms' },

@@ -1365,7 +1365,7 @@ export async function SiteBody({
                   {isPost && showClaimAccountCta ? (
                     <p className="mt-3 rounded-lg border-l-2 border-gild bg-veil/60 px-3 py-2 text-sm text-ink/80">
                       These close about a day after the wedding. Save the ones you want now —
-                      or make a free account (the box near the top) to keep them forever.
+                      or make a free account (the box near the top) to keep them.
                     </p>
                   ) : null}
                   {/* 3-up (not 4-up) so the photos — and the readable "Not me" control —

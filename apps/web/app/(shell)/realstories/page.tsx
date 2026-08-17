@@ -75,7 +75,7 @@ const HUB_DESCRIPTION =
 */
 
 export const metadata: Metadata = {
-  title: 'Stories · Setnayan',
+  title: 'Stories',
   description: HUB_DESCRIPTION,
   alternates: { canonical: '/realstories' },
   keywords: [

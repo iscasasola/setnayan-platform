@@ -29,3 +29,29 @@ Verification: typecheck clean · 8,578 unit tests · invariants measured on comm
 ⚠ **NOT OBSERVED.** Both surfaces are behind the admin login, so this is test-proved and measured, never seen.
 
 SPEC IMPACT: None — internal admin surfaces and one shared query module. No schema, no migration.
+
+---
+
+### 🛑 A RULE I TRIED TO ADD, MEASURED, AND DID NOT SHIP
+
+The lane-D session gave me a sharp caveat on my read-binding rule: **"binding the error is not the finish line"** — a page can bind it and still render nothing about it, and `'—'` is *already* the legitimate value for a shop with no name or an account with no email, so a silent fallback is not merely quiet, it is **ambiguous with a real value**. The proposed check was *"the bound error reaches JSX"*.
+
+I implemented it and measured it across all 33 converted files before shipping. **It over-reaches, and I am not shipping it.**
+
+The measurement, and each step is worth more than the result:
+
+| pass | flagged | what changed |
+|---|---|---|
+| 1 | *"0 offenders ✅"* | **meaningless** — my extractor matched apostrophes inside comments, so I measured a list of prose fragments and got a clean pass from nonsense |
+| 2 | 18 | list validated against disk first |
+| 3 | 7 | counted flags derived by ASSIGNMENT, not only declaration |
+| 4 | 6 | counted assignments inside an `if`, which do not start a line |
+| read | **0 genuine** | read the survivors instead of trusting the count |
+
+**Every survivor I read was correct code.** `venues-surface` and `disputes` both bind the error, log it, and then carry honesty through `const measured = Array.isArray(rows)` — derived from the **data being null**, not from the error identifier.
+
+🔑 **SO THE CHECKABLE INVARIANT IS NOT "THE ERROR REACHES THE RENDER".** It is *"something derived from not-having-measured reaches the render"* — and that fact is legitimately carried by **either** the error **or** the null data. A rule demanding the error specifically would fail six correct files, and this repo has direct evidence today of what that costs: **a guard that cries wolf teaches you to skim past the one time it is right.**
+
+⚖ Recorded rather than shipped, and recorded rather than silently dropped, so the next attempt starts from the sharper invariant instead of re-deriving the wrong one. The same applies to lane D's other caveat — a read inside a `try` whose `catch` resolves to zero makes the identical claim by a different route, and any implementation must see both arms.
+
+🪤 **AND THE FIRST MEASUREMENT RETURNED A REASSURING GREEN FROM A BROKEN EXTRACTOR** — "every bound error reaches the render ✅", computed over a list that contained `"s queue and"` and `","`. **Validate the list before trusting what it says about the code**; an extractor that matched the wrong thing produces a clean pass, not an error.

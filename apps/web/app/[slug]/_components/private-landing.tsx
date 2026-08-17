@@ -5,6 +5,7 @@ import type { MonogramConfig } from '@/lib/monogram';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
 import type { EventRow } from '../_lib/types';
 import { InvitationShell } from './invitation-shell';
+import { eventWordsFor } from '../_lib/event-words';
 
 /**
  * Locked screen for landing-page-visibility='private' (CLAUDE.md 2026-05-22).
@@ -15,7 +16,7 @@ import { InvitationShell } from './invitation-shell';
  * visible so the visitor can confirm they have the right wedding and reach
  * out to the hosts if they should have access.
  */
-export function PrivateLanding({
+export async function PrivateLanding({
   event,
   monogram,
   animatedMonogram,
@@ -39,6 +40,11 @@ export function PrivateLanding({
    *  pre-gated --color-* overrides (null when inert). Renders as today when null. */
   siteColorVars: Record<string, string> | null;
 }) {
+  // This screen is the FIRST thing anyone sees on a private event, and it told
+  // a movie night it was a wedding: "This wedding's page is private · Only the
+  // couple's guests…". Wedding → 'wedding'/'the couple', so a wedding reads
+  // byte-identically; every other type finally names itself.
+  const words = await eventWordsFor(event.event_type);
   return (
     <InvitationShell
       rolePalette={event.role_palette}
@@ -73,16 +79,16 @@ export function PrivateLanding({
             strokeWidth={1.5}
           />
           <h2 className="font-serif text-2xl italic tracking-tight">
-            This wedding&rsquo;s page is private
+            This {words.eventWord}&rsquo;s page is private
           </h2>
           <p className="text-sm text-ink/70">
-            Only the couple&rsquo;s guests and moderators can view it. If you should
+            Only {words.theOrganizerPossessive} guests and moderators can view it. If you should
             have access, please ask your hosts to add you to the guest list.
           </p>
         </div>
 
         <p className="text-xs text-ink/45">
-          Already invited? Open the personal link the couple sent you, or scan your
+          Already invited? Open the personal link {words.theOrganizer} sent you, or scan your
           invitation QR.
         </p>
       </div>

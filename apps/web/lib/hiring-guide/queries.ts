@@ -20,6 +20,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import type {
   BottleneckSignalsRow,
   HiringRoadmapEntry,
@@ -163,11 +164,19 @@ export async function getMilestoneForecasts(
 ): Promise<MilestoneForecast[]> {
   const supabase = createAdminClient();
 
-  // Last 4 weeks of weekly signups
-  const { data: weeklySignups } = await supabase
+  // Last 4 weeks of weekly signups.
+  // ⚠ THE ERROR WAS NOT BOUND, and `?? []` followed at three sites — so a refused
+  // read set the weekly rate, the recent count and the prior count all to zero,
+  // every forecast returned without a date, and the admin screen printed
+  // "Insufficient signup data": a claim about growth from a query nobody checked.
+  const { data: weeklySignups, error: signupsError } = await supabase
     .from('vendor_profiles')
     .select('created_at')
     .gte('created_at', new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString());
+  if (signupsError) {
+    logQueryError('getMilestoneForecasts.weeklySignups', signupsError, {}, 'graceful_degrade');
+  }
+  const signupsMeasured = Array.isArray(weeklySignups);
 
   const weeklyCount = (weeklySignups ?? []).length / 4;
 
@@ -188,6 +197,7 @@ export async function getMilestoneForecasts(
     const remaining = Math.max(0, target.value - currentVerifiedActive);
     if (remaining === 0) {
       return {
+        signups_measured: signupsMeasured,
         milestone_label: target.label,
         milestone_target: target.value,
         current_value: currentVerifiedActive,
@@ -199,6 +209,7 @@ export async function getMilestoneForecasts(
 
     if (weeklyCount <= 0) {
       return {
+        signups_measured: signupsMeasured,
         milestone_label: target.label,
         milestone_target: target.value,
         current_value: currentVerifiedActive,
@@ -216,6 +227,7 @@ export async function getMilestoneForecasts(
     const forecastDate = new Date(Date.now() + weeksProjected * 7 * 24 * 60 * 60 * 1000);
 
     return {
+      signups_measured: signupsMeasured,
       milestone_label: target.label,
       milestone_target: target.value,
       current_value: currentVerifiedActive,

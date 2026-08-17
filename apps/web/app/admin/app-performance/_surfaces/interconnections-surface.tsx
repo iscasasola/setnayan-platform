@@ -1,5 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { PROBES } from '@/lib/interconnect/probes';
+
+/** One number: the query reads it and the disclosure below names it. */
+const ROW_LIMIT = 400;
 import { UGAT_JOINTS } from '@/lib/ugat/graph';
 import { VERDICT_COPY, isFault, type ProbeVerdict } from '@/lib/interconnect/verdict';
 
@@ -58,12 +62,33 @@ function ago(iso: string): string {
 export async function InterconnectionsSurface() {
   // Small table, few probes — pull a window and reduce in memory rather than
   // reaching for a DISTINCT ON. 400 rows is ~50 days at the current tick rate.
-  const { data } = await createAdminClient()
+  const { data, error } = await createAdminClient()
     .from('interconnection_probe_runs')
     .select('probe_key, joint_id, verdict, subject_count, truth_count, detail, ran_at')
     .order('ran_at', { ascending: false })
-    .limit(400);
+    .limit(ROW_LIMIT);
+  if (error) {
+    logQueryError('InterconnectionsSurface', error, {}, 'graceful_degrade');
+  }
 
+  // ⚠ THE ERROR WAS DESTRUCTURED AWAY ENTIRELY, AND ON THIS SURFACE THAT IS THE
+  // WORST POSSIBLE PLACE FOR IT. Supabase resolves with `{ error }`, so a refused
+  // read arrived as null, `?? []` made the ledger empty, and because the list is
+  // driven by the PROBE REGISTRY every card fell to `run: null` — rendering
+  // "Never run" on EVERY probe, plus a banner announcing that all of them had
+  // never run, plus a plausible reason ("a quiet site means a quiet ledger").
+  // A health monitor stating at full confidence that nothing has ever been
+  // checked, and explaining its own wrong answer convincingly.
+  //
+  // 🔑 A REGISTRY-DRIVEN LIST MAKES A REFUSED READ LOUDER, NOT QUIETER. Every other
+  // instance of this defect renders an absence that looks like NOTHING; this one
+  // renders an absence that looks like a CATASTROPHE. Both are lies, and this one
+  // either sends somebody chasing an outage that does not exist or gets dismissed
+  // as obviously broken — either way the real signal is gone.
+  // ⚖ The registry-driven design is CORRECT and is NOT changed: its own docblock
+  // explains that a probe which has genuinely never run must say so. What changes
+  // is that "never run" is now only claimable when the ledger was actually read.
+  const measured = Array.isArray(data);
   const rows = (data ?? []) as LedgerRow[];
   const latest = new Map<string, LedgerRow>();
   for (const r of rows) if (!latest.has(r.probe_key)) latest.set(r.probe_key, r);
@@ -74,7 +99,8 @@ export async function InterconnectionsSurface() {
   // page looking complete.
   const cards = PROBES.map((p) => ({ probe: p, run: latest.get(p.key) ?? null }));
   const faults = cards.filter((c) => c.run && isFault(c.run.verdict));
-  const neverRan = cards.filter((c) => !c.run);
+  // Only a MEASURED ledger can tell you a probe never ran.
+  const neverRan = measured ? cards.filter((c) => !c.run) : [];
 
   return (
     <section>
@@ -93,7 +119,23 @@ export async function InterconnectionsSurface() {
         </p>
       ) : null}
 
-      {neverRan.length > 0 ? (
+      {!measured ? (
+        <div
+          role="alert"
+          className="mb-5 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <p>
+            <strong className="text-ink">The probe ledger could not be read.</strong> Every
+            probe below shows <em>Unknown</em>, not <em>Never run</em> — those are different
+            answers and only one of them is a finding.
+          </p>
+          <p className="mt-2">
+            Nothing here says the probes stopped, and nothing here says they are fine.
+            Reload; if it repeats, treat the platform&rsquo;s health as unknown and hand
+            this to an engineer{error?.message ? `: ${error.message}` : '.'}
+          </p>
+        </div>
+      ) : neverRan.length > 0 ? (
         <p className="mb-5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-inset ring-amber-600/20">
           {neverRan.length} probe{neverRan.length === 1 ? ' has' : 's have'} never run. Probes fire
           from public-site traffic, so a quiet site means a quiet ledger — this is not a pass.
@@ -113,7 +155,7 @@ export async function InterconnectionsSurface() {
                 {probe.jointId ? ` · Ugat ${probe.jointId}` : ''}
               </p>
               <p className="mt-2 text-sm text-ink/70">
-                {run?.detail ?? 'No result recorded yet.'}
+                {run?.detail ?? (measured ? 'No result recorded yet.' : 'Not read.')}
               </p>
             </div>
 
@@ -123,7 +165,7 @@ export async function InterconnectionsSurface() {
                   run ? VERDICT_STYLE[run.verdict] : 'bg-ink/5 text-ink/60 ring-ink/15'
                 }`}
               >
-                {run ? VERDICT_COPY[run.verdict] : 'Never run'}
+                {run ? VERDICT_COPY[run.verdict] : measured ? 'Never run' : 'Unknown'}
               </span>
               {run ? (
                 <p className="mt-1.5 text-xs text-ink/50">

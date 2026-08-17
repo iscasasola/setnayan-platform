@@ -64,6 +64,19 @@ export type HiringRoadmapEntry = {
 };
 
 export type MilestoneForecast = {
+  /**
+   * FALSE when the signup read behind `weekly_growth_rate` never completed.
+   * OPTIONAL on purpose — the alert engine and the email renderer read this type
+   * and neither needs to change; an unaware consumer behaves exactly as before.
+   *
+   * ⚠ WHY IT EXISTS. `getMilestoneForecasts` destructured its signups read
+   * without binding the error and then coerced with `?? []` at three sites, so a
+   * refused read made the weekly rate, the recent count and the prior count all
+   * zero — and every forecast came back with no date, which the admin screen
+   * rendered as "Insufficient signup data". **A statement about how the business
+   * is growing, produced by a query nobody checked.**
+   */
+  signups_measured?: boolean;
   milestone_label: string;
   milestone_target: number;
   current_value: number;

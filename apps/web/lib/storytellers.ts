@@ -286,6 +286,19 @@ export async function loadChapterCutsForEvents(
       .select('public_id, user_id, event_id, published_at, embed_url')
       .eq('status', 'published')
       .in('event_id', ids)
+      // 🔴 THE HOST'S DECISION GATES THIS, AND IT IS THE LOAD-BEARING LINE.
+      // Since 2026-08-15 a supplier who worked a celebration may attach their
+      // own chapter to it (owner ruling). Attaching is the AUTHOR's act;
+      // appearing on the couple's day is the HOST's — "they can create a column
+      // for that story, and the user can decide to add it or not."
+      //
+      // This chip is Setnayan speaking about somebody's wedding on a public
+      // shelf. Without this predicate, widening who may attach would put a
+      // business's page on a family's day with no say from that family —
+      // strictly worse than the hosts-only behaviour it replaces.
+      // ⚠ A chapter written by the host stamps itself included (DB trigger), so
+      // this never hides a couple's own story from their own day.
+      .not('host_included_at', 'is', null)
       .order('published_at', { ascending: false });
     const rows = (data ?? []) as Pick<
       ChapterRow,

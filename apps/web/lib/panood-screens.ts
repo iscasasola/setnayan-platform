@@ -30,6 +30,43 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * state rather than crashing — matches the panood-camera-seats.ts posture.
  */
 
+/**
+ * 🔴 OWNER RULING 2026-08-17 — A LIVE STUDIO SCREEN AND THE LIVE PHOTO WALL ARE
+ * DIFFERENT THINGS. Asked directly ("is a Live Studio screen the same object as
+ * the Live Photo Wall, or a separate kind of display?"), the owner answered:
+ * "no. they are different." That question had been open since 2026-07-21 and it
+ * is now CLOSED. Do not re-ask it, and do not merge the two.
+ *
+ * ⚠ THIS VALUE IS THEREFORE WRONG, AND KNOWING WHY MATTERS MORE THAN THE 404.
+ * `/wall` is the Live PHOTO WALL's route, and `app/wall/[eventId]/page.tsx`
+ * gates on `eventSkuActive(..., 'LIVE_WALL')` — a different product's SKU. Two
+ * separate defects sit on top of each other here:
+ *
+ *   1. the only wall route is `/wall/[eventId]`, so `/wall?code=…` is a 404; and
+ *   2. even if that route accepted a code, a Live Studio screen would then only
+ *      work for a couple who ALSO bought the Live Photo Wall.
+ *
+ * (2) is the one the ruling forbids. So the repair is NOT to teach `/wall` about
+ * pairing codes — that is precisely the merge. A Live Studio screen needs its
+ * OWN pairing route, gated on the Live Studio product.
+ *
+ * 🔒 AND THE NEW ROUTE WORD IS NOT A FREE CHOICE. Top-level words are minted to
+ * shops and events, so a new one must be added to `lib/reserved-slugs.ts` in the
+ * SAME change that introduces the route — `'wall'` itself is reserved there
+ * twice. Picking that word is a product decision, deliberately left open rather
+ * than guessed at here.
+ *
+ * ✅ WHAT ALREADY SHIPS, so nobody rebuilds it: the durable `panood_screens` row
+ * with its routed `current_source`; the control room writing that routing
+ * (`studio/panood/broadcast/actions.ts`); and `generateScreenPairingCode()`, a
+ * proper 6-char Crockford-style code with rejection sampling. What is missing is
+ * exactly three things — a caller for `provisionPanoodScreensAdmin` (so a screen
+ * row is ever created), a caller for the code generator (currently ZERO), and
+ * the screen-side pairing route above.
+ *
+ * The couple-facing note on the cameras page is deliberately an honest "not
+ * connected yet" rather than a fake door. Leave it honest until the route exists.
+ */
 export const PANOOD_SCREEN_PAIR_PATH = '/wall';
 
 /**

@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, DoorOpen, MapPin } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventWordsFromProfile } from '../_lib/event-words';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { Logo } from '@/app/_components/logo';
@@ -60,7 +61,10 @@ export default async function FindMyTablePage({ params }: Props) {
   // Iteration 0053: public guest pages under /[slug] are the 'website' surface.
   // Non-wedding (generic) profiles don't enable it → still notFound() (same as
   // the old `!== 'wedding'`), now config-driven.
-  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+  const profile = await resolveProfile(event.event_type);
+  if (!surfaceEnabled(profile, 'website')) notFound();
+  // Reused for its WORDS as well as its gate. Wedding → 'couple', unchanged.
+  const words = eventWordsFromProfile(profile);
 
   // Visibility gate (owner 2026-06-20): a stranger guessing a private (pre-launch)
   // slug must not even see the couple's name in the sign-in prompt. Bounce them
@@ -117,7 +121,7 @@ export default async function FindMyTablePage({ params }: Props) {
       <Shell displayName={event.display_name} slug={slug}>
         <PromptCard
           title="The floor plan is on its way"
-          body="The couple is still arranging the venue layout. Check back closer to the day — your table map will appear here."
+          body={`${words.TheOrganizer} is still arranging the venue layout. Check back closer to the day — your table map will appear here.`}
         />
       </Shell>
     );

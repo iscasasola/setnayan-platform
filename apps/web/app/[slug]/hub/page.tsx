@@ -45,6 +45,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { createClient } from '@/lib/supabase/server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventWordsFromProfile } from '../_lib/event-words';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
@@ -129,6 +130,10 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // surface; non-website profiles 404 (mirrors the page's resolveProfile gate).
   const eventTypeProfile = await resolveProfile(event.event_type);
   if (!surfaceEnabled(eventTypeProfile, 'website')) notFound();
+  // The same profile, read for its WORDS as well as its gate. Four sentences on
+  // this screen said "the couple" to every event type. Wedding → 'couple', so a
+  // wedding reads byte-identically to before.
+  const words = eventWordsFromProfile(eventTypeProfile);
 
   // Private-event visibility gate — the SAME gate /[slug] and every sibling
   // sub-route (find-seat / find-my-table / recap) apply via canViewSlugEvent.
@@ -599,7 +604,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             </Link>
           ) : (
             <p className="text-sm text-ink/55">
-              The couple will assign seats closer to the day.
+              {words.TheOrganizer} will assign seats closer to the day.
             </p>
           )}
         </article>
@@ -660,7 +665,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
               Send a blessing
             </span>
             <span className="mt-0.5 block text-xs text-ink/55">
-              The digital money dance — straight to the couple.
+              The digital money dance — straight to {words.theOrganizer}.
             </span>
           </span>
           <span aria-hidden className="text-ink/40">
@@ -688,8 +693,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             Day-of schedule
           </p>
           <p className="mt-2 text-sm text-ink/60">
-            The couple hasn’t published the program yet. Check back closer to the
-            day.
+            {words.TheOrganizer} hasn’t published the program yet. Check back
+            closer to the day.
           </p>
         </article>
       )}
@@ -736,8 +741,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             Capture the day
           </h3>
           <p className="mx-auto mt-1 max-w-prose text-sm text-ink/65">
-            Every shot lands in the couple’s gallery — and tagged guests get
-            theirs in real time.
+            Every shot lands in {words.theOrganizerPossessive} gallery — and
+            tagged guests get theirs in real time.
           </p>
         </div>
         <div className="flex flex-col gap-2">

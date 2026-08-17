@@ -5,6 +5,7 @@ import { Camera, Film, Quote, Radio, Sparkles } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventWordsFor } from '../_lib/event-words';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -62,7 +63,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     return { title: 'The Recap', robots: { index: false, follow: false } };
   }
   const title = `${event.display_name} — The Recap`;
-  const recapNoun = event.event_type && event.event_type !== 'wedding' ? 'event' : 'wedding';
+  // Was a hand-typed two-way patch (`!== 'wedding' ? 'event' : 'wedding'`) —
+  // a third vocabulary being born beside the two the product already has. It
+  // now reads the SAME per-type word every other surface reads, so a birthday's
+  // recap is a "birthday recap" rather than a generic "event recap".
+  const recapNoun = (await eventWordsFor(event.event_type)).eventWord;
   const description = `The day, in their words. ${event.display_name}'s ${recapNoun} recap on Setnayan.`;
   return {
     title,

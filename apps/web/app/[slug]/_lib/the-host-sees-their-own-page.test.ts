@@ -108,9 +108,32 @@ test('META · the sources loaded and comment-stripping did not gut them', () => 
 test('the host is recognised from the server-verified capability, not from a request', () => {
   // `ownerCapability` is produced only by resolveOwnerCapability, which requires
   // a real auth user whose host membership of THIS event the database confirmed.
+  // The event-id comparison is what stops a capability for one event unlocking
+  // the host body on another.
+  /*
+   * ⚠ THIS ASSERTION WAS REPOINTED 2026-08-17, AND MAIN WAS RED UNTIL IT WAS.
+   *
+   * It originally pinned the LITERAL expression `ownerCapability !== null &&
+   * ownerCapability.ownerEventId === event.event_id`. That comparison was then
+   * extracted into the shared `viewerIsEventHost(...)` so the ribbon and the
+   * body could not drift apart — a strictly better shape, which this assertion
+   * nonetheless failed, because it pinned the CHARACTERS rather than the RULE.
+   *
+   * 🔑 A GUARD THAT PINS AN IMPLEMENTATION'S SPELLING FAILS ITS OWN REFACTOR.
+   * Pin the question being asked — "is this viewer a verified host of THIS
+   * event?" — and let the answer move.
+   *
+   * BOTH SPELLINGS ARE ACCEPTED, deliberately, and that is what the docblock
+   * above promises. The shared helper is itself tested against the rule, so
+   * admitting the inline form costs nothing and admitting only the helper would
+   * repeat the mistake in the opposite direction — pinning the NEW spelling.
+   * ⚠ Two sessions fixed this file independently within the hour. This is the
+   * merge of both: the accept-either assertion that turned main green, and the
+   * reasoning from the other, which is the part worth keeping.
+   */
   const inline =
     /const viewerIsHost\s*=\s*\n?\s*ownerCapability !== null && ownerCapability\.ownerEventId === event\.event_id;/;
-  const viaHelper = /const viewerIsHost\s*=\s*viewerIsEventHost\(\s*ownerCapability,\s*event\.event_id\s*\)/;
+  const viaHelper = /const viewerIsHost\s*=\s*viewerIsEventHost\(\s*ownerCapability,\s*event\.event_id,?\s*\)/;
 
   assert.ok(
     inline.test(BODY) || viaHelper.test(BODY),

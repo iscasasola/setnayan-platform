@@ -24,7 +24,7 @@ export type NpcDocument = {
 export const NPC_DOCUMENTS: readonly NpcDocument[] = [
   {
     key: 'complete-packet',
-    file: 'Setnayan_NPC_Submission_Complete_2026-07-16.pdf',
+    file: 'Setnayan_NPC_Submission_Complete_2026-08-17.pdf',
     title: 'Complete submission packet (all documents, merged)',
     group: 'packet',
   },

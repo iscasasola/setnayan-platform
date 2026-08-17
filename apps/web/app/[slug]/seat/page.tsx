@@ -4,6 +4,7 @@ import { ArrowLeft, DoorOpen, MapPin, Users } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventWordsFor } from '../_lib/event-words';
 import { eventNoun } from '@/lib/event-noun';
 import { Logo } from '@/app/_components/logo';
 import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
@@ -272,6 +273,10 @@ type EventRow = {
   slug: string;
   event_date: string | null;
   venue_name: string | null;
+  /** Already SELECTed above (it gates the surface); it was simply never
+   *  declared here. Needed so the seat plates can ask this event type for its
+   *  own word instead of saying "the couple" at a graduation. */
+  event_type: string | null;
   monogram_text: string | null;
   monogram_color: string | null;
   monogram_font_key: string | null;
@@ -295,6 +300,9 @@ async function PersonalPass({
   entrance: EntrancePos;
 }) {
   const firstName = (guest.first_name?.trim() || 'there') as string;
+  // Who is throwing this event, in this event type's own word. Wedding →
+  // 'couple', so both plates below are byte-identical for a wedding.
+  const words = await eventWordsFor(event.event_type);
 
   // PUBLICATION gate — a DRAFT plan must not reveal the guest's room/seat. The
   // guest's NAME is fine to greet; the room + seat marker stay hidden until the
@@ -306,7 +314,7 @@ async function PersonalPass({
       <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title={`Welcome, ${firstName}`}
-          body="Your seat is being arranged. Once the couple posts the seating, your exact table and a map to it will appear right here."
+          body={`Your seat is being arranged. Once ${words.theOrganizer} posts the seating, your exact table and a map to it will appear right here.`}
         />
       </SeatPassShell>
     );
@@ -343,7 +351,7 @@ async function PersonalPass({
       <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title="The floor plan is on its way"
-          body="The couple is still arranging the venue layout. Check back closer to the day — your seat pass will appear here."
+          body={`${words.TheOrganizer} is still arranging the venue layout. Check back closer to the day — your seat pass will appear here.`}
         />
       </SeatPassShell>
     );

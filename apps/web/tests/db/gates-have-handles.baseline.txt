@@ -138,3 +138,14 @@ vendor_bot_config.learn_from_past_messages | NOT INVESTIGATED (read-only).
 vendor_bot_config.reply_in_couple_language | NOT INVESTIGATED (never mentioned in app code).
 vendor_payouts.form_2307_issued | NOT INVESTIGATED (never mentioned in app code).
 vendor_profiles.absorbs_convenience_fee | NOT INVESTIGATED (read-only).
+
+# ── UNMASKED 2026-08-17 when the detector stopped counting a `.select()` as a write ──
+# All four were passing for the WRONG REASON: a select-list entry (`, column,`) is
+# character-identical to an ES6 shorthand property, so any column merely NAMED in
+# a multi-line select read as WRITTEN. Fixing that (lib/gate-writers.ts,
+# blankStringContents) surfaced these. Two are real, one is seeded data, one is a
+# detector limitation — recorded separately rather than lumped together.
+events.geolocation_enabled | 🔴 FINDING 2026-08-17. A per-event geo switch (spec: `geolocation_enabled{default true}`) with NO writer and, in effect, no reader: its ONE reference in the whole repo is a column name inside a `.select()` in `app/api/v1/events/[eventId]/route.ts` — and V1 ships NO public API endpoints (0033 plumbs the gateway only), so even that is not reachable. Papic stamps geo on captures; nothing consults this column before doing so. Low impact today (no public API, no real captures), but it is a privacy control that does not exist. Owner/DPO territory, not a silent fix.
+events.is_sample | Legitimately writer-less: the curated Maria & Jose sample event is SEEDED BY MIGRATION so /realstories and /tour are never empty, and nothing in the app should ever mint another one. It has 32 readers — `app/tour/_lib/sample-event.ts` pins its query to `is_sample = TRUE` as the primary gate and 404s rather than falling through to a real event. Reader-rich, writer-free, correct.
+vendor_bot_config.auto_accept_enabled | NOT a finding — a DETECTOR LIMITATION, recorded so nobody "fixes" the product. It IS written by a real rendered control (the vendor's auto-reply settings form) via `.upsert({ vendor_profile_id, ...parsed.patch, updated_at })` — a SPREAD of a validated patch object, so the column name never appears as a literal key and no key-matching detector can see it. ⚠ Deliberately NOT solved by treating a spread as writing every column of the table: that would blind the guard to every genuine finding on `vendor_bot_config`. A per-column baseline line is the honest cost.
+vendor_profiles.show_team_bookings_in_backend_count | 🔴 FINDING 2026-08-17. A vendor display preference with no control anywhere: all nine references are type declarations, select lists and a DTO mapping (`row.show_team_bookings_in_backend_count ?? false`). No form, no action, no admin path writes it, so no business can change how its team's bookings are counted. Smaller than the others; listed rather than fixed because whether the preference should exist at all is a product call.

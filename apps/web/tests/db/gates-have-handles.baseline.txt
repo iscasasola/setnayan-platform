@@ -32,17 +32,25 @@
 # — that is the point — but it lands in the diff where a reviewer can disagree.
 #
 # ── HONESTY NOTE ON THIS FIRST SEEDING ──────────────────────────────────────
-# These 51 lines are the INHERITED bill, seeded the day the guard learned to
+# These 50 lines are the INHERITED bill, seeded the day the guard learned to
 # enumerate. Where a column carries a comment from its author, the reason below
 # is that author's stated intent. Where it does not, the line says exactly what
 # was and was not established. "NOT INVESTIGATED" is an honest line; a made-up
-# rationale is not. Four are marked FINDING — they look like live instances of
-# the very shape this guard exists to catch and are reported, not excused.
+# rationale is not. ONE is marked FINDING — it looks like a live instance of
+# the very shape this guard exists to catch and is reported, not excused.
+#
+# ⚖ THE COUNT CAME DOWN BY MEASUREMENT, NOT BY TRIMMING. Four were marked FINDING
+# on the first seeding. One was a defect in the DETECTOR, not the schema (fixed in
+# PR #4490 and removed from this file). TWO WERE MINE AND WERE OVERSTATED: I had
+# the fact (no writer) and invented the consequence (therefore broken). Both are
+# re-checked against the live production values below and marked CORRECTED.
+# 🔑 A list with wrong entries on it stops being read — which is the whole reason
+# this file has to be re-measured rather than defended.
 
 # ── FINDINGS: these look like real gates with no handle ─────────────────────
 papic_photos.consent_to_public | 🔴 FINDING 2026-08-17. Author's comment: "GUEST consent gate for the public Alaala showcase orb: TRUE once the guest who appears in / captured this clip has consented to public sharing." Nothing writes it, so no clip can ever enter that showcase. The sibling papic_guest_captures.consent_to_public IS written (papic_record_guest_capture); this one is the appearing-guest's consent and was never wired. Sixth instance of the shape. Do not excuse — fix or rule it out of scope.
-platform_settings.radar_enabled | 🔴 FINDING 2026-08-17. Comment says "Admin-managed", and no admin control writes it. Shortlist Radar cannot be turned on by the people the comment says own it.
-platform_settings.spotlight_homepage_enabled | 🔴 FINDING 2026-08-17. Comment: "Owner master switch for the PUBLIC homepage Spotlight strip... renders nothing until the owner flips this on". The owner has nothing to flip it with.
+platform_settings.radar_enabled | ⚖ CORRECTED 2026-08-17 — I overstated this. It is TRUE in production, so Shortlist Radar is ON and is sold on /vendors; my "cannot be turned on" was a correct fact (no writer) with an invented consequence. What is genuinely absent is an OFF switch, which nobody has asked for. Seeded on, no writer needed.
+platform_settings.spotlight_homepage_enabled | ⚖ CORRECTED 2026-08-17 — I overstated this too. FALSE in production is the RIGHT state: /vendors lists the homepage Spotlight strip as "soon", so off is what the public page promises. Same error shape as radar_enabled — no writer is a fact, "therefore broken" was not. Building a control for an unlaunched feature would be the defect.
 
 # ── RESOLVED THE SAME DAY, kept as the worked example ──────────────────────
 # `event_vendor_preferences.auto_send` was listed here as a FINDING because its

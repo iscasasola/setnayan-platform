@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2d6a1f875",
+  "generatedFromRef": "d69bb0897",
   "routeCount": 401,
-  "destinations": 795,
+  "destinations": 796,
   "actions": 525,
-  "blocks": 3528,
+  "blocks": 3529,
   "routes": {
     "/": {
       "files": [
@@ -7195,19 +7195,22 @@
         "panood/cam/[token]/loading.tsx",
         "panood/cam/[token]/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/"
+      ],
       "actions": [
         "claimPanoodCamera"
       ],
       "blocks": [
         "CameraPublisher",
+        "DoorNotice",
+        "DoorShell",
         "GuestFanout",
         "HTMLVideoElement",
         "Link",
         "MediaStream",
         "PanoodCameraPublish",
         "PeerConnectionState",
-        "Shell",
         "SubmitButton",
         "TurnstileField"
       ]

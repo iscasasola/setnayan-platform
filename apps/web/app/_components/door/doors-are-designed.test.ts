@@ -83,6 +83,13 @@ const DOORS = [
   // and it was invisible to the first shape rule because it framed the page with
   // a `<div>` inside a bare `<main>`, not with the `<main>` itself.
   '[slug]/welcome/page.tsx',
+  // …and a THIRD miss, found by an adversarial audit: the Live Studio camera
+  // seat. Its own header calls it "A DIRECT clone of the Papic seat-claim page"
+  // — whose original IS in this list — so it inherited both the wrapper and the
+  // "one of the couple" copy its twin had already had corrected.
+  // 🔑 A CLONE INHERITS THE BUG ITS TWIN ALREADY FIXED. When you fix a page,
+  // grep for its own docblock's word "clone".
+  'panood/cam/[token]/page.tsx',
   'vendor/claim/[token]/page.tsx',
   'vendor/claim/[token]/finalize/page.tsx',
   'join/[eventId]/page.tsx',
@@ -191,27 +198,71 @@ test('the doors actually reach the shared shell — a rule nothing satisfies is 
  * frames its page exactly that way and had been missed. The evasion and the
  * genuine miss turned out to be the same blind spot.
  */
-test('no public page hand-rolls a centred card page frame — the shape, not the list', () => {
-  const offenders: string[] = [];
+/**
+ * 🪤 THE FIRST CUT OF THIS RULE REQUIRED THE WIDTH ON THE SAME TAG
+ * (`max-w-`/`w-full` inside the `<main>` itself) — and the COMMONEST wrapper in
+ * this codebase puts the width on an inner `<div>`:
+ *
+ *     <main className="flex min-h-screen items-center justify-center bg-cream …">
+ *       <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 …">
+ *
+ * Four of the six wrappers <DoorShell> replaced looked exactly like that, so the
+ * rule was blind to the very shape it was written for. It is now matched as a
+ * PAIR — a full-height centred frame whose first child is a bounded card.
+ */
+const DOOR_CARD_FRAME =
+  /<(?:main|div)[^>]*className="[^"]*min-h-(?:screen|dvh)[^"]*"[^>]*>\s*(?:\{[^}]*\}\s*)?<div[^>]*className="([^"]*)"/g;
+
+/**
+ * THE BILL, NAMED.
+ *
+ * Nine more pages carry that identical card (`w-full max-w-md rounded-2xl
+ * border … bg-surface p-7`) — Papic capture surfaces, the Live Studio and 3D
+ * demos, Pabati. They are NOT all doors: several use the card only for a gate
+ * or error state on a surface whose main job is a camera. Porting them changes
+ * what those screens look like, which is a design call and not this PR's.
+ *
+ * ⚖ SO THEY ARE LISTED, NOT SILENCED — and the assertion pins the set EXACTLY.
+ * A tenth page adopting the shape fails. Porting one of these nine also fails,
+ * telling you to delete its line. A baseline is a bill, and this one is visible
+ * and can only shrink.
+ */
+const KNOWN_DOOR_CARD_CLONES = [
+  '3d_plan/demo/[token]/page.tsx',
+  'pabati/[eventId]/page.tsx',
+  'panood/demo/[token]/page.tsx',
+  'papic/decorate/page.tsx',
+  'papic/demo/[token]/page.tsx',
+  'papic/guest/page.tsx',
+  'papic/me/[token]/page.tsx',
+  'papic/pool/page.tsx',
+  'papic/seat/[token]/page.tsx',
+].sort();
+
+test('the door card is not copied onto a new page — the shape, not the list', () => {
+  const found: string[] = [];
   const TREES = ['dashboard/', 'admin/', 'vendor-dashboard/'];
   for (const file of TSX_FILES) {
     const rel = file.slice(APP.length + 1);
     if (!rel.endsWith('page.tsx')) continue;
     if (TREES.some((t) => rel.startsWith(t))) continue;
     const src = code(readFileSync(file, 'utf8'));
-    for (const tag of src.match(/<(?:main|div)[^>]*className="[^"]*"/g) ?? []) {
-      const fullHeight = /min-h-(screen|dvh)/.test(tag);
-      const centred = /(items-center|justify-center|mx-auto)/.test(tag);
-      const column = /max-w-|w-full/.test(tag);
-      if (fullHeight && centred && column) offenders.push(`${rel} → ${tag.slice(0, 90)}`);
+    DOOR_CARD_FRAME.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = DOOR_CARD_FRAME.exec(src))) {
+      const child = m[1] ?? '';
+      if (/max-w-/.test(child) && /(rounded-|ring-1|border)/.test(child)) {
+        if (!found.includes(rel)) found.push(rel);
+      }
     }
   }
   assert.deepEqual(
-    offenders,
-    [],
-    'This is the exact shape of the six wrappers <DoorShell> replaced, and of the ' +
-      'seventh that was missed. If the page is a door, render <DoorShell>. If it is ' +
-      `genuinely not, it still should not invent a page frame. Found: ${offenders.join(' | ')}`,
+    found.sort(),
+    KNOWN_DOOR_CARD_CLONES,
+    'The centred bounded card is the door. A page NOT on this list has just copied ' +
+      'it — render <DoorShell> instead. A page still ON the list that no longer ' +
+      'matches has been ported — delete its line. Never add a line to go green: ' +
+      'each one is a screen that looks like a door and is not one.',
   );
 });
 

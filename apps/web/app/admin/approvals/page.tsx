@@ -7,9 +7,16 @@ import {
 } from '@/lib/admin-approvals';
 import { requestPrivilegedGrant, approveRequest, rejectRequest } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ShieldCheck } from 'lucide-react';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ErrorState } from '@/app/_components/states/error-state';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Approvals · Admin' };
+
+/** One number: the query reads it and ConsoleTable discloses it. It was 10, silently. */
+const DECIDED_LIMIT = 10;
 
 type RequestRow = {
   approval_id: string;
@@ -60,30 +67,49 @@ export default async function AdminApprovalsPage() {
       .select('*')
       .neq('status', 'pending')
       .order('decided_at', { ascending: false })
-      .limit(10),
+      .limit(DECIDED_LIMIT),
     admin
       .from('users')
       .select('*', { count: 'exact', head: true })
       .or('account_type.eq.admin,is_internal.eq.true,is_team_member.eq.true'),
   ]);
 
-  const pending = (pendingRes.data ?? []) as RequestRow[];
-  const decided = (decidedRes.data ?? []) as RequestRow[];
+  // ⚠ NEITHER READ BOUND ITS ERROR. Supabase resolves with `{ error }`, so a
+  // refused read arrived as null, `?? []` made it an empty array, and this page
+  // said "No approvals pending. Set na 'yan." — a cheerful all-clear on the ONE
+  // queue whose entire purpose is that a second admin looks before something
+  // irreversible executes. Nothing logged, nothing shown.
+  const pendingError = pendingRes.error ?? null;
+  const decidedError = decidedRes.error ?? null;
+  if (pendingError) logQueryError('AdminApprovalsPage.pending', pendingError, {}, 'graceful_degrade');
+  if (decidedError) logQueryError('AdminApprovalsPage.decided', decidedError, {}, 'graceful_degrade');
+  const pending = pendingRes.data as RequestRow[] | null;
+  const decided = decidedRes.data as RequestRow[] | null;
+  // Already correct before this change, and the pattern the rest now follows:
+  // `count === null` means NOT MEASURED, never zero.
   const adminCount = typeof adminCountRes.count === 'number' ? adminCountRes.count : null;
+  const listedPending = pending ?? [];
+  const listedDecided = decided ?? [];
 
   // Resolve display names for target / initiator / decider in one round trip.
   const ids = new Set<string>();
-  [...pending, ...decided].forEach((r) => {
+  [...listedPending, ...listedDecided].forEach((r) => {
     if (r.target_user_id) ids.add(r.target_user_id);
     if (r.initiated_by) ids.add(r.initiated_by);
     if (r.decided_by) ids.add(r.decided_by);
   });
+  // A refused NAME lookup does not change the row count, so the table cannot see
+  // it — but a four-eyes request whose target reads as a raw id is not safe to
+  // approve. Fails toward the caveat.
+  let labelsUnread = false;
   const nameMap = new Map<string, string>();
   if (ids.size > 0) {
-    const { data: us } = await admin
+    const { data: us, error: usError } = await admin
       .from('users')
       .select('user_id, email, display_name')
       .in('user_id', [...ids]);
+    if (usError) logQueryError('AdminApprovalsPage.names', usError, {}, 'graceful_degrade');
+    labelsUnread = labelsUnread || Boolean(usError);
     for (const u of (us ?? []) as Array<{
       user_id: string;
       email: string | null;
@@ -98,15 +124,17 @@ export default async function AdminApprovalsPage() {
   // profile id). Resolve their business names so the confirming admin sees WHICH
   // vendor a wipe+ban / partnership request is about.
   const vendorIds = new Set<string>();
-  [...pending, ...decided].forEach((r) => {
+  [...listedPending, ...listedDecided].forEach((r) => {
     if (r.target_id) vendorIds.add(r.target_id);
   });
   const vendorNameMap = new Map<string, string>();
   if (vendorIds.size > 0) {
-    const { data: vs } = await admin
+    const { data: vs, error: vsError } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name')
       .in('vendor_profile_id', [...vendorIds]);
+    if (vsError) logQueryError('AdminApprovalsPage.vendorNames', vsError, {}, 'graceful_degrade');
+    labelsUnread = labelsUnread || Boolean(vsError);
     for (const v of (vs ?? []) as Array<{
       vendor_profile_id: string;
       business_name: string | null;
@@ -216,17 +244,48 @@ export default async function AdminApprovalsPage() {
       <section className="mb-10">
         <div className="mb-3 flex items-baseline justify-between gap-2">
           <h2 className="sn-eye">
-            Pending ({pending.length})
+            Pending ({pending === null ? '—' : pending.length})
           </h2>
           <p className="text-xs text-ink/45">
-            {pending.length === 0
-              ? 'Nothing waiting on a second admin.'
-              : 'A different admin must decide each request.'}
+            {pending === null
+              ? 'The queue could not be read — this is not a count.'
+              : pending.length === 0
+                ? 'Nothing waiting on a second admin.'
+                : 'A different admin must decide each request.'}
           </p>
         </div>
 
-        {pending.length === 0 ? (
-          <div className="sn-row p-8 text-center text-sm text-ink/55">
+        {labelsUnread ? (
+          <p
+            role="alert"
+            className="mb-3 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+          >
+            <strong className="text-ink">Names could not be read.</strong> A request
+            below may show an identifier instead of the person or business it is
+            about. Do not approve from this state — reload first.
+          </p>
+        ) : null}
+
+        {/* THE THREE-WAY SPLIT. Refused ≠ nothing waiting, and on THIS queue the
+            difference is the whole product: "nothing waiting" is the sentence that
+            makes a second admin close the tab. */}
+        {pending === null ? (
+          <ErrorState
+            title="Couldn't read the pending queue"
+            broke={
+              pendingError?.message
+                ? `The read was refused: ${pendingError.message}`
+                : 'The read did not complete.'
+            }
+            survived={
+              'No request was shown and none was ruled out. This is NOT ' +
+              '\u201Cnothing is waiting on a second admin\u201D — it is ' +
+              '\u201Cwe do not know\u201D, and on a four-eyes queue those are opposites.'
+            }
+            todo="Reload. If it repeats, the query is being rejected rather than returning nothing. Until it loads, assume something may be waiting."
+          />
+        ) : pending.length === 0 ? (
+          <div className="sn-row p-8 text-center text-sm text-ink/70">
             No approvals pending. Set na ’yan.
           </div>
         ) : (
@@ -291,50 +350,66 @@ export default async function AdminApprovalsPage() {
         )}
       </section>
 
-      {/* RECENTLY DECIDED */}
-      {decided.length > 0 ? (
-        <section>
-          <h2 className="mb-3 sn-eye">
-            Recently decided
-          </h2>
-          <div className="sn-tile overflow-hidden !p-0">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-ink/10 text-left text-[11px] uppercase tracking-wide text-ink/45">
-                  <th className="px-4 py-2 font-medium">Action</th>
-                  <th className="px-4 py-2 font-medium">Target</th>
-                  <th className="px-4 py-2 font-medium">Outcome</th>
-                  <th className="px-4 py-2 font-medium">By</th>
-                  <th className="px-4 py-2 font-medium">When</th>
-                </tr>
-              </thead>
-              <tbody>
-                {decided.map((r) => (
-                  <tr key={r.approval_id} className="border-b border-ink/5 last:border-0">
-                    <td className="px-4 py-2">{approvalActionLabel(r.action_type)}</td>
-                    <td className="px-4 py-2">{targetLabel(r)}</td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={
-                          r.status === 'approved'
-                            ? 'rounded-md bg-success-50 px-2 py-0.5 text-[11px] font-bold text-success-700'
-                            : 'rounded-md bg-terracotta-50 px-2 py-0.5 text-[11px] font-bold text-terracotta-700'
-                        }
-                      >
-                        {r.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-ink/70">{nameOf(r.decided_by)}</td>
-                    <td className="px-4 py-2 text-ink/55">
-                      {r.decided_at ? timeAgo(r.decided_at) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
+      {/* RECENTLY DECIDED
+          ⚠ THIS SECTION USED TO VANISH on `decided.length > 0` — so a refused read
+          silently removed the entire decision history from the four-eyes audit
+          surface. It is now always rendered and ConsoleTable decides the state. */}
+      <section>
+        <h2 className="mb-3 sn-eye">Recently decided</h2>
+        <ConsoleTable
+          rows={decided}
+          readPermitted
+          readError={decidedError}
+          reads="the decision history"
+          cap={DECIDED_LIMIT}
+          label="Recently decided approvals"
+          minWidth="44rem"
+          note="Read-only history. Each row was written when an admin other than the requester decided it; there is nothing to press here."
+          rowKey={(r) => r.approval_id}
+          empty={{
+            Icon: ShieldCheck,
+            title: 'Nothing has been decided yet',
+            blurb:
+              'A row lands here as soon as a second admin approves or rejects a request. On a platform where no privileged grant has been made, an empty history is the accurate state.',
+          }}
+          columns={[
+            {
+              header: 'Action',
+              cell: (r) => approvalActionLabel(r.action_type),
+            },
+            { header: 'Target', cell: (r) => targetLabel(r) },
+            {
+              header: 'Outcome',
+              cell: (r) => (
+                <span
+                  className={
+                    r.status === 'approved'
+                      ? 'rounded-md bg-success-50 px-2 py-0.5 text-[11px] font-bold text-success-700'
+                      : 'rounded-md bg-terracotta-50 px-2 py-0.5 text-[11px] font-bold text-terracotta-700'
+                  }
+                >
+                  {r.status}
+                </span>
+              ),
+            },
+            {
+              header: 'By',
+              hideBelow: 'md',
+              cell: (r) => <span className="text-ink/70">{nameOf(r.decided_by)}</span>,
+            },
+            {
+              header: 'When',
+              mono: true,
+              align: 'right',
+              cell: (r) => (
+                <span className="text-ink/70">
+                  {r.decided_at ? timeAgo(r.decided_at) : '—'}
+                </span>
+              ),
+            },
+          ]}
+        />
+      </section>
     </div>
   );
 }

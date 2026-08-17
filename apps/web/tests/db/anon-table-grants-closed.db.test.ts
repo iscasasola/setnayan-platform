@@ -20,9 +20,16 @@
  * `ENABLE ROW LEVEL SECURITY` on a future table, is then the whole distance
  * between a public key and the data.
  *
- * ⚠ It is also NOT a list of every table that should be closed. It is the set
- * closed in batch 1 (migration 20271145190664). ~194 remain; each later batch
- * appends here.
+ * ⚠ It is also NOT a list of every table that should be closed. It is what has
+ * been closed SO FAR — batch 1 (20271145190664, 16 tables) and batch 2
+ * (20271145286482, 17 tables): 33 of the 213 that hold an anon grant with no
+ * anon-reaching policy.
+ *
+ * ⏭ The remaining ~180 are dominated by gate-4 failures — tables the app
+ * genuinely queries — so the next batch is NOT another easy sweep. Each one
+ * needs the question "does any ANON-KEY path read this, or only a signed-in /
+ * service-role one?", because a revoke there turns an RLS-empty result into a
+ * permission ERROR for whatever calls it.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -78,6 +85,49 @@ const CLOSED_IN_BATCH_1 = [
   'vendor_token_boosters',
 ];
 
+/**
+ * Batch 2 — migration 20271145286482. Same six gates, re-derived from the live
+ * catalog and `origin/main` rather than reusing batch 1's shortlist, because
+ * grants and code both move.
+ *
+ * 🔑 FOUR OF THESE ARE REACHED ONLY THROUGH `SECURITY DEFINER` FUNCTIONS, which
+ * execute as their owner and never consult the caller's table grants — verified
+ * by reading `pg_proc.prosecdef` in prod, not inferred:
+ * `rate_limit_hits` (check_rate_limit; anon cannot even execute it) ·
+ * `seating_editor_locks` (acquire/refresh/release/assert) ·
+ * `papic_event_pool_usage` and `papic_seat_day_usage` (the metering family).
+ * `lib/ugat/graph.ts` says of the locks table: "LOOKS DEAD AND IS FULLY LIVE …
+ * It was nearly deleted on the strength of that grep." The grep is not the
+ * access path — and neither is it the grant.
+ *
+ * ⚠ `rate_limit_hits` has no `CREATE TABLE` in any migration because it is
+ * `CREATE UNLOGGED TABLE`. A declaration check that misses that reads as drift;
+ * `tests/db/schema-drift.db.test.ts` had already recorded the same false
+ * positive. All 17 were confirmed present in the replay directly.
+ */
+const CLOSED_IN_BATCH_2 = [
+  'bespoke_monogram_generations',
+  'booking_fee_ledger',
+  'concierge_unanswered_questions',
+  'demand_radar_rollups',
+  'market_funnel_bands',
+  'papic_event_pool_usage',
+  'papic_seat_day_usage',
+  'rate_limit_hits',
+  'render_jobs',
+  'seating_editor_locks',
+  'supplier_vendor_sku_pricing',
+  'supplier_vendor_skus',
+  'supplies_orders',
+  'vendor_2307_filings',
+  'vendor_contract_signatures',
+  'vendor_member_token_wallets',
+  'vendor_release_history',
+];
+
+/** Every table closed so far. Later batches append their own list above. */
+const CLOSED = [...CLOSED_IN_BATCH_1, ...CLOSED_IN_BATCH_2];
+
 /** Every verb PostgREST can reach, plus the one RLS does not cover. */
 const VERBS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE'] as const;
 
@@ -95,25 +145,41 @@ test('META · the replay has the anon role and these tables, so a pass means som
   // Anti-vacuity. `has_table_privilege` on a missing role or relation throws
   // rather than returning false, but a typo'd list would simply be empty and
   // every assertion below would pass by inspecting nothing.
-  assert.ok(CLOSED_IN_BATCH_1.length >= 14, 'the batch list has shrunk — did someone trim it to go green?');
+  // ⚠ MEASURE THE COMBINED LIST, NOT ONE BATCH. A first cut of this line still
+  // read `CLOSED_IN_BATCH_1.length` after batch 2 was added, so deleting batch
+  // 2's seventeen entries outright would have passed the anti-vacuity check
+  // while silently un-guarding all of them. Each batch also has its own floor,
+  // so emptying either one is caught rather than absorbed by the other.
+  assert.ok(
+    CLOSED_IN_BATCH_1.length >= 14,
+    `batch 1's list has shrunk to ${CLOSED_IN_BATCH_1.length} — did someone trim it to go green?`,
+  );
+  assert.ok(
+    CLOSED_IN_BATCH_2.length >= 17,
+    `batch 2's list has shrunk to ${CLOSED_IN_BATCH_2.length} — did someone trim it to go green?`,
+  );
+  assert.ok(
+    CLOSED.length >= 31,
+    `the combined closed list has shrunk to ${CLOSED.length} — did someone trim it to go green?`,
+  );
 
   const { rows } = await db.query<{ n: number }>(
     `SELECT count(*)::int AS n FROM pg_class c
        JOIN pg_namespace ns ON ns.oid = c.relnamespace AND ns.nspname = 'public'
       WHERE c.relname = ANY($1)`,
-    [CLOSED_IN_BATCH_1],
+    [CLOSED],
   );
   assert.equal(
     rows[0]?.n,
-    CLOSED_IN_BATCH_1.length,
+    CLOSED.length,
     'a table in the batch list does not exist in the replayed schema — fix the name, ' +
       'do not delete the line',
   );
 });
 
-test('anon holds NOTHING on the tables closed in batch 1', async () => {
+test('anon holds NOTHING on any table closed so far (batch 1 + batch 2)', async () => {
   const open: string[] = [];
-  for (const table of CLOSED_IN_BATCH_1) {
+  for (const table of CLOSED) {
     for (const verb of VERBS) {
       const { rows } = await db.query<{ ok: boolean }>(
         `SELECT has_table_privilege('anon', $1, $2) AS ok`,
@@ -125,7 +191,7 @@ test('anon holds NOTHING on the tables closed in batch 1', async () => {
   assert.deepEqual(
     open,
     [],
-    'anon has regained privileges that migration 20271145190664 revoked:\n  ' +
+    'anon has regained privileges that migration 20271145190664 or 20271145286482 revoked:\n  ' +
       open.join('\n  ') +
       '\n\nThis is almost never deliberate. The usual cause is a later migration ' +
       "re-creating the table or running a broad GRANT, which re-applies the schema's " +

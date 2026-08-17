@@ -267,7 +267,19 @@ REFRESH MATERIALIZED VIEW public.vendor_full_completed_events_stats;
 -- wide open, which is exactly what the freeze proved when I tried it.
 REVOKE ALL ON public.vendor_full_completed_events_stats FROM anon;
 REVOKE ALL ON public.vendor_full_completed_events_stats FROM authenticated;
-GRANT SELECT ON public.vendor_full_completed_events_stats TO authenticated;
+-- ⚠ AND NO GRANT AT ALL. An earlier draft of this fix re-granted `authenticated`,
+-- mirroring 20271132024116 — which was the correct target RIGHT UP UNTIL
+-- 20271145190664 landed on main hours later and revoked `authenticated` too,
+-- closing the last way to derive a supplier's written-off job count.
+-- This file's prefix sorts BELOW that one, but `supabase db push --include-all`
+-- applies it anyway, and on production it runs AFTER — so a GRANT here would have
+-- silently RE-OPENED what the other migration had just closed.
+-- 🔑 TWO SESSIONS CAN EACH BE RIGHT AND STILL COLLIDE. A migration is not judged
+-- against the state it was written against; it is judged against the state it will
+-- LAND in. Re-read the live grants immediately before merging, not when you start.
+-- Verified in production at the time of writing: anon NO, authenticated NO on this
+-- matview, and anon YES on its redacted public twin — so suppliers' advertised
+-- number is unaffected.
 
 COMMENT ON MATERIALIZED VIEW public.vendor_full_completed_events_stats IS
   'Full finished-jobs count. A celebration put away by its couple still counts '

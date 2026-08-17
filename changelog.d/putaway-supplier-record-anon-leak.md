@@ -26,3 +26,15 @@ red for two days, so nothing else was ever going to catch it.
   red; restoring it green. The PR's own 4 tests still pass.
 
 SPEC IMPACT: None — restores a decision already taken on 2026-08-12.
+
+⚠ **AND THE FIX ITSELF NEEDED CORRECTING BEFORE IT MERGED.** Its first cut re-granted
+`authenticated`, mirroring the narrowing migration — correct right up until
+`20271145190664` landed hours later and revoked `authenticated` too, closing the
+last way to derive a supplier's written-off count. This file's prefix sorts BELOW
+that one but `--include-all` applies it anyway, and on production it runs AFTER, so
+the grant would have **silently re-opened what the other migration had just
+closed.** No grant at all now.
+🔑 **TWO SESSIONS CAN EACH BE RIGHT AND STILL COLLIDE.** A migration is judged
+against the state it will LAND in, not the state it was written against. Re-read the
+live grants immediately before merging.
+

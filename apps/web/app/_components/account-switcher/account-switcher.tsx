@@ -263,7 +263,42 @@ export function AccountSwitcher({ data, currentEventName, homeLabel }: Props) {
   // Focus trap, Esc-to-close, body-scroll-lock, focus-restore (shared hook).
   useModalA11y({ open, onClose: close, containerRef: panelRef });
 
-  const initial = data.email?.charAt(0).toUpperCase() ?? '?';
+  /*
+    🔑 THE NAME IS THE MARK, AND THE EMAIL IS ONLY THE FALLBACK. The panel
+    header two hundred lines up already reads `displayName ?? email` — the
+    trigger read the email alone, so a person whose account carries a real name
+    was still identified by whatever their mail provider happens to start with.
+    Same source, same order, one answer.
+  */
+  const initial =
+    (data.displayName?.trim() || data.email)?.charAt(0).toUpperCase() ?? '?';
+
+  /*
+    ⚠ WHAT THE OWNER SAW (2026-08-17, a zoom of the top-right corner):
+    *"what happened to the top nav?"* — a box with an arrow in it and nothing
+    else. The bar was whole; this control was the empty-looking part of it.
+
+    🔑 A CIRCLE AT 1.17:1 IS NOT A CIRCLE. The avatar was `bg-terracotta/15`
+    — the gold slot at 15% over the cream pill, which measures #F0E9DD against
+    #FDFBF7: 1.17:1. WCAG 1.4.11 asks 3:1 of a control's own shape, and GOLD
+    CANNOT REACH IT AT ANY ALPHA (solid gold is 3.37:1, so every tint of it is
+    worse). So the shape was invisible, the initial inside it measured 4.17:1 —
+    under the 4.5:1 AA floor — and for this account the initial is "I", a single
+    vertical stroke. Ink solid: 13.82:1 both ways.
+
+    🪤 AND THE TWO GUARDS THAT WATCH FOR THIS COULD NOT SEE IT.
+    `palette-lock.test.ts` checks token DEFINITIONS, and the token is fine —
+    the defect is the ALPHA at the call site. `lint-label-on-fill-contrast.mjs`
+    judges only pairings where BOTH sides are opaque, and by its own docblock
+    skips an alpha fill. The same seam that hid `#9A8F86` on five public
+    routes. `identity-is-visible.test.ts` is the guard that can.
+
+    🔒 THE PANEL'S OWN pale-gold circle is DELIBERATELY UNCHANGED. It sits
+    beside "Signed in as {name}" — the words carry the identification there, so
+    the circle is decoration and its faintness costs nothing. This one had to
+    carry it alone.
+  */
+  const accountLabel = data.displayName?.trim() || data.email || null;
 
   // ─── Inner panel content ────────────────────────────────────────────────
 
@@ -317,8 +352,9 @@ export function AccountSwitcher({ data, currentEventName, homeLabel }: Props) {
         onClick={() => setOpen((v) => !v)}
         className="inline-flex h-11 items-center gap-2 rounded-full border border-ink/15 bg-cream px-2 pr-3 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus:outline-none focus-visible:border-terracotta focus-visible:text-terracotta-700"
       >
-        {/* Avatar circle */}
-        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700">
+        {/* Avatar circle — solid ink so the shape and the initial are both
+            legible with nothing else in the pill (see the docblock above). */}
+        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink text-xs font-semibold text-cream">
           {data.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={data.photoUrl} alt="" className="h-full w-full object-cover" />
@@ -329,6 +365,23 @@ export function AccountSwitcher({ data, currentEventName, homeLabel }: Props) {
         {currentEventName ? (
           <span className="max-w-[120px] truncate text-xs font-medium text-ink/80">
             {currentEventName}
+          </span>
+        ) : accountLabel ? (
+          /*
+            WHO IS SIGNED IN, IN WORDS. On the event / shop / HQ surfaces the
+            slot above already names the room you are standing in, and that is
+            the more useful sentence — so this only fills the slot when nothing
+            else claims it, which is the launcher and the front door.
+
+            ⚠ FROM `lg` UP ONLY, and that is a width decision, not a taste one.
+            The shared bar carries identity, the search and this cluster on ONE
+            row — the second row is what the owner struck down on 2026-07-30 —
+            and "+ Create event" beside it is already hidden below 1024 for the
+            same reason. On a phone the avatar is the whole mark, which is why
+            it had to become visible before this line could be gated at all.
+          */
+          <span className="hidden max-w-[150px] truncate text-xs font-medium text-ink/80 lg:inline">
+            {accountLabel}
           </span>
         ) : null}
         <ChevronDown

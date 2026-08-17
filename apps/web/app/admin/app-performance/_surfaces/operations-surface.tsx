@@ -157,7 +157,9 @@ export async function OperationsHiringSurface() {
                   <div className="text-xs text-ink/60">
                     {m.weeks_to_milestone !== null
                       ? `Projected ${m.forecasted_date} (~${m.weeks_to_milestone} weeks)`
-                      : 'Insufficient signup data'}
+                      : m.signups_measured === false
+                        ? 'Signups could not be read — this is not a forecast of no growth'
+                        : 'Insufficient signup data'}
                   </div>
                 </div>
               ))}

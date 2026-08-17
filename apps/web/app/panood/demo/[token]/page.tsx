@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { after } from 'next/server';
 import { CircleAlert } from 'lucide-react';
+import { DoorShell } from '@/app/_components/door/door-shell';
 import { purgeExpiredDemoSessions, resolveDemoToken } from '@/lib/demo-sessions';
 import { CamJoinFlow } from './_components/cam-join-flow';
 
@@ -26,6 +27,12 @@ export const metadata = {
 
 type Props = { params: Promise<{ token: string }> };
 
+/**
+ * The LIVE demo's own frame. Deliberately NOT <DoorShell>: this wraps the
+ * working demo, not a refusal — a doorway's wordmark, eyebrow and threshold
+ * edge would announce an entrance to somebody already inside the thing.
+ * The dead-end branch above IS a door and uses the shared shell.
+ */
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--m-paper)] px-4 py-12 text-[var(--m-ink)]">
@@ -36,6 +43,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
+
 export default async function PanoodDemoJoinPage({ params }: Props) {
   const { token } = await params;
   const cleanToken = token?.trim();
@@ -45,20 +53,21 @@ export default async function PanoodDemoJoinPage({ params }: Props) {
 
   if (!resolved || resolved.demoKind !== 'panood') {
     return (
-      <Shell>
-        <CircleAlert aria-hidden className="mx-auto mt-3 h-7 w-7 text-[var(--m-mulberry)]" strokeWidth={1.75} />
-        <h1 className="mt-3 text-xl font-semibold tracking-tight">This demo link expired</h1>
-        <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
-          Demo codes are fresh every time — open a new one from the Live Studio
-          tile on the Setnayan homepage.
-        </p>
-        <Link
-          href="/"
-          className="mt-5 inline-flex items-center justify-center rounded-md bg-[var(--m-mulberry)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <CircleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Live Studio demo
+          </>
+        }
+        title="This demo link expired."
+        sub="Demo codes are fresh every time — open a new one from the Live Studio tile on the Setnayan homepage."
+      >
+        <Link href="/" className="button-secondary">
           Back to Setnayan
         </Link>
-      </Shell>
+      </DoorShell>
     );
   }
 

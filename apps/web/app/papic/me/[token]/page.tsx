@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Camera, CircleAlert, Clock, Download, Images, Sparkles } from 'lucide-react';
+import { DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
@@ -43,16 +44,6 @@ export const metadata: Metadata = {
 type Props = {
   params: Promise<{ token: string }>;
 };
-
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
-      <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 shadow-sm">
-        {children}
-      </div>
-    </main>
-  );
-}
 
 /** Doorway to the Shared Pool Gallery ("Everyone's photos") — renders ONLY
  *  when the env flag + the 'papic_pool_gallery' DPO control are on AND the
@@ -101,7 +92,7 @@ async function GuestGallery({
   return (
     <section aria-label="Photos of you" className="mt-6">
       <div className="flex items-center justify-between gap-3">
-        <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+        <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-mulberry">
           <Images aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Photos of you
         </p>
@@ -220,23 +211,21 @@ export default async function PapicMyCameraPage({ params }: Props) {
   // Bad / reissued / deleted token → friendly dead-end (never leak why).
   if (!guest) {
     return (
-      <Shell>
-        <h1 className="mt-3 flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <CircleAlert aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-          This link isn&rsquo;t active
-        </h1>
-        <p className="mt-3 text-sm text-ink/65">
-          This personal QR doesn&rsquo;t open a camera right now — it may have been
-          replaced with a new one. Ask your host for your current QR or link and
-          try again.
-        </p>
-        <Link
-          href="/"
-          className="mt-5 inline-flex items-center justify-center rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/10"
-        >
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <CircleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Your camera
+          </>
+        }
+        title="This link isn't active."
+        sub="This personal QR doesn't open a camera right now — it may have been replaced with a new one. Ask your host for your current QR or link and try again."
+      >
+        <Link href="/" className="button-secondary">
           Back to Setnayan
         </Link>
-      </Shell>
+      </DoorShell>
     );
   }
 
@@ -262,15 +251,17 @@ export default async function PapicMyCameraPage({ params }: Props) {
   // beyond the cost cap. Still show their gallery if they have tagged photos.
   if (camera.status === 'none') {
     return (
-      <Shell>
-        <h1 className="mt-3 flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Camera aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-          Your Papic camera isn&rsquo;t ready yet
-        </h1>
-        <p className="mt-3 text-sm text-ink/65">
-          The host hasn&rsquo;t turned on Papic for the guest list yet — or your
-          spot is still being set up. Check back closer to the day.
-        </p>
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Your camera
+          </>
+        }
+        title="Your Papic camera isn't ready yet."
+        sub="The host hasn't turned on Papic for the guest list yet — or your spot is still being set up. Check back closer to the day."
+      >
         <GuestGallery
           eventId={guest.event_id}
           guestId={guest.guest_id}
@@ -279,23 +270,24 @@ export default async function PapicMyCameraPage({ params }: Props) {
         />
         <PoolDoorway eventId={guest.event_id} token={cleanToken!} />
         {backLink}
-      </Shell>
+      </DoorShell>
     );
   }
 
   // Camera exists but the Limited order is awaiting reconciliation → no capture.
   if (camera.status === 'pending') {
     return (
-      <Shell>
-        <h1 className="mt-3 flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Clock aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-          Payment under review
-        </h1>
-        <p className="mt-3 text-sm text-ink/65">
-          Your camera is reserved! The Setnayan team is confirming the host&rsquo;s
-          payment — this usually clears within a day. Come back and your camera
-          will be ready to shoot.
-        </p>
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Your camera
+          </>
+        }
+        title="Payment under review."
+        sub="Your camera is reserved! The Setnayan team is confirming the host's payment — this usually clears within a day. Come back and your camera will be ready to shoot."
+      >
         <GuestGallery
           eventId={guest.event_id}
           guestId={guest.guest_id}
@@ -304,7 +296,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
         />
         <PoolDoorway eventId={guest.event_id} token={cleanToken!} />
         {backLink}
-      </Shell>
+      </DoorShell>
     );
   }
 
@@ -312,19 +304,19 @@ export default async function PapicMyCameraPage({ params }: Props) {
   // seat's claim token, and surface the guest's gallery alongside it.
   const greetName = (guest.first_name ?? '').trim();
   return (
-    <Shell>
-      <h1 className="mt-3 flex items-center gap-2 text-2xl font-semibold tracking-tight">
-        <Camera aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-        {greetName ? `${greetName}, your camera’s ready` : 'Your camera’s ready'}
-      </h1>
-      <p className="mt-3 text-sm text-ink/65">
-        Tap below and your phone turns into a candid camera for the day. Every
-        photo you shoot lands straight in the host&rsquo;s gallery — no app to
-        install.
-      </p>
+    <DoorShell
+      eyebrow={
+        <>
+          <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Your camera
+        </>
+      }
+      title={greetName ? `${greetName}, your camera’s ready` : 'Your camera’s ready'}
+      sub="Tap below and your phone turns into a candid camera for the day. Every photo you shoot lands straight in the host's gallery — no app to install."
+    >
       <Link
         href={`/papic/seat/${encodeURIComponent(camera.claimToken)}`}
-        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition hover:bg-mulberry-600"
+        className="button-primary w-full gap-2"
       >
         <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
         Open my camera
@@ -338,6 +330,6 @@ export default async function PapicMyCameraPage({ params }: Props) {
         />
       <PoolDoorway eventId={guest.event_id} token={cleanToken!} />
       {backLink}
-    </Shell>
+    </DoorShell>
   );
 }

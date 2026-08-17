@@ -244,6 +244,40 @@ test('the converted surfaces actually import the archetype — a rule nothing sa
   );
 });
 
+/**
+ * …AND THE LIST ITSELF WAS PINNED TO NOTHING. Found 2026-08-17 by sabotage,
+ * while converting lane C: DELETING a line from `CONVERTED` left this file
+ * GREEN — 10/10 — because every rule that matters iterates `CONVERTED`, and a
+ * shorter list simply checks fewer files. So the error rule, the cap rule and
+ * the colour rule could all be switched off for any surface, one line at a
+ * time, and CI would never say a word. The bill above can only shrink; this
+ * list could silently shrink too, and it is the half that does the work.
+ *
+ * 🔑 A GUARD WHOSE SUBJECT LIST IS HAND-MAINTAINED IS ONLY AS WIDE AS THAT
+ * LIST — the same shape as the hand-enumerated door list that missed three
+ * doors on 2026-08-17, and of the deny-list that went stale in #4364. The fix
+ * is to DERIVE the membership instead of trusting it: wearing the archetype is
+ * an observable fact about a file, so measure it.
+ */
+test('every admin file that wears the archetype is ON the converted list', () => {
+  const wearing: string[] = [];
+  for (const file of walk(ADMIN)) {
+    const rel = file.slice(ADMIN.length + 1);
+    if (rel === ARCHETYPE) continue;
+    if (/_components\/console-table/.test(code(readFileSync(file, 'utf8')))) {
+      wearing.push(rel);
+    }
+  }
+  assert.deepEqual(
+    wearing.sort(),
+    [...CONVERTED].sort(),
+    'A file imports ConsoleTable but is missing from CONVERTED, so it is exempt ' +
+      'from the error-vs-empty rule, the cap rule and the colour rule while ' +
+      'looking completely converted. Add it. And never delete a line to go ' +
+      "green — deleting one is how a surface's read error stops being checked.",
+  );
+});
+
 /* ══════════════════════════════════════════════════════════════════════════
    4 · NO SILENT CAPS
    ══════════════════════════════════════════════════════════════════════════ */

@@ -1506,9 +1506,21 @@ export async function finalizeVendor(
     // the only thing that clears them, revertVendorToConsidering, refuses unless
     // the row is already confirmed. So on an ask that is later declined,
     // expired or withdrawn (all of which leave status='considering') they would
-    // be permanent. A forward primitive with no inverse. The agree RPC stamps
-    // both alongside 'contracted', exactly as acquire_service_time_slot already
-    // does, so a real booking is unchanged.
+    // be permanent. A forward primitive with no inverse.
+    //
+    // ⚠ THIS COMMENT USED TO END: "The agree RPC stamps both alongside
+    // 'contracted', exactly as acquire_service_time_slot already does, so a real
+    // booking is unchanged." HALF OF THAT WAS FALSE FROM THE DAY IT WAS WRITTEN.
+    // acquire_service_time_slot DOES stamp both; vendor_agree_to_lock stamped
+    // NEITHER — read out of production with pg_get_functiondef, not from a
+    // migration and not from a comment.
+    // 🔑 A SENTENCE IS NOT A MECHANISM, and a sentence written HERE about what a
+    // DIFFERENT object does is the least checkable kind there is: nothing
+    // typechecks it, no test exercised it, and it read as settled fact.
+    // Corrected by migration 20271144481150, which adds both stamps to the agree
+    // flip — so the claim is true now. tests/db/agree-stamps-the-link.db.test.ts fails if
+    // the migration ever stops writing them, so the next reader is TOLD rather
+    // than trusted.
     const lockPayload = handshakeAsk
       ? {
           lock_request_state: 'pending',

@@ -1,3 +1,4 @@
+import type { EventWords } from '../_lib/event-words';
 import { Camera, CircleSlash, Sparkles } from 'lucide-react';
 
 // Mode enum matches the server-side validator at
@@ -38,7 +39,13 @@ function parsePhotoMomentsConfig(
   return { intro_copy: intro, moments };
 }
 
-export function PhotoMomentsWidget({ config }: { config: unknown }) {
+export function PhotoMomentsWidget({
+  config,
+  words,
+}: {
+  config: unknown;
+  words: EventWords;
+}) {
   const { intro_copy, moments } = parsePhotoMomentsConfig(config);
 
   // No host-curated moments yet — render polite brand-voice fallback
@@ -56,7 +63,7 @@ export function PhotoMomentsWidget({ config }: { config: unknown }) {
           </h3>
         </header>
         <p className="rounded-lg border border-dashed border-ink/20 bg-cream p-5 text-center text-sm italic text-ink/60">
-          Your hosts will share their photo guidance closer to the wedding.
+          Your hosts will share their photo guidance closer to the {words.eventWord}.
         </p>
       </section>
     );

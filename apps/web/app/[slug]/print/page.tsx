@@ -27,6 +27,7 @@ import { canViewSlugEvent, isSignedInEventHost } from '@/lib/slug-access';
 import { getLifecyclePhase } from '@/lib/invitation-widgets';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventWordsFor } from '../_lib/event-words';
 import {
   resolveEventMonogram,
   HERO_MONOGRAM_COLUMNS,
@@ -179,7 +180,14 @@ export default async function EditorialPrintPage({
     <main className="keepsake-root">
       <style dangerouslySetInnerHTML={{ __html: KEEPSAKE_CSS }} />
       <PrintToolbar backHref={`/${event.slug ?? slug}`} />
-      <PrintSheet data={data} copy={copy} mono={mono} qrSvg={qrSvg} hideWatermark={hideWatermark} />
+      <PrintSheet
+        data={data}
+        words={await eventWordsFor(event.event_type)}
+        copy={copy}
+        mono={mono}
+        qrSvg={qrSvg}
+        hideWatermark={hideWatermark}
+      />
     </main>
   );
 }

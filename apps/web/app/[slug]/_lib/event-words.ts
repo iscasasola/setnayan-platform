@@ -41,7 +41,11 @@
  * error, and is React-`cache()`d per request. A hiccup therefore reads "the
  * host", which is correct-but-plain for every non-wedding type — never wrong.
  */
-import { resolveProfile, type EventTypeProfile } from '@/lib/event-type-profile';
+import {
+  resolveProfile,
+  resolveProfileByEvent,
+  type EventTypeProfile,
+} from '@/lib/event-type-profile';
 
 /** The typographic apostrophe the guest tree writes everywhere. Never `'`. */
 const APOSTROPHE = '’';
@@ -132,4 +136,17 @@ export async function eventWordsFor(
   eventType: string | null | undefined,
 ): Promise<EventWords> {
   return eventWordsFromProfile(await resolveProfile(eventType ?? 'wedding'));
+}
+
+/**
+ * Same words, resolved from an EVENT ID rather than a type string.
+ *
+ * Several deep components — the post-event story, the face notice, the guest
+ * column card — receive only `eventId`, never the event row. Threading the
+ * words down to them would mean touching every intermediate for a noun. This
+ * resolves directly, and `resolveProfileByEvent` is React-`cache()`d per
+ * request, so the extra call costs nothing after the first.
+ */
+export async function eventWordsForEvent(eventId: string): Promise<EventWords> {
+  return eventWordsFromProfile(await resolveProfileByEvent(eventId));
 }

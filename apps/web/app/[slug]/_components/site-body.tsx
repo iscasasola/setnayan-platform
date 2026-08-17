@@ -724,7 +724,7 @@ export async function SiteBody({
         key={widget.widget_id}
         widget={widget}
         event={event}
-        organizer={clientWords.theOrganizer}
+        words={clientWords}
         scheduleBlocks={scheduleBlocks}
         isLive={dayOfPhase === 'live'}
         scheduleEstimated={
@@ -1105,7 +1105,7 @@ export async function SiteBody({
               guests. Shows RSVP status, seat, meal, and next schedule item at
               a glance on every return visit. Hidden from anonymous visitors
               (this branch only runs when a guest session is present). */}
-          <GuestHubCard data={guestHubData} />
+          <GuestHubCard words={clientWords} data={guestHubData} />
 
           {/* Invite/Join v2 — accountless guest's "claim your account" prompt.
               Per the lifecycle table: RSVP / Event / Editorial only (never Save the
@@ -1155,9 +1155,9 @@ export async function SiteBody({
           ) : null}
 
           {isLive ? (
-            <DayOfBanner kind="live" />
+            <DayOfBanner words={clientWords} kind="live" />
           ) : isPost ? (
-            <DayOfBanner kind="post" />
+            <DayOfBanner words={clientWords} kind="post" />
           ) : null}
 
           {/* Hero. When the host uploads a banner photo/video via
@@ -1372,7 +1372,7 @@ export async function SiteBody({
                       the top of the page for accountless viewers. */}
                   {isPost && showClaimAccountCta ? (
                     <p className="mt-3 rounded-lg border-l-2 border-gild bg-veil/60 px-3 py-2 text-sm text-ink/80">
-                      These close about a day after the wedding. Save the ones you want now —
+                      These close about a day after the {clientWords.eventWord}. Save the ones you want now —
                       or make a free account (the box near the top) to keep them.
                     </p>
                   ) : null}
@@ -1452,7 +1452,7 @@ export async function SiteBody({
                 >
                   <p className="font-medium text-ink">Keep this event for good</p>
                   <p className="mt-1">
-                    The guest view winds down about a day after the wedding. Make a free
+                    The guest view winds down about a day after the {clientWords.eventWord}. Make a free
                     Setnayan account to keep your invite and your photos — on any device. Use the
                     &ldquo;Keep this on your phone&rdquo; box above to get a sign-in link.
                   </p>
@@ -1553,7 +1553,7 @@ export async function SiteBody({
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold tracking-tight">For tagging &amp; pickup</h2>
                   <p className="mx-auto mt-2 max-w-prose text-sm text-ink/60">
-                    Save this to your phone. Wedding-day photographers will scan it to tag the
+                    Save this to your phone. Photographers will scan it on the day to tag the
                     photos they take of you — and you&rsquo;ll be able to grab those photos here
                     after the event.
                   </p>
@@ -1643,7 +1643,7 @@ export async function SiteBody({
                         Need to change your reply?
                       </summary>
                       <div className="mt-4">
-                        <RsvpWidget
+                        <RsvpWidget words={clientWords}
                           guest={guest}
                           eventId={event.event_id}
                           eventPublicId={event.public_id}
@@ -1657,7 +1657,7 @@ export async function SiteBody({
                   /* pending + maybe: the ask stays exactly as it is. "Maybe"
                      deliberately keeps the full card visible (design §11) — an
                      undecided guest still has a question to answer. */
-                  <RsvpWidget
+                  <RsvpWidget words={clientWords}
                     guest={guest}
                     eventId={event.event_id}
                     eventPublicId={event.public_id}
@@ -1697,7 +1697,7 @@ export async function SiteBody({
                   }
                   isLimitedPlusOne={isLimitedPlusOne}
                   ourPhotoUrls={ourPhotoUrls}
-                  organizer={clientWords.theOrganizer}
+                  words={clientWords}
                 />
               ))}
 
@@ -1705,8 +1705,8 @@ export async function SiteBody({
                 <section className="rounded-xl border-l-2 border-ink/30 bg-paper-deep p-5 text-sm text-ink/75">
                   You&rsquo;re joining as a +1. Photos taken of you will appear in your inviter&rsquo;s
                   gallery — ask them to share. In-app features like Shutter
-                  require a full Setnayan account, which the couple hasn&rsquo;t enabled for +1s on
-                  this wedding.
+                  require a full Setnayan account, which {clientWords.theOrganizer} hasn&rsquo;t
+                  enabled for +1s on this {clientWords.eventWord}.
                 </section>
               ) : null}
 
@@ -1894,7 +1894,7 @@ export async function SiteBody({
           ahead — the seating plan is not published and nothing here is what a
           guest came for at that moment. */}
       {plan.fullBleed ? null : (
-        <GuestDoorwayStrip
+        <GuestDoorwayStrip words={clientWords}
           venueWalk={doorways.venueWalk}
           pabuya={doorways.pabuya}
           broadcast={broadcastNotice}

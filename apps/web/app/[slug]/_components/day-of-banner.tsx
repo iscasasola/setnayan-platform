@@ -1,7 +1,14 @@
+import type { EventWords } from '../_lib/event-words';
 // Task #13 — day-of lifecycle banner. `live` = T-1h..T+8h (per
 // lib/day-of-mode.ts), `post` = T+8h..T+24h. Renders server-side so the
 // surface is offline-cacheable; no client effect needed.
-export function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
+export function DayOfBanner({
+  kind,
+  words,
+}: {
+  kind: 'live' | 'post';
+  words: EventWords;
+}) {
   if (kind === 'live') {
     return (
       <section
@@ -17,7 +24,7 @@ export function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
             Live now
           </p>
           <p className="text-sm text-ink/80">
-            The wedding is happening. Your schedule, QR, and venue info are pinned
+            The {words.eventWord} is happening. Your schedule, QR, and venue info are pinned
             below — they work offline if WiFi cuts out.
           </p>
         </div>
@@ -35,7 +42,7 @@ export function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
         Thank you for celebrating
       </p>
       <p className="mt-1 text-sm text-ink/70">
-        The wedding wrapped up. Your tagged photos will land here as the couple
+        The {words.eventWord} wrapped up. Your tagged photos will land here as {words.theOrganizer}
         releases them — check back over the next few days.
       </p>
     </section>

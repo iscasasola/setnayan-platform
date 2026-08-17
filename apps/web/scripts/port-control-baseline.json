@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c3dc3848a",
+  "generatedFromRef": "e30fd95db",
   "routeCount": 402,
-  "destinations": 796,
-  "actions": 526,
-  "blocks": 3546,
+  "destinations": 849,
+  "actions": 579,
+  "blocks": 3684,
   "routes": {
     "/": {
       "files": [
@@ -521,6 +521,7 @@
         "[slug]/_components/editorial/living-moments.tsx",
         "[slug]/_components/editorial/sample-ids.ts",
         "[slug]/_components/empty-states.tsx",
+        "[slug]/_components/event-words-provider.tsx",
         "[slug]/_components/face-data-notice.tsx",
         "[slug]/_components/guest-camera-player.tsx",
         "[slug]/_components/guest-column-card.tsx",
@@ -583,8 +584,10 @@
         "[slug]/_components/your-photos-widget.tsx",
         "[slug]/_components/your-seat-block.tsx",
         "[slug]/_lib/event-noun.ts",
+        "[slug]/_lib/event-words.ts",
         "[slug]/_lib/host-scope.ts",
         "[slug]/_lib/loaders.ts",
+        "[slug]/_lib/measures.ts",
         "[slug]/_lib/site-identity.ts",
         "[slug]/_lib/site-menu.ts",
         "[slug]/_lib/site-nav.ts",
@@ -626,6 +629,7 @@
         "ByTheNumbers",
         "Chapter",
         "ChapterWriteUp",
+        "ClientEventWords",
         "ClipFrame",
         "Colophon",
         "CountdownWidget",
@@ -646,6 +650,9 @@
         "EditorialOrderKey",
         "EditorialSections",
         "EventMedia",
+        "EventWords",
+        "EventWordsContext.Provider",
+        "EventWordsProvider",
         "FaceDataNotice",
         "FaceGateResult",
         "FacebookWatchCard",
@@ -893,7 +900,9 @@
         "[slug]/print/print-sheet.tsx",
         "[slug]/print/print-toolbar.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/[seg]"
+      ],
       "actions": [],
       "blocks": [
         "ChapterCard",
@@ -1192,19 +1201,64 @@
     },
     "/admin/accounts": {
       "files": [
+        "admin/accounts/_surfaces/demo-vendors-surface.tsx",
+        "admin/accounts/_surfaces/events-surface.tsx",
+        "admin/accounts/_surfaces/users-surface.tsx",
+        "admin/accounts/_surfaces/vendors-surface.tsx",
+        "admin/accounts/_surfaces/venues-surface.tsx",
         "admin/accounts/loading.tsx",
         "admin/accounts/page.tsx"
       ],
-      "destinations": [],
-      "actions": [],
+      "destinations": [
+        "/admin/demo-vendors/inquiries",
+        "/admin/users/[seg]",
+        "/admin/vendors/[seg]/edit",
+        "/admin/vendors/[seg]/plan",
+        "/admin/vendors/[seg]/team",
+        "/admin/venues",
+        "/admin/venues/[seg]",
+        "/admin/venues/new",
+        "/admin/venues?type=[seg]",
+        "/explore?demo=1",
+        "/explore?demo=1&category=catering",
+        "/explore?demo=1&category=photography",
+        "/explore?demo=1&category=wedding_coordination"
+      ],
+      "actions": [
+        "blacklistUser",
+        "confirmUserEmail",
+        "deleteEvent",
+        "deleteUser",
+        "forceSignOutUser",
+        "issueCompGrant",
+        "resetUserPassword",
+        "revokeAdminVendorInvite",
+        "revokeCompGrant",
+        "setEventFaceMode",
+        "toggleTeamMember",
+        "unblacklistEmail"
+      ],
       "blocks": [
+        "Avatar",
+        "BlacklistTable",
+        "CompGrantsPanel",
+        "ConfirmForm",
+        "DemoVendorActions",
         "DemoVendorsSurface",
         "EventsSurface",
+        "GrantCard",
         "Icon",
+        "Image",
+        "InviteVendorForm",
         "Link",
+        "MiniTour",
+        "Stat",
+        "SubmitButton",
         "UsersSurface",
+        "UsersTable",
         "VendorsSurface",
-        "VenuesSurface"
+        "VenuesSurface",
+        "VisibilityBadge"
       ]
     },
     "/admin/addons": {
@@ -1223,6 +1277,18 @@
         "admin/app-performance/_components/fx.tsx",
         "admin/app-performance/_components/health-now.tsx",
         "admin/app-performance/_components/won-lost-admin-card.tsx",
+        "admin/app-performance/_surfaces/browser-blocks-surface.tsx",
+        "admin/app-performance/_surfaces/connection-logs-surface.tsx",
+        "admin/app-performance/_surfaces/funnels-surface.tsx",
+        "admin/app-performance/_surfaces/growth-surface.tsx",
+        "admin/app-performance/_surfaces/intelligence-surface.tsx",
+        "admin/app-performance/_surfaces/interconnections-surface.tsx",
+        "admin/app-performance/_surfaces/offline-surface.tsx",
+        "admin/app-performance/_surfaces/operations-surface.tsx",
+        "admin/app-performance/_surfaces/overview-surface.tsx",
+        "admin/app-performance/_surfaces/seo-actions.ts",
+        "admin/app-performance/_surfaces/seo-rerun-button.tsx",
+        "admin/app-performance/_surfaces/seo-surface.tsx",
         "admin/app-performance/actions.ts",
         "admin/app-performance/loading.tsx",
         "admin/app-performance/page.tsx"
@@ -1237,28 +1303,60 @@
         "viewReceipt"
       ],
       "blocks": [
+        "ActionCenterZone",
+        "BarListCard",
+        "BreakdownCard",
         "BrowserBlocksSurface",
+        "BucketBars",
         "ChartCard",
+        "ChurnTable",
+        "CockpitFx",
         "CockpitSurface",
+        "ConnectionLogsClient",
         "ConnectionLogsSurface",
+        "ContextTile",
+        "ConversionCard",
         "DeepHealth",
+        "DeltaChip",
         "DeltaPct",
+        "ExpensesZone",
+        "FormFlash",
+        "FunnelTable",
         "FunnelsSurface",
         "GridPageSkeleton",
+        "GrowthCard",
         "GrowthSurface",
+        "HealthNow",
         "Icon",
+        "IndexChart",
         "IntelligenceSurface",
         "InterconnectionsSurface",
+        "LeadTable",
+        "LeaderRow",
         "Link",
         "ListPageSkeleton",
+        "MarketPulse",
         "Metric",
+        "MiniBars",
+        "OfflineDiagnosticLoader",
         "OfflineSurface",
         "OperationsHiringSurface",
+        "RerunResult",
+        "SectionHeading",
+        "SeoRerunButton",
         "SeoSurface",
+        "SignalRow",
+        "SmokeTestPanel",
+        "Sparkline",
         "StackedBars",
+        "StatCard",
+        "StatTile",
         "StatusPill",
         "Suspense",
-        "TablePageSkeleton"
+        "TablePageSkeleton",
+        "WiringNote",
+        "WonLostAdminCard",
+        "ZoneHeading"
       ]
     },
     "/admin/approvals": {
@@ -2248,17 +2346,39 @@
       "files": [
         "admin/pricing/_components/catalog-editor.tsx",
         "admin/pricing/_components/grids.ts",
+        "admin/pricing/_surfaces/custom-plans-surface.tsx",
+        "admin/pricing/_surfaces/free-windows-actions.ts",
+        "admin/pricing/_surfaces/free-windows-surface.tsx",
+        "admin/pricing/_surfaces/price-bands-surface.tsx",
+        "admin/pricing/_surfaces/pricing-surface.tsx",
         "admin/pricing/actions.ts",
         "admin/pricing/loading.tsx",
         "admin/pricing/page.tsx"
       ],
       "destinations": [
-        "/admin/pricing?tab=[seg]"
+        "/admin/addons/pricing-report",
+        "/admin/pricing?tab=[seg]",
+        "/admin/pricing?tab=custom-plans&vendor=[seg]",
+        "/admin/pricing?tab=pricing",
+        "/pricing",
+        "/vendors"
       ],
-      "actions": [],
+      "actions": [
+        "createFreeWindow",
+        "deleteFreeWindow",
+        "recomputePriceBands",
+        "saveAllPricing",
+        "setFreeWindowActive"
+      ],
       "blocks": [
         "ActiveToggle",
+        "BundleRowEditor",
+        "ColHeader",
+        "ConfirmForm",
+        "ConsoleTable",
+        "CustomComposer",
         "CustomPlansSurface",
+        "Empty",
         "FreeWindowsSurface",
         "GridPageSkeleton",
         "Icon",
@@ -2268,8 +2388,14 @@
         "MoneyInput",
         "PriceBandsSurface",
         "PricingSurface",
+        "RetailRowEditor",
+        "RetiredDisclosure",
+        "SaveBanner",
+        "Stat",
+        "SubmitButton",
         "Suspense",
-        "TablePageSkeleton"
+        "TablePageSkeleton",
+        "VendorRowEditor"
       ]
     },
     "/admin/queues": {
@@ -2454,23 +2580,43 @@
         "admin/settings/_components/qr-upload-form.tsx",
         "admin/settings/_components/sentry-smoke-test-button.tsx",
         "admin/settings/_components/tin-input.tsx",
+        "admin/settings/_surfaces/compliance-surface.tsx",
+        "admin/settings/_surfaces/demo-mode-surface.tsx",
+        "admin/settings/_surfaces/notifications-surface.tsx",
+        "admin/settings/_surfaces/settings-surface.tsx",
         "admin/settings/actions.ts",
         "admin/settings/loading.tsx",
         "admin/settings/page.tsx"
       ],
       "destinations": [
-        "/admin/settings?tab=[seg]"
+        "/admin/demo-vendors",
+        "/admin/settings/payment-methods",
+        "/admin/settings?tab=[seg]",
+        "/admin/settings?tab=notifications",
+        "/admin/ugat?tab=onboarding",
+        "/explore"
       ],
       "actions": [
+        "markAllNotificationsRead",
+        "markNotificationRead",
+        "removeBrandIcon",
+        "saveAdminDigest",
+        "saveBusinessIdentity",
         "saveLoaderAppearance",
         "uploadBrandIcon"
       ],
       "blocks": [
         "Blob",
+        "BrandIconCard",
+        "BrandIconUploadForm",
+        "ComplianceForm",
         "ComplianceSurface",
+        "CountCard",
         "DemoModeSurface",
+        "Field",
         "File",
         "FireResult",
+        "FormFlash",
         "FormPageSkeleton",
         "GridPageSkeleton",
         "HTMLFormElement",
@@ -2478,14 +2624,17 @@
         "Icon",
         "Link",
         "ListPageSkeleton",
+        "LoaderAppearanceCard",
         "LoaderVariant",
         "NotificationsSurface",
         "PreviewSwatch",
         "ProcessStatus",
         "SDLoader",
+        "SentrySmokeTestButton",
         "SettingsSurface",
         "SubmitButton",
-        "Suspense"
+        "Suspense",
+        "TinInput"
       ]
     },
     "/admin/settings/demo-mode": {
@@ -2553,27 +2702,119 @@
     },
     "/admin/studio": {
       "files": [
+        "admin/studio/_surfaces/discount-codes-surface.tsx",
+        "admin/studio/_surfaces/journal-spotlights-surface.tsx",
+        "admin/studio/_surfaces/moodboard-library-surface.tsx",
+        "admin/studio/_surfaces/patiktok-surface.tsx",
+        "admin/studio/_surfaces/real-stories-surface.tsx",
+        "admin/studio/_surfaces/recaps-surface.tsx",
+        "admin/studio/_surfaces/referrals-surface.tsx",
+        "admin/studio/_surfaces/reveal-studio-surface.tsx",
+        "admin/studio/_surfaces/social-queue-surface.tsx",
+        "admin/studio/_surfaces/songs-surface.tsx",
+        "admin/studio/_surfaces/spotlight-awards-surface.tsx",
+        "admin/studio/_surfaces/storytellers-surface.tsx",
+        "admin/studio/_surfaces/website-surface.tsx",
         "admin/studio/loading.tsx",
         "admin/studio/page.tsx"
       ],
-      "destinations": [],
-      "actions": [],
+      "destinations": [
+        "/[seg]",
+        "/[seg]/recap",
+        "/admin",
+        "/admin/discount-codes/[seg]/edit",
+        "/admin/discount-codes/new",
+        "/admin/pricing",
+        "/admin/studio?tab=discount-codes",
+        "/admin/studio?tab=discount-codes&filter=active",
+        "/admin/studio?tab=discount-codes&filter=disabled",
+        "/admin/studio?tab=discount-codes&filter=expired",
+        "/admin/user-reports",
+        "/realstories",
+        "/u/[seg]"
+      ],
+      "actions": [
+        "addAwardManually",
+        "adminTakedownRecap",
+        "approveFreeSpotlight",
+        "attachSpotlight",
+        "confirmSponsored",
+        "createAnnouncement",
+        "deleteSongAction",
+        "disableDiscountCode",
+        "enableDiscountCode",
+        "initiateSponsored",
+        "markConsentPosted",
+        "markConsentTakenDown",
+        "markVendorFeatured",
+        "mergeSongsAction",
+        "postSocialPostNow",
+        "pullSocialPost",
+        "removeSpotlight",
+        "retrySocialPost",
+        "saveEvergreenItem",
+        "setChapterFeatured",
+        "setChapterRank",
+        "setReferralProgramEnabled",
+        "setShowcaseFeatured",
+        "setShowcaseRank",
+        "updatePublishSettings",
+        "updateSocialPostBody"
+      ],
       "blocks": [
+        "AutopilotStrip",
+        "Banner",
+        "CardPreview",
+        "ConfirmForm",
+        "ConsoleTable",
+        "DiscountCodeRow",
         "DiscountCodesSurface",
+        "EmptyPage",
+        "EmptyRow",
+        "EvergreenItemCard",
+        "FilterChip",
+        "FlashBanner",
+        "FormFlash",
         "Icon",
+        "InfluencerAnalyticsPanel",
+        "JobRow",
         "JournalSpotlightsSurface",
+        "KpiStatCard",
+        "LibraryEditor",
         "Link",
+        "ManualAddForm",
+        "Mono",
         "MoodboardLibrarySurface",
+        "PageMasthead",
+        "PageSelector",
         "PatiktokSurface",
+        "QueueSection",
         "RealStoriesSurface",
         "RecapsSurface",
+        "RedemptionRow",
         "ReferralsSurface",
+        "RevealStudio",
         "RevealStudioSurface",
+        "ScheduledPostCard",
+        "ShowcaseAdminRow",
+        "SiteWidgetPage",
         "SocialQueueSurface",
         "SongsSurface",
+        "SourceChip",
+        "SpotlightAwardRowActions",
         "SpotlightAwardsSurface",
+        "SpotlightRecomputeButton",
+        "SpotlightRow",
+        "Stat",
+        "StatusPill",
+        "StdVideoModeration",
+        "StorytellerAdminRow",
         "StorytellersSurface",
-        "WebsiteSurface"
+        "SubmitButton",
+        "TikTokManualPanel",
+        "TopCreatorInfluence",
+        "WebsiteSurface",
+        "WidgetList"
       ]
     },
     "/admin/subscriptions": {
@@ -2685,33 +2926,55 @@
     "/admin/ugat": {
       "files": [
         "admin/ugat/_components/ugat-console.tsx",
+        "admin/ugat/_surfaces/brain-surface.tsx",
+        "admin/ugat/_surfaces/menus-surface.tsx",
+        "admin/ugat/_surfaces/onboarding-surface.tsx",
+        "admin/ugat/_surfaces/wedding-traditions-surface.tsx",
         "admin/ugat/actions.ts",
         "admin/ugat/loading.tsx",
         "admin/ugat/page.tsx"
       ],
       "destinations": [
+        "/admin/songs",
+        "/admin/taxonomy",
+        "/admin/taxonomy?view=vocab-faith",
         "/admin/ugat/map",
         "/admin/ugat?tab=[seg]"
       ],
-      "actions": [],
+      "actions": [
+        "deleteTraditionItem",
+        "resetTraditionsToDefaults",
+        "seedTraditionsFromDefaults",
+        "updateOnboardingMusic",
+        "upsertTraditionItem"
+      ],
       "blocks": [
         "BrainSurface",
+        "ChunkRowView",
+        "ComingSoonTab",
         "Control",
         "EdgeCard",
         "EdgeRow",
+        "FileUpload",
         "FindingCard",
         "HTMLDivElement",
         "HTMLInputElement",
         "Ico",
         "Icon",
+        "ItemForm",
+        "KpiStatCard",
         "Link",
         "ListPageSkeleton",
         "MapCanvas",
+        "MenuRegistryEditor",
         "MenusSurface",
         "NodeCard",
         "Omnibox",
         "OnboardingSurface",
+        "RelatedLink",
+        "ReligionSection",
         "Resolution",
+        "SubmitButton",
         "Suspense",
         "TablePageSkeleton",
         "TablesView",
@@ -3342,7 +3605,8 @@
         "dashboard/(account)/notifications/page.tsx"
       ],
       "destinations": [
-        "/dashboard"
+        "/dashboard",
+        "/dashboard/notifications"
       ],
       "actions": [
         "markAllNotificationsRead"
@@ -3629,6 +3893,8 @@
     },
     "/dashboard/[eventId]": {
       "files": [
+        "dashboard/[eventId]/_actions/day-of-broadcast.ts",
+        "dashboard/[eventId]/_actions/share-consent.ts",
         "dashboard/[eventId]/_components/access-requests-doorway.tsx",
         "dashboard/[eventId]/_components/checklist/checklist-full.tsx",
         "dashboard/[eventId]/_components/customer-bottom-nav.tsx",
@@ -3740,6 +4006,7 @@
         "DirectPayTrigger",
         "DraftGuestListResult",
         "EffectToggle",
+        "EmailCallTimesResult",
         "EventDashboard",
         "EventDayPrepCta",
         "EventRailContext",
@@ -3805,10 +4072,13 @@
         "SavePakantaIntakeResult",
         "SaveToContinue",
         "Screen",
+        "SendBroadcastResult",
         "ServiceRow",
         "ServicesCard",
         "SetCeremonyResult",
         "SetDateNudge",
+        "ShareArtifactType",
+        "ShareCreditMode",
         "Sheet",
         "SidebarItem",
         "SidebarSection",
@@ -3845,7 +4115,9 @@
         "dashboard/[eventId]/access-requests/actions.ts",
         "dashboard/[eventId]/access-requests/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]"
+      ],
       "actions": [],
       "blocks": [
         "AnswerResult",
@@ -4670,6 +4942,7 @@
       ],
       "destinations": [
         "/dashboard/[seg]/messages",
+        "/dashboard/[seg]/messages/[seg]",
         "/proposals/[seg]"
       ],
       "actions": [
@@ -4861,6 +5134,7 @@
     },
     "/dashboard/[eventId]/progress": {
       "files": [
+        "dashboard/[eventId]/progress/_actions/free-venue-shortlist.ts",
         "dashboard/[eventId]/progress/_components/free-venue-shortlist-offer.tsx",
         "dashboard/[eventId]/progress/_components/journey-rail.tsx",
         "dashboard/[eventId]/progress/page.tsx"
@@ -4868,6 +5142,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "FirstVenueShortlistResult",
         "Link",
         "Phase",
         "ProgressRing"
@@ -6088,6 +6363,11 @@
     },
     "/dashboard/[eventId]/vendors": {
       "files": [
+        "dashboard/[eventId]/vendors/_actions/bench-marketplace-search.ts",
+        "dashboard/[eventId]/vendors/_actions/category-search.ts",
+        "dashboard/[eventId]/vendors/_actions/contact-shortlist-vendor.ts",
+        "dashboard/[eventId]/vendors/_actions/reuse-actions.ts",
+        "dashboard/[eventId]/vendors/_actions/unlock-category.ts",
         "dashboard/[eventId]/vendors/_components/accordion-build.tsx",
         "dashboard/[eventId]/vendors/_components/accordion-lock.tsx",
         "dashboard/[eventId]/vendors/_components/bench-vendor-actions.tsx",
@@ -6122,6 +6402,7 @@
         "dashboard/[eventId]/vendors/requirements-actions.ts"
       ],
       "destinations": [
+        "/dashboard/[seg]",
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/disputes",
         "/dashboard/[seg]/messages/[seg]",
@@ -6157,10 +6438,12 @@
         "CatIcon",
         "CategoryDecisionResult",
         "CategorySearchOverlay",
+        "CategorySearchResult",
         "ChangePickButton",
         "ChildRail",
         "CompareSheet",
         "ContactShortlistVendorButton",
+        "ContactShortlistVendorResult",
         "DeadlineChip",
         "DeleteManualVendorResult",
         "DependencyNudge",
@@ -6212,6 +6495,7 @@
         "RequirementsModal",
         "RequirementsModalPhase",
         "ReservationTermsModal",
+        "ReuseActionResult",
         "ReuseBookingsPanel",
         "RevertVendorResult",
         "Row",
@@ -6233,6 +6517,7 @@
         "TeamSavePlan",
         "TeamSummaryChip",
         "ToastState",
+        "UnlockCategoryResult",
         "VendorCard",
         "VendorCardAtom",
         "VendorCategory",
@@ -6813,20 +7098,46 @@
     "/features": {
       "files": [
         "features/_PageBody.tsx",
+        "features/_sections/_AnchorNav.tsx",
+        "features/_sections/_Communications.tsx",
+        "features/_sections/_Compliance.tsx",
+        "features/_sections/_DayOfApparatus.tsx",
+        "features/_sections/_FinalCTA.tsx",
+        "features/_sections/_Hero.tsx",
+        "features/_sections/_OutsourcingPacing.tsx",
+        "features/_sections/_PlanningToolkit.tsx",
+        "features/_sections/_StickyMobileCTA.tsx",
+        "features/_sections/_VendorsLedger.tsx",
         "features/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/pricing",
+        "/signup",
+        "/vendors"
+      ],
       "actions": [],
       "blocks": [
+        "BudgetMock",
         "Communications",
         "Compliance",
         "DayOfApparatus",
+        "FeatureRow",
         "FeaturesAnchorNav",
         "FeaturesHero",
         "FeaturesPageBody",
         "FinalCTA",
+        "GuestListMock",
+        "HTMLAnchorElement",
+        "HTMLElement",
+        "Icon",
+        "Link",
+        "LocaleSwitch",
+        "MockShell",
+        "MoodBoardMock",
         "OutsourcingPacing",
         "PlanningToolkit",
+        "ScheduleMock",
+        "SeatingMock",
         "StickyMobileCTA",
         "VendorsLedger"
       ]
@@ -7424,6 +7735,7 @@
       ],
       "destinations": [
         "/",
+        "/papic/guest",
         "/terms"
       ],
       "actions": [],
@@ -7539,7 +7851,8 @@
         "papic/seat/[token]/page.tsx"
       ],
       "destinations": [
-        "/"
+        "/",
+        "/papic/seat/[seg]"
       ],
       "actions": [],
       "blocks": [
@@ -8631,7 +8944,9 @@
         "vendor-dashboard/deep-search/actions.ts",
         "vendor-dashboard/deep-search/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/vendor-dashboard/subscription"
+      ],
       "actions": [
         "formAction"
       ],
@@ -8785,6 +9100,7 @@
       ],
       "destinations": [
         "/vendor-dashboard",
+        "/vendor-dashboard/messages",
         "/vendor-dashboard/messages/[seg]"
       ],
       "actions": [],
@@ -8899,7 +9215,8 @@
         "vendor-dashboard/notifications/push-toggle.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard"
+        "/vendor-dashboard",
+        "/vendor-dashboard/notifications"
       ],
       "actions": [
         "markAllNotificationsRead"
@@ -9054,7 +9371,9 @@
       "files": [
         "vendor-dashboard/on-the-day/live/[eventId]/papic/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/vendor-dashboard/on-the-day"
+      ],
       "actions": [],
       "blocks": [
         "Link",

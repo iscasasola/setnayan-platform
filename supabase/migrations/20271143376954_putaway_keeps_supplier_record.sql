@@ -146,6 +146,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS vendor_trusted_review_stats_vendor_profile_id_
   ON public.vendor_trusted_review_stats(vendor_profile_id);
 
 REFRESH MATERIALIZED VIEW public.vendor_trusted_review_stats;
+-- 🔑 REVOKE FIRST, THEN GRANT — DROP + CREATE IS A RESET, NOT AN EDIT.
+-- This database carries ALTER DEFAULT PRIVILEGES that hand `anon` and
+-- `authenticated` INSERT/UPDATE/DELETE on newly created objects, so a recreated
+-- matview arrives WRITABLE before any GRANT in this file runs. A bare
+-- "GRANT SELECT" then reads as if it set the privileges, and silently leaves the
+-- write bits standing.
+-- ⚠ I FIXED THIS ON THE THIRD MATVIEW IN THIS FILE AND LEFT ITS TWO SIBLINGS —
+-- caught only because a guard added hours later asked the question directly.
+-- WHEN YOU FIX A SHAPE, SWEEP EVERY INSTANCE OF THAT SHAPE IN THE SAME FILE.
+REVOKE ALL ON public.vendor_trusted_review_stats FROM anon;
+REVOKE ALL ON public.vendor_trusted_review_stats FROM authenticated;
 GRANT SELECT ON public.vendor_trusted_review_stats TO anon, authenticated;
 
 COMMENT ON MATERIALIZED VIEW public.vendor_trusted_review_stats IS
@@ -220,6 +231,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS vendor_public_completed_events_stats_pk
   ON public.vendor_public_completed_events_stats(vendor_profile_id);
 
 REFRESH MATERIALIZED VIEW public.vendor_public_completed_events_stats;
+-- 🔑 REVOKE FIRST, THEN GRANT — DROP + CREATE IS A RESET, NOT AN EDIT.
+-- This database carries ALTER DEFAULT PRIVILEGES that hand `anon` and
+-- `authenticated` INSERT/UPDATE/DELETE on newly created objects, so a recreated
+-- matview arrives WRITABLE before any GRANT in this file runs. A bare
+-- "GRANT SELECT" then reads as if it set the privileges, and silently leaves the
+-- write bits standing.
+-- ⚠ I FIXED THIS ON THE THIRD MATVIEW IN THIS FILE AND LEFT ITS TWO SIBLINGS —
+-- caught only because a guard added hours later asked the question directly.
+-- WHEN YOU FIX A SHAPE, SWEEP EVERY INSTANCE OF THAT SHAPE IN THE SAME FILE.
+REVOKE ALL ON public.vendor_public_completed_events_stats FROM anon;
+REVOKE ALL ON public.vendor_public_completed_events_stats FROM authenticated;
 GRANT SELECT ON public.vendor_public_completed_events_stats TO anon, authenticated;
 
 COMMENT ON MATERIALIZED VIEW public.vendor_public_completed_events_stats IS

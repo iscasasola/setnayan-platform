@@ -44,6 +44,9 @@ export type ClientEventWords = {
   TheOrganizer: string;
   /** 'the couple’s'. */
   theOrganizerPossessive: string;
+  /** 'wedding' · 'birthday' · 'graduation'. Carried because one client surface
+   *  — the countdown — has a label that is a WEDDING VOW, not a generic one. */
+  eventWord: string;
 };
 
 /**
@@ -56,6 +59,7 @@ export const WORDS_AS_SHIPPED: ClientEventWords = {
   theOrganizer: 'the couple',
   TheOrganizer: 'The couple',
   theOrganizerPossessive: 'the couple’s',
+  eventWord: 'wedding',
 };
 
 const EventWordsContext = createContext<ClientEventWords | null>(null);

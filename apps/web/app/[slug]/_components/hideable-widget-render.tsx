@@ -40,9 +40,13 @@ export function HideableWidgetRender({
   scheduleEstimated = false,
   isLimitedPlusOne,
   ourPhotoUrls,
+  organizer,
 }: {
   widget: InvitationWidgetRow;
   event: EventRow;
+  /** This event type's word for whoever is throwing it. Threaded from the body
+   *  (which resolves it once) rather than resolved per widget. */
+  organizer: string;
   guest: GuestRow;
   sideLabel: string;
   scheduleBlocks: ScheduleBlockRow[];
@@ -133,7 +137,13 @@ export function HideableWidgetRender({
       return <OurLoveStoryWidget config={event.love_story} />;
 
     case 'tier_comparison':
-      return <TierComparisonWidget limited={isLimitedPlusOne} eventNoun={eventNounOf(event)} />;
+      return (
+        <TierComparisonWidget
+          limited={isLimitedPlusOne}
+          eventNoun={eventNounOf(event)}
+          organizer={organizer}
+        />
+      );
 
     // Always-on widgets (hero, greeting, qr_card, rsvp) are not reachable
     // here — they render in fixed positions in the parent function. The

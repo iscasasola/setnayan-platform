@@ -724,6 +724,7 @@ export async function SiteBody({
         key={widget.widget_id}
         widget={widget}
         event={event}
+        organizer={clientWords.theOrganizer}
         scheduleBlocks={scheduleBlocks}
         isLive={dayOfPhase === 'live'}
         scheduleEstimated={
@@ -822,8 +823,8 @@ export async function SiteBody({
                 </p>
               ) : (
                 <p className="mx-auto max-w-prose text-sm text-ink/70">
-                  This is a Setnayan invitation page. Scan your personal QR or open the link
-                  the couple sent you to see your invitation.
+                  This is a Setnayan invitation page. Scan your personal QR or open the link{' '}
+                  {clientWords.theOrganizer} sent you to see your invitation.
                 </p>
               )}
             </div>
@@ -1696,6 +1697,7 @@ export async function SiteBody({
                   }
                   isLimitedPlusOne={isLimitedPlusOne}
                   ourPhotoUrls={ourPhotoUrls}
+                  organizer={clientWords.theOrganizer}
                 />
               ))}
 

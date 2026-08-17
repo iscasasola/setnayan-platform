@@ -150,7 +150,27 @@ export type TopCreatorInfluence = {
   inquiriesDriven: number;
 };
 
+/**
+ * The leaderboard's own cap — exported so the surface can pass the SAME number
+ * as `cap` and a full board says "there are more" instead of reading as the whole
+ * field. Added 2026-08-17: `.slice(0, 10)` disclosed nothing.
+ */
+export const ADMIN_INFLUENCER_TOP_CREATORS_CAP = 10;
+
 export type InfluencerAnalytics = {
+  /**
+   * FALSE when the aggregate could not be read at all.
+   *
+   * 🔑 WHY THIS FIELD EXISTS (added 2026-08-17). Every count below defaults to 0
+   * on a failed read, and the gate metric is rendered to the admin as the
+   * sentence "So far: 0 of 25" — a statement of fact about platform activity,
+   * printed from a query that returned nothing. Supabase RESOLVES with
+   * `{ error }` rather than throwing, so the reads inside this function had no
+   * way to be distinguished from a genuinely quiet platform. Zero measured and
+   * zero-because-nothing-was-measured are different answers and the surface must
+   * be able to tell them apart.
+   */
+  measured: boolean;
   /** TRUE once the volume gate is met — surfaces render the numbers; otherwise
    *  the caller shows the "not enough activity yet" state. */
   unlocked: boolean;
@@ -170,7 +190,10 @@ export type InfluencerAnalytics = {
   topCreators: TopCreatorInfluence[];
 };
 
+/** Everything zero AND `measured: false` — nothing was counted, so no count here
+ *  may be reported as a finding. */
 const EMPTY_ANALYTICS: InfluencerAnalytics = {
+  measured: false,
   unlocked: false,
   totalInquiriesDriven: 0,
   reachTokensSpent: 0,
@@ -193,10 +216,14 @@ export async function fetchInfluencerAnalyticsForAdmin(): Promise<InfluencerAnal
     // Every creator = a user with >=1 published chapter (same eligibility shape
     // as fetchEligibleCreators, without the public-profile browse gate — an
     // admin aggregate counts all attributed influence).
-    const { data: chapterRows } = await admin
+    const { data: chapterRows, error: chapterErr } = await admin
       .from('creator_chapters')
       .select('user_id')
       .eq('status', 'published');
+    // The gate metric is derived from this read. A REFUSED read here would
+    // otherwise produce a confident "0 of 25" — return unmeasured instead, so the
+    // surface reports that it does not know rather than that nothing happened.
+    if (chapterErr) return EMPTY_ANALYTICS;
     const creatorIds = [
       ...new Set(
         ((chapterRows ?? []) as Array<{ user_id: string | null }>)
@@ -248,7 +275,7 @@ export async function fetchInfluencerAnalyticsForAdmin(): Promise<InfluencerAnal
       const ranked = [...driven.entries()]
         .filter(([, n]) => n > 0)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 10);
+        .slice(0, ADMIN_INFLUENCER_TOP_CREATORS_CAP);
       const topIds = ranked.map(([id]) => id);
       const nameById = new Map<string, { display_name: string | null; slug: string | null }>();
       if (topIds.length > 0) {
@@ -276,6 +303,7 @@ export async function fetchInfluencerAnalyticsForAdmin(): Promise<InfluencerAnal
     }
 
     return {
+      measured: true,
       unlocked,
       totalInquiriesDriven,
       reachTokensSpent,

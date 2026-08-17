@@ -541,7 +541,18 @@ export type StorytellerAdminRow = {
 export type StorytellerAdminResult =
   | { ok: true; rows: StorytellerAdminRow[] }
   // `migration` = the featuring columns don't exist yet. `error` = other failure.
-  | { ok: false; reason: 'migration' | 'error' };
+  //
+  // `message` carries the refusal Postgres actually gave, so the admin surface
+  // can NAME it instead of saying "try again in a moment". Added 2026-08-17 with
+  // the ConsoleTable conversion — see the sibling note in lib/showcase-db.ts.
+  | { ok: false; reason: 'migration' | 'error'; message?: string };
+
+/**
+ * The admin candidate list's `.limit(...)`, exported so the surface can pass the
+ * SAME number as `cap`. The cap sat one call frame away from the screen, so it
+ * read as every published chapter.
+ */
+export const STORYTELLER_ADMIN_CANDIDATE_CAP = 100;
 
 /**
  * The admin candidate list — ALL published chapters on public-profile accounts,

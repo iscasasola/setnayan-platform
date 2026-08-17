@@ -502,10 +502,25 @@ export type ShowcaseAdminResult =
   | { ok: true; rows: ShowcaseAdminRow[] }
   // `migration` = the featuring columns don't exist yet (owner hasn't run the
   // db push). `error` = any other read failure. Both render an honest message.
-  | { ok: false; reason: 'migration' | 'error' };
+  //
+  // `message` carries the refusal Postgres actually gave, so the admin surface
+  // can NAME it instead of saying "try again in a moment". Added 2026-08-17 with
+  // the ConsoleTable conversion: a refused read whose reason is swallowed is the
+  // same screen as a refused read that is never reported, and this failure class
+  // (phantom column · stale enum value · unapplied migration · missing grant)
+  // only ever announces itself in that message.
+  | { ok: false; reason: 'migration' | 'error'; message?: string };
+
+/**
+ * The admin candidate list's `.limit(...)`, exported so the surface can pass the
+ * SAME number as `cap` and a full page discloses itself. The cap lived one call
+ * frame away from the screen, so `grep '.limit('` on the surface found nothing
+ * and it read as the whole eligible set.
+ */
+export const SHOWCASE_ADMIN_CANDIDATE_CAP = 100;
 
 export async function loadShowcaseCandidatesForAdmin(
-  limit = 100,
+  limit = SHOWCASE_ADMIN_CANDIDATE_CAP,
 ): Promise<ShowcaseAdminResult> {
   let admin: ReturnType<typeof createAdminClient>;
   try {
@@ -559,9 +574,9 @@ export async function loadShowcaseCandidatesForAdmin(
       // 42703 = undefined_column. PostgREST surfaces it as a 400 with this code
       // when the migration hasn't been applied — tell the admin to run it.
       if (error.code === '42703' || /showcase_featured_at|showcase_feature_rank/.test(error.message)) {
-        return { ok: false, reason: 'migration' };
+        return { ok: false, reason: 'migration', message: error.message };
       }
-      return { ok: false, reason: 'error' };
+      return { ok: false, reason: 'error', message: error.message };
     }
 
     const rows: ShowcaseAdminRow[] = (data ?? []).map((e) => ({

@@ -65,8 +65,21 @@ const ARCHETYPE = '_components/console-table.tsx';
  */
 const CONVERTED = [
   'pax-changes/page.tsx',
-  'receipts/page.tsx',
   'pricing/_surfaces/price-bands-surface.tsx',
+  'receipts/page.tsx',
+  // Lane C · the five /admin/studio surfaces, 2026-08-17. Two of them printed
+  // "nothing here" over a refused read (referrals never dropped the error it
+  // fetched; patiktok never even destructured one — the LANE DOC counted one
+  // liar, and not-destructuring is not the absence of a defect). Two were
+  // already honest via a discriminated loader result and gained a named refusal
+  // plus a disclosed cap that had been hiding one call frame away in lib/. One
+  // threw, which is honest and the least useful honest answer available.
+  // storytellers-surface.tsx holds TWO tables and both are converted here.
+  'studio/_surfaces/discount-codes-surface.tsx',
+  'studio/_surfaces/patiktok-surface.tsx',
+  'studio/_surfaces/real-stories-surface.tsx',
+  'studio/_surfaces/referrals-surface.tsx',
+  'studio/_surfaces/storytellers-surface.tsx',
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -118,11 +131,6 @@ const RAW_TABLE_BILL = [
   'offline/_components/offline-diagnostic.tsx',
   'papic-storage/page.tsx',
   'settings/payment-methods/page.tsx',
-  'studio/_surfaces/discount-codes-surface.tsx',
-  'studio/_surfaces/patiktok-surface.tsx',
-  'studio/_surfaces/real-stories-surface.tsx',
-  'studio/_surfaces/referrals-surface.tsx',
-  'studio/_surfaces/storytellers-surface.tsx',
   'ugat/_components/ugat-console.tsx',
   'vendor-partnerships/page.tsx',
   'website-media/media-table.tsx',

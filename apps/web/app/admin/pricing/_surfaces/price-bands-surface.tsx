@@ -8,6 +8,7 @@ import { regionBySlug } from '@/lib/region-source';
 import { paxBucketLabel, prettyCategory } from '@/lib/price-position';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { recomputePriceBands } from '@/app/admin/price-bands/actions';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 
@@ -61,10 +62,13 @@ export async function PriceBandsSurface({
     .order('region_slug', { ascending: true })
     .order('pax_bucket', { ascending: true });
   if (error) logQueryError('AdminPriceBandsPage', error);
-  const rows = (data ?? []) as BandRow[];
+  // NULL means the read was refused, which is NOT the same as "every bucket is
+  // below the min-N floor" — and that page said exactly the second thing when it
+  // was the first. `?? []` is what made the two indistinguishable.
+  const rows = data as BandRow[] | null;
 
   const lastComputed =
-    rows.length > 0
+    rows && rows.length > 0
       ? rows
           .map((r) => r.computed_at)
           .sort()
@@ -110,8 +114,10 @@ export async function PriceBandsSurface({
                   minute: '2-digit',
                 })}
               </strong>{' '}
-              · {rows.length} band{rows.length === 1 ? '' : 's'} above the floor
+              · {rows?.length ?? 0} band{rows?.length === 1 ? '' : 's'} above the floor
             </>
+          ) : rows === null ? (
+            <>Could not read the band table, so this is not a count of zero.</>
           ) : (
             <>No bands computed yet (or all suppressed below the min-N floor).</>
           )}
@@ -129,67 +135,76 @@ export async function PriceBandsSurface({
         </form>
       </div>
 
-      {rows.length === 0 ? (
-        <div className="sn-tile px-4 py-10 text-center">
-          <p className="text-sm font-medium text-ink/70">No bands to show yet.</p>
-          <p className="mx-auto mt-1 max-w-md text-xs text-ink/55">
-            Either no recompute has run, or every (category × region × bucket) is
-            still below the min-N sample floor. As more vendors publish prices,
-            recompute and the bands will appear here.
-          </p>
-        </div>
-      ) : (
-        <div className="sn-tile overflow-x-auto !p-0">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
-              <tr>
-                <th className="px-3 py-3 font-medium">Category</th>
-                <th className="px-3 py-3 font-medium">Region</th>
-                <th className="px-3 py-3 font-medium">Guest bucket</th>
-                <th className="px-3 py-3 text-right font-medium">Low</th>
-                <th className="px-3 py-3 text-right font-medium">Median</th>
-                <th className="px-3 py-3 text-right font-medium">High</th>
-                <th className="px-3 py-3 text-right font-medium">Vendors</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const regionLabel =
-                  regionBySlug(r.region_slug)?.display_label ?? r.region_slug;
-                return (
-                  <tr
-                    key={`${r.category}|${r.region_slug}|${r.pax_bucket}`}
-                    className="border-t border-ink/5"
-                  >
-                    <td className="px-3 py-3">
-                      <p className="font-medium text-ink">{prettyCategory(r.category)}</p>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-                        {r.category}
-                      </p>
-                    </td>
-                    <td className="px-3 py-3 text-ink/75">{regionLabel}</td>
-                    <td className="px-3 py-3 text-ink/75">
-                      {paxBucketLabel(r.pax_bucket)}
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono text-ink/70">
-                      {peso(r.low_php)}
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono font-semibold text-ink">
-                      {peso(r.median_php)}
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono text-ink/70">
-                      {peso(r.high_php)}
-                    </td>
-                    <td className="px-3 py-3 text-right text-ink/70">{r.sample_n}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <ConsoleTable
+        rows={rows}
+        readPermitted
+        readError={error}
+        reads="the price-band table"
+        label="Price bands"
+        minWidth="44rem"
+        rowKey={(r) => `${r.category}|${r.region_slug}|${r.pax_bucket}`}
+        empty={{
+          Icon: Gauge,
+          title: 'No bands to show yet',
+          blurb:
+            'Either no recompute has run, or every category × region × bucket is still below the min-N sample floor. As more vendors publish prices, recompute and the bands appear here.',
+          verifiedNote: 'Verified: read permitted · 0 bands above the floor',
+        }}
+        columns={[
+          {
+            header: 'Category',
+            cell: (r) => (
+              <>
+                <p className="font-medium text-ink">{prettyCategory(r.category)}</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
+                  {r.category}
+                </p>
+              </>
+            ),
+          },
+          {
+            header: 'Region',
+            cell: (r) => (
+              <span className="text-ink/75">
+                {regionBySlug(r.region_slug)?.display_label ?? r.region_slug}
+              </span>
+            ),
+          },
+          {
+            header: 'Guest bucket',
+            hideBelow: 'md',
+            cell: (r) => <span className="text-ink/75">{paxBucketLabel(r.pax_bucket)}</span>,
+          },
+          {
+            header: 'Low',
+            align: 'right',
+            mono: true,
+            hideBelow: 'md',
+            cell: (r) => <span className="text-ink/70">{peso(r.low_php)}</span>,
+          },
+          {
+            header: 'Median',
+            align: 'right',
+            mono: true,
+            cell: (r) => <span className="font-semibold text-ink">{peso(r.median_php)}</span>,
+          },
+          {
+            header: 'High',
+            align: 'right',
+            mono: true,
+            hideBelow: 'md',
+            cell: (r) => <span className="text-ink/70">{peso(r.high_php)}</span>,
+          },
+          {
+            header: 'Vendors',
+            align: 'right',
+            hideBelow: 'lg',
+            cell: (r) => <span className="text-ink/70">{r.sample_n}</span>,
+          },
+        ]}
+      />
 
-      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
         Source · Price-Position Meter (Wave 6) · table <code>market_price_bands</code>{' '}
         · RPC <code>recompute_market_price_bands()</code> · migration 20270324043850
       </p>

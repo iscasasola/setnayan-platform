@@ -50,11 +50,22 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * pairing codes — that is precisely the merge. A Live Studio screen needs its
  * OWN pairing route, gated on the Live Studio product.
  *
- * 🔒 AND THE NEW ROUTE WORD IS NOT A FREE CHOICE. Top-level words are minted to
- * shops and events, so a new one must be added to `lib/reserved-slugs.ts` in the
- * SAME change that introduces the route — `'wall'` itself is reserved there
- * twice. Picking that word is a product decision, deliberately left open rather
- * than guessed at here.
+ * ✅ THE WORD IS NOW CHOSEN: **live** (owner, 2026-08-17, asked directly). It is
+ * reserved AHEAD of its route — `DB_MIRRORED_RESERVED_SLUGS` in
+ * `lib/reserved-slugs.ts` plus migration `20271147550834`, which mirror each
+ * other and are compared mechanically. Reserved early on purpose: a shop's
+ * address is IMMUTABLE once minted, so a business called "Live" registering
+ * first would hold `setnayan.com/live` forever and this page could never exist.
+ * Verified in prod before taking it — no event, shop or person held it.
+ *
+ * ⚠ It is reserved in the HAND-AUTHORED half, not `ROUTE_RESERVED_SLUGS`: that
+ * half is GENERATED from the route folders on disk, so listing `app/live/`
+ * before it exists breaks its drift test.
+ *
+ * ⏭ `app/live/` STILL DOES NOT EXIST, so this path still resolves to nothing.
+ * That is unchanged and harmless — the helper has zero application callers. What
+ * the ruling and the name bought is that the remaining work is now BOUNDED and
+ * its address is safe from being taken in the meantime.
  *
  * ✅ WHAT ALREADY SHIPS, so nobody rebuilds it: the durable `panood_screens` row
  * with its routed `current_source`; the control room writing that routing
@@ -67,7 +78,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * The couple-facing note on the cameras page is deliberately an honest "not
  * connected yet" rather than a fake door. Leave it honest until the route exists.
  */
-export const PANOOD_SCREEN_PAIR_PATH = '/wall';
+export const PANOOD_SCREEN_PAIR_PATH = '/live';
 
 /**
  * Venue-screen statuses (mirror the table CHECK constraint):

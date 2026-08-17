@@ -26,7 +26,13 @@ import { EventTypePicker } from './_components/event-type-picker';
 
 export const metadata = { title: 'Create event' };
 
+import { SHOP_ACCOUNT_CANNOT_CREATE_COPY } from '@/lib/vendor-event-creation';
+
 const ERROR_COPY: Record<string, string> = {
+  // Owner ruling 2026-08-15 — the shop account is the business, and the business
+  // does not plan celebrations. Says the way forward, because the old behaviour
+  // was a SILENT flick back to the shop with no message at all.
+  shop_account: SHOP_ACCOUNT_CANNOT_CREATE_COPY,
   // The two outcomes of a failed write, kept apart on purpose. `create_failed`
   // means nothing survived — retrying is safe and is the right advice.
   // `create_incomplete` means a half-made event could NOT be rolled back, so

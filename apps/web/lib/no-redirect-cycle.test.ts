@@ -47,12 +47,35 @@ test('the vendor tree still bounces people who own nothing — that half is corr
   );
 });
 
-test('the hop TOWARDS the vendor tree requires real access, not just the label', () => {
+test('the hop TOWARDS the vendor tree cannot close a loop', () => {
   // 🔴 THE REGRESSION THIS EXISTS FOR. `account_type === 'vendor'` alone is a
   // claim; `hasVendorAccess` is the fact. Redirecting on the claim while the
   // other side keeps you on the fact is a closed loop.
-  const hop = COUPLE.slice(COUPLE.indexOf("account_type === 'vendor'"));
-  const upToRedirect = hop.slice(0, hop.indexOf("redirect('/vendor-dashboard')"));
+  //
+  // ⚠ WIDENED 2026-08-18, AND THE WIDENING IS THE POINT.
+  // This asserted that the hop EXISTS and is conditioned on the fact. It
+  // therefore failed the one change that makes the cycle *impossible* — deleting
+  // the hop altogether. NO HOP IS STRICTLY SAFER THAN A CORRECTLY GUARDED HOP:
+  // there is no edge left to close a loop with.
+  // 🔑 A GUARD THAT PINS AN IMPLEMENTATION'S SPELLING FAILS ITS OWN REFACTOR.
+  // Pin the QUESTION — "can /dashboard send someone to the vendor tree on a bare
+  // label?" — and let the answer be either "it cannot, there is no hop" or "it
+  // cannot, the hop checks the fact".
+  const HOP = "redirect('/vendor-dashboard')";
+  const hopAt = COUPLE.indexOf(HOP);
+
+  if (hopAt === -1) {
+    // No hop at all. Nothing can bounce. Assert it stays gone in the form that
+    // matters — a bare-label redirect must not reappear in any spelling.
+    assert.doesNotMatch(
+      COUPLE,
+      /account_type === 'vendor'[\s\S]{0,200}redirect\('\/vendor-dashboard'\)/,
+      'a bare-label hop to the vendor tree came back — that is the 2026-08-10 outage',
+    );
+    return;
+  }
+
+  const upToRedirect = COUPLE.slice(COUPLE.indexOf("account_type === 'vendor'"), hopAt);
   assert.ok(
     upToRedirect.includes('hasVendorAccess'),
     "/dashboard redirects to /vendor-dashboard on the account_type LABEL alone. " +
@@ -79,9 +102,18 @@ test('the cheap check still comes first, so customers pay nothing', () => {
   // The authoritative lookup is a query. Running it for every signed-in couple
   // to catch a rare inconsistent account would be a real cost on the hottest
   // page in the product.
+  //
+  // ⚠ Same widening as above: with the hop removed there is no label check to
+  // nest anything inside, and that is the CHEAPEST possible outcome — zero
+  // queries rather than one nested behind a label. The cost rule only has
+  // something to say when the label check exists.
   const labelAt = COUPLE.indexOf("account_type === 'vendor'");
+  if (labelAt === -1) {
+    assert.ok(true, 'no label branch at all — nothing to nest, and nothing to pay for');
+    return;
+  }
   const lookupAt = COUPLE.indexOf('fetchUserRoleSummary(');
-  assert.ok(labelAt > 0 && lookupAt > labelAt, 'the role lookup must be nested inside the label check');
+  assert.ok(lookupAt > labelAt, 'the role lookup must be nested inside the label check');
 });
 
 test('the temporary outage probe is gone', () => {

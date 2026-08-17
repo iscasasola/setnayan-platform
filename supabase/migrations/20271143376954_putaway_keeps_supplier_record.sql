@@ -249,7 +249,25 @@ CREATE UNIQUE INDEX IF NOT EXISTS vendor_full_completed_events_stats_pk
   ON public.vendor_full_completed_events_stats(vendor_profile_id);
 
 REFRESH MATERIALIZED VIEW public.vendor_full_completed_events_stats;
-GRANT SELECT ON public.vendor_full_completed_events_stats TO anon, authenticated;
+-- ⚠ `authenticated` ONLY — NOT `anon`. Recreating a matview resets its grants, and
+-- this line originally read "TO anon, authenticated", copied from the view's FIRST
+-- creation rather than its CURRENT state. That silently undid
+-- 20271132024116_anon_view_grants_narrow.sql, which revoked `anon` on purpose:
+-- this is the deliberately-UNREDACTED twin of vendor_public_completed_events_stats,
+-- so a stranger could read both and subtract to learn how many of a supplier's
+-- finished jobs we wrote off as fake or internal.
+-- 🔑 DROP + CREATE IS NOT AN EDIT — IT IS A RESET. Every grant, and every later
+-- narrowing of one, is discarded. Re-read the CURRENT acl (pg_class.relacl) before
+-- re-granting; never copy the grant line out of the original migration.
+-- Caught by the exposure freeze, which is the only reason this is not a leak.
+-- 🚨 THE REVOKE IS LOAD-BEARING, AND A NARROWER GRANT ALONE DOES NOT WORK.
+-- This database carries ALTER DEFAULT PRIVILEGES that grant `anon` on newly
+-- created objects, so DROP + CREATE hands `anon` back BY ITSELF — before any
+-- GRANT in this file runs. Simply writing "TO authenticated" leaves the leak
+-- wide open, which is exactly what the freeze proved when I tried it.
+REVOKE ALL ON public.vendor_full_completed_events_stats FROM anon;
+REVOKE ALL ON public.vendor_full_completed_events_stats FROM authenticated;
+GRANT SELECT ON public.vendor_full_completed_events_stats TO authenticated;
 
 COMMENT ON MATERIALIZED VIEW public.vendor_full_completed_events_stats IS
   'Full finished-jobs count. A celebration put away by its couple still counts '

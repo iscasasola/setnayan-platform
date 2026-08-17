@@ -56,6 +56,14 @@ const MUST_BE_REACHABLE: {
     whatBreaksWithoutIt: 'no booking can ever be made — this RPC is what makes one',
   },
   {
+    rpc: 'record_csp_violation',
+    whoCallsIt: 'app/api/csp-report/route.ts, with the service role, on every browser report',
+    whatBreaksWithoutIt:
+      'the browser-protection reports go back to being counted nowhere, so the ' +
+      'evidence needed to switch real protection on is never gathered and the ' +
+      'moment to enforce never arrives — the exact state this replaced',
+  },
+  {
     rpc: 'vendor_decline_lock',
     whoCallsIt: 'the supplier, from the same two places',
     whatBreaksWithoutIt:

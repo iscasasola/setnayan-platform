@@ -184,11 +184,13 @@ test('the photo row states the real rule, not merely the absence of a false one'
 
 test('the pack never places personal data in a Philippines region', () => {
   // There is no PH region in R2. Database: Singapore. Object storage: APAC.
+  let examined = 0;
   for (const d of NPC_DOCUMENTS) {
     if (!existsSync(join(DOCS_DIR, d.file))) continue;
     if (d.group === 'packet') continue; // the merged packet repeats its members
     const text = pdfText(d.file);
-    if (text.length < 2000) continue; // audit-only doc, checked via its members
+    if (text.length < 2000) continue; // scanned/short doc, covered via its members
+    examined++;
     const live = liveClaims(text, /APAC\s*\/\s*PH|APAC\/PH|PH[- ]region/i);
     assert.deepEqual(
       live,
@@ -197,4 +199,12 @@ test('the pack never places personal data in a Philippines region', () => {
         'filing would contradict our own public privacy notice.',
     );
   }
+  // Without this, a broken extractor makes every document "too short", the loop
+  // skips them all, and the test passes having read NOTHING. Measured: sabotaging
+  // the extractor left this assertion GREEN until the counter was added.
+  assert.ok(
+    examined >= 8,
+    `only ${examined} documents were actually read — the loop skipped the pack ` +
+      'instead of clearing it. Fix the extractor; do NOT lower this floor.',
+  );
 });

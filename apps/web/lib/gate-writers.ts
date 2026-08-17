@@ -83,12 +83,39 @@ export function loadSources(webRoot: string): Source[] {
   return out;
 }
 
-/** (a) Does this file issue a write against `table`? */
+/**
+ * (a) Does this file issue a write against `table`?
+ *
+ * ⚠ BLIND SPOT #5, found 2026-08-17 — the day after the other four. This asked
+ * only for a STRING LITERAL, `from('event_vendor_preferences')`. But
+ * `lib/event-preferences.ts` writes that table as:
+ *
+ *     const TABLE = 'event_vendor_preferences';
+ *     …
+ *     await client.from(TABLE).upsert({ …, auto_send: autoSend, … })
+ *
+ * so `auto_send` was reported as having no control — while a real checkbox,
+ * "Auto-send to my next inquiries", writes it from the inquiry form. The column
+ * comment said "Written by …" and the measurement said nothing did; the comment
+ * was right and the detector was wrong.
+ *
+ * 🔑 The false alarm is the expensive direction. A missed WRITE puts a working
+ * screen on a list of broken ones, and a list with wrong entries on it stops
+ * being read. So the constant is resolved: any `const NAME = '<table>'` in the
+ * same module makes `from(NAME)` count. 18 call sites in this repo use it.
+ */
 function writesTable(code: string, table: string): boolean {
-  return (
-    new RegExp(`from\\(\\s*['"\`]${table}['"\`]`).test(code) &&
-    /\.(update|insert|upsert)\(/.test(code)
+  if (!/\.(update|insert|upsert)\(/.test(code)) return false;
+  if (new RegExp(`from\\(\\s*['"\`]${table}['"\`]`).test(code)) return true;
+
+  const declarations = code.matchAll(
+    new RegExp(`\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*['"\`]${table}['"\`]`, 'g'),
   );
+  for (const declaration of declarations) {
+    const name = declaration[1]!;
+    if (new RegExp(`from\\(\\s*${name}\\s*[,)]`).test(code)) return true;
+  }
+  return false;
 }
 
 /**

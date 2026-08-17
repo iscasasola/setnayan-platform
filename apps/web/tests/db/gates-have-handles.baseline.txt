@@ -43,7 +43,19 @@
 papic_photos.consent_to_public | 🔴 FINDING 2026-08-17. Author's comment: "GUEST consent gate for the public Alaala showcase orb: TRUE once the guest who appears in / captured this clip has consented to public sharing." Nothing writes it, so no clip can ever enter that showcase. The sibling papic_guest_captures.consent_to_public IS written (papic_record_guest_capture); this one is the appearing-guest's consent and was never wired. Sixth instance of the shape. Do not excuse — fix or rule it out of scope.
 platform_settings.radar_enabled | 🔴 FINDING 2026-08-17. Comment says "Admin-managed", and no admin control writes it. Shortlist Radar cannot be turned on by the people the comment says own it.
 platform_settings.spotlight_homepage_enabled | 🔴 FINDING 2026-08-17. Comment: "Owner master switch for the PUBLIC homepage Spotlight strip... renders nothing until the owner flips this on". The owner has nothing to flip it with.
-event_vendor_preferences.auto_send | 🔴 FINDING 2026-08-17. The column comment asserts "Written by ..." — the detector finds no writer. Either the comment is stale or the write is spelled in a way the detector still cannot see. Worth one hour: it is the only line here whose own comment contradicts the measurement.
+
+# ── RESOLVED THE SAME DAY, kept as the worked example ──────────────────────
+# `event_vendor_preferences.auto_send` was listed here as a FINDING because its
+# column comment asserted "Written by ..." while the detector found no writer.
+# The comment was right and the DETECTOR was wrong: lib/event-preferences.ts
+# writes it as `const TABLE = '...'; client.from(TABLE).upsert({ auto_send })`,
+# and the detector only understood a string literal. A real checkbox —
+# "Auto-send to my next inquiries" — has been writing it all along.
+#
+# 🔑 THE LINE TO REMEMBER: when a column's own comment contradicts this guard,
+# suspect the guard first. A missed WRITE puts a working screen on a list of
+# broken ones, and a list with wrong entries on it stops being read. Fixed in
+# lib/gate-writers.ts (blind spot #5) rather than excused with a baseline line.
 
 # ── DELIBERATELY PARKED: the author says so in the column comment ───────────
 platform_settings.free_tier_booking_cap_enabled | Parked on purpose. Comment: "FALSE = inert (default). Do NOT flip until the lock paths ha[ve]..." — built ahead of its consumer, matching vendor-free-tier-booking-cap-flag in PARKED_ON_PURPOSE.

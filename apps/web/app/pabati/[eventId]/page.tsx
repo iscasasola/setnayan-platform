@@ -1,4 +1,5 @@
 import { Video } from 'lucide-react';
+import { DoorShell } from '@/app/_components/door/door-shell';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
@@ -25,17 +26,6 @@ import { PabatiPrompt } from '@/app/[slug]/_components/pabati-prompt';
 
 export const dynamic = 'force-dynamic';
 
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
-      <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center shadow-sm">
-        <Video aria-hidden className="mx-auto h-7 w-7 text-mulberry" strokeWidth={1.75} />
-        {children}
-      </div>
-    </main>
-  );
-}
-
 export default async function PabatiGuestPage({
   params,
 }: {
@@ -46,13 +36,17 @@ export default async function PabatiGuestPage({
 
   if (!session) {
     return (
-      <Shell>
-        <h1 className="mt-3 text-xl font-semibold tracking-tight">Open your invitation first</h1>
-        <p className="mt-2 text-sm text-ink/65">
-          Scan your personal QR or open your invite link, then come back here to
-          leave the couple a short video greeting.
-        </p>
-      </Shell>
+            <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Video guestbook
+          </>
+        }
+        title="Open your invitation first."
+        sub="Scan your personal QR or open your invite link, then come back here to leave the couple a short video greeting."
+      />
     );
   }
 
@@ -69,15 +63,17 @@ export default async function PabatiGuestPage({
     (await eventPapicActive(admin, session.event_id));
   if (!active) {
     return (
-      <Shell>
-        <h1 className="mt-3 text-xl font-semibold tracking-tight">
-          The video guestbook isn&rsquo;t on yet
-        </h1>
-        <p className="mt-2 text-sm text-ink/65">
-          The couple hasn&rsquo;t turned on video greetings for this wedding. Sit
-          back and enjoy the celebration!
-        </p>
-      </Shell>
+            <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Video guestbook
+          </>
+        }
+        title="The video guestbook isn't on yet."
+        sub="The couple hasn't turned on video greetings for this wedding. Sit back and enjoy the celebration!"
+      />
     );
   }
 

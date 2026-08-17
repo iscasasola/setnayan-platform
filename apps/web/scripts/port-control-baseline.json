@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f16bc9672",
+  "generatedFromRef": "2d6a1f875",
   "routeCount": 401,
-  "destinations": 794,
+  "destinations": 795,
   "actions": 525,
-  "blocks": 3525,
+  "blocks": 3528,
   "routes": {
     "/": {
       "files": [
@@ -1019,6 +1019,8 @@
         "confirmAction"
       ],
       "blocks": [
+        "DoorNotice",
+        "DoorShell",
         "SubmitButton"
       ]
     },
@@ -6842,6 +6844,7 @@
         "host/accept/[token]/page.tsx"
       ],
       "destinations": [
+        "/",
         "/login?next=",
         "/login?next=[seg]",
         "/signup?next=[seg]&email=[seg]"
@@ -6851,7 +6854,8 @@
         "declineHostInvite"
       ],
       "blocks": [
-        "AcceptShell",
+        "DoorActions",
+        "DoorShell",
         "Icon",
         "Link",
         "SubmitButton",

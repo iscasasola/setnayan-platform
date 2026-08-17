@@ -168,8 +168,8 @@ export default async function FindMyTablePage({ params }: Props) {
           </p>
         ) : (
           <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/55">
-            You haven&rsquo;t been seated at a table yet. Once the couple seats
-            you, your spot lights up on this map.
+            You haven&rsquo;t been seated at a table yet. Once {words.theOrganizer}{' '}
+            seats you, your spot lights up on this map.
           </p>
         )}
 

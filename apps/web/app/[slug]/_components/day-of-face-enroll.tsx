@@ -1,5 +1,7 @@
 'use client';
 
+import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
+
 import { useState } from 'react';
 import { Sparkles, Check } from 'lucide-react';
 import { SelfieCapture } from './selfie-capture';
@@ -32,6 +34,10 @@ export function DayOfFaceEnroll({
    *  computes/transmits NO descriptor. Fail-closed default: mode_b. */
   faceMode?: PapicFaceMode;
 }) {
+  // The event's own word for whoever is throwing it. Falls back to the exact
+  // wording this surface shipped with, so a missing provider cannot regress a
+  // real wedding — event-words-mounted.test.ts is what stops that hiding.
+  const w = useEventWords() ?? WORDS_AS_SHIPPED;
   const [ready, setReady] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'saving' | 'done'>('idle');
 
@@ -97,7 +103,7 @@ export function DayOfFaceEnroll({
               </>
             ) : (
               <>
-                Take a quick selfie — or upload a photo — so the couple and their
+                Take a quick selfie — or upload a photo — so {w.theOrganizer} and their
                 team can recognise you. Pictures reach you when someone scans your
                 QR or tags you.
               </>

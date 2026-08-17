@@ -1,5 +1,8 @@
+import { Handshake } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { rejectPartnership, createPartnershipHq } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
@@ -74,6 +77,27 @@ type Props = {
   searchParams: Promise<SearchParams>;
 };
 
+/**
+ * A CEILING, NOT A PAGE SIZE — checked before wiring it as `cap`.
+ *
+ * Nothing pages past this: `SearchParams` carries only the three flash keys,
+ * there is no offset/page/cursor anywhere in the file, and there is no next
+ * control. So disclosing "there are more" is the only honest thing here — it is
+ * not a second promise competing with an existing pager. The heading already
+ * hinted at it by saying "N shown"; now the table says what "shown" costs.
+ */
+const LIVE_LIMIT = 25;
+
+/**
+ * ⚠ THE VENDOR PICKER SILENTLY TRUNCATES AND THAT IS NOT A TABLE PROBLEM.
+ * The Add-partnership dropdowns are fed by a read capped at this number, so past
+ * it a vendor simply cannot be chosen and nothing says why. Named here rather
+ * than left as a literal; a `<select>` is not a ConsoleTable, so the disclosure
+ * cannot be `cap`. Prod holds 2 shops, so it is far off — but it is a real
+ * ceiling, not an absence of one.
+ */
+const VENDOR_OPTIONS_LIMIT = 500;
+
 export default async function AdminVendorPartnershipsPage({ searchParams }: Props) {
   await requireAdmin();
   const sp = await searchParams;
@@ -93,7 +117,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
     .order('created_at', { ascending: true });
 
   // Live (accepted + active) partnerships — the badges couples actually see.
-  const { data: rawLive } = await admin
+  const { data: rawLive, error: liveError } = await admin
     .from('vendor_partnerships')
     .select(
       'id, recommending_vendor_id, recommended_vendor_id, relationship_type, additional_fee_centavos, discount_pct, covered_plan_groups, is_active, status, created_at',
@@ -101,14 +125,18 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
     .eq('status', 'accepted')
     .eq('is_active', true)
     .order('created_at', { ascending: false })
-    .limit(25);
+    .limit(LIVE_LIMIT);
 
   const proposedRows = (rawProposed ?? []) as Omit<PartnershipRow, 'recommending' | 'recommended'>[];
-  const liveRows = (rawLive ?? []) as Omit<PartnershipRow, 'recommending' | 'recommended'>[];
+  // NULL, not []: a refused read must stay distinguishable from a real zero.
+  // Worse than the usual shape here — the whole section was wrapped in
+  // `{live.length > 0 ? … : null}`, so a refused read made it VANISH. A reader
+  // cannot even tell there is a list, let alone that it failed.
+  const liveRows = rawLive as Omit<PartnershipRow, 'recommending' | 'recommended'>[] | null;
 
   // Resolve vendor names for all rows in one round-trip
   const allVendorIds = new Set<string>();
-  [...proposedRows, ...liveRows].forEach((r) => {
+  [...proposedRows, ...(liveRows ?? [])].forEach((r) => {
     allVendorIds.add(r.recommending_vendor_id);
     allVendorIds.add(r.recommended_vendor_id);
   });
@@ -141,7 +169,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
     .from('vendor_profiles')
     .select('vendor_profile_id, business_name')
     .order('business_name', { ascending: true })
-    .limit(500);
+    .limit(VENDOR_OPTIONS_LIMIT);
   const vendorOptions = (allVendors ?? []) as VendorOption[];
 
   // Top-level plan group categories for the covered_plan_groups multi-select
@@ -162,26 +190,24 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
   });
 
   const proposed = proposedRows.map(enrich);
-  const live = liveRows.map(enrich);
+  const live = liveRows ? liveRows.map(enrich) : null;
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-8 space-y-2">
-        <p className="sn-eye">
-          Setnayan HQ · Vendor quality
-        </p>
-        <h1 className="sn-h1">
-          Vendor Partnerships
-        </h1>
-        <p className="text-base text-ink/65">
-          Vendor partnerships use a <strong className="text-ink">mutual-accept</strong>{' '}
-          handshake: one vendor proposes, the other accepts, and only then does the badge
-          go live for couples. This is HQ&apos;s <strong className="text-ink">oversight</strong>{' '}
-          view — no admin sign-off is needed for a partnership to publish. You can still
-          record a partnership on a vendor&apos;s behalf (it lands in their inbox to accept)
-          and reject anything abusive (sets it inactive — no badge ever shows).
-        </p>
-      </header>
+      <PageMasthead
+        className="mb-8"
+        title="Vendor Partnerships"
+        lede={
+          <>
+            Vendor partnerships use a <strong className="text-ink">mutual-accept</strong>{' '}
+            handshake: one vendor proposes, the other accepts, and only then does the badge
+            go live for couples. This is HQ&apos;s <strong className="text-ink">oversight</strong>{' '}
+            view — no admin sign-off is needed for a partnership to publish. You can still
+            record a partnership on a vendor&apos;s behalf (it lands in their inbox to accept)
+            and reject anything abusive (sets it inactive — no badge ever shows).
+          </>
+        }
+      />
 
       {sp.error ? (
         <FormFlash tone="error">{decodeURIComponent(sp.error)}</FormFlash>
@@ -414,60 +440,88 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
       </section>
 
       {/* ── LIVE PARTNERSHIPS (accepted) ────────────────────────────────── */}
-      {live.length > 0 ? (
-        <section>
-          <h2 className="mb-3 sn-eye">
-            Live partnerships ({live.length} shown)
-          </h2>
-          <div className="sn-tile overflow-hidden !p-0">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-ink/10 text-left text-[11px] uppercase tracking-wide text-ink/45">
-                  <th className="px-4 py-2 font-medium">Recommending</th>
-                  <th className="px-4 py-2 font-medium">Recommended</th>
-                  <th className="px-4 py-2 font-medium">Type</th>
-                  <th className="px-4 py-2 font-medium">Fee / Discount</th>
-                  <th className="px-4 py-2 font-medium">Accepted</th>
-                  <th className="px-4 py-2 font-medium" />
-                </tr>
-              </thead>
-              <tbody>
-                {live.map((row) => (
-                  <tr key={row.id} className="border-b border-ink/5 last:border-0">
-                    <td className="px-4 py-2 font-medium">
-                      {row.recommending?.business_name ?? '—'}
-                    </td>
-                    <td className="px-4 py-2">{row.recommended?.business_name ?? '—'}</td>
-                    <td className="px-4 py-2">
-                      <span className="rounded-md bg-mulberry/10 px-2 py-0.5 text-[11px] font-semibold text-mulberry">
-                        {RELATIONSHIP_LABELS[row.relationship_type] ?? row.relationship_type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-ink/70">
-                      {row.discount_pct ? `${row.discount_pct}% off` : null}
-                      {row.discount_pct && row.additional_fee_centavos !== null ? ' · ' : null}
-                      {formatFee(row.additional_fee_centavos, row.relationship_type)}
-                    </td>
-                    <td className="px-4 py-2 text-ink/55">{timeAgo(row.created_at)}</td>
-                    <td className="px-4 py-2 text-right">
-                      <form>
-                        <input type="hidden" name="partnership_id" value={String(row.id)} />
-                        <SubmitButton
-                          formAction={rejectPartnership}
-                          pendingLabel="Removing…"
-                          className="rounded-md border border-terracotta/40 bg-white px-2.5 py-1 text-[11px] font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
-                        >
-                          Take down
-                        </SubmitButton>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
+      <section>
+        <h2 className="mb-3 sn-eye">
+          Live partnerships {live ? `(${live.length} shown)` : '(not measured)'}
+        </h2>
+        <ConsoleTable
+          rows={live}
+          readPermitted
+          readError={liveError}
+          reads="the live partnerships"
+          cap={LIVE_LIMIT}
+          label="Live partnerships"
+          minWidth="52rem"
+          rowKey={(row) => String(row.id)}
+          empty={{
+            Icon: Handshake,
+            title: 'No live partnerships yet',
+            blurb:
+              'A partnership only appears here once BOTH vendors have agreed — one proposes above, the other accepts from their own inbox. Until then it sits in Open proposals.',
+          }}
+          columns={[
+            {
+              header: 'Recommending',
+              cell: (row) => (
+                <span className="font-medium text-ink">
+                  {row.recommending?.business_name ?? '—'}
+                </span>
+              ),
+            },
+            {
+              header: 'Recommended',
+              cell: (row) => (
+                <span className="text-ink/80">{row.recommended?.business_name ?? '—'}</span>
+              ),
+            },
+            {
+              header: 'Type',
+              hideBelow: 'md',
+              cell: (row) => (
+                <span className="whitespace-nowrap rounded-md bg-mulberry/10 px-2 py-0.5 text-[11px] font-semibold text-mulberry">
+                  {RELATIONSHIP_LABELS[row.relationship_type] ?? row.relationship_type}
+                </span>
+              ),
+            },
+            {
+              header: 'Fee / Discount',
+              hideBelow: 'lg',
+              cell: (row) => (
+                <span className="whitespace-nowrap text-ink/70">
+                  {row.discount_pct ? `${row.discount_pct}% off` : null}
+                  {row.discount_pct && row.additional_fee_centavos !== null ? ' · ' : null}
+                  {formatFee(row.additional_fee_centavos, row.relationship_type)}
+                </span>
+              ),
+            },
+            {
+              header: 'Accepted',
+              hideBelow: 'md',
+              mono: true,
+              cell: (row) => (
+                <span className="whitespace-nowrap text-ink/70">{timeAgo(row.created_at)}</span>
+              ),
+            },
+            {
+              header: 'Take down',
+              align: 'right',
+              // Its own form in its own cell — ConsoleTable has no actions API.
+              cell: (row) => (
+                <form>
+                  <input type="hidden" name="partnership_id" value={String(row.id)} />
+                  <SubmitButton
+                    formAction={rejectPartnership}
+                    pendingLabel="Removing…"
+                    className="whitespace-nowrap rounded-md border border-terracotta/40 bg-white px-2.5 py-1 text-[11px] font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
+                  >
+                    Take down
+                  </SubmitButton>
+                </form>
+              ),
+            },
+          ]}
+        />
+      </section>
     </div>
   );
 }

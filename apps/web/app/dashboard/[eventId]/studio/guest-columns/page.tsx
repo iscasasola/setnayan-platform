@@ -7,7 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { ColumnQueueControls, type ColumnRow } from './_components/column-queue-controls';
 
-export const metadata = { title: 'Guest columns · Studio · Setnayan' };
+export const metadata = { title: 'Guest columns · Studio' };
 export const dynamic = 'force-dynamic';
 
 /**

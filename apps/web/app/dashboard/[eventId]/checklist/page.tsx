@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: Props) {
       .maybeSingle();
     return { title: checklistChrome((data?.event_type as string | null) ?? null).pageTitle };
   } catch {
-    return { title: 'Checklist · Setnayan' };
+    return { title: 'Checklist' };
   }
 }
 

@@ -28,7 +28,7 @@ export function TierComparisonWidget({ limited, eventNoun }: { limited: boolean;
               Registered (locked for +1s)
             </p>
             <p className="text-sm text-ink/60">
-              Shutter · Selfie Camera · Saved Forever · Reel builder
+              Shutter · Selfie Camera · Saved · Reel builder
             </p>
           </div>
         </div>

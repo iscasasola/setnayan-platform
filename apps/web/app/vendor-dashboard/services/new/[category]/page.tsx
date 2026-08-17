@@ -20,7 +20,7 @@ import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 
-export const metadata = { title: 'Add a service · Setnayan' };
+export const metadata = { title: 'Add a service' };
 
 const CATEGORY_SET = new Set<string>(VENDOR_CATEGORIES);
 

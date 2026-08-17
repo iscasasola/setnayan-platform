@@ -101,7 +101,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const hasPublic = (resolved?.publicWebsiteEvents.length ?? 0) > 0;
   if (!resolved || !enabled || !hasPublic) {
     return {
-      title: 'Setnayan',
+      // `absolute` bypasses the root template so this renders exactly
+      // "Setnayan" and not "Setnayan · Setnayan". The neutral title is the
+      // privacy control here — it must not confirm the slug belongs to anyone.
+      title: { absolute: 'Setnayan' },
       robots: { index: false, follow: false },
     };
   }

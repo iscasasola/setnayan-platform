@@ -15,7 +15,7 @@ import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome'
 */
 
 export const metadata = {
-  title: 'Acceptable use policy · Setnayan',
+  title: 'Acceptable use policy',
   description:
     'The rules for content and conduct on Setnayan — for couples, vendors, and event guests. Prohibited content, the always-on NSFW filter, reporting and takedown, and enforcement.',
   alternates: { canonical: '/acceptable-use' },

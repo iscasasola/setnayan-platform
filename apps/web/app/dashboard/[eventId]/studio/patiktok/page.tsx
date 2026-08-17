@@ -75,7 +75,7 @@ type PaymentSettings = {
   gcash_qr_url: string | null;
 };
 
-export const metadata = { title: 'Patiktok · Setnayan' };
+export const metadata = { title: 'Patiktok' };
 
 type Props = {
   params: Promise<{ eventId: string }>;

@@ -16,7 +16,7 @@ import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome'
 */
 
 export const metadata = {
-  title: 'Refund & cancellation policy · Setnayan',
+  title: 'Refund & cancellation policy',
   description:
     'When Setnayan refunds in-app purchases. Digital services are final once activated; a full refund is issued whenever Setnayan fails to deliver. How to request a refund under Philippine consumer law.',
   alternates: { canonical: '/refunds' },

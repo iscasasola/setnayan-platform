@@ -317,7 +317,7 @@ const EXPLORE_HERO_CHIPS: ReadonlyArray<ExploreChip> = [
 */
 
 export const metadata = {
-  title: 'Filipino wedding vendors · Setnayan marketplace',
+  title: 'Filipino wedding vendors marketplace',
   description:
     'Browse verified Filipino wedding vendors on Setnayan. Photographers, caterers, planners, florists, hair and makeup, music, decor, and more. Free to discover. 0% commission on bookings.',
   alternates: { canonical: '/explore' },

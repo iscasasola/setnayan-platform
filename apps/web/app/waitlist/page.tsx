@@ -13,7 +13,7 @@ export const revalidate = 3600;
 // landing that sends couples straight into planning. The old
 // `joinCoupleWaitlist` action is no longer wired here.
 export const metadata = {
-  title: 'Plan your wedding free — Setnayan',
+  title: 'Plan your wedding free',
   description:
     'Setnayan is live for couples. Start planning free today — guest list, seating, budget, mood board, and a verified vendor marketplace with 0% commission on bookings.',
   alternates: { canonical: '/waitlist' },

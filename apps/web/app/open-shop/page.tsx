@@ -25,7 +25,7 @@ import { getOpenShopServiceTree } from '@/lib/open-shop-service-tree';
  * checklist + Get-verified journey (owner 2026-07-05).
  */
 
-export const metadata = { title: 'Open your shop · Setnayan' };
+export const metadata = { title: 'Open your shop' };
 
 export default async function OpenShopPage({
   searchParams,

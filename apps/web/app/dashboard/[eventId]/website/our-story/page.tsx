@@ -7,7 +7,7 @@ import { updateOurStory } from './actions';
 import { StoryFields, type LoveStoryBlob } from './_components/story-fields';
 import { SubmitButton } from '@/app/_components/submit-button';
 
-export const metadata = { title: 'Edit your story · Setnayan' };
+export const metadata = { title: 'Edit your story' };
 
 /**
  * /dashboard/[eventId]/website/our-story — the post-onboarding love-story

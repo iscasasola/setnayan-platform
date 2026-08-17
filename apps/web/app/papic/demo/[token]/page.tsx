@@ -15,7 +15,7 @@ import { DemoJoinFlow } from './_components/demo-join-flow';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Papic live demo · Setnayan',
+  title: 'Papic live demo',
   description: 'A live, no-signup demo of Setnayan Papic candid capture.',
   robots: { index: false, follow: false },
 };

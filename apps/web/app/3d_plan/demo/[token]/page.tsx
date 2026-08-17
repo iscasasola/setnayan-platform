@@ -13,7 +13,7 @@ import { Plan3DGuestView } from './_components/plan3d-guest-view';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: '3D Plan live demo · Setnayan',
+  title: '3D Plan live demo',
   description: 'A live, no-signup demo of Setnayan 3D seating — find your seat before the day.',
   robots: { index: false, follow: false },
 };

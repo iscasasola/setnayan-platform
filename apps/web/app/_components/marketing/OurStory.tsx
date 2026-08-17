@@ -63,7 +63,7 @@ const KEPT: Array<{ mock: FeatureMockKind; eyebrow: string; title: string; line:
   },
   {
     mock: 'keepsake',
-    eyebrow: 'Kept forever',
+    eyebrow: 'Kept together',
     title: 'One living page. Your front-page story.',
     line: 'All of it gathered into a page that moves and grows — yours to keep. And when you want to hold it, we print it, with a code that brings you back to the living version.',
     via: 'Editorial',
@@ -133,7 +133,7 @@ export function OurStoryManifesto({ clips = [] }: { clips?: string[] }) {
                 style={{ color: 'rgba(251,251,250,.5)', fontSize: 'clamp(0.9rem, 2.1vw, 1rem)', lineHeight: 1.68, maxWidth: 440 }}
               >
                 Every guest goes home with a personal highlight reel — the moments, the
-                people, the stories. Yours to keep, forever.
+                people, the stories. Yours to keep.
               </p>
             </Reveal>
           </div>

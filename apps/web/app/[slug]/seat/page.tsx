@@ -19,7 +19,7 @@ import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 import { ArrivalBloom } from './_components/arrival-bloom';
 
-export const metadata = { title: 'Your seat pass · Setnayan' };
+export const metadata = { title: 'Your seat pass' };
 
 // Gated, token-bearing, never cached.
 export const dynamic = 'force-dynamic';

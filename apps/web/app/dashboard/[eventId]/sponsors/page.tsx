@@ -37,7 +37,7 @@ import {
 } from './actions';
 
 export const metadata = {
-  title: 'Sponsors · Setnayan',
+  title: 'Sponsors',
   description: 'Coordinate your ninong, ninang, and secondary wedding sponsors.',
 };
 

@@ -49,7 +49,7 @@ import { ModuleConfigurator, type ConfiguratorModule } from './_components/modul
 import { EventPicker } from './_components/event-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
 
-export const metadata = { title: 'On the Day · Vendor · Setnayan' };
+export const metadata = { title: 'On the Day · Vendor' };
 
 /**
  * Vendor "On the Day" console — reskinned to the finalized 6-menu vendor

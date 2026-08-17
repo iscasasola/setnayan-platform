@@ -53,7 +53,7 @@ const COPY: Record<
     eyebrow: 'Section 4 · The day-of apparatus',
     heading: 'When the day comes, we bring the gear.',
     introA:
-      'Live broadcast. Paparazzi capture. Personal monogram. The on-the-day apparatus that turns a wedding into a story your guests can replay forever, built into the same app you used to plan it. Fixed PHP prices live on ',
+      'Live broadcast. Paparazzi capture. Personal monogram. The on-the-day apparatus that turns a wedding into a story your guests can replay, built into the same app you used to plan it. Fixed PHP prices live on ',
     introB: '; this page is the feature catalog.',
     pricingPrefix: 'Pricing on',
     services: [

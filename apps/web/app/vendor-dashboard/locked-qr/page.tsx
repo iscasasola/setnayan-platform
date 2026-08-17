@@ -7,7 +7,7 @@ import { buildVendorLockUrl } from '@/lib/vendor-locked-qr';
 import { VENDOR_CATEGORY_LABEL, formatPhp, type VendorCategory } from '@/lib/vendors';
 import { CopyButton } from '@/app/_components/copy-button';
 
-export const metadata = { title: 'Locked QRs · Vendor · Setnayan' };
+export const metadata = { title: 'Locked QRs · Vendor' };
 
 /**
  * Vendor-side ledger of the Locked QRs this store has issued — pending (still

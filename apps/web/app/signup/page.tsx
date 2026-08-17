@@ -75,7 +75,7 @@ import { signUp } from './actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 
 export const metadata: Metadata = {
-  title: 'Create account · Setnayan',
+  title: 'Create account',
   description:
     'Create a Setnayan account in seconds. Free to start for couples planning their wedding. Free baseline listing for Filipino wedding vendors.',
   alternates: { canonical: '/signup' },

@@ -26,7 +26,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 const PAGE_TITLE = 'A new way to remember · Setnayan';
 const PAGE_DESCRIPTION =
-  'Your wedding was never still. We used to keep weddings in albums — paper, then digital. Setnayan keeps them alive: the moments you missed, the people who couldn’t come, and the stories your guests tell, in one living page you keep forever.';
+  'Your wedding was never still. We used to keep weddings in albums — paper, then digital. Setnayan keeps them alive: the moments you missed, the people who couldn’t come, and the stories your guests tell, in one living page you keep.';
 const OG_IMAGE = `${SITE_URL}/api/og/manifesto`;
 
 export const metadata = {

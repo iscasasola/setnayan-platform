@@ -6,7 +6,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { slotsIn } from '@/lib/emcee-lines';
 import { updateLine, deleteLine, attachLineToActivity } from './actions';
 
-export const metadata = { title: 'My lines · Vendor · Setnayan' };
+export const metadata = { title: 'My lines · Vendor' };
 
 /**
  * MY LINES — the emcee's script library.

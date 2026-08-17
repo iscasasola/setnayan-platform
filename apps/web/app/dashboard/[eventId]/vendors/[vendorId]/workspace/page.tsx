@@ -172,7 +172,7 @@ import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { reviewState, type ReviewState } from '@/lib/completion-handshake';
 import { coupleConfirmReceived, coupleReportNonDelivery } from '../review/actions';
 
-export const metadata = { title: 'Service workspace · Setnayan' };
+export const metadata = { title: 'Service workspace' };
 
 type Props = {
   params: Promise<{ eventId: string; vendorId: string }>;

@@ -88,11 +88,15 @@ export default async function PapicStoragePage() {
   // Event display names for the ones we have data for.
   const eventIds = [...byEvent.keys()];
   const nameById = new Map<string, string>();
+  // The numbers stay true when this fails — only the names go. Said out loud
+  // because a column of dashes on a telemetry page reads as missing DATA.
+  let eventNamesUnresolved = false;
   if (eventIds.length > 0) {
-    const { data: evs } = await admin
+    const { data: evs, error: evsError } = await admin
       .from('events')
       .select('event_id, display_name')
       .in('event_id', eventIds);
+    eventNamesUnresolved = Boolean(evsError) || evs === null;
     for (const e of evs ?? []) {
       nameById.set(e.event_id as string, (e.display_name as string | null) ?? '—');
     }
@@ -212,6 +216,17 @@ export default async function PapicStoragePage() {
         <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
           ⚠ Readout capped at {ROW_CAP.toLocaleString()} rows/table — numbers are a
           lower bound. Add a SQL-aggregation RPC before this many captures exist.
+        </p>
+      ) : null}
+
+      {eventNamesUnresolved ? (
+        <p
+          role="alert"
+          className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+        >
+          Event names could not be looked up, so the first column below reads as
+          dashes. Every byte figure on this page is still measured and still
+          true — only the names are missing.
         </p>
       ) : null}
 

@@ -2,6 +2,7 @@ import { Handshake } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ErrorState } from '@/app/_components/states/error-state';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { rejectPartnership, createPartnershipHq } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -107,7 +108,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
   // Live PROPOSALS — recipient hasn't accepted/declined yet, still active. This
   // is HQ's oversight cut (the queue badge keys on the same filter): nothing has
   // published to couples, and HQ can veto an abusive one before it ever can.
-  const { data: rawProposed } = await admin
+  const { data: rawProposed, error: proposedError } = await admin
     .from('vendor_partnerships')
     .select(
       'id, recommending_vendor_id, recommended_vendor_id, relationship_type, additional_fee_centavos, discount_pct, covered_plan_groups, is_active, status, created_at',
@@ -127,7 +128,13 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
     .order('created_at', { ascending: false })
     .limit(LIVE_LIMIT);
 
-  const proposedRows = (rawProposed ?? []) as Omit<PartnershipRow, 'recommending' | 'recommended'>[];
+  // NULL, not []: the OPEN PROPOSALS half was missed when the live half was
+  // fixed — same file, same defect, one read apart. A refused read printed "No
+  // open partnership proposals. Set na 'yan." on HQ's only veto surface, which
+  // reads as "nothing to review" to the one person who could stop an abusive
+  // partnership before it publishes.
+  const proposedRowsRaw = rawProposed as Omit<PartnershipRow, 'recommending' | 'recommended'>[] | null;
+  const proposedRows = proposedRowsRaw ?? [];
   // NULL, not []: a refused read must stay distinguishable from a real zero.
   // Worse than the usual shape here — the whole section was wrapped in
   // `{live.length > 0 ? … : null}`, so a refused read made it VANISH. A reader
@@ -141,11 +148,16 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
     allVendorIds.add(r.recommended_vendor_id);
   });
   const vendorNameMap = new Map<string, { business_name: string; services: string[] }>();
+  // A failed NAME lookup is invisible by construction: the rows still render,
+  // and the fallback for a missing name is the raw vendor id, which looks like
+  // data. So the failure is carried out and said on screen.
+  let vendorNamesUnresolved = false;
   if (allVendorIds.size > 0) {
-    const { data: vendorNames } = await admin
+    const { data: vendorNames, error: vendorNamesError } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name, services')
       .in('vendor_profile_id', [...allVendorIds]);
+    vendorNamesUnresolved = Boolean(vendorNamesError) || vendorNames === null;
     for (const v of (vendorNames ?? []) as {
       vendor_profile_id: string;
       business_name: string;
@@ -165,20 +177,28 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
   // re-pointed because the comment's intent is "all vendors" and this is the
   // internal console, where an admin legitimately needs to see unverified and
   // hidden shops too. (The vendor-facing picker keeps a liveness filter.)
-  const { data: allVendors } = await admin
+  //
+  // 🔑 THIS EXACT DROPDOWN HAS ALREADY BEEN EMPTY-AND-SILENT ONCE — the comment
+  // above records it. A refused read reaches the SAME end state by a different
+  // route: `?? []` renders an empty `<select>`, the admin cannot pick anybody,
+  // and nothing anywhere says why. Fixing the phantom column fixed one CAUSE;
+  // the SYMPTOM stayed unreportable until now.
+  const { data: allVendors, error: allVendorsError } = await admin
     .from('vendor_profiles')
     .select('vendor_profile_id, business_name')
     .order('business_name', { ascending: true })
     .limit(VENDOR_OPTIONS_LIMIT);
+  const vendorOptionsUnreadable = Boolean(allVendorsError) || allVendors === null;
   const vendorOptions = (allVendors ?? []) as VendorOption[];
 
   // Top-level plan group categories for the covered_plan_groups multi-select
-  const { data: cats } = await admin
+  const { data: cats, error: catsError } = await admin
     .from('service_categories')
     .select('id, label_en, tier')
     .eq('tier', 1)
     .eq('status', 'active')
     .order('sort_order', { ascending: true });
+  const categoryOptionsUnreadable = Boolean(catsError) || cats === null;
   const categoryOptions = (cats ?? []) as ServiceCategoryOption[];
 
   const enrich = (
@@ -235,8 +255,19 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
           </p>
         </div>
 
-        {proposed.length === 0 ? (
-          <div className="sn-row p-8 text-center text-sm text-ink/55">
+        {proposedRowsRaw === null ? (
+          <ErrorState
+            title="Couldn’t read the open proposals"
+            broke={
+              proposedError?.message
+                ? `The read was refused: ${proposedError.message}`
+                : 'The read did not complete.'
+            }
+            survived="Nothing loaded, so this is NOT a statement that there are no proposals waiting — it is a statement that we do not know. Any proposal already filed is still live and can still be accepted by the vendor it names."
+            todo="Reload. If it repeats, the query is being rejected rather than returning nothing, and the column, value or migration it names is the thing to check."
+          />
+        ) : proposed.length === 0 ? (
+          <div className="sn-row p-8 text-center text-sm text-ink/70">
             No open partnership proposals. Set na &apos;yan.
           </div>
         ) : (
@@ -330,9 +361,25 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
           vendor&apos;s partnerships inbox — the badge only goes live once THEY accept it.
         </p>
 
-        {/* A truncated PICKER fails worse than a truncated list: the vendor is
-            simply not in the dropdown, and nothing says why. `cap` is a table
-            idea and this is a <select>, so it discloses itself in words. */}
+        {/* An UNREADABLE picker and a truncated one fail the same way — the shop
+            is not in the list and nothing says why — but they need different
+            sentences, because one is "try again" and the other is "it is there,
+            just past the end". */}
+        {vendorOptionsUnreadable || categoryOptionsUnreadable ? (
+          <p
+            role="alert"
+            className="mb-4 rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+          >
+            {vendorOptionsUnreadable && categoryOptionsUnreadable
+              ? 'The shop list and the category list could not be read, so both are empty below — that is not a sign there are none.'
+              : vendorOptionsUnreadable
+                ? 'The shop list could not be read, so the two menus below are empty — that is not a sign there are no shops.'
+                : 'The category list could not be read, so no categories are offered below — that is not a sign there are none.'}{' '}
+            Anything recorded now would be incomplete, so reload before using this
+            form.
+          </p>
+        ) : null}
+
         {vendorOptions.length >= VENDOR_OPTIONS_LIMIT ? (
           <p className="mb-4 rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
             The vendor lists below stop at the first{' '}
@@ -455,6 +502,20 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
         <h2 className="mb-3 sn-eye">
           Live partnerships {live ? `(${live.length} shown)` : '(not measured)'}
         </h2>
+
+        {/* A dash where a shop's name should be is ALREADY the legitimate value
+            for a shop with no name on file, so it cannot also be allowed to mean
+            "we could not look it up". The page says which. */}
+        {vendorNamesUnresolved ? (
+          <p
+            role="alert"
+            className="mb-3 rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+          >
+            Shop names could not be looked up, so the rows below and the proposals
+            above fall back to internal reference codes. The partnerships
+            themselves are real — only the names are missing.
+          </p>
+        ) : null}
         <ConsoleTable
           rows={live}
           readPermitted

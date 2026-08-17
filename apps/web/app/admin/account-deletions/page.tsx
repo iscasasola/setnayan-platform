@@ -95,11 +95,16 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
     new Set([...(pending ?? []), ...(recent ?? [])].map((r) => r.user_id)),
   );
   const usersById = new Map<string, UserLite>();
+  let accountsUnresolved = false;
   if (userIds.length > 0) {
-    const { data: usersData } = await admin
+    const { data: usersData, error: usersErr } = await admin
       .from('users')
       .select('user_id,email,display_name,account_type,is_internal')
       .in('user_id', userIds);
+    // A dash in the email column is ALREADY the legitimate value for an account
+    // with no email on file, so it cannot also be allowed to mean "the lookup
+    // failed" — on a queue whose whole job is deciding whose account to delete.
+    accountsUnresolved = Boolean(usersErr) || usersData === null;
     for (const u of (usersData ?? []) as UserLite[]) {
       usersById.set(u.user_id, u);
     }
@@ -112,6 +117,18 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
         title="Account deletions"
         lede="Self-serve deletion requests from Profile → Privacy & data. Review within 24 hours. Approving runs the same hard-delete (or delete + blacklist) as the Users surface, after you’ve checked for active events, bookings, or an outstanding balance."
       />
+
+      {accountsUnresolved ? (
+        <p
+          role="alert"
+          className="mb-6 rounded-md border border-warn-200/60 bg-warn-50/60 px-4 py-3 text-sm text-warn-900"
+        >
+          The accounts behind these requests could not be looked up, so every
+          email and account type below reads as a dash. The requests are real —
+          only the names are missing. Do not approve a deletion from this screen
+          until it reloads cleanly.
+        </p>
+      ) : null}
 
       {actioned ? (
         <p

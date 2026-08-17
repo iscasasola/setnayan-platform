@@ -13,11 +13,17 @@
  * not a repo-wide component the couple/vendor doorways import.
  *
  * ── The defect it closes STRUCTURALLY, which is the whole point ─────────────
- * 16 of those 34 files end their read with `(data ?? [])` and then branch on
- * `rows.length === 0`. Supabase RESOLVES with `{ error }` instead of throwing,
- * so a rejected query — a phantom column, a stale enum value, an unapplied
- * migration — arrives as an empty array and the page prints a calm sentence
- * saying there is nothing here. Measured, in production code today:
+ * 16 of those 34 files end their read with `(data ?? [])`, and 14 of the 16 then
+ * branch straight to `rows.length === 0`. Supabase RESOLVES with `{ error }`
+ * instead of throwing, so a rejected query — a phantom column, a stale enum
+ * value, an unapplied migration, a missing grant — arrives as an empty array and
+ * the page prints a calm sentence saying there is nothing here.
+ *
+ * ⚠ 14, NOT 16 — the two numbers are different claims and the difference is the
+ * whole point of this component. `settings/payment-methods` and
+ * `browser-blocks-surface` also write `?? []`, but they RETURN on the error
+ * first, so the coercion is unreachable. Counting the coercion is not counting
+ * the defect. Measured, in production code today:
  *
  *   /admin/approvals   a failed read renders "No approvals pending. Set na 'yan."
  *                      on the queue whose ONLY job is that a second admin looks.
@@ -25,8 +31,11 @@
  *   /admin/pax-changes a failed read renders "No pax-driven cost changes yet."
  *                      to a mediator answering "why did this vendor's cost jump?"
  *
- * ONE surface got it right — `browser-blocks-surface.tsx`, whose own comment
- * reads "A FAILED READ IS NOT AN EMPTY LIST". This component makes that the
+ * TWO surfaces got it right — `browser-blocks-surface.tsx`, whose own comment
+ * reads "A FAILED READ IS NOT AN EMPTY LIST", and `settings/payment-methods`,
+ * which returns on the error before it can render a list. Both do it by hand,
+ * in their own way, which is why it held on two pages out of thirty-four. This
+ * component makes that the
  * default instead of a thing each author has to remember, by making the wrong
  * thing unwriteable:
  *

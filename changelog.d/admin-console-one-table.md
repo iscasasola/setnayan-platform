@@ -6,7 +6,9 @@ The Setnayan team works in ninety-odd hand-built tables. Measured on `origin/mai
 
 **And the markup was already a convention nobody could import.** 13 of the 34 tables open with `w-full text-left text-sm`; 12 carry the identical `bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em]` header recipe. So the debt was never that they look different. It is that each one re-decides the three things that are easy to get wrong.
 
-### 1 · A failed read renders as an empty list — 16 of the 34, measured
+### 1 · A failed read renders as an empty list — 14 of the 34, measured
+
+⚠ **This section first said 16, and 16 is the wrong number for the claim it was attached to.** 16 files coerce a refused read into an empty array; **2 of those return early on the error first** (`settings/payment-methods` and `browser-blocks-surface`), so they never print the reassuring sentence. **14** actually render "nothing here" over a refusal. The first count came from a script that filtered on **raw** source and judged on **comment-stripped** source — so a file whose only match was a docblock *describing* the defect counted as having it. That is the exact raw-vs-stripped trap the guard's own comment warns about, and it bit the measurement one turn after that comment was written. **A number in a finding is a claim; measure it the same way twice.**
 
 Supabase **resolves with `{ error }`** instead of throwing, so a rejected query (phantom column, stale enum value, unapplied migration, missing grant) arrives as `data: null`. `(data ?? [])` turns that into an empty array and the page prints a calm sentence. Live in production code right now:
 
@@ -18,7 +20,7 @@ Supabase **resolves with `{ error }`** instead of throwing, so a rejected query 
 
 Its docblock called that *"graceful-degrades to an empty state if the migration isn't applied"* — **a defect described as a feature.** That line is now a correction naming what it actually did.
 
-**ONE surface already got it right** — `browser-blocks-surface.tsx`, whose own comment reads *"A FAILED READ IS NOT AN EMPTY LIST"*. `ConsoleTable` makes that the default instead of a thing each author remembers, by making the wrong thing **unwriteable**: `rows` accepts `null | undefined` and treats it as NOT MEASURED so it can never fall through to Empty; `readPermitted` is typed as the literal `true`, exactly as in `EmptyState`, so a caller cannot claim Empty without proof; and precedence belongs to the one tested resolver, not to a local `if (rows.length === 0)`.
+**TWO surfaces already got it right** — `browser-blocks-surface.tsx`, whose own comment reads *"A FAILED READ IS NOT AN EMPTY LIST"*, and `settings/payment-methods`. `ConsoleTable` makes that the default instead of a thing each author remembers, by making the wrong thing **unwriteable**: `rows` accepts `null | undefined` and treats it as NOT MEASURED so it can never fall through to Empty; `readPermitted` is typed as the literal `true`, exactly as in `EmptyState`, so a caller cannot claim Empty without proof; and precedence belongs to the one tested resolver, not to a local `if (rows.length === 0)`.
 
 🔑 **`count === null` MEANS "NOT MEASURED", NOT "ZERO".** Filing an unmeasured queue under "N queues are clear" puts it in the one place a reader has been told they need not look — and it looks completely fine. On `/admin/receipts` the money tiles now pass `null` on a refused read, so they show an em-dash rather than a confident **₱0** that reads as *"no money came in"*.
 

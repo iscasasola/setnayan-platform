@@ -62,10 +62,40 @@ const ARCHETYPE = '_components/console-table.tsx';
  * an absence here fails CLOSED, and must cite why. A line is not an excuse — it is
  * a measured statement about the failure mode, and it belongs nowhere else.
  */
-const FAILS_CLOSED_ON_NULL = new Set([
-  // `return isAdminProfile(profile)` — null profile → false → access denied.
-  'accounts/_surfaces/demo-vendors-surface.tsx:profile',
-]);
+const FAILS_CLOSED_ON_NULL: Array<{ file: string; varName: string; proof: RegExp }> = [
+  {
+    file: 'accounts/_surfaces/demo-vendors-surface.tsx',
+    varName: 'profile',
+    // The exemption is only valid while the value still feeds THIS decision.
+    // Both implementations of the predicate return false on null
+    // (`lib/demo-mode.ts` `if (!profile) return false`, `admin-predicate.ts`
+    // `!!(profile?…)`), so null → false → denied.
+    proof: /return isAdminProfile\(profile\)/,
+  },
+];
+
+/**
+ * 🛑 THE EXEMPTION MUST PROVE ITSELF — and the first version of it did not.
+ *
+ * It was a bare `Set` of `file:varname` strings carrying its reason in a comment.
+ * The lane-C session broke it in the only way that matters: replacing
+ * `return isAdminProfile(profile)` with `return Boolean(profile)` left the guard
+ * GREEN, and so did making that value feed a RENDERED expression instead of the
+ * auth decision. **The cited reason could vanish while the exemption survived** —
+ * and the key was `file:varname`, the one thing that will NOT change when the
+ * failure mode does.
+ *
+ * 🔑 FOURTH INSTANCE OF THIS SHAPE IN ONE DAY: the `CONVERTED` list, the
+ * hand-enumerated bill, `PRIVATE_SUBDIRS`, and this. **A list entry that decides
+ * what gets checked has to be pinned to something measured.** So each entry now
+ * carries a `proof` pattern that must still match the file; if it stops matching,
+ * the exemption VOIDS and the read is reported like any other.
+ */
+function exemptionHolds(rel: string, varName: string, src: string): boolean {
+  const e = FAILS_CLOSED_ON_NULL.find((x) => x.file === rel && x.varName === varName);
+  if (!e) return false;
+  return e.proof.test(src);
+}
 
 /**
  * The converted surfaces. The first tranche was deliberately the pure records
@@ -280,8 +310,9 @@ test('every converted surface hands its read error to the table', () => {
       // time it is right.
       // ⚖ The distinction is not "is the error bound" but WHAT AN ABSENCE MEANS:
       // absence that RENDERS as data is the defect; absence that DENIES is the fix.
-      if (FAILS_CLOSED_ON_NULL.has(`${rel}:${m[1]}`)) continue;
-      offenders.push(`${rel} (const { data: ${m[1]} } destructured with no error bound)`);
+      const holder = m[1] ?? '';
+      if (exemptionHolds(rel, holder, src)) continue;
+      offenders.push(`${rel} (const { data: ${holder} } destructured with no error bound)`);
     }
     // And the PRIMARY read must never be flattened at the read site.
     if (/\bconst\s+\w+\s*=\s*\(?data\s*\?\?\s*\[\]/.test(src)) {

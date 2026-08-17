@@ -264,11 +264,11 @@ export default async function AdminFraudQueuePage() {
           title="Couldn't read the fraud queue"
           broke={
             scoresError?.message
-              ? `The read was refused: ${scoresError.message}`
+              ? `The read was refused. Show this to an engineer: ${scoresError.message}`
               : 'The read did not complete.'
           }
-          survived="No vendor was shown and none was ruled out. This is NOT a statement that there are no open signals — it is a statement that we do not know, and it must never wear the green tick."
-          todo="Reload. If it repeats, the query is being rejected rather than returning nothing, and the column, value or view it names is the thing to check."
+          survived="No vendor was shown, and none was ruled out. This is not a statement that there are no open signals — it is a statement that we do not know."
+          todo="Reload. If it happens again, assume signals may be open and hand the message above to an engineer — do not treat this screen as a clear queue."
         />
       ) : scores.length === 0 ? (
         <div className="sn-row flex flex-col items-center gap-2 p-10 text-center">

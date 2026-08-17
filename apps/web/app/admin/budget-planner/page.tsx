@@ -133,7 +133,7 @@ export default async function AdminBudgetPlannerPage() {
       {/* ── 0. Budget bands (onboarding) ─────────────────────────────────── */}
       <section className="mb-12">
         <h2 className="mb-1 text-base font-semibold tracking-tight">
-          Budget bands (onboarding) ({budgetBands.length})
+          Budget bands (onboarding) ({bandsUnread ? '—' : budgetBands.length})
         </h2>
         <p className="mb-3 text-sm text-ink/60">
           The feel-band ladder couples pick from on the onboarding budget screen.
@@ -185,7 +185,7 @@ export default async function AdminBudgetPlannerPage() {
       {/* ── 1. Benchmark seeding ─────────────────────────────────────────── */}
       <section className="mb-12">
         <h2 className="mb-1 text-base font-semibold tracking-tight">
-          Benchmark seeding ({benchmarks.length})
+          Benchmark seeding ({benchmarksUnread ? '—' : benchmarks.length})
         </h2>
         <p className="mb-3 text-sm text-ink/60">
           Set the typical ₱ per service. These are the fallback the planner shows

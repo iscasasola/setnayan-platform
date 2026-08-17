@@ -1,17 +1,17 @@
+import type { EventWords } from '../_lib/event-words';
 import Link from 'next/link';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 
 export function TierComparisonWidget({
   limited,
   eventNoun,
-  organizer,
+  words,
 }: {
   limited: boolean;
   eventNoun: string;
-  /** This event type's word for whoever is throwing it — 'the couple' on a
-   *  wedding, 'the celebrant' on a birthday. Passed in rather than resolved
-   *  here so this stays a presentational widget. */
-  organizer: string;
+  /** The event type's own words. Passed in rather than resolved here so this
+   *  stays a presentational widget. */
+  words: EventWords;
 }) {
   if (limited) {
     return (
@@ -25,7 +25,7 @@ export function TierComparisonWidget({
         <p className="rounded-md border-l-2 border-ink/30 bg-paper-deep px-4 py-3 text-sm text-ink/75">
           You&rsquo;re a +1 to your inviter. Your photos will appear in their gallery —
           ask them to show you. Want full access? You can register your own Setnayan account
-          anytime — but for this wedding, you&rsquo;re invited as their +1.
+          anytime — but for this {words.eventWord}, you&rsquo;re invited as their +1.
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2 rounded-lg border border-dashed border-ink/15 bg-cream p-5 opacity-55">
@@ -92,7 +92,7 @@ export function TierComparisonWidget({
                 product. No count and no price: what this event actually holds is
                 resolved on the capture surface itself. */}
             <li>
-              · <strong>Papic</strong> — shoot candids for {organizer} from your own
+              · <strong>Papic</strong> — shoot candids for {words.theOrganizer} from your own
               phone
             </li>
             <li>· <strong>Selfie Camera</strong> — branded {eventNoun} selfie cam</li>

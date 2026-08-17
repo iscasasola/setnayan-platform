@@ -98,7 +98,11 @@ export default async function FindSeatPage({ params }: Props) {
               Start typing your name to see which table you&rsquo;re at.
             </p>
           </header>
-          <NameSearch slug={slug} eventDate={event.event_date as string | null} />
+          <NameSearch
+            slug={slug}
+            eventDate={event.event_date as string | null}
+            organizer={words.theOrganizer}
+          />
         </div>
       ) : (
         <PromptCard

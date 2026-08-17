@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { Suspense } from 'react';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventWordsFor } from './_lib/event-words';
 import { InvitationSkeleton } from './_components/invitation-skeleton';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { isSetnayanHost, isLocalOrPreviewHost } from '@/lib/custom-domain-resolve';
@@ -150,7 +151,10 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   // leak the couple's names into SERP snippets via metadata.
   if (visibility !== 'public') {
     return {
-      title: eventNounOf(event) === 'wedding' ? 'Wedding invitation' : 'Event invitation',
+      // The event type's own word, capitalised — "Wedding invitation" on a
+    // wedding (byte-identical), "Birthday invitation" on a birthday. Was a
+    // two-way patch that flattened all 15 other types to "Event".
+    title: `${(await eventWordsFor(event.event_type)).eventWord.replace(/^./, (c) => c.toUpperCase())} invitation`,
       robots: { index: false, follow: false },
     };
   }

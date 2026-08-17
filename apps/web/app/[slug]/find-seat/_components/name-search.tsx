@@ -17,9 +17,13 @@ import { useDayOfLiveTick } from '@/lib/use-day-of-live-refresh';
 export function NameSearch({
   slug,
   eventDate,
+  organizer,
 }: {
   slug: string;
   eventDate?: string | null;
+  /** This event type's word for whoever is throwing it, e.g. 'the celebrant'.
+   *  This route is NOT under the event page's provider, so it comes as a prop. */
+  organizer: string;
 }) {
   const [q, setQ] = useState('');
   const [matches, setMatches] = useState<SeatMatch[] | null>(null);
@@ -109,7 +113,7 @@ export function NameSearch({
           </ul>
         ) : touched && !loading ? (
           <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-base text-ink/80">
-            No match yet. Try your name as the couple would have listed it, or ask
+            No match yet. Try your name as {organizer} would have listed it, or ask
             a host to check the seating signs at the venue.
           </p>
         ) : null

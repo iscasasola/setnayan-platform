@@ -1,3 +1,4 @@
+import type { EventWords } from '../_lib/event-words';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
@@ -27,7 +28,7 @@ import { WhatToBringWidget } from './what-to-bring-widget';
  * meaningful.
  */
 export function PublicHideableWidget({
-  organizer,
+  words,
   widget,
   event,
   scheduleBlocks,
@@ -37,10 +38,9 @@ export function PublicHideableWidget({
 }: {
   widget: InvitationWidgetRow;
   event: EventRow;
-  /** This event type's word for whoever is throwing it — threaded from the body,
-   *  same as the guest tree's renderer. The ANONYMOUS tree needs it too: a
-   *  stranger on a birthday page was reading "the couple" as well. */
-  organizer: string;
+  /** The event type's own words, resolved ONCE by the body and threaded here
+   *  rather than re-resolved per widget. */
+  words: EventWords;
   scheduleBlocks: ScheduleBlockRow[];
   isLive: boolean;
   /** RSVP-season "Estimated program" label on the schedule widget (owner
@@ -77,10 +77,10 @@ export function PublicHideableWidget({
       return <VenueWidget event={event} />;
 
     case 'dress_code':
-      return <DressCodeWidget config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} />;
 
     case 'photo_moments':
-      return <PhotoMomentsWidget config={event.photo_moments_config} />;
+      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} />;
 
     case 'special_message':
       return <SpecialMessageWidget text={event.special_message ?? null} />;
@@ -103,7 +103,7 @@ export function PublicHideableWidget({
         <TierComparisonWidget
           limited={false}
           eventNoun={eventNounOf(event)}
-          organizer={organizer}
+          words={words}
         />
       );
 

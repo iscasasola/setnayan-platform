@@ -1,3 +1,4 @@
+import type { EventWords } from '../_lib/event-words';
 import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
 
 export function YourPhotosWidget({
@@ -5,7 +6,9 @@ export function YourPhotosWidget({
   eventId,
   eventPublicId,
   eventNoun,
+  words,
 }: {
+  words: EventWords;
   limited: boolean;
   eventId: string;
   eventPublicId: string;
@@ -38,7 +41,7 @@ export function YourPhotosWidget({
           <p className="font-medium text-ink">Add more via Shutter</p>
           <p className="mt-1 text-ink/65">
             You can also add your own photos and videos through Shutter, our in-app camera.
-            Tag up to 5 guests per post — the couple is tagged for you automatically.
+            Tag up to 5 guests per post — {words.theOrganizer} is tagged for you automatically.
           </p>
           <p className="mt-3 text-xs italic text-ink/45">
             Shutter ships with the Setnayan native app (Phase 2).

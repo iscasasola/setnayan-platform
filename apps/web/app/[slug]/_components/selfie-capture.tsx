@@ -416,7 +416,7 @@ export function SelfieCapture({
           </p>
           <p className="mt-0.5 text-xs text-ink/60">
             So {w.theOrganizer} recognizes you on their guest list — and the
-            photographers can find your candid shots after the wedding.
+            photographers can find your candid shots after the {w.eventWord}.
           </p>
         </div>
       </div>

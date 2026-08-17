@@ -49,3 +49,30 @@ wedding (landed) **2 fail** · restored **13 pass**.
 this can be seen working. Test-proved only.
 
 SPEC IMPACT: None.
+
+---
+
+## Addendum — two more sentences, found by CREATING the events
+
+The owner asked whether I could create events to test against. I made a birthday
+and a graduation in production (unlisted, linked to his account), fetched both
+pages and **read what a guest actually gets**. The provider was delivering the
+right words — and **two sentences still said "the couple" on a birthday page**:
+
+- *"Scan your personal QR or open the link the couple sent you"* — the explainer
+  a stranger reads on any event page
+- *"Papic — shoot candids for the couple from your own phone"*
+
+Both are now threaded from the body's resolved words.
+
+🔑 **NEITHER WAS FOUND BY A TEST, A SCAN OR A WORD-COUNT.** Every guard passed;
+the full suite was green. They were found by making the event and looking at the
+page — the same way the owner found the lock screen an hour earlier. **Three
+times today, looking beat measuring.**
+
+🪤 **AND THE COMPILER FOUND A THIRD CALL SITE I HAD MISSED.** Adding the prop to
+the Papic explainer failed typecheck on `public-hideable-widget.tsx` — the
+ANONYMOUS tree has its own widget renderer, so a stranger on a birthday page was
+reading "the couple" through a completely separate path. The guest tree and the
+anonymous tree have drifted before; a required prop is what caught it this time.
+**A prop that is optional would have shipped the defect silently.**

@@ -1,7 +1,18 @@
 import Link from 'next/link';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 
-export function TierComparisonWidget({ limited, eventNoun }: { limited: boolean; eventNoun: string }) {
+export function TierComparisonWidget({
+  limited,
+  eventNoun,
+  organizer,
+}: {
+  limited: boolean;
+  eventNoun: string;
+  /** This event type's word for whoever is throwing it — 'the couple' on a
+   *  wedding, 'the celebrant' on a birthday. Passed in rather than resolved
+   *  here so this stays a presentational widget. */
+  organizer: string;
+}) {
   if (limited) {
     return (
       <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
@@ -81,7 +92,7 @@ export function TierComparisonWidget({ limited, eventNoun }: { limited: boolean;
                 product. No count and no price: what this event actually holds is
                 resolved on the capture surface itself. */}
             <li>
-              · <strong>Papic</strong> — shoot candids for the couple from your own
+              · <strong>Papic</strong> — shoot candids for {organizer} from your own
               phone
             </li>
             <li>· <strong>Selfie Camera</strong> — branded {eventNoun} selfie cam</li>

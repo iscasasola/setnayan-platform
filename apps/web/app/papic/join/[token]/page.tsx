@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Camera, CircleAlert } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { DoorShell } from '@/app/_components/door/door-shell';
 import { AppInstallBanner } from './_components/app-install-banner';
 import { JoinForwarder } from './_components/join-forwarder';
 
@@ -46,16 +47,6 @@ type Props = {
 };
 
 type Kind = 'seat' | 'guest';
-
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
-      <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center shadow-sm">
-        {children}
-      </div>
-    </main>
-  );
-}
 
 /**
  * Resolve which existing web flow this token belongs to — without leaking any
@@ -116,25 +107,26 @@ export default async function PapicJoinPage({ params, searchParams }: Props) {
   // Neither a live seat nor a live guest QR → friendly dead-end (never leak why).
   if (!cleanToken || !kind) {
     return (
-      <Shell>
-        <CircleAlert aria-hidden className="mx-auto mt-3 h-7 w-7 text-terracotta" strokeWidth={1.75} />
-        <h1 className="mt-3 text-xl font-semibold tracking-tight">This link isn&rsquo;t active</h1>
-        {/* "the couple" is wrong on 15 of the 16 event types, and this branch
-            has LESS event context than any other — it fires precisely when the
-            token resolved to nothing, so there is no event to derive a noun
-            from. "whoever sent it" is both type-neutral and the only thing we
-            actually know here. */}
-        <p className="mt-2 text-sm text-ink/65">
-          This Papic link doesn&rsquo;t open a camera right now. Ask whoever sent
-          it to re-share your link and try again.
-        </p>
-        <Link
-          href="/"
-          className="mt-5 inline-flex items-center justify-center rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/10"
-        >
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <CircleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Papic
+          </>
+        }
+        title="This link isn't active."
+        /* "the couple" is wrong on 15 of the 16 event types, and this branch
+           has LESS event context than any other — it fires precisely when the
+           token resolved to nothing, so there is no event to derive a noun
+           from. "whoever sent it" is both type-neutral and the only thing we
+           actually know here. */
+        sub="This Papic link doesn't open a camera right now. Ask whoever sent it to re-share your link and try again."
+      >
+        <Link href="/" className="button-secondary">
           Back to Setnayan
         </Link>
-      </Shell>
+      </DoorShell>
     );
   }
 
@@ -150,7 +142,16 @@ export default async function PapicJoinPage({ params, searchParams }: Props) {
   const androidUrl = process.env.NEXT_PUBLIC_ANDROID_PLAY_STORE_URL || undefined;
 
   return (
-    <Shell>
+    <DoorShell
+      eyebrow={
+        <>
+          <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Papic
+        </>
+      }
+      title="Opening your camera…"
+      sub="One tap turns your phone into a candid camera for the day. Every shot lands straight in the host's gallery — no app to install."
+    >
       {/* No-JS fallback: a scanner with JS disabled still reaches the camera. */}
       <noscript>
         <meta httpEquiv="refresh" content={`0;url=${target}`} />
@@ -158,25 +159,13 @@ export default async function PapicJoinPage({ params, searchParams }: Props) {
 
       <AppInstallBanner iosUrl={iosUrl} androidUrl={androidUrl} />
 
-      <Camera aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
-      <h1 className="mt-3 text-xl font-semibold tracking-tight">
-        Opening your camera&hellip;
-      </h1>
-      <p className="mt-2 text-sm text-ink/65">
-        One tap turns your phone into a candid camera for the day. Every shot
-        lands straight in the host&rsquo;s gallery — no app to install.
-      </p>
-
-      <Link
-        href={target}
-        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition hover:bg-mulberry-600"
-      >
+      <Link href={target} className="button-primary w-full gap-2">
         Continue
         <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
       </Link>
 
       {/* Auto-forward once the banner has had a beat to paint. */}
       <JoinForwarder href={target} />
-    </Shell>
+    </DoorShell>
   );
 }

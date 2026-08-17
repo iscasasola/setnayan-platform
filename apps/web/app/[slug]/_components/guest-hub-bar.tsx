@@ -132,7 +132,7 @@ export function GuestHubBar({
         <div className="fixed left-3 top-3 z-40 [padding-top:env(safe-area-inset-top)]">
           <Link
             href={hubHref}
-            aria-label="Open the live event hub"
+            aria-label="Open the live hub"
             className="inline-flex h-10 items-center gap-1.5 rounded-full bg-ink px-3.5 text-sm font-semibold text-cream shadow-sm transition hover:bg-ink/90"
           >
             <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={2} />

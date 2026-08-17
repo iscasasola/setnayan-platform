@@ -8,6 +8,8 @@ import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { collectBookingFeeAtLock, resolveFeeAnchorRowId } from '@/lib/booking-fee-lock.server';
 import { acquireSchedulePoolsForBooking } from '@/lib/schedule-pools';
 import { emitNotification } from '@/lib/notification-emit';
+import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
+import { formatCandidateDate } from '@/lib/candidate-dates';
 import { uploadPublicAsset } from '@/lib/storage';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { createVendorChallenge } from '@/lib/papic-games';
@@ -899,6 +901,34 @@ export async function vendorAgreeToLock(formData: FormData) {
   if (!error && env.status === 'ok' && eventId) {
     try {
       const admin = createAdminClient();
+
+      // ── THE DATE NARROWS HERE, NOT AT THE ASK (owner §6.1 · slice B) ──────
+      // A couple with no wedding day yet carries CANDIDATE days; every supplier
+      // they actually book removes the days that supplier cannot work, and when
+      // one candidate is left, that is the date. Slice A deliberately SKIPPED
+      // this at the couple's press — running it there would have pinned the
+      // wedding date off a supplier who had agreed to nothing and could still
+      // decline, and the date would have survived the decline. An AGREEMENT is
+      // the event that legitimately narrows it, and this is that moment.
+      //
+      // Best-effort and ordered FIRST so the notification below can say what
+      // happened: the booking is already committed by the RPC, and a failure to
+      // narrow must never roll it back. `still_open` / `no_op` / `lost_race`
+      // are all ordinary outcomes, not errors.
+      let narrowedDate: string | null = null;
+      try {
+        const narrowed = await narrowEventDateAfterAgreement(admin, {
+          eventId,
+          forcedByEventVendorId: eventVendorId,
+        });
+        if (narrowed.status === 'locked') narrowedDate = narrowed.date;
+      } catch (e) {
+        console.error(
+          `[vendorAgreeToLock] date narrowing failed for vendor_id=${eventVendorId}:`,
+          e,
+        );
+      }
+
       const { data: ev } = await admin
         .from('event_vendors')
         .select('vendor_name')
@@ -916,7 +946,13 @@ export async function vendorAgreeToLock(formData: FormData) {
           userId: m.user_id,
           type: 'lock_request_agreed',
           title: `${vendorName} said yes`,
-          body: `${vendorName} agreed to your booking. They will send you their payment details next.`,
+          // 🗣 A DATE MUST NEVER APPEAR ON A COUPLE'S SCREEN WITHOUT THEM BEING
+          // TOLD IT WAS SET. The narrowing writes their FINAL wedding day, so
+          // the one message they are guaranteed to receive about this agreement
+          // is the message that has to say so.
+          body: narrowedDate
+            ? `${vendorName} agreed to your booking. That leaves one day everyone you have booked can make, so your date is now ${formatCandidateDate(narrowedDate)}. They will send you their payment details next.`
+            : `${vendorName} agreed to your booking. They will send you their payment details next.`,
           relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
         });
       }

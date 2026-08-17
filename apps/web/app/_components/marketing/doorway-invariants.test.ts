@@ -42,6 +42,16 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, '..', '..'); // apps/web/app
+/*
+  🔑 THE SHELLED PUBLIC ROUTES LIVE IN A ROUTE GROUP. `app/(shell)/` mounts the
+  shared shell once, in a layout, so it survives navigation. A route group is
+  INVISIBLE in the URL and PRESENT in the filesystem path — `/explore` still
+  serves from `app/(shell)/explore/page.tsx` — and that asymmetry is exactly
+  what broke seventeen guards on 2026-08-15. Resolve route directories through
+  this constant, never by joining APP directly.
+*/
+const SHELLED = join(APP, '(shell)');
+
 
 /**
  * The shared doorway kit. A ported route holds no hero markup of its own — it
@@ -81,7 +91,7 @@ const DOORWAYS = [
  *  `/setnayan-ai` both keep their hero in a sibling file, and a shared kit
  *  will put every doorway in that shape — so read the folder, not one file. */
 function sourcesFor(route: string): string[] {
-  const dir = join(APP, route);
+  const dir = join(SHELLED, route);
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
     .filter((f) => /\.tsx?$/.test(f) && !/\.test\./.test(f))
@@ -157,7 +167,7 @@ test('every doorway declares ITS OWN canonical URL', () => {
   // de-indexes one of them.
   const wrong: string[] = [];
   for (const route of DOORWAYS) {
-    const page = join(APP, route, 'page.tsx');
+    const page = join(SHELLED, route, 'page.tsx');
     if (!existsSync(page)) {
       wrong.push(`/${route}: no page.tsx`);
       continue;

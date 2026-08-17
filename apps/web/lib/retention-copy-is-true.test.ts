@@ -256,7 +256,7 @@ test('no user-facing copy promises we delete a connected account on a timer', ()
  */
 test('the privacy notice states the REAL post-event floor', async () => {
   const { FULL_RES_POST_EVENT_GRACE_DAYS } = await import('./papic-fullres-drop-core');
-  const notice = code(join(WEB, 'app/privacy/page.tsx'));
+  const notice = code(join(WEB, 'app/(shell)/privacy/page.tsx'));
 
   // Self-check: an unreadable file would satisfy a "does not contain" assertion.
   assert.ok(notice.length > 2000, 'self-check: the privacy notice read as near-empty');

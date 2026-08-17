@@ -30,7 +30,18 @@ const APP = resolve(HERE, '..');
 const WEB = resolve(APP, '..');
 
 const GALLERY = readFileSync(join(HERE, '_components', 'gallery.tsx'), 'utf8');
-const PAGE = readFileSync(join(HERE, 'page.tsx'), 'utf8');
+/*
+  ⚠ page.tsx IS NOT BESIDE THIS TEST ANY MORE (2026-08-15). Only `page.tsx` and
+  `loading.tsx` moved into `app/(shell)/realstories/` — so the shell is mounted
+  once by the group layout and survives navigation — while `_components/`,
+  `[slug]/` and this test stayed put. That split is deliberate:
+  `app/realstories/[slug]` is `revalidate = false` and must remain statically
+  generated, which the group layout's force-dynamic would have taken away.
+*/
+const PAGE = readFileSync(
+  join(HERE, '..', '(shell)', 'realstories', 'page.tsx'),
+  'utf8',
+);
 
 /** Strip comments so a rule described in prose can never satisfy a check. */
 function code(src: string): string {

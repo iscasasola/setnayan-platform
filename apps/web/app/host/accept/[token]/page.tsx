@@ -9,6 +9,7 @@ import {
 } from '@/lib/event-moderators';
 import { acceptHostInvite, declineHostInvite } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
 
 export const metadata = {
   title: 'Accept your invitation · Setnayan',
@@ -85,39 +86,33 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
   // Terminal-state guards.
   if (search.declined === '1') {
     return (
-      <AcceptShell>
-        <TerminalCard
+      <TerminalCard
           tone="warn"
-          eyebrow="Setnayan · Declined"
+          eyebrow="Declined"
           title="Invitation declined."
           body={`Thanks for letting us know. If you change your mind, ask ${inviterName} to send a new invite.`}
         />
-      </AcceptShell>
     );
   }
   if (invite.removed_at) {
     return (
-      <AcceptShell>
-        <TerminalCard
+      <TerminalCard
           tone="warn"
-          eyebrow="Setnayan · Revoked"
+          eyebrow="Revoked"
           title="This invitation was revoked."
           body={`If this is unexpected, contact ${inviterName} directly.`}
         />
-      </AcceptShell>
     );
   }
   if (invite.accepted_at) {
     return (
-      <AcceptShell>
-        <TerminalCard
+      <TerminalCard
           tone="ok"
-          eyebrow="Setnayan · Already accepted"
+          eyebrow="Already accepted"
           title="You're already a host on this event."
           body="Head to your dashboard to keep planning."
           cta={{ href: `/dashboard/${invite.event_id}`, label: 'Open dashboard' }}
         />
-      </AcceptShell>
     );
   }
   if (
@@ -125,14 +120,12 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
     new Date(invite.invitation_expires_at).getTime() < Date.now()
   ) {
     return (
-      <AcceptShell>
-        <TerminalCard
+      <TerminalCard
           tone="warn"
-          eyebrow="Setnayan · Expired"
+          eyebrow="Expired"
           title="This invitation has expired."
           body={`Invitation links expire 7 days after sending. Ask ${inviterName} to send a new one.`}
         />
-      </AcceptShell>
     );
   }
 
@@ -145,40 +138,42 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
   if (!user) {
     const nextUrl = `/host/accept/${token}`;
     return (
-      <AcceptShell>
-        <header className="space-y-3 text-center">
-          <p className="inline-flex items-center justify-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+      <DoorShell
+        width="lg"
+        eyebrow={
+          <>
             <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             You&apos;re invited
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            {inviterName} invited you to help plan {eventName}
-          </h1>
-          <p className="text-base text-ink/65">
-            Role: <span className="font-medium text-ink">{ROLE_SUBTYPE_LABEL[invite.role_subtype]}</span>
+          </>
+        }
+        title={`${inviterName} invited you to help plan ${eventName}`}
+        sub={
+          <>
+            Role:{' '}
+            <span className="font-medium text-ink">
+              {ROLE_SUBTYPE_LABEL[invite.role_subtype]}
+            </span>
             {invite.display_label ? ` · ${invite.display_label}` : ''}
-            {eventDate ? ` · ${new Date(eventDate).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}` : ''}
-          </p>
-          <p className="text-sm text-ink/65">
-            Sign in or create a free account to accept. We&apos;ll send you straight to the
-            event dashboard once you&apos;re in.
-          </p>
-        </header>
-        <div className="grid gap-3 sm:grid-cols-2">
+            {eventDate
+              ? ` · ${new Date(eventDate).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}`
+              : ''}
+            . Sign in or create a free account to accept — we&apos;ll send you straight to
+            the event dashboard once you&apos;re in.
+          </>
+        }
+      >
+        <DoorActions>
           <Link
             href={`/signup?next=${encodeURIComponent(nextUrl)}&email=${encodeURIComponent(invite.invitation_email ?? '')}`}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-3 text-sm font-medium text-cream transition hover:bg-mulberry-600"
+            className="button-primary"
           >
             Create account
           </Link>
-          <Link
-            href={`/login?next=${encodeURIComponent(nextUrl)}`}
-            className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-5 py-3 text-sm font-medium text-ink/80 transition hover:bg-ink/[0.03]"
-          >
+          <Link href={`/login?next=${encodeURIComponent(nextUrl)}`} className="button-secondary">
             Sign in
           </Link>
-        </div>
-        <p className="mt-4 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-ink/40">
+        </DoorActions>
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
           Invitation expires{' '}
           {invite.invitation_expires_at
             ? new Date(invite.invitation_expires_at).toLocaleDateString('en-PH', {
@@ -188,7 +183,7 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
               })
             : 'in 7 days'}
         </p>
-      </AcceptShell>
+      </DoorShell>
     );
   }
 
@@ -199,10 +194,9 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
 
   if (emailMismatch || search.error === 'email_mismatch') {
     return (
-      <AcceptShell>
-        <TerminalCard
+      <TerminalCard
           tone="warn"
-          eyebrow="Setnayan · Different account signed in"
+          eyebrow="Different account signed in"
           title="This invitation was sent to a different email."
           body={
             <>
@@ -215,79 +209,82 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
           }
           cta={{ href: '/login?next=' + encodeURIComponent(`/host/accept/${token}`), label: 'Switch account' }}
         />
-      </AcceptShell>
     );
   }
 
   if (search.error) {
     // Surface server-action errors that bounced back here.
     return (
-      <AcceptShell>
-        <TerminalCard
+      <TerminalCard
           tone="warn"
-          eyebrow="Setnayan · Something went wrong"
+          eyebrow="Something went wrong"
           title="We couldn't complete that just now."
           body={`Error: ${search.error}${search.msg ? ' — ' + search.msg : ''}. Try again, or ask the inviter to re-send.`}
         />
-      </AcceptShell>
     );
   }
 
   // Happy path: signed in, fresh invite, email matches. Show accept/decline.
   return (
-    <AcceptShell>
-      <header className="space-y-3 text-center">
-        <p className="inline-flex items-center justify-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+    <DoorShell
+      width="lg"
+      eyebrow={
+        <>
           <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Accept your invitation
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Help plan {eventName}
-        </h1>
-        <p className="text-base text-ink/65">
+        </>
+      }
+      title={`Help plan ${eventName}`}
+      sub={
+        <>
           {inviterName} invited you as{' '}
-          <span className="font-medium text-ink">{ROLE_SUBTYPE_LABEL[invite.role_subtype]}</span>
+          <span className="font-medium text-ink">
+            {ROLE_SUBTYPE_LABEL[invite.role_subtype]}
+          </span>
           {invite.display_label ? ` (${invite.display_label})` : ''}.
-        </p>
-        {eventDate ? (
-          <p className="text-sm text-ink/55">
-            Wedding date:{' '}
-            {new Date(eventDate).toLocaleDateString('en-PH', {
+        </>
+      }
+      meta={
+        eventDate
+          ? `Wedding date: ${new Date(eventDate).toLocaleDateString('en-PH', {
               month: 'long',
               day: 'numeric',
               year: 'numeric',
-            })}
-          </p>
-        ) : null}
-      </header>
-
-      <div className="grid gap-3 sm:grid-cols-2">
+            })}`
+          : undefined
+      }
+    >
+      <DoorActions>
         <form action={acceptHostInvite}>
           <input type="hidden" name="token" value={token} />
-          <SubmitButton pendingLabel="Accepting…" className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-3 text-sm font-medium text-cream transition hover:bg-mulberry-600">
+          <SubmitButton pendingLabel="Accepting…" className="button-primary w-full gap-2">
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Accept invitation
           </SubmitButton>
         </form>
         <form action={declineHostInvite}>
           <input type="hidden" name="token" value={token} />
-          <SubmitButton pendingLabel="Declining…" className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-5 py-3 text-sm font-medium text-ink/70 transition hover:bg-ink/[0.03]">Decline</SubmitButton>
+          <SubmitButton pendingLabel="Declining…" className="button-secondary w-full">
+            Decline
+          </SubmitButton>
         </form>
-      </div>
-    </AcceptShell>
+      </DoorActions>
+    </DoorShell>
   );
 }
 
-function AcceptShell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-4 py-10 sm:px-6">
-      <div className="space-y-6 rounded-2xl border border-ink/10 bg-cream p-6 sm:p-8">
-        {children}
-      </div>
-    </main>
-  );
-}
-
+/**
+ * The five terminal states (declined · revoked · already accepted · expired ·
+ * wrong account · server error).
+ *
+ * Ported onto the shared <DoorShell> (2026-08-17). DoorShell renders the page
+ * frame, so this is passed INSTEAD of the local wrapper this file used to
+ * declare, not inside it.
+ *
+ * ⚖ `tone` maps to the door's own threshold/dead-end split, and the mapping is
+ * not cosmetic: `ok` means there IS somewhere to go (it always carries a CTA),
+ * so it keeps the action colour. `warn` is a refusal with nothing to act on.
+ */
 function TerminalCard({
   tone,
   eyebrow,
@@ -303,21 +300,27 @@ function TerminalCard({
 }) {
   const Icon = tone === 'ok' ? CheckCircle2 : ShieldAlert;
   return (
-    <div className="space-y-4 text-center">
-      <p className="inline-flex items-center justify-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-        <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        {eyebrow}
-      </p>
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-      <div className="text-sm text-ink/65">{body}</div>
+    <DoorShell
+      tone={tone === 'ok' ? 'threshold' : 'dead_end'}
+      width="lg"
+      eyebrow={
+        <>
+          <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          {eyebrow}
+        </>
+      }
+      title={title}
+      sub={body}
+    >
       {cta ? (
-        <Link
-          href={cta.href}
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-3 text-sm font-medium text-cream transition hover:bg-mulberry-600"
-        >
+        <Link href={cta.href} className="button-primary w-full sm:w-auto">
           {cta.label}
         </Link>
-      ) : null}
-    </div>
+      ) : (
+        <Link href="/" className="button-secondary">
+          Back to Setnayan
+        </Link>
+      )}
+    </DoorShell>
   );
 }

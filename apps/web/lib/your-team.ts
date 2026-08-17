@@ -34,7 +34,11 @@ const URGENCY_RANK: Record<TimelineStatus, number> = {
   due_soon: 1,
   start_now: 2,
   upcoming: 3,
-  locked: 4,
+  // PR-H · asked and unanswered. Ranked BELOW every actionable status (there is
+  // nothing for the couple to do) and ABOVE 'locked' (it is not settled, and a
+  // decline on day six puts it straight back in the queue).
+  awaiting: 4,
+  locked: 5,
 };
 
 /** A category the rail may list under "Still needs your decision". */
@@ -74,7 +78,14 @@ export function deepLinkTileForGroup(groupId: string): string | null {
   return g?.catalogTile ?? null;
 }
 
-/** Is the couple in this category's action window? (quiet before it opens) */
+/**
+ * Is the couple in this category's action window? (quiet before it opens)
+ *
+ * PR-H · `'awaiting'` is deliberately NOT actionable. The couple has already
+ * done the only thing this rail could ask of them; listing it under "Still needs
+ * your decision" would tell them to decide something they have decided, and the
+ * only person who can move it now is the supplier.
+ */
 function isActionable(s: TimelineStatus): boolean {
   return s === 'overdue' || s === 'due_soon' || s === 'start_now';
 }

@@ -109,7 +109,7 @@ for (const control of ['/download', '/waitlist']) {
  * Source with comments removed.
  *
  * 🪤 WITHOUT THIS THE GUARD CRIES WOLF ON ITS OWN SUBJECT MATTER. On the first
- * run of the shelled-route check it reported `app/explore/page.tsx` as pinning
+ * run of the shelled-route check it reported `app/(shell)/explore/page.tsx` as pinning
  * a bar — the match was a COMMENT describing the behaviour being removed. A
  * guard that fires on prose teaches you to skim past the one time it is right,
  * and the file it will fire on most is the file someone is documenting.

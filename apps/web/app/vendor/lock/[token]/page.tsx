@@ -255,7 +255,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
             </Link>
             <Link
               href={`/login?next=${encodeURIComponent(nextPath)}`}
-              className="mt-3 inline-block text-sm text-ink/60 underline hover:text-terracotta"
+              className="mt-3 inline-block text-sm text-ink/60 underline hover:text-link"
             >
               I already have an account
             </Link>

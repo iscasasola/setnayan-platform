@@ -32,9 +32,15 @@ import { GENERIC_PROFILE, WEDDING_PROFILE } from './event-type-profile';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, '..', 'app');
+/*
+  🔑 The seven Studio product pages live in the `app/(shell)/` route group
+  (2026-08-15) so the shared shell is mounted once, in a layout, and survives
+  navigation. Invisible in the URL, present in the path — resolve through here.
+*/
+const SHELLED = join(APP, '(shell)');
 
 function pageSource(key: string): string {
-  return readFileSync(join(APP, key, 'page.tsx'), 'utf8');
+  return readFileSync(join(SHELLED, key, 'page.tsx'), 'utf8');
 }
 
 test('the anchor: there are seven Studio apps and each names a page', () => {

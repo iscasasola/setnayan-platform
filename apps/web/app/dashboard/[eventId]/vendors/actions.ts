@@ -1506,9 +1506,21 @@ export async function finalizeVendor(
     // the only thing that clears them, revertVendorToConsidering, refuses unless
     // the row is already confirmed. So on an ask that is later declined,
     // expired or withdrawn (all of which leave status='considering') they would
-    // be permanent. A forward primitive with no inverse. The agree RPC stamps
-    // both alongside 'contracted', exactly as acquire_service_time_slot already
-    // does, so a real booking is unchanged.
+    // be permanent. A forward primitive with no inverse.
+    //
+    // ⚠ THIS COMMENT USED TO END: "The agree RPC stamps both alongside
+    // 'contracted', exactly as acquire_service_time_slot already does, so a real
+    // booking is unchanged." HALF OF THAT WAS FALSE FROM THE DAY IT WAS WRITTEN.
+    // acquire_service_time_slot DOES stamp both; vendor_agree_to_lock stamped
+    // NEITHER — read out of production with pg_get_functiondef, not from a
+    // migration and not from a comment.
+    // 🔑 A SENTENCE IS NOT A MECHANISM, and a sentence written HERE about what a
+    // DIFFERENT object does is the least checkable kind there is: nothing
+    // typechecks it, no test exercised it, and it read as settled fact.
+    // Corrected by migration 20271144481150, which adds both stamps to the agree
+    // flip — so the claim is true now. tests/db/agree-stamps-the-link.db.test.ts fails if
+    // the migration ever stops writing them, so the next reader is TOLD rather
+    // than trusted.
     const lockPayload = handshakeAsk
       ? {
           lock_request_state: 'pending',
@@ -2438,6 +2450,127 @@ export type RevertVendorResult =
   | { status: 'not_locked' }
   | { status: 'error'; message: string };
 
+/**
+ * WITHDRAW THE ASK — the inverse slice A shipped without.
+ *
+ * 🔴 `cancel_vendor_lock_request` shipped EXECUTE-granted with ZERO CALLERS
+ * ANYWHERE (measured at origin/main ce5ee9b88 and again at b2cd23d54). So a
+ * couple who asked the wrong supplier, or simply changed their mind, had no way
+ * out: the request sat `pending`, held both pending indexes and the supplier's
+ * hard-single slot, and the ONLY thing that could close it was the 7-day fuse or
+ * the supplier answering a question the couple no longer wanted answered.
+ *
+ * 🔑 A FORWARD PRIMITIVE WITH NO INVERSE. Exactly the shape that once left a
+ * vendor reading BUSY to everyone forever, and the same shape the sweep was
+ * built to rescue slice A from. Asking anyone for anything is only safe when
+ * un-asking is one press away.
+ *
+ * The RPC is the authority and is deliberately NOT re-checked here: it is
+ * couple-only (`current_couple_event_ids()`, NOT couple-or-coordinator — a
+ * coordinator must not erase a request they may have raised), it refuses
+ * anything that is not still `pending`, and it returns the `event_id` READ OFF
+ * THE ROW IT AUTHORIZED. Every side effect below keys on that envelope value and
+ * never on the form, for the same confused-deputy reason the vendor's answer
+ * actions carry in their own docblock.
+ *
+ * ⚠ NOT the same act as "Change pick". `revertVendorToConsidering` unwinds a
+ * REAL booking the supplier already agreed to, with archive-restores, thread
+ * revivals and a schedule release behind it. This withdraws a question nobody
+ * has answered. Collapsing the two would make backing out of an ask carry the
+ * weight of cancelling a booking — and would fire a `booking_cancelled` notice
+ * at a supplier who was never booked.
+ */
+export type WithdrawLockRequestResult =
+  | { status: 'ok'; vendorName: string }
+  /** The supplier answered (or the fuse blew) between the render and the press.
+   *  The screen is simply stale — re-reading it shows the real outcome. */
+  | { status: 'not_pending' }
+  | { status: 'not_signed_in' }
+  | { status: 'error'; message: string };
+
+export async function withdrawVendorLockRequest(
+  formData: FormData,
+): Promise<WithdrawLockRequestResult> {
+  const vendorId = formData.get('vendor_id');
+  if (typeof vendorId !== 'string' || vendorId.length === 0) {
+    return { status: 'error', message: 'Missing vendor id' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  const { data, error } = await supabase.rpc('cancel_vendor_lock_request', {
+    p_event_vendor_id: vendorId,
+  });
+  if (error) {
+    return { status: 'error', message: error.message };
+  }
+  const env = (data ?? {}) as { status?: string; event_id?: string };
+  const eventId = typeof env.event_id === 'string' ? env.event_id : null;
+
+  // 'already' and 'not_pending' are the same thing to the couple: the ask is no
+  // longer outstanding. Only 'ok' is a fresh withdrawal worth telling anyone
+  // about — re-pressing must not send the supplier a second notice.
+  if (env.status !== 'ok') {
+    if (eventId) revalidatePath(`/dashboard/${eventId}/vendors`);
+    return { status: 'not_pending' };
+  }
+
+  // Tell the SUPPLIER. Best-effort: the withdrawal is already committed and a
+  // notification hiccup must never roll it back — but silence here is its own
+  // harm, because the answer card just disappeared from their Overview and
+  // nothing else in the product would ever explain why.
+  let vendorName = 'this supplier';
+  try {
+    const admin = createAdminClient();
+    const { data: ev } = await admin
+      .from('event_vendors')
+      .select('vendor_name, marketplace_vendor_id')
+      .eq('vendor_id', vendorId)
+      .maybeSingle();
+    const row = (ev ?? null) as {
+      vendor_name?: string;
+      marketplace_vendor_id?: string | null;
+    } | null;
+    vendorName = row?.vendor_name ?? vendorName;
+    if (row?.marketplace_vendor_id && eventId) {
+      const [{ data: vProfile }, { data: evtRow }] = await Promise.all([
+        admin
+          .from('vendor_profiles')
+          .select('user_id')
+          .eq('vendor_profile_id', row.marketplace_vendor_id)
+          .maybeSingle(),
+        admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
+      ]);
+      const vendorUserId = (vProfile as { user_id: string | null } | null)?.user_id ?? null;
+      const who = (evtRow as { display_name: string } | null)?.display_name ?? 'A couple';
+      if (vendorUserId) {
+        await emitNotification({
+          userId: vendorUserId,
+          type: 'lock_request_withdrawn',
+          title: `${who} took their booking request back`,
+          body: `${who} has withdrawn the booking request you were asked to answer. Nothing is owed either way, and the date is free on your calendar again.`,
+          relatedUrl: '/vendor-dashboard',
+        });
+      }
+    }
+  } catch (e) {
+    console.error(
+      `[withdrawVendorLockRequest] notify failed for vendor_id=${vendorId} event_id=${eventId}:`,
+      e,
+    );
+  }
+
+  if (eventId) {
+    revalidatePath(`/dashboard/${eventId}/vendors`);
+    revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+  }
+  return { status: 'ok', vendorName };
+}
+
 export async function revertVendorToConsidering(
   formData: FormData,
 ): Promise<RevertVendorResult> {
@@ -2460,7 +2593,7 @@ export async function revertVendorToConsidering(
 
   const { data: current, error: readErr } = await supabase
     .from('event_vendors')
-    .select('status, marketplace_vendor_id, category')
+    .select('status, marketplace_vendor_id, category, lock_request_state')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -2502,12 +2635,37 @@ export async function revertVendorToConsidering(
   // 'considering' clears them so a no-longer-chosen vendor stops counting as
   // the recommended pick AND stops contributing to the vendor's public
   // completed-events count / Pro-Enterprise editorial credit.
+  //
+  // ⚠ AND THE HANDSHAKE MARKER GOES WITH IT — slice B. Undoing a lock that a
+  // supplier AGREED to left `lock_request_state = 'agreed'` standing on a row
+  // whose status had just been walked back to 'considering'. The record then
+  // said the supplier holds this booking while the couple's screens said nobody
+  // does. `lock-request-state.ts` already ASSERTED this write existed ("the flag
+  // arm there also writes 'cancelled'") — it did not; the claim is made true
+  // here rather than deleted, because the honest value for a couple undoing
+  // their own request is exactly 'cancelled'.
+  // The forgery guard permits it: an authenticated caller may write 'pending' or
+  // 'cancelled' and is refused only 'agreed' / 'declined' / 'expired'. So this
+  // needs no RPC, and `cancel_vendor_lock_request` could not do it anyway — that
+  // one refuses everything except a still-pending request, by design.
   const { error: revertErr } = await supabase
     .from('event_vendors')
     .update({
       status: 'considering',
       selection_match_rank: null,
       linked_vendor_profile_id: null,
+      // ONLY when the row actually CARRIES a marker. A confirmed row with
+      // lock_request_state NULL — every legacy booking, everything locked while
+      // the flag was off, and the printed Locked-QR path, which promotes to
+      // deposit_paid without touching a single lock_* column — was never asked
+      // for, so stamping 'cancelled' on it would print "you withdrew this" over
+      // a booking nobody ever requested.
+      ...(isLockHandshakeEnabled() && current.lock_request_state != null
+        ? {
+            lock_request_state: 'cancelled',
+            lock_request_cancelled_at: new Date().toISOString(),
+          }
+        : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('vendor_id', vendorId)

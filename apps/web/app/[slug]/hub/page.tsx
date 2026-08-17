@@ -99,7 +99,7 @@ export const metadata: Metadata = {
   // page. Static on purpose: the event's name is behind the canViewSlugEvent
   // gate below, and a private event's name must not leak into a tab title or a
   // bookmark on a page that is deliberately noindex.
-  title: 'Event Hub · Setnayan',
+  title: 'Live hub · Setnayan',
   robots: { index: false, follow: false },
 };
 
@@ -511,7 +511,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         ? 'The celebration has wrapped. Thank you for being part of the day.'
         : dayOfPhase === 'pre'
           ? 'The celebration is almost here. We can’t wait to see you.'
-          : 'Your event hub — everything for the day, in one place.';
+          : 'Everything for the day, in one place.';
   const phaseLabel =
     dayOfPhase === 'live'
       ? 'Happening now'
@@ -519,7 +519,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         ? 'Just wrapped'
         : dayOfPhase === 'pre'
           ? 'Almost here'
-          : 'Event hub';
+          : 'The day';
 
   // ───────────────────────────── Panels ─────────────────────────────────────
 

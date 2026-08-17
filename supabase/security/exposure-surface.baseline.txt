@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6253
+# facts: 6264
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     672
-#   col       4516
-#   policy    840
+#   tpriv     673
+#   col       4525
+#   policy    841
 #   view      9
 #   func      212
 #
@@ -106,6 +106,7 @@ tpriv	public.creator_chapters|anon	SIUD
 tpriv	public.creator_chapters|authenticated	SIUD
 tpriv	public.cron_job_runs|anon	SIUD
 tpriv	public.cron_job_runs|authenticated	SIUD
+tpriv	public.csp_violation_reports|authenticated	S
 tpriv	public.custom_domains|anon	SIUD
 tpriv	public.custom_domains|authenticated	SIUD
 tpriv	public.demand_radar_rollups|anon	SIUD
@@ -1192,6 +1193,14 @@ col	public.creator_chapters.user_id	anon=SIU authenticated=SIU
 col	public.creator_chapters.view_count	anon=SIU authenticated=SIU
 col	public.cron_job_runs.job_key	anon=SIU authenticated=SIU
 col	public.cron_job_runs.last_run_at	anon=SIU authenticated=SIU
+col	public.csp_violation_reports.blocked_origin	anon=- authenticated=S
+col	public.csp_violation_reports.day	anon=- authenticated=S
+col	public.csp_violation_reports.directive	anon=- authenticated=S
+col	public.csp_violation_reports.first_seen_at	anon=- authenticated=S
+col	public.csp_violation_reports.hits	anon=- authenticated=S
+col	public.csp_violation_reports.last_seen_at	anon=- authenticated=S
+col	public.csp_violation_reports.report_id	anon=- authenticated=S
+col	public.csp_violation_reports.route_shape	anon=- authenticated=S
 col	public.custom_domains.created_at	anon=SIU authenticated=SIU
 col	public.custom_domains.domain	anon=SIU authenticated=SIU
 col	public.custom_domains.domain_id	anon=SIU authenticated=SIU
@@ -5315,6 +5324,7 @@ policy	public.creator_chapters|admin_full_access_creator_chapters	mode=PERMISSIV
 policy	public.creator_chapters|creator_owns_chapter	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = auth.uid()) check=(user_id = auth.uid())
 policy	public.creator_chapters|public_can_read_published_chapter	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=((status = 'published'::text) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = creator_chapters.user_id) AND (u.public_profile_enabled = true))))) check=NULL
 policy	public.cron_job_runs|cron_job_runs_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
+policy	public.csp_violation_reports|csp_violation_reports_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
 policy	public.custom_domains|admin_full_access_domains	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.custom_domains|user_owns_domain	mode=PERMISSIVE cmd=ALL roles=authenticated using=((owner_type = 'user'::text) AND (owner_id = auth.uid())) check=((owner_type = 'user'::text) AND (owner_id = auth.uid()))
 policy	public.custom_domains|vendor_owns_domain	mode=PERMISSIVE cmd=ALL roles=authenticated using=((owner_type = 'vendor'::text) AND (owner_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))) check=((owner_type = 'vendor'::text) AND (owner_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))

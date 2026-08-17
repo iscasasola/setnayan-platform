@@ -101,8 +101,19 @@ export async function refreshBottleneckSignalsIfStale(): Promise<void> {
 /**
  * Fetch the hiring roadmap entries seeded by the migration plus any updates
  * admin has made. Ordered by hire-by-date ascending.
+ *
+ * ⚠ RETURNS `rows: null` WHEN THE READ WAS REFUSED, and that is the whole
+ * point of this shape. It used to log and `return []`, so a rejected query —
+ * a phantom column, a missing grant, an unapplied migration — reached the
+ * dashboard as a zero-length list and printed "Roadmap not seeded — run
+ * migration", an instruction to go and fix the wrong thing. Supabase resolves
+ * with `{ error }` rather than throwing, so nothing else was ever going to
+ * catch it.
  */
-export async function getHiringRoadmap(): Promise<HiringRoadmapEntry[]> {
+export async function getHiringRoadmapResult(): Promise<{
+  rows: HiringRoadmapEntry[] | null;
+  error: { message: string } | null;
+}> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('hiring_roadmap')
@@ -111,13 +122,13 @@ export async function getHiringRoadmap(): Promise<HiringRoadmapEntry[]> {
 
   if (error) {
     console.error('[hiring-guide] getHiringRoadmap failed', error);
-    return [];
+    return { rows: null, error: { message: error.message } };
   }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  return (data ?? []).map((row) => {
+  const rows = (data ?? []).map((row) => {
     const hireBy = new Date(row.hire_by_date);
     hireBy.setHours(0, 0, 0, 0);
     const daysUntil = Math.round((hireBy.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -126,6 +137,20 @@ export async function getHiringRoadmap(): Promise<HiringRoadmapEntry[]> {
       days_until_hire_by: daysUntil,
     } as HiringRoadmapEntry;
   });
+
+  return { rows, error: null };
+}
+
+/**
+ * List form, for callers that genuinely cannot act on a failed read — the
+ * alert engine iterates the roadmap to decide which countdown emails are due,
+ * and "no rows" and "could not read" lead it to the same place: send nothing.
+ * A SCREEN cannot use this; it would have no way to tell a reader which of the
+ * two happened. Screens call `getHiringRoadmapResult()`.
+ */
+export async function getHiringRoadmap(): Promise<HiringRoadmapEntry[]> {
+  const { rows } = await getHiringRoadmapResult();
+  return rows ?? [];
 }
 
 /**

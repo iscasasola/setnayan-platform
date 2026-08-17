@@ -94,6 +94,15 @@ const CONVERTED = [
   'studio/_surfaces/real-stories-surface.tsx',
   'studio/_surfaces/referrals-surface.tsx',
   'studio/_surfaces/storytellers-surface.tsx',
+  // The App Performance studio — six surfaces, seven tables. These are the
+  // MEASUREMENT screens, where a zero printed over a refused read is not a
+  // small error: it is a graph saying the business stopped.
+  'app-performance/_components/expenses.tsx',
+  'app-performance/_surfaces/browser-blocks-surface.tsx',
+  'app-performance/_surfaces/funnels-surface.tsx',
+  'app-performance/_surfaces/intelligence-surface.tsx',
+  'app-performance/_surfaces/operations-surface.tsx',
+  'app-performance/_surfaces/seo-surface.tsx',
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -125,12 +134,7 @@ const CONVERTED = [
 const RAW_TABLE_BILL = [
   'account-deletions/page.tsx',
   // The five `accounts/_surfaces/*` lines were here. Converted 2026-08-17.
-  'app-performance/_components/expenses.tsx',
-  'app-performance/_surfaces/browser-blocks-surface.tsx',
-  'app-performance/_surfaces/funnels-surface.tsx',
-  'app-performance/_surfaces/intelligence-surface.tsx',
-  'app-performance/_surfaces/operations-surface.tsx',
-  'app-performance/_surfaces/seo-surface.tsx',
+  // The six `app-performance/*` lines were here. Converted 2026-08-17.
   'approvals/page.tsx',
   'budget-planner/page.tsx',
   'completions/page.tsx',

@@ -8,7 +8,7 @@
  *      across calls (it's the code a TV/stick types beside the QR).
  *   2. PROVISIONING — missingScreenIndexes() computes the correct dense top-up
  *      set (the pure core of provisionPanoodScreensAdmin).
- *   3. PAIR URL — panoodScreenPairUrl() builds the right /wall?code=<code> URL
+ *   3. PAIR URL — panoodScreenPairUrl() builds the right /live?code=<code> URL
  *      and tolerates a trailing slash on the app URL.
  *   4. SET SOURCE — setPanoodScreenSourceAdmin() updates current_source and
  *      returns true/false on the right shapes (best-effort, never throws).
@@ -85,24 +85,24 @@ test('missingScreenIndexes: count of 0 yields nothing', () => {
 
 // ── 3. Pair URL ──────────────────────────────────────────────────────────────
 
-test('panoodScreenPairUrl builds the /wall?code=<code> URL', () => {
+test('panoodScreenPairUrl builds the /live?code=<code> URL', () => {
   assert.equal(
     panoodScreenPairUrl('https://app.setnayan.com', 'ABC234'),
-    'https://app.setnayan.com/wall?code=ABC234',
+    'https://app.setnayan.com/live?code=ABC234',
   );
 });
 
 test('panoodScreenPairUrl tolerates a trailing slash on the app URL', () => {
   assert.equal(
     panoodScreenPairUrl('https://app.setnayan.com/', 'ABC234'),
-    'https://app.setnayan.com/wall?code=ABC234',
+    'https://app.setnayan.com/live?code=ABC234',
   );
 });
 
 test('panoodScreenPairUrl URL-encodes the code', () => {
   assert.equal(
     panoodScreenPairUrl('https://app.setnayan.com', 'A B&C'),
-    'https://app.setnayan.com/wall?code=A%20B%26C',
+    'https://app.setnayan.com/live?code=A%20B%26C',
   );
 });
 

@@ -95,6 +95,18 @@ export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'wall',
   'why-setnayan',
 
+  // --- ⬇ ADDED 2026-08-17 -------------------------------------------------
+  // The Live Studio VENUE-SCREEN page, named by the owner the same day he ruled
+  // that a Live Studio screen is a DIFFERENT product from the Live Photo Wall
+  // (see lib/panood-screens.ts). Reserved BEFORE `app/live/` exists, because a
+  // shop's address is IMMUTABLE once minted — a business called "Live" would
+  // hold setnayan.com/live forever and the page could never be built there.
+  // Verified in prod first: no event, shop or person held it.
+  // ⚠ It belongs in THIS half, not ROUTE_RESERVED_SLUGS: that half is GENERATED
+  // from the route folders on disk, so naming a folder that does not exist yet
+  // breaks its drift test. Mirrored by migration 20271147550834.
+  'live',
+
   // --- Next.js internals / special files (defense-in-depth; can't be slugs
   //     anyway per the ^[a-z0-9-]{3,32}$ format, but reserved for safety) -----
   '_next',

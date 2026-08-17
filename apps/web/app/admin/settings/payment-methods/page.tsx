@@ -88,9 +88,16 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
   // zero rows forever behind a reassuring empty meter. A 'pending' row is
   // money we have not confirmed arrived.
   //
-  // Fail-soft: a read error leaves the sums at zero and the meter simply reads
-  // low. It must never take the settings form down — the admin may be opening
-  // this page precisely BECAUSE payments are misbehaving.
+  // Fail-soft: a read error must never take the settings form down — the admin
+  // may be opening this page precisely BECAUSE payments are misbehaving.
+  //
+  // ⚠ BUT "the meter simply reads low" WAS THE WRONG TRADE, and it is corrected
+  // here. Headroom is cap MINUS inflow, so a falsely-zero inflow does not read
+  // low — it reads HIGH, telling the owner a rail can still receive money it
+  // cannot. Transfers past a full account FAIL rather than queue, and this
+  // page's own copy already states the principle: "a working-looking button on
+  // a full account is worse than an honest pause." An unmeasured inflow now
+  // refuses to claim headroom at all; the form still renders either way.
   const now = new Date();
   const monthStart = monthStartISO(now);
   const asOfFloor = [settings.gcash_available_as_of, settings.bdo_available_as_of]
@@ -98,16 +105,18 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
     .sort()[0];
   const sinceMonthStart = { gcash: 0, bdo: 0 };
   const sinceAsOf = { gcash: 0, bdo: 0 };
+  let inflowMeasured = true;
   try {
     // One read covering both windows — the earlier of (month start, oldest
     // override) — then bucket in memory rather than issuing two queries.
     const floor =
       asOfFloor && asOfFloor.slice(0, 10) < monthStart ? asOfFloor.slice(0, 10) : monthStart;
-    const { data: inflow } = await admin
+    const { data: inflow, error: inflowError } = await admin
       .from('payments')
       .select('channel, amount_php, paid_at, created_at')
       .eq('status', 'matched')
       .gte('paid_at', floor);
+    if (inflowError || inflow === null) inflowMeasured = false;
     for (const row of (inflow ?? []) as {
       channel: string;
       amount_php: number;
@@ -126,7 +135,9 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
       if (asOf && row.created_at > asOf) sinceAsOf[rail] += amount;
     }
   } catch {
-    /* meters read zero; the form still renders */
+    // The THROW path is the same claim as the refused-read path: nothing was
+    // counted. It must not resolve to zero either.
+    inflowMeasured = false;
   }
   const { data, error } = await admin
     .from('setnayan_pay_methods')
@@ -228,6 +239,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
             availableAsOf={settings.bdo_available_as_of}
             inflowSinceAsOfPhp={sinceAsOf.bdo}
             inflowThisMonthPhp={sinceMonthStart.bdo}
+            inflowMeasured={inflowMeasured}
             now={now}
           />
         </section>
@@ -264,6 +276,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
             availableAsOf={settings.gcash_available_as_of}
             inflowSinceAsOfPhp={sinceAsOf.gcash}
             inflowThisMonthPhp={sinceMonthStart.gcash}
+            inflowMeasured={inflowMeasured}
             now={now}
           />
         </section>
@@ -486,6 +499,7 @@ function ChannelSwitch({
   availableAsOf,
   inflowSinceAsOfPhp,
   inflowThisMonthPhp,
+  inflowMeasured,
   now,
 }: {
   kind: 'gcash' | 'bdo';
@@ -495,10 +509,12 @@ function ChannelSwitch({
   availableAsOf: string | null;
   inflowSinceAsOfPhp: number;
   inflowThisMonthPhp: number;
+  /** False when the inflow read did not complete — then NO headroom is claimed. */
+  inflowMeasured: boolean;
   now: Date;
 }) {
   const label = PAY_CHANNEL_LABEL[kind];
-  const headroom = channelHeadroom({
+  const measuredHeadroom = channelHeadroom({
     capPhp,
     availablePhp,
     availableAsOf,
@@ -506,6 +522,9 @@ function ChannelSwitch({
     inflowThisMonthPhp,
     now,
   });
+  // Unmeasured inflow ⇒ no headroom claim at all. `null` is the shape this
+  // component already renders as "we are not telling you a number".
+  const headroom = inflowMeasured ? measuredHeadroom : null;
   const tone =
     headroom == null
       ? 'border-ink/10 bg-cream'
@@ -571,6 +590,19 @@ function ChannelSwitch({
         Leave it blank to measure against the monthly limit instead, which
         always reads higher than the truth. It resets to the limit on the 1st.
       </p>
+
+      {!inflowMeasured ? (
+        <p
+          role="alert"
+          className="rounded-md border border-warn-300/60 bg-warn-50 px-3 py-2 text-[12px] leading-relaxed text-warn-900"
+        >
+          <strong>We could not read this month&rsquo;s {label} inflow</strong>, so
+          no remaining-capacity figure is shown for it. This is NOT a reading of
+          zero received — a zero here would make the account look emptier, and so
+          more able to receive, than it may be. Check the {label} app directly
+          before turning this rail back on or accepting a large transfer.
+        </p>
+      ) : null}
 
       {headroom ? (
         <div className="space-y-1.5">

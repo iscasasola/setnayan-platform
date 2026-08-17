@@ -57,6 +57,54 @@ const code = (src: string): string =>
 const read = (rel: string) => readFileSync(join(ADMIN, rel), 'utf8');
 const ARCHETYPE = '_components/console-table.tsx';
 
+const FAILS_CLOSED_ON_NULL: Array<{ file: string; varName: string; proof: RegExp }> = [
+  {
+    file: 'accounts/_surfaces/demo-vendors-surface.tsx',
+    varName: 'profile',
+    // The exemption is only valid while the value still feeds THIS decision.
+    // Both implementations of the predicate return false on null
+    // (`lib/demo-mode.ts` `if (!profile) return false`, `admin-predicate.ts`
+    // `!!(profile?…)`), so null → false → denied.
+    proof: /return isAdminProfile\(profile\)/,
+  },
+  {
+    file: 'compliance/data-sheet/page.tsx',
+    varName: 'me',
+    // ⚠ THE PROOF PINS THE `notFound()`, NOT THE READ — and that distinction is
+    // the whole lesson of the first version of this list. Pinned to the read, the
+    // entry would survive deleting the very line that makes it safe. What makes
+    // this read safe is `if (!(me?.is_internal || me?.is_team_member ||
+    // me?.account_type === 'admin')) notFound()`: a null `me` fails every disjunct,
+    // so the page is not found. Absence DENIES here; it does not render.
+    // Classified by the lane-D session and confirmed by reading the guard.
+    proof: /notFound\(\)/,
+  },
+];
+
+/**
+ * 🛑 THE EXEMPTION MUST PROVE ITSELF — and the first version of it did not.
+ *
+ * It was a bare `Set` of `file:varname` strings carrying its reason in a comment.
+ * The lane-C session broke it in the only way that matters: replacing
+ * `return isAdminProfile(profile)` with `return Boolean(profile)` left the guard
+ * GREEN, and so did making that value feed a RENDERED expression instead of the
+ * auth decision. **The cited reason could vanish while the exemption survived** —
+ * and the key was `file:varname`, the one thing that will NOT change when the
+ * failure mode does.
+ *
+ * 🔑 FOURTH INSTANCE OF THIS SHAPE IN ONE DAY: the `CONVERTED` list, the
+ * hand-enumerated bill, `PRIVATE_SUBDIRS`, and this. **A list entry that decides
+ * what gets checked has to be pinned to something measured.** So each entry now
+ * carries a `proof` pattern that must still match the file; if it stops matching,
+ * the exemption VOIDS and the read is reported like any other.
+ */
+function exemptionHolds(rel: string, varName: string, src: string): boolean {
+  const e = FAILS_CLOSED_ON_NULL.find((x) => x.file === rel && x.varName === varName);
+  if (!e) return false;
+  return e.proof.test(src);
+}
+
+
 /**
  * The converted surfaces. The first tranche was deliberately the pure records
  * lists, where the whole page IS the table — those prove the archetype on real
@@ -71,6 +119,16 @@ const ARCHETYPE = '_components/console-table.tsx';
  * converted, and a line kept for one that was.
  */
 const CONVERTED = [
+  // The judgement queues + the money desks, 2026-08-17.
+  // ⚠ ON TWO OF THESE THE TABLE WAS NOT WHERE THE LIE WAS: /admin/fraud's queue and
+  // /admin/approvals' pending list are <ul>s of cards; their <table> is the audit
+  // trail at the bottom. Converting the table alone would have fixed the trail and
+  // left a GREEN TICK over "No open fraud signals." exactly where it was.
+  // 🔑 CONVERTING A FILE'S TABLE IS NOT THE SAME AS MAKING THAT FILE HONEST.
+  'approvals/page.tsx',
+  'budget-planner/page.tsx',
+  'force-majeure/page.tsx',
+  'fraud/page.tsx',
   // Lane A · the account surfaces (2026-08-17). Five files, SIX tables — the
   // users surface held two, so its bill line only came out when both were done.
   'accounts/_surfaces/demo-vendors-surface.tsx',
@@ -143,8 +201,6 @@ const CONVERTED = [
  * the only symptom.
  */
 const RAW_TABLE_BILL = [
-  'approvals/page.tsx',
-  'budget-planner/page.tsx',
   // ⛔ NOT OWED, AND NOT UNFINISHED — one of the TWO permanent residents here.
   // Its three tables were two records lists (categories of data subjects,
   // sub-processors — both CONVERTED, see the list above) and one `FieldTable`,
@@ -160,8 +216,6 @@ const RAW_TABLE_BILL = [
   // converted) and it still holds a raw table (the field sheet). A partly
   // converted file genuinely belongs to both, and each rule sees it truthfully.
   'compliance/data-sheet/page.tsx',
-  'force-majeure/page.tsx',
-  'fraud/page.tsx',
   // ⛔ NOT OWED — the other permanent resident. Ships its own stylesheet
   // (`ugat-console.css`, where `.ug-etable` is really defined) and is a
   // purpose-built graph console, not a records list.
@@ -248,7 +302,48 @@ test('every converted surface hands its read error to the table', () => {
   for (const rel of CONVERTED) {
     const src = code(read(rel));
     if (!/readError=\{/.test(src)) offenders.push(`${rel} (no readError passed)`);
-    if (/data\s*\?\?\s*\[\]/.test(src)) offenders.push(`${rel} (still coerces null to [])`);
+    // A BLANKET BAN ON `?? []` WAS BOTH TOO BLUNT AND TOO WEAK, and finding out
+    // which cost a real defect. Too blunt: a LABEL lookup (business names, event
+    // names, the evidence blob) legitimately falls back to an empty list — it does
+    // not decide whether the surface is empty, so the primary read still governs
+    // the state. Too weak: on /admin/fraud those label reads were swallowed
+    // ENTIRELY, so a refused evidence read rendered every card with no evidence
+    // at all — a flag that looks raised on no basis — and a rule that only
+    // examined the primary read passed it.
+    // ⇒ The invariant is not "never coerce", it is "never coerce a read whose
+    // failure nothing can see". Every `X.data ?? []` must have X's error bound.
+    for (const m of src.matchAll(/\b([A-Za-z_$][\w$]*)\.data\s*\?\?\s*\[\]/g)) {
+      const holder = m[1];
+      const bound =
+        new RegExp(`'error'\\s+in\\s+${holder}\\b`).test(src) ||
+        new RegExp(`\\b${holder}\\.error\\b`).test(src);
+      if (!bound) offenders.push(`${rel} (${holder}.data ?? [] with ${holder}'s error never bound)`);
+    }
+    // 🪤 AND THE DESTRUCTURE-RENAME FORM WAS A BLIND SPOT IN THE RULE ABOVE.
+    // `const { data: us } = await admin…` then `(us ?? [])` never writes
+    // `us.data`, so the matcher could not see it — and /admin/approvals had TWO
+    // of exactly that shape, both feeding the name of the person a four-eyes
+    // request is ABOUT. This is the same miss lane D found in my original count:
+    // I matched a spelling instead of the capability. Any read destructured
+    // WITHOUT binding its error is an offence regardless of what happens next.
+    for (const m of src.matchAll(/const\s*\{\s*data:\s*(\w+)\s*\}\s*=\s*await/g)) {
+      // 🪤 AND THIS RULE CRIED WOLF ON ITS FIRST RUN, which is why the exemption
+      // exists. `demo-vendors-surface`'s unbound read is an AUTHORISATION check
+      // ending in `return isAdminProfile(profile)` — a refused read yields null,
+      // yields false, and DENIES. That is the correct failure mode, and demanding
+      // an error binding there would be noise on a read that is already safe by
+      // construction. A guard that cries wolf teaches you to skim past the one
+      // time it is right.
+      // ⚖ The distinction is not "is the error bound" but WHAT AN ABSENCE MEANS:
+      // absence that RENDERS as data is the defect; absence that DENIES is the fix.
+      const holder = m[1] ?? '';
+      if (exemptionHolds(rel, holder, src)) continue;
+      offenders.push(`${rel} (const { data: ${holder} } destructured with no error bound)`);
+    }
+    // And the PRIMARY read must never be flattened at the read site.
+    if (/\bconst\s+\w+\s*=\s*\(?data\s*\?\?\s*\[\]/.test(src)) {
+      offenders.push(`${rel} (primary read flattened to [] before the table sees it)`);
+    }
   }
   assert.deepEqual(
     offenders,

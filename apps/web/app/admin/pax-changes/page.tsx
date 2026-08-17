@@ -76,20 +76,30 @@ export default async function AdminPaxChangesPage() {
     new Set(listed.map((r) => r.vendor_profile_id).filter((v): v is string => !!v)),
   );
   const eventIds = Array.from(new Set(listed.map((r) => r.event_id)));
+  // ⚠ FOUND BY THE GUARD AFTER THIS FILE HAD ALREADY SHIPPED. Both name lookups
+  // destructured `{ data: … }` with no error bound, so a refused lookup rendered
+  // every row's supplier and wedding as "—" — which on a dispute-mediation trail
+  // reads as a change nobody can attribute. The row COUNT was honest; the labels
+  // were not, and the table cannot see the difference.
+  let labelsUnread = false;
   const vendorName = new Map<string, string>();
   const eventName = new Map<string, string>();
   if (vendorIds.length > 0) {
-    const { data: vs } = await admin
+    const { data: vs, error: vsError } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name')
       .in('vendor_profile_id', vendorIds);
+    if (vsError) logQueryError('AdminPaxChangesPage.vendorNames', vsError, {}, 'graceful_degrade');
+    labelsUnread = labelsUnread || Boolean(vsError);
     for (const v of vs ?? []) vendorName.set(v.vendor_profile_id, v.business_name ?? '—');
   }
   if (eventIds.length > 0) {
-    const { data: es } = await admin
+    const { data: es, error: esError } = await admin
       .from('events')
       .select('event_id, display_name')
       .in('event_id', eventIds);
+    if (esError) logQueryError('AdminPaxChangesPage.eventNames', esError, {}, 'graceful_degrade');
+    labelsUnread = labelsUnread || Boolean(esError);
     for (const e of es ?? []) eventName.set(e.event_id, e.display_name ?? '—');
   }
 
@@ -99,6 +109,19 @@ export default async function AdminPaxChangesPage() {
         title="Pax-driven cost changes"
         lede="Every vendor Accept/Decline of a guest-count surcharge. Read-only — for dispute mediation."
       />
+
+      {/* Fails toward the caveat: a row that cannot name its supplier must not
+          read as a row whose supplier is unknown to the platform. */}
+      {labelsUnread ? (
+        <p
+          role="alert"
+          className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">Names could not be read.</strong> Rows below
+          show a dash instead of the supplier and the wedding. The amounts and the
+          dates are accurate — the labels are missing, not the records.
+        </p>
+      ) : null}
 
       <ConsoleTable
         rows={rows}

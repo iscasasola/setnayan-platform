@@ -171,6 +171,64 @@ const CLOSED_IN_BATCH_3 = [
   'vendor_verifications',
 ];
 
+/**
+ * Batch 4 — migration 20271148681647. The THIRD refinement of gate 4, because
+ * both earlier shortcuts are exhausted: batches 1–2 took every table with NO
+ * query, batch 3 every table queried ONLY by the SERVICE ROLE. The question
+ * became: can a SIGNED-OUT visitor's code path reach it at all?
+ *
+ * All 21 are queried exclusively from inside the login-gated route trees
+ * (`app/dashboard/**`, `app/vendor-dashboard/**` and their own actions). A
+ * signed-out visitor is redirected out before any of it renders; a signed-in one
+ * authenticates as `authenticated`, never `anon`.
+ *
+ * 🚨 "BEHIND A LOGIN" IS NOT SUFFICIENT ON ITS OWN, and this is the trap that
+ * nearly carried the batch: a SERVER ACTION is a POST endpoint and the gating
+ * LAYOUT NEVER RUNS FOR IT. Every action file behind these 21 was opened and
+ * read; each establishes the caller before touching the table — most via
+ * `auth.getUser()`, and `seating/walkthrough` + `guests/souvenirs` via
+ * `getCurrentUser()` plus an `event_members` check for couple/coordinator.
+ * ⚠ My first VERIFICATION grep omitted `getCurrentUser` and reported those two
+ * as unguarded. The original scan was right and the CHECK was too narrow — the
+ * instinct "the scan was wrong again" was itself wrong.
+ *
+ * 🔍 Two were re-read by hand because earlier notes claimed a wider reach:
+ * `event_category_build_state` (the couple marketplace does read it every page
+ * load — inside the gated tree, exactly two `from()` sites) and `papic_missions`
+ * (a guest-facing product, but all eight `from()` sites are under the couple's
+ * studio; two are client components, which run with the signed-in user's own
+ * session).
+ *
+ * ⏭ Held back to batch 5: `platform_compliance_facts`,
+ * `vendor_recommendation_feedback`, `vendor_review_appeals` — queried from the
+ * ADMIN tree, gated by a different guard (`requireAdmin()`), and one of their
+ * files was being edited by an open PR. A migration is judged against the state
+ * it LANDS in.
+ */
+const CLOSED_IN_BATCH_4 = [
+  'build_requote_nudges',
+  'coordinator_feature_recommendations',
+  'custom_domains',
+  'event_category_build_state',
+  'event_manual_vendors',
+  'event_schedule_suggestions',
+  'event_walkthrough_zones',
+  'guest_message_blocks',
+  'guest_souvenir_claims',
+  'inquiry_outcomes',
+  'kwento_assignments',
+  'manpower_gigs',
+  'papic_missions',
+  'patiktok_render_job_clips',
+  'patiktok_source_clips',
+  'vendor_client_notes',
+  'vendor_event_access_grants',
+  'vendor_feature_recommendations',
+  'vendor_lock_proposals',
+  'vendor_portion_rules',
+  'vendor_recommendation_optins',
+];
+
 /** Every table closed so far. Later batches append their own list above. */
 /**
  * Batch 5 (20271148202591) — THE "NO POLICY AT ALL" CATEGORY, CLOSED COMPLETELY.
@@ -199,6 +257,7 @@ const CLOSED = [
   ...CLOSED_IN_BATCH_1,
   ...CLOSED_IN_BATCH_2,
   ...CLOSED_IN_BATCH_3,
+  ...CLOSED_IN_BATCH_4,
   ...CLOSED_IN_BATCH_5,
 ];
 
@@ -237,7 +296,11 @@ test('META · the replay has the anon role and these tables, so a pass means som
     `batch 3's list has shrunk to ${CLOSED_IN_BATCH_3.length} — did someone trim it to go green?`,
   );
   assert.ok(
-    CLOSED.length >= 47,
+    CLOSED_IN_BATCH_4.length >= 21,
+    `batch 4's list has shrunk to ${CLOSED_IN_BATCH_4.length} — did someone trim it to go green?`,
+  );
+  assert.ok(
+    CLOSED.length >= 68,
     `the combined closed list has shrunk to ${CLOSED.length} — did someone trim it to go green?`,
   );
 
@@ -255,7 +318,7 @@ test('META · the replay has the anon role and these tables, so a pass means som
   );
 });
 
-test('anon holds NOTHING on any table closed so far (batches 1 + 2 + 3)', async () => {
+test('anon holds NOTHING on any table closed so far (batches 1-4)', async () => {
   const open: string[] = [];
   for (const table of CLOSED) {
     for (const verb of VERBS) {
@@ -269,7 +332,7 @@ test('anon holds NOTHING on any table closed so far (batches 1 + 2 + 3)', async 
   assert.deepEqual(
     open,
     [],
-    'anon has regained privileges that migration 20271145190664, 20271145286482 or 20271147692197 revoked:\n  ' +
+    'anon has regained privileges that migration 20271145190664, 20271145286482, 20271147692197 or 20271148681647 revoked:\n  ' +
       open.join('\n  ') +
       '\n\nThis is almost never deliberate. The usual cause is a later migration ' +
       "re-creating the table or running a broad GRANT, which re-applies the schema's " +
@@ -339,4 +402,80 @@ test('the PUBLIC supplier figures are untouched — this must not break a shop p
     );
     assert.equal(rows[0]?.ok, true, `anon lost SELECT on ${view} — the public shop page needs it`);
   }
+});
+
+/**
+ * THE OTHER DIRECTION, AND THE ONE THIS SWEEP CAN ACTUALLY BREAK.
+ *
+ * Every assertion above asks "did a closed table reopen?". None of them asks the
+ * inverse: **did a revoke close something anon legitimately needs?** Until now
+ * that was guarded by exactly TWO hard-coded names (`vendor_ad_subscriptions`,
+ * `vendor_tool_bundles`), added after batch 2 nearly emptied the public supplier
+ * listing — a list, not an invariant.
+ *
+ * 🔑 THE INVARIANT IS DERIVABLE, so it needs no list: if a table carries a POLICY
+ * that can admit `anon`, somebody deliberately wrote a rule for anonymous
+ * visitors. Revoking the grant makes that policy UNREACHABLE — the rule survives
+ * in the catalog and can never fire again. A policy written for anon and a grant
+ * withheld from anon is a contradiction, and it is exactly the shape a wrong
+ * batch produces.
+ *
+ * ⚠ COLUMN-AWARE ON PURPOSE. `has_table_privilege(...,'SELECT')` is FALSE when
+ * only SOME columns are granted, and six tables in this schema are deliberately
+ * column-scoped (532 column grants). Using the table-level check reported
+ * `event_paperwork` and `vendor_profiles` as broken when both are correct —
+ * `has_any_column_privilege` is the right question.
+ *
+ * ⛔ WHAT THIS DELIBERATELY DOES NOT CLAIM. A table with NO anon-reaching policy
+ * is NOT protected by this, and that is correct: RLS already denies anon there,
+ * so revoking its grant is behaviour-neutral. `guests`, `events`, `papic_photos`,
+ * `photo_messages`, `guest_columns` and `event_tables` all have ZERO
+ * anon-reaching policies — the guest surface reads them through SECURITY DEFINER
+ * functions, which is what `anon-rpc-surface.baseline.txt` documents. A mutation
+ * revoking `guests` therefore SHOULD stay green, and does.
+ */
+const ANON_POLICY_BUT_NO_GRANT_ALLOWED = new Map([
+  ['event_category_decisions', 'Pre-existing 2026-08-17: policy admits anon, no grant exists, so the rule is already dead. Not caused by any revoke batch — none of batches 1-4 touches it.'],
+  ['papic_event_pool_config', 'Pre-existing 2026-08-17: same shape. Its anon-callable status function was revoked on 2026-08-01 (anon-rpc-surface), so the policy is vestigial.'],
+  ['people', 'Pre-existing 2026-08-17: person-graph tables are Phase 2/3 and gated; the anon policy is written ahead of the grant.'],
+  ['person_connections', 'Pre-existing 2026-08-17: same family as `people`.'],
+  ['person_stewardships', 'Pre-existing 2026-08-17: same family; minors are counsel-gated Phase 3.'],
+]);
+
+test('a revoke never orphans a policy that was written FOR anon', async () => {
+  const { rows } = await db.query<{ relname: string; readable: boolean }>(`
+    WITH anon_pol AS (
+      SELECT DISTINCT c.relname
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+        JOIN pg_policy p ON p.polrelid = c.oid
+       WHERE c.relkind IN ('r','p')
+         AND (p.polroles = '{0}'::oid[] OR EXISTS (
+              SELECT 1 FROM unnest(p.polroles) pr
+                JOIN pg_roles r ON r.oid = pr WHERE r.rolname = 'anon'))
+    )
+    SELECT relname,
+           has_any_column_privilege('anon', 'public.' || relname, 'SELECT') AS readable
+      FROM anon_pol ORDER BY relname
+  `);
+
+  // Anti-vacuity: this schema has ~100 such tables. An empty set would pass.
+  assert.ok(rows.length > 60, `only ${rows.length} tables carry an anon-reaching policy — the query is wrong`);
+
+  const orphaned = rows
+    .filter((r) => !r.readable)
+    .map((r) => r.relname)
+    .filter((t) => !ANON_POLICY_BUT_NO_GRANT_ALLOWED.has(t));
+
+  assert.deepEqual(
+    orphaned,
+    [],
+    'These tables have a POLICY written for `anon` and no grant left for `anon` to use it:\n  ' +
+      orphaned.join('\n  ') +
+      '\n\nSomebody wrote a rule for anonymous visitors and a revoke has made it unreachable — the ' +
+      'policy survives in the catalog and can never fire again. This is the break a wrong batch in ' +
+      'the anon-grant sweep produces, and it is the one the "did anything reopen?" tests above ' +
+      'cannot see.\n\nEither restore the grant, or delete the policy and say so in ' +
+      'ANON_POLICY_BUT_NO_GRANT_ALLOWED with a reason.',
+  );
 });

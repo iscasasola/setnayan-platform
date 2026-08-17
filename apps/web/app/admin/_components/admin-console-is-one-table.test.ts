@@ -58,12 +58,26 @@ const read = (rel: string) => readFileSync(join(ADMIN, rel), 'utf8');
 const ARCHETYPE = '_components/console-table.tsx';
 
 /**
- * The first tranche of converted surfaces. Deliberately the pure records lists,
- * where the whole page IS the table — those prove the archetype on real data
- * without re-deciding any page's composition. The 31 files on the bill below are
- * the remaining work, and every one of them is named.
+ * The converted surfaces. The first tranche was deliberately the pure records
+ * lists, where the whole page IS the table — those prove the archetype on real
+ * data without re-deciding any page's composition. The files still on the bill
+ * below are the remaining work, and every one of them is named.
+ *
+ * ⚠ THIS ARRAY IS A UNION ACROSS LANES. Four sessions convert different
+ * directories and each adds its own lines here; on a merge conflict take BOTH
+ * sides' additions rather than choosing between them. Never resolve by hand-
+ * picking: re-measure which files still hand-roll a table and let rule 1 prove
+ * it, because it fails in both directions — a line dropped for a file nobody
+ * converted, and a line kept for one that was.
  */
 const CONVERTED = [
+  // Lane A · the account surfaces (2026-08-17). Five files, SIX tables — the
+  // users surface held two, so its bill line only came out when both were done.
+  'accounts/_surfaces/demo-vendors-surface.tsx',
+  'accounts/_surfaces/events-surface.tsx',
+  'accounts/_surfaces/users-surface.tsx',
+  'accounts/_surfaces/vendors-surface.tsx',
+  'accounts/_surfaces/venues-surface.tsx',
   'pax-changes/page.tsx',
   'receipts/page.tsx',
   'pricing/_surfaces/price-bands-surface.tsx',
@@ -74,9 +88,10 @@ const CONVERTED = [
    ══════════════════════════════════════════════════════════════════════════ */
 
 /**
- * The 31 files that still hand-roll a raw `<table>`, pinned EXACTLY.
+ * The files that still hand-roll a raw `<table>`, pinned EXACTLY. 31 at the
+ * archetype's landing, 26 after lane A converted the five account surfaces.
  *
- * ⚖ A 32nd file adopting a raw table FAILS. Converting one of these also FAILS,
+ * ⚖ A 27th file adopting a raw table FAILS. Converting one of these also FAILS,
  * telling you to delete its line. Never add a line to go green: each one is a
  * surface that re-decides error-vs-empty on its own, and 16 of the original 34
  * decided it wrong.
@@ -96,11 +111,7 @@ const CONVERTED = [
  */
 const RAW_TABLE_BILL = [
   'account-deletions/page.tsx',
-  'accounts/_surfaces/demo-vendors-surface.tsx',
-  'accounts/_surfaces/events-surface.tsx',
-  'accounts/_surfaces/users-surface.tsx',
-  'accounts/_surfaces/vendors-surface.tsx',
-  'accounts/_surfaces/venues-surface.tsx',
+  // The five `accounts/_surfaces/*` lines were here. Converted 2026-08-17.
   'app-performance/_components/expenses.tsx',
   'app-performance/_surfaces/browser-blocks-surface.tsx',
   'app-performance/_surfaces/funnels-surface.tsx',

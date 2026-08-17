@@ -84,8 +84,12 @@ export default async function DemoInquiriesPage() {
   // before the identity reveals — exactly the production flow.
   const eventIds = Array.from(new Set(listed.map((t) => t.event_id)));
   const eventLabel = new Map<string, string>();
+  // "Couple" is the fallback when a label is missing, and it looks exactly like
+  // a deliberate anonymised label — so a failed lookup is indistinguishable from
+  // the masking this page does on purpose unless it is said out loud.
+  let labelsUnresolved = false;
   if (eventIds.length > 0) {
-    const { data: events } = await admin
+    const { data: events, error: eventsError } = await admin
       .from('events')
       .select('event_id, display_name, event_date, event_type, region')
       .in('event_id', eventIds);
@@ -98,6 +102,7 @@ export default async function DemoInquiriesPage() {
         region: string | null;
       }>).map((e) => [e.event_id, e]),
     );
+    labelsUnresolved = Boolean(eventsError) || events === null;
     for (const t of listed) {
       const e = eventById.get(t.event_id);
       if (!e) continue;
@@ -135,6 +140,17 @@ export default async function DemoInquiriesPage() {
           </>
         }
       />
+
+      {labelsUnresolved ? (
+        <p
+          role="alert"
+          className="mb-4 rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+        >
+          The events behind these inquiries could not be looked up, so every row
+          below reads &ldquo;Couple&rdquo;. That is a failed lookup, not the
+          before-you-accept masking this page does on purpose.
+        </p>
+      ) : null}
 
       <ConsoleTable
         rows={threads}

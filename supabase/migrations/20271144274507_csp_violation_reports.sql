@@ -96,9 +96,20 @@ CREATE POLICY csp_violation_reports_admin_read
   TO authenticated
   USING (public.is_admin());
 
--- 🔒 Explicit, because the default is NOT closed.
+-- 🔒 Explicit, because the default is NOT closed — and the first cut of this
+-- migration proved it. `GRANT SELECT ... TO authenticated` alone left the table
+-- reading `authenticated=SIUD` in the exposure baseline: the schema's default
+-- privileges had already handed out INSERT, UPDATE and DELETE at CREATE TABLE
+-- time, and a GRANT does not take anything away. RLS would have been the only
+-- thing standing between any signed-up account — one tap to get — and writing
+-- to this table.
+--
+-- That is precisely the one-lock-where-there-should-be-two shape this table was
+-- built to help measure, so it is not reproduced here. REVOKE first, then grant
+-- back exactly the one verb the admin surface needs.
 REVOKE ALL ON public.csp_violation_reports FROM PUBLIC;
 REVOKE ALL ON public.csp_violation_reports FROM anon;
+REVOKE ALL ON public.csp_violation_reports FROM authenticated;
 GRANT SELECT ON public.csp_violation_reports TO authenticated;
 
 -- ── The recorder ───────────────────────────────────────────────────────────

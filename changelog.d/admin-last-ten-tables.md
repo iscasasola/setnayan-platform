@@ -138,3 +138,31 @@ destinations lost: 0   actions lost: 0   blocks lost: 3
 Exactly the three deliberate component removals, each one readable line — which
 is what the lint exists to produce. No fourth item, and no previously-invisible
 removal from another lane surfaced.
+
+### Final rebase (lane B in) — one further absorption, judged not assumed
+
+Rebasing onto lane B put the bill at **6**: `approvals`, `budget-planner`,
+`force-majeure`, `fraud`, plus the two permanent residents (`ugat-console`, and
+`compliance/data-sheet`'s field sheet). Both conflicts on the shared guard were
+resolved as a UNION on `CONVERTED` and the bill rewritten from the MEASURED set,
+never hand-picked.
+
+Lane B did not regenerate the baseline, so its own removal surfaced here for the
+first time. It was checked before absorbing rather than waved through on the
+total: `seo-surface.tsx` previously declared a local
+`function StatCard({ n, label, tone })` (10,908 bytes, byte count read on BOTH
+sides of the comparison) and now renders three `<KpiStatCard>` (13,006 bytes) —
+the same deliberate local-tile replacement as `StatCell` and `Tile`. Explicable,
+so absorbed.
+
+```
+routes: 402 → 402   ROUTES GONE: 0
+destinations lost: 0   actions lost: 0   blocks lost: 1
+   /admin/app-performance  lost block: StatCard   (lane B, verified deliberate)
+```
+
+🔑 `compliance/data-sheet/page.tsx` sits on **both** `RAW_TABLE_BILL` and
+`CONVERTED`, and that is correct — it imports ConsoleTable (its two genuine lists
+are converted) and still holds a raw table (the field sheet). A partly-converted
+file genuinely belongs to both; each rule sees it truthfully. Annotated in the
+guard so nobody tidies it off either list.

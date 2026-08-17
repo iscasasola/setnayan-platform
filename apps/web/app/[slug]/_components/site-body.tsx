@@ -28,6 +28,8 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
+import { EventWordsProvider } from './event-words-provider';
+import { eventWordsFor } from '../_lib/event-words';
 import {
   resolveSiteNav,
   navPhaseFor,
@@ -454,6 +456,11 @@ export async function SiteBody({
   // lib/site-body-plan.ts for the verbatim old-condition mapping. `openBrowse`
   // (DEFAULT FALSE per-event) flips phases from gates to emphasis; when FALSE
   // the plan is byte-identical to the pre-PR7 computation (golden-locked).
+  // The event type's own word for whoever is throwing it, resolved ONCE on the
+  // server and handed to the client half through the provider below. Wedding →
+  // 'the couple', so every sentence downstream is byte-identical for a wedding.
+  const clientWords = await eventWordsFor(event.event_type);
+
   const plan = resolveSiteBodyPlan({
     identity: identity.kind,
     phasesEnabled,
@@ -1795,6 +1802,20 @@ export async function SiteBody({
       hideWatermark={proWatermarkHidden}
       customColorVars={siteColorVars}
     >
+      {/* THE EVENT'S OWN WORDS — mounted once, wrapping every child of the
+          shell, which is both identity trees and every lifecycle phase.
+          Five surfaces below are client components (the video greeting, the
+          selfie capture, the face opt-in, the photo wall, the guest column
+          form) and several sit layers under the component that knows the event
+          type, so they read the noun from here rather than having one string
+          threaded through files with nothing else to do with it.
+          ⚠ INSIDE the shell, not outside it, and that is not cosmetic:
+          `doorways-before-the-day.test.ts` anchors on the exact text
+          `return (\n    <InvitationShell` to prove the doorway strip sits
+          outside both trees. Wrapping the shell broke that anchor and the
+          guard said so — "the shell return moved, this scan is now blind".
+          It was right, so the mount moved rather than its anchor. */}
+      <EventWordsProvider words={clientWords}>
       <GuestPreload eventSlug={event.slug} />
       {/* OWNER LAYER · surface 1 — mounted HERE, as a sibling ABOVE both
           identity trees, for three reasons: (1) it is chrome, not a chapter,
@@ -1884,6 +1905,7 @@ export async function SiteBody({
           who passed `?editor=1`; for every guest/anonymous visitor this renders
           nothing, so their HTML is byte-identical to before. */}
       {editorMode ? <EditorBridge /> : null}
+      </EventWordsProvider>
     </InvitationShell>
   );
 }

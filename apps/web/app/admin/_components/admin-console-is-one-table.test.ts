@@ -103,6 +103,17 @@ const CONVERTED = [
   'app-performance/_surfaces/intelligence-surface.tsx',
   'app-performance/_surfaces/operations-surface.tsx',
   'app-performance/_surfaces/seo-surface.tsx',
+  // ── Lane D · the last ten top-level pages (2026-08-17) ──────────────────
+  'account-deletions/page.tsx',
+  'completions/page.tsx',
+  'compliance/data-sheet/page.tsx',
+  'demo-vendors/inquiries/page.tsx',
+  'disputes/page.tsx',
+  'offline/_components/offline-diagnostic.tsx',
+  'papic-storage/page.tsx',
+  'settings/payment-methods/page.tsx',
+  'vendor-partnerships/page.tsx',
+  'website-media/media-table.tsx',
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -132,23 +143,29 @@ const CONVERTED = [
  * the only symptom.
  */
 const RAW_TABLE_BILL = [
-  'account-deletions/page.tsx',
-  // The five `accounts/_surfaces/*` lines were here. Converted 2026-08-17.
-  // The six `app-performance/*` lines were here. Converted 2026-08-17.
   'approvals/page.tsx',
   'budget-planner/page.tsx',
-  'completions/page.tsx',
+  // ⛔ NOT OWED, AND NOT UNFINISHED — one of the TWO permanent residents here.
+  // Its three tables were two records lists (categories of data subjects,
+  // sub-processors — both CONVERTED, see the list above) and one `FieldTable`,
+  // a printed FIELD SHEET of `<th scope="row">` label/value pairs, rendered five
+  // times. ConsoleTable is a columns-with-headers records component: wearing it
+  // there would add a visible "Field | Value" header row to a document the owner
+  // prints and files with the NPC, and drop the row-header semantics a screen
+  // reader uses to announce each field. Same call as ugat, recorded at the
+  // component too. DO NOT force it to clear this line.
+  //
+  // 🔑 IT IS ON THIS LIST *AND* ON `CONVERTED`, AND THAT IS CORRECT — do not
+  // "tidy" it off either one. It imports ConsoleTable (its two genuine lists are
+  // converted) and it still holds a raw table (the field sheet). A partly
+  // converted file genuinely belongs to both, and each rule sees it truthfully.
   'compliance/data-sheet/page.tsx',
-  'demo-vendors/inquiries/page.tsx',
-  'disputes/page.tsx',
   'force-majeure/page.tsx',
   'fraud/page.tsx',
-  'offline/_components/offline-diagnostic.tsx',
-  'papic-storage/page.tsx',
-  'settings/payment-methods/page.tsx',
+  // ⛔ NOT OWED — the other permanent resident. Ships its own stylesheet
+  // (`ugat-console.css`, where `.ug-etable` is really defined) and is a
+  // purpose-built graph console, not a records list.
   'ugat/_components/ugat-console.tsx',
-  'vendor-partnerships/page.tsx',
-  'website-media/media-table.tsx',
 ].sort();
 
 test('no new hand-rolled table appears in the admin console', () => {

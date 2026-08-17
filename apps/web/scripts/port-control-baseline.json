@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "28568dea4",
+  "generatedFromRef": "0e6c32171",
   "routeCount": 402,
   "destinations": 849,
   "actions": 579,
-  "blocks": 3686,
+  "blocks": 3710,
   "routes": {
     "/": {
       "files": [
@@ -1196,6 +1196,10 @@
       ],
       "blocks": [
         "ConfirmForm",
+        "ConsoleTable",
+        "EmptyState",
+        "ErrorState",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -1276,6 +1280,7 @@
         "admin/app-performance/_components/action-center.tsx",
         "admin/app-performance/_components/charts.tsx",
         "admin/app-performance/_components/expenses.tsx",
+        "admin/app-performance/_components/funnel-vendor-picker.tsx",
         "admin/app-performance/_components/fx.tsx",
         "admin/app-performance/_components/health-now.tsx",
         "admin/app-performance/_components/won-lost-admin-card.tsx",
@@ -1316,13 +1321,16 @@
         "CockpitSurface",
         "ConnectionLogsClient",
         "ConnectionLogsSurface",
+        "ConsoleTable",
         "ContextTile",
         "ConversionCard",
         "DeepHealth",
         "DeltaChip",
         "DeltaPct",
+        "ErrorState",
         "ExpensesZone",
         "FormFlash",
+        "Funnel",
         "FunnelTable",
         "FunnelsSurface",
         "GridPageSkeleton",
@@ -1333,6 +1341,7 @@
         "IndexChart",
         "IntelligenceSurface",
         "InterconnectionsSurface",
+        "KpiStatCard",
         "LeadTable",
         "LeaderRow",
         "Link",
@@ -1343,6 +1352,7 @@
         "OfflineDiagnosticLoader",
         "OfflineSurface",
         "OperationsHiringSurface",
+        "PageMasthead",
         "RerunResult",
         "SectionHeading",
         "SeoRerunButton",
@@ -1351,11 +1361,12 @@
         "SmokeTestPanel",
         "Sparkline",
         "StackedBars",
-        "StatCard",
         "StatTile",
         "StatusPill",
         "Suspense",
         "TablePageSkeleton",
+        "VendorPicker",
+        "VendorPickerResult",
         "WiringNote",
         "WonLostAdminCard",
         "ZoneHeading"
@@ -1456,7 +1467,8 @@
         "upholdNonDelivery"
       ],
       "blocks": [
-        "CompletionsTable",
+        "ConsoleTable",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -1489,6 +1501,8 @@
       "actions": [],
       "blocks": [
         "Block",
+        "ConsoleTable",
+        "ErrorState",
         "FieldTable",
         "Link",
         "Row"
@@ -1658,8 +1672,10 @@
       ],
       "actions": [],
       "blocks": [
+        "ConsoleTable",
         "DemoThread",
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/admin/demo-vendors/inquiries/[threadId]": {
@@ -1759,11 +1775,13 @@
       ],
       "blocks": [
         "ConfirmForm",
+        "ConsoleTable",
         "DisputesTable",
         "FilterStrip",
         "HandoverEvidence",
+        "KpiStatCard",
+        "PageMasthead",
         "PolicyEvidence",
-        "StatCell",
         "StatsBanner",
         "SubmitButton",
         "TierChip"
@@ -2178,6 +2196,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ConsoleTable",
         "OfflineDiagnostic",
         "Status",
         "StatusPill"
@@ -2229,7 +2248,9 @@
       "blocks": [
         "BackfillResult",
         "BackfillTilesButton",
-        "Tile"
+        "ConsoleTable",
+        "KpiStatCard",
+        "PageMasthead"
       ]
     },
     "/admin/patiktok": {
@@ -2662,6 +2683,7 @@
       "blocks": [
         "BackButton",
         "ChannelSwitch",
+        "ConsoleTable",
         "Field",
         "FormFlash",
         "QrUploadBlock",
@@ -3056,7 +3078,9 @@
         "rejectPartnership"
       ],
       "blocks": [
+        "ConsoleTable",
         "FormFlash",
+        "PageMasthead",
         "SearchParams",
         "SubmitButton"
       ]
@@ -3290,6 +3314,7 @@
       "actions": [],
       "blocks": [
         "ClearFolderButton",
+        "ConsoleTable",
         "MediaTable",
         "Result",
         "Stat"

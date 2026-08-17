@@ -11,6 +11,9 @@ import {
 import { BackfillTilesButton } from './backfill-tiles-button';
 import { listStrandedDriveCopies } from '@/lib/papic-drive-copy-retry';
 import { DRIVE_COPY_RETRY_CEILING } from '@/lib/papic-drive-copy-retry-core';
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 // Read-only admin readout for the Papic storage byte-telemetry (migration
 // 20270718100867). Surfaces the two numbers the pricing councils flagged as
@@ -25,6 +28,9 @@ import { DRIVE_COPY_RETRY_CEILING } from '@/lib/papic-drive-copy-retry-core';
 export const dynamic = 'force-dynamic';
 
 const ROW_CAP = 200_000; // safety cap on the readout fetch (per table)
+
+/** The stranded-copies read's own cap, passed to its table as `cap`. */
+const STRANDED_LIMIT = 100;
 
 type Row = StorageRow & { event_id: string | null };
 
@@ -50,14 +56,29 @@ export default async function PapicStoragePage() {
       .limit(ROW_CAP),
   ]);
 
-  const rows: Row[] = [
-    ...((photos.data as Row[] | null) ?? []),
-    ...((guests.data as Row[] | null) ?? []),
-  ];
+  /**
+   * ⚠ NEITHER READ'S ERROR WAS EVER BOUND, ON A PAGE WHOSE ONLY JOB IS
+   * MEASUREMENT. `(photos.data ?? [])` turned a refused read into an empty list,
+   * and this page then printed "No measured captures yet — telemetry populates
+   * as new Papic photos are taken", i.e. it blamed the absence on nobody having
+   * taken a photo. The four tiles above it read 0.0%, 0, 0.00 GB and 0 at the
+   * same time. A metrics page that prints zero over a broken read is not
+   * slightly wrong: it is a graph saying the business stopped.
+   *
+   * EITHER read failing makes the aggregate unsound — the totals are a sum over
+   * both tables, so a partial answer is a WRONG answer, not a smaller one. So the
+   * whole readout resolves to NOT MEASURED unless both succeeded.
+   * Corrected 2026-08-17.
+   */
+  const storageError = photos.error ?? guests.error ?? null;
+  const rows: Row[] | null = storageError
+    ? null
+    : [...((photos.data as Row[] | null) ?? []), ...((guests.data as Row[] | null) ?? [])];
+  const measured = rows ?? [];
 
   // Group by event.
   const byEvent = new Map<string, StorageRow[]>();
-  for (const r of rows) {
+  for (const r of measured) {
     if (!r.event_id) continue;
     const list = byEvent.get(r.event_id) ?? [];
     list.push(r);
@@ -77,13 +98,14 @@ export default async function PapicStoragePage() {
     }
   }
 
-  const perEvent = eventIds
+  const perEventRows = eventIds
     .map((id) => ({
       eventId: id,
       name: nameById.get(id) ?? '—',
       summary: aggregateEventStorage(byEvent.get(id) ?? []),
     }))
     .sort((a, b) => b.summary.totalWebCopyGb - a.summary.totalWebCopyGb);
+  const perEvent = rows === null ? null : perEventRows;
 
   // Portfolio aggregate — the single "real 8%" number, weighted over every
   // measured still (not an average of per-event ratios, which small events skew).
@@ -91,7 +113,7 @@ export default async function PapicStoragePage() {
   let totalMeasuredStillWeb = 0;
   let totalWebBytes = 0;
   let measuredStills = 0;
-  for (const r of rows) {
+  for (const r of measured) {
     // webCopyBytes(), not a local sum: the tile derivative joined this total on
     // 2026-08-13 and a second hand-written copy of the rule is how one of them
     // silently keeps under-reporting.
@@ -106,18 +128,20 @@ export default async function PapicStoragePage() {
   }
   const portfolioRatio =
     totalMeasuredOrig > 0 ? totalMeasuredStillWeb / totalMeasuredOrig : null;
-  const overCeiling = perEvent.filter((e) => e.summary.overWebCopyCeiling).length;
-  const capped = rows.length >= ROW_CAP * 2;
+  const overCeiling = rows === null ? null : perEventRows.filter((e) => e.summary.overWebCopyCeiling).length;
+  const capped = measured.length >= ROW_CAP * 2;
 
   // Drive copies stranded past the retry ceiling (Papic storage PR-4). Each one
   // is a couple's full-res original that never reached their Google Drive after
   // every retry — so the full-res drop is DEFERRING its raw forever (a permanent
   // hot cost). Surfaced so an admin can act: reconnect the couple's Drive, hand
   // off the originals, or accept the retained raw.
-  const stranded = await listStrandedDriveCopies(100).catch(() => ({
-    total: 0,
-    rows: [] as Awaited<ReturnType<typeof listStrandedDriveCopies>>['rows'],
-  }));
+  //
+  // ⚠ THE CATCH USED TO RETURN `{ total: 0, rows: [] }`, WHICH RENDERED THE
+  // GREEN "None stranded — every Drive copy is landing." A thrown read was
+  // reported to the reader as an all-clear, in the reassuring colour. `null` now
+  // means not measured, and the failure says so.
+  const stranded = await listStrandedDriveCopies(STRANDED_LIMIT).catch(() => null);
 
   // How many captures still have no wall-size copy. `null` when a count could
   // not be measured — filing an unmeasured number under "nothing to do" puts it
@@ -136,17 +160,10 @@ export default async function PapicStoragePage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
-      <header className="flex items-center gap-3">
-        <HardDrive className="h-6 w-6 text-mulberry" aria-hidden />
-        <div>
-          <h1 className="text-lg font-semibold text-ink">Papic storage telemetry</h1>
-          <p className="text-sm text-ink/60">
-            The real web-copy ratio + per-event web-copy size, measured from actual
-            captures. Watch these across the first ~50 Unli events to confirm the
-            ₱15,000 Unli capture cap and the born-AVIF web-copy ratio hold up in the wild.
-          </p>
-        </div>
-      </header>
+      <PageMasthead
+        title="Papic storage telemetry"
+        lede="The real web-copy ratio + per-event web-copy size, measured from actual captures. Watch these across the first ~50 Unli events to confirm the ₱15,000 Unli capture cap and the born-AVIF web-copy ratio hold up in the wild."
+      />
 
       {/* WALL-SIZE COPIES — the doorway for the tile backfill. The wall renders
           105–192 CSS px squares (310–383 device px); the 320px thumb upscaled
@@ -163,22 +180,31 @@ export default async function PapicStoragePage() {
         <BackfillTilesButton pending={pendingTiles} />
       </section>
 
+      {/* Local `Tile` RETIRED — it was one of the 22 hand-rolled stat tiles in
+          the admin tree, and it could not render "unknown": it took a string, so
+          a refused read reached it already formatted as "0.0%" / "0.00 GB".
+          KpiStatCard takes `null` and renders an em-dash, which is the whole
+          difference between "we measured nothing" and "there is nothing". */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile
+        <KpiStatCard
           label="Real web-copy ratio"
-          value={pct(portfolioRatio)}
-          sub={`modelled ~8% · over ${measuredStills.toLocaleString()} stills`}
+          value={rows === null ? null : pct(portfolioRatio)}
+          hint={`modelled ~8% · over ${measuredStills.toLocaleString()} stills`}
         />
-        <Tile
+        <KpiStatCard
           label="Events with data"
-          value={perEvent.length.toLocaleString()}
-          sub="target ≥ 50 to lock"
+          value={perEvent === null ? null : perEvent.length}
+          hint="target ≥ 50 to lock"
         />
-        <Tile label="Total web copy hosted" value={gb(totalWebBytes)} sub="forever, on our R2" />
-        <Tile
+        <KpiStatCard
+          label="Total web copy hosted"
+          value={rows === null ? null : gb(totalWebBytes)}
+          hint="forever, on our R2"
+        />
+        <KpiStatCard
           label={`Events over ${DEFAULT_WEB_COPY_CEILING_GB} GB`}
-          value={overCeiling.toLocaleString()}
-          sub="should stay 0"
+          value={overCeiling}
+          hint="should stay 0"
         />
       </section>
 
@@ -189,61 +215,71 @@ export default async function PapicStoragePage() {
         </p>
       ) : null}
 
-      <section className="overflow-x-auto rounded-lg border border-ink/10">
-        <table className="w-full text-sm">
-          <thead className="bg-ink/[0.03] text-left text-xs text-ink/60">
-            <tr>
-              <th className="px-3 py-2 font-medium">Event</th>
-              <th className="px-3 py-2 text-right font-medium">Captures</th>
-              <th className="px-3 py-2 text-right font-medium">Stills</th>
-              <th className="px-3 py-2 text-right font-medium">Orig</th>
-              <th className="px-3 py-2 text-right font-medium">Web copy</th>
-              <th className="px-3 py-2 text-right font-medium">Ratio</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-ink/5">
-            {perEvent.length === 0 ? (
-              <tr>
-                <td className="px-3 py-6 text-center text-ink/50" colSpan={6}>
-                  No measured captures yet — telemetry populates as new Papic photos
-                  are taken (born-AVIF derivatives record their byte sizes).
-                </td>
-              </tr>
-            ) : (
-              perEvent.map((e) => (
-                <tr
-                  key={e.eventId}
-                  className={e.summary.overWebCopyCeiling ? 'bg-amber-50/60' : undefined}
-                >
-                  <td className="max-w-[16rem] truncate px-3 py-2 text-ink">{e.name}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-ink/70">
-                    {e.summary.captures.toLocaleString()}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-ink/70">
-                    {e.summary.measuredStills.toLocaleString()}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-ink/70">
-                    {gb(e.summary.measuredOrigBytes)}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-ink/70">
-                    {e.summary.totalWebCopyGb.toFixed(2)} GB
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums font-medium text-ink">
-                    {pct(e.summary.webCopyRatio)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </section>
+      <ConsoleTable
+        rows={perEvent}
+        readPermitted
+        readError={storageError}
+        reads="the storage telemetry"
+        label="Per-event storage"
+        minWidth="52rem"
+        rowKey={(e) => e.eventId}
+        empty={{
+          Icon: HardDrive,
+          title: 'No measured captures yet',
+          blurb:
+            'Telemetry fills itself as new Papic photos are taken — every born-AVIF derivative records its byte size on the way in. Nothing to set up.',
+        }}
+        columns={[
+          {
+            header: 'Event',
+            cell: (e) => <span className="block max-w-[16rem] truncate text-ink">{e.name}</span>,
+          },
+          {
+            header: 'Captures',
+            align: 'right',
+            mono: true,
+            cell: (e) => e.summary.captures.toLocaleString(),
+          },
+          {
+            header: 'Stills',
+            align: 'right',
+            mono: true,
+            hideBelow: 'md',
+            cell: (e) => e.summary.measuredStills.toLocaleString(),
+          },
+          {
+            header: 'Orig',
+            align: 'right',
+            mono: true,
+            hideBelow: 'lg',
+            cell: (e) => gb(e.summary.measuredOrigBytes),
+          },
+          {
+            header: 'Web copy',
+            align: 'right',
+            mono: true,
+            hideBelow: 'md',
+            cell: (e) => `${e.summary.totalWebCopyGb.toFixed(2)} GB`,
+          },
+          {
+            header: 'Ratio',
+            align: 'right',
+            mono: true,
+            cell: (e) => (
+              <span className={e.summary.overWebCopyCeiling ? 'font-semibold text-warn-900' : 'font-medium text-ink'}>
+                {pct(e.summary.webCopyRatio)}
+              </span>
+            ),
+          },
+        ]}
+      />
 
       <section className="space-y-3">
         <header className="flex items-center gap-2">
-          <CloudOff className="h-5 w-5 text-ink/50" aria-hidden />
+          <CloudOff className="h-5 w-5 text-ink/70" aria-hidden />
           <div>
             <h2 className="text-base font-semibold text-ink">Stranded Drive copies</h2>
-            <p className="text-sm text-ink/60">
+            <p className="text-sm text-ink/70">
               Full-res originals that never reached the couple&rsquo;s Google Drive after{' '}
               {DRIVE_COPY_RETRY_CEILING}+ retries. The retry sweep has given up (no hot loop),
               and the full-res drop is deferring each one&rsquo;s raw indefinitely. Reconnect the
@@ -252,53 +288,54 @@ export default async function PapicStoragePage() {
           </div>
         </header>
 
-        {stranded.total === 0 ? (
-          <p className="rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-            None stranded — every Drive copy is landing (or still within its back-off retries).
-          </p>
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-ink/10">
-            <table className="w-full text-sm">
-              <thead className="bg-ink/[0.03] text-left text-xs text-ink/60">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Event</th>
-                  <th className="px-3 py-2 font-medium">Type</th>
-                  <th className="px-3 py-2 font-medium">File</th>
-                  <th className="px-3 py-2 text-right font-medium">Attempts</th>
-                  <th className="px-3 py-2 font-medium">Last error</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/5">
-                {stranded.rows.map((s, i) => (
-                  <tr key={`${s.eventId}-${i}`} className="bg-amber-50/40">
-                    <td className="max-w-[12rem] truncate px-3 py-2 font-mono text-xs text-ink/70">
-                      {s.eventId}
-                    </td>
-                    <td className="px-3 py-2 text-ink/70">{s.artifactType}</td>
-                    <td className="max-w-[12rem] truncate px-3 py-2 text-ink/70">{s.fileName}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-ink/70">
-                      {s.attemptCount.toLocaleString()}
-                    </td>
-                    <td className="max-w-[16rem] truncate px-3 py-2 text-xs text-ink/55">
-                      {s.lastErrorText ?? '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <ConsoleTable
+          rows={stranded ? stranded.rows : null}
+          readPermitted
+          readError={stranded ? null : { message: 'The stranded-copies read threw.' }}
+          reads="the stranded Drive copies"
+          cap={STRANDED_LIMIT}
+          label="Stranded Drive copies"
+          minWidth="52rem"
+          rowKey={(s, i) => `${s.eventId}-${i}`}
+          empty={{
+            Icon: CloudOff,
+            title: 'None stranded',
+            blurb:
+              'Every Drive copy is landing, or is still inside its back-off retries. This is the state you want — nothing to do.',
+          }}
+          columns={[
+            {
+              header: 'Event',
+              mono: true,
+              cell: (s) => <span className="block max-w-[12rem] truncate text-ink/70">{s.eventId}</span>,
+            },
+            {
+              header: 'Type',
+              hideBelow: 'md',
+              cell: (s) => <span className="text-ink/70">{s.artifactType}</span>,
+            },
+            {
+              header: 'File',
+              cell: (s) => <span className="block max-w-[12rem] truncate text-ink/70">{s.fileName}</span>,
+            },
+            {
+              header: 'Attempts',
+              align: 'right',
+              mono: true,
+              cell: (s) => s.attemptCount.toLocaleString(),
+            },
+            {
+              header: 'Last error',
+              hideBelow: 'lg',
+              cell: (s) => (
+                <span className="block max-w-[16rem] truncate text-xs text-ink/70">
+                  {s.lastErrorText ?? '—'}
+                </span>
+              ),
+            },
+          ]}
+        />
       </section>
-    </div>
-  );
-}
-
-function Tile({ label, value, sub }: { label: string; value: string; sub: string }) {
-  return (
-    <div className="sn-tile p-3">
-      <p className="text-[11px] uppercase tracking-wide text-ink/50">{label}</p>
-      <p className="mt-0.5 text-xl font-semibold tabular-nums text-ink">{value}</p>
-      <p className="text-[11px] text-ink/55">{sub}</p>
     </div>
   );
 }

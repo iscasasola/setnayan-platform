@@ -150,13 +150,79 @@ test('the ROPA declares every processing activity the product runs', () => {
   // The five added 2026-08-02, absent from the pack until 2026-08-17: guest
   // columns · shared photo pool · same-date demand · live video calls ·
   // coordinator day-of desk.
-  for (const id of ['DPS-15', 'DPS-16', 'DPS-17', 'DPS-18', 'DPS-19']) {
+  for (const id of ['DPS-15', 'DPS-16', 'DPS-17', 'DPS-18', 'DPS-19', 'DPS-20']) {
     assert.ok(found.has(id), `${id} is running in the product but absent from the shipped ROPA`);
   }
   assert.ok(
-    found.size >= 19,
-    `the ROPA declares ${found.size} activities; the product runs at least 19`,
+    found.size >= 20,
+    `the ROPA declares ${found.size} activities; the product runs at least 20`,
   );
+});
+
+test('the pack never claims a backup regime we do not have', () => {
+  // Owner ruling 2026-08-10: stay on the free plan, no automated backups, and
+  // that absence is knowingly accepted. A filing that claims daily backups also
+  // makes the breach-recovery plan point at something that does not exist.
+  for (const file of [MANUAL, '05_Data_Breach_Management_Policy.pdf']) {
+    const text = pdfText(file);
+    assertReadable(file, text);
+    assert.deepEqual(
+      liveClaims(text, /Daily encrypted (?:database|Postgres) backups retained 30 days/i),
+      [],
+      `${file}: declares a backup regime that does not exist — production has no scheduled ` +
+        'jobs and the database is on the free plan.',
+    );
+  }
+});
+
+test('the pack never calls device fingerprinting switched off — it is live', () => {
+  // Measured 2026-08-17: 9 rows / 4 accounts, first 2026-07-12. The 2026-07-23
+  // "hold it off" instruction was SUPERSEDED on 2026-07-24 by the owner-locked
+  // Interim Privacy Deferral Policy, and /privacy discloses it. The defect was
+  // ever describing it as dormant.
+  const text = pdfText('00_Executive_Dossier.pdf');
+  assertReadable('00_Executive_Dossier.pdf', text);
+  assert.deepEqual(
+    liveClaims(text, /switched OFF behind a feature flag|cannot collect anything/i),
+    [],
+    'the dossier calls device fingerprinting dormant; it has been collecting since 2026-07-12',
+  );
+});
+
+test('an adopted-but-unbuilt retention rule always says it is not yet enforced', () => {
+  // The trap this closes: replacing a false promise ("auto-purged at 5 years")
+  // with a NEWER false promise ("deleted 3 months after the event") while
+  // production still has ZERO scheduled jobs and deletes nothing on a timer.
+  // Whenever the pack states one of the adopted periods, the same document must
+  // also say enforcement is pending.
+  for (const file of [ROPA, MANUAL]) {
+    const text = pdfText(file);
+    assertReadable(file, text);
+    const statesAdoptedPeriod =
+      /3 MONTHS AFTER THE EVENT ENDS/i.test(text) || /90 DAYS AFTER the approve\/reject/i.test(text);
+    if (!statesAdoptedPeriod) continue;
+    assert.match(
+      text,
+      /ENFORCEMENT NOT YET BUILT|not yet automated|enforcement is pending/i,
+      `${file}: states an adopted deletion period without saying it is not yet enforced — ` +
+        'that swaps an old false promise for a new one.',
+    );
+  }
+});
+
+test('the withdrawn 5-year auto-purge is not still promised anywhere', () => {
+  // Building it as written would have deleted the photos: in the live schema the
+  // photos, guests, tags, schedule and suppliers all cascade from the event.
+  for (const file of [ROPA, MANUAL]) {
+    const text = pdfText(file);
+    assertReadable(file, text);
+    assert.deepEqual(
+      liveClaims(text, /Auto-purge at T\+5 years|auto-purge with event data|5-year hard deletion/i),
+      [],
+      `${file}: still promises a 5-year automatic purge. It is withdrawn — nothing implements ` +
+        'it, and implementing it literally would delete the album.',
+    );
+  }
 });
 
 test('the pack never claims wedding photos are destroyed on a schedule', () => {

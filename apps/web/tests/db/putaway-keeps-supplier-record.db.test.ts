@@ -39,7 +39,12 @@ before(async () => {
 });
 
 after(async () => {
-  await replay?.close?.();
+  // `close` lives on the PGlite handle, not on the ReplayResult wrapper — the
+  // shape every other db suite in this directory uses. The original spelling
+  // (`replay?.close?.()`) typechecked as `any` until the wrapper gained a real
+  // type, then failed the build. Optional-chaining a method that does not exist
+  // is silent until it isn't.
+  await db?.close();
 });
 
 /**

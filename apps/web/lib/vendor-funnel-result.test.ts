@@ -22,12 +22,17 @@ import assert from 'node:assert/strict';
 
 import { fetchVendorFunnelTotalsResult } from './vendor-funnel';
 
+/** Exactly the client shape the function accepts — no cast at any call site. */
+type FunnelClient = Parameters<typeof fetchVendorFunnelTotalsResult>[0];
+
 /**
  * A stand-in PostgREST client. Each `.select()` resolves with whatever the
  * queue hands back — the same `{ count, error }` shape postgrest-js resolves
  * with, INCLUDING the part that matters: it resolves, it does not throw.
  */
-function clientYielding(results: { count: number | null; error?: { message: string } }[]) {
+function clientYielding(
+  results: { count: number | null; error?: { message: string } }[],
+): FunnelClient {
   let i = 0;
   const chain = () => {
     // The queue is indexed defensively: a client asked for more reads than the
@@ -53,8 +58,7 @@ test('a refused stage makes the whole funnel NOT MEASURED, never a zero', async 
       i === position ? { count: null, error: { message: 'column does not exist' } } : { ...r },
     );
     const out = await fetchVendorFunnelTotalsResult(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      clientYielding(results) as any,
+      clientYielding(results),
       'v1',
       '2026-01-01',
     );
@@ -72,8 +76,7 @@ test('a refused stage makes the whole funnel NOT MEASURED, never a zero', async 
 test('a stage that returns no count at all is also NOT MEASURED', async () => {
   // No error, no count. Nothing was counted, so there is no count to call zero.
   const out = await fetchVendorFunnelTotalsResult(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    clientYielding([OK, { count: null }, OK, OK]) as any,
+    clientYielding([OK, { count: null }, OK, OK]),
     'v1',
     '2026-01-01',
   );
@@ -83,8 +86,7 @@ test('a stage that returns no count at all is also NOT MEASURED', async () => {
 
 test('when every stage answers, the real numbers come through unchanged', async () => {
   const out = await fetchVendorFunnelTotalsResult(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    clientYielding([{ count: 40 }, { count: 12 }, { count: 5 }, { count: 0 }]) as any,
+    clientYielding([{ count: 40 }, { count: 12 }, { count: 5 }, { count: 0 }]),
     'v1',
     '2026-01-01',
   );

@@ -58,24 +58,65 @@ const read = (rel: string) => readFileSync(join(ADMIN, rel), 'utf8');
 const ARCHETYPE = '_components/console-table.tsx';
 
 /**
- * The first tranche of converted surfaces. Deliberately the pure records lists,
- * where the whole page IS the table — those prove the archetype on real data
- * without re-deciding any page's composition. The 31 files on the bill below are
- * the remaining work, and every one of them is named.
+ * Reads whose NULL result denies rather than renders. Each entry is a claim that
+ * an absence here fails CLOSED, and must cite why. A line is not an excuse — it is
+ * a measured statement about the failure mode, and it belongs nowhere else.
+ */
+const FAILS_CLOSED_ON_NULL = new Set([
+  // `return isAdminProfile(profile)` — null profile → false → access denied.
+  'accounts/_surfaces/demo-vendors-surface.tsx:profile',
+]);
+
+/**
+ * The converted surfaces. The first tranche was deliberately the pure records
+ * lists, where the whole page IS the table — those prove the archetype on real
+ * data without re-deciding any page's composition. The files still on the bill
+ * below are the remaining work, and every one of them is named.
+ *
+ * ⚠ THIS ARRAY IS A UNION ACROSS LANES. Four sessions convert different
+ * directories and each adds its own lines here; on a merge conflict take BOTH
+ * sides' additions rather than choosing between them. Never resolve by hand-
+ * picking: re-measure which files still hand-roll a table and let rule 1 prove
+ * it, because it fails in both directions — a line dropped for a file nobody
+ * converted, and a line kept for one that was.
  */
 const CONVERTED = [
-  'pax-changes/page.tsx',
-  'receipts/page.tsx',
-  'pricing/_surfaces/price-bands-surface.tsx',
-  // The judgement queues. ⚠ ON THESE TWO THE TABLE WAS NOT WHERE THE LIE WAS:
-  // /admin/fraud's queue is a <ul> of cards and its <table> is the enforcement
-  // trail at the bottom, so converting the table alone would have fixed the
-  // trail and left the green tick over "No open fraud signals." exactly where it
-  // was. The card list uses <ErrorState> directly — it is not table-specific.
+  // The judgement queues + the money desks, 2026-08-17.
+  // ⚠ ON TWO OF THESE THE TABLE WAS NOT WHERE THE LIE WAS: /admin/fraud's queue and
+  // /admin/approvals' pending list are <ul>s of cards, and their <table> is the
+  // audit trail at the bottom. Converting the table alone would have fixed the
+  // trail and left the reassuring sentence where it was — a GREEN TICK over "No
+  // open fraud signals.", and "No approvals pending. Set na 'yan." on the queue
+  // whose only job is that a second admin looks. The card lists use <ErrorState>
+  // directly; it is not table-specific.
   // 🔑 CONVERTING A FILE'S TABLE IS NOT THE SAME AS MAKING THAT FILE HONEST.
-  'fraud/page.tsx',
-  'force-majeure/page.tsx',
   'approvals/page.tsx',
+  'budget-planner/page.tsx',
+  'force-majeure/page.tsx',
+  'fraud/page.tsx',
+  // Lane A · the account surfaces (2026-08-17). Five files, SIX tables — the
+  // users surface held two, so its bill line only came out when both were done.
+  'accounts/_surfaces/demo-vendors-surface.tsx',
+  'accounts/_surfaces/events-surface.tsx',
+  'accounts/_surfaces/users-surface.tsx',
+  'accounts/_surfaces/vendors-surface.tsx',
+  'accounts/_surfaces/venues-surface.tsx',
+  'pax-changes/page.tsx',
+  'pricing/_surfaces/price-bands-surface.tsx',
+  'receipts/page.tsx',
+  // Lane C · the five /admin/studio surfaces, 2026-08-17. Two of them printed
+  // "nothing here" over a refused read (referrals never dropped the error it
+  // fetched; patiktok never even destructured one — the LANE DOC counted one
+  // liar, and not-destructuring is not the absence of a defect). Two were
+  // already honest via a discriminated loader result and gained a named refusal
+  // plus a disclosed cap that had been hiding one call frame away in lib/. One
+  // threw, which is honest and the least useful honest answer available.
+  // storytellers-surface.tsx holds TWO tables and both are converted here.
+  'studio/_surfaces/discount-codes-surface.tsx',
+  'studio/_surfaces/patiktok-surface.tsx',
+  'studio/_surfaces/real-stories-surface.tsx',
+  'studio/_surfaces/referrals-surface.tsx',
+  'studio/_surfaces/storytellers-surface.tsx',
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -83,9 +124,10 @@ const CONVERTED = [
    ══════════════════════════════════════════════════════════════════════════ */
 
 /**
- * The 31 files that still hand-roll a raw `<table>`, pinned EXACTLY.
+ * The files that still hand-roll a raw `<table>`, pinned EXACTLY. 31 at the
+ * archetype's landing, 26 after lane A converted the five account surfaces.
  *
- * ⚖ A 32nd file adopting a raw table FAILS. Converting one of these also FAILS,
+ * ⚖ A 27th file adopting a raw table FAILS. Converting one of these also FAILS,
  * telling you to delete its line. Never add a line to go green: each one is a
  * surface that re-decides error-vs-empty on its own, and 16 of the original 34
  * decided it wrong.
@@ -105,18 +147,13 @@ const CONVERTED = [
  */
 const RAW_TABLE_BILL = [
   'account-deletions/page.tsx',
-  'accounts/_surfaces/demo-vendors-surface.tsx',
-  'accounts/_surfaces/events-surface.tsx',
-  'accounts/_surfaces/users-surface.tsx',
-  'accounts/_surfaces/vendors-surface.tsx',
-  'accounts/_surfaces/venues-surface.tsx',
+  // The five `accounts/_surfaces/*` lines were here. Converted 2026-08-17.
   'app-performance/_components/expenses.tsx',
   'app-performance/_surfaces/browser-blocks-surface.tsx',
   'app-performance/_surfaces/funnels-surface.tsx',
   'app-performance/_surfaces/intelligence-surface.tsx',
   'app-performance/_surfaces/operations-surface.tsx',
   'app-performance/_surfaces/seo-surface.tsx',
-  'budget-planner/page.tsx',
   'completions/page.tsx',
   'compliance/data-sheet/page.tsx',
   'demo-vendors/inquiries/page.tsx',
@@ -124,11 +161,6 @@ const RAW_TABLE_BILL = [
   'offline/_components/offline-diagnostic.tsx',
   'papic-storage/page.tsx',
   'settings/payment-methods/page.tsx',
-  'studio/_surfaces/discount-codes-surface.tsx',
-  'studio/_surfaces/patiktok-surface.tsx',
-  'studio/_surfaces/real-stories-surface.tsx',
-  'studio/_surfaces/referrals-surface.tsx',
-  'studio/_surfaces/storytellers-surface.tsx',
   'ugat/_components/ugat-console.tsx',
   'vendor-partnerships/page.tsx',
   'website-media/media-table.tsx',
@@ -239,6 +271,16 @@ test('every converted surface hands its read error to the table', () => {
     // I matched a spelling instead of the capability. Any read destructured
     // WITHOUT binding its error is an offence regardless of what happens next.
     for (const m of src.matchAll(/const\s*\{\s*data:\s*(\w+)\s*\}\s*=\s*await/g)) {
+      // 🪤 AND THIS RULE CRIED WOLF ON ITS FIRST RUN, which is why the exemption
+      // exists. `demo-vendors-surface`'s unbound read is an AUTHORISATION check
+      // ending in `return isAdminProfile(profile)` — a refused read yields null,
+      // yields false, and DENIES. That is the correct failure mode, and demanding
+      // an error binding there would be noise on a read that is already safe by
+      // construction. A guard that cries wolf teaches you to skim past the one
+      // time it is right.
+      // ⚖ The distinction is not "is the error bound" but WHAT AN ABSENCE MEANS:
+      // absence that RENDERS as data is the defect; absence that DENIES is the fix.
+      if (FAILS_CLOSED_ON_NULL.has(`${rel}:${m[1]}`)) continue;
       offenders.push(`${rel} (const { data: ${m[1]} } destructured with no error bound)`);
     }
     // And the PRIMARY read must never be flattened at the read site.
@@ -269,6 +311,40 @@ test('the converted surfaces actually import the archetype — a rule nothing sa
     `Only ${wearing.length} of ${CONVERTED.length} converted surfaces import ` +
       'ConsoleTable. Rules 2 and 4 pass vacuously on a page that renders ' +
       'nothing — this is the check that says the table is actually worn.',
+  );
+});
+
+/**
+ * …AND THE LIST ITSELF WAS PINNED TO NOTHING. Found 2026-08-17 by sabotage,
+ * while converting lane C: DELETING a line from `CONVERTED` left this file
+ * GREEN — 10/10 — because every rule that matters iterates `CONVERTED`, and a
+ * shorter list simply checks fewer files. So the error rule, the cap rule and
+ * the colour rule could all be switched off for any surface, one line at a
+ * time, and CI would never say a word. The bill above can only shrink; this
+ * list could silently shrink too, and it is the half that does the work.
+ *
+ * 🔑 A GUARD WHOSE SUBJECT LIST IS HAND-MAINTAINED IS ONLY AS WIDE AS THAT
+ * LIST — the same shape as the hand-enumerated door list that missed three
+ * doors on 2026-08-17, and of the deny-list that went stale in #4364. The fix
+ * is to DERIVE the membership instead of trusting it: wearing the archetype is
+ * an observable fact about a file, so measure it.
+ */
+test('every admin file that wears the archetype is ON the converted list', () => {
+  const wearing: string[] = [];
+  for (const file of walk(ADMIN)) {
+    const rel = file.slice(ADMIN.length + 1);
+    if (rel === ARCHETYPE) continue;
+    if (/_components\/console-table/.test(code(readFileSync(file, 'utf8')))) {
+      wearing.push(rel);
+    }
+  }
+  assert.deepEqual(
+    wearing.sort(),
+    [...CONVERTED].sort(),
+    'A file imports ConsoleTable but is missing from CONVERTED, so it is exempt ' +
+      'from the error-vs-empty rule, the cap rule and the colour rule while ' +
+      'looking completely converted. Add it. And never delete a line to go ' +
+      "green — deleting one is how a surface's read error stops being checked.",
   );
 });
 

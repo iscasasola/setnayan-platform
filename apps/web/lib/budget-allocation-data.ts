@@ -378,6 +378,8 @@ export async function fetchAllocationAggregates(
    * more serious statement than a false zero.
    */
   measured: boolean;
+  /** The refusal Postgres actually gave, when there was one. */
+  readMessage?: string;
 }> {
   const UNMEASURED = {
     aggregates: [] as LeafAggregate[],
@@ -389,7 +391,7 @@ export async function fetchAllocationAggregates(
     const { data, error } = await adminClient
       .from('budget_allocation_decisions')
       .select('event_id, canonical_service, final_share_bp, final_amount_php, was_pinned, pin_order');
-    if (error || !data) return UNMEASURED;
+    if (error || !data) return { ...UNMEASURED, readMessage: error?.message };
 
     type Row = {
       event_id: string;

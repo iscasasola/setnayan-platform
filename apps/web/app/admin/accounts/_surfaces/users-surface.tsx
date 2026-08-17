@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { type ReactNode } from 'react';
 import { Search, ShieldCheck, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2, Gift, ChevronDown, ChevronUp, XCircle, LogOut } from 'lucide-react';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -31,6 +30,17 @@ import {
   fetchV2BundleCatalog,
   fetchV2VendorCatalog,
 } from '@/lib/v2-catalog';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { PageMasthead } from '@/app/_components/page-masthead';
+
+/**
+ * The ceiling on BOTH reads this surface makes — the account list and the
+ * blacklist. One constant, used at the `.limit()` and handed to the table as
+ * `cap`, so the disclosure and the query can never drift. The old header prose
+ * said "Latest 200 accounts" as a second hand-typed copy of this number; it now
+ * derives from it.
+ */
+const ACCOUNT_ROW_LIMIT = 200;
 
 /** A pickable service for the comp-grant SKU picker (catalog-driven). */
 type ServiceOption = {
@@ -75,6 +85,35 @@ type Filter = 'all' | 'customer' | 'vendor' | 'internal' | 'team_pool' | 'blackl
  *   3. buildToggleHref + the reset-password/force-sign-out redirect targets
  *      point at /admin/accounts?tab=users instead of /admin/users.
  */
+/**
+ * ── 2026-08-17 · BOTH tables onto <ConsoleTable> ─────────────────────────────
+ * This file held TWO tables — the account list and the blacklist — and FOUR
+ * places that could print a zero or an emptiness over something nobody read:
+ *
+ *   1. "No users match."            ← on a refused read, on the accounts screen.
+ *   2. "No blacklisted emails."     ← same, and this one is a security list.
+ *   3. "No comp grants on this account yet."  ← the grants fetch is wrapped in a
+ *      `try { … } catch { [] }`, so a thrown failure read as "never been given
+ *      anything". Somebody deciding whether to gift a service was shown a clean
+ *      slate that might not be one.
+ *   4. "No catalog SKUs found."     ← the catalog fetch, same swallowing catch,
+ *      and the consequence is a comp-grant form with nothing to tick.
+ *
+ * ⚖ WHY (1) WAS WORSE THAN THE OTHERS DESPITE HAVING AN ERROR BANNER. The banner
+ * above the table did render the message — and then the table underneath said
+ * "No users match." in a calmer voice. Two statements about one event, and the
+ * confident one is the one a reader takes as the answer. The banner is gone; the
+ * table now says the one true thing.
+ *
+ * 🔀 THE ONE COMPOSITION CHANGE, and it is forced, not chosen: the comp-grants
+ * panel used to be an extra `<tr>` with `colSpan={6}` injected under the
+ * expanded user. ConsoleTable renders exactly one row per row — deliberately,
+ * because that is what makes the states uniform — so the panel now renders
+ * directly BELOW the table. It keeps its `id`, so the row's `aria-controls`
+ * still resolves to it; only one user can be expanded at a time, so there is
+ * only ever one panel; and on a phone it is no longer trapped inside a
+ * horizontally scrolling table. Nothing in it was redrawn.
+ */
 export async function UsersSurface({
   q: qRaw,
   filter: filterRaw,
@@ -100,20 +139,25 @@ export async function UsersSurface({
   const admin = createAdminClient();
 
   // Blacklisted view: pulls from `blacklisted_emails` instead of `users`.
-  let blacklistRows: BlacklistRow[] = [];
-  let userRows: UserRow[] = [];
-  let queryError: string | null = null;
+  // Both start as null = NOT MEASURED. Only one of the two reads runs, so the
+  // other one staying null is correct: nothing was counted, so there is no count.
+  let blacklistRows: BlacklistRow[] | null = null;
+  let userRows: UserRow[] | null = null;
+  // The `{ error }` object itself, not `error.message`. The message alone cannot
+  // be handed to the table, and a string is what made the old banner the only
+  // place the failure could be said.
+  let readError: { message?: string } | null = null;
 
   if (filter === 'blacklisted') {
     let bq = admin
       .from('blacklisted_emails')
       .select('id,email,reason,blacklisted_at')
       .order('blacklisted_at', { ascending: false })
-      .limit(200);
+      .limit(ACCOUNT_ROW_LIMIT);
     if (q.length > 0) bq = bq.ilike('email', `%${q}%`);
     const { data, error } = await bq;
-    blacklistRows = (data ?? []) as BlacklistRow[];
-    queryError = error?.message ?? null;
+    blacklistRows = data as BlacklistRow[] | null;
+    readError = error;
   } else {
     let query = admin
       .from('users')
@@ -121,7 +165,7 @@ export async function UsersSurface({
         'user_id,public_id,email,display_name,account_type,is_internal,is_team_member,created_at',
       )
       .order('created_at', { ascending: false })
-      .limit(200);
+      .limit(ACCOUNT_ROW_LIMIT);
 
     if (filter === 'customer' || filter === 'vendor') {
       query = query.eq('account_type', filter);
@@ -138,19 +182,27 @@ export async function UsersSurface({
     }
 
     const { data, error } = await query;
-    userRows = (data ?? []) as UserRow[];
-    queryError = error?.message ?? null;
+    userRows = data as UserRow[] | null;
+    readError = error;
   }
+
+  /** The flattened list, for the lookups below that genuinely need an array. */
+  const listedUsers = userRows ?? [];
 
   // Fetch comp grants for the expanded user (if the panel is open AND the
   // user shows up in the current list — protects against stale ?expand
   // params after a filter change).
-  let expandedGrants: CompGrantRow[] = [];
-  if (expandUserId && userRows.some((u) => u.user_id === expandUserId)) {
+  //
+  // null = the fetch failed. It was `catch { expandedGrants = [] }`, which the
+  // panel then rendered as "No comp grants on this account yet" — a clean slate
+  // shown to somebody about to decide whether to gift a service, when the truth
+  // was that we had not looked.
+  let expandedGrants: CompGrantRow[] | null = null;
+  if (expandUserId && listedUsers.some((u) => u.user_id === expandUserId)) {
     try {
       expandedGrants = await fetchCompGrantsForUser(admin, expandUserId);
     } catch {
-      expandedGrants = [];
+      expandedGrants = null;
     }
     // RA 10173 access trail (admin account-access model Phase 1a): record —
     // post-response, non-fatal — that this admin opened this account's detail.
@@ -173,7 +225,10 @@ export async function UsersSurface({
   // across every expanded panel. Auto-populates from the live catalog tables so
   // new paid SKUs appear as they land. Degrades to [] on error (the panel then
   // shows "No catalog SKUs found").
-  let compGrantServices: ServiceOption[] = [];
+  // null = the catalog read failed, which the form used to render as "No catalog
+  // SKUs found." — indistinguishable from a genuinely empty catalog, on the one
+  // control whose whole job is picking a SKU.
+  let compGrantServices: ServiceOption[] | null = null;
   try {
     const [customers, bundles, vendors] = await Promise.all([
       fetchV2CustomerCatalog(),
@@ -208,17 +263,16 @@ export async function UsersSurface({
         : a.category.localeCompare(b.category),
     );
   } catch {
-    compGrantServices = [];
+    compGrantServices = null;
   }
 
   return (
     <div>
-      <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
-        <p className="text-sm text-ink/60">
-          Latest 200 accounts (newest first). Filter or search to drill in.
-        </p>
-      </header>
+      <PageMasthead
+        className="mb-6"
+        title="Users"
+        lede={`Latest ${ACCOUNT_ROW_LIMIT} accounts (newest first). Filter or search to drill in.`}
+      />
 
       {grantBanner ? (
         <section
@@ -321,20 +375,18 @@ export async function UsersSurface({
         <button type="submit" className="button-secondary">Apply</button>
       </form>
 
-      {queryError ? (
-        <p
-          role="alert"
-          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
-          {queryError}
-        </p>
-      ) : null}
+      {/* The raw-message error banner is GONE. It said the true thing and then
+          the table said "No users match." underneath it — one event, two
+          voices, and the calm one wins. The table owns the refusal now, names
+          what could not be read, and states in words that this is not a count
+          of zero. */}
 
       {filter === 'blacklisted' ? (
-        <BlacklistTable rows={blacklistRows} />
+        <BlacklistTable rows={blacklistRows} readError={readError} />
       ) : (
         <UsersTable
           rows={userRows}
+          readError={readError}
           q={q}
           filter={filter}
           expandUserId={expandUserId}
@@ -370,96 +422,122 @@ function buildToggleHref(opts: {
 
 function UsersTable({
   rows,
+  readError,
   q,
   filter,
   expandUserId,
   expandedGrants,
   services,
 }: {
-  rows: UserRow[];
+  rows: UserRow[] | null;
+  readError: { message?: string } | null;
   q: string;
   filter: Filter;
   expandUserId: string | null;
-  expandedGrants: CompGrantRow[];
-  services: ServiceOption[];
+  expandedGrants: CompGrantRow[] | null;
+  services: ServiceOption[] | null;
 }) {
+  // The one expanded user, resolved BEFORE the table renders — the grants panel
+  // is a sibling of the table now, not a row inside it. See the file docblock:
+  // ConsoleTable renders exactly one row per row, and that is the property that
+  // makes every state on it uniform.
+  const expanded = (rows ?? []).find((u) => u.user_id === expandUserId) ?? null;
+
   return (
-    <div className="overflow-x-auto rounded-xl border border-ink/10">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
-          <tr>
-            <th className="px-3 py-3 font-medium">Email</th>
-            <th className="px-3 py-3 font-medium">Type</th>
-            <th className="hidden px-3 py-3 font-medium lg:table-cell">Account ID</th>
-            <th className="hidden px-3 py-3 font-medium md:table-cell">Created</th>
-            <th className="px-3 py-3 font-medium">Flags</th>
-            <th className="px-3 py-3 font-medium">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td className="px-3 py-6 text-center text-ink/55" colSpan={6}>
-                No users match.
-              </td>
-            </tr>
-          ) : (
-            rows.flatMap((u) => {
-              const isExpanded = expandUserId === u.user_id;
-              const userTr = (
-              <tr
-                key={u.user_id}
-                id={`u-${u.user_id}`}
-                className="border-t border-ink/5 hover:bg-terracotta/[0.04]"
-              >
-                <td className="px-3 py-3">
+    <>
+      <ConsoleTable
+        rows={rows}
+        readPermitted
+        readError={readError}
+        reads="the account list"
+        cap={ACCOUNT_ROW_LIMIT}
+        label="Users"
+        rowKey={(u) => u.user_id}
+        empty={{
+          Icon: Search,
+          title: q ? 'No account matches that search' : 'No accounts in this filter',
+          blurb: q
+            ? 'The read went through and matched nothing. Clear the search, or widen the filter, to see every account.'
+            : 'The read went through and this filter holds no accounts. Switch to "All" to see everyone.',
+          verifiedNote: 'Verified: read permitted · 0 accounts matched',
+        }}
+        columns={[
+          {
+            header: 'Email',
+            cell: (u) => (
+              <>
+                {/* The `#u-<id>` anchor buildToggleHref points at lives on this
+                    span now — ConsoleTable's <tr> carries no id, and losing the
+                    anchor would mean expanding a row scrolled you nowhere. */}
+                <span id={`u-${u.user_id}`}>
                   <Link
                     href={`/admin/users/${u.user_id}`}
-                    className="font-medium text-ink underline-offset-2 hover:text-terracotta hover:underline"
+                    className="font-medium text-ink underline-offset-2 hover:text-link hover:underline"
                   >
                     {u.email ?? '—'}
                   </Link>
-                  {u.display_name ? (
-                    <p className="text-xs text-ink/60">{u.display_name}</p>
-                  ) : null}
-                </td>
-                <td className="px-3 py-3">
-                  <span
-                    className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                      u.account_type === 'vendor'
-                        ? 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]'
-                        : u.account_type === 'admin'
-                          ? 'bg-ink/15 text-ink'
-                          : 'bg-success-100 text-success-800'
-                    }`}
-                  >
-                    {u.account_type === 'customer' ? 'Couple' : u.account_type}
+                </span>
+                {u.display_name ? (
+                  <p className="text-xs text-ink/70">{u.display_name}</p>
+                ) : null}
+              </>
+            ),
+          },
+          {
+            header: 'Type',
+            hideBelow: 'md',
+            cell: (u) => (
+              <span
+                className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                  u.account_type === 'vendor'
+                    ? 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]'
+                    : u.account_type === 'admin'
+                      ? 'bg-ink/15 text-ink'
+                      : 'bg-success-100 text-success-800'
+                }`}
+              >
+                {u.account_type === 'customer' ? 'Couple' : u.account_type}
+              </span>
+            ),
+          },
+          {
+            header: 'Account ID',
+            hideBelow: 'lg',
+            mono: true,
+            cell: (u) => <span className="text-ink/70">{u.public_id}</span>,
+          },
+          {
+            header: 'Created',
+            hideBelow: 'lg',
+            mono: true,
+            cell: (u) => <span className="text-ink/70">{u.created_at.slice(0, 10)}</span>,
+          },
+          {
+            header: 'Flags',
+            hideBelow: 'md',
+            cell: (u) => (
+              <div className="flex flex-wrap gap-1">
+                {u.is_internal ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--sn-info-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-[color:var(--sn-info)]">
+                    <ShieldCheck className="h-3 w-3" strokeWidth={2} />
+                    Internal
                   </span>
-                </td>
-                <td className="hidden px-3 py-3 font-mono text-[11px] text-ink/55 lg:table-cell">
-                  {u.public_id}
-                </td>
-                <td className="hidden px-3 py-3 font-mono text-[11px] text-ink/55 md:table-cell">
-                  {u.created_at.slice(0, 10)}
-                </td>
-                <td className="px-3 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    {u.is_internal ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--sn-info-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-[color:var(--sn-info)]">
-                        <ShieldCheck className="h-3 w-3" strokeWidth={2} />
-                        Internal
-                      </span>
-                    ) : null}
-                    {u.is_team_member ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-success-800">
-                        <Sparkle className="h-3 w-3" strokeWidth={2} />
-                        Team
-                      </span>
-                    ) : null}
-                  </div>
-                </td>
-                <td className="px-3 py-3">
-                  <div className="flex flex-wrap items-center gap-1.5">
+                ) : null}
+                {u.is_team_member ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-success-800">
+                    <Sparkle className="h-3 w-3" strokeWidth={2} />
+                    Team
+                  </span>
+                ) : null}
+              </div>
+            ),
+          },
+          {
+            header: 'Actions',
+            cell: (u) => {
+              const isExpanded = expandUserId === u.user_id;
+              return (
+                <div className="flex flex-wrap items-center gap-1.5">
                     {u.is_internal ? (
                       <span className="text-xs text-ink/55">Locked (internal)</span>
                     ) : (
@@ -594,98 +672,115 @@ function UsersTable({
                         </Link>
                       </>
                     )}
-                  </div>
-                </td>
-              </tr>
+                </div>
               );
-              const fragments: ReactNode[] = [userTr];
-              if (isExpanded && !u.is_internal) {
-                fragments.push(
-                  <tr key={`${u.user_id}-grants`} id={`grants-${u.user_id}`}>
-                    <td colSpan={6} className="border-t border-terracotta/15 bg-white/70 px-3 py-5">
-                      <CompGrantsPanel
-                        userId={u.user_id}
-                        userEmail={u.email}
-                        grants={expandedGrants}
-                        services={services}
-                      />
-                    </td>
-                  </tr>,
-                );
-              }
-              if (isExpanded && u.is_internal) {
-                fragments.push(
-                  <tr key={`${u.user_id}-grants-locked`} id={`grants-${u.user_id}`}>
-                    <td colSpan={6} className="border-t border-[color:var(--sn-info)]/30 bg-[var(--sn-info-soft)] px-3 py-4">
-                      <p className="text-sm text-[color:var(--sn-info)]">
-                        This is an internal account (§ 10a) — it already carries
-                        a permanent grant for every Setnayan service. Per-SKU
-                        comps are not allowed on top.
-                      </p>
-                    </td>
-                  </tr>,
-                );
-              }
-              return fragments;
-            })
-          )}
-        </tbody>
-      </table>
-    </div>
+            },
+          },
+        ]}
+      />
+
+      {/* The comp-grants panel — a SIBLING of the table, not a row in it. It
+          keeps the `grants-<id>` id the row's aria-controls points at, and only
+          one account can be expanded at a time, so there is only ever one. */}
+      {expanded && !expanded.is_internal ? (
+        <section
+          id={`grants-${expanded.user_id}`}
+          className="mt-4 rounded-xl border border-terracotta/15 bg-white/70 px-4 py-5"
+        >
+          <CompGrantsPanel
+            userId={expanded.user_id}
+            userEmail={expanded.email}
+            grants={expandedGrants}
+            services={services}
+          />
+        </section>
+      ) : null}
+
+      {expanded && expanded.is_internal ? (
+        <section
+          id={`grants-${expanded.user_id}`}
+          className="mt-4 rounded-xl border border-[color:var(--sn-info)]/30 bg-[var(--sn-info-soft)] px-4 py-4"
+        >
+          <p className="text-sm text-[color:var(--sn-info)]">
+            This is an internal account (§ 10a) — it already carries a permanent
+            grant for every Setnayan service. Per-SKU comps are not allowed on
+            top.
+          </p>
+        </section>
+      ) : null}
+    </>
   );
 }
 
-function BlacklistTable({ rows }: { rows: BlacklistRow[] }) {
+function BlacklistTable({
+  rows,
+  readError,
+}: {
+  rows: BlacklistRow[] | null;
+  readError: { message?: string } | null;
+}) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-ink/10">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
-          <tr>
-            <th className="px-3 py-3 font-medium">Email</th>
-            <th className="px-3 py-3 font-medium">Reason</th>
-            <th className="hidden px-3 py-3 font-medium md:table-cell">Blacklisted</th>
-            <th className="px-3 py-3 font-medium">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td className="px-3 py-6 text-center text-ink/55" colSpan={4}>
-                No blacklisted emails.
-              </td>
-            </tr>
-          ) : (
-            rows.map((b) => (
-              <tr key={b.id} className="border-t border-ink/5 hover:bg-terracotta/[0.04]">
-                <td className="px-3 py-3 font-medium text-ink">{b.email}</td>
-                <td className="px-3 py-3 text-ink/70">{b.reason ?? '—'}</td>
-                <td className="hidden px-3 py-3 font-mono text-[11px] text-ink/55 md:table-cell">
-                  {b.blacklisted_at.slice(0, 10)}
-                </td>
-                <td className="px-3 py-3">
-                  <ConfirmForm
-                    action={unblacklistEmail}
-                    title="Allow signup again?"
-                    confirmLabel="Unblacklist"
-                    destructive={false}
-                    message={`Remove ${b.email} from the blacklist? This email will be able to sign up again.`}
-                  >
-                    <input type="hidden" name="blacklist_id" value={b.id} />
-                    <SubmitButton
-                      className="inline-flex items-center gap-1 rounded-md bg-success-100 px-2 py-1 text-xs font-medium text-success-900 hover:bg-success-200 disabled:opacity-60"
-                      pendingLabel="…"
-                    >
-                      <Undo2 className="h-3 w-3" strokeWidth={2} />
-                      Unblacklist
-                    </SubmitButton>
-                  </ConfirmForm>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+    <ConsoleTable
+      rows={rows}
+      readPermitted
+      readError={readError}
+      reads="the blocked-email list"
+      cap={ACCOUNT_ROW_LIMIT}
+      label="Blacklisted emails"
+      minWidth="36rem"
+      rowKey={(b) => b.id}
+      empty={{
+        Icon: Ban,
+        // ⚖ THIS EMPTY STATE MATTERS MORE THAN IT LOOKS. It is a security list;
+        // "nothing is blocked" and "we could not read what is blocked" are
+        // opposite operational facts, and before this they were the same
+        // sentence. The verified note is what says which one you are reading.
+        title: 'No blocked emails',
+        blurb:
+          'Nothing is on the blacklist. Blacklisting happens from the account list — it deletes the account and permanently blocks the address from signing up again.',
+        verifiedNote: 'Verified: read permitted · 0 addresses blocked',
+      }}
+      columns={[
+        {
+          header: 'Email',
+          cell: (b) => <span className="font-medium text-ink">{b.email}</span>,
+        },
+        {
+          header: 'Reason',
+          cell: (b) => <span className="text-ink/70">{b.reason ?? '—'}</span>,
+        },
+        {
+          header: 'Blacklisted',
+          hideBelow: 'md',
+          mono: true,
+          cell: (b) => (
+            <span className="text-ink/70">{b.blacklisted_at.slice(0, 10)}</span>
+          ),
+        },
+        {
+          header: 'Actions',
+          align: 'right',
+          cell: (b) => (
+            <ConfirmForm
+              action={unblacklistEmail}
+              title="Allow signup again?"
+              confirmLabel="Unblacklist"
+              destructive={false}
+              message={`Remove ${b.email} from the blacklist? This email will be able to sign up again.`}
+            >
+              <input type="hidden" name="blacklist_id" value={b.id} />
+              <SubmitButton
+                className="inline-flex items-center gap-1 rounded-md bg-success-100 px-2 py-1 text-xs font-medium text-success-900 hover:bg-success-200 disabled:opacity-60"
+                pendingLabel="…"
+              >
+                <Undo2 className="h-3 w-3" strokeWidth={2} />
+                Unblacklist
+              </SubmitButton>
+            </ConfirmForm>
+          ),
+        },
+      ]}
+    />
   );
 }
 
@@ -705,25 +800,37 @@ function CompGrantsPanel({
 }: {
   userId: string;
   userEmail: string | null;
-  grants: CompGrantRow[];
-  services: ServiceOption[];
+  /** null = the grants fetch failed. NOT the same as "this account has none". */
+  grants: CompGrantRow[] | null;
+  /** null = the catalog fetch failed. NOT the same as "there are no SKUs". */
+  services: ServiceOption[] | null;
 }) {
-  const grouped = services.reduce<Map<string, ServiceOption[]>>((acc, s) => {
+  const grouped = (services ?? []).reduce<Map<string, ServiceOption[]>>((acc, s) => {
     const list = acc.get(s.category) ?? [];
     list.push(s);
     acc.set(s.category, list);
     return acc;
   }, new Map());
-  const active = grants.filter((g) => g.revoked_at === null);
-  const revoked = grants.filter((g) => g.revoked_at !== null);
+  const active = (grants ?? []).filter((g) => g.revoked_at === null);
+  const revoked = (grants ?? []).filter((g) => g.revoked_at !== null);
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div>
         <h3 className="mb-3 text-sm font-semibold text-ink">
           Comp grants for {userEmail ?? 'this user'}
         </h3>
-        {grants.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-ink/15 px-4 py-6 text-sm text-ink/55">
+        {grants === null ? (
+          <p
+            role="alert"
+            className="rounded-lg border border-danger-300/60 bg-danger-50/60 px-4 py-4 text-sm text-danger-900"
+          >
+            <strong>Couldn&apos;t read this account&apos;s comp grants.</strong>{' '}
+            This is not a statement that it has none — it may already hold an
+            active grant for the very thing you are about to gift. Reload before
+            issuing anything.
+          </p>
+        ) : grants.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-ink/15 px-4 py-6 text-sm text-ink/70">
             No comp grants on this account yet. Issue one with the form
             on the right to gift a service.
           </p>
@@ -774,8 +881,15 @@ function CompGrantsPanel({
             <p className="mb-2 text-xs font-medium text-ink/70">
               Services (only when scope is specific services)
             </p>
-            {grouped.size === 0 ? (
-              <p className="text-xs text-ink/45">No catalog SKUs found.</p>
+            {services === null ? (
+              <p className="rounded-md border border-danger-300/60 bg-danger-50/60 px-3 py-2 text-xs text-danger-900">
+                The service catalog could not be read, so there is nothing to tick
+                here. That is a failed read, <strong>not</strong> an empty
+                catalog — issuing a specific-services grant now would scope it to
+                nothing.
+              </p>
+            ) : grouped.size === 0 ? (
+              <p className="text-xs text-ink/70">No catalog SKUs found.</p>
             ) : (
               <div className="max-h-56 space-y-4 overflow-y-auto rounded-lg border border-ink/10 bg-white p-3">
                 {Array.from(grouped.entries()).map(([category, skus]) => (

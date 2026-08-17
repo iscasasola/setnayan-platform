@@ -372,6 +372,7 @@ export default async function AdminBudgetPlannerPage() {
         <ConsoleTable
           rows={agg.measured ? agg.aggregates : null}
           readPermitted
+          readError={agg.measured ? null : { message: agg.readMessage }}
           reads="the de-identified couple insights"
           label="Couple insights"
           minWidth="35rem"

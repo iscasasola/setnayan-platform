@@ -21,15 +21,16 @@
  * between a public key and the data.
  *
  * ⚠ It is also NOT a list of every table that should be closed. It is what has
- * been closed SO FAR — batch 1 (20271145190664, 16 tables) and batch 2
- * (20271145286482, 17 tables): 33 of the 213 that hold an anon grant with no
- * anon-reaching policy.
+ * been closed SO FAR — batch 1 (20271145190664, 16), batch 2 (20271145286482,
+ * 17) and batch 3 (20271147692197, 16): 49 of the 180 that hold an anon grant
+ * with no anon-reaching policy, measured in prod 2026-08-17.
  *
- * ⏭ The remaining ~180 are dominated by gate-4 failures — tables the app
- * genuinely queries — so the next batch is NOT another easy sweep. Each one
- * needs the question "does any ANON-KEY path read this, or only a signed-in /
- * service-role one?", because a revoke there turns an RLS-empty result into a
- * permission ERROR for whatever calls it.
+ * ⏭ The remaining ~131 are queried through `server.ts` (the caller's own
+ * session — ANON when signed out) or the BROWSER client. Batch 3 took everything
+ * reachable only by the SERVICE ROLE, so that set is now exhausted too. Each
+ * remaining table needs the question no scan can answer for it: does a SIGNED-OUT
+ * visitor's path actually reach it, or only a signed-in one? A wrong answer turns
+ * an RLS-empty result into a permission ERROR on a live page.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -125,8 +126,53 @@ const CLOSED_IN_BATCH_2 = [
   'vendor_release_history',
 ];
 
+/**
+ * Batch 3 — migration 20271147692197. The FIRST batch where "no code queries it"
+ * was no longer available: batches 1 and 2 exhausted that set, so all 171
+ * remaining candidates are queried by application code.
+ *
+ * 🔑 SO GATE 4 SHARPENED from "does the app query it?" to "does any ANON-KEY path
+ * query it?". `lib/supabase/` ships three factories and only one is
+ * grant-independent — `admin.ts` (service role). `server.ts` is the caller's own
+ * session, which is ANON when the visitor is signed out, and `client.ts` is the
+ * browser. Every file that queries a table below imports the admin client and
+ * NEITHER of the other two, so revoking `anon` cannot reach them.
+ *
+ * 🪤 The INJECTED-CLIENT trap is excluded explicitly: a `lib/` helper taking
+ * `supabase: SupabaseClient` as a parameter proves nothing, because the CALLER
+ * picks the privilege level. Any such file disqualified its table rather than
+ * being guessed at.
+ *
+ * ⚠ THE SCAN WAS NOT THE VERDICT — three were read by hand because they looked
+ * anon-reachable, and all three mentions turned out to be comments or indirection:
+ * `promo_free_windows` is named in `lib/sku-catalog.ts` (public pricing) only in
+ * prose; `demo_sessions` is named in two `'use client'` homepage overlays only in
+ * docblocks, its one write being a server action on the admin client; and
+ * `guest_claims` looked guest-facing but `lib/guest-claim-core.ts` is pure logic
+ * with zero queries — the writes are `UPDATE public.guest_claims` inside a
+ * SECURITY DEFINER function, which ignores caller grants entirely.
+ */
+const CLOSED_IN_BATCH_3 = [
+  'anniversary_email_log',
+  'anniversary_headsup_log',
+  'demo_sessions',
+  'drive_copy_folders',
+  'godchild_reminder_log',
+  'guest_claims',
+  'promo_free_windows',
+  'renewal_reminder_log',
+  'seo_health_snapshots',
+  'seo_metrics',
+  'setnayan_ai_guard_log',
+  'social_milestones',
+  'vendor_image_flags',
+  'vendor_image_hashes',
+  'vendor_qr_media_flags',
+  'vendor_verifications',
+];
+
 /** Every table closed so far. Later batches append their own list above. */
-const CLOSED = [...CLOSED_IN_BATCH_1, ...CLOSED_IN_BATCH_2];
+const CLOSED = [...CLOSED_IN_BATCH_1, ...CLOSED_IN_BATCH_2, ...CLOSED_IN_BATCH_3];
 
 /** Every verb PostgREST can reach, plus the one RLS does not cover. */
 const VERBS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE'] as const;
@@ -159,7 +205,11 @@ test('META · the replay has the anon role and these tables, so a pass means som
     `batch 2's list has shrunk to ${CLOSED_IN_BATCH_2.length} — did someone trim it to go green?`,
   );
   assert.ok(
-    CLOSED.length >= 31,
+    CLOSED_IN_BATCH_3.length >= 16,
+    `batch 3's list has shrunk to ${CLOSED_IN_BATCH_3.length} — did someone trim it to go green?`,
+  );
+  assert.ok(
+    CLOSED.length >= 47,
     `the combined closed list has shrunk to ${CLOSED.length} — did someone trim it to go green?`,
   );
 
@@ -177,7 +227,7 @@ test('META · the replay has the anon role and these tables, so a pass means som
   );
 });
 
-test('anon holds NOTHING on any table closed so far (batch 1 + batch 2)', async () => {
+test('anon holds NOTHING on any table closed so far (batches 1 + 2 + 3)', async () => {
   const open: string[] = [];
   for (const table of CLOSED) {
     for (const verb of VERBS) {
@@ -191,7 +241,7 @@ test('anon holds NOTHING on any table closed so far (batch 1 + batch 2)', async 
   assert.deepEqual(
     open,
     [],
-    'anon has regained privileges that migration 20271145190664 or 20271145286482 revoked:\n  ' +
+    'anon has regained privileges that migration 20271145190664, 20271145286482 or 20271147692197 revoked:\n  ' +
       open.join('\n  ') +
       '\n\nThis is almost never deliberate. The usual cause is a later migration ' +
       "re-creating the table or running a broad GRANT, which re-applies the schema's " +

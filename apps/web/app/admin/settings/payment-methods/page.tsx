@@ -14,6 +14,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { QrUploadForm } from '../_components/qr-upload-form';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { removeMerchantQr, savePaymentInstruments } from '../actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -87,9 +88,16 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
   // zero rows forever behind a reassuring empty meter. A 'pending' row is
   // money we have not confirmed arrived.
   //
-  // Fail-soft: a read error leaves the sums at zero and the meter simply reads
-  // low. It must never take the settings form down — the admin may be opening
-  // this page precisely BECAUSE payments are misbehaving.
+  // Fail-soft: a read error must never take the settings form down — the admin
+  // may be opening this page precisely BECAUSE payments are misbehaving.
+  //
+  // ⚠ BUT "the meter simply reads low" WAS THE WRONG TRADE, and it is corrected
+  // here. Headroom is cap MINUS inflow, so a falsely-zero inflow does not read
+  // low — it reads HIGH, telling the owner a rail can still receive money it
+  // cannot. Transfers past a full account FAIL rather than queue, and this
+  // page's own copy already states the principle: "a working-looking button on
+  // a full account is worse than an honest pause." An unmeasured inflow now
+  // refuses to claim headroom at all; the form still renders either way.
   const now = new Date();
   const monthStart = monthStartISO(now);
   const asOfFloor = [settings.gcash_available_as_of, settings.bdo_available_as_of]
@@ -97,16 +105,18 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
     .sort()[0];
   const sinceMonthStart = { gcash: 0, bdo: 0 };
   const sinceAsOf = { gcash: 0, bdo: 0 };
+  let inflowMeasured = true;
   try {
     // One read covering both windows — the earlier of (month start, oldest
     // override) — then bucket in memory rather than issuing two queries.
     const floor =
       asOfFloor && asOfFloor.slice(0, 10) < monthStart ? asOfFloor.slice(0, 10) : monthStart;
-    const { data: inflow } = await admin
+    const { data: inflow, error: inflowError } = await admin
       .from('payments')
       .select('channel, amount_php, paid_at, created_at')
       .eq('status', 'matched')
       .gte('paid_at', floor);
+    if (inflowError || inflow === null) inflowMeasured = false;
     for (const row of (inflow ?? []) as {
       channel: string;
       amount_php: number;
@@ -125,7 +135,9 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
       if (asOf && row.created_at > asOf) sinceAsOf[rail] += amount;
     }
   } catch {
-    /* meters read zero; the form still renders */
+    // The THROW path is the same claim as the refused-read path: nothing was
+    // counted. It must not resolve to zero either.
+    inflowMeasured = false;
   }
   const { data, error } = await admin
     .from('setnayan_pay_methods')
@@ -142,7 +154,16 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
     logQueryError('AdminPaymentMethodsPage (setnayan_pay_methods)', error);
   }
 
-  const rows = ((data ?? []) as PaymentMethodRow[]);
+  /**
+   * ⚠ THIS SURFACE ALREADY GOT THE REFUSED READ RIGHT, AND THE CONVERSION MUST
+   * NOT WEAKEN IT. It branched on `error` FIRST, so the `?? []` below it was
+   * unreachable and never became a lie — one of only two admin surfaces where
+   * that held. `ConsoleTable` resolves in the same order (error beats empty, via
+   * the shared resolver), so the hand-rolled branch is replaced by the archetype
+   * rather than simply deleted, and `null` now carries the distinction to the
+   * render instead of the branch carrying it here.
+   */
+  const rows = data as PaymentMethodRow[] | null;
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -218,6 +239,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
             availableAsOf={settings.bdo_available_as_of}
             inflowSinceAsOfPhp={sinceAsOf.bdo}
             inflowThisMonthPhp={sinceMonthStart.bdo}
+            inflowMeasured={inflowMeasured}
             now={now}
           />
         </section>
@@ -254,6 +276,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
             availableAsOf={settings.gcash_available_as_of}
             inflowSinceAsOfPhp={sinceAsOf.gcash}
             inflowThisMonthPhp={sinceMonthStart.gcash}
+            inflowMeasured={inflowMeasured}
             now={now}
           />
         </section>
@@ -316,93 +339,79 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
           </p>
         </header>
 
-        {error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-          >
-            Payment methods couldn&apos;t load right now. We&apos;ve logged the
-            issue — refresh in a moment or check Sentry for the full detail.
-          </p>
-        ) : rows.length === 0 ? (
-          <p className="rounded-md border border-dashed border-ink/15 bg-white/50 p-3 text-sm text-ink/55">
-            No historical Setnayan Pay rows recorded. (V2 doesn&apos;t write to
-            this table; this is expected on fresh environments.)
-          </p>
-        ) : (
-          <div className="sn-tile overflow-x-auto !p-0">
-            <table className="min-w-full divide-y divide-ink/10 text-sm">
-              <thead className="bg-ink/5">
-                <tr>
-                  <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Method
-                  </th>
-                  <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Gateway fee
-                  </th>
-                  <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Setnayan Pay
-                  </th>
-                  <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Min fee
-                  </th>
-                  <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Total
-                  </th>
-                  <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/10">
-                {rows.map((m) => {
-                  const gatewayPct = Number(m.gateway_fee_pct) * 100;
-                  const setnayanPct = Number(m.setnayan_pay_pct) * 100;
-                  const totalPct = gatewayPct + setnayanPct;
-                  // Coalesce a NULL (pre-migration env) to the canonical ₱50
-                  // floor for display — keeps the cell stable across mixed
-                  // migration states. Post-migration every row carries 5000
-                  // by default.
-                  const minFeeCentavos = m.min_fee_centavos ?? 5000;
-                  const minFeePhp = Math.round(minFeeCentavos / 100);
-                  return (
-                    <tr key={m.method_code} className={m.is_active ? '' : 'opacity-50'}>
-                      <td className="px-3 py-2">
-                        <div className="font-medium text-ink">{m.display_name}</div>
-                        <div className="font-mono text-[11px] text-ink/55">
-                          {m.method_code}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {gatewayPct.toFixed(2)}%
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {setnayanPct.toFixed(2)}%
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        ₱{minFeePhp.toLocaleString('en-PH')}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono font-semibold">
-                        {totalPct.toFixed(2)}%
-                      </td>
-                      <td className="px-3 py-2 text-xs">
-                        {m.is_active ? (
-                          <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 font-medium text-success-800">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center rounded-full bg-ink/10 px-2 py-0.5 font-medium text-ink/55">
-                            Inactive
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <ConsoleTable
+          rows={rows}
+          readPermitted
+          readError={error}
+          reads="the retired Setnayan Pay rates"
+          label="Legacy Setnayan Pay methods"
+          minWidth="46rem"
+          note="Read-only history. Setnayan Pay is not the checkout rail any more, so there is deliberately nothing to press — these rows are kept so an old order's fee can still be explained."
+          rowKey={(m) => m.method_code}
+          empty={{
+            Icon: Wallet,
+            title: 'No historical Setnayan Pay rows',
+            blurb:
+              'V2 never writes to this table, so an empty list is the expected state on a fresh environment — not a sign anything is missing.',
+          }}
+          columns={[
+            {
+              header: 'Method',
+              cell: (m) => (
+                <>
+                  <div className="font-medium text-ink">{m.display_name}</div>
+                  <div className="font-mono text-[11px] text-ink/70">{m.method_code}</div>
+                </>
+              ),
+            },
+            {
+              header: 'Gateway fee',
+              align: 'right',
+              mono: true,
+              hideBelow: 'md',
+              cell: (m) => `${(Number(m.gateway_fee_pct) * 100).toFixed(2)}%`,
+            },
+            {
+              header: 'Setnayan Pay',
+              align: 'right',
+              mono: true,
+              hideBelow: 'md',
+              cell: (m) => `${(Number(m.setnayan_pay_pct) * 100).toFixed(2)}%`,
+            },
+            {
+              header: 'Min fee',
+              align: 'right',
+              mono: true,
+              hideBelow: 'lg',
+              // Coalesce a NULL (pre-migration env) to the canonical ₱50 floor
+              // for display. Post-migration every row carries 5000 by default.
+              cell: (m) => `₱${Math.round((m.min_fee_centavos ?? 5000) / 100).toLocaleString('en-PH')}`,
+            },
+            {
+              header: 'Total',
+              align: 'right',
+              mono: true,
+              cell: (m) => (
+                <span className="font-semibold">
+                  {(Number(m.gateway_fee_pct) * 100 + Number(m.setnayan_pay_pct) * 100).toFixed(2)}%
+                </span>
+              ),
+            },
+            {
+              header: 'Status',
+              cell: (m) =>
+                m.is_active ? (
+                  <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-xs font-medium text-success-800">
+                    Active
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-ink/10 px-2 py-0.5 text-xs font-medium text-ink/70">
+                    Inactive
+                  </span>
+                ),
+            },
+          ]}
+        />
 
         <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
           Source · spec corpus 2026-05-16 (a0fa3c7) · flat 5.0% lock 2026-05-16
@@ -490,6 +499,7 @@ function ChannelSwitch({
   availableAsOf,
   inflowSinceAsOfPhp,
   inflowThisMonthPhp,
+  inflowMeasured,
   now,
 }: {
   kind: 'gcash' | 'bdo';
@@ -499,10 +509,12 @@ function ChannelSwitch({
   availableAsOf: string | null;
   inflowSinceAsOfPhp: number;
   inflowThisMonthPhp: number;
+  /** False when the inflow read did not complete — then NO headroom is claimed. */
+  inflowMeasured: boolean;
   now: Date;
 }) {
   const label = PAY_CHANNEL_LABEL[kind];
-  const headroom = channelHeadroom({
+  const measuredHeadroom = channelHeadroom({
     capPhp,
     availablePhp,
     availableAsOf,
@@ -510,6 +522,9 @@ function ChannelSwitch({
     inflowThisMonthPhp,
     now,
   });
+  // Unmeasured inflow ⇒ no headroom claim at all. `null` is the shape this
+  // component already renders as "we are not telling you a number".
+  const headroom = inflowMeasured ? measuredHeadroom : null;
   const tone =
     headroom == null
       ? 'border-ink/10 bg-cream'
@@ -575,6 +590,19 @@ function ChannelSwitch({
         Leave it blank to measure against the monthly limit instead, which
         always reads higher than the truth. It resets to the limit on the 1st.
       </p>
+
+      {!inflowMeasured ? (
+        <p
+          role="alert"
+          className="rounded-md border border-warn-300/60 bg-warn-50 px-3 py-2 text-[12px] leading-relaxed text-warn-900"
+        >
+          <strong>We could not read this month&rsquo;s {label} inflow</strong>, so
+          no remaining-capacity figure is shown for it. This is NOT a reading of
+          zero received — a zero here would make the account look emptier, and so
+          more able to receive, than it may be. Check the {label} app directly
+          before turning this rail back on or accepting a large transfer.
+        </p>
+      ) : null}
 
       {headroom ? (
         <div className="space-y-1.5">

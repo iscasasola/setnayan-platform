@@ -13,9 +13,13 @@ import {
   type FlagType,
 } from '@/lib/force-majeure';
 import { MiniTour } from '@/app/_components/mini-tour';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Force Majeure · Admin' };
+
+/** One number: the query reads it and ConsoleTable discloses it. Never two copies. */
+const ROW_LIMIT = 200;
 
 type FlagRow = {
   flag_id: string;
@@ -86,7 +90,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
       'flag_id, public_id, event_id, flag_type, status, description, evidence_urls, admin_handler_user_id, auto_resolve_at, resolved_at, created_at',
     )
     .order('created_at', { ascending: false })
-    .limit(200);
+    .limit(ROW_LIMIT);
 
   if (filter === 'open_set') {
     // Include `escalated` — a stale flag the sweep advanced for attention must
@@ -100,13 +104,16 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
   if (error) {
     logQueryError('AdminForceMajeurePage (force_majeure_flags)', error);
   }
-  const flags = (data ?? []) as FlagRow[];
+  // NULL is "not measured". `?? []` is what let the empty state contradict the
+  // error alert three inches above it.
+  const flags = data as FlagRow[] | null;
 
   // Side queries — fetch related events + handlers once so the row map is O(1).
-  const eventIds = Array.from(new Set(flags.map((f) => f.event_id)));
+  const listed = flags ?? [];
+  const eventIds = Array.from(new Set(listed.map((f) => f.event_id)));
   const handlerIds = Array.from(
     new Set(
-      flags
+      listed
         .map((f) => f.admin_handler_user_id)
         .filter((v): v is string => typeof v === 'string'),
     ),
@@ -127,6 +134,15 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
       : Promise.resolve({ data: [] as AdminLookup[], error: null }),
   ]);
 
+  // Same rule as the primary read: these carry the event NAME and the HANDLER's
+  // name. Refused, every row reads "—" for both, which looks like unassigned work
+  // on an unnamed wedding rather than a failed lookup. Neither changes the row
+  // count, so ConsoleTable cannot see it — the page has to say it.
+  const eventsError = 'error' in eventsRes ? eventsRes.error : null;
+  const handlersError = 'error' in handlersRes ? handlersRes.error : null;
+  if (eventsError) logQueryError('AdminForceMajeurePage.events', eventsError);
+  if (handlersError) logQueryError('AdminForceMajeurePage.handlers', handlersError);
+
   const eventsById = new Map<string, EventLookup>(
     ((eventsRes.data ?? []) as EventLookup[]).map((e) => [e.event_id, e]),
   );
@@ -138,8 +154,12 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
         <div className="flex items-center gap-2">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-            <AlertTriangle aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+          {/* The gold moves from the container to the GLYPH. Same look, and it is
+              what the rule actually permits: gold clears the 3:1 non-text bar
+              (3.04:1 measured on this tint) but fails 4.5:1 for text, and a
+              colour on the wrapper is indistinguishable from a text colour. */}
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-terracotta/10">
+            <AlertTriangle aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
           </span>
           <h1 className="text-2xl font-semibold tracking-tight">Force majeure</h1>
         </div>
@@ -173,100 +193,117 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
         </button>
       </form>
 
-      {error ? (
+      {/* FAILS TOWARD THE CAVEAT — a row missing its labels must not read as a
+          row with nothing assigned. Distinct from the empty/error states below. */}
+      {eventsError || handlersError ? (
         <p
           role="alert"
-          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+          className="mb-4 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
         >
-          Force majeure flags couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
+          <strong className="text-ink">Some names could not be read.</strong>{' '}
+          {eventsError ? 'Event names are missing, so rows show a dash. ' : ''}
+          {handlersError
+            ? 'Handler names are missing, so a routed flag may look unassigned. '
+            : ''}
+          The flags themselves, their statuses and their timers are accurate.
         </p>
       ) : null}
 
-      {flags.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
-          <AlertTriangle
-            aria-hidden
-            className="mx-auto mb-2 h-6 w-6 text-ink/30"
-            strokeWidth={1.5}
-          />
-          Nothing in this view.
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink/10">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
-              <tr>
-                <th className="px-3 py-3 font-medium">Flag</th>
-                <th className="px-3 py-3 font-medium">Event</th>
-                <th className="px-3 py-3 font-medium">Type</th>
-                <th className="px-3 py-3 font-medium">Status</th>
-                <th className="hidden px-3 py-3 font-medium md:table-cell">
-                  Handler
-                </th>
-                <th className="hidden px-3 py-3 font-medium md:table-cell">
-                  Created
-                </th>
-                <th className="px-3 py-3 font-medium">SLA</th>
-              </tr>
-            </thead>
-            <tbody>
-              {flags.map((f) => {
-                const ev = eventsById.get(f.event_id);
-                const handler = f.admin_handler_user_id
-                  ? handlersById.get(f.admin_handler_user_id)
-                  : null;
-                const countdown = f.resolved_at
+      {/* ⚠ THIS PAGE USED TO SAY TWO CONTRADICTORY THINGS AT ONCE. It rendered an
+          error alert AND, immediately below it, "Nothing in this view." — because
+          `flags` had been coerced from null to []. Better than the pages that only
+          said the second thing, and still wrong: a coordinator reads the nearest
+          sentence, and the nearest sentence asserted there were no flags. One
+          state now, decided by ConsoleTable, never both. */}
+      <ConsoleTable
+        rows={flags}
+        readPermitted
+        readError={error}
+        reads="the force majeure flags"
+        cap={ROW_LIMIT}
+        label="Force majeure flags"
+        minWidth="52rem"
+        note="A flag left alone auto-resolves on its 7-day timer, so an unread queue still moves. Open a flag to route it; there is nothing to press on the list itself."
+        rowKey={(f) => f.flag_id}
+        empty={{
+          Icon: AlertTriangle,
+          title: filter === 'all' ? 'No flags have ever been raised' : 'Nothing in this view',
+          blurb:
+            'Couples raise these from their own disputes screen. Nothing here means nobody has reported a washed-out road, a closed venue or a supplier who could not travel — change the filter if you are looking for ones already resolved.',
+        }}
+        columns={[
+          {
+            header: 'Flag',
+            cell: (f) => (
+              <Link
+                href={`/admin/force-majeure/${f.flag_id}`}
+                className="font-mono text-[11px] uppercase tracking-[0.15em] text-link hover:underline"
+              >
+                {f.public_id}
+              </Link>
+            ),
+          },
+          {
+            header: 'Event',
+            cell: (f) => {
+              const ev = eventsById.get(f.event_id);
+              return (
+                <>
+                  <p className="font-medium text-ink">{ev?.display_name ?? '—'}</p>
+                  <p className="font-mono text-[10px] text-ink/70">{ev?.public_id ?? ''}</p>
+                </>
+              );
+            },
+          },
+          {
+            header: 'Type',
+            cell: (f) => <span className="text-ink/75">{FLAG_TYPE_LABEL[f.flag_type]}</span>,
+          },
+          {
+            header: 'Status',
+            cell: (f) => (
+              <span
+                className={`whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${FLAG_STATUS_TONE[f.status]}`}
+              >
+                {FLAG_STATUS_LABEL[f.status]}
+              </span>
+            ),
+          },
+          {
+            header: 'Handler',
+            hideBelow: 'md',
+            cell: (f) => {
+              const handler = f.admin_handler_user_id
+                ? handlersById.get(f.admin_handler_user_id)
+                : null;
+              return (
+                <span className="text-xs text-ink/70">
+                  {handler?.display_name ?? handler?.email ?? (
+                    <span className="text-ink/70">unassigned</span>
+                  )}
+                </span>
+              );
+            },
+          },
+          {
+            header: 'Created',
+            hideBelow: 'md',
+            mono: true,
+            cell: (f) => <span className="text-ink/70">{f.created_at.slice(0, 10)}</span>,
+          },
+          {
+            header: 'SLA',
+            align: 'right',
+            cell: (f) => (
+              <span className="whitespace-nowrap text-xs text-ink/70">
+                {(f.resolved_at
                   ? `Resolved ${f.resolved_at.slice(0, 10)}`
-                  : formatAutoResolveCountdown(f.auto_resolve_at);
-                return (
-                  <tr
-                    key={f.flag_id}
-                    className="border-t border-ink/5 hover:bg-terracotta/[0.04]"
-                  >
-                    <td className="px-3 py-3">
-                      <Link
-                        href={`/admin/force-majeure/${f.flag_id}`}
-                        className="font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta hover:underline"
-                      >
-                        {f.public_id}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-3">
-                      <p className="font-medium text-ink">
-                        {ev?.display_name ?? '—'}
-                      </p>
-                      <p className="font-mono text-[10px] text-ink/55">
-                        {ev?.public_id ?? ''}
-                      </p>
-                    </td>
-                    <td className="px-3 py-3 text-ink/75">
-                      {FLAG_TYPE_LABEL[f.flag_type]}
-                    </td>
-                    <td className="px-3 py-3">
-                      <span
-                        className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${FLAG_STATUS_TONE[f.status]}`}
-                      >
-                        {FLAG_STATUS_LABEL[f.status]}
-                      </span>
-                    </td>
-                    <td className="hidden px-3 py-3 text-xs text-ink/70 md:table-cell">
-                      {handler?.display_name ?? handler?.email ?? (
-                        <span className="text-ink/40">unassigned</span>
-                      )}
-                    </td>
-                    <td className="hidden px-3 py-3 font-mono text-[11px] text-ink/55 md:table-cell">
-                      {f.created_at.slice(0, 10)}
-                    </td>
-                    <td className="px-3 py-3 text-xs text-ink/70">
-                      {countdown ?? '—'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                  : formatAutoResolveCountdown(f.auto_resolve_at)) ?? '—'}
+              </span>
+            ),
+          },
+        ]}
+      />
       <MiniTour tourKey="admin_force_majeure_v1" />
     </div>
   );

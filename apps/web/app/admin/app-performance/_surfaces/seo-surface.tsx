@@ -1,7 +1,38 @@
-// Insights Studio surface — the body of the former /admin/seo page,
-// re-homed here (2026-07-10). Gating is handled by the studio shell.
-import { AlertTriangle, CheckCircle2, XCircle, Search, Bot } from 'lucide-react';
+/**
+ * Insights Studio surface — the body of the former /admin/seo page,
+ * re-homed here (2026-07-10).
+ *
+ * ── Converted to <ConsoleTable> 2026-08-17 ─────────────────────────────────
+ * Both reads on this surface used to report a refusal as an absence:
+ *
+ *   • the snapshot read fell through `snapRes.data ?? null` into "No health
+ *     snapshot yet. …it'll populate within a few minutes", which tells the
+ *     reader to WAIT for a screen that is never coming; and
+ *   • the Search Console read fell through `?? []` into a tidy "no data yet"
+ *     panel listing four environment variables to go and set — a remedy
+ *     addressed to somebody whose read was actually being refused.
+ *
+ * Neither read throws when it is rejected: Supabase resolves with `{ error }`.
+ * So both now keep NULL all the way to the render.
+ *
+ * ⚠ ZERO SEARCH-CONSOLE ROWS IS THE HONEST, EXPECTED STATE — measured in
+ * production 2026-08-17: `seo_metrics` holds 0 rows while `seo_health_
+ * snapshots` holds 33. The nightly pull has never delivered, so an empty table
+ * here must read as "nothing has arrived", NOT as breakage — which is exactly
+ * the distinction the empty state and the error state now draw apart.
+ *
+ * ⚠ THE `.limit(1)` ON THE SNAPSHOT IS NOT A LIST CAP — it is "the newest one",
+ * and `cap` is deliberately not passed for it. Disclosing it would print
+ * "showing the first 1, there are more" on every single load. The cap that IS
+ * real is the 14-day Search Console window below.
+ */
+import { AlertTriangle, CheckCircle2, XCircle, Bot } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdmin } from '@/lib/admin/require-admin';
+import { ErrorState } from '@/app/_components/states/error-state';
+import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import type { HealthFinding, PriceDriftEntry, HealthStatus } from '@/lib/seo/health-checks';
 import { SeoRerunButton } from './seo-rerun-button';
 
@@ -30,18 +61,21 @@ const STATUS_STYLE: Record<HealthStatus, { icon: typeof CheckCircle2; cls: strin
   fail: { icon: XCircle, cls: 'text-[color:var(--sn-danger)]', label: 'Fail' },
 };
 
-function StatCard({ n, label, tone }: { n: number; label: string; tone: string }) {
-  return (
-    <div className="rounded-xl border border-ink/10 bg-white/60 p-4 text-center">
-      <div className={`text-2xl font-semibold ${tone}`}>{n}</div>
-      <div className="mt-0.5 text-xs uppercase tracking-wide text-ink/55">{label}</div>
-    </div>
-  );
-}
+/**
+ * The Search Console window, hoisted so the query, the heading and the cap
+ * disclosure cannot drift. It used to be typed three separate times.
+ */
+const GSC_WINDOW_DAYS = 14;
+
+/** The chip list under the table shows the busiest queries of the newest day. */
+const TOP_QUERIES_SHOWN = 15;
 
 export async function SeoSurface() {
-  // Page-level gate — the RLS-bypassing service-role client below must never run
-  // for a non-admin (layouts aren't a safe auth boundary; council fix #1).
+  // The RLS-bypassing service-role client below must never run for a non-admin,
+  // and a layout is not a safe auth boundary (council fix #1). The studio page
+  // already gates; this states it in the file that holds the client, so
+  // `readPermitted` is honestly true here and not true-by-inheritance.
+  await requireAdmin();
 
   const admin = createAdminClient();
 
@@ -57,37 +91,43 @@ export async function SeoSurface() {
       .select('metric_date, clicks, impressions, ctr, avg_position, top_queries')
       .eq('source', 'gsc')
       .order('metric_date', { ascending: false })
-      .limit(14),
+      .limit(GSC_WINDOW_DAYS),
   ]);
 
-  const snap = (snapRes.data ?? null) as Snapshot | null;
-  const metrics = (metricsRes.data ?? []) as MetricRow[];
-  const latestMetric = metrics[0] ?? null;
+  // NULL, not a tidy fallback: a refused snapshot read is not "no snapshot
+  // yet", and a refused metrics read is not "no data yet".
+  const snap = snapRes.data as Snapshot | null;
+  const metrics = metricsRes.data as MetricRow[] | null;
+  const latestMetric = metrics?.[0] ?? null;
   const nags = (snap?.findings ?? []).filter((f) => f.status !== 'ok');
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
-      <header className="flex items-start gap-3">
-        <Search className="mt-1 h-6 w-6 shrink-0 text-ink/40" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-4">
-            <h1 className="text-xl font-semibold text-ink">SEO &amp; GEO</h1>
-            {/* The audit is claim-gated to ~daily off admin traffic, and after()
-                shows the PREVIOUS snapshot — this is the only way to see a
-                catalog edit reflected immediately. */}
-            <SeoRerunButton />
-          </div>
-          <p className="mt-1 max-w-2xl text-sm text-ink/60">
+      <PageMasthead
+        title="SEO & GEO"
+        lede={
+          <>
             Daily automated audit of the search + AI-answer-engine surface. The{' '}
             <code className="rounded bg-ink/5 px-1">seo-health</code> cron diffs the served{' '}
             <code className="rounded bg-ink/5 px-1">llms.txt</code> against the live catalog and
             checks route + token coverage each night; <code className="rounded bg-ink/5 px-1">seo-gsc</code>{' '}
             pulls Search Console. Drift surfaces here instead of shipping wrong answers to every LLM.
-          </p>
-        </div>
-      </header>
+          </>
+        }
+        /* The audit is claim-gated to ~daily off admin traffic, and after()
+           shows the PREVIOUS snapshot — this is the only way to see a catalog
+           edit reflected immediately. */
+        actions={<SeoRerunButton />}
+      />
 
-      {!snap ? (
+      {snapRes.error ? (
+        <ErrorState
+          title="Couldn't read the health audit"
+          broke={`The read was refused: ${snapRes.error.message}`}
+          survived="No scorecard loaded, so this is NOT a statement that the audit has never run — it is a statement that we do not know how it stands."
+          todo="Reload. If it repeats, the query is being rejected rather than returning nothing, and the column, value or migration it names is the thing to check."
+        />
+      ) : !snap ? (
         <div className="rounded-xl border border-dashed border-ink/20 p-8 text-center text-sm text-ink/60">
           No health snapshot yet. The daily SEO health audit runs automatically off
           admin traffic (cron-free) and writes the first one; just keep browsing the
@@ -104,10 +144,13 @@ export async function SeoSurface() {
                 {snap.generated_by}
               </span>
             </div>
+            {/* The shared admin stat tile, replacing a local re-declaration of
+                it. Its `null` renders an em-dash, which is why these counts are
+                only ever reached inside the branch that HAS a snapshot. */}
             <div className="grid grid-cols-3 gap-3">
-              <StatCard n={snap.ok_count} label="Passing" tone="text-emerald-600" />
-              <StatCard n={snap.warn_count} label="Warnings" tone="text-amber-600" />
-              <StatCard n={snap.fail_count} label="Failing" tone="text-[color:var(--sn-danger)]" />
+              <KpiStatCard label="Passing" value={snap.ok_count} />
+              <KpiStatCard label="Warnings" value={snap.warn_count} />
+              <KpiStatCard label="Failing" value={snap.fail_count} />
             </div>
             <ul className="divide-y divide-ink/5 rounded-xl border border-ink/10 bg-white/60">
               {snap.findings.map((f, i) => {
@@ -175,58 +218,65 @@ export async function SeoSurface() {
       {/* Search Console trend */}
       <section className="space-y-3">
         <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-ink/70">
-          <Bot className="h-4 w-4 text-ink/40" /> Search Console (last 14 days)
+          <Bot className="h-4 w-4 text-ink/40" /> Search Console (last {GSC_WINDOW_DAYS} days)
         </h2>
-        {metrics.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink/20 p-6 text-center text-sm text-ink/60">
-            No Search Console data yet. Set <code className="rounded bg-ink/5 px-1">GSC_CLIENT_ID</code>,{' '}
-            <code className="rounded bg-ink/5 px-1">GSC_CLIENT_SECRET</code>,{' '}
-            <code className="rounded bg-ink/5 px-1">GSC_REFRESH_TOKEN</code>,{' '}
-            <code className="rounded bg-ink/5 px-1">GSC_SITE_URL</code> in Vercel env and the nightly{' '}
-            <code className="rounded bg-ink/5 px-1">seo-gsc</code> cron fills this in.
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto rounded-xl border border-ink/10 bg-white/60">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-ink/10 text-left text-xs uppercase tracking-wide text-ink/50">
-                    <th className="p-2 font-medium">Date</th>
-                    <th className="p-2 text-right font-medium">Clicks</th>
-                    <th className="p-2 text-right font-medium">Impressions</th>
-                    <th className="p-2 text-right font-medium">CTR</th>
-                    <th className="p-2 text-right font-medium">Avg pos</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {metrics.map((m) => (
-                    <tr key={m.metric_date} className="border-b border-ink/5 last:border-0">
-                      <td className="p-2 text-ink/70">{m.metric_date}</td>
-                      <td className="p-2 text-right tabular-nums text-ink">{m.clicks}</td>
-                      <td className="p-2 text-right tabular-nums text-ink">{m.impressions}</td>
-                      <td className="p-2 text-right tabular-nums text-ink/70">
-                        {(m.ctr * 100).toFixed(1)}%
-                      </td>
-                      <td className="p-2 text-right tabular-nums text-ink/70">{m.avg_position.toFixed(1)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <ConsoleTable
+          rows={metrics}
+          readPermitted
+          readError={metricsRes.error}
+          reads="the Search Console figures"
+          cap={GSC_WINDOW_DAYS}
+          label="Search Console daily figures"
+          minWidth="34rem"
+          rowKey={(m) => m.metric_date}
+          empty={{
+            Icon: Bot,
+            title: 'No Search Console data has arrived',
+            blurb:
+              'Nothing has been pulled yet, which is the expected state rather than a fault — the nightly pull has never delivered a day of figures. It needs GSC_CLIENT_ID, GSC_CLIENT_SECRET, GSC_REFRESH_TOKEN and GSC_SITE_URL set in Vercel, and a Google account that is allowed to answer; the audit above does not depend on any of that and keeps running either way.',
+          }}
+          columns={[
+            { header: 'Date', mono: true, cell: (m) => <span className="text-ink/70">{m.metric_date}</span> },
+            { header: 'Clicks', align: 'right', mono: true, cell: (m) => m.clicks },
+            {
+              header: 'Impressions',
+              align: 'right',
+              mono: true,
+              cell: (m) => m.impressions,
+            },
+            {
+              header: 'CTR',
+              align: 'right',
+              mono: true,
+              hideBelow: 'md',
+              cell: (m) => <span className="text-ink/70">{(m.ctr * 100).toFixed(1)}%</span>,
+            },
+            {
+              header: 'Avg pos',
+              align: 'right',
+              mono: true,
+              hideBelow: 'md',
+              cell: (m) => <span className="text-ink/70">{m.avg_position.toFixed(1)}</span>,
+            },
+          ]}
+        />
+        {latestMetric?.top_queries?.length ? (
+          <div className="rounded-xl border border-ink/10 bg-white/60 p-3">
+            <div className="mb-2 text-xs uppercase tracking-wide text-ink/70">
+              Top queries on {latestMetric.metric_date}
+              {latestMetric.top_queries.length > TOP_QUERIES_SHOWN
+                ? ` · showing ${TOP_QUERIES_SHOWN} of ${latestMetric.top_queries.length}`
+                : ''}
             </div>
-            {latestMetric?.top_queries?.length ? (
-              <div className="rounded-xl border border-ink/10 bg-white/60 p-3">
-                <div className="mb-2 text-xs uppercase tracking-wide text-ink/50">Top queries</div>
-                <ul className="flex flex-wrap gap-2">
-                  {latestMetric.top_queries.slice(0, 15).map((q, i) => (
-                    <li key={i} className="rounded-full bg-ink/5 px-2 py-0.5 text-xs text-ink/70">
-                      {q.query} <span className="text-ink/40">· {q.clicks}c</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </>
-        )}
+            <ul className="flex flex-wrap gap-2">
+              {latestMetric.top_queries.slice(0, TOP_QUERIES_SHOWN).map((q, i) => (
+                <li key={i} className="rounded-full bg-ink/5 px-2 py-0.5 text-xs text-ink/70">
+                  {q.query} <span className="text-ink/70">· {q.clicks}c</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
     </div>
   );

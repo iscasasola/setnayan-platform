@@ -21,16 +21,27 @@
  * WHAT A ZERO ACCOUNT SEES · An empty table is the expected state and must not
  * read as breakage: the policy is report-only, so no violations means nothing
  * on the site is currently outside the allowlist. The empty state says so.
+ * (Measured in production 2026-08-17: this table holds zero rows.)
  *
  * PRIVACY · Nothing personal reaches this table. `lib/csp-report.ts` reduces
  * the blocked URI to scheme+host and the document URI to a route SHAPE
  * (`/dashboard/:id`) before the write. No ids, tokens, query strings or slugs.
+ *
+ * ── Converted to <ConsoleTable> 2026-08-17, and this one was already RIGHT ──
+ * This file is where the archetype's rule came from: its own comment read
+ * "A FAILED READ IS NOT AN EMPTY LIST" and it returned on the error before it
+ * could render a list. Nothing about its behaviour changes here — the hand-
+ * rolled markup is dropped, and the three sentences it had written by hand
+ * (the refused-read report, the empty-is-the-good-outcome blurb, the row-cap
+ * disclosure) are now the component's, so the next surface gets them for free
+ * instead of having to remember them.
  */
 
 import { ShieldAlert } from 'lucide-react';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 const ROW_LIMIT = 200;
 
@@ -54,26 +65,14 @@ export async function BrowserBlocksSurface() {
     .order('last_seen_at', { ascending: false })
     .limit(ROW_LIMIT);
 
-  // ⚠ A FAILED READ IS NOT AN EMPTY LIST. Supabase resolves with `{ error }`
-  // rather than throwing, so treating null as "no violations" would print a
-  // reassuring "nothing was blocked" over a broken query — the same false calm
-  // that let the report endpoint look healthy while it recorded nothing.
-  if (error) {
-    return (
-      <section className="sn-col">
-        <h2 className="text-lg font-medium text-ink">Browser blocks</h2>
-        <p className="mt-3 rounded-lg border border-ink/15 bg-ink/[0.03] p-4 text-sm text-ink/80">
-          Could not read the violation log, so this is <strong>not</strong> a
-          statement that nothing was blocked — it is a statement that we do not
-          know. ({error.message})
-        </p>
-      </section>
-    );
-  }
-
-  const rows = (data ?? []) as Row[];
-  const total = rows.reduce((n, r) => n + Number(r.hits ?? 0), 0);
-  const origins = new Set(rows.map((r) => r.blocked_origin)).size;
+  // NULL survives to the render. Supabase resolves with `{ error }` rather than
+  // throwing, so coercing here would be the one place the distinction is lost —
+  // the same false calm that let the report endpoint look healthy while it
+  // recorded nothing.
+  const rows = data as Row[] | null;
+  const listed = rows ?? [];
+  const total = listed.reduce((n, r) => n + Number(r.hits ?? 0), 0);
+  const origins = new Set(listed.map((r) => r.blocked_origin)).size;
 
   return (
     <section className="sn-col">
@@ -90,58 +89,64 @@ export async function BrowserBlocksSurface() {
         </div>
       </header>
 
-      {rows.length === 0 ? (
-        <p className="mt-5 rounded-lg border border-ink/15 bg-ink/[0.03] p-4 text-sm text-ink/80">
-          Nothing recorded yet. With the policy in watching mode, an empty list
-          means no page has loaded anything outside the allowlist — which is the
-          good outcome, not a broken screen. Reports began being kept on
-          17 August 2026; anything before that was never written down.
-        </p>
-      ) : (
-        <>
-          <p className="mt-5 text-sm text-ink/70">
-            <strong>{total.toLocaleString()}</strong>{' '}
-            {total === 1 ? 'report' : 'reports'} across{' '}
-            <strong>{origins}</strong> {origins === 1 ? 'source' : 'sources'}.
-            A source that appears here repeatedly and is one of ours belongs in
-            the allowlist before the policy is tightened.
-          </p>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[46rem] border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-ink/15 text-left text-ink/60">
-                  <th scope="col" className="py-2 pr-4 font-medium">Rule</th>
-                  <th scope="col" className="py-2 pr-4 font-medium">Source it wanted</th>
-                  <th scope="col" className="py-2 pr-4 font-medium">Page</th>
-                  <th scope="col" className="py-2 pr-4 font-medium">Day</th>
-                  <th scope="col" className="py-2 pr-4 text-right font-medium">Times</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr
-                    key={`${r.directive}|${r.blocked_origin}|${r.route_shape}|${r.day}`}
-                    className="border-b border-ink/10"
-                  >
-                    <td className="py-2 pr-4 font-mono text-xs text-ink">{r.directive}</td>
-                    <td className="py-2 pr-4 font-mono text-xs text-ink">{r.blocked_origin}</td>
-                    <td className="py-2 pr-4 font-mono text-xs text-ink/70">{r.route_shape}</td>
-                    <td className="py-2 pr-4 text-ink/70">{r.day}</td>
-                    <td className="py-2 pr-4 text-right tabular-nums text-ink">
-                      {Number(r.hits).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {rows.length >= ROW_LIMIT ? (
-            <p className="mt-3 text-xs text-ink/60">
-              Showing the {ROW_LIMIT} busiest combinations. There are more.
-            </p>
-          ) : null}
-        </>
-      )}
+      <div className="mt-5">
+        <ConsoleTable
+          rows={rows}
+          readPermitted
+          readError={error}
+          reads="the violation log"
+          cap={ROW_LIMIT}
+          label="Browser blocks"
+          minWidth="46rem"
+          rowKey={(r) => `${r.directive}|${r.blocked_origin}|${r.route_shape}|${r.day}`}
+          note={
+            <>
+              <strong>{total.toLocaleString()}</strong>{' '}
+              {total === 1 ? 'report' : 'reports'} across{' '}
+              <strong>{origins}</strong> {origins === 1 ? 'source' : 'sources'},
+              busiest first. A source that appears here repeatedly and is one of
+              ours belongs in the allowlist before the policy is tightened.
+            </>
+          }
+          empty={{
+            Icon: ShieldAlert,
+            title: 'Nothing recorded yet',
+            blurb:
+              'With the policy in watching mode, an empty list means no page has loaded anything outside the allowlist — which is the good outcome, not a broken screen. Reports began being kept on 17 August 2026; anything before that was never written down.',
+          }}
+          columns={[
+            {
+              header: 'Rule',
+              mono: true,
+              cell: (r) => <span className="text-ink">{r.directive}</span>,
+            },
+            {
+              header: 'Source it wanted',
+              mono: true,
+              cell: (r) => <span className="text-ink">{r.blocked_origin}</span>,
+            },
+            {
+              header: 'Page',
+              mono: true,
+              hideBelow: 'md',
+              cell: (r) => <span className="text-ink/70">{r.route_shape}</span>,
+            },
+            {
+              header: 'Day',
+              hideBelow: 'lg',
+              cell: (r) => <span className="text-ink/70">{r.day}</span>,
+            },
+            {
+              header: 'Times',
+              align: 'right',
+              mono: true,
+              cell: (r) => (
+                <span className="text-ink">{Number(r.hits).toLocaleString()}</span>
+              ),
+            },
+          ]}
+        />
+      </div>
     </section>
   );
 }

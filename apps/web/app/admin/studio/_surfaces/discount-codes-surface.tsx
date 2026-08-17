@@ -128,6 +128,11 @@ function describeUses(row: DiscountCodeRow): string {
   return `${row.uses_count} of ${row.max_uses}`;
 }
 
+// ⚠ LOGGING NEVER CHANGED THE RENDER — the sentence from this file's own
+// conversion, and the first cut of this fix only logged. `'—'` is ALREADY the
+// legitimate value for a missing name here, so the dash is ambiguous between
+// "nothing on file" and "we could not read it": the same conflation as
+// error-vs-empty, one field down. It has to be said on screen.
 export async function DiscountCodesSurface({
   filter: filterRaw,
   created,
@@ -147,6 +152,7 @@ export async function DiscountCodesSurface({
   const disabledBanner = disabled ?? null;
   const enabledBanner = enabled ?? null;
 
+  let labelsUnread = false;
   const admin = createAdminClient();
 
   // Fetch all codes — small table, no need to paginate at pilot scale, and no
@@ -171,10 +177,14 @@ export async function DiscountCodesSurface({
   const creatorIds = Array.from(new Set(listed.map((r) => r.created_by_admin_id)));
   let creatorMap = new Map<string, { email: string; name: string }>();
   if (creatorIds.length > 0) {
-    const { data: admins } = await admin
+    const { data: admins, error: adminsError } = await admin
       .from('users')
       .select('user_id, email, display_name')
       .in('user_id', creatorIds);
+    // A refused label lookup does not change the row count, so the table cannot
+    // see it — but the reader then cannot tell who created each code.
+    labelsUnread = labelsUnread || Boolean(adminsError);
+    if (adminsError) logQueryError('DiscountCodesSurface.creatorNames', adminsError, {}, 'graceful_degrade');
     creatorMap = new Map(
       (admins ?? []).map((a: AdminLookupRow) => [
         a.user_id,
@@ -392,6 +402,20 @@ export async function DiscountCodesSurface({
           Expired{chipCount(expiredRows.length)}
         </FilterChip>
       </nav>
+
+      {/* Fails toward the caveat. A dash here is ALREADY the legitimate value
+          for a name that is genuinely absent, so an unread lookup and an empty
+          field are indistinguishable unless the page says which. */}
+      {labelsUnread ? (
+        <p
+          role="alert"
+          className="mb-3 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">Some names could not be read.</strong>{' '}
+          A code below shows a dash instead of who created it. The rows themselves are accurate — the names are
+          missing, not the records.
+        </p>
+      ) : null}
 
       <ConsoleTable
         rows={visibleRows}

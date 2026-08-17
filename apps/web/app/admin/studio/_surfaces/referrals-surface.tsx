@@ -80,7 +80,13 @@ function fmtDate(iso: string | null): string {
   });
 }
 
+// ⚠ LOGGING NEVER CHANGED THE RENDER — the sentence from this file's own
+// conversion, and the first cut of this fix only logged. `'—'` is ALREADY the
+// legitimate value for a missing name here, so the dash is ambiguous between
+// "nothing on file" and "we could not read it": the same conflation as
+// error-vs-empty, one field down. It has to be said on screen.
 export async function ReferralsSurface() {
+  let labelsUnread = false;
   const admin = createAdminClient();
 
   const [settingsRes, redemptionsRes] = await Promise.all([
@@ -123,10 +129,14 @@ export async function ReferralsSurface() {
   );
   const emailById = new Map<string, string>();
   if (userIds.length > 0) {
-    const { data: users } = await admin
+    const { data: users, error: usersError } = await admin
       .from('users')
       .select('user_id, email')
       .in('user_id', userIds);
+    // A refused label lookup does not change the row count, so the table cannot
+    // see it — but the reader then cannot tell which account each referral belongs to.
+    labelsUnread = labelsUnread || Boolean(usersError);
+    if (usersError) logQueryError('ReferralsSurface.userEmails', usersError, {}, 'graceful_degrade');
     for (const u of users ?? []) {
       emailById.set(u.user_id as string, (u.email as string) || '—');
     }
@@ -259,6 +269,20 @@ export async function ReferralsSurface() {
         <KpiStatCard label="Qualified" value={countOf('qualified')} />
         <KpiStatCard label="Rewarded" value={countOf('rewarded')} />
       </section>
+
+      {/* Fails toward the caveat. A dash here is ALREADY the legitimate value
+          for a name that is genuinely absent, so an unread lookup and an empty
+          field are indistinguishable unless the page says which. */}
+      {labelsUnread ? (
+        <p
+          role="alert"
+          className="mb-3 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">Some names could not be read.</strong>{' '}
+          A referral below shows a dash instead of the account it belongs to. The rows themselves are accurate — the names are
+          missing, not the records.
+        </p>
+      ) : null}
 
       <ConsoleTable
         rows={redemptions}

@@ -10,6 +10,8 @@ import {
   STALE_WINDOW_OPTIONS,
   eventTypeLabel,
   regionLabel,
+  CHURN_ROW_CAP,
+  LEAD_ROW_CAP,
   LEAD_TIER_LABELS,
   type StaleWindowKey,
   type ChurnRiskRow,
@@ -17,6 +19,8 @@ import {
   type LeadScoreRow,
   type LeadTier,
 } from '@/lib/admin/intelligence-stats';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { DEMO_MODE_COOKIE_NAME } from '@/lib/demo-mode';
 import { fetchAdminOutcomeOverview } from '@/lib/inquiry-outcomes';
 import { WonLostAdminCard } from '../_components/won-lost-admin-card';
@@ -28,6 +32,19 @@ import { WonLostAdminCard } from '../_components/won-lost-admin-card';
  * 20261202000000) cached for 10 minutes via unstable_cache — zero external
  * AI/API spend, bounded DB load. Mirrors /admin/growth's server-rendered,
  * no-client-JS pattern: GET-form filter, demo-mode cookie, sn-row tiles.
+ *
+ * ── Converted to <ConsoleTable> 2026-08-17 · BOTH tables ──────────────────
+ * Three reads, three ways to fail, and the two tables read a failure as good
+ * news: a refused churn read printed "No at-risk events — every couple with an
+ * upcoming event has been active", which is the most reassuring sentence on
+ * the surface and was being shown precisely when nobody had checked. The
+ * banner above them was right the whole time and lost the argument, because a
+ * table saying "all clear" outranks a line of small print saying "some metrics
+ * couldn't load".
+ *
+ * The caps were silent too: the churn RPC is asked for 100 rows and the lead
+ * RPC for 50, and neither said so. Both numbers now come from the module that
+ * passes them to the query.
  */
 
 type Props = {
@@ -81,35 +98,22 @@ export async function IntelligenceSurface({ searchParams }: Props) {
 
   return (
     <div>
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">
-          Setnayan · Internal ops
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="sn-h1">
-            Intelligence
-          </h1>
-          {stats.demo ? (
+      <PageMasthead
+        title="Intelligence"
+        lede={
+          stats.demo
+            ? 'Sample figures so you can see the shape of this surface before real data accrues. Turn off demo mode to see live counts.'
+            : 'Churn radar, market pulse, and lead scores — computed entirely from the platform’s own tables and cached for 10 minutes, so this surface never weighs on the production database.'
+        }
+        actions={
+          stats.demo ? (
             <span className="rounded-full border border-warn-300/70 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-warn-800">
               Illustrative demo data
             </span>
-          ) : null}
-        </div>
-        <p className="max-w-prose text-base text-ink/65">
-          {stats.demo ? (
-            <>
-              Sample figures so you can see the shape of this surface before
-              real data accrues. Turn off demo mode to see live counts.
-            </>
-          ) : (
-            <>
-              Churn radar, market pulse, and lead scores — computed entirely
-              from the platform&apos;s own tables and cached for 10 minutes, so
-              this surface never weighs on the production database.
-            </>
-          )}
-        </p>
-      </header>
+          ) : null
+        }
+        className="mb-6"
+      />
 
       {/* Vendor unit economics — Won/Lost reasons (moved from /admin/insights
           so the studio stays the one analytics home). Peso-per-Lead card removed
@@ -161,7 +165,11 @@ export async function IntelligenceSurface({ searchParams }: Props) {
           title="Churn radar"
           blurb={`Upcoming events whose couple has had zero activity — no login, guest change, budget entry, or seating edit — for ${staleDays}+ days.`}
         />
-        <ChurnTable rows={stats.churn} staleDays={staleDays} />
+        <ChurnTable
+          rows={stats.churn}
+          readError={stats.churnError}
+          staleDays={staleDays}
+        />
       </section>
 
       {/* ── MARKET PULSE ───────────────────────────────────────────── */}
@@ -181,7 +189,7 @@ export async function IntelligenceSurface({ searchParams }: Props) {
           title="Lead scores"
           blurb="Engagement-ranked active events (0–100). Couples who set a budget AND ran seating Auto-arrange concentrate in the top tier — the warmest upsell list on the platform."
         />
-        <LeadTable rows={stats.leads} />
+        <LeadTable rows={stats.leads} readError={stats.leadsError} />
       </section>
     </div>
   );
@@ -213,90 +221,98 @@ function SectionHeading({
   );
 }
 
-const TH_CLASS =
-  'px-3 py-2 text-left font-mono text-[10px] font-medium uppercase tracking-[0.12em] whitespace-nowrap';
-const TD_CLASS = 'px-3 py-2.5 align-top text-sm whitespace-nowrap';
-
-function ChurnTable({ rows, staleDays }: { rows: ChurnRiskRow[]; staleDays: number }) {
-  if (rows.length === 0) {
-    return (
-      <div className="sn-row p-5">
-        <p className="text-sm" style={{ color: 'var(--sn-ink-700)' }}>
-          No at-risk events — every couple with an upcoming event has been
-          active inside the last {staleDays} days.
-        </p>
-      </div>
-    );
-  }
+function ChurnTable({
+  rows,
+  readError,
+  staleDays,
+}: {
+  rows: ChurnRiskRow[] | null;
+  readError: string | null;
+  staleDays: number;
+}) {
   return (
-    <div className="sn-tile overflow-x-auto !p-0">
-      <table className="w-full min-w-[56rem] border-collapse">
-        <thead>
-          <tr
-            className="border-b"
-            style={{ borderColor: 'var(--sn-line)', color: 'var(--sn-ink-500)' }}
-          >
-            <th className={TH_CLASS}>Event</th>
-            <th className={TH_CLASS}>Couple</th>
-            <th className={TH_CLASS}>Event date</th>
-            <th className={TH_CLASS}>Days out</th>
-            <th className={TH_CLASS}>Last login</th>
-            <th className={TH_CLASS}>Last guest change</th>
-            <th className={TH_CLASS}>Last budget change</th>
-            <th className={TH_CLASS}>Quiet for</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr
-              key={r.eventId}
-              className="border-b last:border-b-0"
-              style={{ borderColor: 'var(--sn-line)' }}
+    <ConsoleTable
+      rows={rows}
+      readPermitted
+      readError={readError ? { message: readError } : null}
+      reads="the churn radar"
+      cap={CHURN_ROW_CAP}
+      label="Churn radar"
+      minWidth="56rem"
+      rowKey={(r) => r.eventId}
+      empty={{
+        Icon: AlertTriangle,
+        title: 'No at-risk events',
+        blurb: `Every couple with an upcoming event has been active inside the last ${staleDays} days. This is a measured all-clear — a radar that could not be read says so instead.`,
+      }}
+      columns={[
+        {
+          header: 'Event',
+          cell: (r) => (
+            <>
+              <span className="font-medium text-ink">{r.eventName}</span>
+              <span className="block text-xs text-ink/70">
+                {eventTypeLabel(r.eventType)} · {r.publicId}
+              </span>
+            </>
+          ),
+        },
+        {
+          header: 'Couple',
+          cell: (r) => (
+            <>
+              <span className="text-ink">{r.ownerDisplayName ?? '—'}</span>
+              <span className="block text-xs text-ink/70">
+                {r.ownerEmail ?? 'no linked account'}
+              </span>
+            </>
+          ),
+        },
+        {
+          header: 'Event date',
+          hideBelow: 'md',
+          mono: true,
+          cell: (r) => <span className="text-ink">{r.eventDate}</span>,
+        },
+        {
+          header: 'Days out',
+          align: 'right',
+          mono: true,
+          hideBelow: 'md',
+          cell: (r) => <span className="text-ink">{nf.format(r.daysToEvent)}d</span>,
+        },
+        {
+          header: 'Last login',
+          hideBelow: 'lg',
+          mono: true,
+          cell: (r) => <span className="text-ink/70">{fmtDate(r.lastSignInAt)}</span>,
+        },
+        {
+          header: 'Last guest change',
+          hideBelow: 'lg',
+          mono: true,
+          cell: (r) => <span className="text-ink/70">{fmtDate(r.lastGuestChangeAt)}</span>,
+        },
+        {
+          header: 'Last budget change',
+          hideBelow: 'xl',
+          mono: true,
+          cell: (r) => <span className="text-ink/70">{fmtDate(r.lastBudgetChangeAt)}</span>,
+        },
+        {
+          header: 'Quiet for',
+          align: 'right',
+          cell: (r) => (
+            <span
+              className="whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium tabular-nums"
+              style={{ background: '#FEF2F2', color: '#991B1B' }}
             >
-              <td className={TD_CLASS}>
-                <span className="font-medium" style={{ color: 'var(--sn-ink-900)' }}>
-                  {r.eventName}
-                </span>
-                <span className="block text-xs" style={{ color: 'var(--sn-ink-700)' }}>
-                  {eventTypeLabel(r.eventType)} · {r.publicId}
-                </span>
-              </td>
-              <td className={TD_CLASS}>
-                <span style={{ color: 'var(--sn-ink-900)' }}>
-                  {r.ownerDisplayName ?? '—'}
-                </span>
-                <span className="block text-xs" style={{ color: 'var(--sn-ink-700)' }}>
-                  {r.ownerEmail ?? 'no linked account'}
-                </span>
-              </td>
-              <td className={TD_CLASS} style={{ color: 'var(--sn-ink-900)' }}>
-                {r.eventDate}
-              </td>
-              <td className={`${TD_CLASS} tabular-nums`} style={{ color: 'var(--sn-ink-900)' }}>
-                {nf.format(r.daysToEvent)}d
-              </td>
-              <td className={TD_CLASS} style={{ color: 'var(--sn-ink-700)' }}>
-                {fmtDate(r.lastSignInAt)}
-              </td>
-              <td className={TD_CLASS} style={{ color: 'var(--sn-ink-700)' }}>
-                {fmtDate(r.lastGuestChangeAt)}
-              </td>
-              <td className={TD_CLASS} style={{ color: 'var(--sn-ink-700)' }}>
-                {fmtDate(r.lastBudgetChangeAt)}
-              </td>
-              <td className={TD_CLASS}>
-                <span
-                  className="rounded-full px-2 py-0.5 text-xs font-medium tabular-nums"
-                  style={{ background: '#FEF2F2', color: '#991B1B' }}
-                >
-                  {nf.format(r.daysInactive)}d
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+              {nf.format(r.daysInactive)}d
+            </span>
+          ),
+        },
+      ]}
+    />
   );
 }
 
@@ -449,111 +465,118 @@ const TIER_STYLES: Record<LeadTier, { background: string; color: string }> = {
   early: { background: 'rgba(27, 26, 23, 0.05)', color: 'var(--sn-ink-700)' },
 };
 
-function LeadTable({ rows }: { rows: LeadScoreRow[] }) {
-  if (rows.length === 0) {
-    return (
-      <div className="sn-row p-5">
-        <p className="text-sm" style={{ color: 'var(--sn-ink-700)' }}>
-          No active events to score yet.
-        </p>
-      </div>
-    );
-  }
+/** The engagement chips for one event, in the order the score weighs them. */
+function leadSignals(r: LeadScoreRow): string[] {
+  return [
+    r.budgetSet ? 'Budget set' : null,
+    r.lineItemCount > 0 ? `${nf.format(r.lineItemCount)} line items` : null,
+    r.paymentCount > 0 ? `${nf.format(r.paymentCount)} payments` : null,
+    r.autoArrangeUsed ? 'Auto-arrange' : null,
+    r.guestCount > 0 ? `${nf.format(r.guestCount)} guests` : null,
+    r.vendorCount > 0 ? `${nf.format(r.vendorCount)} vendors` : null,
+    r.websiteConfigured ? 'Website' : null,
+    r.monogramConfigured ? 'Monogram' : null,
+    r.signedInLast7d ? 'Active this week' : null,
+  ].filter((s): s is string => s !== null);
+}
+
+function LeadTable({
+  rows,
+  readError,
+}: {
+  rows: LeadScoreRow[] | null;
+  readError: string | null;
+}) {
   return (
-    <div className="sn-tile overflow-x-auto !p-0">
-      <table className="w-full min-w-[56rem] border-collapse">
-        <thead>
-          <tr
-            className="border-b"
-            style={{ borderColor: 'var(--sn-line)', color: 'var(--sn-ink-500)' }}
-          >
-            <th className={TH_CLASS}>Score</th>
-            <th className={TH_CLASS}>Tier</th>
-            <th className={TH_CLASS}>Event</th>
-            <th className={TH_CLASS}>Couple</th>
-            <th className={TH_CLASS}>Profile</th>
-            <th className={TH_CLASS}>Signals</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => {
-            const signals = [
-              r.budgetSet ? 'Budget set' : null,
-              r.lineItemCount > 0 ? `${nf.format(r.lineItemCount)} line items` : null,
-              r.paymentCount > 0 ? `${nf.format(r.paymentCount)} payments` : null,
-              r.autoArrangeUsed ? 'Auto-arrange' : null,
-              r.guestCount > 0 ? `${nf.format(r.guestCount)} guests` : null,
-              r.vendorCount > 0 ? `${nf.format(r.vendorCount)} vendors` : null,
-              r.websiteConfigured ? 'Website' : null,
-              r.monogramConfigured ? 'Monogram' : null,
-              r.signedInLast7d ? 'Active this week' : null,
-            ].filter((s): s is string => s !== null);
+    <ConsoleTable
+      rows={rows}
+      readPermitted
+      readError={readError ? { message: readError } : null}
+      reads="the lead scores"
+      cap={LEAD_ROW_CAP}
+      label="Lead scores"
+      minWidth="56rem"
+      rowKey={(r) => r.eventId}
+      empty={{
+        Icon: Trophy,
+        title: 'No active events to score yet',
+        blurb:
+          'Scores appear as soon as there is an active event to rank. Nothing to do here — the list fills itself from what couples are already doing.',
+      }}
+      columns={[
+        {
+          header: 'Score',
+          align: 'right',
+          mono: true,
+          cell: (r) => (
+            <span className="text-base font-semibold text-ink">{r.score}</span>
+          ),
+        },
+        {
+          header: 'Tier',
+          cell: (r) => (
+            <span
+              className="whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium"
+              style={TIER_STYLES[r.tier]}
+            >
+              {LEAD_TIER_LABELS[r.tier]}
+            </span>
+          ),
+        },
+        {
+          header: 'Event',
+          cell: (r) => (
+            <>
+              <span className="font-medium text-ink">{r.eventName}</span>
+              <span className="block text-xs text-ink/70">
+                {eventTypeLabel(r.eventType)} · {r.eventDate ?? 'date TBD'}
+              </span>
+            </>
+          ),
+        },
+        {
+          header: 'Couple',
+          hideBelow: 'md',
+          cell: (r) => (
+            <>
+              <span className="text-ink">{r.ownerDisplayName ?? '—'}</span>
+              <span className="block text-xs text-ink/70">
+                {r.ownerEmail ?? 'no linked account'}
+              </span>
+            </>
+          ),
+        },
+        {
+          header: 'Profile',
+          align: 'right',
+          mono: true,
+          hideBelow: 'lg',
+          cell: (r) => <span className="text-ink">{r.profileCompletionPct}%</span>,
+        },
+        {
+          header: 'Signals',
+          hideBelow: 'lg',
+          cell: (r) => {
+            const signals = leadSignals(r);
             return (
-              <tr
-                key={r.eventId}
-                className="border-b last:border-b-0"
-                style={{ borderColor: 'var(--sn-line)' }}
-              >
-                <td
-                  className={`${TD_CLASS} text-base font-semibold tabular-nums`}
-                  style={{ color: 'var(--sn-ink-900)' }}
-                >
-                  {r.score}
-                </td>
-                <td className={TD_CLASS}>
-                  <span
-                    className="rounded-full px-2 py-0.5 text-xs font-medium"
-                    style={TIER_STYLES[r.tier]}
-                  >
-                    {LEAD_TIER_LABELS[r.tier]}
-                  </span>
-                </td>
-                <td className={TD_CLASS}>
-                  <span className="font-medium" style={{ color: 'var(--sn-ink-900)' }}>
-                    {r.eventName}
-                  </span>
-                  <span className="block text-xs" style={{ color: 'var(--sn-ink-700)' }}>
-                    {eventTypeLabel(r.eventType)} · {r.eventDate ?? 'date TBD'}
-                  </span>
-                </td>
-                <td className={TD_CLASS}>
-                  <span style={{ color: 'var(--sn-ink-900)' }}>
-                    {r.ownerDisplayName ?? '—'}
-                  </span>
-                  <span className="block text-xs" style={{ color: 'var(--sn-ink-700)' }}>
-                    {r.ownerEmail ?? 'no linked account'}
-                  </span>
-                </td>
-                <td className={`${TD_CLASS} tabular-nums`} style={{ color: 'var(--sn-ink-900)' }}>
-                  {r.profileCompletionPct}%
-                </td>
-                <td className={`${TD_CLASS} !whitespace-normal`}>
-                  <span className="flex max-w-[26rem] flex-wrap gap-1">
-                    {signals.length === 0 ? (
-                      <span className="text-xs" style={{ color: 'var(--sn-ink-700)' }}>
-                        No engagement yet
-                      </span>
-                    ) : (
-                      signals.map((s) => (
-                        <span
-                          key={s}
-                          className="rounded-full px-2 py-0.5 text-[11px]"
-                          style={{
-                            background: 'rgba(27, 26, 23, 0.05)',
-                            color: 'var(--sn-ink-500)',
-                          }}
-                        >
-                          {s}
-                        </span>
-                      ))
-                    )}
-                  </span>
-                </td>
-              </tr>
+              <span className="flex max-w-[26rem] flex-wrap gap-1">
+                {signals.length === 0 ? (
+                  <span className="text-xs text-ink/70">No engagement yet</span>
+                ) : (
+                  signals.map((s) => (
+                    <span
+                      key={s}
+                      className="rounded-full bg-ink/5 px-2 py-0.5 text-[11px] text-ink/70"
+                    >
+                      {s}
+                    </span>
+                  ))
+                )}
+              </span>
             );
-          })}
-        </tbody>
-      </table>
-    </div>
+          },
+        },
+      ]}
+    />
   );
 }

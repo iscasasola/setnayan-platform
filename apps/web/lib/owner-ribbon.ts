@@ -25,6 +25,7 @@
  * READ-ONLY BY CONSTRUCTION. Everything here produces `href` strings. The
  * ribbon writes nothing, posts nothing, and mutates nothing.
  */
+import { viewerIsEventHost } from '@/app/[slug]/_lib/site-identity';
 import type { OwnerCapability } from '@/app/[slug]/_lib/site-identity';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 
@@ -102,8 +103,14 @@ export function buildOwnerRibbon(input: {
   lifecyclePhase: LifecyclePhase;
 }): OwnerRibbonModel | null {
   const { ownerCapability, eventId, slug, phasesEnabled, lifecyclePhase } = input;
-  if (!ownerCapability) return null;
-  if (ownerCapability.ownerEventId !== eventId) return null;
+  // The first two refusals are ONE question — "is this viewer a verified host of
+  // THIS event?" — and it is asked by the shared `viewerIsEventHost`, which the
+  // host body copy in site-body.tsx also asks. Two copies of this rule is how
+  // the ribbon and the body drift into disagreeing about the same person.
+  if (!viewerIsEventHost(ownerCapability, eventId)) return null;
+  // The slug refusal is NOT part of that question: it is this model's own
+  // requirement (there is no `/[slug]` URL to build phase links on). Kept
+  // separate for exactly that reason — see viewerIsEventHost's docblock.
   if (!slug) return null;
 
   const base = `/${encodeURIComponent(slug)}`;

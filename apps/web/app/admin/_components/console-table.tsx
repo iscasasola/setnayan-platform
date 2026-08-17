@@ -13,17 +13,34 @@
  * not a repo-wide component the couple/vendor doorways import.
  *
  * ── The defect it closes STRUCTURALLY, which is the whole point ─────────────
- * 16 of those 34 files end their read with `(data ?? [])`, and 14 of the 16 then
- * branch straight to `rows.length === 0`. Supabase RESOLVES with `{ error }`
- * instead of throwing, so a rejected query — a phantom column, a stale enum
- * value, an unapplied migration, a missing grant — arrives as an empty array and
- * the page prints a calm sentence saying there is nothing here.
+ * Supabase RESOLVES with `{ error }` instead of throwing, so a rejected query — a
+ * phantom column, a stale enum value, an unapplied migration, a missing grant —
+ * arrives as `data: null`, and a page that coerces null to an empty array prints
+ * a calm sentence saying there is nothing here.
  *
- * ⚠ 14, NOT 16 — the two numbers are different claims and the difference is the
- * whole point of this component. `settings/payment-methods` and
- * `browser-blocks-surface` also write `?? []`, but they RETURN on the error
- * first, so the coercion is unreachable. Counting the coercion is not counting
- * the defect. Measured, in production code today:
+ * 🛑 THIS BLOCK USED TO PUT A NUMBER ON THAT — "16 files, 14 of them defective" —
+ * AND THE NUMBER WAS MEASURED THE WRONG WAY. Twice. First 16 was reported as the
+ * defect count when 2 of the 16 return on the error and are safe. Then 14 was
+ * published — and 14 came from grepping the literal string `data ?? []`, which is
+ * ONE SPELLING OF A COERCION, not the thing that matters. A file that writes
+ * `(threadsRaw ?? [])`, or `?? {}` for an object, or never binds `error` at all,
+ * is just as unable to tell a refusal from a zero and matches no such grep.
+ *
+ * Re-measured by BINDING SITE on 2026-08-17 — reads present, an empty-or-zero UI
+ * present, and some read's error never bound — the admin tree gives **9 files
+ * that bind no error anywhere at all**, plus 14 more that bind some but not every
+ * read. So the real figure is worse than 14 and is not a single number: it needs
+ * reading per file, which is what the conversion lanes are doing. The count is
+ * deliberately not restated here, because a number in a docblock is a claim and
+ * this one has now been wrong twice.
+ *
+ * 🔑 MEASURE WHAT THE CODE CAN DISTINGUISH, NOT WHAT IT LOOKS LIKE. Both wrong
+ * answers came from counting a shape — an `if (error)` nearby, a `?? []` present
+ * — instead of asking whether every read's failure can still reach the render.
+ * Credit where it is due: the second error was caught by the lane-D session
+ * reading the code rather than trusting this file.
+ *
+ * Measured by hand, in production code today:
  *
  *   /admin/approvals   a failed read renders "No approvals pending. Set na 'yan."
  *                      on the queue whose ONLY job is that a second admin looks.
@@ -34,8 +51,17 @@
  * TWO surfaces got it right — `browser-blocks-surface.tsx`, whose own comment
  * reads "A FAILED READ IS NOT AN EMPTY LIST", and `settings/payment-methods`,
  * which returns on the error before it can render a list. Both do it by hand,
- * in their own way, which is why it held on two pages out of thirty-four. This
- * component makes that the
+ * in their own way, which is why it held on two pages out of thirty-four.
+ *
+ * ⚠ AND A TABLE IS NOT WHERE THE LIE ALWAYS LIVES. On `/admin/fraud` and
+ * `/admin/approvals` the `<table>` is the AUDIT TRAIL at the bottom, while the
+ * queue itself is a `<ul>` of cards — so converting the table there fixes the
+ * trail and leaves the reassuring sentence exactly where it was. `ErrorState` is
+ * not table-specific; use it directly on a card list. **Converting a file's table
+ * is not the same as making that file honest — check which branch renders the
+ * sentence before ticking anything off.**
+ *
+ * This component makes honesty the
  * default instead of a thing each author has to remember, by making the wrong
  * thing unwriteable:
  *

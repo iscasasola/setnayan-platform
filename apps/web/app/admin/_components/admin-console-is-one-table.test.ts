@@ -67,6 +67,14 @@ const CONVERTED = [
   'pax-changes/page.tsx',
   'receipts/page.tsx',
   'pricing/_surfaces/price-bands-surface.tsx',
+  // The judgement queues. ⚠ ON THESE TWO THE TABLE WAS NOT WHERE THE LIE WAS:
+  // /admin/fraud's queue is a <ul> of cards and its <table> is the enforcement
+  // trail at the bottom, so converting the table alone would have fixed the
+  // trail and left the green tick over "No open fraud signals." exactly where it
+  // was. The card list uses <ErrorState> directly — it is not table-specific.
+  // 🔑 CONVERTING A FILE'S TABLE IS NOT THE SAME AS MAKING THAT FILE HONEST.
+  'fraud/page.tsx',
+  'force-majeure/page.tsx',
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -113,8 +121,6 @@ const RAW_TABLE_BILL = [
   'compliance/data-sheet/page.tsx',
   'demo-vendors/inquiries/page.tsx',
   'disputes/page.tsx',
-  'force-majeure/page.tsx',
-  'fraud/page.tsx',
   'offline/_components/offline-diagnostic.tsx',
   'papic-storage/page.tsx',
   'settings/payment-methods/page.tsx',
@@ -208,7 +214,27 @@ test('every converted surface hands its read error to the table', () => {
   for (const rel of CONVERTED) {
     const src = code(read(rel));
     if (!/readError=\{/.test(src)) offenders.push(`${rel} (no readError passed)`);
-    if (/data\s*\?\?\s*\[\]/.test(src)) offenders.push(`${rel} (still coerces null to [])`);
+    // A BLANKET BAN ON `?? []` WAS BOTH TOO BLUNT AND TOO WEAK, and finding out
+    // which cost a real defect. Too blunt: a LABEL lookup (business names, event
+    // names, the evidence blob) legitimately falls back to an empty list — it does
+    // not decide whether the surface is empty, so the primary read still governs
+    // the state. Too weak: on /admin/fraud those label reads were swallowed
+    // ENTIRELY, so a refused evidence read rendered every card with no evidence
+    // at all — a flag that looks raised on no basis — and a rule that only
+    // examined the primary read passed it.
+    // ⇒ The invariant is not "never coerce", it is "never coerce a read whose
+    // failure nothing can see". Every `X.data ?? []` must have X's error bound.
+    for (const m of src.matchAll(/\b([A-Za-z_$][\w$]*)\.data\s*\?\?\s*\[\]/g)) {
+      const holder = m[1];
+      const bound =
+        new RegExp(`'error'\\s+in\\s+${holder}\\b`).test(src) ||
+        new RegExp(`\\b${holder}\\.error\\b`).test(src);
+      if (!bound) offenders.push(`${rel} (${holder}.data ?? [] with ${holder}'s error never bound)`);
+    }
+    // And the PRIMARY read must never be flattened at the read site.
+    if (/\bconst\s+\w+\s*=\s*\(?data\s*\?\?\s*\[\]/.test(src)) {
+      offenders.push(`${rel} (primary read flattened to [] before the table sees it)`);
+    }
   }
   assert.deepEqual(
     offenders,

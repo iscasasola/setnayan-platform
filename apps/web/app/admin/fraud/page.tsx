@@ -16,9 +16,16 @@ import {
 import { dismissVendorSignals, unsuspendVendor } from './actions';
 import { WipeBanDialog } from './_components/wipe-ban-dialog';
 
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ErrorState } from '@/app/_components/states/error-state';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
+
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Fraud queue · Admin' };
 export const dynamic = 'force-dynamic';
+
+/** One number: the query reads it and ConsoleTable discloses it. Never two copies. */
+const AUDIT_LIMIT = 15;
 
 type ScoreRow = {
   vendor_profile_id: string;
@@ -106,15 +113,26 @@ export default async function AdminFraudQueuePage() {
   const admin = createAdminClient();
 
   // 1. The queue: vendors with open fraud signals, worst first.
-  const { data: scoreData } = await admin
+  //
+  // ⚠ `error` IS BOUND HERE ON PURPOSE, AND IT WAS NOT BEFORE. Supabase resolves
+  // with `{ error }` rather than throwing, so a refused read arrived as
+  // `data: null`, `?? []` made it an empty array, and this page rendered a green
+  // tick over "No open fraud signals." — a reassurance, in the affirmative, on
+  // the fraud desk, produced by a query that never ran. Nothing logged.
+  const { data: scoreData, error: scoresError } = await admin
     .from('vendor_fraud_scores')
     .select(
       'vendor_profile_id, max_open_score, sum_open_score, open_signal_count, open_signal_types, latest_detected_at',
     )
     .order('max_open_score', { ascending: false });
-  const scores = (scoreData ?? []) as ScoreRow[];
+  if (scoresError) {
+    logQueryError('AdminFraudQueuePage.scores', scoresError, {}, 'graceful_degrade');
+  }
+  // NULL survives to the render as NOT MEASURED. `?? []` here is what made a
+  // refusal and a genuinely quiet queue the same value.
+  const scores = scoreData as ScoreRow[] | null;
 
-  const vendorIds = scores.map((s) => s.vendor_profile_id);
+  const vendorIds = (scores ?? []).map((s) => s.vendor_profile_id);
 
   // 2. Per-vendor open signals (for the evidence detail), vendor rows (name +
   //    enforcement state), and the recent enforcement audit trail — in parallel.
@@ -126,19 +144,31 @@ export default async function AdminFraudQueuePage() {
           .in('vendor_profile_id', vendorIds)
           .eq('status', 'open')
           .order('score', { ascending: false })
-      : Promise.resolve({ data: [] as SignalRow[] }),
+      : Promise.resolve({ data: [] as SignalRow[], error: null }),
     vendorIds.length > 0
       ? admin
           .from('vendor_profiles')
           .select('vendor_profile_id, business_name, public_id, fraud_suspended_at, fraud_banned_at')
           .in('vendor_profile_id', vendorIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [] as never[], error: null }),
     admin
       .from('fraud_enforcement_audit')
       .select('public_id, vendor_profile_id, action, actor_user_id, reason, created_at')
       .order('created_at', { ascending: false })
-      .limit(15),
+      .limit(AUDIT_LIMIT),
   ]);
+
+  // ⚠ THE LABEL READS ARE NOT DECORATION, AND THEY WERE SWALLOWED TOO.
+  // `signalsRes` carries the EVIDENCE — the one thing this desk exists to let a
+  // person judge. If it is refused, `?? []` renders every card with no evidence
+  // chips at all, which reads as a flag raised on no basis. `vendorsRes` carries
+  // the business NAME; refused, every card is headed by a raw id. Neither changes
+  // the row COUNT, so ConsoleTable cannot see it — the page has to say it.
+  // 🔑 A guard that only checks the primary read would have passed this.
+  const signalsError = 'error' in signalsRes ? signalsRes.error : null;
+  const vendorsError = 'error' in vendorsRes ? vendorsRes.error : null;
+  if (signalsError) logQueryError('AdminFraudQueuePage.signals', signalsError, {}, 'graceful_degrade');
+  if (vendorsError) logQueryError('AdminFraudQueuePage.vendors', vendorsError, {}, 'graceful_degrade');
 
   const signalsByVendor = new Map<string, SignalRow[]>();
   for (const row of (signalsRes.data ?? []) as SignalRow[]) {
@@ -165,7 +195,15 @@ export default async function AdminFraudQueuePage() {
     });
   }
 
-  const audit = (auditRes.data ?? []) as AuditRow[];
+  // Same rule as the queue above: NULL is "not measured", never "no enforcement
+  // has ever happened". `auditRes.error` exists only on the real query branch —
+  // the two conditional reads above resolve a bare `{ data }` when there are no
+  // vendor ids, so the error is read defensively rather than destructured.
+  const auditError = 'error' in auditRes ? auditRes.error : null;
+  if (auditError) {
+    logQueryError('AdminFraudQueuePage.audit', auditError, {}, 'graceful_degrade');
+  }
+  const audit = auditRes.data as AuditRow[] | null;
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
@@ -197,11 +235,46 @@ export default async function AdminFraudQueuePage() {
         </span>
       </div>
 
-      {scores.length === 0 ? (
+      {/* FAILS TOWARD THE CAVEAT: a partially-loaded card must not read as a
+          complete one. Never silent, and never mistakable for the queue itself
+          being empty — that is the state above. */}
+      {signalsError || vendorsError ? (
+        <p
+          role="alert"
+          className="mb-6 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">These cards are incomplete.</strong>{' '}
+          {signalsError
+            ? 'The evidence behind each signal could not be read, so a card showing no evidence is not a signal raised without any. '
+            : ''}
+          {vendorsError
+            ? 'Business names could not be read, so vendors appear as identifiers. '
+            : ''}
+          The scores and the count below are still accurate. Do not confirm fraud
+          from this state — reload first.
+        </p>
+      ) : null}
+
+      {/* THE THREE-WAY SPLIT. This queue is a card list, not a table, so it does
+          not go through <ConsoleTable> — but the rule is the component's, and
+          <ErrorState> is not table-specific. Refused ≠ quiet, and only the quiet
+          case may wear the green tick. */}
+      {scores === null ? (
+        <ErrorState
+          title="Couldn't read the fraud queue"
+          broke={
+            scoresError?.message
+              ? `The read was refused: ${scoresError.message}`
+              : 'The read did not complete.'
+          }
+          survived="No vendor was shown and none was ruled out. This is NOT a statement that there are no open signals — it is a statement that we do not know, and it must never wear the green tick."
+          todo="Reload. If it repeats, the query is being rejected rather than returning nothing, and the column, value or view it names is the thing to check."
+        />
+      ) : scores.length === 0 ? (
         <div className="sn-row flex flex-col items-center gap-2 p-10 text-center">
           <ShieldCheck className="h-8 w-8 text-success-600" aria-hidden="true" />
           <p className="text-sm font-semibold text-ink">No open fraud signals.</p>
-          <p className="text-xs text-ink/55">
+          <p className="text-xs text-ink/70">
             The hunt is running. Vendors appear here the moment a detector fires. Set na ’yan.
           </p>
         </div>
@@ -324,46 +397,72 @@ export default async function AdminFraudQueuePage() {
         </ul>
       )}
 
-      {/* Recent enforcement trail */}
-      {audit.length > 0 ? (
-        <section className="mt-10">
-          <h2 className="mb-3 sn-eye">
-            Recent enforcement
-          </h2>
-          <div className="sn-tile overflow-hidden !p-0">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-ink/10 text-left text-[11px] uppercase tracking-wide text-ink/45">
-                  <th className="px-4 py-2 font-medium">Action</th>
-                  <th className="px-4 py-2 font-medium">Vendor</th>
-                  <th className="px-4 py-2 font-medium">By</th>
-                  <th className="px-4 py-2 font-medium">Reason</th>
-                  <th className="px-4 py-2 font-medium">When</th>
-                </tr>
-              </thead>
-              <tbody>
-                {audit.map((a) => (
-                  <tr key={a.public_id} className="border-b border-ink/5 last:border-0">
-                    <td className="px-4 py-2 font-medium">
-                      {FRAUD_ENFORCEMENT_ACTION_LABEL[a.action] ?? a.action}
-                    </td>
-                    <td className="px-4 py-2 text-ink/70">
-                      {vendorMeta.get(a.vendor_profile_id)?.name ?? a.vendor_profile_id}
-                    </td>
-                    <td className="px-4 py-2 text-ink/60">
-                      {a.actor_user_id ? 'admin' : 'system'}
-                    </td>
-                    <td className="max-w-[260px] truncate px-4 py-2 text-ink/60">
-                      {a.reason ?? '—'}
-                    </td>
-                    <td className="px-4 py-2 text-ink/55">{timeAgo(a.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
+      {/* Recent enforcement trail.
+          ⚠ THIS SECTION USED TO DISAPPEAR ENTIRELY on `audit.length > 0` — so a
+          refused read removed the whole enforcement history from the page with no
+          trace at all. On a desk that bans businesses, an absent audit trail must
+          say it is absent. It is now always rendered and ConsoleTable decides
+          which of the three states it is in. */}
+      <section className="mt-10">
+        <h2 className="mb-3 sn-eye">Recent enforcement</h2>
+        <ConsoleTable
+          rows={audit}
+          readPermitted
+          readError={auditError}
+          reads="the enforcement trail"
+          cap={AUDIT_LIMIT}
+          label="Recent fraud enforcement"
+          minWidth="42rem"
+          note="Read-only. Every row here was written by an action taken elsewhere on this page; there is deliberately nothing to press on the history itself."
+          rowKey={(a) => a.public_id}
+          empty={{
+            Icon: ShieldCheck,
+            title: 'Nothing has been enforced yet',
+            blurb:
+              'A row lands here each time a signal is dismissed, a vendor is un-suspended, or fraud is confirmed. An empty trail on a platform with no confirmed fraud is the good outcome, not a broken screen.',
+          }}
+          columns={[
+            {
+              header: 'Action',
+              cell: (a) => (
+                <span className="font-medium">
+                  {FRAUD_ENFORCEMENT_ACTION_LABEL[a.action] ?? a.action}
+                </span>
+              ),
+            },
+            {
+              header: 'Vendor',
+              cell: (a) => (
+                <span className="text-ink/70">
+                  {vendorMeta.get(a.vendor_profile_id)?.name ?? a.vendor_profile_id}
+                </span>
+              ),
+            },
+            {
+              header: 'By',
+              hideBelow: 'md',
+              cell: (a) => (
+                <span className="text-ink/70">{a.actor_user_id ? 'admin' : 'system'}</span>
+              ),
+            },
+            {
+              header: 'Reason',
+              hideBelow: 'lg',
+              cell: (a) => (
+                <span className="block max-w-[260px] truncate text-ink/70">
+                  {a.reason ?? '—'}
+                </span>
+              ),
+            },
+            {
+              header: 'When',
+              mono: true,
+              align: 'right',
+              cell: (a) => <span className="text-ink/70">{timeAgo(a.created_at)}</span>,
+            },
+          ]}
+        />
+      </section>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { notFound, redirect } from 'next/navigation';
 import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, Video } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRenamedPath } from '@/lib/slug-forwarding';
 import { createClient } from '@/lib/supabase/server';
 import {
@@ -921,12 +922,31 @@ export async function renderVendorBySlug({
   // Setnayan-native tier so the card reads credible at launch.
   let declaredExp: { years: number | null; weddings: number | null; verified: boolean } | null = null;
   if (vendorExperienceEnabled()) {
+    // ⚠ THIS SWALLOW IS DELIBERATE AND STAYS — the `.then` soft-probe exists so a
+    // pre-migration database answering 42703 (undefined column) degrades instead of
+    // breaking a PUBLIC shop page. That is the right trade and it is not changed.
+    // 🔑 BUT A DELIBERATE SWALLOW STILL HAS TO BE VISIBLE. Every refusal — not only
+    // a missing column — erased the shop's TRACK RECORD silently: years in business
+    // and weddings done both fell to null, so a verified supplier read as having
+    // none, on the page whose whole job is to establish that it has some. The error
+    // is captured INSIDE the probe, so the fallback behaves exactly as before and
+    // the reason reaches the logs.
+    let expProbeError: { message?: string; code?: string } | null = null;
     const { data: exp } = await admin
       .from('vendor_profiles')
       .select('in_business_since_year, weddings_done_approx, experience_verified_at')
       .eq('vendor_profile_id', vendor.vendor_profile_id)
       .maybeSingle()
-      .then((r) => (r.error ? { data: null } : r));
+      .then((r) => {
+        if (r.error) {
+          expProbeError = r.error;
+          return { data: null };
+        }
+        return r;
+      });
+    if (expProbeError) {
+      logQueryError('PublicVendorPage.experienceProbe', expProbeError, { slug }, 'graceful_degrade');
+    }
     const e = exp as
       | { in_business_since_year?: number | null; weddings_done_approx?: number | null; experience_verified_at?: string | null }
       | null;
@@ -1006,11 +1026,16 @@ export async function renderVendorBySlug({
   // unapplied migration leaves the map empty (composer just omits the chips).
   const linkedByService = new Map<string, string[]>();
   if (activeServices.length > 0) {
-    const { data: serviceLinks } = await admin
+    const { data: serviceLinks, error: serviceLinksError } = await admin
       .from('vendor_service_links')
       .select('vendor_service_id, linked_canonical_service, linked_label, display_order')
       .eq('vendor_profile_id', vendor.vendor_profile_id)
       .order('display_order', { ascending: true });
+    // ⚠ the shop's service links. Refused, services render unlinked, which reads as a
+    // ⚠ shop that has not finished setting itself up.
+    if (serviceLinksError) {
+      logQueryError('PublicVendorPage.serviceLinks', serviceLinksError, { slug }, 'graceful_degrade');
+    }
     for (const link of serviceLinks ?? []) {
       const anchor = (link as { vendor_service_id?: string }).vendor_service_id;
       const canonical =
@@ -1487,11 +1512,16 @@ export async function renderVendorBySlug({
   // trip when the composer will actually render for a signed-in couple.
   let aiActive = false;
   if (showInquiryComposer && coupleEventId) {
-    const { data: aiEventRow } = await supabase
+    const { data: aiEventRow, error: aiEventRowError } = await supabase
       .from('events')
       .select('planning_mode, setnayan_ai_active')
       .eq('event_id', coupleEventId)
       .maybeSingle();
+    // ⚠ the viewing couple's planning mode. Refused, the assisted-planning surface
+    // ⚠ quietly falls back to the plain one.
+    if (aiEventRowError) {
+      logQueryError('PublicVendorPage.aiEventRow', aiEventRowError, { slug }, 'graceful_degrade');
+    }
     const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
     // Entitlement is read entirely off THIS event's own row (owner 2026-08-01:
     // "it is per event"). This page used to additionally resolve the host's
@@ -1528,7 +1558,7 @@ export async function renderVendorBySlug({
     // PH civil-day bounds for the intended date (blocks store +08:00).
     const dayStart = `${coupleEventDate}T00:00:00+08:00`;
     const dayEnd = `${coupleEventDate}T23:30:00+08:00`;
-    const { data: covering } = await admin
+    const { data: covering, error: coveringError } = await admin
       .from('vendor_calendar_blocks')
       .select('block_id')
       .eq('vendor_profile_id', vendor.vendor_profile_id)
@@ -1537,21 +1567,34 @@ export async function renderVendorBySlug({
       .lte('blocked_at', dayEnd)
       .gte('blocked_until', dayStart)
       .limit(1);
+    // ⚠ 🚨 A BLOCKED DATE READS AS AVAILABLE. These are the supplier's calendar blocks
+    // ⚠ covering the date a couple is looking at. `?? []`/null on a refused read means
+    // ⚠ no block is found, so the page shows the date as open — and a couple enquires
+    // ⚠ about a day the supplier has closed. Same direction as the admin payments
+    // ⚠ meter, where a falsely-zero inflow read as HEADROOM: absence becomes capacity.
+    if (coveringError) {
+      logQueryError('PublicVendorPage.covering', coveringError, { slug }, 'graceful_degrade');
+    }
     const isUnavailable = Array.isArray(covering) && covering.length > 0;
     if (isUnavailable) {
       waitlistDate = coupleEventDate;
       // Owner 2026-07: only offer the waitlist when the vendor switched it on;
       // otherwise the date is simply "unavailable" (no CTA).
-      const { data: wlp } = await admin
+      const { data: wlp, error: wlpError } = await admin
         .from('vendor_profiles')
         .select('waitlist_enabled')
         .eq('vendor_profile_id', vendor.vendor_profile_id)
         .maybeSingle();
+      // ⚠ waitlist_enabled. Refused, the waitlist reads as switched off and a couple loses
+      // ⚠ the only route left on a full date — a silent loss of an option, not a message.
+      if (wlpError) {
+        logQueryError('PublicVendorPage.wlp', wlpError, { slug }, 'graceful_degrade');
+      }
       waitlistEnabled = Boolean(
         (wlp as { waitlist_enabled?: boolean } | null)?.waitlist_enabled,
       );
       // Has this couple already joined (pending/notified)?
-      const { data: existing } = await admin
+      const { data: existing, error: existingError } = await admin
         .from('vendor_date_waitlist')
         .select('waitlist_id')
         .eq('vendor_profile_id', vendor.vendor_profile_id)
@@ -1559,6 +1602,11 @@ export async function renderVendorBySlug({
         .eq('requested_date', coupleEventDate)
         .in('status', ['pending', 'notified'])
         .limit(1);
+      // ⚠ whether this couple is ALREADY on the waitlist. Refused, they are offered 'join'
+      // ⚠ again and can end up on it twice.
+      if (existingError) {
+        logQueryError('PublicVendorPage.existing', existingError, { slug }, 'graceful_degrade');
+      }
       alreadyWaitlisted = Array.isArray(existing) && existing.length > 0;
     }
   }
@@ -3765,11 +3813,17 @@ async function fetchVendorPackagesWithItems(
     // (The split was also structural, not stylistic: postgrest-js parses the
     // select string in the TYPE system, so a union of two literals makes that
     // parser bail and erases the row type. One literal, one query, no union.)
-    const { data: items } = await admin
+    const { data: items, error: itemsError } = await admin
       .from('vendor_package_items')
       .select(VENDOR_PACKAGE_ITEM_SELECT)
       .in('package_id', packageIds)
       .order('display_order', { ascending: true });
+    // ⚠ 🚨 A PACKAGE RENDERS WITH NO ITEMS. This is a PUBLIC page and these are what a
+    // ⚠ couple is buying. A refused read empties the package rather than failing it, so
+    // ⚠ the shop appears to be selling nothing — and nothing on screen looks wrong.
+    if (itemsError) {
+      logQueryError('PublicVendorPage.items', itemsError, { vendorProfileId }, 'graceful_degrade');
+    }
 
     // CHOICE lines. A line is a choice iff it has options, so this join is what
     // makes them visible at all — without it the couple saw an inclusion with

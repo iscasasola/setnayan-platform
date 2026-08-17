@@ -274,26 +274,45 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
       </div>
     ) : null}
     {/* ── THE RAIL — `xl` (1280px) and up. Same five slots, resolved elsewhere.
-        🚨 THE BREAKPOINT IS ARITHMETIC, NOT TASTE, AND `lg` WOULD OVERLAP.
-        The rail floats in the LEFT MARGIN — every room centres its column with
-        `mx-auto`, so the space available is (viewport − widest column) ÷ 2, and
-        the rail must fit in it AT THE WIDEST COLUMN ANY ROOM USES, not the
-        narrowest:
 
-            at lg  1024px − 64rem stage = 128px ÷ 2 =  4rem   ✗ too tight
-            at xl  1280px − 64rem stage = 256px ÷ 2 =  8rem   ✓ fits 7rem + 0.75
+        🔴 THE FIRST VERSION PINNED THIS TO THE WINDOW EDGE (`left-0`) AND THE
+        OWNER LOOKED AT IT ON A REAL SCREEN. On a 2000px monitor it sat a
+        THOUSAND PIXELS from the column it belongs to — an orphaned pill in a
+        field of cream — and on a second event it clipped against the left edge.
+        Arithmetic that clears the content is not the same as looking like it
+        belongs to it, and only one of those two can be measured in a test.
 
-        My first cut put an 11rem rail at `lg` and it would have sat ON TOP of
-        the venue page and the editorial, both of which use the 64rem stage. The
-        first draft measured against the 48rem plate — the column MOST rooms
-        use — which is the wrong end of the range. `rail-fits.test.ts` now
-        asserts this arithmetic so the next person to widen the rail or lower
-        the breakpoint is told rather than trusted.
-        Below `xl` the pinned bar serves — correct for phones and tablets, which
-        are touch anyway, and honest on a small laptop. */}
+        ── SO IT IS ANCHORED TO THE COLUMN, NOT THE VIEWPORT ──
+        `left: max(0.75rem, calc(50% - 40.5rem))` — read right to left:
+          · every room centres its column, so its left edge is `50% - half`
+          · the widest column any room uses is the 64rem stage → half = 32rem
+          · the rail is 7rem, plus a 1.5rem gap → 32 + 7 + 1.5 = 40.5rem
+        So on a wide screen the rail travels WITH the content and keeps a
+        constant gap from it, instead of drifting to the edge as the window
+        grows. The `max()` is the safety: below ~1296px that sum would go
+        NEGATIVE and push the rail off-screen, which is exactly the clipping the
+        owner saw — so it stops at a 0.75rem margin instead.
+        🔑 A `calc()` that can go negative is a layout bug waiting for a narrow
+        screen. Clamp it at the edge you cannot cross.
+
+        ── AND THE BREAKPOINT IS ARITHMETIC TOO, NOT TASTE ──
+        The space available is (viewport − widest column) ÷ 2, measured AT THE
+        WIDEST COLUMN ANY ROOM USES, not the narrowest:
+
+            at lg  1024px − 64rem stage = 128px ÷ 2 = 4rem   ✗ too tight
+            at xl  1280px − 64rem stage = 256px ÷ 2 = 8rem   ✓ fits the 7rem rail
+
+        An earlier cut put an 11rem rail at `lg` and would have sat ON TOP of the
+        venue page and the editorial, both of which use the 64rem stage — it was
+        measured against the 48rem plate, the column MOST rooms use, which is the
+        wrong end of the range. Below `xl` the pinned bar serves, which is right
+        for phones and tablets (touch anyway) and honest on a small laptop.
+        `rail-fits.test.ts` asserts the anchor, the clamp AND the no-overlap sum,
+        so the next person to widen the rail or lower the breakpoint is told
+        rather than trusted. */}
     <nav
       aria-label="Site sections"
-      className="fixed left-0 top-1/2 z-30 hidden -translate-y-1/2 pl-3 xl:block print:hidden"
+      className="fixed left-[max(0.75rem,calc(50%-40.5rem))] top-1/2 z-30 hidden -translate-y-1/2 xl:block print:hidden"
     >
       <ul className="flex w-[7rem] flex-col gap-0.5 rounded-2xl border border-ink/10 bg-cream/95 p-2 shadow-sm backdrop-blur">
         {slots.map(renderRailSlot)}

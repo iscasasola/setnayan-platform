@@ -85,18 +85,54 @@ test('META · the sources loaded and comment-stripping did not gut them', () => 
   );
 });
 
+/**
+ * ⚠ THIS ASSERTION CRIED WOLF ON ITS FIRST DAY, and the rewrite is the lesson.
+ *
+ * It originally pinned the exact inline expression
+ * `ownerCapability !== null && ownerCapability.ownerEventId === event.event_id`.
+ * Within hours that was extracted, unchanged, into a shared
+ * `viewerIsEventHost()` in `_lib/site-identity.ts` — a strict improvement, since
+ * `lib/owner-ribbon.ts` now asks the same question through the same function
+ * instead of restating it. Behaviour identical; my guard went red.
+ *
+ * Worse, it went red ON MAIN rather than on the PR: the PR was cut before the
+ * extraction landed and branch protection here is non-strict, so CI never ran
+ * the combined tree. A guard pinned to one SPELLING converts somebody else's
+ * clean refactor into a broken build.
+ *
+ * 🔑 ASSERT THE RULE, NOT THE PHRASING. Host-ness must come from a capability
+ * that exists AND was minted for THIS event — wherever that comparison lives.
+ * Both spellings are accepted, and the shared helper is then held to the rule
+ * itself, so moving the check into one place cannot hollow it out.
+ */
 test('the host is recognised from the server-verified capability, not from a request', () => {
   // `ownerCapability` is produced only by resolveOwnerCapability, which requires
   // a real auth user whose host membership of THIS event the database confirmed.
-  // The event-id comparison is what stops a capability for one event unlocking
-  // the host body on another.
-  assert.match(
-    BODY,
-    /const viewerIsHost\s*=\s*\n?\s*ownerCapability !== null && ownerCapability\.ownerEventId === event\.event_id;/,
-    'viewerIsHost is no longer `ownerCapability !== null && ownerCapability.ownerEventId === ' +
-      'event.event_id`. If it now keys on a prop, a param or the ribbon model, the host body ' +
-      'is reachable by something other than verified host membership — or silently unreachable.',
+  const inline =
+    /const viewerIsHost\s*=\s*\n?\s*ownerCapability !== null && ownerCapability\.ownerEventId === event\.event_id;/;
+  const viaHelper = /const viewerIsHost\s*=\s*viewerIsEventHost\(\s*ownerCapability,\s*event\.event_id\s*\)/;
+
+  assert.ok(
+    inline.test(BODY) || viaHelper.test(BODY),
+    'viewerIsHost is no longer derived from `ownerCapability` AND `event.event_id` — neither ' +
+      'inline nor through viewerIsEventHost(ownerCapability, event.event_id). If it now keys on ' +
+      'a prop, a param or the ribbon model, the host body is reachable by something other than ' +
+      'verified host membership, or silently unreachable for a host of a slugless event.',
   );
+
+  // The event check is the half that stops a capability minted for event A being
+  // spent on event B. When the rule lives in a shared helper, THAT is where it
+  // has to be enforced — and two callers now depend on it.
+  if (viaHelper.test(BODY)) {
+    const IDENTITY = code(readFileSync(join(HERE, 'site-identity.ts'), 'utf8'));
+    assert.match(
+      IDENTITY,
+      /export function viewerIsEventHost\([\s\S]{0,240}?if \(!ownerCapability\) return false;[\s\S]{0,160}?ownerCapability\.ownerEventId === eventId/,
+      'viewerIsEventHost no longer requires BOTH a non-null capability and an ownerEventId ' +
+        'match. It is the single home of that rule for the body AND the ribbon, so weakening it ' +
+        'here would let a host of one event be addressed as the host of another.',
+    );
+  }
 });
 
 test('ownerCapability reaches the anonymous render path — the wiring the whole thing rests on', () => {

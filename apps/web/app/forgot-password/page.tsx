@@ -2,27 +2,30 @@
  * /forgot-password — public password-recovery request page.
  *
  * WHY THIS ROUTE EXISTS: the /login page has linked "Forgot password?" →
- * /forgot-password since the v2.1 port, but the route never existed — the
- * URL fell through to the `[slug]` event catch-all and rendered garbage with
- * HTTP 200. A static segment takes precedence over the catch-all, so this
- * page fixes the live dead link.
+ * /forgot-password since the v2.1 port, but the route never existed — the URL
+ * fell through to the `[slug]` event catch-all and rendered garbage with HTTP
+ * 200. A static segment takes precedence over the catch-all, so this page fixes
+ * the live dead link.
  *
- * Visual register mirrors /login (v2.1 paper-and-ink editorial: --m-* CSS
- * variables, .m-mono eyebrows, .m-serif italics, Wordmark) as a single-column
- * card — the recovery flow doesn't need the two-column brand panel.
+ * ⚖ PORTED TO THE SHARED DOOR 2026-08-17, on the owner's ruling that the whole
+ * account journey should read as one product. It previously wore the marketing
+ * register (`--m-*` inline styles + `.m-serif`), which was internally coherent
+ * but made signing up and recovering an account look like a different product
+ * from claiming an invitation. Nothing about the FLOW moved — see below.
  *
- * Anti-enumeration: the confirmation copy is identical whether or not an
- * account exists for the email (see ./actions.ts).
+ * 🔒 ANTI-ENUMERATION IS UNCHANGED AND LOAD-BEARING: the confirmation copy is
+ * identical whether or not an account exists for that email (see ./actions.ts).
+ * Do not "improve" it into telling someone their email was not found.
  */
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { Wordmark } from '@/app/_components/brand-marks';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
+import { DoorShell, DoorNotice } from '@/app/_components/door/door-shell';
 import { requestPasswordReset } from './actions';
 
 export const metadata: Metadata = {
-  title: 'Reset your password · Setnayan',
+  title: 'Reset your password',
   description:
     'Request a password-reset link for your Setnayan account. One account for couples planning their wedding and vendors selling their services.',
   alternates: { canonical: '/forgot-password' },
@@ -59,206 +62,55 @@ export default async function ForgotPasswordPage({
     : null;
 
   return (
-    <main
-      style={{
-        minHeight: '100dvh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px 16px',
-        background: 'var(--m-paper)',
-        fontFamily: 'var(--font-sans-marketing, Geist), system-ui, sans-serif',
-      }}
+    <DoorShell
+      eyebrow="Account recovery"
+      title="Forgot your password?"
+      sub="Tell us your email and we’ll send a link to set a new one."
     >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 460,
-          background: 'var(--m-paper)',
-          borderRadius: 'var(--m-r-lg)',
-          overflow: 'hidden',
-          border: '1px solid var(--m-line)',
-          boxShadow: '0 30px 60px -25px rgba(45,48,56,0.18)',
-          padding: '36px 32px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
-        }}
-      >
-        <Link
-          href="/"
-          aria-label="Setnayan home"
-          style={{ display: 'inline-flex', textDecoration: 'none' }}
-        >
-          <Wordmark size={26} />
+      {errorMessage ? <DoorNotice kind="alert">{errorMessage}</DoorNotice> : null}
+
+      {sent ? (
+        <DoorNotice>
+          If an account exists for that email, a reset link is on its way. Check your inbox
+          (and spam folder) — the link works once and expires after a short while.
+        </DoorNotice>
+      ) : null}
+
+      <form action={requestPasswordReset} className="space-y-4">
+        <div className="space-y-1.5">
+          <label htmlFor="email" className="block text-sm font-medium text-ink">
+            Email
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            placeholder="you@setnayan.com"
+            required
+            className="input-field"
+          />
+        </div>
+        {/*
+          The bot check. Renders NOTHING until a Turnstile site key is set, so
+          this page is unchanged today. It is not optional once captcha is on:
+          Supabase gates password recovery with the same global switch as
+          sign-in, and this is the page someone reaches BECAUSE they are already
+          locked out.
+        */}
+        <TurnstileField action="password_reset" />
+        <SubmitButton className="button-primary w-full" pendingLabel="Sending…">
+          Email me a reset link
+        </SubmitButton>
+      </form>
+
+      <p className="text-center text-sm text-ink/70">
+        Remembered it?{' '}
+        <Link href="/login" className="font-medium text-link hover:underline">
+          Back to sign in
         </Link>
-
-        <div>
-          <div
-            className="m-mono"
-            style={{
-              fontSize: 10,
-              color: 'var(--m-slate)',
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-            }}
-          >
-            Account recovery
-          </div>
-          <h1
-            className="m-serif"
-            style={{
-              fontSize: 30,
-              lineHeight: 1.08,
-              margin: '10px 0 0',
-              color: 'var(--m-ink)',
-              fontWeight: 400,
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Forgot your{' '}
-            <em style={{ fontStyle: 'italic', color: 'var(--m-blush-deep)' }}>
-              password?
-            </em>
-          </h1>
-          <p
-            className="m-serif"
-            style={{
-              fontStyle: 'italic',
-              fontSize: 14,
-              color: 'var(--m-slate)',
-              marginTop: 10,
-              lineHeight: 1.55,
-            }}
-          >
-            Tell us your email and we&rsquo;ll send a link to set a new one.
-          </p>
-        </div>
-
-        {errorMessage ? (
-          <p
-            role="alert"
-            style={{
-              margin: 0,
-              padding: '10px 12px',
-              borderRadius: 'var(--m-r-sm)',
-              border: '1px solid var(--m-orange-3)',
-              background: 'var(--m-orange-4)',
-              color: 'var(--m-orange-deep)',
-              fontSize: 13,
-            }}
-          >
-            {errorMessage}
-          </p>
-        ) : null}
-
-        {sent ? (
-          <p
-            role="status"
-            style={{
-              margin: 0,
-              padding: '10px 12px',
-              borderRadius: 'var(--m-r-sm)',
-              border: '1px solid var(--m-line)',
-              background: 'var(--m-paper-2)',
-              color: 'var(--m-ink)',
-              fontSize: 13,
-            }}
-          >
-            If an account exists for that email, a reset link is on its way.
-            Check your inbox (and spam folder) — the link works once and
-            expires after a short while.
-          </p>
-        ) : null}
-
-        <form action={requestPasswordReset} style={{ display: 'grid', gap: 12 }}>
-          <div>
-            <label
-              htmlFor="email"
-              className="m-mono"
-              style={{
-                display: 'block',
-                fontSize: 10,
-                color: 'var(--m-slate-2)',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                marginBottom: 4,
-              }}
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              inputMode="email"
-              placeholder="you@setnayan.com"
-              required
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                background: 'var(--m-paper-2)',
-                border: '1px solid var(--m-line)',
-                borderRadius: 'var(--m-r-sm)',
-                fontSize: 13,
-                fontFamily: 'inherit',
-                color: 'var(--m-ink)',
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
-          {/*
-            The bot check. Renders NOTHING until a Turnstile site key is set, so
-            this page is unchanged today. It is not optional once captcha is on:
-            Supabase gates password recovery with the same global switch as
-            sign-in, and this is the page someone reaches BECAUSE they are
-            already locked out.
-          */}
-          <TurnstileField action="password_reset" />
-          <SubmitButton
-            className="m-btn-orange"
-            style={{
-              padding: '12px 18px',
-              fontSize: 14,
-              justifyContent: 'center',
-              width: '100%',
-              background: 'var(--m-orange-2)',
-              color: 'var(--m-paper)',
-              border: 'none',
-              borderRadius: 'var(--m-r-full)',
-              fontFamily: 'inherit',
-              cursor: 'pointer',
-              fontWeight: 500,
-            }}
-            pendingLabel="Sending…"
-          >
-            Email me a reset link
-          </SubmitButton>
-        </form>
-
-        <div
-          style={{
-            fontSize: 12,
-            color: 'var(--m-slate)',
-            textAlign: 'center',
-            marginTop: 4,
-          }}
-        >
-          Remembered it?{' '}
-          <Link
-            href="/login"
-            style={{
-              color: 'var(--m-orange-2)',
-              textDecoration: 'none',
-              fontWeight: 500,
-            }}
-          >
-            Back to sign in
-          </Link>
-        </div>
-      </div>
-    </main>
+      </p>
+    </DoorShell>
   );
 }

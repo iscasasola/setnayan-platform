@@ -20,7 +20,7 @@ import { PaxSettingsCard } from './_components/pax-settings-card';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Personalization · Setnayan' };
+export const metadata = { title: 'Personalization' };
 
 /**
  * Personalization · /dashboard/[eventId]/details

@@ -19,7 +19,7 @@ import {
 import { CopyLink } from '../_components/copy-link';
 import { ReissueCameraButton } from './reissue-button';
 
-export const metadata = { title: 'Camera operators · Setnayan' };
+export const metadata = { title: 'Camera operators' };
 export const dynamic = 'force-dynamic';
 
 // Live Studio — CAMERA OPERATORS.

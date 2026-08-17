@@ -8,7 +8,7 @@ import {
   formatPhpFromString,
 } from '@/lib/receipts';
 
-export const metadata = { title: 'Transaction Receipt · Setnayan' };
+export const metadata = { title: 'Transaction Receipt' };
 
 type Props = { params: Promise<{ receiptId: string }> };
 

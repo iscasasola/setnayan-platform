@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d69bb0897",
+  "generatedFromRef": "78b3470d2",
   "routeCount": 401,
-  "destinations": 796,
+  "destinations": 794,
   "actions": 525,
-  "blocks": 3529,
+  "blocks": 3536,
   "routes": {
     "/": {
       "files": [
@@ -495,11 +495,11 @@
       ],
       "actions": [],
       "blocks": [
+        "DoorShell",
         "Link",
         "Phase",
         "Plan3DGuestView",
-        "Plan3DSceneLoader",
-        "Shell"
+        "Plan3DSceneLoader"
       ]
     },
     "/[slug]": {
@@ -1233,6 +1233,7 @@
         "viewReceipt"
       ],
       "blocks": [
+        "BrowserBlocksSurface",
         "ChartCard",
         "CockpitSurface",
         "ConnectionLogsSurface",
@@ -6809,17 +6810,17 @@
         "forgot-password/page.tsx"
       ],
       "destinations": [
-        "/",
         "/login"
       ],
       "actions": [
         "requestPasswordReset"
       ],
       "blocks": [
+        "DoorNotice",
+        "DoorShell",
         "Link",
         "SubmitButton",
-        "TurnstileField",
-        "Wordmark"
+        "TurnstileField"
       ]
     },
     "/help/[slug]": {
@@ -7185,8 +7186,8 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "PabatiPrompt",
-        "Shell"
+        "DoorShell",
+        "PabatiPrompt"
       ]
     },
     "/panood/cam/[token]": {
@@ -7300,6 +7301,7 @@
         "CamJoinFlow",
         "CamSlot",
         "CameraPublisher",
+        "DoorShell",
         "HTMLVideoElement",
         "Link",
         "MediaStream",
@@ -7358,13 +7360,13 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "DoorShell",
         "Drag",
         "HTMLDivElement",
         "HTMLImageElement",
         "HTMLInputElement",
         "KwentoDecorator",
-        "PapicStyle",
-        "Shell"
+        "PapicStyle"
       ]
     },
     "/papic/demo/[token]": {
@@ -7378,6 +7380,7 @@
       "actions": [],
       "blocks": [
         "DemoJoinFlow",
+        "DoorShell",
         "HTMLVideoElement",
         "Link",
         "MediaStream",
@@ -7402,6 +7405,7 @@
         "Blob",
         "ChallengePanelInner",
         "DayOfFaceEnroll",
+        "DoorShell",
         "HTMLButtonElement",
         "HTMLCanvasElement",
         "Link",
@@ -7410,8 +7414,7 @@
         "PapicChallengePanel",
         "PapicGuestBuyPanel",
         "PapicGuestCapture",
-        "PapicStyle",
-        "Shell"
+        "PapicStyle"
       ]
     },
     "/papic/join/[token]": {
@@ -7465,6 +7468,7 @@
       "actions": [],
       "blocks": [
         "Blob",
+        "DoorShell",
         "File",
         "GuestGallery",
         "GuestStoryMaker",
@@ -7473,8 +7477,7 @@
         "MusicChoice",
         "MusicOption",
         "Phase",
-        "PoolDoorway",
-        "Shell"
+        "PoolDoorway"
       ]
     },
     "/papic/order/[token]": {
@@ -7497,8 +7500,8 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "PoolGrid",
-        "Shell"
+        "DoorShell",
+        "PoolGrid"
       ]
     },
     "/papic/seat/[token]": {
@@ -7515,6 +7518,7 @@
       "blocks": [
         "Blob",
         "CameraBridgePanel",
+        "DoorShell",
         "DslrPairingController",
         "HTMLButtonElement",
         "HTMLCanvasElement",
@@ -7595,7 +7599,6 @@
         "reset-password/page.tsx"
       ],
       "destinations": [
-        "/",
         "/forgot-password",
         "/login"
       ],
@@ -7603,9 +7606,11 @@
         "completePasswordReset"
       ],
       "blocks": [
+        "DoorActions",
+        "DoorNotice",
+        "DoorShell",
         "Link",
-        "SubmitButton",
-        "Wordmark"
+        "SubmitButton"
       ]
     },
     "/samahan/join/[token]": {

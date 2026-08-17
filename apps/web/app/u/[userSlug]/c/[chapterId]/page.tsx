@@ -77,7 +77,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { userSlug, chapterId } = await params;
   const resolved = await resolve(userSlug, chapterId);
   if (!resolved) {
-    return { title: 'Setnayan', robots: { index: false, follow: false } };
+    // `absolute` bypasses the root template — see the sibling profile route.
+    return { title: { absolute: 'Setnayan' }, robots: { index: false, follow: false } };
   }
   const name = resolved.user.display_name?.trim() || 'Setnayan';
   const title = `${resolved.chapter.title} · ${name}`;

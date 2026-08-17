@@ -16,7 +16,7 @@ import { CookieSettingsLink } from '@/app/_components/legal/cookie-settings-link
 */
 
 export const metadata = {
-  title: 'Cookie policy · Setnayan',
+  title: 'Cookie policy',
   description:
     'The cookies and local storage Setnayan uses, why, and how to change your choices under the Philippine Data Privacy Act (RA 10173). Essential cookies only by default; analytics is opt-in; no advertising cookies.',
   alternates: { canonical: '/cookies' },

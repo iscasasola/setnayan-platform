@@ -85,6 +85,7 @@ import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { buildAfterEventMemento } from '@/lib/pahina-memento';
 import { OwnerRibbon } from './owner-ribbon';
 import { DayOfAnnouncement } from './day-of-announcement';
+import { viewerIsEventHost } from '../_lib/site-identity';
 import type {
   AnonymousSiteIdentity,
   GuestSiteIdentity,
@@ -425,11 +426,13 @@ export async function SiteBody({
    * real control (guest list, seating, budget, schedule, vendors) stays in
    * /dashboard/[eventId] and nothing here links anywhere the ribbon does not
    * already link. It is the same server-verified capability the ribbon uses —
-   * no new gate, and the event check is restated here rather than inferred from
-   * `ownerRibbon`, which is also null for the unrelated reason of a missing slug.
+   * no new gate. The rule now lives in ONE place — `viewerIsEventHost` in
+   * _lib/site-identity.ts, shared with `buildOwnerRibbon` — rather than being
+   * restated here, which is how the ribbon and the body would drift apart.
+   * (Still NOT derived from `ownerRibbon !== null`: that is also null for a
+   * missing slug, which would silently drop the body variant.)
    */
-  const viewerIsHost =
-    ownerCapability !== null && ownerCapability.ownerEventId === event.event_id;
+  const viewerIsHost = viewerIsEventHost(ownerCapability, event.event_id);
 
   // Open-browse PR7 — per-widget content presence for the shared hasContent()
   // predicate. Only consulted when `event.website_open_browse` is TRUE; a
@@ -1362,7 +1365,7 @@ export async function SiteBody({
                   {isPost && showClaimAccountCta ? (
                     <p className="mt-3 rounded-lg border-l-2 border-gild bg-veil/60 px-3 py-2 text-sm text-ink/80">
                       These close about a day after the wedding. Save the ones you want now —
-                      or make a free account (the box near the top) to keep them forever.
+                      or make a free account (the box near the top) to keep them.
                     </p>
                   ) : null}
                   {/* 3-up (not 4-up) so the photos — and the readable "Not me" control —

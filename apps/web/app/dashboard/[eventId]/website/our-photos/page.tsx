@@ -10,7 +10,7 @@ import { updateOurPhotos } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { WebsiteProLock } from '../_components/website-pro-lock';
 
-export const metadata = { title: 'Edit our photos · Setnayan' };
+export const metadata = { title: 'Edit our photos' };
 
 const MAX_PHOTOS = 24;
 

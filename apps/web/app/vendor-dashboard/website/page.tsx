@@ -32,7 +32,7 @@ import { DomainManager } from './_domain-manager';
 import type { DomainRow } from './actions';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Your website · Setnayan' };
+export const metadata = { title: 'Your website' };
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'

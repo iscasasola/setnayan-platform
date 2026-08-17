@@ -52,7 +52,7 @@ import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 // Save button + redirect) are replaced by this client-driven builder; server
 // still resolves the initial data + presigned media URLs.
 
-export const metadata = { title: 'Save the Date · Setnayan' };
+export const metadata = { title: 'Save the Date' };
 
 type Props = {
   params: Promise<{ eventId: string }>;

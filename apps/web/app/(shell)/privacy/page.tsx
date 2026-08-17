@@ -19,7 +19,7 @@ import Link from 'next/link';
 */
 
 export const metadata = {
-  title: 'Privacy policy · Setnayan',
+  title: 'Privacy policy',
   description:
     'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173). Guest data, couple consent, vendor data, receipts, and DPO contact.',
   alternates: { canonical: '/privacy' },

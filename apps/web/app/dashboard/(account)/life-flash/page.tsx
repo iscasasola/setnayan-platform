@@ -285,7 +285,7 @@ export default async function LifeFlashPage({
           <p className="font-medium text-ink">Your story starts with a celebration.</p>
           <p className="mt-1">
             Host an event and let Papic gather everyone&rsquo;s photos — they&rsquo;ll settle
-            here for life.
+            here.
           </p>
           <Link
             href="/dashboard/create-event"

@@ -31,7 +31,7 @@ import { GenericOnboarding } from './_components/generic-onboarding';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Plan your event · Setnayan',
+  title: 'Plan your event',
   description:
     "A few quick questions and we'll shape a plan made for your celebration. Free to start, always.",
   robots: { index: false, follow: false },

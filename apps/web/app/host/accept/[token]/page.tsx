@@ -12,7 +12,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
 
 export const metadata = {
-  title: 'Accept your invitation · Setnayan',
+  title: 'Accept your invitation',
   robots: { index: false, follow: false },
 };
 

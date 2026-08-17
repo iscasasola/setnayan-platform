@@ -7,7 +7,7 @@ import { canViewSlugEvent } from '@/lib/slug-access';
 import { Logo } from '@/app/_components/logo';
 import { NameSearch } from './_components/name-search';
 
-export const metadata = { title: 'Find your seat · Setnayan' };
+export const metadata = { title: 'Find your seat' };
 
 // Public, no-session free finder — never statically cached (publication state
 // + the search are dynamic).

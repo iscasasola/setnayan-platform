@@ -18,7 +18,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { claimVendorInviteToEvent } from './actions';
 
 export const metadata = {
-  title: 'Add a vendor to your plan · Setnayan',
+  title: 'Add a vendor to your plan',
   // Per-vendor invite landings shouldn't be indexed.
   robots: { index: false, follow: false },
 };

@@ -38,7 +38,7 @@ import { TourPalettePreview, type TourSwatchGroup } from './_components/tour-pal
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'The gallery · Maria & Jose · Setnayan',
+  title: 'The gallery · Maria & Jose',
   description:
     'See a wedding come alive on Setnayan — the live photo wall filling in as the day unfolds, and the couple’s mood-board palette. No sign-up, nothing saved.',
   alternates: { canonical: '/tour/gallery' },

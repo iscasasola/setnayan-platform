@@ -33,7 +33,7 @@ import { CustomersCalendar } from './_components/customers-calendar';
 import type { FilterOption } from './_components/customers-filter-bar';
 import { VendorQrSection } from '../_components/qr-section';
 
-export const metadata = { title: 'My Customers · Vendor · Setnayan' };
+export const metadata = { title: 'My Customers · Vendor' };
 
 /**
  * /vendor-dashboard/customers — "My Customers".

@@ -11,7 +11,7 @@ import {
   updateActivity,
 } from './actions';
 
-export const metadata = { title: 'Your segments · Vendor · Setnayan' };
+export const metadata = { title: 'Your segments · Vendor' };
 
 /**
  * THE EMCEE'S SEGMENTS — where a host/MC writes down what he does, once.

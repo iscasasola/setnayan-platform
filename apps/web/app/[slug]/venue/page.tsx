@@ -15,7 +15,7 @@ import type { VenueScene } from './_components/guest-venue-3d';
 // SECURITY DEFINER public_venue_scene() RPC — this page just calls it and hands
 // the result to the WebGL scene. force-dynamic: the token + scene are per-request.
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Explore the venue · Setnayan' };
+export const metadata = { title: 'Explore the venue' };
 
 export default async function VenuePage({
   params,

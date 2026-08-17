@@ -79,7 +79,7 @@ export async function LifeFlashHomeCard({ userId }: { userId: string }) {
               Your story starts with a celebration.
             </p>
             <p className="mt-2 text-xs text-white/55">
-              Let Papic gather everyone&rsquo;s photos — they&rsquo;ll settle here for life.
+              Let Papic gather everyone&rsquo;s photos — they&rsquo;ll settle here.
             </p>
           </div>
           {chevron}

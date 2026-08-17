@@ -19,7 +19,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { claimLockedQr } from './actions';
 
 export const metadata = {
-  title: 'Lock in your vendor · Setnayan',
+  title: 'Lock in your vendor',
   robots: { index: false, follow: false },
 };
 

@@ -6,7 +6,7 @@ import { fetchOrdersForEvent } from '@/lib/orders';
 import { SuppliesMarketplaceBrowser } from './_components/cart-drawer';
 import { SUPPLY_PRODUCTS, type SupplyProduct } from './_data/products';
 
-export const metadata = { title: 'Setnayan Supplies · Setnayan' };
+export const metadata = { title: 'Setnayan Supplies' };
 
 type Props = { params: Promise<{ eventId: string }> };
 

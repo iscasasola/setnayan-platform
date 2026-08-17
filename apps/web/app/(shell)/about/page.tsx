@@ -232,7 +232,7 @@ export default function AboutPage() {
               but Setnayan is built to grow into a life-events collection: as
               birthdays, debuts, christenings, and anniversaries unlock, the same
               tools carry across them, and everything you create is gathered into
-              one living memory you keep for life. Your wedding is where it starts.
+              one living memory you keep. Your wedding is where it starts.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               <Link href="/how-it-works" className="button-primary h-11 px-5 text-sm">

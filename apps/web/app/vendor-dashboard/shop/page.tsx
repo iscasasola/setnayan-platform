@@ -123,7 +123,7 @@ import { VoiceMatchSection } from './_components/voice-match-section';
  * is wrapped so a single query error degrades to zeros rather than crashing.
  */
 
-export const metadata = { title: 'My Shop · Vendor · Setnayan' };
+export const metadata = { title: 'My Shop · Vendor' };
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'

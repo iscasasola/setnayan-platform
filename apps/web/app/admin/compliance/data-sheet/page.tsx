@@ -19,7 +19,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 // processing" section. Everything is server-rendered — no client JS needed.
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'NPC data sheet · Setnayan HQ' };
+export const metadata = { title: 'NPC data sheet HQ' };
 
 const NF = new Intl.NumberFormat('en-PH');
 const TBD = '[TO CONFIRM]';

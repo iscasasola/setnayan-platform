@@ -52,7 +52,7 @@ async function resolveDisplayUrl(value: string | null | undefined): Promise<stri
 */
 
 export const metadata = {
-  title: 'Compare vendors — Setnayan',
+  title: 'Compare vendors',
   description:
     'Side-by-side comparison of up to 2 saved Filipino wedding vendors.',
   alternates: { canonical: '/explore/compare' },

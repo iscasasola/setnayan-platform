@@ -8,6 +8,8 @@ import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { collectBookingFeeAtLock, resolveFeeAnchorRowId } from '@/lib/booking-fee-lock.server';
 import { acquireSchedulePoolsForBooking } from '@/lib/schedule-pools';
 import { emitNotification } from '@/lib/notification-emit';
+import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
+import { formatCandidateDate } from '@/lib/candidate-dates';
 import { uploadPublicAsset } from '@/lib/storage';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { createVendorChallenge } from '@/lib/papic-games';
@@ -852,4 +854,184 @@ export async function vendorWithdrawChangeOrder(formData: FormData) {
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   const flag = error ? 'error' : env.status ?? 'ok';
   redirect(`/vendor-dashboard/clients/${eventId}?change_order_resp=${flag}`);
+}
+
+/**
+ * PR-H STEP 2 — the supplier answers.
+ *
+ * A couple pressing Lock now only ASKS (owner ruling 2026-07-27). These two
+ * actions are the answer, and `vendor_agree_to_lock` is what actually creates
+ * the booking: it writes `lock_request_state='agreed'` and `status='contracted'`
+ * in one statement.
+ *
+ * 🔑 THE FORM CARRIES ONLY THE BOOKING ID, AND EVERY SIDE EFFECT KEYS ON THE
+ * ENVELOPE'S `event_id` — NOT ON ANYTHING THE VENDOR POSTED.
+ * `vendorAcknowledgeDeposit` above reads `event_id` from FormData, validates it
+ * with `typeof === 'string'`, never cross-checks it against the booking, and
+ * then aims an admin-client schedule write at it. That is a confused deputy, and
+ * copying the shape here would have widened it: these actions notify a couple
+ * and (from slice B) drive the post-lock effects. The RPCs return `event_id`
+ * read off the row they authorized, so there is nothing to trust.
+ * ⚠ Do not "simplify" this by taking event_id from the form to save a lookup.
+ *
+ * No TypeScript authorization re-check: the DEFINER RPC owns the gate
+ * (`current_vendor_profile_ids`, plus an agent arm re-anchored to the org that
+ * was actually asked), and a second check in TS would be a second answer to one
+ * question.
+ */
+export async function vendorAgreeToLock(formData: FormData) {
+  const eventVendorId = formData.get('vendor_id');
+  if (typeof eventVendorId !== 'string') throw new Error('Invalid input');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('vendor_agree_to_lock', {
+    p_event_vendor_id: eventVendorId,
+  });
+  const env = (data ?? {}) as { status?: string; event_id?: string; competing?: number };
+  const eventId = typeof env.event_id === 'string' ? env.event_id : null;
+
+  // Tell the couple, on a FRESH agreement only — a re-call ('already') stays
+  // silent. Best-effort: the booking is already made and a notification hiccup
+  // must never roll it back.
+  if (!error && env.status === 'ok' && eventId) {
+    try {
+      const admin = createAdminClient();
+
+      // ── THE DATE NARROWS HERE, NOT AT THE ASK (owner §6.1 · slice B) ──────
+      // A couple with no wedding day yet carries CANDIDATE days; every supplier
+      // they actually book removes the days that supplier cannot work, and when
+      // one candidate is left, that is the date. Slice A deliberately SKIPPED
+      // this at the couple's press — running it there would have pinned the
+      // wedding date off a supplier who had agreed to nothing and could still
+      // decline, and the date would have survived the decline. An AGREEMENT is
+      // the event that legitimately narrows it, and this is that moment.
+      //
+      // Best-effort and ordered FIRST so the notification below can say what
+      // happened: the booking is already committed by the RPC, and a failure to
+      // narrow must never roll it back. `still_open` / `no_op` / `lost_race`
+      // are all ordinary outcomes, not errors.
+      let narrowedDate: string | null = null;
+      try {
+        const narrowed = await narrowEventDateAfterAgreement(admin, {
+          eventId,
+          forcedByEventVendorId: eventVendorId,
+        });
+        if (narrowed.status === 'locked') narrowedDate = narrowed.date;
+      } catch (e) {
+        console.error(
+          `[vendorAgreeToLock] date narrowing failed for vendor_id=${eventVendorId}:`,
+          e,
+        );
+      }
+
+      const { data: ev } = await admin
+        .from('event_vendors')
+        .select('vendor_name')
+        .eq('vendor_id', eventVendorId)
+        .maybeSingle();
+      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'Your vendor';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id,
+          type: 'lock_request_agreed',
+          title: `${vendorName} said yes`,
+          // 🗣 A DATE MUST NEVER APPEAR ON A COUPLE'S SCREEN WITHOUT THEM BEING
+          // TOLD IT WAS SET. The narrowing writes their FINAL wedding day, so
+          // the one message they are guaranteed to receive about this agreement
+          // is the message that has to say so.
+          body: narrowedDate
+            ? `${vendorName} agreed to your booking. That leaves one day everyone you have booked can make, so your date is now ${formatCandidateDate(narrowedDate)}. They will send you their payment details next.`
+            : `${vendorName} agreed to your booking. They will send you their payment details next.`,
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+        });
+      }
+    } catch (e) {
+      console.error(
+        `[vendorAgreeToLock] couple notify failed for vendor_id=${eventVendorId}:`,
+        e,
+      );
+    }
+  }
+
+  revalidatePath('/vendor-dashboard');
+  const flag = error ? 'error' : (env.status ?? 'ok');
+  redirect(`/vendor-dashboard?lock_agree=${flag}`);
+}
+
+/**
+ * The no — with the supplier's own words, which ARE persisted
+ * (`lock_decline_reason`). Declining is also how a supplier clears the
+ * `resolve_others_first` refusal on agree: the 2026-06-02 lock requires the
+ * non-chosen couples to be told explicitly, never dropped silently.
+ */
+export async function vendorDeclineLock(formData: FormData) {
+  const eventVendorId = formData.get('vendor_id');
+  if (typeof eventVendorId !== 'string') throw new Error('Invalid input');
+  const rawReason = formData.get('reason');
+  const reason =
+    typeof rawReason === 'string' && rawReason.trim() ? rawReason.trim().slice(0, 240) : null;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('vendor_decline_lock', {
+    p_event_vendor_id: eventVendorId,
+    p_reason: reason,
+  });
+  const env = (data ?? {}) as { status?: string; event_id?: string };
+  const eventId = typeof env.event_id === 'string' ? env.event_id : null;
+
+  if (!error && env.status === 'ok' && eventId) {
+    try {
+      const admin = createAdminClient();
+      const { data: ev } = await admin
+        .from('event_vendors')
+        .select('vendor_name')
+        .eq('vendor_id', eventVendorId)
+        .maybeSingle();
+      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'The vendor';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id,
+          type: 'lock_request_declined',
+          title: `${vendorName} can't take this booking`,
+          // The reason is the whole point of storing it — a refusal the couple
+          // cannot read is not a refusal, it is a disappearance.
+          body: reason
+            ? `${vendorName} said: "${reason}" — you can pick someone else for this.`
+            : `${vendorName} turned down this booking. You can pick someone else for this.`,
+          relatedUrl: `/dashboard/${eventId}/vendors`,
+        });
+      }
+    } catch (e) {
+      console.error(
+        `[vendorDeclineLock] couple notify failed for vendor_id=${eventVendorId}:`,
+        e,
+      );
+    }
+  }
+
+  revalidatePath('/vendor-dashboard');
+  const flag = error ? 'error' : (env.status ?? 'ok');
+  redirect(`/vendor-dashboard?lock_decline=${flag}`);
 }

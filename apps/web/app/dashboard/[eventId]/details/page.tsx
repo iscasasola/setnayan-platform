@@ -8,13 +8,19 @@ import { getConfirmedVendorCount } from '@/lib/events';
 import { titleCase } from '@/lib/personalized-menu';
 import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
 import { isChineseWedding } from '@/lib/chinese-wedding';
+import {
+  cadencesForType,
+  cadenceIsForced,
+  effectiveCadence,
+  CADENCE_LABELS,
+} from '@/lib/event-anchor';
 import { DetailsForm } from './_components/details-form';
 import { GovernedFields } from './_components/governed-fields';
 import { PaxSettingsCard } from './_components/pax-settings-card';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Personalization · Setnayan' };
+export const metadata = { title: 'Personalization' };
 
 /**
  * Personalization · /dashboard/[eventId]/details
@@ -61,6 +67,8 @@ export default async function PersonalizationPage({
     .from('events_host')
     .select(
       'event_id, display_name, event_type, bride_name, groom_name, region, mood_feel_key, ' +
+        // The repeat — read back so the control shows what is actually stored.
+        'recurs, recur_cadence, ' +
         'estimated_budget_centavos, budget_band, ceremony_type, secondary_ceremony_type, ' +
         'ceremony_type_locked_at, event_date, event_date_precision, date_mode, date_candidates, ' +
         'date_window_start, date_window_end, estimated_pax, venue_setting, ' +
@@ -149,6 +157,18 @@ export default async function PersonalizationPage({
           .join(' · ')
       : null;
 
+  // ── the repeat, resolved server-side ──────────────────────────────────────
+  // The options come from the ONE per-type map, so this screen cannot offer a
+  // cadence the create path would refuse — the exact divergence that left
+  // birthdays invisible on the Year view.
+  const repeatType = str('event_type');
+  const repeatOptions = cadencesForType(repeatType).map((c) => ({
+    value: c,
+    label: CADENCE_LABELS[c],
+  }));
+  const repeatForced = cadenceIsForced(repeatType);
+  const storedCadence = effectiveCadence(e['recurs'] === true, str('recur_cadence'));
+
   return (
     <section className="sn-col space-y-5">
       <PageMasthead title="Personalization" lede="Everything from your onboarding lives here. Refine it anytime — it tunes the services we match and sort for you." />
@@ -174,6 +194,9 @@ export default async function PersonalizationPage({
           initialPartnerABirthTime={trimTime(str('partner_a_birth_time'))}
           initialPartnerBBirthDate={str('partner_b_birth_date') ?? ''}
           initialPartnerBBirthTime={trimTime(str('partner_b_birth_time'))}
+          repeatOptions={repeatOptions}
+          repeatForced={repeatForced}
+          initialCadence={storedCadence ?? ''}
         />
       </div>
 

@@ -130,7 +130,7 @@ import {
   deleteHighlight,
 } from './actions';
 
-export const metadata = { title: 'Live Studio controller · Setnayan' };
+export const metadata = { title: 'Live Studio controller' };
 
 // ═════════════════════════════════════════════════════════════════════════════
 // LIVE STUDIO CONTROLLER — the OWNER-APPROVED single-screen layout

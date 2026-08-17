@@ -17,7 +17,7 @@ import { CopyButton } from '@/app/_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { LockedQrGenerator } from './_components/locked-qr-generator';
 
-export const metadata = { title: 'QR Code Generator · Vendor · Setnayan' };
+export const metadata = { title: 'QR Code Generator · Vendor' };
 
 /**
  * QR Code Generator (My Shop). One surface, two modes via a toggle:

@@ -11,7 +11,11 @@ import {
 } from '@/lib/vendor-overview';
 import { ServerTimer } from '@/lib/server-timing';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
-import { vendorAcknowledgeDeposit } from './clients/[eventId]/actions';
+import {
+  vendorAcknowledgeDeposit,
+  vendorAgreeToLock,
+  vendorDeclineLock,
+} from './clients/[eventId]/actions';
 import {
   VendorTodayFocal,
   VendorEnergyStats,
@@ -298,6 +302,8 @@ export default async function VendorOverviewPage() {
         acceptInquiry={acceptInquiry}
         declineInquiry={declineInquiry}
         confirmLock={vendorAcknowledgeDeposit}
+        agreeLock={vendorAgreeToLock}
+        declineLock={vendorDeclineLock}
       />
 
       {/* 2 · Token note — cost follows the customer's event location. A subtle

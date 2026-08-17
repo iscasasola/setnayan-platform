@@ -19,7 +19,7 @@ import { PakantaMusicForm } from './_components/pakanta-music-form';
 import { UseSongButton } from './_components/use-song-button';
 import { AiDisclosure } from '@/components/AiDisclosure';
 
-export const metadata = { title: 'Pakanta · Setnayan' };
+export const metadata = { title: 'Pakanta' };
 
 const SKU_CODE = 'PAKANTA';
 // Price comes ONLY from the admin V2 catalog (owner rule 2026-06-14 — no

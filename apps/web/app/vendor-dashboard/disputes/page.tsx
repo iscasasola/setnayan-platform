@@ -6,7 +6,7 @@ import { relativeTime } from '@/lib/activity';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitDisputeContest } from './actions';
 
-export const metadata = { title: 'Disputes · Vendor · Setnayan' };
+export const metadata = { title: 'Disputes · Vendor' };
 
 /**
  * /vendor-dashboard/disputes — "Stand up for yourself" mediation.

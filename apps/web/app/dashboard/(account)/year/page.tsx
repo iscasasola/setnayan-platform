@@ -81,7 +81,7 @@ export default async function YearPage() {
       `member_type,
        events:event_id (
          event_id, event_type, display_name, event_date,
-         anchor_date, anchor_origin, recurs, archived
+         anchor_date, anchor_origin, recurs, recur_cadence, archived
        )`,
     )
     .eq('user_id', user.id)

@@ -51,7 +51,7 @@ import { LEAD_TIME_NOTICE } from '@/lib/live-studio-readiness';
 // Studio Cast" keeps the internal `panood` name — renaming the route is a separate,
 // churny effort. Everything the customer sees says "Live Studio".
 
-export const metadata = { title: 'Live Studio · Setnayan' };
+export const metadata = { title: 'Live Studio' };
 
 type Props = {
   params: Promise<{ eventId: string }>;

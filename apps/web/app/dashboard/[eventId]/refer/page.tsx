@@ -5,7 +5,7 @@ import { getMyReferral, type ReferralRedemptionSummary } from '@/lib/referral-ac
 import { isReferralProgramEnabled } from '@/lib/platform-settings';
 import { CopyButton } from '@/app/_components/copy-button';
 
-export const metadata = { title: 'Refer a couple · Setnayan' };
+export const metadata = { title: 'Refer a couple' };
 
 type Props = { params: Promise<{ eventId: string }> };
 

@@ -12,7 +12,7 @@ import { getSampleEvent } from './_lib/sample-event';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Walk through a real wedding · Setnayan',
+  title: 'Walk through a real wedding',
   description:
     'Explore a complete sample wedding on Setnayan — the invitation, the vendors, the seating, the budget, and the gallery. No sign-up, and nothing is saved.',
   alternates: { canonical: '/tour' },

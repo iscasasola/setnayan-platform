@@ -166,12 +166,44 @@ test('anon may NOT read the unredacted completed-event count', async () => {
   );
 });
 
-test('authenticated KEEPS it — the documented reader is the vendor\'s own backend card', async () => {
+/**
+ * ⚖ THIS ASSERTION WAS REVERSED ON 2026-08-17, deliberately, and the reasoning
+ * is kept rather than replaced so nobody flips it back by accident.
+ *
+ * It used to assert the OPPOSITE — that `authenticated` KEEPS SELECT — on the
+ * stated grounds that "lib/vendor-profile.ts documents the vendor's own backend
+ * card as the reader; revoking it there breaks that card instead of protecting
+ * anything."
+ *
+ * 🔑 THE PREMISE WAS FALSE, AND WAS ALREADY KNOWN TO BE FALSE. The same
+ * migration that wrote that reasoning down also recorded that the reader,
+ * `fetchVendorCompletedEventStats()`, has ZERO CALLERS. Re-verified against
+ * origin/main on 2026-08-17: the only occurrence of that function in the entire
+ * repo is its own definition. There is no card. Revoking breaks nothing.
+ *
+ * What the grant DID do, every day it stood: a matview cannot honour RLS, so
+ * the GRANT is the entire control. Any account holder — and an account is one
+ * tap — could read any supplier's unredacted count, and subtracting the public
+ * count from it yields that supplier's written-off jobs (comped, bartered,
+ * family-rate, fraud-voided).
+ *
+ * A ruling outlives the premise it was decided on. The premise here was "there
+ * is a documented consumer"; there never was one, so the ruling goes.
+ *
+ * To build that card, add a reader SCOPED TO THE CALLER (a security-invoker
+ * view, or a function keyed to the caller's own vendor_profile_id) — which is
+ * exactly what the original migration asked for. Do NOT satisfy it by restoring
+ * a blanket grant and re-reversing this test.
+ */
+test('authenticated may NOT read it either — the "documented reader" never existed', async () => {
   assert.equal(
     await hasSelect('authenticated', FULL),
-    true,
-    'authenticated lost SELECT on the full stats. lib/vendor-profile.ts documents the vendor\'s own ' +
-      'backend card as the reader; revoking it there breaks that card instead of protecting anything.',
+    false,
+    `authenticated can read ${FULL}. A matview cannot carry RLS, so this grant is the whole ` +
+      `control: every account holder can read every supplier's unredacted count, and the ` +
+      `difference from the public count is that supplier's written-off jobs. If you are ` +
+      `restoring this to build the vendor's own backend card, scope the reader to the caller ` +
+      `instead — a blanket grant hands the same figure to everybody else.`,
   );
 });
 

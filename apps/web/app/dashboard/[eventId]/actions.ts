@@ -7,6 +7,7 @@
 // stale until manual reload. Same canonical fix as wizard-actions.ts
 // (PR #514) — see CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached
 // fields) stay stale after wizard save".
+import { resolveCadence } from '@/lib/event-anchor';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -637,6 +638,10 @@ export async function updateEventMatchCriteria(
     .from('events')
     .select(
       'region, mood_feel_key, estimated_budget_centavos, bride_name, groom_name, display_name, ' +
+        // event_type: the cadence is resolved against the SERVER's view of what
+        // this event IS, never a type posted by the client — the same rule the
+        // BaZi gate below follows for ceremony_type.
+        'event_type, recurs, recur_cadence, ' +
         // PR-G — read the stored ceremony so the BaZi birth-data write gates on
         // the SERVER's view of the event (never trusts the client), and capture
         // the prior birth fields for the audit before/after.
@@ -654,6 +659,38 @@ export async function updateEventMatchCriteria(
     bride_name: brideName,
     groom_name: groomName,
   };
+
+  // ── THE REPEAT, EDITABLE AT LAST ────────────────────────────────────────────
+  // 🔴 `events.recurs` HAD NO UPDATE PATH ANYWHERE. Every writer was an INSERT
+  // (this create action, the onboarding insert, the recurrence clone), so a
+  // decision made in one tap at creation was permanent and unreachable — while
+  // the onboarding screen said, in as many words, **"You can change this
+  // later."** It could not. A test docblock in this repo had already recorded
+  // the consequence for the sibling anchor columns: *"There is no screen
+  // anywhere to fix that after creation, so the event was permanently invisible
+  // to the surface built for it."*
+  //
+  // This is Band 1 of the Personalization page — governance-free, binds no
+  // vendor, so it is edited inline here rather than behind the booked-vendor
+  // lock that governs dates and ceremony type.
+  //
+  // 🔑 `resolveCadence` IS THE SAME DECIDER THE TWO CREATE PATHS USE. A separate
+  // rule here is how the three-way disagreement started, and it is why a
+  // birthday created one way never appeared on the Year view.
+  //
+  // Absent from the form ⇒ untouched. A person editing their budget must not
+  // silently switch off a repeat they never saw.
+  if (formData.has('recur_cadence')) {
+    // The SERVER's view of what this event is — never a type posted by the
+    // client, the same rule the BaZi gate below follows for ceremony_type.
+    const beforeRow = before as Record<string, unknown> | null;
+    const storedType = typeof beforeRow?.event_type === 'string' ? beforeRow.event_type : null;
+    const cadence = resolveCadence(storedType, formData.get('recur_cadence'));
+    updatePatch.recur_cadence = cadence;
+    // The DB CHECK refuses a cadence without the switch, so both halves move
+    // together — one decider, one write.
+    updatePatch.recurs = cadence !== null;
+  }
   // Recompute the chrome/display label from the names only when at least one
   // is present — never blank an existing display_name.
   if (recomputedDisplay !== '') {

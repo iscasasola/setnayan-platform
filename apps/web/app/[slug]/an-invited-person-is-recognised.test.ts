@@ -133,9 +133,41 @@ test("the event page admits a signed-in person holding a seat", () => {
   );
   assert.match(
     src,
-    /if \(!guestSessionMatches && !isAuthedHost && !isSeatHolder\) \{/,
+    /if \(!guestSessionMatches && !isAuthedHost && !isSeatHolder && !isBookedSupplier\) \{/,
     'The seat check exists but the refusal does not honour it — the same trap ' +
       'with an extra variable.',
+  );
+});
+
+test('the event page admits a BOOKED SUPPLIER — the fifth path', () => {
+  // The same defect as the seat holder above, one audience along: the supplier
+  // doorway, its gate and its read all shipped, and on a private event the page
+  // refused the supplier ~200 lines before the gate ran. They met "scan your
+  // invitation QR" — a QR nobody sends a supplier. 4 of 6 production events are
+  // private.
+  const src = read(SLUG_PAGE);
+  assert.match(
+    src,
+    /isBookedSupplier =\s*\n?\s*booking !== null && vendorBookingIsCommitted\(booking\.bookingStatus\);/,
+    'The private gate no longer consults the booking. Every supplier the couple ' +
+      'booked is told to scan an invitation QR they were never given.',
+  );
+  // 🔒 BOOKED, not merely LISTED. `acceptReuseRequest` mints a LINKED row at
+  // 'shortlisted', so testing the link alone would admit a supplier the couple
+  // has not chosen — the boundary PR-H draws when it refuses an ASKED supplier
+  // the venue address and the run-of-show.
+  assert.doesNotMatch(
+    src,
+    /isBookedSupplier = \(?await loadVendorBooking\([^)]*\)\)? !== null/,
+    'The gate admits on the LINK alone. A shortlisted reuse-accept row is linked ' +
+      'and is not a booking — the status is what must decide.',
+  );
+  // The supplier is NOT folded into the guest variable: a supplier is not a
+  // guest, and sharing the flag is how a later edit hands them a guest surface.
+  assert.doesNotMatch(
+    src,
+    /isSeatHolder = .*loadVendorBooking/,
+    'A supplier is being recorded as a seat holder. Keep the flags separate.',
   );
 });
 

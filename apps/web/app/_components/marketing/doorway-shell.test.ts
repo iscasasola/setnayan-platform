@@ -22,9 +22,17 @@ import { fileURLToPath } from 'node:url';
  * signed-in person a signed-out shell for an hour at a time. The only symptom is
  * an absence — the disease this repo keeps paying for.
  *
- * A LAYOUT CANNOT FIX IT FOR US: `dynamic` resolves nested-most-wins and the
- * children traversal completes before a parent layout's component is created.
- * It is seven separate edits, and missing one is invisible. So this counts.
+ * 🛑 THIS FILE ASSERTED "A LAYOUT CANNOT FIX IT FOR US: `dynamic` resolves
+ * nested-most-wins and the children traversal completes before a parent
+ * layout's component is created." THAT IS FALSE, and it was never tested — it
+ * went into eleven files on one day. MEASURED in a scratch Next 15.5.21 build
+ * from this repo's own node_modules: with the pages declaring nothing and
+ * `force-dynamic` on a route-group layout alone, both child routes moved from
+ * `○ (Static)` to `ƒ (Dynamic)` in the build table. The claim confuses the
+ * layout's ELEMENT (created after the children traversal) with its CONFIG —
+ * `create-component-tree.js` reads `layoutOrPageMod.dynamic` at :134 and sets
+ * `workStore.forceDynamic` at :154, ~160 lines BEFORE traversing children at
+ * :298. `app/(shell)/layout.tsx` now declares it once for all twenty routes.
  *
  * ─── AND THE TRAP THIS DELIBERATELY NEVER ENGAGES ────────────────────────
  * No `layout.tsx` is created under any doorway. A directory layout wraps EVERY
@@ -38,6 +46,16 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, '..', '..');
+/*
+  🔑 THE SHELLED PUBLIC ROUTES LIVE IN A ROUTE GROUP. `app/(shell)/` mounts the
+  shared shell once, in a layout, so it survives navigation. A route group is
+  INVISIBLE in the URL and PRESENT in the filesystem path — `/explore` still
+  serves from `app/(shell)/explore/page.tsx` — and that asymmetry is exactly
+  what broke seventeen guards on 2026-08-15. Resolve route directories through
+  this constant, never by joining APP directly.
+*/
+const SHELLED = join(APP, '(shell)');
+
 
 /**
  * The seven rail Studio rows.
@@ -109,66 +127,94 @@ function code(src: string): string {
 
 test('the anchor: all seven doorway pages exist', () => {
   for (const d of DOORWAYS) {
-    const p = join(APP, d, 'page.tsx');
+    const p = join(SHELLED, d, 'page.tsx');
     assert.ok(existsSync(p) && read(p).length > 500, `${p} is missing or a stub`);
   }
 });
 
 /* ── 1 · NOT ONE OF THEM MAY BE force-static ───────────────────────────── */
 
-test('every doorway is force-dynamic, and NONE is force-static', () => {
-  let dynamicCount = 0;
-  let staticCount = 0;
+test('the group layout carries force-dynamic, and no page re-declares it', () => {
+  /*
+    🔄 THIS TEST INVERTED ON 2026-08-15, and the inversion is the point.
+
+    It used to require force-dynamic on EVERY doorway page, because this file
+    asserted "a layout cannot fix it for us". That was FALSE and never tested.
+    Measured in a scratch Next 15.5.21 build from this repo's node_modules:
+    with the pages declaring nothing and `force-dynamic` on a route-group layout
+    alone, both child routes moved from `○ (Static)` to `ƒ (Dynamic)`.
+
+    So the rule is now the opposite: the directive lives in ONE place, and a
+    page re-declaring it is the defect — twenty copies of a rule is twenty
+    places for it to disagree with itself, which is how /privacy ended up the
+    single shelled page carrying `revalidate = 3600` under a session-reading
+    shell.
+
+    🔴 WHAT IT PROTECTS IS UNCHANGED: the shell reads the session, and
+    `next/dist/server/request/cookies.js` returns an EMPTY COOKIE JAR when
+    `workStore.forceStatic` is set — before the `dynamicShouldError` throw and
+    before every bailout. Miss this and the page builds green, stays cached, and
+    shows every visitor a signed-out rail. The only symptom is an absence.
+  */
+  const layout = code(read(join(SHELLED, 'layout.tsx')));
+  assert.match(
+    layout,
+    /^export const dynamic = 'force-dynamic';/m,
+    'app/(shell)/layout.tsx lost force-dynamic. Every route in the group ' +
+      'mounts a session-reading shell; without it they cache signed-out.',
+  );
+  assert.doesNotMatch(
+    layout,
+    /^export const revalidate/m,
+    'app/(shell)/layout.tsx declares revalidate alongside force-dynamic.',
+  );
+
   for (const d of DOORWAYS) {
-    const src = code(read(join(APP, d, 'page.tsx')));
-    const isDynamic = /^export const dynamic = 'force-dynamic';/m.test(src);
-    const isStatic = /^export const dynamic = 'force-static';/m.test(src);
-    if (isDynamic) dynamicCount++;
-    if (isStatic) staticCount++;
-    assert.ok(
-      isDynamic,
-      `/${d} is not force-dynamic. It mounts the shared shell, which reads the ` +
-        'session — and on a static page that read returns an EMPTY cookie jar ' +
-        'without throwing, so it would serve a cached, permanently signed-out ' +
-        'rail for an hour at a time.',
+    const src = code(read(join(SHELLED, d, 'page.tsx')));
+    assert.doesNotMatch(
+      src,
+      /^export const dynamic = 'force-static';/m,
+      `/${d} declares force-static. It is inside app/(shell)/, whose layout ` +
+        'mounts a session-reading shell.',
     );
-    assert.ok(!isStatic, `/${d} declares force-static.`);
+    assert.doesNotMatch(
+      src,
+      /^export const revalidate/m,
+      `/${d} declares revalidate. The group layout is force-dynamic; a page ` +
+        'that re-declares caching here is the /privacy defect returning.',
+    );
   }
-  assert.equal(dynamicCount, 7, 'all seven must be force-dynamic');
-  assert.equal(staticCount, 0, 'none may be force-static');
 });
 
 test('the shelled public pages keep all three halves of the contract', () => {
   /*
-    /explore, /help and /alaala are not Studio doorways, but they wear the same
-    shell and therefore owe the same three things. Asserted as a set so a fourth
-    conversion is one line, and so a HALF-conversion — the failure mode that
-    looks completely fine in a browser — is impossible to ship.
+    /explore, /help and /alaala are not Studio doorways but sit in the same
+    group and owe the same things. The three halves CHANGED SHAPE on 2026-08-15
+    when the shell moved into `app/(shell)/layout.tsx`:
+      was:  each page declares force-dynamic · has a loading.tsx · mounts the shell
+      now:  the LAYOUT declares force-dynamic and mounts the shell (asserted
+            above); each page still needs its own loading boundary, and none may
+            re-declare caching or mount a second shell.
+    A half-conversion is the failure mode that looks completely fine in a
+    browser on a fast connection while signed in.
   */
   for (const r of SHELLED_PUBLIC) {
-    const src = code(read(join(APP, r, 'page.tsx')));
-    assert.match(
-      src,
-      /^export const dynamic = 'force-dynamic';/m,
-      `/${r} is not force-dynamic. It mounts the shell, which reads the ` +
-        'session — and a session read on a cached page silently receives an ' +
-        'EMPTY cookie jar, so it would serve a permanently signed-out rail.',
-    );
+    const src = code(read(join(SHELLED, r, 'page.tsx')));
     assert.doesNotMatch(
       src,
-      /^export const (dynamic = 'force-static'|revalidate)/m,
-      `/${r} declares force-static or revalidate alongside the shell. Those ` +
-        'are the two directives that produce the empty-cookie-jar bug.',
+      /^export const (dynamic|revalidate)/m,
+      `/${r} re-declares a route directive. The group layout owns it.`,
     );
     assert.ok(
-      existsSync(join(APP, r, 'loading.tsx')),
-      `/${r} has no loading.tsx. A force-dynamic route without one prefetches ` +
-        'an EMPTY tree (162 bytes, measured), so the rail press that points ' +
-        'here becomes a wait on a blank frame.',
+      !src.includes('<AppRailShell'),
+      `/${r} mounts its own AppRailShell. The layout already does — a second ` +
+        'mount is two bars, two rails, and the shell stops surviving navigation.',
     );
     assert.ok(
-      src.includes('<AppRailShell'),
-      `/${r} does not mount AppRailShell, so it pays force-dynamic for no shell.`,
+      existsSync(join(SHELLED, r, 'loading.tsx')),
+      `/${r} has no loading.tsx. A dynamic route without one prefetches an ` +
+        'EMPTY tree (162 bytes, measured), so the rail press that points here ' +
+        'becomes a wait on a blank frame.',
     );
   }
 
@@ -200,37 +246,74 @@ test('/alaala wears the shell but is still NOT on the doorway kit', () => {
     forbid. A future sweep that sees `<AppRailShell>` here could easily conclude
     the page is "already halfway" and finish the job.
   */
-  const src = code(read(join(APP, 'alaala', 'page.tsx')));
+  const src = code(read(join(SHELLED, 'alaala', 'page.tsx')));
   assert.ok(
     !src.includes('<DoorwayPage'),
     '/alaala was ported onto DoorwayPage. That deletes the "Read the whole ' +
       'story" CTA (closing takes one href) and strips the hrefs off all five ' +
       'pillar cards (DoorwayStep has none). Wrap it, do not port it.',
   );
-  assert.match(
-    src,
-    /<AppRailShell variant="doorway">/,
-    '/alaala stopped wearing the shared shell — its chrome would fall back to ' +
-      'nothing, since it has also left NAV_ROUTES.',
+  /*
+    🔄 HOW IT WEARS THE SHELL CHANGED ON 2026-08-15. It used to mount
+    `<AppRailShell>` itself; now it sits inside `app/(shell)/`, whose layout
+    mounts it once so the chrome survives navigation. So the assertion is that
+    the page IS in the group — mounting its own would be the regression, not
+    the requirement.
+  */
+  assert.ok(
+    existsSync(join(SHELLED, 'alaala', 'page.tsx')),
+    '/alaala left app/(shell)/, so nothing mounts its chrome — it has also ' +
+      'left NAV_ROUTES, so it would render bare.',
+  );
+  assert.ok(
+    !src.includes('<AppRailShell'),
+    '/alaala mounts its own AppRailShell on top of the group layout: two bars, ' +
+      'two rails, and the shell stops surviving navigation.',
   );
 });
 
 /* ── 2 · THE MOUNT, AND WHERE IT IS NOT ────────────────────────────────── */
 
-test('DoorwayPage mounts the shell exactly once, in the doorway variant', () => {
-  const src = code(read(join(HERE, '_doorway.tsx')));
+test('the shell is mounted exactly once for the whole public group', () => {
+  /*
+    🔄 REPOINTED 2026-08-15. This used to assert that `_doorway.tsx` mounted
+    `<AppRailShell variant="doorway">` exactly once. It no longer mounts it at
+    all: the shell moved to `app/(shell)/layout.tsx` so it SURVIVES navigation.
+    Mounted in a component it sat inside the subtree Next swaps — measured on
+    the live site, the document survived a click but `.fd-topbar` and `.fd-rail`
+    did not.
+
+    🔑 WHAT STILL NEEDS GUARDING IS "EXACTLY ONCE". Two mounts is two bars and
+    two rails, and it silently undoes the persistence: the inner one is inside
+    the swapped subtree again.
+  */
+  const layout = code(read(join(SHELLED, 'layout.tsx')));
+  const mounts = [...layout.matchAll(/<AppRailShell\b/g)].length;
   assert.equal(
-    (src.match(/<AppRailShell\b/g) ?? []).length,
+    mounts,
     1,
-    'DoorwayPage must mount the shared shell exactly once.',
+    `app/(shell)/layout.tsx mounts AppRailShell ${mounts} times; it must be 1.`,
   );
   assert.match(
-    src,
-    /<AppRailShell variant="doorway">/,
-    'The shell must be mounted in the `doorway` variant. `app` drops the ' +
-      'hamburger — and the rail is display:none below 1024, so a phone would ' +
-      'get a product page with NO navigation — and points the wordmark at ' +
-      '/dashboard, which redirects a stranger to /login.',
+    layout,
+    /variant="doorway"/,
+    'The group layout must mount the DOORWAY variant. The app variant has no ' +
+      'hamburger and its rail is display:none below 1024 — a phone would get a ' +
+      'public page with no navigation at all.',
+  );
+
+  const doorway = code(read(join(HERE, '_doorway.tsx')));
+  assert.ok(
+    !doorway.includes('<AppRailShell'),
+    '_doorway.tsx mounts the shell again beneath the group layout. That is a ' +
+      'second bar and a second rail, and it puts the shell back inside the ' +
+      'subtree that gets swapped on navigation.',
+  );
+
+  const legal = code(read(join(APP, '_components', 'legal', 'legal-chrome.tsx')));
+  assert.ok(
+    !legal.includes('<AppRailShell'),
+    'legal-chrome.tsx mounts the shell again beneath the group layout.',
   );
 });
 
@@ -243,7 +326,7 @@ test('no layout.tsx exists under any doorway — the descendants are unreachable
   */
   for (const d of DOORWAYS) {
     assert.ok(
-      !existsSync(join(APP, d, 'layout.tsx')),
+      !existsSync(join(SHELLED, d, 'layout.tsx')),
       `app/${d}/layout.tsx exists. A directory layout wraps EVERY descendant — ` +
         'including surfaces built to have no chrome at all, one of which goes ' +
         "out on a wedding's live stream.",
@@ -346,7 +429,7 @@ test('every doorway has a loading boundary', () => {
   */
   let found = 0;
   for (const d of DOORWAYS) {
-    const p = join(APP, d, 'loading.tsx');
+    const p = join(SHELLED, d, 'loading.tsx');
     if (existsSync(p)) found++;
     assert.ok(
       existsSync(p),

@@ -111,13 +111,23 @@ test('a locked tab can explain itself without a mouse', () => {
     /aria-label=\{`\$\{slot\.label\} — \$\{slot\.lockedReason \?\? 'not available yet'\}`\}/,
     'A screen reader must get the reason without having to tap first.',
   );
-  // Both locked renderers — the ordinary slot AND the camera, which has its own
-  // chrome and was a separate copy of the same span.
+  // EVERY locked renderer — the ordinary slot, the camera (which has its own
+  // chrome and is a separate copy of the same span), and since 2026-08-17 the
+  // DESKTOP RAIL, which is a third copy for screens ≥1280 where the pinned bar
+  // is not drawn at all.
+  //
+  // ⚠ THIS COUNT WENT 2 → 3 BECAUSE A THIRD RENDERER GENUINELY EXISTS, not to
+  // make a red build green. The rail was added without it and CI caught the
+  // omission — which is the count doing its job. A fourth renderer must raise
+  // it again, deliberately: a locked tab that cannot say WHY is the exact
+  // defect this file was written for, and on the rail it would be worse than
+  // on the bar, because a desktop visitor has no tap-to-reveal habit to fall
+  // back on.
   const taps = BAR.match(/setOpenReason\(slot\.lockedReason/g) ?? [];
   assert.equal(
     taps.length,
-    2,
-    'Both locked renderers must reveal the reason — the camera keeps its own ' +
-      'copy of this markup, and it is the slot most often locked.',
+    3,
+    'Every locked renderer must reveal the reason — the ordinary slot, the ' +
+      'camera (the slot most often locked), and the desktop rail.',
   );
 });

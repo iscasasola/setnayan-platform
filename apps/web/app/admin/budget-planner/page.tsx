@@ -7,6 +7,9 @@ import {
 } from '@/lib/budget-allocation-data';
 import { updateLeafBenchmark, updateAllocationConfig, updateBudgetBand } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PiggyBank } from 'lucide-react';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Budget Planner' };
@@ -87,8 +90,20 @@ export default async function AdminBudgetPlannerPage() {
     fetchAllocationAggregates(admin),
   ]);
 
+  // ⚠ NEITHER READ BOUND ITS ERROR. Both feed an editable settings list, so a
+  // refused read rendered an EMPTY FORM — and an admin who saves an empty form is
+  // not looking at "no bands configured", they are looking at a page that failed
+  // to load and then invites them to overwrite the real thing with nothing.
+  const bandsError = bandRes.error ?? null;
+  const benchmarksError = benchmarkRes.error ?? null;
+  if (bandsError) logQueryError('AdminBudgetPlannerPage.bands', bandsError, {}, 'graceful_degrade');
+  if (benchmarksError) {
+    logQueryError('AdminBudgetPlannerPage.benchmarks', benchmarksError, {}, 'graceful_degrade');
+  }
   const budgetBands = (bandRes.data ?? []) as BudgetBandRow[];
   const benchmarks = (benchmarkRes.data ?? []) as BenchmarkRow[];
+  const bandsUnread = Boolean(bandsError);
+  const benchmarksUnread = Boolean(benchmarksError);
   const configRow = (configRes.data as ConfigRow | null) ?? null;
   const config = {
     min_sample_n: configRow?.min_sample_n ?? CONFIG_FALLBACK.min_sample_n,
@@ -118,7 +133,7 @@ export default async function AdminBudgetPlannerPage() {
       {/* ── 0. Budget bands (onboarding) ─────────────────────────────────── */}
       <section className="mb-12">
         <h2 className="mb-1 text-base font-semibold tracking-tight">
-          Budget bands (onboarding) ({budgetBands.length})
+          Budget bands (onboarding) ({bandsUnread ? '—' : budgetBands.length})
         </h2>
         <p className="mb-3 text-sm text-ink/60">
           The feel-band ladder couples pick from on the onboarding budget screen.
@@ -128,7 +143,13 @@ export default async function AdminBudgetPlannerPage() {
           the onboarding uses the built-in fallback ladder.
         </p>
         <div className="overflow-hidden rounded-2xl border border-ink/10">
-          {budgetBands.length === 0 ? (
+          {bandsUnread ? (
+            <p role="alert" className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70">
+              <strong className="text-ink">These bands could not be read.</strong> This
+              is not an empty configuration — do not save from this state, or you
+              would replace the real bands with nothing.
+            </p>
+          ) : budgetBands.length === 0 ? (
             <div className="p-8 text-center">
               <p className="text-sm text-ink/60">
                 No bands in budget_band_config yet — onboarding falls back to the
@@ -164,7 +185,7 @@ export default async function AdminBudgetPlannerPage() {
       {/* ── 1. Benchmark seeding ─────────────────────────────────────────── */}
       <section className="mb-12">
         <h2 className="mb-1 text-base font-semibold tracking-tight">
-          Benchmark seeding ({benchmarks.length})
+          Benchmark seeding ({benchmarksUnread ? '—' : benchmarks.length})
         </h2>
         <p className="mb-3 text-sm text-ink/60">
           Set the typical ₱ per service. These are the fallback the planner shows
@@ -172,7 +193,12 @@ export default async function AdminBudgetPlannerPage() {
           blank to clear.
         </p>
         <div className="overflow-hidden rounded-2xl border border-ink/10">
-          {benchmarks.length === 0 ? (
+          {benchmarksUnread ? (
+            <p role="alert" className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70">
+              <strong className="text-ink">These benchmarks could not be read.</strong> Not
+              an empty list — do not save from this state.
+            </p>
+          ) : benchmarks.length === 0 ? (
             <div className="p-8 text-center">
               <p className="text-sm text-ink/60">
                 No benchmark leaves in budget_leaf_benchmarks yet.
@@ -337,67 +363,73 @@ export default async function AdminBudgetPlannerPage() {
           Aggregate only — never individual couples. Hidden until at least N
           couples have saved a plan (k-anonymity).
         </p>
-        <div className="overflow-x-auto rounded-2xl border border-ink/10">
-          {agg.aggregates.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-sm text-ink/60">
-                Not enough data yet. Insights appear here once enough couples
-                have saved budget plans.
-              </p>
-            </div>
-          ) : (
-            <table className="w-full min-w-[560px] text-sm">
-              <thead>
-                <tr className="border-b border-ink/10 bg-white/70 text-left">
-                  <th className="px-4 py-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Service
-                  </th>
-                  <th className="px-4 py-2 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Avg share
-                  </th>
-                  <th className="px-4 py-2 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Avg ₱
-                  </th>
-                  <th className="px-4 py-2 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Couples
-                  </th>
-                  <th className="px-4 py-2 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    First-priority %
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {agg.aggregates.map((a) => (
-                  <tr
-                    key={a.planGroupId}
-                    className="border-b border-ink/5 last:border-b-0"
-                  >
-                    <td className="px-4 py-2.5 font-medium text-ink">
-                      {labelByLeaf.get(a.planGroupId) ?? a.planGroupId}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-ink">
-                      {(a.avgShareBp / 100).toFixed(1)}%
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-ink">
-                      {formatPhp(a.avgFinalPhp)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-ink/70">
-                      {a.coupleCount}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-ink/70">
-                      {Math.round(a.firstPinRate * 100)}%
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-        {agg.suppressedBelowMinN && (
-          <p className="mt-2 text-[11px] text-ink/45">
-            Some leaves are hidden until more couples contribute.
+        {/* ⚠ THE OLD EMPTY STATE MADE A CLAIM ABOUT CUSTOMER BEHAVIOUR OUT OF A
+            QUERY THAT MAY NEVER HAVE RUN: "Not enough data yet. Insights appear
+            here once enough couples have saved budget plans." The loader returned
+            the same shape for a refused read as for a quiet platform, so that
+            sentence was unfalsifiable from the page. `measured` now separates
+            them, and ConsoleTable renders one state, never a guess. */}
+        <ConsoleTable
+          rows={agg.measured ? agg.aggregates : null}
+          readPermitted
+          readError={agg.measured ? null : { message: agg.readMessage }}
+          reads="the de-identified couple insights"
+          label="Couple insights"
+          minWidth="35rem"
+          rowKey={(a) => a.planGroupId}
+          empty={{
+            Icon: PiggyBank,
+            title: 'Not enough couples yet',
+            blurb:
+              'A service appears here only once enough different couples have saved a plan that names it, so no single couple can be identified from the average. Nothing to do — it fills as couples plan.',
+            verifiedNote: 'Verified: read permitted · 0 services above the privacy floor',
+          }}
+          columns={[
+            {
+              header: 'Service',
+              cell: (a) => (
+                <span className="font-medium text-ink">
+                  {labelByLeaf.get(a.planGroupId) ?? a.planGroupId}
+                </span>
+              ),
+            },
+            {
+              header: 'Avg share',
+              align: 'right',
+              cell: (a) => <span className="text-ink">{(a.avgShareBp / 100).toFixed(1)}%</span>,
+            },
+            {
+              header: 'Avg ₱',
+              align: 'right',
+              mono: true,
+              cell: (a) => <span className="text-ink">{formatPhp(a.avgFinalPhp)}</span>,
+            },
+            {
+              header: 'Couples',
+              align: 'right',
+              hideBelow: 'md',
+              cell: (a) => <span className="text-ink/70">{a.coupleCount}</span>,
+            },
+            {
+              header: 'First-priority %',
+              align: 'right',
+              hideBelow: 'md',
+              cell: (a) => (
+                <span className="text-ink/70">{Math.round(a.firstPinRate * 100)}%</span>
+              ),
+            },
+          ]}
+        />
+        {/* 🔒 A PRIVACY CLAIM MADE FROM AN UNMEASURED READ IS THE WORST HALF OF
+            THIS DEFECT. The loader returned `suppressedBelowMinN: false` on a
+            refused read — asserting that NOTHING had been withheld for
+            k-anonymity, when in truth nothing had been read. Gated on `measured`
+            so the page can only make that claim when it counted something. */}
+        {agg.measured && agg.suppressedBelowMinN ? (
+          <p className="mt-2 text-[11px] text-ink/70">
+            Some services are hidden until more couples contribute.
           </p>
-        )}
+        ) : null}
       </section>
     </div>
   );

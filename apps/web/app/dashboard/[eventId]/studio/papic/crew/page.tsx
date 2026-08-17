@@ -12,6 +12,8 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { crewHolderName, crewShotsLeftLabel } from '@/lib/papic-crew-roster';
 import {
   eventPapicSeatsActive,
   fetchPapicSeats,
@@ -135,6 +137,33 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
   const proto = h.get('x-forwarded-proto') ?? 'https';
   const appUrl = `${proto}://${host}`;
 
+  // ── WHO IS HOLDING WHICH CAMERA ────────────────────────────────────────────
+  //
+  // 🔒 SCOPED TO THIS EVENT, AND TO ONE FIELD. The only user ids read are the
+  // claimers of THIS event's seats, and the only column selected is the display
+  // name — never the email sitting beside it. This page is already gated above
+  // to a signed-in `couple` member of the event.
+  //
+  // ⚠ IT HAS TO BE THE SERVICE-ROLE CLIENT. `public.users` carries exactly two
+  // policies — `user_owns_row` and admin — so a couple reading another
+  // person's row under their own session gets ZERO ROWS AND NO ERROR. That is
+  // indistinguishable from "this seat is unclaimed", which is precisely the
+  // wrong answer to render here: the screen would have looked fixed and shown
+  // nothing.
+  const claimerIds = [...new Set(seats.map((s) => s.claimer_user_id).filter(Boolean))] as string[];
+  const nameByUserId = new Map<string, string>();
+  if (claimerIds.length > 0) {
+    const { data: holders } = await createAdminClient()
+      .from('users')
+      .select('user_id, display_name')
+      .in('user_id', claimerIds);
+    for (const h of (holders ?? []) as Array<Record<string, unknown>>) {
+      if (typeof h.user_id === 'string' && typeof h.display_name === 'string') {
+        nameByUserId.set(h.user_id, h.display_name);
+      }
+    }
+  }
+
   const seatViews = await Promise.all(
     seats.map(async (s) => {
       // Hybrid join link: native app opens directly when installed, otherwise
@@ -142,7 +171,35 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
       // still work, so any QR printed before this stays valid.
       const claimUrl = papicSeatJoinUrl(appUrl, s.claim_qr_token);
       const qrSvg = await renderUrlQrSvg(claimUrl, 128);
-      return { ...s, claimUrl, qrSvg };
+
+      // How many shots this camera has left. `papic_camera_points_remaining` is
+      // SECURITY DEFINER and — checked in production — is EXECUTE-granted to
+      // `authenticated`, so it runs on the couple's own client. (Its sibling
+      // `papic_seat_dedicated_points` is NOT granted; calling that one from here
+      // would fail silently.) Display only: the fail-closed spend gate is
+      // `papic_reserve_capture_split`, and this must never become a second
+      // opinion about whether a camera may shoot.
+      let remaining: number | null = null;
+      if (s.claimer_user_id) {
+        const { data: pts, error: ptsErr } = await supabase.rpc(
+          'papic_camera_points_remaining',
+          { p_seat_id: s.seat_id },
+        );
+        // A failed probe stays null and the row simply says nothing about
+        // shots — never 0, which on this screen means "that camera has
+        // stopped" and would send a host to fix a camera that is fine.
+        remaining = !ptsErr && typeof pts === 'number' ? pts : null;
+      }
+
+      return {
+        ...s,
+        claimUrl,
+        qrSvg,
+        holderName: s.claimer_user_id
+          ? crewHolderName(nameByUserId.get(s.claimer_user_id))
+          : null,
+        shotsLeftLabel: crewShotsLeftLabel(remaining),
+      };
     }),
   );
 
@@ -367,9 +424,13 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
                           : `Seat ${s.seat_index}`}
                   </p>
                   {claimed ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-2.5 py-1 text-xs font-medium text-terracotta">
-                      <UserCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                      Claimed
+                    /* The pill now carries the NAME, because "Claimed" was the
+                       one thing the host could already work out from the
+                       missing QR. Falls back to "Claimed" only when the holder
+                       has no name to show at all. */
+                    <span className="inline-flex max-w-[60%] items-center gap-1.5 rounded-full bg-terracotta/10 px-2.5 py-1 text-xs font-medium text-mulberry">
+                      <UserCheck aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                      <span className="truncate">{s.holderName ?? 'Claimed'}</span>
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2.5 py-1 text-xs font-medium text-ink/60">
@@ -379,10 +440,29 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
                 </div>
 
                 {claimed ? (
-                  <p className="mt-2 text-sm text-ink/65">
-                    A friend has this seat and can shoot. Reissue it to hand the
-                    seat to someone else — the old link stops working.
-                  </p>
+                  <>
+                    <p className="mt-2 text-sm text-ink/65">
+                      {s.holderName
+                        ? `${s.holderName} has this camera and can shoot.`
+                        : 'A friend has this seat and can shoot.'}{' '}
+                      Reissue it to hand the camera to someone else — the old
+                      link stops working.
+                    </p>
+                    {/* Only rendered when the number is actually known. "Out of
+                        shots" is the state a host is looking for, so it is the
+                        one that gets the loud colour. */}
+                    {s.shotsLeftLabel ? (
+                      <p
+                        className={`mt-1.5 text-xs font-medium ${
+                          s.shotsLeftLabel === 'Out of shots'
+                            ? 'text-mulberry-600'
+                            : 'text-ink/55'
+                        }`}
+                      >
+                        {s.shotsLeftLabel}
+                      </p>
+                    ) : null}
+                  </>
                 ) : (
                   <>
                     <p className="mt-2 text-sm text-ink/65">

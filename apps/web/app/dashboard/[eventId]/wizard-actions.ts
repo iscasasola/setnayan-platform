@@ -67,6 +67,7 @@ import {
 } from '@/lib/auspicious-date';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import {
   parseWizardState,
@@ -479,14 +480,35 @@ export async function completeVendorPickFromMarketplace(
   // trigger enforces (event_id, category) uniqueness; the wizard's
   // serial resolver gates lock-twice at the UI layer (see action
   // docstring above for the full uniqueness story).
+  //
+  // ── PR-H · THE FOURTH LOCK PATH ─────────────────────────────────────────
+  // 🔑 THIS ONE IS NOT IN ANY HANDSHAKE BRIEF. It was found by enumerating
+  // every writer of `status='contracted'` rather than by working from the list
+  // of paths somebody remembered, and it is a real one: the onboarding wizard's
+  // [Lock this vendor] books a MARKETPLACE supplier outright, so a couple who
+  // never leaves onboarding would book suppliers who were never asked, while the
+  // same couple pressing Lock on the vendors page an hour later would only ask.
+  // Assume there is a fifth and check by column, not by memory.
+  //
+  // The row is INSERTED rather than updated here, so the guard trigger's INSERT
+  // arm applies: 'pending' is permitted (only agreed/declined/expired are
+  // refused) and the trigger materializes the 7-day deadline on the way in.
+  const handshakeAsk = isLockHandshakeEnabled();
   const { data: inserted, error: insertErr } = await supabase
     .from('event_vendors')
     .insert({
       event_id: eventIdRaw,
       vendor_name: vendorNameRaw,
       category,
-      status: 'contracted',
+      status: handshakeAsk ? 'considering' : 'contracted',
       marketplace_vendor_id: marketplaceVendorIdRaw,
+      ...(handshakeAsk
+        ? {
+            lock_request_state: 'pending',
+            lock_requested_at: new Date().toISOString(),
+            lock_requested_by_user_id: user.id,
+          }
+        : {}),
     })
     .select('vendor_id')
     .maybeSingle();
@@ -1140,13 +1162,30 @@ export async function lockBoothToEvent(formData: FormData): Promise<void> {
     }
   }
 
+  // ── PR-H · THE FIFTH LOCK PATH, and the one that PROVES the enumeration was
+  // the right method: the booth lock's marketplace link is OPTIONAL, so the same
+  // call books an off-platform booth (a name the host typed — nobody to ask) and
+  // a marketplace supplier (somebody who can answer). Only the second becomes an
+  // ask. Getting this backwards either way is a live defect: gate the whole
+  // thing and an ordinary booth throws the CHECK
+  // `event_vendors_lock_request_marketplace_chk` at the host; gate neither and a
+  // real supplier is booked without being asked.
+  const boothIsMarketplace =
+    typeof marketplaceVendorIdRaw === 'string' && marketplaceVendorIdRaw.length > 0;
+  const handshakeAsk = isLockHandshakeEnabled() && boothIsMarketplace;
+
   const insertPayload: Record<string, unknown> = {
     event_id: eventIdRaw,
     vendor_name: vendorNameRaw.trim(),
     category: boothCategoryRaw,
-    status: 'contracted',
+    status: handshakeAsk ? 'considering' : 'contracted',
   };
-  if (typeof marketplaceVendorIdRaw === 'string' && marketplaceVendorIdRaw.length > 0) {
+  if (handshakeAsk) {
+    insertPayload.lock_request_state = 'pending';
+    insertPayload.lock_requested_at = new Date().toISOString();
+    insertPayload.lock_requested_by_user_id = user.id;
+  }
+  if (boothIsMarketplace) {
     insertPayload.marketplace_vendor_id = marketplaceVendorIdRaw;
   }
   if (typeof contactPhoneRaw === 'string' && contactPhoneRaw.trim().length > 0) {

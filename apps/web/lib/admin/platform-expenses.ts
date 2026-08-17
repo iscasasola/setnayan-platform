@@ -46,15 +46,24 @@ export type ExpensesOverview = {
   receiptCoverage: { withReceipt: number; total: number; missing: ExpenseRow[] };
   /** Known future charges: explicit next_due_on rows, soonest first. */
   upcoming: ExpenseRow[];
-  /** Recent ledger rows, newest first (capped for the table). */
-  ledger: ExpenseRow[];
+  /**
+   * Recent ledger rows, newest first (capped at LEDGER_ROWS for the table).
+   *
+   * ⚠ NULL MEANS THE READ WAS REFUSED, and it must stay distinguishable from
+   * an empty ledger all the way to the render. It used to be `[]` in both
+   * cases, so a rejected query printed "The ledger starts with your first
+   * logged expense." — an invitation to start something that may already have
+   * a year of rows in it.
+   */
+  ledger: ExpenseRow[] | null;
   totalThisMonth: number;
   totalPrevMonth: number;
   error: string | null;
 };
 
 const ROW_CAP = 4000;
-const LEDGER_ROWS = 12;
+/** Exported so the ledger table discloses the SAME number it was cut at. */
+export const LEDGER_ROWS = 12;
 
 function monthKey(iso: string): string {
   return iso.slice(0, 7);
@@ -81,12 +90,15 @@ function trailingMonths(now: Date, n: number): string[] {
 }
 
 export async function fetchExpensesOverview(): Promise<ExpensesOverview> {
+  // The shape returned when the read did NOT complete. Every count in it is a
+  // placeholder that the caller must not print — `error` is what says so, and
+  // `ledger: null` is what makes the table say it without being asked.
   const empty: ExpensesOverview = {
     months: [],
     byVendorThisMonth: [],
     receiptCoverage: { withReceipt: 0, total: 0, missing: [] },
     upcoming: [],
-    ledger: [],
+    ledger: null,
     totalThisMonth: 0,
     totalPrevMonth: 0,
     error: null,

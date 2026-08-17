@@ -28,7 +28,7 @@ import { TourBudgetPlanner } from './_components/tour-budget-planner';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'The budget · Maria & Jose · Setnayan',
+  title: 'The budget · Maria & Jose',
   description:
     'See how a couple tracks every peso on Setnayan — committed vs. paid per vendor, plus a live budget planner you can nudge yourself. No sign-up, nothing saved.',
   alternates: { canonical: '/tour/budget' },

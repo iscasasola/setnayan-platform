@@ -1,0 +1,32 @@
+-- notification_type_lock_withdrawn
+-- ============================================================================
+-- PR-H slice B · the SIXTH lock-handshake notification: the couple took the ask
+-- back.
+--
+-- ⚠ ITS OWN FILE, AND NOTHING ELSE IN IT, ON PURPOSE — same reason as
+-- 20271142676882: notification_type is a Postgres ENUM, and Postgres forbids
+-- USING a newly-added enum value in the same transaction that adds it. No
+-- BEGIN/COMMIT, no other statements.
+--
+--   lock_request_withdrawn → the VENDOR. "They have taken their booking request
+--                            back." The supplier was holding a hard-single slot
+--                            and a pending index for up to seven days on the
+--                            strength of that ask; if the card simply vanishes
+--                            from their Overview they have no way to know
+--                            whether they lost the work or the app broke.
+--
+-- 🔑 THIS IS NOT `lock_request_superseded`, WHICH 20271142676882 DELIBERATELY
+-- REFUSED TO ADD, AND THE DIFFERENCE IS THE AUDIENCE. That one would have told
+-- the COUPLE what the couple had just done in the same session — noise. This one
+-- tells the VENDOR something only the couple knows, which is the whole reason
+-- notifications exist.
+--
+-- 🔑 AND IT IS NOT `lock_request_expired` WORN AS A COSTUME. Expiry is the
+-- supplier failing to answer in seven days; a withdrawal is the couple changing
+-- their mind while the supplier still had time. Reusing the value would put a
+-- stored word in front of a reader that means the opposite of what happened —
+-- the `sponsored_included` / `tagged_only` disease, where the NAME is what
+-- misleads. Two facts, two values.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'lock_request_withdrawn';

@@ -94,7 +94,7 @@ test('nothing ticked stores NULL, never an empty array', () => {
 });
 
 test('the read side still treats NULL as open to all', () => {
-  const explore = read('app/explore/page.tsx');
+  const explore = read('app/(shell)/explore/page.tsx');
   assert.ok(
     /compatible_venue_settings\.is\.null/.test(explore),
     'Explore no longer treats a NULL as "open to all". Every shop that has not ' +

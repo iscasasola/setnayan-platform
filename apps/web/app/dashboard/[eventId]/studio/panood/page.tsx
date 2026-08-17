@@ -32,7 +32,7 @@ import { liveStudioDetailPath } from '@/lib/live-studio-control';
  * the Cast page is correct in BOTH states: the retirement is a fact about the SKU
  * (a database row), not about the flag.
  */
-export const metadata = { title: 'Live Studio · Setnayan' };
+export const metadata = { title: 'Live Studio' };
 
 type Props = {
   params: Promise<{ eventId: string }>;

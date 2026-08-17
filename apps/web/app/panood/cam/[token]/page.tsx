@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { claimPanoodCamera } from '@/app/panood/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
+import { DoorShell, DoorNotice } from '@/app/_components/door/door-shell';
 import {
   panoodCameraAnonEnabled,
   panoodStreamingEnabled,
@@ -44,16 +45,6 @@ type Props = {
   searchParams: Promise<{ state?: string }>;
 };
 
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
-      <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 shadow-sm">
-        {children}
-      </div>
-    </main>
-  );
-}
-
 export default async function PanoodCameraJoinPage({ params, searchParams }: Props) {
   const { token } = await params;
   const { state } = await searchParams;
@@ -91,16 +82,25 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
   // Already claimed by someone else.
   if (state === 'taken') {
     return (
-      <Shell>
-        <h1 className="mt-3 flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <CircleAlert aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-          This camera&rsquo;s already taken
-        </h1>
-        <p className="mt-3 text-sm text-ink/65">
-          Another operator already joined as this camera. Ask the couple to send
-          you a fresh camera link and you&rsquo;ll be good to go.
-        </p>
-      </Shell>
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <CircleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Live camera
+          </>
+        }
+        title="This camera's already taken."
+        /* "the couple" is wrong on 15 of the 16 event types — the same correction
+           the twin Papic screen already carries. This page resolves a CAMERA
+           TOKEN, not an event, so there is no noun to derive; "the host" is
+           type-neutral and true everywhere. */
+        sub="Another operator already joined as this camera. Ask the host to send you a fresh camera link and you'll be good to go."
+      >
+        <Link href="/" className="button-secondary">
+          Back to Setnayan
+        </Link>
+      </DoorShell>
     );
   }
 
@@ -113,16 +113,21 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
   // Invalid / expired / revoked / soft error.
   if (state === 'invalid' || state === 'error') {
     return (
-      <Shell>
-        <h1 className="mt-3 flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <CircleAlert aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-          This link isn&rsquo;t active
-        </h1>
-        <p className="mt-3 text-sm text-ink/65">
-          The couple may have reissued this camera. Ask them for your latest
-          camera link and try again.
-        </p>
-      </Shell>
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <CircleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Live camera
+          </>
+        }
+        title="This link isn't active."
+        sub="The host may have reissued this camera. Ask them for your latest camera link and try again."
+      >
+        <Link href="/" className="button-secondary">
+          Back to Setnayan
+        </Link>
+      </DoorShell>
     );
   }
 
@@ -132,27 +137,30 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
   // signed-in and login-free (no-account) paths.
   const showSignedInAs = Boolean(user && !isPlaceholderEmail(user.email));
   const joinCta = (
-    <Shell>
-      <h1 className="mt-3 flex items-center gap-2 text-2xl font-semibold tracking-tight">
-        <Radio aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-        Join as a live camera
-      </h1>
-      <p className="mt-3 text-sm text-ink/65">
-        Tap once and your phone becomes a live camera for the wedding broadcast.
-        The couple&rsquo;s operator picks which camera is on screen — you just keep
-        the shot framed. No app to install{user ? '' : ', no sign-up'}.
-      </p>
+    <DoorShell
+      eyebrow={
+        <>
+          <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Live camera
+        </>
+      }
+      title="Join as a live camera"
+      sub={
+        <>
+          Tap once and your phone becomes a live camera for the broadcast. The host&rsquo;s
+          operator picks which camera is on screen — you just keep the shot framed. No app
+          to install{user ? '' : ', no sign-up'}.
+        </>
+      }
+    >
       {botCheckRefused ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-2 text-sm text-ink/80"
-        >
-          That didn&rsquo;t get past our quick &ldquo;are you a robot?&rdquo;
-          check &mdash; usually just a tap that landed a second too early.
-          Your link is fine. Give it one more go.
-        </p>
+        <DoorNotice kind="alert">
+          That didn&rsquo;t get past our quick &ldquo;are you a robot?&rdquo; check &mdash;
+          usually just a tap that landed a second too early. Your link is fine. Give it one
+          more go.
+        </DoorNotice>
       ) : null}
-      <form action={claimPanoodCamera} className="mt-5">
+      <form action={claimPanoodCamera}>
         <input type="hidden" name="token" value={token} />
         {/*
           🔴 Same hole as the Papic claim screen, same fix. claimPanoodCamera has
@@ -163,20 +171,15 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
           Renders nothing until a site key is set.
         */}
         <TurnstileField action="panood_camera_claim" />
-        <SubmitButton
-          pendingLabel="Joining…"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600"
-        >
+        <SubmitButton pendingLabel="Joining…" className="button-primary w-full gap-2">
           <Video aria-hidden className="h-4 w-4" strokeWidth={2} />
           {user ? 'Join & open my camera' : 'Join this camera'}
         </SubmitButton>
       </form>
       {showSignedInAs ? (
-        <p className="mt-3 text-xs text-ink/50">
-          Signed in as {user?.email ?? 'your account'}.
-        </p>
+        <p className="text-xs text-ink/55">Signed in as {user?.email ?? 'your account'}.</p>
       ) : null}
-    </Shell>
+    </DoorShell>
   );
 
   // Signed in (any account, incl. a returning anonymous claimer) → join CTA.
@@ -188,23 +191,31 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
 
   // Not signed in + login-free OFF → the original sign-in gate (graceful degrade).
   return (
-    <Shell>
-      <h1 className="mt-3 flex items-center gap-2 text-2xl font-semibold tracking-tight">
-        <Video aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-        You&rsquo;re invited to operate a camera
-      </h1>
-      <p className="mt-3 text-sm text-ink/65">
-        One of the couple asked you to run a camera for their live broadcast.
-        Sign in to join — then your phone becomes a live camera and the operator
-        can bring you on screen.
-      </p>
+    <DoorShell
+      eyebrow={
+        <>
+          <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Live camera
+        </>
+      }
+      title="You're invited to operate a camera"
+      /* 🪤 THE SIGNED-OUT ARM AGAIN. This branch said "One of the couple asked
+         you… for their live broadcast" — the exact copy the twin Papic screen
+         had already corrected, because it is wrong on 15 of the 16 event types
+         and this page resolves a CAMERA TOKEN with no event to derive a noun
+         from. It survived here for the same reason it survived there: every
+         pass through this page was made while signed in, so the reviewed render
+         was the other arm. A conditional's other arm is a surface nobody looked
+         at — and a CLONE inherits the bug its twin already fixed. */
+      sub="Someone asked you to run a camera for their live broadcast. Sign in to join — then your phone becomes a live camera and the operator can bring you on screen."
+    >
       <Link
         href={`/login?next=${encodeURIComponent(`/panood/cam/${token}`)}`}
-        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600"
+        className="button-primary w-full gap-2"
       >
         <LogIn aria-hidden className="h-4 w-4" strokeWidth={2} />
         Sign in to join this camera
       </Link>
-    </Shell>
+    </DoorShell>
   );
 }

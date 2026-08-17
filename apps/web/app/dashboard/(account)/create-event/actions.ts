@@ -13,7 +13,7 @@ import { resolveProfile } from '@/lib/event-type-profile';
 import { safeNext } from '@/lib/auth';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { resolveCreateCapture } from '@/lib/create-event-capture';
-import { anchorForType, isAnchorOrigin, parseISO, canToggleRecur } from '@/lib/event-anchor';
+import { anchorForType, isAnchorOrigin, parseISO, canToggleRecur, resolveCadence } from '@/lib/event-anchor';
 import {
   buildNextYearClonePayload,
   canPlanNextYear,
@@ -134,12 +134,21 @@ export async function createWeddingEvent(formData: FormData) {
   const anniversaryDate = isAnniversary && parseISO(rawAnnivDate) ? rawAnnivDate : null;
   const anniversaryOrigin = isAnniversary && isAnchorOrigin(rawAnnivOrigin) ? rawAnnivOrigin : null;
 
-  // Date-anchor model (PR-E): the "yearly?" toggle. Anniversary recurs by nature;
-  // recur-eligible types (travel/corporate/gala/celebration/reunion/tournament)
-  // set recurs from the checkbox. Everything else is one-time.
-  const recurs =
-    isAnniversary ||
-    (canToggleRecur(event_type) && String(formData.get('recurs') ?? '') === 'on');
+  // Date-anchor model — the repeat, now a CADENCE rather than a yes/no.
+  //
+  // 🔴 THIS LINE USED TO OMIT BIRTHDAY, AND THAT WAS A LIVE DEFECT. It read
+  // `isAnniversary || (canToggleRecur(type) && checkbox)`, and `canToggleRecur`
+  // has never included 'birthday' — so a birthday created here landed with
+  // `recurs = false`, the Year view's birthday branch
+  // (`event_type === 'birthday' && e.recurs`) never fired, and that person's
+  // birthday NEVER appeared on the surface built for it. The onboarding path set
+  // it TRUE for the same type. One event type, two answers, and no screen could
+  // correct it afterwards.
+  //
+  // `resolveCadence` is now the ONE decider for both halves, so the create path,
+  // the onboarding path and the edit path cannot disagree again.
+  const recurCadence = resolveCadence(event_type, formData.get('recur_cadence') ?? formData.get('recurs'));
+  const recurs = recurCadence !== null;
 
   // Iteration 0043 + Task #44 (2026-05-22) — picker fields. Read raw values
   // from the form only when the event_type is wedding; non-wedding
@@ -374,6 +383,7 @@ export async function createWeddingEvent(formData: FormData) {
       anchor_date: anniversaryDate,
       anchor_origin: anniversaryOrigin,
       recurs,
+      recur_cadence: recurCadence,
       // Optional non-wedding capture (all null for weddings + name-only creation).
       // event_date stays NULL — the LOCKED single date is chosen later (date-as-
       // output; the date-selection lock ceremony). What's captured here is the
@@ -613,7 +623,7 @@ export async function planNextYearEvent(formData: FormData) {
     // read path; same columns, same row shape, guests get zero rows.
     .from('events_host')
     .select(
-      'event_type, display_name, honoree_label, honoree_dependent_id, signature_details, anchor_kind, anchor_date, anchor_origin, estimated_pax, budget_band, estimated_budget_centavos, region, venue_latitude, venue_longitude, style_preferences',
+      'event_type, display_name, honoree_label, honoree_dependent_id, signature_details, anchor_kind, anchor_date, anchor_origin, recurs, recur_cadence, estimated_pax, budget_band, estimated_budget_centavos, region, venue_latitude, venue_longitude, style_preferences',
     )
     .eq('event_id', sourceId)
     .maybeSingle();

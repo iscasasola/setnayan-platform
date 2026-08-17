@@ -1,10 +1,24 @@
-// Insights Studio surface — the body of the former /admin/operations-hiring page,
-// re-homed here (2026-07-10) so the App Performance menu is ONE tabbed
-// studio. Its actions/_components stay under /admin/operations-hiring; the legacy
-// route is now a redirect into /admin/app-performance?tab={tab}.
+/**
+ * Insights Studio surface — the body of the former /admin/operations-hiring
+ * page, re-homed here (2026-07-10) so the App Performance menu is ONE tabbed
+ * studio. Its actions/_components stay under /admin/operations-hiring; the
+ * legacy route is now a redirect into /admin/app-performance?tab={tab}.
+ *
+ * ── Converted to <ConsoleTable> 2026-08-17 ────────────────────────────────
+ * The hiring roadmap read reached this page through a loader that logged its
+ * error and returned `[]`, so a refused read rendered "Roadmap not seeded —
+ * run migration": a confident diagnosis of a DIFFERENT fault, pointing the
+ * reader at a migration that is in fact applied (measured in production
+ * 2026-08-17: this table holds 4 rows). The loader now reports the refusal and
+ * the table says we do not know.
+ */
+import { Users } from 'lucide-react';
+
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 import {
   getBottleneckSignals,
-  getHiringRoadmap,
+  getHiringRoadmapResult,
   getMilestoneForecasts,
   getRecentAlerts,
   refreshBottleneckSignalsIfStale,
@@ -58,11 +72,13 @@ export async function OperationsHiringSurface() {
     return { alertsFired: 0, emailsSent: 0, emailsFailed: 0, errors: [String(err)] };
   });
 
-  const [signals, roadmap, alerts] = await Promise.all([
+  const [signals, roadmapRes, alerts] = await Promise.all([
     getBottleneckSignals(),
-    getHiringRoadmap(),
+    getHiringRoadmapResult(),
     getRecentAlerts(),
   ]);
+  // Nullable all the way to the render — see the loader's own note.
+  const roadmap = roadmapRes.rows;
 
   const verifiedActive = signals?.verified_active ?? 0;
   const milestones = await getMilestoneForecasts(verifiedActive);
@@ -70,16 +86,10 @@ export async function OperationsHiringSurface() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-ink">Operations & Hiring</h1>
-        <p className="text-sm text-ink/60">
-          Growth Cockpit — bottleneck signals, milestone forecasts, and hiring
-          roadmap tied to the Jan 30, 2027 Phase 1 capacity milestone (the
-          original V1 launch-promo sunset retired 2026-05-28 V2 cutover; the
-          date stays as the canonical staffing target).
-        </p>
-      </header>
+      <PageMasthead
+        title="Operations & Hiring"
+        lede="Growth Cockpit — bottleneck signals, milestone forecasts, and hiring roadmap tied to the Jan 30, 2027 Phase 1 capacity milestone (the original V1 launch-promo sunset retired 2026-05-28 V2 cutover; the date stays as the canonical staffing target)."
+      />
 
       {/* Unacknowledged alerts banner */}
       {alerts.length > 0 && (
@@ -147,7 +157,9 @@ export async function OperationsHiringSurface() {
                   <div className="text-xs text-ink/60">
                     {m.weeks_to_milestone !== null
                       ? `Projected ${m.forecasted_date} (~${m.weeks_to_milestone} weeks)`
-                      : 'Insufficient signup data'}
+                      : m.signups_measured === false
+                        ? 'Signups could not be read — this is not a forecast of no growth'
+                        : 'Insufficient signup data'}
                   </div>
                 </div>
               ))}
@@ -225,42 +237,73 @@ export async function OperationsHiringSurface() {
               : 'Milestone reached'}
           </span>
         </div>
-        {roadmap.length > 0 ? (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-ink/10 text-left text-xs font-medium uppercase tracking-wide text-ink/50">
-                <th className="py-2">Hire by</th>
-                <th>Role</th>
-                <th>Salary (PHP/mo)</th>
-                <th>Status</th>
-                <th className="text-right">Days</th>
-              </tr>
-            </thead>
-            <tbody>
-              {roadmap.map((role) => (
-                <tr key={role.role_id} className="border-b border-ink/5">
-                  <td className="py-3 text-ink/80">{role.hire_by_date}</td>
-                  <td className="py-3 font-medium text-ink">{role.role_title}</td>
-                  <td className="py-3 text-ink/70">
+        <div className="mt-3">
+          <ConsoleTable
+            rows={roadmap}
+            readPermitted
+            readError={roadmapRes.error}
+            reads="the hiring roadmap"
+            label="Hiring roadmap"
+            minWidth="42rem"
+            rowKey={(role) => String(role.role_id)}
+            empty={{
+              Icon: Users,
+              title: 'No roles on the roadmap',
+              blurb:
+                'The roadmap is seeded by migration and edited from Operations & Hiring. An empty one means every seeded role has been removed — it does not mean the read failed; a failed read says so in its own words.',
+            }}
+            columns={[
+              {
+                header: 'Hire by',
+                mono: true,
+                cell: (role) => <span className="text-ink/80">{role.hire_by_date}</span>,
+              },
+              {
+                header: 'Role',
+                cell: (role) => (
+                  <span className="font-medium text-ink">{role.role_title}</span>
+                ),
+              },
+              {
+                header: 'Salary (PHP/mo)',
+                hideBelow: 'md',
+                mono: true,
+                cell: (role) => (
+                  <span className="whitespace-nowrap text-ink/70">
                     {formatPhp(role.salary_range_min_php)} – {formatPhp(role.salary_range_max_php)}
-                  </td>
-                  <td className="py-3">
-                    <span className="inline-flex rounded bg-ink/5 px-2 py-0.5 text-xs uppercase tracking-wide text-ink/70">
-                      {role.status.replace(/_/g, ' ')}
-                    </span>
-                  </td>
-                  <td className={`py-3 text-right tabular-nums ${role.days_until_hire_by < 30 ? 'font-semibold text-danger-700' : 'text-ink/70'}`}>
-                    {role.days_until_hire_by > 0 ? `+${role.days_until_hire_by}d` : `${role.days_until_hire_by}d`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="mt-3 text-sm text-ink/50">Roadmap not seeded — run migration.</p>
-        )}
+                  </span>
+                ),
+              },
+              {
+                header: 'Status',
+                hideBelow: 'lg',
+                cell: (role) => (
+                  <span className="inline-flex rounded bg-ink/5 px-2 py-0.5 text-xs uppercase tracking-wide text-ink/70">
+                    {role.status.replace(/_/g, ' ')}
+                  </span>
+                ),
+              },
+              {
+                header: 'Days',
+                align: 'right',
+                mono: true,
+                cell: (role) => (
+                  <span
+                    className={
+                      role.days_until_hire_by < 30
+                        ? 'font-semibold text-danger-700'
+                        : 'text-ink/70'
+                    }
+                  >
+                    {role.days_until_hire_by > 0
+                      ? `+${role.days_until_hire_by}d`
+                      : `${role.days_until_hire_by}d`}
+                  </span>
+                ),
+              },
+            ]}
+          />
+        </div>
       </section>
 
       {/* Smoke tests */}

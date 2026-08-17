@@ -23,7 +23,7 @@ import {
   setSeatPhotoHidden,} from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
-export const metadata = { title: 'Photo moderation · Papic · Setnayan' };
+export const metadata = { title: 'Photo moderation · Papic' };
 export const dynamic = 'force-dynamic';
 
 const REASON_OPTIONS: { value: string; label: string }[] = [

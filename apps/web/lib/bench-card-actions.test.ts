@@ -54,7 +54,7 @@ test('hasLiveInquiry: a thread with an unknown status still counts (only decline
 
 test('flag OFF: no actions at all — the card renders exactly as pre-replan', () => {
   const a = resolveBenchCardActions({ enabled: false, vendor: vendor(), inBuild: false });
-  assert.deepEqual(a, { build: null, inquiry: null, lockGroupId: null });
+  assert.deepEqual(a, { build: null, inquiry: null, withdraw: null, lockGroupId: null });
 });
 
 // ── the build leg ──────────────────────────────────────────────────────────
@@ -170,7 +170,7 @@ test('a locked vendor shows none of the three — "★ Chosen" is the whole stat
     vendor: vendor({ status: 'locked', threadId: 't-1', inquiryStatus: 'accepted' }),
     inBuild: true,
   });
-  assert.deepEqual(a, { build: null, inquiry: null, lockGroupId: null });
+  assert.deepEqual(a, { build: null, inquiry: null, withdraw: null, lockGroupId: null });
 });
 
 // ── the rail end ───────────────────────────────────────────────────────────
@@ -268,5 +268,5 @@ test('schedule clash: flag OFF ignores the verdict entirely', () => {
     vendor: vendor({ buildFit: 'clash', buildClashWith: 'Alta Vista' }),
     inBuild: false,
   });
-  assert.deepEqual(a, { build: null, inquiry: null, lockGroupId: null });
+  assert.deepEqual(a, { build: null, inquiry: null, withdraw: null, lockGroupId: null });
 });

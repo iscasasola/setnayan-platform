@@ -118,7 +118,7 @@ test('the public catalog read actually ASKS for the sign-up price', () => {
 });
 
 test('/pricing renders BOTH figures, and gets them from the shared resolver', () => {
-  const src = read('app/pricing/page.tsx');
+  const src = read('app/(shell)/pricing/page.tsx');
   assert.match(
     src,
     /resolveAiPrices\s*\(/,
@@ -195,7 +195,7 @@ test('no peso literal was reintroduced as a Setnayan AI fallback', () => {
   // checked it, because it was declared a non-price. Comments are stripped: a
   // docblock explaining the removal is not a reintroduction.
   const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  for (const f of ['app/pricing/page.tsx', 'app/_components/home/pricing-data.ts']) {
+  for (const f of ['app/(shell)/pricing/page.tsx', 'app/_components/home/pricing-data.ts']) {
     const near = code(read(f)).match(/(?:aiRegular|aiIntro|aiSignup|resolveAiPrices)[\s\S]{0,400}?₱[\d,]+/);
     assert.equal(near, null, `${f} reintroduced a hardcoded Setnayan AI peso figure: ${near?.[0]}`);
   }

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "484ec515b",
-  "routeCount": 401,
-  "destinations": 789,
-  "actions": 522,
-  "blocks": 3537,
+  "generatedFromRef": "0e6c32171",
+  "routeCount": 402,
+  "destinations": 849,
+  "actions": 579,
+  "blocks": 3710,
   "routes": {
     "/": {
       "files": [
@@ -53,6 +53,438 @@
         "ZoomGuard"
       ]
     },
+    "/(shell)/about": {
+      "files": [
+        "(shell)/about/_about-motion.tsx",
+        "(shell)/about/loading.tsx",
+        "(shell)/about/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/explore",
+        "/help",
+        "/how-it-works",
+        "/pricing",
+        "/signup",
+        "/tl/about"
+      ],
+      "actions": [],
+      "blocks": [
+        "AboutHero",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLHeadingElement",
+        "Icon",
+        "Link",
+        "RevealGrid",
+        "RevealSection"
+      ]
+    },
+    "/(shell)/acceptable-use": {
+      "files": [
+        "(shell)/acceptable-use/loading.tsx",
+        "(shell)/acceptable-use/page.tsx"
+      ],
+      "destinations": [
+        "/help",
+        "/privacy",
+        "/terms"
+      ],
+      "actions": [],
+      "blocks": [
+        "LegalLayout",
+        "LegalSection",
+        "Link"
+      ]
+    },
+    "/(shell)/alaala": {
+      "files": [
+        "(shell)/alaala/loading.tsx",
+        "(shell)/alaala/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=alaala",
+        "/our-story",
+        "/pa3d",
+        "/palogo",
+        "/panood",
+        "/papic",
+        "/pawebsite",
+        "/pricing"
+      ],
+      "actions": [],
+      "blocks": [
+        "AlaalaOrb",
+        "HowItWorksPanel",
+        "LineRevealHeading",
+        "Link",
+        "Reveal",
+        "RevealBand",
+        "RevealList"
+      ]
+    },
+    "/(shell)/cookies": {
+      "files": [
+        "(shell)/cookies/loading.tsx",
+        "(shell)/cookies/page.tsx"
+      ],
+      "destinations": [
+        "/privacy"
+      ],
+      "actions": [],
+      "blocks": [
+        "CookieSettingsLink",
+        "LegalLayout",
+        "LegalSection",
+        "Link"
+      ]
+    },
+    "/(shell)/explore": {
+      "files": [
+        "(shell)/explore/_components/category-tile.tsx",
+        "(shell)/explore/_components/event-type-notify-form.tsx",
+        "(shell)/explore/_components/explore-search-hero.tsx",
+        "(shell)/explore/_components/filter-drawer.tsx",
+        "(shell)/explore/_components/folder-vendors-section.tsx",
+        "(shell)/explore/_components/icon-tile-folder-strip.tsx",
+        "(shell)/explore/_components/mega-column-tabs.tsx",
+        "(shell)/explore/_components/review-carousel.tsx",
+        "(shell)/explore/_components/save-vendor-button.tsx",
+        "(shell)/explore/_components/sticky-marketplace-header.tsx",
+        "(shell)/explore/_components/taxonomy-search.tsx",
+        "(shell)/explore/_components/vendor-badge-row.tsx",
+        "(shell)/explore/_components/vendor-card.tsx",
+        "(shell)/explore/_components/vendors-availability-banner.tsx",
+        "(shell)/explore/actions.ts",
+        "(shell)/explore/loading.tsx",
+        "(shell)/explore/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard",
+        "/dashboard/[seg]",
+        "/dashboard/[seg]/vendors",
+        "/explore",
+        "/explore?browse=1",
+        "/explore?category=bridal_hmua",
+        "/explore?category=catering",
+        "/explore?category=photography",
+        "/explore?category=videography",
+        "/explore?category=wedding_cake",
+        "/explore?category=wedding_coordination",
+        "/explore?match=0",
+        "/tour",
+        "/vendors"
+      ],
+      "actions": [
+        "formAction"
+      ],
+      "blocks": [
+        "ActivityBadges",
+        "AddVenueToPlanResult",
+        "CatalogView",
+        "CategoryTile",
+        "CeremonyVenuePanel",
+        "CompareShortlistBanner",
+        "ContextualPillOption",
+        "CtaLine",
+        "EmptyState",
+        "EventTypeNotifyForm",
+        "EventTypeSearchOption",
+        "ExploreChip",
+        "ExploreSearchHero",
+        "FaithKey",
+        "FilterDrawer",
+        "FocusedModeSearchForm",
+        "FolderTab",
+        "FolderVendorCard",
+        "FolderVendorsSection",
+        "FollowGate",
+        "HTMLDivElement",
+        "HTMLInputElement",
+        "Icon",
+        "IconTileFolderStrip",
+        "Image",
+        "Link",
+        "LocalState",
+        "LockDayButton",
+        "MiniBadge",
+        "NoticeBanner",
+        "NotifyResult",
+        "OffSeasonBadge",
+        "PageLink",
+        "Pagination",
+        "PartnershipBadge",
+        "ReadsResults",
+        "ReligionBanner",
+        "ReviewCard",
+        "ReviewCarousel",
+        "SaveVendorButton",
+        "SaveVendorResult",
+        "ScopedFolderBanner",
+        "SortKey",
+        "StatePill",
+        "StickyMarketplaceHeader",
+        "TaxonomyOption",
+        "TaxonomyPhase",
+        "TaxonomySearch",
+        "TileLink",
+        "VendorBadge",
+        "VendorBadgeRow",
+        "VendorCard",
+        "VendorHero",
+        "VendorReviewPreview",
+        "VendorsAvailabilityBanner",
+        "VenueFilterBanner"
+      ]
+    },
+    "/(shell)/explore/compare": {
+      "files": [
+        "(shell)/explore/compare/page.tsx"
+      ],
+      "destinations": [
+        "/explore",
+        "/v/[seg]?src=explore"
+      ],
+      "actions": [],
+      "blocks": [
+        "CompareRowEl",
+        "Link",
+        "SaveVendorButton",
+        "VendorHeaderCell"
+      ]
+    },
+    "/(shell)/help": {
+      "files": [
+        "(shell)/help/loading.tsx",
+        "(shell)/help/page.tsx"
+      ],
+      "destinations": [
+        "/help"
+      ],
+      "actions": [
+        "submitHelpMessage"
+      ],
+      "blocks": [
+        "Field",
+        "HelpSearch",
+        "Icon",
+        "Link",
+        "SubmitButton"
+      ]
+    },
+    "/(shell)/pa3d": {
+      "files": [
+        "(shell)/pa3d/loading.tsx",
+        "(shell)/pa3d/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=pa3d",
+        "/pricing"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorwayPage"
+      ]
+    },
+    "/(shell)/palogo": {
+      "files": [
+        "(shell)/palogo/loading.tsx",
+        "(shell)/palogo/page.tsx"
+      ],
+      "destinations": [
+        "/monogram",
+        "/onboarding/wedding?from=palogo"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorwayPage"
+      ]
+    },
+    "/(shell)/panood": {
+      "files": [
+        "(shell)/panood/loading.tsx",
+        "(shell)/panood/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=panood",
+        "/pricing",
+        "/privacy"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorwayPage",
+        "Link"
+      ]
+    },
+    "/(shell)/papic": {
+      "files": [
+        "(shell)/papic/loading.tsx",
+        "(shell)/papic/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=papic",
+        "/pricing"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorwayPage",
+        "Link",
+        "PapicAnchor",
+        "PapicExceptions",
+        "Reveal",
+        "RevealBand",
+        "SettleTiles"
+      ]
+    },
+    "/(shell)/patiktok": {
+      "files": [
+        "(shell)/patiktok/loading.tsx",
+        "(shell)/patiktok/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=patiktok",
+        "/pricing"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorwayPage"
+      ]
+    },
+    "/(shell)/pawebsite": {
+      "files": [
+        "(shell)/pawebsite/loading.tsx",
+        "(shell)/pawebsite/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=pawebsite",
+        "/pricing"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorwayPage"
+      ]
+    },
+    "/(shell)/pricing": {
+      "files": [
+        "(shell)/pricing/_papic-estimator.tsx",
+        "(shell)/pricing/_pricing-motion.tsx",
+        "(shell)/pricing/loading.tsx",
+        "(shell)/pricing/page.tsx"
+      ],
+      "destinations": [
+        "/creators",
+        "/onboarding/wedding?from=pricing",
+        "/vendors"
+      ],
+      "actions": [],
+      "blocks": [
+        "BuildStatusChip",
+        "HTMLDivElement",
+        "HTMLHeadingElement",
+        "HTMLParagraphElement",
+        "LineRevealHeading",
+        "Link",
+        "Mode",
+        "PapicEstimator",
+        "RevealBand",
+        "Stepper"
+      ]
+    },
+    "/(shell)/privacy": {
+      "files": [
+        "(shell)/privacy/loading.tsx",
+        "(shell)/privacy/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/profile",
+        "/help"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "Section"
+      ]
+    },
+    "/(shell)/privacy/google-access": {
+      "files": [
+        "(shell)/privacy/google-access/loading.tsx",
+        "(shell)/privacy/google-access/metadata.ts",
+        "(shell)/privacy/google-access/page.tsx"
+      ],
+      "destinations": [
+        "/privacy"
+      ],
+      "actions": [],
+      "blocks": [
+        "LegalLayout",
+        "LegalSection",
+        "Link"
+      ]
+    },
+    "/(shell)/realstories": {
+      "files": [
+        "(shell)/realstories/loading.tsx",
+        "(shell)/realstories/page.tsx"
+      ],
+      "destinations": [
+        "/explore",
+        "/signup"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "RealStoriesGallery",
+        "StoriesSearch"
+      ]
+    },
+    "/(shell)/refunds": {
+      "files": [
+        "(shell)/refunds/loading.tsx",
+        "(shell)/refunds/page.tsx"
+      ],
+      "destinations": [
+        "/help",
+        "/terms"
+      ],
+      "actions": [],
+      "blocks": [
+        "LegalLayout",
+        "LegalSection",
+        "Link"
+      ]
+    },
+    "/(shell)/setnayan-ai": {
+      "files": [
+        "(shell)/setnayan-ai/loading.tsx",
+        "(shell)/setnayan-ai/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=setnayan-ai",
+        "/pricing"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorwayPage"
+      ]
+    },
+    "/(shell)/terms": {
+      "files": [
+        "(shell)/terms/loading.tsx",
+        "(shell)/terms/page.tsx"
+      ],
+      "destinations": [
+        "/acceptable-use",
+        "/help",
+        "/privacy",
+        "/refunds"
+      ],
+      "actions": [],
+      "blocks": [
+        "LegalLayout",
+        "LegalSection",
+        "Link"
+      ]
+    },
     "/3d_plan/demo/[token]": {
       "files": [
         "3d_plan/demo/[token]/_components/plan3d-guest-view.tsx",
@@ -63,11 +495,11 @@
       ],
       "actions": [],
       "blocks": [
+        "DoorShell",
         "Link",
         "Phase",
         "Plan3DGuestView",
-        "Plan3DSceneLoader",
-        "Shell"
+        "Plan3DSceneLoader"
       ]
     },
     "/[slug]": {
@@ -87,7 +519,9 @@
         "[slug]/_components/editorial/editorial-order.ts",
         "[slug]/_components/editorial/gallery-anchor.ts",
         "[slug]/_components/editorial/living-moments.tsx",
+        "[slug]/_components/editorial/sample-ids.ts",
         "[slug]/_components/empty-states.tsx",
+        "[slug]/_components/event-words-provider.tsx",
         "[slug]/_components/face-data-notice.tsx",
         "[slug]/_components/guest-camera-player.tsx",
         "[slug]/_components/guest-column-card.tsx",
@@ -150,8 +584,10 @@
         "[slug]/_components/your-photos-widget.tsx",
         "[slug]/_components/your-seat-block.tsx",
         "[slug]/_lib/event-noun.ts",
+        "[slug]/_lib/event-words.ts",
         "[slug]/_lib/host-scope.ts",
         "[slug]/_lib/loaders.ts",
+        "[slug]/_lib/measures.ts",
         "[slug]/_lib/site-identity.ts",
         "[slug]/_lib/site-menu.ts",
         "[slug]/_lib/site-nav.ts",
@@ -193,6 +629,7 @@
         "ByTheNumbers",
         "Chapter",
         "ChapterWriteUp",
+        "ClientEventWords",
         "ClipFrame",
         "Colophon",
         "CountdownWidget",
@@ -213,6 +650,9 @@
         "EditorialOrderKey",
         "EditorialSections",
         "EventMedia",
+        "EventWords",
+        "EventWordsContext.Provider",
+        "EventWordsProvider",
         "FaceDataNotice",
         "FaceGateResult",
         "FacebookWatchCard",
@@ -460,7 +900,9 @@
         "[slug]/print/print-sheet.tsx",
         "[slug]/print/print-toolbar.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/[seg]"
+      ],
       "actions": [],
       "blocks": [
         "ChapterCard",
@@ -586,52 +1028,9 @@
         "confirmAction"
       ],
       "blocks": [
+        "DoorNotice",
+        "DoorShell",
         "SubmitButton"
-      ]
-    },
-    "/about": {
-      "files": [
-        "about/_about-motion.tsx",
-        "about/loading.tsx",
-        "about/page.tsx"
-      ],
-      "destinations": [
-        "/",
-        "/explore",
-        "/help",
-        "/how-it-works",
-        "/pricing",
-        "/signup",
-        "/tl/about"
-      ],
-      "actions": [],
-      "blocks": [
-        "AboutHero",
-        "AppRailShell",
-        "HTMLDivElement",
-        "HTMLElement",
-        "HTMLHeadingElement",
-        "Icon",
-        "Link",
-        "RevealGrid",
-        "RevealSection"
-      ]
-    },
-    "/acceptable-use": {
-      "files": [
-        "acceptable-use/loading.tsx",
-        "acceptable-use/page.tsx"
-      ],
-      "destinations": [
-        "/help",
-        "/privacy",
-        "/terms"
-      ],
-      "actions": [],
-      "blocks": [
-        "LegalLayout",
-        "LegalSection",
-        "Link"
       ]
     },
     "/admin": {
@@ -644,6 +1043,7 @@
         "admin/_components/admin-nav-groups.tsx",
         "admin/_components/admin-rail-context.tsx",
         "admin/_components/admin-sidebar.tsx",
+        "admin/_components/console-table.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/mobile-landing-accordion.tsx",
         "admin/_components/mobile-landing-grid.tsx",
@@ -761,6 +1161,8 @@
         "AppleSecretReminder",
         "BottomNav",
         "CountUp",
+        "EmptyState",
+        "ErrorState",
         "GuidedTour",
         "HTMLDivElement",
         "HTMLInputElement",
@@ -772,6 +1174,7 @@
         "NavFab",
         "NavItem",
         "ProgressRing",
+        "Row",
         "Screen",
         "Sk",
         "SkLine",
@@ -793,24 +1196,75 @@
       ],
       "blocks": [
         "ConfirmForm",
+        "ConsoleTable",
+        "EmptyState",
+        "ErrorState",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
     "/admin/accounts": {
       "files": [
+        "admin/accounts/_surfaces/demo-vendors-surface.tsx",
+        "admin/accounts/_surfaces/events-surface.tsx",
+        "admin/accounts/_surfaces/users-surface.tsx",
+        "admin/accounts/_surfaces/vendors-surface.tsx",
+        "admin/accounts/_surfaces/venues-surface.tsx",
         "admin/accounts/loading.tsx",
         "admin/accounts/page.tsx"
       ],
-      "destinations": [],
-      "actions": [],
+      "destinations": [
+        "/admin/demo-vendors/inquiries",
+        "/admin/users/[seg]",
+        "/admin/vendors/[seg]/edit",
+        "/admin/vendors/[seg]/plan",
+        "/admin/vendors/[seg]/team",
+        "/admin/venues",
+        "/admin/venues/[seg]",
+        "/admin/venues/new",
+        "/admin/venues?type=[seg]",
+        "/explore?demo=1",
+        "/explore?demo=1&category=catering",
+        "/explore?demo=1&category=photography",
+        "/explore?demo=1&category=wedding_coordination"
+      ],
+      "actions": [
+        "blacklistUser",
+        "confirmUserEmail",
+        "deleteEvent",
+        "deleteUser",
+        "forceSignOutUser",
+        "issueCompGrant",
+        "resetUserPassword",
+        "revokeAdminVendorInvite",
+        "revokeCompGrant",
+        "setEventFaceMode",
+        "toggleTeamMember",
+        "unblacklistEmail"
+      ],
       "blocks": [
+        "Avatar",
+        "BlacklistTable",
+        "CompGrantsPanel",
+        "ConfirmForm",
+        "ConsoleTable",
+        "DemoVendorActions",
         "DemoVendorsSurface",
         "EventsSurface",
+        "GrantCard",
         "Icon",
+        "Image",
+        "InviteVendorForm",
+        "KpiStatCard",
         "Link",
+        "MiniTour",
+        "PageMasthead",
+        "SubmitButton",
         "UsersSurface",
+        "UsersTable",
         "VendorsSurface",
-        "VenuesSurface"
+        "VenuesSurface",
+        "VisibilityBadge"
       ]
     },
     "/admin/addons": {
@@ -826,9 +1280,22 @@
         "admin/app-performance/_components/action-center.tsx",
         "admin/app-performance/_components/charts.tsx",
         "admin/app-performance/_components/expenses.tsx",
+        "admin/app-performance/_components/funnel-vendor-picker.tsx",
         "admin/app-performance/_components/fx.tsx",
         "admin/app-performance/_components/health-now.tsx",
         "admin/app-performance/_components/won-lost-admin-card.tsx",
+        "admin/app-performance/_surfaces/browser-blocks-surface.tsx",
+        "admin/app-performance/_surfaces/connection-logs-surface.tsx",
+        "admin/app-performance/_surfaces/funnels-surface.tsx",
+        "admin/app-performance/_surfaces/growth-surface.tsx",
+        "admin/app-performance/_surfaces/intelligence-surface.tsx",
+        "admin/app-performance/_surfaces/interconnections-surface.tsx",
+        "admin/app-performance/_surfaces/offline-surface.tsx",
+        "admin/app-performance/_surfaces/operations-surface.tsx",
+        "admin/app-performance/_surfaces/overview-surface.tsx",
+        "admin/app-performance/_surfaces/seo-actions.ts",
+        "admin/app-performance/_surfaces/seo-rerun-button.tsx",
+        "admin/app-performance/_surfaces/seo-surface.tsx",
         "admin/app-performance/actions.ts",
         "admin/app-performance/loading.tsx",
         "admin/app-performance/page.tsx"
@@ -843,27 +1310,66 @@
         "viewReceipt"
       ],
       "blocks": [
+        "ActionCenterZone",
+        "BarListCard",
+        "BreakdownCard",
+        "BrowserBlocksSurface",
+        "BucketBars",
         "ChartCard",
+        "ChurnTable",
+        "CockpitFx",
         "CockpitSurface",
+        "ConnectionLogsClient",
         "ConnectionLogsSurface",
+        "ConsoleTable",
+        "ContextTile",
+        "ConversionCard",
         "DeepHealth",
+        "DeltaChip",
         "DeltaPct",
+        "ErrorState",
+        "ExpensesZone",
+        "FormFlash",
+        "Funnel",
+        "FunnelTable",
         "FunnelsSurface",
         "GridPageSkeleton",
+        "GrowthCard",
         "GrowthSurface",
+        "HealthNow",
         "Icon",
+        "IndexChart",
         "IntelligenceSurface",
         "InterconnectionsSurface",
+        "KpiStatCard",
+        "LeadTable",
+        "LeaderRow",
         "Link",
         "ListPageSkeleton",
+        "MarketPulse",
         "Metric",
+        "MiniBars",
+        "OfflineDiagnosticLoader",
         "OfflineSurface",
         "OperationsHiringSurface",
+        "PageMasthead",
+        "RerunResult",
+        "SectionHeading",
+        "SeoRerunButton",
         "SeoSurface",
+        "SignalRow",
+        "SmokeTestPanel",
+        "Sparkline",
         "StackedBars",
+        "StatTile",
         "StatusPill",
         "Suspense",
-        "TablePageSkeleton"
+        "TablePageSkeleton",
+        "VendorPicker",
+        "VendorPickerResult",
+        "WiringNote",
+        "WonLostAdminCard",
+        "ZoneHeading"
       ]
     },
     "/admin/approvals": {
@@ -961,7 +1467,8 @@
         "upholdNonDelivery"
       ],
       "blocks": [
-        "CompletionsTable",
+        "ConsoleTable",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -994,6 +1501,8 @@
       "actions": [],
       "blocks": [
         "Block",
+        "ConsoleTable",
+        "ErrorState",
         "FieldTable",
         "Link",
         "Row"
@@ -1163,8 +1672,10 @@
       ],
       "actions": [],
       "blocks": [
+        "ConsoleTable",
         "DemoThread",
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/admin/demo-vendors/inquiries/[threadId]": {
@@ -1264,11 +1775,13 @@
       ],
       "blocks": [
         "ConfirmForm",
+        "ConsoleTable",
         "DisputesTable",
         "FilterStrip",
         "HandoverEvidence",
+        "KpiStatCard",
+        "PageMasthead",
         "PolicyEvidence",
-        "StatCell",
         "StatsBanner",
         "SubmitButton",
         "TierChip"
@@ -1683,6 +2196,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ConsoleTable",
         "OfflineDiagnostic",
         "Status",
         "StatusPill"
@@ -1734,7 +2248,9 @@
       "blocks": [
         "BackfillResult",
         "BackfillTilesButton",
-        "Tile"
+        "ConsoleTable",
+        "KpiStatCard",
+        "PageMasthead"
       ]
     },
     "/admin/patiktok": {
@@ -1751,7 +2267,10 @@
       ],
       "destinations": [],
       "actions": [],
-      "blocks": []
+      "blocks": [
+        "ConsoleTable",
+        "PageMasthead"
+      ]
     },
     "/admin/payment-options": {
       "files": [
@@ -1850,17 +2369,39 @@
       "files": [
         "admin/pricing/_components/catalog-editor.tsx",
         "admin/pricing/_components/grids.ts",
+        "admin/pricing/_surfaces/custom-plans-surface.tsx",
+        "admin/pricing/_surfaces/free-windows-actions.ts",
+        "admin/pricing/_surfaces/free-windows-surface.tsx",
+        "admin/pricing/_surfaces/price-bands-surface.tsx",
+        "admin/pricing/_surfaces/pricing-surface.tsx",
         "admin/pricing/actions.ts",
         "admin/pricing/loading.tsx",
         "admin/pricing/page.tsx"
       ],
       "destinations": [
-        "/admin/pricing?tab=[seg]"
+        "/admin/addons/pricing-report",
+        "/admin/pricing?tab=[seg]",
+        "/admin/pricing?tab=custom-plans&vendor=[seg]",
+        "/admin/pricing?tab=pricing",
+        "/pricing",
+        "/vendors"
       ],
-      "actions": [],
+      "actions": [
+        "createFreeWindow",
+        "deleteFreeWindow",
+        "recomputePriceBands",
+        "saveAllPricing",
+        "setFreeWindowActive"
+      ],
       "blocks": [
         "ActiveToggle",
+        "BundleRowEditor",
+        "ColHeader",
+        "ConfirmForm",
+        "ConsoleTable",
+        "CustomComposer",
         "CustomPlansSurface",
+        "Empty",
         "FreeWindowsSurface",
         "GridPageSkeleton",
         "Icon",
@@ -1870,8 +2411,14 @@
         "MoneyInput",
         "PriceBandsSurface",
         "PricingSurface",
+        "RetailRowEditor",
+        "RetiredDisclosure",
+        "SaveBanner",
+        "Stat",
+        "SubmitButton",
         "Suspense",
-        "TablePageSkeleton"
+        "TablePageSkeleton",
+        "VendorRowEditor"
       ]
     },
     "/admin/queues": {
@@ -1920,8 +2467,9 @@
       ],
       "actions": [],
       "blocks": [
-        "Link",
-        "Stat"
+        "ConsoleTable",
+        "KpiStatCard",
+        "Link"
       ]
     },
     "/admin/referrals": {
@@ -2055,23 +2603,43 @@
         "admin/settings/_components/qr-upload-form.tsx",
         "admin/settings/_components/sentry-smoke-test-button.tsx",
         "admin/settings/_components/tin-input.tsx",
+        "admin/settings/_surfaces/compliance-surface.tsx",
+        "admin/settings/_surfaces/demo-mode-surface.tsx",
+        "admin/settings/_surfaces/notifications-surface.tsx",
+        "admin/settings/_surfaces/settings-surface.tsx",
         "admin/settings/actions.ts",
         "admin/settings/loading.tsx",
         "admin/settings/page.tsx"
       ],
       "destinations": [
-        "/admin/settings?tab=[seg]"
+        "/admin/demo-vendors",
+        "/admin/settings/payment-methods",
+        "/admin/settings?tab=[seg]",
+        "/admin/settings?tab=notifications",
+        "/admin/ugat?tab=onboarding",
+        "/explore"
       ],
       "actions": [
+        "markAllNotificationsRead",
+        "markNotificationRead",
+        "removeBrandIcon",
+        "saveAdminDigest",
+        "saveBusinessIdentity",
         "saveLoaderAppearance",
         "uploadBrandIcon"
       ],
       "blocks": [
         "Blob",
+        "BrandIconCard",
+        "BrandIconUploadForm",
+        "ComplianceForm",
         "ComplianceSurface",
+        "CountCard",
         "DemoModeSurface",
+        "Field",
         "File",
         "FireResult",
+        "FormFlash",
         "FormPageSkeleton",
         "GridPageSkeleton",
         "HTMLFormElement",
@@ -2079,14 +2647,17 @@
         "Icon",
         "Link",
         "ListPageSkeleton",
+        "LoaderAppearanceCard",
         "LoaderVariant",
         "NotificationsSurface",
         "PreviewSwatch",
         "ProcessStatus",
         "SDLoader",
+        "SentrySmokeTestButton",
         "SettingsSurface",
         "SubmitButton",
-        "Suspense"
+        "Suspense",
+        "TinInput"
       ]
     },
     "/admin/settings/demo-mode": {
@@ -2112,6 +2683,7 @@
       "blocks": [
         "BackButton",
         "ChannelSwitch",
+        "ConsoleTable",
         "Field",
         "FormFlash",
         "QrUploadBlock",
@@ -2154,27 +2726,119 @@
     },
     "/admin/studio": {
       "files": [
+        "admin/studio/_surfaces/discount-codes-surface.tsx",
+        "admin/studio/_surfaces/journal-spotlights-surface.tsx",
+        "admin/studio/_surfaces/moodboard-library-surface.tsx",
+        "admin/studio/_surfaces/patiktok-surface.tsx",
+        "admin/studio/_surfaces/real-stories-surface.tsx",
+        "admin/studio/_surfaces/recaps-surface.tsx",
+        "admin/studio/_surfaces/referrals-surface.tsx",
+        "admin/studio/_surfaces/reveal-studio-surface.tsx",
+        "admin/studio/_surfaces/social-queue-surface.tsx",
+        "admin/studio/_surfaces/songs-surface.tsx",
+        "admin/studio/_surfaces/spotlight-awards-surface.tsx",
+        "admin/studio/_surfaces/storytellers-surface.tsx",
+        "admin/studio/_surfaces/website-surface.tsx",
         "admin/studio/loading.tsx",
         "admin/studio/page.tsx"
       ],
-      "destinations": [],
-      "actions": [],
+      "destinations": [
+        "/[seg]",
+        "/[seg]/recap",
+        "/admin",
+        "/admin/discount-codes/[seg]/edit",
+        "/admin/discount-codes/new",
+        "/admin/pricing",
+        "/admin/studio?tab=discount-codes",
+        "/admin/studio?tab=discount-codes&filter=active",
+        "/admin/studio?tab=discount-codes&filter=disabled",
+        "/admin/studio?tab=discount-codes&filter=expired",
+        "/admin/user-reports",
+        "/realstories",
+        "/u/[seg]"
+      ],
+      "actions": [
+        "addAwardManually",
+        "adminTakedownRecap",
+        "approveFreeSpotlight",
+        "attachSpotlight",
+        "confirmSponsored",
+        "createAnnouncement",
+        "deleteSongAction",
+        "disableDiscountCode",
+        "enableDiscountCode",
+        "initiateSponsored",
+        "markConsentPosted",
+        "markConsentTakenDown",
+        "markVendorFeatured",
+        "mergeSongsAction",
+        "postSocialPostNow",
+        "pullSocialPost",
+        "removeSpotlight",
+        "retrySocialPost",
+        "saveEvergreenItem",
+        "setChapterFeatured",
+        "setChapterRank",
+        "setReferralProgramEnabled",
+        "setShowcaseFeatured",
+        "setShowcaseRank",
+        "updatePublishSettings",
+        "updateSocialPostBody"
+      ],
       "blocks": [
+        "AutopilotStrip",
+        "Banner",
+        "CardPreview",
+        "ConfirmForm",
+        "ConsoleTable",
+        "DiscountCodeRow",
         "DiscountCodesSurface",
+        "EmptyPage",
+        "EmptyRow",
+        "EvergreenItemCard",
+        "FilterChip",
+        "FlashBanner",
+        "FormFlash",
         "Icon",
+        "InfluencerAnalyticsPanel",
+        "JobRow",
         "JournalSpotlightsSurface",
+        "KpiStatCard",
+        "LibraryEditor",
         "Link",
+        "ManualAddForm",
+        "Mono",
         "MoodboardLibrarySurface",
+        "PageMasthead",
+        "PageSelector",
         "PatiktokSurface",
+        "QueueSection",
         "RealStoriesSurface",
         "RecapsSurface",
+        "RedemptionRow",
         "ReferralsSurface",
+        "RevealStudio",
         "RevealStudioSurface",
+        "ScheduledPostCard",
+        "ShowcaseAdminRow",
+        "SiteWidgetPage",
         "SocialQueueSurface",
         "SongsSurface",
+        "SourceChip",
+        "SpotlightAwardRowActions",
         "SpotlightAwardsSurface",
+        "SpotlightRecomputeButton",
+        "SpotlightRow",
+        "Stat",
+        "StatusPill",
+        "StdVideoModeration",
+        "StorytellerAdminRow",
         "StorytellersSurface",
-        "WebsiteSurface"
+        "SubmitButton",
+        "TikTokManualPanel",
+        "TopCreatorInfluence",
+        "WebsiteSurface",
+        "WidgetList"
       ]
     },
     "/admin/subscriptions": {
@@ -2286,33 +2950,55 @@
     "/admin/ugat": {
       "files": [
         "admin/ugat/_components/ugat-console.tsx",
+        "admin/ugat/_surfaces/brain-surface.tsx",
+        "admin/ugat/_surfaces/menus-surface.tsx",
+        "admin/ugat/_surfaces/onboarding-surface.tsx",
+        "admin/ugat/_surfaces/wedding-traditions-surface.tsx",
         "admin/ugat/actions.ts",
         "admin/ugat/loading.tsx",
         "admin/ugat/page.tsx"
       ],
       "destinations": [
+        "/admin/songs",
+        "/admin/taxonomy",
+        "/admin/taxonomy?view=vocab-faith",
         "/admin/ugat/map",
         "/admin/ugat?tab=[seg]"
       ],
-      "actions": [],
+      "actions": [
+        "deleteTraditionItem",
+        "resetTraditionsToDefaults",
+        "seedTraditionsFromDefaults",
+        "updateOnboardingMusic",
+        "upsertTraditionItem"
+      ],
       "blocks": [
         "BrainSurface",
+        "ChunkRowView",
+        "ComingSoonTab",
         "Control",
         "EdgeCard",
         "EdgeRow",
+        "FileUpload",
         "FindingCard",
         "HTMLDivElement",
         "HTMLInputElement",
         "Ico",
         "Icon",
+        "ItemForm",
+        "KpiStatCard",
         "Link",
         "ListPageSkeleton",
         "MapCanvas",
+        "MenuRegistryEditor",
         "MenusSurface",
         "NodeCard",
         "Omnibox",
         "OnboardingSurface",
+        "RelatedLink",
+        "ReligionSection",
         "Resolution",
+        "SubmitButton",
         "Suspense",
         "TablePageSkeleton",
         "TablesView",
@@ -2392,7 +3078,9 @@
         "rejectPartnership"
       ],
       "blocks": [
+        "ConsoleTable",
         "FormFlash",
+        "PageMasthead",
         "SearchParams",
         "SubmitButton"
       ]
@@ -2626,6 +3314,7 @@
       "actions": [],
       "blocks": [
         "ClearFolderButton",
+        "ConsoleTable",
         "MediaTable",
         "Result",
         "Stat"
@@ -2658,33 +3347,6 @@
       "actions": [],
       "blocks": [
         "QueuesTriageFeed"
-      ]
-    },
-    "/alaala": {
-      "files": [
-        "alaala/loading.tsx",
-        "alaala/page.tsx"
-      ],
-      "destinations": [
-        "/onboarding/wedding?from=alaala",
-        "/our-story",
-        "/pa3d",
-        "/palogo",
-        "/panood",
-        "/papic",
-        "/pawebsite",
-        "/pricing"
-      ],
-      "actions": [],
-      "blocks": [
-        "AlaalaOrb",
-        "AppRailShell",
-        "HowItWorksPanel",
-        "LineRevealHeading",
-        "Link",
-        "Reveal",
-        "RevealBand",
-        "RevealList"
       ]
     },
     "/api/v1": {
@@ -2727,6 +3389,7 @@
         "/blog/[seg]",
         "/blog?category=[seg]",
         "/signup",
+        "/u/[seg]",
         "/u/[seg]/c/[seg]"
       ],
       "actions": [],
@@ -2746,31 +3409,17 @@
         "claim/[token]/page.tsx"
       ],
       "destinations": [
+        "/",
         "/dashboard/people"
       ],
       "actions": [
         "claimAlaga"
       ],
       "blocks": [
+        "DoorActions",
+        "DoorShell",
         "Link",
-        "Shell",
         "SubmitButton"
-      ]
-    },
-    "/cookies": {
-      "files": [
-        "cookies/loading.tsx",
-        "cookies/page.tsx"
-      ],
-      "destinations": [
-        "/privacy"
-      ],
-      "actions": [],
-      "blocks": [
-        "CookieSettingsLink",
-        "LegalLayout",
-        "LegalSection",
-        "Link"
       ]
     },
     "/creators": {
@@ -2983,7 +3632,8 @@
         "dashboard/(account)/notifications/page.tsx"
       ],
       "destinations": [
-        "/dashboard"
+        "/dashboard",
+        "/dashboard/notifications"
       ],
       "actions": [
         "markAllNotificationsRead"
@@ -3170,7 +3820,8 @@
         "dashboard/(account)/year/page.tsx"
       ],
       "destinations": [
-        "/dashboard"
+        "/dashboard",
+        "/dashboard/profile"
       ],
       "actions": [],
       "blocks": [
@@ -3208,6 +3859,7 @@
         "/dashboard/life-flash",
         "/dashboard/notifications",
         "/dashboard/people",
+        "/dashboard/profile",
         "/dashboard/samahan",
         "/dashboard/samahan/new",
         "/dashboard/year",
@@ -3235,6 +3887,7 @@
         "CountUp",
         "CreateSamahanRow",
         "CreatorBenefits",
+        "EmptyYear",
         "EventComposer",
         "EventMonogram",
         "EventScene",
@@ -3259,6 +3912,7 @@
         "SpaceRow",
         "StanceChip",
         "Suspense",
+        "Tile",
         "UnreadBellBadge",
         "YearMomentsList",
         "YearMomentsStrip"
@@ -3266,6 +3920,8 @@
     },
     "/dashboard/[eventId]": {
       "files": [
+        "dashboard/[eventId]/_actions/day-of-broadcast.ts",
+        "dashboard/[eventId]/_actions/share-consent.ts",
         "dashboard/[eventId]/_components/access-requests-doorway.tsx",
         "dashboard/[eventId]/_components/checklist/checklist-full.tsx",
         "dashboard/[eventId]/_components/customer-bottom-nav.tsx",
@@ -3377,6 +4033,7 @@
         "DirectPayTrigger",
         "DraftGuestListResult",
         "EffectToggle",
+        "EmailCallTimesResult",
         "EventDashboard",
         "EventDayPrepCta",
         "EventRailContext",
@@ -3442,10 +4099,13 @@
         "SavePakantaIntakeResult",
         "SaveToContinue",
         "Screen",
+        "SendBroadcastResult",
         "ServiceRow",
         "ServicesCard",
         "SetCeremonyResult",
         "SetDateNudge",
+        "ShareArtifactType",
+        "ShareCreditMode",
         "Sheet",
         "SidebarItem",
         "SidebarSection",
@@ -3482,7 +4142,9 @@
         "dashboard/[eventId]/access-requests/actions.ts",
         "dashboard/[eventId]/access-requests/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]"
+      ],
       "actions": [],
       "blocks": [
         "AnswerResult",
@@ -4307,6 +4969,7 @@
       ],
       "destinations": [
         "/dashboard/[seg]/messages",
+        "/dashboard/[seg]/messages/[seg]",
         "/proposals/[seg]"
       ],
       "actions": [
@@ -4498,6 +5161,7 @@
     },
     "/dashboard/[eventId]/progress": {
       "files": [
+        "dashboard/[eventId]/progress/_actions/free-venue-shortlist.ts",
         "dashboard/[eventId]/progress/_components/free-venue-shortlist-offer.tsx",
         "dashboard/[eventId]/progress/_components/journey-rail.tsx",
         "dashboard/[eventId]/progress/page.tsx"
@@ -4505,6 +5169,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "FirstVenueShortlistResult",
         "Link",
         "Phase",
         "ProgressRing"
@@ -5725,6 +6390,11 @@
     },
     "/dashboard/[eventId]/vendors": {
       "files": [
+        "dashboard/[eventId]/vendors/_actions/bench-marketplace-search.ts",
+        "dashboard/[eventId]/vendors/_actions/category-search.ts",
+        "dashboard/[eventId]/vendors/_actions/contact-shortlist-vendor.ts",
+        "dashboard/[eventId]/vendors/_actions/reuse-actions.ts",
+        "dashboard/[eventId]/vendors/_actions/unlock-category.ts",
         "dashboard/[eventId]/vendors/_components/accordion-build.tsx",
         "dashboard/[eventId]/vendors/_components/accordion-lock.tsx",
         "dashboard/[eventId]/vendors/_components/bench-vendor-actions.tsx",
@@ -5747,6 +6417,7 @@
         "dashboard/[eventId]/vendors/_components/trusted-circle-badge.tsx",
         "dashboard/[eventId]/vendors/_components/vendor-quickview-inspector.tsx",
         "dashboard/[eventId]/vendors/_components/waiting-for-quotes.tsx",
+        "dashboard/[eventId]/vendors/_components/withdraw-ask-button.tsx",
         "dashboard/[eventId]/vendors/actions.ts",
         "dashboard/[eventId]/vendors/build-3state-actions.ts",
         "dashboard/[eventId]/vendors/build-3state-fallback-actions.ts",
@@ -5758,6 +6429,7 @@
         "dashboard/[eventId]/vendors/requirements-actions.ts"
       ],
       "destinations": [
+        "/dashboard/[seg]",
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/disputes",
         "/dashboard/[seg]/messages/[seg]",
@@ -5793,10 +6465,12 @@
         "CatIcon",
         "CategoryDecisionResult",
         "CategorySearchOverlay",
+        "CategorySearchResult",
         "ChangePickButton",
         "ChildRail",
         "CompareSheet",
         "ContactShortlistVendorButton",
+        "ContactShortlistVendorResult",
         "DeadlineChip",
         "DeleteManualVendorResult",
         "DependencyNudge",
@@ -5848,6 +6522,7 @@
         "RequirementsModal",
         "RequirementsModalPhase",
         "ReservationTermsModal",
+        "ReuseActionResult",
         "ReuseBookingsPanel",
         "RevertVendorResult",
         "Row",
@@ -5869,13 +6544,16 @@
         "TeamSavePlan",
         "TeamSummaryChip",
         "ToastState",
+        "UnlockCategoryResult",
         "VendorCard",
         "VendorCardAtom",
         "VendorCategory",
         "VendorQuickViewInspector",
         "VendorStatus",
         "WaitingForQuotes",
-        "WeddingFolder"
+        "WeddingFolder",
+        "WithdrawAskButton",
+        "WithdrawLockRequestResult"
       ]
     },
     "/dashboard/[eventId]/vendors/[vendorId]": {
@@ -6329,6 +7007,25 @@
       "actions": [],
       "blocks": []
     },
+    "/dashboard/[eventId]/website/stories": {
+      "files": [
+        "dashboard/[eventId]/website/stories/actions.ts",
+        "dashboard/[eventId]/website/stories/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/website",
+        "/u/[seg]/c/[seg]"
+      ],
+      "actions": [
+        "setChapterOnMyDay"
+      ],
+      "blocks": [
+        "FormFlash",
+        "Link",
+        "PageMasthead",
+        "SubmitButton"
+      ]
+    },
     "/dashboard/[eventId]/website/what-to-bring": {
       "files": [
         "dashboard/[eventId]/website/what-to-bring/actions.ts",
@@ -6417,147 +7114,57 @@
         "Value"
       ]
     },
-    "/explore": {
-      "files": [
-        "explore/_components/category-tile.tsx",
-        "explore/_components/event-type-notify-form.tsx",
-        "explore/_components/explore-search-hero.tsx",
-        "explore/_components/filter-drawer.tsx",
-        "explore/_components/folder-vendors-section.tsx",
-        "explore/_components/icon-tile-folder-strip.tsx",
-        "explore/_components/mega-column-tabs.tsx",
-        "explore/_components/review-carousel.tsx",
-        "explore/_components/save-vendor-button.tsx",
-        "explore/_components/sticky-marketplace-header.tsx",
-        "explore/_components/taxonomy-search.tsx",
-        "explore/_components/vendor-badge-row.tsx",
-        "explore/_components/vendor-card.tsx",
-        "explore/_components/vendors-availability-banner.tsx",
-        "explore/actions.ts",
-        "explore/loading.tsx",
-        "explore/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard",
-        "/dashboard/[seg]",
-        "/dashboard/[seg]/vendors",
-        "/explore",
-        "/explore?browse=1",
-        "/explore?category=bridal_hmua",
-        "/explore?category=catering",
-        "/explore?category=photography",
-        "/explore?category=videography",
-        "/explore?category=wedding_cake",
-        "/explore?category=wedding_coordination",
-        "/explore?match=0",
-        "/tour",
-        "/vendors"
-      ],
-      "actions": [
-        "formAction"
-      ],
-      "blocks": [
-        "ActivityBadges",
-        "AddVenueToPlanResult",
-        "AppRailShell",
-        "CatalogView",
-        "CategoryTile",
-        "CeremonyVenuePanel",
-        "CompareShortlistBanner",
-        "ContextualPillOption",
-        "CtaLine",
-        "EmptyState",
-        "EventTypeNotifyForm",
-        "ExploreChip",
-        "ExploreSearchHero",
-        "FaithKey",
-        "FilterDrawer",
-        "FocusedModeSearchForm",
-        "FolderTab",
-        "FolderVendorCard",
-        "FolderVendorsSection",
-        "FollowGate",
-        "HTMLDivElement",
-        "HTMLInputElement",
-        "Icon",
-        "IconTileFolderStrip",
-        "Image",
-        "Link",
-        "LocalState",
-        "LockDayButton",
-        "MiniBadge",
-        "NoticeBanner",
-        "NotifyResult",
-        "OffSeasonBadge",
-        "PageLink",
-        "Pagination",
-        "PartnershipBadge",
-        "ReligionBanner",
-        "ReviewCard",
-        "ReviewCarousel",
-        "SaveVendorButton",
-        "SaveVendorResult",
-        "ScopedFolderBanner",
-        "SortKey",
-        "StatePill",
-        "StickyMarketplaceHeader",
-        "TaxonomyOption",
-        "TaxonomyPhase",
-        "TaxonomySearch",
-        "TileLink",
-        "VendorBadge",
-        "VendorBadgeRow",
-        "VendorCard",
-        "VendorHero",
-        "VendorReviewPreview",
-        "VendorsAvailabilityBanner",
-        "VenueFilterBanner"
-      ]
-    },
     "/explore/categories": {
       "files": [
-        "explore/categories/loading.tsx",
         "explore/categories/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": []
     },
-    "/explore/compare": {
-      "files": [
-        "explore/compare/loading.tsx",
-        "explore/compare/page.tsx"
-      ],
-      "destinations": [
-        "/explore",
-        "/v/[seg]?src=explore"
-      ],
-      "actions": [],
-      "blocks": [
-        "AppRailShell",
-        "CompareRowEl",
-        "Link",
-        "SaveVendorButton",
-        "VendorHeaderCell"
-      ]
-    },
     "/features": {
       "files": [
         "features/_PageBody.tsx",
+        "features/_sections/_AnchorNav.tsx",
+        "features/_sections/_Communications.tsx",
+        "features/_sections/_Compliance.tsx",
+        "features/_sections/_DayOfApparatus.tsx",
+        "features/_sections/_FinalCTA.tsx",
+        "features/_sections/_Hero.tsx",
+        "features/_sections/_OutsourcingPacing.tsx",
+        "features/_sections/_PlanningToolkit.tsx",
+        "features/_sections/_StickyMobileCTA.tsx",
+        "features/_sections/_VendorsLedger.tsx",
         "features/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/pricing",
+        "/signup",
+        "/vendors"
+      ],
       "actions": [],
       "blocks": [
+        "BudgetMock",
         "Communications",
         "Compliance",
         "DayOfApparatus",
+        "FeatureRow",
         "FeaturesAnchorNav",
         "FeaturesHero",
         "FeaturesPageBody",
         "FinalCTA",
+        "GuestListMock",
+        "HTMLAnchorElement",
+        "HTMLElement",
+        "Icon",
+        "Link",
+        "LocaleSwitch",
+        "MockShell",
+        "MoodBoardMock",
         "OutsourcingPacing",
         "PlanningToolkit",
+        "ScheduleMock",
+        "SeatingMock",
         "StickyMobileCTA",
         "VendorsLedger"
       ]
@@ -6568,43 +7175,17 @@
         "forgot-password/page.tsx"
       ],
       "destinations": [
-        "/",
         "/login"
       ],
       "actions": [
         "requestPasswordReset"
       ],
       "blocks": [
+        "DoorNotice",
+        "DoorShell",
         "Link",
         "SubmitButton",
-        "TurnstileField",
-        "Wordmark"
-      ]
-    },
-    "/help": {
-      "files": [
-        "help/_components/help-search.tsx",
-        "help/actions.ts",
-        "help/loading.tsx",
-        "help/page.tsx"
-      ],
-      "destinations": [
-        "/help",
-        "/help/[seg]"
-      ],
-      "actions": [
-        "submitHelpMessage"
-      ],
-      "blocks": [
-        "AppRailShell",
-        "Article",
-        "Field",
-        "HelpSearch",
-        "Icon",
-        "Link",
-        "SubmitButton",
-        "Topic",
-        "VendorTier"
+        "TurnstileField"
       ]
     },
     "/help/[slug]": {
@@ -6629,6 +7210,7 @@
         "host/accept/[token]/page.tsx"
       ],
       "destinations": [
+        "/",
         "/login?next=",
         "/login?next=[seg]",
         "/signup?next=[seg]&email=[seg]"
@@ -6638,7 +7220,8 @@
         "declineHostInvite"
       ],
       "blocks": [
-        "AcceptShell",
+        "DoorActions",
+        "DoorShell",
         "Icon",
         "Link",
         "SubmitButton",
@@ -6689,6 +7272,7 @@
         "selfAction"
       ],
       "blocks": [
+        "DoorShell",
         "FormFlash",
         "InvalidTokenScreen",
         "JoinFlow",
@@ -6703,7 +7287,10 @@
       ],
       "destinations": [],
       "actions": [],
-      "blocks": []
+      "blocks": [
+        "DoorNotice",
+        "DoorShell"
+      ]
     },
     "/join/[eventId]/set-password": {
       "files": [
@@ -6715,6 +7302,9 @@
         "action"
       ],
       "blocks": [
+        "DoorActions",
+        "DoorNotice",
+        "DoorShell",
         "Link",
         "SubmitButton"
       ]
@@ -6729,6 +7319,8 @@
       ],
       "actions": [],
       "blocks": [
+        "DoorNotice",
+        "DoorShell",
         "Link"
       ]
     },
@@ -6952,20 +7544,6 @@
         "OurStoryManifesto"
       ]
     },
-    "/pa3d": {
-      "files": [
-        "pa3d/loading.tsx",
-        "pa3d/page.tsx"
-      ],
-      "destinations": [
-        "/onboarding/wedding?from=pa3d",
-        "/pricing"
-      ],
-      "actions": [],
-      "blocks": [
-        "DoorwayPage"
-      ]
-    },
     "/pabati/[eventId]": {
       "files": [
         "pabati/[eventId]/page.tsx"
@@ -6973,42 +7551,8 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "PabatiPrompt",
-        "Shell"
-      ]
-    },
-    "/palogo": {
-      "files": [
-        "palogo/loading.tsx",
-        "palogo/page.tsx"
-      ],
-      "destinations": [
-        "/monogram",
-        "/onboarding/wedding?from=palogo"
-      ],
-      "actions": [],
-      "blocks": [
-        "DoorwayPage"
-      ]
-    },
-    "/panood": {
-      "files": [
-        "panood/actions.ts",
-        "panood/guest-pick-actions.ts",
-        "panood/loading.tsx",
-        "panood/page.tsx"
-      ],
-      "destinations": [
-        "/onboarding/wedding?from=panood",
-        "/pricing",
-        "/privacy"
-      ],
-      "actions": [],
-      "blocks": [
-        "DoorwayPage",
-        "GuestPickSessionResult",
-        "Link",
-        "PanoodIceServersResult"
+        "DoorShell",
+        "PabatiPrompt"
       ]
     },
     "/panood/cam/[token]": {
@@ -7017,19 +7561,22 @@
         "panood/cam/[token]/loading.tsx",
         "panood/cam/[token]/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/"
+      ],
       "actions": [
         "claimPanoodCamera"
       ],
       "blocks": [
         "CameraPublisher",
+        "DoorNotice",
+        "DoorShell",
         "GuestFanout",
         "HTMLVideoElement",
         "Link",
         "MediaStream",
         "PanoodCameraPublish",
         "PeerConnectionState",
-        "Shell",
         "SubmitButton",
         "TurnstileField"
       ]
@@ -7119,6 +7666,7 @@
         "CamJoinFlow",
         "CamSlot",
         "CameraPublisher",
+        "DoorShell",
         "HTMLVideoElement",
         "Link",
         "MediaStream",
@@ -7150,52 +7698,21 @@
         "WithheldCard"
       ]
     },
-    "/papic": {
-      "files": [
-        "papic/_components/camera-controls.tsx",
-        "papic/_components/papic-buy-shell.tsx",
-        "papic/_components/papic-guest-buy-panel.tsx",
-        "papic/_papic-motion.tsx",
-        "papic/actions.ts",
-        "papic/face-enroll-actions.ts",
-        "papic/loading.tsx",
-        "papic/page.tsx"
-      ],
-      "destinations": [
-        "/onboarding/wedding?from=papic",
-        "/pricing"
-      ],
-      "actions": [
-        "startPapicGuestPurchase"
-      ],
-      "blocks": [
-        "DoorwayPage",
-        "HTMLDivElement",
-        "Link",
-        "OfferForm",
-        "PapicAnchor",
-        "PapicBuyShell",
-        "PapicExceptions",
-        "PersistSeatClipWebCopyResult",
-        "RecordSeatCaptureResult",
-        "Reveal",
-        "RevealBand",
-        "SettleTiles",
-        "TagSeatCaptureResult"
-      ]
-    },
     "/papic/claim/[token]": {
       "files": [
         "papic/claim/[token]/loading.tsx",
         "papic/claim/[token]/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/"
+      ],
       "actions": [
         "claimPapicSeat"
       ],
       "blocks": [
+        "DoorNotice",
+        "DoorShell",
         "Link",
-        "Shell",
         "SubmitButton",
         "TurnstileField"
       ]
@@ -7208,13 +7725,13 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "DoorShell",
         "Drag",
         "HTMLDivElement",
         "HTMLImageElement",
         "HTMLInputElement",
         "KwentoDecorator",
-        "PapicStyle",
-        "Shell"
+        "PapicStyle"
       ]
     },
     "/papic/demo/[token]": {
@@ -7228,6 +7745,7 @@
       "actions": [],
       "blocks": [
         "DemoJoinFlow",
+        "DoorShell",
         "HTMLVideoElement",
         "Link",
         "MediaStream",
@@ -7244,6 +7762,7 @@
       ],
       "destinations": [
         "/",
+        "/papic/guest",
         "/terms"
       ],
       "actions": [],
@@ -7252,6 +7771,7 @@
         "Blob",
         "ChallengePanelInner",
         "DayOfFaceEnroll",
+        "DoorShell",
         "HTMLButtonElement",
         "HTMLCanvasElement",
         "Link",
@@ -7260,8 +7780,7 @@
         "PapicChallengePanel",
         "PapicGuestBuyPanel",
         "PapicGuestCapture",
-        "PapicStyle",
-        "Shell"
+        "PapicStyle"
       ]
     },
     "/papic/join/[token]": {
@@ -7276,11 +7795,11 @@
       "actions": [],
       "blocks": [
         "AppInstallBanner",
+        "DoorShell",
         "JoinForwarder",
         "Kind",
         "Link",
-        "Platform",
-        "Shell"
+        "Platform"
       ]
     },
     "/papic/lightcheck": {
@@ -7315,6 +7834,7 @@
       "actions": [],
       "blocks": [
         "Blob",
+        "DoorShell",
         "File",
         "GuestGallery",
         "GuestStoryMaker",
@@ -7323,8 +7843,7 @@
         "MusicChoice",
         "MusicOption",
         "Phase",
-        "PoolDoorway",
-        "Shell"
+        "PoolDoorway"
       ]
     },
     "/papic/order/[token]": {
@@ -7347,8 +7866,8 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "PoolGrid",
-        "Shell"
+        "DoorShell",
+        "PoolGrid"
       ]
     },
     "/papic/seat/[token]": {
@@ -7359,12 +7878,14 @@
         "papic/seat/[token]/page.tsx"
       ],
       "destinations": [
-        "/"
+        "/",
+        "/papic/seat/[seg]"
       ],
       "actions": [],
       "blocks": [
         "Blob",
         "CameraBridgePanel",
+        "DoorShell",
         "DslrPairingController",
         "HTMLButtonElement",
         "HTMLCanvasElement",
@@ -7378,93 +7899,6 @@
         "PapicSinkDeps",
         "PapicStyle",
         "Shot"
-      ]
-    },
-    "/patiktok": {
-      "files": [
-        "patiktok/loading.tsx",
-        "patiktok/page.tsx"
-      ],
-      "destinations": [
-        "/onboarding/wedding?from=patiktok",
-        "/pricing"
-      ],
-      "actions": [],
-      "blocks": [
-        "DoorwayPage"
-      ]
-    },
-    "/pawebsite": {
-      "files": [
-        "pawebsite/loading.tsx",
-        "pawebsite/page.tsx"
-      ],
-      "destinations": [
-        "/onboarding/wedding?from=pawebsite",
-        "/pricing"
-      ],
-      "actions": [],
-      "blocks": [
-        "DoorwayPage"
-      ]
-    },
-    "/pricing": {
-      "files": [
-        "pricing/_papic-estimator.tsx",
-        "pricing/_pricing-motion.tsx",
-        "pricing/loading.tsx",
-        "pricing/page.tsx"
-      ],
-      "destinations": [
-        "/creators",
-        "/onboarding/wedding?from=pricing",
-        "/vendors"
-      ],
-      "actions": [],
-      "blocks": [
-        "AppRailShell",
-        "BuildStatusChip",
-        "HTMLDivElement",
-        "HTMLHeadingElement",
-        "HTMLParagraphElement",
-        "LineRevealHeading",
-        "Link",
-        "Mode",
-        "PapicEstimator",
-        "RevealBand",
-        "Stepper"
-      ]
-    },
-    "/privacy": {
-      "files": [
-        "privacy/loading.tsx",
-        "privacy/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/profile",
-        "/help"
-      ],
-      "actions": [],
-      "blocks": [
-        "AppRailShell",
-        "Link",
-        "Section"
-      ]
-    },
-    "/privacy/google-access": {
-      "files": [
-        "privacy/google-access/loading.tsx",
-        "privacy/google-access/metadata.ts",
-        "privacy/google-access/page.tsx"
-      ],
-      "destinations": [
-        "/privacy"
-      ],
-      "actions": [],
-      "blocks": [
-        "LegalLayout",
-        "LegalSection",
-        "Link"
       ]
     },
     "/proposals/[publicId]": {
@@ -7501,39 +7935,6 @@
         "PeerTile"
       ]
     },
-    "/realstories": {
-      "files": [
-        "realstories/_components/gallery.tsx",
-        "realstories/_components/share-buttons.tsx",
-        "realstories/_components/stories-search.tsx",
-        "realstories/loading.tsx",
-        "realstories/page.tsx"
-      ],
-      "destinations": [
-        "/explore",
-        "/signup"
-      ],
-      "actions": [],
-      "blocks": [
-        "AppRailShell",
-        "BoomerangVideo",
-        "Companions",
-        "FacebookGlyph",
-        "FacetRow",
-        "HTMLDivElement",
-        "HTMLInputElement",
-        "HTMLVideoElement",
-        "Link",
-        "PinterestGlyph",
-        "RealStoriesGallery",
-        "SectionHead",
-        "StoriesSearch",
-        "StoryCard",
-        "StorytellerTile",
-        "Tile",
-        "VendorCreditChip"
-      ]
-    },
     "/realstories/[slug]": {
       "files": [
         "realstories/[slug]/page.tsx"
@@ -7559,29 +7960,12 @@
         "Line"
       ]
     },
-    "/refunds": {
-      "files": [
-        "refunds/loading.tsx",
-        "refunds/page.tsx"
-      ],
-      "destinations": [
-        "/help",
-        "/terms"
-      ],
-      "actions": [],
-      "blocks": [
-        "LegalLayout",
-        "LegalSection",
-        "Link"
-      ]
-    },
     "/reset-password": {
       "files": [
         "reset-password/actions.ts",
         "reset-password/page.tsx"
       ],
       "destinations": [
-        "/",
         "/forgot-password",
         "/login"
       ],
@@ -7589,9 +7973,11 @@
         "completePasswordReset"
       ],
       "blocks": [
+        "DoorActions",
+        "DoorNotice",
+        "DoorShell",
         "Link",
-        "SubmitButton",
-        "Wordmark"
+        "SubmitButton"
       ]
     },
     "/samahan/join/[token]": {
@@ -7610,24 +7996,11 @@
         "acceptCommunityInvite"
       ],
       "blocks": [
-        "InviteHeader",
+        "DoorActions",
+        "DoorShell",
+        "InviteDoor",
         "Link",
-        "Shell",
         "SubmitButton"
-      ]
-    },
-    "/setnayan-ai": {
-      "files": [
-        "setnayan-ai/loading.tsx",
-        "setnayan-ai/page.tsx"
-      ],
-      "destinations": [
-        "/onboarding/wedding?from=setnayan-ai",
-        "/pricing"
-      ],
-      "actions": [],
-      "blocks": [
-        "DoorwayPage"
       ]
     },
     "/signup": {
@@ -7687,24 +8060,6 @@
       "destinations": [],
       "actions": [],
       "blocks": []
-    },
-    "/terms": {
-      "files": [
-        "terms/loading.tsx",
-        "terms/page.tsx"
-      ],
-      "destinations": [
-        "/acceptable-use",
-        "/help",
-        "/privacy",
-        "/refunds"
-      ],
-      "actions": [],
-      "blocks": [
-        "LegalLayout",
-        "LegalSection",
-        "Link"
-      ]
     },
     "/tl/about": {
       "files": [
@@ -8058,9 +8413,11 @@
       ],
       "actions": [
         "acceptInquiry",
+        "agreeLock",
         "cancelAction",
         "confirmLock",
         "declineInquiry",
+        "declineLock",
         "disconnectInstagram",
         "formAction",
         "null",
@@ -8097,6 +8454,7 @@
         "LatLng",
         "Link",
         "LockBody",
+        "LockRequestBody",
         "LockedBody",
         "LockedQrGenerator",
         "Marker",
@@ -8359,6 +8717,8 @@
         "suggestScheduleChange",
         "toggleClientNoteDone",
         "vendorAcknowledgeDeposit",
+        "vendorAgreeToLock",
+        "vendorDeclineLock",
         "vendorMarkServiceComplete",
         "vendorPostHandover",
         "vendorRaiseChangeOrder",
@@ -8382,6 +8742,7 @@
         "Icon",
         "Image",
         "Link",
+        "LockRequestAnswer",
         "LockRow",
         "OverviewTab",
         "PhotoChallengeActionState",
@@ -8610,7 +8971,9 @@
         "vendor-dashboard/deep-search/actions.ts",
         "vendor-dashboard/deep-search/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/vendor-dashboard/subscription"
+      ],
       "actions": [
         "formAction"
       ],
@@ -8764,6 +9127,7 @@
       ],
       "destinations": [
         "/vendor-dashboard",
+        "/vendor-dashboard/messages",
         "/vendor-dashboard/messages/[seg]"
       ],
       "actions": [],
@@ -8878,7 +9242,8 @@
         "vendor-dashboard/notifications/push-toggle.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard"
+        "/vendor-dashboard",
+        "/vendor-dashboard/notifications"
       ],
       "actions": [
         "markAllNotificationsRead"
@@ -9033,7 +9398,9 @@
       "files": [
         "vendor-dashboard/on-the-day/live/[eventId]/papic/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/vendor-dashboard/on-the-day"
+      ],
       "actions": [],
       "blocks": [
         "Link",
@@ -9800,13 +10167,15 @@
         "vendor/claim/[token]/loading.tsx",
         "vendor/claim/[token]/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/"
+      ],
       "actions": [
         "declineVendorInviteByToken"
       ],
       "blocks": [
-        "ClaimShell",
         "DeclineForm",
+        "DoorShell",
         "Link",
         "Perk",
         "SnapshotField",
@@ -9824,6 +10193,7 @@
       ],
       "actions": [],
       "blocks": [
+        "DoorShell",
         "ErrorShell",
         "Link"
       ]

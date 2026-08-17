@@ -108,7 +108,7 @@ export default async function PabuyaPublicPage({
   return (
     <main className="min-h-dvh bg-cream text-ink" style={wrapStyle}>
       <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-xl items-center justify-between px-4 py-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href={`/${slug}`} className="flex items-center gap-2 text-ink">
             <Logo height={26} />
           </Link>
@@ -118,7 +118,7 @@ export default async function PabuyaPublicPage({
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
+      <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
         <div className="mb-8 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold-deep">
             The pabuya · digital money dance

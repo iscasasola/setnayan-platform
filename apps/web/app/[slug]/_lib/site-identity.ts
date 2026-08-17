@@ -40,6 +40,7 @@ import type { GuestLiveGallery } from '@/lib/guest-live-gallery';
 import type { VendorCard } from '@/lib/vendor-cards';
 import type { GuestHubData } from '../_components/guest-hub-card';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
+import { COMMITTED_BOOKING_STATUSES } from '@/lib/vendor-addon-first5-free';
 
 /**
  * Why an anonymous visitor is seeing the public landing despite arriving
@@ -203,7 +204,37 @@ export const VENDOR_CAPABILITY_KEYS = [
  */
 export type VendorBookingCheck = (
   userId: string,
-) => Promise<{ vendorProfileId: string; businessName: string } | null>;
+) => Promise<{
+  vendorProfileId: string;
+  businessName: string;
+  /** `event_vendors.status` of the row that linked them — see
+   *  `vendorBookingIsCommitted` for why the status has to travel. */
+  bookingStatus: string | null;
+} | null>;
+
+/**
+ * Is this link a REAL BOOKING, or merely a listing?
+ *
+ * Two different questions get answered off one column, and conflating them is
+ * the whole reason this predicate exists:
+ *
+ *   - "which of this person's businesses is on this event?" — `linked_…_id`;
+ *   - "has the couple actually booked them?" — `status`.
+ *
+ * `lib/reusable-bookings.server.ts` mints a linked row at **'shortlisted'** for
+ * a reuse-accept the couple has still to lock, so a link alone does not mean a
+ * decision was made. Anything that DISCLOSES the couple's celebration must ask
+ * this question, never the link.
+ *
+ * The status set is imported, never re-typed: `COMMITTED_BOOKING_STATUSES` is
+ * pinned by a drift test to the booking-fee RPC's own list, so "booked enough
+ * to read the page" cannot quietly drift away from "booked enough to be
+ * charged for".
+ */
+export function vendorBookingIsCommitted(bookingStatus: string | null): boolean {
+  if (!bookingStatus) return false;
+  return (COMMITTED_BOOKING_STATUSES as readonly string[]).includes(bookingStatus);
+}
 
 /**
  * THE vendor gate. Returns a capability ONLY for an auth user the database

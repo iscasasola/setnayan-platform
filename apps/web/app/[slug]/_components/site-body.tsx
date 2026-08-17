@@ -409,6 +409,28 @@ export async function SiteBody({
     lifecyclePhase,
   });
 
+  /**
+   * Is the viewer a verified HOST of this event?
+   *
+   * 🔴 WHY THE BODY NEEDS TO KNOW. A signed-in couple with no guest cookie —
+   * the ordinary case, since hosts are never sent an invitation QR — falls
+   * through `if (!session) return renderAnonymous(...)` in page.tsx and gets
+   * the STRANGER'S body: "This is a Setnayan invitation page. Scan your
+   * personal QR or open the link the couple sent you." That sentence is
+   * addressed to the couple, about their own wedding, telling them to go and
+   * find a link they are the ones who send. The read-only ribbon sat on top of
+   * it saying "your event", so the page contradicted itself.
+   *
+   * ⚖ READ-ONLY STAYS READ-ONLY. This changes only what the host is TOLD. Every
+   * real control (guest list, seating, budget, schedule, vendors) stays in
+   * /dashboard/[eventId] and nothing here links anywhere the ribbon does not
+   * already link. It is the same server-verified capability the ribbon uses —
+   * no new gate, and the event check is restated here rather than inferred from
+   * `ownerRibbon`, which is also null for the unrelated reason of a missing slug.
+   */
+  const viewerIsHost =
+    ownerCapability !== null && ownerCapability.ownerEventId === event.event_id;
+
   // Open-browse PR7 — per-widget content presence for the shared hasContent()
   // predicate. Only consulted when `event.website_open_browse` is TRUE; a
   // widget the couple kept visible but that has no content this event is
@@ -768,7 +790,16 @@ export async function SiteBody({
                   }
                 />
               ) : null}
-              {reason === 'invalid_invite' ? (
+              {viewerIsHost ? (
+                /* THE HOST'S OWN PAGE. Wins over every `reason` variant below:
+                   a stale or absent guest cookie says nothing about somebody
+                   whose host membership the database just confirmed, and the
+                   invite-error wording would be actively wrong for them. */
+                <p className="mx-auto max-w-prose text-sm text-ink/70">
+                  This is your event page — the view your guests get. Invited guests see
+                  their own name, seat and RSVP here when they open their personal link.
+                </p>
+              ) : reason === 'invalid_invite' ? (
                 <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
                   That invite link doesn&rsquo;t look right — it may have been replaced with a new
                   one. Ask your host for your current QR or link; every guest has their own, and
@@ -904,7 +935,22 @@ export async function SiteBody({
         {/* Me tab — under open-browse a cookie-less visitor gets designed
             find-mode (§1.1); otherwise the account/claim affordance lives in the
             fixed PublicEventDayBar and this marker just gives the tab a landing. */}
-        {plan.openBrowse ? (
+        {plan.openBrowse && viewerIsHost ? (
+          /* The host half of the Me tab. `FindModeCard` asks "Have an
+             invitation?" and offers "Open my invitation" — a dead end for the
+             person who ISSUES the invitations, and the tab must still land
+             somewhere, so it says what this page is instead of pointing them
+             at a door that is not theirs. Copy only; no control moves here. */
+          <section id={SITE_MENU_ANCHORS.me} className="mt-12 scroll-mt-6">
+            <div className="rounded-2xl border border-ink/10 bg-white/70 px-6 py-8 text-center shadow-sm">
+              <p className="font-serif text-lg text-ink">You&rsquo;re the host</p>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-ink/60">
+                You don&rsquo;t need an invitation to your own celebration. Guests who open
+                their personal link see their greeting, seat and RSVP in this spot.
+              </p>
+            </div>
+          </section>
+        ) : plan.openBrowse ? (
           <section id={SITE_MENU_ANCHORS.me} className="mt-12 scroll-mt-6">
             <FindModeCard slug={event.slug} reason={reason} pastTense={archiveTense} />
           </section>

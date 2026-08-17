@@ -62,30 +62,91 @@ export function pickEmceeRecipients(
   return out;
 }
 
-/** The emcee(s) booked on this event, for the coordinator's send box. */
+/**
+ * The emcee(s) booked on this event, for the coordinator's send box.
+ *
+ * ── WHY A SECOND CLIENT ─────────────────────────────────────────────────────
+ * This used to hardcode `serviceCategories: null`, so the answer came from
+ * `event_vendors.category` alone — ONE value on a row that can carry several
+ * jobs. A band who also emcees, booked as a single package, summarised to
+ * "band", never matched the host tile, and the whole "Tell the host" section
+ * rendered nothing: a wedding with a host reading as a wedding with none.
+ *
+ * The per-service categories live on `vendor_services`, and that table's
+ * SELECT policy is `is_active AND the shop is published`. So reading it through
+ * the CALLER's client silently narrows again — a booked-but-unpublished shop
+ * returns no rows and no error, which is the same empty value as "not the
+ * emcee". `event_vendors` has the mirror problem from the other side: its
+ * SELECT policy admits the couple and event moderators, and nobody else.
+ *
+ * So the service read takes its own injected client. Callers pass the
+ * service-role one, having already gated the surface. Nothing new is disclosed:
+ * the only thing derived is whether a supplier the viewer is ALREADY looking at
+ * is the host, and the database still enforces that a note names one supplier
+ * and only that supplier can read it.
+ *
+ * UNION-ONLY, so this can only ever ADD a recipient: if the service read fails
+ * or returns nothing, the answer is exactly the booking summary — the behaviour
+ * that shipped before.
+ */
 export async function fetchEmceeRecipients(
   supabase: SupabaseClient,
   eventId: string,
+  /** Reader for `vendor_services`. Defaults to the caller's own client. */
+  serviceReader?: SupabaseClient,
 ): Promise<StageNoteRecipient[]> {
   const { data, error } = await supabase
     .from('event_vendors')
-    .select('vendor_name, category, linked_vendor_profile_id')
+    .select('vendor_name, category, linked_vendor_profile_id, requested_service_ids')
     .eq('event_id', eventId)
     .not('linked_vendor_profile_id', 'is', null);
 
   if (error || !data) return [];
 
+  const rows = data as Array<Record<string, unknown>>;
+
+  const serviceIdsOf = (r: Record<string, unknown>): string[] =>
+    Array.isArray(r.requested_service_ids)
+      ? (r.requested_service_ids as unknown[]).filter(
+          (v): v is string => typeof v === 'string' && v.length > 0,
+        )
+      : [];
+
+  // One read for every service on every booking, keyed back per row below.
+  const allServiceIds = [...new Set(rows.flatMap(serviceIdsOf))];
+  const categoryByServiceId = new Map<string, string>();
+  if (allServiceIds.length > 0) {
+    const { data: svc, error: svcErr } = await (serviceReader ?? supabase)
+      .from('vendor_services')
+      .select('vendor_service_id, category')
+      .in('vendor_service_id', allServiceIds);
+    // A failed read must not read as "no extra roles" any louder than it has
+    // to — it already degrades to the summary category, which is the shipped
+    // answer. Nothing here may narrow.
+    if (!svcErr && svc) {
+      for (const s of svc as Array<Record<string, unknown>>) {
+        if (typeof s.vendor_service_id === 'string' && typeof s.category === 'string') {
+          categoryByServiceId.set(s.vendor_service_id, s.category);
+        }
+      }
+    }
+  }
+
   return pickEmceeRecipients(
-    (data as Array<Record<string, unknown>>).map((r) => ({
-      vendorProfileId:
-        typeof r.linked_vendor_profile_id === 'string' ? r.linked_vendor_profile_id : null,
-      name: typeof r.vendor_name === 'string' ? r.vendor_name : null,
-      categories: typeof r.category === 'string' ? [r.category] : null,
-      // The per-service categories need a second read through
-      // `requested_service_ids`; the booking summary alone already covers the
-      // common case (a supplier booked as the host), and a miss here means the
-      // send box does not offer them — never that someone reads a stranger's note.
-      serviceCategories: null,
-    })),
+    rows.map((r) => {
+      const svcCats = serviceIdsOf(r)
+        .map((id) => categoryByServiceId.get(id))
+        .filter((c): c is string => typeof c === 'string');
+      return {
+        vendorProfileId:
+          typeof r.linked_vendor_profile_id === 'string' ? r.linked_vendor_profile_id : null,
+        name: typeof r.vendor_name === 'string' ? r.vendor_name : null,
+        categories: typeof r.category === 'string' ? [r.category] : null,
+        // null, never [] — `eventTilesForBooking` treats an empty pair of
+        // sources as "the event cannot say" and must not be handed a list that
+        // merely failed to load.
+        serviceCategories: svcCats.length > 0 ? svcCats : null,
+      };
+    }),
   );
 }

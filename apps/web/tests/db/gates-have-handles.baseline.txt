@@ -1,0 +1,110 @@
+# Switch columns with no writer — the standing bill.
+#
+# FORMAT   <table>.<column> | <why it is allowed to have no writer>
+# READ BY  tests/db/gates-have-handles.db.test.ts (inside a REQUIRED check)
+#
+# ── WHY THIS FILE EXISTS ────────────────────────────────────────────────────
+# A "gate with no handle" is a column whose whole job is to be TURNED ON, that
+# nothing anywhere can turn on. It is invisible to every ordinary check: it
+# typechecks, it has RLS, it has a migration with a thoughtful comment, its
+# readers have tests, and the feature simply always takes the false branch.
+# Nothing errors. Production looks calm. Five shipped that way before this
+# guard enumerated anything:
+#
+#   papic_face_mode             stored nothing for seven weeks, on a paid feature
+#   live_media_public           hid the broadcast from every uninvited visitor
+#   author_named_publicly       a guest could never choose to be named
+#   is_founder                  no second business could ever be made a founder
+#   live_photo_wall_visibility  the couple could not stop the wall on 100 phones
+#
+# ── WHAT CHANGED 2026-08-17 ─────────────────────────────────────────────────
+# Until today the guard checked FIVE HAND-TYPED columns. A new switch was
+# covered only if whoever added it remembered to register it — which is exactly
+# the memory the guard exists to replace, and is why instances 3, 4 and 5 were
+# each registered only AFTER shipping broken.
+#
+# The candidate set is now DERIVED from the schema: every boolean or enum
+# column carrying a DEFAULT (265 of them today). A column leaves the list by
+# acquiring a writer, or by earning a line here.
+#
+# ⚠ A BASELINE IS A BILL, NOT A DECISION. Every line below is somebody deciding
+# that a switch may ship with nothing able to flip it. Adding a line is allowed
+# — that is the point — but it lands in the diff where a reviewer can disagree.
+#
+# ── HONESTY NOTE ON THIS FIRST SEEDING ──────────────────────────────────────
+# These 51 lines are the INHERITED bill, seeded the day the guard learned to
+# enumerate. Where a column carries a comment from its author, the reason below
+# is that author's stated intent. Where it does not, the line says exactly what
+# was and was not established. "NOT INVESTIGATED" is an honest line; a made-up
+# rationale is not. Four are marked FINDING — they look like live instances of
+# the very shape this guard exists to catch and are reported, not excused.
+
+# ── FINDINGS: these look like real gates with no handle ─────────────────────
+papic_photos.consent_to_public | 🔴 FINDING 2026-08-17. Author's comment: "GUEST consent gate for the public Alaala showcase orb: TRUE once the guest who appears in / captured this clip has consented to public sharing." Nothing writes it, so no clip can ever enter that showcase. The sibling papic_guest_captures.consent_to_public IS written (papic_record_guest_capture); this one is the appearing-guest's consent and was never wired. Sixth instance of the shape. Do not excuse — fix or rule it out of scope.
+platform_settings.radar_enabled | 🔴 FINDING 2026-08-17. Comment says "Admin-managed", and no admin control writes it. Shortlist Radar cannot be turned on by the people the comment says own it.
+platform_settings.spotlight_homepage_enabled | 🔴 FINDING 2026-08-17. Comment: "Owner master switch for the PUBLIC homepage Spotlight strip... renders nothing until the owner flips this on". The owner has nothing to flip it with.
+event_vendor_preferences.auto_send | 🔴 FINDING 2026-08-17. The column comment asserts "Written by ..." — the detector finds no writer. Either the comment is stale or the write is spelled in a way the detector still cannot see. Worth one hour: it is the only line here whose own comment contradicts the measurement.
+
+# ── DELIBERATELY PARKED: the author says so in the column comment ───────────
+platform_settings.free_tier_booking_cap_enabled | Parked on purpose. Comment: "FALSE = inert (default). Do NOT flip until the lock paths ha[ve]..." — built ahead of its consumer, matching vendor-free-tier-booking-cap-flag in PARKED_ON_PURPOSE.
+platform_settings.vendor_addon_tiered_pricing_enabled | DB mirror of NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING, flipped together with the env flag by hand. No app writer by design.
+platform_settings.vendor_tier_pipeline_caps_enabled | Owner-locked 2026-08-09 and already recorded as named debt: the per-tier caps ship switched off and the flip is one UPDATE with no admin button. Known, deliberate, documented.
+venue_directory.is_bookable_via_setnayan | V1.5+ flag. Comment: "V1 always FALSE; couples inquire via chat." Nothing should write it in V1.
+events.kwento_free_grandfathered | Historic grandfather marker for events created before the 2026-06-27 paid cutover. Set by backfill; new events default FALSE and nothing should ever flip it again.
+person_stewardships.is_minor | Minors are Phase 3 and genuinely counsel-gated. No writer is the correct state until that gate opens.
+
+# ── REFERENCE / CATALOG DATA: rows are authored by migration or admin SQL ───
+# These tables hold seeded catalog rows. Their flags are set in the INSERT that
+# creates the row, not by a control in the product. Not a gate with no handle —
+# there is no user-facing switch that is meant to exist.
+papic_pass_tiers.is_topup | Catalog row property, set at seed. Owner rule 2026-07-20 (top-up unlocks at points held).
+papic_one_orders.is_reload | Order-shape marker set at row creation, not a switch.
+platform_retail_catalog_v2.is_pax_priced | Catalog pricing shape, seeded per SKU.
+platform_retail_catalog_v2.is_token_able | Vestigial: tokens were RETIRED 2026-08-07. Nothing should write it. Candidate for deletion, not for a control.
+reel_music_tracks.is_premium | Track catalog property, seeded.
+service_catalog.multi_purchase | Catalog shape, seeded per SKU.
+service_catalog.refundable | Catalog shape, seeded per SKU.
+service_catalog.subscription | Catalog shape, seeded per SKU.
+regions.is_scopable | Reference geography property, seeded.
+concierge_brain_chunks.is_stale | Content-pipeline bookkeeping on seeded rows.
+concierge_brain_chunks.paid_tier_only | Content-pipeline row property, seeded.
+concierge_brain_chunks.cowork_pending_review | Content-pipeline review marker on seeded rows.
+concierge_plan_templates.is_stale | Template bookkeeping on seeded rows.
+concierge_response_cache.is_stale | Cache bookkeeping; rows are replaced, not toggled.
+event_type_profiles.marketplace_enabled | Event-type reference profile, seeded per type.
+event_type_profiles.multi_day | Event-type reference profile, seeded per type ("this type may span several days").
+feature_policy.enabled_for_couples | feature_policy is a seeded policy table; rows are authored by migration.
+feature_policy.enabled_for_vendors_certified | Same table, same reason.
+feature_policy.enabled_for_vendors_coming_soon | Same table, same reason.
+
+# ── DERIVED / STAMPED AT WRITE TIME, not switches ──────────────────────────
+papic_photos.geo_unavailable | Stamped by the capture client at upload ("geo was ON but produced no usable fix"), not a switch anybody flips.
+events.setnayan_ai_intro_used | Consumed-once marker for intro pricing; stamped by the order path, never toggled by a person.
+events.is_surprise | Host-side framing marker; the comment states the real seal is landing_page_visibility, which has its own control.
+event_vendors.excluded_from_market_median | Analyst/data-quality marker on locked bookings, not a user control.
+
+# ── VESTIGIAL: the mechanism that wrote it was retired ─────────────────────
+vendor_partnerships.admin_verified | The two-admin partnership gate was RETIRED under the mutual-accept model (it only ever flipped this column, which stopped gating visibility). Vestigial by decision, not oversight.
+
+# ── NOT INVESTIGATED: inherited 2026-08-17, no comment on the column ────────
+# Each of these is boolean/enum with a default, read nowhere or read-only, and
+# carries no author comment to state intent. They are recorded so the guard can
+# fail on anything NEW; none has been individually researched. Clearing a line
+# here is a good small task — replace it with a real reason or a real control.
+budget_allocation_decisions.auto_reduced_for_pin | NOT INVESTIGATED (never mentioned in app code).
+editorial_vendor_media.hidden_by_couple | NOT INVESTIGATED (read-only).
+events.papic_vendor_challenges_enabled | NOT INVESTIGATED (never mentioned in app code).
+guest_claims.requested_role | NOT INVESTIGATED (never mentioned in app code).
+guests.scan_tracking_opt_out | NOT INVESTIGATED (never mentioned). Reads like a guest privacy opt-out — worth checking before the others.
+onboarding_refinements.is_dynamic_ceremony | NOT INVESTIGATED (read-only).
+orders.vendor_absorbed_fee | NOT INVESTIGATED (never mentioned in app code).
+photo_messages.baked_into_render | NOT INVESTIGATED (never mentioned in app code).
+photo_messages.print_consent | NOT INVESTIGATED (never mentioned). Named like a consent gate — worth checking before the others.
+platform_availability.is_visible | NOT INVESTIGATED (read-only).
+social_publish_settings.recap_autopost_enabled | NOT INVESTIGATED (read-only; defaults TRUE, so a missing writer means it cannot be turned OFF).
+users.concierge_banned | NOT INVESTIGATED (never mentioned in app code).
+vendor_ad_subscriptions.auto_renew | NOT INVESTIGATED (never mentioned in app code).
+vendor_bot_config.learn_from_past_messages | NOT INVESTIGATED (read-only).
+vendor_bot_config.reply_in_couple_language | NOT INVESTIGATED (never mentioned in app code).
+vendor_payouts.form_2307_issued | NOT INVESTIGATED (never mentioned in app code).
+vendor_profiles.absorbs_convenience_fee | NOT INVESTIGATED (read-only).

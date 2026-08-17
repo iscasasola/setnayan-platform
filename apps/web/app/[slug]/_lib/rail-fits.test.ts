@@ -41,6 +41,9 @@ const ROOT_PX = 16;
  *  number the rail must clear, and the whole point of the test. */
 const WIDEST_COLUMN_REM = 64;
 
+/** The designed breathing space between the rail and the column. */
+const RAIL_GAP_REM = 1.5;
+
 /**
  * The rail's `<nav>` block ONLY — every number below is read from inside it.
  *
@@ -52,7 +55,7 @@ const WIDEST_COLUMN_REM = 64;
  * **Scope the extraction to the element you are asserting about.**
  */
 function railBlock(): string {
-  const m = /<nav\b[^>]*className="fixed left-0[\s\S]*?<\/nav>/.exec(BAR);
+  const m = /<nav\b[^>]*className="fixed left-\[[\s\S]*?<\/nav>/.exec(BAR);
   assert.ok(m, 'could not find the rail <nav> in site-menu-bar.tsx');
   return m![0];
 }
@@ -64,41 +67,67 @@ function railWidthRem(): number {
   return Number(m![1]);
 }
 
-/** Read the rail's outer gutter (`pl-N`) — Tailwind spacing is N × 0.25rem. */
-function railGutterRem(): number {
-  const m = /className="fixed left-0[^"]*\bpl-(\d+)\b/.exec(BAR);
-  assert.ok(m, 'could not find the rail gutter in site-menu-bar.tsx');
-  return Number(m![1]) * 0.25;
+/**
+ * The rail is anchored to the CONTENT COLUMN, not the viewport edge:
+ *   left: max(<clamp>, calc(50% - <offset>rem))
+ * Read the offset and the clamp out of the component.
+ */
+function railAnchor(): { offsetRem: number; clampRem: number } {
+  const m = /left-\[max\((\d+(?:\.\d+)?)rem,calc\(50%-(\d+(?:\.\d+)?)rem\)\)\]/.exec(railBlock());
+  assert.ok(m, 'the rail is no longer anchored to the content column');
+  return { clampRem: Number(m![1]), offsetRem: Number(m![2]) };
 }
 
 /** Which breakpoint actually turns the rail on. */
 function railBreakpoint(): 'lg' | 'xl' {
-  const m = /className="fixed left-0[^"]*\b(lg|xl):block\b/.exec(BAR);
+  const m = /className="fixed left-\[[^"]*\b(lg|xl):block\b/.exec(BAR);
   assert.ok(m, 'could not find the rail breakpoint in site-menu-bar.tsx');
   return m![1] as 'lg' | 'xl';
 }
 
-test('the rail fits in the margin beside the WIDEST column, not the common one', () => {
-  const bp = railBreakpoint();
-  const marginRem = (SCREEN_PX[bp] / ROOT_PX - WIDEST_COLUMN_REM) / 2;
-  const needed = railWidthRem() + railGutterRem();
-  assert.ok(
-    needed <= marginRem,
-    `the rail needs ${needed}rem but only ${marginRem}rem of margin exists at ` +
-      `${bp} (${SCREEN_PX[bp]}px) beside the ${WIDEST_COLUMN_REM}rem stage — ` +
-      `it would sit ON TOP of the venue page and the editorial. Narrow the rail ` +
-      `or raise the breakpoint.`,
+test('the rail is anchored to the content column, not the window edge', () => {
+  // 🔴 THE DEFECT THIS REPLACED: pinned to `left-0`, on a 2000px monitor the
+  // rail sat a THOUSAND PIXELS from the column it belongs to. The old test
+  // passed — it only asked whether the rail CLEARED the content, which an
+  // orphan in the far margin does perfectly. Clearing is not belonging.
+  const { offsetRem } = railAnchor();
+  const expected = WIDEST_COLUMN_REM / 2 + railWidthRem() + RAIL_GAP_REM;
+  assert.equal(
+    offsetRem,
+    expected,
+    `the anchor offset is ${offsetRem}rem but the geometry needs ${expected}rem ` +
+      `(half the ${WIDEST_COLUMN_REM}rem stage + the ${railWidthRem()}rem rail + ` +
+      `a ${RAIL_GAP_REM}rem gap). A wrong offset either overlaps the widest ` +
+      `pages or drifts away from the narrow ones.`,
   );
 });
 
-test('lg would NOT have fitted — the trap this test exists for', () => {
-  // Pins the reason the breakpoint is xl. If someone lowers it to lg believing
-  // it is "the app's usual switch", the test above fires; this one records why.
-  const marginAtLg = (SCREEN_PX.lg / ROOT_PX - WIDEST_COLUMN_REM) / 2;
+test('the rail can never be pushed off the left edge', () => {
+  // The owner saw it CLIPPED on a real page. calc(50% - 40.5rem) goes NEGATIVE
+  // below ~1296px, and the breakpoint is 1280 — so for a 16px band the raw
+  // calc is off-screen. The clamp is what stops that being visible.
+  const { clampRem, offsetRem } = railAnchor();
+  assert.ok(clampRem > 0, 'the rail has no clamp — it can go off-screen again');
+  const rawAtBreakpoint = SCREEN_PX[railBreakpoint()] / ROOT_PX / 2 - offsetRem;
   assert.ok(
-    railWidthRem() + railGutterRem() > marginAtLg,
-    'the rail now fits at lg — if that is genuinely true, move the breakpoint ' +
-      'down and delete this test rather than leaving it asserting a stale reason',
+    rawAtBreakpoint < clampRem,
+    'the clamp is now dead code — either the breakpoint moved up or the offset ' +
+      'shrank. Harmless, but delete the clamp rather than leave it asserting nothing.',
+  );
+});
+
+test('even clamped, the rail never overlaps the widest column', () => {
+  // The tight case: at the breakpoint the clamp is active, so the rail sits at
+  // its minimum margin while the stage column is at its widest relative share.
+  const { clampRem, offsetRem } = railAnchor();
+  const viewportRem = SCREEN_PX[railBreakpoint()] / ROOT_PX;
+  const left = Math.max(clampRem, viewportRem / 2 - offsetRem);
+  const railRight = left + railWidthRem();
+  const contentLeft = viewportRem / 2 - WIDEST_COLUMN_REM / 2;
+  assert.ok(
+    railRight <= contentLeft,
+    `at ${SCREEN_PX[railBreakpoint()]}px the rail ends at ${railRight}rem but the ` +
+      `${WIDEST_COLUMN_REM}rem stage starts at ${contentLeft}rem — they overlap.`,
   );
 });
 

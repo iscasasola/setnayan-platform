@@ -76,3 +76,28 @@ ANONYMOUS tree has its own widget renderer, so a stranger on a birthday page was
 reading "the couple" through a completely separate path. The guest tree and the
 anonymous tree have drifted before; a required prop is what caught it this time.
 **A prop that is optional would have shipped the defect silently.**
+
+---
+
+## Addendum 2 — the countdown was promising WEDDING VOWS at a child's party
+
+The owner opened the two test events and sent screenshots. The countdown on a
+seven-year-old's birthday, and on a graduation, read:
+
+> **UNTIL WE SAY 'I DO'**
+
+🔑 **NO WORD-SEARCH COULD EVER HAVE FOUND THIS.** Every scan I ran looked for
+*wedding · couple · bride · groom*. That sentence contains none of them — it is
+a wedding vow with no wedding word in it. It was found by looking at the page.
+**Fourth time today that looking beat measuring, and the only one of the four
+that no amount of grepping would have caught.**
+
+A countdown is universal; that label is not. A wedding keeps it byte-identically;
+every other type reads **"Until the day"**. The provider now carries the event
+word so the client half can tell the difference.
+
+⏭ **STILL VISIBLE IN THOSE SCREENSHOTS AND NOT FIXED HERE:** a birthday shows a
+**Story** tab — the love story is BUCKET 1, wedding-only, and nothing yet stops
+it appearing elsewhere. That is exactly S15, the per-block event-type gate, which
+the owner's grid unblocked and which has not been built. **The screenshots are
+the first real evidence of that leak.**

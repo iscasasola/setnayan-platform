@@ -36,6 +36,7 @@ const BODY = read('site-body.tsx');
 
 /** Every client surface that reads the noun from context. */
 const CONSUMERS = [
+  'countdown.tsx',
   'pabati-prompt.tsx',
   'selfie-capture.tsx',
   'guest-column-form.tsx',
@@ -105,6 +106,23 @@ test('the fallback is byte-identical to what a wedding reads', () => {
   // move both sides together and keep this green.
   assert.equal(WORDS_AS_SHIPPED.theOrganizer, 'the couple');
   assert.equal(WORDS_AS_SHIPPED.theOrganizerPossessive, 'the couple’s');
+  assert.equal(WORDS_AS_SHIPPED.eventWord, 'wedding');
+});
+
+test('the countdown label is a WEDDING VOW and only a wedding gets it', () => {
+  // 🔴 "Until we say 'I do'" was rendering on a seven-year-old's birthday and on
+  // a graduation. It was seen on the real page, not caught by any scan — it
+  // contains none of the words a wedding-word search looks for.
+  const src = readFileSync(join(COMPONENTS, 'countdown.tsx'), 'utf8');
+  assert.match(
+    src,
+    /w\.eventWord === 'wedding'/,
+    'the countdown no longer asks whether this is a wedding before promising vows',
+  );
+  assert.ok(
+    src.includes('Until the day'),
+    'the countdown has no non-wedding label',
+  );
 });
 
 test('no consumer went back to a hardcoded "the couple"', () => {

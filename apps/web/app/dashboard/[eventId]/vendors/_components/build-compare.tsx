@@ -121,6 +121,7 @@ export function BuildCompare({
   budgetPhp,
   currentPlan,
   savedBuilds,
+  savedBuildsMeasured = true,
   availability = null,
   anchoredDate = null,
 }: {
@@ -128,6 +129,8 @@ export function BuildCompare({
   budgetPhp: number | null;
   currentPlan: PlanBuildSnapshot;
   savedBuilds: SavedPlanBuild[];
+  /** False when the saved-plans read did not complete — then NO "none yet" claim. */
+  savedBuildsMeasured?: boolean;
   availability?: CompareAvailability | null;
   /** B5 — the day-precision counterpart of `availability`. Never both. */
   anchoredDate?: CompareAnchoredDate | null;
@@ -414,7 +417,13 @@ export function BuildCompare({
           <h3 className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
             Your saved plans
           </h3>
-          {orderedBuilds.length === 0 ? (
+          {!savedBuildsMeasured ? (
+            <p className="p-4 text-sm text-ink/70">
+              <strong className="text-ink">We couldn&rsquo;t load your saved plans.</strong>{' '}
+              This does not mean you have none — reload in a moment. Nothing you
+              saved has been lost.
+            </p>
+          ) : orderedBuilds.length === 0 ? (
             <p className="text-sm text-ink/55">
               No saved plans yet. Add candidates to your build, then save your team under a name.
             </p>

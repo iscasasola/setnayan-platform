@@ -61,3 +61,13 @@ superseded drafts.
 ⚠ Filing is unchanged and still January 2027 per the owner's standing rule ("let this run
 truthfully until then"). All 15 `npc_filing_tasks` remain `not_started`; nothing here files
 anything. Three items only the DPO can close are raised separately.
+
+### Follow-up: the pack overstated our data subjects by ~8×
+
+Three pack documents headlined **~401 data subjects** (a 2026-07-05 pre-launch snapshot).
+Production holds **48** — 9 accounts + 39 guests, 2 shops, 6 events, 0 active biometric face
+vectors. The test data behind ~401 was purged, and `07_Compliance_Facts_Register` recorded the
+~10× drop on **2026-07-31** — a fourth instance of the same disease in this one pack: corrected
+in one document, never propagated to the fields a regulator reads. Now measured and dated at all
+four sites. The NPC registration-threshold analysis is unaffected and strengthened (further below
+the ≥1,000-SPI trigger).

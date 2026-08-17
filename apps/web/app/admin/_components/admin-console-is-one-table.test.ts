@@ -75,6 +75,7 @@ const CONVERTED = [
   // 🔑 CONVERTING A FILE'S TABLE IS NOT THE SAME AS MAKING THAT FILE HONEST.
   'fraud/page.tsx',
   'force-majeure/page.tsx',
+  'approvals/page.tsx',
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -115,7 +116,6 @@ const RAW_TABLE_BILL = [
   'app-performance/_surfaces/intelligence-surface.tsx',
   'app-performance/_surfaces/operations-surface.tsx',
   'app-performance/_surfaces/seo-surface.tsx',
-  'approvals/page.tsx',
   'budget-planner/page.tsx',
   'completions/page.tsx',
   'compliance/data-sheet/page.tsx',
@@ -230,6 +230,16 @@ test('every converted surface hands its read error to the table', () => {
         new RegExp(`'error'\\s+in\\s+${holder}\\b`).test(src) ||
         new RegExp(`\\b${holder}\\.error\\b`).test(src);
       if (!bound) offenders.push(`${rel} (${holder}.data ?? [] with ${holder}'s error never bound)`);
+    }
+    // 🪤 AND THE DESTRUCTURE-RENAME FORM WAS A BLIND SPOT IN THE RULE ABOVE.
+    // `const { data: us } = await admin…` then `(us ?? [])` never writes
+    // `us.data`, so the matcher could not see it — and /admin/approvals had TWO
+    // of exactly that shape, both feeding the name of the person a four-eyes
+    // request is ABOUT. This is the same miss lane D found in my original count:
+    // I matched a spelling instead of the capability. Any read destructured
+    // WITHOUT binding its error is an offence regardless of what happens next.
+    for (const m of src.matchAll(/const\s*\{\s*data:\s*(\w+)\s*\}\s*=\s*await/g)) {
+      offenders.push(`${rel} (const { data: ${m[1]} } destructured with no error bound)`);
     }
     // And the PRIMARY read must never be flattened at the read site.
     if (/\bconst\s+\w+\s*=\s*\(?data\s*\?\?\s*\[\]/.test(src)) {

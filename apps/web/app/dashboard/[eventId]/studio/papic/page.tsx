@@ -117,7 +117,7 @@ import { resolvePapicRoom, PAPIC_ROOM_TABS } from './_lib/rooms';
 // /api/oauth/drive/* + public.oauth_grants. The capture pipeline / native app /
 // DSLR pairing are still TODO(0012) — see the seam notes at the bottom.
 
-export const metadata = { title: 'Papic · Setnayan' };
+export const metadata = { title: 'Papic' };
 export const dynamic = 'force-dynamic';
 
 type Props = {
@@ -589,7 +589,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex items-center gap-2">
                 <HardDrive className="h-4 w-4 text-mulberry" aria-hidden />
-                <h2 className="text-sm font-semibold text-ink">Keep your full-res forever</h2>
+                <h2 className="text-sm font-semibold text-ink">Keep your full-res originals</h2>
               </div>
               {/* ⚠ Said "After 3 months" — the clock became SIX months on
                   2026-08-02 and this card was never updated. It is dormant today

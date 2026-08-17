@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const privacySrc = readFileSync(
-  join(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'privacy', 'page.tsx'),
+  join(dirname(fileURLToPath(import.meta.url)), '..', 'app', '(shell)', 'privacy', 'page.tsx'),
   'utf8',
 );
 

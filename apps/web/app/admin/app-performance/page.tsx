@@ -10,6 +10,7 @@ import {
   Bug,
   WifiOff,
   Waypoints,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   GridPageSkeleton,
@@ -26,6 +27,7 @@ import { OperationsHiringSurface } from './_surfaces/operations-surface';
 import { ConnectionLogsSurface } from './_surfaces/connection-logs-surface';
 import { OfflineSurface } from './_surfaces/offline-surface';
 import { InterconnectionsSurface } from './_surfaces/interconnections-surface';
+import { BrowserBlocksSurface } from './_surfaces/browser-blocks-surface';
 
 /**
  * Insights Studio — the tabbed /admin/app-performance shell that consolidates
@@ -64,6 +66,7 @@ const TABS = [
   'connection-logs',
   'offline',
   'interconnections',
+  'browser-blocks',
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -87,6 +90,7 @@ const TAB_STRIP: { key: Tab; label: string; icon: typeof Activity }[] = [
   { key: 'connection-logs', label: 'Connection logs', icon: Bug },
   { key: 'offline', label: 'Offline daemon', icon: WifiOff },
   { key: 'interconnections', label: 'Interconnections', icon: Waypoints },
+  { key: 'browser-blocks', label: 'Browser blocks', icon: ShieldAlert },
 ];
 
 // Per-tab <title> — restores what each standalone route used to set.
@@ -100,6 +104,7 @@ const TAB_TITLE: Record<Tab, string> = {
   'connection-logs': 'Connection Logs',
   offline: 'Offline daemon',
   interconnections: 'Interconnections',
+  'browser-blocks': 'Browser blocks',
 };
 
 // Per-tab loading skeleton — the same shape each tab shipped as its own
@@ -173,6 +178,8 @@ function activeSurface(
       return <OfflineSurface />;
     case 'interconnections':
       return <InterconnectionsSurface />;
+    case 'browser-blocks':
+      return <BrowserBlocksSurface />;
     default:
       return (
         <CockpitSurface

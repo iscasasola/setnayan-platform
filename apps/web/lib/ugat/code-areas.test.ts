@@ -23,7 +23,7 @@ test('specific prefixes beat general ones — order is load-bearing', () => {
   assert.equal(areaForPath('apps/web/app/dashboard/[eventId]/page.tsx'), 'couple');
   assert.equal(areaForPath('apps/web/app/vendor-dashboard/shop/page.tsx'), 'vendor');
   // …and a page that matches ONLY the general rule still lands somewhere sensible
-  assert.equal(areaForPath('apps/web/app/pricing/page.tsx'), 'site');
+  assert.equal(areaForPath('apps/web/app/(shell)/pricing/page.tsx'), 'site');
 });
 
 test('both shared-component roots map to the same area', () => {

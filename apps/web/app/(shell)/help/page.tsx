@@ -1,0 +1,328 @@
+import Link from 'next/link';
+import { MessageSquare, Mail, Heart, Briefcase, Mailbox, Shield } from 'lucide-react';
+import { HELP_TOPICS, HELP_ROLES, type HelpRole } from '@/lib/help';
+import { createClient } from '@/lib/supabase/server';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { Field } from '@/app/_components/forms/field';
+import { submitHelpMessage } from '@/app/help/actions';
+import { HelpSearch } from '@/app/help/_components/help-search';
+
+
+/*
+  ⚠ `dynamic` IS DECLARED ONCE, ON `app/(shell)/layout.tsx`, NOT HERE.
+  The shared shell reads the session, so every route in this group must be
+  dynamic — and a layout's `dynamic` DOES cover its children (measured: with
+  the pages declaring nothing, `force-dynamic` on the group layout alone moved
+  them from `○ Static` to `ƒ Dynamic` in the build table). This file used to
+  carry its own copy, along with a docblock asserting a layout could not do
+  this. That assertion was false. Twenty copies of one rule is twenty places
+  for it to disagree with itself — do not re-add it here.
+*/
+
+export const metadata = {
+  title: 'Help & support',
+  description:
+    'Step-by-step guides for couples, vendors, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+  alternates: { canonical: '/help' },
+  openGraph: {
+    type: 'website',
+    url: '/help',
+    title: 'Help & support · Setnayan',
+    description:
+      'Step-by-step guides for couples, vendors, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+    siteName: 'Setnayan',
+    locale: 'en_PH',
+    images: [{ url: '/brand/og-card.webp', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Help & support · Setnayan',
+    description:
+      'Step-by-step guides for couples, vendors, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+    images: ['/brand/og-card.webp'],
+  },
+};
+
+const FAQ_JSONLD = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: HELP_TOPICS.flatMap((topic) =>
+    topic.articles.map((article) => ({
+      '@type': 'Question',
+      name: article.title,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: article.body,
+      },
+    })),
+  ),
+};
+
+const ROLE_ICON: Record<HelpRole, typeof Heart> = {
+  couple: Heart,
+  vendor: Briefcase,
+  guest: Mailbox,
+  admin: Shield,
+};
+
+function isHelpRole(value: string | undefined): value is HelpRole {
+  return value === 'couple' || value === 'vendor' || value === 'guest' || value === 'admin';
+}
+
+type Props = {
+  searchParams: Promise<{ submitted?: string; error?: string; role?: string }>;
+};
+
+export default async function HelpPage({ searchParams }: Props) {
+  const search = await searchParams;
+  const role: HelpRole | undefined = isHelpRole(search.role) ? search.role : undefined;
+
+  const visibleTopics = role
+    ? HELP_TOPICS.filter((t) => t.roles.includes(role))
+    : HELP_TOPICS;
+
+  const activeRoleMeta = role ? HELP_ROLES.find((r) => r.key === role) : undefined;
+
+  // Pre-fill the contact form with the signed-in user's email if available.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const prefilledEmail = user?.email ?? '';
+
+  return (
+    /*
+      🔑 THE SHARED SHELL IS NOT MOUNTED HERE — it lives in
+      `app/(shell)/layout.tsx`, one mount for the whole public group, so it
+      SURVIVES navigation instead of being rebuilt on every click. This page
+      supplies only its own content and its own single <main>.
+    */
+    <>
+      {/*
+        ⏭ THE 75 /help/<slug> ARTICLES ARE DELIBERATELY OUTSIDE THIS GROUP.
+        They are prerendered (`dynamicParams = false` + `generateStaticParams`),
+        so the group layout's force-dynamic would drop the prerender on 75
+        indexed URLs, and their own docblock forbids a loading boundary because
+        streaming commits HTTP 200 before `notFound()` runs. Only this index's
+        page.tsx + loading.tsx moved; `app/help/[slug]` stayed put.
+      */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSONLD) }}
+      />
+      <main className="min-h-dvh bg-cream">
+
+        <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+          <div className="max-w-2xl space-y-3">
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              {activeRoleMeta ? `Help for ${activeRoleMeta.label.toLowerCase()}s` : 'How can we help?'}
+            </h1>
+            <p className="text-base text-ink/65">
+              {activeRoleMeta
+                ? activeRoleMeta.blurb
+                : "Step-by-step guides for couples, vendors, guests, and admins. Pick your role below or scroll for everything."}
+            </p>
+          </div>
+
+          {/* Role tiles — 4-way split (Couple / Vendor / Guest / Admin). The
+              spec for iteration 0029 § 1 calls for four role tiles at
+              /help; this is that tile bar. Tiles are real links so they
+              work without JS and bookmark cleanly. */}
+          <nav
+            aria-label="Help by role"
+            className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4"
+          >
+            {HELP_ROLES.map((r) => {
+              const Icon = ROLE_ICON[r.key];
+              const isActive = role === r.key;
+              return (
+                <Link
+                  key={r.key}
+                  href={isActive ? '/help' : `/help?role=${r.key}`}
+                  aria-current={isActive ? 'true' : undefined}
+                  className={`group flex flex-col gap-2 rounded-xl border p-4 transition ${
+                    isActive
+                      ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
+                      : 'border-ink/10 bg-cream text-ink hover:border-terracotta/40 hover:bg-terracotta/5'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                    <span className="text-sm font-semibold">{r.label}</span>
+                  </div>
+                  <span className="text-xs leading-snug text-ink/60 group-hover:text-ink/75">
+                    {r.blurb}
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+          {activeRoleMeta ? (
+            <p className="mt-3 text-xs text-ink/60">
+              Showing {visibleTopics.length} topic{visibleTopics.length === 1 ? '' : 's'} for{' '}
+              {activeRoleMeta.label.toLowerCase()}s.{' '}
+              <Link href="/help" className="underline underline-offset-2 hover:text-terracotta">
+                Show all topics
+              </Link>
+              .
+            </p>
+          ) : null}
+
+          {search.submitted ? (
+            <p
+              role="status"
+              className="mt-6 rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-900"
+            >
+              Thanks — we got your message (ref{' '}
+              <span className="font-mono">{search.submitted}</span>). We&rsquo;ll get back to
+              you via email.
+            </p>
+          ) : null}
+          {search.error ? (
+            <p
+              role="alert"
+              className="mt-6 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+            >
+              {decodeURIComponent(search.error)}
+            </p>
+          ) : null}
+
+          <section
+            aria-label="Help topics"
+            className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]"
+          >
+            <nav /* Parks below the shared top bar, not under it. `--fd-bar` is the
+                 shell's own height token, so this follows the bar instead of
+                 restating it; the max-height subtracts the same amount so the
+                 topic list still fits. The pinned-bar lint would NOT have
+                 caught this — its regex only matches `top-0`. */
+              className="sticky top-[calc(var(--fd-bar,0px)+1rem)] self-start space-y-1 rounded-xl border border-ink/10 bg-cream p-3 lg:max-h-[calc(100dvh-var(--fd-bar,0px)-4rem)] lg:overflow-y-auto">
+              <p className="px-2 pb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+                Topics
+              </p>
+              {visibleTopics.map((t) => (
+                <a
+                  key={t.key}
+                  href={`#${t.key}`}
+                  className="block rounded-md px-2 py-1.5 text-sm text-ink/75 hover:bg-terracotta/10 hover:text-terracotta-700"
+                >
+                  {t.label}
+                </a>
+              ))}
+              <a
+                href="#contact"
+                className="mt-2 block rounded-md bg-terracotta/10 px-2 py-1.5 text-sm font-medium text-terracotta-700 hover:bg-terracotta/20"
+              >
+                Contact support →
+              </a>
+            </nav>
+
+            <div className="space-y-10">
+              {/* Client-side instant search over the role-filtered corpus —
+                  closes the metadata-vs-reality "no search" gap. Empty box keeps
+                  the topic-grouped list (anchor ids preserved for the sidebar +
+                  /help#slug deep links); typing filters to a flat result list.
+                  The FAQPage JSON-LD above is server-rendered from the full
+                  corpus and is unaffected. */}
+              <HelpSearch topics={visibleTopics} />
+
+              <section id="contact" className="scroll-mt-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <MessageSquare
+                    aria-hidden
+                    className="h-4 w-4 text-terracotta"
+                    strokeWidth={1.75}
+                  />
+                  <h2 className="text-xl font-semibold tracking-tight">Reach the team</h2>
+                </div>
+                <p className="max-w-2xl text-sm text-ink/70">
+                  Send us a note and we&rsquo;ll reply to the email you provide. Useful for
+                  anything not covered above — billing questions, vendor onboarding, custom
+                  quotes, bug reports.
+                </p>
+
+                <form
+                  action={submitHelpMessage}
+                  className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5"
+                >
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Your email" htmlFor="sender_email">
+                      <input
+                        id="sender_email"
+                        name="sender_email"
+                        type="email"
+                        required
+                        defaultValue={prefilledEmail}
+                        placeholder="you@example.com"
+                        className="input-field"
+                      />
+                    </Field>
+                    <Field label="Your name (optional)" htmlFor="sender_name">
+                      <input
+                        id="sender_name"
+                        name="sender_name"
+                        maxLength={128}
+                        className="input-field"
+                      />
+                    </Field>
+                  </div>
+
+                  <Field label="Topic" htmlFor="topic">
+                    <select
+                      id="topic"
+                      name="topic"
+                      defaultValue={role ?? ''}
+                      className="input-field"
+                    >
+                      <option value="">Choose one (optional)</option>
+                      <option value="couple">I&rsquo;m a couple planning an event</option>
+                      <option value="vendor">I&rsquo;m a vendor</option>
+                      <option value="guest">I&rsquo;m a guest invited to an event</option>
+                      <option value="admin">Admin / operations</option>
+                      <option value="billing">Billing or payments</option>
+                      <option value="bug">Bug report</option>
+                      <option value="feature">Feature request</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </Field>
+
+                  <Field label="Subject" htmlFor="subject">
+                    <input
+                      id="subject"
+                      name="subject"
+                      required
+                      maxLength={160}
+                      placeholder="One sentence about what's up"
+                      className="input-field"
+                    />
+                  </Field>
+
+                  <Field label="Message" htmlFor="body">
+                    <textarea
+                      id="body"
+                      name="body"
+                      required
+                      rows={6}
+                      maxLength={4000}
+                      placeholder="Anything that helps us help you — event ID, exact URL you were on, what you expected vs. what happened."
+                      className="input-field min-h-[140px] py-2"
+                    />
+                  </Field>
+
+                  <SubmitButton
+                    className="button-primary inline-flex items-center gap-2"
+                    pendingLabel="Sending…"
+                  >
+                    <Mail aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                    Send message
+                  </SubmitButton>
+                </form>
+              </section>
+            </div>
+          </section>
+        </div>
+
+      </main>
+    </>
+  );
+}

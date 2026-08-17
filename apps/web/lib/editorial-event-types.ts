@@ -34,16 +34,24 @@
 // unchanged. This set answers a different question — "would Setnayan ever
 // publish about this KIND of occasion at all?" — not "did these people agree?"
 //
-// ⏭ OPEN OWNER DECISION (design doc § 7-3, 2026-08-15). Sixteen kinds are live,
-// and two of them — `date` and `hangout` — are somebody's private evening out
-// rather than an occasion with guests. Whether Setnayan should ever publish an
-// editorial about those is a judgement call, not an engineering one. Until the
-// owner rules, the set is EMPTY: every kind may be written up, matching what he
-// stated. The recommendation on the table is to keep it empty and simply never
-// SOLICIT the intimate kinds editorially — a curation behaviour, not a gate —
-// so those appear only when the people involved ask.
+// ✅ THE OWNER RULED, 2026-08-15 — THIS SET STAYS EMPTY. ALL SIXTEEN KINDS.
+// The open question was whether Setnayan should ever publish about the most
+// intimate kinds (`date`, `hangout`). Owner, verbatim: *"making it public will
+// be the user's decision. this is already the era where hanging out or meeting
+// with friends are content that people view. so yes."*
 //
-// To act on a ruling, add the event_type keys here. Nowhere else.
+// 🔑 SO THE KIND OF OCCASION IS NOT SETNAYAN'S QUESTION AT ALL. Whether a day
+// is public is decided by the people whose day it is, through
+// `events.landing_page_visibility` — not by a list of approved occasion types
+// held here. My standing recommendation (allow all, but never SOLICIT the
+// intimate ones) is superseded: the owner declined to treat any kind as
+// categorically un-publishable, and the audience control is where the choice
+// belongs.
+//
+// ⚠ DO NOT ADD TO THIS SET WITHOUT A NEW OWNER RULING. It exists as the single
+// place such a ruling would land — not as a list awaiting curation. An entry
+// here says "nobody may ever publish this kind of day, whatever they choose",
+// which is a stronger claim than anything the product currently makes.
 
 /**
  * Event types that may never become a public Setnayan editorial, regardless of

@@ -126,6 +126,28 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // — the in-app notification always lands; the email only reaches followers who
   // opted into marketing (RA 10173).
   'new_chapter_from_followed',
+  // PR-H lock handshake (2026-07-27). ALL SIX are transactional and all six
+  // must reach a person who is not in the app:
+  //   · received/nudge → the SUPPLIER, who has 7 days to answer and may never
+  //     open the dashboard. An in-app-only nudge reaches exactly the suppliers
+  //     who do not need it, which is the whole reason the owner ordered it.
+  //   · agreed/declined/expired → the COUPLE, who is waiting on an answer they
+  //     cannot get any other way. There is no SMS in V1, so email plus one card
+  //     is the entire channel.
+  //   · withdrawn → the SUPPLIER again, and for the same reason as received:
+  //     they set a date aside for this and are owed the fact that they no
+  //     longer need to.
+  // Deliberately NOT in PUSH_ENABLED_TYPES: that list is four types and a 7-day
+  // fuse is not that urgent.
+  'lock_request_received',
+  'lock_request_nudge',
+  'lock_request_agreed',
+  'lock_request_declined',
+  'lock_request_expired',
+  // slice B · the SIXTH. → the SUPPLIER, who was holding a hard-single slot on
+  // the strength of the ask. A card that simply vanishes from their Overview
+  // cannot tell them whether they lost the work or the app broke.
+  'lock_request_withdrawn',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email
@@ -136,6 +158,28 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
 // never widen one.
 const MARKETING_GATED_EMAIL_TYPES: ReadonlySet<NotificationType> = new Set([
   'new_chapter_from_followed',
+  // PR-H lock handshake (2026-07-27). ALL SIX are transactional and all six
+  // must reach a person who is not in the app:
+  //   · received/nudge → the SUPPLIER, who has 7 days to answer and may never
+  //     open the dashboard. An in-app-only nudge reaches exactly the suppliers
+  //     who do not need it, which is the whole reason the owner ordered it.
+  //   · agreed/declined/expired → the COUPLE, who is waiting on an answer they
+  //     cannot get any other way. There is no SMS in V1, so email plus one card
+  //     is the entire channel.
+  //   · withdrawn → the SUPPLIER again, and for the same reason as received:
+  //     they set a date aside for this and are owed the fact that they no
+  //     longer need to.
+  // Deliberately NOT in PUSH_ENABLED_TYPES: that list is four types and a 7-day
+  // fuse is not that urgent.
+  'lock_request_received',
+  'lock_request_nudge',
+  'lock_request_agreed',
+  'lock_request_declined',
+  'lock_request_expired',
+  // slice B · the SIXTH. → the SUPPLIER, who was holding a hard-single slot on
+  // the strength of the ask. A card that simply vanishes from their Overview
+  // cannot tell them whether they lost the work or the app broke.
+  'lock_request_withdrawn',
 ]);
 
 export type EmitNotificationArgs = {

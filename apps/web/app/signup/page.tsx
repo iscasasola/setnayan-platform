@@ -75,7 +75,7 @@ import { signUp } from './actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 
 export const metadata: Metadata = {
-  title: 'Create account · Setnayan',
+  title: 'Create account',
   description:
     'Create a Setnayan account in seconds. Free to start for couples planning their wedding. Free baseline listing for Filipino wedding vendors.',
   alternates: { canonical: '/signup' },
@@ -194,30 +194,13 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   ];
 
   return (
-    <main
-      style={{
-        minHeight: '100dvh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px 16px',
-        background: 'var(--m-paper)',
-        fontFamily: 'var(--font-sans-marketing, Geist), system-ui, sans-serif',
-      }}
-    >
+    <main className="flex min-h-dvh w-full items-center justify-center bg-cream px-4 py-6">
+      {/* ⚖ THE COMPOSITION IS UNCHANGED — 960px, brand panel then form, one
+          column until lg. This port changes the REGISTER (colour, type, the
+          threshold edge), never the layout: reconcile, never redraw. */}
       <div
-        className="m-signup-card"
-        style={{
-          width: '100%',
-          maxWidth: 960,
-          background: 'var(--m-paper)',
-          borderRadius: 'var(--m-r-lg)',
-          overflow: 'hidden',
-          border: '1px solid var(--m-line)',
-          boxShadow: '0 30px 60px -25px rgba(45,48,56,0.18)',
-          display: 'grid',
-          gridTemplateColumns: '1fr',
-        }}
+        className="m-signup-card w-full max-w-[960px] overflow-hidden rounded-2xl border border-ink/10 border-t-[3px] border-t-mulberry bg-surface shadow-sm"
+        style={{ display: 'grid', gridTemplateColumns: '1fr' }}
       >
         {/* Brand panel · stacked on mobile, becomes left column on lg+ */}
         <div
@@ -225,11 +208,11 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
           style={{
             padding: '36px 32px',
             background:
-              'linear-gradient(135deg, var(--m-ivory) 0%, var(--m-paper-2) 100%)',
+              'linear-gradient(135deg, rgb(var(--color-terracotta) / 0.06) 0%, rgb(var(--color-ink) / 0.03) 100%)',
             display: 'flex',
             flexDirection: 'column',
             gap: 24,
-            color: 'var(--m-ink)',
+            color: 'rgb(var(--color-ink))',
           }}
         >
           <Link
@@ -244,35 +227,38 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               className="m-mono"
               style={{
                 fontSize: 10,
-                color: 'var(--m-slate)',
+                color: 'rgb(var(--color-ink) / 0.72)',
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
               }}
             >
               Start free · 90 seconds
             </div>
-            <h2
+            {/* The page's real headline, and now its only <h1>. It was an <h2>
+                with no <h1> anywhere above it — a heading order that reads as a
+                document starting at level two. */}
+            <h1
               className="m-serif"
               style={{
                 fontSize: 34,
                 lineHeight: 1.04,
                 margin: '10px 0 0',
-                color: 'var(--m-ink)',
+                color: 'rgb(var(--color-ink))',
                 fontWeight: 400,
                 letterSpacing: '-0.02em',
               }}
             >
               Set your day{' '}
-              <em style={{ fontStyle: 'italic', color: 'var(--m-orange-2)' }}>
+              <em className="text-mulberry" style={{ fontStyle: 'italic' }}>
                 in motion.
               </em>
-            </h2>
+            </h1>
             <p
               className="m-serif"
               style={{
                 fontStyle: 'italic',
                 fontSize: 14,
-                color: 'var(--m-slate)',
+                color: 'rgb(var(--color-ink) / 0.72)',
                 marginTop: 12,
                 lineHeight: 1.55,
               }}
@@ -295,13 +281,13 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 key={b}
                 style={{
                   fontSize: 12,
-                  color: 'var(--m-slate)',
+                  color: 'rgb(var(--color-ink) / 0.72)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
                 }}
               >
-                <span style={{ color: 'var(--m-orange-2)', fontWeight: 600 }}>✓</span>
+                <span className="font-semibold text-mulberry">✓</span>
                 {b}
               </li>
             ))}
@@ -315,20 +301,16 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             display: 'flex',
             flexDirection: 'column',
             gap: 12,
-            background: 'var(--m-paper)',
+            background: 'rgb(var(--color-cream))',
           }}
         >
-          <div
-            className="m-mono"
-            style={{
-              fontWeight: 700,
-              fontSize: 22,
-              color: 'var(--m-ink)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-            }}
-          >
-            Create account
+          <div className="space-y-1">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-mulberry">
+              Create account
+            </p>
+            <h2 className="font-serif text-2xl font-semibold tracking-tight text-ink">
+              One account, every celebration.
+            </h2>
           </div>
 
           {hasGuestSession ? (
@@ -338,16 +320,16 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 margin: 0,
                 padding: '10px 12px',
                 borderRadius: 'var(--m-r-sm)',
-                border: '1px solid var(--m-line)',
-                background: 'var(--m-paper-2)',
-                color: 'var(--m-ink)',
+                border: '1px solid rgb(var(--color-ink) / 0.12)',
+                background: 'rgb(var(--color-ink) / 0.04)',
+                color: 'rgb(var(--color-ink))',
                 fontSize: 13,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
               }}
             >
-              <span style={{ color: 'var(--m-orange-2)', fontWeight: 600 }}>✓</span>
+              <span style={{ color: 'rgb(var(--color-mulberry))', fontWeight: 600 }}>✓</span>
               Your event photos will be saved to your new account.
             </p>
           ) : null}
@@ -359,9 +341,9 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 margin: 0,
                 padding: '10px 12px',
                 borderRadius: 'var(--m-r-sm)',
-                border: '1px solid var(--m-orange-3)',
-                background: 'var(--m-orange-4)',
-                color: 'var(--m-orange-deep)',
+                border: '1px solid rgb(var(--color-mulberry) / 0.30)',
+                background: 'rgb(var(--color-mulberry) / 0.07)',
+                color: 'rgb(var(--color-mulberry-600))',
                 fontSize: 13,
               }}
             >
@@ -376,9 +358,9 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 margin: 0,
                 padding: '10px 12px',
                 borderRadius: 'var(--m-r-sm)',
-                border: '1px solid var(--m-line)',
-                background: 'var(--m-paper-2)',
-                color: 'var(--m-ink)',
+                border: '1px solid rgb(var(--color-ink) / 0.12)',
+                background: 'rgb(var(--color-ink) / 0.04)',
+                color: 'rgb(var(--color-ink))',
                 fontSize: 13,
               }}
             >
@@ -397,9 +379,9 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 margin: 0,
                 padding: '10px 12px',
                 borderRadius: 'var(--m-r-sm)',
-                border: '1px solid var(--m-line)',
-                background: 'var(--m-paper-2)',
-                color: 'var(--m-ink)',
+                border: '1px solid rgb(var(--color-ink) / 0.12)',
+                background: 'rgb(var(--color-ink) / 0.04)',
+                color: 'rgb(var(--color-ink))',
                 fontSize: 13,
               }}
             >
@@ -427,21 +409,21 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 gap: 10,
                 margin: '4px 0',
                 fontSize: 11,
-                color: 'var(--m-slate)',
+                color: 'rgb(var(--color-ink) / 0.72)',
               }}
             >
-              <div style={{ flex: 1, height: 1, background: 'var(--m-line)' }} />
+              <div style={{ flex: 1, height: 1, background: 'rgb(var(--color-ink) / 0.12)' }} />
               <span
                 className="m-mono"
                 style={{
                   letterSpacing: '0.16em',
                   textTransform: 'uppercase',
-                  color: 'var(--m-slate-2)',
+                  color: 'rgb(var(--color-ink) / 0.60)',
                 }}
               >
                 or sign up with email
               </span>
-              <div style={{ flex: 1, height: 1, background: 'var(--m-line)' }} />
+              <div style={{ flex: 1, height: 1, background: 'rgb(var(--color-ink) / 0.12)' }} />
             </div>
           ) : null}
 
@@ -484,7 +466,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 className="m-mono"
                 style={{
                   fontSize: 10,
-                  color: 'var(--m-slate-2)',
+                  color: 'rgb(var(--color-ink) / 0.60)',
                   letterSpacing: '0.12em',
                   textTransform: 'uppercase',
                   padding: 0,
@@ -497,9 +479,9 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                   display: 'flex',
                   gap: 4,
                   padding: 3,
-                  background: 'var(--m-paper-2)',
+                  background: 'rgb(var(--color-ink) / 0.04)',
                   borderRadius: 'var(--m-r-full)',
-                  border: '1px solid var(--m-line)',
+                  border: '1px solid rgb(var(--color-ink) / 0.12)',
                 }}
               >
                 <AccountTypeOption
@@ -527,8 +509,8 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               style={{
                 padding: '10px 12px',
                 borderRadius: 'var(--m-r-sm)',
-                border: '1px solid var(--m-line)',
-                background: 'var(--m-paper-2)',
+                border: '1px solid rgb(var(--color-ink) / 0.12)',
+                background: 'rgb(var(--color-ink) / 0.04)',
               }}
             >
               <label
@@ -538,7 +520,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                   gap: 8,
                   cursor: 'pointer',
                   fontSize: 12,
-                  color: 'var(--m-slate)',
+                  color: 'rgb(var(--color-ink) / 0.72)',
                   lineHeight: 1.4,
                 }}
               >
@@ -551,11 +533,11 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                     width: 14,
                     height: 14,
                     flexShrink: 0,
-                    accentColor: 'var(--m-orange)',
+                    accentColor: 'rgb(var(--color-mulberry))',
                   }}
                 />
                 <span>
-                  <span style={{ color: 'var(--m-ink)', fontWeight: 500 }}>
+                  <span style={{ color: 'rgb(var(--color-ink))', fontWeight: 500 }}>
                     Include my wedding in Setnayan&rsquo;s Stories showcase.
                   </span>{' '}
                   30 days after our event, our editorial page becomes publicly
@@ -635,7 +617,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 alignItems: 'center',
                 gap: 6,
                 cursor: 'pointer',
-                color: 'var(--m-slate)',
+                color: 'rgb(var(--color-ink) / 0.72)',
                 fontSize: 12,
                 userSelect: 'none',
               }}
@@ -648,7 +630,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 style={{
                   width: 14,
                   height: 14,
-                  accentColor: 'var(--m-orange)',
+                  accentColor: 'rgb(var(--color-mulberry))',
                   cursor: 'pointer',
                 }}
               />
@@ -656,21 +638,11 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </label>
 
             <SubmitButton
-              className="m-btn-orange"
-              style={{
-                padding: '12px 18px',
-                fontSize: 14,
-                marginTop: 4,
-                justifyContent: 'center',
-                width: '100%',
-                background: 'var(--m-orange-2)',
-                color: 'var(--m-paper)',
-                border: 'none',
-                borderRadius: 'var(--m-r-full)',
-                fontFamily: 'inherit',
-                cursor: 'pointer',
-                fontWeight: 500,
-              }}
+              /* The one action that creates the account. `.button-primary` is
+                 #C24E25 with a cream label — 4.61:1, the same pairing every
+                 door CTA uses. It replaces a gold fill (#8A6B39, 4.79:1) that
+                 also passed; this is a register change, not a fix. */
+              className="button-primary mt-1 w-full"
               pendingLabel="Creating account…"
             >
               Create account · free
@@ -679,7 +651,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             <div
               style={{
                 fontSize: 11,
-                color: 'var(--m-slate)',
+                color: 'rgb(var(--color-ink) / 0.72)',
                 textAlign: 'center',
                 lineHeight: 1.4,
                 marginTop: 4,
@@ -688,14 +660,14 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               By signing up, you agree to our{' '}
               <Link
                 href="/terms"
-                style={{ color: 'var(--m-orange-2)', textDecoration: 'none' }}
+                style={{ color: 'rgb(var(--color-mulberry))', textDecoration: 'none' }}
               >
                 Terms
               </Link>{' '}
               and{' '}
               <Link
                 href="/privacy"
-                style={{ color: 'var(--m-orange-2)', textDecoration: 'none' }}
+                style={{ color: 'rgb(var(--color-mulberry))', textDecoration: 'none' }}
               >
                 Privacy
               </Link>
@@ -707,7 +679,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
           <div
             style={{
               fontSize: 12,
-              color: 'var(--m-slate)',
+              color: 'rgb(var(--color-ink) / 0.72)',
               textAlign: 'center',
               marginTop: 4,
             }}
@@ -716,7 +688,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             <Link
               href={loginHref}
               style={{
-                color: 'var(--m-orange-2)',
+                color: 'rgb(var(--color-mulberry))',
                 textDecoration: 'none',
                 fontWeight: 500,
               }}
@@ -762,19 +734,11 @@ function AccountTypeOption({
 }) {
   return (
     <label
-      style={{
-        flex: 1,
-        position: 'relative',
-        padding: '8px 14px',
-        borderRadius: 'var(--m-r-full)',
-        fontSize: 12,
-        textAlign: 'center',
-        cursor: 'pointer',
-        color: 'var(--m-slate)',
-        fontWeight: 400,
-        transition: 'background-color 120ms, color 120ms',
-      }}
-      className="m-acct-pill has-[:checked]:bg-[var(--m-ink)] has-[:checked]:text-[var(--m-paper)] has-[:checked]:font-medium"
+      /* The selected side wears the threshold colour — cream on #C24E25 is
+         4.61:1, the same pairing every door CTA uses. Unselected stays ink/70
+         on the card (5.29:1), so BOTH states are legible, which the old
+         ink-fill pill also managed and must not regress. */
+      className="m-acct-pill flex-1 cursor-pointer rounded-full px-3.5 py-2 text-center text-xs font-normal text-ink/70 transition-colors has-[:checked]:bg-mulberry has-[:checked]:font-medium has-[:checked]:text-cream"
     >
       <input
         type="radio"
@@ -817,19 +781,8 @@ function FormField({
   minLength?: number;
 }) {
   return (
-    <div>
-      <label
-        htmlFor={id}
-        className="m-mono"
-        style={{
-          display: 'block',
-          fontSize: 10,
-          color: 'var(--m-slate-2)',
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          marginBottom: 4,
-        }}
-      >
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="block text-sm font-medium text-ink">
         {label}
       </label>
       <input
@@ -842,18 +795,7 @@ function FormField({
         autoComplete={autoComplete}
         inputMode={inputMode}
         minLength={minLength}
-        style={{
-          width: '100%',
-          padding: '10px 12px',
-          background: 'var(--m-paper-2)',
-          border: '1px solid var(--m-line)',
-          borderRadius: 'var(--m-r-sm)',
-          fontSize: 13,
-          fontFamily: 'inherit',
-          color: 'var(--m-ink)',
-          outline: 'none',
-          boxSizing: 'border-box',
-        }}
+        className="input-field"
       />
     </div>
   );

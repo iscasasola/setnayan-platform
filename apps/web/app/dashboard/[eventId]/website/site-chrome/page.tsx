@@ -10,7 +10,7 @@ import { updateSiteChrome } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { WebsiteProLock } from '../_components/website-pro-lock';
 
-export const metadata = { title: 'Music & video hero · Setnayan' };
+export const metadata = { title: 'Music & video hero' };
 
 /**
  * /dashboard/[eventId]/website/site-chrome — looping background music + a

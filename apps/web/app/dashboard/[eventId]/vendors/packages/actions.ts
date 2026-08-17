@@ -7,6 +7,8 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { resolveLivePax } from '@/lib/pax';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
+import { emitNotification } from '@/lib/notification-emit';
 import {
   priceCustomizedPackage,
   unresolvedRequiredChoices,
@@ -81,6 +83,11 @@ function sanitiseHourRequest(raw: unknown): Record<string, number> {
 
 export type LockPackageResult =
   | { status: 'ok'; bookingId: string }
+  // PR-H · the press ASKED. The booking exists as a request, nobody has agreed,
+  // and the screen must say so rather than congratulate. Distinct from 'ok' so a
+  // caller physically cannot render the booked copy on an ask by forgetting a
+  // branch — the shape it needs is simply not there.
+  | { status: 'lock_requested'; bookingId: string; vendorName: string }
   | { status: 'not_signed_in' }
   | { status: 'forbidden' }
   | { status: 'package_not_found' }
@@ -415,15 +422,32 @@ export async function lockPackage(
     };
   }
 
-  // 6. Insert the booking row first (status=locked, customizations
-  //    persisted, totals computed). primary_event_vendor_id is filled
-  //    in after the cascade inserts.
+  // ── IS THIS PRESS AN ASK, OR A BOOKING? ─────────────────────────────────
+  // PR-H slice B. Slice A converted the ONE lock path (`finalizeVendor`); this
+  // is a SECOND way a booking is created and it went on booking outright, so a
+  // couple locking a PACKAGE was told the supplier was theirs while a couple
+  // locking the same supplier's single service was told they had been asked.
+  // Same product, two answers, decided by which button they happened to press.
+  //
+  // A package always points at a marketplace profile (`pkg.vendor_profile_id`
+  // is NOT NULL by construction), so unlike `finalizeVendor` there is no
+  // off-platform branch to preserve here — every package lock has a counterparty
+  // who can answer.
+  const handshakeAsk = isLockHandshakeEnabled();
+
+  // 6. Insert the booking row first. Under the handshake it stays 'considering'
+  //    — the value the column ALREADY defaults to before a lock, so no CHECK
+  //    changes and no new word enters the vocabulary — and is promoted to
+  //    'locked' inside `vendor_agree_to_lock`, in the same statement that books
+  //    the rows. `locked_at` stays NULL for the same reason: it is the receipt
+  //    for an event that has not happened.
+  //    primary_event_vendor_id is filled in after the cascade inserts.
   const { data: bookingRow, error: bookingErr } = await supabase
     .from('event_vendor_packages')
     .insert({
       event_id: eventId,
       package_id: packageId,
-      status: 'locked',
+      status: handshakeAsk ? 'considering' : 'locked',
       customizations_json: persistedCustomizations,
       // Credit left in the pool after upgrades. Flag OFF: the shipped
       // consumable figure, unchanged. Flag ON: the engine's remaining credit,
@@ -432,7 +456,7 @@ export async function lockPackage(
       // Includes any picked upgrades — this is the number the couple agreed to,
       // and §6.4 makes it the package booking-fee base.
       total_locked_centavos: bookingTotalCentavos,
-      locked_at: new Date().toISOString(),
+      locked_at: handshakeAsk ? null : new Date().toISOString(),
     })
     .select('booking_id')
     .single();
@@ -470,7 +494,15 @@ export async function lockPackage(
       vendor_name: vendor.business_name || pkg.package_name,
       contact_email: vendor.contact_email ?? null,
       contact_phone: vendor.contact_phone ?? null,
-      status: 'contracted' as const,
+      // ⚠ UNDER THE HANDSHAKE EVERY ROW STAYS 'considering'. Only the ANCHOR
+      // gets the request marker below — the pending index's own predicate says
+      // so (`package_role IS DISTINCT FROM 'covered'`), and a covered row is not
+      // a separate question anyone could answer. When the supplier agrees, the
+      // agree RPC promotes the anchor AND its covered siblings AND the booking
+      // row together.
+      status: (handshakeAsk ? 'considering' : 'contracted') as
+        | 'considering'
+        | 'contracted',
       marketplace_vendor_id: pkg.vendor_profile_id,
       event_vendor_package_id: bookingId,
     };
@@ -480,6 +512,14 @@ export async function lockPackage(
         ...baseRow,
         category: anchorCategory,
         package_role: 'anchor' as const,
+        // The ask lives on the anchor and nowhere else.
+        ...(handshakeAsk
+          ? {
+              lock_request_state: 'pending',
+              lock_requested_at: new Date().toISOString(),
+              lock_requested_by_user_id: user.id,
+            }
+          : {}),
         // THE money row: the whole agreed total, upgrades included. This is the
         // §6.4 booking-fee base — one number the couple accepted, not a line.
         total_cost_php: bookingTotalCentavos > 0 ? bookingTotalCentavos / 100 : null,
@@ -553,6 +593,44 @@ export async function lockPackage(
   revalidatePath(`/dashboard/${eventId}`);
   revalidatePath(`/dashboard/${eventId}/vendors`);
   revalidatePath(`/dashboard/${eventId}/vendors/packages/${bookingId}`);
+
+  if (handshakeAsk) {
+    // Tell the supplier they have been ASKED. Fail-soft, exactly as the single-
+    // service path: the request is already recorded, and an unsent notification
+    // must not roll it back — the day-5 nudge and the 7-day fuse are the net.
+    try {
+      const adminClient = createAdminClient();
+      const [{ data: vProfile }, { data: evtRow }] = await Promise.all([
+        adminClient
+          .from('vendor_profiles')
+          .select('user_id')
+          .eq('vendor_profile_id', pkg.vendor_profile_id)
+          .maybeSingle(),
+        adminClient.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
+      ]);
+      const vendorUserId = (vProfile as { user_id: string | null } | null)?.user_id ?? null;
+      if (vendorUserId) {
+        const who = (evtRow as { display_name: string } | null)?.display_name ?? 'A couple';
+        await emitNotification({
+          userId: vendorUserId,
+          type: 'lock_request_received',
+          title: `${who} wants to book your ${pkg.package_name}`,
+          body: `${who} has asked you to take their booking. You have 7 days to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
+          relatedUrl: '/vendor-dashboard',
+        });
+      }
+    } catch (e) {
+      console.error(
+        `[lockPackage] lock_request_received notify failed for booking_id=${bookingId} event_id=${eventId}:`,
+        e,
+      );
+    }
+    return {
+      status: 'lock_requested',
+      bookingId,
+      vendorName: vendor.business_name || pkg.package_name || 'this vendor',
+    };
+  }
 
   return { status: 'ok', bookingId };
 }

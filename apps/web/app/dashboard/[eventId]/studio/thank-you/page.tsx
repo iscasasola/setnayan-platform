@@ -8,7 +8,7 @@ import { buildThankYouVideoPlan } from '@/lib/thank-you-video';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ThankYouMaker } from './_components/thank-you-maker';
 
-export const metadata = { title: 'Thank-You Video · Studio · Setnayan' };
+export const metadata = { title: 'Thank-You Video · Studio' };
 export const dynamic = 'force-dynamic';
 
 /**

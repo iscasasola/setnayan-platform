@@ -9,7 +9,7 @@ import { resolveMonogram } from '@/lib/monogram';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { eventSkuActive } from '@/lib/entitlements';
 
-export const metadata = { title: 'Branded QR print sheet · Setnayan' };
+export const metadata = { title: 'Branded QR print sheet' };
 export const dynamic = 'force-dynamic';
 
 type Props = { params: Promise<{ eventId: string }> };

@@ -68,6 +68,7 @@ import { snapshotPolicyAcknowledgement } from '@/lib/vendor-service-payment-sche
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { isPaymentGatedLockEnabled } from '@/lib/payment-gated-lock';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
@@ -528,6 +529,18 @@ export type LockMilestone = {
 
 export type FinalizeVendorResult =
   | { status: 'ok'; vendorId: string; lockedStatus: string; milestone: LockMilestone }
+  // PR-H: the press was an ASK, not a booking. The supplier now has 7 days to
+  // agree or decline; nothing downstream has fired and no money is owed. Only
+  // reachable with NEXT_PUBLIC_LOCK_HANDSHAKE_ENABLED on AND a marketplace
+  // supplier behind the row — an off-platform name has nobody who could answer,
+  // so it still books directly and returns 'ok'.
+  | {
+      status: 'lock_requested';
+      vendorId: string;
+      vendorName: string;
+      /** ISO. Mirrors the deadline the trigger materialized on the row. */
+      expiresAt: string;
+    }
   // Locking this vendor narrows the couple's remaining candidate dates to a
   // single day — so confirming the lock also finalizes the wedding date. The
   // UI surfaces "Locking this service will finally set your date to {date} —
@@ -893,6 +906,21 @@ export async function finalizeVendor(
     }
   }
 
+  // ── IS THIS PRESS AN ASK, OR A BOOKING? ───────────────────────────────────
+  // Owner ruling 2026-07-27: a lock is a REQUEST — the supplier's yes is what
+  // books them (vendor_agree_to_lock, migration 20271143289546).
+  //
+  // ⚠ THE marketplace_vendor_id HALF IS NOT DEFENSIVE, IT IS THE MAJORITY CASE.
+  // 44 of 45 bookings in production are off-platform (measured 2026-08-15) —
+  // a name the couple typed, with no Setnayan account behind it. Nobody can
+  // ever answer a request addressed to one, and the DB agrees: the shipped
+  // CHECK `event_vendors_lock_request_marketplace_chk` makes
+  // lock_request_state='pending' a constraint violation when
+  // marketplace_vendor_id IS NULL. Without this branch, pressing Lock on the
+  // ordinary case would throw a raw Postgres string at the couple.
+  // So: no counterparty ⇒ keep today's direct lock, byte-identical.
+  const handshakeAsk = isLockHandshakeEnabled() && !!targetVendor.marketplace_vendor_id;
+
   // ── Candidate-date narrowing gate (date-as-output, force-to-one) ─────────
   // If the couple has NOT yet locked a wedding date but committed candidate
   // dates at onboarding, locking this marketplace vendor narrows those
@@ -903,8 +931,20 @@ export async function finalizeVendor(
   // forcedDateKey is carried to the post-lock block, which writes the date.
   // Off-platform vendors (no marketplace profile) can't constrain a date and
   // never trigger this gate.
+  //
+  // 🔴 SKIPPED ENTIRELY WHEN THIS PRESS IS ONLY AN ASK, and that is a live
+  // defect fix rather than tidiness. The gate builds its constraining set as
+  // the already-confirmed vendors PLUS THIS TARGET, added explicitly — so under
+  // the handshake, merely ASKING would narrow the couple's candidates against a
+  // supplier who has not agreed and can still decline, return 'date_will_lock',
+  // and on confirmation write the couple's FINAL wedding date at request time.
+  // The date would then survive the decline, because the write is
+  // `.is('event_date', null)`-guarded and nothing clears it.
+  // Owner 2026-08-04 §6.1: the date is a property of the EVENT narrowing to one
+  // candidate, never of one supplier's answer. Re-running the narrowing at the
+  // agreement is slice B; asking must simply not touch the date.
   let forcedDateKey: string | null = null;
-  if (targetVendor.marketplace_vendor_id) {
+  if (targetVendor.marketplace_vendor_id && !handshakeAsk) {
     const { data: dateRow } = await supabase
       .from('events')
       .select('event_date, date_candidates')
@@ -1040,7 +1080,15 @@ export async function finalizeVendor(
   const dpMethodIdRaw = formData.get('deposit_method_id');
   const dpProvided =
     typeof dpMethodIdRaw === 'string' && dpMethodIdRaw.length > 0;
-  const dpWantGate = dpFlagOn && !!targetVendor.marketplace_vendor_id;
+  // ⚠ NOTHING IS OWED FOR AN ASK. Under the handshake, payment is steps 3-4 —
+  // the supplier sends a payment request AFTER agreeing. Leaving this gate armed
+  // would make the couple pay real pesos and upload a screenshot at step 1, to a
+  // supplier who has not said yes and may decline, inverting the owner's own
+  // ordering. (Currently inert either way: NEXT_PUBLIC_PAYMENT_GATED_LOCK_ENABLED
+  // is unset in production. Two dark flags that become wrong together is exactly
+  // the seam this codebase keeps getting bitten by, so it is closed here rather
+  // than left to the day somebody flips the other one.)
+  const dpWantGate = dpFlagOn && !!targetVendor.marketplace_vendor_id && !handshakeAsk;
   let dpMethodsCache: CoupleFacingMethod[] | null = null;
   const getDpMethods = async (): Promise<CoupleFacingMethod[]> => {
     if (dpMethodsCache) return dpMethodsCache;
@@ -1175,11 +1223,28 @@ export async function finalizeVendor(
           vendorName: targetVendor.vendor_name as string,
         };
       }
-      // HARD payment gate — the slot RPC commits the lock atomically, so the
-      // downpayment must be collected BEFORE it. Slot is chosen; ask to pay now.
-      const dpGateSlot = await downpaymentGate();
-      if (dpGateSlot) return dpGateSlot;
-      const { data: acq, error: acqErr } = await supabase.rpc(
+      // 🔴 THE SLOT PATH MUST NOT RUN FOR AN ASK — it BOOKS.
+      // acquire_service_time_slot is SECURITY DEFINER and writes
+      // `status='contracted', service_time_slot_id, selection_match_rank=1,
+      // linked_vendor_profile_id` itself, then sets slotPathLocked so the
+      // generic write below is skipped. Left alone under the flag, every
+      // supplier who offers time windows would be booked outright at the
+      // couple's press while the UI said "we've asked them" — the exact bug this
+      // whole change exists to kill, behind a screen that now claims otherwise.
+      // It cannot be caught by the guard trigger either: DEFINER runs as
+      // `postgres`, and that trigger gates on authenticated/anon.
+      //
+      // So: keep the slot REQUIREMENT (the couple still chooses a window, and it
+      // is stamped on the request below), skip the ACQUIRE, and let capacity be
+      // consumed inside vendor_agree_to_lock when the supplier says yes.
+      // Latent today — production has zero active time slots — but slots are
+      // vendor-authored, so one supplier creating a window activates this.
+      if (!handshakeAsk) {
+        // HARD payment gate — the slot RPC commits the lock atomically, so the
+        // downpayment must be collected BEFORE it. Slot is chosen; ask to pay now.
+        const dpGateSlot = await downpaymentGate();
+        if (dpGateSlot) return dpGateSlot;
+        const { data: acq, error: acqErr } = await supabase.rpc(
         'acquire_service_time_slot',
         {
           p_event_id: eventId,
@@ -1255,7 +1320,11 @@ export async function finalizeVendor(
           break;
         default:
           return { status: 'error', message: 'Could not reserve the time slot.' };
+        }
       }
+      // handshakeAsk falls through here with slotPathLocked still false, so the
+      // write below records the REQUEST (stamping the chosen window) instead of
+      // the acquire having booked it.
     } else {
       // ── #2 DAILY-CAPACITY PATH (service has no active slots). ──
       const { data: svcRow } = await supabase
@@ -1424,14 +1493,51 @@ export async function finalizeVendor(
     // target as marketplace_vendor_id (vendor_profiles.vendor_profile_id), so
     // they're interchangeable here. NULL for off-platform / custom vendors
     // (no profile to attribute to) — left NULL, which is correct.
+    //
+    // ⚠ UNDER THE HANDSHAKE THIS WRITES AN ASK, NOT A BOOKING.
+    // The row stays 'considering' and carries lock_request_state='pending'; the
+    // guard trigger materializes the 7-day deadline and clears any nudge stamp
+    // from a previous round. The supplier's yes is what writes 'contracted', in
+    // one statement inside vendor_agree_to_lock.
+    //
+    // selection_match_rank / linked_vendor_profile_id are DELIBERATELY NOT
+    // stamped on an ask. They mean "this is our chosen supplier" — the public
+    // editorial reader keys `isFirstPick` off them with no status filter — and
+    // the only thing that clears them, revertVendorToConsidering, refuses unless
+    // the row is already confirmed. So on an ask that is later declined,
+    // expired or withdrawn (all of which leave status='considering') they would
+    // be permanent. A forward primitive with no inverse.
+    //
+    // ⚠ THIS COMMENT USED TO END: "The agree RPC stamps both alongside
+    // 'contracted', exactly as acquire_service_time_slot already does, so a real
+    // booking is unchanged." HALF OF THAT WAS FALSE FROM THE DAY IT WAS WRITTEN.
+    // acquire_service_time_slot DOES stamp both; vendor_agree_to_lock stamped
+    // NEITHER — read out of production with pg_get_functiondef, not from a
+    // migration and not from a comment.
+    // 🔑 A SENTENCE IS NOT A MECHANISM, and a sentence written HERE about what a
+    // DIFFERENT object does is the least checkable kind there is: nothing
+    // typechecks it, no test exercised it, and it read as settled fact.
+    // Corrected by migration 20271144481150, which adds both stamps to the agree
+    // flip — so the claim is true now. tests/db/agree-stamps-the-link.db.test.ts fails if
+    // the migration ever stops writing them, so the next reader is TOLD rather
+    // than trusted.
+    const lockPayload = handshakeAsk
+      ? {
+          lock_request_state: 'pending',
+          lock_requested_at: new Date().toISOString(),
+          lock_requested_by_user_id: user.id,
+          ...(chosenSlotId ? { service_time_slot_id: chosenSlotId } : {}),
+          updated_at: new Date().toISOString(),
+        }
+      : {
+          status: LOCKED_STATUS,
+          selection_match_rank: 1,
+          linked_vendor_profile_id: targetVendor.marketplace_vendor_id ?? null,
+          updated_at: new Date().toISOString(),
+        };
     const { error: lockErr } = await supabase
       .from('event_vendors')
-      .update({
-        status: LOCKED_STATUS,
-        selection_match_rank: 1,
-        linked_vendor_profile_id: targetVendor.marketplace_vendor_id ?? null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(lockPayload)
       .eq('vendor_id', vendorId)
       .eq('event_id', eventId)
       .not('status', 'in', '("deposit_paid","delivered","complete")');
@@ -1455,6 +1561,77 @@ export async function finalizeVendor(
       });
       return { status: 'error', message: lockErr.message };
     }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // THE ASK STOPS HERE — BEFORE EVERY SIDE EFFECT THAT SAYS "IT IS DONE".
+  //
+  // Everything below this point announces or acts on a COMPLETED booking:
+  // the claim-link invite, the `booking_confirmed` notification, the frozen
+  // payment plan plus its "your payment info is ready" email, the sweep that
+  // archives every rival the couple was considering, the displacement and
+  // refund of rival inquiry threads, the category auto-complete, the
+  // vendor_lock_proposals auto-resolve, and the vendor-activity recompute
+  // whose own comment says "the vendor just reached the first FINALIZED
+  // status". Firing any of them on an ASK would tell both sides a deal is
+  // done and kill the couple's rival conversations before anyone agreed —
+  // and the payment plan would anchor its due dates on the REQUEST date, so
+  // a supplier answering on day 6 inherits a downpayment dated six days
+  // before they said yes, frozen.
+  //
+  // They belong to the agreement, and they run from vendorAgreeToLock.
+  // ══════════════════════════════════════════════════════════════════════
+  if (handshakeAsk) {
+    const requestedAt = new Date();
+    // The DB materializes the real deadline; this mirrors the same 7 days for
+    // the toast. Slice B reads the stored value back for the countdown, so the
+    // number shown is the number enforced.
+    const expiresAt = new Date(requestedAt.getTime() + 7 * 86_400_000).toISOString();
+
+    // Tell the supplier they have been ASKED — never `booking_confirmed`,
+    // which says the opposite. Fail-soft: the request is already recorded, and
+    // an unsent notification must not roll it back. The day-5 nudge and the
+    // 7-day expiry are the safety net if this one never lands.
+    try {
+      const adminClient = createAdminClient();
+      const [{ data: vProfile }, { data: evRow }] = await Promise.all([
+        adminClient
+          .from('vendor_profiles')
+          .select('user_id')
+          .eq('vendor_profile_id', targetVendor.marketplace_vendor_id as string)
+          .maybeSingle(),
+        adminClient
+          .from('events')
+          .select('display_name')
+          .eq('event_id', eventId)
+          .maybeSingle(),
+      ]);
+      const vendorUserId = (vProfile as { user_id: string | null } | null)?.user_id ?? null;
+      if (vendorUserId) {
+        const who =
+          (evRow as { display_name: string } | null)?.display_name ?? 'A couple';
+        await emitNotification({
+          userId: vendorUserId,
+          type: 'lock_request_received',
+          title: `${who} wants to book you`,
+          body: `${who} has asked you to take their booking. You have 7 days to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
+          relatedUrl: '/vendor-dashboard',
+        });
+      }
+    } catch (e) {
+      console.error(
+        `[finalizeVendor] lock_request_received notify failed for vendor_id=${vendorId} event_id=${eventId}:`,
+        e,
+      );
+    }
+
+    revalidatePath(`/dashboard/${eventId}/vendors`);
+    return {
+      status: 'lock_requested',
+      vendorId,
+      vendorName: targetVendor.vendor_name as string,
+      expiresAt,
+    };
   }
 
   // ----------------------------------------------------------------------
@@ -2273,6 +2450,127 @@ export type RevertVendorResult =
   | { status: 'not_locked' }
   | { status: 'error'; message: string };
 
+/**
+ * WITHDRAW THE ASK — the inverse slice A shipped without.
+ *
+ * 🔴 `cancel_vendor_lock_request` shipped EXECUTE-granted with ZERO CALLERS
+ * ANYWHERE (measured at origin/main ce5ee9b88 and again at b2cd23d54). So a
+ * couple who asked the wrong supplier, or simply changed their mind, had no way
+ * out: the request sat `pending`, held both pending indexes and the supplier's
+ * hard-single slot, and the ONLY thing that could close it was the 7-day fuse or
+ * the supplier answering a question the couple no longer wanted answered.
+ *
+ * 🔑 A FORWARD PRIMITIVE WITH NO INVERSE. Exactly the shape that once left a
+ * vendor reading BUSY to everyone forever, and the same shape the sweep was
+ * built to rescue slice A from. Asking anyone for anything is only safe when
+ * un-asking is one press away.
+ *
+ * The RPC is the authority and is deliberately NOT re-checked here: it is
+ * couple-only (`current_couple_event_ids()`, NOT couple-or-coordinator — a
+ * coordinator must not erase a request they may have raised), it refuses
+ * anything that is not still `pending`, and it returns the `event_id` READ OFF
+ * THE ROW IT AUTHORIZED. Every side effect below keys on that envelope value and
+ * never on the form, for the same confused-deputy reason the vendor's answer
+ * actions carry in their own docblock.
+ *
+ * ⚠ NOT the same act as "Change pick". `revertVendorToConsidering` unwinds a
+ * REAL booking the supplier already agreed to, with archive-restores, thread
+ * revivals and a schedule release behind it. This withdraws a question nobody
+ * has answered. Collapsing the two would make backing out of an ask carry the
+ * weight of cancelling a booking — and would fire a `booking_cancelled` notice
+ * at a supplier who was never booked.
+ */
+export type WithdrawLockRequestResult =
+  | { status: 'ok'; vendorName: string }
+  /** The supplier answered (or the fuse blew) between the render and the press.
+   *  The screen is simply stale — re-reading it shows the real outcome. */
+  | { status: 'not_pending' }
+  | { status: 'not_signed_in' }
+  | { status: 'error'; message: string };
+
+export async function withdrawVendorLockRequest(
+  formData: FormData,
+): Promise<WithdrawLockRequestResult> {
+  const vendorId = formData.get('vendor_id');
+  if (typeof vendorId !== 'string' || vendorId.length === 0) {
+    return { status: 'error', message: 'Missing vendor id' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  const { data, error } = await supabase.rpc('cancel_vendor_lock_request', {
+    p_event_vendor_id: vendorId,
+  });
+  if (error) {
+    return { status: 'error', message: error.message };
+  }
+  const env = (data ?? {}) as { status?: string; event_id?: string };
+  const eventId = typeof env.event_id === 'string' ? env.event_id : null;
+
+  // 'already' and 'not_pending' are the same thing to the couple: the ask is no
+  // longer outstanding. Only 'ok' is a fresh withdrawal worth telling anyone
+  // about — re-pressing must not send the supplier a second notice.
+  if (env.status !== 'ok') {
+    if (eventId) revalidatePath(`/dashboard/${eventId}/vendors`);
+    return { status: 'not_pending' };
+  }
+
+  // Tell the SUPPLIER. Best-effort: the withdrawal is already committed and a
+  // notification hiccup must never roll it back — but silence here is its own
+  // harm, because the answer card just disappeared from their Overview and
+  // nothing else in the product would ever explain why.
+  let vendorName = 'this supplier';
+  try {
+    const admin = createAdminClient();
+    const { data: ev } = await admin
+      .from('event_vendors')
+      .select('vendor_name, marketplace_vendor_id')
+      .eq('vendor_id', vendorId)
+      .maybeSingle();
+    const row = (ev ?? null) as {
+      vendor_name?: string;
+      marketplace_vendor_id?: string | null;
+    } | null;
+    vendorName = row?.vendor_name ?? vendorName;
+    if (row?.marketplace_vendor_id && eventId) {
+      const [{ data: vProfile }, { data: evtRow }] = await Promise.all([
+        admin
+          .from('vendor_profiles')
+          .select('user_id')
+          .eq('vendor_profile_id', row.marketplace_vendor_id)
+          .maybeSingle(),
+        admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
+      ]);
+      const vendorUserId = (vProfile as { user_id: string | null } | null)?.user_id ?? null;
+      const who = (evtRow as { display_name: string } | null)?.display_name ?? 'A couple';
+      if (vendorUserId) {
+        await emitNotification({
+          userId: vendorUserId,
+          type: 'lock_request_withdrawn',
+          title: `${who} took their booking request back`,
+          body: `${who} has withdrawn the booking request you were asked to answer. Nothing is owed either way, and the date is free on your calendar again.`,
+          relatedUrl: '/vendor-dashboard',
+        });
+      }
+    }
+  } catch (e) {
+    console.error(
+      `[withdrawVendorLockRequest] notify failed for vendor_id=${vendorId} event_id=${eventId}:`,
+      e,
+    );
+  }
+
+  if (eventId) {
+    revalidatePath(`/dashboard/${eventId}/vendors`);
+    revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+  }
+  return { status: 'ok', vendorName };
+}
+
 export async function revertVendorToConsidering(
   formData: FormData,
 ): Promise<RevertVendorResult> {
@@ -2295,7 +2593,7 @@ export async function revertVendorToConsidering(
 
   const { data: current, error: readErr } = await supabase
     .from('event_vendors')
-    .select('status, marketplace_vendor_id, category')
+    .select('status, marketplace_vendor_id, category, lock_request_state')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -2337,12 +2635,37 @@ export async function revertVendorToConsidering(
   // 'considering' clears them so a no-longer-chosen vendor stops counting as
   // the recommended pick AND stops contributing to the vendor's public
   // completed-events count / Pro-Enterprise editorial credit.
+  //
+  // ⚠ AND THE HANDSHAKE MARKER GOES WITH IT — slice B. Undoing a lock that a
+  // supplier AGREED to left `lock_request_state = 'agreed'` standing on a row
+  // whose status had just been walked back to 'considering'. The record then
+  // said the supplier holds this booking while the couple's screens said nobody
+  // does. `lock-request-state.ts` already ASSERTED this write existed ("the flag
+  // arm there also writes 'cancelled'") — it did not; the claim is made true
+  // here rather than deleted, because the honest value for a couple undoing
+  // their own request is exactly 'cancelled'.
+  // The forgery guard permits it: an authenticated caller may write 'pending' or
+  // 'cancelled' and is refused only 'agreed' / 'declined' / 'expired'. So this
+  // needs no RPC, and `cancel_vendor_lock_request` could not do it anyway — that
+  // one refuses everything except a still-pending request, by design.
   const { error: revertErr } = await supabase
     .from('event_vendors')
     .update({
       status: 'considering',
       selection_match_rank: null,
       linked_vendor_profile_id: null,
+      // ONLY when the row actually CARRIES a marker. A confirmed row with
+      // lock_request_state NULL — every legacy booking, everything locked while
+      // the flag was off, and the printed Locked-QR path, which promotes to
+      // deposit_paid without touching a single lock_* column — was never asked
+      // for, so stamping 'cancelled' on it would print "you withdrew this" over
+      // a booking nobody ever requested.
+      ...(isLockHandshakeEnabled() && current.lock_request_state != null
+        ? {
+            lock_request_state: 'cancelled',
+            lock_request_cancelled_at: new Date().toISOString(),
+          }
+        : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('vendor_id', vendorId)

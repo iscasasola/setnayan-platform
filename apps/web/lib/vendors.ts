@@ -289,6 +289,20 @@ export type EventVendorRow = {
   pax_surcharge_php?: number | null;
   pax_quote_base?: number | null;
   cost_basis_pax?: number | null;
+  /**
+   * PR-H · the lock handshake (migrations 20271107090000 + 20271143289546).
+   * `lock_request_state` is the five-value machine; the two timestamps are its
+   * receipts. NULL on every booking made before the handshake, everything
+   * locked while the flag is off, and the printed Locked-QR path — which is why
+   * NOTHING may be derived from the timestamps alone.
+   *
+   * 🔑 NEVER read `lock_request_state` raw to decide what a couple is told.
+   * Six surfaces answer "where is this booking?" and they drifted once already;
+   * `lockRequestStateOf(row, isLockHandshakeEnabled())` is the one derivation.
+   */
+  lock_request_state?: string | null;
+  lock_requested_at?: string | null;
+  lock_request_expires_at?: string | null;
 };
 
 export async function fetchEventVendors(
@@ -298,7 +312,7 @@ export async function fetchEventVendors(
   const { data, error } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,transport_php,food_allowance_php,deposit_paid_php,notes,host_inclusions,covers_plan_groups,created_at,marketplace_vendor_id,pax_surcharge_php,pax_quote_base,cost_basis_pax',
+      'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,transport_php,food_allowance_php,deposit_paid_php,notes,host_inclusions,covers_plan_groups,created_at,marketplace_vendor_id,pax_surcharge_php,pax_quote_base,cost_basis_pax,lock_request_state,lock_requested_at,lock_request_expires_at',
     )
     .eq('event_id', eventId)
     .order('created_at', { ascending: true });

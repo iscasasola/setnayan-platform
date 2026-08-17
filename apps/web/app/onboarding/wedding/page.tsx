@@ -56,7 +56,7 @@ import { buildOnboardingPricing } from './_components/onboarding-pricing';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Plan your wedding · Setnayan',
+  title: 'Plan your wedding',
   description:
     "A few quick questions and we'll build a plan made for your day — every vendor sorted to fit. Free to start, always.",
   // Onboarding sits behind a CTA (marketing "Start planning · free" +

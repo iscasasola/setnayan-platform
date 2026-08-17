@@ -9,7 +9,7 @@ import { fallbackSeedFromPublicId, sanitizeWaxSealConfig } from '@/lib/wax-seal/
 import { WaxStampMaker } from './wax-stamp-maker';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
-export const metadata = { title: 'Make your wax seal · Setnayan' };
+export const metadata = { title: 'Make your wax seal' };
 
 type Props = { params: Promise<{ eventId: string }> };
 

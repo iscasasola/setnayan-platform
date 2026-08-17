@@ -135,7 +135,7 @@ test('only the vendor who made the recommendation can restate it', () => {
 // ── The two surfaces must not drift apart again ─────────────────────────────
 
 test('neither surface keeps its own copy of the rank order', () => {
-  const explore = read('..', 'app', 'explore', 'page.tsx');
+  const explore = read('..', 'app', '(shell)', 'explore', 'page.tsx');
   const trusted = read('vendor-trusted-by.ts');
   assert.match(explore, /PARTNERSHIP_RANK/, 'Explore must read the shared rank');
   // ⚠ A NAME APPEARING IS NOT A NAME BEING USED. The first version of this

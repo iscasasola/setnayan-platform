@@ -146,7 +146,7 @@ export default async function PabuyaPublicPage({
           </p>
           <p className="mt-1 text-sm text-ink/60">— {coupleName}</p>
           <p className="mt-6 font-mono text-xs uppercase tracking-[0.14em] text-ink/45">
-            Kept forever on Setnayan
+            Kept safe on Setnayan
           </p>
         </footer>
       </div>

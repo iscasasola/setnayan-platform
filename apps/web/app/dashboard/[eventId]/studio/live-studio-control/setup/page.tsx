@@ -20,7 +20,7 @@ import { liveStudioControlPath } from '@/lib/live-studio-control';
  * NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED off this 404s, so the redirect cannot
  * become a new way to reach a dark surface.
  */
-export const metadata = { title: 'Live Studio controller · Setnayan' };
+export const metadata = { title: 'Live Studio controller' };
 
 type Props = { params: Promise<{ eventId: string }> };
 

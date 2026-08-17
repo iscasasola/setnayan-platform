@@ -30,7 +30,7 @@ import {
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
-const privacy = () => readFileSync(join(WEB, 'app/privacy/page.tsx'), 'utf8');
+const privacy = () => readFileSync(join(WEB, 'app/(shell)/privacy/page.tsx'), 'utf8');
 const sql = () =>
   readdirSync(MIGRATIONS)
     .filter((f) => f.endsWith('.sql'))

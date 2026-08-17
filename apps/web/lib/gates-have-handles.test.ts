@@ -34,6 +34,8 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { loadSources, gateWritersOf } from './gate-writers';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..'); // apps/web
 const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
@@ -48,6 +50,8 @@ const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
  */
 const SWITCHES: {
   column: string;
+  /** The table it lives on — needed to pair a table-write with a field-name. */
+  table: string;
   whoFlips: string;
   whatBreaksWhenStuck: string;
   /** Set when the ONLY writer is an RPC parameter — see rpcWritersOf. */
@@ -55,6 +59,7 @@ const SWITCHES: {
 }[] = [
   {
     column: 'live_media_public',
+    table: 'events',
     whoFlips: 'the couple, on the website privacy page',
     whatBreaksWhenStuck:
       'a visitor with no invitation never sees the livestream or the live photo ' +
@@ -62,6 +67,7 @@ const SWITCHES: {
   },
   {
     column: 'papic_face_mode',
+    table: 'events',
     whoFlips: 'an admin / the DPO, per event',
     whatBreaksWhenStuck: 'face auto-tagging stores nothing, on a feature that was paid for',
   },
@@ -71,6 +77,7 @@ const SWITCHES: {
     // this shape were being fixed. The guard existed and never looked, because
     // nobody registered the switch with it.
     column: 'author_named_publicly',
+    table: 'guest_columns',
     whoFlips: 'the guest, on the message form on the event page',
     whatBreaksWhenStuck:
       'a guest can never choose to be named beside their own published words — ' +
@@ -88,6 +95,7 @@ const SWITCHES: {
     // list, an anon-column-scope migration and a db test, so it looks
     // thoroughly wired from every angle except the one that matters.
     column: 'is_founder',
+    table: 'vendor_profiles',
     whoFlips: 'an admin, on the vendor plan page (/admin/vendors/[id]/plan)',
     whatBreaksWhenStuck:
       'no business can ever be made a founding supplier — the unlimited-category ' +
@@ -108,6 +116,7 @@ const SWITCHES: {
     // ⚠ AN APPLIED MIGRATION MISDESCRIBED IT as "(venue wall)" — the misreading
     // that let it live. This guard does not read comments, which is the point.
     column: 'live_photo_wall_visibility',
+    table: 'events',
     whoFlips: 'the couple, on the Live Photo Wall card (Papic page / day-of console)',
     whatBreaksWhenStuck:
       'the photo wall plays on every invited guest’s phone for the whole ' +
@@ -116,42 +125,32 @@ const SWITCHES: {
   },
 ];
 
-/** Every .ts/.tsx under apps/web that is not a test, a type file, or generated. */
-function sourceFiles(dir: string, out: string[] = []): string[] {
-  for (const entry of readdirSync(dir)) {
-    if (entry === 'node_modules' || entry === '.next' || entry.startsWith('.')) continue;
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) {
-      sourceFiles(full, out);
-    } else if (/\.(ts|tsx)$/.test(entry) && !/\.test\.tsx?$/.test(entry)) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
-const FILES = sourceFiles(WEB);
+const SOURCES = loadSources(WEB);
+const FILES = SOURCES.map((s) => join(WEB, s.path));
 
 /**
- * Does any file WRITE this column? A write is the column appearing as an object
- * key inside an `.update({...})` or `.insert({...})` — which is how every write
- * in this codebase is spelled, since all of them go through supabase-js.
+ * Does anything WRITE this column?
  *
- * Deliberately NOT "the column name appears somewhere": that is exactly the
- * check that would have passed for seven weeks on a column with 40 readers and
- * no writer.
+ * ⚠ THE DETECTOR MOVED to `lib/gate-writers.ts` on 2026-08-17, and the pattern
+ * that used to live here was measurably too narrow. Against the real schema it
+ * missed FOUR spellings this codebase actually uses — ES6 shorthand
+ * (`{ faceblock_enabled }`, no colon), a write funnelled through a helper, an
+ * update object longer than its 600-character window, and a payload assembled
+ * into a variable first — and so called 16 working controls missing. A guard
+ * that cries wolf teaches you to skim past the one time it is right.
+ *
+ * The shared module is now used by BOTH this file and the schema-enumerating
+ * `tests/db/gates-have-handles.db.test.ts`, so the two cannot drift apart.
  */
 function writersOf(column: string): string[] {
-  const found: string[] = [];
-  // `.update({ ... column: ... })` / `.insert({ ... column: ... })`, allowing
-  // whitespace and other keys, non-greedy up to the closing brace.
-  const pattern = new RegExp(`\\.(update|insert|upsert)\\(\\s*[\\[{][\\s\\S]{0,600}?\\b${column}\\b\\s*:`);
-  for (const file of FILES) {
-    const src = readFileSync(file, 'utf8');
-    if (!src.includes(column)) continue;
-    if (pattern.test(src)) found.push(file.slice(WEB.length + 1));
+  const sw = SWITCHES.find((s) => s.column === column);
+  // Columns named by the meta-tests below are not registered switches; fall back
+  // to scanning every table so those assertions still mean what they say.
+  const tables = sw ? [sw.table] : ['events', 'guests', 'users', 'vendor_profiles'];
+  for (const table of tables) {
+    const hits = gateWritersOf(SOURCES, table, column);
+    if (hits.length > 0) return hits;
   }
-  if (found.length > 0) return found;
   return rpcWritersOf(column);
 }
 

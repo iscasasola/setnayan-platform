@@ -40,6 +40,11 @@ export function DetailsForm({
   initialPartnerABirthTime = '',
   initialPartnerBBirthDate = '',
   initialPartnerBBirthTime = '',
+  // The repeat. `repeatOptions` empty ⇒ this type cannot repeat and the section
+  // never renders; a single option that is FORCED ⇒ a sentence, not a picker.
+  repeatOptions = [],
+  repeatForced = false,
+  initialCadence = '',
 }: {
   eventId: string;
   initialBrideFirst: string;
@@ -55,7 +60,11 @@ export function DetailsForm({
   initialPartnerABirthTime?: string;
   initialPartnerBBirthDate?: string;
   initialPartnerBBirthTime?: string;
+  repeatOptions?: readonly { value: string; label: string }[];
+  repeatForced?: boolean;
+  initialCadence?: string;
 }) {
+  const [cadence, setCadence] = useState(initialCadence);
   const [brideFirst, setBrideFirst] = useState(initialBrideFirst);
   const [brideLast, setBrideLast] = useState(initialBrideLast);
   const [groomFirst, setGroomFirst] = useState(initialGroomFirst);
@@ -102,6 +111,19 @@ export function DetailsForm({
     // byte-identical to before, and the server action also re-guards on the
     // flag + ceremony + consent, so nothing is written. The consent flag is the
     // third gate: the server only writes the birth fields when it's '1'.
+    // Only send the repeat when this type actually offers one AND the choice is
+    // the person's to make. The server treats an ABSENT key as "leave it alone",
+    // so somebody editing their budget can never silently switch off a repeat
+    // they were never shown.
+    if (repeatOptions.length > 0) {
+      // A FORCED type posts its one legal cadence rather than nothing. Sending
+      // nothing meant the screen could assert "this returns every year" over a
+      // row that said otherwise and offer no way to make it true — the exact
+      // state every birthday created from the create grid was in. The server's
+      // resolveCadence ignores the posted value for a forced type anyway, so
+      // this is a repair, never a new decision.
+      fd.set('recur_cadence', repeatForced ? (repeatOptions[0]?.value ?? '') : cadence);
+    }
     if (showBaziBirthData) {
       fd.set('bazi_birthdata_consent', baziConsent ? '1' : '0');
       fd.set('partner_a_birth_date', partnerABirthDate);
@@ -257,6 +279,55 @@ export function DetailsForm({
         />
         <p className="text-[11px] text-ink/50">A working figure — refine it anytime. Leave blank if undecided.</p>
       </div>
+
+      {/* ── DOES IT COME BACK? ───────────────────────────────────────────────
+          The control the product has been PROMISING and never had: the
+          onboarding wizard says "You can change this later." under the yearly
+          question, and until now nothing anywhere could change it — `recurs`
+          had no UPDATE path at all, so a one-tap answer at creation was
+          permanent.
+
+          Three states, decided by the type, never by taste:
+            · no options       → this happens once (a wedding produces an
+                                 anniversary; it does not repeat). Nothing renders.
+            · forced           → a birthday and an anniversary ARE the return of
+                                 one date. A sentence, not a picker — there is
+                                 nothing to decide.
+            · a choice         → the cadences this type may honestly use. */}
+      {repeatOptions.length > 0 ? (
+        <div className="space-y-1.5">
+          <label htmlFor="recur_cadence" className="block text-xs font-medium text-ink/70">
+            Does it come back?
+          </label>
+          {repeatForced ? (
+            <p className="sn-row px-3 py-2.5 text-sm text-ink/70">
+              This one returns every year — that is what it is.
+            </p>
+          ) : (
+            <>
+              <select
+                id="recur_cadence"
+                value={cadence}
+                onChange={(e) => {
+                  setCadence(e.target.value);
+                  setSaved(false);
+                }}
+                className={selectClass}
+              >
+                <option value="">Just this once</option>
+                {repeatOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-ink/50">
+                We bring it back on your year, quietly — we never create it for you.
+              </p>
+            </>
+          )}
+        </div>
+      ) : null}
 
       {/* PR-G — BaZi birth-data opt-in. Renders ONLY when the flag is on AND the
           event is a Chinese wedding (gate computed server-side). Consent is the

@@ -12,7 +12,7 @@ import {
 } from '@/lib/couple-website-pro';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
-export const metadata = { title: 'Event Hub PRO · Setnayan' };
+export const metadata = { title: 'Event Hub PRO' };
 
 const SKU_CODE = 'COUPLE_WEBSITE_PRO';
 

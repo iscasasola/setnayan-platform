@@ -230,6 +230,29 @@ export function hiddenMeasuredTypes(
   todayISO: string,
 ): string[] {
   if (people == null) return [];
+  // 🔴 AN EMPTY LIST IS NOT AN ANSWER — IT IS THE ABSENCE OF ONE.
+  //
+  // `[].some(...)` is false, so every measured type read as "concerns nobody"
+  // and BOTH folded away. Owner, looking at the live create screen 2026-08-16:
+  // *"i don't see the important events that need to be planned?"* — Debut and
+  // Christening, the two biggest Filipino life events after a wedding, were
+  // missing from the grid for **every account**, and behind a text link at the
+  // bottom of the page.
+  //
+  // The measurement can never say yes: the People layer it reads is
+  // `dependentPeopleEnabled()`-gated and holds ZERO rows in production, so the
+  // question "is there a child near their 18th?" is asked of an empty table and
+  // answered "no" forever. A rule that is correct in principle produced the
+  // wrong screen in practice, because the data it depends on does not exist yet.
+  //
+  // Nobody on file means we know NOTHING about this household — which is
+  // exactly what `people == null` above already means, and it fails open. This
+  // makes the two agree. Once real dependents exist the measurement resumes:
+  // one person on file with a birthdate still folds what genuinely cannot apply.
+  //
+  // ⚠ This narrows what hides; it can never hide MORE than before, so it cannot
+  // take a type away from anyone.
+  if (people.length === 0) return [];
   return measuredLifeTypes().filter((type) => {
     const concerned = people.some((p) => {
       if (!p.birth_date) return true; // unmeasurable person → fail open

@@ -16,7 +16,7 @@
 
 import { redirect } from 'next/navigation';
 
-export const metadata = { title: 'More · Setnayan' };
+export const metadata = { title: 'More' };
 
 type Props = {
   params: Promise<{ eventId: string }>;

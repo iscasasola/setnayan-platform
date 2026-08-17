@@ -53,7 +53,7 @@ const AUTO_POPULATE_HINT: Partial<Record<WidgetType, string>> = {
   our_love_story: 'Fills from your onboarding love story.',
 };
 
-export const metadata = { title: 'Customize widgets · Setnayan' };
+export const metadata = { title: 'Customize widgets' };
 
 /**
  * /dashboard/[eventId]/website/widgets — V1 invitation widgets editor.

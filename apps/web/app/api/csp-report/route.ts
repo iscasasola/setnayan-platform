@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { rateLimit } from '@/lib/rate-limit';
 import { cspViolationSummary } from '@/lib/csp-report';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
  * POST /api/csp-report — the sink for `Content-Security-Policy-Report-Only`.
@@ -54,9 +55,41 @@ export async function POST(req: NextRequest) {
     const summary = cspViolationSummary(raw);
     if (!summary) return noContent();
 
-    // Sentry when configured, the platform log otherwise. Deliberately a WARNING,
-    // not an error: a report-only violation is information, and paging on it while
-    // the allowlist is still being learned would train people to mute it.
+    // ── WHERE THE REPORT ACTUALLY LANDS (2026-08-17) ────────────────────────
+    // This used to be a lone `console.warn`, under a comment claiming "Sentry
+    // when configured, the platform log otherwise" — there was no Sentry call.
+    // The cost was not a leak: it was that enforcement was deferred until "the
+    // reports are boring", and NOTHING KEPT THE REPORTS, so the moment to
+    // enforce could never arrive. Function logs roll off and nobody builds an
+    // allowlist from them.
+    //
+    // Aggregated on the way in — one counter per
+    // (directive, origin, route shape, Manila day) — because a misconfigured
+    // policy fires on every asset of every page view, and raw rows would be an
+    // unbounded write amplifier aimed at our own database by unauthenticated
+    // traffic.
+    //
+    // 🔒 SERVICE ROLE, not the anonymous key. The browser posts to OUR route
+    // and the route writes, so collecting reports adds nothing to the anon
+    // grant surface and no anon-callable function.
+    const admin = createAdminClient();
+    const { error } = await admin.rpc('record_csp_violation', {
+      p_directive: summary.directive,
+      p_blocked_origin: summary.blockedOrigin,
+      p_route_shape: summary.path,
+    });
+
+    // ⚠ SUPABASE DOES NOT THROW — it resolves with `{ error }`. A sink whose
+    // write silently fails is indistinguishable from a site with no violations,
+    // which is the exact false calm this whole change exists to end. So the
+    // failure is loud in the log even though the response stays 204.
+    if (error) {
+      console.error('[csp-report] could not record violation', error.message);
+    }
+
+    // Kept alongside the write. Deliberately a WARNING, not an error: a
+    // report-only violation is information, and paging on it while the
+    // allowlist is still being learned would train people to mute it.
     console.warn('[csp-report-only]', summary.directive, summary.blockedOrigin, summary.path);
   } catch {
     // A malformed body is the norm here (browsers differ), never an incident.

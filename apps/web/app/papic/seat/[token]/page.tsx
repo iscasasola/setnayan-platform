@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CircleAlert } from 'lucide-react';
+import { DoorShell } from '@/app/_components/door/door-shell';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { asPapicStyle } from '@/lib/papic-photo-styles';
@@ -58,22 +59,21 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
 
   if (seat.revoked_at) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
-        <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center shadow-sm">
-          <CircleAlert aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          <h1 className="mt-3 text-xl font-semibold tracking-tight">This seat was reissued</h1>
-          <p className="mt-2 text-sm text-ink/65">
-            The host handed this seat to someone else. Ask them for a fresh
-            claim link if you&rsquo;d still like to shoot.
-          </p>
-          <Link
-            href="/"
-            className="mt-5 inline-flex items-center justify-center rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/10"
-          >
-            Back to Setnayan
-          </Link>
-        </div>
-      </main>
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <CircleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Photo-crew seat
+          </>
+        }
+        title="This seat was reissued."
+        sub="The host handed this seat to someone else. Ask them for a fresh claim link if you'd still like to shoot."
+      >
+        <Link href="/" className="button-secondary">
+          Back to Setnayan
+        </Link>
+      </DoorShell>
     );
   }
 

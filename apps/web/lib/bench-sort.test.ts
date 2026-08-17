@@ -35,6 +35,12 @@ function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVe
   return {
     name: p.vendorId,
     status: 'considering',
+    // PR-H · explicit, not defaulted through a `?`. `lockRequestState` is
+    // REQUIRED on ShortlistVendor on purpose: an optional field would let a new
+    // card fixture silently mean "no request" when the case is actually about
+    // one, and the compiler would never say so.
+    lockRequestState: 'none',
+    lockRequestExpiresAt: null,
     totalCostPhp: null,
     photoUrl: null,
     city: null,

@@ -6,6 +6,7 @@ import { fetchClaimLandingByToken } from '@/lib/vendor-invites';
 import { declineVendorInviteByToken } from '@/lib/vendor-invite-actions';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { DoorShell } from '@/app/_components/door/door-shell';
 
 export const metadata = {
   title: 'Claim your Setnayan profile',
@@ -42,46 +43,38 @@ export default async function VendorClaimPage({ params }: Props) {
   // ------------------------------------------------------------------
   if (invite.status === 'claimed') {
     return (
-      <ClaimShell>
-        <TerminalCard
-          eyebrow="Setnayan · Already claimed"
-          title="This invite has already been claimed."
-          body="If this wasn't you, please contact support."
-        />
-      </ClaimShell>
+      <TerminalCard
+        eyebrow="Already claimed"
+        title="This invite has already been claimed."
+        body="If this wasn't you, please contact support."
+      />
     );
   }
   if (invite.status === 'expired') {
     return (
-      <ClaimShell>
-        <TerminalCard
-          eyebrow="Setnayan · Expired"
-          title="This invite link has expired."
-          body={`Ask ${inviterName} to send you a new one.`}
-        />
-      </ClaimShell>
+      <TerminalCard
+        eyebrow="Expired"
+        title="This invite link has expired."
+        body={`Ask ${inviterName} to send you a new one.`}
+      />
     );
   }
   if (invite.status === 'revoked') {
     return (
-      <ClaimShell>
-        <TerminalCard
-          eyebrow="Setnayan · No longer active"
-          title="This invite is no longer active."
-          body="If you believe this is a mistake, please contact support."
-        />
-      </ClaimShell>
+      <TerminalCard
+        eyebrow="No longer active"
+        title="This invite is no longer active."
+        body="If you believe this is a mistake, please contact support."
+      />
     );
   }
   if (invite.status === 'declined') {
     return (
-      <ClaimShell>
-        <TerminalCard
-          eyebrow="Setnayan · Declined"
-          title="This invite was previously declined."
-          body={`If you'd like to reconsider, please ask ${inviterName} to send a new invite.`}
-        />
-      </ClaimShell>
+      <TerminalCard
+        eyebrow="Declined"
+        title="This invite was previously declined."
+        body={`If you'd like to reconsider, please ask ${inviterName} to send a new invite.`}
+      />
     );
   }
 
@@ -95,25 +88,24 @@ export default async function VendorClaimPage({ params }: Props) {
     const finalizeUrl = `/vendor/claim/${invite.claim_token}/finalize`;
     const signupUrl = `/signup?as=vendor&next=${encodeURIComponent(finalizeUrl)}`;
     return (
-      <ClaimShell>
+      <DoorShell
+        width="lg"
+        eyebrow="Couple invite"
+        title={
+          <>
+            <strong className="font-semibold">{inviterName}</strong> locked you in as their{' '}
+            <strong className="font-semibold">{categoryLabel}</strong>.
+          </>
+        }
+        sub={
+          <>
+            They&rsquo;re planning their wedding on{' '}
+            <strong className="text-ink">{eventDateLabel}</strong>. Claim your free Setnayan
+            profile to confirm the schedule and keep everything in one place.
+          </>
+        }
+      >
         <article className="space-y-6">
-          <header className="space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-              Setnayan · Couple invite
-            </p>
-            <h1 className="font-serif text-3xl font-medium leading-tight text-ink sm:text-4xl">
-              <strong className="font-semibold">{inviterName}</strong> locked
-              you in as their{' '}
-              <strong className="font-semibold">{categoryLabel}</strong>.
-            </h1>
-            <p className="text-base text-ink/70">
-              They&rsquo;re planning their wedding on{' '}
-              <strong className="text-ink">{eventDateLabel}</strong>.
-              Claim your free Setnayan profile to confirm the schedule and
-              keep everything in one place.
-            </p>
-          </header>
-
           <section className="rounded-xl bg-cream p-5 ring-1 ring-inset ring-ink/10">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
               What they&rsquo;ve recorded
@@ -168,7 +160,7 @@ export default async function VendorClaimPage({ params }: Props) {
             follow up.
           </p>
         </article>
-      </ClaimShell>
+      </DoorShell>
     );
   }
 
@@ -188,22 +180,18 @@ export default async function VendorClaimPage({ params }: Props) {
     const signupUrl = `/signup?as=vendor&${emailQs}next=${encodeURIComponent(finalizeUrl)}`;
     const signInUrl = `/login?next=${encodeURIComponent(finalizeUrl)}`;
     return (
-      <ClaimShell>
+      <DoorShell
+        width="lg"
+        eyebrow="Team invite"
+        title={
+          <>
+            The Setnayan team set up a profile for{' '}
+            <strong className="font-semibold">{invite.business_name}</strong>.
+          </>
+        }
+        sub="Claim it now to add your photos, services, and pricing. Couples browsing the marketplace will see you once you publish."
+      >
         <article className="space-y-6">
-          <header className="space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-              Setnayan · Team invite
-            </p>
-            <h1 className="font-serif text-3xl font-medium leading-tight text-ink sm:text-4xl">
-              The Setnayan team set up a profile for{' '}
-              <strong className="font-semibold">{invite.business_name}</strong>.
-            </h1>
-            <p className="text-base text-ink/70">
-              Claim it now to add your photos, services, and pricing. Couples
-              browsing the marketplace will see you once you publish.
-            </p>
-          </header>
-
           <section className="space-y-2">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
               What you get
@@ -239,7 +227,7 @@ export default async function VendorClaimPage({ params }: Props) {
             Not the right business? Just ignore this page — we won&rsquo;t follow up.
           </p>
         </article>
-      </ClaimShell>
+      </DoorShell>
     );
   }
 
@@ -251,22 +239,26 @@ export default async function VendorClaimPage({ params }: Props) {
     const finalizeUrl = `/vendor/claim/${invite.claim_token}/finalize`;
     const signInUrl = `/login?next=${encodeURIComponent(finalizeUrl)}`;
     return (
-      <ClaimShell>
+      <DoorShell
+        width="lg"
+        eyebrow="Already a vendor"
+        title={
+          <>
+            You&rsquo;re already on Setnayan as{' '}
+            <strong className="font-semibold">{existingVendor.business_name}</strong>.
+          </>
+        }
+        sub={
+          <>
+            <strong className="text-ink">{inviterName}</strong> wants to connect their
+            wedding ({eventDateLabel}) to your existing profile.
+          </>
+        }
+      >
         <article className="space-y-6">
-          <header className="space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-success-700">
-              Setnayan · Already a vendor
-            </p>
-            <h1 className="font-serif text-3xl font-medium leading-tight text-ink sm:text-4xl">
-              You&rsquo;re already on Setnayan as{' '}
-              <strong className="font-semibold">{existingVendor.business_name}</strong>.
-            </h1>
-            <p className="text-base text-ink/70">
-              <strong className="text-ink">{inviterName}</strong> wants to
-              connect their wedding ({eventDateLabel}) to your existing profile.
-            </p>
-          </header>
-
+          {/* The reassurance that used to be carried by a green eyebrow now
+              lives here, where it can be a whole sentence instead of two
+              words — and the eyebrow stays the one doorway colour. */}
           <div className="rounded-lg bg-success-50 p-4 text-sm text-ink/75 ring-1 ring-inset ring-success-200">
             <p className="leading-relaxed">
               On connect, this engagement appears in your Clients pipeline at the Inquiry
@@ -284,7 +276,7 @@ export default async function VendorClaimPage({ params }: Props) {
             <DeclineForm token={invite.claim_token} />
           </div>
         </article>
-      </ClaimShell>
+      </DoorShell>
     );
   }
 
@@ -301,22 +293,24 @@ export default async function VendorClaimPage({ params }: Props) {
   const signupUrl = `/signup?as=vendor&${emailQs}next=${encodeURIComponent(finalizeUrl)}`;
 
   return (
-    <ClaimShell>
+    <DoorShell
+      width="lg"
+      eyebrow="Couple invite"
+      title={
+        <>
+          <strong className="font-semibold">{inviterName}</strong> invited you to claim your
+          free Setnayan profile.
+        </>
+      }
+      sub={
+        <>
+          They&rsquo;ve added you as their{' '}
+          <strong className="text-ink">{categoryLabel}</strong> for their wedding on{' '}
+          <strong className="text-ink">{eventDateLabel}</strong>.
+        </>
+      }
+    >
       <article className="space-y-6">
-        <header className="space-y-3">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-            Setnayan · Couple invite
-          </p>
-          <h1 className="font-serif text-3xl font-medium leading-tight text-ink sm:text-4xl">
-            <strong className="font-semibold">{inviterName}</strong> invited
-            you to claim your free Setnayan profile.
-          </h1>
-          <p className="text-base text-ink/70">
-            They&rsquo;ve added you as their{' '}
-            <strong className="text-ink">{categoryLabel}</strong> for their wedding on{' '}
-            <strong className="text-ink">{eventDateLabel}</strong>.
-          </p>
-        </header>
 
         {/* Identity snapshot — IDENTITY ONLY per the 2026-05-19 privacy lock.
             No package, inclusions, milestones, or meetings. Vendor sees those
@@ -380,7 +374,7 @@ export default async function VendorClaimPage({ params }: Props) {
           Not the right vendor? Just ignore this page — we won&rsquo;t follow up.
         </p>
       </article>
-    </ClaimShell>
+    </DoorShell>
   );
 }
 
@@ -388,14 +382,15 @@ export default async function VendorClaimPage({ params }: Props) {
 // Sub-components
 // ============================================================================
 
-function ClaimShell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="min-h-screen bg-cream py-12 px-4 sm:py-20">
-      <div className="mx-auto max-w-xl">{children}</div>
-    </main>
-  );
-}
-
+/**
+ * The four terminal states (already claimed · expired · revoked · not found).
+ *
+ * Ported onto the shared <DoorShell> in `dead_end` tone (2026-08-17) so a
+ * supplier who reaches the end of this link meets the same screen a guest meets
+ * at the end of theirs. DoorShell renders the page frame itself, which is why
+ * the local wrapper this file used to declare is gone rather than wrapped
+ * around it — two nested page frames is what that would have produced.
+ */
 function TerminalCard({
   eyebrow,
   title,
@@ -406,13 +401,11 @@ function TerminalCard({
   body: string;
 }) {
   return (
-    <article className="space-y-3 rounded-xl bg-cream p-8 ring-1 ring-inset ring-ink/10">
-      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-        {eyebrow}
-      </p>
-      <h1 className="font-serif text-2xl font-medium text-ink">{title}</h1>
-      <p className="text-sm text-ink/70">{body}</p>
-    </article>
+    <DoorShell tone="dead_end" eyebrow={eyebrow} title={title} sub={body} width="lg">
+      <Link href="/" className="button-secondary">
+        Back to Setnayan
+      </Link>
+    </DoorShell>
   );
 }
 

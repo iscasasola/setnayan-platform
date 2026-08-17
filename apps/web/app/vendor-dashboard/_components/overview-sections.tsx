@@ -15,6 +15,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { CountUp } from '@/app/_components/count-up';
 import { waitingAge } from '@/lib/waiting-age';
+import { lockRequestDaysLeft } from '@/lib/lock-request-state';
 import { formatPhp } from '@/lib/vendors';
 import type {
   OngoingTask,
@@ -56,6 +57,14 @@ const CARD_KIND: Record<
 > = {
   inquiry: { accent: 'var(--sn-gold-500)', eye: 'var(--sn-gold-700)', eyebrow: 'New inquiry' },
   lock: { accent: 'var(--sn-success)', eye: 'var(--sn-success)', eyebrow: 'Lock request' },
+  // Amber, not green: this one is a QUESTION with a deadline, not good news to
+  // acknowledge. (The Record is exhaustive over the union — a missing kind is a
+  // typecheck failure, which is why this line is not optional.)
+  lock_request: {
+    accent: 'var(--sn-warn)',
+    eye: 'var(--sn-warn)',
+    eyebrow: 'Booking request — agree?',
+  },
   review: { accent: 'var(--sn-gold-500)', eye: 'var(--sn-gold-700)', eyebrow: 'New 5-star review' },
   dispute: { accent: 'var(--sn-danger)', eye: 'var(--sn-danger)', eyebrow: 'Delivery delay flagged' },
 };
@@ -472,11 +481,15 @@ export function WhatsNewFeed({
   acceptInquiry,
   declineInquiry,
   confirmLock,
+  agreeLock,
+  declineLock,
 }: {
   cards: WhatsNewCard[];
   acceptInquiry: (formData: FormData) => void | Promise<void>;
   declineInquiry: (formData: FormData) => void | Promise<void>;
   confirmLock: (formData: FormData) => void | Promise<void>;
+  agreeLock: (formData: FormData) => void | Promise<void>;
+  declineLock: (formData: FormData) => void | Promise<void>;
 }) {
   return (
     <section id="whats-new" className="mb-8 scroll-mt-24">
@@ -503,6 +516,8 @@ export function WhatsNewFeed({
                 acceptInquiry={acceptInquiry}
                 declineInquiry={declineInquiry}
                 confirmLock={confirmLock}
+                agreeLock={agreeLock}
+                declineLock={declineLock}
               />
             </li>
           ))}
@@ -517,11 +532,15 @@ function FeedCard({
   acceptInquiry,
   declineInquiry,
   confirmLock,
+  agreeLock,
+  declineLock,
 }: {
   card: WhatsNewCard;
   acceptInquiry: (formData: FormData) => void | Promise<void>;
   declineInquiry: (formData: FormData) => void | Promise<void>;
   confirmLock: (formData: FormData) => void | Promise<void>;
+  agreeLock: (formData: FormData) => void | Promise<void>;
+  declineLock: (formData: FormData) => void | Promise<void>;
 }) {
   return (
     <div className="sn-card relative overflow-hidden py-4 pl-5 pr-4">
@@ -541,6 +560,8 @@ function FeedCard({
           acceptInquiry={acceptInquiry}
           declineInquiry={declineInquiry}
         />
+      ) : card.kind === 'lock_request' ? (
+        <LockRequestBody card={card} agreeLock={agreeLock} declineLock={declineLock} />
       ) : card.kind === 'lock' ? (
         <LockBody card={card} confirmLock={confirmLock} />
       ) : card.kind === 'review' ? (
@@ -614,6 +635,82 @@ function InquiryBody({
           </SubmitButton>
         </form>
       </div>
+    </>
+  );
+}
+
+/**
+ * PR-H step 2 — the supplier's answer, on the surface they actually open.
+ *
+ * Plain forms with a hidden booking id, no client JS, mirroring LockBody. The
+ * form carries ONLY `vendor_id`: every side effect keys on the event id the
+ * DEFINER RPC read off the row it authorized, never on anything posted here.
+ *
+ * The decline sits inside a <details> rather than beside Agree — a no is a real
+ * answer the couple needs, but it should not be one mis-tap away from a yes.
+ */
+function LockRequestBody({
+  card,
+  agreeLock,
+  declineLock,
+}: {
+  card: Extract<WhatsNewCard, { kind: 'lock_request' }>;
+  agreeLock: (formData: FormData) => void | Promise<void>;
+  declineLock: (formData: FormData) => void | Promise<void>;
+}) {
+  // Rendered on the server, so "now" is the render instant.
+  const daysLeft = lockRequestDaysLeft(card.expiresAt, new Date());
+  const fuse =
+    daysLeft === null
+      ? null
+      : daysLeft === 0
+        ? 'Last day to answer'
+        : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left to answer`;
+  const detail = metaLine([
+    card.eventDate ? shortDate(card.eventDate) : null,
+    // waitingAge returns { label, overdue } — metaLine wants strings.
+    waitingAge(card.requestedAt, Date.now())?.label ?? null,
+    fuse,
+  ]);
+  return (
+    <>
+      <p className="text-sm font-semibold text-ink">A couple wants to book you</p>
+      <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <form action={agreeLock}>
+          <input type="hidden" name="vendor_id" value={card.eventVendorId} />
+          <SubmitButton
+            pendingLabel="Agreeing…"
+            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
+            style={{ background: 'var(--sn-success)' }}
+          >
+            Agree to this booking
+          </SubmitButton>
+        </form>
+      </div>
+      <details className="mt-3">
+        <summary className="cursor-pointer text-sm text-ink/60">
+          Can&rsquo;t take this booking?
+        </summary>
+        <form action={declineLock} className="mt-2 flex flex-wrap items-center gap-2">
+          <input type="hidden" name="vendor_id" value={card.eventVendorId} />
+          <input
+            type="text"
+            name="reason"
+            maxLength={240}
+            placeholder="Why? (optional — the couple sees this)"
+            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
+            style={{ borderColor: 'var(--sn-line)' }}
+          />
+          <SubmitButton
+            pendingLabel="Sending…"
+            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
+            style={{ borderColor: 'var(--sn-line)' }}
+          >
+            Turn it down
+          </SubmitButton>
+        </form>
+      </details>
     </>
   );
 }

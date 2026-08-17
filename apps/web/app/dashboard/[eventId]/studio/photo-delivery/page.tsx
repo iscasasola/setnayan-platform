@@ -13,7 +13,7 @@ import {
   setPhotoDeliverySyncModeManual,
 } from './actions';
 
-export const metadata = { title: 'Photo Delivery · Setnayan' };
+export const metadata = { title: 'Photo Delivery' };
 
 type SyncMode = 'manual_release' | 'auto_sync';
 

@@ -121,7 +121,7 @@ export default async function FindMyTablePage({ params }: Props) {
       <Shell displayName={event.display_name} slug={slug}>
         <PromptCard
           title="The floor plan is on its way"
-          body={`${words.TheOrganizer} is still arranging the venue layout. Check back closer to the day — your table map will appear here.`}
+          body={`${words.organizerIsHonoree ? 'The venue layout is still being arranged.' : `${words.TheOrganizer} is still arranging the venue layout.`} Check back closer to the day — your table map will appear here.`}
         />
       </Shell>
     );
@@ -168,8 +168,10 @@ export default async function FindMyTablePage({ params }: Props) {
           </p>
         ) : (
           <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/55">
-            You haven&rsquo;t been seated at a table yet. Once {words.theOrganizer}{' '}
-            seats you, your spot lights up on this map.
+            You haven&rsquo;t been seated at a table yet.{' '}
+            {words.organizerIsHonoree
+              ? 'Once the seating is posted, your spot lights up on this map.'
+              : `Once ${words.theOrganizer} seats you, your spot lights up on this map.`}
           </p>
         )}
 

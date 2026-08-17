@@ -103,7 +103,7 @@ export default async function FindSeatPage({ params }: Props) {
       ) : (
         <PromptCard
           title="Seating isn&rsquo;t posted yet"
-          body={`${words.TheOrganizer} hasn’t published the seating plan for this celebration. Check back closer to the day — once they post it, you’ll be able to find your table here.`}
+          body={`${words.organizerIsHonoree ? 'The seating plan hasn’t been published for this celebration.' : `${words.TheOrganizer} hasn’t published the seating plan for this celebration.`} Check back closer to the day — once they post it, you’ll be able to find your table here.`}
         />
       )}
 

@@ -2,6 +2,7 @@ import { Megaphone } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
 import { STAGE_NOTE_MAX } from '@/lib/stage-notes';
 import { sendStageNote } from './stage-notes-actions';
@@ -19,7 +20,11 @@ import { sendStageNote } from './stage-notes-actions';
  */
 export async function StageNoteCompose({ eventId }: { eventId: string }) {
   const supabase = await createClient();
-  const hosts = await fetchEmceeRecipients(supabase, eventId);
+  // The service-category half is read with the service-role client: this
+  // console is already gated to the booked coordinator, and `vendor_services`
+  // is only readable under RLS for PUBLISHED shops — which would drop a booked
+  // supplier from the answer with no error at all. See fetchEmceeRecipients.
+  const hosts = await fetchEmceeRecipients(supabase, eventId, createAdminClient());
   if (hosts.length === 0) return null;
 
   return (

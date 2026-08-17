@@ -86,6 +86,18 @@ export async function updateVenueMatching(
     if (error.code === '42703' || error.code === '42P01') {
       return { ok: false, error: 'Wedding fit isn’t switched on yet — try again shortly.' };
     }
+    // 23502 not_null_violation — clearing every tick posts NULL (which is what
+    // "any venue" MEANS here), and both columns were NOT NULL until migration
+    // 20271146556997. Measured against production: the save was refused
+    // outright and this handler had no branch for it, so the shop owner read a
+    // raw Postgres sentence and never saved. Kept as a deploy-window guard: the
+    // code can reach a database that has not taken the migration yet.
+    if (error.code === '23502') {
+      return {
+        ok: false,
+        error: 'Saving “any venue” isn’t switched on yet — try again shortly.',
+      };
+    }
     // The DB's own CHECK, if a value slipped past the allowlist above.
     if (error.code === '23514') {
       return { ok: false, error: 'One of those choices isn’t available — reload and try again.' };

@@ -1152,10 +1152,21 @@ export async function finalizeVendor(
   // architecture — CLAUDE.md 2026-05-24 row "Canonical wizard sequence
   // reconciled 38 → 45 + Lock/delete/overlap architecture").
   //
-  // Vendors can configure max_soft_holds_per_date on their profile (default
-  // 3, range 1-20 — see migration 20260627010000). Once that many hosts
-  // have contracted-status picks on the same wedding date, further lock
-  // attempts return 'soft_hold_limit_reached' with the vendor's current
+  // ⚠ THE LIMIT IS FIXED AT 3 TODAY. NO VENDOR CAN CHANGE IT.
+  //
+  // This comment used to read "vendors can configure max_soft_holds_per_date
+  // on their profile", and the column's own comment in production named
+  // `/vendor-dashboard/settings/availability` as where they do it. That route
+  // has never existed, and the column has ZERO writers app-wide — so every
+  // shop sits on the DEFAULT 3 (verified in production: both live shops).
+  //
+  // The column keeps its DEFAULT 3 and its 1-20 CHECK, so a control can be
+  // built later without a migration. Until one is, this is a platform
+  // constant wearing a per-vendor setting's clothes, and saying otherwise is
+  // how a reader concludes the feature works and stops looking.
+  //
+  // Once 3 hosts have contracted-status picks on the same wedding date,
+  // further lock attempts return 'soft_hold_limit_reached' with the current
   // limit + existing hold count + a suggestion to browse similar vendors.
   //
   // The check skips when:

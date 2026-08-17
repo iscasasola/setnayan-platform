@@ -5,6 +5,7 @@ import { formatEventDate } from '@/lib/events';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorNotice } from '@/app/_components/door/door-shell';
 import { abandonPlusOneInvite, confirmPlusOneName } from './actions';
+import { eventWordsFor } from '../_lib/event-words';
 
 export const metadata = { title: 'Welcome' };
 export const dynamic = 'force-dynamic';
@@ -29,12 +30,16 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   const admin = createAdminClient();
   const { data: event } = await admin
     .from('events')
-    .select('event_id, display_name, event_date, slug')
+    .select('event_id, display_name, event_date, slug, event_type')
     .ilike('slug', slug)
     .maybeSingle();
   if (!event) notFound();
 
   if (event.event_id !== session.event_id) redirect(`/${slug}`);
+
+  // A plus-one giving their name was told it would appear in "the couple's"
+  // guest list, whatever kind of event they had been invited to.
+  const words = await eventWordsFor(event.event_type);
 
   const { data: guest } = await admin
     .from('guests')
@@ -118,8 +123,8 @@ export default async function WelcomePage({ params, searchParams }: Props) {
         </div>
 
         <p className="text-xs italic text-ink/50">
-          This name will appear on your invitation, in the couple&rsquo;s guest list, and
-          on photos you&rsquo;re tagged in.
+          This name will appear on your invitation, in {words.theOrganizerPossessive}{' '}
+          guest list, and on photos you&rsquo;re tagged in.
         </p>
 
         <SubmitButton

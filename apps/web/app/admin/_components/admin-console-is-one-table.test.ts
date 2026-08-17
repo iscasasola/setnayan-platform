@@ -67,6 +67,18 @@ const FAILS_CLOSED_ON_NULL: Array<{ file: string; varName: string; proof: RegExp
     // `!!(profile?…)`), so null → false → denied.
     proof: /return isAdminProfile\(profile\)/,
   },
+  {
+    file: 'compliance/data-sheet/page.tsx',
+    varName: 'me',
+    // ⚠ THE PROOF PINS THE `notFound()`, NOT THE READ — and that distinction is
+    // the whole lesson of the first version of this list. Pinned to the read, the
+    // entry would survive deleting the very line that makes it safe. What makes
+    // this read safe is `if (!(me?.is_internal || me?.is_team_member ||
+    // me?.account_type === 'admin')) notFound()`: a null `me` fails every disjunct,
+    // so the page is not found. Absence DENIES here; it does not render.
+    // Classified by the lane-D session and confirmed by reading the guard.
+    proof: /notFound\(\)/,
+  },
 ];
 
 /**
@@ -111,8 +123,7 @@ const CONVERTED = [
   // ⚠ ON TWO OF THESE THE TABLE WAS NOT WHERE THE LIE WAS: /admin/fraud's queue and
   // /admin/approvals' pending list are <ul>s of cards; their <table> is the audit
   // trail at the bottom. Converting the table alone would have fixed the trail and
-  // left a GREEN TICK over "No open fraud signals." exactly where it was. The card
-  // lists use <ErrorState> directly — it is not table-specific.
+  // left a GREEN TICK over "No open fraud signals." exactly where it was.
   // 🔑 CONVERTING A FILE'S TABLE IS NOT THE SAME AS MAKING THAT FILE HONEST.
   'approvals/page.tsx',
   'budget-planner/page.tsx',
@@ -150,6 +161,17 @@ const CONVERTED = [
   'app-performance/_surfaces/intelligence-surface.tsx',
   'app-performance/_surfaces/operations-surface.tsx',
   'app-performance/_surfaces/seo-surface.tsx',
+  // ── Lane D · the last ten top-level pages (2026-08-17) ──────────────────
+  'account-deletions/page.tsx',
+  'completions/page.tsx',
+  'compliance/data-sheet/page.tsx',
+  'demo-vendors/inquiries/page.tsx',
+  'disputes/page.tsx',
+  'offline/_components/offline-diagnostic.tsx',
+  'papic-storage/page.tsx',
+  'settings/payment-methods/page.tsx',
+  'vendor-partnerships/page.tsx',
+  'website-media/media-table.tsx',
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -179,19 +201,25 @@ const CONVERTED = [
  * the only symptom.
  */
 const RAW_TABLE_BILL = [
-  'account-deletions/page.tsx',
-  // The five `accounts/_surfaces/*` lines were here. Converted 2026-08-17.
-  // The six `app-performance/*` lines were here. Converted 2026-08-17.
-  'completions/page.tsx',
+  // ⛔ NOT OWED, AND NOT UNFINISHED — one of the TWO permanent residents here.
+  // Its three tables were two records lists (categories of data subjects,
+  // sub-processors — both CONVERTED, see the list above) and one `FieldTable`,
+  // a printed FIELD SHEET of `<th scope="row">` label/value pairs, rendered five
+  // times. ConsoleTable is a columns-with-headers records component: wearing it
+  // there would add a visible "Field | Value" header row to a document the owner
+  // prints and files with the NPC, and drop the row-header semantics a screen
+  // reader uses to announce each field. Same call as ugat, recorded at the
+  // component too. DO NOT force it to clear this line.
+  //
+  // 🔑 IT IS ON THIS LIST *AND* ON `CONVERTED`, AND THAT IS CORRECT — do not
+  // "tidy" it off either one. It imports ConsoleTable (its two genuine lists are
+  // converted) and it still holds a raw table (the field sheet). A partly
+  // converted file genuinely belongs to both, and each rule sees it truthfully.
   'compliance/data-sheet/page.tsx',
-  'demo-vendors/inquiries/page.tsx',
-  'disputes/page.tsx',
-  'offline/_components/offline-diagnostic.tsx',
-  'papic-storage/page.tsx',
-  'settings/payment-methods/page.tsx',
+  // ⛔ NOT OWED — the other permanent resident. Ships its own stylesheet
+  // (`ugat-console.css`, where `.ug-etable` is really defined) and is a
+  // purpose-built graph console, not a records list.
   'ugat/_components/ugat-console.tsx',
-  'vendor-partnerships/page.tsx',
-  'website-media/media-table.tsx',
 ].sort();
 
 test('no new hand-rolled table appears in the admin console', () => {

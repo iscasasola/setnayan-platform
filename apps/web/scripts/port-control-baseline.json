@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "28568dea4",
+  "generatedFromRef": "34a4c444d",
   "routeCount": 402,
   "destinations": 849,
   "actions": 579,
-  "blocks": 3686,
+  "blocks": 3704,
   "routes": {
     "/": {
       "files": [
@@ -1196,6 +1196,10 @@
       ],
       "blocks": [
         "ConfirmForm",
+        "ConsoleTable",
+        "EmptyState",
+        "ErrorState",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -1456,7 +1460,8 @@
         "upholdNonDelivery"
       ],
       "blocks": [
-        "CompletionsTable",
+        "ConsoleTable",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -1489,6 +1494,8 @@
       "actions": [],
       "blocks": [
         "Block",
+        "ConsoleTable",
+        "ErrorState",
         "FieldTable",
         "Link",
         "Row"
@@ -1658,8 +1665,10 @@
       ],
       "actions": [],
       "blocks": [
+        "ConsoleTable",
         "DemoThread",
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/admin/demo-vendors/inquiries/[threadId]": {
@@ -1759,11 +1768,13 @@
       ],
       "blocks": [
         "ConfirmForm",
+        "ConsoleTable",
         "DisputesTable",
         "FilterStrip",
         "HandoverEvidence",
+        "KpiStatCard",
+        "PageMasthead",
         "PolicyEvidence",
-        "StatCell",
         "StatsBanner",
         "SubmitButton",
         "TierChip"
@@ -2178,6 +2189,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ConsoleTable",
         "OfflineDiagnostic",
         "Status",
         "StatusPill"
@@ -2229,7 +2241,9 @@
       "blocks": [
         "BackfillResult",
         "BackfillTilesButton",
-        "Tile"
+        "ConsoleTable",
+        "KpiStatCard",
+        "PageMasthead"
       ]
     },
     "/admin/patiktok": {
@@ -2662,6 +2676,7 @@
       "blocks": [
         "BackButton",
         "ChannelSwitch",
+        "ConsoleTable",
         "Field",
         "FormFlash",
         "QrUploadBlock",
@@ -3056,7 +3071,9 @@
         "rejectPartnership"
       ],
       "blocks": [
+        "ConsoleTable",
         "FormFlash",
+        "PageMasthead",
         "SearchParams",
         "SubmitButton"
       ]
@@ -3290,6 +3307,7 @@
       "actions": [],
       "blocks": [
         "ClearFolderButton",
+        "ConsoleTable",
         "MediaTable",
         "Result",
         "Stat"

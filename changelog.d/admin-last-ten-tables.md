@@ -111,3 +111,30 @@ this is visible from a session. Do not read it as verified live.
 - The bill was **re-derived by measuring**, not hand-edited.
 
 SPEC IMPACT: None. No schema, price, SKU or owner-locked decision touched.
+
+### Port baseline — regenerated AFTER the extractor fix, absorbing only the three real removals
+
+The first run of `lint-port-no-lost-controls` reported four losses. One was a
+false positive: the `/admin/demo-vendors/inquiries` back link is intact —
+`PageMasthead` renders `<Link href={back}>` — but the extractor's `HREF_RE`
+matched only the literal token `href`, so a destination handed to a shared
+component under any other prop name was invisible. Absorbing it would have
+recorded that route with **zero** destinations, after which a real removal of
+that link would pass silently.
+
+The baseline was therefore NOT regenerated until #4522 widened the extractor
+(`back`/`backHref`/`returnTo`/`cancelHref`, plus `_surfaces`/`_sections` into the
+walked set — 41 files it had never read). Regenerated on top of that, absorption
+checked **per route** rather than by totals:
+
+```
+routes: 402 → 402   ROUTES GONE: 0
+destinations lost: 0   actions lost: 0   blocks lost: 3
+   /admin/completions    lost block: CompletionsTable
+   /admin/disputes       lost block: StatCell
+   /admin/papic-storage  lost block: Tile
+```
+
+Exactly the three deliberate component removals, each one readable line — which
+is what the lint exists to produce. No fourth item, and no previously-invisible
+removal from another lane surfaced.

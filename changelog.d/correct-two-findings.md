@@ -25,7 +25,25 @@ these.
 🔑 **A list with wrong entries on it stops being read.** That is the whole value of
 the file, so a wrong line in it is worse than a missing one.
 
-One finding stands, unchanged and re-verified: `papic_photos.consent_to_public`
-has no writer, and all 14 real production photos sit behind it.
+**And then the third one fell too — the findings count is now ZERO.**
+`papic_photos.consent_to_public` has no writer **AND NO READER**: all three
+`.eq('consent_to_public', true)` filters in the app query `papic_guest_captures`,
+never this table. I reported "no clip can ever enter that showcase" — wrong
+reason; the showcase never consults this column. `lib/alaala-orb.ts` records the
+design decision: *"PRODUCER (Option A · owner-chosen)… a seat clip is shot BY the
+photographer, so consent_to_public there could never be set by the depicted
+guest."* Camera-seat captures were deliberately dropped as a showcase source, by
+an owner-chosen option, for exactly the reason that makes the column unfillable.
+It is vestigial, not broken.
+
+🔑 **THE QUESTION THIS GUARD ASKS IS "can anything WRITE it?" — which is the right
+question for a switch and NOT sufficient to conclude a feature is broken.** Before
+calling a gate shut, ask what READS it. A column with no writer and no reader is
+vestigial; one seeded ON needs no writer at all. Three of my four findings failed
+on that distinction.
+
+Owner confirmed 2026-08-17 that the shape which already ships is the intended one:
+the couple alone decides what is public, and the guest tickbox already means "the
+couple MAY feature them publicly". Nothing to build.
 
 SPEC IMPACT: None.

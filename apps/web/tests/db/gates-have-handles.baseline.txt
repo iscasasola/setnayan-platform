@@ -36,19 +36,29 @@
 # enumerate. Where a column carries a comment from its author, the reason below
 # is that author's stated intent. Where it does not, the line says exactly what
 # was and was not established. "NOT INVESTIGATED" is an honest line; a made-up
-# rationale is not. ONE is marked FINDING — it looks like a live instance of
-# the very shape this guard exists to catch and is reported, not excused.
+# rationale is not. ZERO are now marked FINDING — all four first-seeding findings
+# were re-measured and none survived as stated.
 #
-# ⚖ THE COUNT CAME DOWN BY MEASUREMENT, NOT BY TRIMMING. Four were marked FINDING
-# on the first seeding. One was a defect in the DETECTOR, not the schema (fixed in
-# PR #4490 and removed from this file). TWO WERE MINE AND WERE OVERSTATED: I had
-# the fact (no writer) and invented the consequence (therefore broken). Both are
-# re-checked against the live production values below and marked CORRECTED.
-# 🔑 A list with wrong entries on it stops being read — which is the whole reason
+# ⚖ THE COUNT CAME DOWN BY MEASUREMENT, NOT BY TRIMMING — and it went to ZERO.
+# Four were marked FINDING on the first seeding. ONE was a defect in the DETECTOR,
+# not the schema (PR #4490, removed from this file). THREE WERE MINE, all the same
+# error: I had the fact (nothing writes the column) and invented the consequence
+# (therefore the feature is broken). Two were re-checked against live production
+# VALUES; the third against its READERS — it has none, so the gate it appeared to
+# close was never consulted.
+#
+# 🔑 THE QUESTION THIS FILE ASKS IS "can anything WRITE it?". That is the right
+# question for a switch, and it is NOT sufficient to conclude a feature is broken.
+# Before calling a gate shut, ask what READS it: a column with no writer AND no
+# reader is vestigial, and one whose value was seeded ON needs no writer at all.
+# Both mistakes are recorded in the lines below rather than deleted.
+# 🔑 A LIST WITH WRONG ENTRIES ON IT STOPS BEING READ — the whole reason
 # this file has to be re-measured rather than defended.
 
-# ── FINDINGS: these look like real gates with no handle ─────────────────────
-papic_photos.consent_to_public | 🔴 FINDING 2026-08-17. Author's comment: "GUEST consent gate for the public Alaala showcase orb: TRUE once the guest who appears in / captured this clip has consented to public sharing." Nothing writes it, so no clip can ever enter that showcase. The sibling papic_guest_captures.consent_to_public IS written (papic_record_guest_capture); this one is the appearing-guest's consent and was never wired. Sixth instance of the shape. Do not excuse — fix or rule it out of scope.
+# ── WAS REPORTED AS A FINDING, RE-MEASURED, AND WAS NOT ONE ────────────────
+# Kept in place rather than moved into the categories below, so that the three
+# mistakes stay visible next to the reasoning that corrected them.
+papic_photos.consent_to_public | ⚖ CORRECTED 2026-08-17, and this one is the clearest case of the error. It is VESTIGIAL, not broken: it has no writer AND NO READER — all three `.eq('consent_to_public', true)` filters in the app (lib/alaala-orb.ts, lib/papic-gallery.ts, editorial/data.ts) query `papic_guest_captures`, never this table. I reported "no clip can ever enter that showcase", which is the wrong reason: the showcase does not consult this column at all. lib/alaala-orb.ts records the design — "PRODUCER (Option A · owner-chosen)… The old papic_photos (paparazzi seat) read had no consent producer: a seat clip is shot BY the photographer, so consent_to_public there could never be set by the depicted guest. The guest-capture read replaces it." So camera-seat captures were DELIBERATELY dropped as a public-showcase source, by an owner-chosen option, for exactly the reason that makes this column unfillable. 🔑 THIRD TIME IN ONE DAY: correct fact (no writer), invented consequence (therefore the feature is broken). Ask what READS it before calling a gate closed. ⛔ Do not wire a writer and do not loosen anything: owner 2026-08-17 confirmed the shape that already ships — the couple alone decides what is public (couple_approved_for_showcase), and the guest tickbox already means "the couple MAY feature them publicly". Making seat photos publishable at all would REVERSE the Option A choice above and is an owner call, not a repair.
 platform_settings.radar_enabled | ⚖ CORRECTED 2026-08-17 — I overstated this. It is TRUE in production, so Shortlist Radar is ON and is sold on /vendors; my "cannot be turned on" was a correct fact (no writer) with an invented consequence. What is genuinely absent is an OFF switch, which nobody has asked for. Seeded on, no writer needed.
 platform_settings.spotlight_homepage_enabled | ⚖ CORRECTED 2026-08-17 — I overstated this too. FALSE in production is the RIGHT state: /vendors lists the homepage Spotlight strip as "soon", so off is what the public page promises. Same error shape as radar_enabled — no writer is a fact, "therefore broken" was not. Building a control for an unlaunched feature would be the defect.
 

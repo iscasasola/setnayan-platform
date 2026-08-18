@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Archive, RotateCcw } from 'lucide-react';
 
 import { setEventArchived } from '../../archive-actions';
@@ -37,6 +38,7 @@ export function PutAwayCard({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
 
   function submit(next: boolean) {
     setError(null);
@@ -58,6 +60,19 @@ export function PutAwayCard({
           return;
         }
         setConfirming(false);
+        /*
+          🪤 THE SERVER SAVED IT AND THE SCREEN DID NOT MOVE. Owner test,
+          2026-08-18: pressing "Put this away" wrote the change, and the card
+          kept showing the un-pressed state until the page was reloaded by hand.
+          The action's `revalidatePath` marks the cache stale; it does not push
+          fresh props into a client component that is already on screen. This
+          card's whole state — which half renders, what the sentence says — is a
+          prop from the server, so without this it is stale on purpose.
+
+          🔑 Pressing a button and seeing nothing happen is how somebody presses
+          it twice. A silent success reads exactly like a dead button.
+        */
+        router.refresh();
       } catch (err) {
         console.error('[put-away] action rejected', err);
         setError('We couldn’t save that just now. Please try again.');
@@ -72,10 +87,27 @@ export function PutAwayCard({
           <Archive aria-hidden className="h-[18px] w-[18px] text-[color:var(--sn-ink-400)]" />
           Put away
         </h2>
+        {/*
+          ⚠ THIS SENTENCE STILL CARRIED THE OLD PROMISE FOR HALF A DAY AFTER THE
+          OTHER ONE WAS FIXED. The pre-press copy was corrected in the morning —
+          because "everything keeps working" stopped being true once put-away
+          made the cameras and the guests' photo wall go quiet — and this one,
+          the half somebody reads AFTER pressing, was left saying the old thing.
+
+          🔑 A CORRECTION AT ONE SITE IS NOT A CORRECTION. This repo has the rule
+          written down and I broke it on the same card, the same day. It is the
+          worse of the two to get wrong: before pressing you are deciding, after
+          pressing you are checking whether to worry, and this told you nothing
+          had stopped.
+
+          Owner found it by pressing the button. No test could have.
+        */}
         <p className="mt-2 max-w-prose text-sm text-ink/70">
-          {eventName} is off your active list. Everything is still here — the
-          photos, the guest list, the page your guests use. Bring it back any
-          time.
+          {eventName} is off your active list, and its cameras and photo wall are
+          quiet — no new photos come in while it is put away.{' '}
+          <strong className="font-semibold text-ink">Nothing is deleted</strong> — every
+          photo, the guest list and the page your guests use are all still here.
+          Bring it back any time.
         </p>
         {error ? (
           <p role="alert" className="mt-3 text-sm font-semibold text-[color:var(--sn-danger)]">

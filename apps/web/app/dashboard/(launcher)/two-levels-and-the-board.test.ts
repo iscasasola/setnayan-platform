@@ -652,11 +652,32 @@ test('the event rail is the five destinations plus "Also in this event"', () => 
       'shipped set; Marketplace keeps the key "explore" so no link breaks.',
   );
   assert.deepEqual(keysByGroup.golive, ['launch']);
+  /*
+    🚨 PERSONALIZATION AND HOSTS WERE ADDED 2026-08-18 BECAUSE THEY HAD NO DOOR.
+    Both are real, live routes, and the only component linking to either
+    (`_components/profile-menu.tsx`) is imported by NOTHING — superseded by the
+    account switcher, which carries neither row. The only way in was typing the
+    address. The owner found it in four minutes by looking for the put-away
+    button and not finding it.
+
+    🔑 A LINK IN A COMPONENT NOBODY MOUNTS IS NOT A LINK. Every check we have
+    asks whether the route renders, and it does — which is why this survived.
+
+    They belong in the EVENT's own list, not the account menu: that menu is
+    about you, and "put this celebration away" is about the event.
+  */
   assert.deepEqual(
     keysByGroup.also,
-    ['schedule', 'seat', 'budget'],
+    ['personalization', 'hosts', 'schedule', 'seat', 'budget'],
     'The "Also in this event" group changed.',
   );
+  // Both must actually point somewhere inside this event.
+  const also = groups.find((g) => g.key === 'also')!.items;
+  assert.equal(
+    also.find((i) => i.key === 'personalization')?.href,
+    '/dashboard/EVT123/details',
+  );
+  assert.equal(also.find((i) => i.key === 'hosts')?.href, '/dashboard/EVT123/hosts');
   // 🔒 BUDGET HAS NO TOP-LEVEL ROW ON PURPOSE (owner 2026-07-10) — it lives
   // inside Marketplace beside Build and Compare, and is surfaced here only as a
   // quiet flat link. Promoting it is a product reversal, not a tidy-up.

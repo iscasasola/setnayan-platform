@@ -245,7 +245,23 @@ test('the photo row states the real rule, not merely the absence of a false one'
   assertReadable(ROPA, text);
   assert.match(text, /3 months after the event ENDS/i, 'the floor counts from the last day of the celebration');
   assert.match(text, /replaced by a compressed web copy/i);
-  assert.match(text, /Nothing is deleted at 5 years|never deleted on a schedule/i);
+  // 🔄 UPDATED 2026-08-18. This used to accept "Nothing is deleted at 5 years",
+  // which pinned the five-year window the owner has now withdrawn ("we keep it
+  // for life"). Removing that alternative alone would have left the row free to
+  // say nothing at all about the lifetime — so the replacement asserts BOTH
+  // halves of the new rule, which is strictly stronger than what it replaced:
+  // no scheduled deletion, AND the compressed gallery kept for life.
+  assert.match(
+    text,
+    /No photo is ever deleted on a schedule/i,
+    'the ROPA must still say plainly that nothing is deleted on a timer',
+  );
+  assert.match(
+    text,
+    /Compressed web copy: free, ?\*{0,2}FOR LIFE/i,
+    'the ROPA must state the lifetime, not merely deny a purge — the 5-year ' +
+      'window and its paid option were withdrawn by the owner on 2026-08-18',
+  );
 });
 
 test('the pack never places personal data in a Philippines region', () => {

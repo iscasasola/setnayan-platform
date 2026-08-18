@@ -119,6 +119,6 @@ test('the word "delete" never appears in this action', () => {
   assert.ok(
     !/\bdelete\b/i.test(FN),
     'the preserve toggle mentions deleting. It compresses — the photo stays, ' +
-      'kept five years for everyone, paid or not.',
+      'kept for life for everyone, paid or not.',
   );
 });

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { ArrowLeft, ShieldCheck, ShieldAlert, EyeOff, Eye, Flag, UserX, CheckCircle2, Camera} from 'lucide-react';
@@ -58,12 +59,16 @@ export default async function PapicModerationPage({
   if (!user) redirect('/login');
 
   const supabase = await createClient();
-  const { data: membership } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle();
+  // ⚠ the viewer's membership. Absence DENIES rather than renders.
+  if (membershipError) {
+    logQueryError('PapicModerationPage.membership', membershipError, { eventId }, 'graceful_degrade');
+  }
   if (!membership || membership.member_type !== 'couple') {
     redirect(`/dashboard/${eventId}`);
   }

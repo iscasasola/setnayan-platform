@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Copy, Key, Plus, ShieldOff } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -29,13 +30,18 @@ export default async function ApiKeysPage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data } = await supabase
+  const { data, error: dataError } = await supabase
     .from('api_keys')
     .select(
       'api_key_id,public_id,user_id,name,key_prefix,scopes,last_used_at,revoked_at,expires_at,created_at',
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
+  // ⚠ the keys this person created. Refused, the list reads as empty and they may
+  // ⚠ create a duplicate of one that already exists.
+  if (dataError) {
+    logQueryError('ApiKeysPage.data', dataError, {}, 'graceful_degrade');
+  }
   const keys = (data ?? []) as ApiKeyRow[];
 
   // The /api/v1 SDK requires an explicit API-access grant on an active Custom

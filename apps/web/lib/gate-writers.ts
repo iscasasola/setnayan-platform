@@ -211,6 +211,57 @@ function exportedFunctions(code: string): string[] {
  *    silently excused every real finding. A loose writer-detector does not cry
  *    wolf — it goes quiet, which is worse.
  */
+/**
+ * The STRICT question, asked only of a switch whose writer is KNOWN.
+ *
+ * 🔑 TWO QUESTIONS, TWO AUDIENCES — and getting this wrong once is what this
+ * docblock is for.
+ *
+ *  · `gateWritersOf` (below) is a WIDE NET over every switch-shaped column in
+ *    the schema — 264 of them. It must NOT cry wolf: a false "no writer" there
+ *    teaches the next person to baseline real code, and a baseline is a bill.
+ *    It stays loose on purpose. It legitimately cannot see a write spelled
+ *    `...parsed.patch` (object spread — the column name never appears) or
+ *    `.insert(rows)` where `rows` came out of a `.map()`. Both are real writers
+ *    in this repo today: `vendor_bot_config.enabled` and
+ *    `vendor_service_payment_schedules.no_show_forfeit`.
+ *
+ *  · THIS one is asked of the handful of REGISTERED switches, where the writer
+ *    is named and checkable. A false alarm here costs one file read; a miss is
+ *    what shipped six times.
+ *
+ * ⚠ I TIGHTENED THE WIDE NET ITSELF FIRST, AND IT WAS WRONG. Measured: 14
+ * columns newly reported "no writer" and the two checked by hand both had good
+ * writers. PR #4535 had already reasoned this out and declined to widen shared
+ * infrastructure inside a feature PR. It was right and I was not.
+ */
+export function writesColumnInOneChain(code: string, table: string, column: string): boolean {
+  const names = [`['"\`]${table}['"\`]`];
+  for (const d of code.matchAll(
+    new RegExp(`\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*['"\`]${table}['"\`]`, 'g'),
+  )) {
+    names.push(`\\s*${d[1]!}\\s*`);
+  }
+  for (const alt of names) {
+    for (const m of code.matchAll(new RegExp(`\\.from\\(\\s*${alt}\\s*[,)]`, 'g'))) {
+      const rest = code.slice(m.index! + m[0].length);
+      const verb = /^[\s\S]{0,200}?\.(?:update|insert|upsert)\(/.exec(rest);
+      if (!verb) continue;
+      /*
+        ⚠ `[^}]` NOT `[\s\S]` — the span must stay INSIDE the object being
+        written. A `[\s\S]{0,200}` window reads straight past the payload's
+        closing brace into the `.select('event_id, archived')` on the very next
+        line, so deleting the write still matched. #4535 hit this exact trap in
+        its own first cut and wrote it down; a budgeted span also shrinks
+        silently the moment somebody documents the payload.
+      */
+      const tail = rest.slice(verb[0].length - 1);
+      if (new RegExp(`^[\\s\\S]{0,40}?\\{[^}]{0,400}?\\b${column}\\b`).test(tail)) return true;
+    }
+  }
+  return false;
+}
+
 export function gateWritersOf(sources: Source[], table: string, column: string): string[] {
   const direct = sources
     .filter((s) => s.code.includes(column))

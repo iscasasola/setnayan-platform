@@ -34,7 +34,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { loadSources, gateWritersOf } from './gate-writers';
+import { loadSources, gateWritersOf, writesColumnInOneChain } from './gate-writers';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..'); // apps/web
@@ -458,5 +458,72 @@ test('the put-away writer uses the admin client, because its host check is wider
     /code: 'unauthorized'|Only a host/,
     'the zero-row branch must not tell somebody they lack a permission — that ' +
       'is the exact lie the admin-client fix removed',
+  );
+});
+
+
+/*
+  ─── THE SAME STATEMENT, FOR EVERY REGISTERED SWITCH ────────────────────────
+
+  `gateWritersOf` answers two INDEPENDENT file-level questions joined by `&&`:
+  does this file write that table anywhere, and does it name that column as a
+  field anywhere. NEVER the same statement.
+
+  🔑 TWO CORRECT PREDICATES ANDED AT THE WRONG SCOPE ARE NOT A CORRECT
+  PREDICATE. Each half is carefully written and separately right; the join is
+  what makes them blind. Measured on main: deleting the only real write of
+  `events.archived` left this whole suite 10/10 GREEN, and the detector reported
+  THREE writers for it where exactly one exists — `chat-actions.ts` has a local
+  variable of that name writing a DIFFERENT table, and `events.ts` has it as a
+  type field and in a select list.
+
+  ⚠ AND THE LOOSE FORM STAYS LOOSE — that is deliberate, not laziness. It is
+  cast over 264 schema columns, where a false "no writer" teaches somebody to
+  baseline working code. It genuinely cannot see `...parsed.patch` or
+  `.insert(rows)` from a `.map()`, and both are real writers in this repo.
+  Tightening it was tried and measured: 14 columns newly reported no writer and
+  the two checked by hand were fine. PR #4535 reached this conclusion first.
+
+  So the strict question is asked HERE, of the registered switches only, where
+  the writer is named and a false alarm costs one file read.
+
+  ⛔ A switch reachable only through an RPC parameter or a helper module has no
+  single chain to find; those are skipped BY NAME, and the skip is asserted
+  non-empty so this cannot quietly become a loop over nothing.
+*/
+const NO_SINGLE_CHAIN: Record<string, string> = {
+  author_named_publicly:
+    'written as an RPC parameter (p_name_me) — a guest has no auth.uid(), so ' +
+    'every guest-side write goes through a SECURITY DEFINER function. Covered ' +
+    'by rpcWritersOf, which requires BOTH a caller and a SQL assignment.',
+};
+
+test('every registered switch has a writer that names it in ONE chain', () => {
+  const checked: string[] = [];
+  const missing: string[] = [];
+
+  for (const sw of SWITCHES) {
+    if (NO_SINGLE_CHAIN[sw.column]) continue;
+    checked.push(`${sw.table}.${sw.column}`);
+    const found = SOURCES.some((src) =>
+      writesColumnInOneChain(src.code, sw.table, sw.column),
+    );
+    if (!found) missing.push(`${sw.table}.${sw.column} — ${sw.whatBreaksWhenStuck}`);
+  }
+
+  // A loop that skips everything passes. Count what was examined.
+  assert.ok(
+    checked.length >= SWITCHES.length - Object.keys(NO_SINGLE_CHAIN).length,
+    `only ${checked.length} switches examined — the skip list has grown silently`,
+  );
+  assert.ok(checked.length > 0, 'no switch was examined at all');
+
+  assert.deepEqual(
+    missing,
+    [],
+    'Nothing writes these columns in a single `.from(table).update({ … column … })` ' +
+      'chain. The shared detector cannot see this, because it accepts a table ' +
+      'write and a column mention from unrelated statements in the same file:\n  ' +
+      missing.join('\n  '),
   );
 });

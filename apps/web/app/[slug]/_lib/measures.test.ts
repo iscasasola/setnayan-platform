@@ -128,6 +128,26 @@ test('the phone column survives — retiring it would stretch the bottom bar', (
   );
 });
 
+test('the page opens to the STAGE on desktop, and prose does not widen with it', () => {
+  // 🔴 One class capped the ENTIRE guest page at the 48rem plate at EVERY
+  // width, so on a 2000px monitor it was a ribbon adrift in cream. Moving the
+  // navigation twice never touched it — the navigation was not what was narrow.
+  const shell = readFileSync(join(TREE, '_components/invitation-shell.tsx'), 'utf8');
+  assert.match(
+    shell,
+    /max-w-3xl[^'"`]*xl:max-w-5xl/,
+    'the page no longer opens to the stage on a desktop — it is a narrow ribbon again',
+  );
+  // 🔒 And the reading measure is untouched, so no SENTENCE gets a longer line
+  // just because the room around it grew. If this ever gains an `xl:` variant,
+  // the words themselves started stretching and that is a different decision.
+  assert.equal(READING, 'max-w-prose');
+  assert.ok(
+    !/max-w-prose[^'"`]*xl:max-w-/.test(readFileSync(join(TREE, '_components/site-body.tsx'), 'utf8')),
+    'the reading measure gained a desktop override — prose is now stretching',
+  );
+});
+
 test('the gift page uses the same column as every other room', () => {
   // It was the one genuine inconsistency: max-w-xl (36rem) while every sibling
   // room used the plate (48rem), so it read as a narrower, lesser page.

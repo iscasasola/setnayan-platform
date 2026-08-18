@@ -62,11 +62,16 @@ export default async function TourSeatingPage() {
   // Narrow, display-safe guest read — name columns only. We deliberately do NOT
   // use fetchGuestsByEvent here (it pulls email / mobile / qr_token / meal); the
   // tour must only ever surface a guest's display name.
-  const { data: guestData } = await admin
+  // Same reasoning as the gallery stop: the tour runs on ONE pinned sample event
+  // that HAS guests, so an empty guest list is never a real state here — only a
+  // failed read, rendering "find your seat" as a feature with nobody in it.
+  const { data: guestData, error: guestError } = await admin
     .from('guests')
     .select('guest_id,first_name,last_name,display_name')
     .eq('event_id', eventId)
     .is('deleted_at', null);
+  if (guestError) console.error('[tour/seating] guest read refused', guestError);
+  const guestsUnreadable = Boolean(guestError) || guestData === null;
   const guests = (guestData ?? []) as GuestNameRow[];
 
   // guest_id -> display name (resolved with the shipped pure helper).
@@ -133,11 +138,19 @@ export default async function TourSeatingPage() {
 
       <section className="mt-12">
         {tableCount > 0 ? (
-          <FindYourSeat
-            tables={mapTables}
-            seats={seats}
-            entrance={DEFAULT_ENTRANCE}
-          />
+          <>
+            {guestsUnreadable ? (
+              <p className="mb-3 rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
+                The guest list for this demo couldn&rsquo;t be loaded just now, so the seat
+                finder below has nobody to find. It isn&rsquo;t empty — reload to see it work.
+              </p>
+            ) : null}
+            <FindYourSeat
+              tables={mapTables}
+              seats={seats}
+              entrance={DEFAULT_ENTRANCE}
+            />
+          </>
         ) : (
           <div className="mx-auto max-w-2xl rounded-2xl border border-[#1B1A17]/10 bg-white/50 p-8 text-center text-sm text-[#5F5E5A]">
             This sample wedding doesn&rsquo;t have a published seating plan yet.

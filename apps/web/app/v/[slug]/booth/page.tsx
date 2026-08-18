@@ -49,15 +49,24 @@ type BoothVendorRow = {
   screen_name: string | null;
 };
 
-async function fetchBoothVendor(slug: string): Promise<BoothVendorRow | null> {
+async function fetchBoothVendor(
+  slug: string,
+): Promise<BoothVendorRow | 'unreadable' | null> {
   const admin = createAdminClient();
-  const { data } = await admin
+  // A refused read here is answered exactly like "this shop is not public" —
+  // a 404 on a real, verified supplier's booth. Kept distinguishable so the
+  // caller can tell "no such booth" from "we could not check".
+  const { data, error } = await admin
     .from('vendor_profiles')
     .select(
       'vendor_profile_id, business_name, business_slug, services, location_city, logo_url, tier_state, public_visibility, verification_state, name_revealed_at, screen_name',
     )
     .ilike('business_slug', slug)
     .maybeSingle();
+  if (error) {
+    console.error('[booth] vendor read refused', error);
+    return 'unreadable';
+  }
   return (data as BoothVendorRow | null) ?? null;
 }
 
@@ -114,6 +123,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const eligible =
     PLAN3D_BOOTH_SHOWCASE_ENABLED &&
     !!vendor &&
+    vendor !== 'unreadable' &&
     isPubliclyVisible(vendor.public_visibility) &&
     vendor.verification_state === 'verified';
   const name = eligible ? boothDisplayName(vendor) : 'a vendor';
@@ -150,6 +160,22 @@ export default async function VendorBoothShowcasePage({ params }: Props) {
   if (!PLAN3D_BOOTH_SHOWCASE_ENABLED) notFound();
   const { slug } = await params;
   const vendor = await fetchBoothVendor(slug);
+
+  // 🔑 A REFUSED READ IS NOT "THIS BOOTH IS NOT PUBLIC". The 404 below is the
+  // right answer for an unlisted or unverified shop; giving it to a real,
+  // verified supplier because a query was rejected tells every visitor their
+  // booth does not exist, on a page they may be linking to from elsewhere.
+  if (vendor === 'unreadable') {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+        <h1 className="text-xl font-semibold text-ink">We couldn&rsquo;t open this booth</h1>
+        <p className="mt-3 text-sm text-ink/70">
+          Something went wrong loading it — this is <strong>not</strong> a sign the shop
+          has closed or gone private. Please reload in a moment.
+        </p>
+      </main>
+    );
+  }
 
   // Same public gate as the profile page — an unlisted/unverified vendor 404s.
   if (!vendor || !isPubliclyVisible(vendor.public_visibility) || vendor.verification_state !== 'verified') {

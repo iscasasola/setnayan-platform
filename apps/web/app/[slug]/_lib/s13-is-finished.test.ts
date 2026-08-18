@@ -53,6 +53,8 @@ const ALLOWED: Record<string, string> = {
     'A calendar UID (`wedding-<id>@setnayan.com`). Never rendered; changing it would break calendar de-duplication for invitations already sent.',
   'event-noun.ts':
     'The older two-way noun helper, still used by callers outside this work.',
+  'compose.ts':
+    "The recap composer's own event-type comparison (`eventType === 'wedding'`) — it is what DECIDES the voice, not a word any guest reads. It exists because the story page used to announce \"Mateo Turns Seven Are Married\".",
   'data.ts':
     'The five SAMPLE weddings’ editorial content — demo material, not any real event’s copy.',
   'types.ts': 'A type union (`side: bride | groom | both`), not rendered text.',

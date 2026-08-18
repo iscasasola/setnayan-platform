@@ -104,7 +104,13 @@ export async function EditorialContent({
     // Even composition is wrapped — fall back to a bare headline.
     copy = {
       superKicker: 'A celebration',
-      headline: `${data.displayName} Are Married`,
+      // Same split as `compose.ts`: a wedding announces a marriage, every other
+      // event announces itself. This fallback produced "Mateo Turns Seven Are
+      // Married" on a birthday.
+      headline:
+        !data.eventType || data.eventType === 'wedding'
+          ? `${data.displayName} Are Married`
+          : data.displayName,
       deck: '',
       byline: 'By the Setnayan Desk',
       leadParagraphs: [],

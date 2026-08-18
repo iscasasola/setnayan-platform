@@ -332,6 +332,10 @@ export type ChapterOverride = {
 };
 
 export type EditorialData = {
+  /** The event's own kind. The recap was composed entirely from WEDDING
+   *  sentences — "<Names> Are Married" — so a birthday's story page read
+   *  "Mateo Turns Seven Are Married". The owner saw it. */
+  eventType: string | null;
   displayName: string;
   firstNames: string; // best-effort "A & B" for headline
   /** Public slug of the couple's site — drives the in-editorial share link +
@@ -659,7 +663,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     const { data, error } = await admin
       .from('events')
       .select(
-        'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos, pakanta_song_r2_key',
+        'event_id, slug, event_type, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos, pakanta_song_r2_key',
       )
       .eq('event_id', eventId)
       .maybeSingle();
@@ -676,7 +680,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       const { data } = await admin
         .from('events')
         .select(
-          'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos',
+          'event_id, slug, event_type, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos',
         )
         .eq('event_id', eventId)
         .maybeSingle();
@@ -2162,6 +2166,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
 
   return {
     displayName,
+    eventType: (event as { event_type?: string | null }).event_type ?? null,
     firstNames: deriveFirstNames(displayName),
     slug: asString(event.slug),
     eventDate,
@@ -2584,6 +2589,9 @@ function mariaAndJuan(): EditorialData {
   const guests = 120;
   return {
     displayName: 'Maria & Juan',
+    // The five samples are all weddings — declared rather than inferred, so a
+    // sample can never accidentally take the non-wedding voice.
+    eventType: 'wedding',
     firstNames: 'Maria & Juan',
     slug: null, // sample has no real event row → editorial render skips the share bar (the /realstories/[slug] detail page owns it)
     eventDate: '2026-02-14',
@@ -2750,6 +2758,9 @@ function jackAndJill(): EditorialData {
   const guests = 80;
   return {
     displayName: 'Jack & Jill',
+    // The five samples are all weddings — declared rather than inferred, so a
+    // sample can never accidentally take the non-wedding voice.
+    eventType: 'wedding',
     firstNames: 'Jack & Jill',
     slug: null,
     eventDate: '2026-04-18',
@@ -2849,6 +2860,9 @@ function johnAndJane(): EditorialData {
   const guests = 60;
   return {
     displayName: 'John & Jane',
+    // The five samples are all weddings — declared rather than inferred, so a
+    // sample can never accidentally take the non-wedding voice.
+    eventType: 'wedding',
     firstNames: 'John & Jane',
     slug: null,
     eventDate: '2026-03-07',
@@ -2948,6 +2962,9 @@ function peterAndMary(): EditorialData {
   const guests = 150;
   return {
     displayName: 'Peter & Mary',
+    // The five samples are all weddings — declared rather than inferred, so a
+    // sample can never accidentally take the non-wedding voice.
+    eventType: 'wedding',
     firstNames: 'Peter & Mary',
     slug: null,
     eventDate: '2026-05-23',
@@ -3048,6 +3065,9 @@ function jackAndRose(): EditorialData {
   const guests = 100;
   return {
     displayName: 'Jack & Rose',
+    // The five samples are all weddings — declared rather than inferred, so a
+    // sample can never accidentally take the non-wedding voice.
+    eventType: 'wedding',
     firstNames: 'Jack & Rose',
     slug: null,
     eventDate: '2026-05-09',
@@ -3156,6 +3176,9 @@ function sofiaReyes(): EditorialData {
   const guests = 200;
   return {
     displayName: 'Sofia Reyes',
+    // The five samples are all weddings — declared rather than inferred, so a
+    // sample can never accidentally take the non-wedding voice.
+    eventType: 'wedding',
     firstNames: 'Sofia Reyes',
     slug: null, // sample has no real event row → editorial render skips the share bar
     eventDate: '2026-03-14',

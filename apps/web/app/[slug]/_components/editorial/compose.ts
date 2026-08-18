@@ -61,14 +61,41 @@ function clean(s: unknown): string {
   return String(s).trim().replace(/[.!?]+$/, '');
 }
 
+
+/**
+ * IS THIS RECAP A WEDDING'S?
+ *
+ * 🔴 THE WHOLE STORY PAGE WAS COMPOSED FROM WEDDING SENTENCES. The headline was
+ * `<Names> Are Married`, the deck was `<Names> are married — …`, the closing
+ * lines were `<Names> were married at <venue>`, and the lede prefix counted
+ * `After N years together`. On a birthday that produced, verbatim:
+ *
+ *     "Mateo Turns Seven Are Married"
+ *
+ * The owner saw it on his own test event. **No word-count found it** — the
+ * sentence is assembled at runtime from a template and a display name, so the
+ * wedding word never appears beside the event name in any source file.
+ *
+ * Null/legacy event types read as a wedding, matching every other fallback in
+ * the guest tree, so nothing about a real wedding moves.
+ */
+function isWeddingRecap(d: EditorialData): boolean {
+  return !d.eventType || d.eventType === 'wedding';
+}
+
 export function composeCopy(d: EditorialData): ComposedCopy {
   const draft = d.draft;
   const names = d.displayName;
   const first = d.firstNames;
   const story: LoveStory = d.loveStory ?? {};
+  const isWedding = isWeddingRecap(d);
 
   // Prefer any LLM/curated draft fields that already exist.
-  const headline = clean(draft.headline) || `${first} Are Married`;
+  // A wedding announces a marriage. Every other event announces ITSELF — the
+  // display name already IS the occasion ("Mateo Turns Seven"), so it stands
+  // alone rather than being pressed into a wedding sentence.
+  const headline =
+    clean(draft.headline) || (isWedding ? `${first} Are Married` : d.displayName);
 
   const superKicker = clean(draft.superKicker) || ARCHETYPE_KICKER[d.archetype.key];
 
@@ -80,11 +107,16 @@ export function composeCopy(d: EditorialData): ComposedCopy {
     const yrs = yearsTogether(d.togetherSince, d.eventDate);
     const where = d.venueName || d.venueCity;
     const frame = ARCHETYPE_DECK_FRAME[d.archetype.key];
-    const lead = yrs ? `After ${spellSmall(yrs)} year${yrs === 1 ? '' : 's'} together, ${names}` : names;
+    // "After N years together" is a couple's framing — it belongs to a wedding.
+    const lead =
+      isWedding && yrs
+        ? `After ${spellSmall(yrs)} year${yrs === 1 ? '' : 's'} together, ${names}`
+        : names;
+    const verb = isWedding ? 'are married' : 'celebrated';
     if (where) {
-      deck = `${lead} are married — ${frame}, ${toneVerb(d.tone)} at ${where}.`;
+      deck = `${lead} ${verb} — ${frame}, ${toneVerb(d.tone)} at ${where}.`;
     } else {
-      deck = `${lead} are married — ${frame}, ${toneVerb(d.tone)}.`;
+      deck = `${lead} ${verb} — ${frame}, ${toneVerb(d.tone)}.`;
     }
   }
 
@@ -140,14 +172,18 @@ function composeLede(d: EditorialData, story: LoveStory): string[] {
   const closing: string[] = [];
   const guests = d.metrics.guests;
   const dayWord = d.eventDateFormatted ? `On ${d.eventDateFormatted}` : 'On the day';
+  // The same split as the headline: a wedding announces a marriage, every other
+  // event announces the gathering. "Celebrated" carries a birthday, a
+  // graduation and a reunion without pretending any of them is a wedding.
+  const didWord = isWeddingRecap(d) ? 'were married' : 'celebrated';
   if (where && guests > 0) {
-    closing.push(`${dayWord}, before ${guests} of the people who love them most, ${d.firstNames} were married at ${where}.`);
+    closing.push(`${dayWord}, before ${guests} of the people who love them most, ${d.firstNames} ${didWord} at ${where}.`);
   } else if (where) {
-    closing.push(`${dayWord}, ${d.firstNames} were married at ${where}.`);
+    closing.push(`${dayWord}, ${d.firstNames} ${didWord} at ${where}.`);
   } else if (guests > 0) {
-    closing.push(`${dayWord}, before ${guests} of the people who love them most, ${d.firstNames} were married.`);
+    closing.push(`${dayWord}, before ${guests} of the people who love them most, ${d.firstNames} ${didWord}.`);
   } else {
-    closing.push(`${dayWord}, ${d.firstNames} were married.`);
+    closing.push(`${dayWord}, ${d.firstNames} ${didWord}.`);
   }
   if (d.archetype.key === 'hand-picked' || d.archetype.key === 'jewel-box') {
     closing.push('Every name on the list was there for a reason — and the room felt it.');
@@ -163,8 +199,8 @@ function composeLede(d: EditorialData, story: LoveStory): string[] {
   if (out.length === 0) {
     out.push(
       d.eventDateFormatted
-        ? `${d.firstNames} were married on ${d.eventDateFormatted}${where ? `, at ${where}` : ''} — a celebration their guests won't soon forget.`
-        : `${d.firstNames} are married — a celebration their guests won't soon forget.`,
+        ? `${d.firstNames} ${didWord} on ${d.eventDateFormatted}${where ? `, at ${where}` : ''} — a celebration their guests won't soon forget.`
+        : `${d.firstNames} ${isWeddingRecap(d) ? 'are married' : 'celebrated'} — a celebration their guests won't soon forget.`,
     );
   }
   return out.slice(0, 3);

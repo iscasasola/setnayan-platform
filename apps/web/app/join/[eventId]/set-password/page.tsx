@@ -27,6 +27,8 @@ type Props = {
 
 const ERROR_COPY: Record<string, string> = {
   too_short: 'Use at least 8 characters.',
+  leaked:
+    'This password has appeared in a known data breach. Please choose a different one — it only takes a moment and it protects your account.',
   failed: 'We couldn’t save your password — please try again.',
 };
 

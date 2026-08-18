@@ -84,6 +84,8 @@ export const metadata: Metadata = {
 const ERROR_COPY: Record<string, string> = {
   missing: 'Please enter both an email and a password.',
   password_too_short: 'Password must be at least 8 characters.',
+  password_leaked:
+    'This password has appeared in a known data breach. Please choose a different one — it only takes a moment and it protects your account.',
   blacklisted:
     'This email cannot be used to create a Setnayan account. Please use a different email, or contact support if you think this is a mistake.',
 };

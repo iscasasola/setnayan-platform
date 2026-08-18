@@ -24,6 +24,7 @@ import { emitSecurityAlert } from '@/lib/security-alert';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { accountHomePath, validateNewPassword } from '@/lib/account-security';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { isPasswordLeaked } from '@/lib/leaked-password';
 
 export async function completePasswordReset(formData: FormData) {
   const newPassword = formData.get('new_password');
@@ -47,6 +48,19 @@ export async function completePasswordReset(formData: FormData) {
   } = await supabase.auth.getUser();
   // No session → the page itself renders the "link expired" state.
   if (!user) redirect('/reset-password');
+
+  // A reset is the MOST likely moment for a breached password: somebody who has
+  // just been locked out reaches for one they know by heart.
+  // ⚠ THIS PAGE RENDERS `error` VERBATIM — it decodes the param straight into the
+  // notice rather than mapping a code. Passing `password_leaked` here would have
+  // shown a person the literal string "password_leaked". Pass the sentence.
+  if ((await isPasswordLeaked(newPassword)).leaked) {
+    redirect(
+      `/reset-password?error=${encodeURIComponent(
+        'This password has appeared in a known data breach. Please choose a different one — it only takes a moment and it protects your account.',
+      )}`,
+    );
+  }
 
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) {

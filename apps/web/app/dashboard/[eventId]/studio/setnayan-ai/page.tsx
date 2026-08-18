@@ -223,19 +223,10 @@ export default async function SetnayanAiPage({ params }: Props) {
         </>
       ) : owns || !paywallOn ? (
         <>
-          <header className="sn-reveal space-y-2">
-            <p className="sn-eye">
-              Setnayan AI
-            </p>
-            <h1 className="sn-h1">
-              Setnayan AI is ready for your wedding
-            </h1>
-            <p className="max-w-prose text-base text-ink/65">
-              You have access — it&rsquo;s just switched to manual planning right
-              now. Turn Assisted planning back on and your vendors get ranked for
-              your date, budget and style.
-            </p>
-          </header>
+          <PageMasthead
+            title="Setnayan AI is ready for your wedding"
+            lede="You have access — it’s just switched to manual planning right now. Turn Assisted planning back on and your vendors get ranked for your date, budget and style."
+          />
 
           {/* 🔴 THIS USED TO BE A LINK TO /dashboard — A BUTTON THAT PROMISED AN
               ACTION AND DELIVERED A PAGE WITH NO SUCH CONTROL ON IT. The action

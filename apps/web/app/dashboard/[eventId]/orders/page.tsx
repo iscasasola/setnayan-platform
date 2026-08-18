@@ -11,6 +11,7 @@ import {
   formatPhp,
 } from '@/lib/orders';
 import { computeVatFromBase } from '@/lib/receipts';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Orders' };
 
@@ -46,24 +47,19 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
 
   return (
     <section className="sn-col space-y-6">
-      <header className="sn-reveal flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-2">
-          <p className="sn-eye">Purchases</p>
-          <h1 className="sn-h1 mt-1.5">Orders</h1>
-          <p className="max-w-prose text-base text-ink/65">
-            Apply for any Setnayan service — describe what you need, propose your budget. Our
-            team confirms the price, then you pay via bank transfer or GCash and log the
-            receipt here. We reconcile within one business day.
-          </p>
-        </div>
-        <Link
-          href={`/dashboard/${eventId}/orders/new`}
-          className="button-primary inline-flex items-center gap-2"
-        >
-          <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-          New order
-        </Link>
-      </header>
+      <PageMasthead
+        title="Orders"
+        lede="Apply for any Setnayan service — describe what you need, propose your budget. Our team confirms the price, then you pay via bank transfer or GCash and log the receipt here. We reconcile within one business day."
+        actions={
+          <Link
+            href={`/dashboard/${eventId}/orders/new`}
+            className="button-primary inline-flex items-center gap-2"
+          >
+            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+            New order
+          </Link>
+        }
+      />
 
       {flash ? (
         <p

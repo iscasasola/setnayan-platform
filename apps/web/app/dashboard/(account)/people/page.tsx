@@ -1,5 +1,4 @@
-import Link from 'next/link';
-import { ArrowLeft, Clock, Users, HeartHandshake, UserPlus } from 'lucide-react';
+import { Clock, Users, HeartHandshake, UserPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
@@ -176,20 +175,13 @@ async function fetchMyConnections(userId: string): Promise<{
 function PeoplePreview() {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        Back to home
-      </Link>
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">
-          <Users aria-hidden strokeWidth={1.75} />
-          The people you gather
-        </p>
-        <h1 className="sn-h1">People</h1>
-        <p className="text-base text-ink/65">
-          Family, godparents, and friends — the people your celebrations connect.
-        </p>
-      </header>
+      <PageMasthead
+        title="People"
+        back="/dashboard"
+        backLabel="Back to home"
+        lede="Family, godparents, and friends — the people your celebrations connect."
+        className="mb-6"
+      />
 
       {/* 🚨 SAMAHAN IS LIVE AND THIS BRANCH USED TO HIDE IT.
           `samahan-people-section.tsx` is NOT flag-gated — this file says so itself

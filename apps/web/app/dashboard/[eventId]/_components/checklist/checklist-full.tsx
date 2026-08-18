@@ -13,6 +13,7 @@ import type { LeafSuggestion } from '@/lib/leaf-suggestions';
 import type { VendorCategoryProgress } from '@/lib/vendor-category-progress';
 import type { CategoryDecisionState } from '@/lib/checklist-state';
 import { toggleChecklistItem } from '../../checklist-actions';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
  * ChecklistFull — the browsable, full wedding checklist.
@@ -263,49 +264,53 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
 
   return (
     <div className="sn-col space-y-6">
-      <header className="sn-reveal space-y-3">
-        <div className="space-y-1">
-          <p className="sn-eye">{chrome.eyebrow}</p>
-          <h1 className="sn-h1">{chrome.heading}</h1>
-          {/* max-w-prose (65ch) matches the budget + schedule intros. Without
-              it this paragraph inherits the shell's uncapped content column and
-              ran ~160 characters per line on a 1440px desktop — roughly 2x the
-              comfortable measure. */}
-          <p className="max-w-prose text-sm text-ink/65">{chrome.intro}</p>
-        </div>
+      <PageMasthead
+        titleNode={
+          <>
+            {chrome.heading}
+          </>
+        }
+        lede={
+          <>
+            {chrome.intro}
+          </>
+        }
+        actions={
+          <>
+            {totalCount > 0 ? (
+              <div className="space-y-1.5">
+                <div className="flex items-baseline justify-between">
+                  <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                    {doneCount} of {totalCount} done
+                  </span>
+                  <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
+                    {pct}%
+                  </span>
+                </div>
+                <div className="sn-bar h-2 w-full overflow-hidden rounded-full bg-ink/10">
+                  <i className="bg-success-500" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            ) : null}
 
-        {totalCount > 0 ? (
-          <div className="space-y-1.5">
-            <div className="flex items-baseline justify-between">
-              <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-                {doneCount} of {totalCount} done
-              </span>
-              <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
-                {pct}%
-              </span>
-            </div>
-            <div className="sn-bar h-2 w-full overflow-hidden rounded-full bg-ink/10">
-              <i className="bg-success-500" style={{ width: `${pct}%` }} />
-            </div>
-          </div>
-        ) : null}
+            {!eventDate ? (
+              <Link
+                href={`/dashboard/${eventId}/invitation`}
+                className="sn-row inline-flex items-center gap-2 border-dashed px-4 py-2.5 text-sm text-ink/70 transition hover:border-terracotta/40"
+              >
+                <CalendarPlus aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+                <span>{chrome.dateHint}</span>
+              </Link>
+            ) : null}
 
-        {!eventDate ? (
-          <Link
-            href={`/dashboard/${eventId}/invitation`}
-            className="sn-row inline-flex items-center gap-2 border-dashed px-4 py-2.5 text-sm text-ink/70 transition hover:border-terracotta/40"
-          >
-            <CalendarPlus aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            <span>{chrome.dateHint}</span>
-          </Link>
-        ) : null}
+            {budgetHealth ? <BudgetHealthCard eventId={eventId} health={budgetHealth} /> : null}
 
-        {budgetHealth ? <BudgetHealthCard eventId={eventId} health={budgetHealth} /> : null}
-
-        {vendorProgress && vendorProgress.length > 0 ? (
-          <VendorProgress eventId={eventId} progress={vendorProgress} />
-        ) : null}
-      </header>
+            {vendorProgress && vendorProgress.length > 0 ? (
+              <VendorProgress eventId={eventId} progress={vendorProgress} />
+            ) : null}
+          </>
+        }
+      />
 
       {totalCount === 0 ? (
         <p className="sn-row border-dashed px-4 py-6 text-center text-sm text-ink/60">

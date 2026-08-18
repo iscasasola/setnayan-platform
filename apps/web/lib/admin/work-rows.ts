@@ -27,6 +27,7 @@ import {
   MessageSquareWarning,
   ShieldCheck,
   type LucideIcon,
+  Receipt,
 } from 'lucide-react';
 
 export type BaseRow = {
@@ -65,6 +66,17 @@ export const BASE_ROWS: BaseRow[] = [
   { key: 'help', label: 'Help', href: '/admin/help', icon: LifeBuoy, description: 'Open help-center tickets.' },
   { key: 'vendor-partnerships', label: 'Partnerships', href: '/admin/vendor-partnerships', icon: Handshake, description: 'Vendor-to-vendor partnership claims awaiting two-admin verification.' },
   { key: 'user-reports', label: 'User reports', href: '/admin/user-reports', icon: MessageSquareWarning, description: 'Reported guest-gallery content awaiting moderation.' },
+  /* ─── ADDED 2026-08-19 · the four the owner said matter ──────────────────
+     The list counted 14 queues while ten other queue-shaped admin surfaces went
+     uncounted, under a headline reading "You're all caught up". Three of the ten
+     are correctly absent (a document browser, a compliance checklist, and one
+     whose count would come from two tables — see queue-counts.ts) and payouts
+     stays out because there is no payout. These four are real work.
+  ──────────────────────────────────────────────────────────────────────────── */
+  { key: 'booking-fees', label: 'Fees to sync', href: '/admin/booking-fees', icon: Receipt, description: 'Vendors who have not yet paid the fee that syncs them to an event.' },
+  { key: 'completions', label: 'Completions', href: '/admin/completions', icon: CheckCheck, description: 'Bookings whose completion both sides have not settled.' },
+  { key: 'chat-flags', label: 'Chat flags', href: '/admin/chat-flags', icon: MessageSquareWarning, description: 'Messages flagged for taking a deal off-platform.' },
+  { key: 'corrections', label: 'Profile corrections', href: '/admin/corrections', icon: Handshake, description: 'Verified shops asking to fix a locked detail.' },
   { key: 'integrity-watch', label: 'Integrity watch', href: '/admin/integrity-watch', icon: ShieldCheck, description: 'Review-fraud and ghost-listing flags awaiting a verdict.' },
 ];
 

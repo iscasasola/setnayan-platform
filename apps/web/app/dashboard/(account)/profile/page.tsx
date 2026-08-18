@@ -194,13 +194,25 @@ export default async function ProfilePage({ searchParams }: Props) {
   // empty list on a drifted DB (table may post-date this deploy). Event
   // display names resolve in a second cheap read (no FK-joined select —
   // matches the verify-queue two-round-trip convention).
+  let shareConsentRowsProbeError: { message?: string; code?: string } | null = null;
   const { data: shareConsentRows } = await supabase
     .from('marketing_share_consents')
     .select('consent_id, event_id, artifact_type, credit_mode, consented_at, posted_at, post_url')
     .is('revoked_at', null)
     .order('consented_at', { ascending: false })
     .limit(50)
-    .then((r) => (r.error ? { data: [] } : r));
+    .then((r) => {
+      if (r.error) {
+        shareConsentRowsProbeError = r.error;
+        return { data: [] };
+      }
+      return r;
+    });
+  // ⚠ the CONSENTS this person has given. Refused, the page shows none — so somebody
+  // ⚠ reviewing what they agreed to is told they agreed to nothing.
+  if (shareConsentRowsProbeError) {
+    logQueryError('AccountProfilePage.shareConsentRows', shareConsentRowsProbeError, {}, 'graceful_degrade');
+  }
   const shareConsents = (shareConsentRows ?? []) as Array<{
     consent_id: string;
     event_id: string;
@@ -213,11 +225,22 @@ export default async function ProfilePage({ searchParams }: Props) {
   let consentEventNames: Record<string, string> = {};
   if (shareConsents.length > 0) {
     const eventIds = Array.from(new Set(shareConsents.map((c) => c.event_id)));
+    let consentEventsProbeError: { message?: string; code?: string } | null = null;
     const { data: consentEvents } = await supabase
       .from('events')
       .select('event_id, display_name')
       .in('event_id', eventIds)
-      .then((r) => (r.error ? { data: [] } : r));
+      .then((r) => {
+        if (r.error) {
+          consentEventsProbeError = r.error;
+          return { data: [] };
+        }
+        return r;
+      });
+    // ⚠ the events those consents attach to. Refused, a given consent loses its subject.
+    if (consentEventsProbeError) {
+      logQueryError('AccountProfilePage.consentEvents', consentEventsProbeError, {}, 'graceful_degrade');
+    }
     consentEventNames = Object.fromEntries(
       ((consentEvents ?? []) as Array<{ event_id: string; display_name: string | null }>).map(
         (e) => [e.event_id, e.display_name ?? ''],
@@ -231,13 +254,25 @@ export default async function ProfilePage({ searchParams }: Props) {
   const faceProfileFlagOn = accountFaceProfileEnabled();
   let faceProfileOptedIn = false;
   if (faceProfileFlagOn) {
+    let faceProfileProbeError: { message?: string; code?: string } | null = null;
     const { data: faceProfile } = await supabase
       .from('user_face_profiles')
       .select('profile_id, revoked_at')
       .eq('user_id', user.id)
       .is('revoked_at', null)
       .maybeSingle()
-      .then((r) => (r.error ? { data: null } : r));
+      .then((r) => {
+        if (r.error) {
+          faceProfileProbeError = r.error;
+          return { data: null };
+        }
+        return r;
+      });
+    // ⚠ their face-matching profile. Refused, it reads as never set up, and the page
+    // ⚠ offers to create one they already have.
+    if (faceProfileProbeError) {
+      logQueryError('AccountProfilePage.faceProfile', faceProfileProbeError, {}, 'graceful_degrade');
+    }
     faceProfileOptedIn = Boolean(faceProfile);
   }
 

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { Plus, Trash2, Eye, EyeOff, MapPin, CalendarClock, Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { seedNonWeddingRunOfShow } from './actions';
@@ -326,7 +327,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // until negotiations launch). RLS lets the couple read their event's rows.
   let vendorMeetings: ScheduleMeeting[] = [];
   if (chatNegotiationEnabled()) {
-    const { data: apptRows } = await supabase
+    const { data: apptRows, error: apptRowsError } = await supabase
       .from('event_appointments')
       .select(
         'appointment_id, kind, custom_label, scheduled_at, status, vendor_profile_id, thread_id',
@@ -334,6 +335,11 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       .eq('event_id', eventId)
       .in('status', ['proposed', 'confirmed'])
       .order('scheduled_at', { ascending: true, nullsFirst: false });
+    // ⚠ APPOINTMENTS the couple booked. Refused, the schedule reads as empty and a
+    // ⚠ booked meeting vanishes from the day it belongs to.
+    if (apptRowsError) {
+      logQueryError('SchedulePage.apptRows', apptRowsError, { eventId }, 'graceful_degrade');
+    }
     const rows = (apptRows ?? []) as Array<{
       appointment_id: string;
       kind: string;
@@ -348,10 +354,14 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     );
     const nameByVp = new Map<string, string>();
     if (vpIds.length > 0) {
-      const { data: vps } = await supabase
+      const { data: vps, error: vpsError } = await supabase
         .from('vendor_profiles')
         .select('vendor_profile_id, business_name')
         .in('vendor_profile_id', vpIds);
+      // ⚠ the supplier names on those appointments. Refused, each reads as unnamed.
+      if (vpsError) {
+        logQueryError('SchedulePage.vps', vpsError, { eventId }, 'graceful_degrade');
+      }
       for (const v of (vps ?? []) as Array<{ vendor_profile_id: string; business_name: string | null }>)
         nameByVp.set(v.vendor_profile_id, (v.business_name ?? '').trim() || 'a vendor');
     }

@@ -192,7 +192,18 @@ test('the curate switch writes through the client that can actually change it', 
 
 test('every row offers the switch, and the screen says what the states mean', () => {
   const src = read(SURFACE);
-  assert.match(src, /setSongCuratedAction/, 'the row must offer the curate switch');
+  /*
+    🪤 ANCHORED TO THE RENDERED FORM, NOT THE SYMBOL. The first cut asserted
+    `/setSongCuratedAction/` over the file — which the IMPORT LINE satisfies. The
+    mutation that deletes the whole <form> from the row therefore left this
+    GREEN, because the import stayed. A guard that matches a string rather than
+    the act it names is decoration; measured, not guessed.
+  */
+  assert.match(
+    src,
+    /<form action=\{setSongCuratedAction\}/,
+    'the row must RENDER the curate switch — importing the action is not offering it',
+  );
   assert.match(
     src,
     /In the list|Add to list/,

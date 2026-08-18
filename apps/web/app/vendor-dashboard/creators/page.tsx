@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, BarChart3, Clapperboard, Send, Sparkles, Users } from 'lucide-react';
+import { BarChart3, Clapperboard, Send, Sparkles, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { FormFlash } from '@/app/_components/forms/form-flash';
@@ -21,6 +21,7 @@ import {
   type VendorCreatorRoiRow,
 } from '@/lib/creator-analytics';
 import { sendCreatorOffer } from './actions';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Creators · Vendor' };
 export const dynamic = 'force-dynamic';
@@ -94,25 +95,21 @@ export default async function VendorCreatorsPage({
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link href="/vendor-dashboard/shop" className="sn-chip sn-press mb-4 w-fit">
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        Back to My Shop
-      </Link>
-
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">
-          <Clapperboard aria-hidden strokeWidth={1.75} />
-          Grow · Creator collabs
-        </p>
-        <h1 className="sn-h1">Creators</h1>
-        <p className="text-base text-ink/65">
-          {/* Was "Spend one token to offer…" — sending is FREE since the token
-              retirement (owner 2026-08-07). */}
-          Offer a storyteller your promo — they publish their story crediting
-          you for free, and anyone who books you through it gets the deal you
-          chose. You keep 100%.
-        </p>
-      </header>
+      <PageMasthead
+        title="Creators"
+        back="/vendor-dashboard/shop"
+        backLabel="Back to My Shop"
+        lede={
+          <>
+            {/* Was "Spend one token to offer…" — sending is FREE since the token
+                retirement (owner 2026-08-07). */}
+            Offer a storyteller your promo — they publish their story crediting
+            you for free, and anyone who books you through it gets the deal you
+            chose. You keep 100%.
+          </>
+        }
+        className="mb-6"
+      />
 
       {search.error ? (
         <FormFlash tone="error">{decodeURIComponent(search.error)}</FormFlash>

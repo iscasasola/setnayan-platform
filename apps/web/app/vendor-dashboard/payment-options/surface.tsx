@@ -28,6 +28,7 @@ import {
 } from './actions';
 import { AddPaymentMethod } from './_components/add-payment-method';
 import { FormFlash } from '@/app/_components/forms/form-flash';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'How clients pay you · Vendor · Setnayan' };
 
@@ -104,18 +105,11 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye" style={{ color: 'var(--m-orange-2)' }}>
-          Vendor dashboard · Money
-        </p>
-        <h1 className="m-display text-3xl font-semibold tracking-tight sm:text-4xl">
-          How clients pay you
-        </h1>
-        <p className="text-base" style={{ color: 'var(--m-slate)' }}>
-          Add the ways couples can pay you directly. Setnayan takes 0% and never touches this money —
-          these show on your client&rsquo;s payment screen the moment they book you.
-        </p>
-      </header>
+      <PageMasthead
+        title="How clients pay you"
+        lede="Add the ways couples can pay you directly. Setnayan takes 0% and never touches this money — these show on your client’s payment screen the moment they book you."
+        className="mb-6"
+      />
 
       {search.error ? (
         <FormFlash tone="error">

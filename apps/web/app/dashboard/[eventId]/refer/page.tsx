@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getMyReferral, type ReferralRedemptionSummary } from '@/lib/referral-actions';
 import { isReferralProgramEnabled } from '@/lib/platform-settings';
 import { CopyButton } from '@/app/_components/copy-button';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Refer a couple' };
 
@@ -56,18 +57,15 @@ export default async function ReferACouplePage({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Refer a couple</p>
-        <h1 className="sn-h1 flex items-center gap-2">
-          <Gift aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-          Refer a couple
-        </h1>
-        <p className="text-sm text-ink/65">
-          Planning is better together. Share your link with couples you know —
-          when they book their first Setnayan service, you both get a little
-          something to spend on your own event.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <span className="flex items-center gap-2">
+            <Gift aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
+            Refer a couple
+          </span>
+        }
+        lede="Planning is better together. Share your link with couples you know — when they book their first Setnayan service, you both get a little something to spend on your own event."
+      />
 
       {/* Share card — the couple's code + link + one-tap copy. */}
       <section className="sn-tile p-5 space-y-4">

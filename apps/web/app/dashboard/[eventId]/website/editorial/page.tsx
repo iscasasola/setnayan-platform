@@ -20,6 +20,7 @@ import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import type { EditorialEditorInput } from './actions';
 import { eventNoun } from '@/lib/event-noun';
 import { WebsiteProLock } from '../_components/website-pro-lock';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 type LandingVisibility = 'public' | 'unlisted' | 'private';
 
@@ -252,15 +253,17 @@ export default async function EditorialEditorPage({
         <span>Back to Event Hub</span>
       </Link>
 
-      <header className="sn-reveal mb-8 space-y-2">
-        <p className="sn-eye">Front page</p>
-        <h1 className="sn-h1">Editorial</h1>
-        <p className="max-w-prose text-sm text-ink/65 sm:text-base">
-          Your {eventNoun(event.event_type)}&rsquo;s front-page story — published after the day. It starts written from your
-          {' '}{eventNoun(event.event_type)} details; edit the words, choose your photos and hero, and pick which features show.
-          Clear any field and we&rsquo;ll rewrite it for you, so it always reads beautifully.
-        </p>
-      </header>
+      <PageMasthead
+        title="Editorial"
+        lede={
+          <>
+            Your {eventNoun(event.event_type)}&rsquo;s front-page story — published after the day. It starts written from your
+            {' '}{eventNoun(event.event_type)} details; edit the words, choose your photos and hero, and pick which features show.
+            Clear any field and we&rsquo;ll rewrite it for you, so it always reads beautifully.
+          </>
+        }
+        className="mb-8"
+      />
 
       <EditorialEditor
         eventId={eventId}

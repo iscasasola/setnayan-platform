@@ -32,6 +32,7 @@ import { businessMilestone } from '@/lib/vendor-milestone';
 import { fetchVendorBusinessStartDate } from '@/lib/vendor-profile';
 import { manilaToday } from '@/lib/std-views';
 import { formatPhp } from '@/lib/vendors';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -62,15 +63,21 @@ export const metadata = { title: 'Overview · Vendor' };
 function AgentHome() {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">Setnayan · Vendor</p>
-        <h1 className="sn-h1">You&apos;re on the team</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Your account is set up as a team member. The services and customers your
-          owner assigns to you will appear here — scoped access is rolling out
-          shortly. There&apos;s nothing you need to do right now.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <>
+            You&apos;re on the team
+          </>
+        }
+        lede={
+          <>
+            Your account is set up as a team member. The services and customers your
+            owner assigns to you will appear here — scoped access is rolling out
+            shortly. There&apos;s nothing you need to do right now.
+          </>
+        }
+        className="mb-6"
+      />
       <div className="sn-tile p-5 text-sm text-ink/65">
         Need access to something now? Ask your vendor owner to assign you to the
         services you&apos;ll be managing.

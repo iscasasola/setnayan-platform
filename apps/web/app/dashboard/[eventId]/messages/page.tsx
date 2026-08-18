@@ -15,6 +15,7 @@ import { isFollowingVendor } from '@/lib/follow';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { startThreadByVendorEmail } from './actions';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Messages' };
 
@@ -195,14 +196,10 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
 
   return (
     <section className="space-y-6">
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Vendor chat</p>
-        <h1 className="sn-h1 mt-1.5">Messages</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          One thread per vendor you&rsquo;re working with. Vendors find you via the email on
-          your invitation site or by starting their own thread.
-        </p>
-      </header>
+      <PageMasthead
+        title="Messages"
+        lede="One thread per vendor you’re working with. Vendors find you via the email on your invitation site or by starting their own thread."
+      />
 
       {search.error ? (
         <p

@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { ArrowLeft, ArrowUpRight, HeartHandshake, Plus } from 'lucide-react';
+import { ArrowUpRight, HeartHandshake, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   fetchUserCommunities,
   type CommunityWithRole,
@@ -37,20 +38,13 @@ export default async function SamahanIndexPage({
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        Back to home
-      </Link>
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">
-          <HeartHandshake aria-hidden strokeWidth={1.75} />
-          Your shared spaces
-        </p>
-        <h1 className="sn-h1">Samahan</h1>
-        <p className="text-base text-ink/65">
-          Shared spaces for the groups you belong to — barkada, parish, clan, org.
-        </p>
-      </header>
+      <PageMasthead
+        title="Samahan"
+        back="/dashboard"
+        backLabel="Back to home"
+        lede="Shared spaces for the groups you belong to — barkada, parish, clan, org."
+        className="mb-6"
+      />
 
       {banner ? (
         <p role="status" className="sn-row mb-6 px-4 py-3 text-sm text-ink/70">

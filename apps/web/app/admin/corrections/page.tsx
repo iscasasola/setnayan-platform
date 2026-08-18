@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { PencilRuler, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { relativeTime } from '@/lib/activity';
 import { FormFlash } from '@/app/_components/forms/form-flash';
@@ -18,6 +18,7 @@ import {
 } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Profile corrections · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -94,21 +95,11 @@ export default async function AdminCorrectionsPage({
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye flex items-center gap-2">
-          <PencilRuler aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Verified-profile lock
-        </p>
-        <h1 className="sn-h1">
-          Profile corrections
-        </h1>
-        <p className="max-w-2xl text-sm text-ink/65">
-          Verified shops can&rsquo;t edit their identity details directly —
-          they file a correction request instead. Applying writes the
-          requested value to the vendor&rsquo;s profile; declining leaves it
-          untouched. Either way the vendor sees the outcome.
-        </p>
-      </header>
+      <PageMasthead
+        title="Profile corrections"
+        lede="Verified shops can’t edit their identity details directly — they file a correction request instead. Applying writes the requested value to the vendor’s profile; declining leaves it untouched. Either way the vendor sees the outcome."
+        className="mb-6"
+      />
 
       {search.error ? (
         <FormFlash tone="error">{decodeURIComponent(search.error)}</FormFlash>

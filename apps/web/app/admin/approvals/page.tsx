@@ -13,6 +13,7 @@ import { ErrorState } from '@/app/_components/states/error-state';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Approvals · Admin' };
 
 /** One number: the query reads it and ConsoleTable discloses it. It was 10, silently. */
@@ -149,21 +150,19 @@ export default async function AdminApprovalsPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-8 space-y-2">
-        <p className="sn-eye">
-          Setnayan · Internal ops · Four-eyes (§9.1)
-        </p>
-        <h1 className="sn-h1">
-          Two-admin approvals
-        </h1>
-        <p className="text-base text-ink/65">
-          Major, irreversible decisions need a second admin. One admin{' '}
-          <strong className="text-ink">initiates</strong> a request here; a{' '}
-          <strong className="text-ink">different</strong> admin approves it before
-          it executes. V1 governs privileged-role grants (Internal · Team Pool ·
-          Promote-to-admin). Every decision is audit-logged.
-        </p>
-      </header>
+      <PageMasthead
+        title="Two-admin approvals"
+        lede={
+          <>
+            Major, irreversible decisions need a second admin. One admin{' '}
+            <strong className="text-ink">initiates</strong> a request here; a{' '}
+            <strong className="text-ink">different</strong> admin approves it before
+            it executes. V1 governs privileged-role grants (Internal · Team Pool ·
+            Promote-to-admin). Every decision is audit-logged.
+          </>
+        }
+        className="mb-8"
+      />
 
       {adminCount !== null && adminCount < 2 ? (
         <div className="mb-8 rounded-xl border border-warn-300/60 bg-warn-50/60 p-4 text-sm text-warn-900">

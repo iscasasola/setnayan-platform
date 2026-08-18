@@ -1,8 +1,7 @@
-import Link from 'next/link';
-import { ArrowLeft, HeartHandshake } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { } from '@/lib/communities';
 import { createCommunity } from '../actions';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = {
   title: 'Create a Samahan',
@@ -29,20 +28,13 @@ export default async function NewSamahanPage({
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link href="/dashboard/samahan" className="sn-chip sn-press mb-4 w-fit">
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        Back to Samahan
-      </Link>
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">
-          <HeartHandshake aria-hidden strokeWidth={1.75} />
-          New shared space
-        </p>
-        <h1 className="sn-h1">Create a Samahan</h1>
-        <p className="text-base text-ink/65">
-          One shared space for your group — free, private, invite-link-only.
-        </p>
-      </header>
+      <PageMasthead
+        title="Create a Samahan"
+        back="/dashboard/samahan"
+        backLabel="Back to Samahan"
+        lede="One shared space for your group — free, private, invite-link-only."
+        className="mb-6"
+      />
 
       {errorMessage ? (
         <p

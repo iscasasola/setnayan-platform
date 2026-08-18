@@ -21,6 +21,7 @@ import type { QueuePeek } from '@/lib/admin/queue-peek';
 import { partitionQueues } from '@/lib/admin/queue-partition';
 import { EXPANDABLE_QUEUES } from '@/lib/admin/queue-peek';
 import { QueueDrawer } from './queue-drawer';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import type {
   AdminQueueLane,
   AdminQueueDueState,
@@ -348,11 +349,19 @@ export function QueuesTriageFeed({
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:max-w-5xl lg:py-8">
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">Admin</p>
-        <h1 className="sn-h1">{title}</h1>
-        <p className="text-sm text-[color:var(--sn-ink-500)]">{subtitle}</p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <>
+            {title}
+          </>
+        }
+        lede={
+          <>
+            {subtitle}
+          </>
+        }
+        className="mb-6"
+      />
 
       {settle && SETTLE_NOTICES[settle] ? (
         (() => {

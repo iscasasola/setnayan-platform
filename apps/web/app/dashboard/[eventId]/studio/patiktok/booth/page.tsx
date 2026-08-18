@@ -19,6 +19,7 @@ import {
 import { BoothCapture } from '../_components/booth-capture';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { formatCalendarDate } from '@/lib/events';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 // Iteration 0017 Phase 4 — Patiktok Operator Dashboard.
 //
@@ -137,22 +138,19 @@ export default async function PatiktokBoothDashboard({
         Back to Patiktok gallery
       </Link>
 
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Patiktok Booth</p>
-        <h1 className="sn-h1">
-          {event?.display_name ?? 'Your event'}
-          {event?.event_date ? (
-            <span className="ml-2 font-mono text-base text-ink/55">
-              · {formatCalendarDate(event.event_date, { dateStyle: 'long' })}
-            </span>
-          ) : null}
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Re-scan the printed booth QR anytime to pick up where you left off.
-          Token is event-scoped and persists across phones for the full event-
-          day pack window.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <>
+            {event?.display_name ?? 'Your event'}
+            {event?.event_date ? (
+              <span className="ml-2 font-mono text-base text-ink/55">
+                · {formatCalendarDate(event.event_date, { dateStyle: 'long' })}
+              </span>
+            ) : null}
+          </>
+        }
+        lede="Re-scan the printed booth QR anytime to pick up where you left off. Token is event-scoped and persists across phones for the full event- day pack window."
+      />
 
       <CapacityStrip
         submissions={submissions}

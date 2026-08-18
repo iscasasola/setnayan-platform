@@ -4,6 +4,7 @@ import { CalendarHeart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   VendorTrackRecordPanel,
   fetchVendorTrackRecord,
@@ -62,21 +63,11 @@ export default async function VendorTrackRecordPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-      <header className="mb-6 space-y-1.5">
-        <p className="sn-eye" style={{ color: 'var(--m-orange-2)' }}>
-          One profile, every life event
-        </p>
-        <h1
-          className="text-3xl font-semibold tracking-tight sm:text-4xl"
-          style={{ color: 'var(--m-ink)' }}
-        >
-          Track record
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          How your reputation adds up across every kind of event you&rsquo;ve
-          worked — weddings, debuts, christenings, and beyond.
-        </p>
-      </header>
+      <PageMasthead
+        title="Track record"
+        lede="How your reputation adds up across every kind of event you’ve worked — weddings, debuts, christenings, and beyond."
+        className="mb-6"
+      />
 
       {rows.length > 0 ? (
         <VendorTrackRecordPanel

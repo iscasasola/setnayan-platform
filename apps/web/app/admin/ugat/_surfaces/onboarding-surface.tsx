@@ -20,6 +20,7 @@ import { updateOnboardingMusic } from '@/app/admin/onboarding/actions';
 import { ONBOARDING_MUSIC_MAX_TRACKS } from '@/lib/onboarding-music-limits';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 type Props = { searchParams: Promise<{ saved?: string; error?: string }> };
 
@@ -58,18 +59,18 @@ export async function OnboardingSurface({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">Setnayan · Internal ops</p>
-        <h1 className="sn-h1">
-          Onboarding
-        </h1>
-        <p className="text-base text-ink/65">
-          Settings that tune the new-account onboarding flows — grouped by
-          onboarding type so each gets its own home. Today there is one flow
-          (<strong className="text-ink">Wedding</strong>); as Setnayan opens new
-          event types, each adds a section here.
-        </p>
-      </header>
+      <PageMasthead
+        title="Onboarding"
+        lede={
+          <>
+            Settings that tune the new-account onboarding flows — grouped by
+            onboarding type so each gets its own home. Today there is one flow
+            (<strong className="text-ink">Wedding</strong>); as Setnayan opens new
+            event types, each adds a section here.
+          </>
+        }
+        className="mb-6"
+      />
 
       {sp.saved ? (
         <div className="mb-6 flex items-center gap-2 rounded-xl border border-success-300/60 bg-success-50/60 px-4 py-3 text-sm text-success-800">

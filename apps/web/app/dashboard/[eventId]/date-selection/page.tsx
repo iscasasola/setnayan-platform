@@ -52,6 +52,7 @@ import { FourQuestionFlow } from './_components/four-question-flow';
 import { CandidateDatePicker, type CandidateInsight } from './_components/candidate-date-picker';
 import { ChineseSpecialistNudge } from './_components/chinese-specialist-nudge';
 import { markDateUndecided } from './actions';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Pick your date' };
 
@@ -619,18 +620,19 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
         Back to {(event as { display_name: string }).display_name}
       </a>
 
-      <header className="sn-reveal space-y-2 text-center sm:text-left">
-        <p className="sn-eye">
-          Setnayan · Phase 0
-        </p>
-        <h1 className="sn-h1">
-          Congratulations. Let&apos;s start with your date.
-        </h1>
-        <p className="text-base text-ink/70">
-          Every great wedding has one moment that everything else circles around. We&apos;ll help
-          you find yours — and show you what makes the day you pick special.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <>
+            Congratulations. Let&apos;s start with your date.
+          </>
+        }
+        lede={
+          <>
+            Every great wedding has one moment that everything else circles around. We&apos;ll help
+            you find yours — and show you what makes the day you pick special.
+          </>
+        }
+      />
 
       {chineseTradition ? <ChineseSpecialistNudge /> : null}
 

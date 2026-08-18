@@ -18,6 +18,7 @@ import { SetnayanAiValue } from './_components/setnayan-ai-value';
 import type { AiValueTerms } from './_components/setnayan-ai-value-copy';
 import { setPlanningMode } from '@/app/dashboard/[eventId]/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Setnayan AI' };
 
@@ -169,19 +170,14 @@ export default async function SetnayanAiPage({ params }: Props) {
           shortlist) lives on /vendors, so the active state leads straight there. */}
       {active ? (
         <>
-          <header className="sn-reveal space-y-2">
-            <p className="sn-eye">
-              Setnayan AI
-            </p>
-            <h1 className="sn-h1">
-              Everything it&rsquo;s keeping for {event.display_name ?? 'your wedding'}
-            </h1>
-            <p className="max-w-prose text-base text-ink/65">
-              Setnayan AI is on — here&rsquo;s the full picture of what it&rsquo;s
-              watching, ranking and tracking for you right now, and the work it
-              saves you from holding by hand.
-            </p>
-          </header>
+          <PageMasthead
+            titleNode={
+              <>
+                Everything it&rsquo;s keeping for {event.display_name ?? 'your wedding'}
+              </>
+            }
+            lede="Setnayan AI is on — here’s the full picture of what it’s watching, ranking and tracking for you right now, and the work it saves you from holding by hand."
+          />
 
           <div className="flex flex-col gap-4 rounded-xl border border-mulberry/20 bg-mulberry/5 p-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="inline-flex items-center gap-2 text-sm font-medium text-mulberry">

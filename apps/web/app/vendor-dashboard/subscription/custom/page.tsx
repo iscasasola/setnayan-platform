@@ -8,6 +8,7 @@ import { asVendorTier } from '@/lib/vendor-tier-caps';
 import { fetchCustomUnitPrices } from '@/lib/vendor-custom-catalog';
 import type { CustomComposition } from '@/lib/vendor-custom-pricing';
 import { CustomConfigurator } from './_components/custom-configurator';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
  * /vendor-dashboard/subscription/custom — "Compose a Custom plan" (owner's
@@ -87,22 +88,26 @@ export default async function VendorCustomPlanPage({ searchParams }: Props) {
         Plans
       </Link>
 
-      <header className="mb-6 mt-3 sm:mb-8">
-        <p className="sn-eye">Beyond Enterprise</p>
-        <h1 className="sn-h1 mt-1 flex items-center gap-2">
-          <Sparkles className="h-7 w-7 text-orange" strokeWidth={1.75} aria-hidden />
-          Compose a Custom plan.
-        </h1>
-        <p className="mt-2 max-w-prose text-sm text-ink/65">
-          Everything in Enterprise plus white-glove support, then dial in exactly
-          the branches, reach, seats, listings and photos your business
-          needs. Custom starts at{' '}
-          <span className="font-semibold text-ink">
-            ₱{NUMBER.format(unitPrices.base)}
-          </span>{' '}
-          per 28 days.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <span className="flex items-center gap-2">
+            <Sparkles className="h-7 w-7 text-orange" strokeWidth={1.75} aria-hidden />
+            Compose a Custom plan.
+          </span>
+        }
+        lede={
+          <>
+            Everything in Enterprise plus white-glove support, then dial in exactly
+            the branches, reach, seats, listings and photos your business
+            needs. Custom starts at{' '}
+            <span className="font-semibold text-ink">
+              ₱{NUMBER.format(unitPrices.base)}
+            </span>{' '}
+            per 28 days.
+          </>
+        }
+        className="mb-6 mt-3 sm:mb-8"
+      />
 
       {search.requested && (
         <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">

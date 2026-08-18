@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { GigCard } from './_components/gig-card';
 import type { ManpowerGigRow, ManpowerGigStatus } from './actions';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
  * V2 Phase F · Vendor-side manpower surface.
@@ -164,19 +165,15 @@ export default async function VendorManpowerPage() {
     // shows through; eyebrows/headings move to the kit (`.sn-eye`/`.sn-sec`).
     <div className="min-h-screen" style={{ color: 'var(--m-ink)' }}>
       <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
-        <header>
-          <p className="sn-eye">Phase F · ₱15K OFFLINE</p>
-          <h1
-            className="mt-2 font-extrabold tracking-[-0.03em]"
-            style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)', lineHeight: 1.02 }}
-          >
-            Manpower gigs
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-            Pick up day-of crew gigs from hosts you&apos;re already serving. Free
-            to accept · cash flows direct from the host to your crew.
-          </p>
-        </header>
+        <PageMasthead
+          title="Manpower gigs"
+          lede={
+            <>
+              Pick up day-of crew gigs from hosts you&apos;re already serving. Free
+              to accept · cash flows direct from the host to your crew.
+            </>
+          }
+        />
 
         {/* BIR-exempt note · surfaced prominently per spec */}
         <aside className="sn-tile mt-6 p-4">

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ShieldCheck, CheckCircle2, Circle, Ban, Archive, Download, FileText, FolderArchive } from 'lucide-react';
+import { CheckCircle2, Circle, Ban, Archive, Download, FileText, FolderArchive } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { relativeTime } from '@/lib/activity';
@@ -14,6 +14,7 @@ import { NPC_DOCUMENTS, NPC_DOC_GROUP_LABEL, type NpcDocGroup } from '@/lib/npc-
 import { ControlActions } from './_components/control-actions';
 import { CoveragePanel } from './_components/coverage-panel';
 import { NpcChecklist } from './_components/npc-checklist';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Data Privacy & NPC Filing · Admin' };
 export const dynamic = 'force-dynamic';
@@ -75,25 +76,22 @@ export default async function DataPrivacyPage({
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-5 space-y-2">
-        <p className="sn-eye flex items-center gap-2">
-          <ShieldCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Data Privacy · RA 10173
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight" style={{ color: 'var(--m-ink)' }}>
-          Data Privacy &amp; NPC Filing
-        </h1>
-        <p className="max-w-2xl text-sm" style={{ color: 'var(--m-slate-2)' }}>
-          One place for the live control board and the NPC filing. Approve each privacy-sensitive
-          capability, check what’s declared to the regulator, and work down the pre-filing
-          checklist. Features read this board, so a control that isn’t <strong>Active</strong> stays
-          off everywhere.
-          <span className="mt-1 block" style={{ color: 'var(--m-slate-3)' }}>
-            {activeCount} of {liveTotal} controls active
-            {retiredCount > 0 ? ` · ${retiredCount} retired` : ''}.
-          </span>
-        </p>
-      </header>
+      <PageMasthead
+        title="Data Privacy & NPC Filing"
+        lede={
+          <>
+            One place for the live control board and the NPC filing. Approve each privacy-sensitive
+            capability, check what’s declared to the regulator, and work down the pre-filing
+            checklist. Features read this board, so a control that isn’t <strong>Active</strong> stays
+            off everywhere.
+            <span className="mt-1 block" style={{ color: 'var(--m-slate-3)' }}>
+              {activeCount} of {liveTotal} controls active
+              {retiredCount > 0 ? ` · ${retiredCount} retired` : ''}.
+            </span>
+          </>
+        }
+        className="mb-5"
+      />
 
       {/* Tab bar */}
       <nav

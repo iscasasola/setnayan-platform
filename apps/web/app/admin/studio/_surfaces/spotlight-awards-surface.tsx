@@ -43,6 +43,7 @@ import {
 } from '@/app/admin/spotlight-awards/_components/spotlight-actions';
 import { addAwardManually } from '@/app/admin/spotlight-awards/actions';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
  * `vendor_profiles.logo_url` holds an `r2://bucket/key` REFERENCE, not a URL —
@@ -97,19 +98,17 @@ export async function SpotlightAwardsSurface({
 
   return (
     <div>
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye" style={{ color: 'var(--m-orange-2)' }}>
-          Setnayan HQ
-        </p>
-        <h1 className="sn-h1">
-          Spotlight Awards
-        </h1>
-        <p className="max-w-prose text-sm text-ink/65">
-          This month&rsquo;s vendor recognitions — {formatPeriod(period)}. Run the
-          recompute to refresh the automatic picks, confirm or add awards by hand,
-          and feature a curated few on the homepage.
-        </p>
-      </header>
+      <PageMasthead
+        title="Spotlight Awards"
+        lede={
+          <>
+            This month&rsquo;s vendor recognitions — {formatPeriod(period)}. Run the
+            recompute to refresh the automatic picks, confirm or add awards by hand,
+            and feature a curated few on the homepage.
+          </>
+        }
+        className="mb-6"
+      />
 
       {ok ? (
         <div className="mb-5 rounded-xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-800">

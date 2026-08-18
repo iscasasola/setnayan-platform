@@ -97,6 +97,7 @@ import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
 import { GuestCamerasChoice } from './_components/guest-cameras-choice';
 import { resolvePapicRoom, PAPIC_ROOM_TABS } from './_lib/rooms';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -535,17 +536,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       </Link>
 
       {/* Header — short. */}
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Capture</p>
-        <h1 className="sn-h1 flex items-center gap-3">
-          <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          {papicEventWord === 'wedding' ? 'Wedding' : 'Event'} photo capture
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Your guests become the camera crew — every photo and 10-second clip lands
-          in your gallery, tagged, in real time.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <span className="flex items-center gap-3">
+            <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
+            {papicEventWord === 'wedding' ? 'Wedding' : 'Event'} photo capture
+          </span>
+        }
+        lede="Your guests become the camera crew — every photo and 10-second clip lands in your gallery, tagged, in real time."
+      />
 
       {/* ⚠ THE STRIP SITS BELOW StatusBanners ON PURPOSE. A confirmation must be
           visible whichever room resolves — if the outcome→room map ever misses a

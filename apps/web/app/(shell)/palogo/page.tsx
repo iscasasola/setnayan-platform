@@ -159,9 +159,7 @@ const VS = [
 export default function PalogoLandingPage() {
   return (
     <DoorwayPage
-      kicker="In your wedding · animated monogram"
       title={'One mark, alive across your whole wedding.'}
-      lede={'Palogo gives your wedding a signature of its own — your initials, drawn into a monogram that comes alive. It opens your save-the-date, signs your Event Hub, glows at the reception, and closes every video.'}
       primary={{ href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
       secondary={{ href: '/monogram', label: 'Preview yours · free' }}
       productName="Palogo"

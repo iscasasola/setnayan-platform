@@ -178,7 +178,6 @@ export default function SetnayanAiLandingPage() {
   return (
     <DoorwayPage
       title="It doesn’t chat. It watches your wedding for you."
-      lede="Every other wedding AI waits for you to ask a question. Setnayan AI keeps an eye on your vendors — the ones you’re eyeing and the ones you’ve booked — and taps you only when something needs you: a deposit due, a price that moved, a date about to clash. Every planning tool stays free; Setnayan AI is the paid brain on top."
       primary={{ href: '/onboarding/wedding?from=setnayan-ai', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Setnayan AI"

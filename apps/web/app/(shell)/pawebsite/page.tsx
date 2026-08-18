@@ -171,9 +171,7 @@ const VS = [
 export default function PawebsiteLandingPage() {
   return (
     <DoorwayPage
-      kicker="In your event · editorial website"
       title={'One beautiful home for your whole wedding.'}
-      lede={'Your Event Hub brings your save-the-date, your RSVP, your event details, and your love story under one address — told like a magazine feature. Share it once, and everything your guests need is there.'}
       primary={{ href: '/onboarding/wedding?from=pawebsite', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Event Hub"

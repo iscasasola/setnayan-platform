@@ -171,9 +171,7 @@ export default function PanoodLandingPage() {
   return (
     <DoorwayPage
       demo={studioApp('panood')?.demo}
-      kicker="In your wedding · live stream"
       title={'Everyone you love, in the room — even from afar.'}
-      lede={'Live Studio brings the people who can’t be there into your day, live. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it — they watch your wedding as it happens, right on your own Event Hub.'}
       primary={{ href: '/onboarding/wedding?from=panood', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Panood"

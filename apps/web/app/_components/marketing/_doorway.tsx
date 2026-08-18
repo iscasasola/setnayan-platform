@@ -64,11 +64,22 @@ import { TryTheDemoButton } from './try-the-demo-button';
 import type { DemoOverlayId } from '@/lib/demo-overlay-bus';
 
 export type DoorwayProps = {
-  /** Mono eyebrow above the title. Omitted on `/papic`, which opens on its h1. */
-  kicker?: string;
-  /** THE h1. One per page, rendered as an h1 by this component and only here. */
+  /**
+   * THE h1. One per page, rendered as an h1 by this component and only here.
+   *
+   * ── There is no `kicker` and no `lede` (owner 2026-08-19) ──────────────────
+   * The hero used to be a gold mono eyebrow, then the h1, then a paragraph.
+   * Owner, on that shape across the app: *"we do not need these. it just eats
+   * up space and we want it to be simpler to understand on each page without
+   * too much side comments"* — then, asked directly whether it applied to the
+   * marketing pages too: *"build it."*
+   *
+   * The product is still explained, one screen lower and better: "How it
+   * works" (three steps) and the differentiator both sit directly under this
+   * hero. Nothing was deleted that was the only statement of anything.
+   * ⚠ `differentiator.lede` is a DIFFERENT field and is untouched.
+   */
   title: string;
-  lede: string;
   primary: { href: string; label: string };
   secondary: { href: string; label: string };
   /**
@@ -174,9 +185,7 @@ const SECONDARY_CTA =
 const SECTION_HEADING = 'text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl';
 
 export function DoorwayPage({
-  kicker,
   title,
-  lede,
   primary,
   secondary,
   demo,
@@ -219,21 +228,15 @@ export function DoorwayPage({
       <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
         {/* Hero */}
         <header className="mx-auto max-w-2xl text-center">
-          {kicker ? (
-            <p className={`font-mono text-xs uppercase tracking-[0.22em] ${GOLD}`}>{kicker}</p>
-          ) : null}
           {/* as="h1" is written HERE and nowhere else — see the docblock. */}
           <LineRevealHeading
             as="h1"
             trigger="mount"
-            className={`${kicker ? 'mt-3 ' : ''}font-serif text-4xl leading-tight tracking-tight text-[var(--m-ink)] sm:text-5xl`}
+            className="font-serif text-4xl leading-tight tracking-tight text-[var(--m-ink)] sm:text-5xl"
           >
             {title}
           </LineRevealHeading>
           <RevealBand stagger={0.08} y={14}>
-            <p data-reveal-item className={`mx-auto mt-4 max-w-xl text-base sm:text-lg ${MUTED}`}>
-              {lede}
-            </p>
             <div data-reveal-item className="mt-7 flex flex-wrap items-center justify-center gap-3">
               <Link href={primary.href} className={PRIMARY_CTA}>
                 {primary.label}

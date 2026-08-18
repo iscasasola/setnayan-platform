@@ -157,9 +157,7 @@ const VS = [
 export default function PatiktokLandingPage() {
   return (
     <DoorwayPage
-      kicker="In your wedding · highlight reels"
       title={'The moments that travel, ready the same night.'}
-      lede={'Patiktok turns your wedding moments into short, vertical highlight reels — set to music, ready to share, no editing required. The entrance, the first dance, the toast: made the moment they happen.'}
       primary={{ href: '/onboarding/wedding?from=patiktok', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Patiktok"

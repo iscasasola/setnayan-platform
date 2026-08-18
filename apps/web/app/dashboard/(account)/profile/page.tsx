@@ -1,15 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import {
-  ArrowLeft,
-  Download,
-  AlertTriangle,
-  Compass,
-  KeyRound,
-  Gem,
-  MonitorSmartphone,
-  UserCircle,
-} from 'lucide-react';
+import { ArrowLeft, Download, AlertTriangle, Compass, KeyRound, Gem, MonitorSmartphone } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
@@ -46,6 +37,7 @@ import {
 } from './actions';
 import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   CIVIL_STATUSES,
   CIVIL_STATUS_LABELS,
@@ -288,17 +280,15 @@ export default async function ProfilePage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-8 space-y-2">
-        <Link href={backHref} className="sn-chip sn-press w-fit">
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {backLabel}
-        </Link>
-        <p className="sn-eye">
-          <UserCircle aria-hidden strokeWidth={1.75} />
-          Your account
-        </p>
-        <h1 className="sn-h1">Profile &amp; settings</h1>
-      </header>
+      <PageMasthead
+        title="Profile &amp; settings"
+        actions={
+          <Link href={backHref} className="sn-chip sn-press w-fit">
+            <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            {backLabel}
+          </Link>
+        }
+      />
 
       {search.error ? (
         <FormFlash tone="error">{decodeURIComponent(search.error)}</FormFlash>

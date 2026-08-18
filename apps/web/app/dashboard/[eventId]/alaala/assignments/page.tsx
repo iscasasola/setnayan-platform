@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { KWENTO_MOMENTS, type KwentoMomentKey } from '@/lib/kwento-moments';
 import { GuestPicker, AssignmentRow } from './_components/assignment-controls';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Story Assignments' };
 export const dynamic = 'force-dynamic';
@@ -53,23 +54,24 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
 
   return (
     <section className="space-y-8">
-      <header className="sn-reveal space-y-2">
-        <Link
-          href={`/dashboard/${eventId}/alaala`}
-          className="inline-flex items-center gap-1 text-[12px]"
-          style={{ color: 'var(--m-slate-2)' }}
-        >
-          ← Alaala
-        </Link>
-        <p className="sn-eye">Story Assignments</p>
-        <h1 className="sn-h1" style={{ color: 'var(--m-ink)' }}>
-          Story Assignments
-        </h1>
-        <p className="max-w-prose text-[14px] leading-relaxed" style={{ color: 'var(--m-slate)' }}>
-          Assign a guest to each locked editorial moment. They&rsquo;ll get an email asking
-          them to share what they witnessed — in their own words.
-        </p>
-      </header>
+      <PageMasthead
+        title="Story Assignments"
+        lede={
+          <>
+            Assign a guest to each locked editorial moment. They&rsquo;ll get an email asking
+            them to share what they witnessed — in their own words.
+          </>
+        }
+        actions={
+          <Link
+            href={`/dashboard/${eventId}/alaala`}
+            className="inline-flex items-center gap-1 text-[12px]"
+            style={{ color: 'var(--m-slate-2)' }}
+          >
+            ← Alaala
+          </Link>
+        }
+      />
 
       <ol className="space-y-3">
         {KWENTO_MOMENTS.map((moment, i) => {

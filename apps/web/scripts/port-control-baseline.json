@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0e6c32171",
+  "generatedFromRef": "c1f92acee",
   "routeCount": 402,
-  "destinations": 849,
+  "destinations": 850,
   "actions": 579,
-  "blocks": 3710,
+  "blocks": 3800,
   "routes": {
     "/": {
       "files": [
@@ -563,6 +563,7 @@
         "[slug]/_components/reveal/veil-shared.ts",
         "[slug]/_components/reveal/wax-seal.tsx",
         "[slug]/_components/roam-watch-picker.tsx",
+        "[slug]/_components/room-footer.tsx",
         "[slug]/_components/rsvp-widget.tsx",
         "[slug]/_components/save-the-date-film.tsx",
         "[slug]/_components/save-the-date.tsx",
@@ -588,6 +589,8 @@
         "[slug]/_lib/host-scope.ts",
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/measures.ts",
+        "[slug]/_lib/room-links.server.ts",
+        "[slug]/_lib/room-links.ts",
         "[slug]/_lib/site-identity.ts",
         "[slug]/_lib/site-menu.ts",
         "[slug]/_lib/site-nav.ts",
@@ -632,6 +635,7 @@
         "ClientEventWords",
         "ClipFrame",
         "Colophon",
+        "ConsentVeto",
         "CountdownWidget",
         "CssFallback",
         "Date",
@@ -822,6 +826,7 @@
         "LiveRefresher",
         "Logo",
         "PromptCard",
+        "RoomFooter",
         "Shell",
         "WayfindingMap"
       ]
@@ -842,6 +847,7 @@
         "MatchCard",
         "NameSearch",
         "PromptCard",
+        "RoomFooter",
         "Shell"
       ]
     },
@@ -889,7 +895,8 @@
         "Link",
         "Logo",
         "PabuyaCardList",
-        "PabuyaTrustNote"
+        "PabuyaTrustNote",
+        "RoomFooter"
       ]
     },
     "/[slug]/print": {
@@ -940,6 +947,7 @@
         "RecapPrologue",
         "RecapStats",
         "Reels",
+        "RoomFooter",
         "SaveStoryCardButton",
         "ShareButtons",
         "Voices"
@@ -966,6 +974,7 @@
         "PersonalPass",
         "PromptCard",
         "PublicTableView",
+        "RoomFooter",
         "SeatPassShell",
         "WayfindingMap"
       ]
@@ -1004,6 +1013,7 @@
         "OrbitControls",
         "OwnSeatTapTarget",
         "RemotePlayers",
+        "RoomFooter",
         "SceneLighting",
         "SeatDestinationMarker",
         "SeatedFigure",
@@ -1173,6 +1183,7 @@
         "MoreSearch",
         "NavFab",
         "NavItem",
+        "PageMasthead",
         "ProgressRing",
         "Row",
         "Screen",
@@ -1384,6 +1395,9 @@
         "requestPrivilegedGrant"
       ],
       "blocks": [
+        "ConsoleTable",
+        "ErrorState",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -1436,6 +1450,7 @@
         "AdminActionResult",
         "BenchmarkRowForm",
         "BudgetBandRowForm",
+        "ConsoleTable",
         "SubmitButton"
       ]
     },
@@ -1576,6 +1591,7 @@
         "ConfirmForm",
         "FormFlash",
         "Link",
+        "PageMasthead",
         "RequestCard",
         "ShopAddressCorrection",
         "SubmitButton",
@@ -1628,6 +1644,7 @@
         "NpcChecklist",
         "NpcDocuments",
         "NpcTaskResult",
+        "PageMasthead",
         "PrivacyControlStatus",
         "StatusIcon",
         "TaskActions",
@@ -1901,6 +1918,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ConsoleTable",
         "Link",
         "MiniTour"
       ]
@@ -1952,8 +1970,11 @@
         "unsuspendVendor"
       ],
       "blocks": [
+        "ConsoleTable",
+        "ErrorState",
         "EvidenceChips",
         "HTMLDivElement",
+        "PageMasthead",
         "StateBadge",
         "SubmitButton",
         "WipeBanDialog"
@@ -2293,6 +2314,7 @@
         "MethodDetail",
         "MethodTypeBadge",
         "ModerationBadge",
+        "PageMasthead",
         "PaymentMethodCard",
         "SubmitButton"
       ]
@@ -2323,6 +2345,7 @@
         "HTMLInputElement",
         "InboxMatcher",
         "OrdersNeedingQuote",
+        "PageMasthead",
         "PaymentsList",
         "PlatformChip",
         "RefundForm",
@@ -2351,6 +2374,7 @@
         "FlashBanner",
         "FormFlash",
         "Link",
+        "PageMasthead",
         "PayoutCard",
         "Stat",
         "SubmitButton"
@@ -2434,6 +2458,7 @@
         "Icon",
         "LaneChips",
         "Link",
+        "PageMasthead",
         "QueueDrawer",
         "TriageRow",
         "TriageStrip"
@@ -2930,6 +2955,7 @@
         "LucideByName",
         "OptionCard",
         "OptionGrid",
+        "PageMasthead",
         "PhotoField",
         "RefThumb",
         "RefinementsTab",
@@ -2995,6 +3021,7 @@
         "NodeCard",
         "Omnibox",
         "OnboardingSurface",
+        "PageMasthead",
         "RelatedLink",
         "ReligionSection",
         "Resolution",
@@ -3079,6 +3106,7 @@
       ],
       "blocks": [
         "ConsoleTable",
+        "ErrorState",
         "FormFlash",
         "PageMasthead",
         "SearchParams",
@@ -3197,7 +3225,7 @@
       ],
       "blocks": [
         "ConfirmForm",
-        "Link",
+        "PageMasthead",
         "SubmitButton",
         "VenueForm"
       ]
@@ -3214,7 +3242,7 @@
         "createVenue"
       ],
       "blocks": [
-        "Link",
+        "PageMasthead",
         "VenueForm"
       ]
     },
@@ -3278,6 +3306,7 @@
         "FormFlash",
         "Image",
         "Link",
+        "PageMasthead",
         "SlaBadge",
         "SlotDetail",
         "StatusBadge",
@@ -3475,6 +3504,7 @@
       "blocks": [
         "FormFlash",
         "Link",
+        "PageMasthead",
         "ScopeCheckbox",
         "SubmitButton"
       ]
@@ -3495,6 +3525,7 @@
       ],
       "destinations": [
         "/dashboard/[seg]",
+        "/dashboard/[seg]/details",
         "/dashboard?hub=1"
       ],
       "actions": [
@@ -3552,6 +3583,7 @@
         "FormFlash",
         "Link",
         "OfferInbox",
+        "PageMasthead",
         "Phase",
         "SubmitButton",
         "TeaserGenerator",
@@ -3587,6 +3619,7 @@
         "FacebookGlyph",
         "Icon",
         "Link",
+        "PageMasthead",
         "PhotosTab",
         "SavedVendorCardItem",
         "Section",
@@ -3621,6 +3654,7 @@
         "HTMLDivElement",
         "HTMLElement",
         "Link",
+        "PageMasthead",
         "ScrollReel",
         "Stage",
         "StoryPeople"
@@ -3642,6 +3676,7 @@
         "Link",
         "LoadingNarration",
         "NotificationsList",
+        "PageMasthead",
         "Screen",
         "Sk",
         "SkLine",
@@ -3683,6 +3718,7 @@
         "CopyButton",
         "DependentsSection",
         "Link",
+        "PageMasthead",
         "PeoplePreview",
         "PreviewRow",
         "Result",
@@ -3732,6 +3768,7 @@
         "FormFlash",
         "HapticsToggle",
         "Link",
+        "PageMasthead",
         "ProfileShareButton",
         "PushToggle",
         "Row",
@@ -3757,6 +3794,7 @@
         "EventPicker",
         "FactRow",
         "Link",
+        "PageMasthead",
         "StatusPanel"
       ]
     },
@@ -3773,7 +3811,8 @@
       "actions": [],
       "blocks": [
         "CommunityRow",
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/dashboard/(account)/samahan/[communityId]": {
@@ -3811,7 +3850,7 @@
         "createCommunity"
       ],
       "blocks": [
-        "Link",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -3827,7 +3866,8 @@
       "blocks": [
         "Link",
         "MomentCard",
-        "MomentIcon"
+        "MomentIcon",
+        "PageMasthead"
       ]
     },
     "/dashboard/(launcher)": {
@@ -3959,6 +3999,7 @@
         "dashboard/[eventId]/_components/vendor-itemization-card.tsx",
         "dashboard/[eventId]/_components/vendor-marketplace-info.tsx",
         "dashboard/[eventId]/actions.ts",
+        "dashboard/[eventId]/archive-actions.ts",
         "dashboard/[eventId]/checklist-actions.ts",
         "dashboard/[eventId]/layout.tsx",
         "dashboard/[eventId]/loading.tsx",
@@ -4008,6 +4049,7 @@
         "AccountSwitcher",
         "AppRailShell",
         "ApplyVoucherResult",
+        "ArchiveResult",
         "AutoPreloadOnEventDay",
         "BankBody",
         "Blob",
@@ -4079,6 +4121,7 @@
         "NikahEssentialsCard",
         "OverviewDecisionInspector",
         "OverviewWatchInspector",
+        "PageMasthead",
         "PapicReadyNudge",
         "PaymentDetailsBlock",
         "PaymentSection",
@@ -4162,7 +4205,8 @@
       ],
       "actions": [],
       "blocks": [
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/alaala": {
@@ -4178,6 +4222,7 @@
       "blocks": [
         "Chip",
         "Link",
+        "PageMasthead",
         "Stage"
       ]
     },
@@ -4195,7 +4240,8 @@
         "ActionResult",
         "AssignmentRow",
         "GuestPicker",
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/budget": {
@@ -4303,7 +4349,8 @@
       ],
       "actions": [],
       "blocks": [
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/date-selection": {
@@ -4337,6 +4384,7 @@
         "Link",
         "MeaningfulDateDraft",
         "NotReadyForm",
+        "PageMasthead",
         "PathCard",
         "ProRow",
         "ProgressStrip",
@@ -4359,6 +4407,7 @@
         "dashboard/[eventId]/details/_components/details-form.tsx",
         "dashboard/[eventId]/details/_components/governed-fields.tsx",
         "dashboard/[eventId]/details/_components/pax-settings-card.tsx",
+        "dashboard/[eventId]/details/_components/put-away-card.tsx",
         "dashboard/[eventId]/details/loading.tsx",
         "dashboard/[eventId]/details/page.tsx"
       ],
@@ -4378,7 +4427,8 @@
         "Link",
         "LockedRow",
         "PageMasthead",
-        "PaxSettingsCard"
+        "PaxSettingsCard",
+        "PutAwayCard"
       ]
     },
     "/dashboard/[eventId]/disputes": {
@@ -4420,6 +4470,7 @@
         "Icon",
         "Link",
         "OrdersSection",
+        "PageMasthead",
         "PaperworkSection",
         "ReceiptsSection",
         "SectionEmpty",
@@ -4444,6 +4495,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "PageMasthead",
         "RegenerateResult",
         "SubmitButton"
       ]
@@ -4596,6 +4648,7 @@
         "OpenQuickAddButton",
         "OptimisticDeleteButton",
         "OptionRow",
+        "PageMasthead",
         "Popover",
         "QuickAddInlineForm",
         "QuickAddResult",
@@ -4844,6 +4897,7 @@
         "HTMLFormElement",
         "HTMLInputElement",
         "Link",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -4868,6 +4922,7 @@
         "HTMLDivElement",
         "Icon",
         "Link",
+        "PageMasthead",
         "ReissueQrButton",
         "SlugField",
         "StatusBadge",
@@ -4892,7 +4947,8 @@
       "actions": [],
       "blocks": [
         "Icon",
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/live": {
@@ -4912,6 +4968,7 @@
         "KwentoQueue",
         "Link",
         "LiveWallControls",
+        "PageMasthead",
         "WallMode",
         "WallModeControl"
       ]
@@ -4933,6 +4990,7 @@
       "blocks": [
         "GigGroup",
         "Link",
+        "PageMasthead",
         "PostGigDrawer",
         "SearchParams",
         "SubmitButton"
@@ -4955,6 +5013,7 @@
         "FeedPageSkeleton",
         "FollowGate",
         "Link",
+        "PageMasthead",
         "SubmitButton",
         "ThreadArchiveToggle",
         "ThreadListAvatar",
@@ -5027,6 +5086,7 @@
         "MonogramDraft",
         "MonogramDraftRestore",
         "OwnedView",
+        "PageMasthead",
         "PaymentUnderReview",
         "SDLoader",
         "SaveButton",
@@ -5060,7 +5120,8 @@
       ],
       "actions": [],
       "blocks": [
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/orders/[orderId]": {
@@ -5145,6 +5206,7 @@
         "Link",
         "NoDatePrompt",
         "NotesForm",
+        "PageMasthead",
         "PaperworkDocumentType",
         "PaperworkRow",
         "PaperworkStatus",
@@ -5183,7 +5245,8 @@
       "actions": [],
       "blocks": [
         "CopyButton",
-        "Icon"
+        "Icon",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/schedule": {
@@ -5249,6 +5312,7 @@
         "JourneyView",
         "LensChip",
         "Link",
+        "PageMasthead",
         "PhaseSection",
         "PrepKind",
         "PrepKindPicker",
@@ -5439,6 +5503,7 @@
       "blocks": [
         "FileUpload",
         "Link",
+        "PageMasthead",
         "WalkthroughManager",
         "ZoneCard"
       ]
@@ -5472,6 +5537,7 @@
         "HTMLTextAreaElement",
         "InvitationTemplateModal",
         "Link",
+        "PageMasthead",
         "PairTargetPicker",
         "PrincipalPairRow",
         "SponsorCard",
@@ -5506,6 +5572,7 @@
         "InspectorLayout",
         "InspectorTrigger",
         "Link",
+        "PageMasthead",
         "PillEl",
         "RevealList",
         "RowPill",
@@ -5693,6 +5760,7 @@
         "InspirationBoard",
         "Link",
         "MoodboardBoard",
+        "PageMasthead",
         "PaletteEditor",
         "PaletteFamily",
         "PaletteKey",
@@ -5799,6 +5867,7 @@
       "blocks": [
         "CopyLink",
         "Link",
+        "PageMasthead",
         "ReissueCameraButton"
       ]
     },
@@ -5847,6 +5916,7 @@
         "LiveStudioRecordingsCard",
         "ObsConnectionCard",
         "PackCard",
+        "PageMasthead",
         "ProgressRing",
         "SetupStatus",
         "Stat",
@@ -5953,6 +6023,7 @@
         "LiveWallControls",
         "MagazineCard",
         "MiniTour",
+        "PageMasthead",
         "PapicCamerasCard",
         "PapicGalleryGrid",
         "PapicPoolCard",
@@ -5998,6 +6069,7 @@
         "CopyButton",
         "GridPageSkeleton",
         "Link",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -6056,6 +6128,7 @@
       "blocks": [
         "DriveSafetyPanel",
         "Link",
+        "PageMasthead",
         "RecapDriveNudge",
         "RecapSocialFeatureToggle",
         "ShareButtons",
@@ -6099,6 +6172,7 @@
         "MediaRecorder",
         "MediaStream",
         "MusicTrackOption",
+        "PageMasthead",
         "Phase",
         "Preview",
         "ReelRenderer",
@@ -6122,6 +6196,7 @@
       "actions": [],
       "blocks": [
         "Link",
+        "PageMasthead",
         "Preview",
         "RenderForm"
       ]
@@ -6142,6 +6217,7 @@
         "FormPageSkeleton",
         "Link",
         "OperatorTips",
+        "PageMasthead",
         "RecordCTA",
         "TemplateSlot",
         "TemplatesGrid"
@@ -6174,6 +6250,7 @@
         "IdleState",
         "Link",
         "ModeBanner",
+        "PageMasthead",
         "PhotoDeliveryPanel",
         "ReleaseProgressPoller",
         "SubmitButton",
@@ -6237,6 +6314,7 @@
         "InlineCheckoutDrawer",
         "LaunchStdButton",
         "Link",
+        "PageMasthead",
         "PreviewDevice",
         "RevealChoice",
         "RevealEffects",
@@ -6271,6 +6349,7 @@
         "HTMLDivElement",
         "HTMLParagraphElement",
         "Link",
+        "PageMasthead",
         "Phase",
         "SubmitButton",
         "WaxFinish",
@@ -6297,6 +6376,7 @@
         "Icon",
         "InlineCheckoutDrawer",
         "Link",
+        "PageMasthead",
         "SetnayanAiValue",
         "SubmitButton"
       ]
@@ -6370,6 +6450,7 @@
       "blocks": [
         "Icon",
         "Link",
+        "PageMasthead",
         "RevealList",
         "RowPill",
         "Scene",
@@ -6724,6 +6805,7 @@
       "actions": [],
       "blocks": [
         "Link",
+        "PageMasthead",
         "PhasePart",
         "QuickLink",
         "RevealList"
@@ -6759,6 +6841,7 @@
         "DressCodePreview",
         "Link",
         "ListField",
+        "PageMasthead",
         "PaletteField",
         "SubmitButton"
       ]
@@ -6841,6 +6924,7 @@
         "FileUpload",
         "K",
         "Link",
+        "PageMasthead",
         "ProChip",
         "ProUpsellLine",
         "ShareButtons",
@@ -6866,6 +6950,7 @@
         "FileUpload",
         "Image",
         "Link",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -6911,7 +6996,7 @@
       ],
       "blocks": [
         "FileUpload",
-        "Link",
+        "PageMasthead",
         "SubmitButton",
         "WebsiteProLock"
       ]
@@ -6931,8 +7016,8 @@
       ],
       "blocks": [
         "Field",
-        "Link",
         "MilestonesField",
+        "PageMasthead",
         "StoryFields",
         "SubmitButton"
       ]
@@ -6952,8 +7037,8 @@
       "blocks": [
         "Date",
         "HTMLFormElement",
-        "Link",
         "MomentRow",
+        "PageMasthead",
         "PhotoMomentsEditor",
         "UpdatePhotoMomentsResult"
       ]
@@ -6976,6 +7061,7 @@
       ],
       "blocks": [
         "Link",
+        "PageMasthead",
         "SubmitButton",
         "VisibilityCard"
       ]
@@ -6993,7 +7079,7 @@
       ],
       "blocks": [
         "FileUpload",
-        "Link",
+        "PageMasthead",
         "SubmitButton",
         "WebsiteProLock"
       ]
@@ -7053,6 +7139,7 @@
       ],
       "blocks": [
         "Link",
+        "PageMasthead",
         "SubmitButton",
         "WidgetRow"
       ]
@@ -8462,6 +8549,7 @@
         "NavFab",
         "NotConnected",
         "OngoingTasks",
+        "PageMasthead",
         "ProgressRing",
         "PromoFreeWindowBannerVendor",
         "PushNotificationRegistrar",
@@ -8927,6 +9015,7 @@
         "CreatorTierChip",
         "FormFlash",
         "Link",
+        "PageMasthead",
         "RoiRow",
         "SearchParams",
         "SubmitButton",
@@ -9115,7 +9204,8 @@
         "CancelGigResult",
         "CompleteGigResult",
         "GigCard",
-        "Group"
+        "Group",
+        "PageMasthead"
       ]
     },
     "/vendor-dashboard/messages": {
@@ -9457,6 +9547,7 @@
       ],
       "blocks": [
         "FormFlash",
+        "PageMasthead",
         "SearchParams",
         "SubmitButton"
       ]
@@ -9498,6 +9589,7 @@
         "FileUpload",
         "FormFlash",
         "Icon",
+        "PageMasthead",
         "PaymentMethodType",
         "SubmitButton"
       ]
@@ -10006,6 +10098,7 @@
         "BoothAddonCard",
         "CycleLink",
         "Link",
+        "PageMasthead",
         "PayBox",
         "PositionHeadline",
         "SubmitButton",
@@ -10034,6 +10127,7 @@
         "CustomConfigurator",
         "K",
         "Link",
+        "PageMasthead",
         "ReachControl",
         "StepperControl",
         "ToggleControl"
@@ -10092,6 +10186,7 @@
       "actions": [],
       "blocks": [
         "Link",
+        "PageMasthead",
         "VendorTrackRecordPanel"
       ]
     },
@@ -10138,7 +10233,8 @@
       "blocks": [
         "DomainActionResult",
         "DomainManager",
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/vendor-invite/[slug]": {

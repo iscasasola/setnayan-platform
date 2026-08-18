@@ -258,19 +258,16 @@ export default async function SetnayanAiPage({ params }: Props) {
       ) : (
         <>
           {/* BUY — the only state that sells. Non-owner, paywall on. */}
-          <header className="sn-reveal space-y-2">
-            <p className="sn-eye">
-              Setnayan AI
-            </p>
-            <h1 className="sn-h1">
-              Stop guessing who to hire
-            </h1>
-            <p className="max-w-prose text-base text-ink/65">
-              Setnayan AI reads your date, budget, location, guest count and
-              faith, then ranks every available vendor by how well they actually
-              fit — turning a directory into a shortlist made for your wedding.
-            </p>
-          </header>
+          <PageMasthead
+        title="Stop guessing who to hire"
+        lede={
+          <>
+            Setnayan AI reads your date, budget, location, guest count and
+            faith, then ranks every available vendor by how well they actually
+            fit — turning a directory into a shortlist made for your wedding.
+          </>
+        }
+      />
 
           <SetnayanAiValue mode="preview" terms={aiValueTerms} />
 

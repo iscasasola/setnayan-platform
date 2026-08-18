@@ -32,6 +32,7 @@ import { ArrowLeft, Gem, Clock, CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserEvents } from '@/lib/events';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   CONCIERGE_ENABLED,
   type ConciergeStatus,
@@ -142,20 +143,16 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-8 space-y-2">
-        <Link href="/dashboard/profile" className="sn-chip sn-press w-fit">
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Back to profile
-        </Link>
-        <p className="sn-eye">
-          <Gem aria-hidden strokeWidth={1.75} />
-          Your assistant
-        </p>
-        <h1 className="sn-h1">Setnayan AI</h1>
-        <p className="text-base text-ink/65">
-          Your in-app planner that surfaces the next step every time you open the dashboard.
-        </p>
-      </header>
+      <PageMasthead
+        title="Setnayan AI"
+        back="/dashboard/profile"
+        backLabel="Back to profile"
+        lede={
+          <>
+            Your in-app planner that surfaces the next step every time you open the dashboard.
+          </>
+        }
+      />
 
       {/* Event picker (multi-event accounts) */}
       {activeEvents.length > 1 ? (

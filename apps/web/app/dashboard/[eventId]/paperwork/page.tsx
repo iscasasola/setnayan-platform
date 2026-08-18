@@ -40,6 +40,7 @@ import {
   type TraditionItem,
 } from '@/lib/wedding-traditions';
 import { isChineseWedding, isChineseOverlay } from '@/lib/chinese-wedding';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   markPaperworkReceived,
   markPaperworkRequested,
@@ -102,12 +103,10 @@ export default async function PaperworkPage({ params }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <BackLink eventId={eventId} />
         </div>
-        <header className="sn-reveal space-y-3">
-          <p className="sn-eye">Paperwork</p>
-          <h1 className="sn-h1">
-            Paperwork
-          </h1>
-          <p className="max-w-prose text-sm text-ink/65 sm:text-base">
+        <PageMasthead
+        title="Paperwork"
+        lede={
+          <>
             This event type has no required government paperwork checklist. Track
             your own documents and contracts under{' '}
             <Link
@@ -117,8 +116,9 @@ export default async function PaperworkPage({ params }: Props) {
               Documents
             </Link>
             .
-          </p>
-        </header>
+          </>
+        }
+      />
       </section>
     );
   }

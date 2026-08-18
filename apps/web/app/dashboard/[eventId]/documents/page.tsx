@@ -18,6 +18,7 @@ import { resolveProfile, resolveProfileByEvent } from '@/lib/event-type-profile'
 import { term } from '@/lib/event-term-copy';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchEventContracts, statusLabel as contractStatusLabel } from '@/lib/contracts';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   DOCUMENT_META,
   STATUS_LABEL as PAPERWORK_STATUS_LABEL,
@@ -191,25 +192,23 @@ export default async function EventDocumentsPage({ params }: Props) {
 
   return (
     <section className="sn-col space-y-8">
-      <header className="sn-reveal space-y-1.5">
-        <p className="sn-eye">Documents</p>
-        <h1 className="sn-h1">
-          {term(profile, {
-            wedding: 'Your wedding documents',
-            generic: 'Your event documents',
-          })}
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Everything paper, all in one place — government paperwork, vendor
-          contracts, Setnayan creations, and receipts for every order. Tap
-          a row to open the canonical document or edit surface.
-        </p>
+      <PageMasthead
+        titleNode={<>{term(profile, { wedding: 'Your wedding documents', generic: 'Your event documents', })}</>}
+        lede={
+          <>
+            Everything paper, all in one place — government paperwork, vendor
+            contracts, Setnayan creations, and receipts for every order. Tap
+            a row to open the canonical document or edit surface.
+          </>
+        }
+      />
+      <div className="mt-3 space-y-3">
         {totalDocs > 0 ? (
           <p className="sn-eye">
             {totalDocs} {totalDocs === 1 ? 'document' : 'documents'} on file
           </p>
         ) : null}
-      </header>
+      </div>
 
       {totalDocs === 0 ? (
         <EmptyState eventId={eventId} />

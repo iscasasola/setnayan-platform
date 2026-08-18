@@ -20,6 +20,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { PaymentUnderReview } from '@/app/dashboard/[eventId]/_components/payment-under-review';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Custom QR per guest' };
 
@@ -132,37 +133,27 @@ export default async function CustomQrGuestPage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">
-          Custom QR per guest
-        </p>
-        {owns ? (
-          // Owner: neutral tool header — no re-pitch. The selling copy
-          // ("One scan… / This upgrade dresses each one…") is gated to the
-          // not-owned state below; the learn-more page (/studio/about/<key>)
-          // carries the marketing for non-owners (Tier 4 surface-hygiene).
-          <>
-            <h1 className="sn-h1">
-              Your branded guest QRs
-            </h1>
-            <p className="max-w-prose text-base text-ink/65">
+      {/* Owner: neutral tool header — no re-pitch. The selling copy
+          ("One scan… / This upgrade dresses each one…") is gated to the
+          not-owned state; the learn-more page (/studio/about/<key>)
+          carries the marketing for non-owners (Tier 4 surface-hygiene). */}
+      <PageMasthead
+        title={owns ? 'Your branded guest QRs' : 'One scan, and your guest finds everything'}
+        lede={
+          owns ? (
+            <>
               A branded QR card for every guest — print, download, or set on
               every table.
-            </p>
-          </>
-        ) : (
-          <>
-            <h1 className="sn-h1">
-              One scan, and your guest finds everything
-            </h1>
-            <p className="max-w-prose text-base text-ink/65">
+            </>
+          ) : (
+            <>
               Every guest already has a personal QR that opens their own
               invitation. This upgrade dresses each one in your monogram and your
               colors — a branded card you can print, send, or set on every table.
-            </p>
-          </>
-        )}
-      </header>
+            </>
+          )
+        }
+      />
 
       {active ? (
         <OwnedView

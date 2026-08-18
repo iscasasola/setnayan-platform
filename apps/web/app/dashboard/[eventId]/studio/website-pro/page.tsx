@@ -11,6 +11,7 @@ import {
   eventCoupleWebsiteProActive,
 } from '@/lib/couple-website-pro';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Event Hub PRO' };
 
@@ -77,18 +78,17 @@ export default async function WebsiteProBuyPage({ params }: Props) {
         <ArrowLeft aria-hidden className="h-4 w-4" /> Back to services
       </Link>
 
-      <header className="sn-reveal flex items-start gap-3">
-        <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-700">
-          <Globe2 aria-hidden className="h-6 w-6" strokeWidth={1.75} />
-        </span>
-        <div>
-          <p className="sn-eye">Event Hub</p>
-          <h1 className="sn-h1">Event Hub PRO</h1>
-          <p className="mt-1 text-sm text-ink/65">
-            Every premium touch across your whole Event Hub — one unlock.
-          </p>
-        </div>
-      </header>
+      <PageMasthead
+        titleNode={
+          <span className="flex items-center gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-700">
+              <Globe2 aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            Event Hub PRO
+          </span>
+        }
+        lede="Every premium touch across your whole Event Hub — one unlock."
+      />
 
       {/* What it covers — benefit language, no implementation names. */}
       <ul className="sn-tile space-y-2 p-5">

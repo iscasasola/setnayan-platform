@@ -27,6 +27,7 @@ import { ShareBudgetBandToggle } from './_components/share-budget-band-toggle';
 import { BudgetLiveSummaryCard } from './_components/budget-live-summary';
 import type { BudgetStripMoney } from '@/lib/budget-page-money';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Budget' };
 
@@ -290,13 +291,12 @@ export default async function BudgetPage({ params }: Props) {
       {/* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
           children: Overview · Allocate · Payments). scroll-mt keeps the section
           title clear of the top edge on smooth-scroll. */}
-      <header id="budget-overview" className="sn-reveal flex scroll-mt-24 flex-wrap items-end justify-between gap-3">
-        <div className="space-y-2">
-          <div>
-            <p className="sn-eye">Money</p>
-            <h1 className="sn-h1 mt-1.5">Budget</h1>
-          </div>
-          <p className="max-w-prose text-base text-ink/65">
+      <PageMasthead
+        id="budget-overview"
+        className="scroll-mt-24"
+        title="Budget"
+        lede={
+          <>
             {/* Iteration 0053 P4 Unit 3: wedding copy verbatim; non-wedding swaps
                 the one wedding word. JSX collapses whitespace, so the wedding
                 branch renders byte-identically. */}
@@ -315,16 +315,18 @@ export default async function BudgetPage({ params }: Props) {
                 can swallow.
               </>
             )}
-          </p>
-        </div>
-        <Link
-          href={`/api/budget/${eventId}/ics`}
-          className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta"
-        >
-          <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Export upcoming dates (.ics)
-        </Link>
-      </header>
+          </>
+        }
+        actions={
+          <Link
+            href={`/api/budget/${eventId}/ics`}
+            className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta"
+          >
+            <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Export upcoming dates (.ics)
+          </Link>
+        }
+      />
 
       {/* Budget Setter — the single number that powers
        *  BudgetCountdownHeader on event home. Lives at the top of the

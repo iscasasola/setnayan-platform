@@ -202,23 +202,26 @@ export default async function PaperworkPage({ params }: Props) {
           See all documents <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
         </Link>
       </div>
-      <header className="sn-reveal space-y-3">
-        <p className="sn-eye">Paperwork</p>
-        <h1 className="sn-h1">
-          Your wedding paperwork
-        </h1>
-        <p className="max-w-prose text-sm text-ink/65 sm:text-base">
-          Filipino paperwork rewards lead time. PSA documents take 2–4 weeks
-          to process, the marriage license is valid for 120 days, and most
-          parishes need 60–90 days notice for Pre&#8209;Cana. We track each
-          one and surface the deadline pegged to your wedding date.
-        </p>
+      <PageMasthead
+        title="Your wedding paperwork"
+        lede={
+          <>
+            Filipino paperwork rewards lead time. PSA documents take 2–4 weeks
+            to process, the marriage license is valid for 120 days, and most
+            parishes need 60–90 days notice for Pre&#8209;Cana. We track each
+            one and surface the deadline pegged to your wedding date.
+          </>
+        }
+      />
+      {/* The deadline prompt is page CONTENT pegged to a real date, not a
+          title-row control — it keeps its own place, one level out. */}
+      <div className="mt-3">
         {!event.event_date ? (
           <NoDatePrompt eventId={eventId} />
         ) : (
           <DeadlineHint eventDate={event.event_date} />
         )}
-      </header>
+      </div>
 
       <TraditionsGuide
         ceremony={ceremony}

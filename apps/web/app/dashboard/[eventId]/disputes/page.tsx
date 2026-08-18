@@ -16,6 +16,7 @@ import {
   type FlagType,
 } from '@/lib/force-majeure';
 import { fileForceMajeureFlag } from './actions';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Disputes' };
 
@@ -100,23 +101,24 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
 
   return (
     <section className="sn-col space-y-6">
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Disputes</p>
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-            <AlertTriangle aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <h1 className="sn-h1">
+      <PageMasthead
+        titleNode={
+          <span className="flex items-center gap-2">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+              <AlertTriangle aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+            </span>
             Disputes
-          </h1>
-        </div>
-        <p className="max-w-prose text-base text-ink/65">
-          File a force-majeure flag — typhoon, family emergency, vendor or
-          venue cancellation — and the Setnayan Disputes Handler will reach
-          out within 7 days. We work toward one of four outcomes: refund,
-          reschedule, partial credit, or mediation.
-        </p>
-      </header>
+          </span>
+        }
+        lede={
+          <>
+            File a force-majeure flag — typhoon, family emergency, vendor or
+            venue cancellation — and the Setnayan Disputes Handler will reach
+            out within 7 days. We work toward one of four outcomes: refund,
+            reschedule, partial credit, or mediation.
+          </>
+        }
+      />
 
       {search.filed ? (
         <p

@@ -118,3 +118,17 @@ Seven mutations across both guard files, each measured by occurrence count, all
 red; baseline green before and after.
 
 SPEC IMPACT: None.
+
+### The cross-PR defect — neither half was wrong on its own
+
+The put-away button (#4473) and this capture gate shipped as two changes. The
+button's card told the couple, in the sentence immediately before they press it,
+that *"the photos, the guest list and the page your guests use all keep working
+exactly as they do now."* That was **true when the button shipped alone** and
+**false the moment this PR made the shutter and the guests' photo wall go quiet.**
+
+🔑 **A PROMISE MADE BY ONE CHANGE CAN BE BROKEN BY THE NEXT ONE, and nothing
+fails when it happens** — no test, no type, and no reviewer reading either diff
+by itself. It is only visible to somebody holding both. The card now says what
+STOPS before what STAYS, because the stopping is the half a couple cannot
+discover any other way, and a guard fails if the old promise returns.

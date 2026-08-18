@@ -264,3 +264,34 @@ test('the put-away gate is not nested inside the per-camera SKU branch', () => {
       `conditional — a seat outside PER_CAMERA_SKUS would skip it entirely`,
   );
 });
+
+test('the card does not promise that everything keeps working exactly as now', () => {
+  /*
+    THE CROSS-PR DEFECT. The put-away button and the capture gate shipped as two
+    separate changes. The button's card told the couple, immediately before they
+    pressed it, that "the photos, the guest list and the page your guests use all
+    keep working exactly as they do now" — true on its own, and false the moment
+    this PR made the shutter and the guests' photo wall go quiet.
+
+    🔑 A PROMISE MADE BY ONE CHANGE CAN BE BROKEN BY THE NEXT, and nothing fails
+    when it happens. This assertion is the thing that fails.
+  */
+  const card = join(
+    APP, 'dashboard', '[eventId]', 'details', '_components', 'put-away-card.tsx',
+  );
+  assert.ok(existsSync(card), 'the put-away card should exist');
+  const src = code(card);
+
+  assert.doesNotMatch(
+    src,
+    /keep working\s+exactly as they do now/,
+    'the card still promises everything keeps working exactly as now — the ' +
+      'cameras and the guests’ photo wall do not',
+  );
+  assert.match(
+    src,
+    /cameras and the photo wall go quiet/,
+    'the card must say what STOPS. A couple cannot discover the cameras going ' +
+      'quiet any other way before they press.',
+  );
+});

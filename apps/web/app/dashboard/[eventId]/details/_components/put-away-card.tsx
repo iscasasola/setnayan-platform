@@ -101,11 +101,28 @@ export function PutAwayCard({
         <Archive aria-hidden className="h-[18px] w-[18px] text-[color:var(--sn-ink-400)]" />
         Put this away
       </h2>
+      {/*
+        ⚠ THIS SENTENCE BECAME FALSE THE MOMENT THE CAMERAS LEARNED ABOUT
+        PUT-AWAY, and it is the cross-PR defect neither review of the two halves
+        caught on its own. It promised "the photos, the guest list and the page
+        your guests use all keep working exactly as they do now" — true when the
+        button shipped alone, and untrue as soon as the shutter and the guests'
+        photo wall started going quiet with it.
+
+        🔑 A PROMISE MADE BY ONE CHANGE CAN BE BROKEN BY THE NEXT ONE, and
+        nothing fails when it happens: no test, no type, no reviewer looking at
+        one diff. What it costs is the couple's trust in the sentence they read
+        immediately before pressing.
+
+        Says what STOPS and what STAYS, in that order — the stopping is the part
+        they cannot discover any other way.
+      */}
       <p className="mt-2 max-w-prose text-sm text-ink/70">
         Tidies {eventName} off your active list and stops its reminders.{' '}
-        <strong className="font-semibold text-ink">Nothing is deleted</strong> — the
-        photos, the guest list and the page your guests use all keep working
-        exactly as they do now, and you can bring it back any time.
+        <strong className="font-semibold text-ink">Nothing is deleted</strong> — every
+        photo, the guest list and the page your guests use all stay exactly as they
+        are. The cameras and the photo wall go quiet, so no new photos come in until
+        you bring it back — and you can do that any time.
       </p>
       {error ? (
         <p role="alert" className="mt-3 text-sm font-semibold text-[color:var(--sn-danger)]">

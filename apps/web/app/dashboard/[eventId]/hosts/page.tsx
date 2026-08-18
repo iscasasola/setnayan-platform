@@ -380,9 +380,6 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           <p className="sn-eye">
             Current hosts · {accepted.length}
           </p>
-          <p className="text-sm text-ink/65">
-            Everyone who&apos;s accepted their invite + can see this event&apos;s plan.
-          </p>
         </header>
         {accepted.length === 0 ? (
           <p className="sn-row border-dashed p-4 text-sm text-ink/55">
@@ -521,10 +518,6 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
             <p className="sn-eye">
               <ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Delegate activity
-            </p>
-            <p className="text-sm text-ink/65">
-              Everything your hosts changed, most recent first. You&apos;ll always
-              know who did what.
             </p>
           </header>
           <ul className="divide-y divide-ink/10">

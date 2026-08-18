@@ -201,9 +201,24 @@ test('the one gate reads the column, and fails closed when it cannot', () => {
   // matches a string rather than the thing the string does is decorative; this
   // is the same shape as the sabotage check that matched `f.event_dateX` on a
   // prefix. Mutation-proved.
+  /*
+    ⚠ WIDENED 2026-08-18 — IT PINNED ONE SPELLING AND REDDENED A CLEAN REFACTOR.
+    The pin was `/\.select\('live_photo_wall_visibility'\)/`, an exact string.
+    Adding `archived` to the SAME select — same query, same returned keys, no
+    behaviour change — turned this red, and the next author's only options were
+    to re-type the guard or delete the assertion. That is the failure this repo
+    has now paid for twice.
+
+    🔑 ASSERT THE RULE, NOT THE SPELLING. Still anchored to the `.select(`
+    STRING LITERAL, which is the whole point of the assertion below: `[^']*`
+    cannot cross a quote, so a column merely MENTIONED in the type cast further
+    down still fails. Mutation-measured — `.select('event_id')` fails,
+    `.select('*')` fails, and the near-miss `live_photo_wall_visibility_backup`
+    fails on the `\b`. Column order and extra columns now pass.
+  */
   assert.match(
     body,
-    /\.select\('live_photo_wall_visibility'\)/,
+    /\.select\('[^']*\blive_photo_wall_visibility\b[^']*'\)/,
     'it must actually ASK the database for the column, not merely mention it',
   );
   assert.match(body, /eventSkuActive\(/, 'it must still enforce SKU ownership');

@@ -46,34 +46,44 @@ import { datetimeLocalToIso } from '@/lib/schedule';
 const CODE_PATTERN = /^[A-Z0-9]{8}$/;
 
 /**
- * Voucher discount types. The 4th type `grant_tokens` was added 2026-05-29
- * by migration 20260703500000 alongside this PR — it mints earned-token-
- * vouchers (vendor wallet credit with expiry) on redemption. NOT redeemable
- * on couple checkout — vendor-only at /vendor-dashboard/redeem-code.
+ * Voucher discount types.
  *
- * grant_tokens vouchers IGNORE covered_service_keys (the vendor wallet
- * doesn't care what services exist · they just get tokens). Form supplies
- * an empty array · we route around validateCoveredServices when type is
- * grant_tokens.
+ * ⛔ THE FOURTH TYPE, `grant_tokens`, IS GONE (2026-08-18). It minted a vendor
+ * token wallet credit — a currency retired 2026-07-21 whose redeem RPC
+ * (`redeem_vendor_token_voucher`) never had a single caller, so every voucher
+ * of that type was unredeemable from the hour it was created.
+ *
+ * 🔑 ITS FIRST REMOVAL (2026-08-07) TOOK THE OPTION AND LEFT THE MACHINERY.
+ * Nobody could CREATE one, but the form still edited one and this parser still
+ * accepted one — and the single voucher in production was exactly that type,
+ * so the retired wallet was the only thing the screen could show. The owner
+ * saw it and asked why. **Retiring a thing means retiring its editor and its
+ * parser too; a removed create-option only stops NEW rows.**
+ *
+ * The value remains in the DB enum — dropping an enum label is a migration
+ * with no caller left to justify it — but nothing in the app can write, edit,
+ * parse or display one, and the last row carrying it was deleted 2026-08-18.
  */
 const DISCOUNT_TYPES = [
   'pct_off',
   'pct_off_capped',
   'free',
-  'grant_tokens',
 ] as const;
 type DiscountType = (typeof DISCOUNT_TYPES)[number];
 
 /**
- * Parsed value shape per Day 1.5 schema + 2026-05-29 grant_tokens extension.
+ * Parsed value shape per the Day 1.5 schema.
  * Each discount_type has its own coherence pattern (the DB CHECK constraint
  * `discount_codes_value_coherence_v3` from migration 20260703500000 is the
  * structural guarantee · this helper is the application-level mirror).
  *
- *   • pct_off          → pct_value 1-100, cap_centavos NULL, token cols NULL
- *   • pct_off_capped   → pct_value 1-100, cap_centavos > 0, token cols NULL
+ *   • pct_off          → pct_value 1-100, cap_centavos NULL
+ *   • pct_off_capped   → pct_value 1-100, cap_centavos > 0
  *   • free             → all NULL
- *   • grant_tokens     → pct/cap NULL, token_grant_count > 0, ttl_days 1-365
+ *
+ * The two token columns are still WRITTEN AS NULL on every path: they remain
+ * on the table and in the DB CHECK constraint, so omitting them would leave a
+ * stale value behind on an edit.
  */
 type ParsedValue = {
   pct_value: number | null;
@@ -122,8 +132,6 @@ function parseDiscountValue(
   type: DiscountType,
   rawPct: FormDataEntryValue | null,
   rawCapPesos: FormDataEntryValue | null,
-  rawTokenCount: FormDataEntryValue | null,
-  rawTokenTtlDays: FormDataEntryValue | null,
 ): ParsedValue {
   if (type === 'free') {
     return {
@@ -131,33 +139,6 @@ function parseDiscountValue(
       cap_centavos: null,
       token_grant_count: null,
       token_grant_ttl_days: null,
-    };
-  }
-
-  if (type === 'grant_tokens') {
-    // grant_tokens: pct/cap NULL, token_grant_count > 0, ttl_days 1-365.
-    // Default TTL is 45 days to match the founder-bonus convention from
-    // the verified_vendor trigger (migration 20260703500000 PART 4).
-    if (typeof rawTokenCount !== 'string' || rawTokenCount.trim().length === 0) {
-      throw new Error('Enter the number of tokens this voucher grants (1-10000).');
-    }
-    const tokens = Number.parseInt(rawTokenCount.trim(), 10);
-    if (!Number.isFinite(tokens) || tokens < 1 || tokens > 10000) {
-      throw new Error('Token grant count must be a whole number between 1 and 10,000.');
-    }
-    // Default 45 when blank to match the founder-bonus convention.
-    let ttlDays = 45;
-    if (typeof rawTokenTtlDays === 'string' && rawTokenTtlDays.trim().length > 0) {
-      ttlDays = Number.parseInt(rawTokenTtlDays.trim(), 10);
-      if (!Number.isFinite(ttlDays) || ttlDays < 1 || ttlDays > 365) {
-        throw new Error('Available-for days must be a whole number between 1 and 365.');
-      }
-    }
-    return {
-      pct_value: null,
-      cap_centavos: null,
-      token_grant_count: tokens,
-      token_grant_ttl_days: ttlDays,
     };
   }
 
@@ -347,13 +328,11 @@ export async function createDiscountCode(formData: FormData) {
   const discountType = rawType as DiscountType;
 
   // Discount value — shape varies by type.
-  const { pct_value, cap_centavos, token_grant_count, token_grant_ttl_days } =
+  const { pct_value, cap_centavos } =
     parseDiscountValue(
       discountType,
       formData.get('discount_pct'),
       formData.get('cap_pesos'),
-      formData.get('token_grant_count'),
-      formData.get('token_grant_ttl_days'),
     );
 
   // Expires at — required.
@@ -368,21 +347,14 @@ export async function createDiscountCode(formData: FormData) {
   // Max uses — optional.
   const maxUses = parseMaxUses(formData.get('max_uses'));
 
-  // Covered services — multi-checkbox names "covered_services". grant_tokens
-  // vouchers IGNORE coverage (the migration helper text on
-  // discount_codes.token_grant_count says so) so we send an empty array and
-  // skip the catalog validation entirely. The DB CHECK constraint allows
-  // empty array for grant_tokens · only the validator-helper rejection
-  // ("Pick at least one service") would fail us if we routed through it.
-  let coveredServiceKeys: string[];
-  if (discountType === 'grant_tokens') {
-    coveredServiceKeys = [];
-  } else {
-    const coveredServicesRaw = formData
+  // Covered services — multi-checkbox names "covered_services". Every
+  // remaining voucher type requires at least one; the one type that skipped
+  // this (the retired vendor token grant) is gone as of 2026-08-18.
+  const coveredServiceKeys = await validateCoveredServices(
+    formData
       .getAll('covered_services')
-      .filter((v): v is string => typeof v === 'string' && v.length > 0);
-    coveredServiceKeys = await validateCoveredServices(coveredServicesRaw);
-  }
+      .filter((v): v is string => typeof v === 'string' && v.length > 0),
+  );
 
   // Insert. Server-side uniqueness on `code` is enforced by the table CHECK
   // + UNIQUE constraint — we surface the collision as a brand-voice message.
@@ -394,8 +366,12 @@ export async function createDiscountCode(formData: FormData) {
       discount_type: discountType,
       pct_value,
       cap_centavos,
-      token_grant_count,
-      token_grant_ttl_days,
+      // Written explicitly as NULL rather than omitted: the columns remain on
+      // the table and in the `discount_codes_value_coherence_v3` CHECK, and on
+      // an UPDATE an omitted column keeps its old value. Nothing can set them
+      // to anything else — the type that used them is retired (2026-08-18).
+      token_grant_count: null,
+      token_grant_ttl_days: null,
       covered_service_keys: coveredServiceKeys,
       effective_from: effectiveFrom,
       expires_at: expiresAt,
@@ -424,8 +400,8 @@ export async function createDiscountCode(formData: FormData) {
       discount_type: discountType,
       pct_value,
       cap_centavos,
-      token_grant_count,
-      token_grant_ttl_days,
+      token_grant_count: null,
+      token_grant_ttl_days: null,
       covered_service_count: coveredServiceKeys.length,
       max_uses: maxUses,
       effective_from: effectiveFrom,
@@ -459,7 +435,8 @@ export async function updateDiscountCode(formData: FormData) {
 
   const admin = createAdminClient();
 
-  // Snapshot prior state for audit metadata (incl. grant_tokens columns).
+  // Snapshot prior state for audit metadata (incl. the retired token columns,
+  // which stay on the table and must be recorded even though nothing sets them).
   const { data: prior, error: priorErr } = await admin
     .from('discount_codes')
     .select(
@@ -482,13 +459,11 @@ export async function updateDiscountCode(formData: FormData) {
   }
   const discountType = rawType as DiscountType;
 
-  const { pct_value, cap_centavos, token_grant_count, token_grant_ttl_days } =
+  const { pct_value, cap_centavos } =
     parseDiscountValue(
       discountType,
       formData.get('discount_pct'),
       formData.get('cap_pesos'),
-      formData.get('token_grant_count'),
-      formData.get('token_grant_ttl_days'),
     );
 
   const expiresAt = parseExpiresAt(formData.get('expires_at'));
@@ -498,16 +473,13 @@ export async function updateDiscountCode(formData: FormData) {
   );
   const maxUses = parseMaxUses(formData.get('max_uses'));
 
-  // grant_tokens vouchers ignore covered_service_keys (same as create).
-  let coveredServiceKeys: string[];
-  if (discountType === 'grant_tokens') {
-    coveredServiceKeys = [];
-  } else {
-    const coveredServicesRaw = formData
+  // Every remaining voucher type requires at least one covered service —
+  // same as create. The type that skipped it is retired (2026-08-18).
+  const coveredServiceKeys = await validateCoveredServices(
+    formData
       .getAll('covered_services')
-      .filter((v): v is string => typeof v === 'string' && v.length > 0);
-    coveredServiceKeys = await validateCoveredServices(coveredServicesRaw);
-  }
+      .filter((v): v is string => typeof v === 'string' && v.length > 0),
+  );
 
   const { error: updateErr } = await admin
     .from('discount_codes')
@@ -515,8 +487,12 @@ export async function updateDiscountCode(formData: FormData) {
       discount_type: discountType,
       pct_value,
       cap_centavos,
-      token_grant_count,
-      token_grant_ttl_days,
+      // Written explicitly as NULL rather than omitted: the columns remain on
+      // the table and in the `discount_codes_value_coherence_v3` CHECK, and on
+      // an UPDATE an omitted column keeps its old value. Nothing can set them
+      // to anything else — the type that used them is retired (2026-08-18).
+      token_grant_count: null,
+      token_grant_ttl_days: null,
       covered_service_keys: coveredServiceKeys,
       effective_from: effectiveFrom,
       expires_at: expiresAt,
@@ -548,8 +524,8 @@ export async function updateDiscountCode(formData: FormData) {
         discount_type: discountType,
         pct_value,
         cap_centavos,
-        token_grant_count,
-        token_grant_ttl_days,
+        token_grant_count: null,
+        token_grant_ttl_days: null,
         covered_service_keys: coveredServiceKeys,
         effective_from: effectiveFrom,
         expires_at: expiresAt,

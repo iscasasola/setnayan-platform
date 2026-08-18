@@ -65,6 +65,22 @@ export const PAPIC_TERMINAL_ERRORS: ReadonlySet<string> = new Set([
   'clip_too_long',
   'capture_not_started',
   'capture_window_closed',
+  /*
+    🚨 REGISTERED 2026-08-18, WITH THE GATE THAT PRODUCES IT — and it is the
+    same regression `capture-window-is-a-whole-day.test.ts` was written to hold.
+
+    Left out, this code falls through to the QUEUE branch, where the optimistic
+    count is deliberately NOT rolled back ("ownership transfers to the queue —
+    the shot WILL land") and the photographer is told *"A shot will finish
+    uploading once you're back online."* They are online. Every drain replays
+    presign → R2 PUT → the same refusal, up to 50 times per shot, until the
+    7-day TTL evicts it silently. They finish the night believing they captured
+    dozens of photos that do not exist.
+
+    A put-away celebration can be brought back — but not by retrying, and never
+    by the person holding the camera. Terminal is the honest classification.
+  */
+  'event_put_away',
   'awaiting_payment',
 ]);
 

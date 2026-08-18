@@ -68,3 +68,30 @@ supplier's public record** — a customer tidying their own list must not shrink
 history.
 
 SPEC IMPACT: None — no migration, no column, no permission change. The switch already existed.
+
+## 2026-08-18 · unblocked, and the merge exposed a defect neither side had alone
+
+This sat CONFLICTING and untested since 2026-08-15. Three conflicts, and resolving
+them found a real defect that existed in neither branch on its own.
+
+**The switch register lost its default.** This change's entry omitted `table`,
+which was fine against the older resolver — it ended `?? 'events'`. Main then
+refactored that resolver to `sw ? [sw.table] : [fallbacks]`, which drops the default
+for a REGISTERED switch. So `sw.table` arrived `undefined`, the detector searched a
+table called nothing, and reported "archived has no writer" while a correct writer
+sat in `archive-actions.ts`.
+🔑 **A DEFAULT REMOVED BY A REFACTOR IS INVISIBLE TO WHOEVER RELIED ON IT.**
+
+**And the shared detector is too loose to catch it.** `gateWritersOf` asks whether a
+FILE writes table X anywhere and names column Y anywhere, never requiring the same
+statement. For `events.archived` that admits two files that never write it: one has a
+local variable called `archived` and writes a different table, the other has it as a
+type field and in a select list. **Proved: deleting the real write leaves the shared
+check green.** Widening shared infrastructure every switch depends on does not belong
+in a change about putting an event away, so this adds a chain-anchored assertion for
+this switch and names the debt.
+
+🪤 **And my first cut of that assertion had the same disease it was written to cure**
+— `[\s\S]{0,200}` read past the update object's closing brace into
+`.select('event_id, archived')` on the next line, so the sabotage still passed.
+Confined to `[^}]`. **Verify the sabotage LANDS, or the green means nothing.**

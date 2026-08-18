@@ -263,7 +263,42 @@ export function AccountSwitcher({ data, currentEventName, homeLabel }: Props) {
   // Focus trap, Esc-to-close, body-scroll-lock, focus-restore (shared hook).
   useModalA11y({ open, onClose: close, containerRef: panelRef });
 
-  const initial = data.email?.charAt(0).toUpperCase() ?? '?';
+  /*
+    🔑 THE NAME IS THE MARK, AND THE EMAIL IS ONLY THE FALLBACK. The panel
+    header two hundred lines up already reads `displayName ?? email` — the
+    trigger read the email alone, so a person whose account carries a real name
+    was still identified by whatever their mail provider happens to start with.
+    Same source, same order, one answer.
+  */
+  const initial =
+    (data.displayName?.trim() || data.email)?.charAt(0).toUpperCase() ?? '?';
+
+  /*
+    ⚠ WHAT THE OWNER SAW (2026-08-17, a zoom of the top-right corner):
+    *"what happened to the top nav?"* — a box with an arrow in it and nothing
+    else. The bar was whole; this control was the empty-looking part of it.
+
+    🔑 A CIRCLE AT 1.17:1 IS NOT A CIRCLE. The avatar was `bg-terracotta/15`
+    — the gold slot at 15% over the cream pill, which measures #F0E9DD against
+    #FDFBF7: 1.17:1. WCAG 1.4.11 asks 3:1 of a control's own shape, and GOLD
+    CANNOT REACH IT AT ANY ALPHA (solid gold is 3.37:1, so every tint of it is
+    worse). So the shape was invisible, the initial inside it measured 4.17:1 —
+    under the 4.5:1 AA floor — and for this account the initial is "I", a single
+    vertical stroke. Ink solid: 13.82:1 both ways.
+
+    🪤 AND THE TWO GUARDS THAT WATCH FOR THIS COULD NOT SEE IT.
+    `palette-lock.test.ts` checks token DEFINITIONS, and the token is fine —
+    the defect is the ALPHA at the call site. `lint-label-on-fill-contrast.mjs`
+    judges only pairings where BOTH sides are opaque, and by its own docblock
+    skips an alpha fill. The same seam that hid `#9A8F86` on five public
+    routes. `identity-is-visible.test.ts` is the guard that can.
+
+    🔒 THE PANEL'S OWN pale-gold circle is DELIBERATELY UNCHANGED. It sits
+    beside "Signed in as {name}" — the words carry the identification there, so
+    the circle is decoration and its faintness costs nothing. This one had to
+    carry it alone.
+  */
+  const accountLabel = data.displayName?.trim() || data.email || null;
 
   // ─── Inner panel content ────────────────────────────────────────────────
 
@@ -278,8 +313,42 @@ export function AccountSwitcher({ data, currentEventName, homeLabel }: Props) {
           'focus:outline-none',
           // Mobile: bottom sheet — inset-x + fixed bottom, slides up
           'fixed inset-x-0 bottom-0 z-[52] flex max-h-[90vh] flex-col overflow-hidden rounded-t-2xl border-t border-ink/10 bg-[var(--m-paper)] pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl',
-          // Desktop: left drawer — fixed left full-height, slides from left
-          'lg:inset-x-auto lg:inset-y-0 lg:left-0 lg:bottom-auto lg:top-0 lg:w-80 lg:rounded-none lg:rounded-r-2xl lg:border-t-0 lg:border-r lg:border-ink/10',
+          /*
+            ⚠ ON DESKTOP THIS USED TO BE A FULL-HEIGHT DRAWER PINNED TO THE FAR
+            LEFT, AND THE OWNER ASKED WHY (2026-08-17): *"sign in is a pop up on
+            the upper left?"* He had pressed the account button at the TOP RIGHT.
+
+            🔑 THE TRIGGER MOVED AND THE PANEL'S GEOMETRY STAYED. The left
+            drawer was correct when it was written: the pill was `lg:hidden`,
+            so desktop opened this panel from the RAIL plaque in the bottom-left
+            — and `SwitcherPlaqueTrigger` still does, from its own left drawer
+            two hundred lines below, deliberately untouched. Then the pill was
+            promoted to every width and became THE desktop account menu on all
+            six top bars (admin · account · launcher · event · shop · the shared
+            cluster), and nobody re-derived where its panel should appear. A menu
+            that opens across the screen from the thing you pressed reads as a
+            different feature opening by mistake.
+            See [[feedback_a_ruling_outlives_the_premise_it_was_decided_on]].
+
+            Desktop is now a card under the pill, in the corner it belongs to.
+            `--fd-bar` is the shared bar's own height token — but it is declared
+            on `.fd`, and this panel is PORTALED TO `document.body`, so it can
+            never inherit it and the 56px fallback is what actually renders.
+            That is two numbers for one measurement, which this repo has paid
+            for before, so `menu-opens-where-you-pressed.test.ts` pins the
+            fallback to the token's declared value and fails when either moves.
+
+            🪤 THE UNDERSCORES IN THE `calc()` ARE NOT STYLE — WITHOUT THEM THIS
+            PANEL LANDS 2,213px DOWN AN EMPTY PAGE. Tailwind turns `_` into a
+            space, and CSS `calc()` REQUIRES whitespace around `+`. I first wrote
+            `calc(var(--fd-bar,56px)+8px)` and measured it in a real browser on
+            the live stylesheet: the parser KEEPS the declaration — nothing is
+            dropped, nothing throws, no warning — and computes `top: 2213.2px`.
+            The spaced form computes `64px`. Another member of the family this
+            repo keeps meeting: the engine DECLINES quietly and the only symptom
+            is that something is not where it should be. Test 4 pins it.
+          */
+          'lg:inset-x-auto lg:bottom-auto lg:right-3 lg:top-[calc(var(--fd-bar,56px)_+_8px)] lg:w-80 lg:max-h-[min(80vh,34rem)] lg:rounded-2xl lg:border lg:border-ink/10 lg:pb-0',
         ].join(' ')}
         style={{
           animation: 'sn-switcher-in 0.3s ease',
@@ -291,9 +360,11 @@ export function AccountSwitcher({ data, currentEventName, homeLabel }: Props) {
             to   { transform: translateY(0); }
           }
           @media (min-width: 1024px) {
+            /* Drops from under the pill instead of flying in from the far
+               edge — the motion has to agree with where the control is. */
             @keyframes sn-switcher-in {
-              from { transform: translateX(-100%); }
-              to   { transform: translateX(0); }
+              from { transform: translateY(-8px); opacity: 0; }
+              to   { transform: translateY(0); opacity: 1; }
             }
           }
         `}</style>
@@ -317,8 +388,9 @@ export function AccountSwitcher({ data, currentEventName, homeLabel }: Props) {
         onClick={() => setOpen((v) => !v)}
         className="inline-flex h-11 items-center gap-2 rounded-full border border-ink/15 bg-cream px-2 pr-3 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus:outline-none focus-visible:border-terracotta focus-visible:text-terracotta-700"
       >
-        {/* Avatar circle */}
-        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700">
+        {/* Avatar circle — solid ink so the shape and the initial are both
+            legible with nothing else in the pill (see the docblock above). */}
+        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink text-xs font-semibold text-cream">
           {data.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={data.photoUrl} alt="" className="h-full w-full object-cover" />
@@ -329,6 +401,23 @@ export function AccountSwitcher({ data, currentEventName, homeLabel }: Props) {
         {currentEventName ? (
           <span className="max-w-[120px] truncate text-xs font-medium text-ink/80">
             {currentEventName}
+          </span>
+        ) : accountLabel ? (
+          /*
+            WHO IS SIGNED IN, IN WORDS. On the event / shop / HQ surfaces the
+            slot above already names the room you are standing in, and that is
+            the more useful sentence — so this only fills the slot when nothing
+            else claims it, which is the launcher and the front door.
+
+            ⚠ FROM `lg` UP ONLY, and that is a width decision, not a taste one.
+            The shared bar carries identity, the search and this cluster on ONE
+            row — the second row is what the owner struck down on 2026-07-30 —
+            and "+ Create event" beside it is already hidden below 1024 for the
+            same reason. On a phone the avatar is the whole mark, which is why
+            it had to become visible before this line could be gated at all.
+          */
+          <span className="hidden max-w-[150px] truncate text-xs font-medium text-ink/80 lg:inline">
+            {accountLabel}
           </span>
         ) : null}
         <ChevronDown

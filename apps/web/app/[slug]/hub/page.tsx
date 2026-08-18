@@ -45,6 +45,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { createClient } from '@/lib/supabase/server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventWordsFromProfile } from '../_lib/event-words';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
@@ -99,7 +100,7 @@ export const metadata: Metadata = {
   // page. Static on purpose: the event's name is behind the canViewSlugEvent
   // gate below, and a private event's name must not leak into a tab title or a
   // bookmark on a page that is deliberately noindex.
-  title: 'Event Hub · Setnayan',
+  title: 'Live hub',
   robots: { index: false, follow: false },
 };
 
@@ -129,6 +130,10 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // surface; non-website profiles 404 (mirrors the page's resolveProfile gate).
   const eventTypeProfile = await resolveProfile(event.event_type);
   if (!surfaceEnabled(eventTypeProfile, 'website')) notFound();
+  // The same profile, read for its WORDS as well as its gate. Four sentences on
+  // this screen said "the couple" to every event type. Wedding → 'couple', so a
+  // wedding reads byte-identically to before.
+  const words = eventWordsFromProfile(eventTypeProfile);
 
   // Private-event visibility gate — the SAME gate /[slug] and every sibling
   // sub-route (find-seat / find-my-table / recap) apply via canViewSlugEvent.
@@ -511,7 +516,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         ? 'The celebration has wrapped. Thank you for being part of the day.'
         : dayOfPhase === 'pre'
           ? 'The celebration is almost here. We can’t wait to see you.'
-          : 'Your event hub — everything for the day, in one place.';
+          : 'Everything for the day, in one place.';
   const phaseLabel =
     dayOfPhase === 'live'
       ? 'Happening now'
@@ -519,7 +524,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         ? 'Just wrapped'
         : dayOfPhase === 'pre'
           ? 'Almost here'
-          : 'Event hub';
+          : 'The day';
 
   // ───────────────────────────── Panels ─────────────────────────────────────
 
@@ -599,7 +604,9 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             </Link>
           ) : (
             <p className="text-sm text-ink/55">
-              The couple will assign seats closer to the day.
+              {words.organizerIsHonoree
+                ? 'Seats will be assigned closer to the day.'
+                : `${words.TheOrganizer} will assign seats closer to the day.`}
             </p>
           )}
         </article>
@@ -660,7 +667,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
               Send a blessing
             </span>
             <span className="mt-0.5 block text-xs text-ink/55">
-              The digital money dance — straight to the couple.
+              The digital money dance — straight to {words.theOrganizer}.
             </span>
           </span>
           <span aria-hidden className="text-ink/40">
@@ -688,8 +695,9 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             Day-of schedule
           </p>
           <p className="mt-2 text-sm text-ink/60">
-            The couple hasn’t published the program yet. Check back closer to the
-            day.
+            {words.organizerIsHonoree
+              ? 'The program hasn’t been published yet. Check back closer to the day.'
+              : `${words.TheOrganizer} hasn’t published the program yet. Check back closer to the day.`}
           </p>
         </article>
       )}
@@ -736,8 +744,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             Capture the day
           </h3>
           <p className="mx-auto mt-1 max-w-prose text-sm text-ink/65">
-            Every shot lands in the couple’s gallery — and tagged guests get
-            theirs in real time.
+            Every shot lands in {words.theOrganizerPossessive} gallery — and
+            tagged guests get theirs in real time.
           </p>
         </div>
         <div className="flex flex-col gap-2">

@@ -49,20 +49,48 @@ function servesAUrl(dir) {
   return false;
 }
 
-/** The set of top-level route words that exist on disk right now. */
+/**
+ * The set of top-level route WORDS that exist on disk right now.
+ *
+ * 🚨 IT DESCENDS INTO ROUTE GROUPS, AND THAT IS LOAD-BEARING (2026-08-15).
+ * A route group — a directory in parentheses — is INVISIBLE in the URL, so its
+ * children are top-level URLs even though they are nested on disk. `/explore`
+ * is served by `app/(shell)/explore/page.tsx`.
+ *
+ * This function walked only the top level, and `(shell)` fails CLAIMABLE
+ * (parentheses), so introducing that group would have silently DROPPED
+ * FOURTEEN reserved words — about · explore · pricing · privacy · terms ·
+ * cookies · refunds · acceptable-use · alaala · pa3d · palogo · patiktok ·
+ * pawebsite · setnayan-ai. A vendor could then have claimed
+ * `setnayan.com/explore` as their shop address, and shop addresses are
+ * IMMUTABLE — the exact harm `KNOWN_DB_MINT_GAP` exists to prevent, arriving
+ * as a side effect of a layout refactor with nothing to connect the two.
+ *
+ * 🔑 THE GROUP ITSELF IS NEVER A WORD. `(shell)` cannot be typed into a URL,
+ * so it is a doorway to more top-level words, not one of them.
+ */
 export function routeSlugsFromDisk(appDir = APP_DIR) {
   if (!existsSync(appDir)) throw new Error(`app directory not found: ${appDir}`);
   const words = [];
-  for (const entry of readdirSync(appDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const name = entry.name;
-    if (!CLAIMABLE.test(name)) continue;
-    const full = path.join(appDir, name);
-    if (!statSync(full).isDirectory()) continue;
-    if (!servesAUrl(full)) continue;
-    words.push(name);
-  }
-  return words.sort();
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const name = entry.name;
+      const full = path.join(dir, name);
+      if (!statSync(full).isDirectory()) continue;
+      // A route group contributes NO word of its own; its children are
+      // top-level URLs, so recurse and keep collecting at this same level.
+      if (name.startsWith('(') && name.endsWith(')')) {
+        walk(full);
+        continue;
+      }
+      if (!CLAIMABLE.test(name)) continue;
+      if (!servesAUrl(full)) continue;
+      words.push(name);
+    }
+  };
+  walk(appDir);
+  return [...new Set(words)].sort();
 }
 
 function renderBlock(words) {

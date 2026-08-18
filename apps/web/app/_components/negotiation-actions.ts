@@ -932,6 +932,52 @@ export async function lockDeal(formData: FormData): Promise<void> {
     }
     // 'no_marketplace_link' | 'booked' | 'already_booked' → fall through to
     // freeze the price + stamp the Deal.
+    //
+    // PR-H · 'requested' | 'already_requested' FALL THROUGH TOO, and that is the
+    // decision rather than an oversight. The frozen price and the Deal stamp are
+    // records of what the two of them AGREED IN THE THREAD; the handshake
+    // changes who books, not whether they shook on a number. Blocking the freeze
+    // would make the couple re-negotiate the same figure after the supplier says
+    // yes — and `vendor_agree_to_lock` books off `event_vendors.total_cost_php`,
+    // which this path has already written.
+    if (outcome.status === 'requested') {
+      // Tell the supplier they have been ASKED. They are in this thread, so they
+      // will likely see the message — but the answer card lives on their
+      // Overview, and "likely" is not a delivery mechanism for a 7-day fuse.
+      // Fail-soft: the request is recorded and a notification hiccup must not
+      // undo it.
+      try {
+        const admin = createAdminClient();
+        const [{ data: vProfile }, { data: evtRow }] = await Promise.all([
+          admin
+            .from('vendor_profiles')
+            .select('user_id')
+            .eq('vendor_profile_id', ctx.thread.vendor_profile_id)
+            .maybeSingle(),
+          admin
+            .from('events')
+            .select('display_name')
+            .eq('event_id', ctx.thread.event_id)
+            .maybeSingle(),
+        ]);
+        const vendorUserId = (vProfile as { user_id: string | null } | null)?.user_id ?? null;
+        if (vendorUserId) {
+          const who = (evtRow as { display_name: string } | null)?.display_name ?? 'A couple';
+          await emitNotification({
+            userId: vendorUserId,
+            type: 'lock_request_received',
+            title: `${who} wants to book you`,
+            body: `${who} has asked you to take their booking at the price you agreed. You have 7 days to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
+            relatedUrl: '/vendor-dashboard',
+          });
+        }
+      } catch (e) {
+        console.error(
+          `[lockDeal] lock_request_received notify failed for thread_id=${threadId}:`,
+          e,
+        );
+      }
+    }
   }
 
   const now = new Date().toISOString();

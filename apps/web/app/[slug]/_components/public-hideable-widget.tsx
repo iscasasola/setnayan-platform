@@ -27,6 +27,7 @@ import { WhatToBringWidget } from './what-to-bring-widget';
  * meaningful.
  */
 export function PublicHideableWidget({
+  organizer,
   widget,
   event,
   scheduleBlocks,
@@ -36,6 +37,10 @@ export function PublicHideableWidget({
 }: {
   widget: InvitationWidgetRow;
   event: EventRow;
+  /** This event type's word for whoever is throwing it — threaded from the body,
+   *  same as the guest tree's renderer. The ANONYMOUS tree needs it too: a
+   *  stranger on a birthday page was reading "the couple" as well. */
+  organizer: string;
   scheduleBlocks: ScheduleBlockRow[];
   isLive: boolean;
   /** RSVP-season "Estimated program" label on the schedule widget (owner
@@ -94,7 +99,13 @@ export function PublicHideableWidget({
     case 'tier_comparison':
       // limited=false on the anonymous path — anonymous visitors are
       // never a "limited +1" by definition.
-      return <TierComparisonWidget limited={false} eventNoun={eventNounOf(event)} />;
+      return (
+        <TierComparisonWidget
+          limited={false}
+          eventNoun={eventNounOf(event)}
+          organizer={organizer}
+        />
+      );
 
     // Always-on + guest-personalized types are intentionally skipped
     // on the anonymous path. event_details needs guest.role + side;

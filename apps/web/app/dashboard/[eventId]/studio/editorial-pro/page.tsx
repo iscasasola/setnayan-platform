@@ -21,7 +21,7 @@ import {
 } from '@/lib/couple-website-pro';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
-export const metadata = { title: 'Editorial PRO · Setnayan' };
+export const metadata = { title: 'Editorial PRO' };
 
 const SKU_CODE = 'EDITORIAL_PRO';
 

@@ -31,7 +31,7 @@ import { KwentoQueue } from '../studio/papic/moderation/_components/kwento-queue
 import { WallModeControl } from './_components/mode-control';
 import { FlashAutoWallToggle } from './_components/flash-auto-wall-toggle';
 
-export const metadata = { title: 'Live Wall · Setnayan' };
+export const metadata = { title: 'Live Wall' };
 export const dynamic = 'force-dynamic';
 
 /**

@@ -10,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { loadLinkableEvents, type LinkableEvent } from '@/lib/chapter-event-participation';
 import {
   CHAPTER_BODY_MAX,
   CHAPTER_KINDS,
@@ -166,51 +167,6 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
   );
 }
 
-/**
- * The celebrations this account may attach a chapter to — the ones they HOST.
- *
- * ⚠ HOSTS ONLY, AND THAT IS THE WHOLE LIST FOR NOW. A guest or a booked
- * supplier legitimately wants to tell the story of a day they attended, but
- * that needs the couple's yes — a request-and-approve step that does not exist
- * yet. An empty list is the honest answer until it does; the alternative is
- * granting somebody a public page hung off another family's wedding.
- *
- * 🪤 A failed read must not look like "you host nothing". It returns an empty
- * list either way, so the picker degrades to the same copy a genuine
- * non-host sees — acceptable because the ACTION re-checks membership before
- * storing anything, so a lost list can never become a wrong link.
- */
-async function loadLinkableEvents(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-): Promise<LinkableEvent[]> {
-  const { data, error } = await supabase
-    .from('event_members')
-    .select('event_id, events:event_id ( display_name, event_date, event_type )')
-    .eq('user_id', userId)
-    .eq('member_type', 'couple');
-  if (error || !data) return [];
-
-  return data
-    .map((row) => {
-      const embedded = (row as { events?: unknown }).events;
-      const ev = (Array.isArray(embedded) ? embedded[0] : embedded) as
-        | { display_name?: string | null; event_date?: string | null; event_type?: string | null }
-        | undefined;
-      const name = ev?.display_name?.trim();
-      // The date is what tells two celebrations apart when they share a name,
-      // and it is printed as a plain day string — never parsed into a Date,
-      // which is how a 12 Dec wedding once read as 11 Dec west of Greenwich.
-      const day = ev?.event_date ? ` · ${ev.event_date.slice(0, 10)}` : '';
-      const kind = ev?.event_type ? ev.event_type.replace(/_/g, ' ') : 'celebration';
-      return {
-        event_id: (row as { event_id: string }).event_id,
-        label: `${name || `Your ${kind}`}${day}`,
-      };
-    })
-    .sort((a, b) => a.label.localeCompare(b.label));
-}
-
 async function CreatorBody({
   supabase,
   userId,
@@ -231,7 +187,7 @@ async function CreatorBody({
       .eq('user_id', userId)
       .order('updated_at', { ascending: false }),
     fetchCreatorInbox(supabase, userId),
-    loadLinkableEvents(supabase, userId),
+    loadLinkableEvents(userId),
   ]);
   const chapters = (data ?? []) as ChapterRow[];
   const publishedChapters = chapters.filter((c) => c.status === 'published');
@@ -658,7 +614,6 @@ function ChapterCard({
 }
 
 /** A celebration this account hosts, offered in the picker. */
-type LinkableEvent = { event_id: string; label: string };
 
 function ChapterFields({
   chapter,

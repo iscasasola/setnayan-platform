@@ -82,6 +82,8 @@ import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { VendorQuickViewInspector } from './_components/vendor-quickview-inspector';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
 import { buildShortlistFolders, LOCKED_VENDOR_STATUSES } from '@/lib/shortlist-taxonomy';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
+import { lockRequestStateOf } from '@/lib/lock-request-state';
 import {
   classifyAgainstBuildWindow,
   convergenceBanner,
@@ -671,6 +673,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       vendor_name: v.vendor_name,
       category: v.category,
       status: v.status,
+      // PR-H · the marker and the DB-stamped deadline. Both carried RAW; the
+      // one derivation that turns them into what a couple is TOLD lives in
+      // lib/lock-request-state.ts and nowhere else.
+      lock_request_state: v.lock_request_state ?? null,
+      lock_request_expires_at: v.lock_request_expires_at ?? null,
       total_cost_php: v.total_cost_php,
       deposit_paid_php: v.deposit_paid_php,
       notes: v.notes,
@@ -909,6 +916,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   }
 
   const model = buildPlanBudgetModel({
+    // PR-H · read here, passed in. The model is a pure core.
+    lockHandshakeEnabled: isLockHandshakeEnabled(),
     vendorRows,
     estimatedBudgetCentavos: ev?.estimated_budget_centavos ?? null,
     daysUntilWedding,
@@ -1329,6 +1338,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     demandByVendorId: aiActive ? demandByVendorId : undefined,
     buildFitByVendorId,
     freeDaysLineByVendorId,
+    // PR-H · the flag is READ HERE and PASSED IN; the builder is a pure core and
+    // must never reach for the env itself.
+    lockHandshakeEnabled: isLockHandshakeEnabled(),
     eventType: ev?.event_type ?? null,
     faithSet: buildCoupleFaithSet({
       eventType: ev?.event_type ?? null,

@@ -69,7 +69,7 @@ import { SourceBreakdown } from '../_components/source-breakdown';
 import { PerformanceControls } from './_components/performance-controls';
 import { Reanimate } from './_components/reanimate';
 
-export const metadata = { title: 'My Performance · Vendor · Setnayan' };
+export const metadata = { title: 'My Performance · Vendor' };
 
 export const dynamic = 'force-dynamic';
 

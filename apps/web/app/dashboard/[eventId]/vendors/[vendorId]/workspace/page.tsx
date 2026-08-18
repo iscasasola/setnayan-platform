@@ -29,11 +29,14 @@
 // ============================================================================
 
 import type { ReactNode } from 'react';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
+import { lockRequestStateOf } from '@/lib/lock-request-state';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
   ArrowLeft,
   BookmarkCheck,
+  Hourglass,
   CalendarPlus,
   CheckCircle2,
   Circle,
@@ -169,7 +172,7 @@ import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { reviewState, type ReviewState } from '@/lib/completion-handshake';
 import { coupleConfirmReceived, coupleReportNonDelivery } from '../review/actions';
 
-export const metadata = { title: 'Service workspace · Setnayan' };
+export const metadata = { title: 'Service workspace' };
 
 type Props = {
   params: Promise<{ eventId: string; vendorId: string }>;
@@ -299,13 +302,30 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const { data: vendorRow, error: vendorErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, crew_size, crew_meal_covered, created_at',
+      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, lock_request_state, lock_request_expires_at, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, crew_size, crew_meal_covered, created_at',
     )
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
 
   if (vendorErr || !vendorRow) notFound();
+
+  // ── PR-H · IS THIS BOOKED, OR MERELY ASKED? ─────────────────────────────
+  // The workspace is the screen a couple opens to manage a booking, and every
+  // word on it — the "Locked" chip, the next-step rail, "hold the date" — was
+  // written when reaching this page meant the booking existed. Under the
+  // handshake it can be reached on an ASK, where none of that is true yet.
+  // Derived ONCE here by the shared core and read below; deriving it twice on
+  // one page is how the header and the rail come to disagree.
+  const awaitingSupplier =
+    lockRequestStateOf(
+      {
+        status: (vendorRow as { status?: string | null }).status ?? null,
+        lock_request_state:
+          (vendorRow as { lock_request_state?: string | null }).lock_request_state ?? null,
+      },
+      isLockHandshakeEnabled(),
+    ) === 'requested';
 
   const ev = vendorRow as {
     vendor_id: string;
@@ -316,6 +336,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     contact_phone: string | null;
     status: string;
     workspace_status: string | null;
+    lock_request_state: string | null;
+    lock_request_expires_at: string | null;
     total_cost_php: number | string | null;
     transport_php: number | string | null;
     food_allowance_php: number | string | null;
@@ -1058,10 +1080,20 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             </div>
           </div>
 
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
-            <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
-            Locked
-          </span>
+          {/* PR-H · a green "Locked" over a supplier who has not answered is the
+              single most misleading thing this page could say — it is the word
+              the couple would quote back at us. */}
+          {awaitingSupplier ? (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warn-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-warn-900">
+              <Hourglass aria-hidden className="h-3 w-3" strokeWidth={2} />
+              Asked
+            </span>
+          ) : (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
+              <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+              Locked
+            </span>
+          )}
         </div>
 
         {/* Money summary strip */}
@@ -2415,7 +2447,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // state a third-party booking can be in, and it always ends in an `else`.
   let railTitle: string;
   let railBody: string;
-  if (stage === 'delivered') {
+  if (awaitingSupplier) {
+    // FIRST in the chain, above every money state. A row that is merely asked
+    // cannot be delivered or paid, so ordering costs nothing — and putting it
+    // last would mean the `else` ("your booking is locked, log your
+    // downpayment") caught it, asking the couple to pay for a booking that does
+    // not exist yet.
+    railTitle = 'Waiting on them';
+    railBody = `${displayName} has been asked and hasn't answered yet. Nothing is owed until they say yes — and you can take the request back any time before they do.`;
+  } else if (stage === 'delivered') {
     railTitle = 'Delivered';
     railBody = `${displayName} marked this delivered. Settle any balance and leave a review.`;
   } else if (stage === 'downpayment_paid') {
@@ -2436,10 +2476,17 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           Next step
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-success-800">
-            <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
-            Locked
-          </span>
+          {awaitingSupplier ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-warn-900">
+              <Hourglass aria-hidden className="h-3 w-3" strokeWidth={2} />
+              Asked
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-success-800">
+              <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+              Locked
+            </span>
+          )}
           {stage ? (
             <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
               {STAGE_LABEL[stage]}

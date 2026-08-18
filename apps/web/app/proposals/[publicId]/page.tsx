@@ -31,7 +31,7 @@ import {
 } from '@/app/vendor-dashboard/proposals/actions';
 import { formatCalendarDate } from '@/lib/events';
 
-export const metadata = { title: 'Proposal · Setnayan' };
+export const metadata = { title: 'Proposal' };
 
 /**
  * Shared proposal detail + print view — data-link program ③ (corpus

@@ -10,7 +10,7 @@ import { fetchVendorPapicAllowance } from '@/lib/vendor-papic-grants';
 import { PapicCaptureController } from '../_components/papic-capture-controller';
 import { OwnCapturesStrip } from '../_components/own-captures-strip';
 
-export const metadata = { title: 'Papic capture · On the Day · Setnayan' };
+export const metadata = { title: 'Papic capture · On the Day' };
 
 /** PH wall-clock today (UTC+8) as 'YYYY-MM-DD'. */
 function phToday(): string {
@@ -47,43 +47,77 @@ export default async function VendorPapicCapturePage({
     (await fetchVendorPoolBookings(supabase, profile.vendor_profile_id)).find(
       (b) => b.eventId === eventId,
     ) ?? null;
-  if (!booking || booking.bookedDate !== phToday()) redirect(back);
+  // Not booked on this event at all ⇒ nothing here is theirs. That check stays.
+  if (!booking) redirect(back);
 
-  // Derive the tier + live capture-point allowance (service-role reads).
-  const allowance = await fetchVendorPapicAllowance(
-    createAdminClient(),
-    profile.vendor_profile_id,
-    eventId,
-  );
+  // ⚠ THE SHUTTER IS DAY-BOUND. LOOKING BACK IS NOT.
+  //
+  // This used to redirect away unless `bookedDate === phToday()`, and the same
+  // page mounts the "what you shot" strip. So at midnight the door shut on the
+  // photographer's own pictures — and the next morning, which is exactly when
+  // they want to confirm a shot landed, it was closed.
+  //
+  // It was never a permission limit. Verified in production: the row policy on
+  // these captures is "the vendor owns this profile OR is an admin", with no
+  // date condition anywhere in it. The photos have always been theirs on any
+  // day; only this screen disagreed.
+  //
+  // So the gate splits. Capture is still today-only (a camera on the wrong day
+  // is a mis-tagged photo in someone's album). The gallery is not.
+  const isEventDay = booking.bookedDate === phToday();
+
+  // Derive the tier + live capture-point allowance (service-role reads). Only
+  // the shutter needs it, so it is not read on a look-back visit.
+  const allowance = isEventDay
+    ? await fetchVendorPapicAllowance(
+        createAdminClient(),
+        profile.vendor_profile_id,
+        eventId,
+      )
+    : null;
+
+  // The floor console carries the same today-only gate, so sending someone
+  // there after the day just bounces them through a redirect. Off-day, "back"
+  // means the on-the-day list they actually came from.
+  const backHref = isEventDay ? back : '/vendor-dashboard/on-the-day';
 
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6">
       <div className="flex items-center justify-between gap-3">
         <Link
-          href={back}
+          href={backHref}
           className="inline-flex items-center gap-1.5 text-sm font-medium"
           style={{ color: 'var(--m-slate-2)' }}
         >
-          <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Back to the floor
+          <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />{' '}
+          {isEventDay ? 'Back to the floor' : 'Back to On the Day'}
         </Link>
         <span className="font-mono text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--m-slate-3)' }}>
-          Papic capture
+          {isEventDay ? 'Papic capture' : 'What you shot'}
         </span>
       </div>
 
-      <PapicCaptureController
-        eventId={eventId}
-        coupleName={booking.eventName ?? 'this event'}
-        tier={allowance.tier}
-        allowVideo={allowance.allowVideo}
-        pointsCap={allowance.pointsCap}
-        pointsSpent={allowance.pointsSpent}
-      />
+      {isEventDay && allowance ? (
+        <PapicCaptureController
+          eventId={eventId}
+          coupleName={booking.eventName ?? 'this event'}
+          tier={allowance.tier}
+          allowVideo={allowance.allowVideo}
+          pointsCap={allowance.pointsCap}
+          pointsSpent={allowance.pointsSpent}
+        />
+      ) : (
+        <p className="mt-4 text-sm" style={{ color: 'var(--m-slate-2)' }}>
+          The camera runs on the day itself. These are the photos and clips you
+          shot at {booking.eventName ?? 'this event'} — they stay here for you to
+          check.
+        </p>
+      )}
 
       {/* What they already shot, under the shutter — the question on a dark
           reception floor is "did that upload?", and the answer belongs on the
-          same screen. Read with the vendor's OWN client so the RLS policy stays
-          the boundary. */}
+          same screen. After the day it is the whole point of the page. Read
+          with the vendor's OWN client so the RLS policy stays the boundary. */}
       <OwnCapturesStrip supabase={supabase} eventId={eventId} />
     </section>
   );

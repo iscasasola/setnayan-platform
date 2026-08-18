@@ -45,6 +45,15 @@ const VOCAB: EventTypeSearchOption[] = [
 
 // ── The matcher ────────────────────────────────────────────────────────────
 
+/*
+  🔑 THESE PATHS CARRY `(shell)` (2026-08-15). The public routes moved into the
+  `app/(shell)/` route group so the shared shell is mounted ONCE, in a layout,
+  and survives navigation. A route group is INVISIBLE in the URL and PRESENT in
+  the filesystem path — `/explore` still serves from
+  `app/(shell)/explore/page.tsx`. A guard reading the old path throws ENOENT,
+  which is the loud failure; the quiet one would be a glob that matches nothing
+  and passes vacuously.
+*/
 test('a typed occasion finds its key', () => {
   assert.deepEqual(resolveEventTypeKeysForToken('debut', VOCAB), ['debut']);
   assert.deepEqual(resolveEventTypeKeysForToken('birthday', VOCAB), ['birthday']);
@@ -139,7 +148,7 @@ test('results come back in the roster order they were given', () => {
 // moves, re-point the assertion at its new home.
 
 test('the marketplace search actually passes the roster to the matcher', () => {
-  const page = read('app/explore/page.tsx');
+  const page = read('app/(shell)/explore/page.tsx');
   // Both call sites — the main query AND the broadened-count query. Missing the
   // second lets the empty state offer to widen a search that was already wider.
   //
@@ -161,7 +170,7 @@ test('the marketplace search actually passes the roster to the matcher', () => {
 });
 
 test('the filter drawer offers a real occasion control, not a hidden input', () => {
-  const drawer = read('app/explore/_components/filter-drawer.tsx');
+  const drawer = read('app/(shell)/explore/_components/filter-drawer.tsx');
   // A <select> named event_type. Anchored on the select so a hidden input
   // preserving the value cannot satisfy this — a hidden input is exactly what
   // shipped for months and it is what "no handle" looks like.
@@ -178,7 +187,7 @@ test('the filter drawer offers a real occasion control, not a hidden input', () 
 });
 
 test('the drawer is given the roster to populate that control', () => {
-  const page = read('app/explore/page.tsx');
+  const page = read('app/(shell)/explore/page.tsx');
   assert.match(
     page,
     /eventTypeOptions:\s*eventTypeVocab\.map/,
@@ -191,7 +200,7 @@ test('the landing page has an occasion handle of its own', () => {
   // Catalog mode renders NO FilterDrawer, so the drawer above cannot be the
   // only handle: without this row a visitor on a bare /explore has no way to
   // ask for their kind of celebration.
-  const page = read('app/explore/page.tsx');
+  const page = read('app/(shell)/explore/page.tsx');
   assert.match(
     page,
     /occasionChips[^\n]*=/,
@@ -202,7 +211,7 @@ test('the landing page has an occasion handle of its own', () => {
     /occasionChips=\{occasionChips\}/,
     '…and must actually pass them to the hero',
   );
-  const hero = read('app/explore/_components/explore-search-hero.tsx');
+  const hero = read('app/(shell)/explore/_components/explore-search-hero.tsx');
   assert.match(
     hero,
     /occasionChips\.map\(/,
@@ -211,7 +220,7 @@ test('the landing page has an occasion handle of its own', () => {
 });
 
 test('the occasion chips are not silently capped', () => {
-  const page = read('app/explore/page.tsx');
+  const page = read('app/(shell)/explore/page.tsx');
   const block = page.slice(
     page.indexOf('const occasionChips'),
     page.indexOf('const occasionChips') + 400,

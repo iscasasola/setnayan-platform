@@ -72,6 +72,7 @@ test('coverageStateOf precedence: covered > locked > picked > exploring > empty'
 
 test('every state has a legend glyph', () => {
   assert.deepEqual(Object.keys(COVERAGE_GLYPH).sort(), [
+    'asked',
     'covered',
     'empty',
     'exploring',

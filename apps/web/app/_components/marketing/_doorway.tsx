@@ -8,7 +8,6 @@ import Link from 'next/link';
   constant costs one file and keeps the import graph honest.
 */
 import { DOORWAY_TONE } from './_doorway-tone';
-import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { DemoOverlayHost } from './demo-overlay-host';
 
 import { Reveal } from './_motion';
@@ -192,28 +191,24 @@ export function DoorwayPage({
 }: DoorwayProps) {
   return (
     /*
-      ─── THE DOORWAY WEARS THE SHARED SHELL (owner 2026-08-15) ─────────────
-      Owner: *"still jumps out of the shell when the links on studio are
-      pressed."* Pressing a Studio row used to swap the whole furniture — the
-      app's rail for the marketing glass nav. Now the product page keeps the
-      rail, the bar and the search, and only the CONTENT changes.
+      🔑 THE SHELL IS NOT MOUNTED HERE ANY MORE (2026-08-15). It moved to
+      `app/(shell)/layout.tsx` so it SURVIVES navigation — mounted in a
+      component, it was inside the subtree Next swaps, so the bar and rail were
+      torn down and rebuilt on every click. Measured on the live site: the
+      document survived, `.fd-topbar` and `.fd-rail` did not.
 
-      🔑 MOUNTED HERE, IN A COMPONENT, NOT IN A `layout.tsx`. A directory
-      layout wraps EVERY descendant, and beneath these seven directories live
-      the paparazzo's camera (`/papic/seat/[token]`), the guest gallery whose
-      URL is a bearer credential, the owner-locked live control room
-      (`/panood/control/[eventId]`, "nothing under and above it") and the
-      program pop-out the host's OBS window-CAPTURES AND BROADCASTS. Chrome on
-      that last one goes out on the wedding's live stream. This file is
-      imported by exactly the seven doorway pages, so all sixteen descendants
-      are out of reach BY CONSTRUCTION rather than by a boundary drawn
-      correctly.
-
-      ⚠ `variant="doorway"`, never `app`: the app variant has no hamburger, and
-      the rail is `display:none` below 1024 — a phone would get a product page
-      with no navigation at all. See the variant note in `front-door-shell.tsx`.
+      ⚠ THE REASON IT WAS HERE RATHER THAN IN A `layout.tsx` STILL STANDS, and
+      it is why the group holds only `page.tsx` + `loading.tsx` for these
+      routes. Beneath these seven directories live the paparazzo's camera
+      (`/papic/seat/[token]`), the guest gallery whose URL is a bearer
+      credential, the owner-locked control room (`/panood/control/[eventId]`)
+      and the program pop-out the host's OBS window-CAPTURES AND BROADCASTS —
+      chrome on that last one goes out on the wedding's live stream. Those all
+      stayed OUTSIDE `app/(shell)/`, so they inherit nothing. Verified in a
+      scratch build: a route below the group but outside it carried zero of the
+      layout's markup.
     */
-    <AppRailShell variant="doorway">
+    <>
       {structuredData.map((ld, i) => (
         <script
           key={i}
@@ -362,6 +357,6 @@ export function DoorwayPage({
           which used to mount HomeOverlays for them — no longer runs here, and
           without this the "Try the demo" button below becomes a fake door. */}
       <DemoOverlayHost />
-    </AppRailShell>
+    </>
   );
 }

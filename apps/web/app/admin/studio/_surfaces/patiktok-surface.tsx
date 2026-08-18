@@ -1,30 +1,53 @@
-import Link from 'next/link';
-import {
-  AlertTriangle,
-  ArrowLeft,
-  CheckCircle2,
-  Clapperboard,
-  Clock3,
-  Loader2,
-  XCircle,
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clapperboard, Clock3, Loader2, XCircle } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { findPatiktokTemplate } from '@/lib/patiktok';
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { ConsoleTable, type ConsoleColumn } from '@/app/admin/_components/console-table';
 
 /**
- * PatiktokSurface — the Patiktok render-job monitor body, re-homed
- * byte-identical from app/admin/patiktok/page.tsx into the tabbed /admin/studio
- * studio (Studio Studio slice 2).
+ * PatiktokSurface — the Patiktok render-job monitor body, inside the tabbed
+ * /admin/studio studio (Studio Studio slice 2).
  *
  * Iteration 0017 PR4 — read-only ops view over the client-side render queue:
  * recent jobs across all events, their status, which render path ran, output
  * size, delivery state, and any failure reason — so the team can spot reels
  * that didn't render (e.g. a device without WebCodecs, or R2 CORS not yet set).
  *
- * Behaviour is unchanged: no searchParams, no forms, no mutations. The only
- * mechanical change is that the surface no longer declares route-level exports
- * (metadata / dynamic live on the shell) — the body itself is byte-identical.
+ * ── WHAT CHANGED 2026-08-17, and it is not looks ────────────────────────────
+ * 🚨 THIS SURFACE NEVER DESTRUCTURED `error` AT ALL. The read was
+ * `const { data: jobsRaw } = await admin.from('patiktok_render_jobs')…`, then
+ * `(jobsRaw ?? [])`. Supabase RESOLVES with `{ error }` instead of throwing, so
+ * a refused query — phantom column, stale enum value, unapplied migration,
+ * missing grant — arrived as `data: null`, became `[]`, and this page printed
+ * "No Patiktok render jobs yet." to the one person whose whole job on this
+ * screen is to notice reels that failed. It also printed "latest 0" in the lede
+ * and a five-chip strip of honest-looking zeroes over the same nothing.
+ *
+ * ⚠ That makes this surface the SECOND liar in this lane, not the first — the
+ * lane brief counted one (referrals). Referrals at least CAPTURED the error and
+ * discarded it; this one never asked for it. Discarding an error and never
+ * requesting it produce the identical screen, so a scan for `error` finds only
+ * the first kind. **Not destructuring is not the absence of a defect.**
+ *
+ * ⛔ AND THE CAP WAS SILENT. `.limit(60)` with nothing on screen saying so, on a
+ * queue where "this is all of it" is the answer an ops reader takes away. The 60
+ * is now one exported constant used by the query AND by `cap` — two hand-typed
+ * copies of a number is not a guard.
+ *
+ * StatusPill is KEPT LOCAL ON PURPOSE. A render job's states (queued ·
+ * rendering · completed · failed · cancelled) are a render queue's vocabulary,
+ * not a shared one — the discount-code pill three files away renders
+ * active/expired/disabled off different values with different meanings. Two
+ * pills that happen to be round is not duplication, and a shared pill taking a
+ * `variant` for every caller is the 22-local-Stat problem wearing a hat.
  */
+
+/**
+ * The read's `.limit(...)`. ONE constant, used by the query and by `cap`, so a
+ * full page discloses itself instead of reading as the whole queue.
+ */
+const RECENT_JOB_CAP = 60;
 
 type JobRow = {
   job_id: string;
@@ -39,6 +62,8 @@ type JobRow = {
   completed_at: string | null;
   delivered_at: string | null;
 };
+
+const STATUSES = ['queued', 'processing', 'completed', 'failed', 'cancelled'] as const;
 
 function fmtMb(bytes: number | null): string {
   if (!bytes || bytes <= 0) return '—';
@@ -71,16 +96,21 @@ function StatusPill({ status }: { status: JobRow['status'] }) {
 export async function PatiktokSurface() {
   const admin = createAdminClient();
 
-  const { data: jobsRaw } = await admin
+  const { data: jobsRaw, error } = await admin
     .from('patiktok_render_jobs')
     .select(
       'job_id, event_id, template_slug, duration_sec, status, render_mode, output_bytes, failure_reason, enqueued_at, completed_at, delivered_at',
     )
     .order('enqueued_at', { ascending: false })
-    .limit(60);
-  const jobs = (jobsRaw ?? []) as JobRow[];
+    .limit(RECENT_JOB_CAP);
+  if (error) logQueryError('AdminPatiktokSurface', error);
 
-  const eventIds = Array.from(new Set(jobs.map((j) => j.event_id)));
+  // NULL SURVIVES TO THE RENDER. `jobs` is the honest value — not measured stays
+  // not measured — and `listed` is the flattened copy only the lookups below use.
+  const jobs = jobsRaw as JobRow[] | null;
+  const listed = jobs ?? [];
+
+  const eventIds = Array.from(new Set(listed.map((j) => j.event_id)));
   const { data: eventRows } = eventIds.length
     ? await admin.from('events').select('event_id, display_name').in('event_id', eventIds)
     : { data: [] as Array<{ event_id: string; display_name: string | null }> };
@@ -92,112 +122,116 @@ export async function PatiktokSurface() {
     );
   }
 
-  const counts = jobs.reduce<Record<string, number>>((acc, j) => {
+  const counts = listed.reduce<Record<string, number>>((acc, j) => {
     acc[j.status] = (acc[j.status] ?? 0) + 1;
     return acc;
   }, {});
 
+  const columns: ConsoleColumn<JobRow>[] = [
+    {
+      header: 'Event',
+      cell: (j) => (
+        <span className="font-medium text-ink">{eventName.get(j.event_id) ?? '—'}</span>
+      ),
+    },
+    { header: 'Status', cell: (j) => <StatusPill status={j.status} /> },
+    {
+      header: 'Why it failed',
+      hideBelow: 'md',
+      cell: (j) =>
+        j.status === 'failed' && j.failure_reason ? (
+          <span className="inline-flex items-start gap-1 text-[11px] text-danger-700">
+            <AlertTriangle aria-hidden className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={1.75} />
+            {j.failure_reason}
+          </span>
+        ) : (
+          <span className="text-ink/45">—</span>
+        ),
+    },
+    {
+      header: 'Template',
+      hideBelow: 'lg',
+      cell: (j) => (
+        <span className="text-ink/70">
+          {findPatiktokTemplate(j.template_slug)?.name ?? j.template_slug}
+        </span>
+      ),
+    },
+    { header: 'Dur', hideBelow: 'lg', mono: true, cell: (j) => `${j.duration_sec}s` },
+    {
+      header: 'Mode',
+      hideBelow: 'lg',
+      mono: true,
+      cell: (j) => (j.render_mode ? j.render_mode.replace('client_', '') : '—'),
+    },
+    { header: 'Size', hideBelow: 'lg', mono: true, cell: (j) => fmtMb(j.output_bytes) },
+    {
+      header: 'Email',
+      hideBelow: 'lg',
+      mono: true,
+      cell: (j) => (j.delivered_at ? '✓ sent' : '—'),
+    },
+    {
+      header: 'Queued',
+      hideBelow: 'md',
+      mono: true,
+      cell: (j) =>
+        new Date(j.enqueued_at).toLocaleString('en-PH', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+    },
+  ];
+
   return (
     <section className="space-y-6">
-      {/* The Add-ons tab was removed 2026-07-21; this back-link now points at
-          the Catalog Studio's default (Pricing) tab. Left as an explicit href
-          rather than ?tab=addons, which coerceTab would silently swallow. */}
-      <Link
-        href="/admin/pricing"
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--m-orange-2)]"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Back to pricing
-      </Link>
+      <PageMasthead
+        back="/admin/pricing"
+        backLabel="Back to pricing"
+        titleNode={
+          <span className="inline-flex items-center gap-2">
+            <Clapperboard aria-hidden className="h-6 w-6" strokeWidth={1.75} />
+            Patiktok renders
+          </span>
+        }
+        lede={
+          jobs
+            ? `Client-side render queue across all events — the latest ${listed.length}. Reels encode in the couple’s browser; this surfaces any that failed (e.g. a device without WebCodecs, or R2 CORS not yet set).`
+            : 'Client-side render queue across all events. The queue could not be read just now, so nothing below is a count.'
+        }
+      />
 
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Clapperboard aria-hidden className="h-6 w-6" strokeWidth={1.75} /> Patiktok renders
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          Client-side render queue across all events — latest {jobs.length}. Reels
-          encode in the couple&rsquo;s browser; this surfaces any that failed
-          (e.g. a device without WebCodecs, or R2 CORS not yet set).
-        </p>
-      </header>
-
+      {/* Status chips. An UNMEASURED queue shows an em-dash, never 0 — a chip
+          reading "failed · 0" over a refused read is the same lie as the empty
+          table, in a smaller box. */}
       <div className="flex flex-wrap gap-2 text-xs">
-        {(['queued', 'processing', 'completed', 'failed', 'cancelled'] as const).map((s) => (
+        {STATUSES.map((s) => (
           <span
             key={s}
             className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/70 px-3 py-1 font-mono uppercase tracking-[0.15em] text-ink/70"
           >
-            {s} · {counts[s] ?? 0}
+            {s} · {jobs ? (counts[s] ?? 0) : '—'}
           </span>
         ))}
       </div>
 
-      {jobs.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-6 text-center text-sm text-ink/55">
-          No Patiktok render jobs yet.
-        </p>
-      ) : (
-        <div className="sn-tile overflow-x-auto !p-0">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-ink/10 text-[11px] uppercase tracking-[0.15em] text-ink/55">
-                <th className="px-4 py-2.5 font-medium">Event</th>
-                <th className="px-4 py-2.5 font-medium">Template</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 font-medium">Dur</th>
-                <th className="px-4 py-2.5 font-medium">Mode</th>
-                <th className="px-4 py-2.5 font-medium">Size</th>
-                <th className="px-4 py-2.5 font-medium">Email</th>
-                <th className="px-4 py-2.5 font-medium">Queued</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink/5">
-              {jobs.map((j) => {
-                const templateName =
-                  findPatiktokTemplate(j.template_slug)?.name ?? j.template_slug;
-                return (
-                  <tr key={j.job_id} className="align-top">
-                    <td className="px-4 py-3 font-medium text-ink">
-                      {eventName.get(j.event_id) ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-ink/70">{templateName}</td>
-                    <td className="px-4 py-3">
-                      <StatusPill status={j.status} />
-                      {j.status === 'failed' && j.failure_reason ? (
-                        <p className="mt-1 inline-flex items-start gap-1 text-[11px] text-danger-700">
-                          <AlertTriangle
-                            aria-hidden
-                            className="mt-0.5 h-3 w-3 shrink-0"
-                            strokeWidth={1.75}
-                          />
-                          {j.failure_reason}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-ink/65">
-                      {j.duration_sec}s
-                    </td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-ink/65">
-                      {j.render_mode ? j.render_mode.replace('client_', '') : '—'}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-ink/65">
-                      {fmtMb(j.output_bytes)}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-ink/65">
-                      {j.delivered_at ? '✓ sent' : '—'}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-ink/55">
-                      {new Date(j.enqueued_at).toLocaleString('en-PH', {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                      })}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <ConsoleTable
+        rows={jobs}
+        columns={columns}
+        rowKey={(j) => j.job_id}
+        label="Patiktok render jobs"
+        readPermitted
+        readError={error}
+        reads="the Patiktok render queue"
+        cap={RECENT_JOB_CAP}
+        minWidth="52rem"
+        empty={{
+          Icon: Clapperboard,
+          title: 'No render jobs yet',
+          blurb:
+            'A job lands here the moment a guest or a couple renders a Patiktok reel — the encode runs in their own browser and reports back. Nothing to fix while this is empty; an empty queue means nobody has rendered one, not that renders are failing.',
+        }}
+      />
     </section>
   );
 }

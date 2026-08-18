@@ -17,7 +17,7 @@ import {
 } from '@/lib/force-majeure';
 import { fileForceMajeureFlag } from './actions';
 
-export const metadata = { title: 'Disputes · Setnayan' };
+export const metadata = { title: 'Disputes' };
 
 type Props = {
   params: Promise<{ eventId: string }>;

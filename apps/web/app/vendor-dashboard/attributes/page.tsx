@@ -15,7 +15,7 @@ import { saveVendorServiceAttribute, removeVendorServiceAttribute } from './acti
 import { AttributeFieldRenderer } from './_components/attribute-field-renderer';
 import { SubmitButton } from '@/app/_components/submit-button';
 
-export const metadata = { title: 'Service attributes · Vendor · Setnayan' };
+export const metadata = { title: 'Service attributes · Vendor' };
 
 type Props = {
   searchParams: Promise<{

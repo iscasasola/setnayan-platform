@@ -1,8 +1,12 @@
+import { ReceiptText } from 'lucide-react';
+
 import {
   EXPENSE_CATEGORIES,
+  LEDGER_ROWS,
   fetchExpensesOverview,
   type ExpenseCategory,
 } from '@/lib/admin/platform-expenses';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { addExpense, attachReceipt, viewReceipt } from '../actions';
 import { ChartCard, DeltaPct, StackedBars } from './charts';
@@ -12,10 +16,29 @@ import { ChartCard, DeltaPct, StackedBars } from './charts';
  * plan § 3 Zone 2). Every digital peso OUT with the receipt to prove it —
  * the BIR expense-substantiation trail (iteration 0026).
  *
- * Server-rendered; the log/attach forms post to server actions (no client
- * JS). Money is PESOS. If the migration hasn't run on this environment the
- * fetcher degrades and the zone says so honestly.
+ * Server-rendered; the log/attach forms post to server actions (no client JS).
+ * Money is PESOS.
+ *
+ * ── Converted to <ConsoleTable> 2026-08-17 · ZERO IS THE LIE HERE ──────────
+ * The fetcher already reported its error honestly in a banner at the top of
+ * the zone. Underneath that banner every panel then carried on and printed the
+ * placeholder numbers anyway: ₱0 spent this month, a 0% delta against last
+ * month, "Nothing logged this month yet", "No dated renewals logged", and a
+ * ledger saying it was waiting for your first expense. On a MONEY screen a
+ * printed zero is not a smaller mistake than a wrong number — read past the
+ * banner and the business looks like it stopped spending.
+ *
+ * So each panel now asks whether the read completed before it prints a figure,
+ * and shows an em-dash where the figure would be. `ov.ledger` is NULL on a
+ * refused read and the table reports it.
+ *
+ * (Measured in production 2026-08-17: `platform_expenses` holds 0 rows, so the
+ * honest empty state is what actually renders today — which is exactly why the
+ * two states had to stop looking alike.)
  */
+
+/** Shown where a figure would be when the read did not complete. */
+const UNMEASURED = '—';
 
 const nf = new Intl.NumberFormat('en-PH');
 const php = new Intl.NumberFormat('en-PH', {
@@ -38,8 +61,12 @@ function categoryLabel(key: ExpenseCategory): string {
 
 export async function ExpensesZone() {
   const ov = await fetchExpensesOverview();
+  // One question, asked once: did the read complete? Every figure below is
+  // gated on it, because the placeholder for "we do not know" is an em-dash,
+  // never a zero.
+  const measured = ov.error === null;
   const coveragePct =
-    ov.receiptCoverage.total > 0
+    measured && ov.receiptCoverage.total > 0
       ? Math.round((ov.receiptCoverage.withReceipt / ov.receiptCoverage.total) * 100)
       : null;
 
@@ -79,14 +106,23 @@ export async function ExpensesZone() {
               data-countup=""
               style={{ color: 'var(--m-ink)' }}
             >
-              {php.format(ov.totalThisMonth)}
+              {measured ? php.format(ov.totalThisMonth) : UNMEASURED}
             </p>
             <span className="text-xs" style={{ color: 'var(--m-slate)' }}>
               this month
             </span>
-            <DeltaPct current={ov.totalThisMonth} previous={ov.totalPrevMonth} inverseGood />
+            {/* A delta against an unread month is a comparison of two numbers
+                we do not have — it read "0%", which looks like "flat". */}
+            {measured ? (
+              <DeltaPct current={ov.totalThisMonth} previous={ov.totalPrevMonth} inverseGood />
+            ) : null}
           </div>
-          {ov.months.every((m) => m.total === 0) ? (
+          {!measured ? (
+            <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+              The spend for these months was not read, so nothing is charted
+              here — this is not a month of zero spending.
+            </p>
+          ) : ov.months.every((m) => m.total === 0) ? (
             <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
               No expenses logged yet — use “Log an expense” below to start the
               ledger.
@@ -130,7 +166,12 @@ export async function ExpensesZone() {
           pill="live"
           source="receipt attached ÷ expenses · 6-month window"
         >
-          {coveragePct === null ? (
+          {!measured ? (
+            <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+              Coverage could not be worked out — the expenses it divides were
+              not read. It is not 0%.
+            </p>
+          ) : coveragePct === null ? (
             <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
               No expenses logged yet — coverage appears with the first row.
             </p>
@@ -171,7 +212,11 @@ export async function ExpensesZone() {
           pill="live"
           source="platform_expenses grouped by vendor"
         >
-          {ov.byVendorThisMonth.length === 0 ? (
+          {!measured ? (
+            <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+              This month&rsquo;s spend was not read.
+            </p>
+          ) : ov.byVendorThisMonth.length === 0 ? (
             <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
               Nothing logged this month yet.
             </p>
@@ -209,7 +254,12 @@ export async function ExpensesZone() {
           pill="live"
           source="next_due_on — renewals surface before they hit"
         >
-          {ov.upcoming.length === 0 ? (
+          {!measured ? (
+            <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+              Renewals were not read. Do not take this as a clear month — a
+              charge due next week would look exactly like this.
+            </p>
+          ) : ov.upcoming.length === 0 ? (
             <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
               No dated renewals logged. Give annual lines (domains · permits ·
               app-store fees) a next-due date so January never surprises you.
@@ -314,82 +364,86 @@ export async function ExpensesZone() {
         pill="live"
         source="latest rows · attach the receipt on every line"
       >
-        {ov.ledger.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-            The ledger starts with your first logged expense.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" aria-label="Expense ledger">
-              <thead>
-                <tr
-                  className="text-left font-mono text-[10px] uppercase tracking-[0.12em]"
-                  style={{ color: 'var(--m-slate-2)' }}
-                >
-                  <th scope="col" className="py-1.5 pr-3 font-medium">Date</th>
-                  <th scope="col" className="py-1.5 pr-3 font-medium">Vendor</th>
-                  <th scope="col" className="py-1.5 pr-3 font-medium">Category</th>
-                  <th scope="col" className="py-1.5 pr-3 text-right font-medium">Amount</th>
-                  <th scope="col" className="py-1.5 font-medium">Receipt</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ov.ledger.map((r) => (
-                  <tr key={r.expense_id} style={{ borderTop: '1px solid var(--m-line-soft)' }}>
-                    <td className="py-2 pr-3 tabular-nums" style={{ color: 'var(--m-slate)' }}>
-                      {r.expensed_on}
-                    </td>
-                    <td className="py-2 pr-3" style={{ color: 'var(--m-ink)' }}>
-                      {r.vendor_name}
-                    </td>
-                    <td className="py-2 pr-3" style={{ color: 'var(--m-slate)' }}>
-                      {categoryLabel(r.category)}
-                    </td>
-                    <td className="py-2 pr-3 text-right tabular-nums" style={{ color: 'var(--m-ink)' }}>
-                      {php.format(r.amount_php)}
-                    </td>
-                    <td className="py-2">
-                      {r.receipt_r2_key ? (
-                        <form action={viewReceipt} className="inline">
-                          <input type="hidden" name="expense_id" value={r.expense_id} />
-                          <button
-                            type="submit"
-                            className="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                            style={{ background: 'var(--m-sage)', color: '#2E4A2A' }}
-                          >
-                            View receipt
-                          </button>
-                        </form>
-                      ) : (
-                        <form action={attachReceipt} className="inline-flex items-center gap-1.5">
-                          <input type="hidden" name="expense_id" value={r.expense_id} />
-                          <span
-                            className="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                            style={{ background: 'var(--m-blush)', color: 'var(--m-blush-deepest)' }}
-                          >
-                            Missing
-                          </span>
-                          <input
-                            type="file"
-                            name="receipt"
-                            required
-                            accept="application/pdf,image/jpeg,image/png,image/webp"
-                            aria-label={`Receipt for ${r.vendor_name}`}
-                            className="w-32 text-[11px]"
-                            style={{ color: 'var(--m-slate)' }}
-                          />
-                          <button type="submit" className="button-secondary h-7 px-2 text-[11px]">
-                            Attach
-                          </button>
-                        </form>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {/* The per-row receipt controls live INSIDE their own cell, which is the
+            only way the archetype offers a button: this row genuinely settles
+            on one press, and the server action refuses to run without the file
+            it is attaching. Nothing bulk, nothing one-click across rows. */}
+        <ConsoleTable
+          rows={ov.ledger}
+          readPermitted
+          readError={ov.error ? { message: ov.error } : null}
+          reads="the expense ledger"
+          cap={LEDGER_ROWS}
+          label="Expense ledger"
+          minWidth="44rem"
+          rowKey={(r) => r.expense_id}
+          empty={{
+            Icon: ReceiptText,
+            title: 'The ledger starts with your first logged expense',
+            blurb:
+              'Use “Log an expense” above to start it. Every line you add here with its receipt attached is a line the BIR expense-substantiation trail can stand on.',
+          }}
+          columns={[
+            {
+              header: 'Date',
+              mono: true,
+              cell: (r) => <span className="text-ink/70">{r.expensed_on}</span>,
+            },
+            {
+              header: 'Vendor',
+              cell: (r) => <span className="font-medium text-ink">{r.vendor_name}</span>,
+            },
+            {
+              header: 'Category',
+              hideBelow: 'md',
+              cell: (r) => <span className="text-ink/70">{categoryLabel(r.category)}</span>,
+            },
+            {
+              header: 'Amount',
+              align: 'right',
+              mono: true,
+              cell: (r) => <span className="text-ink">{php.format(r.amount_php)}</span>,
+            },
+            {
+              header: 'Receipt',
+              cell: (r) =>
+                r.receipt_r2_key ? (
+                  <form action={viewReceipt} className="inline">
+                    <input type="hidden" name="expense_id" value={r.expense_id} />
+                    <button
+                      type="submit"
+                      className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                      style={{ background: 'var(--m-sage)', color: '#2E4A2A' }}
+                    >
+                      View receipt
+                    </button>
+                  </form>
+                ) : (
+                  <form action={attachReceipt} className="inline-flex flex-wrap items-center gap-1.5">
+                    <input type="hidden" name="expense_id" value={r.expense_id} />
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                      style={{ background: 'var(--m-blush)', color: 'var(--m-blush-deepest)' }}
+                    >
+                      Missing
+                    </span>
+                    <input
+                      type="file"
+                      name="receipt"
+                      required
+                      accept="application/pdf,image/jpeg,image/png,image/webp"
+                      aria-label={`Receipt for ${r.vendor_name}`}
+                      className="w-32 text-[11px]"
+                      style={{ color: 'var(--m-slate)' }}
+                    />
+                    <button type="submit" className="button-secondary h-7 px-2 text-[11px]">
+                      Attach
+                    </button>
+                  </form>
+                ),
+            },
+          ]}
+        />
       </ChartCard>
     </section>
   );

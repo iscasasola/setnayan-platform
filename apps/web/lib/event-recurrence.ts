@@ -25,6 +25,7 @@ export const RECURRENCE_CAPABLE_TYPES = [
   'corporate',
 ] as const;
 
+import { resolveCadence } from './event-anchor';
 export type RecurrenceCapableType = (typeof RECURRENCE_CAPABLE_TYPES)[number];
 
 export function canPlanNextYear(eventType: string | null | undefined): boolean {
@@ -38,6 +39,7 @@ export function canPlanNextYear(eventType: string | null | undefined): boolean {
  *  row (name-only creation) clones cleanly. */
 export type SourceEventForClone = {
   event_type?: string | null;
+  recur_cadence?: string | null;
   display_name?: string | null;
   // Life-event cardinality key (council 2026-07-17): the honoree stays the same
   // person year over year, so both halves of the key carry into the clone.
@@ -84,6 +86,12 @@ export function buildNextYearClonePayload(
     anchor_date: source.anchor_date ?? null,
     anchor_origin: source.anchor_origin ?? null,
     recurs: true,
+    // 🔑 CARRY THE CADENCE, NOT JUST THE SWITCH. Without this a monthly or
+    // quarterly event cloned forward would come back ANNUAL — the clone would
+    // silently change what the person chose. `resolveCadence` re-validates it
+    // against the type, so a cadence that is no longer legal for that type
+    // degrades to the type's own first legal one rather than being copied blind.
+    recur_cadence: resolveCadence(source.event_type ?? null, source.recur_cadence ?? 'on'),
     // Fresh timing: last year's specific date/candidates don't carry. The host
     // picks next year's date (event_date stays NULL — date-as-output, consistent
     // with createWeddingEvent).

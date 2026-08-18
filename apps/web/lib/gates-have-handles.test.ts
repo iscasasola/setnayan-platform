@@ -34,6 +34,8 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { loadSources, gateWritersOf } from './gate-writers';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..'); // apps/web
 const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
@@ -48,6 +50,8 @@ const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
  */
 const SWITCHES: {
   column: string;
+  /** The table it lives on — needed to pair a table-write with a field-name. */
+  table: string;
   whoFlips: string;
   whatBreaksWhenStuck: string;
   /** Set when the ONLY writer is an RPC parameter — see rpcWritersOf. */
@@ -66,6 +70,7 @@ const SWITCHES: {
 }[] = [
   {
     column: 'live_media_public',
+    table: 'events',
     whoFlips: 'the couple, on the website privacy page',
     whatBreaksWhenStuck:
       'a visitor with no invitation never sees the livestream or the live photo ' +
@@ -73,6 +78,7 @@ const SWITCHES: {
   },
   {
     column: 'papic_face_mode',
+    table: 'events',
     whoFlips: 'an admin / the DPO, per event',
     whatBreaksWhenStuck: 'face auto-tagging stores nothing, on a feature that was paid for',
   },
@@ -82,6 +88,7 @@ const SWITCHES: {
     // this shape were being fixed. The guard existed and never looked, because
     // nobody registered the switch with it.
     column: 'author_named_publicly',
+    table: 'guest_columns',
     whoFlips: 'the guest, on the message form on the event page',
     whatBreaksWhenStuck:
       'a guest can never choose to be named beside their own published words — ' +
@@ -103,6 +110,7 @@ const SWITCHES: {
     // so this passed by accident rather than by aim.
     table: 'vendor_profiles',
     column: 'is_founder',
+    table: 'vendor_profiles',
     whoFlips: 'an admin, on the vendor plan page (/admin/vendors/[id]/plan)',
     whatBreaksWhenStuck:
       'no business can ever be made a founding supplier — the unlimited-category ' +
@@ -123,6 +131,7 @@ const SWITCHES: {
     // ⚠ AN APPLIED MIGRATION MISDESCRIBED IT as "(venue wall)" — the misreading
     // that let it live. This guard does not read comments, which is the point.
     column: 'live_photo_wall_visibility',
+    table: 'events',
     whoFlips: 'the couple, on the Live Photo Wall card (Papic page / day-of console)',
     whatBreaksWhenStuck:
       'the photo wall plays on every invited guest’s phone for the whole ' +
@@ -149,6 +158,18 @@ const SWITCHES: {
     // checking "does archive exist?" finds a column, readers, a filter in the
     // admin console and an `?archived=1` query param, and concludes yes.
     column: 'archived',
+    // ⚠ REQUIRED, AND ITS ABSENCE WAS A MERGE DEFECT NEITHER SIDE HAD ALONE.
+    // This entry was written against the older resolver, which ended
+    // `?? 'events'` — so omitting the table silently defaulted. The resolver was
+    // then refactored on main to `sw ? [sw.table] : [fallbacks]`, which drops that
+    // default for a REGISTERED switch, so `sw.table` arrived undefined and the
+    // detector searched a table called nothing. It reported "archived has no
+    // writer" while a correct writer sat in `archive-actions.ts`.
+    // 🔑 A DEFAULT REMOVED BY A REFACTOR IS INVISIBLE TO WHOEVER RELIED ON IT.
+    // Naming it explicitly is right anyway: this file's own header records that
+    // `archived` exists on BOTH `events` and `communities`, and that a write to
+    // the wrong one satisfied this register for two years.
+    table: 'events',
     whoFlips: 'a host, on the event’s Personalization page (“Put this away”)',
     whatBreaksWhenStuck:
       'no celebration can ever be put away, so a couple who has finished one ' +
@@ -157,62 +178,76 @@ const SWITCHES: {
   },
 ];
 
-/** Every .ts/.tsx under apps/web that is not a test, a type file, or generated. */
-function sourceFiles(dir: string, out: string[] = []): string[] {
-  for (const entry of readdirSync(dir)) {
-    if (entry === 'node_modules' || entry === '.next' || entry.startsWith('.')) continue;
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) {
-      sourceFiles(full, out);
-    } else if (/\.(ts|tsx)$/.test(entry) && !/\.test\.tsx?$/.test(entry)) {
-      out.push(full);
-    }
-  }
-  return out;
-}
+const SOURCES = loadSources(WEB);
 
-const FILES = sourceFiles(WEB);
+/*
+ * 🚨 THE SHARED DETECTOR IS TOO LOOSE FOR THIS SWITCH, MEASURED 2026-08-18.
+ *
+ * `gateWritersOf` asks two questions of a FILE — "does it write table X
+ * anywhere?" and "does it name column Y as a field anywhere?" — and never
+ * requires the two to be the SAME statement. For `events.archived` that admits
+ * two files that do not write it at all:
+ *
+ *   lib/chat-actions.ts — writes `.from('events')` for something else, and has a
+ *                         local variable literally named `archived` that sets
+ *                         `archived_at` on a DIFFERENT table.
+ *   lib/events.ts       — has `archived: boolean` as a TYPE field and `archived,`
+ *                         in a SELECT list. Neither is a write.
+ *
+ * PROVED: deleting the real writer's `.update({ archived, … })` (occurrences
+ * 1 → 0) leaves the shared check GREEN. A guard that survives the removal of the
+ * thing it guards is decoration — the fifth instance recorded in this codebase.
+ *
+ * ⚠ THE OLDER INLINE VERSION WAS STRICTER HERE. It anchored the chain from
+ * `.from(` through `.update(` within a bounded span, so it could not be fooled by
+ * two unrelated statements. The refactor to a shared helper gained the
+ * variable-table and helper-resolution cases and LOST the proximity requirement.
+ * Widening the shared helper is a change to infrastructure every switch depends
+ * on, so it is deliberately NOT done inside a pull request about putting an event
+ * away. This assertion closes the hole for THIS switch, and names the debt.
+ */
+test('the host really has a control that puts an event away — chain-anchored, not file-wide', () => {
+  const writer = SOURCES.find((s) => s.path.endsWith('archive-actions.ts'));
+  assert.ok(writer, 'the put-away action file is gone entirely');
+  assert.match(
+    writer!.code,
+    // ⚠ `[^}]` NOT `[\s\S]` — MY FIRST CUT OF THIS ASSERTION HAD THE SAME DISEASE
+    // IT WAS WRITTEN TO CURE. `[\s\S]{0,200}` reads straight past the update
+    // object's closing brace and into `.select('event_id, archived')` on the very
+    // next line, so deleting the write still matched. Confining the span to
+    // characters that are not `}` keeps the match inside the object being written.
+    // Proved: with the write removed this now fails; restored, it passes.
+    /\.from\(\s*['"`]events['"`]\s*\)[\s\S]{0,300}?\.update\(\s*\{[^}]{0,200}?\barchived\b/,
+    'nothing writes events.archived in one chain any more — the host has no way to ' +
+      'put a celebration away, and the shared detector cannot see this because it ' +
+      'accepts a table write and a column mention from unrelated statements.',
+  );
+});
+const FILES = SOURCES.map((s) => join(WEB, s.path));
 
 /**
- * Does any file WRITE this column? A write is the column appearing as an object
- * key inside an `.update({...})` or `.insert({...})` — which is how every write
- * in this codebase is spelled, since all of them go through supabase-js.
+ * Does anything WRITE this column?
  *
- * Deliberately NOT "the column name appears somewhere": that is exactly the
- * check that would have passed for seven weeks on a column with 40 readers and
- * no writer.
+ * ⚠ THE DETECTOR MOVED to `lib/gate-writers.ts` on 2026-08-17, and the pattern
+ * that used to live here was measurably too narrow. Against the real schema it
+ * missed FOUR spellings this codebase actually uses — ES6 shorthand
+ * (`{ faceblock_enabled }`, no colon), a write funnelled through a helper, an
+ * update object longer than its 600-character window, and a payload assembled
+ * into a variable first — and so called 16 working controls missing. A guard
+ * that cries wolf teaches you to skim past the one time it is right.
+ *
+ * The shared module is now used by BOTH this file and the schema-enumerating
+ * `tests/db/gates-have-handles.db.test.ts`, so the two cannot drift apart.
  */
 function writersOf(column: string): string[] {
-  const found: string[] = [];
-  const table = SWITCHES.find((s) => s.column === column)?.table ?? 'events';
-  /*
-    `.from('<table>') … .update({ … column … })` — three corrections, all made
-    2026-08-16 after this detector passed on a column with no writer at all:
-
-    1 · 🚨 SCOPED TO THE TABLE. `archived` exists on `events` AND on
-        `communities`, and a real write to `communities.archived` satisfied the
-        old table-blind pattern. A guard that accepts a write to a DIFFERENT
-        table is not checking the thing it names.
-    2 · 🚨 SHORTHAND COUNTS. `{ archived, updated_at }` is the ordinary way to
-        write a variable of the same name, and the old `column\\s*:` form could
-        not see it — so a perfectly good writer read as absent. Both failure
-        directions were live in the same check.
-    3 · The chain is matched from `.from(` so the two halves cannot come from
-        unrelated statements in one long file.
-
-    Order note: supabase-js allows `.from(t).update(...)` only in that order, so
-    anchoring on `.from(` first is safe and is what scopes the table.
-  */
-  const pattern = new RegExp(
-    `\\.from\\(\\s*['"\`]${table}['"\`]\\s*\\)[\\s\\S]{0,300}?` +
-      `\\.(update|insert|upsert)\\(\\s*[\\[{][\\s\\S]{0,600}?\\b${column}\\b\\s*[:,}]`,
-  );
-  for (const file of FILES) {
-    const src = readFileSync(file, 'utf8');
-    if (!src.includes(column)) continue;
-    if (pattern.test(src)) found.push(file.slice(WEB.length + 1));
+  const sw = SWITCHES.find((s) => s.column === column);
+  // Columns named by the meta-tests below are not registered switches; fall back
+  // to scanning every table so those assertions still mean what they say.
+  const tables = sw ? [sw.table] : ['events', 'guests', 'users', 'vendor_profiles'];
+  for (const table of tables) {
+    const hits = gateWritersOf(SOURCES, table, column);
+    if (hits.length > 0) return hits;
   }
-  if (found.length > 0) return found;
   return rpcWritersOf(column);
 }
 

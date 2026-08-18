@@ -28,6 +28,8 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
+import { EventWordsProvider } from './event-words-provider';
+import { eventWordsFor } from '../_lib/event-words';
 import {
   resolveSiteNav,
   navPhaseFor,
@@ -85,6 +87,7 @@ import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { buildAfterEventMemento } from '@/lib/pahina-memento';
 import { OwnerRibbon } from './owner-ribbon';
 import { DayOfAnnouncement } from './day-of-announcement';
+import { viewerIsEventHost } from '../_lib/site-identity';
 import type {
   AnonymousSiteIdentity,
   GuestSiteIdentity,
@@ -409,6 +412,30 @@ export async function SiteBody({
     lifecyclePhase,
   });
 
+  /**
+   * Is the viewer a verified HOST of this event?
+   *
+   * 🔴 WHY THE BODY NEEDS TO KNOW. A signed-in couple with no guest cookie —
+   * the ordinary case, since hosts are never sent an invitation QR — falls
+   * through `if (!session) return renderAnonymous(...)` in page.tsx and gets
+   * the STRANGER'S body: "This is a Setnayan invitation page. Scan your
+   * personal QR or open the link the couple sent you." That sentence is
+   * addressed to the couple, about their own wedding, telling them to go and
+   * find a link they are the ones who send. The read-only ribbon sat on top of
+   * it saying "your event", so the page contradicted itself.
+   *
+   * ⚖ READ-ONLY STAYS READ-ONLY. This changes only what the host is TOLD. Every
+   * real control (guest list, seating, budget, schedule, vendors) stays in
+   * /dashboard/[eventId] and nothing here links anywhere the ribbon does not
+   * already link. It is the same server-verified capability the ribbon uses —
+   * no new gate. The rule now lives in ONE place — `viewerIsEventHost` in
+   * _lib/site-identity.ts, shared with `buildOwnerRibbon` — rather than being
+   * restated here, which is how the ribbon and the body would drift apart.
+   * (Still NOT derived from `ownerRibbon !== null`: that is also null for a
+   * missing slug, which would silently drop the body variant.)
+   */
+  const viewerIsHost = viewerIsEventHost(ownerCapability, event.event_id);
+
   // Open-browse PR7 — per-widget content presence for the shared hasContent()
   // predicate. Only consulted when `event.website_open_browse` is TRUE; a
   // widget the couple kept visible but that has no content this event is
@@ -429,6 +456,11 @@ export async function SiteBody({
   // lib/site-body-plan.ts for the verbatim old-condition mapping. `openBrowse`
   // (DEFAULT FALSE per-event) flips phases from gates to emphasis; when FALSE
   // the plan is byte-identical to the pre-PR7 computation (golden-locked).
+  // The event type's own word for whoever is throwing it, resolved ONCE on the
+  // server and handed to the client half through the provider below. Wedding →
+  // 'the couple', so every sentence downstream is byte-identical for a wedding.
+  const clientWords = await eventWordsFor(event.event_type);
+
   const plan = resolveSiteBodyPlan({
     identity: identity.kind,
     phasesEnabled,
@@ -692,6 +724,7 @@ export async function SiteBody({
         key={widget.widget_id}
         widget={widget}
         event={event}
+        organizer={clientWords.theOrganizer}
         scheduleBlocks={scheduleBlocks}
         isLive={dayOfPhase === 'live'}
         scheduleEstimated={
@@ -768,7 +801,16 @@ export async function SiteBody({
                   }
                 />
               ) : null}
-              {reason === 'invalid_invite' ? (
+              {viewerIsHost ? (
+                /* THE HOST'S OWN PAGE. Wins over every `reason` variant below:
+                   a stale or absent guest cookie says nothing about somebody
+                   whose host membership the database just confirmed, and the
+                   invite-error wording would be actively wrong for them. */
+                <p className="mx-auto max-w-prose text-sm text-ink/70">
+                  This is your event page — the view your guests get. Invited guests see
+                  their own name, seat and RSVP here when they open their personal link.
+                </p>
+              ) : reason === 'invalid_invite' ? (
                 <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
                   That invite link doesn&rsquo;t look right — it may have been replaced with a new
                   one. Ask your host for your current QR or link; every guest has their own, and
@@ -781,8 +823,8 @@ export async function SiteBody({
                 </p>
               ) : (
                 <p className="mx-auto max-w-prose text-sm text-ink/70">
-                  This is a Setnayan invitation page. Scan your personal QR or open the link
-                  the couple sent you to see your invitation.
+                  This is a Setnayan invitation page. Scan your personal QR or open the link{' '}
+                  {clientWords.theOrganizer} sent you to see your invitation.
                 </p>
               )}
             </div>
@@ -904,7 +946,22 @@ export async function SiteBody({
         {/* Me tab — under open-browse a cookie-less visitor gets designed
             find-mode (§1.1); otherwise the account/claim affordance lives in the
             fixed PublicEventDayBar and this marker just gives the tab a landing. */}
-        {plan.openBrowse ? (
+        {plan.openBrowse && viewerIsHost ? (
+          /* The host half of the Me tab. `FindModeCard` asks "Have an
+             invitation?" and offers "Open my invitation" — a dead end for the
+             person who ISSUES the invitations, and the tab must still land
+             somewhere, so it says what this page is instead of pointing them
+             at a door that is not theirs. Copy only; no control moves here. */
+          <section id={SITE_MENU_ANCHORS.me} className="mt-12 scroll-mt-6">
+            <div className="rounded-2xl border border-ink/10 bg-white/70 px-6 py-8 text-center shadow-sm">
+              <p className="font-serif text-lg text-ink">You&rsquo;re the host</p>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-ink/60">
+                You don&rsquo;t need an invitation to your own celebration. Guests who open
+                their personal link see their greeting, seat and RSVP in this spot.
+              </p>
+            </div>
+          </section>
+        ) : plan.openBrowse ? (
           <section id={SITE_MENU_ANCHORS.me} className="mt-12 scroll-mt-6">
             <FindModeCard slug={event.slug} reason={reason} pastTense={archiveTense} />
           </section>
@@ -1316,7 +1373,7 @@ export async function SiteBody({
                   {isPost && showClaimAccountCta ? (
                     <p className="mt-3 rounded-lg border-l-2 border-gild bg-veil/60 px-3 py-2 text-sm text-ink/80">
                       These close about a day after the wedding. Save the ones you want now —
-                      or make a free account (the box near the top) to keep them forever.
+                      or make a free account (the box near the top) to keep them.
                     </p>
                   ) : null}
                   {/* 3-up (not 4-up) so the photos — and the readable "Not me" control —
@@ -1640,6 +1697,7 @@ export async function SiteBody({
                   }
                   isLimitedPlusOne={isLimitedPlusOne}
                   ourPhotoUrls={ourPhotoUrls}
+                  organizer={clientWords.theOrganizer}
                 />
               ))}
 
@@ -1746,6 +1804,20 @@ export async function SiteBody({
       hideWatermark={proWatermarkHidden}
       customColorVars={siteColorVars}
     >
+      {/* THE EVENT'S OWN WORDS — mounted once, wrapping every child of the
+          shell, which is both identity trees and every lifecycle phase.
+          Five surfaces below are client components (the video greeting, the
+          selfie capture, the face opt-in, the photo wall, the guest column
+          form) and several sit layers under the component that knows the event
+          type, so they read the noun from here rather than having one string
+          threaded through files with nothing else to do with it.
+          ⚠ INSIDE the shell, not outside it, and that is not cosmetic:
+          `doorways-before-the-day.test.ts` anchors on the exact text
+          `return (\n    <InvitationShell` to prove the doorway strip sits
+          outside both trees. Wrapping the shell broke that anchor and the
+          guard said so — "the shell return moved, this scan is now blind".
+          It was right, so the mount moved rather than its anchor. */}
+      <EventWordsProvider words={clientWords}>
       <GuestPreload eventSlug={event.slug} />
       {/* OWNER LAYER · surface 1 — mounted HERE, as a sibling ABOVE both
           identity trees, for three reasons: (1) it is chrome, not a chapter,
@@ -1835,6 +1907,7 @@ export async function SiteBody({
           who passed `?editor=1`; for every guest/anonymous visitor this renders
           nothing, so their HTML is byte-identical to before. */}
       {editorMode ? <EditorBridge /> : null}
+      </EventWordsProvider>
     </InvitationShell>
   );
 }

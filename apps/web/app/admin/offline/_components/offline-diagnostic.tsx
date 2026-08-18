@@ -9,9 +9,17 @@
 //
 // Surface contract per the parent page header doc.
 
-import { useEffect, useState } from 'react';
-import { CheckCircle2, RefreshCw, XCircle, Zap } from 'lucide-react';
+// 🪤 THIS FILE RENDERED className="m-table" AND THERE IS NO `.m-table` ANYWHERE
+// IN THE REPO. `.m-card` exists, so the name read plausible and styled nothing —
+// the same silent-absence failure as a phantom column or a blocked iframe: the
+// only symptom is an absence. The class is REMOVED with the hand-rolled table,
+// not ported across and not "fixed" by adding a rule to globals.css.
+// Corrected 2026-08-17.
 
+import { useEffect, useState } from 'react';
+import { CheckCircle2, Inbox, RefreshCw, XCircle, Zap } from 'lucide-react';
+
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { getOfflineQueueStats } from '@/lib/offline/db';
 import { triggerSyncNow } from '@/lib/offline/sync-daemon';
 import {
@@ -204,51 +212,55 @@ export default function OfflineDiagnostic() {
           </button>
         </header>
 
-        {loadError ? (
-          <p className="rounded border border-orange/40 bg-orange/5 p-3 text-sm text-ink">
-            Couldn&rsquo;t read queue stats: {loadError}
-          </p>
-        ) : (
-          <div className="overflow-x-auto rounded border border-ink/10">
-            <table className="m-table w-full text-sm">
-              <thead>
-                <tr className="bg-cream-soft text-left">
-                  <th className="px-4 py-2 font-medium text-ink-soft">Service</th>
-                  <th className="px-4 py-2 font-medium text-ink-soft">Pending</th>
-                  <th className="px-4 py-2 font-medium text-ink-soft">Last run</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.map((row) => {
-                  const last = lastRun[row.service];
-                  return (
-                    <tr
-                      key={row.service}
-                      className="border-t border-ink/5 align-middle"
-                    >
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-ink">
-                          {SERVICE_LABELS[row.service]}
-                        </div>
-                        <div className="font-mono text-xs text-ink-soft">
-                          {row.service}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-ink">
-                        {row.pending}
-                      </td>
-                      <td className="px-4 py-3 text-ink-soft">
-                        {last
-                          ? `Synced ${last.synced} · Failed ${last.failed}`
-                          : '—'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {/* `readPermitted` is honestly `true` here for a different reason than
+            on the Supabase surfaces: this reads the browser's own IndexedDB, so
+            there is no RLS that could silently filter it and no denial mode to
+            confuse with emptiness. The only failure this read has is the throw,
+            which arrives as `loadError` and becomes NOT MEASURED below. */}
+        <ConsoleTable
+          rows={loadError ? null : stats}
+          readPermitted
+          readError={loadError ? { message: loadError } : null}
+          reads="the offline queue on this device"
+          label="Offline queue counts"
+          minWidth="34rem"
+          rowKey={(row) => row.service}
+          empty={{
+            Icon: Inbox,
+            title: 'No services registered',
+            blurb:
+              'The queue lists one row per offline-capable service. An empty list means none is registered on this device yet.',
+          }}
+          columns={[
+            {
+              header: 'Service',
+              cell: (row) => (
+                <>
+                  <div className="font-medium text-ink">{SERVICE_LABELS[row.service]}</div>
+                  <div className="font-mono text-xs text-ink/70">{row.service}</div>
+                </>
+              ),
+            },
+            {
+              header: 'Pending',
+              align: 'right',
+              mono: true,
+              cell: (row) => row.pending,
+            },
+            {
+              header: 'Last run',
+              hideBelow: 'md',
+              cell: (row) => {
+                const last = lastRun[row.service];
+                return (
+                  <span className="whitespace-nowrap text-ink/70">
+                    {last ? `Synced ${last.synced} · Failed ${last.failed}` : '—'}
+                  </span>
+                );
+              },
+            },
+          ]}
+        />
       </section>
     </div>
   );

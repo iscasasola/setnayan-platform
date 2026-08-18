@@ -23,7 +23,7 @@
  * them at once, which is the whole reason this file exists rather than a
  * checklist.
  *
- * ⚠ `app/papic/page.tsx` is deliberately EXCLUDED. That is the public marketing
+ * ⚠ `app/(shell)/papic/page.tsx` is deliberately EXCLUDED. That is the public marketing
  * page, and its wedding-first copy + SEO keywords are the standing "lead
  * all-events, weddings deepest" positioning — not a defect.
  *
@@ -47,13 +47,13 @@ const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
 /**
  * WALK the Papic guest tree — never a hand-maintained list (see the header).
- * Only `app/papic/page.tsx`, the public marketing page, is excluded.
+ * Only `app/(shell)/papic/page.tsx`, the public marketing page, is excluded.
  */
 function guestSurfaces(dir = 'app/papic', acc: string[] = []): string[] {
   for (const entry of readdirSync(join(WEB, dir), { withFileTypes: true })) {
     const rel = `${dir}/${entry.name}`;
     if (entry.isDirectory()) guestSurfaces(rel, acc);
-    else if (entry.name.endsWith('.tsx') && rel !== 'app/papic/page.tsx') acc.push(rel);
+    else if (entry.name.endsWith('.tsx') && rel !== 'app/(shell)/papic/page.tsx') acc.push(rel);
   }
   return acc;
 }

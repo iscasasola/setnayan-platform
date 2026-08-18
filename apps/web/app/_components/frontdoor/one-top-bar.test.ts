@@ -592,3 +592,114 @@ test('⌘K cannot be bound by two palettes at once', () => {
       'whichever surface-specific palette owns the key.',
   );
 });
+
+/* ─── 6 · ONE SEARCH PER PERSON, NOT PER PAGE ───────────────────────────── */
+
+/*
+  🔴 WHAT THE OWNER SAW, 2026-08-16, two screenshots of two PUBLIC pages:
+  *"i think the top nav is still not fixed. the search tab looks different. i
+  thought this was already fixed?"* He had — the 2026-08-14 ruling settled that
+  one bar means one search. What it settled it ON was five signed-in trees:
+  "the palette wins, because every surface this bar mounts on is INSIDE the
+  person's own app."
+
+  🔑 THEN THE PREMISE MOVED AND NOBODY RE-ASKED THE QUESTION. On 2026-08-15 the
+  eight product doorways, About, Explore, Pricing, Real Stories and the legal
+  chrome mounted the same shell with `variant="doorway"` — thirteen PUBLIC
+  pages, where the visitor is a stranger with no events, no people and no
+  vendors. Measured live on all thirteen before this change:
+
+    /                 the marketplace box
+    the other twelve  a palette labelled "Search events, people, vendors"
+
+  and `resolveCommandItems` returns `[]` without a session, so that palette
+  opened EMPTY and, once typed into, offered exactly one row — the marketplace
+  escape. Two presses for what `/` answers with Enter, under a label naming two
+  things it could not search.
+
+  These guards hold the rule that replaced it: the search follows WHO IS
+  LOOKING, not which page they are on — the same answer this file family
+  already gave for the Studio rows and the account cluster.
+*/
+
+const FRONT_DOOR = join(HERE, 'front-door.tsx');
+
+test('the anchor: the front-door mount exists and is not a stub', () => {
+  assert.ok(
+    existsSync(FRONT_DOOR) && read(FRONT_DOOR).length > 500,
+    `${FRONT_DOOR} is missing or a stub — the assertions below would pass ` +
+      'vacuously, which is how a guard becomes decoration.',
+  );
+});
+
+/**
+ * The two places a `search` is handed to the shared shell. If a third ever
+ * appears it must join this list, or it will decide the question on its own.
+ */
+const SEARCH_MOUNTS = [
+  { name: 'the public front door (/)', file: FRONT_DOOR },
+  { name: 'the shared rail (app trees + the 13 doorway pages)', file: RAIL_SHELL },
+] as const;
+
+test('neither mount hands out the palette without asking who is looking', () => {
+  for (const m of SEARCH_MOUNTS) {
+    const src = code(read(m.file));
+    /*
+      🪤 ANCHORED ON THE WHOLE TERNARY, NOT ON `account.signedIn` ANYWHERE IN
+      THE FILE. Both files already branch on `account.signedIn` for the Studio
+      rows and the cluster, so a guard that merely finds that string passes
+      while the search goes back to unconditional — it would be measuring the
+      wrong two lines and reporting green.
+    */
+    assert.match(
+      src,
+      /search=\{\s*account\.signedIn \? \(\s*<HomeCommandBar items=\{commandItems\} variant="rail" \/>\s*\) : undefined\s*\}/,
+      `${m.name} no longer branches its search on whether anybody is signed ` +
+        'in. Signed out, the palette searches events, people and vendors the ' +
+        'visitor does not have: the index is empty without a session, so it ' +
+        'opens a blank list. The shell falls back to the marketplace box, ' +
+        'which is the box `/` has always shown — that fallback is the point.',
+    );
+  }
+});
+
+test('both mounts answer it the same way', () => {
+  /*
+    🔑 THE SPLIT THE OWNER PHOTOGRAPHED WAS TWO CORRECT FILES DISAGREEING.
+    Neither was broken on its own; `/` had a comment explaining why its search
+    was the marketplace form "deliberately", and the rail had one explaining
+    why its search was the palette. Both were written before the doorways
+    joined, and holding both is what put two answers on the public web. So the
+    expression is compared BETWEEN the files, not just checked within each.
+  */
+  const expr = (src: string) =>
+    (code(src).match(/search=\{[\s\S]*?\n      \}/) ?? [''])[0].replace(/\s+/g, ' ');
+  const [a, b] = SEARCH_MOUNTS.map((m) => expr(read(m.file)));
+  assert.ok(a && a.length > 40, 'The front door mount matched no search expression at all.');
+  assert.equal(
+    a,
+    b,
+    'The two mounts hand the shell DIFFERENT search controls. One bar means ' +
+      'one search; a visitor who crosses from / to /papic — or from their ' +
+      'dashboard to /pricing — must not watch the box change shape.',
+  );
+});
+
+test('the phone row shows the same search as the desktop row', () => {
+  const src = code(read(SHELL));
+  /*
+    🚨 THIS IS THE HALF THAT WAS LIVE AND INVISIBLE ON A LAPTOP. `.fd-searchwrap`
+    is `display:none` below 701px and `.fd-searchrow` takes over, and that row
+    rendered `<SearchBox />` outright — so every doorway page showed the palette
+    at 701px and the marketplace form at 700px. One page, two searches, decided
+    by the width of the window. Nothing errors, and you cannot see it without
+    resizing.
+  */
+  assert.match(
+    src,
+    /\{inApp \? null : \(\s*<div className="fd-searchrow">\s*\{search \?\? <SearchBox \/>\}/,
+    'The phone search row must render the SAME control the desktop row does ' +
+      '(`search ?? <SearchBox />`). Hardcoding <SearchBox /> here gives one ' +
+      'page two different searches depending on how wide the window is.',
+  );
+});

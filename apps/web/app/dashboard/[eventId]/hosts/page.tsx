@@ -27,7 +27,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ConsentGatedInviteForm } from './_components/consent-gated-invite-form';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 
-export const metadata = { title: 'Hosts · Setnayan' };
+export const metadata = { title: 'Hosts' };
 
 type Props = {
   params: Promise<{ eventId: string }>;

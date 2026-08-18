@@ -37,7 +37,7 @@ import { envFlagEnabled } from '@/lib/env-flag';
 // registry of "simple secret" integrations (OpenAI first; more follow).
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Integrations · Setnayan HQ' };
+export const metadata = { title: 'Integrations HQ' };
 
 export default async function AdminIntegrationsPage({
   searchParams,

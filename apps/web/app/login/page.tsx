@@ -19,7 +19,7 @@ import { SignInCardModal } from './_components/sign-in-card-modal';
 import { getLoginView, type LoginSearchParams } from './_components/login-data';
 
 export const metadata: Metadata = {
-  title: 'Sign in · Setnayan',
+  title: 'Sign in',
   description:
     'Sign in to your Setnayan account. One account for couples planning their wedding and vendors selling their services.',
   alternates: { canonical: '/login' },

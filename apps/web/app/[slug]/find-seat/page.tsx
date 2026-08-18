@@ -3,11 +3,12 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, MapPin } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventWordsFromProfile } from '../_lib/event-words';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { Logo } from '@/app/_components/logo';
 import { NameSearch } from './_components/name-search';
 
-export const metadata = { title: 'Find your seat · Setnayan' };
+export const metadata = { title: 'Find your seat' };
 
 // Public, no-session free finder — never statically cached (publication state
 // + the search are dynamic).
@@ -49,7 +50,11 @@ export default async function FindSeatPage({ params }: Props) {
   // Iteration 0053: public guest pages under /[slug] are the 'website' surface.
   // Non-wedding (generic) profiles don't enable it → still notFound() (same as
   // the old `!== 'wedding'`), now config-driven.
-  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+  const profile = await resolveProfile(event.event_type);
+  if (!surfaceEnabled(profile, 'website')) notFound();
+  // The same profile, reused for its WORDS — the plate below said "the couple"
+  // to a graduation. Wedding → 'couple', so a wedding is byte-identical.
+  const words = eventWordsFromProfile(profile);
 
   // Visibility gate (owner 2026-06-20): don't leak a private (pre-launch) page's
   // couple data through this sub-route. Strangers on a private page bounce to
@@ -98,7 +103,7 @@ export default async function FindSeatPage({ params }: Props) {
       ) : (
         <PromptCard
           title="Seating isn&rsquo;t posted yet"
-          body="The couple hasn’t published the seating plan for this celebration. Check back closer to the day — once they post it, you’ll be able to find your table here."
+          body={`${words.organizerIsHonoree ? 'The seating plan hasn’t been published for this celebration.' : `${words.TheOrganizer} hasn’t published the seating plan for this celebration.`} Check back closer to the day — once they post it, you’ll be able to find your table here.`}
         />
       )}
 

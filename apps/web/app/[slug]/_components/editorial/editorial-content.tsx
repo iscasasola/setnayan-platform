@@ -40,6 +40,7 @@ import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-c
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { eventWordsForEvent, type EventWords } from '../../_lib/event-words';
+import { byVoiceWeight, voiceOf, roleLabel } from './voices';
 import {
   resolveEventMonogram,
   HERO_MONOGRAM_COLUMNS,
@@ -1311,24 +1312,65 @@ function GuestColumnsWall({
 }: {
   columns: NonNullable<EditorialData['guestColumns']>;
 }): ReactElement {
+  // §5 THE THREE VOICES, built 2026-08-18. Until now every column rendered
+  // identically — same size, same rule, same order — while the spec had always
+  // asked for three distinct weights. Parents lead, the named party follows
+  // with a badge, everyone else fills the masonry.
+  const ordered = byVoiceWeight(columns).slice(0, 6);
+  const parents = ordered.filter((c) => voiceOf(c.role) === 'parents');
+  const rest = ordered.filter((c) => voiceOf(c.role) !== 'parents');
+
   return (
-    <div className="mt-4 gap-4 [column-fill:_balance] sm:columns-2">
-      {columns.slice(0, 6).map((c, i) => (
-        <article
-          key={i}
-          className="mb-4 break-inside-avoid border-l-2 border-terracotta/40 pl-4"
-        >
-          <h3 className="m-0 font-display text-lg font-medium italic leading-snug text-ink">
+    <div className="mt-4">
+      {/* PARENTS — highest weight: large type, centred, full attribution. They
+          get their own block rather than a column in the masonry, because a
+          parent's words carry the most and a masonry cell flattens everything
+          into the same size. */}
+      {parents.map((c, i) => (
+        <article key={`p${i}`} className="mx-auto mb-8 max-w-prose text-center">
+          <h3 className="m-0 font-display text-2xl font-medium italic leading-snug text-ink">
             {c.title}
           </h3>
-          <p className="mt-1.5 font-serif text-base leading-snug text-ink/85">{c.body}</p>
+          <p className="mt-3 font-serif text-lg leading-relaxed text-ink/85">{c.body}</p>
           {c.author ? (
-            <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/50">
+            <p className="mt-3 font-mono text-xs uppercase tracking-[0.14em] text-ink/55">
               {c.author}
+              {roleLabel(c.role) ? ` · ${roleLabel(c.role)}` : ''}
             </p>
           ) : null}
         </article>
       ))}
+
+      {rest.length ? (
+        <div className="gap-4 [column-fill:_balance] sm:columns-2">
+          {rest.map((c, i) => (
+            <article
+              key={i}
+              className="mb-4 break-inside-avoid border-l-2 border-terracotta/40 pl-4"
+            >
+              <h3 className="m-0 font-display text-lg font-medium italic leading-snug text-ink">
+                {c.title}
+              </h3>
+              <p className="mt-1.5 font-serif text-base leading-snug text-ink/85">{c.body}</p>
+              {c.author ? (
+                <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/50">
+                  {c.author}
+                  {/* The badge the spec asks for — best man, maid of honour,
+                      principal sponsor. 🔒 It only ever appears beside a NAME:
+                      the reader strips the role in lockstep with the byline,
+                      because there is exactly one maid of honour and a badge
+                      over an unnamed column would identify her anyway. */}
+                  {roleLabel(c.role) ? (
+                    <span className="ml-2 rounded-sm bg-ink/[0.06] px-1.5 py-0.5 text-ink/60">
+                      {roleLabel(c.role)}
+                    </span>
+                  ) : null}
+                </p>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

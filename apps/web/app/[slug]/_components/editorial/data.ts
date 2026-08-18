@@ -447,7 +447,21 @@ export type EditorialData = {
   // status='approved' + moderation_state='clean' + author not hidden, bylines
   // from `guests`. OPTIONAL so the samples (and any pre-feature callers) need
   // no change — absent/[] hides the section. Flag off → never loaded.
-  guestColumns?: Array<{ title: string; body: string; author: string | null }>;
+  guestColumns?: Array<{
+    title: string;
+    body: string;
+    author: string | null;
+    /**
+     * The writer's role at the event, for §5's three voices.
+     *
+     * 🔒 NULL UNLESS THE AUTHOR CONSENTED TO BE NAMED. There is exactly one
+     * maid of honour — a role badge over an unnamed column would identify her
+     * to everybody at the wedding. So the role rides the SAME consent as the
+     * byline (DPO ruling 2026-08-06) and is stripped HERE, at the reader, so an
+     * unconsented role never reaches a component that could render it.
+     */
+    role: string | null;
+  }>;
   // Live Studio replay — "Watch the Film". The youtube-nocookie EMBED URL for
   // the couple's Panood broadcast replay, gated on: a valid events.panood_watch_url
   // (normalize-or-rejected) AND an ACTIVE Panood/Live Studio SKU. Null → the
@@ -2061,7 +2075,12 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // status='approved' + moderation_state='clean' + author not publicly hidden.
   // Bylines resolve from `guests` (same one-read pattern). A missing table
   // (pre-migration, 42P01) degrades to [] → section hidden.
-  const guestColumns: Array<{ title: string; body: string; author: string | null }> = [];
+  const guestColumns: Array<{
+    title: string;
+    body: string;
+    author: string | null;
+    role: string | null;
+  }> = [];
   if (await guestColumnsActive()) {
     try {
       const { data: colRows, error } = await admin
@@ -2079,11 +2098,12 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           new Set(rows.map((r) => asString(r.guest_id)).filter((v): v is string => Boolean(v))),
         );
         const colNameByGuest = new Map<string, string>();
+        const colRoleByGuest = new Map<string, string>();
         if (colGuestIds.length > 0) {
           try {
             const { data: gRows } = await admin
               .from('guests')
-              .select('guest_id, display_name, first_name, last_name')
+              .select('guest_id, display_name, first_name, last_name, role')
               .in('guest_id', colGuestIds);
             for (const g of (gRows ?? []) as Array<Record<string, unknown>>) {
               const id = asString(g.guest_id);
@@ -2092,6 +2112,8 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
                 asString(g.display_name) ??
                 [asString(g.first_name), asString(g.last_name)].filter(Boolean).join(' ').trim();
               if (name) colNameByGuest.set(id, name);
+              const role = asString(g.role);
+              if (role) colRoleByGuest.set(id, role);
             }
           } catch {
             // no names → columns render unattributed
@@ -2110,6 +2132,17 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
               { author_named_publicly: r.author_named_publicly as boolean | null, guest_id: gid },
               colNameByGuest,
             ),
+            // 🔒 The role is stripped in lockstep with the byline. `bylineFor`
+            // returns null when the guest did not consent to be named; a role
+            // badge over an unnamed column would identify them just as surely,
+            // so it is withheld on the SAME condition rather than a parallel
+            // one that could drift.
+            role: bylineFor(
+              { author_named_publicly: r.author_named_publicly as boolean | null, guest_id: gid },
+              colNameByGuest,
+            )
+              ? (gid ? colRoleByGuest.get(gid) ?? null : null)
+              : null,
           });
         }
       }

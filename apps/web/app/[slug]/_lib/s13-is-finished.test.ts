@@ -53,6 +53,8 @@ const ALLOWED: Record<string, string> = {
     'A calendar UID (`wedding-<id>@setnayan.com`). Never rendered; changing it would break calendar de-duplication for invitations already sent.',
   'event-noun.ts':
     'The older two-way noun helper, still used by callers outside this work.',
+  'voices.ts':
+    "BUCKET 1 — the badges \"Parents of the bride\" / \"Parents of the groom\". These name WEDDING ROLES, and the roles themselves are wedding-only (`guests.role` has no birthday equivalent). A birthday's guests carry `guest`, so the badge never renders. Neutralising these would invent a role nobody holds.",
   'compose.ts':
     "The recap composer's own event-type comparison (`eventType === 'wedding'`) — it is what DECIDES the voice, not a word any guest reads. It exists because the story page used to announce \"Mateo Turns Seven Are Married\".",
   'data.ts':

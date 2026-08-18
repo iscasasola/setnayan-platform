@@ -148,21 +148,25 @@ test('every room that should carry a way out does, and the exceptions are named'
     );
   };
 
-  for (const room of ['find-seat', 'find-my-table', 'pabuya', 'recap', 'seat']) {
+  for (const room of ['find-seat', 'find-my-table', 'pabuya', 'recap', 'seat', 'venue']) {
     assert.ok(mounted(room), `${room} lost its way out — it is a dead end again`);
   }
 
   // ⛔ THE THREE THAT ARE DELIBERATELY WITHOUT ONE, each for its own reason:
   //
-  //  · venue — the 3D room is a DARK art-directed surface (#0b0d12). The strip
-  //    is cream chips on a hairline rule; dropping it in there is a design
-  //    decision about someone else's canvas, not a mount, and it cannot be
-  //    checked without looking at the page. Deferred ON PURPOSE, not forgotten.
+  //  · venue — NO LONGER AN EXCEPTION. It was deferred on the grounds that the
+  //    3D room is a dark surface (#0b0d12) and the strip is cream, so mounting
+  //    it was "a design decision I cannot make blind". The owner asked what the
+  //    problem was, and he was right to: **the page had already answered it** —
+  //    its own chrome uses `bg-white/10` chips and `text-white/60` links. The
+  //    strip gained a `tone="dark"` that matches, and there was nothing to
+  //    invent. 🔑 Deferring was reasonable; deferring WITHOUT READING the page
+  //    was not — it took thirty seconds and removed the whole objection.
   //  · welcome · invite — both wear the owner-locked DOOR register: one paper
   //    card, ONE terracotta action, the wordmark as the way out. A list of other
   //    rooms would break a design settled across thirteen pages, and both are
   //    mid-task screens where a side exit is a distraction, not a service.
-  for (const room of ['venue', 'welcome', 'invite']) {
+  for (const room of ['welcome', 'invite']) {
     assert.ok(
       !mounted(room),
       `${room} gained a room strip. If that is intended, move it to the mounted ` +

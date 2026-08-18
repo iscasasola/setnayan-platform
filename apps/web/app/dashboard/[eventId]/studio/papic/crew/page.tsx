@@ -263,13 +263,6 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
             Your photo crew
           </>
         }
-        lede={
-          <>
-            Share a link (or QR) with each person you want shooting. They claim it
-            from their own phone — no app to install — and every photo they take
-            lands in your gallery in real time.
-          </>
-        }
       />
       <div className="mt-3 space-y-3">
         {seats.length > 0 && (

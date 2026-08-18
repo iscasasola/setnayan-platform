@@ -110,14 +110,6 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
             Disputes
           </span>
         }
-        lede={
-          <>
-            File a force-majeure flag — typhoon, family emergency, vendor or
-            venue cancellation — and the Setnayan Disputes Handler will reach
-            out within 7 days. We work toward one of four outcomes: refund,
-            reschedule, partial credit, or mediation.
-          </>
-        }
       />
 
       {search.filed ? (

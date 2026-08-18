@@ -103,7 +103,6 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
         title="Your Chapters"
         back="/dashboard"
         backLabel="Back to home"
-        lede="A chapter is your story in your own words — and, if you have one, your video alongside it. You don’t need a YouTube channel or a TikTok account to tell it. Setnayan adds what only we have: your Papic gallery and the real vendors behind the day. Publish one and your public profile becomes a timeline of chapters, not a feed. Anyone can tell their story here — there’s nothing to buy."
         className="mb-6"
       />
 

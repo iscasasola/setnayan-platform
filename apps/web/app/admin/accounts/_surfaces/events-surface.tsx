@@ -242,14 +242,6 @@ export async function EventsSurface({
       <PageMasthead
         className="mb-6"
         title="Events"
-        lede={
-          <>
-            Soonest first. Guest counts are live from the active (non-deleted)
-            `guests` table. Paid vendor counts are distinct vendor profiles on
-            orders with{' '}
-            <code className="font-mono text-xs">status=&lsquo;paid&rsquo;</code>.
-          </>
-        }
       />
 
       <form className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center" method="get" action="/admin/accounts">

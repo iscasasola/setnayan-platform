@@ -139,7 +139,6 @@ export default async function AdminBookingFeesPage() {
           page that draws its own, and it has no eyebrow by design. */}
       <PageMasthead
         title="Booking fees owed"
-        lede="Vendors who owe a syncing fee and have not paid it yet. Confirming the money happens on the payment itself, where the reference and screenshot are."
         className="mb-6"
       />
 

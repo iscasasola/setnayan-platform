@@ -145,13 +145,6 @@ export default async function LaunchHubPage({ params }: Props) {
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
       <PageMasthead
         title="Launch your services"
-        lede={
-          <>
-            {ownedCount > 0
-              ? 'Start each of your live services as the day unfolds.'
-              : 'Your live services will start from here on the day. Add one to light it up.'}
-          </>
-        }
       />
 
       <div className="mt-6 space-y-3">

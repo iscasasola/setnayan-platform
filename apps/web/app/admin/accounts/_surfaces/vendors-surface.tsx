@@ -263,7 +263,6 @@ export async function VendorsSurface({
       <PageMasthead
         className="mb-6"
         title="Vendors"
-        lede="Vendor profiles in the database. Use this to spot incomplete profiles or to confirm contact emails (the email couples use to start a thread)."
       />
 
       <InviteVendorForm />

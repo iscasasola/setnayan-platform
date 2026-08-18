@@ -230,15 +230,6 @@ export default async function PatiktokGallery({
 
       <PageMasthead
         title="Pick the reel templates for your booth"
-        lede={
-          <>
-            Patiktok places an X-mark booth at your venue. Guests stand on the
-            mark, mimic your chosen reel through the Setnayan app, and we
-            auto-compile a viral-ready group video.{' '}
-            <span className="font-mono text-ink">9:16 · 1080×1920 · 1–30s</span>{' '}
-            per clip.
-          </>
-        }
       />
       <div className="mt-3 space-y-3">
         <p className="sn-eye">

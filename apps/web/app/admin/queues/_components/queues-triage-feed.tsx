@@ -378,11 +378,6 @@ export function QueuesTriageFeed({
             {title}
           </>
         }
-        lede={
-          <>
-            {subtitle}
-          </>
-        }
         className="mb-6"
       />
 

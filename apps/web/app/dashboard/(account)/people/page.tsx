@@ -66,7 +66,6 @@ export default async function PeoplePage({
         title="People"
         back="/dashboard"
         backLabel="Back to home"
-        lede="Your first degree — the people you’re connected to, your alaga, and your samahan groups. The people inside your samahans are your second degree."
         className="mb-6"
       />
       {errorMsg ? (
@@ -179,7 +178,6 @@ function PeoplePreview() {
         title="People"
         back="/dashboard"
         backLabel="Back to home"
-        lede="Family, godparents, and friends — the people your celebrations connect."
         className="mb-6"
       />
 

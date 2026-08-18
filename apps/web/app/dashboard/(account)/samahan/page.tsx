@@ -42,7 +42,6 @@ export default async function SamahanIndexPage({
         title="Samahan"
         back="/dashboard"
         backLabel="Back to home"
-        lede="Shared spaces for the groups you belong to — barkada, parish, clan, org."
         className="mb-6"
       />
 

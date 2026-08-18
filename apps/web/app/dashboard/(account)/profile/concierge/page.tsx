@@ -147,11 +147,6 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
         title="Setnayan AI"
         back="/dashboard/profile"
         backLabel="Back to profile"
-        lede={
-          <>
-            Your in-app planner that surfaces the next step every time you open the dashboard.
-          </>
-        }
       />
 
       {/* Event picker (multi-event accounts) */}

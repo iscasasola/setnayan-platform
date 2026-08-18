@@ -314,12 +314,6 @@ export default async function MoodBoardPage({ params }: Props) {
 
       <PageMasthead
         title="Mood Board"
-        lede={
-          <>
-            Set your palette once, then see it on every part of your day — one look per role,
-            your venue, and your flowers. Pick the colors above; the pictures below follow.
-          </>
-        }
       />
       <div className="mt-3 space-y-3">
         {event.mood_board_updated_at ? (

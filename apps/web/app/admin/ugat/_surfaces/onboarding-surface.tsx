@@ -61,14 +61,6 @@ export async function OnboardingSurface({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-3xl">
       <PageMasthead
         title="Onboarding"
-        lede={
-          <>
-            Settings that tune the new-account onboarding flows — grouped by
-            onboarding type so each gets its own home. Today there is one flow
-            (<strong className="text-ink">Wedding</strong>); as Setnayan opens new
-            event types, each adds a section here.
-          </>
-        }
         className="mb-6"
       />
 

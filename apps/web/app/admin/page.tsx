@@ -309,17 +309,6 @@ export default async function AdminOverview() {
             Overview <span className="sn-h1-tail">— what needs you</span>
           </>
         }
-        lede={
-          <>
-            Everything that needs admin action right now — requests, transactions
-            awaiting approval, reports, and disputes at a glance. Tap a card to
-            clear it. <strong className="text-ink">Accounts</strong> looks people
-            up, <strong className="text-ink">App Performance</strong> carries the
-            cockpit and platform upgrades, and{' '}
-            <strong className="text-ink">Money</strong> holds the catalog and
-            engine-room config.
-          </>
-        }
       />
       <div className="mt-3 space-y-3">
         {/* ENGINE-ROOM SHORTCUTS · owner 2026-07-25 ("place it on admin/overview

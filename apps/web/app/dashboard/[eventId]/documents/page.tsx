@@ -194,13 +194,6 @@ export default async function EventDocumentsPage({ params }: Props) {
     <section className="sn-col space-y-8">
       <PageMasthead
         titleNode={<>{term(profile, { wedding: 'Your wedding documents', generic: 'Your event documents', })}</>}
-        lede={
-          <>
-            Everything paper, all in one place — government paperwork, vendor
-            contracts, Setnayan creations, and receipts for every order. Tap
-            a row to open the canonical document or edit surface.
-          </>
-        }
       />
       <div className="mt-3 space-y-3">
         {totalDocs > 0 ? (

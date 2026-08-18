@@ -100,11 +100,6 @@ export async function IntelligenceSurface({ searchParams }: Props) {
     <div>
       <PageMasthead
         title="Intelligence"
-        lede={
-          stats.demo
-            ? 'Sample figures so you can see the shape of this surface before real data accrues. Turn off demo mode to see live counts.'
-            : 'Churn radar, market pulse, and lead scores — computed entirely from the platform’s own tables and cached for 10 minutes, so this surface never weighs on the production database.'
-        }
         actions={
           stats.demo ? (
             <span className="rounded-full border border-warn-300/70 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-warn-800">

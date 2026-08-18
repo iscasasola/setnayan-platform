@@ -83,12 +83,6 @@ export default async function SiteChromeEditorPage({
         title="Set the mood"
         back={`/dashboard/${eventId}/website`}
         backLabel="Back to Event Hub"
-        lede={
-          <>
-            Add a soft background song and a short video behind your monogram.
-            Both are optional — leave either empty to keep things simple.
-          </>
-        }
       />
       <div className="mt-3 space-y-3">
         {saved ? (

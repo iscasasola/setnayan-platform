@@ -546,7 +546,6 @@ export default async function SuitePage({ params }: Props) {
             {SUITE_NAME}
           </>
         }
-        lede="Everything for your event, in one room — what you have, what’s free, and what you can add. Search to jump straight to a service, or start with what we suggest."
       />
 
       {/* Search filters the whole browse view below to matching services; empty

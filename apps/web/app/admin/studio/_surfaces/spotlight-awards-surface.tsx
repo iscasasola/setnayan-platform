@@ -100,13 +100,6 @@ export async function SpotlightAwardsSurface({
     <div>
       <PageMasthead
         title="Spotlight Awards"
-        lede={
-          <>
-            This month&rsquo;s vendor recognitions — {formatPeriod(period)}. Run the
-            recompute to refresh the automatic picks, confirm or add awards by hand,
-            and feature a curated few on the homepage.
-          </>
-        }
         className="mb-6"
       />
 

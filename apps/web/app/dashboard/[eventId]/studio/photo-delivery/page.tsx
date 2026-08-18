@@ -119,14 +119,6 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
 
       <PageMasthead
         title="Send your finalized photos to Google Drive"
-        lede={
-          <>
-            Once your photographers and videographers finish their post-event edits,
-            Setnayan pushes the full-resolution archive straight to a Drive folder you
-            control — no hard drives changing hands, no &ldquo;wait for the photographer
-            to upload&rdquo; back-and-forth.
-          </>
-        }
       />
 
       {/* How long we hold things — visible at the top of the page so couples see

@@ -88,7 +88,6 @@ export async function OperationsHiringSurface() {
     <div className="space-y-6">
       <PageMasthead
         title="Operations & Hiring"
-        lede="Growth Cockpit — bottleneck signals, milestone forecasts, and hiring roadmap tied to the Jan 30, 2027 Phase 1 capacity milestone (the original V1 launch-promo sunset retired 2026-05-28 V2 cutover; the date stays as the canonical staffing target)."
       />
 
       {/* Unacknowledged alerts banner */}

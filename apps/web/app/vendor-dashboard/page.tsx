@@ -69,13 +69,6 @@ function AgentHome() {
             You&apos;re on the team
           </>
         }
-        lede={
-          <>
-            Your account is set up as a team member. The services and customers your
-            owner assigns to you will appear here — scoped access is rolling out
-            shortly. There&apos;s nothing you need to do right now.
-          </>
-        }
         className="mb-6"
       />
       <div className="sn-tile p-5 text-sm text-ink/65">

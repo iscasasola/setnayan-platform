@@ -260,15 +260,6 @@ export async function DemoVendorsSurface() {
             Demo Vendors
           </span>
         }
-        lede={
-          <>
-            Synthetic vendor data for marketplace simulation. All rows are flagged{' '}
-            <code className="rounded bg-ink/5 px-1 py-0.5 text-[12px]">is_demo=TRUE</code>{' '}
-            and only appear publicly when the marketplace is opened with{' '}
-            <code className="rounded bg-ink/5 px-1 py-0.5 text-[12px]">?demo=1</code>{' '}
-            (Agent 2&apos;s gate).
-          </>
-        }
         actions={
           <Link
             href="/admin/demo-vendors/inquiries"

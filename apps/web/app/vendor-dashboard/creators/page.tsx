@@ -99,15 +99,6 @@ export default async function VendorCreatorsPage({
         title="Creators"
         back="/vendor-dashboard/shop"
         backLabel="Back to My Shop"
-        lede={
-          <>
-            {/* Was "Spend one token to offer…" — sending is FREE since the token
-                retirement (owner 2026-08-07). */}
-            Offer a storyteller your promo — they publish their story crediting
-            you for free, and anyone who books you through it gets the deal you
-            chose. You keep 100%.
-          </>
-        }
         className="mb-6"
       />
 

@@ -46,16 +46,6 @@ export default async function CustomerContractDetailPage({ params }: Props) {
 
       <PageMasthead
         titleNode={<>{contract.title}</>}
-        lede={
-          <>
-            From <strong>{vendorName}</strong> ·{' '}
-            {new Date(contract.created_at).toLocaleDateString('en-PH', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-            })}
-          </>
-        }
       />
       <div className="mt-3 space-y-3">
         {contract.description ? (

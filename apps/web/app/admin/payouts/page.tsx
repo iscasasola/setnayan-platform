@@ -142,16 +142,6 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <PageMasthead
         title="Vendor payouts"
-        lede={
-          <>
-            One row per scheduled disbursement. Verified vendors are paid in a
-            single <span className="font-medium">immediate</span> stage (T+1);
-            coming-soon vendors release in three stages (20% on booking · 60%
-            T+7 from event start · 20% T+7 from event end). Setnayan absorbs the
-            ₱15-25 outbound fee — vendor net is shown post BIR withholding and
-            gateway only.
-          </>
-        }
         className="mb-6"
       />
 

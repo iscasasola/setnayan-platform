@@ -271,7 +271,6 @@ export async function UsersSurface({
       <PageMasthead
         className="mb-6"
         title="Users"
-        lede={`Latest ${ACCOUNT_ROW_LIMIT} accounts (newest first). Filter or search to drill in.`}
       />
 
       {grantBanner ? (

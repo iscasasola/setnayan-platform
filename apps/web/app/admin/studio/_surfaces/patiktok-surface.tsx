@@ -194,11 +194,6 @@ export async function PatiktokSurface() {
             Patiktok renders
           </span>
         }
-        lede={
-          jobs
-            ? `Client-side render queue across all events — the latest ${listed.length}. Reels encode in the couple’s browser; this surfaces any that failed (e.g. a device without WebCodecs, or R2 CORS not yet set).`
-            : 'Client-side render queue across all events. The queue could not be read just now, so nothing below is a count.'
-        }
       />
 
       {/* Status chips. An UNMEASURED queue shows an em-dash, never 0 — a chip

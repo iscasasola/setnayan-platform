@@ -105,15 +105,6 @@ export async function SeoSurface() {
     <div className="mx-auto w-full max-w-4xl space-y-6">
       <PageMasthead
         title="SEO & GEO"
-        lede={
-          <>
-            Daily automated audit of the search + AI-answer-engine surface. The{' '}
-            <code className="rounded bg-ink/5 px-1">seo-health</code> cron diffs the served{' '}
-            <code className="rounded bg-ink/5 px-1">llms.txt</code> against the live catalog and
-            checks route + token coverage each night; <code className="rounded bg-ink/5 px-1">seo-gsc</code>{' '}
-            pulls Search Console. Drift surfaces here instead of shipping wrong answers to every LLM.
-          </>
-        }
         /* The audit is claim-gated to ~daily off admin traffic, and after()
            shows the PREVIOUS snapshot — this is the only way to see a catalog
            edit reflected immediately. */

@@ -73,15 +73,6 @@ export default async function OurStoryEditorPage({
         title="The story you tell your guests"
         back={`/dashboard/${eventId}/website`}
         backLabel="Back to Event Hub"
-        lede={
-          <>
-            How you met, the spark, the yes — and your own timeline of moments. Your
-            Event Hub weaves the story into the &ldquo;Our Story&rdquo; section on the
-            save-the-date, RSVP, and wedding-day pages, and the rest shapes how
-            Setnayan tells your story in the keepsakes you create. Every line is
-            optional; what you leave blank simply isn&rsquo;t told.
-          </>
-        }
       />
       <div className="mt-3 space-y-3">
         {saved ? (

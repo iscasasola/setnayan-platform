@@ -144,7 +144,6 @@ export default async function AlaalaPage({
         title="Alaala"
         back="/dashboard"
         backLabel="Back to home"
-        lede="Every photo, video and story you’re part of — across every event you host or attend. Same Alaala as the tile on your home, opened full."
         actions={
           <div className="flex shrink-0 items-center gap-2">
             <Link href="/dashboard/profile" className="sn-chip sn-press">

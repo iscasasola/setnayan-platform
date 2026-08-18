@@ -47,13 +47,6 @@ export default async function EventContractsPage({ params }: Props) {
     <div className="sn-col space-y-6">
       <PageMasthead
         title="Vendor contracts"
-        lede={
-          <>
-            PDFs your vendors have uploaded for reference. Setnayan hosts the
-            files so both sides have a copy on hand — signing happens between
-            you and the vendor externally.
-          </>
-        }
         actions={
           /* YOUR PLAN consolidation 2026-05-22 — vendor contracts also
            *  appear in the consolidated /documents view alongside

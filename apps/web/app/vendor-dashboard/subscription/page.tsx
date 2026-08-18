@@ -300,12 +300,6 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
       <PageMasthead
         title="Choose your plan."
-        lede={
-          <>
-            Upgrade to reach more couples and answer unlimited inquiries — no
-            features are locked behind a paywall.
-          </>
-        }
       />
       <div className="mt-3 space-y-3">
         {/* Current tier + renewal */}

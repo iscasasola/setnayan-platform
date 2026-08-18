@@ -626,12 +626,6 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
             Congratulations. Let&apos;s start with your date.
           </>
         }
-        lede={
-          <>
-            Every great wedding has one moment that everything else circles around. We&apos;ll help
-            you find yours — and show you what makes the day you pick special.
-          </>
-        }
       />
 
       {chineseTradition ? <ChineseSpecialistNudge /> : null}

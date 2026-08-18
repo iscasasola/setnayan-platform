@@ -532,7 +532,6 @@ export default async function StudioPage({ params, searchParams }: Props) {
     <section className="space-y-8">
       <PageMasthead
         title="Your Studio"
-        lede="Everything you can add to your day. Start with what we suggest for where you are — or browse it all below."
       />
 
       {coupleSuggestions.length > 0 ? (

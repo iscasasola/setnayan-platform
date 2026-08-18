@@ -241,7 +241,6 @@ export default async function LiveWallConsolePage({
             Live Wall
           </span>
         }
-        lede="The day-of console — what’s on the venue screen, who’s connected, and the one-tap controls that keep it yours."
       />
 
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">

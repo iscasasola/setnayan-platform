@@ -36,20 +36,16 @@ type ServiceOption = {
   price_centavos: number;
 };
 
-type DiscountType = 'pct_off' | 'pct_off_capped' | 'free' | 'grant_tokens';
+type DiscountType = 'pct_off' | 'pct_off_capped' | 'free';
 
 export type VoucherFormInitial = {
   discount_code_id: string | null; // null = create mode
   code: string;
   discount_type: DiscountType;
-  /** Integer 1-100 for pct_off + pct_off_capped, null for free + grant_tokens. */
+  /** Integer 1-100 for pct_off + pct_off_capped, null for free. */
   pct_value: number | null;
   /** Centavos (NOT pesos) cap, NOT NULL only for pct_off_capped. */
   cap_centavos: number | null;
-  /** Integer 1-10000 for grant_tokens, null otherwise. */
-  token_grant_count: number | null;
-  /** Integer 1-365 for grant_tokens (default 45), null otherwise. */
-  token_grant_ttl_days: number | null;
   covered_service_keys: string[];
   effective_from: string | null; // ISO string OR null (null = effective immediately)
   expires_at: string | null; // ISO string OR null
@@ -121,16 +117,6 @@ export function VoucherForm({
   const [pctValueStr, setPctValueStr] = useState<string>(initialPct);
   const [capPesosStr, setCapPesosStr] = useState<string>(initialCapPesos);
 
-  // grant_tokens inputs — token count + TTL days. TTL defaults to 45 to
-  // match the founder-bonus convention (migration 20260703500000 PART 4).
-  const initialTokenCount =
-    initial.token_grant_count !== null ? String(initial.token_grant_count) : '';
-  const initialTokenTtl =
-    initial.token_grant_ttl_days !== null
-      ? String(initial.token_grant_ttl_days)
-      : '45';
-  const [tokenCountStr, setTokenCountStr] = useState<string>(initialTokenCount);
-  const [tokenTtlStr, setTokenTtlStr] = useState<string>(initialTokenTtl);
 
   const initialExpiresAt = initial.expires_at
     ? isoToDatetimeLocal(initial.expires_at)
@@ -192,14 +178,12 @@ export function VoucherForm({
 
   // pct input is shown for both pct_off and pct_off_capped (it's the same
   // underlying field per the locked schema). The cap input ONLY appears
-  // for pct_off_capped. Token grant inputs appear ONLY for grant_tokens.
-  // Covered-services multi-checkbox hides for grant_tokens (vendor wallet
-  // credit ignores SKU coverage · admin doesn't need to pick).
+  // for pct_off_capped. Covered services now ALWAYS show — the only voucher
+  // type that hid them was the vendor token grant, retired 2026-08-18.
   const showPctInput =
     discountType === 'pct_off' || discountType === 'pct_off_capped';
   const showCapInput = discountType === 'pct_off_capped';
-  const showTokenInputs = discountType === 'grant_tokens';
-  const showCoveredServices = discountType !== 'grant_tokens';
+  const showCoveredServices = true;
 
   return (
     <form action={action} className="space-y-6">
@@ -275,9 +259,21 @@ export function VoucherForm({
               // retirement. It minted a currency with no redeem surface at all
               // — `redeem_vendor_token_voucher` has zero callers in the app, so
               // every voucher of that type was unredeemable from the hour it
-              // was created. The type stays in the DB enum: one expired row
-              // (TESTGTK1) still carries it, and the parsing below still reads
-              // it so that row renders instead of crashing the list.
+              // was created.
+              //
+              // ⚠ THAT REMOVAL TOOK THE OPTION AND LEFT THE EDITOR. Removing
+              // it from this list stopped anyone CREATING one; the fields that
+              // EDIT one stayed, and the only voucher in production was a
+              // grant_tokens row (TESTGTK1, expired 2026-06-28, never
+              // redeemed) — so the retired wallet was the one thing this
+              // screen could show. The owner saw it and asked why.
+              // 🔑 RETIRING A THING MEANS RETIRING ITS EDITOR TOO. A removed
+              // create-option only stops NEW rows; the existing row is what
+              // renders. Fifth time this shape has resurfaced.
+              // The row was deleted 2026-08-18 and the fields removed with it.
+              // The value stays in the DB enum (dropping an enum label is a
+              // migration with no caller left to justify it) but nothing in
+              // the app can write, edit or display one.
               { v: 'free' as const, label: 'Free (100% off)' },
             ] satisfies { v: DiscountType; label: string }[]
           ).map((opt) => (
@@ -388,97 +384,6 @@ export function VoucherForm({
         </p>
       )}
 
-      {/* Token grant inputs · shown ONLY for grant_tokens · vendor reward
-          mints earned-token-vouchers on redemption per migration
-          20260703500000. Default TTL is 45 days to match the founder-bonus
-          convention in the verified_vendor trigger (PART 4 of the same
-          migration). */}
-      {showTokenInputs && (
-        <>
-          <div>
-            <label
-              htmlFor="token_grant_count"
-              className="block text-sm font-medium"
-              style={{ color: 'var(--m-ink)' }}
-            >
-              Tokens granted per redemption (1-10,000)
-            </label>
-            <p
-              className="mt-1 text-xs"
-              style={{ color: 'var(--m-slate)' }}
-            >
-              The number of tokens credited to the vendor&rsquo;s wallet when they
-              redeem this code. Tokens spend toward telemetry boosts +
-              manpower handshake fees + future vendor add-ons.
-            </p>
-            <input
-              type="number"
-              id="token_grant_count"
-              name="token_grant_count"
-              min="1"
-              max="10000"
-              step="1"
-              value={tokenCountStr}
-              onChange={(e) => setTokenCountStr(e.target.value)}
-              required
-              className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
-              style={{
-                background: 'var(--m-paper)',
-                borderColor: 'var(--m-line)',
-                color: 'var(--m-ink)',
-              }}
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="token_grant_ttl_days"
-              className="block text-sm font-medium"
-              style={{ color: 'var(--m-ink)' }}
-            >
-              Available for (days · 1-365)
-            </label>
-            <p
-              className="mt-1 text-xs"
-              style={{ color: 'var(--m-slate)' }}
-            >
-              Tokens expire this many days after redemption · the vendor
-              spends expiring tokens first (purchased tokens never expire).
-              Default 45 days matches the founder-bonus convention.
-            </p>
-            <input
-              type="number"
-              id="token_grant_ttl_days"
-              name="token_grant_ttl_days"
-              min="1"
-              max="365"
-              step="1"
-              value={tokenTtlStr}
-              onChange={(e) => setTokenTtlStr(e.target.value)}
-              required
-              className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
-              style={{
-                background: 'var(--m-paper)',
-                borderColor: 'var(--m-line)',
-                color: 'var(--m-ink)',
-              }}
-            />
-          </div>
-
-          <p
-            className="rounded-md border px-3 py-2 text-sm"
-            style={{
-              background: 'var(--m-paper-2)',
-              borderColor: 'var(--m-line)',
-              color: 'var(--m-slate)',
-            }}
-          >
-            Vendor codes don&rsquo;t cover Setnayan services · they credit a wallet.
-            Skip the covered-services section below · the vendor redeems this
-            code from their dashboard.
-          </p>
-        </>
-      )}
 
       {/* Expires at · REQUIRED */}
       <div>
@@ -575,8 +480,8 @@ export function VoucherForm({
         />
       </div>
 
-      {/* Covered services · multi-checkbox grouped by category. Hidden for
-          grant_tokens vouchers (vendor wallet credit ignores SKU coverage). */}
+      {/* Covered services · multi-checkbox grouped by category. Always shown
+          since 2026-08-18 — the only type that hid it is retired. */}
       {showCoveredServices && (
       <div>
         <span

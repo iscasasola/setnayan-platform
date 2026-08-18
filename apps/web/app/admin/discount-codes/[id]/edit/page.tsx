@@ -23,13 +23,14 @@ export const metadata = { title: 'Edit discount code · Admin' };
 type DiscountCodeRow = {
   discount_code_id: string;
   code: string;
-  discount_type: 'pct_off' | 'pct_off_capped' | 'free' | 'grant_tokens';
+  // The retired value stays in this ROW type on purpose: the DB enum can still
+  // produce it, and the refusal below is what handles it. Narrowing here would
+  // move the failure from an honest refusal to a type lie.
+  discount_type: string;
   // Day 1.5 spec · pct_value + cap_centavos replace generic discount_value.
   pct_value: number | null;
   cap_centavos: number | null;
   // 2026-05-29 grant_tokens extension · migration 20260703500000 PART 1.
-  token_grant_count: number | null;
-  token_grant_ttl_days: number | null;
   covered_service_keys: string[];
   effective_from: string | null;
   expires_at: string;
@@ -70,7 +71,7 @@ export default async function EditDiscountCodePage({ params }: Props) {
       .from('discount_codes')
       .select(
         // Day 1.5 schema + 2026-05-29 grant_tokens extension columns.
-        'discount_code_id, code, discount_type, pct_value, cap_centavos, token_grant_count, token_grant_ttl_days, covered_service_keys, effective_from, expires_at, max_uses, uses_count, is_active',
+        'discount_code_id, code, discount_type, pct_value, cap_centavos, covered_service_keys, effective_from, expires_at, max_uses, uses_count, is_active',
       )
       .eq('discount_code_id', id)
       .maybeSingle(),
@@ -133,25 +134,32 @@ export default async function EditDiscountCodePage({ params }: Props) {
       : a.category.localeCompare(b.category),
   );
 
+  // ⛔ A RETIRED-TYPE VOUCHER IS NOT EDITED, IT IS REFUSED.
+  //
+  // `grant_tokens` was retired 2026-08-18 with the token economy. The DB enum
+  // still permits the value (dropping an enum label is a migration with no
+  // caller left to justify it), so a row could in principle still carry it —
+  // production's last one, TESTGTK1, was deleted the same day.
+  //
+  // 🔑 COERCING IT TO ANOTHER TYPE WOULD CHANGE WHAT THE VOUCHER DOES, silently,
+  // on a money-adjacent object. Saying so plainly is the only honest option: the
+  // form cannot represent it, and inventing a representation is worse than a
+  // refusal. `notFound()` is deliberate — an editor that cannot edit a thing
+  // should not open on it.
+  if (!['pct_off', 'pct_off_capped', 'free'].includes(code.discount_type)) {
+    notFound();
+  }
+
   // Build initial state for the shared form.
   // pct_value is INT (returns as number) · cap_centavos is BIGINT (Supabase
   // can return as number for V1 small magnitudes · coerce defensively).
-  // token_grant_count + token_grant_ttl_days are INT · NULL when discount_type
-  // is not grant_tokens (CHECK constraint guarantees this from migration
-  // 20260703500000).
   const initial: VoucherFormInitial = {
     discount_code_id: code.discount_code_id,
     code: code.code,
-    discount_type: code.discount_type,
+    discount_type: code.discount_type as 'pct_off' | 'pct_off_capped' | 'free',
     pct_value: code.pct_value === null ? null : Number(code.pct_value),
     cap_centavos:
       code.cap_centavos === null ? null : Number(code.cap_centavos),
-    token_grant_count:
-      code.token_grant_count === null ? null : Number(code.token_grant_count),
-    token_grant_ttl_days:
-      code.token_grant_ttl_days === null
-        ? null
-        : Number(code.token_grant_ttl_days),
     covered_service_keys: code.covered_service_keys,
     effective_from: code.effective_from,
     expires_at: code.expires_at,

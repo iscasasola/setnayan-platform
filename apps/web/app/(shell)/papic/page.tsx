@@ -405,7 +405,6 @@ export default async function PapicLandingPage() {
     <DoorwayPage
       demo={studioApp('papic')?.demo}
       title="Every guest goes home with their own photos."
-      lede="Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each guest gets their own gallery — plus a personal video reel. The candids your photographer can’t be everywhere for, delivered to everyone."
       primary={{ href: '/onboarding/wedding?from=papic', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Papic"

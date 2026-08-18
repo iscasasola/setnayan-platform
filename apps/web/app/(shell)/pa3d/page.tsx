@@ -158,9 +158,7 @@ export default function Pa3DLandingPage() {
   return (
     <DoorwayPage
       demo={studioApp('pa3d')?.demo}
-      kicker="In your wedding · 3D reception"
       title={'Walk your reception before it’s built.'}
-      lede={'Pa3D lets you stand inside your reception before it’s real. See the room the way your guests will — the head table, the dance floor, every seat — and know it’s right while there’s still time to change it.'}
       primary={{ href: '/onboarding/wedding?from=pa3d', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Pa3D"

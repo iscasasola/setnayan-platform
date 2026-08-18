@@ -85,20 +85,20 @@ test('the four daily screens render no second main', () => {
  * IS keeps the exclusion honest — a new print route is covered automatically,
  * and a new ordinary screen cannot hide behind the list.
  *
- * ⚠ EVERYTHING BELOW IS REAL DEBT I HAVE NOT READ. Each of these is an ordinary
- * screen with a second <main>, and each may or may not have a reason. They are
- * pinned so the number can only SHRINK: fixing one means deleting its line,
- * and a NEW offender fails this test. **This is a bill, not a decision** — do
- * not add to it to go green.
+ * ✅ THE BILL IS PAID — the list is EMPTY as of 2026-08-18. All seven were read
+ * and fixed in the same change that pinned them:
+ *   • five were plain width wrappers → <div>, classes untouched
+ *   • manpower painted a full-height surface → <div>, the paint KEPT
+ *   • the website editor's was its PREVIEW PANE → <section aria-label="Preview">,
+ *     because a two-pane editor's preview is a REGION, and demoting it to a bare
+ *     <div> would have destroyed a landmark rather than corrected one
+ *
+ * ⚠ KEEP THE EMPTY LIST AND ITS RULE. An empty array is not dead code here —
+ * it is what makes a NEW offender fail. Deleting the list deletes the guard.
+ * If a line is ever added back it must be because somebody read that page and
+ * decided it stays. **A bill, not a decision.**
  */
-const UNREVIEWED_SECOND_MAINS = [
-  'app/dashboard/[eventId]/manpower/page.tsx',
-  'app/dashboard/[eventId]/studio/papic/recap/page.tsx',
-  'app/dashboard/[eventId]/studio/playlist/page.tsx',
-  'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx',
-  'app/dashboard/[eventId]/website/editorial/page.tsx',
-  'app/dashboard/[eventId]/website/hero-photo/page.tsx',
-  'app/dashboard/[eventId]/website/living-hero/page.tsx',
+const UNREVIEWED_SECOND_MAINS: string[] = [
 ];
 
 /** A route that legitimately stands outside the shell — printed, or a crash screen. */
@@ -126,5 +126,27 @@ test('no NEW page grows a second main, and the pinned list only shrinks', () => 
     stale,
     [],
     'These are pinned as debt but no longer offend — delete their lines:\n' + stale.join('\n'),
+  );
+});
+
+test('the website editor\'s preview stays a NAMED region, not a bare div', () => {
+  // 🪤 I CLAIMED THIS LABEL WAS THE POINT AND NOTHING HELD IT. Removing
+  // `aria-label="Preview"` left every test green — so the reasoning for
+  // choosing <section> over <div> lived only in a comment, which is exactly
+  // the shape this repo keeps paying for. A sentence is not a mechanism.
+  //
+  // The editor's preview WAS a <main>. Demoting it to a bare <div> would have
+  // destroyed a landmark rather than corrected one: a two-pane editor's preview
+  // is a real region somebody navigates to. <section> keeps that; the label is
+  // what makes <section> a landmark at all — an unlabelled <section> is not
+  // exposed as one.
+  const src = readFileSync(
+    join(EVENT_TREE, 'website/editor/_components/editor-shell.tsx'),
+    'utf8',
+  );
+  assert.match(
+    src,
+    /<section\s+aria-label="Preview"/,
+    'the editor preview must stay a labelled <section> — an unlabelled section is not a landmark',
   );
 });

@@ -423,7 +423,13 @@ export function EditorShell({
         </nav>
 
         {/* ── RIGHT PREVIEW ─────────────────────────────────────────── */}
-        <main
+        {/* Keeps the shared shell (owner 2026-08-18). This was a second <main>
+            inside the event layout's own. A two-pane editor's preview is a
+            REGION, not the page's main landmark — <section> with a label keeps
+            the landmark value the <main> was reaching for, without claiming to
+            be the whole page. */}
+        <section
+          aria-label="Preview"
           className={`min-w-0 flex-1 flex-col bg-cream-200/60 lg:flex ${
             mobilePane === 'preview' ? 'flex' : 'hidden'
           }`}
@@ -522,7 +528,7 @@ export function EditorShell({
               </div>
             )}
           </div>
-        </main>
+        </section>
       </div>
     </div>
   );

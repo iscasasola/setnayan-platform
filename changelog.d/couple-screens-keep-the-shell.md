@@ -22,13 +22,29 @@ print sheets and a crash screen — pages that *should* own their document. They
 so a new print route is covered automatically and a new ordinary screen cannot hide behind the
 list.
 
-📋 **SEVEN ORDINARY SCREENS ELSEWHERE IN THE EVENT TREE HAVE THE SAME SECOND FRAME — NAMED, NOT
-FIXED.** Manpower, the Papic recap, the playlist, the website editor shell, editorial, hero photo
-and living hero. I have not read them and will not "fix" pages I have not read. They are pinned so
-the number can only **shrink**: fixing one means deleting its line, a new offender fails, and
-deleting a line without fixing it also fails. **A bill, not a decision.**
-⚠ I first wrote that list **by hand from truncated terminal output and it was missing one**. It is
-now generated from the scan itself.
+✅ **ALL SEVEN OTHER SCREENS ARE FIXED TOO — the pinned list is EMPTY.** Owner: *"ok fix it."*
+Each was read before it was touched, and they were not all the same job:
+- **five** were plain width wrappers → `<div>`, classes untouched;
+- **manpower** painted a full-height surface → `<div>` with the paint **kept**, because dropping
+  it would be a visual change nobody asked for;
+- **the website editor's was its PREVIEW PANE**, not a page wrapper → `<section aria-label="Preview">`.
+  A two-pane editor's preview is a real region somebody navigates to; demoting it to a bare `<div>`
+  would have **destroyed a landmark rather than corrected one**.
+
+⚠ **I first wrote that list by hand from truncated terminal output and it was missing one.** It is
+generated from the scan now — and regenerated again after the fixes, rather than hand-emptied.
+⚠ **The empty list is NOT dead code.** It is what makes a NEW offender fail; deleting it deletes
+the guard. Mutation-proved with the list empty.
+
+🪤 **I CLAIMED THE PREVIEW'S LABEL WAS THE POINT AND NOTHING HELD IT.** Removing
+`aria-label="Preview"` left every test green — the reasoning for choosing `<section>` over `<div>`
+lived only in a comment. *A sentence is not a mechanism.* A fourth assertion now holds it, and the
+mutation that previously passed now goes red.
+
+🪤 **AND I BROKE A PAGE PUTTING A COMMENT IN IT.** `return ( {/* … */} <div> )` is two expressions,
+not one — it parses as an object literal and the file stops compiling. A note above the `return` is
+the only place it fits. Caught by typecheck, which is exactly why it runs after the edit and not
+before.
 
 🛡 **3 mutations, measured by occurrence count, all RED:** the fixed page growing its frame back
 (1→0) · the shell's own `<main>` removed, which would make the whole rule vacuous (1→0) · a pinned

@@ -197,133 +197,6 @@ function exportedFunctions(code: string): string[] {
 }
 
 /**
- * The span of the first bracketed literal at/after `from`, brace-matched.
- * Returns '' when there is none within `lookahead` characters.
- *
- * 🔑 BRACE-MATCHED, NEVER BUDGETED. `[\s\S]{0,600}` reads past the payload's
- * closing brace into whatever follows — the `.select(...)` on the next line, the
- * next statement — so a file that writes the table and merely SELECTS the column
- * satisfies it. And a budget shrinks silently the moment somebody writes a long
- * comment inside the payload, which is how two guards in this repo passed while
- * the thing they guard was gone.
- */
-function bracketedSpan(code: string, from: number, lookahead = 40): string {
-  const after = code.slice(from);
-  const open = after.search(/[[{(]/);
-  if (open === -1 || open > lookahead) return '';
-  const pairs: Record<string, string> = { '{': '}', '[': ']', '(': ')' };
-  const openers = new Set(Object.keys(pairs));
-  const closers = new Set(Object.values(pairs));
-  let depth = 0;
-  for (let i = open; i < after.length; i += 1) {
-    const ch = after[i]!;
-    if (openers.has(ch)) depth += 1;
-    else if (closers.has(ch)) {
-      depth -= 1;
-      if (depth === 0) return after.slice(open, i + 1);
-    }
-  }
-  return '';
-}
-
-/**
- * (c) Does this file write `column` ON `table` **IN THE SAME STATEMENT**?
- *
- * 🚨 THIS EXISTS BECAUSE (a) AND (b) JOINED BY `&&` WERE DECORATIVE, and the
- * guard they power is the one that catches a switch nobody can press — a
- * failure this codebase has now shipped SIX times.
- *
- * The old `direct` branch asked two INDEPENDENT file-level questions: does this
- * file write that table anywhere, and does it name that column as a field
- * anywhere. Never the same statement. Measured on `events.archived`: the
- * detector reported THREE writers where exactly one exists — `chat-actions.ts`
- * has a local variable of that name writing a DIFFERENT table, and `events.ts`
- * has it as a type field and in a select list. **Deleting the one real write
- * left the suite 10/10 GREEN.**
- *
- * 🔑 TWO CORRECT PREDICATES ANDED AT THE WRONG SCOPE ARE NOT A CORRECT
- * PREDICATE. Each half was carefully written and separately right; the join is
- * what made them blind.
- *
- * ⚠ BOUNDED BY BRACE-MATCHING THE PAYLOAD, NOT BY A CHARACTER BUDGET. A span
- * like `[\s\S]{0,600}` reads straight past the update object's closing brace
- * into the `.select(...)` on the next line — so a file that updates the table
- * and merely SELECTS the column still satisfies it, which is the same hole one
- * level down. A budget also silently shrinks the moment somebody writes a long
- * comment inside the payload.
- */
-function writesColumnOnTable(code: string, table: string, column: string): boolean {
-  // Every name this file uses to mean `table`: the literal, plus any
-  // `const T = 'table'` alias — mirroring writesTable's own alias handling.
-  const names = [`['"\`]${table}['"\`]`];
-  for (const d of code.matchAll(
-    new RegExp(`\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*['"\`]${table}['"\`]`, 'g'),
-  )) {
-    names.push(`\\s*${d[1]!}\\s*`);
-  }
-
-  for (const alt of names) {
-    const from = new RegExp(`\\.from\\(\\s*${alt}\\s*[,)]`, 'g');
-    for (const m of code.matchAll(from)) {
-      // The write verb must follow this `.from(...)`, with only chain calls
-      // between — supabase-js requires `.from(t).update(...)` in that order.
-      const rest = code.slice(m.index! + m[0].length);
-      const verb = /^[\s\S]{0,200}?\.(?:update|insert|upsert)\(/.exec(rest);
-      if (!verb) continue;
-
-      /*
-        The argument list, paren-matched so the span ENDS where the call ends.
-
-        ⚠ TWO SHAPES, and missing the second is a FALSE "no writer" — which is
-        the worse direction here. A guard that cries wolf about real code teaches
-        the next person to baseline it, and a baseline is a bill. Measured: with
-        only the literal shape, 26 columns newly reported no writer, and the ones
-        spot-checked (`platform_settings.gcash_enabled`,
-        `panood_control_state.is_live`) all had perfectly good writers that build
-        the payload first.
-      */
-      const args = bracketedSpan(rest, verb[0].length - 1);
-      if (!args) continue;
-
-      // (i) inline object / array literal — `.update({ column: v })`
-      if (args.includes('{') && namesColumnAsField(args, column)) return true;
-
-      // (ii) a payload VARIABLE — `.update(payload)` — resolved to where it is
-      // built: a literal assigned to it, or a later property assignment.
-      for (const id of args.matchAll(/\b([A-Za-z_$][\w$]*)\b/g)) {
-        const name = id[1]!;
-        if (name === 'onConflict' || name === 'ignoreDuplicates') continue;
-        /*
-          EVERY declaration of that name, not the first. `matchAll`, because a
-          single file routinely declares `const payload = { … }` in two separate
-          actions — `admin/settings/actions.ts` has one at line 104 and another
-          at 223, and only the SECOND carries `gcash_enabled`. An `.exec` here
-          found the first, saw no column, and reported a live admin toggle as
-          having no writer at all.
-        */
-        for (const decl of code.matchAll(
-          new RegExp(`\\b(?:const|let|var)\\s+${name}\\b[^=]{0,120}=\\s*`, 'g'),
-        )) {
-          const built = bracketedSpan(code, decl.index! + decl[0].length, 4);
-          if (built && namesColumnAsField(built, column)) return true;
-        }
-        // `Object.assign(payload, { … })` — a payload extended after it is built.
-        for (const asg of code.matchAll(
-          new RegExp(`Object\\.assign\\(\\s*${name}\\s*,`, 'g'),
-        )) {
-          const built = bracketedSpan(code, asg.index! + asg[0].length, 4);
-          if (built && namesColumnAsField(built, column)) return true;
-        }
-        if (namesColumnAsField(`{${name}.${column} = 1}`, column) &&
-            new RegExp(`\\b${name}\\.${column}\\s*=[^=]`).test(code)) return true;
-        if (new RegExp(`\\b${name}\\[['\"\`]${column}['\"\`]\\]\\s*=[^=]`).test(code)) return true;
-      }
-    }
-  }
-  return false;
-}
-
-/**
  * Files that could be what flips `table.column`.
  *
  * Two paths, both required to pair a table-write with a field-name:
@@ -338,12 +211,61 @@ function writesColumnOnTable(code: string, table: string, column: string): boole
  *    silently excused every real finding. A loose writer-detector does not cry
  *    wolf — it goes quiet, which is worse.
  */
+/**
+ * The STRICT question, asked only of a switch whose writer is KNOWN.
+ *
+ * 🔑 TWO QUESTIONS, TWO AUDIENCES — and getting this wrong once is what this
+ * docblock is for.
+ *
+ *  · `gateWritersOf` (below) is a WIDE NET over every switch-shaped column in
+ *    the schema — 264 of them. It must NOT cry wolf: a false "no writer" there
+ *    teaches the next person to baseline real code, and a baseline is a bill.
+ *    It stays loose on purpose. It legitimately cannot see a write spelled
+ *    `...parsed.patch` (object spread — the column name never appears) or
+ *    `.insert(rows)` where `rows` came out of a `.map()`. Both are real writers
+ *    in this repo today: `vendor_bot_config.enabled` and
+ *    `vendor_service_payment_schedules.no_show_forfeit`.
+ *
+ *  · THIS one is asked of the handful of REGISTERED switches, where the writer
+ *    is named and checkable. A false alarm here costs one file read; a miss is
+ *    what shipped six times.
+ *
+ * ⚠ I TIGHTENED THE WIDE NET ITSELF FIRST, AND IT WAS WRONG. Measured: 14
+ * columns newly reported "no writer" and the two checked by hand both had good
+ * writers. PR #4535 had already reasoned this out and declined to widen shared
+ * infrastructure inside a feature PR. It was right and I was not.
+ */
+export function writesColumnInOneChain(code: string, table: string, column: string): boolean {
+  const names = [`['"\`]${table}['"\`]`];
+  for (const d of code.matchAll(
+    new RegExp(`\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*['"\`]${table}['"\`]`, 'g'),
+  )) {
+    names.push(`\\s*${d[1]!}\\s*`);
+  }
+  for (const alt of names) {
+    for (const m of code.matchAll(new RegExp(`\\.from\\(\\s*${alt}\\s*[,)]`, 'g'))) {
+      const rest = code.slice(m.index! + m[0].length);
+      const verb = /^[\s\S]{0,200}?\.(?:update|insert|upsert)\(/.exec(rest);
+      if (!verb) continue;
+      /*
+        ⚠ `[^}]` NOT `[\s\S]` — the span must stay INSIDE the object being
+        written. A `[\s\S]{0,200}` window reads straight past the payload's
+        closing brace into the `.select('event_id, archived')` on the very next
+        line, so deleting the write still matched. #4535 hit this exact trap in
+        its own first cut and wrote it down; a budgeted span also shrinks
+        silently the moment somebody documents the payload.
+      */
+      const tail = rest.slice(verb[0].length - 1);
+      if (new RegExp(`^[\\s\\S]{0,40}?\\{[^}]{0,400}?\\b${column}\\b`).test(tail)) return true;
+    }
+  }
+  return false;
+}
+
 export function gateWritersOf(sources: Source[], table: string, column: string): string[] {
   const direct = sources
     .filter((s) => s.code.includes(column))
-    // SAME STATEMENT, not "somewhere in this file and somewhere else in this
-    // file" — see writesColumnOnTable for what the `&&` at file scope cost.
-    .filter((s) => writesColumnOnTable(s.code, table, column))
+    .filter((s) => writesTable(s.code, table) && namesColumnAsField(s.code, column))
     .map((s) => s.path);
   if (direct.length > 0) return direct;
 
@@ -354,27 +276,9 @@ export function gateWritersOf(sources: Source[], table: string, column: string):
   }
   if (helpers.size === 0) return [];
 
-  /*
-    🚨 THE COLUMN MUST BE IN THE HELPER CALL'S ARGUMENTS, not merely somewhere in
-    the same file. The old form asked two file-level questions again — "does this
-    file name the column anywhere" and "does it call any exported function from
-    any file that writes this table anywhere" — and dozens of files write
-    `events`, so it degenerated into "mentions the column and calls something".
-    Measured: with the one real writer of `events.archived` sabotaged, it
-    returned SIX files, none of which write that column, and the suite stayed
-    green. Same fault as the direct branch, one level of indirection along.
-  */
   return sources
     .filter((s) => s.code.includes(column) && namesColumnAsField(s.code, column))
-    .filter((s) =>
-      [...helpers].some((fn) => {
-        for (const m of s.code.matchAll(new RegExp(`\\b${fn}\\s*\\(`, 'g'))) {
-          const args = bracketedSpan(s.code, m.index! + m[0].length - 1);
-          if (args && namesColumnAsField(args, column)) return true;
-        }
-        return false;
-      }),
-    )
+    .filter((s) => [...helpers].some((fn) => new RegExp(`\\b${fn}\\s*\\(`).test(s.code)))
     .map((s) => s.path);
 }
 

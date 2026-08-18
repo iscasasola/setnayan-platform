@@ -777,3 +777,38 @@ test('a folded event type is always one tap from being shown', () => {
     'The create grid no longer un-folds when "show all" is pressed.',
   );
 });
+
+// ── 7 · THE HOME HEADER IS ONE LINE ─────────────────────────────────────────
+
+test('home has no greeting eyebrow and no tail hanging off the title', () => {
+  // Owner 2026-08-18, on a screenshot of this exact header: "we do not need
+  // these. it just eats up space and we want it to be simpler to understand on
+  // each page without too much side comments" — and on the target, "look at how
+  // apple makes everything simple." The rest of the app's page headers became
+  // one row in PR #4557; this one is built differently and was missed by that
+  // sweep's lint, whose scope is an `.sn-eye` inside a `<header>`.
+  //
+  // Both regressions are silent: a greeting line and a grey tail render
+  // perfectly, they just put two more things above the thing you came for.
+  const src = stripComments(read(LAUNCHER));
+  assert.doesNotMatch(
+    src,
+    /Kumusta,\s*\{greeting\}/,
+    'The greeting eyebrow is back above the title. It is the shape the owner ' +
+      'pointed at, and the name already appears on the composer right below it.',
+  );
+  assert.doesNotMatch(
+    src,
+    /Pick up where you left off/,
+    'The returning-user tail is back. It is decoration hanging off the title — ' +
+      'the state the owner actually screenshotted.',
+  );
+  // NOT a "no <span> in the h1" rule: the point is ONE line, not a ban on markup.
+  assert.match(
+    src,
+    /\{noEvents \? '.*first event\.' : 'Where to\?'\}/,
+    'The home title stopped being a single line per state. A brand-new account ' +
+      'has no events to look at, so the instruction IS its title; everyone else ' +
+      'gets "Where to?" and nothing else.',
+  );
+});

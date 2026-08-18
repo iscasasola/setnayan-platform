@@ -144,10 +144,18 @@ test('a refused read never renders as a money figure or a headcount of zero', ()
   );
 
   const dayOf = read('on-the-day/page.tsx');
-  assert.match(
-    dayOf,
-    /briefMeasured \? brief\?\.pax\.(invited|attending) \?\? 0 : null/,
-    'The day-of headcount must be null when the brief was not read. "0 / 0 ' +
-      'attending" is not a number anybody should set a room up from.',
-  );
+  // 🪤 THIS ASSERTION WAS DECORATIVE ON ITS FIRST DRAFT AND THE MUTATION RUN
+  // CAUGHT IT. It was written as `(invited|attending)`, which one match
+  // satisfies — so restoring the zero on the invited half left the attending
+  // half matching and the guard stayed GREEN (measured: 2 → 1 occurrences, still
+  // passing). A count over a file cannot say WHICH half is still right. Both
+  // halves are now named separately.
+  for (const half of ['invited', 'attending'] as const) {
+    assert.match(
+      dayOf,
+      new RegExp(`briefMeasured \\? brief\\?\\.pax\\.${half} \\?\\? 0 : null`),
+      `The day-of ${half} count must be null when the brief was not read. ` +
+        '"0 / 0 attending" is not a number anybody should set a room up from.',
+    );
+  }
 });

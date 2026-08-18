@@ -177,9 +177,6 @@ export default async function PersonalizationPage({
       {/* Band 1 — the basics (governance-free, editable inline) */}
       <div className="sn-tile p-4 sm:p-5">
         <h2 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">The basics</h2>
-        <p className="mb-3 mt-0.5 text-sm text-ink/55">
-          Your names, where you’re celebrating, the feel you’re after, and your working budget.
-        </p>
         <DetailsForm
           eventId={eventId}
           initialBrideFirst={brideName.first}

@@ -663,11 +663,6 @@ export default async function StudioPage({ params, searchParams }: Props) {
           story · music) are the pieces of the couple's living memory. */}
       <div className="sn-tile p-5 sm:p-6">
         <p className="sn-eye">Alaala · the memory you keep</p>
-        <p className="mt-3 max-w-prose text-[15px] leading-relaxed text-ink">
-          The pieces below become your <span className="italic">Alaala</span> — the living memory of
-          your day. The moments you’ll be too busy to see, the people who can’t be there, the stories
-          your guests tell — all kept, and made into something you hold.
-        </p>
         <p className="mt-2 max-w-prose text-[13px] leading-relaxed text-ink/60">
           And it never gets in the way. The day stays yours — the tech just quietly remembers it.
         </p>

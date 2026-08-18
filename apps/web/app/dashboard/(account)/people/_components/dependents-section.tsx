@@ -137,13 +137,6 @@ export async function DependentsSection() {
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
           Alaga
         </h2>
-        <p className="mt-1 text-sm text-ink/55">
-          The ones you care for — a person, a pet, a business, something you own, or anything
-          else. Their profile lives inside
-          your account and belongs to you; a child&rsquo;s becomes their own at 18. We store the
-          names, dates, and events that matter — not documents. Milestones and rites apply to a
-          person you plan for (a child or an elder).
-        </p>
       </header>
 
       {dependents.length > 0 ? (

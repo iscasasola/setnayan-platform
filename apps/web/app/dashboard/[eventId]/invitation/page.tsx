@@ -335,10 +335,6 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
             <p className="sn-eye">
               Your invitation site
             </p>
-            <p className="text-sm text-ink/60">
-              This is where every invitation goes — guests land here when they tap their
-              personal link or scan their QR.
-            </p>
             {publicLandingUrl ? (
               <p className="break-all font-mono text-sm text-ink/75">{publicLandingUrl}</p>
             ) : (

@@ -1,17 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import {
-  ArrowLeft,
-  Check,
-  Globe,
-  Lock,
-  EyeOff,
-  Heart,
-  CalendarClock,
-  Rocket,
-  Radio,
-  Users,
-} from 'lucide-react';
+import { Check, Globe, Lock, EyeOff, Heart, CalendarClock, Rocket, Radio, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -24,6 +13,7 @@ import {
 import { eventNoun } from '@/lib/event-noun';
 import { resolveSiteReachability } from '@/lib/launch-save-the-date';
 import type { EventVisibility } from '@/lib/event-visibility';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Who can view your event page' };
 
@@ -125,23 +115,12 @@ export default async function PrivacyEditorPage({
   return (
     <section className="space-y-8">
       {/* Header strip — back link + title */}
-      <header className="sn-reveal space-y-3">
-        <Link
-          href={`/dashboard/${eventId}/website`}
-          className="inline-flex items-center gap-1.5 text-sm text-terracotta hover:text-terracotta-700"
-        >
-          <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Back to your {eventNoun(event.event_type)} website
-        </Link>
-        <div className="space-y-2">
-          <p className="sn-eye flex items-center gap-2">
-            <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Who can view
-          </p>
-          <h1 className="sn-h1">
-            Set who can see your {eventNoun(event.event_type)} page
-          </h1>
-          <p className="max-w-prose text-base text-ink/70">
+      <PageMasthead
+        titleNode={<>Set who can see your {eventNoun(event.event_type)} page</>}
+        back={`/dashboard/${eventId}/website`}
+        backLabel="Back to your {eventNoun(event.event_type)} website"
+        lede={
+          <>
             Choose who can view {event.display_name ? <em>{event.display_name}</em> : `your ${eventNoun(event.event_type)}`} at{' '}
             {event.slug ? (
               <span className="font-mono text-sm">setnayan.com/{event.slug}</span>
@@ -149,9 +128,9 @@ export default async function PrivacyEditorPage({
               `your ${eventNoun(event.event_type)} URL`
             )}
             . You can change this anytime.
-          </p>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/* Saved confirmation — polite + non-dismissible (gone on next nav) */}
       {saved ? (

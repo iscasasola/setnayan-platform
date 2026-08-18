@@ -1,6 +1,5 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, Images } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -9,6 +8,7 @@ import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { updateOurPhotos } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { WebsiteProLock } from '../_components/website-pro-lock';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Edit our photos' };
 
@@ -90,30 +90,20 @@ export default async function OurPhotosEditorPage({
 
   return (
     <section className="space-y-6">
-      <header className="sn-reveal space-y-3">
-        <Link
-          href={`/dashboard/${eventId}/website`}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Back to Event Hub
-        </Link>
-        <div>
-          <p className="sn-eye flex items-center gap-2">
-            <Images aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Our photos
-          </p>
-          <h1 className="sn-h1 mt-1">
-            Your own gallery
-          </h1>
-          <p className="mt-2 max-w-prose text-sm text-ink/65">
+      <PageMasthead
+        title="Your own gallery"
+        back={`/dashboard/${eventId}/website`}
+        backLabel="Back to Event Hub"
+        lede={
+          <>
             Add a few of your favourite photos — your engagement shoot, a
             pre-wedding session, or candid moments. They appear as a gallery on
             your Event Hub. Leave it empty to hide the section. JPG, PNG,
             or WebP up to 10 MB each · up to {MAX_PHOTOS} photos.
-          </p>
-        </div>
-
+          </>
+        }
+      />
+      <div className="mt-3 space-y-3">
         {saved ? (
           <div
             role="status"
@@ -131,7 +121,7 @@ export default async function OurPhotosEditorPage({
             {error}
           </div>
         ) : null}
-      </header>
+      </div>
 
       <form action={updateAction} className="space-y-4">
         <FileUpload

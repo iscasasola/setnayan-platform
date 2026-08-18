@@ -50,11 +50,32 @@ export default async function VendorManpowerPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login?next=/vendor-dashboard/manpower');
 
-  const { data: vendor } = await supabase
+  const { data: vendor, error: vendorError } = await supabase
     .from('vendor_profiles')
     .select('vendor_profile_id, business_name')
     .eq('user_id', user.id)
     .maybeSingle();
+
+  // ⚠ THIS ABSENCE DENIES, WHICH IS THE SAFE DIRECTION — AND IT STILL SAID
+  // ⚠ SOMETHING FALSE. `!vendor` sent the viewer to /verify, i.e. "you are not
+  // ⚠ a verified supplier yet", which for a refused read is a claim about their
+  // ⚠ account made from a query that never answered. Denying is right; giving
+  // ⚠ the wrong reason is not, so a refusal now says so and keeps them here.
+  if (vendorError) {
+    logQueryError('vendor-manpower:vendor', vendorError, { userId: user.id });
+    return (
+      <div className="mx-auto w-full max-w-2xl px-4 py-16 sm:px-6">
+        <p
+          role="alert"
+          className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">We couldn&rsquo;t load your business just now.</strong>{' '}
+          This is not a problem with your account and nothing about your
+          verification has changed &mdash; the lookup failed. Reload in a moment.
+        </p>
+      </div>
+    );
+  }
 
   if (!vendor) {
     redirect('/vendor-dashboard/verify');
@@ -69,7 +90,10 @@ export default async function VendorManpowerPage() {
   // CREATE TABLE IF NOT EXISTS no-op'd against a pre-existing table).
   // Reconciled by 20271011120000. Until then both 42703'd, so this whole
   // surface — my gigs AND open gigs — was permanently empty.
-  const [{ data: myGigs, error: myGigsError }, { data: eventLinks }] = await Promise.all([
+  const [
+    { data: myGigs, error: myGigsError },
+    { data: eventLinks, error: eventLinksError },
+  ] = await Promise.all([
     // 1. Vendor's accepted/completed/cancelled gigs (vendor_profile_id match).
     supabase
       .from('manpower_gigs')
@@ -91,13 +115,26 @@ export default async function VendorManpowerPage() {
     });
   }
 
+  // ⚠ THIS ONE IS INVISIBLE AND IT COSTS THE SUPPLIER MONEY. `eventLinks` is
+  // ⚠ the list of events they are booked on, and it decides whether the open-gig
+  // ⚠ read below RUNS AT ALL. Refused, `?? []` made it empty, the query was
+  // ⚠ skipped entirely, and the panel said "No gigs yet · open gigs appear here
+  // ⚠ once a host you serve posts one" — paid work they could claim today,
+  // ⚠ reported as hosts not offering any. Nothing on screen looked broken.
+  if (eventLinksError) {
+    logQueryError('vendor-manpower:eventLinks', eventLinksError, {
+      vendorProfileId: vendor.vendor_profile_id,
+    });
+  }
+  const eligibleMeasured = !eventLinksError && eventLinks !== null;
   const eligibleEventIds = Array.from(
     new Set((eventLinks ?? []).map((row) => row.event_id)),
   );
 
   let openGigs: ManpowerGigRow[] = [];
+  let openGigsMeasured = eligibleMeasured;
   if (eligibleEventIds.length > 0) {
-    const { data: openGigsRaw } = await supabase
+    const { data: openGigsRaw, error: openGigsError } = await supabase
       .from('manpower_gigs')
       .select(
         'gig_id, event_id, posted_by_user_id, vendor_profile_id, gig_label, cash_amount_php_centavos, handshake_tokens_consumed, status, posted_at, accepted_at, completed_at, cancelled_at, cancellation_reason, notes, bir_exempt_note',
@@ -105,6 +142,13 @@ export default async function VendorManpowerPage() {
       .eq('status', 'pending')
       .in('event_id', eligibleEventIds)
       .order('posted_at', { ascending: false });
+    // ⚠ the claimable gigs themselves. Same cost, one step later.
+    if (openGigsError) {
+      logQueryError('vendor-manpower:openGigs', openGigsError, {
+        vendorProfileId: vendor.vendor_profile_id,
+      });
+      openGigsMeasured = false;
+    }
     openGigs = (openGigsRaw ?? []) as ManpowerGigRow[];
   }
 
@@ -150,9 +194,11 @@ export default async function VendorManpowerPage() {
             title="Open gigs · ready to claim"
             icon={<Clock className="h-4 w-4" strokeWidth={1.75} />}
             empty={
-              eligibleEventIds.length === 0
-                ? 'No gigs yet · open gigs appear here once a host you serve posts one.'
-                : 'No open gigs right now. Check back later.'
+              !openGigsMeasured
+                ? 'We couldn’t read the open gigs just now — this is not a statement that there are none. Reload in a moment.'
+                : eligibleEventIds.length === 0
+                  ? 'No gigs yet · open gigs appear here once a host you serve posts one.'
+                  : 'No open gigs right now. Check back later.'
             }
             gigs={openGigs}
           >

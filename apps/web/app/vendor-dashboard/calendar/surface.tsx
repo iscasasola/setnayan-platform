@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CalendarDays, CalendarPlus, CheckCircle2, Lock, UserPlus, Users, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { vendorWaitlistAcceptances } from '@/lib/vendor-tier-caps';
 import {
@@ -239,13 +240,34 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
   let waitlistEnabled = false;
   let waitlistCap = 1;
   let waitlistTierCap = 0;
+  // 🔑 THE SOFT PROBE IS RIGHT AND IS KEPT — degrading to "disabled" on a
+  // pre-migration database is the correct trade. What was missing is that the
+  // REASON never left this block: Supabase resolves with `{ error }` rather
+  // than throwing, so the catch below has never once fired for a refused read;
+  // the silent `?? null` did all the degrading. The errors are captured here so
+  // the fallback is unchanged and the cause still reaches the logs.
+  let settingsMeasured = true;
+  let pickedMeasured = true;
   const pickedByDate = new Map<string, number>();
   try {
-    const { data: ws } = await supabase
+    const { data: ws, error: wsError } = await supabase
       .from('vendor_profiles')
       .select('waitlist_enabled, max_waitlist_acceptances, tier_state')
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .maybeSingle();
+    // ⚠ THIS ROW CARRIES THEIR PLAN. Refused, `tier_state` is undefined,
+    // ⚠ `waitlistTierCap` computes to 0, and the surface renders "Holding a
+    // ⚠ waitlist isn't part of your current plan. Upgrade…" — an upsell shown to
+    // ⚠ a Pro or Enterprise supplier for a feature they are already paying for.
+    if (wsError) {
+      logQueryError(
+        'VendorCalendarSurface.waitlistSettings',
+        wsError,
+        { vendorProfileId: profile.vendor_profile_id },
+        'graceful_degrade',
+      );
+      settingsMeasured = false;
+    }
     const wsRow = ws as {
       waitlist_enabled?: boolean;
       max_waitlist_acceptances?: number;
@@ -260,12 +282,25 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
       Number(wsRow?.max_waitlist_acceptances) || 1,
       Math.max(waitlistTierCap, 1),
     );
-    const { data: picked } = await supabase
+    const { data: picked, error: pickedError } = await supabase
       .from('vendor_date_waitlist')
       .select('requested_date')
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .gte('requested_date', todayIso)
       .not('accepted_at', 'is', null);
+    // ⚠ the couples this supplier has ALREADY picked off the waitlist. Refused,
+    // ⚠ every date reads "0/N picked", so a choice they made about a real
+    // ⚠ couple reads as never made — and the count that tells them how much of
+    // ⚠ their plan's allowance is left is the one that goes wrong.
+    if (pickedError) {
+      logQueryError(
+        'VendorCalendarSurface.waitlistPicked',
+        pickedError,
+        { vendorProfileId: profile.vendor_profile_id },
+        'graceful_degrade',
+      );
+      pickedMeasured = false;
+    }
     for (const r of (picked ?? []) as { requested_date: string }[]) {
       pickedByDate.set(r.requested_date, (pickedByDate.get(r.requested_date) ?? 0) + 1);
     }
@@ -440,7 +475,19 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
           built from the tier rather than a hardcoded 1-3 — a vendor is never
           offered a number the database would clamp away behind their back.
           Off = booked dates read simply "unavailable" to couples. */}
-      {waitlistTierCap === 0 ? (
+      {!settingsMeasured ? (
+        // The plan is what decides this whole block, and we did not read it —
+        // so we must not say "not part of your plan", which is a claim about
+        // what they bought.
+        <p
+          role="alert"
+          className="mt-3 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-3 text-sm text-ink/70"
+        >
+          <strong className="text-ink">We couldn&rsquo;t read your waitlist settings.</strong>{' '}
+          Nothing here reflects your plan right now, and nothing has changed
+          about it. Reload in a moment.
+        </p>
+      ) : waitlistTierCap === 0 ? (
         // NO FAKE DOOR: a plan without a waitlist gets the sentence, not a
         // disabled switch that looks like a bug.
         <p className="mt-3 rounded-xl border border-ink/10 bg-white/60 p-3 text-sm text-ink/70">
@@ -513,7 +560,11 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
                       pendingLabel="Picking…"
                       className="rounded-lg bg-ink px-3 py-1.5 text-sm font-medium text-cream hover:bg-ink/90"
                     >
-                      Pick for waitlist ({pickedByDate.get(w.requestedDate) ?? 0}/{waitlistCap})
+                      {/* "0/3" over an unread count would say they have picked
+                          nobody. "—/3" says we do not know how many. */}
+                      Pick for waitlist (
+                      {pickedMeasured ? pickedByDate.get(w.requestedDate) ?? 0 : '—'}/
+                      {waitlistCap})
                     </SubmitButton>
                   </form>
                 ) : null}

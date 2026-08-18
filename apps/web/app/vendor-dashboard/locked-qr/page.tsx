@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Lock, Plus, Check, Clock, Ban } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { buildVendorLockUrl } from '@/lib/vendor-locked-qr';
 import { VENDOR_CATEGORY_LABEL, formatPhp, type VendorCategory } from '@/lib/vendors';
@@ -74,17 +75,32 @@ export default async function VendorLockedQrListPage() {
   if (!profile) redirect('/vendor-dashboard');
   const vendorProfileId = (profile as { vendor_profile_id: string }).vendor_profile_id;
 
-  const { data } = await supabase
+  const { data, error: tokensError } = await supabase
     .from('vendor_locked_qr_tokens')
     .select(
       'token, public_id, event_type, category, total_php, initial_paid_php, status, proof_r2_key, created_at, claimed_at',
     )
     .eq('vendor_profile_id', vendorProfileId)
     .order('created_at', { ascending: false });
+  // ⚠ EVERY LOCKED QR THIS SUPPLIER HAS ISSUED, and each one stands for a
+  // ⚠ customer who has already paid a downpayment. Refused, `?? []` made the
+  // ⚠ list empty AND the counts read "0 pending · 0 claimed", so a QR sitting
+  // ⚠ with a paying customer looks like it was never issued — and the obvious
+  // ⚠ response is to issue a second one for the same booking.
+  if (tokensError) {
+    logQueryError(
+      'VendorLockedQrListPage.tokens',
+      tokensError,
+      { vendorProfileId },
+      'graceful_degrade',
+    );
+  }
+  const measured = !tokensError && data !== null;
   const tokens = (data ?? []) as TokenRow[];
 
-  const pending = tokens.filter((t) => t.status === 'pending').length;
-  const claimed = tokens.filter((t) => t.status === 'claimed').length;
+  // null, not 0 — an unread count is not a count of none.
+  const pending = measured ? tokens.filter((t) => t.status === 'pending').length : null;
+  const claimed = measured ? tokens.filter((t) => t.status === 'claimed').length : null;
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
@@ -101,9 +117,11 @@ export default async function VendorLockedQrListPage() {
             <Lock className="h-6 w-6 text-terracotta" strokeWidth={1.75} /> Locked QRs
           </h1>
           <p className="text-sm text-ink/60">
-            {tokens.length === 0
-              ? 'The single-use QRs you issue to lock in a customer show up here.'
-              : `${pending} pending · ${claimed} claimed · ${tokens.length} total.`}
+            {!measured
+              ? 'We couldn’t read your Locked QRs just now.'
+              : tokens.length === 0
+                ? 'The single-use QRs you issue to lock in a customer show up here.'
+                : `${pending} pending · ${claimed} claimed · ${tokens.length} total.`}
           </p>
         </div>
         <Link
@@ -114,7 +132,17 @@ export default async function VendorLockedQrListPage() {
         </Link>
       </header>
 
-      {tokens.length === 0 ? (
+      {!measured ? (
+        <p
+          role="alert"
+          className="mt-6 rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">We couldn&rsquo;t load your Locked QRs.</strong>{' '}
+          This is not a statement that you have none. Any QR you have already
+          issued is still valid and can still be claimed &mdash; reload before
+          issuing a replacement.
+        </p>
+      ) : tokens.length === 0 ? (
         <div className="mt-6 rounded-2xl border border-dashed border-ink/20 p-8 text-center">
           <Lock className="mx-auto h-6 w-6 text-ink/40" strokeWidth={1.5} />
           <p className="mt-2 text-sm text-ink/70">

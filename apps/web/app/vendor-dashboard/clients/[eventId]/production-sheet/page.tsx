@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, ChefHat, Plus, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { PrintButton } from '@/components/print-button';
 import { addPortionRule, deletePortionRule } from './actions';
@@ -123,7 +124,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
   if (error || !data) redirect(`/vendor-dashboard/clients/${eventId}`);
   const metrics = data as Metrics;
 
-  const { data: ruleRows } = await supabase
+  const { data: ruleRows, error: ruleRowsError } = await supabase
     .from('vendor_portion_rules')
     .select(
       'rule_id, label, unit, qty_per_guest, applies_to_meals, applies_to_block, headcount_basis, waste_factor_pct',
@@ -131,6 +132,20 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
+  // ⚠ THE PORTION RULES EVERY NUMBER ON THIS SHEET IS COMPUTED FROM, on the
+  // ⚠ page a caterer works from on the day. Refused, `?? []` empties them, the
+  // ⚠ ingredient totals silently compute from nothing, and the page says "No
+  // ⚠ portion rules yet — add your first below" to somebody who wrote them
+  // ⚠ months ago.
+  if (ruleRowsError) {
+    logQueryError(
+      'VendorProductionSheet.rules',
+      ruleRowsError,
+      { vendorProfileId: profile.vendor_profile_id },
+      'graceful_degrade',
+    );
+  }
+  const rulesMeasured = !ruleRowsError && ruleRows !== null;
   const rules = (ruleRows ?? []) as PortionRule[];
 
   const mealEntries = Object.entries(metrics.meal_counts).sort((a, b) => b[1] - a[1]);
@@ -261,7 +276,17 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
           </p>
         ) : null}
 
-        {rules.length === 0 ? (
+        {!rulesMeasured ? (
+          <p
+            role="alert"
+            className="mt-3 rounded-lg border-t-[3px] border-mulberry/70 bg-mulberry/5 px-3 py-2 text-sm text-ink/70"
+          >
+            <strong className="text-ink">We couldn&rsquo;t load your portion rules.</strong>{' '}
+            The ingredient totals on this sheet are computed from them, so treat
+            everything below as unknown rather than zero — and do not re-enter
+            your rules, they are still saved.
+          </p>
+        ) : rules.length === 0 ? (
           <p className="mt-3 text-sm text-ink/55">
             No portion rules yet — add your first below (e.g. &ldquo;Rice — 0.2 kg per
             guest, +10% buffer&rdquo;).

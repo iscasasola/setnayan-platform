@@ -285,8 +285,10 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
         ── SO IT IS ANCHORED TO THE COLUMN, NOT THE VIEWPORT ──
         `left: max(0.75rem, calc(50% - 40.5rem))` — read right to left:
           · every room centres its column, so its left edge is `50% - half`
-          · the widest column any room uses is the 64rem stage → half = 32rem
-          · the rail is 7rem, plus a 1.5rem gap → 32 + 7 + 1.5 = 40.5rem
+          · the widest column any room uses is the 76rem desktop ceiling →
+            half = 38rem (it was the 64rem stage until the owner asked for the
+            page to fill more of a large monitor)
+          · the rail is 7rem, plus a 1.5rem gap → 38 + 7 + 1.5 = 46.5rem
         So on a wide screen the rail travels WITH the content and keeps a
         constant gap from it, instead of drifting to the edge as the window
         grows. The `max()` is the safety: below ~1296px that sum would go
@@ -312,7 +314,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
         rather than trusted. */}
     <nav
       aria-label="Site sections"
-      className="fixed left-[max(0.75rem,calc(50%-40.5rem))] top-1/2 z-30 hidden -translate-y-1/2 xl:block print:hidden"
+      className="fixed left-[max(0.75rem,calc(50%-46.5rem))] top-1/2 z-30 hidden -translate-y-1/2 xl:block print:hidden"
     >
       <ul className="flex w-[7rem] flex-col gap-0.5 rounded-2xl border border-ink/10 bg-cream/95 p-2 shadow-sm backdrop-blur">
         {slots.map(renderRailSlot)}

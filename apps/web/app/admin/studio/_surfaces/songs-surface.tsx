@@ -127,9 +127,15 @@ export async function SongsSurface({
                   </span>
                 </span>
               </span>
-              <form action={deleteSongAction} className="shrink-0">
-                <input type="hidden" name="song_id" value={s.song_id} />
-                <form action={setSongCuratedAction} className="shrink-0">
+              {/*
+                🪤 TWO SIBLING FORMS, NEVER NESTED. The curate switch first went
+                INSIDE the delete form — HTML forbids a nested form, the browser
+                drops the inner one, and the switch would have submitted DELETE.
+                An irreversible action, fired by a control labelled "Add to
+                list". Caught by `lint nested forms` in CI, not by me.
+              */}
+              <div className="flex shrink-0 items-center gap-2">
+                <form action={setSongCuratedAction}>
                   <input type="hidden" name="song_id" value={s.song_id} />
                   <input type="hidden" name="curated" value={s.is_curated_pick ? '0' : '1'} />
                   <SubmitButton
@@ -148,10 +154,13 @@ export async function SongsSurface({
                     {s.is_curated_pick ? 'In the list' : 'Add to list'}
                   </SubmitButton>
                 </form>
-                <DeleteSongButton
-                  song={{ song_id: s.song_id, title: s.title, artist: s.artist }}
-                />
-              </form>
+                <form action={deleteSongAction}>
+                  <input type="hidden" name="song_id" value={s.song_id} />
+                  <DeleteSongButton
+                    song={{ song_id: s.song_id, title: s.title, artist: s.artist }}
+                  />
+                </form>
+              </div>
             </li>
           ))
         )}

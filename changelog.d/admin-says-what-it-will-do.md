@@ -128,3 +128,10 @@ the act it names is decoration.*
 all red.
 
 SPEC IMPACT: None.
+
+🪤 **AND THE FIRST CUT NESTED THE TWO FORMS — CI caught it, not me.** The curate
+switch went *inside* the delete form. HTML forbids a nested form: the browser
+drops the inner one, so pressing **"Add to list"** would have submitted
+**DELETE**. An irreversible action fired by a control labelled as the opposite —
+on the same screen, in the same change, that exists to stop exactly that. They
+are siblings in a flex row now.

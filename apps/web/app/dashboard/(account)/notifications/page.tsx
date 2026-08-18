@@ -27,7 +27,6 @@ export default async function CoupleNotificationsPage() {
         title="Notifications"
         back="/dashboard"
         backLabel="Back to events"
-        lede="New messages, order quotes, and payment confirmations land here."
         actions={
           unreadCount > 0 ? (
             <form action={markAllNotificationsRead}>

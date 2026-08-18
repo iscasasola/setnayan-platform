@@ -120,14 +120,6 @@ export async function JournalSpotlightsSurface({
     <div>
       <PageMasthead
         title="Journal Spotlights"
-        lede={
-          <>
-            Credit a vendor inside a published Journal article. Free placements
-            (Featured partner / In partnership with) publish on one admin&rsquo;s
-            approval; a paid <strong>Sponsored</strong> placement needs a second
-            admin and always shows a &ldquo;Sponsored&rdquo; badge.
-          </>
-        }
         className="mb-6"
       />
 

@@ -59,7 +59,6 @@ export function OfflineSurface() {
     <div className="space-y-6">
       <PageMasthead
         title="Offline daemon"
-        lede="The offline daemon scaffolds IndexedDB queues + a background-sync service worker for the seven media services. During pilot the queues stay empty — the per-service upload paths land alongside each service’s V1.x refresh."
       />
 
       <OfflineDiagnosticLoader />

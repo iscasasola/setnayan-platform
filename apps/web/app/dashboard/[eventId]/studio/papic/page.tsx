@@ -543,7 +543,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             {papicEventWord === 'wedding' ? 'Wedding' : 'Event'} photo capture
           </span>
         }
-        lede="Your guests become the camera crew — every photo and 10-second clip lands in your gallery, tagged, in real time."
       />
 
       {/* ⚠ THE STRIP SITS BELOW StatusBanners ON PURPOSE. A confirmation must be

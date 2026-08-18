@@ -166,7 +166,6 @@ export default async function PapicStoragePage() {
     <div className="mx-auto max-w-5xl space-y-6 p-6">
       <PageMasthead
         title="Papic storage telemetry"
-        lede="The real web-copy ratio + per-event web-copy size, measured from actual captures. Watch these across the first ~50 Unli events to confirm the ₱15,000 Unli capture cap and the born-AVIF web-copy ratio hold up in the wild."
       />
 
       {/* WALL-SIZE COPIES — the doorway for the tile backfill. The wall renders

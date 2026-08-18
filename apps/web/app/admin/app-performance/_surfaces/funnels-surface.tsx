@@ -259,7 +259,6 @@ export async function FunnelsSurface({ searchParams }: Props) {
             Funnels
           </span>
         }
-        lede="Three Supabase-side funnels computed live from the platform’s own tables. The remaining four V1 funnels (Save-the-Date, Papic, Pro upgrade, Guided Planner) live in PostHog and link out below."
         className="mb-6"
       />
 

@@ -139,20 +139,6 @@ export default async function CustomQrGuestPage({ params }: Props) {
           carries the marketing for non-owners (Tier 4 surface-hygiene). */}
       <PageMasthead
         title={owns ? 'Your branded guest QRs' : 'One scan, and your guest finds everything'}
-        lede={
-          owns ? (
-            <>
-              A branded QR card for every guest — print, download, or set on
-              every table.
-            </>
-          ) : (
-            <>
-              Every guest already has a personal QR that opens their own
-              invitation. This upgrade dresses each one in your monogram and your
-              colors — a branded card you can print, send, or set on every table.
-            </>
-          )
-        }
       />
 
       {active ? (

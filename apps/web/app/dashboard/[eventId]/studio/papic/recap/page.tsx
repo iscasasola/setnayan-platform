@@ -90,12 +90,6 @@ export default async function CoupleRecapPage({
 
       <PageMasthead
         title="Your Recap"
-        lede={
-          <>
-            A living recap of your day — your love story, your photos, and the messages your guests
-            left — assembled automatically. Free, and yours to share.
-          </>
-        }
       />
       <div className="mt-3 space-y-3">
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">

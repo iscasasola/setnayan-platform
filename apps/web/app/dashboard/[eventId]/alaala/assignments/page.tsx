@@ -56,12 +56,6 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
     <section className="space-y-8">
       <PageMasthead
         title="Story Assignments"
-        lede={
-          <>
-            Assign a guest to each locked editorial moment. They&rsquo;ll get an email asking
-            them to share what they witnessed — in their own words.
-          </>
-        }
         actions={
           <Link
             href={`/dashboard/${eventId}/alaala`}

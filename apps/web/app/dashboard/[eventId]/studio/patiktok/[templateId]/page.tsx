@@ -62,11 +62,6 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
             {template.name}
           </>
         }
-        lede={
-          <>
-            {template.vibe}
-          </>
-        }
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,360px)_1fr]">

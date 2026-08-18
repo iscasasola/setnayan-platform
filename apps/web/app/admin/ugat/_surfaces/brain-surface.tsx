@@ -185,12 +185,6 @@ export async function BrainSurface() {
             Today&apos;s Focus brain
           </span>
         }
-        lede={
-          <>
-            Curated Filipino-wedding knowledge feeding the AI Today&apos;s Focus
-            chat.
-          </>
-        }
         className="mb-6"
       />
 

@@ -32,7 +32,6 @@ export async function WebsiteSurface({ page: pageRaw }: { page?: string }) {
     <div>
       <PageMasthead
         title="Website editor"
-        lede="Toggle and reorder marketing-site widgets per page. Each change is audit-logged; the public site picks up edits on its next render (cache TTL 60s). Per-widget config (thresholds · copy · variants) stays code-locked in V1."
         className="mb-6"
       />
 

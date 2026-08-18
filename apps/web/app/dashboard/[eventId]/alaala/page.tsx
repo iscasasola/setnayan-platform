@@ -224,15 +224,6 @@ export default async function AlaalaPage({ params }: Props) {
       {/* ── Header — name the pillar + the promise + the guardrail ── */}
       <PageMasthead
         title="Your wedding, kept alive."
-        lede={
-          <>
-            This is your <span className="italic">Alaala</span> — the living memory of your day, made
-            from everything Setnayan helps you capture and keep. Watch it come together, piece by
-            piece.
-
-And it never gets in the way. The day stays yours — the tech just quietly remembers it.
-          </>
-        }
       />
 
       {/* ── Most storied moments (only when Kwentos exist) ── */}

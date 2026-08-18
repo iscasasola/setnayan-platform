@@ -202,7 +202,6 @@ export function ServicesTakeover({
           title="Marketplace"
           back={`/dashboard/${eventId}`}
           backLabel="Back to your event"
-          lede="Everyone you could hire, everyone you have chosen, and what you owe them — on one page."
         />
       ) : null}
 

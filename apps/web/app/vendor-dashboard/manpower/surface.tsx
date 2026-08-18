@@ -167,12 +167,6 @@ export default async function VendorManpowerPage() {
       <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
         <PageMasthead
           title="Manpower gigs"
-          lede={
-            <>
-              Pick up day-of crew gigs from hosts you&apos;re already serving. Free
-              to accept · cash flows direct from the host to your crew.
-            </>
-          }
         />
 
         {/* BIR-exempt note · surfaced prominently per spec */}

@@ -11,13 +11,6 @@ export default function NewVenuePage() {
         title="New venue"
         back="/admin/venues"
         backLabel="Back to venues"
-        lede={
-          <>
-            New row in <code className="font-mono">venue_directory</code>. Couples
-            will see this venue in the marketplace Paired-Venue panel once it
-            falls within 10 km of a reception anchor.
-          </>
-        }
         className="mb-6"
       />
 

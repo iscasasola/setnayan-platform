@@ -145,7 +145,6 @@ export default async function WebsiteHubPage({
             {event.display_name || `Your ${eventNounCap(event.event_type)} page`}
           </>
         }
-        lede="One page for everything your guests need — your story, the details, and their RSVP. Open the editor to style it, then share your link."
       />
 
       {/* Hero — public site identity + the primary "Launch editor" action */}

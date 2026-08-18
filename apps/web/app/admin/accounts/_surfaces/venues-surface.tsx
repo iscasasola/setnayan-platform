@@ -139,7 +139,6 @@ export async function VenuesSurface({
       <PageMasthead
         className="mb-6"
         title="Venue directory"
-        lede="Read-only directory of known PH wedding venues. Powers the marketplace Paired-Venue recommendation panel. Admins curate this list while the full venue marketplace (per-location calendar + day-rates) is being built."
         actions={
           <Link
             href="/admin/venues/new"

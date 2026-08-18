@@ -55,16 +55,6 @@ export default async function EditVenuePage({ params }: Props) {
         }
         back="/admin/venues"
         backLabel="Back to venues"
-        lede={
-          <>
-            {row.slug} · created{' '}
-            {new Date(row.created_at).toLocaleDateString('en-PH', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-            })}
-          </>
-        }
         className="mb-6"
       />
 

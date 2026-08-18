@@ -248,7 +248,6 @@ export default async function LifeFlashPage({
         title="Life-Flash"
         back="/dashboard"
         backLabel="Back to events"
-        lede="The moments that mattered most, and the people who kept showing up — seen through every camera that was there. Gathered while you’re living them."
         className="mb-6"
       />
 

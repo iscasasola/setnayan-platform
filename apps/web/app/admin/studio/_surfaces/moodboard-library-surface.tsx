@@ -89,18 +89,6 @@ export async function MoodboardLibrarySurface() {
         title="Moodboard Library"
         back="/admin"
         backLabel="Back to admin overview"
-        lede={
-          <>
-            The shared template library for the Visual preview pillars (Location feel + Dress codes).
-            Upload a photo, tap a color in the image to sample it, adjust the tolerance, and save it
-            to a palette slot. Couples will see this asset with their own palette applied to the
-            tagged regions.
-
-V1 source = internet placeholder. V1.x = Higgsfield-generated. V1.x+ = approved stylist
-            contributions. Stylist private uploads stay on the stylist&apos;s own Google Drive (not
-            here).
-          </>
-        }
         className="mb-6"
       />
 

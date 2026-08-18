@@ -149,7 +149,6 @@ export default async function PatiktokBoothDashboard({
             ) : null}
           </>
         }
-        lede="Re-scan the printed booth QR anytime to pick up where you left off. Token is event-scoped and persists across phones for the full event- day pack window."
       />
 
       <CapacityStrip

@@ -87,7 +87,6 @@ export default async function WebsiteProBuyPage({ params }: Props) {
             Event Hub PRO
           </span>
         }
-        lede="Every premium touch across your whole Event Hub — one unlock."
       />
 
       {/* What it covers — benefit language, no implementation names. */}

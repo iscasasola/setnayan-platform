@@ -108,7 +108,6 @@ export default async function EditorialProBuyPage({ params }: Props) {
             Editorial PRO
           </span>
         }
-        lede="Your wedding, told as a front-page story — authored by you."
       />
 
       {/* What it does — benefit language, no implementation names. */}

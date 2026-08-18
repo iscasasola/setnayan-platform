@@ -38,11 +38,6 @@ export default async function EventActivityPage({
     <section className="sn-col space-y-6">
       <PageMasthead
         titleNode={<>{tr('section.recent_activity')}</>}
-        lede={
-          <>
-            {event.display_name} · everything that happened, newest first.
-          </>
-        }
         actions={
           <Link
             href={`/dashboard/${eventId}`}

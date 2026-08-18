@@ -274,14 +274,6 @@ export default async function PapicModerationPage({
         }
         back={`/dashboard/${eventId}/studio/papic`}
         backLabel="Back to Papic"
-        lede={
-          <>
-            Every guest photo lands here. Hide anything you don&rsquo;t want in
-            your gallery, report it to the Setnayan team for review, or block a
-            guest&rsquo;s camera for this wedding. Blocking is limited to this
-            event only.
-          </>
-        }
       />
 
       {notice && (

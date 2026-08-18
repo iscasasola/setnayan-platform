@@ -270,11 +270,6 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
             {chrome.heading}
           </>
         }
-        lede={
-          <>
-            {chrome.intro}
-          </>
-        }
         actions={
           <>
             {totalCount > 0 ? (

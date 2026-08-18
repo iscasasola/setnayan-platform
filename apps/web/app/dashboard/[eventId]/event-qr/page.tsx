@@ -98,15 +98,6 @@ export default async function EventQrPage({ params }: Props) {
     <div className="space-y-6">
       <PageMasthead
         title="For your photography + livestream crew"
-        lede={
-          <>
-            Each crew member scans this QR with their capture device to pair it
-            with your event. You can register up to 5 devices per vendor —
-            enough for the lead photographer, second shooter, drone operator,
-            and two backup phones. Need to swap a device? Ask your vendor to
-            revoke the slot and re-pair.
-          </>
-        }
       />
 
       <div className="m-card p-6 sm:p-8">

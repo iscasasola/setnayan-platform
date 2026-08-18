@@ -248,15 +248,56 @@ export function writesColumnInOneChain(code: string, table: string, column: stri
       const verb = /^[\s\S]{0,200}?\.(?:update|insert|upsert)\(/.exec(rest);
       if (!verb) continue;
       /*
-        ⚠ `[^}]` NOT `[\s\S]` — the span must stay INSIDE the object being
-        written. A `[\s\S]{0,200}` window reads straight past the payload's
-        closing brace into the `.select('event_id, archived')` on the very next
-        line, so deleting the write still matched. #4535 hit this exact trap in
-        its own first cut and wrote it down; a budgeted span also shrinks
-        silently the moment somebody documents the payload.
+        BOUNDED BY THE UPDATE CALL'S OWN PARENTHESES — `.update( … )`.
+
+        The bound comes from the syntax, not from a guess. A closing paren
+        cannot be reached before the argument list ends, so the next chained
+        call is outside by construction: no budget to shrink when somebody
+        documents the payload, and nesting is handled for free.
+
+        ⚠ THREE WRONG SPANS CAME FIRST, EACH MEASURED BY DIFFING THE FLAGGED
+        COLUMN NAMES — never by comparing totals:
+
+         · `[\s\S]{0,600}` (the original inline form) runs past the payload
+           into the `.select('event_id, archived')` on the next line, so
+           deleting the write still matched.
+         · `[^}]{0,400}` — my correction to it, and it shipped. It stops at the
+           FIRST `}`, which any nested object or closure inside the payload
+           supplies early. Measured: **41 columns flagged against the older
+           form's 31 — a strict SUPERSET**, ten real writers lost purely to a
+           `{ … }` in the payload. My fix was worse than what it replaced, and
+           it was only latent because the strict question is asked of six
+           registered switches whose payloads happen to be flat.
+         · brace-matching the first literal is better (29) but misses a TERNARY:
+           `.update(role === 'a' ? { joined_a: true } : { joined_b: true })`
+           checks only the first branch, so `joined_b` reads as unwritten.
+
+        🔑 A TOTAL THAT MATCHES IS NOT THE SET MATCHING. 14-vs-16 looked close
+        enough that I took it as rediscovering a known finding; diffed by NAME,
+        the overlap ran one way entirely and the extra ten were mine alone.
+        Comparing counts is what let a strictly-worse pattern look like a fix.
+
+        ⛔ STILL OUT OF REACH, AND STATED RATHER THAN BASELINED: a payload built
+        by dataflow. `...parsed.patch` (object spread — the column name never
+        appears) and `.insert(rows)` where `rows` came from a `.map()` are real
+        writers no source pattern can see. `vendor_bot_config.enabled` and
+        `vendor_service_payment_schedules.no_show_forfeit` are written that way
+        today. A registered switch written like that belongs in NO_SINGLE_CHAIN
+        with its reason — a stated limit gets checked; a baseline gets trusted.
       */
-      const tail = rest.slice(verb[0].length - 1);
-      if (new RegExp(`^[\\s\\S]{0,40}?\\{[^}]{0,400}?\\b${column}\\b`).test(tail)) return true;
+      const call = rest.slice(verb[0].length - 1);
+      let depth = 0;
+      for (let i = 0; i < call.length; i += 1) {
+        const ch = call[i]!;
+        if (ch === '(') depth += 1;
+        else if (ch === ')') {
+          depth -= 1;
+          if (depth === 0) {
+            if (new RegExp(`\\b${column}\\b`).test(call.slice(0, i + 1))) return true;
+            break;
+          }
+        }
+      }
     }
   }
   return false;

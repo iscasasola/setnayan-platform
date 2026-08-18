@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import {
@@ -58,12 +59,16 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: membership } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle();
+  // ⚠ the viewer's membership. Absence DENIES rather than renders.
+  if (membershipError) {
+    logQueryError('PapicCrewPage.membership', membershipError, { eventId }, 'graceful_degrade');
+  }
   if (!membership || membership.member_type !== 'couple') {
     redirect(`/dashboard/${eventId}`);
   }
@@ -73,22 +78,31 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
   // The roster is every claim-link seat — the PAPIC_SEATS pack plus any paid
   // per-camera Unlimited extras. ownsPack tells the zero-state apart: an owner
   // with no seats yet can top them up; a non-owner is pointed back to set Papic up.
-  const { data: eventRow } = await supabase
+  const { data: eventRow, error: eventRowError } = await supabase
     .from('events')
     .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ the event record. Degrades rather than claiming.
+  if (eventRowError) {
+    logQueryError('PapicCrewPage.eventRow', eventRowError, { eventId }, 'graceful_degrade');
+  }
   const eventSlug = (eventRow as { slug?: string | null } | null)?.slug ?? null;
 
   // ⚠ CAN THE POSTER QR ACTUALLY BE SCANNED? Until 2026-08-10 this page printed
   // it from the slug alone, so a PRIVATE event handed the host a QR that opens
   // to "Link not found" — the invite door refuses private events by design
   // (2026-08-06) and nothing here knew. See lib/shared-join-link.ts.
-  const { data: joinTokenRow } = await supabase
+  const { data: joinTokenRow, error: joinTokenRowError } = await supabase
     .from('event_join_tokens')
     .select('token, revoked_at, expires_at')
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ the join link for the crew. Refused, the page offers no way in and looks as
+  // ⚠ though sharing was never set up.
+  if (joinTokenRowError) {
+    logQueryError('PapicCrewPage.joinTokenRow', joinTokenRowError, { eventId }, 'graceful_degrade');
+  }
   const joinTokenValid =
     !!joinTokenRow?.token &&
     !joinTokenRow.revoked_at &&
@@ -153,10 +167,15 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
   const claimerIds = [...new Set(seats.map((s) => s.claimer_user_id).filter(Boolean))] as string[];
   const nameByUserId = new Map<string, string>();
   if (claimerIds.length > 0) {
-    const { data: holders } = await createAdminClient()
+    const { data: holders, error: holdersError } = await createAdminClient()
       .from('users')
       .select('user_id, display_name')
       .in('user_id', claimerIds);
+    // ⚠ the names of the people holding each camera. Refused, every seat reads as
+    // ⚠ unclaimed or unnamed — the couple cannot tell who has what.
+    if (holdersError) {
+      logQueryError('PapicCrewPage.holders', holdersError, { eventId }, 'graceful_degrade');
+    }
     for (const h of (holders ?? []) as Array<Record<string, unknown>>) {
       if (typeof h.user_id === 'string' && typeof h.display_name === 'string') {
         nameByUserId.set(h.user_id, h.display_name);

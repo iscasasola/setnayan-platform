@@ -32,11 +32,41 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   'vendor-partnerships':
     'Vendor-to-vendor partnership claims awaiting two-admin verification.',
   payments: 'Order payments awaiting reconciliation.',
-  payouts: 'Vendor payouts ready to release.',
+  /*
+    ⚠ NOT A LIVE QUEUE, and the old wording said it was. Owner, asked directly
+    2026-08-19: *"we do not have a payout."* He is right, and the code agrees —
+    `lib/admin/work-rows.ts` took payouts off the work list on 2026-08-04
+    because it "can never accrue new work": the 2026-05-28 V2 cutover made
+    Setnayan a software publisher rather than a marketplace intermediary, and
+    couples pay vendors directly, off-platform. It fires only for pre-V2 orders
+    still carrying a vendor id.
+
+    🔑 A CARD THAT SAYS "READY TO RELEASE" DESCRIBES MONEY WAITING ON YOU. This
+    one can never have any, so the sentence was work that does not exist —
+    invented by the description, not by the product. Kept rather than deleted
+    because the pre-V2 trail must stay readable during a dispute.
+  */
+  payouts: 'Closed trail from before Setnayan stopped handling vendor money — nothing new arrives here.',
   subscriptions: 'Vendor Pro / Enterprise upgrades awaiting confirmation.',
   'payment-options': 'Vendor payment destinations awaiting a fraud screen.',
   disputes: 'Open customer and vendor disputes.',
-  'pax-changes': 'Guest-count change requests awaiting review.',
+  /*
+    ⚠ NOTHING IS AWAITING REVIEW HERE. The page's own docblock: *"Read-only by
+    design — the parties act on their own surfaces; HQ only observes."* A guest
+    count moves, the cost recalculates, the vendor accepts or declines the
+    surcharge on their own screen, and a row lands here as a trail so a mediator
+    can answer "why did this vendor's cost jump?" during a dispute.
+
+    Owner 2026-08-19, asked whether pax changes should be automatic:
+    *"automatic."* They already are. The vendor's `min_pax` is a BILLING FLOOR,
+    not a refusal — the count may drop freely and the service still bills at the
+    minimum — which is what makes fully-automatic safe.
+
+    🔑 "AWAITING REVIEW" PUT WORK ON A SCREEN THAT HAS NONE. It is how a
+    read-only trail came to look like ten uncounted queues in a review of the
+    admin console.
+  */
+  'pax-changes': 'Trail of guest-count cost changes — applied automatically; HQ only observes.',
   'force-majeure': 'Event-impacting flags to triage.',
   completions: 'Booking completions awaiting the final handshake.',
   reviews: 'Review appeals awaiting a decision.',

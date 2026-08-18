@@ -668,7 +668,7 @@ test('the event rail is the five destinations plus "Also in this event"', () => 
   */
   assert.deepEqual(
     keysByGroup.also,
-    ['personalization', 'hosts', 'schedule', 'seat', 'budget'],
+    ['personalization', 'hosts', 'refer', 'schedule', 'seat', 'budget'],
     'The "Also in this event" group changed.',
   );
   // Both must actually point somewhere inside this event.
@@ -678,6 +678,19 @@ test('the event rail is the five destinations plus "Also in this event"', () => 
     '/dashboard/EVT123/details',
   );
   assert.equal(also.find((i) => i.key === 'hosts')?.href, '/dashboard/EVT123/hosts');
+  /*
+    ⏳ REFER WAS NEVER CLICKABLE FOR A SINGLE DAY. The account switcher replaced
+    the old profile menu on 2026-06-17; this link was added to that already-dead
+    menu on 2026-07-10, three weeks later. The morning's fix restored two of the
+    dead menu's rows and missed this third one — which is why the coverage check
+    is now DERIVED from that component rather than hand-listed.
+
+    🔒 It keeps the key 'refer' so the event layout's existing `navHideKeys` gate
+    hides it while the referral programme is off. That gate had been filtering on
+    a key no item carried, so it hid nothing while still costing a query on every
+    event page render.
+  */
+  assert.equal(also.find((i) => i.key === 'refer')?.href, '/dashboard/EVT123/refer');
   // 🔒 BUDGET HAS NO TOP-LEVEL ROW ON PURPOSE (owner 2026-07-10) — it lives
   // inside Marketplace beside Build and Compare, and is surfaced here only as a
   // quiet flat link. Promoting it is a product reversal, not a tidy-up.

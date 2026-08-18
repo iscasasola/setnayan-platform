@@ -49,3 +49,72 @@ fails CLOSED instead of open (1→0) · M4 the plausible refactor — gate moved
 PR a restore silently failed and left the sabotage in the file.
 
 SPEC IMPACT: None — no migration, no column, no permission, no price change.
+
+## 2026-08-18 · fix(papic): the refusal reaches the person, and stops congratulating them
+
+Seven fixes from an adversarial review pass, run before merge. The server half
+of this PR was right; **every client surface absorbed its refusal into a message
+that meant something else**, and the one sentence written to explain the refusal
+had no readers at all.
+
+**🚨 A PUT-AWAY REFUSAL REACHED THE GUEST AS A CONGRATULATION.** The route
+answers `409`, and the guest camera reads *every* 409 as "you are out of shots":
+it called `setRemaining(0)`, which disables the shutter for the rest of the
+session, and painted *"That's all {total} photos, {guestName}! … They'll treasure
+these."* over a photo that had been refused before it was ever stored. With guest
+buying on, the "Add shots" sheet then auto-opened and offered to sell them more
+shots that also could not be taken.
+🔑 **A REFUSAL THAT REUSES ANOTHER REFUSAL'S STATUS CODE INHERITS ITS COPY.** The
+status field is what separates them, so it has to be asked FIRST. Both capture
+sites in that file are fixed, and the guard asserts the ordering **per
+occurrence** — a check on the first index alone passes while the second is wrong,
+which is exactly how this shipped.
+
+**🚨 THE SEAT CAMERA QUEUED SHOTS THAT COULD NEVER LAND.** `event_put_away` was
+missing from `PAPIC_TERMINAL_ERRORS`, so a refused shot fell to the queue branch,
+where the optimistic count is deliberately NOT rolled back ("ownership transfers
+to the queue — the shot WILL land") and the photographer is told *"A shot will
+finish uploading once you're back online."* They are online. Every drain replays
+presign → R2 PUT → the same refusal, up to 50 times, until the 7-day TTL evicts
+it silently. They finish the night believing they captured dozens of photos that
+do not exist. The generic terminal copy was wrong too — *"tap it in the roll to
+retry"* instructs somebody to retry what can never succeed.
+
+**🔑 THE SIXTH GATE WITH NO HANDLE, IN A NEW COSTUME: THE COPY.**
+`EVENT_PUT_AWAY_CAPTURE_COPY` — written deliberately client-side so a surface
+could render it, and even naming the way back — was imported by **nothing**.
+Declaration and re-export only. A refusal nobody can read is the same shape as a
+switch nobody can press. It now has three readers, and a guard that asserts they
+exist.
+
+**⚖ THE GATE WAS SCOPED TO A SKU ALLOW-LIST.** It sat inside `if (cameraTier)`,
+so a seat outside `PER_CAMERA_SKUS` (the legacy `PAPIC_SEATS` pack) skipped it
+entirely, while the function's own docblock claims the rule covers
+`recordSeatCapture` unqualified. Latent, not live — checkout refuses that retired
+SKU — and hoisted anyway.
+🪤 **The existing position test could not see it.** Asserting
+`indexOf(gate) < indexOf('if (!unlocked)')` is satisfied by the buggy placement:
+an ORDER check says nothing about which conditional you are nested inside. The
+new guard measures **indentation**.
+
+**🛡 TWO GUARDS PINNED A SPELLING; BOTH NOW ASSERT THE RULE.** The existing
+`live-wall-guest-mirror` assertion pinned `.select('live_photo_wall_visibility')`
+exactly, so widening that same select to add `archived` — same query, same keys,
+no behaviour change — **reddened CI**, and this PR's own two new pins reproduced
+the identical cause. All three are re-anchored inside the select string literal,
+which keeps the property that made the original valuable (a column merely
+MENTIONED in the type cast still fails) while surviving column order and extra
+columns. Measured: `.select('event_id')` fails, `.select('*')` fails, the
+near-miss `live_photo_wall_visibility_backup` fails, and a
+behaviour-preserving reorder-plus-rename passes.
+
+🪤 **TWICE IN ONE SESSION A GUARD'S MATCH WINDOW SHRANK BECAUSE SOMEBODY
+DOCUMENTED THE CODE.** A `[\s\S]{0,600}` window between two anchors failed against
+correct code once the explanatory note was written between them — `stripComments`
+blanks a comment while preserving its length. Both are re-bounded by what the
+thing IS (slice to `]);`, slice by brace) rather than by a character budget.
+
+Seven mutations across both guard files, each measured by occurrence count, all
+red; baseline green before and after.
+
+SPEC IMPACT: None.

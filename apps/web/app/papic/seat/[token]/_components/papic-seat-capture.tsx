@@ -39,6 +39,7 @@ import {
   enqueuePapicSeatCapture,
   isPapicTerminalError,
 } from '@/lib/offline/service-handlers/papic-drain';
+import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
 import { triggerSyncNow } from '@/lib/offline/sync-daemon';
 import {
   getPapicQualityTier,
@@ -717,6 +718,23 @@ export function PapicSeatCapture({
               : "A shot didn't upload — tap it in the roll to retry.",
           );
         };
+        /*
+          A put-away celebration is terminal, but it is not a FAILED UPLOAD, and
+          the generic terminal copy — "tap it in the roll to retry" — instructs
+          the photographer to retry something that can never succeed no matter
+          how many times they tap. Nothing they can do from this screen brings
+          the celebration back; only the host can, from somewhere else. So it
+          gets the sentence that says so, and the shot is marked refused rather
+          than failed.
+
+          The optimistic count is still rolled back: the shot did not land.
+        */
+        if (code === 'event_put_away') {
+          patchShot(shot.id, { status: 'failed' });
+          rollbackCount(shot.kind);
+          setSaveError(EVENT_PUT_AWAY_CAPTURE_COPY);
+          return;
+        }
         // A terminal server rejection (revoked seat, window closed, …) can never
         // succeed on retry — surface it and roll the optimistic count back.
         if (isPapicTerminalError(code)) {

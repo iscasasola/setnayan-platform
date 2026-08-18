@@ -34,6 +34,7 @@ import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captchaOptions, captchaTokenFromForm, isCaptchaRefusal } from '@/lib/turnstile';
 import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
 import { captureWindowState } from '@/lib/papic-window';
+import { eventAcceptsNewCaptures } from '@/lib/event-accepts-captures';
 
 // Server-side 10-second clip cap (owner 2026-07-22 · §0 · not configurable). The
 // client enforces 10s with a recorder timer; this tolerance (10.5s) absorbs
@@ -315,6 +316,44 @@ export async function recordSeatCapture(
   // silently moves credits between the camera and the pot — it would either
   // inflate the camera's guaranteed floor or hand the couple back credits the
   // camera actually spent.
+  /*
+    ── PUT AWAY = the shutter stops (owner 2026-08-16) ───────────────────────
+    OUTSIDE the `if (cameraTier)` block, deliberately. It sat inside on the
+    first cut, which scoped a rule about the EVENT to a per-camera SKU
+    allow-list: a seat whose `sku_code` is outside PER_CAMERA_SKUS (the legacy
+    PAPIC_SEATS pack) resolves `cameraTier === null` and skipped the gate
+    entirely, while this function's own docblock claims the rule covers
+    recordSeatCapture unqualified. No live seat escapes today — checkout refuses
+    the retired SKU — so this is a latent hole, not a live one, which is exactly
+    the kind that gets found by the first person to buy the wrong thing.
+
+    🪤 AND THE POSITION TEST COULD NOT SEE IT. Asserting
+    `indexOf('eventAcceptsNewCaptures(') < indexOf('if (!unlocked)')` is
+    satisfied by the buggy placement too — an ORDER check says nothing about
+    which conditional you are nested inside.
+
+    Not in the credit reservation below either: that call is skipped entirely
+    for an event holding the Papic Unlock pass, so a gate there would be missing
+    on exactly the events that paid the most.
+
+    Fails OPEN — see the helper for why a read failure must never stop a live
+    celebration's cameras. Wrapped, because an unavailable admin client must
+    take the same fail-OPEN branch as an unreadable row: a config error must
+    never be the thing that stops a wedding's cameras.
+  */
+  let acceptsCaptures = true;
+  try {
+    acceptsCaptures = await eventAcceptsNewCaptures(
+      createAdminClient(),
+      seat.event_id as string,
+    );
+  } catch {
+    acceptsCaptures = true;
+  }
+  if (!acceptsCaptures) {
+    return { ok: false, error: 'event_put_away' };
+  }
+
   let abortReleaseDedicated = 0;
   let abortReleasePool = 0;
   {

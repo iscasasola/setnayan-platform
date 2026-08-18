@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ImagePlus, Loader2, RotateCw, Smile, Type, Undo2, X } from 'lucide-react';
 import { PAPIC_STYLES, cssPreviewFilter, type PapicStyle } from '@/lib/papic-photo-styles';
+import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
 
 const STICKERS = [
   '❤️', '😍', '🥰', '😘', '😂', '🥹', '😭', '🔥',
@@ -284,6 +285,12 @@ export function KwentoDecorator({
         setDone(true);
         setSavedCaptureId(data.captureId ?? null);
         setStatus('Saved to the host’s gallery ✨');
+      } else if (data.status === 'event_put_away') {
+        // Without this arm the guest falls to "Couldn't save — please try
+        // again." and taps save over and over on something that can never
+        // succeed. Nothing about their photo is wrong; the celebration stopped
+        // taking new ones, and only the host can undo that.
+        setStatus(EVENT_PUT_AWAY_CAPTURE_COPY);
       } else if (data.status === 'quota_exhausted') {
         setStatus('You’ve used all your photos for this event.');
       } else if (data.status === 'terms_required') {

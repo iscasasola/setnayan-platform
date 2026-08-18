@@ -248,14 +248,33 @@ export async function guestWallMirrorActive(
   // as "no objection" is exactly how a guard ends up unable to fire.
   const { data, error } = await client
     .from('events')
-    .select('live_photo_wall_visibility')
+    .select('live_photo_wall_visibility, archived')
     .eq('event_id', eventId)
     .maybeSingle();
   if (error || !data) return false;
 
-  return wallGuestMirrorOn(
-    (data as { live_photo_wall_visibility?: string | null }).live_photo_wall_visibility,
-  );
+  const row = data as {
+    live_photo_wall_visibility?: string | null;
+    archived?: boolean | null;
+  };
+
+  /*
+    PUT AWAY = the wall goes quiet (owner 2026-08-16). Folded into the read this
+    gate ALREADY makes rather than added as a second query — one column on an
+    existing select, no extra round trip on a feed that re-asks every 25s.
+
+    ⚠ Unlike the capture gate, this half fails CLOSED, and that is not an
+    inconsistency: the surrounding function already returns false on an
+    unreadable row, and the harm here is the opposite shape. A wall that will
+    not paint is a disappointment; a wall still playing a celebration somebody
+    put away is the thing the couple thought they had stopped.
+
+    🔒 The VENUE projection is deliberately untouched (owner-locked 2026-06-11).
+    This gate governs the mirror onto guests' phones only.
+  */
+  if (row.archived === true) return false;
+
+  return wallGuestMirrorOn(row.live_photo_wall_visibility);
 }
 
 export interface WallSnapshot {

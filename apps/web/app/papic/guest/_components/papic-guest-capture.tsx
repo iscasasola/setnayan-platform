@@ -1,5 +1,6 @@
 'use client';
 
+import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import {
   Camera,
@@ -436,6 +437,23 @@ export function PapicGuestCapture({
         eventDay?: string | null;
       };
 
+      /*
+        🚨 THIS MUST STAY ABOVE THE 409 BRANCH. The put-away refusal answers 409,
+        and the branch below reads EVERY 409 as "you are out of shots": it calls
+        `setRemaining(0)`, which flips `exhausted` and disables the shutter for the
+        rest of the session, then paints "That's all {total} photos, {guestName}!
+        … They'll treasure these." over a photo that was refused before it was ever
+        stored. A guest with credits left is congratulated for a shot that was
+        thrown away — and with guest buying on, the "Add shots" sheet auto-opens and
+        offers to sell them more shots that also cannot be taken.
+      
+        🔑 A REFUSAL THAT REUSES ANOTHER REFUSAL'S STATUS CODE INHERITS ITS COPY.
+        The status field is what separates them, so it has to be asked FIRST.
+      */
+      if (json.status === 'event_put_away') {
+        setSaveError(EVENT_PUT_AWAY_CAPTURE_COPY);
+        return;
+      }
       if (res.status === 409 || json.status === 'quota_exhausted') {
         setRemaining(0);
         setSaveError(null);
@@ -683,6 +701,23 @@ export function PapicGuestCapture({
           eventDay?: string | null;
         };
 
+        /*
+          🚨 THIS MUST STAY ABOVE THE 409 BRANCH. The put-away refusal answers 409,
+          and the branch below reads EVERY 409 as "you are out of shots": it calls
+          `setRemaining(0)`, which flips `exhausted` and disables the shutter for the
+          rest of the session, then paints "That's all {total} photos, {guestName}!
+          … They'll treasure these." over a photo that was refused before it was ever
+          stored. A guest with credits left is congratulated for a shot that was
+          thrown away — and with guest buying on, the "Add shots" sheet auto-opens and
+          offers to sell them more shots that also cannot be taken.
+        
+          🔑 A REFUSAL THAT REUSES ANOTHER REFUSAL'S STATUS CODE INHERITS ITS COPY.
+          The status field is what separates them, so it has to be asked FIRST.
+        */
+        if (json.status === 'event_put_away') {
+          setSaveError(EVENT_PUT_AWAY_CAPTURE_COPY);
+          return;
+        }
         if (res.status === 409 || json.status === 'quota_exhausted') {
           setRemaining(0);
           setSaveError(null);

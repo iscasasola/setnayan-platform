@@ -1,6 +1,7 @@
-import { Music, Trash2, GitMerge, Search } from 'lucide-react';
+import { Music, GitMerge, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { DeleteSongButton, MergeSongsFields } from './songs-danger-controls';
 import { fetchSongsAdmin } from '@/lib/songs';
 import { mergeSongsAction, deleteSongAction } from '@/app/admin/songs/actions';
 
@@ -71,17 +72,7 @@ export async function SongsSurface({
           The <strong>duplicate</strong> is deleted; every repertoire / pick that used it
           re-points to the <strong>canonical</strong>. Find both IDs in the list below.
         </p>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm">
-            <span className="mb-1 block text-ink/70">Duplicate ID</span>
-            <input name="dup_id" inputMode="numeric" required className="input-field w-28" />
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block text-ink/70">Canonical ID (keep)</span>
-            <input name="canonical_id" inputMode="numeric" required className="input-field w-28" />
-          </label>
-          <SubmitButton className="button-primary">Merge</SubmitButton>
-        </div>
+        <MergeSongsFields songs={songs} />
       </form>
 
       {/* Search */}
@@ -116,12 +107,9 @@ export async function SongsSurface({
               </span>
               <form action={deleteSongAction} className="shrink-0">
                 <input type="hidden" name="song_id" value={s.song_id} />
-                <SubmitButton
-                  className="inline-flex items-center justify-center rounded-full p-1.5 text-ink/40 hover:bg-terracotta/10 hover:text-terracotta"
-                  aria-label={`Delete ${s.title}`}
-                >
-                  <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                </SubmitButton>
+                <DeleteSongButton
+                  song={{ song_id: s.song_id, title: s.title, artist: s.artist }}
+                />
               </form>
             </li>
           ))

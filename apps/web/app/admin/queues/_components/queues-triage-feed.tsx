@@ -317,10 +317,33 @@ export function QueuesTriageFeed({
   settle,
   why,
 }: Props & { settle?: string; why?: string }) {
+  // Derived from the rows this page actually renders — never a typed number, so
+  // adding or removing a queue cannot leave the sentence below saying something
+  // untrue about its own coverage.
+  const queueCount = items.length;
+  /*
+    🚨 "ALL CAUGHT UP" WAS A CLAIM ABOUT 14 QUEUES, NOT ALL OF THEM. Owner, on a
+    phone, 2026-08-18: the page read "You're all caught up — nothing is waiting
+    on you right now" and "14 queues are clear", while TEN other queue-shaped
+    admin surfaces are not counted here at all — among them vendor PAYOUTS and
+    the FRAUD queue. Some are excluded on purpose (judgement queues get no
+    one-click action, by design); none of that was said out loud.
+
+    🔑 A SCREEN MAY ONLY CLAIM WHAT IT MEASURED. "Nothing is waiting on you"
+    reads as everything, and the day something lands in an uncounted queue it
+    becomes false without changing. Same family as the empty-read that says
+    "nothing here" without knowing — and this one is read by the person whose
+    job is to notice.
+
+    The count is DERIVED from the rows actually rendered, never typed, so a
+    queue added or removed cannot make this sentence stale.
+  */
   const subtitle =
     totalOpen === 0
-      ? "You're all caught up — nothing is waiting on you right now."
-      : `${totalOpen} ${totalOpen === 1 ? 'item needs' : 'items need'} your attention across all queues.`;
+      ? `Nothing waiting in the ${queueCount} ${queueCount === 1 ? 'queue' : 'queues'} tracked here. ` +
+        `Other admin surfaces are not counted on this page — see All surfaces.`
+      : `${totalOpen} ${totalOpen === 1 ? 'item needs' : 'items need'} your attention across the ` +
+        `${queueCount} ${queueCount === 1 ? 'queue' : 'queues'} tracked here.`;
 
   // The strip + chips read the FULL list; only the rows below are filtered.
   // Opening a row keeps the lane filter; closing drops only `open`. Built here

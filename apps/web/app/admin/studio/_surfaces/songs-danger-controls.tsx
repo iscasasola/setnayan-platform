@@ -75,7 +75,7 @@ export function MergeSongsFields({ songs }: { songs: SongLabel[] }) {
         </label>
         <label className="text-sm">
           <span className="mb-1 block text-ink/70">Canonical ID (keep)</span>
-          <input ref={canonRef} name="canon_id" inputMode="numeric" required className="input-field w-28" />
+          <input ref={canonRef} name="canonical_id" inputMode="numeric" required className="input-field w-28" />
         </label>
         <SubmitButton
           className="button-primary"

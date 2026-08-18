@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DeleteSongButton, MergeSongsFields } from './songs-danger-controls';
 import { fetchSongsAdmin } from '@/lib/songs';
-import { mergeSongsAction, deleteSongAction } from '@/app/admin/songs/actions';
+import { mergeSongsAction, deleteSongAction, setSongCuratedAction } from '@/app/admin/songs/actions';
 
 /**
  * SongsSurface — the master song catalogue body, re-homed byte-identical from
@@ -27,11 +27,14 @@ export async function SongsSurface({
   q,
   merged,
   deleted,
+  curated,
   error,
 }: {
   q?: string;
   merged?: string;
   deleted?: string;
+  /** '1' just added to the common list · '0' just taken out. */
+  curated?: string;
   error?: string;
 }) {
   const query = (q ?? '').trim();
@@ -50,6 +53,19 @@ export async function SongsSurface({
           (vendor-typed variants like &quot;Perfect&quot; vs &quot;Perfect - Ed Sheeran&quot;) so the
           compatibility overlap stays clean, and remove junk entries.
         </p>
+        {/*
+          Says what the two states MEAN, because the list fills up from the
+          bands and the difference is not guessable from the words. Owner
+          2026-08-18: "songs in the catalogue will be filled in by the bands.
+          not from us. but we can place songs that are common for now so they
+          can also list them down."
+        */}
+        <p className="max-w-prose text-sm text-ink/55">
+          <strong className="font-semibold text-ink/75">In the list</strong> means a song
+          shows in the couple&rsquo;s &ldquo;most popular&rdquo; browse and in a band&rsquo;s
+          starter repertoire. Everything else still exists and is still findable by
+          searching its name — bands add their own as they go.
+        </p>
       </header>
 
       {error ? (
@@ -57,9 +73,15 @@ export async function SongsSurface({
           {decodeURIComponent(error)}
         </p>
       ) : null}
-      {merged || deleted ? (
+      {merged || deleted || curated ? (
         <p role="status" className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800">
-          {merged ? 'Songs merged — repertoires and picks re-pointed.' : 'Song removed.'}
+          {merged
+            ? 'Songs merged — repertoires and picks re-pointed.'
+            : deleted
+              ? 'Song removed.'
+              : curated === '1'
+                ? 'Added to the common list — couples will see it in “most popular”.'
+                : 'Taken out of the common list. The song still exists and is still searchable.'}
         </p>
       ) : null}
 
@@ -91,7 +113,7 @@ export async function SongsSurface({
           <li className="px-4 py-6 text-sm text-ink/50">No songs match.</li>
         ) : (
           songs.map((s) => (
-            <li key={s.song_id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <li key={s.song_id} className="flex items-center justify-between gap-2 px-4 py-2.5">
               <span className="flex min-w-0 items-baseline gap-2">
                 <span className="font-mono text-[11px] text-ink/40">#{s.song_id}</span>
                 <span className="min-w-0">
@@ -105,12 +127,40 @@ export async function SongsSurface({
                   </span>
                 </span>
               </span>
-              <form action={deleteSongAction} className="shrink-0">
-                <input type="hidden" name="song_id" value={s.song_id} />
-                <DeleteSongButton
-                  song={{ song_id: s.song_id, title: s.title, artist: s.artist }}
-                />
-              </form>
+              {/*
+                🪤 TWO SIBLING FORMS, NEVER NESTED. The curate switch first went
+                INSIDE the delete form — HTML forbids a nested form, the browser
+                drops the inner one, and the switch would have submitted DELETE.
+                An irreversible action, fired by a control labelled "Add to
+                list". Caught by `lint nested forms` in CI, not by me.
+              */}
+              <div className="flex shrink-0 items-center gap-2">
+                <form action={setSongCuratedAction}>
+                  <input type="hidden" name="song_id" value={s.song_id} />
+                  <input type="hidden" name="curated" value={s.is_curated_pick ? '0' : '1'} />
+                  <SubmitButton
+                    overlay={false}
+                    className={
+                      s.is_curated_pick
+                        ? 'rounded-full border border-mulberry/30 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-mulberry hover:bg-mulberry/10'
+                        : 'rounded-full border border-ink/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55 hover:bg-ink/5 hover:text-ink'
+                    }
+                    aria-label={
+                      s.is_curated_pick
+                        ? `Take ${s.title} out of the common list`
+                        : `Put ${s.title} in the common list`
+                    }
+                  >
+                    {s.is_curated_pick ? 'In the list' : 'Add to list'}
+                  </SubmitButton>
+                </form>
+                <form action={deleteSongAction}>
+                  <input type="hidden" name="song_id" value={s.song_id} />
+                  <DeleteSongButton
+                    song={{ song_id: s.song_id, title: s.title, artist: s.artist }}
+                  />
+                </form>
+              </div>
             </li>
           ))
         )}

@@ -103,3 +103,116 @@ test('the surface renders the confirming controls, not a bare submit', () => {
     'a bare unconfirmed delete button is back on the row',
   );
 });
+
+test('the merge form posts exactly the field names the action reads', () => {
+  /*
+    🪤 I BROKE THIS WHILE ADDING THE CONFIRMATION AND CAUGHT IT BY READING THE
+    ACTION. Extracting the fields into a client component, I renamed
+    `canonical_id` to `canon_id`. The server action still read `canonical_id`,
+    so `parseId` would have returned null on every submit and merge would have
+    answered "Enter two different valid song IDs." forever — a control that
+    looks present, refuses every time, and blames the operator's typing.
+
+    🔑 A FORM AND ITS ACTION AGREE BY CONVENTION, AND A CONVENTION IS NOT A
+    CONTROL. Nothing type-checks the string on one side against the string on
+    the other. Same family as the phantom column and the phantom RPC argument:
+    the name is wrong, nothing throws, and the only symptom is that it never
+    works.
+  */
+  const controls = read(CONTROLS);
+  const actions = stripComments(
+    readFileSync(join(HERE, '..', '..', 'songs', 'actions.ts'), 'utf8'),
+  );
+
+  const posted = [...controls.matchAll(/name="([a-z_]+)"/g)].map((m) => m[1]!);
+  assert.ok(posted.length >= 2, 'the merge form should still post two fields');
+
+  const readByAction = [...actions.matchAll(/formData\.get\('([a-z_]+)'\)/g)].map((m) => m[1]!);
+  assert.ok(readByAction.length >= 2, 'the actions should still read form fields');
+
+  for (const field of posted) {
+    assert.ok(
+      readByAction.includes(field),
+      `the merge form posts "${field}" and no action reads it — the action will ` +
+        `see undefined and refuse every submit while blaming the operator`,
+    );
+  }
+});
+
+/* ─── THE CURATE SWITCH ─────────────────────────────────────────────────────
+   The song catalogue fills up from the BANDS; the seeded songs are a common
+   starter set Setnayan curates. Until 2026-08-18 the screen printed "curated"
+   as a read-only LABEL — you could delete a song and merge two, but you could
+   not say "this belongs in the common list". When 93 songs fell out of it,
+   nobody had a button to put one back.
+──────────────────────────────────────────────────────────────────────────────*/
+
+test('the curate switch writes through the client that can actually change it', () => {
+  /*
+    🚨 THE TRAP, AND IT WOULD HAVE BEEN BUILT TODAY BY THE PERSON FIXING THESE.
+    The other two actions in that file use `createAdminClient()` to bypass RLS,
+    so copying them is the obvious move. It would ship a control that SILENTLY
+    DOES NOTHING: `songs_nonadmin_guard` pins `is_curated_pick` to its OLD value
+    unless `public.is_admin()` is true, and `is_admin()` reads `auth.uid()`,
+    which is NULL under service role. The UPDATE reports success, changes
+    nothing, and the label does not move.
+
+    🔑 A GATE WITH NO HANDLE — the shape this whole day has been about.
+
+    Verified against production, not inferred: `songs_admin_update` admits
+    `authenticated` where `is_admin()`, and both columns are UPDATE-granted to
+    that role, so the same session satisfies the policy AND the trigger.
+  */
+  const src = stripComments(
+    readFileSync(join(HERE, '..', '..', '..', 'admin', 'songs', 'actions.ts'), 'utf8'),
+  );
+  const fn = /export async function setSongCuratedAction\([\s\S]*?\n}/.exec(src);
+  assert.ok(fn, 'setSongCuratedAction should exist');
+  const body = fn[0];
+
+  assert.match(
+    body,
+    /await createClient\(\)/,
+    'the curate write must use the request-scoped client — the trigger only lets ' +
+      'a real signed-in admin through',
+  );
+  assert.doesNotMatch(
+    body,
+    /createAdminClient\(\)/,
+    'the curate write must NOT use the service-role client: the trigger pins the ' +
+      'column to its old value there, so the control would report success and do nothing',
+  );
+  // Supabase resolves rather than throwing, so a filtered-out write is silent.
+  assert.match(
+    body,
+    /data\.length === 0/,
+    'a zero-row update must be reported — otherwise a refusal looks like a save',
+  );
+});
+
+test('every row offers the switch, and the screen says what the states mean', () => {
+  const src = read(SURFACE);
+  /*
+    🪤 ANCHORED TO THE RENDERED FORM, NOT THE SYMBOL. The first cut asserted
+    `/setSongCuratedAction/` over the file — which the IMPORT LINE satisfies. The
+    mutation that deletes the whole <form> from the row therefore left this
+    GREEN, because the import stayed. A guard that matches a string rather than
+    the act it names is decoration; measured, not guessed.
+  */
+  assert.match(
+    src,
+    /<form action=\{setSongCuratedAction\}/,
+    'the row must RENDER the curate switch — importing the action is not offering it',
+  );
+  assert.match(
+    src,
+    /In the list|Add to list/,
+    'the switch must be pressable text, not the read-only label it replaced',
+  );
+  assert.match(
+    src,
+    /most popular|starter repertoire/,
+    'the screen must say what being in the common list actually does, since the ' +
+      'catalogue fills up from the bands and the difference is not guessable',
+  );
+});

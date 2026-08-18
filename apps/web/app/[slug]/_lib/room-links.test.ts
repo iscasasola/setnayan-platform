@@ -15,6 +15,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { resolveRoomLinks, type RoomLinksInput } from './room-links';
 
 /** Everything open, nothing current. */
@@ -120,5 +124,49 @@ test('nothing is ever returned in a "locked" or greyed shape', () => {
   for (const l of closed) {
     assert.ok(l.href && !l.href.startsWith('#'), `${l.key} points nowhere`);
     assert.ok(!('locked' in l), `${l.key} is drawn locked — that leaks its existence`);
+  }
+});
+
+// ── WHICH ROOMS CARRY THE WAY OUT — an exact-match bill ────────────────────
+
+test('every room that should carry a way out does, and the exceptions are named', () => {
+  // Mounting is what makes the resolver matter. A room that stops mounting it
+  // silently becomes a dead end again — the exact defect this closes — so the
+  // set is pinned in BOTH directions: a room that loses it fails, and a room on
+  // the excluded list that gains it fails until its line is moved.
+  const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const mounted = (dir: string) => {
+    const p = join(ROOT, dir);
+    if (!existsSync(p)) return false;
+    // 🪤 THIS MATCHED THE IMPORT ON ITS FIRST RUN AND WAS DECORATION. Deleting
+    // every `<RoomFooter …/>` from a room left `import { RoomFooter }` behind,
+    // which still contains the name — so the guard stayed GREEN while the room
+    // was a dead end again. Caught by mutation, not by reading. **Match the JSX
+    // MOUNT, never the symbol**; an import proves nothing was rendered.
+    return readdirSync(p).some(
+      (f) => /\.tsx$/.test(f) && /<RoomFooter\b/.test(readFileSync(join(p, f), 'utf8')),
+    );
+  };
+
+  for (const room of ['find-seat', 'find-my-table', 'pabuya', 'recap', 'seat']) {
+    assert.ok(mounted(room), `${room} lost its way out — it is a dead end again`);
+  }
+
+  // ⛔ THE THREE THAT ARE DELIBERATELY WITHOUT ONE, each for its own reason:
+  //
+  //  · venue — the 3D room is a DARK art-directed surface (#0b0d12). The strip
+  //    is cream chips on a hairline rule; dropping it in there is a design
+  //    decision about someone else's canvas, not a mount, and it cannot be
+  //    checked without looking at the page. Deferred ON PURPOSE, not forgotten.
+  //  · welcome · invite — both wear the owner-locked DOOR register: one paper
+  //    card, ONE terracotta action, the wordmark as the way out. A list of other
+  //    rooms would break a design settled across thirteen pages, and both are
+  //    mid-task screens where a side exit is a distraction, not a service.
+  for (const room of ['venue', 'welcome', 'invite']) {
+    assert.ok(
+      !mounted(room),
+      `${room} gained a room strip. If that is intended, move it to the mounted ` +
+        `list above and delete its reason — but read the reason first.`,
+    );
   }
 });

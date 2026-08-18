@@ -56,13 +56,20 @@ test('unlinking is written, not skipped', () => {
   );
 });
 
-test('the submitted event is re-checked against what the author hosts', () => {
+test('the submitted event is re-checked against the author’s real tie', () => {
+  // ⚠ RESPELLED, NOT RELAXED (2026-08-15). This asserted `from('event_members')`
+  // INSIDE the action; the check moved into lib/chapter-event-participation.ts
+  // when suppliers became able to attach, and the test went red — which is the
+  // guard working. It now follows the check rather than lowering the bar.
   const code = codeOnly(read(ACTIONS));
-  assert.ok(/from\('event_members'\)/.test(code), 'membership must be verified server-side');
   assert.ok(
-    /member_type['"]\s*,\s*['"]couple/.test(code),
-    'only a host may attach a celebration — a form can be posted with any id, ' +
-      'and attaching publishes that day’s name, date, venue and suppliers.',
+    /resolveEventTie\(/.test(code),
+    'the action must prove the tie server-side — a form can be posted with any ' +
+      'id, and attaching publishes that day’s name, date, venue and suppliers',
+  );
+  assert.ok(
+    /if \(!tie\) fail\(/.test(code),
+    'no tie must REFUSE; an unproven id may never be stored',
   );
 });
 
@@ -132,5 +139,75 @@ test('the last machine-id box is gone from the composer', () => {
     !/name="vendor_ids"/.test(code),
     'the comma-separated supplier-id field must not come back — nobody ever filled it, ' +
       'and the day already knows who worked it',
+  );
+});
+
+const PARTICIPATION = 'lib/chapter-event-participation.ts';
+const HOST_SCREEN = 'app/dashboard/[eventId]/website/stories/page.tsx';
+const HOST_ACTION = 'app/dashboard/[eventId]/website/stories/actions.ts';
+const MIGRATION = '../../supabase/migrations/20271143154220_host_curates_attached_chapters.sql';
+
+test('a booked supplier may attach — not only the host', () => {
+  const code = codeOnly(read(PARTICIPATION));
+  // 🪤 ANCHORED ON THE CALL, NOT THE WORD. A bare /event_vendors/ passed while
+  // the query was renamed to `DISABLED_event_vendors` — the sabotage landed and
+  // the guard stayed green, because the disabled name still CONTAINS the word.
+  // Same prefix trap as `f.event_dateX`. Match the act.
+  assert.ok(
+    /\.from\(\s*['"]event_vendors['"]\s*\)/.test(code),
+    'booked celebrations must be linkable — the supplier’s tie is read from ' +
+      'event_vendors, the same evidence a credit is already trusted on',
+  );
+  assert.ok(
+    /\.from\(\s*['"]event_members['"]\s*\)[\s\S]{0,400}?member_type['"]\s*,\s*['"]couple/.test(code),
+    'hosted celebrations too',
+  );
+  assert.ok(
+    /'vendor'/.test(code) && /'host'/.test(code),
+    'the two ties must stay distinguishable — a supplier is a participant, not a host',
+  );
+});
+
+test('THE CROSS-RAIL OBEYS THE HOST — the load-bearing predicate', () => {
+  const code = codeOnly(read('lib/storytellers.ts'));
+  assert.ok(
+    /\.not\(\s*['"]host_included_at['"]\s*,\s*['"]is['"]\s*,\s*null\s*\)/.test(code),
+    'loadChapterCutsForEvents must only surface chapters the HOST added. Without ' +
+      'this, widening who may attach puts a business’s page on a family’s day ' +
+      'with no say from that family — worse than the hosts-only behaviour it replaces.',
+  );
+});
+
+test('the handle exists — a host can actually add and remove', () => {
+  const action = codeOnly(read(HOST_ACTION));
+  assert.ok(/host_included_at/.test(action), 'the action must write the column');
+  assert.ok(
+    /\.eq\(\s*['"]event_id['"]\s*,\s*eventId\s*\)/.test(action),
+    'the update must be scoped to THIS celebration — otherwise a host could flip ' +
+      'a chapter attached to somebody else’s wedding',
+  );
+  const screen = read(HOST_SCREEN);
+  assert.ok(/setChapterOnMyDay/.test(screen), 'the screen must render the control');
+  assert.ok(
+    /Add to my day/.test(screen) && /Take off my day/.test(screen),
+    'both directions must be reachable — an add with no undo is not a decision',
+  );
+});
+
+test('the author cannot stamp their own inclusion', () => {
+  const sql = readFileSync(join(WEB, MIGRATION), 'utf8');
+  assert.ok(
+    /REVOKE UPDATE \(host_included_at\)[\s\S]*?FROM authenticated/.test(sql),
+    'the column must be revoked from authenticated — creator_chapters RLS is ' +
+      '"this row is yours", which has no opinion about a field recording ' +
+      'somebody else’s decision',
+  );
+  assert.ok(
+    /REVOKE INSERT \(host_included_at\)[\s\S]*?FROM authenticated/.test(sql),
+    'INSERT too — a PERMISSIVE policy admits inserts, not just updates',
+  );
+  assert.ok(
+    /set_chapter_host_inclusion/.test(sql),
+    'a trigger must stamp it, since the revoke stops our own action naming it',
   );
 });

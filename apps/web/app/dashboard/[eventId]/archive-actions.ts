@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -115,8 +116,32 @@ export async function setEventArchived(formData: FormData): Promise<ArchiveResul
     no-op are the SAME shape: zero rows, no error. Without reading back the row
     this would report success while changing nothing, which is exactly the
     silence this whole feature is a cure for.
+
+    🚨 THE WRITE USES THE ADMIN CLIENT, AND THE HOST CHECK ABOVE IS THE
+    AUTHORIZATION — matching `setEventCeremonyType` / `updateEventMatchCriteria`
+    / `updateVenueSetting`, whose own comment states exactly that.
+
+    The first cut of this file copied the house CHECK and not the house WRITE,
+    and that combination is a trap rather than a mere inconsistency. The check
+    admits `event_members` couple OR coordinator, plus an accepted
+    `event_moderators` row. The only permissive UPDATE policy on `public.events`
+    is `couple_can_update_event`, and `current_couple_event_ids()` is
+    `member_type = 'couple'` ONLY — read out of production by the object, not
+    from a migration. So for EVERY co-host the statement was RLS-filtered to
+    zero rows with NO ERROR, fell into the branch below, and answered "Only a
+    host of this celebration can put it away" — after this same function had
+    just decided they ARE one. `/host/accept/[token]` is the sole writer of
+    `member_type: 'coordinator'`, so that was every co-host in the product, on
+    a card `details/page.tsx` renders to them unconditionally. "Bring it back"
+    failed identically, so a co-host could not undo the couple's put-away
+    either.
+
+    🔑 RLS IS A FLOOR, NOT A SCOPE — and here it was NARROWER than the product
+    rule, which is the direction that is easy to miss. The earlier docblock read
+    the policy, caught its `is_admin()` disjunct being too WIDE, and never
+    checked whether the other one was too narrow.
   */
-  const { data, error } = await supabase
+  const { data, error } = await createAdminClient()
     .from('events')
     .update({ archived, updated_at: new Date().toISOString() })
     .eq('event_id', eventId)
@@ -131,10 +156,16 @@ export async function setEventArchived(formData: FormData): Promise<ArchiveResul
     };
   }
   if (!data || data.length === 0) {
+    /*
+      With the admin client there is no RLS to filter this, so zero rows can
+      only mean the event id does not exist. Saying "you are not a host" here
+      would re-create the exact lie above for a genuinely bad id — telling
+      somebody they lack a permission when the truth is there is nothing there.
+    */
     return {
       ok: false,
-      code: 'unauthorized',
-      message: 'Only a host of this celebration can put it away.',
+      code: 'not_found',
+      message: 'We couldn’t find that celebration.',
     };
   }
 

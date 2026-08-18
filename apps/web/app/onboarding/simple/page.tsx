@@ -10,7 +10,10 @@ import { commitSimpleEvent } from './actions';
 
 export const metadata = { title: 'Create a Simple Event' };
 
+import { SHOP_ACCOUNT_CANNOT_CREATE_COPY } from '@/lib/vendor-event-creation';
+
 const ERROR_COPY: Record<string, string> = {
+  shop_account: SHOP_ACCOUNT_CANNOT_CREATE_COPY,
   missing_name: 'Please give your event a name.',
   missing_date: 'Please pick a date for your event.',
   // Kept apart deliberately — see the same pair in the create-event picker.

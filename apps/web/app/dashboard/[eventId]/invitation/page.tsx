@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import { Download, ExternalLink } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -56,13 +57,17 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const { data: event } = await supabase
+  const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
       'event_id, public_id, display_name, event_date, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, role_palette',
     )
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ the event record. Degrades rather than claiming.
+  if (eventError) {
+    logQueryError('InvitationPage.event', eventError, { eventId }, 'graceful_degrade');
+  }
   if (!event) redirect(`/dashboard/${eventId}`);
 
   const guests = await fetchGuestsByEvent(supabase, eventId);
@@ -141,11 +146,16 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   // read error) this map is simply empty and the page renders as before.
   const rotatedAtByGuest = new Map<string, string>();
   try {
-    const { data: rotatedRows } = await createAdminClient()
+    const { data: rotatedRows, error: rotatedRowsError } = await createAdminClient()
       .from('guests')
       .select('guest_id, qr_token_rotated_at')
       .eq('event_id', eventId)
       .not('qr_token_rotated_at', 'is', null);
+    // ⚠ guests whose invite links were rotated. Refused, the page reads as though none
+    // ⚠ were, which is a claim about who can still get in.
+    if (rotatedRowsError) {
+      logQueryError('InvitationPage.rotatedRows', rotatedRowsError, { eventId }, 'graceful_degrade');
+    }
     for (const r of rotatedRows ?? []) {
       if (r.qr_token_rotated_at) rotatedAtByGuest.set(r.guest_id, r.qr_token_rotated_at);
     }

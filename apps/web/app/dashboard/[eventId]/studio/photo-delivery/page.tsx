@@ -13,7 +13,7 @@ import {
   setPhotoDeliverySyncModeManual,
 } from './actions';
 
-export const metadata = { title: 'Photo Delivery · Setnayan' };
+export const metadata = { title: 'Photo Delivery' };
 
 type SyncMode = 'manual_release' | 'auto_sync';
 
@@ -166,13 +166,13 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
                    because JSX wrapped it as "5-year\nbackup" and the pattern
                    needed one space. The guard is now whitespace-normalised.
 
-                And the one reassuring fact — the gallery is kept, free, for 5 years — was
+                And the one reassuring fact — the gallery is kept, free, for life — was
                 never said, so the box could only ever cause panic. */}
             <p className="font-semibold tracking-tight">
               Your photos stay — full resolution has a window
             </p>
             <p className="text-warn-900/85">
-              Every photo stays in your Setnayan gallery, free, for 5 years. About{' '}
+              Every photo stays in your Setnayan gallery, free, for life. About{' '}
               <span className="font-mono font-semibold">6 months</span> after
               your first photo is taken — and never sooner than 3 months after
               your event ends — we swap the full-resolution original for a compressed

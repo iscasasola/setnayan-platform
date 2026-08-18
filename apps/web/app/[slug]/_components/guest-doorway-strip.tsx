@@ -1,3 +1,4 @@
+import type { EventWords } from '../_lib/event-words';
 import Link from 'next/link';
 import { ArrowRight, Boxes, Gift, Radio } from 'lucide-react';
 
@@ -41,7 +42,10 @@ export function GuestDoorwayStrip({
   broadcast,
   personalised,
   dateLabel,
+  words,
 }: {
+  /** The event type's own words. */
+  words: EventWords;
   /** `/[slug]/venue`, or null → do not draw. */
   venueWalk: string | null;
   /** `/[slug]/pabuya`, or null → do not draw. */
@@ -78,7 +82,7 @@ export function GuestDoorwayStrip({
           href={pabuya}
           icon={<Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
           title="Send a blessing"
-          detail="The digital money dance — straight to the couple."
+          detail={`The digital money dance — straight to ${words.theOrganizer}.`}
         />
       ) : null}
 

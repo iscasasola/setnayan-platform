@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchOwnVendorProfile,
@@ -123,7 +124,7 @@ import { VoiceMatchSection } from './_components/voice-match-section';
  * is wrapped so a single query error degrades to zeros rather than crashing.
  */
 
-export const metadata = { title: 'My Shop · Vendor · Setnayan' };
+export const metadata = { title: 'My Shop · Vendor' };
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -270,11 +271,17 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // Tier — not in the shared profile select; soft-probe it.
   let tier: string | null = null;
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('vendor_profiles')
       .select('tier_state')
       .eq('vendor_profile_id', vendorId)
       .maybeSingle();
+    // ⚠ THEIR PLAN. Refused, the shop reads as having no tier — every
+    // ⚠ tier-gated thing on this page then looks like something they never
+    // ⚠ bought. The soft fallback stays; the reason now reaches the logs.
+    if (error) {
+      logQueryError('VendorShopPage.tierState', error, { vendorId }, 'graceful_degrade');
+    }
     tier = (data as { tier_state?: string | null } | null)?.tier_state ?? null;
   } catch {
     tier = null;
@@ -289,11 +296,17 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   let socialFeatureOptOut = false;
   let socialAlreadyFeatured = false;
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('vendor_profiles')
       .select('same_day_available, social_feature_opt_out, social_featured_at')
       .eq('vendor_profile_id', vendorId)
       .maybeSingle();
+    // ⚠ SWITCHES THIS SUPPLIER SET THEMSELVES. Refused, a setting they turned
+    // ⚠ ON renders OFF — and the obvious response is to turn it on again, which
+    // ⚠ writes over whatever is really stored.
+    if (error) {
+      logQueryError('VendorShopPage.shopSwitches', error, { vendorId }, 'graceful_degrade');
+    }
     const row = data as {
       same_day_available?: boolean | null;
       social_feature_opt_out?: boolean | null;
@@ -379,11 +392,16 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   let validateEmail = 'verify@setnayan.com';
   let validatePhone: string | null = null;
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('platform_settings')
       .select('vendor_validate_email,vendor_validate_phone')
       .eq('id', 1)
       .maybeSingle();
+    // ⚠ OUR OWN support contacts, not theirs — a refusal falls back to the
+    // ⚠ defaults above, which is honest enough to render but still worth knowing.
+    if (error) {
+      logQueryError('VendorShopPage.validateContacts', error, { vendorId }, 'graceful_degrade');
+    }
     const row = data as { vendor_validate_email?: string | null; vendor_validate_phone?: string | null } | null;
     if (row?.vendor_validate_email?.trim()) validateEmail = row.vendor_validate_email.trim();
     validatePhone = row?.vendor_validate_phone?.trim() || null;
@@ -395,11 +413,17 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // collided number keeps raw (needs_review) → still counts as "on file".
   let registrationNumberOnFile = false;
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('vendor_profiles')
       .select('registration_number_raw')
       .eq('vendor_profile_id', vendorId)
       .maybeSingle();
+    // ⚠ THE WORST OF THE SIX. Refused, this reads NOT on file, and the gate
+    // ⚠ then asks the supplier for a registration number they have already
+    // ⚠ given us — the product asking again for something it is holding.
+    if (error) {
+      logQueryError('VendorShopPage.registrationOnFile', error, { vendorId }, 'graceful_degrade');
+    }
     registrationNumberOnFile = Boolean(
       (data as { registration_number_raw?: string | null } | null)?.registration_number_raw,
     );
@@ -418,11 +442,16 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   let innerRadiusKm: number | null = null;
   let outerRadiusKm: number | null = null;
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('vendor_profiles')
       .select('inner_radius_km, outer_radius_km')
       .eq('vendor_profile_id', vendorId)
       .maybeSingle();
+    // ⚠ the travel radius they set. Refused, it reads as never set, so the
+    // ⚠ page invites them to define a service area they have already defined.
+    if (error) {
+      logQueryError('VendorShopPage.serviceRadius', error, { vendorId }, 'graceful_degrade');
+    }
     const rings = (data ?? null) as {
       inner_radius_km?: number | null;
       outer_radius_km?: number | null;
@@ -1096,13 +1125,24 @@ async function AutoReplySection({ vendorProfileId }: { vendorProfileId: string }
   let dailyAutoAcceptCap = DAILY_AUTO_ACCEPT_CAP_DEFAULT;
   try {
     const supabase = await createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('vendor_bot_config')
       .select(
         'enabled,daily_reply_cap,auto_accept_enabled,auto_accept_threshold,daily_auto_accept_cap',
       )
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
+    // ⚠ their front-desk assistant's settings. Refused, `if (row)` is skipped
+    // ⚠ and every value stays at its default, so a reply cap or an auto-accept
+    // ⚠ threshold they configured reads as though they never touched it.
+    if (error) {
+      logQueryError(
+        'VendorShopPage.botConfig',
+        error,
+        { vendorProfileId },
+        'graceful_degrade',
+      );
+    }
     const row = data as {
       enabled?: boolean;
       daily_reply_cap?: number;

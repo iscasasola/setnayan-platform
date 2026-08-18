@@ -22,7 +22,7 @@ import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { liveStudioControlPath } from '@/lib/live-studio-control';
 import { PanoodControlRoom } from './control-room';
 
-export const metadata = { title: 'Live Studio control room · Setnayan' };
+export const metadata = { title: 'Live Studio control room' };
 
 // Iteration 0011 — Live Studio multicam CONTROL ROOM (PR4).
 //

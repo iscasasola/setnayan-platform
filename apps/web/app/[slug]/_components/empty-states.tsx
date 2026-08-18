@@ -22,6 +22,12 @@ export type EmptySectionKind = 'details' | 'story' | 'photos';
 const PRESENT_COPY: Record<EmptySectionKind, string> = {
   details: 'The program is being written.',
   story: 'Their story is being written.',
+  // ⚠ UNREACHABLE TODAY — measured 2026-08-17. `SectionEmptyPlate` has exactly
+  // two call sites (site-body's `details` and `story` plates); nothing anywhere
+  // passes kind="photos". Left as-is deliberately: rewording a string no guest
+  // can reach would be a fix nobody can see. WHOEVER WIRES THIS UP must take the
+  // organiser's word from `_lib/event-words.ts` like every other room does, or a
+  // birthday's guests will read "The couple's photos will appear here."
   photos: 'The couple’s photos will appear here.',
 };
 

@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchClaimLandingByToken } from '@/lib/vendor-invites';
 import { applyClaimAutoLink } from '@/lib/vendor-invite-actions';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
+import { DoorShell } from '@/app/_components/door/door-shell';
 
 const VENDOR_CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
@@ -208,22 +209,21 @@ export default async function FinalizeClaimPage({ params }: Props) {
   redirect('/vendor-dashboard?claimed=1');
 }
 
+/**
+ * The finalize step's refusals — ported onto the shared <DoorShell> in
+ * `dead_end` tone (2026-08-17), so the last screen of the supplier's claim
+ * looks like the last screen of every other door.
+ *
+ * The one control stays "Back to sign in" rather than "Back to Setnayan": a
+ * person only reaches this page mid-claim, already part-way through an account,
+ * so signing in is the step that actually un-sticks them.
+ */
 function ErrorShell({ title, body }: { title: string; body?: string }) {
   return (
-    <main className="min-h-screen bg-cream px-4 py-20">
-      <div className="mx-auto max-w-md space-y-4 rounded-xl bg-cream p-8 text-center ring-1 ring-inset ring-ink/10">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Setnayan · Claim
-        </p>
-        <h1 className="font-serif text-2xl font-medium text-ink">{title}</h1>
-        {body ? <p className="text-sm text-ink/70">{body}</p> : null}
-        <Link
-          href="/login"
-          className="inline-flex items-center justify-center rounded-md bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream hover:bg-mulberry-700"
-        >
-          Back to sign in
-        </Link>
-      </div>
-    </main>
+    <DoorShell tone="dead_end" eyebrow="Claim" title={title} sub={body}>
+      <Link href="/login" className="button-secondary">
+        Back to sign in
+      </Link>
+    </DoorShell>
   );
 }

@@ -19,6 +19,9 @@ import {
   TIER_LABEL,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Disputes · Admin' };
@@ -143,6 +146,19 @@ type Props = {
   }>;
 };
 
+/** The queue's own cap, passed to ConsoleTable as `cap`. */
+const LIST_LIMIT = 200;
+
+/**
+ * The STATS scan's cap — a second, separate ceiling this page carries.
+ *
+ * ⚠ It is not the list's cap and it fails differently. The four numbers in the
+ * banner are counts over this scan, so filling it does not shorten a list, it
+ * makes every number UNDERSTATED with no visible symptom at all. Disclosed in
+ * words beneath the banner rather than through `cap`, which is a list idea.
+ */
+const STATS_SCAN_LIMIT = 5000;
+
 export default async function AdminDisputesPage({ searchParams }: Props) {
   await requireAdmin();
   const search = await searchParams;
@@ -161,14 +177,16 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
       'dispute_id,public_id,vendor_profile_id,payout_id,order_id,opened_by_user_id,category,description,status,resolved_at,resolution_notes,counts_toward_demotion,vendor_contest,vendor_contested_at,created_at',
     )
     .order('created_at', { ascending: false })
-    .limit(200);
+    .limit(LIST_LIMIT);
   if (status !== 'all') listQuery = listQuery.eq('status', status);
   if (category !== 'all') listQuery = listQuery.eq('category', category);
   const { data: listData, error: listError } = await listQuery;
   if (listError) {
     logQueryError('AdminDisputesPage (vendor_disputes)', listError);
   }
-  const rows = (listData ?? []) as DisputeRow[];
+  // NULL, not []: a refused read must stay distinguishable from a real zero.
+  const listRows = listData as DisputeRow[] | null;
+  const rows = listRows ?? [];
 
   // Resolution lookups — one round-trip per FK table, keyed on the
   // unique-IDs in the visible page. The same shape `/admin/reviews` uses.
@@ -275,56 +293,55 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   // pulse check ("what's happened this quarter?") rather than an
   // all-time count that grows monotonically forever.
   const quarterStart = currentQuarterStart();
-  const { data: statsData } = await admin
+  const { data: statsData, error: statsError } = await admin
     .from('vendor_disputes')
     .select('status')
     .gte('created_at', quarterStart.toISOString())
-    .limit(5000);
-  const statRows = (statsData ?? []) as Array<{ status: DisputeRow['status'] }>;
+    .limit(STATS_SCAN_LIMIT);
+  // NULL, not []: the banner's error was never even bound, so a refused read
+  // rendered four confident zeros — "no disputes this quarter" on the disputes
+  // desk. A wrong number reads as more authoritative than a missing list.
+  const statRows = statsData as Array<{ status: DisputeRow['status'] }> | null;
+  const countOf = (status: DisputeRow['status']): number | null =>
+    statRows ? statRows.filter((r) => r.status === status).length : null;
   const stats = {
-    open: statRows.filter((r) => r.status === 'open').length,
-    resolved_for_vendor: statRows.filter((r) => r.status === 'resolved_for_vendor').length,
-    resolved_for_couple: statRows.filter((r) => r.status === 'resolved_for_couple').length,
-    withdrawn: statRows.filter((r) => r.status === 'withdrawn').length,
+    open: countOf('open'),
+    resolved_for_vendor: countOf('resolved_for_vendor'),
+    resolved_for_couple: countOf('resolved_for_couple'),
+    withdrawn: countOf('withdrawn'),
   };
+  // The banner is a COUNT, so a truncated scan does not shorten it — it makes it
+  // WRONG, which is worse than a truncated list and has no visible symptom.
+  const statsTruncated = (statRows?.length ?? 0) >= STATS_SCAN_LIMIT;
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">Recourse · conflicts</p>
-        <div className="flex items-center gap-2">
-          <Gavel className="h-6 w-6 text-[color:var(--sn-gold-500)]" strokeWidth={1.75} />
-          <h1 className="sn-h1">Disputes</h1>
-        </div>
-        <p className="max-w-2xl text-sm text-[color:var(--sn-ink-500)]">
-          Couples and vendors can both open a dispute when a booking goes
-          sideways. The queue shows the latest 200 matching the filters below,
-          ordered by vendor tier (enterprise first) then newest.
-        </p>
-        <p className="rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-xs text-[color:var(--sn-ink-500)]">
-          Use <span className="font-semibold">Resolve</span> on any open row to
-          record the outcome (couple / vendor / withdrawn) with a note. The
-          opener is notified automatically. A standalone detail page with the
-          full evidence trail is the next refresh.
-        </p>
-      </header>
+      <PageMasthead
+        className="mb-6"
+        title="Disputes"
+        lede={`Couples and vendors can both open a dispute when a booking goes sideways. The queue shows the latest ${LIST_LIMIT} matching the filters below, ordered by vendor tier (enterprise first) then newest.`}
+      />
 
-      <StatsBanner stats={stats} quarterStart={quarterStart} />
+      <p className="mb-6 rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-xs text-ink/70">
+        Use <span className="font-semibold">Resolve</span> on any open row to
+        record the outcome (couple / vendor / withdrawn) with a note. The
+        opener is notified automatically. A standalone detail page with the
+        full evidence trail is the next refresh.
+      </p>
+
+      <StatsBanner
+        stats={stats}
+        quarterStart={quarterStart}
+        truncated={statsTruncated}
+        scanLimit={STATS_SCAN_LIMIT}
+      />
 
       <FilterStrip status={status} category={category} />
 
-      {listError ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
-          Disputes couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
-        </p>
-      ) : null}
-
       <div className="mt-4">
         <DisputesTable
-          rows={sortedRows}
+          rows={listRows === null ? null : sortedRows}
+          readError={listError}
           vendorMap={vendorMap}
           vendorTierMap={vendorTierMap}
           openerMap={openerMap}
@@ -333,7 +350,7 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
         />
       </div>
 
-      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
         Source · iteration 0023 § 3.6 · table{' '}
         <code>vendor_disputes</code> (migration 20260516210000)
       </p>
@@ -341,71 +358,55 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   );
 }
 
+/**
+ * ⚖ THE LOCAL `StatCell` IS RETIRED, AND ONE THING IS DELIBERATELY LOST WITH IT.
+ *
+ * StatCell wrapped each label in a TONE — warning for open, success for resolved
+ * ·vendor, info for resolved ·couple, neutral for withdrawn. KpiStatCard has no
+ * tone, so those four tints are gone. That is a real loss and it is traded on
+ * purpose: StatCell took `value: number`, so it could not render "unknown", and
+ * this banner's read error was never bound — a refused read printed four
+ * confident zeros, which on the disputes desk reads as "no disputes this
+ * quarter". KpiStatCard takes `null` and renders an em-dash.
+ *
+ * The colour was reinforcement; the labels already say Open / Resolved · vendor
+ * / Resolved · couple / Withdrawn. The number being true is not reinforcement.
+ */
 function StatsBanner({
   stats,
   quarterStart,
+  truncated,
+  scanLimit,
 }: {
   stats: {
-    open: number;
-    resolved_for_vendor: number;
-    resolved_for_couple: number;
-    withdrawn: number;
+    open: number | null;
+    resolved_for_vendor: number | null;
+    resolved_for_couple: number | null;
+    withdrawn: number | null;
   };
   quarterStart: Date;
+  truncated: boolean;
+  scanLimit: number;
 }) {
   const quarterLabel = `Q${Math.floor(quarterStart.getMonth() / 3) + 1} ${quarterStart.getFullYear()}`;
+  const measured = stats.open !== null;
   return (
     <section
       aria-label="Dispute counts this quarter"
-      className="sn-tile mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4"
+      className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4"
     >
-      <StatCell
-        label="Open"
-        value={stats.open}
-        tone="bg-[var(--sn-warning-soft)] text-[color:var(--sn-warning)]"
-      />
-      <StatCell
-        label="Resolved · vendor"
-        value={stats.resolved_for_vendor}
-        tone="bg-[var(--sn-success-soft)] text-[color:var(--sn-success)]"
-      />
-      <StatCell
-        label="Resolved · couple"
-        value={stats.resolved_for_couple}
-        tone="bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]"
-      />
-      <StatCell
-        label="Withdrawn"
-        value={stats.withdrawn}
-        tone="bg-ink/10 text-ink/60"
-      />
-      <p className="col-span-2 mt-1 text-[11px] text-[color:var(--sn-ink-400)] sm:col-span-4">
-        Counts for {quarterLabel} (current quarter).
+      <KpiStatCard label="Open" value={stats.open} />
+      <KpiStatCard label="Resolved · vendor" value={stats.resolved_for_vendor} />
+      <KpiStatCard label="Resolved · couple" value={stats.resolved_for_couple} />
+      <KpiStatCard label="Withdrawn" value={stats.withdrawn} />
+      <p className="col-span-2 mt-1 text-[11px] text-ink/70 sm:col-span-4">
+        {!measured
+          ? `Counts for ${quarterLabel} could not be read — these are not zero, they are unknown.`
+          : truncated
+            ? `Counts for ${quarterLabel} (current quarter), scanned to the first ${scanLimit.toLocaleString()} disputes — past that these numbers are an undercount, not a total.`
+            : `Counts for ${quarterLabel} (current quarter).`}
       </p>
     </section>
-  );
-}
-
-function StatCell({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span
-        className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${tone}`}
-      >
-        {label}
-      </span>
-      <span className="font-mono text-2xl font-semibold tracking-tight tabular-nums text-[color:var(--sn-ink-900)]">
-        {value}
-      </span>
-    </div>
   );
 }
 
@@ -461,201 +462,218 @@ function FilterStrip({
   );
 }
 
+/**
+ * 🔒 A JUDGEMENT QUEUE — AND THE RESOLVE CELL IS NOT AN EXCEPTION TO THAT.
+ *
+ * ConsoleTable offers no actions API on purpose, so nothing here can become a
+ * fast button. Resolve stays what it already was, and its shape is decided by
+ * what `resolveDispute` REFUSES to run without: it throws "Pick a resolution"
+ * with no outcome, and throws again unless a non-withdrawn outcome carries
+ * notes. So it renders its own confirm-gated form inside its own cell — a
+ * deliberate two-step on the queue where being wrong at speed costs most.
+ */
 function DisputesTable({
   rows,
+  readError,
   vendorMap,
   vendorTierMap,
   openerMap,
   policyAcksByVendor,
   handoversByVendor,
 }: {
-  rows: DisputeRow[];
+  rows: DisputeRow[] | null;
+  readError?: { message?: string } | null;
   vendorMap: Map<string, string>;
   vendorTierMap: Map<string, VendorTier>;
   openerMap: Map<string, { name: string; email: string | null }>;
   policyAcksByVendor: Map<string, PolicyAcknowledgement[]>;
   handoversByVendor: Map<string, HandoverEvidenceRow[]>;
 }) {
-  if (rows.length === 0) {
-    return (
-      <div className="rounded-card border border-dashed border-ink/15 bg-white/50 p-8 text-center">
-        <p className="text-sm text-[color:var(--sn-ink-500)]">
-          No disputes yet — vendors and couples can both open one when a
-          booking goes sideways.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="sn-tile overflow-x-auto !p-0">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
-          <tr>
-            <th className="px-3 py-3 font-medium">Dispute</th>
-            <th className="px-3 py-3 font-medium">Vendor</th>
-            <th className="hidden px-3 py-3 font-medium md:table-cell">Opened by</th>
-            <th className="px-3 py-3 font-medium">Category</th>
-            <th className="hidden px-3 py-3 font-medium lg:table-cell">Description</th>
-            <th className="px-3 py-3 font-medium">Status</th>
-            <th className="hidden px-3 py-3 font-medium md:table-cell">Opened</th>
-            <th className="px-3 py-3 font-medium">Resolve</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => {
-            const vendorName = vendorMap.get(r.vendor_profile_id) ?? 'Unnamed vendor';
-            const vendorTier = vendorTierMap.get(r.vendor_profile_id) ?? 'free';
-            const opener = r.opened_by_user_id
-              ? openerMap.get(r.opened_by_user_id)
-              : null;
-            const descPreview = truncate(r.description, 80);
-            // No-Show Downpayment Protection — frozen reservation-policy evidence
-            // for this vendor. Surfaced under the description so support can
-            // adjudicate a forfeit against immutable, acknowledged-at-lock terms.
+    <ConsoleTable
+      rows={rows}
+      readPermitted
+      readError={readError}
+      reads="the dispute queue"
+      cap={LIST_LIMIT}
+      label="Disputes"
+      minWidth="72rem"
+      rowKey={(r) => r.dispute_id}
+      empty={{
+        Icon: Gavel,
+        title: 'No disputes yet',
+        blurb:
+          'Vendors and couples can both open one when a booking goes sideways. Nothing to set up — a row appears here the moment either side files, and the filters above decide which ones you are looking at.',
+      }}
+      columns={[
+        {
+          header: 'Dispute',
+          mono: true,
+          cell: (r) => (
+            <>
+              <p className="font-medium text-ink">{r.public_id}</p>
+              {!r.counts_toward_demotion ? (
+                <p className="mt-1 font-sans text-[10px] uppercase tracking-[0.15em] text-ink/70">
+                  Excluded from demotion count
+                </p>
+              ) : null}
+            </>
+          ),
+        },
+        {
+          header: 'Vendor',
+          cell: (r) => (
+            <span className="font-medium text-ink">
+              <span className="block">{vendorMap.get(r.vendor_profile_id) ?? 'Unnamed vendor'}</span>
+              <TierChip tier={vendorTierMap.get(r.vendor_profile_id) ?? 'free'} />
+            </span>
+          ),
+        },
+        {
+          header: 'Opened by',
+          hideBelow: 'md',
+          cell: (r) => {
+            const opener = r.opened_by_user_id ? openerMap.get(r.opened_by_user_id) : null;
+            return opener ? (
+              <>
+                <p className="text-ink">{opener.name}</p>
+                {opener.email && opener.email !== opener.name ? (
+                  <p className="text-xs text-ink/70">{opener.email}</p>
+                ) : null}
+              </>
+            ) : (
+              <span className="text-ink/70">—</span>
+            );
+          },
+        },
+        {
+          header: 'Category',
+          cell: (r) => (
+            <span className="inline-flex items-center whitespace-nowrap rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
+              {CATEGORY_LABEL[r.category]}
+            </span>
+          ),
+        },
+        {
+          header: 'Description',
+          hideBelow: 'lg',
+          cell: (r) => {
             const acks = policyAcksByVendor.get(r.vendor_profile_id) ?? [];
             const handovers = handoversByVendor.get(r.vendor_profile_id) ?? [];
             return (
-              <tr
-                key={r.dispute_id}
-                className="border-t border-ink/5 hover:bg-terracotta/[0.04]"
-              >
-                <td className="px-3 py-3">
-                  <p className="font-mono text-[11px] font-medium text-ink">
-                    {r.public_id}
-                  </p>
-                  {!r.counts_toward_demotion ? (
-                    <p className="mt-1 text-[10px] uppercase tracking-[0.15em] text-ink/45">
-                      Excluded from demotion count
+              <div className="text-ink/80">
+                <p title={r.description}>{truncate(r.description, 80)}</p>
+                {r.vendor_contest ? (
+                  <details className="mt-2">
+                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-mulberry">
+                      <Gavel aria-hidden className="h-3 w-3" strokeWidth={2} />
+                      Vendor&apos;s response
+                    </summary>
+                    <p className="mt-1.5 whitespace-pre-wrap rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
+                      {r.vendor_contest}
                     </p>
-                  ) : null}
-                </td>
-                <td className="px-3 py-3 font-medium text-ink">
-                  <span className="block">{vendorName}</span>
-                  <TierChip tier={vendorTier} />
-                </td>
-                <td className="hidden px-3 py-3 md:table-cell">
-                  {opener ? (
-                    <>
-                      <p className="text-ink">{opener.name}</p>
-                      {opener.email && opener.email !== opener.name ? (
-                        <p className="text-xs text-ink/55">{opener.email}</p>
-                      ) : null}
-                    </>
-                  ) : (
-                    <span className="text-ink/45">—</span>
-                  )}
-                </td>
-                <td className="px-3 py-3">
-                  <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
-                    {CATEGORY_LABEL[r.category]}
-                  </span>
-                </td>
-                <td className="hidden px-3 py-3 text-ink/80 lg:table-cell">
-                  <p title={r.description}>{descPreview}</p>
-                  {r.vendor_contest ? (
-                    <details className="mt-2">
-                      <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-terracotta">
-                        <Gavel aria-hidden className="h-3 w-3" strokeWidth={2} />
-                        Vendor&apos;s response
-                      </summary>
-                      <p className="mt-1.5 whitespace-pre-wrap rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
-                        {r.vendor_contest}
-                      </p>
-                    </details>
-                  ) : null}
-                  {acks.length > 0 ? (
-                    <details className="mt-2">
-                      <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-terracotta">
-                        <ShieldCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
-                        Reservation policy evidence ({acks.length})
-                      </summary>
-                      <ul className="mt-2 space-y-2">
-                        {acks.map((a) => (
-                          <PolicyEvidence key={a.ackId} ack={a} />
-                        ))}
-                      </ul>
-                    </details>
-                  ) : null}
-                  {handovers.length > 0 ? (
-                    <details className="mt-2">
-                      <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-terracotta">
-                        <PackageCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
-                        Delivery handover ({handovers.length})
-                      </summary>
-                      <ul className="mt-2 space-y-2">
-                        {handovers.map((h) => (
-                          <HandoverEvidence key={h.handoverId} handover={h} />
-                        ))}
-                      </ul>
-                    </details>
-                  ) : null}
-                </td>
-                <td className="px-3 py-3">
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${STATUS_TONE[r.status]}`}
-                  >
-                    {STATUS_LABEL[r.status]}
-                  </span>
-                </td>
-                <td className="hidden px-3 py-3 text-xs text-ink/60 md:table-cell">
-                  <span title={r.created_at}>{relativeTime(r.created_at)}</span>
-                </td>
-                <td className="px-3 py-3 align-top">
-                  {r.status === 'open' ? (
-                    <details className="min-w-[12rem]">
-                      <summary className="cursor-pointer select-none text-xs font-medium text-terracotta">
-                        Resolve
-                      </summary>
-                      <ConfirmForm
-                        action={resolveDispute}
-                        title="Apply this resolution?"
-                        confirmLabel="Apply resolution"
-                        message="This adjudicates the dispute — the decision is final, is recorded in the audit log, and notifies whoever opened it. It binds their next step (e.g. the agreed refund, reschedule, or substitute)."
-                        className="mt-2 space-y-2"
-                      >
-                        <input type="hidden" name="dispute_id" value={r.dispute_id} />
-                        <select
-                          name="resolution"
-                          defaultValue=""
-                          required
-                          className="input-field text-xs"
-                          aria-label="Resolution outcome"
-                        >
-                          <option value="" disabled>
-                            Choose outcome…
-                          </option>
-                          <option value="resolved_for_couple">Resolved · couple</option>
-                          <option value="resolved_for_vendor">Resolved · vendor</option>
-                          <option value="withdrawn">Withdrawn</option>
-                        </select>
-                        <textarea
-                          name="resolution_notes"
-                          rows={2}
-                          placeholder="Decision + rationale (required unless withdrawn)"
-                          className="input-field text-xs"
-                          aria-label="Resolution notes"
-                        />
-                        <SubmitButton pendingLabel="Applying…" className="button-secondary text-xs">
-                          Apply resolution
-                        </SubmitButton>
-                      </ConfirmForm>
-                    </details>
-                  ) : (
-                    <span
-                      className="text-xs text-ink/45"
-                      title={r.resolution_notes ?? undefined}
-                    >
-                      {r.resolved_at ? relativeTime(r.resolved_at) : '—'}
-                    </span>
-                  )}
-                </td>
-              </tr>
+                  </details>
+                ) : null}
+                {acks.length > 0 ? (
+                  <details className="mt-2">
+                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-mulberry">
+                      <ShieldCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+                      Reservation policy evidence ({acks.length})
+                    </summary>
+                    <ul className="mt-2 space-y-2">
+                      {acks.map((a) => (
+                        <PolicyEvidence key={a.ackId} ack={a} />
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+                {handovers.length > 0 ? (
+                  <details className="mt-2">
+                    <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-mulberry">
+                      <PackageCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+                      Delivery handover ({handovers.length})
+                    </summary>
+                    <ul className="mt-2 space-y-2">
+                      {handovers.map((h) => (
+                        <HandoverEvidence key={h.handoverId} handover={h} />
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+              </div>
             );
-          })}
-        </tbody>
-      </table>
-    </div>
+          },
+        },
+        {
+          header: 'Status',
+          cell: (r) => (
+            <span
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${STATUS_TONE[r.status]}`}
+            >
+              {STATUS_LABEL[r.status]}
+            </span>
+          ),
+        },
+        {
+          header: 'Opened',
+          hideBelow: 'md',
+          mono: true,
+          cell: (r) => (
+            <span className="whitespace-nowrap text-ink/70" title={r.created_at}>
+              {relativeTime(r.created_at)}
+            </span>
+          ),
+        },
+        {
+          header: 'Resolve',
+          cell: (r) =>
+            r.status === 'open' ? (
+              <details className="min-w-[12rem]">
+                <summary className="cursor-pointer select-none text-xs font-medium text-mulberry">
+                  Resolve
+                </summary>
+                <ConfirmForm
+                  action={resolveDispute}
+                  title="Apply this resolution?"
+                  confirmLabel="Apply resolution"
+                  message="This adjudicates the dispute — the decision is final, is recorded in the audit log, and notifies whoever opened it. It binds their next step (e.g. the agreed refund, reschedule, or substitute)."
+                  className="mt-2 space-y-2"
+                >
+                  <input type="hidden" name="dispute_id" value={r.dispute_id} />
+                  <select
+                    name="resolution"
+                    defaultValue=""
+                    required
+                    className="input-field text-xs"
+                    aria-label="Resolution outcome"
+                  >
+                    <option value="" disabled>
+                      Choose outcome…
+                    </option>
+                    <option value="resolved_for_couple">Resolved · couple</option>
+                    <option value="resolved_for_vendor">Resolved · vendor</option>
+                    <option value="withdrawn">Withdrawn</option>
+                  </select>
+                  <textarea
+                    name="resolution_notes"
+                    rows={2}
+                    placeholder="Decision + rationale (required unless withdrawn)"
+                    className="input-field text-xs"
+                    aria-label="Resolution notes"
+                  />
+                  <SubmitButton pendingLabel="Applying…" className="button-secondary text-xs">
+                    Apply resolution
+                  </SubmitButton>
+                </ConfirmForm>
+              </details>
+            ) : (
+              <span className="text-xs text-ink/70" title={r.resolution_notes ?? undefined}>
+                {r.resolved_at ? relativeTime(r.resolved_at) : '—'}
+              </span>
+            ),
+        },
+      ]}
+    />
   );
 }
 
@@ -737,7 +755,7 @@ function HandoverEvidence({ handover }: { handover: HandoverEvidenceRow }) {
           href={handover.payload}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-0.5 inline-block text-terracotta underline"
+          className="mt-0.5 inline-block text-link underline"
         >
           open link
         </a>

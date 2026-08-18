@@ -1132,6 +1132,12 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     // Preview mode: lift the veil hands-free on mount (no drag needed in a small
     // watermarked frame). Holds final state once revealed.
     if (autoplay) startAuto();
+
+    /* ARM THE HIT-ZONE. It renders 'none' so that any early return above (reduced
+       motion, no WebGL) leaves the guest a usable page rather than a screen-wide
+       invisible blocker. We are past every one of those returns here — the sim is
+       built and the loop is about to run — so the veil can now take input. */
+    if (grabRef.current) grabRef.current.style.pointerEvents = 'auto';
     raf = requestAnimationFrame(loop);
 
     return () => {
@@ -1182,12 +1188,33 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       aria-hidden
     >
       {/* Veil hit-zone — full while covering, top valance band once lifted (the
-          loop resizes it via grabRef.style). pointer-events:auto re-enables input
-          for just this region inside the pointer-none mount. */}
+          loop resizes it via grabRef.style). pointer-events re-enables input for
+          just this region inside the pointer-none mount.
+
+          🔒 IT STARTS 'none' AND THE LOOP TURNS IT ON — SAFE BY DEFAULT.
+          It used to start 'auto', which made this a screen-wide invisible
+          blocker from first paint that only the requestAnimationFrame loop ever
+          shrank (via grabRef.style, ~line 919). Two guards return from the mount
+          effect BEFORE that loop is ever scheduled:
+
+            • prefers-reduced-motion  — an ordinary accessibility setting
+            • the WebGL failure catch — its own comment says "never gate the
+              guest", and it did the opposite
+
+          On either path the guest got a full-screen sheet of glass with nothing
+          left running to remove it, and the parent deliberately never unmounts
+          this component ("reveal stays on top, not under", owner 2026-06-18) —
+          so it never went away. Every tap, swipe and scroll landed on nothing
+          until they closed the tab.
+
+          Starting 'none' inverts that: any path that never reaches the loop now
+          leaves the page fully usable instead of fully dead. The normal path
+          arms it on the loop's first frame (~16ms), before a hand can reach the
+          screen. */}
       <div
         ref={grabRef}
         className="absolute inset-x-0 top-0 bottom-0"
-        style={{ touchAction: 'none', pointerEvents: 'auto' }}
+        style={{ touchAction: 'none', pointerEvents: 'none' }}
       />
     </div>
   );

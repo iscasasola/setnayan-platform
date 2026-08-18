@@ -286,7 +286,11 @@ export function StoriesSearch({
               editorialResults.length + chapterResults.length === 1 ? 'piece' : 'pieces'
             } · the card says which kind`}
           />
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Tracks the gallery's card grids (2026-08-16) — the search view and
+              the browse view are the same shelf seen two ways, so a result set
+              must not render in a different rhythm from the archive it came
+              from. */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {chapterResults.map((r) => (
               <StorytellerTile key={r.key} item={r.chapter} editorialHref={r.chapter.editorialHref} />
             ))}

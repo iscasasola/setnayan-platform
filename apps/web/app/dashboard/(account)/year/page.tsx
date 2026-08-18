@@ -75,17 +75,22 @@ export default async function YearPage() {
   if (!user) redirect('/login');
 
   // Events the user co-hosts, with just the anchor columns the derivation needs.
-  const { data: rows } = await supabase
+  const { data: rows, error: rowsError } = await supabase
     .from('event_members')
     .select(
       `member_type,
        events:event_id (
          event_id, event_type, display_name, event_date,
-         anchor_date, anchor_origin, recurs, archived
+         anchor_date, anchor_origin, recurs, recur_cadence, archived
        )`,
     )
     .eq('user_id', user.id)
     .eq('member_type', 'couple');
+  // ⚠ the events this person belongs to. Refused, their year reads as empty — every
+  // ⚠ celebration they are part of disappears from the one page that lists them all.
+  if (rowsError) {
+    logQueryError('YearPage.rows', rowsError, {}, 'graceful_degrade');
+  }
 
   const events: MomentEvent[] = (rows ?? [])
     .flatMap((r) => {
@@ -104,12 +109,16 @@ export default async function YearPage() {
   // religion→rite moments (religion is sensitive PI). Fail-closed on both.
   let dependentMoments: YearMoment[] = [];
   if (dependentPeopleEnabled() && (await isDataPrivacyControlActive('dependent_minor_profiles'))) {
-    const { data: deps } = await supabase
+    const { data: deps, error: depsError } = await supabase
       .from('dependents')
       // `dependent_kind` is selected because the milestone ladder below is the
       // HUMAN one — without it a business's founding date would surface as its
       // "debut". buildDependentMoments skips every non-person kind.
       .select('dependent_id, name, birth_date, sex, religion, claimed_user_id, dependent_kind');
+    // ⚠ their dependents' occasions. Refused, those drop out of the year too.
+    if (depsError) {
+      logQueryError('YearPage.deps', depsError, {}, 'graceful_degrade');
+    }
     // Exclude the row I CLAIMED as my own profile (post hand-over, owner =
     // claimant) — my own debut isn't an "alaga moment". A former guardian's
     // read-only history rows still nudge (their kid's birthday is still theirs

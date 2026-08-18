@@ -88,15 +88,37 @@ export type LeadScoreRow = {
   tier: LeadTier;
 };
 
+/**
+ * ⚠ `churn` AND `leads` ARE NULL WHEN THEIR READ WAS REFUSED — never `[]`.
+ *
+ * Each of the three sections is a separate RPC that can fail on its own, and
+ * every one used to collapse into an empty list plus a line in `errors`. The
+ * aggregate banner was real, but underneath it the two tables still printed
+ * "No at-risk events — every couple … has been active" and "No active events
+ * to score yet": a reassurance, in the confident voice, about something that
+ * was never counted. The per-section error travels with the per-section rows
+ * now, so the table that failed is the table that says so.
+ */
 export type IntelligenceStats = {
   demo: boolean;
   staleDays: number;
-  churn: ChurnRiskRow[];
+  churn: ChurnRiskRow[] | null;
+  churnError: string | null;
   market: MarketAnalytics | null;
-  leads: LeadScoreRow[];
+  marketError: string | null;
+  leads: LeadScoreRow[] | null;
+  leadsError: string | null;
+  /** Every failure at once, for the banner at the top of the surface. */
   errors: string[];
   generatedAt: string;
 };
+
+/**
+ * The row caps the two RPCs apply. Exported so the tables disclose the SAME
+ * number the query cut at — two hand-typed copies of a number is not a guard.
+ */
+export const CHURN_ROW_CAP = 100;
+export const LEAD_ROW_CAP = 50;
 
 /* ── Raw RPC row shapes (snake_case, as returned by PostgREST) ─────────── */
 
@@ -160,12 +182,16 @@ async function fetchIntelligenceUncached(staleDays: number): Promise<Intelligenc
   const errors: string[] = [];
 
   const [churnRes, marketRes, leadsRes] = await Promise.all([
-    supabase.rpc('admin_churn_risk_events', { p_stale_days: staleDays, p_limit: 100 }),
+    supabase.rpc('admin_churn_risk_events', {
+      p_stale_days: staleDays,
+      p_limit: CHURN_ROW_CAP,
+    }),
     supabase.rpc('admin_market_analytics'),
-    supabase.rpc('admin_lead_scores', { p_limit: 50 }),
+    supabase.rpc('admin_lead_scores', { p_limit: LEAD_ROW_CAP }),
   ]);
 
-  let churn: ChurnRiskRow[] = [];
+  // null = not measured. Assigned only inside the success branch of each read.
+  let churn: ChurnRiskRow[] | null = null;
   if (churnRes.error) {
     errors.push(`churn radar (${churnRes.error.message})`);
   } else {
@@ -209,7 +235,7 @@ async function fetchIntelligenceUncached(staleDays: number): Promise<Intelligenc
     };
   }
 
-  let leads: LeadScoreRow[] = [];
+  let leads: LeadScoreRow[] | null = null;
   if (leadsRes.error) {
     errors.push(`lead scores (${leadsRes.error.message})`);
   } else {
@@ -242,8 +268,11 @@ async function fetchIntelligenceUncached(staleDays: number): Promise<Intelligenc
     demo: false,
     staleDays,
     churn,
+    churnError: churnRes.error?.message ?? null,
     market,
+    marketError: marketRes.error?.message ?? null,
     leads,
+    leadsError: leadsRes.error?.message ?? null,
     errors,
     generatedAt: new Date().toISOString(),
   };
@@ -433,8 +462,11 @@ export function buildDemoIntelligenceStats(staleDays: number): IntelligenceStats
     demo: true,
     staleDays,
     churn,
+    churnError: null,
     market,
+    marketError: null,
     leads,
+    leadsError: null,
     errors: [],
     generatedAt: new Date(now).toISOString(),
   };

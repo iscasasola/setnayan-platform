@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
@@ -51,7 +52,7 @@ export default async function AccessRequestsPage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data } = await supabase
+  const { data, error: dataError } = await supabase
     .from('event_access_requests')
     .select(
       'request_id, requester_user_id, vendor_profile_id, requested_areas, note, status, decisions, created_at',
@@ -59,6 +60,11 @@ export default async function AccessRequestsPage({
     .eq('event_id', eventId)
     .order('created_at', { ascending: false })
     .limit(50);
+  // ⚠ PEOPLE ASKING FOR ACCESS. Refused, the couple sees no requests — and somebody
+  // ⚠ waiting to be let in is invisible, with no sign anything was asked.
+  if (dataError) {
+    logQueryError('AccessRequestsPage.data', dataError, { eventId }, 'graceful_degrade');
+  }
 
   const rows = (data ?? []) as Array<{
     request_id: string;
@@ -74,10 +80,14 @@ export default async function AccessRequestsPage({
   const profileIds = [...new Set(rows.map((r) => r.vendor_profile_id).filter(Boolean))] as string[];
   const names = new Map<string, string>();
   if (profileIds.length > 0) {
-    const { data: profs } = await supabase
+    const { data: profs, error: profsError } = await supabase
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name')
       .in('vendor_profile_id', profileIds);
+    // ⚠ the requesters' shop names. Refused, a request shows without one.
+    if (profsError) {
+      logQueryError('AccessRequestsPage.profs', profsError, { eventId }, 'graceful_degrade');
+    }
     for (const p of (profs ?? []) as Array<{ vendor_profile_id: string; business_name: string }>) {
       names.set(p.vendor_profile_id, p.business_name);
     }

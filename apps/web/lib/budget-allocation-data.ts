@@ -348,16 +348,50 @@ export type LeafAggregate = {
  * the ADMIN (service-role) client — couples-own RLS blocks the authed admin from
  * raw rows by design — and returns ONLY leaves with >= minN distinct events
  * (k-anonymity). Returns [] until enough couples have used the planner.
+ *
+ * ⚠ CHECK `measured` BEFORE SAYING ANYTHING ABOUT HOW MANY COUPLES HAVE PLANNED.
+ * An empty result with `measured: false` means the read failed, not that nobody
+ * has planned — and it also means `suppressedBelowMinN` is meaningless, so do not
+ * report that nothing was withheld for privacy.
  */
 export async function fetchAllocationAggregates(
   adminClient: SupabaseClient,
   minN = 5,
-): Promise<{ aggregates: LeafAggregate[]; totalEvents: number; suppressedBelowMinN: boolean }> {
+): Promise<{
+  aggregates: LeafAggregate[];
+  totalEvents: number;
+  suppressedBelowMinN: boolean;
+  /**
+   * FALSE when the read never completed. Added 2026-08-17.
+   *
+   * ⚠ WHY THIS EXISTS. Both failure paths below used to return the same shape as
+   * a genuinely quiet platform — `aggregates: []`, `totalEvents: 0`,
+   * `suppressedBelowMinN: false` — and Supabase RESOLVES with `{ error }` rather
+   * than throwing, so a refused read was indistinguishable from "no couple has
+   * saved a plan yet". The admin surface then stated, in words, that not enough
+   * couples had used the planner. It was making a claim about customer behaviour
+   * out of a query that did not run.
+   *
+   * 🔑 THE SECOND HALF IS WORSE THAN THE FIRST. `suppressedBelowMinN: false`
+   * asserts that NOTHING was withheld for k-anonymity — a privacy claim — when in
+   * fact nothing was read at all. A false "nothing was hidden" is a different and
+   * more serious statement than a false zero.
+   */
+  measured: boolean;
+  /** The refusal Postgres actually gave, when there was one. */
+  readMessage?: string;
+}> {
+  const UNMEASURED = {
+    aggregates: [] as LeafAggregate[],
+    totalEvents: 0,
+    suppressedBelowMinN: false,
+    measured: false,
+  };
   try {
     const { data, error } = await adminClient
       .from('budget_allocation_decisions')
       .select('event_id, canonical_service, final_share_bp, final_amount_php, was_pinned, pin_order');
-    if (error || !data) return { aggregates: [], totalEvents: 0, suppressedBelowMinN: false };
+    if (error || !data) return { ...UNMEASURED, readMessage: error?.message };
 
     type Row = {
       event_id: string;
@@ -395,8 +429,15 @@ export async function fetchAllocationAggregates(
       });
     }
     aggregates.sort((x, y) => y.avgShareBp - x.avgShareBp);
-    return { aggregates, totalEvents: events.size, suppressedBelowMinN: suppressed };
+    return {
+      aggregates,
+      totalEvents: events.size,
+      suppressedBelowMinN: suppressed,
+      measured: true,
+    };
   } catch {
-    return { aggregates: [], totalEvents: 0, suppressedBelowMinN: false };
+    // A thrown error is as unmeasured as a refused one. Same value, so a caller
+    // cannot accidentally treat one as data and the other as absence.
+    return UNMEASURED;
   }
 }

@@ -26,13 +26,14 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Globe, ExternalLink, SquarePen, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { DomainManager } from './_domain-manager';
 import type { DomainRow } from './actions';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Your website · Setnayan' };
+export const metadata = { title: 'Your website' };
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -49,16 +50,24 @@ export default async function VendorWebsitePreview() {
   let slug: string | null = null;
   let visible = false;
   let domains: DomainRow[] = [];
+  let domainsMeasured = true;
   try {
     const profile = await fetchOwnVendorProfile(supabase, user.id);
     slug = profile?.business_slug ?? null;
     visible = isPubliclyVisible(profile?.public_visibility ?? 'coming_soon');
     // The vendor's own custom domains (RLS scopes this to their vendor profile).
-    const { data: domainRows } = await supabase
+    const { data: domainRows, error: domainRowsError } = await supabase
       .from('custom_domains')
       .select('domain_id, domain, verified_at')
       .eq('owner_type', 'vendor')
       .order('created_at', { ascending: true });
+    // ⚠ THE CUSTOM DOMAINS THEY HAVE SET UP. Refused, `?? []` renders the tab
+    // ⚠ as though no domain was ever connected — while the domain itself keeps
+    // ⚠ working — so the obvious response is to add it a second time.
+    if (domainRowsError) {
+      logQueryError('VendorWebsitePreview.domains', domainRowsError, {}, 'graceful_degrade');
+    }
+    domainsMeasured = !domainRowsError && domainRows !== null;
     domains = (domainRows ?? []).map((d) => ({
       domain_id: d.domain_id as string,
       domain: d.domain as string,
@@ -205,6 +214,17 @@ export default async function VendorWebsitePreview() {
 
       {/* Custom domain — available once the vendor has a public address (a
           custom domain resolves to /v/[slug], so it needs a slug to point at). */}
+      {!domainsMeasured ? (
+        <p
+          role="alert"
+          className="mt-4 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-3 text-sm text-ink/70"
+        >
+          <strong className="text-ink">We couldn&rsquo;t load your custom domains.</strong>{' '}
+          Any domain you have already connected is still connected and still
+          pointing at your page — it is missing from this list, not from your
+          account. Reload before adding it again.
+        </p>
+      ) : null}
       {slug && <DomainManager initial={domains} />}
     </div>
   );

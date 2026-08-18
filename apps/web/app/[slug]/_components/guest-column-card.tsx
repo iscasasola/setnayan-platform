@@ -1,3 +1,4 @@
+import { eventWordsForEvent } from '../_lib/event-words';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getLifecyclePhase } from '@/lib/invitation-widgets';
 import {
@@ -38,6 +39,8 @@ export async function GuestColumnCard({
   eventDate: string | null;
 }) {
   if (!(await guestColumnsActive())) return null;
+
+  const w = await eventWordsForEvent(eventId);
 
   const closed = getLifecyclePhase(eventDate) === 'editorial';
   const admin = createAdminClient();
@@ -131,8 +134,9 @@ export async function GuestColumnCard({
         The paper
       </h2>
       <p className="max-w-prose text-sm leading-relaxed text-ink/60">
-        Short columns written by guests for the couple&rsquo;s paper. Write one —
-        the couple reads and approves every column before it appears.
+        Short columns written by guests for {w.theOrganizerPossessive} paper.
+        Write one — {w.theOrganizer} reads and approves every column before it
+        appears.
       </p>
 
       {published.length > 0 ? (

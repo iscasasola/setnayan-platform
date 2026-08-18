@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CalendarDays, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorThreads } from '@/lib/chat';
 import {
@@ -120,12 +121,25 @@ export default async function VendorClientsPage({ searchParams }: Props) {
   const quotedEventIds = new Set<string>();
   const acceptedEventIds = [...new Set(accepted.map((t) => t.event_id))];
   if (acceptedEventIds.length > 0) {
-    const { data: quoted } = await supabase
+    const { data: quoted, error: quotedError } = await supabase
       .from('vendor_proposals')
       .select('event_id')
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .in('event_id', acceptedEventIds)
       .in('status', ['sent', 'viewed']);
+    // ⚠ WHICH CLIENTS THEY HAVE ALREADY QUOTED. Refused, `?? []` leaves the set
+    // ⚠ empty and every quoted thread falls back to the "In conversation" badge —
+    // ⚠ so a quote already sitting with a couple reads as never sent, and the
+    // ⚠ supplier's own next step looks like "send them a price" when the couple
+    // ⚠ is in fact waiting on nothing.
+    if (quotedError) {
+      logQueryError(
+        'VendorClientsSurface.quoted',
+        quotedError,
+        { vendorProfileId: profile.vendor_profile_id },
+        'graceful_degrade',
+      );
+    }
     for (const row of (quoted ?? []) as { event_id: string }[]) {
       quotedEventIds.add(row.event_id);
     }

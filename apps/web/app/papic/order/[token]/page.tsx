@@ -68,7 +68,10 @@ export default async function PapicGuestOrderPage({
   const justLogged = search.logged === '1';
 
   const admin = createAdminClient();
-  const { data: row } = await admin
+  // Same distinction as the shared-quote page: no row + no error is a genuine
+  // "no such order" (correct 404); an ERROR answered with 404 tells a guest
+  // holding a valid link that their order does not exist.
+  const { data: row, error: orderError } = await admin
     .from('papic_guest_orders')
     .select(
       'order_id, purchase_kind, points, payer_name, ' +
@@ -76,6 +79,18 @@ export default async function PapicGuestOrderPage({
     )
     .eq('access_token', token)
     .maybeSingle();
+  if (orderError) {
+    console.error('[papic/order] order read refused', orderError);
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+        <h1 className="text-xl font-semibold text-ink">We couldn&rsquo;t open this order</h1>
+        <p className="mt-3 text-sm text-ink/70">
+          Something went wrong reading it — your order has <strong>not</strong> been
+          cancelled and your link is still good. Please reload in a moment.
+        </p>
+      </main>
+    );
+  }
   if (!row) notFound();
 
   const order = (row as {

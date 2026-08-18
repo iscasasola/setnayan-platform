@@ -39,7 +39,7 @@
 
 import Link from 'next/link';
 import { useTransition } from 'react';
-import { CalendarX2, Check, Clock, Hammer, MessageCircle } from 'lucide-react';
+import { CalendarX2, Check, Clock, Hammer, Hourglass, MessageCircle } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { useSaveLoader } from '@/components/sd-loader';
 import type { BenchCardActions } from '@/lib/bench-card-actions';
@@ -54,13 +54,16 @@ import {
   CARD_LOCKING,
   CARD_NEEDS_PRICE,
   CARD_REMOVE_FROM_BUILD,
+  CARD_ASK_SENT,
   cardCheckInquiryLabel,
   cardInquireLabel,
+  waitingOnSupplier,
 } from '@/lib/explore-info-copy';
 import type { PlanGroupId } from '@/lib/wedding-plan-groups';
 import { removeBuildPick, setBuildPick } from '../build-pick-actions';
 import { AccordionLockButton } from './accordion-lock';
 import { ContactShortlistVendorButton } from './contact-shortlist-vendor-button';
+import { WithdrawAskButton } from './withdraw-ask-button';
 
 export function BenchVendorActions({
   actions,
@@ -69,6 +72,7 @@ export function BenchVendorActions({
   vendorName,
   groupLabel,
   verifiedState,
+  lockRequestExpiresAt,
 }: {
   actions: BenchCardActions;
   eventId: string;
@@ -84,6 +88,9 @@ export function BenchVendorActions({
    * to (spec §9: manual vendors skip the handshake and lock directly).
    */
   verifiedState: boolean | null;
+  /** ISO deadline of a still-outstanding ask, read back off the row the DB
+   *  stamped. Only meaningful when `actions.withdraw` is non-null. */
+  lockRequestExpiresAt?: string | null;
 }) {
   const [pending, start] = useTransition();
   const save = useSaveLoader();
@@ -156,6 +163,23 @@ export function BenchVendorActions({
         )
       ) : null}
 
+      {/* PR-H · THE ASK IS OUT AND NOBODY HAS ANSWERED.
+          This row is what stops the bench lying: without it the card looked
+          identical before and after the couple pressed Lock, and went on
+          offering Lock — which the one-pending-request-per-group unique index
+          would then REJECT, handing the couple an error for doing the only
+          thing the screen offered. The deadline is the DB's own stamped value,
+          never a recomputed 7 days. */}
+      {actions.withdraw ? (
+        <span className="vact note">
+          <Hourglass size={12} strokeWidth={1.9} aria-hidden />
+          <span className="vact-note-txt">
+            <b>{CARD_ASK_SENT}</b>
+            <span>{waitingOnSupplier(lockRequestExpiresAt ?? null)}</span>
+          </span>
+        </span>
+      ) : null}
+
       {actions.inquiry?.kind === 'inquire' ? (
         <ContactShortlistVendorButton
           eventId={eventId}
@@ -176,6 +200,16 @@ export function BenchVendorActions({
           <MessageCircle size={12} strokeWidth={1.9} aria-hidden />
           {CARD_CHECK_INQUIRY}
         </Link>
+      ) : null}
+
+      {actions.withdraw ? (
+        <WithdrawAskButton
+          vendorId={vendorId}
+          vendorName={vendorName}
+          className="vact quiet"
+          wrapperClassName="vact-slot"
+          errorClassName="vact-err"
+        />
       ) : null}
 
       {groupId ? (

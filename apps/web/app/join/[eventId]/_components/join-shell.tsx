@@ -1,4 +1,21 @@
+/**
+ * JoinShell — the /join family's door, now a thin binding over the shared
+ * <DoorShell> rather than its own chrome.
+ *
+ * WHAT CHANGED AND WHY. This file had the right idea before anything else did:
+ * one centred card for every step. It just never left `/join` — and three of
+ * its own siblings (check-email, set-password, success) hand-copied its
+ * wrapper instead of importing it, so "the shared shell" was shared with
+ * nobody. The chrome now lives in `_components/door/door-shell.tsx` where the
+ * other seven doors can reach it; this keeps the event-shaped signature
+ * (`event` in, header out) that JoinFlow and /[slug]/invite already call.
+ *
+ * 🎨 The eyebrow was `text-terracotta` — which in this repo is the atelier GOLD
+ * #A9834B at 3.37:1 on cream, an AA failure, not the CTA terracotta. DoorShell
+ * owns that colour now and gets it right; see its header note.
+ */
 import Link from 'next/link';
+import { DoorShell } from '@/app/_components/door/door-shell';
 
 export type JoinShellEvent = {
   display_name: string;
@@ -15,37 +32,36 @@ export function JoinShell({
   children: React.ReactNode;
 }) {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-6 py-12">
-      <header className="space-y-2">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">Setnayan</p>
-        {event ? (
-          <>
-            <h1 className="text-3xl font-semibold tracking-tight">{event.display_name}</h1>
-            <p className="text-sm text-ink/60">
-              {[event.event_date, event.venue_name].filter(Boolean).join(' · ')}
-            </p>
-          </>
-        ) : (
-          <h1 className="text-3xl font-semibold tracking-tight">Event invite</h1>
-        )}
-      </header>
+    <DoorShell
+      eyebrow="You're invited"
+      title={event?.display_name || 'Event invite'}
+      meta={
+        event
+          ? [event.event_date, event.venue_name].filter(Boolean).join(' · ') || undefined
+          : undefined
+      }
+    >
       {children}
-    </main>
+    </DoorShell>
   );
 }
 
 export function InvalidTokenScreen() {
   return (
-    <JoinShell event={null}>
-      <h2 className="text-xl font-semibold text-ink">This invite link isn&rsquo;t valid.</h2>
-      <p className="mt-2 text-ink/70">
-        It might have been revoked or the URL got cut off. Ask the couple for a fresh link.
-      </p>
-      <div className="mt-6">
-        <Link className="button-secondary" href="/">
-          Back home
-        </Link>
-      </div>
-    </JoinShell>
+    <DoorShell
+      /*
+        A dead link is not a threshold — there is nothing here to walk through,
+        so it does not wear the action colour. The only control is the way home,
+        which DoorShell always renders above the card.
+      */
+      tone="dead_end"
+      eyebrow="Invite link"
+      title="This invite link isn't valid."
+      sub="It might have been revoked, or the address got cut off when it was shared. Ask whoever invited you for a fresh link."
+    >
+      <Link className="button-secondary" href="/">
+        Back home
+      </Link>
+    </DoorShell>
   );
 }

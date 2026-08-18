@@ -1,5 +1,7 @@
 'use client';
 
+import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
@@ -91,6 +93,10 @@ export function SelfieCapture({
    *  first line so a mode_b guest never has a descriptor computed at all. */
   faceMode?: PapicFaceMode;
 } = {}) {
+  // The event's own word for whoever is throwing it. Falls back to the exact
+  // wording this surface shipped with, so a missing provider cannot regress a
+  // real wedding — event-words-mounted.test.ts is what stops that hiding.
+  const w = useEventWords() ?? WORDS_AS_SHIPPED;
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -409,8 +415,8 @@ export function SelfieCapture({
             <span className="font-normal text-ink/50">· optional</span>
           </p>
           <p className="mt-0.5 text-xs text-ink/60">
-            So the couple recognizes you on their guest list — and the
-            photographers can find your candid shots after the wedding.
+            So {w.theOrganizer} recognizes you on their guest list — and the
+            photographers can find your candid shots after the {w.eventWord}.
           </p>
         </div>
       </div>
@@ -478,7 +484,7 @@ export function SelfieCapture({
           <span>
             I agree to add{' '}
             <span className="font-medium">my photo to this event&rsquo;s guest list</span>
-            , so the couple and their team can recognise me.{' '}
+            , so {w.theOrganizer} and their team can recognise me.{' '}
             <span className="font-medium">
               No facial recognition runs at this event
             </span>{' '}

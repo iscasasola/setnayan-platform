@@ -1,5 +1,7 @@
 'use client';
 
+import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
+
 /**
  * Guest Columns — the submit/edit form (client half of guest-column-card).
  *
@@ -46,6 +48,10 @@ export function GuestColumnForm({
   own: OwnGuestColumn | null;
   closed: boolean;
 }) {
+  // The event's own word for whoever is throwing it. Falls back to the exact
+  // wording this surface shipped with, so a missing provider cannot regress a
+  // real wedding — event-words-mounted.test.ts is what stops that hiding.
+  const w = useEventWords() ?? WORDS_AS_SHIPPED;
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(own?.title ?? '');
@@ -120,7 +126,7 @@ export function GuestColumnForm({
             </p>
           ) : own.status === 'pending' ? (
             <p className="text-sm text-ink/70">
-              Your column is with the couple for review.
+              Your column is with {w.theOrganizer} for review.
             </p>
           ) : null}
           <p className="mt-2 font-display text-base font-medium italic text-ink">{own.title}</p>
@@ -156,7 +162,7 @@ export function GuestColumnForm({
       {/* Declined note — the couple returned it */}
       {own?.status === 'rejected' && !closed ? (
         <div className="mb-3 rounded-lg border-l-2 border-ink/30 bg-paper-deep p-3 text-sm text-ink/75">
-          The couple returned your column{own.declineNote ? ':' : '.'}{' '}
+          {w.TheOrganizer} returned your column{own.declineNote ? ':' : '.'}{' '}
           {own.declineNote ? <span className="italic">&ldquo;{own.declineNote}&rdquo;</span> : null}{' '}
           You can edit it and send it again.
         </div>
@@ -200,7 +206,7 @@ export function GuestColumnForm({
               maxLength={GUEST_COLUMN_BODY_MAX}
               onChange={(e) => setBody(e.target.value)}
               rows={4}
-              placeholder="Your words for the couple’s paper…"
+              placeholder={`Your words for ${w.theOrganizerPossessive} paper…`}
               className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
             />
           </div>
@@ -214,7 +220,7 @@ export function GuestColumnForm({
             />
             <span>
               I agree that these words may be shown on this event&rsquo;s pages once
-              the couple approves them (Data Privacy Act of 2012). You can withdraw
+              {w.theOrganizer} approves them (Data Privacy Act of 2012). You can withdraw
               your column at any time.
             </span>
           </label>
@@ -272,7 +278,7 @@ export function GuestColumnForm({
       {closed && own !== null ? (
         <p className="mt-3 text-xs text-ink/50">
           Column submissions have closed for this event
-          {own.status === 'pending' ? ' — your column can still be approved by the couple.' : '.'}
+          {own.status === 'pending' ? ` — your column can still be approved by ${w.theOrganizer}.` : '.'}
         </p>
       ) : null}
     </div>

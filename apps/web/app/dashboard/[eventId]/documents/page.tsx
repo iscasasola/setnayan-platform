@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import {
   ArrowRight,
@@ -166,10 +167,14 @@ export default async function EventDocumentsPage({ params }: Props) {
   );
   const vendorMap = new Map<string, { business_name: string }>();
   if (vendorProfileIds.length > 0) {
-    const { data: vendorRows } = await supabase
+    const { data: vendorRows, error: vendorRowsError } = await supabase
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name')
       .in('vendor_profile_id', vendorProfileIds);
+    // ⚠ supplier names on stored documents. Same shape as contracts above.
+    if (vendorRowsError) {
+      logQueryError('DocumentsPage.vendorRows', vendorRowsError, { eventId }, 'graceful_degrade');
+    }
     for (const v of vendorRows ?? []) {
       vendorMap.set(v.vendor_profile_id as string, {
         business_name: (v.business_name as string) || 'Vendor',

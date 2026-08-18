@@ -143,12 +143,36 @@ const FLAGS: FlagSpec[] = [
       // acquire is bypassed, the write records a request, and the action
       // returns before every effect that announces a booking.
       'app/dashboard/[eventId]/vendors/actions.ts',
+      // ── SLICE B · THE OTHER FOUR WAYS A BOOKING IS CREATED ───────────────
+      // Slice A converted the vendors-page path and left these flipping
+      // straight to 'contracted', so the SAME supplier was "asked" from one
+      // screen and "booked" from another, decided only by which button the
+      // couple happened to press. The list was built by grepping every writer
+      // of `status='contracted'`, NOT from anybody's list of paths — which is
+      // how the two wizard entries were found, neither of them in any brief.
+      // 🔑 If a sixth appears, it belongs here on the day it is written.
+      'app/dashboard/[eventId]/vendors/packages/actions.ts',
+      'lib/chat-lock-booking.server.ts',
+      'app/dashboard/[eventId]/wizard-actions.ts',
+      // The couple's screens. Each of these ASKS the flag so that with it off
+      // they render byte-identically to today; without the ask they would show
+      // a waiting state that nothing can ever produce, which is worse than not
+      // showing one — a dead branch nobody can test.
+      'app/dashboard/[eventId]/vendors/page.tsx',
+      'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx',
     ],
     pureCores: [
       // Takes `enabled` as a PARAMETER — six surfaces derive their state from
       // it, so it must answer both worlds in one process. A gate that receives
       // the flag would redden property 2; this is the other bucket on purpose.
       'lib/lock-request-state.ts',
+      // Slice B · the same contract. Each of these decides what a couple is
+      // TOLD, and each takes `enabled`/`handshakeEnabled` so one test process
+      // can drive the flag-off world and assert it is unchanged.
+      'lib/vendors-plan-budget.ts',
+      'lib/shortlist-taxonomy.ts',
+      'lib/bench-card-actions.ts',
+      'lib/chat-lock-booking.ts',
     ],
     // ⚠ `lib/lock-request-expiry.ts` is deliberately in NEITHER list: the sweep
     // does not read the flag at all. Gating it would strand every in-flight

@@ -13,19 +13,29 @@
  * component renders NOTHING in that state — no placeholder, no "coming soon"
  * on a working console.
  *
- * The body and kind of each preset are resolved SERVER-side from the key
- * (`buildVendorStatusDraft`), so nothing here can post arbitrary text.
+ * The body and kind of each PRESET are resolved SERVER-side from the key
+ * (`buildVendorStatusDraft`), so a tap can never post text of its own choosing.
+ *
+ * ⚠ THIS DOCBLOCK USED TO END "so nothing here can post arbitrary text", and
+ * that was a description of a LIMITATION being read as a security property. It
+ * was neither: the coordinator has always had a free-text box on the same
+ * stream, the RLS INSERT policies already distinguish the two lanes, and the
+ * only thing the closed list of six actually prevented was a supplier
+ * reporting a problem nobody had thought of in advance. There is now a
+ * free-text box here too, going through `submitDayRequest`, which derives the
+ * lane from the caller's own side — so a supplier still cannot post as the
+ * coordinator, which is the property that ever mattered.
  */
 
 import { useCallback, useEffect, useState, useTransition } from 'react';
-import { Check, Loader2, Radio } from 'lucide-react';
+import { Check, Loader2, MessageSquare, Radio } from 'lucide-react';
 
 import {
   VENDOR_STATUS_PRESETS,
   statusLabel,
   type DayRequestRow,
 } from '@/lib/day-requests';
-import { getDayRequestsView, submitVendorStatusPreset } from '../actions';
+import { getDayRequestsView, submitDayRequest, submitVendorStatusPreset } from '../actions';
 
 export function VendorStatusUpdates({ eventId }: { eventId: string | null }) {
   const [ready, setReady] = useState(false);
@@ -33,6 +43,8 @@ export function VendorStatusUpdates({ eventId }: { eventId: string | null }) {
   const [rows, setRows] = useState<DayRequestRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sentKey, setSentKey] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const [noteSent, setNoteSent] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const load = useCallback(async () => {
@@ -70,6 +82,39 @@ export function VendorStatusUpdates({ eventId }: { eventId: string | null }) {
       await load();
       // Clear the confirmation tick after a beat.
       setTimeout(() => setSentKey((k) => (k === key ? null : k)), 2500);
+    });
+  }
+
+  // ── SIX BUTTONS CANNOT SAY "THE CAKE IS MELTING NEAR THE LIGHTS" ───────────
+  //
+  // The presets are the fast path and stay exactly as they are. But they are a
+  // CLOSED list of six, so anything the list did not anticipate could not be
+  // reported at all — on the one surface built for reporting problems.
+  //
+  // Nothing new is authored here. `submitDayRequest` already ships, already
+  // files on the VENDOR lane (it derives the lane from the caller's own side,
+  // so a supplier can never post as the coordinator), and is already behind the
+  // same `coordinator_requests_inbox` control this component checks. The
+  // coordinator's own inbox has had a free-text box since it was built; a plain
+  // supplier just never got one. This is the wiring, not the feature.
+  function sendNote() {
+    if (!eventId) return;
+    const body = note.trim();
+    if (!body) {
+      setError('Write something first.');
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const res = await submitDayRequest(eventId, body);
+      if (!res.ok) {
+        setError(res.error ?? 'Could not send that.');
+        return;
+      }
+      setNote('');
+      setNoteSent(true);
+      await load();
+      setTimeout(() => setNoteSent(false), 2500);
     });
   }
 
@@ -117,6 +162,48 @@ export function VendorStatusUpdates({ eventId }: { eventId: string | null }) {
               </button>
             );
           })}
+        </div>
+
+        {/* Anything the six buttons cannot say. */}
+        <div className="mt-4 border-t border-ink/10 pt-4">
+          <label
+            htmlFor="day-note"
+            className="flex items-center gap-2 text-sm font-medium text-ink/80"
+          >
+            <MessageSquare aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+            Something else?
+          </label>
+          <p className="mt-0.5 text-xs text-ink/55">
+            Type it and the coordinator sees it on their floor inbox with your name on it.
+          </p>
+          <textarea
+            id="day-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            disabled={pending}
+            placeholder="The cake is melting near the lights…"
+            className="mt-2 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none disabled:opacity-40"
+          />
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={sendNote}
+              disabled={pending || note.trim().length === 0}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-4 py-2 text-sm font-medium text-cream transition hover:bg-mulberry-600 disabled:opacity-40"
+            >
+              {pending ? (
+                <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+              ) : null}
+              Send to the coordinator
+            </button>
+            {noteSent && !pending ? (
+              <span className="inline-flex items-center gap-1 text-xs text-ink/55">
+                <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                Sent
+              </span>
+            ) : null}
+          </div>
         </div>
 
         {rows.length > 0 ? (

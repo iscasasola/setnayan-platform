@@ -21,7 +21,7 @@ import { ADMIN_NAV_GROUPS } from '../_components/admin-nav-groups';
 import { MobileLandingGrid } from '../_components/mobile-landing-grid';
 import { adaptAdminGroupItems } from '../_components/admin-nav-descriptions';
 
-export const metadata = { title: 'Money & Settings · Setnayan HQ' };
+export const metadata = { title: 'Money & Settings HQ' };
 
 export default function AdminMoneyHub() {
   const items = adaptAdminGroupItems(ADMIN_NAV_GROUPS, 'settings-group');

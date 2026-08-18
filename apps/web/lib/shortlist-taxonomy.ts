@@ -47,6 +47,7 @@ import type { TaxonomySnapshot } from '@/lib/taxonomy-db';
 import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import type { VendorEnrichment } from '@/lib/vendors-plan-budget';
 import type { ChatInquiryStatus } from '@/lib/chat';
+import { lockRequestStateOf, type LockRequestState } from '@/lib/lock-request-state';
 
 /** The `event_vendors.status` values that mean "this booking is committed". */
 export const LOCKED_VENDOR_STATUSES: readonly string[] = [
@@ -203,6 +204,22 @@ export type ShortlistVendor = {
   name: string;
   /** 'locked' once contracted/paid/delivered/complete, else 'considering'. */
   status: 'considering' | 'locked';
+  /**
+   * PR-H · where this booking actually IS. `status` above answers only
+   * "committed or not", which under the handshake is the WRONG question: a
+   * couple who pressed Lock five minutes ago has a row that is still
+   * 'considering', and a bench card keyed on `status` alone would look exactly
+   * as it did before they pressed it — and offer Lock again.
+   *
+   * Always `'none'` while the flag is off, so the card renders byte-identically
+   * to production today. Derived by the ONE shared core, never re-worked out.
+   */
+  lockRequestState: LockRequestState;
+  /** ISO deadline for a still-outstanding ask — the number the DB is actually
+   *  enforcing, read back rather than recomputed, so the countdown a couple
+   *  reads is the countdown that will fire. Null unless `lockRequestState` is
+   *  `'requested'`. */
+  lockRequestExpiresAt: string | null;
   totalCostPhp: number | null;
   /** Best available image: manual photo → service photo → marketplace logo. */
   photoUrl: string | null;
@@ -456,6 +473,11 @@ export function buildShortlistFolders(args: {
    *  days for a handful of candidate dates; count them for a whole month) and
    *  that is a page-level fact, not a per-vendor one. */
   freeDaysLineByVendorId?: ReadonlyMap<string, string>;
+  /** `isLockHandshakeEnabled()`, passed IN. This module is a pure builder and
+   *  must not read the env itself — `flag-chokepoint-scan.test.ts` property 3
+   *  reddens the moment it does, and taking it as a parameter is what lets one
+   *  test process drive both worlds. Default `false` = today's production. */
+  lockHandshakeEnabled?: boolean;
 }): ShortlistFolder[] {
   const {
     vendorRows,
@@ -470,6 +492,7 @@ export function buildShortlistFolders(args: {
     demandByVendorId,
     buildFitByVendorId,
     freeDaysLineByVendorId,
+    lockHandshakeEnabled = false,
   } = args;
 
   // Budget-fit remaining (2026-07-09): total − Σ locked commitments. Only LOCKED
@@ -509,6 +532,10 @@ export function buildShortlistFolders(args: {
     if (!tile) continue;
     const ext = enrichmentByVendorId?.get(v.vendor_id);
     const isLocked = !!(v.status && LOCKED_STATUSES.has(v.status));
+    const lockRequestState = lockRequestStateOf(
+      { status: v.status ?? null, lock_request_state: v.lock_request_state ?? null },
+      lockHandshakeEnabled,
+    );
     const totalCostPhp =
       typeof v.total_cost_php === 'number'
         ? v.total_cost_php
@@ -533,6 +560,9 @@ export function buildShortlistFolders(args: {
       vendorId: v.vendor_id,
       name: v.vendor_name,
       status: isLocked ? 'locked' : 'considering',
+      lockRequestState,
+      lockRequestExpiresAt:
+        lockRequestState === 'requested' ? (v.lock_request_expires_at ?? null) : null,
       totalCostPhp,
       photoUrl:
         v.manual_vendor_photo_url ??

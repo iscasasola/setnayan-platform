@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { STAGE_NOTE_MAX, fetchStageNotes, type StageNote } from '@/lib/stage-notes';
 import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { sendStageNoteFromEvent } from '../stage-note-actions';
 
 /**
@@ -50,7 +51,11 @@ export async function TellTheHost({
 }) {
   if (!canSend) return null;
 
-  const hosts = await fetchEmceeRecipients(supabase, eventId);
+  // Service-role reader for the service-category half only — `vendor_services`
+  // is RLS-readable only for PUBLISHED shops, so the couple's own client would
+  // drop a booked-but-unpublished host from the answer with no error at all.
+  // This component is already behind `canSend`. See fetchEmceeRecipients.
+  const hosts = await fetchEmceeRecipients(supabase, eventId, createAdminClient());
   if (hosts.length === 0) return null;
 
   // What has already gone across, so "did he get it?" is answerable here rather

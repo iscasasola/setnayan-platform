@@ -68,3 +68,49 @@ supplier's public record** — a customer tidying their own list must not shrink
 history.
 
 SPEC IMPACT: None — no migration, no column, no permission change. The switch already existed.
+
+## 2026-08-18 · fix(dashboard): the put-away write runs on the admin client
+
+Found by an adversarial review pass before merge, then confirmed against the
+live database by the object — not read from a migration.
+
+**A co-host could never put an event away, and was told they were not a host.**
+`setEventArchived` copied the house host CHECK (`event_members` couple OR
+coordinator, plus an accepted `event_moderators` row) but not the house WRITE.
+The update ran on the request-scoped client, and the only permissive UPDATE
+policy on `public.events` is `couple_can_update_event`, whose
+`current_couple_event_ids()` is `member_type = 'couple'` ONLY. So for every
+co-host the statement was RLS-filtered to zero rows **with no error**, fell into
+the zero-row branch, and answered *"Only a host of this celebration can put it
+away"* — immediately after the same function had decided they were one.
+
+`/host/accept/[token]` is the sole writer of `member_type: 'coordinator'`, and
+`details/page.tsx` renders the card to them unconditionally, so this was every
+co-host in the product on their first visit. "Bring it back" failed identically,
+so a co-host could not undo the couple's put-away either.
+
+The write now uses `createAdminClient()`, matching `setEventCeremonyType` /
+`updateEventMatchCriteria` / `updateVenueSetting`, whose own comment states that
+the explicit host check *is* the authorization. The zero-row branch now returns
+`not_found` — with no RLS to filter it, zero rows can only mean the id does not
+exist, and keeping the old string would have re-created the same lie for a
+genuinely bad id.
+
+🔑 **RLS IS A FLOOR, NOT A SCOPE — and here it was NARROWER than the product
+rule.** The original docblock read the policy and caught its `is_admin()`
+disjunct being too WIDE, while missing that the other disjunct was too narrow.
+That is the direction that is easy to miss.
+
+Guarded by a new case in `lib/gates-have-handles.test.ts` asserting the rule
+(the update is rooted at `createAdminClient(`, never at the request-scoped
+client, and the zero-row branch claims no permission problem). Three mutations,
+each measured by occurrence count, all red.
+
+🪤 **The first cut of that guard's third assertion was decorative and the
+mutation run proved it** — the sabotage landed (`not_found` 3 → 2) and the suite
+stayed GREEN, because the explanatory comment sitting between its two anchors is
+longer than its 200-character match window. A guard whose reach is a character
+budget silently shrinks every time somebody documents the code. Re-sliced by
+brace so the branch is bounded by what it is.
+
+SPEC IMPACT: None.

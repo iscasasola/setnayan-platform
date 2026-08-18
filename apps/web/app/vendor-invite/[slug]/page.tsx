@@ -18,7 +18,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { claimVendorInviteToEvent } from './actions';
 
 export const metadata = {
-  title: 'Add a vendor to your plan · Setnayan',
+  title: 'Add a vendor to your plan',
   // Per-vendor invite landings shouldn't be indexed.
   robots: { index: false, follow: false },
 };
@@ -177,7 +177,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
             </Link>
             <Link
               href={`/login?next=${encodeURIComponent(nextPath)}`}
-              className="mt-3 inline-block text-sm text-ink/60 underline hover:text-terracotta"
+              className="mt-3 inline-block text-sm text-ink/60 underline hover:text-link"
             >
               I already have an account
             </Link>
@@ -245,7 +245,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
             </SubmitButton>
             <Link
               href={`/dashboard/create-event?next=${encodeURIComponent(nextPath)}`}
-              className="block text-center text-xs text-ink/50 underline hover:text-terracotta"
+              className="block text-center text-xs text-ink/50 underline hover:text-link"
             >
               or create a new event
             </Link>

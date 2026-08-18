@@ -23,10 +23,18 @@ import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
  * INSERT/UPDATE/DELETE re-pulls the blocks via a server action, so advancing on
  * one device lights up on every open surface within ~500ms.
  *
- * `canAdvance` gates the "Start next" / "End & advance" control to the
- * host/coordinator (and the booked vendor, who is also allowed by the RPC). The
- * RPC is single-winner + idempotent, so a stray click from a second device is a
- * benign no-op.
+ * `canAdvance` gates the "Start next" / "End & advance" control.
+ *
+ * ⚠ IT IS NOT AN AUTHORIZATION BOUNDARY, AND IT IS WIDER THAN THE SERVER.
+ * The vendor client workspace passes it as a bare literal, so every booked
+ * supplier sees the control; the server action then narrows to host/couple ∪
+ * schedule-delegate ∪ the BOOKED COORDINATOR ∪ admin. The DATABASE rpc is wider
+ * still (it admits any booked vendor) — so "allowed by the RPC" says nothing
+ * about whether a press will work. `lib/run-of-show-advance.ts` is the narrowing
+ * that decides, and this header now SHOWS what it decided. See `onAdvance`.
+ *
+ * The RPC is single-winner + idempotent, so a stray click from a second device
+ * is a benign no-op.
  *
  * `initial` is computed in the server render so the header shows correct state
  * on first paint before the channel connects.
@@ -44,6 +52,8 @@ export function RunOfShowHeader({
 }) {
   const [blocks, setBlocks] = useState<RunOfShowBlock[]>(initial);
   const [live, setLive] = useState(false);
+  /** What the last press was told. Null while nothing has been refused. */
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const save = useSaveLoader();
   // A wall-clock tick (60s) so the drift label re-reads "now" even without a
@@ -104,12 +114,34 @@ export function RunOfShowHeader({
   // Nothing to show if the couple hasn't built a timeline.
   if (blocks.length === 0) return null;
 
+  // 🔑 THE RESULT IS THE POINT — DO NOT DISCARD IT AGAIN.
+  //
+  // `advanceScheduleBlock` narrows to host/couple ∪ schedule-delegate ∪ the
+  // BOOKED COORDINATOR ∪ admin (lib/run-of-show-advance.ts), and it returns a
+  // refusal rather than throwing. But `canAdvance` is passed as a literal on
+  // the vendor client workspace, so EVERY booked supplier — photographer,
+  // caterer, florist — sees this button. Until now the returned status was
+  // awaited and thrown away: a supplier pressed "Start next", watched the
+  // saving loader run, and the timeline simply did not move. No error, no
+  // explanation, nothing to distinguish a refusal from a failed network.
+  //
+  // The gate is CORRECT and is not widened here — only its silence is fixed.
+  // A guard that refuses without saying so is indistinguishable from one that
+  // passed, which is how this survived review: every pass was made as the
+  // coordinator, for whom the button works.
   const onAdvance = (blockId: string) => {
+    setNotice(null);
     startTransition(async () => {
-      await save.run(() => advanceScheduleBlock(eventId, blockId), {
+      const result = await save.run(() => advanceScheduleBlock(eventId, blockId), {
         steps: ['Advancing the timeline'],
         hint: 'Saving',
       });
+      // `ok` is the only status that moved the timeline. Anything else has to
+      // say something — and a refusal carries its own sentence, so prefer it
+      // over a generic one.
+      if (result && result.status !== 'ok') {
+        setNotice(result.message ?? 'That didn’t go through. Please try again.');
+      }
       await refetch();
     });
   };
@@ -198,8 +230,9 @@ export function RunOfShowHeader({
         </div>
       )}
 
-      {/* Advance control — host/coordinator (and booked vendor). The RPC is
-          single-winner + idempotent, so concurrent taps are safe. */}
+      {/* Advance control. Shown wider than it is permitted (see the docblock),
+          so a refusal must be visible — never a loader that finishes and a
+          timeline that did not move. */}
       {canAdvance && !allDone ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {current ? (
@@ -224,6 +257,14 @@ export function RunOfShowHeader({
             </button>
           ) : null}
           {pending ? <span className="text-xs text-ink/45">Updating…</span> : null}
+          {notice ? (
+            <p
+              role="status"
+              className="w-full text-xs font-medium text-mulberry-600"
+            >
+              {notice}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </section>

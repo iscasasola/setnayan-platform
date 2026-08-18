@@ -157,8 +157,13 @@ test('beyondHorizon: soft advisory boundary per the owner-locked prep table', ()
 test('measured visibility: debut/christening hide only when nothing concerns the account', () => {
   // People layer unavailable (flag off) → cannot measure → nothing hides
   assert.deepEqual(hiddenMeasuredTypes(null, TODAY), []);
-  // No people at all → both measured types hide (the expander doorway remains)
-  assert.deepEqual(hiddenMeasuredTypes([], TODAY).sort(), ['christening', 'debut']);
+  // 🔴 NOBODY ON FILE → NOTHING HIDES. This asserted the opposite until
+  // 2026-08-16, and the opposite is what the owner saw: Debut and Christening
+  // absent from the create grid on every account, because the People layer this
+  // measures is flag-gated and empty in production, so "is anyone near their
+  // 18th?" is asked of an empty table and answered "no" forever. An empty list
+  // is the ABSENCE of an answer, and it now fails open exactly like `null`.
+  assert.deepEqual(hiddenMeasuredTypes([], TODAY), []);
   // A daughter turning 18 within the horizon → debut concerns the account
   const debutante = { birth_date: '2008-10-10', sex: 'female' }; // 18th: 2026-10-10
   assert.deepEqual(hiddenMeasuredTypes([debutante], TODAY), ['christening']);

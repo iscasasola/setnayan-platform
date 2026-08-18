@@ -39,6 +39,7 @@
  * (2026-08-15) and mount this from `_doorway.tsx`. `/blog` and Real Stories are
  * NOT mounted and would still need the same treatment first.
  */
+import { DOORWAY_BLEED_PATHS } from './shell-bleed';
 import 'server-only';
 
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -149,6 +150,11 @@ export async function AppRailShell({
     <FrontDoorShell
       variant={variant}
       bleed={bleed}
+      /*
+        Only the public route group has full-bleed routes. The signed-in trees
+        get `undefined` and pass `bleed` explicitly if they ever need it.
+      */
+      bleedPaths={variant === 'doorway' ? DOORWAY_BLEED_PATHS : undefined}
       account={account}
       navLabels={navLabels}
       visibleFolders={FRONT_DOOR_VISIBLE_FOLDERS.map(toRailFolder)}
@@ -193,12 +199,39 @@ export async function AppRailShell({
       */
       topBarSlot={topBarSlot ?? (account.signedIn ? <SignedInCluster /> : undefined)}
       /*
-        THE SEARCH INSIDE THE APP IS THE PALETTE, NOT THE MARKETPLACE FORM.
-        See the shell's file header: everything this variant wraps is a room in
-        the person's own house, so "where is my thing" is the question, and the
-        palette carries the marketplace as an escape row so nothing is lost.
+        THE SEARCH FOLLOWS WHO IS LOOKING, NOT WHICH PAGE THEY ARE ON — the
+        third time this file settles that question the same way (the Studio
+        rows above, the account cluster above that).
+
+        🔴 THIS LINE WAS UNCONDITIONAL AND ITS PREMISE HAD MOVED. The 2026-08-14
+        ruling — "the palette wins, because every surface this bar mounts on is
+        INSIDE the person's own app" — was TRUE THE DAY IT WAS WRITTEN: slice 0
+        mounted five signed-in trees. On 2026-08-15 the eight product doorways,
+        About, Explore, Real Stories, Pricing and the legal chrome mounted this
+        same shell with `variant="doorway"`, and nobody re-asked the search
+        question. A stranger on /setnayan-ai was then offered a palette
+        labelled "Search events, people, vendors" over events, people and
+        vendors they do not have: `resolveCommandItems` returns `[]` with no
+        session, so pressing it opened an EMPTY list, and typing produced
+        exactly one row — the marketplace escape. Two presses to reach what
+        the front door answers with Enter. Owner 2026-08-16, two screenshots:
+        *"i think the top nav is still not fixed. the search tab looks
+        different."*
+
+        So: signed in → the palette (their own things, marketplace escape row
+        keeps it lossless). Signed out → `undefined`, which the shell falls
+        back to the marketplace GET form — the SAME box `/` has always shown.
+        One search per person across every public page and every app tree.
+
+        💸 The palette is not even BUILT for a stranger now: `commandItems` is
+        `[]` either way, and this stops mounting a client component and its
+        ⌘K listener on a page whose visitor it can never answer.
       */
-      search={<HomeCommandBar items={commandItems} variant="rail" />}
+      search={
+        account.signedIn ? (
+          <HomeCommandBar items={commandItems} variant="rail" />
+        ) : undefined
+      }
     >
       {children}
     </FrontDoorShell>

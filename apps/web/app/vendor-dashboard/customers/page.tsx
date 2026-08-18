@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CalendarDays, ChevronRight, MessageSquare, PhilippinePeso, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { formatPhp, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { countUnreadMessages, fetchVendorThreads } from '@/lib/chat';
@@ -33,7 +34,7 @@ import { CustomersCalendar } from './_components/customers-calendar';
 import type { FilterOption } from './_components/customers-filter-bar';
 import { VendorQrSection } from '../_components/qr-section';
 
-export const metadata = { title: 'My Customers · Vendor · Setnayan' };
+export const metadata = { title: 'My Customers · Vendor' };
 
 /**
  * /vendor-dashboard/customers — "My Customers".
@@ -292,10 +293,24 @@ async function CustomersPipeline({ searchParams }: Props) {
   const bookedEventIds = [...bookedByEvent.keys()];
   if (bookedEventIds.length > 0) {
     const admin = createAdminClient();
-    const { data: eventRows } = await admin
+    const { data: eventRows, error: eventRowsError } = await admin
       .from('events')
       .select('event_id, event_date, venue_name, event_type')
       .in('event_id', bookedEventIds);
+    // ⚠ THE EVENT DATE, VENUE AND TYPE for every booked client. Refused, all
+    // ⚠ three go null: the date column empties, the venue disappears, and the
+    // ⚠ list SORTS DIFFERENTLY — rows without a date fall to the bottom, so the
+    // ⚠ wedding happening next week stops being at the top of the supplier's
+    // ⚠ own client list. An absence that quietly re-orders is worse than one
+    // ⚠ that empties, because nothing on screen looks missing.
+    if (eventRowsError) {
+      logQueryError(
+        'VendorCustomersPage.eventRows',
+        eventRowsError,
+        {},
+        'graceful_degrade',
+      );
+    }
     for (const e of (eventRows ?? []) as {
       event_id: string;
       event_date: string | null;

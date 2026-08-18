@@ -1,5 +1,7 @@
 'use client';
 
+import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
+
 import { useEffect, useState } from 'react';
 
 type Props = { targetIso: string };
@@ -18,6 +20,11 @@ function compute(target: number): Remaining {
 }
 
 export function CountdownWidget({ targetIso }: Props) {
+  // 🔴 THIS LABEL IS A WEDDING VOW. It read "Until we say 'I do'" on a
+  // seven-year-old's birthday and on a graduation — seen on the real pages, not
+  // caught by any scan, because it contains none of the words a wedding-word
+  // search looks for. A countdown is universal; that sentence is not.
+  const w = useEventWords() ?? WORDS_AS_SHIPPED;
   const target = new Date(targetIso).getTime();
   const [remaining, setRemaining] = useState<Remaining>(() => compute(target));
 
@@ -39,7 +46,11 @@ export function CountdownWidget({ targetIso }: Props) {
   return (
     <section className="rounded-2xl border border-ink/10 bg-veil/40 p-6 text-center sm:p-8">
       <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-        Until we say &lsquo;I do&rsquo;
+        {w.eventWord === 'wedding' ? (
+          <>Until we say &lsquo;I do&rsquo;</>
+        ) : (
+          <>Until the day</>
+        )}
       </p>
       <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-3">
         {boxes.map((b) => (

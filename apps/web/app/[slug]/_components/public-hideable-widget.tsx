@@ -1,3 +1,4 @@
+import type { EventWords } from '../_lib/event-words';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
@@ -27,6 +28,7 @@ import { WhatToBringWidget } from './what-to-bring-widget';
  * meaningful.
  */
 export function PublicHideableWidget({
+  words,
   widget,
   event,
   scheduleBlocks,
@@ -36,6 +38,9 @@ export function PublicHideableWidget({
 }: {
   widget: InvitationWidgetRow;
   event: EventRow;
+  /** The event type's own words, resolved ONCE by the body and threaded here
+   *  rather than re-resolved per widget. */
+  words: EventWords;
   scheduleBlocks: ScheduleBlockRow[];
   isLive: boolean;
   /** RSVP-season "Estimated program" label on the schedule widget (owner
@@ -72,10 +77,10 @@ export function PublicHideableWidget({
       return <VenueWidget event={event} />;
 
     case 'dress_code':
-      return <DressCodeWidget config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} />;
 
     case 'photo_moments':
-      return <PhotoMomentsWidget config={event.photo_moments_config} />;
+      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} />;
 
     case 'special_message':
       return <SpecialMessageWidget text={event.special_message ?? null} />;
@@ -94,7 +99,13 @@ export function PublicHideableWidget({
     case 'tier_comparison':
       // limited=false on the anonymous path — anonymous visitors are
       // never a "limited +1" by definition.
-      return <TierComparisonWidget limited={false} eventNoun={eventNounOf(event)} />;
+      return (
+        <TierComparisonWidget
+          limited={false}
+          eventNoun={eventNounOf(event)}
+          words={words}
+        />
+      );
 
     // Always-on + guest-personalized types are intentionally skipped
     // on the anonymous path. event_details needs guest.role + side;

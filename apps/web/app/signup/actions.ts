@@ -13,6 +13,7 @@ import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
 import { applyReferralAtSignup } from '@/lib/referral-actions';
 import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
+import { isPasswordLeaked } from '@/lib/leaked-password';
 
 function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
   const value = raw ? String(raw) : '';
@@ -88,6 +89,12 @@ export async function signUp(formData: FormData) {
   }
   if (password.length < 8) {
     return redirect(`/signup?error=password_too_short&next=${encodeURIComponent(next)}`);
+  }
+  // Refuse a password already published in a breach. Only the first five
+  // characters of its hash leave this process — see lib/leaked-password.ts.
+  // Fails OPEN if the service is unreachable, on purpose.
+  if ((await isPasswordLeaked(password)).leaked) {
+    return redirect(`/signup?error=password_leaked&next=${encodeURIComponent(next)}`);
   }
 
   if (await isEmailBlacklisted(email)) {

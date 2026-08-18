@@ -20,6 +20,7 @@
 // slug-only — see its doc block).
 import { cache } from 'react';
 import { HOST_MEMBER_TYPES } from './host-scope';
+import { COMMITTED_BOOKING_STATUSES } from '@/lib/vendor-addon-first5-free';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveMonogram } from '@/lib/monogram';
@@ -209,14 +210,39 @@ export const loadHostMembership = cache(
  * that row. So an unclaimed hand-typed "Tita's Catering" resolves to nobody,
  * which is correct — there is no account to send anywhere.
  *
- * React.cache'd: the page asks once even if several surfaces want it.
+ * ⚠ A LINKED ROW IS NOT ALWAYS A BOOKED ROW, so the row's `status` travels with
+ * the answer. Three code paths stamp the link (grep the COLUMN, never a
+ * remembered list): the couple's own lock in `dashboard/[eventId]/vendors/
+ * actions.ts`, the chat lock in `lib/chat-lock-booking.server.ts` — both at
+ * 'contracted' — and `lib/reusable-bookings.server.ts`, which mints a
+ * **'shortlisted'** reuse-accept row the couple has still to lock. So "linked"
+ * answers *which* business, and only `status` answers *whether they are booked*.
+ * Callers that are deciding a DISCLOSURE must ask the status; see
+ * `vendorBookingIsCommitted` in _lib/site-identity.ts and its one caller, the
+ * private-event gate in page.tsx.
+ *
+ * WHICH ROW, WHEN THERE ARE SEVERAL. A couple can book two businesses belonging
+ * to the same person (a caterer who is also the florist). The previous
+ * `.limit(1)` took whichever row Postgres handed back first, so the strip's
+ * trading name — and now the gate's answer — would have been arbitrary. It now
+ * reads every matching row and PREFERS a committed one, falling back to the
+ * first link, so the strongest true claim wins deterministically.
+ *
+ * React.cache'd: the page asks once even if several surfaces want it — the
+ * private gate near the top of page.tsx and the doorway ~200 lines later share
+ * this single query.
  */
 export const loadVendorBooking = cache(
   async (
     admin: AdminClient,
     eventId: string,
     userId: string,
-  ): Promise<{ vendorProfileId: string; businessName: string } | null> => {
+  ): Promise<{
+    vendorProfileId: string;
+    businessName: string;
+    /** `event_vendors.status` of the row that linked them. */
+    bookingStatus: string | null;
+  } | null> => {
     // The businesses this user owns or administers.
     const { data: mine } = await admin
       .from('vendor_profiles')
@@ -225,24 +251,38 @@ export const loadVendorBooking = cache(
     const owned = (mine ?? []) as { vendor_profile_id: string; business_name: string }[];
     if (owned.length === 0) return null;
 
-    // …narrowed to the one the couple actually booked on this event.
+    // …narrowed to the ones the couple actually listed on this event.
     const { data: booked } = await admin
       .from('event_vendors')
-      .select('linked_vendor_profile_id')
+      .select('linked_vendor_profile_id, status')
       .eq('event_id', eventId)
       .in(
         'linked_vendor_profile_id',
         owned.map((v) => v.vendor_profile_id),
-      )
-      .limit(1)
-      .maybeSingle();
+      );
 
-    const id = (booked as { linked_vendor_profile_id: string | null } | null)
-      ?.linked_vendor_profile_id;
-    if (!id) return null;
+    const rows = (booked ?? []) as {
+      linked_vendor_profile_id: string | null;
+      status: string | null;
+    }[];
+    const usable = rows.filter(
+      (r): r is { linked_vendor_profile_id: string; status: string | null } =>
+        typeof r.linked_vendor_profile_id === 'string' && r.linked_vendor_profile_id.length > 0,
+    );
+    const chosen =
+      usable.find((r) =>
+        (COMMITTED_BOOKING_STATUSES as readonly string[]).includes(r.status ?? ''),
+      ) ?? usable[0];
+    if (!chosen) return null;
+
+    const id = chosen.linked_vendor_profile_id;
     const match = owned.find((v) => v.vendor_profile_id === id);
     if (!match) return null;
-    return { vendorProfileId: match.vendor_profile_id, businessName: match.business_name };
+    return {
+      vendorProfileId: match.vendor_profile_id,
+      businessName: match.business_name,
+      bookingStatus: chosen.status ?? null,
+    };
   },
 );
 

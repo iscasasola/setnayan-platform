@@ -341,6 +341,26 @@ export type VendorCompletedEventStats = {
   full_completed_count: number;
 };
 
+/**
+ * ⚠ READ THIS BEFORE WIRING THIS FUNCTION TO A SCREEN (2026-08-17).
+ *
+ * `full_completed_count` NO LONGER READS for a normal signed-in session. The
+ * `authenticated` grant on `vendor_full_completed_events_stats` was revoked in
+ * migration `20271145190664`, and a matview cannot honour RLS — so while that
+ * grant existed, ANY account holder could read ANY supplier's unredacted count,
+ * and subtracting the public number from it yields that supplier's written-off
+ * jobs (comped, bartered, family-rate, fraud-voided). An account is one tap.
+ *
+ * The grant had been kept for "the vendor's own backend card". This function is
+ * that card's reader and it has never had a caller, so the disclosure was being
+ * carried for a screen that does not exist.
+ *
+ * To build that card, add a reader SCOPED TO THE CALLER — a security-invoker
+ * view or a function keyed to the caller's own vendor_profile_id — rather than
+ * restoring a blanket grant. Until then this call returns 0 for the full count
+ * (the error is swallowed below by design), which is why this notice is here
+ * and not left as a bare permission error with nothing to explain it.
+ */
 export async function fetchVendorCompletedEventStats(
   supabase: SupabaseClient,
   vendorProfileId: string,

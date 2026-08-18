@@ -1,3 +1,5 @@
+import { RoomFooter } from '../_components/room-footer';
+import { loadRoomLinks } from '../_lib/room-links.server';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { eventNoun } from '@/lib/event-noun';
@@ -15,7 +17,7 @@ import type { VenueScene } from './_components/guest-venue-3d';
 // SECURITY DEFINER public_venue_scene() RPC — this page just calls it and hands
 // the result to the WebGL scene. force-dynamic: the token + scene are per-request.
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Explore the venue · Setnayan' };
+export const metadata = { title: 'Explore the venue' };
 
 export default async function VenuePage({
   params,
@@ -33,7 +35,14 @@ export default async function VenuePage({
     admin.rpc('public_venue_scene', { p_slug: slug, p_token: token }),
     // `.ilike` like the main page and the other guest sub-routes — `.eq` made
     // `/Cale-Ice/venue` a dead end while `/Cale-Ice` opened fine.
-    admin.from('events').select('event_id, event_type, role_palette').ilike('slug', slug).maybeSingle(),
+    admin
+      .from('events')
+      // `event_date` joins the row that was ALREADY being read — the room strip
+      // needs it to know whether the live hub's window is open. One more column
+      // on an existing query, not a second round trip.
+      .select('event_id, event_type, role_palette, event_date, slug')
+      .ilike('slug', slug)
+      .maybeSingle(),
   ]);
   // THE ONE CHECK THIS PAGE NEVER MADE: DOES THE EVENT EXIST?
   //
@@ -60,6 +69,21 @@ export default async function VenuePage({
   // Event UUID (top-scope) — the shared-room channel scope for the 3D walk, and
   // the booth-slug join below.
   const eventId = (paletteRow.data as { event_id?: string } | null)?.event_id ?? null;
+
+  // The other rooms this event has. EARNED: this page refuses a stranger on a
+  // private event above, the same gate the money-gift page applies.
+  const eventRow = paletteRow.data as {
+    event_id: string;
+    slug: string | null;
+    event_type: string | null;
+    event_date: string | null;
+  };
+  const roomLinks = await loadRoomLinks({
+    event: eventRow,
+    current: 'venue',
+    guestToken: token,
+    pabuyaViewerAllowed: true,
+  });
 
   // The RPC returns guest photos as RAW stored refs (r2:// or bare URL) — the
   // client can't resolve an r2:// ref, so we do it HERE. Mirrors the 3D-demo
@@ -218,6 +242,7 @@ export default async function VenuePage({
         </div>
         <GuestVenueLoader scene={scene} eventId={eventId} />
       </div>
+      <RoomFooter links={roomLinks} tone="dark" />
     </main>
   );
 }

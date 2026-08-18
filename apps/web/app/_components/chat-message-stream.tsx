@@ -98,6 +98,10 @@ export function ChatMessageStream({
   // Proposal cards: a message with proposal_id renders as a card. We fetch the
   // proposal's display data (RLS-scoped: couple reads sent proposals on their
   // events, vendor reads their own) once per id, for both SSR + realtime rows.
+  // A quote or appointment card that never arrives is indistinguishable from
+  // one that was never sent, in a thread where the other person may be waiting
+  // on exactly that card. This says the difference.
+  const [cardsDegraded, setCardsDegraded] = useState(false);
   const [proposalCards, setProposalCards] = useState<Record<string, ProposalCardData>>({});
   const requestedProposalsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -108,11 +112,20 @@ export function ChatMessageStream({
     ids.forEach((id) => requestedProposalsRef.current.add(id));
     let cancelled = false;
     void (async () => {
-      const { data } = await supabase
+      // A refused read here does not show an error — the QUOTE CARD simply
+      // never appears in the thread, and both the couple and the supplier are
+      // in that conversation waiting on it. The cost lands on whoever was
+      // waiting, and neither of them can tell anything went wrong.
+      const { data, error } = await supabase
         .from('vendor_proposals')
         .select('proposal_id, public_id, title, total_centavos, status')
         .in('proposal_id', ids);
-      if (cancelled || !data) return;
+      if (cancelled) return;
+      if (error || !data) {
+        if (error) console.error('[chat] proposal card read refused', error);
+        setCardsDegraded(true);
+        return;
+      }
       setProposalCards((prev) => {
         const next = { ...prev };
         for (const p of data as {
@@ -151,11 +164,16 @@ export function ChatMessageStream({
     if (ids.length === 0) return;
     let cancelled = false;
     void (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('event_appointments')
         .select('appointment_id, kind, type, custom_label, scheduled_at, status, initiated_by')
         .in('appointment_id', ids);
-      if (cancelled || !data) return;
+      if (cancelled) return;
+      if (error || !data) {
+        if (error) console.error('[chat] appointment card read refused', error);
+        setCardsDegraded(true);
+        return;
+      }
       setAppointmentCards(() => {
         const next: Record<string, ChatAppointmentData> = {};
         for (const a of data as Array<{
@@ -224,10 +242,14 @@ export function ChatMessageStream({
       );
       const totalByProp = new Map<string, number>();
       if (propIds.length > 0) {
-        const { data: props } = await supabase
+        // The amendment TOTAL is money. A refused read leaves it absent rather
+        // than wrong, but absent money in a negotiation reads as "no figure
+        // agreed", so the reason is captured instead of swallowed.
+        const { data: props, error: propsError } = await supabase
           .from('vendor_proposals')
           .select('proposal_id, total_centavos')
           .in('proposal_id', propIds);
+        if (propsError) console.error('[chat] amendment totals read refused', propsError);
         for (const p of (props ?? []) as Array<{ proposal_id: string; total_centavos: number }>)
           totalByProp.set(p.proposal_id, p.total_centavos);
       }
@@ -518,6 +540,13 @@ export function ChatMessageStream({
       aria-live="polite"
       aria-relevant="additions"
     >
+      {cardsDegraded ? (
+        <li className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
+          Some quote or appointment cards in this conversation couldn&rsquo;t be loaded, so
+          they&rsquo;re missing below. <strong>Nothing has been withdrawn or cancelled</strong>
+          — reload to see them.
+        </li>
+      ) : null}
       {messages.length === 0 ? (
         <li className="rounded-md border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/55">
           No messages yet — say hi to break the ice.

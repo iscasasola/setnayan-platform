@@ -14,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CardRecordSection } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
@@ -370,11 +371,25 @@ export async function VendorServicesManager({
   // card"). The WYSIWYG preview moves INTO the card form as a follow-up slice.)
 
   // ── Category requests (own rows only) ───────────────────────────────────
-  const { data: requestRows } = await supabase
+  const { data: requestRows, error: requestRowsError } = await supabase
     .from('taxonomy_category_requests')
     .select('request_id, proposed_label, status, mapped_to_canonical, resolution_note')
     .eq('proposed_by_vendor_id', profile.vendor_profile_id)
     .order('created_at', { ascending: false });
+  // ⚠ CATEGORY REQUESTS THEY HAVE SENT US AND ARE WAITING ON. Refused, `?? []`
+  // ⚠ makes the whole block vanish — `myRequests.length > 0` is the only thing
+  // ⚠ that renders it — so there is no empty state to look wrong. The supplier
+  // ⚠ sees no sign they ever asked, and asks again; the cost of the silence
+  // ⚠ falls partly on us, since we are the ones who owe them an answer.
+  if (requestRowsError) {
+    logQueryError(
+      'VendorServicesManager.categoryRequests',
+      requestRowsError,
+      { vendorProfileId: profile.vendor_profile_id },
+      'graceful_degrade',
+    );
+  }
+  const requestsMeasured = !requestRowsError && requestRows !== null;
   const myRequests = (requestRows ?? []) as CategoryRequestRow[];
 
   // If ?add=<category> is in the URL, the "Add service" form for that category
@@ -1254,6 +1269,13 @@ export async function VendorServicesManager({
             Request
           </SubmitButton>
         </form>
+        {!requestsMeasured ? (
+          <p role="alert" className="text-sm" style={{ color: 'var(--m-ink)' }}>
+            <strong>We couldn&rsquo;t load your category requests.</strong> Any
+            request you have already sent us is still with us and still being
+            reviewed — it is not shown here right now.
+          </p>
+        ) : null}
         {myRequests.length > 0 ? (
           <ul className="divide-y rounded-xl border" style={{ borderColor: 'var(--m-line)' }}>
             {myRequests.map((r) => (

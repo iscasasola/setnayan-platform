@@ -82,6 +82,8 @@ import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { VendorQuickViewInspector } from './_components/vendor-quickview-inspector';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
 import { buildShortlistFolders, LOCKED_VENDOR_STATUSES } from '@/lib/shortlist-taxonomy';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
+import { lockRequestStateOf } from '@/lib/lock-request-state';
 import {
   classifyAgainstBuildWindow,
   convergenceBanner,
@@ -246,27 +248,48 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   let pendingLockProposals: PendingLockProposal[] = [];
   if (isCoordinatorProposeLockEnabled()) {
     const proposalAdmin = createAdminClient();
-    const { data: coupleRow } = await proposalAdmin
+    const { data: coupleRow, error: coupleRowError } = await proposalAdmin
       .from('event_members')
       .select('user_id')
       .eq('event_id', eventId)
       .eq('user_id', user.id)
       .eq('member_type', 'couple')
       .maybeSingle();
+    // ⚠ THIS ONE FAILS CLOSED IN THE PERMISSION SENSE AND STILL LOSES SOMETHING.
+    // `if (coupleRow)` gates the whole pending-proposal strip, so a refused read
+    // reads as "not the couple" and the strip never renders — nobody is shown data
+    // they should not see, which is why it looked safe. But a lock proposal is a
+    // thing a SUPPLIER IS WAITING ON THEM TO ANSWER, so the cost of the refusal is
+    // borne by somebody who cannot see this page at all.
+    // 🔑 Fail-closed is the right DIRECTION and still not the whole answer: an
+    // absence that denies a prompt is invisible on both sides of the conversation.
+    if (coupleRowError) {
+      logQueryError('CoupleVendorsPage.coupleRow', coupleRowError, { eventId }, 'graceful_degrade');
+    }
     if (coupleRow) {
-      const { data: props } = await proposalAdmin
+      const { data: props, error: propsError } = await proposalAdmin
         .from('vendor_lock_proposals')
         .select('id, event_vendor_id')
         .eq('event_id', eventId)
         .eq('status', 'pending')
         .order('created_at', { ascending: true });
+      // ⚠ pending lock proposals. Refused, the couple sees none waiting — and a
+      // ⚠ proposal is a thing a supplier is waiting on them to answer.
+      if (propsError) {
+        logQueryError('CoupleVendorsPage.props', propsError, { eventId }, 'graceful_degrade');
+      }
       const rows = props ?? [];
       if (rows.length > 0) {
         const vids = rows.map((r) => r.event_vendor_id);
-        const { data: vs } = await proposalAdmin
+        const { data: vs, error: vsError } = await proposalAdmin
           .from('event_vendors')
           .select('vendor_id, vendor_name')
           .in('vendor_id', vids);
+        // ⚠ supplier NAMES for those proposals. Refused, every one reads 'A vendor'.
+        // ⚠ A label failure, not a count failure — the proposals are still listed.
+        if (vsError) {
+          logQueryError('CoupleVendorsPage.vs', vsError, { eventId }, 'graceful_degrade');
+        }
         const nameById = new Map(
           (vs ?? []).map((v) => [v.vendor_id as string, v.vendor_name ?? 'A vendor']),
         );
@@ -671,6 +694,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       vendor_name: v.vendor_name,
       category: v.category,
       status: v.status,
+      // PR-H · the marker and the DB-stamped deadline. Both carried RAW; the
+      // one derivation that turns them into what a couple is TOLD lives in
+      // lib/lock-request-state.ts and nowhere else.
+      lock_request_state: v.lock_request_state ?? null,
+      lock_request_expires_at: v.lock_request_expires_at ?? null,
       total_cost_php: v.total_cost_php,
       deposit_paid_php: v.deposit_paid_php,
       notes: v.notes,
@@ -800,13 +828,22 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   if (demandApproved && eventDate && marketplaceIds.length > 0) {
     try {
       const admin = createAdminClient();
-      const { data: holds } = await admin
+      const { data: holds, error: holdsError } = await admin
         .from('event_vendors')
         .select('marketplace_vendor_id, event_id, events!inner(event_date)')
         .in('marketplace_vendor_id', marketplaceIds)
         .in('status', ['considering', 'contracted'])
         .neq('event_id', eventId)
         .eq('events.event_date', eventDate);
+      // ⚠ A THIRD SHAPE: absence here does not show a false state, it REMOVES A
+      // WARNING. These rows are what tell a couple that another couple is holding
+      // this supplier on their date. `?? []` on a refused read silently drops that
+      // caution, and the page then looks exactly like a date with no competition.
+      // 🔑 An absence that deletes a warning is invisible by construction — there is
+      // no empty state to look wrong, because the warning simply is not there.
+      if (holdsError) {
+        logQueryError('CoupleVendorsPage.sameDateHolds', holdsError, { eventId }, 'graceful_degrade');
+      }
       const holdRows: SameDateHold[] = (
         (holds ?? []) as Array<{ marketplace_vendor_id: string | null; event_id: string }>
       ).map((h) => ({
@@ -822,11 +859,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       const inquiredPairs = new Set<string>();
       const holdEventIds = allHoldingEventIds(holdRows);
       if (honestDemand && holdEventIds.length > 0) {
-        const { data: inquiries } = await admin
+        const { data: inquiries, error: inquiriesError } = await admin
           .from('chat_threads')
           .select('event_id, vendor_profile_id')
           .in('event_id', holdEventIds)
           .in('vendor_profile_id', marketplaceIds);
+        // ⚠ which same-date holders actually opened a thread. Refused, the demand signal
+        // ⚠ under-counts, so a contested date looks quieter than it is.
+        if (inquiriesError) {
+          logQueryError('CoupleVendorsPage.inquiries', inquiriesError, { eventId }, 'graceful_degrade');
+        }
         for (const t of (inquiries ?? []) as Array<{
           event_id: string;
           vendor_profile_id: string;
@@ -896,10 +938,17 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // Build picks (Shortlist "Add to build" / Build "Pin") — plan_group_id →
   // pinned vendor_id. One per category; the model marks the matching pick
   // `isBuildPick` + exposes `buildPickVendorId`. Fails open (no picks) on error.
-  const { data: buildPickRows } = await supabase
+  const { data: buildPickRows, error: buildPickRowsError } = await supabase
     .from('event_build_picks')
     .select('plan_group_id, vendor_id')
     .eq('event_id', eventId);
+  // ⚠ the couple's OWN PICKS per plan group. `?? []` on a refused read makes every
+  // ⚠ group look UNPICKED — their choices simply are not there. Same shape as the
+  // ⚠ saved plans: not "nothing here", but "you did not choose", said to somebody
+  // ⚠ who did.
+  if (buildPickRowsError) {
+    logQueryError('CoupleVendorsPage.buildPickRows', buildPickRowsError, { eventId }, 'graceful_degrade');
+  }
   // plan_group_id → vendor_ids (multi-pick Look/Booths/Prints can have several).
   const buildPicksByGroup = new Map<string, string[]>();
   for (const r of (buildPickRows ?? []) as Array<{ plan_group_id: string; vendor_id: string }>) {
@@ -909,6 +958,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   }
 
   const model = buildPlanBudgetModel({
+    // PR-H · read here, passed in. The model is a pure core.
+    lockHandshakeEnabled: isLockHandshakeEnabled(),
     vendorRows,
     estimatedBudgetCentavos: ev?.estimated_budget_centavos ?? null,
     daysUntilWedding,
@@ -990,7 +1041,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       const admin = createAdminClient();
 
       // Completion-handshake fields per booking → reviewState() eligibility.
-      const { data: completionRows } = await admin
+      const { data: completionRows, error: completionRowsError } = await admin
         .from('event_vendors')
         .select(
           'vendor_id, status, completion_status, service_marked_complete_at, customer_confirmed_received_at',
@@ -1000,6 +1051,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           'vendor_id',
           candidates.map((v) => v.vendor_id),
         );
+      // ⚠ which suppliers the couple already marked COMPLETE. Refused, every one falls
+      // ⚠ back to not-complete, so finished work reappears as outstanding.
+      if (completionRowsError) {
+        logQueryError('CoupleVendorsPage.completionRows', completionRowsError, { eventId }, 'graceful_degrade');
+      }
       type CompletionRow = {
         vendor_id: string;
         status: string | null;
@@ -1026,10 +1082,15 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .map((v) => v.contact_email as string);
       const profileByEmail = new Map<string, string>();
       if (emailsToCheck.length > 0) {
-        const { data: profiles } = await admin
+        const { data: profiles, error: profilesError } = await admin
           .from('vendor_profiles')
           .select('vendor_profile_id, contact_email')
           .in('contact_email', emailsToCheck);
+        // ⚠ supplier profile lookup by email. Refused, an existing supplier reads as not
+        // ⚠ on Setnayan.
+        if (profilesError) {
+          logQueryError('CoupleVendorsPage.profiles', profilesError, { eventId }, 'graceful_degrade');
+        }
         type ProfileRow = { vendor_profile_id: string; contact_email: string | null };
         for (const p of (profiles ?? []) as ProfileRow[]) {
           if (p.contact_email) {
@@ -1049,13 +1110,24 @@ export default async function VendorsPage({ params, searchParams }: Props) {
 
       // Fetch existing reviews for this user + event + these vendor profiles.
       const profileIds = Array.from(new Set(vendorIdToProfileId.values()));
-      const { data: existingReviews } = await supabase
+      const { data: existingReviews, error: existingReviewsError } = await supabase
         .from('vendor_reviews')
         .select('vendor_profile_id')
         .eq('event_id', eventId)
         .eq('couple_user_id', user.id)
         .in('vendor_profile_id', profileIds);
 
+      // ⚠ A REFUSED READ HERE DENIES WORK THE COUPLE ALREADY DID. `?? []` makes
+      // `reviewedProfileIds` empty, so every vendor falls to 'open' — "not yet
+      // reviewed" — including the ones they HAVE reviewed, inviting a second
+      // review. Returning the map UNSET is the honest state: the surface then
+      // claims neither 'open' nor 'submitted' rather than claiming the wrong one.
+      // 🔑 Same shape as the saved plans above: not "nothing here", but "you did
+      // not do this", said to somebody who did.
+      if (existingReviewsError) {
+        logQueryError('CoupleVendorsPage.existingReviews', existingReviewsError, { eventId }, 'graceful_degrade');
+        return m;
+      }
       type ReviewRow = { vendor_profile_id: string };
       const reviewedProfileIds = new Set(
         (existingReviews ?? []).map((r: ReviewRow) => r.vendor_profile_id),
@@ -1329,6 +1401,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     demandByVendorId: aiActive ? demandByVendorId : undefined,
     buildFitByVendorId,
     freeDaysLineByVendorId,
+    // PR-H · the flag is READ HERE and PASSED IN; the builder is a pure core and
+    // must never reach for the env itself.
+    lockHandshakeEnabled: isLockHandshakeEnabled(),
     eventType: ev?.event_type ?? null,
     faithSet: buildCoupleFaithSet({
       eventType: ev?.event_type ?? null,
@@ -1518,7 +1593,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // exactly as before (zero production change — the alloc query is gated here so
   // it never runs unless the flag is on).
   if (isBudgetBuildEnabled()) {
-    const { data: savedBuildRows } = await supabase
+    const { data: savedBuildRows, error: savedBuildsError } = await supabase
       .from('budget_builds')
       // created_at feeds the named-builds (BUILD_3STATE_ENABLED) column ordering;
       // the .order('label') below keeps the legacy A/B/C order untouched (named
@@ -1526,6 +1601,19 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       .select('build_id, label, title, budget_php, total_php, snapshot, created_at')
       .eq('event_id', eventId)
       .order('label');
+    // ⚠ A REFUSED READ HERE DOES NOT LOOK LIKE AN EMPTY LIST — IT LOOKS LIKE
+    // DATA LOSS. These are the couple's OWN SAVED BUDGET PLANS. Supabase resolves
+    // with `{ error }`, so a refused read arrived as null, `?? []` made it empty,
+    // and the compare view said "No saved plans yet. Add candidates to your build,
+    // then save your team under a name." — an instruction to redo work they have
+    // already done, shown to somebody looking for the plans they saved.
+    // 🔑 A NEW SHAPE, AND WORSE THAN ANY IN S8: every admin instance was an absence
+    // that read as NOTHING (a quiet queue), or on the health monitor as a
+    // CATASTROPHE. This is an absence that reads as THEIR OWN WORK BEING GONE.
+    const savedBuildsMeasured = Array.isArray(savedBuildRows);
+    if (savedBuildsError) {
+      logQueryError('CoupleVendorsPage.savedBuilds', savedBuildsError, { eventId }, 'graceful_degrade');
+    }
     const savedBuilds = (savedBuildRows ?? []) as SavedPlanBuild[];
 
     // Current plan snapshot (PR F) — the couple's live vendor picks per category.
@@ -1712,6 +1800,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // so read both and bridge tile → group through the same `catalogTile` map
     // the bench uses. Flag OFF → no query at all. Fail-soft to "nothing decided",
     // which can only ever OFFER more, never silently drop a category.
+    // ⚖ ONE CLAUSE OF HONESTY ON THAT: it is literally true, and for the `excluded`
+    // rows the fail-open RE-SURFACES A CATEGORY THE COUPLE EXPLICITLY SAID NO TO.
+    // That is harmless next to silently dropping one, and it is still not nothing —
+    // "fail-open is safe" is doing a little work here and should not be quoted as a
+    // general licence.
     const decidedGroupIds: Set<string> = await (async () => {
       const out = new Set<string>();
       if (!isExploreReplanEnabled()) return out;
@@ -1868,6 +1961,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             budgetPhp={currentPlan.budgetPhp}
             currentPlan={currentPlan}
             savedBuilds={savedBuilds}
+            savedBuildsMeasured={savedBuildsMeasured}
             availability={compareAvailability}
             anchoredDate={compareAnchoredDate}
           />
@@ -2107,12 +2201,17 @@ async function sweepRipeReviewRequests(
   try {
     const admin = createAdminClient();
     const cutoffIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: ripe } = await admin
+    const { data: ripe, error: ripeError } = await admin
       .from('event_vendors')
       .select('vendor_id, vendor_name, events!inner(event_date)')
       .eq('event_id', eventId)
       .in('status', ['contracted', 'deposit_paid'])
       .lt('events.event_date', cutoffIso);
+    // ⚠ suppliers whose date has passed, for the review prompt. Refused, nobody is
+    // ⚠ prompted — a silent loss of a nudge, not a false statement.
+    if (ripeError) {
+      logQueryError('CoupleVendorsPage.ripe', ripeError, { eventId }, 'graceful_degrade');
+    }
     const rows = (ripe ?? []) as Array<{
       vendor_id: string;
       vendor_name: string | null;

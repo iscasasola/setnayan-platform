@@ -27,7 +27,7 @@ function parseBlockedSignal(raw: string | undefined): SelfReviewSignal | null {
   return null;
 }
 
-export const metadata = { title: 'Leave a review · Setnayan' };
+export const metadata = { title: 'Leave a review' };
 
 /** Star-rated axes — excludes on_time which is a binary Yes/No toggle. */
 const STAR_AXES: ReadonlyArray<ReviewAxis> = [

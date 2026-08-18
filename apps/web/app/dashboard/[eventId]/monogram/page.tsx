@@ -17,7 +17,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 
-export const metadata = { title: 'Monogram Maker · Setnayan' };
+export const metadata = { title: 'Monogram Maker' };
 
 export const maxDuration = 60;
 

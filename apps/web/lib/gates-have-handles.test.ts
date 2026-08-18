@@ -34,6 +34,8 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { loadSources, gateWritersOf } from './gate-writers';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..'); // apps/web
 const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
@@ -48,24 +50,16 @@ const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
  */
 const SWITCHES: {
   column: string;
+  /** The table it lives on — needed to pair a table-write with a field-name. */
+  table: string;
   whoFlips: string;
   whatBreaksWhenStuck: string;
   /** Set when the ONLY writer is an RPC parameter — see rpcWritersOf. */
   writtenViaRpcParam?: string;
-  /**
-   * The table the column lives on. Defaults to `events`.
-   *
-   * 🚨 ADDED 2026-08-16 BECAUSE THE DETECTOR WAS TABLE-BLIND, and that made it
-   * blind to the very instance it was next asked to hold. `archived` is a
-   * column on BOTH `events` and `communities`, and `samahan/actions.ts` writes
-   * `communities.archived` — so this register reported "events.archived has a
-   * writer" while `events.archived` had none, for two years. Measured, not
-   * inferred: with both new writer files deleted, the suite still passed 9/9.
-   */
-  table?: string;
 }[] = [
   {
     column: 'live_media_public',
+    table: 'events',
     whoFlips: 'the couple, on the website privacy page',
     whatBreaksWhenStuck:
       'a visitor with no invitation never sees the livestream or the live photo ' +
@@ -73,6 +67,7 @@ const SWITCHES: {
   },
   {
     column: 'papic_face_mode',
+    table: 'events',
     whoFlips: 'an admin / the DPO, per event',
     whatBreaksWhenStuck: 'face auto-tagging stores nothing, on a feature that was paid for',
   },
@@ -82,6 +77,7 @@ const SWITCHES: {
     // this shape were being fixed. The guard existed and never looked, because
     // nobody registered the switch with it.
     column: 'author_named_publicly',
+    table: 'guest_columns',
     whoFlips: 'the guest, on the message form on the event page',
     whatBreaksWhenStuck:
       'a guest can never choose to be named beside their own published words — ' +
@@ -101,8 +97,8 @@ const SWITCHES: {
     // Lives on `vendor_profiles`, not `events` — declared explicitly now that
     // the detector is table-scoped. Before 2026-08-16 the check was table-blind,
     // so this passed by accident rather than by aim.
-    table: 'vendor_profiles',
     column: 'is_founder',
+    table: 'vendor_profiles',
     whoFlips: 'an admin, on the vendor plan page (/admin/vendors/[id]/plan)',
     whatBreaksWhenStuck:
       'no business can ever be made a founding supplier — the unlimited-category ' +
@@ -123,6 +119,7 @@ const SWITCHES: {
     // ⚠ AN APPLIED MIGRATION MISDESCRIBED IT as "(venue wall)" — the misreading
     // that let it live. This guard does not read comments, which is the point.
     column: 'live_photo_wall_visibility',
+    table: 'events',
     whoFlips: 'the couple, on the Live Photo Wall card (Papic page / day-of console)',
     whatBreaksWhenStuck:
       'the photo wall plays on every invited guest’s phone for the whole ' +
@@ -149,6 +146,13 @@ const SWITCHES: {
     // checking "does archive exist?" finds a column, readers, a filter in the
     // admin console and an `?archived=1` query param, and concludes yes.
     column: 'archived',
+    // 🚨 REQUIRED, AND IT IS THE WHOLE POINT HERE. `archived` exists on BOTH
+    // `events` and `communities`, and `samahan/actions.ts` writes
+    // `communities.archived` — so a table-blind detector reported
+    // "events.archived has a writer" while events.archived had none, for two
+    // years. Table-scoping landed on main independently (`gateWritersOf`);
+    // this entry is the instance it was next asked to hold.
+    table: 'events',
     whoFlips: 'a host, on the event’s Personalization page (“Put this away”)',
     whatBreaksWhenStuck:
       'no celebration can ever be put away, so a couple who has finished one ' +
@@ -157,62 +161,32 @@ const SWITCHES: {
   },
 ];
 
-/** Every .ts/.tsx under apps/web that is not a test, a type file, or generated. */
-function sourceFiles(dir: string, out: string[] = []): string[] {
-  for (const entry of readdirSync(dir)) {
-    if (entry === 'node_modules' || entry === '.next' || entry.startsWith('.')) continue;
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) {
-      sourceFiles(full, out);
-    } else if (/\.(ts|tsx)$/.test(entry) && !/\.test\.tsx?$/.test(entry)) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
-const FILES = sourceFiles(WEB);
+const SOURCES = loadSources(WEB);
+const FILES = SOURCES.map((s) => join(WEB, s.path));
 
 /**
- * Does any file WRITE this column? A write is the column appearing as an object
- * key inside an `.update({...})` or `.insert({...})` — which is how every write
- * in this codebase is spelled, since all of them go through supabase-js.
+ * Does anything WRITE this column?
  *
- * Deliberately NOT "the column name appears somewhere": that is exactly the
- * check that would have passed for seven weeks on a column with 40 readers and
- * no writer.
+ * ⚠ THE DETECTOR MOVED to `lib/gate-writers.ts` on 2026-08-17, and the pattern
+ * that used to live here was measurably too narrow. Against the real schema it
+ * missed FOUR spellings this codebase actually uses — ES6 shorthand
+ * (`{ faceblock_enabled }`, no colon), a write funnelled through a helper, an
+ * update object longer than its 600-character window, and a payload assembled
+ * into a variable first — and so called 16 working controls missing. A guard
+ * that cries wolf teaches you to skim past the one time it is right.
+ *
+ * The shared module is now used by BOTH this file and the schema-enumerating
+ * `tests/db/gates-have-handles.db.test.ts`, so the two cannot drift apart.
  */
 function writersOf(column: string): string[] {
-  const found: string[] = [];
-  const table = SWITCHES.find((s) => s.column === column)?.table ?? 'events';
-  /*
-    `.from('<table>') … .update({ … column … })` — three corrections, all made
-    2026-08-16 after this detector passed on a column with no writer at all:
-
-    1 · 🚨 SCOPED TO THE TABLE. `archived` exists on `events` AND on
-        `communities`, and a real write to `communities.archived` satisfied the
-        old table-blind pattern. A guard that accepts a write to a DIFFERENT
-        table is not checking the thing it names.
-    2 · 🚨 SHORTHAND COUNTS. `{ archived, updated_at }` is the ordinary way to
-        write a variable of the same name, and the old `column\\s*:` form could
-        not see it — so a perfectly good writer read as absent. Both failure
-        directions were live in the same check.
-    3 · The chain is matched from `.from(` so the two halves cannot come from
-        unrelated statements in one long file.
-
-    Order note: supabase-js allows `.from(t).update(...)` only in that order, so
-    anchoring on `.from(` first is safe and is what scopes the table.
-  */
-  const pattern = new RegExp(
-    `\\.from\\(\\s*['"\`]${table}['"\`]\\s*\\)[\\s\\S]{0,300}?` +
-      `\\.(update|insert|upsert)\\(\\s*[\\[{][\\s\\S]{0,600}?\\b${column}\\b\\s*[:,}]`,
-  );
-  for (const file of FILES) {
-    const src = readFileSync(file, 'utf8');
-    if (!src.includes(column)) continue;
-    if (pattern.test(src)) found.push(file.slice(WEB.length + 1));
+  const sw = SWITCHES.find((s) => s.column === column);
+  // Columns named by the meta-tests below are not registered switches; fall back
+  // to scanning every table so those assertions still mean what they say.
+  const tables = sw ? [sw.table] : ['events', 'guests', 'users', 'vendor_profiles'];
+  for (const table of tables) {
+    const hits = gateWritersOf(SOURCES, table, column);
+    if (hits.length > 0) return hits;
   }
-  if (found.length > 0) return found;
   return rpcWritersOf(column);
 }
 
@@ -407,5 +381,82 @@ test('every feature-flag module has at least one non-test importer', () => {
       'connected at neither end:\n  ' +
       inert.join('\n  ') +
       '\n\nWire it, delete it, or add it to PARKED_ON_PURPOSE with a reason.',
+  );
+});
+
+/*
+  A HOST CHECK WIDER THAN THE RLS POLICY MUST WRITE WITH THE ADMIN CLIENT.
+
+  This is not a style rule; it is the shape of a live defect this PR shipped and
+  had to correct. `setEventArchived` admits `event_members` couple OR
+  coordinator, plus an accepted `event_moderators` row. The only permissive
+  UPDATE policy on `public.events` is `couple_can_update_event`, whose
+  `current_couple_event_ids()` is `member_type = 'couple'` ONLY — read out of
+  production by the object. So on the user client every co-host's update was
+  RLS-filtered to zero rows WITH NO ERROR and answered "Only a host of this
+  celebration can put it away", immediately after deciding they were one.
+
+  🔑 The failure is silent by construction: an RLS refusal and a legitimate
+  no-op are the same value. Nothing can catch this at runtime, which is why it
+  is asserted here instead.
+
+  Asserted as a RULE, not a spelling: the update must be ROOTED at
+  `createAdminClient(`, and must not be rooted at the request-scoped client.
+  Reordering the chain, renaming the local, or adding columns all still pass.
+*/
+test('the put-away writer uses the admin client, because its host check is wider than RLS', () => {
+  const src = readFileSync(
+    join(WEB, 'app/dashboard/[eventId]/archive-actions.ts'),
+    'utf8',
+  );
+  const fn = /export async function setEventArchived\([\s\S]*?\n}/.exec(src);
+  assert.ok(fn, 'setEventArchived should exist in archive-actions.ts');
+  const body = fn[0];
+
+  assert.match(
+    body,
+    /createAdminClient\(\)[\s\S]{0,120}?\.from\(\s*['"`]events['"`]\s*\)[\s\S]{0,400}?\.update\(/,
+    'the events update must be rooted at createAdminClient() — the explicit ' +
+      'host check above is the authorization, matching setEventCeremonyType',
+  );
+
+  // The request-scoped client is still used for the host CHECK, and must be.
+  // What must never come back is a WRITE on it: that is the silent zero-row path.
+  const userClientWrite =
+    /\bsupabase\s*[\s\S]{0,40}?\.from\(\s*['"`]events['"`]\s*\)[\s\S]{0,400}?\.update\(/.test(
+      body,
+    );
+  assert.equal(
+    userClientWrite,
+    false,
+    'the events update must NOT run on the request-scoped client — RLS silently ' +
+      'filters every co-host to zero rows and the caller reports "not a host"',
+  );
+
+  /*
+    And the zero-row branch must not claim a permission problem. With the admin
+    client, zero rows can only mean the id does not exist.
+
+    🪤 THE FIRST CUT OF THIS ASSERTION WAS DECORATIVE AND THE MUTATION RUN PROVED
+    IT: `/data\.length === 0[\s\S]{0,200}?Only a host/`. The sabotage landed
+    (`not_found` 3 → 2) and the suite stayed GREEN, because the explanatory
+    comment I had written BETWEEN the two anchors is longer than the 200-char
+    window, so the pattern could never span them. A guard whose reach is set by
+    a character budget silently shrinks every time somebody documents the code.
+    Sliced by BRACE instead, so the branch is bounded by what it IS.
+  */
+  const branchStart = body.indexOf('if (!data || data.length === 0)');
+  assert.ok(branchStart > -1, 'the zero-row branch should still exist');
+  const branch = body.slice(branchStart, body.indexOf('return { ok: true', branchStart));
+  assert.match(
+    branch,
+    /code: 'not_found'/,
+    'with the admin client, a zero-row result is a missing event, not a refusal',
+  );
+  assert.doesNotMatch(
+    branch,
+    /code: 'unauthorized'|Only a host/,
+    'the zero-row branch must not tell somebody they lack a permission — that ' +
+      'is the exact lie the admin-client fix removed',
   );
 });

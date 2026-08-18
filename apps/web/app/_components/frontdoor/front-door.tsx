@@ -17,6 +17,8 @@ import { loadFrontDoorData } from './data';
 import { FrontDoorShell } from './front-door-shell';
 import { FrontDoorFeed, isChip, type ChipKey } from './front-door-feed';
 import { SignedInCluster } from './signed-in-cluster';
+import { resolveCommandItems } from './command-data';
+import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
 // The account resolver and the Studio group moved out 2026-08-13 so the
 // signed-in surfaces render the SAME rail from the SAME source. Behaviour is
 // byte-identical; see `rail-data.ts` for why one copy matters here.
@@ -29,7 +31,7 @@ import {
 } from './rail-data';
 
 export async function FrontDoor({ chip }: { chip?: string }) {
-  const [account, data, studioEvent] = await Promise.all([
+  const [account, data, studioEvent, commandItems] = await Promise.all([
     resolveRailAccount(),
     loadFrontDoorData(),
     /*
@@ -38,6 +40,15 @@ export async function FrontDoor({ chip }: { chip?: string }) {
       asking which event a signed-in visitor holds costs nothing here.
     */
     resolveRailStudioEvent(),
+    /*
+      💸 NAMED COST, AND ONLY FOR SOMEBODY SIGNED IN. This returns `[]` on the
+      first line without a session, so a stranger — which is every visitor to
+      `/` in production today — pays one auth check it was already making.
+      Signed in it is 4 small reads beyond what this page already loads (the
+      organiser events are cache()d and shared with `resolveRailStudioEvent`
+      above), the same price the other five trees have paid since 2026-08-14.
+    */
+    resolveCommandItems(),
   ]);
 
   const activeChip: ChipKey = isChip(chip) ? chip : 'All';
@@ -66,13 +77,33 @@ export async function FrontDoor({ chip }: { chip?: string }) {
         This page is ALREADY dynamic (its own note above: "measured live: MISS,
         private, no-store") and already resolves the account, so the cluster's
         two reads cost nothing new here.
-
-        ⚠ THE SEARCH STAYS THE MARKETPLACE FORM ON THIS PAGE, deliberately —
-        that is the settled 2026-08-14 split (this is the public shopfront;
-        inside the app the palette answers "where is MY thing"). Only the
-        cluster was ever accidental.
       */
       topBarSlot={account.signedIn ? <SignedInCluster /> : undefined}
+      /*
+        ⚠ THIS COMMENT USED TO SAY THE SEARCH STAYS THE MARKETPLACE FORM HERE
+        "deliberately — this is the public shopfront". That reading made the
+        bar depend on WHICH PAGE, and the very next paragraph of this file
+        (the Studio rows) and the one above it (the cluster) had both already
+        been corrected to depend on WHO IS LOOKING. Holding both rules at once
+        is what produced the split the owner photographed on 2026-08-16: `/`
+        showed the marketplace box while every other public page showed the
+        palette.
+
+        One rule now, both mounts:
+          signed out → the marketplace box (the shell's fallback)
+          signed in  → the palette over their own things
+
+        Nothing is lost either way: the palette carries the marketplace as an
+        escape row (`command-escape.ts`), which is the whole reason it was
+        allowed to win the 2026-08-14 ruling. What that ruling settled — that
+        one bar means one search — is finally true across every surface rather
+        than on five of them.
+      */
+      search={
+        account.signedIn ? (
+          <HomeCommandBar items={commandItems} variant="rail" />
+        ) : undefined
+      }
     >
       <FrontDoorFeed data={data} chip={activeChip} />
     </FrontDoorShell>

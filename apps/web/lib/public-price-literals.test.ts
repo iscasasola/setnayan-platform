@@ -125,7 +125,7 @@ test('SKU-backed literals are the ones the runtime audit will verify', () => {
 });
 
 test('a "fallback" is never declared as a non-price', () => {
-  // 🔑 THE SHAPE THE ₱499 HID IN, WRITTEN DOWN. `app/pricing/page.tsx` declared
+  // 🔑 THE SHAPE THE ₱499 HID IN, WRITTEN DOWN. `app/(shell)/pricing/page.tsx` declared
   // ₱499 with `sku: null` and the reason "Last-resort fallback when the Setnayan
   // AI catalog row is unreadable". `sku: null` is the category the runtime drift
   // check deliberately SKIPS, so nothing ever compared it to the live catalog —

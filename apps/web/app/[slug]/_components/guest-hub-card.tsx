@@ -1,3 +1,4 @@
+import type { EventWords } from '../_lib/event-words';
 /**
  * GuestHubCard — persistent status summary for identified returning guests.
  *
@@ -194,7 +195,13 @@ export function pickNextScheduleBlock(
  * that reads localStorage on mount and removes the `open` attribute if the
  * guest previously collapsed it.
  */
-export function GuestHubCard({ data }: { data: GuestHubData }) {
+export function GuestHubCard({
+  data,
+  words,
+}: {
+  data: GuestHubData;
+  words: EventWords;
+}) {
   const { firstName, displayName, rsvpStatus, tableLabel, mealPreference, dietaryRestrictions, nextScheduleBlock, slug, isLimitedPlusOne, arrived } = data;
   // Day-of arrival: once the guest has checked in at the door AND has a seat,
   // the seat tile greets them by name with a gentle bloom instead of the
@@ -328,7 +335,9 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
                 </Link>
               ) : (
                 <span className="mt-0.5 text-xs text-ink/45">
-                  The couple will assign seats closer to the date.
+                  {words.organizerIsHonoree
+                ? 'Seats will be assigned closer to the date.'
+                : `${words.TheOrganizer} will assign seats closer to the date.`}
                 </span>
               )}
             </div>

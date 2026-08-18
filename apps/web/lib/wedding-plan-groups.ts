@@ -786,6 +786,19 @@ export type PlanCardPick = {
   status: VendorPickStatus;
   /** Raw event_vendors.status (e.g. 'considering', 'inquiring', 'contracted') for finer-grained chips. */
   raw_status: string | null;
+  /**
+   * Raw `event_vendors.lock_request_state` (PR-H). Carried RAW and paired with
+   * `raw_status` on purpose: the answer to "where is this booking?" is a
+   * function of BOTH, and of the flag, and it is computed in exactly one place —
+   * `lockRequestStateOf(…)` in lib/lock-request-state.ts.
+   *
+   * ⚠ Do not branch on this field directly. A row can carry a stale 'pending'
+   * while already being a real booking (the printed Locked-QR path promotes to
+   * deposit_paid without touching any lock_* column), and a confirmed status
+   * outranks any marker — which is precisely the rule that lives in the shared
+   * derivation and would have to be re-remembered at every call site here.
+   */
+  raw_lock_request_state?: string | null;
   total_cost_php: number | null;
   deposit_paid_php: number | null;
   notes: string | null;
@@ -942,6 +955,14 @@ export type EventVendorRowInput = {
   vendor_name: string;
   category: VendorCategory;
   status: string | null;
+  /** PR-H lock-request marker. Optional: callers that never SELECT it (and every
+   *  fixture written before the handshake) leave it undefined, which the shared
+   *  derivation reads as "no request", exactly as a NULL column would. */
+  lock_request_state?: string | null;
+  /** The deadline the DATABASE materialized for a still-pending ask. Read back
+   *  rather than recomputed anywhere, so the countdown a couple sees and the
+   *  fuse the sweep enforces are one number. */
+  lock_request_expires_at?: string | null;
   total_cost_php?: number | string | null;
   deposit_paid_php?: number | string | null;
   notes?: string | null;
@@ -1189,6 +1210,7 @@ export function bucketVendorsByGroup(
       category: v.category,
       status: statusOfVendor(v.status),
       raw_status: v.status ?? null,
+      raw_lock_request_state: v.lock_request_state ?? null,
       total_cost_php: toNum(v.total_cost_php ?? null),
       deposit_paid_php: toNum(v.deposit_paid_php ?? null),
       notes: v.notes ?? null,

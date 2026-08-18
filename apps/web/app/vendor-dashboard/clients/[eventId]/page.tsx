@@ -80,7 +80,10 @@ import {
   vendorRaiseChangeOrder,
   vendorRespondChangeOrder,
   vendorWithdrawChangeOrder,
+  vendorAgreeToLock,
+  vendorDeclineLock,
 } from './actions';
+import { lockRequestDaysLeft } from '@/lib/lock-request-state';
 import { AppointmentsSection } from '@/app/_components/appointments-section';
 import {
   appointmentCategoriesFor,
@@ -147,7 +150,21 @@ export const metadata = { title: 'Customer Card · Vendor' };
  */
 
 type Brief = {
-  stage: 'booked' | 'inquiry';
+  /**
+   * THREE rungs since PR-H slice B. `'requested'` = the couple has ASKED this
+   * supplier and nobody has answered. Its payload is the SAME pre-agreement
+   * shape `'inquiry'` returns — venue name and address hard-NULL, timeline `[]`,
+   * seat plan zeroed, dietary NULL — because only an agreement earns those.
+   */
+  stage: 'booked' | 'inquiry' | 'requested';
+  /** Present ONLY at stage 'requested'. Every field is a fact about this
+   *  supplier's own row, never about the wedding. */
+  lock_request?: {
+    event_vendor_id: string;
+    category: string | null;
+    requested_at: string | null;
+    expires_at: string | null;
+  } | null;
   event: {
     display_name: string | null;
     event_date: string | null;
@@ -427,8 +444,19 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   });
   if (error || !data) redirect('/vendor-dashboard/clients');
   const brief = data as Brief;
-  const isInquiry = brief.stage === 'inquiry';
   const isBooked = brief.stage === 'booked';
+  // 🔒 ONE BOOLEAN, AND IT IS THE NEGATIVE OF 'booked' — NOT `stage === 'inquiry'`.
+  // This used to read `stage === 'inquiry'`, which was correct while there were
+  // exactly two rungs and became a LEAK-SHAPED BUG the moment a third arrived:
+  // an asked supplier would have fallen through every `isInquiry` branch into
+  // the BOOKED render — the exact-venue panel, the meal counts, the full
+  // run-of-show — on a payload where all of those are NULL or empty. Not a data
+  // leak (the RPC withholds them), but a screen that claims to be showing a
+  // booked client's day and shows blanks instead of saying what is actually
+  // true. Deriving from `!isBooked` means the next rung is safe by default: a
+  // new stage discloses nothing until somebody deliberately opens it.
+  const preAgreement = !isBooked;
+  const lockRequest = brief.stage === 'requested' ? (brief.lock_request ?? null) : null;
 
   const admin = createAdminClient();
   const clientTimer = new ServerTimer('vendor-dashboard/customer-card');
@@ -559,13 +587,24 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // the booking could plausibly have a review (booked + delivered).
   let hasReview = false;
   if (isBooked && isCompleteConfirmed) {
-    const { data: reviewRow } = await supabase
+    const { data: reviewRow, error: reviewRowError } = await supabase
       .from('vendor_reviews')
       .select('review_id, created_at')
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .eq('event_id', eventId)
       .limit(1)
       .maybeSingle();
+    // ⚠ WHETHER THEY HAVE ALREADY REVIEWED THIS COUPLE. Refused, `Boolean(null)`
+    // ⚠ is false, so the page invites them to write a review they have already
+    // ⚠ written — "you did not do this", said to somebody who did.
+    if (reviewRowError) {
+      logQueryError(
+        'VendorClientDetail.reviewRow',
+        reviewRowError,
+        { eventId },
+        'graceful_degrade',
+      );
+    }
     hasReview = Boolean(reviewRow);
   }
 
@@ -603,7 +642,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   }
 
   // Change-Order Trail — depends on the event_vendor id resolved above.
-  const { data: changeOrderRows } = eventVendorId
+  const { data: changeOrderRows, error: changeOrderRowsError } = eventVendorId
     ? await supabase
         .from('vendor_change_orders')
         .select(
@@ -611,12 +650,25 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         )
         .eq('event_vendor_id', eventVendorId)
         .order('created_at', { ascending: false })
-    : { data: null };
+    : { data: null, error: null };
+  // ⚠ CHANGE ORDERS CARRY MONEY (`delta_amount_php`) AND CAN BE AWAITING AN
+  // ⚠ ANSWER. Refused, `?? []` hides one raised by the couple, so the supplier
+  // ⚠ never acknowledges it and the couple is left waiting on a reply to a
+  // ⚠ request the other side cannot see.
+  if (changeOrderRowsError) {
+    logQueryError(
+      'VendorClientDetail.changeOrders',
+      changeOrderRowsError,
+      { eventId },
+      'graceful_degrade',
+    );
+  }
+  const changeOrdersMeasured = !changeOrderRowsError;
   const changeOrders = (changeOrderRows ?? []) as VendorChangeOrderRow[];
 
   // Delivery handovers (booked). event_vendor scoped — safe to read for the
   // vendor's own booking via their RLS.
-  const { data: handoverRows } = isBooked
+  const { data: handoverRows, error: handoverRowsError } = isBooked
     ? await supabase
         .from('booking_handovers')
         .select('handover_id, kind, label, payload, status, delivered_at, couple_acknowledged_at')
@@ -624,17 +676,43 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .order('created_at', { ascending: false })
         .limit(20)
-    : { data: null };
+    : { data: null, error: null };
+  // ⚠ WORK THEY HAVE ALREADY DELIVERED — the gallery link, the files handed
+  // ⚠ over. Refused, the delivery record reads as empty, so finished work
+  // ⚠ reappears as outstanding on the supplier's own client page.
+  if (handoverRowsError) {
+    logQueryError(
+      'VendorClientDetail.handovers',
+      handoverRowsError,
+      { eventId },
+      'graceful_degrade',
+    );
+  }
+  const handoversMeasured = !handoverRowsError;
   const handovers = (handoverRows ?? []) as HandoverRow[];
 
   // Private CRM notes (vendor-org-only RLS). Author display resolved best-effort
   // via the admin client (RLS on users would otherwise hide teammates).
-  const { data: noteRows } = await supabase
+  const { data: noteRows, error: noteRowsError } = await supabase
     .from('vendor_client_notes')
     .select('note_id, body, remind_at, done_at, author_user_id, created_at')
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .eq('event_id', eventId)
     .order('created_at', { ascending: false });
+  // ⚠ THE TEAM'S PRIVATE NOTES ON THIS CLIENT, INCLUDING THEIR REMINDERS.
+  // ⚠ Refused, the notes read as never written and any `remind_at` on them
+  // ⚠ silently stops being shown — an absence that deletes a warning, which is
+  // ⚠ invisible by construction: there is no wrong-looking empty state, the
+  // ⚠ reminder simply is not there.
+  if (noteRowsError) {
+    logQueryError(
+      'VendorClientDetail.notes',
+      noteRowsError,
+      { eventId },
+      'graceful_degrade',
+    );
+  }
+  const notesMeasured = !noteRowsError && noteRows !== null;
   const rawNotes = (noteRows ?? []) as Omit<ClientNote, 'author_label'>[];
   const authorIds = Array.from(new Set(rawNotes.map((n) => n.author_user_id)));
   const authorLabels = new Map<string, string>();
@@ -749,11 +827,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // at Delivered so we never imply a review-state we didn't read.
   const capAt = isDelivered ? 4 : 3;
 
+  // PR-H · "They asked you" outranks "Quote sent" and "In conversation": it is
+  // the only one of the three with a FUSE on it, and it is the only one the
+  // supplier has to act on. Checked below 'Booked' so an agreed row that still
+  // carries a stale marker can never read as unanswered.
   const stagePill = isBooked
     ? { label: 'Booked', cls: 'bg-success-100 text-success-900' }
-    : isQuoted
-      ? { label: 'Quote sent', cls: 'bg-warn-100 text-warn-900' }
-      : { label: 'In conversation', cls: 'bg-terracotta/10 text-terracotta' };
+    : lockRequest
+      ? { label: 'They asked you', cls: 'bg-warn-100 text-warn-900' }
+      : isQuoted
+        ? { label: 'Quote sent', cls: 'bg-warn-100 text-warn-900' }
+        : { label: 'In conversation', cls: 'bg-terracotta/10 text-terracotta' };
 
   const eventName = brief.event.display_name ?? 'This couple';
   const metaBits = [
@@ -903,6 +987,19 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         {metaBits.length > 0 ? (
           <p className="mt-0.5 truncate text-sm text-ink/55">{metaBits.join(' · ')}</p>
         ) : null}
+        {/* PR-H · THE ANSWER BELONGS WHERE THE SUPPLIER IS LOOKING.
+            The Overview feed already carries this card, but a supplier who
+            follows the notification's link, or who opens the client from their
+            list, lands HERE — and before this they landed on a page that showed
+            them a request they could read and not answer. A decision with a
+            seven-day fuse may not be reachable from exactly one screen. Same two
+            server actions, no second state machine. */}
+        {lockRequest ? (
+          <LockRequestAnswer
+            eventVendorId={lockRequest.event_vendor_id}
+            expiresAt={lockRequest.expires_at}
+          />
+        ) : null}
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
@@ -1002,7 +1099,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       threadId={threadId}
       returningFlag={returningFlag}
       isBooked={isBooked}
-      isInquiry={isInquiry}
+      preAgreement={preAgreement}
       paletteEntries={paletteEntries}
       mealEntries={mealEntries}
       monogramSvg={monogramSvg}
@@ -1043,7 +1140,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     <>
       <ScheduleTab
         eventId={eventId}
-        isInquiry={isInquiry}
+        preAgreement={preAgreement}
         brief={brief}
         allBlocks={allBlocks}
         blocks={blocks}
@@ -1056,8 +1153,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         suggestions={suggestions}
         blockLabel={blockLabel}
         handovers={handovers}
+        handoversMeasured={handoversMeasured}
         eventVendorId={eventVendorId}
         changeOrders={changeOrders}
+        changeOrdersMeasured={changeOrdersMeasured}
         search={search}
       />
       {isBooked ? (
@@ -1100,8 +1199,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     />
   ) : null;
 
+  // One node, both layouts (the flag-on shell and the flag-off card render the
+  // same `activityNode`), so the notice cannot appear on one and not the other.
   const activityNode = (
-    <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} />
+    <>
+      {!notesMeasured ? (
+        <p role="alert" className="mb-2 px-1 text-xs text-ink/70">
+          <strong className="text-ink">We couldn&rsquo;t load your private notes.</strong>{' '}
+          Notes you and your team wrote about this client are missing from the
+          feed below, along with any reminder set on them. Nothing has been
+          deleted.
+        </p>
+      ) : null}
+      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} />
+    </>
   );
 
   // ---- Flag OFF: the current tabbed Customer Card, byte-identical ----
@@ -1689,7 +1800,14 @@ function OverviewTab(props: {
   threadId: string | null;
   returningFlag: ReturningClientFlag | null;
   isBooked: boolean;
-  isInquiry: boolean;
+  /**
+   * PR-H · TRUE at every stage that is NOT 'booked' — an accepted inquiry AND an
+   * outstanding lock request. Named for what it MEANS (nothing has been agreed)
+   * rather than for one of the two stages that produce it, because the previous
+   * name (`isInquiry`) is exactly what would have let a third stage slip through
+   * into the booked render.
+   */
+  preAgreement: boolean;
   paletteEntries: { key: string; label: string; colors: string[] }[];
   mealEntries: [string, number][];
   monogramSvg: string | null;
@@ -1722,7 +1840,7 @@ function OverviewTab(props: {
     threadId,
     returningFlag,
     isBooked,
-    isInquiry,
+    preAgreement,
     paletteEntries,
     mealEntries,
     monogramSvg,
@@ -1813,7 +1931,7 @@ function OverviewTab(props: {
               {brief.event.ceremony_type.replace(/_/g, ' ')}
             </span>
           ) : null}
-          {isInquiry ? (
+          {preAgreement ? (
             <LockRow
               title="Exact venue address"
               sub="Unlocks when they book you — you see the area for now."
@@ -1884,7 +2002,7 @@ function OverviewTab(props: {
               Open the production sheet
             </Link>
           </Card>
-        ) : isInquiry ? (
+        ) : preAgreement ? (
           <Card>
             <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
               <UtensilsCrossed aria-hidden className="h-4 w-4 text-terracotta" /> Meals
@@ -2534,7 +2652,14 @@ function FilesTab(props: {
 // ===========================================================================
 function ScheduleTab(props: {
   eventId: string;
-  isInquiry: boolean;
+  /**
+   * PR-H · TRUE at every stage that is NOT 'booked' — an accepted inquiry AND an
+   * outstanding lock request. Named for what it MEANS (nothing has been agreed)
+   * rather than for one of the two stages that produce it, because the previous
+   * name (`isInquiry`) is exactly what would have let a third stage slip through
+   * into the booked render.
+   */
+  preAgreement: boolean;
   brief: Brief;
   allBlocks: LiveBlock[];
   blocks: LiveBlock[];
@@ -2547,13 +2672,17 @@ function ScheduleTab(props: {
   suggestions: SuggestionRow[];
   blockLabel: Map<string, string>;
   handovers: HandoverRow[];
+  /** false = the handover read was refused, so "none delivered" is not a fact. */
+  handoversMeasured: boolean;
   eventVendorId: string | null;
   changeOrders: VendorChangeOrderRow[];
+  /** false = the change-order read was refused, so "none raised" is not a fact. */
+  changeOrdersMeasured: boolean;
   search: { suggest?: string; handover?: string; change_order?: string; change_order_resp?: string };
 }) {
   const {
     eventId,
-    isInquiry,
+    preAgreement,
     allBlocks,
     blocks,
     relevance,
@@ -2565,13 +2694,16 @@ function ScheduleTab(props: {
     suggestions,
     blockLabel,
     handovers,
+    handoversMeasured,
     eventVendorId,
     changeOrders,
+    changeOrdersMeasured,
     search,
   } = props;
 
-  // Inquiry stage — locked timeline, no suggest forms (disclosure ladder).
-  if (isInquiry) {
+  // PRE-AGREEMENT (accepted inquiry OR an outstanding ask) — locked timeline,
+  // no suggest forms. The disclosure ladder: only an agreement earns these.
+  if (preAgreement) {
     return (
       <div className="space-y-4">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Day-of timeline</p>
@@ -2886,6 +3018,14 @@ function ScheduleTab(props: {
             </details>
           </div>
 
+          {!handoversMeasured ? (
+            <p role="alert" className="mt-4 text-xs text-ink/70">
+              <strong className="text-ink">We couldn&rsquo;t load your handovers.</strong>{' '}
+              Anything you have already delivered is still delivered — it just
+              is not listed here right now.
+            </p>
+          ) : null}
+
           {handovers.length > 0 ? (
             <div className="mt-4">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Your handovers</p>
@@ -3010,7 +3150,13 @@ function ScheduleTab(props: {
             </form>
           </details>
 
-          {changeOrders.length === 0 ? (
+          {!changeOrdersMeasured ? (
+            <p role="alert" className="text-xs text-ink/70">
+              <strong className="text-ink">We couldn&rsquo;t load change orders.</strong>{' '}
+              If the couple has raised one, it is not shown here — reload before
+              treating this as settled.
+            </p>
+          ) : changeOrders.length === 0 ? (
             <p className="text-xs italic text-ink/45">No change orders yet.</p>
           ) : (
             <ul className="space-y-2">
@@ -3092,6 +3238,88 @@ function ScheduleTab(props: {
           )}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The supplier's answer, on the client card itself (PR-H slice B).
+ *
+ * 🔑 A SECOND PLACE TO ANSWER, NOT A SECOND ANSWER. Both buttons post to the
+ * SAME two server actions the Overview feed's card uses, which post to the same
+ * two DEFINER RPCs. Nothing about the state machine lives here — this file
+ * decides where the control appears and nothing else. If the decline reason ever
+ * changes shape, it changes in one place.
+ *
+ * ⚠ THE FORM CARRIES ONLY `vendor_id`. The actions read `event_id` off the
+ * envelope the RPC returns from the row it authorized, never off the form — the
+ * confused-deputy rule those actions carry in their own docblock.
+ */
+function LockRequestAnswer({
+  eventVendorId,
+  expiresAt,
+}: {
+  eventVendorId: string;
+  expiresAt: string | null;
+}) {
+  // Server-rendered, so "now" is the render instant. The deadline is the one the
+  // DATABASE stamped and the sweep enforces — never a recomputed seven days.
+  const daysLeft = lockRequestDaysLeft(expiresAt, new Date());
+  const fuse =
+    daysLeft === null
+      ? 'They are waiting on your answer.'
+      : daysLeft === 0
+        ? 'Last day to answer — after today the request closes and they will look elsewhere.'
+        : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left to answer — after that the request closes and they will look elsewhere.`;
+  return (
+    <div
+      className="mt-3 rounded-2xl border p-4"
+      style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-surface, #fff)' }}
+    >
+      <p className="text-sm font-semibold text-ink">They want to book you</p>
+      <p className="mt-0.5 text-sm text-ink/60">{fuse}</p>
+      {/* Saying WHY the page is thin is part of the answer. Without this the
+          supplier reads the locked rows below as a broken page rather than as
+          the deal: the venue address and the run-of-show arrive with the yes. */}
+      <p className="mt-2 text-sm text-ink/55">
+        You are seeing the area, the date and the headcount. The exact venue and the
+        day-of run-of-show open the moment you agree.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <form action={vendorAgreeToLock}>
+          <input type="hidden" name="vendor_id" value={eventVendorId} />
+          <SubmitButton
+            pendingLabel="Agreeing…"
+            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
+            style={{ background: 'var(--sn-success)' }}
+          >
+            Agree to this booking
+          </SubmitButton>
+        </form>
+      </div>
+      <details className="mt-3">
+        <summary className="cursor-pointer text-sm text-ink/60">
+          Can&rsquo;t take this booking?
+        </summary>
+        <form action={vendorDeclineLock} className="mt-2 flex flex-wrap items-center gap-2">
+          <input type="hidden" name="vendor_id" value={eventVendorId} />
+          <input
+            type="text"
+            name="reason"
+            maxLength={240}
+            placeholder="Why? (optional — the couple sees this)"
+            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
+            style={{ borderColor: 'var(--sn-line)' }}
+          />
+          <SubmitButton
+            pendingLabel="Sending…"
+            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
+            style={{ borderColor: 'var(--sn-line)' }}
+          >
+            Turn it down
+          </SubmitButton>
+        </form>
+      </details>
     </div>
   );
 }

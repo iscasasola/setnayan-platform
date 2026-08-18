@@ -1,0 +1,64 @@
+# Switch columns read ONLY by the surface that writes them — candidates for
+# "a handle with no gate".
+#
+# FORMAT   <table>.<column> | <why it is allowed to be read only by its own surface>
+# READ BY  tests/db/handles-have-gates.db.test.ts (inside a REQUIRED check)
+#
+# ── THE MIRROR OF gates-have-handles.baseline.txt ───────────────────────────
+# That file catches a switch NOTHING CAN TURN ON. This one catches a switch that
+# turns NOTHING ON. To the person using the product they are the same bug: the
+# setting does nothing.
+#
+# It exists because the second shape shipped live and was found by ACCIDENT on
+# 2026-08-17, while chasing an unrelated question:
+#
+#   users.planner_mode — written by the profile page's Guided / DIY control, with
+#   copy beside it promising "Guided shows the 9-step checklist on your Overview
+#   tab. DIY hides it so you can plan on your own." FIVE references in the whole
+#   repo, all five that page and its own action. Nothing on the Overview reads
+#   it. A couple who picks DIY to hide the checklist still sees it.
+#
+# The enumerating switches guard passed it, correctly and uselessly: the column
+# IS written. Nobody had asked the other half of the question.
+#
+# ── HOW TO READ A LINE HERE ────────────────────────────────────────────────
+# ⚠ BEING ON THIS LIST IS NOT A BUG. A switch read only by its own surface is
+# perfectly correct when the effect IS on that surface — a vendor toggling
+# something in their own shop settings, read by their own shop screens. It
+# becomes a defect only when the control PROMISES AN EFFECT SOMEWHERE ELSE, and
+# that is a copy question no scanner can answer.
+#
+# So the honest question for each line is not "is it read elsewhere?" but:
+#
+#     Does the text next to this control promise something it does not do?
+#
+# ⚠ A BASELINE IS A BILL. Each line is somebody deciding a control's promise has
+# been checked against its wiring. Adding one is allowed; adding one silently is
+# not.
+
+# ── FINDING: the control promises an effect it does not have ────────────────
+users.planner_mode | 🔴 FINDING 2026-08-17, verified by hand and left OPEN for the owner. The profile page says "Guided shows the 9-step checklist on your Overview tab. DIY hides it so you can plan on your own." The toggle writes this column; the event Overview renders its journey rail unconditionally and never reads it. So DIY hides nothing and Guided grants nothing. NOT fixed here because the repair depends on what a couple should be PROMISED — hide the checklist, or change the copy — which is an owner call, not an engineering one. No DECISION_LOG row exists for it in either direction.
+
+# ── DOCUMENTED DORMANT: the column is deliberately unread, and says so ─────
+users.theme_preference | Deliberately dormant and documented in TWO places: `app/dashboard/(account)/profile/page.tsx` — "Setnayan always renders light. `users.theme_preference` is left dormant" — and `app/_components/theme-provider.tsx` — "DORMANT: the `users.theme_preference` column + its `updateThemePreference`". The five-theme picker is parked, not broken. Its migration to three values is also recorded. Nothing to build.
+npc_filing_tasks.counsel_gated | Admin compliance bookkeeping written and read inside `/admin/npc-readiness`; the effect (an admin seeing which filing tasks are counsel-gated) IS on that surface. Minors/Phase-3 gating is genuinely counsel-dependent and tracked in the corpus, not by a cross-surface read.
+
+# ── SELF-CONTAINED BY DESIGN: writer and effect are the same surface ────────
+# Each of these is a flag a person sets on one screen whose whole visible effect
+# is on that same screen or its own feature folder. No cross-surface promise is
+# made in the copy beside them. Checked as a group, not individually researched
+# — if you are here because one of them turned out to promise something
+# elsewhere, replace this line with a real reason or a fix.
+demo_sessions.joined_a | Demo-session bookkeeping, written and consumed by `lib/demo-sessions.ts`.
+demo_sessions.joined_b | Same module, same reason.
+drive_copy_artifacts.copied_high_res | Drive-copy job bookkeeping inside `lib/drive-copy.ts`; the retention/compression model is the cross-surface contract, not this flag.
+event_editorial.edited_by_couple | Marks that the couple touched the editorial draft; read by the same editorial surface that writes it.
+event_floor_plan.ghost_booths_enabled | A seating-editor display option, written and read by the seating surface.
+event_software_activations_v2.is_reward_issued | Idempotence marker on the manpower sync route — a stamped side effect, not a person-facing switch.
+event_vendor_payment_plan.is_default_seeded | Seeding marker for the payment-plan rows; consumed by the same vendors surface and its server helper.
+event_vendors.crew_meal_covered | Written and read on the couple's vendors surface, where the crew-meal line is shown.
+faith_vocab.is_civil | Taxonomy row property authored in `/admin/taxonomy`; read where that vocabulary is administered.
+panood_control_state.director_mode | Live Studio control-room mode, written and read by `lib/panood-control.ts` and the room it drives. ⚠ The old control room is a DELIBERATE rollback kept until the roaming cutover is verified — its own file says "it is not dead code and must not be deleted".
+vendor_bot_replies.was_llm | Provenance stamp on a bot reply, written by the reply path; a record, not a switch anybody sets.
+vendor_branches.branch_subscription_active | Branch subscription state, written by the branches surface and `lib/sku-activation.ts`, read where branches are shown.
+vendor_dayof_configs.song_requests_open | An on-the-day toggle written and read by the vendor's on-the-day surface. ⚠ Worth a second look if guest-facing song requests are ever built — that WOULD be a cross-surface promise.

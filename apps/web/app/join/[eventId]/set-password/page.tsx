@@ -1,8 +1,21 @@
+/**
+ * /join/[eventId]/set-password — the last optional step after a magic link.
+ *
+ * Ported onto the shared <DoorShell> (2026-08-17): it hand-copied JoinShell's
+ * wrapper and wore the gold eyebrow (the `terracotta` slot, 3.37:1 on cream).
+ * The error block is now <DoorNotice kind="alert">, the same shape every other
+ * door uses.
+ *
+ * "Skip for now" is a real answer, not a hidden escape: setting a password is
+ * optional by design (email links keep working), so it stays a visible control
+ * rather than a faint link under the fold.
+ */
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { DoorShell, DoorNotice, DoorActions } from '@/app/_components/door/door-shell';
 import { setPasswordAction } from './actions';
 
 export const metadata = { title: 'Set a password' };
@@ -14,6 +27,8 @@ type Props = {
 
 const ERROR_COPY: Record<string, string> = {
   too_short: 'Use at least 8 characters.',
+  leaked:
+    'This password has appeared in a known data breach. Please choose a different one — it only takes a moment and it protects your account.',
   failed: 'We couldn’t save your password — please try again.',
 };
 
@@ -35,31 +50,21 @@ export default async function SetPasswordPage({ params, searchParams }: Props) {
   const errMsg = sp.error ? (ERROR_COPY[sp.error] ?? null) : null;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-6 py-12">
-      <header className="space-y-2">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">Almost there</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Set a password</h1>
-        <p className="text-sm text-ink/70">
+    <DoorShell
+      eyebrow="Almost there"
+      title="Set a password"
+      sub={
+        <>
           You&rsquo;re signed in
           {isPlaceholderEmail(user.email) ? null : (
-            <>
-              {' '}
-              as <span className="font-medium text-ink">{user.email}</span>
-            </>
+            <> as <span className="font-medium text-ink">{user.email}</span></>
           )}
           . Set a password so you can log back in any time — or skip and keep using email
           sign-in links.
-        </p>
-      </header>
-
-      {errMsg ? (
-        <p
-          role="alert"
-          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-2.5 text-sm text-terracotta-700"
-        >
-          {errMsg}
-        </p>
-      ) : null}
+        </>
+      }
+    >
+      {errMsg ? <DoorNotice kind="alert">{errMsg}</DoorNotice> : null}
 
       <form action={action} className="space-y-4">
         <input type="hidden" name="next" value={next} />
@@ -78,14 +83,15 @@ export default async function SetPasswordPage({ params, searchParams }: Props) {
             className="input-field"
           />
         </div>
-        <SubmitButton className="button-primary w-full" pendingLabel="Saving…">
-          Set password
-        </SubmitButton>
+        <DoorActions>
+          <SubmitButton className="button-primary w-full" pendingLabel="Saving…">
+            Set password
+          </SubmitButton>
+          <Link href={next} className="button-secondary">
+            Skip for now
+          </Link>
+        </DoorActions>
       </form>
-
-      <Link href={next} className="text-center text-sm text-ink/55 hover:text-ink">
-        Skip for now
-      </Link>
-    </main>
+    </DoorShell>
   );
 }

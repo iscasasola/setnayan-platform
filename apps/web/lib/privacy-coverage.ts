@@ -12,7 +12,7 @@ import type { PrivacyControlKey } from '@/lib/data-privacy-controls';
  * the filing evolve. `declaredIn` values are NpcDocument.key (lib/npc-documents).
  *
  * `Record<PrivacyControlKey, …>` is exhaustive on purpose: adding a new control
- * won't typecheck until its coverage is declared here — so coverage can't drift
+ * won’t typecheck until its coverage is declared here — so coverage can’t drift
  * silently behind the catalog.
  */
 
@@ -43,7 +43,7 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
   papic_geo_metadata: {
     privacySensitive: true,
     declaredIn: ['ropa'],
-    note: 'Papic capture geo-stamp (ROPA DPS-05) — the capture path is now built and fail-closed behind this control, which ships OFF. The public /privacy "Photos and videos — location data" section already discloses it; activate after the DPO ruling.',
+    note: 'Papic capture geo-stamp (ROPA DPS-05) — the capture path is now built behind this control, which is ACTIVE in prod (approved 2026-07-23). ⚠ CORRECTED 2026-08-17 — READ FROM PROD, NOT FROM THIS FILE: all 20 rows of data_privacy_controls are status = "active", and lib/data-privacy-controls.ts states every feature gate reads status === "active". So the CONTROL half of any "held fail-closed" claim below is FALSE. The env-flag half is NOT readable from a session and is NOT asserted either way — do not infer that this flow is dark, and do not infer that it is live. The public /privacy "Photos and videos — location data" section already discloses it; activate after the DPO ruling.',
   },
   cross_event_vendor_recall: {
     privacySensitive: true,
@@ -68,7 +68,7 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
   coordinator_consent_money: {
     privacySensitive: true,
     declaredIn: ['ropa'],
-    note: 'Declared: ROPA DPS-14 (Coordinator Delegated Access) + the public /privacy "Coordinators you invite" section. Money scopes are opt-in and keep the platform-wide "Setnayan never holds/moves money" stance; confirm the DPO ruling before activating.',
+    note: 'Declared: ROPA DPS-14 (Coordinator Delegated Access) + the public /privacy "Coordinators you invite" section. Money scopes are opt-in and keep the platform-wide "Setnayan never holds/moves money" stance. The control is ACTIVE in prod (approved 2026-07-22) — the "confirm the DPO ruling before activating" instruction this note used to carry was overtaken by the activation itself. ⚠ CORRECTED 2026-08-17 — READ FROM PROD, NOT FROM THIS FILE: all 20 rows of data_privacy_controls are status = "active", and lib/data-privacy-controls.ts states every feature gate reads status === "active". So the CONTROL half of any "held fail-closed" claim below is FALSE. The env-flag half is NOT readable from a session and is NOT asserted either way — do not infer that this flow is dark, and do not infer that it is live.',
   },
   coordinator_prep_release: {
     privacySensitive: true,
@@ -93,17 +93,17 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
   vendor_ai_autoreply: {
     privacySensitive: true,
     declaredIn: ['ropa'],
-    note: 'Declared: ROPA DPS-13 (Vendor AI Assistant) + the public /privacy "Vendor AI assistant (automated replies)" section (§34 automated-processing basis, "⚡ AI auto-reply" label). Held fail-closed by the control until DPO sign-off.',
+    note: 'Declared: ROPA DPS-13 (Vendor AI Assistant) + the public /privacy "Vendor AI assistant (automated replies)" section (§34 automated-processing basis, "⚡ AI auto-reply" label). The control is ACTIVE in prod (approved 2026-07-22); this note previously claimed it was held fail-closed by the control. ⚠ CORRECTED 2026-08-17 — READ FROM PROD, NOT FROM THIS FILE: all 20 rows of data_privacy_controls are status = "active", and lib/data-privacy-controls.ts states every feature gate reads status === "active". So the CONTROL half of any "held fail-closed" claim below is FALSE. The env-flag half is NOT readable from a session and is NOT asserted either way — do not infer that this flow is dark, and do not infer that it is live.',
   },
   vendor_deep_search: {
     privacySensitive: true,
     declaredIn: ['ropa'],
-    note: 'Declared: ROPA DPS-13 (Vendor AI Assistant) + the public /privacy "Vendor Deep Search" section (Anthropic web_search subprocessor, 180-day dossier TTL, §12(f)). Held fail-closed by the control until DPO sign-off.',
+    note: 'Declared: ROPA DPS-13 (Vendor AI Assistant) + the public /privacy "Vendor Deep Search" section (Anthropic web_search subprocessor, 180-day dossier TTL, §12(f)). The control is ACTIVE in prod (approved 2026-07-22); this note previously claimed it was held fail-closed by the control. ⚠ CORRECTED 2026-08-17 — READ FROM PROD, NOT FROM THIS FILE: all 20 rows of data_privacy_controls are status = "active", and lib/data-privacy-controls.ts states every feature gate reads status === "active". So the CONTROL half of any "held fail-closed" claim below is FALSE. The env-flag half is NOT readable from a session and is NOT asserted either way — do not infer that this flow is dark, and do not infer that it is live.',
   },
   antifraud_trust_signals: {
     privacySensitive: true,
     declaredIn: ['dpia-antifraud', 'ropa'],
-    note: 'Automated vendor suspension — an RA 10173 automated decision with a filed DPIA (09_DPIA_AntiFraud). Before relying on it, confirm the published disclosure + legitimate-interest assessment + contest/appeal path land (NPC task t1-4).',
+    note: 'Automated vendor suspension — an RA 10173 automated decision with a filed DPIA (09_DPIA_AntiFraud). 🔴 OWNER/DPO ITEM, measured 2026-08-17: this control is ACTIVE in prod and is the ONLY one of the twenty with approved_by IS NULL — nobody’s name is against it, and it has been that way since it was seeded 2026-07-22. It can suspend a supplier’s listing by automated decision. NPC task t1-4 (publish the disclosure + record the LIA + document a §16(c)/§34 contest path) is still not_started. If a supplier asks who authorised the machine that hid them, there is no answer on file.',
   },
   device_fingerprint: {
     privacySensitive: true,
@@ -123,7 +123,7 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
   same_date_demand: {
     privacySensitive: true,
     declaredIn: [],
-    note: 'NOT DECLARED YET (on purpose — honest drift). The only CROSS-COUPLE disclosure on the marketplace: couple A is told how many OTHER couples inquired with the same vendor for the same exact date. Two mitigations are already in the resolver — inquiry-only (a mere save counts zero, per the 2026-06-02 manufactured-scarcity ruling) and a server-side min-3 floor (n=1 on a solo vendor for an exact date in a small municipality is functionally re-identifying) — but there is NO per-couple opt-out: a couple cannot exclude their own inquiry from other couples’ counts, and that is the gap a DPO ruling has to speak to. ✅ CORRECTION 2026-08-02: the "/privacy paragraph owed" claim was STALE — §"Vendor interest counts (what other couples can see)" already disclosed the aggregate, the inquiry-only rule, the min-3 floor, the exact-date rule and the no-scarcity commitment. The audit added the one thing it omitted: that there is NO opt-out, stated plainly. ⏳ ROPA activity now DRAFTED as DPS-17, which also records the missing opt-out as the question for the DPO; `declaredIn` stays EMPTY until the ROPA PDF is regenerated (JANUARY 2027). Held fail-closed (control seeded inactive AND the Explore-replan flag AND a min-3 floor that prod cannot currently reach — 0 chat_threads).',
+    note: 'NOT DECLARED YET (on purpose — honest drift). The only CROSS-COUPLE disclosure on the marketplace: couple A is told how many OTHER couples inquired with the same vendor for the same exact date. Two mitigations are already in the resolver — inquiry-only (a mere save counts zero, per the 2026-06-02 manufactured-scarcity ruling) and a server-side min-3 floor (n=1 on a solo vendor for an exact date in a small municipality is functionally re-identifying) — but there is NO per-couple opt-out: a couple cannot exclude their own inquiry from other couples’ counts, and that is the gap a DPO ruling has to speak to. ✅ CORRECTION 2026-08-02: the "/privacy paragraph owed" claim was STALE — §"Vendor interest counts (what other couples can see)" already disclosed the aggregate, the inquiry-only rule, the min-3 floor, the exact-date rule and the no-scarcity commitment. The audit added the one thing it omitted: that there is NO opt-out, stated plainly. ⏳ ROPA activity now DRAFTED as DPS-17, which also records the missing opt-out as the question for the DPO; `declaredIn` stays EMPTY until the ROPA PDF is regenerated (JANUARY 2027). The control is ACTIVE in prod (approved 2026-07-30) — this note previously said "control seeded inactive", which prod contradicts. What still constrains it: the Explore-replan flag and a server-side min-3 floor that prod cannot currently reach (0 chat_threads). ⚠ CORRECTED 2026-08-17 — READ FROM PROD, NOT FROM THIS FILE: all 20 rows of data_privacy_controls are status = "active", and lib/data-privacy-controls.ts states every feature gate reads status === "active". So the CONTROL half of any "held fail-closed" claim below is FALSE. The env-flag half is NOT readable from a session and is NOT asserted either way — do not infer that this flow is dark, and do not infer that it is live.',
   },
 };
 
@@ -171,8 +171,8 @@ export type PrivacyCoverageReport = {
 /**
  * Derive the coverage report from the set of currently-active control keys.
  * `retiredKeys` are excluded from the privacy-sensitive denominator — a retired
- * control gates no live processing, so it shouldn't count against declaration
- * coverage (nor can it be "undeclared-active" — it isn't active).
+ * control gates no live processing, so it shouldn’t count against declaration
+ * coverage (nor can it be "undeclared-active" — it isn’t active).
  */
 export function computePrivacyCoverage(
   activeKeys: ReadonlySet<string>,

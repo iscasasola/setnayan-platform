@@ -45,6 +45,15 @@ const COVERED = new Set(ALL_REAL_WEDDINGS.map((w) => snake(w.eventType)));
 
 // ── Coverage: every kind of event we sell ──────────────────────────────────
 
+/*
+  🔑 THESE PATHS CARRY `(shell)` (2026-08-15). The public routes moved into the
+  `app/(shell)/` route group so the shared shell is mounted ONCE, in a layout,
+  and survives navigation. A route group is INVISIBLE in the URL and PRESENT in
+  the filesystem path — `/explore` still serves from
+  `app/(shell)/explore/page.tsx`. A guard reading the old path throws ENOENT,
+  which is the loud failure; the quiet one would be a glob that matches nothing
+  and passes vacuously.
+*/
 test('every event kind the product supports has at least one sample story', () => {
   const missing = ROSTER.filter((k) => !COVERED.has(k));
   assert.deepEqual(
@@ -128,7 +137,7 @@ test('a nonsense count fails toward showing, never toward an empty page', () => 
 // ── Anti-drift: both publishers ask the same question ──────────────────────
 
 test('the Stories page counts REAL stories, not database rows', () => {
-  const src = stripComments(read('app/realstories/page.tsx'));
+  const src = stripComments(read('app/(shell)/realstories/page.tsx'));
   assert.match(
     src,
     /sampleStoriesAreShowing\(/,

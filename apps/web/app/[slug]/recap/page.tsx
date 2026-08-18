@@ -1,3 +1,6 @@
+import { RoomFooter } from '../_components/room-footer';
+import { loadRoomLinks } from '../_lib/room-links.server';
+import type { RoomLink } from '../_lib/room-links';
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -5,6 +8,7 @@ import { Camera, Film, Quote, Radio, Sparkles } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventWordsFor } from '../_lib/event-words';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -62,7 +66,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     return { title: 'The Recap', robots: { index: false, follow: false } };
   }
   const title = `${event.display_name} — The Recap`;
-  const recapNoun = event.event_type && event.event_type !== 'wedding' ? 'event' : 'wedding';
+  // Was a hand-typed two-way patch (`!== 'wedding' ? 'event' : 'wedding'`) —
+  // a third vocabulary being born beside the two the product already has. It
+  // now reads the SAME per-type word every other surface reads, so a birthday's
+  // recap is a "birthday recap" rather than a generic "event recap".
+  const recapNoun = (await eventWordsFor(event.event_type)).eventWord;
   const description = `The day, in their words. ${event.display_name}'s ${recapNoun} recap on Setnayan.`;
   return {
     title,
@@ -109,6 +117,15 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
     event.event_id,
   );
 
+  const roomLinks = await loadRoomLinks({
+    event,
+    current: 'album',
+    // EARNED, not assumed: this room already ran `canViewSlugEvent` against the
+    // SAME raw visibility column the money-gift page applies, and redirected
+    // away if it failed.
+    pabuyaViewerAllowed: true,
+  });
+
   if (!(await isRecapPublished(event.event_id))) {
     return (
       <main className="min-h-dvh bg-cream text-ink" style={wrapStyle}>
@@ -128,7 +145,8 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
           </Link>
         </div>
         <RecapFooter hideWatermark={hideWatermark} />
-      </main>
+        <RoomFooter links={roomLinks} />
+    </main>
     );
   }
 
@@ -171,6 +189,7 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
         />
       </article>
       <RecapFooter />
+      <RoomFooter links={roomLinks} />
     </main>
   );
 }

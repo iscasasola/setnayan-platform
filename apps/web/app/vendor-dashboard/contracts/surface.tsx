@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorContracts } from '@/lib/contracts';
 import { ContractCard, ContractsEmptyState } from '@/app/_components/contracts/contract-card';
@@ -23,10 +24,22 @@ export default async function VendorContractsPage() {
   const eventIds = Array.from(new Set(contracts.map((c) => c.event_id)));
   const eventMap = new Map<string, { display_name: string }>();
   if (eventIds.length > 0) {
-    const { data: eventRows } = await supabase
+    const { data: eventRows, error: eventRowsError } = await supabase
       .from('events')
       .select('event_id, display_name')
       .in('event_id', eventIds);
+    // ⚠ the CLIENT NAME on each contract. Refused, `event?.display_name ??
+    // ⚠ 'Unknown event'` renders every contract as being "For Unknown event" —
+    // ⚠ and "Unknown event" is also what a genuinely missing event shows, so the
+    // ⚠ two are indistinguishable on a page about signed agreements.
+    if (eventRowsError) {
+      logQueryError(
+        'VendorContractsSurface.eventRows',
+        eventRowsError,
+        { vendorProfileId: profile.vendor_profile_id },
+        'graceful_degrade',
+      );
+    }
     for (const e of eventRows ?? []) {
       eventMap.set(e.event_id as string, { display_name: e.display_name as string });
     }

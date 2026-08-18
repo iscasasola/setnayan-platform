@@ -21,7 +21,7 @@ import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { PaymentUnderReview } from '@/app/dashboard/[eventId]/_components/payment-under-review';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
-export const metadata = { title: 'Custom QR per guest · Setnayan' };
+export const metadata = { title: 'Custom QR per guest' };
 
 /**
  * /dashboard/[eventId]/studio/custom-qr-guest — closes the partial

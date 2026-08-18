@@ -1,3 +1,4 @@
+import type { EventWords } from '../_lib/event-words';
 import type { EventRow } from '../_lib/types';
 
 /**
@@ -13,7 +14,9 @@ export function DressCodeWidget({
   config,
   ceremonyType,
   genderSeparation,
+  words,
 }: {
+  words: EventWords;
   config: EventRow['dress_code_config'];
   ceremonyType?: string | null;
   genderSeparation?: string | null;
@@ -121,7 +124,7 @@ export function DressCodeWidget({
         </header>
         <p className="max-w-prose text-base leading-relaxed text-ink/65">
           Your hosts haven&rsquo;t shared the dress code yet — check back closer to
-          the wedding.
+          the {words.eventWord}.
         </p>
       </section>
     );

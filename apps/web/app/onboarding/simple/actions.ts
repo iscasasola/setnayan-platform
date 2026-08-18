@@ -14,6 +14,7 @@ import {
 import { captureEvent } from '@/lib/analytics';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
+import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 
 /**
  * commitSimpleEvent — the create commit for a SIMPLE EVENT (owner 2026-06-27).
@@ -55,6 +56,13 @@ export async function commitSimpleEvent(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) {
     return redirect('/login?next=/onboarding/simple');
+  }
+
+  // The shop account does not plan celebrations (owner 2026-08-15). This path
+  // lives OUTSIDE /dashboard, which is exactly why the old layout redirect
+  // could never have enforced the ruling here.
+  if (await shopAccountMayNotCreateEvents(supabase, user.id)) {
+    return redirect('/onboarding/simple?error=shop_account');
   }
 
   // Life-event gate (2026-07-17): simple_event is LIFESTYLE class so this

@@ -25,6 +25,7 @@ import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
 import { hasInPlanningWeddingForUser } from './wedding-guard';
 import { getBlockingLifeEvent } from './life-event-guard';
 import { resolvePick } from '@/app/onboarding/wedding/_data/wedding-cities';
+import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 
 /* Retired 2026-05-28 V2 cutover */
 // V1 imported startConciergeTrial + CONCIERGE_ENABLED here to route
@@ -223,6 +224,12 @@ export async function createWeddingEvent(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) {
     return redirect('/login');
+  }
+
+  // The shop account does not plan celebrations (owner 2026-08-15). One shared
+  // gate; see lib/vendor-event-creation.ts for why it is not four checks.
+  if (await shopAccountMayNotCreateEvents(supabase, user.id)) {
+    return redirect('/dashboard/create-event?error=shop_account');
   }
 
   // Wedding cardinality — authoritative gate (owner-locked 2026-07-12; flow-check
@@ -582,6 +589,12 @@ export async function planNextYearEvent(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return redirect('/login');
+
+  // The shop account does not plan celebrations (owner 2026-08-15). A clone is
+  // an events insert like any other, so it runs the same one gate.
+  if (await shopAccountMayNotCreateEvents(supabase, user.id)) {
+    return redirect(`/dashboard/${sourceId}?error=shop_account`);
+  }
 
   // ── Authorization gate (see the doc comment above). Mirrors the house pattern
   // at [eventId]/checklist-actions.ts: read the caller's OWN membership row on

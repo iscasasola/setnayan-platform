@@ -142,12 +142,40 @@ export default async function DashboardLayout({
   // An account whose label says vendor but which owns nothing now simply stays
   // here, on the couple dashboard, which is a real place with a real way out —
   // instead of bouncing between two doors that each point at the other.
-  if (profile?.account_type === 'vendor') {
-    const roles = await fetchUserRoleSummary(supabase, user.id);
-    if (roles.hasVendorAccess) {
-      redirect('/vendor-dashboard');
-    }
-  }
+  /*
+    🔴 THE BOUNCE IS GONE — IT TOOK AWAY EVERYTHING PERSONAL, PERMANENTLY.
+    Owner 2026-08-15, asked directly: *"supplier/vendors also has their own user
+    account. but they cannot make from their vendor account."* Asked what should
+    happen to the personal side, he chose: **keep both, block only creating.**
+
+    What this guard actually did was far wider than that ruling. Opening a shop
+    flips an existing customer's `account_type` to 'vendor'
+    (`open-shop/actions.ts`), and NOTHING anywhere flips it back — the only
+    writes of 'customer' are signup, anon-convert and the event-account link.
+    This guard then bounced that account off the WHOLE couple tree: the events
+    they had already planned, each event's own pages, their profile,
+    notifications, Alaala, People, Year. **They lost the wedding they made, with
+    no way back**, and the account-deletion request lives on the profile screen,
+    so they could not close their account either — a right under RA 10173.
+
+    ⚠ AND THE LIKELY VICTIM WAS NOT A SUPPLIER ONBOARDING. "Create your shop"
+    sits in the account menu on every signed-in surface and on the couple's own
+    events board (both added 2026-08-10 to put the wizard in front of couples),
+    so the person most likely to lose their wedding was a couple mid-planning who
+    accepted an invitation the product showed them.
+
+    🔑 THE RULING IS ABOUT CREATING, SO THE BLOCK BELONGS ON CREATING. It now
+    lives at the four server entry points that actually make an event
+    (`lib/vendor-event-creation.ts`), which is the door rather than the button —
+    a layout redirect could never have covered the onboarding wizards anyway,
+    because they commit from `/onboarding/*`, outside this tree.
+
+    ✅ NO REDIRECT LOOP RETURNS — the 2026-08-10 "more than 20 redirections" bug
+    needed BOTH sides pointing at each other. `vendor-dashboard/layout.tsx` still
+    sends an account with no shop here; this side now sends nobody there, so the
+    cycle cannot form. Sign-in is unaffected: it stopped forcing vendors to
+    /vendor-dashboard on 2026-08-13 and honours `next` for every origin.
+  */
 
   // Login-driven ghosting check (no cron) — runs after the response, gated
   // once per login inside the helper. Couple side: nudge if their inquiries

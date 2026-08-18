@@ -25,6 +25,7 @@ import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import { isDependentId, resolveHonoreeDependentId } from '@/lib/honoree-dependent-link';
 import type { GenericOnboardingPayload, GenericCommitResult } from '@/lib/onboarding/types';
+import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 
 export async function commitOnboardingEvent(
   payload: GenericOnboardingPayload,
@@ -63,6 +64,19 @@ export async function commitOnboardingEvent(
     } else {
       return { ok: false, error: 'not_authenticated' };
     }
+  }
+
+  /*
+    The shop account does not plan celebrations (owner 2026-08-15). This is one
+    of the TWO creation paths that live outside `/dashboard` — which is why the
+    old `dashboard/layout.tsx` redirect was never the rule it appeared to be:
+    a shop account could reach this wizard and commit an event through it.
+
+    An anonymous draft can never be a shop account, so the check is only ever
+    meaningful for a real signed-in user; it costs one cheap label read.
+  */
+  if (await shopAccountMayNotCreateEvents(supabase, user.id)) {
+    return { ok: false, error: 'shop_account' };
   }
 
   // Life-event cardinality (2026-07-17): one IN-PLANNING life event per

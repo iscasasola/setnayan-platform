@@ -3829,14 +3829,23 @@ async function fetchVendorPackagesWithItems(
     // makes them visible at all — without it the couple saw an inclusion with
     // no way to pick, and the vendor's alternatives may as well not exist.
     const itemIds = (items ?? []).map((i) => i.item_id);
-    const { data: options } = itemIds.length
+    const { data: options, error: optionsError } = itemIds.length
       ? await admin
           .from('vendor_package_item_options')
           .select(PACKAGE_ITEM_OPTION_SELECT)
           .in('item_id', itemIds)
           .eq('is_available', true)
           .order('display_order', { ascending: true })
-      : { data: [] as VendorPackageItemOptionRow[] };
+      : { data: [] as VendorPackageItemOptionRow[] , error: null };
+    // 🔴 THE FILE STATES THIS EXACT HARM TWO LINES ABOVE, AND THEN LET A REFUSED
+    // READ REPRODUCE IT. "A line is a choice iff it has options… without it the
+    // couple saw an inclusion with no way to pick, and the vendor's alternatives may
+    // as well not exist." A refused read empties `options` and does precisely that,
+    // on a PUBLIC page, to a couple deciding what to buy.
+    // 🔑 A comment describing a failure mode is not a guard against it.
+    if (optionsError) {
+      logQueryError('PublicVendorPage.packageItemOptions', optionsError, { vendorProfileId }, 'graceful_degrade');
+    }
 
     const optionsByItem = new Map<string, VendorPackageItemOptionRow[]>();
     for (const row of (options ?? []) as VendorPackageItemOptionRow[]) {

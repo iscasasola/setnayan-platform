@@ -192,12 +192,24 @@ export default async function PapicModerationPage({
       ...screenedRows.flatMap((s) => (s.guestId ? [s.guestId] : [])),
     ]),
   );
-  const { data: guestData } = guestIds.length
+  const { data: guestData, error: guestDataError } = guestIds.length
     ? await admin
         .from('guests')
         .select('guest_id, first_name, display_name')
         .in('guest_id', guestIds)
-    : { data: [] };
+    : { data: [], error: null };
+  // 🔴 THE MOST SERIOUS ABSENCE IN THIS PR, AND IT IS CONSENT-ADJACENT.
+  // This map turns guest ids into NAMES on the photo-moderation screen. A refused
+  // read leaves it empty, and every name falls back to 'Guest' — including at :508,
+  // which is the BLOCKED-GUEST LIST: the couple deciding whose face stays down.
+  // 🔑 'Guest' is ALSO the legitimate fallback for a genuinely unnamed guest, so the
+  // two are indistinguishable — and a couple could unblock the wrong person.
+  // Naming the read is the minimum; the surface must not be trusted to tell a
+  // missing name from an unread one, so it now says which it is.
+  if (guestDataError) {
+    logQueryError('PapicModerationPage.guestData', guestDataError, { eventId }, 'graceful_degrade');
+  }
+  const guestNamesMeasured = !guestDataError;
   const guestName = new Map<string, string>();
   for (const g of guestData ?? []) {
     const name =
@@ -497,6 +509,17 @@ export default async function PapicModerationPage({
             <UserX className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
             Blocked guests for this wedding
           </h2>
+          {/* Names could not be read ⇒ every row below would say 'Guest', which is also
+              the legitimate value for a guest who never gave one. Unblocking is a decision
+              about a specific person's face; it must not be made from an ambiguous label. */}
+          {!guestNamesMeasured ? (
+            <p role="alert" className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-3 text-sm text-ink/70">
+              <strong className="text-ink">We couldn&rsquo;t load these names.</strong> Every row
+              below reads &ldquo;Guest&rdquo; because the lookup failed, not because they are
+              unnamed. Reload before unblocking anyone &mdash; you cannot tell who is who from
+              this list right now.
+            </p>
+          ) : null}
           <ul className="space-y-2">
             {blockRows.map((b) => {
               const gid = b.blocked_guest_id as string;

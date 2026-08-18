@@ -1800,6 +1800,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // so read both and bridge tile → group through the same `catalogTile` map
     // the bench uses. Flag OFF → no query at all. Fail-soft to "nothing decided",
     // which can only ever OFFER more, never silently drop a category.
+    // ⚖ ONE CLAUSE OF HONESTY ON THAT: it is literally true, and for the `excluded`
+    // rows the fail-open RE-SURFACES A CATEGORY THE COUPLE EXPLICITLY SAID NO TO.
+    // That is harmless next to silently dropping one, and it is still not nothing —
+    // "fail-open is safe" is doing a little work here and should not be quoted as a
+    // general licence.
     const decidedGroupIds: Set<string> = await (async () => {
       const out = new Set<string>();
       if (!isExploreReplanEnabled()) return out;

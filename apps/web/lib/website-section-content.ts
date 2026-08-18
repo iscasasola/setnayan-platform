@@ -19,6 +19,7 @@
  * council locked.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import type { WidgetType } from '@/lib/invitation-widgets';
 
 /**
@@ -54,18 +55,34 @@ export async function computeSectionContentMap(
   eventId: string,
   event: SectionContentEvent,
 ): Promise<Partial<Record<WidgetType, boolean>>> {
-  const { count } = await supabase
+  const { count, error: scheduleCountError } = await supabase
     .from('event_schedule_blocks')
     .select('*', { count: 'exact', head: true })
     .eq('event_id', eventId)
     .eq('is_public', true);
+  // 🔴 `?? 0` HERE DEFEATED THE FAIL-OPEN BUILT FOR EXACTLY THIS CASE.
+  // `hasContent` fails OPEN — `known === undefined ? true : known` — but this map
+  // always WRITES the `schedule` key, and `(count ?? 0) > 0` yields `false`, never
+  // `undefined`. The coercion turned "unknown" into "known false", so the
+  // protection could never engage.
+  // WHAT THE COUPLE SAW: refused read → count null → false → hasContent false →
+  // setSectionMode('shown') redirects ?error=empty_source → "You can't force-show
+  // a section that's still empty. Add its content first, then set it to Shown."
+  // …to a couple whose schedule is FULL. And they cannot comply: adding more blocks
+  // changes nothing, because the read was refused, not empty.
+  // 🔑 AN UNFALSIFIABLE REFUSAL THAT BLAMES THE CUSTOMER FOR MISSING CONTENT THEY
+  // ALREADY HAVE. `count === null` means NOT MEASURED, never zero — the repo's own
+  // rule, in the one place it was load-bearing.
+  if (scheduleCountError) {
+    logQueryError('computeSectionContentMap.scheduleCount', scheduleCountError, { eventId }, 'graceful_degrade');
+  }
 
   const ourPhotosCount = Array.isArray(event.our_photos)
     ? event.our_photos.filter((r) => typeof r === 'string' && r.length > 0).length
     : 0;
 
   return {
-    schedule: (count ?? 0) > 0,
+    schedule: count === null ? undefined : count > 0,
     venue_map: Boolean(event.venue_name || event.venue_address),
     our_love_story: Boolean(event.love_story),
     our_photos: ourPhotosCount > 0,

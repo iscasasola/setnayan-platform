@@ -121,7 +121,7 @@ export function BuildCompare({
   budgetPhp,
   currentPlan,
   savedBuilds,
-  savedBuildsMeasured = true,
+  savedBuildsMeasured,
   availability = null,
   anchoredDate = null,
 }: {
@@ -129,8 +129,16 @@ export function BuildCompare({
   budgetPhp: number | null;
   currentPlan: PlanBuildSnapshot;
   savedBuilds: SavedPlanBuild[];
-  /** False when the saved-plans read did not complete — then NO "none yet" claim. */
-  savedBuildsMeasured?: boolean;
+  /**
+   * False when the saved-plans read did not complete — then NO "none yet" claim.
+   *
+   * ⚠ REQUIRED, NOT OPTIONAL-DEFAULTING-TRUE. It defaulted to `true`, which means a
+   * caller who forgets it silently claims the plans WERE measured — the default
+   * wrote the dishonest value on their behalf. Same reasoning as ConsoleTable's
+   * `readPermitted: true` literal in the admin archetype: if a value can only be
+   * honest when the caller has actually checked, the type must not let them skip it.
+   */
+  savedBuildsMeasured: boolean;
   availability?: CompareAvailability | null;
   /** B5 — the day-precision counterpart of `availability`. Never both. */
   anchoredDate?: CompareAnchoredDate | null;

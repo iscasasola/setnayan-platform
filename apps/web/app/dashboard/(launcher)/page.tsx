@@ -577,6 +577,14 @@ export default async function LauncherPage({
       .eq('user_id', user.id);
     if (!error) chapterCount = count ?? 0;
   } catch {
+    // ⚠ 0, NOT null — AND THAT DIFFERS FROM ITS THREE NEIGHBOURS ON PURPOSE.
+    // adminOpenTotal / alagaCount / connectionCount all degrade to null so the
+    // surface says "we do not know" rather than reporting a clear desk. This one
+    // degrades to 0 because the doorway is exactly one entry either way: 0 renders
+    // the "Become a Storyteller" promo instead of an error boundary.
+    // ⚖ THE COST, STATED: an author who HAS chapters is shown a promo telling them
+    // to start, and loses the link to their own page. Accepted — but do NOT copy
+    // this pattern to a count that feeds a number or a list.
     chapterCount = 0;
   }
 

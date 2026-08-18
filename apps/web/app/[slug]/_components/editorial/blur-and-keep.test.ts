@@ -89,7 +89,10 @@ test('every public read in the recap goes through the gate — no raw veto check
     `${raw.length} raw veto checks in data.ts — every public read must call publicKeyForCapture()` +
       ` instead, so the blur rule lives in one place. Found:\n${raw.join('\n')}`,
   );
-  assert.match(raw[0], /heroPhotoId/, 'the one permitted raw check is the hero; this is a different site');
+  // `noUncheckedIndexedAccess` types raw[0] as possibly undefined even after the
+  // length assertion above — narrow it explicitly rather than asserting it away.
+  const only = raw[0] ?? '';
+  assert.match(only, /heroPhotoId/, 'the one permitted raw check is the hero; this is a different site');
 });
 
 test('the bake runs for a withdrawal even when the couple never bought the wall', () => {

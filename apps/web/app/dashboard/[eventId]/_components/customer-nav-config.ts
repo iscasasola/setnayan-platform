@@ -249,6 +249,42 @@ export function buildCustomerNavGroups(
   // matchPrefix lights the row on its own route. Budget carries key 'budget' so
   // the Simple-Event `budget` hideKey drops it (same gate as the mobile SSOT).
   const alsoItems: NavItem[] = [
+    /*
+      🚨 PERSONALIZATION AND HOSTS HAD NO DOOR, AND THE OWNER FOUND IT BY
+      LOOKING FOR ONE (2026-08-18). Both are real, live routes. The ONLY thing
+      in the app that linked to either was `_components/profile-menu.tsx` — and
+      that component is imported by NOTHING. It was superseded by the account
+      switcher, which carries neither row. So for as long as that swap has been
+      live, the only way to either page was to type the address.
+
+      🔑 A LINK IN A COMPONENT NOBODY MOUNTS IS NOT A LINK. This is the
+      gate-with-no-handle shape one level up: not a switch nobody can flip, but
+      a PAGE nobody can reach. It survived because every check we have asks
+      whether the route renders, and it does.
+
+      ⚠ AND THE NAV REGISTRY STILL CLAIMS OTHERWISE — `nav-registry-defaults.ts`
+      lists `customer.profile-menu.hosts` and `customer.profile-menu.personalization`
+      under a `profile-menu` area that no longer ships. The register said the
+      door was there; the app disagreed; nobody read both.
+
+      They go HERE, beside Schedule and Seat plan, because this is where a person
+      looks: it is the event's own list. The account menu is about YOU, and
+      "put this celebration away" is about the EVENT.
+    */
+    {
+      key: 'personalization',
+      label: 'Personalization',
+      href: `${base}/details`,
+      icon: Sparkles,
+      matchPrefix: `${base}/details`,
+    },
+    {
+      key: 'hosts',
+      label: 'Hosts',
+      href: `${base}/hosts`,
+      icon: Users,
+      matchPrefix: `${base}/hosts`,
+    },
     {
       key: 'schedule',
       label: 'Schedule',
@@ -275,7 +311,7 @@ export function buildCustomerNavGroups(
   // Two labelled sidebar sections (design: setnayan-overview-energy.html):
   //   PLAN    → Overview · Guests · Marketplace · Studio
   //   GO LIVE → Launch (the couple's live personal website)
-  //   ALSO IN THIS EVENT → Schedule · Seat plan · Budget (flat off-nav links)
+  //   ALSO IN THIS EVENT → Personalization · Hosts · Schedule · Seat plan · Budget
   const groups: NavGroup[] = [
     { key: 'plan', label: 'Plan', defaultOpen: true, items: planItems },
     ...(launchItem

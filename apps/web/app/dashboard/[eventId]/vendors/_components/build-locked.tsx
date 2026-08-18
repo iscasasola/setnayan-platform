@@ -254,8 +254,16 @@ export function BuildLocked({
                     renders the price exactly as it ships today. */}
                 {replan ? (
                   <span className="flex shrink-0 items-center gap-1.5">
+                {/* 🔢 `tabular-nums` — the approved ledger archetype's rule, in its
+                    own words: "every numeral right-aligned … like a bank book."
+                    Without it the digits are proportional, so ₱1,000 and ₱950
+                    sit at different widths and the column does not line up.
+                    Right-alignment alone does not fix that; the FIGURES have to
+                    be equal-width. */}
                     {pesoFromPhp(r.cost) && (
-                      <span className="text-sm font-medium text-ink/75">{pesoFromPhp(r.cost)}</span>
+                      <span className="text-sm font-medium tabular-nums text-ink/75">
+                        {pesoFromPhp(r.cost)}
+                      </span>
                     )}
                     {/* One candidate off the build. Vendor-scoped, never a lock. */}
                     <TeamRemoveCandidate
@@ -267,7 +275,7 @@ export function BuildLocked({
                   </span>
                 ) : (
                   pesoFromPhp(r.cost) && (
-                    <span className="shrink-0 text-sm font-medium text-ink/75">
+                    <span className="shrink-0 text-sm font-medium tabular-nums text-ink/75">
                       {pesoFromPhp(r.cost)}
                     </span>
                   )
@@ -318,7 +326,9 @@ export function BuildLocked({
                   </span>
                 </span>
                 {pesoFromPhp(r.cost) && (
-                  <span className="shrink-0 text-sm font-medium text-ink/75">{pesoFromPhp(r.cost)}</span>
+                  <span className="shrink-0 text-sm font-medium tabular-nums text-ink/75">
+                    {pesoFromPhp(r.cost)}
+                  </span>
                 )}
               </li>
             ))}

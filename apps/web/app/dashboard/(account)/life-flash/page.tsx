@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { ArrowLeft, Sparkles } from 'lucide-react';
@@ -167,11 +168,15 @@ export default async function LifeFlashPage({
   let editableIds = new Set<string>();
   if (durablePeople.length > 0 && !useFixtures) {
     const supabase = await createClient();
-    const { data } = await supabase
+    const { data, error: dataError } = await supabase
       .from('people')
       .select('person_id')
       .eq('created_by_user_id', user.id)
       .in('person_id', durablePeople.map((p) => p.personId));
+    // ⚠ this person's own story rows. Refused, their life page reads as blank.
+    if (dataError) {
+      logQueryError('LifeFlashPage.data', dataError, {}, 'graceful_degrade');
+    }
     editableIds = new Set((data ?? []).map((r) => r.person_id as string));
   }
   // The viewer can NEVER mark their OWN node in-memoriam. The self-claim trigger
@@ -285,7 +290,7 @@ export default async function LifeFlashPage({
           <p className="font-medium text-ink">Your story starts with a celebration.</p>
           <p className="mt-1">
             Host an event and let Papic gather everyone&rsquo;s photos — they&rsquo;ll settle
-            here for life.
+            here.
           </p>
           <Link
             href="/dashboard/create-event"

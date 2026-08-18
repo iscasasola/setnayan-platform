@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import {
@@ -12,6 +13,8 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { crewHolderName, crewShotsLeftLabel } from '@/lib/papic-crew-roster';
 import {
   eventPapicSeatsActive,
   fetchPapicSeats,
@@ -56,12 +59,16 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: membership } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle();
+  // ⚠ the viewer's membership. Absence DENIES rather than renders.
+  if (membershipError) {
+    logQueryError('PapicCrewPage.membership', membershipError, { eventId }, 'graceful_degrade');
+  }
   if (!membership || membership.member_type !== 'couple') {
     redirect(`/dashboard/${eventId}`);
   }
@@ -71,22 +78,31 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
   // The roster is every claim-link seat — the PAPIC_SEATS pack plus any paid
   // per-camera Unlimited extras. ownsPack tells the zero-state apart: an owner
   // with no seats yet can top them up; a non-owner is pointed back to set Papic up.
-  const { data: eventRow } = await supabase
+  const { data: eventRow, error: eventRowError } = await supabase
     .from('events')
     .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ the event record. Degrades rather than claiming.
+  if (eventRowError) {
+    logQueryError('PapicCrewPage.eventRow', eventRowError, { eventId }, 'graceful_degrade');
+  }
   const eventSlug = (eventRow as { slug?: string | null } | null)?.slug ?? null;
 
   // ⚠ CAN THE POSTER QR ACTUALLY BE SCANNED? Until 2026-08-10 this page printed
   // it from the slug alone, so a PRIVATE event handed the host a QR that opens
   // to "Link not found" — the invite door refuses private events by design
   // (2026-08-06) and nothing here knew. See lib/shared-join-link.ts.
-  const { data: joinTokenRow } = await supabase
+  const { data: joinTokenRow, error: joinTokenRowError } = await supabase
     .from('event_join_tokens')
     .select('token, revoked_at, expires_at')
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ the join link for the crew. Refused, the page offers no way in and looks as
+  // ⚠ though sharing was never set up.
+  if (joinTokenRowError) {
+    logQueryError('PapicCrewPage.joinTokenRow', joinTokenRowError, { eventId }, 'graceful_degrade');
+  }
   const joinTokenValid =
     !!joinTokenRow?.token &&
     !joinTokenRow.revoked_at &&
@@ -135,6 +151,38 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
   const proto = h.get('x-forwarded-proto') ?? 'https';
   const appUrl = `${proto}://${host}`;
 
+  // ── WHO IS HOLDING WHICH CAMERA ────────────────────────────────────────────
+  //
+  // 🔒 SCOPED TO THIS EVENT, AND TO ONE FIELD. The only user ids read are the
+  // claimers of THIS event's seats, and the only column selected is the display
+  // name — never the email sitting beside it. This page is already gated above
+  // to a signed-in `couple` member of the event.
+  //
+  // ⚠ IT HAS TO BE THE SERVICE-ROLE CLIENT. `public.users` carries exactly two
+  // policies — `user_owns_row` and admin — so a couple reading another
+  // person's row under their own session gets ZERO ROWS AND NO ERROR. That is
+  // indistinguishable from "this seat is unclaimed", which is precisely the
+  // wrong answer to render here: the screen would have looked fixed and shown
+  // nothing.
+  const claimerIds = [...new Set(seats.map((s) => s.claimer_user_id).filter(Boolean))] as string[];
+  const nameByUserId = new Map<string, string>();
+  if (claimerIds.length > 0) {
+    const { data: holders, error: holdersError } = await createAdminClient()
+      .from('users')
+      .select('user_id, display_name')
+      .in('user_id', claimerIds);
+    // ⚠ the names of the people holding each camera. Refused, every seat reads as
+    // ⚠ unclaimed or unnamed — the couple cannot tell who has what.
+    if (holdersError) {
+      logQueryError('PapicCrewPage.holders', holdersError, { eventId }, 'graceful_degrade');
+    }
+    for (const h of (holders ?? []) as Array<Record<string, unknown>>) {
+      if (typeof h.user_id === 'string' && typeof h.display_name === 'string') {
+        nameByUserId.set(h.user_id, h.display_name);
+      }
+    }
+  }
+
   const seatViews = await Promise.all(
     seats.map(async (s) => {
       // Hybrid join link: native app opens directly when installed, otherwise
@@ -142,7 +190,35 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
       // still work, so any QR printed before this stays valid.
       const claimUrl = papicSeatJoinUrl(appUrl, s.claim_qr_token);
       const qrSvg = await renderUrlQrSvg(claimUrl, 128);
-      return { ...s, claimUrl, qrSvg };
+
+      // How many shots this camera has left. `papic_camera_points_remaining` is
+      // SECURITY DEFINER and — checked in production — is EXECUTE-granted to
+      // `authenticated`, so it runs on the couple's own client. (Its sibling
+      // `papic_seat_dedicated_points` is NOT granted; calling that one from here
+      // would fail silently.) Display only: the fail-closed spend gate is
+      // `papic_reserve_capture_split`, and this must never become a second
+      // opinion about whether a camera may shoot.
+      let remaining: number | null = null;
+      if (s.claimer_user_id) {
+        const { data: pts, error: ptsErr } = await supabase.rpc(
+          'papic_camera_points_remaining',
+          { p_seat_id: s.seat_id },
+        );
+        // A failed probe stays null and the row simply says nothing about
+        // shots — never 0, which on this screen means "that camera has
+        // stopped" and would send a host to fix a camera that is fine.
+        remaining = !ptsErr && typeof pts === 'number' ? pts : null;
+      }
+
+      return {
+        ...s,
+        claimUrl,
+        qrSvg,
+        holderName: s.claimer_user_id
+          ? crewHolderName(nameByUserId.get(s.claimer_user_id))
+          : null,
+        shotsLeftLabel: crewShotsLeftLabel(remaining),
+      };
     }),
   );
 
@@ -367,9 +443,13 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
                           : `Seat ${s.seat_index}`}
                   </p>
                   {claimed ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-2.5 py-1 text-xs font-medium text-terracotta">
-                      <UserCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                      Claimed
+                    /* The pill now carries the NAME, because "Claimed" was the
+                       one thing the host could already work out from the
+                       missing QR. Falls back to "Claimed" only when the holder
+                       has no name to show at all. */
+                    <span className="inline-flex max-w-[60%] items-center gap-1.5 rounded-full bg-terracotta/10 px-2.5 py-1 text-xs font-medium text-mulberry">
+                      <UserCheck aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                      <span className="truncate">{s.holderName ?? 'Claimed'}</span>
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2.5 py-1 text-xs font-medium text-ink/60">
@@ -379,10 +459,29 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
                 </div>
 
                 {claimed ? (
-                  <p className="mt-2 text-sm text-ink/65">
-                    A friend has this seat and can shoot. Reissue it to hand the
-                    seat to someone else — the old link stops working.
-                  </p>
+                  <>
+                    <p className="mt-2 text-sm text-ink/65">
+                      {s.holderName
+                        ? `${s.holderName} has this camera and can shoot.`
+                        : 'A friend has this seat and can shoot.'}{' '}
+                      Reissue it to hand the camera to someone else — the old
+                      link stops working.
+                    </p>
+                    {/* Only rendered when the number is actually known. "Out of
+                        shots" is the state a host is looking for, so it is the
+                        one that gets the loud colour. */}
+                    {s.shotsLeftLabel ? (
+                      <p
+                        className={`mt-1.5 text-xs font-medium ${
+                          s.shotsLeftLabel === 'Out of shots'
+                            ? 'text-mulberry-600'
+                            : 'text-ink/55'
+                        }`}
+                      >
+                        {s.shotsLeftLabel}
+                      </p>
+                    ) : null}
+                  </>
                 ) : (
                   <>
                     <p className="mt-2 text-sm text-ink/65">

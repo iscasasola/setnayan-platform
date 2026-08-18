@@ -40,7 +40,7 @@
  *
  * ⚠ VOCABULARY. Declining is not deleting. It lets one ORIGINAL be replaced by
  * its compressed copy at the point already locked. The photo is never deleted and
- * the compressed copy is kept five years for everyone, paid or not. The owner has
+ * the compressed copy is kept for life for everyone, paid or not. The owner has
  * corrected this twice — say "compressed", never "deleted".
  */
 

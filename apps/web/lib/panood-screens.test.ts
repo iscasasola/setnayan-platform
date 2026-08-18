@@ -8,7 +8,7 @@
  *      across calls (it's the code a TV/stick types beside the QR).
  *   2. PROVISIONING — missingScreenIndexes() computes the correct dense top-up
  *      set (the pure core of provisionPanoodScreensAdmin).
- *   3. PAIR URL — panoodScreenPairUrl() builds the right /wall?code=<code> URL
+ *   3. PAIR URL — panoodScreenPairUrl() builds the right /live?code=<code> URL
  *      and tolerates a trailing slash on the app URL.
  *   4. SET SOURCE — setPanoodScreenSourceAdmin() updates current_source and
  *      returns true/false on the right shapes (best-effort, never throws).
@@ -19,8 +19,10 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
+  PANOOD_SCREEN_PAIR_PATH,
   fetchPanoodScreens,
   generateScreenPairingCode,
   missingScreenIndexes,
@@ -83,24 +85,24 @@ test('missingScreenIndexes: count of 0 yields nothing', () => {
 
 // ── 3. Pair URL ──────────────────────────────────────────────────────────────
 
-test('panoodScreenPairUrl builds the /wall?code=<code> URL', () => {
+test('panoodScreenPairUrl builds the /live?code=<code> URL', () => {
   assert.equal(
     panoodScreenPairUrl('https://app.setnayan.com', 'ABC234'),
-    'https://app.setnayan.com/wall?code=ABC234',
+    'https://app.setnayan.com/live?code=ABC234',
   );
 });
 
 test('panoodScreenPairUrl tolerates a trailing slash on the app URL', () => {
   assert.equal(
     panoodScreenPairUrl('https://app.setnayan.com/', 'ABC234'),
-    'https://app.setnayan.com/wall?code=ABC234',
+    'https://app.setnayan.com/live?code=ABC234',
   );
 });
 
 test('panoodScreenPairUrl URL-encodes the code', () => {
   assert.equal(
     panoodScreenPairUrl('https://app.setnayan.com', 'A B&C'),
-    'https://app.setnayan.com/wall?code=A%20B%26C',
+    'https://app.setnayan.com/live?code=A%20B%26C',
   );
 });
 
@@ -178,4 +180,72 @@ test('fetchPanoodScreens passes rows through on success', async () => {
   const rows = [{ id: 1, screen_index: 1 }];
   const supabase = fakeSupabase({ data: rows, error: null });
   assert.deepEqual(await fetchPanoodScreens(supabase, 'evt-1'), rows);
+});
+
+// ── 6. THE PRODUCT BOUNDARY (owner ruling 2026-08-17) ────────────────────────
+//
+// 🔴 "is a Live Studio screen the same object as the Live Photo Wall, or a
+// separate kind of display?" — owner, asked directly: "no. they are different."
+// Open since 2026-07-21, now CLOSED.
+//
+// The tempting repair for the dead pairing URL is to teach the Live Photo Wall's
+// route about pairing codes. That IS the merge the ruling forbids, and it has a
+// concrete cost: `app/wall/[eventId]/page.tsx` gates on
+// `eventSkuActive(..., 'LIVE_WALL')`, so a Live Studio screen routed there would
+// only work for a couple who ALSO bought the photo wall.
+//
+// These assertions cannot stop somebody building the right route; they exist to
+// fail the moment somebody wires Live Studio screens to the wall's PRODUCT.
+
+test('the Live Studio screen layer never gates on the Live Photo Wall SKU', () => {
+  // Read the module source rather than exercising a function: the merge would
+  // arrive as a new SKU check, which no existing pure function would reveal.
+  const src = readFileSync(new URL('./panood-screens.ts', import.meta.url), 'utf8')
+    // Strip comments — this very file's docblock NAMES the SKU while explaining
+    // why it must not be used, and a guard satisfied by prose about the thing it
+    // guards is the failure mode this repo has hit four times.
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((l) => !/^\s*\/\//.test(l))
+    .join('\n');
+
+  assert.ok(
+    !/LIVE_WALL/.test(src),
+    'lib/panood-screens.ts now references the LIVE_WALL SKU. A Live Studio venue screen is a ' +
+      'DIFFERENT product from the Live Photo Wall (owner, 2026-08-17: "no. they are different"). ' +
+      'Gating a Live Studio screen on LIVE_WALL would mean a couple has to buy the photo wall ' +
+      'to put a camera feed on a screen. Give Live Studio screens their own route, gated on the ' +
+      'Live Studio product.',
+  );
+  assert.ok(
+    !/eventSkuActive/.test(src),
+    'lib/panood-screens.ts now performs a SKU check. This module is the data layer for Live ' +
+      'Studio venue screens; if it has started asking which product the event owns, check that ' +
+      'it is asking about Live Studio and not the Live Photo Wall — see the ruling above.',
+  );
+});
+
+test('the pairing route, once it is real, is not the Live Photo Wall route', () => {
+  // TODAY this documents a KNOWN-BROKEN placeholder: PANOOD_SCREEN_PAIR_PATH is
+  // still '/wall', which 404s (the only wall route is /wall/[eventId]) and would
+  // hit the wrong product's SKU gate if it did resolve. It has ZERO application
+  // callers, so nothing is broken for anybody today.
+  //
+  // The assertion is therefore deliberately one-directional: it does not demand
+  // a value yet, because choosing the word is a product decision — a new
+  // top-level route word must be added to lib/reserved-slugs.ts in the same
+  // change, since top-level words are minted to shops and events. What it DOES
+  // forbid is the placeholder quietly becoming a REAL wall route.
+  assert.notEqual(
+    PANOOD_SCREEN_PAIR_PATH,
+    '/wall/[eventId]',
+    'the Live Studio screen pairing path is now the Live Photo Wall ROUTE. That is the product ' +
+      'merge the 2026-08-17 ruling forbids.',
+  );
+  assert.ok(
+    !PANOOD_SCREEN_PAIR_PATH.startsWith('/wall/'),
+    `the Live Studio screen pairing path (${PANOOD_SCREEN_PAIR_PATH}) now points INTO the Live ` +
+      'Photo Wall route tree. Live Studio screens need their own route — and its word must be ' +
+      'added to lib/reserved-slugs.ts in the same change.',
+  );
 });

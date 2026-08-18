@@ -93,7 +93,7 @@ export function InvitationShell({
       <PahinaMotionRootFlag />
       {backdrop}
       <header className="relative z-10 border-b border-ink/10 bg-cream/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8">
           <span className="flex items-center gap-2 text-ink">
             <Logo height={28} />
             <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
@@ -109,6 +109,41 @@ export function InvitationShell({
           )}
         </div>
       </header>
+      {/* THE PAGE'S COLUMN.
+          🔴 THIS ONE CLASS WAS THE "NARROW COLUMN IN A WIDE WINDOW". It capped
+          the ENTIRE guest page at the 48rem plate at EVERY width, so on a
+          2000px monitor the event page was a ribbon adrift in cream. The owner
+          saw it, and moving the navigation twice did not touch it — because the
+          navigation was never what was narrow.
+
+          At `xl` it opens to the STAGE (64rem). That is not a new decision:
+          `_lib/measures.ts` already defines the stage as "the widest anything
+          may ever be", and the three-widths study names **the desktop shell**
+          as a stage-measure thing in the same sentence.
+
+          🔒 PROSE DOES NOT WIDEN WITH IT. Every sentence inside still sits at
+          its own reading measure (~65 characters), so nothing a guest READS
+          gets a longer line — the room around the words grows, not the words.
+          The study says the same: *"the masthead does not grow — the room
+          around it does"*.
+
+          ⚠ AND IT STOPS AT 76rem. The owner saw the 64rem version on a 2000px
+          monitor — 51% of the glass — and asked for a limit rather than
+          unbounded growth. 76rem is that ceiling and it is FINAL: the column
+          never grows past 1216px, so a 2560px screen gets more margin, not a
+          wider invitation. **A page that grows forever stops being a page.**
+
+          🔑 76 and not 80, and the difference is the rail. The rail floats in
+          the left margin at `50% − (half the widest column + 7rem + a 1.5rem
+          gap)`. At an 80rem ceiling that gap collapses to 0.25rem at 1536px —
+          the rail would all but touch the text. At 76rem the gap is a constant
+          1.5rem at EVERY width from 1536 to 2560. `rail-fits.test.ts` asserts
+          the sum, which is why this was arithmetic and not taste.
+
+          ⚠ `xl`, the same threshold the desktop rail uses, deliberately: one
+          desktop switch, not two. And the rail's own arithmetic was already
+          computed against a 64rem widest column, so this cannot push it into
+          the page — `rail-fits.test.ts` asserts that sum. */}
       <div
         className={
           backdrop
@@ -118,8 +153,8 @@ export function InvitationShell({
               // it stays readable directly on the world art. This carries the
               // legibility duty the retired vellum/wash used to (v3, owner
               // screenshot feedback: even the /35 wash read as a white veil).
-              'relative z-10 mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14 [text-shadow:0_1px_14px_rgba(251,251,250,0.9),0_0_4px_rgba(251,251,250,0.75),0_1px_1px_rgba(30,34,41,0.18)]'
-            : 'mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14'
+              'relative z-10 mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8 xl:py-20 [text-shadow:0_1px_14px_rgba(251,251,250,0.9),0_0_4px_rgba(251,251,250,0.75),0_1px_1px_rgba(30,34,41,0.18)]'
+            : 'mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8 xl:py-20'
         }
       >
         {children}

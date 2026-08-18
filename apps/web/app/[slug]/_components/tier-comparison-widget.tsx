@@ -1,7 +1,18 @@
+import type { EventWords } from '../_lib/event-words';
 import Link from 'next/link';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 
-export function TierComparisonWidget({ limited, eventNoun }: { limited: boolean; eventNoun: string }) {
+export function TierComparisonWidget({
+  limited,
+  eventNoun,
+  words,
+}: {
+  limited: boolean;
+  eventNoun: string;
+  /** The event type's own words. Passed in rather than resolved here so this
+   *  stays a presentational widget. */
+  words: EventWords;
+}) {
   if (limited) {
     return (
       <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
@@ -14,7 +25,7 @@ export function TierComparisonWidget({ limited, eventNoun }: { limited: boolean;
         <p className="rounded-md border-l-2 border-ink/30 bg-paper-deep px-4 py-3 text-sm text-ink/75">
           You&rsquo;re a +1 to your inviter. Your photos will appear in their gallery —
           ask them to show you. Want full access? You can register your own Setnayan account
-          anytime — but for this wedding, you&rsquo;re invited as their +1.
+          anytime — but for this {words.eventWord}, you&rsquo;re invited as their +1.
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2 rounded-lg border border-dashed border-ink/15 bg-cream p-5 opacity-55">
@@ -28,7 +39,7 @@ export function TierComparisonWidget({ limited, eventNoun }: { limited: boolean;
               Registered (locked for +1s)
             </p>
             <p className="text-sm text-ink/60">
-              Shutter · Selfie Camera · Saved Forever · Reel builder
+              Shutter · Selfie Camera · Saved · Reel builder
             </p>
           </div>
         </div>
@@ -81,14 +92,14 @@ export function TierComparisonWidget({ limited, eventNoun }: { limited: boolean;
                 product. No count and no price: what this event actually holds is
                 resolved on the capture surface itself. */}
             <li>
-              · <strong>Papic</strong> — shoot candids for the couple from your own
+              · <strong>Papic</strong> — shoot candids for {words.theOrganizer} from your own
               phone
             </li>
             <li>· <strong>Selfie Camera</strong> — branded {eventNoun} selfie cam</li>
             {papicGamesEnabled() ? (
               <li>· <strong>Papic Challenges</strong> — fun mini-quests</li>
             ) : null}
-            <li>· <strong>Saved for 5 years</strong> — every photo kept, free</li>
+            <li>· <strong>Saved for life</strong> — every photo kept, free</li>
             <li>· Build your own souvenir reel</li>
           </ul>
           <Link href="/signup" className="button-primary inline-flex">

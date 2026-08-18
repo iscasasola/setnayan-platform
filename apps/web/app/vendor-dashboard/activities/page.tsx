@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { SCHEDULE_BLOCK_LABEL, SCHEDULE_BLOCK_TYPES } from '@/lib/schedule';
 import { offeredCatalogue, totalMinutes, type VendorActivity } from '@/lib/vendor-activities';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   addActivity,
   reorderActivity,
@@ -11,7 +12,7 @@ import {
   updateActivity,
 } from './actions';
 
-export const metadata = { title: 'Your segments · Vendor · Setnayan' };
+export const metadata = { title: 'Your segments · Vendor' };
 
 /**
  * THE EMCEE'S SEGMENTS — where a host/MC writes down what he does, once.
@@ -48,7 +49,7 @@ export default async function VendorActivitiesPage({
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard/verify');
 
-  const { data } = await supabase
+  const { data, error: activitiesError } = await supabase
     .from('vendor_activities')
     .select(
       'activity_id, vendor_profile_id, label, blurb, duration_minutes, block_type, is_offered, display_order',
@@ -56,6 +57,18 @@ export default async function VendorActivitiesPage({
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .order('display_order', { ascending: true });
 
+  // ⚠ THE PROGRAMME THEY WROTE ONCE AND REUSE AT EVERY WEDDING. Refused, `?? []`
+  // ⚠ empties it, and this page's whole promise — "you keep the list, it stays
+  // ⚠ yours from wedding to wedding" — reads as broken.
+  if (activitiesError) {
+    logQueryError(
+      'VendorActivitiesPage.activities',
+      activitiesError,
+      { vendorProfileId: profile.vendor_profile_id },
+      'graceful_degrade',
+    );
+  }
+  const measured = !activitiesError && data !== null;
   const all = (data ?? []) as VendorActivity[];
   const offered = offeredCatalogue(all);
   const retired = all.filter((a) => !a.is_offered);
@@ -160,7 +173,16 @@ export default async function VendorActivitiesPage({
           ) : null}
         </div>
 
-        {offered.length === 0 ? (
+        {!measured ? (
+          <p
+            role="alert"
+            className="border-t-[3px] border-mulberry/70 bg-mulberry/5 px-4 py-3 text-sm leading-relaxed text-ink/70"
+          >
+            <strong className="text-ink">We couldn&rsquo;t load your segments.</strong>{' '}
+            Your list has not been emptied and couples can still pick from it —
+            it just is not showing here. Reload before writing it out again.
+          </p>
+        ) : offered.length === 0 ? (
           <p className="border border-dashed border-ink/15 px-4 py-8 text-center text-sm leading-relaxed text-ink/65">
             Nothing here yet. Add the segments you actually run — a couple can only pick
             from what you have written down.

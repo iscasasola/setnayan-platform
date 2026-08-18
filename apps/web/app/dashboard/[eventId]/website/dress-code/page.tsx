@@ -8,7 +8,7 @@ import { updateDressCode, type DressCodeConfig } from './actions';
 import { DressCodeFields, normalizeDressCodeConfig } from './_components/dress-code-fields';
 import { SubmitButton } from '@/app/_components/submit-button';
 
-export const metadata = { title: 'Edit dress code · Setnayan' };
+export const metadata = { title: 'Edit dress code' };
 
 /**
  * /dashboard/[eventId]/website/dress-code — host-curated dress code editor

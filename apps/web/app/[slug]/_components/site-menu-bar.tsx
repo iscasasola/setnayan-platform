@@ -32,6 +32,46 @@ import type { NavSlot } from '../_lib/site-nav';
  *
  * Presentational and props-only — zero DB reads. Mounted only when
  * `siteMenuEnabled` (always on for the sample event).
+ *
+ * ── AND ON A DESKTOP IT STANDS UP (2026-08-17) ──────────────────────────────
+ * 🚨 THE BAR WAS `fixed` AT EVERY WIDTH. Measured before this change: no
+ * responsive modifier anywhere in it, so on a 1440px screen it striped the full
+ * width of the glass with five tabs clustered in a centred 28rem group and a
+ * metre of empty rule either side. That was shipped behaviour, not a
+ * hypothetical — the guest tree used `sm:` 124 times, `lg:` 23 and `md:` ZERO,
+ * and none of them reached this component.
+ *
+ * At `xl` (1280px) the pinned bar is not drawn at all and the SAME five slots
+ * stand up as a rail down the left margin.
+ *
+ * ⚠ `xl`, NOT the app's usual `lg` phone↔desktop switch — and the reason is
+ * ARITHMETIC, not taste. The rail floats in the left margin, which is
+ * (viewport − the widest column any room uses) ÷ 2. Against the 64rem stage
+ * that the venue page and the editorial use, `lg` leaves only 4rem and the rail
+ * would sit ON TOP of them; `xl` leaves 8rem and a 7rem rail clears it. My
+ * first cut used `lg` because I measured against the 48rem plate — the column
+ * MOST rooms use, which is the wrong end of the range. `rail-fits.test.ts`
+ * asserts the sum so the next person is told rather than trusted.
+ *
+ * 🔒 **SAME FIVE. SAME ORDER. NO SIXTH DESTINATION AT ANY WIDTH.** The five-slot
+ * limit is an owner ruling and a wider screen is not a reason to reopen it — a
+ * tab that appears only when there happens to be room teaches people the bar is
+ * unreliable, which is the exact failure `site-nav.ts`'s rules exist to prevent.
+ * The rail renders `slots` verbatim: it cannot add, drop or reorder one, because
+ * it never decides anything — the resolver already did.
+ *
+ * 🔑 THE CAMERA IS NOT RE-CENTRED ON THE RAIL, AND THAT IS DELIBERATE. Putting
+ * it in the middle is a THUMB decision — the widest, easiest reach on a phone
+ * held one-handed. A vertical rail read by a mouse has no such centre, so the
+ * camera keeps its ACTION COLOUR (what marks it as the destination) and drops
+ * the centring (what was only ever ergonomics). Copying the middle position
+ * across would be mimicking the shape instead of the reason.
+ *
+ * ⚖ BOTH FORMS ARE ALWAYS IN THE MARKUP and one is `display:none` at any given
+ * width — which removes it from the accessibility tree too, so a screen reader
+ * meets exactly one navigation, never two identically-labelled ones. This is a
+ * CSS switch on purpose: measuring the viewport in JS would flash the wrong
+ * form on first paint and can disagree with the CSS after a resize.
  */
 
 /** The camera slot — Papic. Not an in-page anchor: it LEAVES for the capture
@@ -147,6 +187,54 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
     </li>
   );
 
+  /** One slot on the RAIL. Same three states as the bar — live · locked · the
+   *  camera's action colour — laid out horizontally (glyph then label) because
+   *  a rail is read left-to-right at rest, unlike a stacked tab. */
+  const renderRailSlot = (slot: NavSlot) => {
+    const Icon = ICONS[slot.key];
+    const isCamera = slot.key === 'camera';
+    // Stacked icon-over-label, the SAME grammar as the bar — because "icon +
+    // label, always, never icons alone" is an owner design lock, and a 7rem
+    // rail cannot hold them side by side. Same rule, laid out for the space.
+    const RAIL_SLOT =
+      'flex w-full flex-col items-center justify-center gap-1 rounded-lg px-1 py-2.5 ' +
+      'text-center text-xs font-semibold leading-none tracking-tight ' +
+      'whitespace-nowrap overflow-hidden text-ellipsis transition-colors';
+    return (
+      <li key={slot.key}>
+        {slot.state === 'locked' ? (
+          <button
+            type="button"
+            aria-disabled="true"
+            aria-label={`${slot.label} — ${slot.lockedReason ?? 'not available yet'}`}
+            onClick={() => setOpenReason(slot.lockedReason ?? null)}
+            className={`${RAIL_SLOT} text-ink/35`}
+          >
+            <span className="relative inline-flex shrink-0">
+              <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+              <Lock
+                aria-hidden
+                className="absolute -right-1.5 -top-1 h-3 w-3 text-terracotta-700"
+                strokeWidth={2.5}
+              />
+            </span>
+            {slot.label}
+          </button>
+        ) : (
+          <a
+            href={slot.href}
+            className={`${RAIL_SLOT} ${
+              isCamera ? 'text-mulberry hover:text-mulberry-600' : 'text-ink/65 hover:text-ink'
+            }`}
+          >
+            <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+            {slot.label}
+          </a>
+        )}
+      </li>
+    );
+  };
+
   return (
     <>
     {/* The bar reserves its own space (PR11, 2026-08-05).
@@ -157,8 +245,19 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
         is Sign out. This element sits in normal flow at the end of the page, so
         the document simply grows by the height the bar occupies. Putting it
         here rather than on a page wrapper means the space is reserved wherever
-        the bar renders and nowhere it does not — the two can never drift. */}
-    <div aria-hidden className="h-[calc(3.5rem+env(safe-area-inset-bottom))] print:hidden" />
+        the bar renders and nowhere it does not — the two can never drift.
+
+        ⚠ `xl:hidden` because ABOVE 1280 THE BAR IS NOT DRAWN — the rail replaces
+        it — so reserving its height would leave a dead 3.5rem strip at the foot
+        of every desktop page. The spacer and the bar must vanish at the SAME
+        breakpoint or the pair drifts, which is the whole reason this element
+        lives beside the bar rather than on a page wrapper. `rail-fits.test.ts`
+        asserts they agree. */}
+    {/* ⚠ KEPT ON ONE LINE ON PURPOSE. `bottom-edge.test.ts` matches this
+        attribute order as a single string; splitting it across lines for
+        readability broke that guard in CI. The guard is right and the
+        formatting was mine, so the formatting gives way. */}
+    <div aria-hidden className="h-[calc(3.5rem+env(safe-area-inset-bottom))] print:hidden xl:hidden" />
     {/* The reason, said out loud. Sits ABOVE the bar so it is never the thing
         the bar is covering, and dismisses on its own tap — no click-away layer
         to fight the tabs underneath it. */}
@@ -174,9 +273,56 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
         </button>
       </div>
     ) : null}
+    {/* ── THE RAIL — `xl` (1280px) and up. Same five slots, resolved elsewhere.
+
+        🔴 THE FIRST VERSION PINNED THIS TO THE WINDOW EDGE (`left-0`) AND THE
+        OWNER LOOKED AT IT ON A REAL SCREEN. On a 2000px monitor it sat a
+        THOUSAND PIXELS from the column it belongs to — an orphaned pill in a
+        field of cream — and on a second event it clipped against the left edge.
+        Arithmetic that clears the content is not the same as looking like it
+        belongs to it, and only one of those two can be measured in a test.
+
+        ── SO IT IS ANCHORED TO THE COLUMN, NOT THE VIEWPORT ──
+        `left: max(0.75rem, calc(50% - 40.5rem))` — read right to left:
+          · every room centres its column, so its left edge is `50% - half`
+          · the widest column any room uses is the 76rem desktop ceiling →
+            half = 38rem (it was the 64rem stage until the owner asked for the
+            page to fill more of a large monitor)
+          · the rail is 7rem, plus a 1.5rem gap → 38 + 7 + 1.5 = 46.5rem
+        So on a wide screen the rail travels WITH the content and keeps a
+        constant gap from it, instead of drifting to the edge as the window
+        grows. The `max()` is the safety: below ~1296px that sum would go
+        NEGATIVE and push the rail off-screen, which is exactly the clipping the
+        owner saw — so it stops at a 0.75rem margin instead.
+        🔑 A `calc()` that can go negative is a layout bug waiting for a narrow
+        screen. Clamp it at the edge you cannot cross.
+
+        ── AND THE BREAKPOINT IS ARITHMETIC TOO, NOT TASTE ──
+        The space available is (viewport − widest column) ÷ 2, measured AT THE
+        WIDEST COLUMN ANY ROOM USES, not the narrowest:
+
+            at lg  1024px − 64rem stage = 128px ÷ 2 = 4rem   ✗ too tight
+            at xl  1280px − 64rem stage = 256px ÷ 2 = 8rem   ✓ fits the 7rem rail
+
+        An earlier cut put an 11rem rail at `lg` and would have sat ON TOP of the
+        venue page and the editorial, both of which use the 64rem stage — it was
+        measured against the 48rem plate, the column MOST rooms use, which is the
+        wrong end of the range. Below `xl` the pinned bar serves, which is right
+        for phones and tablets (touch anyway) and honest on a small laptop.
+        `rail-fits.test.ts` asserts the anchor, the clamp AND the no-overlap sum,
+        so the next person to widen the rail or lower the breakpoint is told
+        rather than trusted. */}
     <nav
       aria-label="Site sections"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-cream/95 backdrop-blur"
+      className="fixed left-[max(0.75rem,calc(50%-46.5rem))] top-1/2 z-30 hidden -translate-y-1/2 xl:block print:hidden"
+    >
+      <ul className="flex w-[7rem] flex-col gap-0.5 rounded-2xl border border-ink/10 bg-cream/95 p-2 shadow-sm backdrop-blur">
+        {slots.map(renderRailSlot)}
+      </ul>
+    </nav>
+    <nav
+      aria-label="Site sections"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-cream/95 backdrop-blur xl:hidden"
     >
       <ul className="mx-auto flex h-[3.5rem] max-w-md items-stretch justify-around px-1">
         {before.map(renderSlot)}

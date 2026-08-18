@@ -498,10 +498,14 @@ export async function EventDashboard({
         ];
         let usersById: Record<string, { display_name: string | null; email: string | null }> = {};
         if (userIds.length > 0) {
-          const { data: userRows } = await adminClient
+          const { data: userRows, error: userRowsError } = await adminClient
             .from('users')
             .select('user_id, display_name, email')
             .in('user_id', userIds);
+          // ⚠ the names behind the event's people. Refused, real members render unnamed.
+          if (userRowsError) {
+            logQueryError('EventDashboard.userRows', userRowsError, {}, 'graceful_degrade');
+          }
           usersById = Object.fromEntries(
             (
               (userRows ?? []) as Array<{

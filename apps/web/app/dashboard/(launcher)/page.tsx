@@ -476,7 +476,7 @@ export default async function LauncherPage({
     : new Map<string, number>();
   if (shopIds.length > 0) {
     try {
-      const { data } = await supabase
+      const { data, error: dataError } = await supabase
         .from('chat_threads')
         .select('vendor_profile_id')
         .in('vendor_profile_id', shopIds)
@@ -485,6 +485,11 @@ export default async function LauncherPage({
         // not show as a phantom "pending inquiry" attention item. The outer
         // try/catch graceful-degrades if archived_at isn't in the DB yet.
         .is('archived_at', null);
+      // ⚠ unread chat threads. Refused, the badge reads zero and a waiting message is
+      // ⚠ invisible.
+      if (dataError) {
+        logQueryError('LauncherPage.data', dataError, {}, 'graceful_degrade');
+      }
       for (const row of (data ?? []) as Array<{
         vendor_profile_id: string | null;
       }>) {
@@ -572,6 +577,14 @@ export default async function LauncherPage({
       .eq('user_id', user.id);
     if (!error) chapterCount = count ?? 0;
   } catch {
+    // ⚠ 0, NOT null — AND THAT DIFFERS FROM ITS THREE NEIGHBOURS ON PURPOSE.
+    // adminOpenTotal / alagaCount / connectionCount all degrade to null so the
+    // surface says "we do not know" rather than reporting a clear desk. This one
+    // degrades to 0 because the doorway is exactly one entry either way: 0 renders
+    // the "Become a Storyteller" promo instead of an error boundary.
+    // ⚖ THE COST, STATED: an author who HAS chapters is shown a promo telling them
+    // to start, and loses the link to their own page. Accepted — but do NOT copy
+    // this pattern to a count that feeds a number or a list.
     chapterCount = 0;
   }
 
@@ -1412,10 +1425,16 @@ async function buildLifeStoryGroups(
 
   const eventIds = [...new Set(items.map((i) => i.eventId))];
   const nameById = new Map<string, string | null>();
-  const { data: eventRows } = await supabase
+  const { data: eventRows, error: eventRowsError } = await supabase
     .from('events')
     .select('event_id, display_name')
     .in('event_id', eventIds);
+  // ⚠ 🚨 EVERY EVENT THIS PERSON HAS. Refused, the launcher — the first screen after
+  // ⚠ signing in — reads as though they have no celebrations at all. There is no
+  // ⚠ louder way to tell somebody their work is gone than an empty home screen.
+  if (eventRowsError) {
+    logQueryError('LauncherPage.eventRows', eventRowsError, {}, 'graceful_degrade');
+  }
   for (const row of (eventRows ?? []) as Array<{
     event_id: string;
     display_name: string | null;

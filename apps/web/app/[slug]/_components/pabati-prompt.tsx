@@ -1,5 +1,7 @@
 'use client';
 
+import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Video,
@@ -43,6 +45,10 @@ export function PabatiPrompt({
   initialRemaining,
   total,
 }: Props) {
+  // The event's own word for whoever is throwing it. Falls back to the exact
+  // wording this surface shipped with, so a missing provider cannot regress a
+  // real wedding — event-words-mounted.test.ts is what stops that hiding.
+  const w = useEventWords() ?? WORDS_AS_SHIPPED;
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -249,7 +255,7 @@ export function PabatiPrompt({
           That&rsquo;s a wrap on greetings!
         </h3>
         <p className="mt-1 text-sm text-ink/65">
-          All {total} video greetings for {eventName} are in. The couple will
+          All {total} video greetings for {eventName} are in. {w.TheOrganizer} will
           treasure every one.
         </p>
       </section>
@@ -291,7 +297,7 @@ export function PabatiPrompt({
       <header className="flex items-center justify-between px-4 py-3">
         <p className="inline-flex items-center gap-2 text-sm font-medium text-cream/90">
           <Video aria-hidden className="h-4 w-4 text-cream" strokeWidth={2} />
-          Leave the couple a video greeting
+          Leave {w.theOrganizer} a video greeting
         </p>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
           {remaining} left
@@ -331,7 +337,7 @@ export function PabatiPrompt({
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-ink/85 px-6 text-center">
             <Check aria-hidden className="h-8 w-8 text-cream" strokeWidth={2} />
             <p className="text-base font-semibold text-cream">Sent — salamat, {guestName}!</p>
-            <p className="text-sm text-cream/70">Your greeting is on its way to the couple.</p>
+            <p className="text-sm text-cream/70">Your greeting is on its way to {w.theOrganizer}.</p>
           </div>
         )}
         {isUploading && (

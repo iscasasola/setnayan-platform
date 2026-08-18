@@ -1,5 +1,7 @@
 'use client';
 
+import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
+
 import { useEffect, useRef, useState } from 'react';
 import { mergeTiles, type WallTile } from '@/lib/live-wall-logic';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
@@ -42,6 +44,10 @@ export function LiveWallBlock({
   initialCount: number;
   initialCaption: LiveWallCaption;
 }) {
+  // The event's own word for whoever is throwing it. Falls back to the exact
+  // wording this surface shipped with, so a missing provider cannot regress a
+  // real wedding — event-words-mounted.test.ts is what stops that hiding.
+  const w = useEventWords() ?? WORDS_AS_SHIPPED;
   const [tiles, setTiles] = useState<WallTile[]>(initialTiles);
   const [count, setCount] = useState(initialCount);
   const [caption, setCaption] = useState<LiveWallCaption>(initialCaption);
@@ -165,7 +171,7 @@ export function LiveWallBlock({
             ? // Said plainly, and without blame. The wall did not break and the
               // guest did nothing wrong — the couple chose to keep it to the
               // room. A card that simply emptied itself would read as a fault.
-              'The photo wall is playing on the screens at the venue. The couple has kept it off phones for this celebration.'
+              `The photo wall is playing on the screens at the venue. ${w.TheOrganizer} has kept it off phones for this celebration.`
             : stalled
               ? 'We can’t reach the wall right now — this venue’s signal may be busy. It keeps trying, and photos appear the moment it reconnects.'
               : 'The wall is warming up — photos appear here the moment they’re taken.'}

@@ -1,13 +1,17 @@
+import { RoomFooter } from '../_components/room-footer';
+import type { RoomLink } from '../_lib/room-links';
+import { loadRoomLinks } from '../_lib/room-links.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, MapPin } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventWordsFromProfile } from '../_lib/event-words';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { Logo } from '@/app/_components/logo';
 import { NameSearch } from './_components/name-search';
 
-export const metadata = { title: 'Find your seat · Setnayan' };
+export const metadata = { title: 'Find your seat' };
 
 // Public, no-session free finder — never statically cached (publication state
 // + the search are dynamic).
@@ -49,7 +53,22 @@ export default async function FindSeatPage({ params }: Props) {
   // Iteration 0053: public guest pages under /[slug] are the 'website' surface.
   // Non-wedding (generic) profiles don't enable it → still notFound() (same as
   // the old `!== 'wedding'`), now config-driven.
-  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+  const profile = await resolveProfile(event.event_type);
+  if (!surfaceEnabled(profile, 'website')) notFound();
+  // The same profile, reused for its WORDS — the plate below said "the couple"
+  // to a graduation. Wedding → 'couple', so a wedding is byte-identical.
+  const words = eventWordsFromProfile(profile);
+  const roomLinks = await loadRoomLinks({
+    event,
+    current: 'seat',
+    // `true` is EARNED here, not assumed: this room already ran
+    // `canViewSlugEvent` against the SAME raw visibility column the money-gift
+    // page applies, and redirected away if it failed. Reaching this line means
+    // the viewer passed that exact gate. Anywhere that is NOT true, pass the
+    // real answer — a door drawn by a rule laxer than the one at the other end
+    // sends a guest to a redirect with no explanation.
+    pabuyaViewerAllowed: true,
+  });
 
   // Visibility gate (owner 2026-06-20): don't leak a private (pre-launch) page's
   // couple data through this sub-route. Strangers on a private page bounce to
@@ -73,7 +92,7 @@ export default async function FindSeatPage({ params }: Props) {
   published = Boolean(plan?.published_at);
 
   return (
-    <Shell displayName={event.display_name} slug={slug}>
+    <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
       {published ? (
         <div className="space-y-6">
           <header className="space-y-2 text-center">
@@ -93,12 +112,16 @@ export default async function FindSeatPage({ params }: Props) {
               Start typing your name to see which table you&rsquo;re at.
             </p>
           </header>
-          <NameSearch slug={slug} eventDate={event.event_date as string | null} />
+          <NameSearch
+            slug={slug}
+            eventDate={event.event_date as string | null}
+            organizer={words.theOrganizer}
+          />
         </div>
       ) : (
         <PromptCard
           title="Seating isn&rsquo;t posted yet"
-          body="The couple hasn’t published the seating plan for this celebration. Check back closer to the day — once they post it, you’ll be able to find your table here."
+          body={`${words.organizerIsHonoree ? 'The seating plan hasn’t been published for this celebration.' : `${words.TheOrganizer} hasn’t published the seating plan for this celebration.`} Check back closer to the day — once they post it, you’ll be able to find your table here.`}
         />
       )}
 
@@ -124,10 +147,12 @@ function Shell({
   displayName,
   slug,
   children,
+  roomLinks,
 }: {
   displayName: string;
   slug: string;
   children: React.ReactNode;
+  roomLinks: RoomLink[];
 }) {
   return (
     <main className="min-h-dvh bg-cream text-ink">
@@ -149,6 +174,7 @@ function Shell({
         <p className="font-serif text-lg italic text-terracotta">See you soon.</p>
         <p className="mt-3 text-xs text-ink/50">Powered by Setnayan · setnayan.com</p>
       </footer>
+      <RoomFooter links={roomLinks} />
     </main>
   );
 }

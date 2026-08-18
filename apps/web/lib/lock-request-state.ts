@@ -70,10 +70,11 @@ export function lockRequestStateOf(row: LockRequestRow, enabled: boolean): LockR
       return 'expired';
     case 'agreed':
       // AGREED BUT NOT CONFIRMED — reachable, and it must not fall through to
-      // 'none'. The couple's "Change pick" reverts status to 'considering'; the
-      // flag arm there also writes 'cancelled', but a row written before that
-      // shipped, or by an admin, can sit here. Reporting 'none' would offer Lock
-      // again on a booking the supplier believes they hold.
+      // 'none'. The couple's "Change pick" reverts status to 'considering'; its
+      // flag arm now also writes 'cancelled' (slice B — until then this sentence
+      // described a write that did not exist), but a row reverted before that
+      // shipped, or moved by an admin, can still sit here. Reporting 'none'
+      // would offer Lock again on a booking the supplier believes they hold.
       return 'cancelled';
     default:
       return 'none';

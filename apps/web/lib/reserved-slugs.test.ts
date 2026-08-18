@@ -15,6 +15,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import { readdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { routeSlugsFromDisk } from '../scripts/gen-reserved-slugs.mjs';
@@ -73,4 +74,66 @@ test('the reserved check is case-insensitive and exact-match only', () => {
   // A word that merely CONTAINS a reserved word is a perfectly good address.
   assert.equal(isReservedSlug('creators-manila'), false);
   assert.equal(isReservedSlug('open-shop-ph'), false);
+});
+
+test('the scanner descends into route groups — a group is not a hiding place', () => {
+  /*
+    🚨 THE REGRESSION THIS EXISTS FOR, MEASURED. On 2026-08-15 twenty public
+    routes moved into `app/(shell)/` so the shared shell could be mounted once.
+    A route group is INVISIBLE in the URL — `/pricing` is served by
+    `app/(shell)/pricing/page.tsx` — but the scanner walked only the TOP level
+    of `app/`, and `(shell)` fails CLAIMABLE because of its parentheses.
+
+    Measured at the time: THIRTEEN reserved words would have silently vanished
+    — about · acceptable-use · alaala · cookies · pa3d · palogo · patiktok ·
+    pawebsite · pricing · privacy · refunds · setnayan-ai · terms. A vendor
+    could then have claimed `setnayan.com/privacy` as a shop address, and shop
+    addresses are IMMUTABLE. The layout refactor and the stolen page would have
+    had nothing visible connecting them.
+
+    🔑 `explore` SURVIVED BY ACCIDENT, which is the scariest part — only because
+    `app/explore/categories/` happened to stay at the top level. Partial
+    protection reads exactly like full protection.
+  */
+  const words: string[] = routeSlugsFromDisk(APP_DIR);
+
+  // Every route word that lives inside a group must be present.
+  const inGroups: string[] = [];
+  const walk = (dir: string) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (!e.isDirectory()) continue;
+      const full = path.join(dir, e.name);
+      if (e.name.startsWith('(') && e.name.endsWith(')')) {
+        for (const c of readdirSync(full, { withFileTypes: true })) {
+          if (!c.isDirectory()) continue;
+          if (!/^[a-z0-9][a-z0-9-]*$/.test(c.name)) continue;
+          if (existsSync(path.join(full, c.name, 'page.tsx'))) inGroups.push(c.name);
+        }
+      }
+    }
+  };
+  walk(APP_DIR);
+
+  assert.ok(
+    inGroups.length > 0,
+    'No route group with routable children was found, so this guard proved ' +
+      'nothing. If the groups were removed, delete this test deliberately — ' +
+      'do not let it pass vacuously.',
+  );
+  for (const w of inGroups) {
+    assert.ok(
+      words.includes(w),
+      `'${w}' serves a top-level URL from inside a route group but is NOT ` +
+        'reserved. A vendor could claim it as a permanent, immutable shop ' +
+        'address that shadows our own page.',
+    );
+  }
+
+  // And the group's own name must never become a claimable word.
+  for (const w of words) {
+    assert.ok(
+      !w.startsWith('('),
+      `'${w}' is a route group name, which cannot be typed into a URL.`,
+    );
+  }
 });

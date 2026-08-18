@@ -1,9 +1,13 @@
+import { RoomFooter } from '../_components/room-footer';
+import { loadRoomLinks } from '../_lib/room-links.server';
+import type { RoomLink } from '../_lib/room-links';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, DoorOpen, MapPin, Users } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventWordsFor } from '../_lib/event-words';
 import { eventNoun } from '@/lib/event-noun';
 import { Logo } from '@/app/_components/logo';
 import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
@@ -19,7 +23,7 @@ import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 import { ArrivalBloom } from './_components/arrival-bloom';
 
-export const metadata = { title: 'Your seat pass · Setnayan' };
+export const metadata = { title: 'Your seat pass' };
 
 // Gated, token-bearing, never cached.
 export const dynamic = 'force-dynamic';
@@ -116,13 +120,21 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   // a christening makes it reachable and wrong, so it is fixed in the same
   // change rather than left as a known defect on a newly-unlocked audience.
   const noun = eventNoun(event.event_type);
+  // EARNED, not assumed: this room already ran the same visibility gate the
+  // money-gift page applies, and refused otherwise.
+  const roomLinks = await loadRoomLinks({
+    event,
+    current: 'seat',
+    pabuyaViewerAllowed: true,
+  });
+
 
   // Gate FIRST — before any token lookup. Unowned events get a friendly prompt
   // and we never confirm whether a token is valid for this wedding.
   const owns = await eventOwnsCustomQrGuest(admin, event.event_id);
   if (!owns) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title={`No seat pass for this ${noun} yet`}
           body={`The host hasn’t added the Custom QR seat pass for this ${noun}. You’ll find your table on the printed seating signs at the venue.`}
@@ -155,7 +167,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     // moment it was replaced, and only the current QR gets you in.
     if (!guestRow && !tableRow) {
       return (
-        <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+        <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
           <PromptCard
             title="This QR code isn’t active"
             body="It may have been replaced with a new one. If it’s a guest’s personal QR, ask the guest for their current QR — hosts can also reprint it from their dashboard. At the door, the check-in desk can always find guests by name."
@@ -179,7 +191,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
 
     if (!published) {
       return (
-        <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+        <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
           <PromptCard
             title="Seating isn’t posted yet"
             body={`The host hasn’t published the seating for this ${noun}. Check back closer to the day — this table’s guests will appear here once it’s posted.`}
@@ -204,7 +216,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   const session = await readGuestSession();
   if (!session || session.event_id !== event.event_id) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title="Open this from your invitation"
           body="Your seat pass is part of your personal invitation. Open your invitation link (or scan your personal QR), then tap your seat pass."
@@ -223,7 +235,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
 
   if (!guestRow) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title="Open this from your invitation"
           body="Your seat pass is part of your personal invitation. Open your invitation link (or scan your personal QR), then tap your seat pass."
@@ -272,6 +284,10 @@ type EventRow = {
   slug: string;
   event_date: string | null;
   venue_name: string | null;
+  /** Already SELECTed above (it gates the surface); it was simply never
+   *  declared here. Needed so the seat plates can ask this event type for its
+   *  own word instead of saying "the couple" at a graduation. */
+  event_type: string | null;
   monogram_text: string | null;
   monogram_color: string | null;
   monogram_font_key: string | null;
@@ -295,6 +311,17 @@ async function PersonalPass({
   entrance: EntrancePos;
 }) {
   const firstName = (guest.first_name?.trim() || 'there') as string;
+  // Who is throwing this event, in this event type's own word. Wedding →
+  // 'couple', so both plates below are byte-identical for a wedding.
+  const words = await eventWordsFor(event.event_type);
+  // EARNED, not assumed: this room already ran the same visibility gate the
+  // money-gift page applies, and refused otherwise.
+  const roomLinks = await loadRoomLinks({
+    event,
+    current: 'seat',
+    pabuyaViewerAllowed: true,
+  });
+
 
   // PUBLICATION gate — a DRAFT plan must not reveal the guest's room/seat. The
   // guest's NAME is fine to greet; the room + seat marker stay hidden until the
@@ -303,10 +330,10 @@ async function PersonalPass({
   const published = await eventSeatingPublished(admin, event.event_id);
   if (!published) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title={`Welcome, ${firstName}`}
-          body="Your seat is being arranged. Once the couple posts the seating, your exact table and a map to it will appear right here."
+          body={`Your seat is being arranged. Once ${words.theOrganizer} posts the seating, your exact table and a map to it will appear right here.`}
         />
       </SeatPassShell>
     );
@@ -340,17 +367,17 @@ async function PersonalPass({
 
   if (tables.length === 0) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title="The floor plan is on its way"
-          body="The couple is still arranging the venue layout. Check back closer to the day — your seat pass will appear here."
+          body={`${words.organizerIsHonoree ? 'The venue layout is still being arranged.' : `${words.TheOrganizer} is still arranging the venue layout.`} Check back closer to the day — your seat pass will appear here.`}
         />
       </SeatPassShell>
     );
   }
 
   return (
-    <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+    <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
       <div className="space-y-6">
         <ArrivalBloom
           firstName={firstName}
@@ -400,8 +427,10 @@ async function PersonalPass({
           </p>
         ) : (
           <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/55">
-            You haven&rsquo;t been seated at a table yet. Once the couple seats
-            you, your spot lights up on this map.
+            You haven&rsquo;t been seated at a table yet.{' '}
+            {words.organizerIsHonoree
+              ? 'Once the seating is posted, your spot lights up on this map.'
+              : `Once ${words.theOrganizer} seats you, your spot lights up on this map.`}
           </p>
         )}
 
@@ -431,6 +460,12 @@ async function PublicTableView({
   tables: EventTableRow[];
   entrance: EntrancePos;
 }) {
+  // Same earned gate as the personal pass above.
+  const roomLinks = await loadRoomLinks({
+    event,
+    current: 'seat',
+    pabuyaViewerAllowed: true,
+  });
   // No scan_events insert on the table path: scan_events.guest_id is NOT NULL,
   // and the table QR carries no guest, so the insert would always fail. Table
   // scans are anonymous public wayfinding — there's no per-guest analytics to
@@ -468,7 +503,7 @@ async function PublicTableView({
   const mono = resolveMonogram(event);
 
   return (
-    <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+    <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
           <EventMonogramBadge
@@ -578,11 +613,15 @@ function SeatPassShell({
   displayName,
   slug,
   eventDate,
+  roomLinks,
   children,
 }: {
   displayName: string;
   slug: string;
   eventDate: string | null;
+  /** REQUIRED on purpose: an optional prop here would let a branch ship without
+   *  a way out, which is the exact defect this closes. */
+  roomLinks: RoomLink[];
   children: React.ReactNode;
 }) {
   return (
@@ -608,6 +647,7 @@ function SeatPassShell({
         <p className="font-serif text-lg italic text-terracotta">See you soon.</p>
         <p className="mt-3 text-xs text-ink/50">Powered by Setnayan · setnayan.com</p>
       </footer>
+      <RoomFooter links={roomLinks} />
     </main>
   );
 }

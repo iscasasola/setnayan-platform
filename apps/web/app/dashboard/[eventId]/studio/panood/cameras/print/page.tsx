@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -66,11 +67,15 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: event } = await supabase
+  const { data: event, error: eventError } = await supabase
     .from('events')
     .select('event_id, display_name')
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ the event record. Degrades rather than claiming.
+  if (eventError) {
+    logQueryError('PanoodPrintPage.event', eventError, { eventId }, 'graceful_degrade');
+  }
   if (!event) notFound();
 
   // ⚠ THE SAME GATE AS THE CONTROLLER, and this is a deliberate change from the
@@ -86,11 +91,16 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
 
   // Channels, in the host's own order — the same read the controller does, under
   // the host's own RLS.
-  const { data: zoneRows } = await supabase
+  const { data: zoneRows, error: zoneRowsError } = await supabase
     .from('live_studio_roam_zones')
     .select('id, zone_index, label, venue_label, camera_operator_id')
     .eq('event_id', eventId)
     .order('zone_index', { ascending: true });
+  // ⚠ the roam zones the couple defined. Refused, the printout comes out with none —
+  // ⚠ and this page exists to be PRINTED and carried to a venue.
+  if (zoneRowsError) {
+    logQueryError('PanoodPrintPage.zoneRows', zoneRowsError, { eventId }, 'graceful_degrade');
+  }
   const zones = (zoneRows ?? []) as ZoneRow[];
 
   const h = await headers();

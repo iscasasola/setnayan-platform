@@ -19,6 +19,7 @@
  * Dependency note: this module is pure (no React, no DB, no cookies) so the
  * node:test unit suite can exercise it directly.
  */
+import type { WeddingOnlyParts } from './wedding-only-parts';
 import { PUBLIC_WIDGET_ALLOWLIST } from './public-widget-allowlist';
 import { anonymousPublicCapability } from './public-capability';
 import {
@@ -172,6 +173,21 @@ export function resolveSiteBodyPlan(input: {
   /** `Boolean(event.live_media_public)` — the couple's opt-in for anonymous
    *  live media (PR5). Guests see live media regardless of this. */
   liveMediaPublic: boolean;
+  /**
+   * Which wedding-only parts this EVENT TYPE may show. Resolved from the
+   * event-type profile by `resolveWeddingOnlyParts`.
+   *
+   * 🔴 THIS RESOLVER USED TO NOT KNOW WHAT KIND OF EVENT IT WAS. The body was
+   * chosen from the calendar alone, so a birthday booked far enough ahead got
+   * the WEDDING Save-the-Date film — a cinematic reveal built around two names.
+   * The profile had recorded that this may not happen since the type engine
+   * shipped; nothing read it.
+   *
+   * Optional so every existing caller and golden test is byte-identical while
+   * absent — and when absent, every part is ALLOWED, which is exactly today's
+   * behaviour. The guest tree passes it; nothing else has to.
+   */
+  weddingOnlyParts?: Partial<WeddingOnlyParts>;
   widgets: readonly InvitationWidgetRow[];
   /**
    * Open-browse PR7 — `Boolean(event.website_open_browse)`. Default FALSE (the
@@ -203,6 +219,7 @@ export function resolveSiteBodyPlan(input: {
     hasBgMusic,
     liveMediaPublic,
     widgets,
+    weddingOnlyParts,
     openBrowse = false,
     content = {},
   } = input;
@@ -210,7 +227,12 @@ export function resolveSiteBodyPlan(input: {
   // Increment C: after the wedding the body is the editorial takeover; far
   // before it, the minimal Save the Date. Verbatim from both old trees.
   const showEditorial = phasesEnabled && lifecyclePhase === 'editorial';
-  const showSaveTheDate = phasesEnabled && lifecyclePhase === 'save_the_date';
+  // A Save-the-Date body is the FILM — a wedding-signature reveal. An event
+  // type that may not have one falls through to the ordinary body rather than
+  // being handed somebody else's product. Absent ⇒ allowed ⇒ today's behaviour.
+  const mayShowStdFilm = weddingOnlyParts?.save_the_date_film ?? true;
+  const showSaveTheDate =
+    phasesEnabled && lifecyclePhase === 'save_the_date' && mayShowStdFilm;
   const body: SiteBodyKind = showEditorial
     ? 'editorial'
     : showSaveTheDate

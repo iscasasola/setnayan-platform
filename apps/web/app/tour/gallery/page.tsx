@@ -38,7 +38,7 @@ import { TourPalettePreview, type TourSwatchGroup } from './_components/tour-pal
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'The gallery · Maria & Jose · Setnayan',
+  title: 'The gallery · Maria & Jose',
   description:
     'See a wedding come alive on Setnayan — the live photo wall filling in as the day unfolds, and the couple’s mood-board palette. No sign-up, nothing saved.',
   alternates: { canonical: '/tour/gallery' },
@@ -156,13 +156,23 @@ export default async function TourGalleryPage() {
   // The couple's uploaded inspiration photos (display-safe: image_url + caption
   // only; no uploader identity, no storage internals). image_url is a usable
   // URL (the inspiration board renders it directly).
-  const { data: inspirationData } = await admin
+  // 🔑 ON A DEMO, EMPTY IS ALWAYS WRONG. This tour runs on ONE pinned sample
+  // event chosen precisely because it HAS inspiration photos, so there is no
+  // legitimate zero here — an empty board can only mean the read failed, and it
+  // shows a prospective customer a flagship feature that appears to do nothing.
+  // That is why this one is worth binding even though no real person's data is
+  // involved: the false statement is about the PRODUCT.
+  const { data: inspirationData, error: inspirationError } = await admin
     .from('event_inspiration_assets')
     .select('slot_key, slot_position, image_url, caption')
     .eq('event_id', id)
     .is('removed_at', null)
     .order('slot_position', { ascending: true });
 
+  if (inspirationError) {
+    console.error('[tour/gallery] inspiration read refused', inspirationError);
+  }
+  const inspirationsUnreadable = Boolean(inspirationError) || inspirationData === null;
   const inspirations: InspirationItem[] = ((inspirationData ?? []) as InspirationRow[])
     .filter((r): r is InspirationRow & { image_url: string } => typeof r.image_url === 'string' && r.image_url.length > 0)
     .map((r) => ({
@@ -228,6 +238,12 @@ export default async function TourGalleryPage() {
           </div>
         )}
 
+        {inspirationsUnreadable ? (
+          <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
+            Their inspiration board couldn&rsquo;t be loaded just now. It isn&rsquo;t empty —
+            this part of the tour will fill back in on a reload.
+          </p>
+        ) : null}
         {inspirations.length > 0 ? (
           <div className="mt-10">
             <div className="flex items-center gap-2">

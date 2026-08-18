@@ -47,7 +47,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { FacebookDualStreamCard } from '@/app/_components/facebook-dual-stream-card';
 import { LiveStudioRecordingsCard } from '@/app/_components/live-studio-recordings-card';
 
-export const metadata = { title: 'Live Studio setup · Setnayan' };
+export const metadata = { title: 'Live Studio setup' };
 
 // Iteration 0011 — Live Studio couple-facing setup + broadcaster admin surface.
 //

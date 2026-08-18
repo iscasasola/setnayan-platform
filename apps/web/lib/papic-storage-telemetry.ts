@@ -165,9 +165,13 @@ export function aggregateEventStorage(
  * photos for 5 years. but compressed. they pay that additional to keep it in high
  * res."*
  *
- * So the FREE tier is the compressed copy of everything, kept five years (past
- * five it becomes a paid option whose price is not set, and **nothing is deleted
- * at five years**). The PAID tier is exactly the originals. That is why there is
+ * ⚠ THE FIVE YEARS IN THAT QUOTE IS SUPERSEDED — kept because it is a quote,
+ * dated because a reader would otherwise act on it. On **2026-08-18** the owner
+ * said *"we keep it for life"*. Everything else in the sentence still holds.
+ *
+ * So the FREE tier is the compressed copy of everything, kept **for life** —
+ * no end date, no paid tier, and nothing deleted at any point. The PAID tier is
+ * exactly the originals, at full resolution. That is why there is
  * no "how many photos are free" number: the question only made sense while this
  * was thought of as a drive.
  *

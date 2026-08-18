@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect, notFound } from 'next/navigation';
 import { ArrowLeft, Newspaper } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -7,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { ColumnQueueControls, type ColumnRow } from './_components/column-queue-controls';
 
-export const metadata = { title: 'Guest columns · Studio · Setnayan' };
+export const metadata = { title: 'Guest columns · Studio' };
 export const dynamic = 'force-dynamic';
 
 /**
@@ -40,18 +41,22 @@ export default async function GuestColumnsQueuePage({
   if (!user) redirect('/login');
 
   const supabase = await createClient();
-  const { data: membership } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle();
+  // ⚠ the viewer's membership. Absence DENIES rather than renders.
+  if (membershipError) {
+    logQueryError('GuestColumnsPage.membership', membershipError, { eventId }, 'graceful_degrade');
+  }
   if (!membership || !['couple', 'coordinator'].includes(membership.member_type as string)) {
     redirect(`/dashboard/${eventId}`);
   }
 
   const admin = createAdminClient();
-  const { data: columns } = await admin
+  const { data: columns, error: columnsError } = await admin
     .from('guest_columns')
     .select(
       'column_id, guest_id, title, body_text, status, moderation_state, moderation_labels, decline_note, submitted_at, edited_at',
@@ -59,6 +64,11 @@ export default async function GuestColumnsQueuePage({
     .eq('event_id', eventId)
     .order('submitted_at', { ascending: false })
     .limit(100);
+  // ⚠ the CUSTOM COLUMNS the couple defined for their guest list. Refused, the list
+  // ⚠ reads as having none, and the page invites them to define columns that exist.
+  if (columnsError) {
+    logQueryError('GuestColumnsPage.columns', columnsError, { eventId }, 'graceful_degrade');
+  }
 
   const rawRows = columns ?? [];
 
@@ -66,10 +76,15 @@ export default async function GuestColumnsQueuePage({
   const guestIds = [...new Set(rawRows.map((r) => r.guest_id as string))];
   const nameOf = new Map<string, string>();
   if (guestIds.length > 0) {
-    const { data: guests } = await admin
+    const { data: guests, error: guestsError } = await admin
       .from('guests')
       .select('guest_id, first_name, last_name, display_name')
       .in('guest_id', guestIds);
+    // ⚠ the guests themselves. Refused, the list is empty on the surface a couple
+    // ⚠ spends the most time in.
+    if (guestsError) {
+      logQueryError('GuestColumnsPage.guests', guestsError, { eventId }, 'graceful_degrade');
+    }
     for (const g of (guests ?? []) as Array<{
       guest_id: string;
       first_name: string | null;

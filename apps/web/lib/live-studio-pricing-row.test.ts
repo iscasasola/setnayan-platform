@@ -28,7 +28,7 @@ const repoFile = (p: string) => readFileSync(resolve(HERE, '..', p), 'utf8');
 
 test('⭐ LIVE_STUDIO is listed on /pricing — otherwise the launch has no paid row', () => {
   assert.match(
-    repoFile('app/pricing/page.tsx'),
+    repoFile('app/(shell)/pricing/page.tsx'),
     /\{ code: 'LIVE_STUDIO' \}/,
     'the unified ₱2,999 SKU is in no /pricing group, so it can never render',
   );
@@ -48,7 +48,7 @@ test('the LIVE_STUDIO name-exclusion stays INSIDE the flag gate', () => {
 test('the retired Cast SKU stays legible, not silently deleted', () => {
   // Convention in this file (see LIVE_BACKGROUND): a retired code stays listed with a
   // comment, so the retirement reads as deliberate rather than as a lost line.
-  const pricing = repoFile('app/pricing/page.tsx');
+  const pricing = repoFile('app/(shell)/pricing/page.tsx');
   assert.match(pricing, /\{ code: 'PANOOD_SYSTEM' \}/);
   assert.match(pricing, /20271005180040/, 'the retirement should name its migration');
 });

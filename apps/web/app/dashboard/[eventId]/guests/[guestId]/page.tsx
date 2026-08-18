@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
 import {
   Armchair,
@@ -171,11 +172,15 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   // INC weddings cap non-member principal sponsors at one pair (one Ninong +
   // one Ninang), so we surface that rule beside the role picker. Advisory only
   // — not enforced in the DB. See INC_Wedding_Practices_Reference_2026-06-28.md § 3.6.
-  const { data: ceremonyRow } = await supabase
+  const { data: ceremonyRow, error: ceremonyRowError } = await supabase
     .from('events')
     .select('ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ the ceremony context this page reads against. Refused, it degrades silently.
+  if (ceremonyRowError) {
+    logQueryError('GuestDetailPage.ceremonyRow', ceremonyRowError, { eventId, guestId }, 'graceful_degrade');
+  }
   const isIncWedding = ceremonyRow?.ceremony_type === 'inc';
 
   // Pull the +1 guest row (if any) so the edit form can show the
@@ -190,13 +195,19 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   // Defensive query: filter by plus_one_of_guest_id + deleted_at IS NULL.
   // RLS guards via the guests table's per-event policies — only fires
   // when the user has access to this event.
-  const { data: plusOneRow } = await supabase
+  const { data: plusOneRow, error: plusOneRowError } = await supabase
     .from('guests')
     .select('guest_id, first_name, last_name, plus_one_name_confirmed_at')
     .eq('event_id', eventId)
     .eq('plus_one_of_guest_id', guestId)
     .is('deleted_at', null)
     .maybeSingle();
+  // ⚠ 🚨 A FALSE STATEMENT ABOUT A GUEST. Refused, this renders "Allowed but no +1
+  // ⚠ has been added to the list yet" — telling the couple their guest has not named
+  // ⚠ a plus-one when they may well have. Not an empty list: a claim about a person.
+  if (plusOneRowError) {
+    logQueryError('GuestDetailPage.plusOneRow', plusOneRowError, { eventId, guestId }, 'graceful_degrade');
+  }
   const plusOneStateLabel = plusOneRow
     ? plusOneRow.plus_one_name_confirmed_at
       ? `Bringing ${[plusOneRow.first_name, plusOneRow.last_name]
@@ -246,12 +257,18 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   //
   // The `event_seat_assignments` table has a FK to `event_tables` for
   // the label lookup; embed via supabase's nested select.
-  const { data: seatRow } = await supabase
+  const { data: seatRow, error: seatRowError } = await supabase
     .from('event_seat_assignments')
     .select('table_id, event_tables(label)')
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
     .maybeSingle();
+  // ⚠ A SEATED GUEST READS AS UNSEATED. `seatedAt` falls to null on a refused read,
+  // ⚠ so a guest the couple placed at a table shows no seat at all — and seating is
+  // ⚠ some of the most laborious work in the product.
+  if (seatRowError) {
+    logQueryError('GuestDetailPage.seatRow', seatRowError, { eventId, guestId }, 'graceful_degrade');
+  }
   const seatedAt =
     seatRow && seatRow.event_tables
       ? // event_tables embed may come back as object OR array depending
@@ -265,10 +282,15 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   // joining to guest_groups. Returns the labels + team_side per group
   // the guest belongs to (Team Bride / Team Groom / Both per PR earlier
   // 2026-05-23 row).
-  const { data: groupRows } = await supabase
+  const { data: groupRows, error: groupRowsError } = await supabase
     .from('guest_group_memberships')
     .select('guest_groups(label, team_side)')
     .eq('guest_id', guestId);
+  // ⚠ the guest's group memberships. Refused, they read as belonging to no group,
+  // ⚠ which is how a couple loses track of who is with whom.
+  if (groupRowsError) {
+    logQueryError('GuestDetailPage.groupRows', groupRowsError, { eventId, guestId }, 'graceful_degrade');
+  }
   type GroupChip = { label: string; teamSide: 'bride' | 'groom' | 'both' };
   const customGroups: GroupChip[] = (groupRows ?? [])
     .map((row) => {

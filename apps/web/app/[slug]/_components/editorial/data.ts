@@ -26,7 +26,7 @@ import {
   filterPublicSafeRows,
 } from '@/lib/public-media-visibility';
 import { eventSkuActive } from '@/lib/entitlements';
-import { loadConsentVetoedPapicIds } from './consent-veto';
+import { loadConsentVetoedPapicIds, publicKeyForCapture } from './consent-veto';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { tierCaps } from '@/lib/vendor-tier-caps';
@@ -944,7 +944,8 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           }),
           capturedAt: asString(r.captured_at) ?? null,
         }))
-        .filter((r): r is PapicRow => Boolean(r.photoId && r.key && !consentVeto.ids.has(r.photoId)));
+        .map((r) => ({ ...r, key: publicKeyForCapture(consentVeto, r.photoId, r.key) }))
+        .filter((r): r is PapicRow => Boolean(r.photoId && r.key));
     }
   } catch {
     papicRows = [];
@@ -992,7 +993,8 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           posterKey: asString(r.poster_r2_key) ?? null,
           capturedAt: asString(r.captured_at) ?? null,
         }))
-        .filter((r): r is PapicClipRow => Boolean(r.photoId && r.key && !consentVeto.ids.has(r.photoId)));
+        .map((r) => ({ ...r, key: publicKeyForCapture(consentVeto, r.photoId, r.key) }))
+        .filter((r): r is PapicClipRow => Boolean(r.photoId && r.key));
     }
   } catch {
     papicClipRows = [];
@@ -1025,7 +1027,8 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           key: asString(r.r2_object_key),
           capturedAt: asString(r.captured_at) ?? null,
         }))
-        .filter((r): r is TimelinePhotoRow => Boolean(r.photoId && r.key && !consentVeto.ids.has(r.photoId)));
+        .map((r) => ({ ...r, key: publicKeyForCapture(consentVeto, r.photoId, r.key) }))
+        .filter((r): r is TimelinePhotoRow => Boolean(r.photoId && r.key));
     }
   } catch {
     timelinePhotoRows = [];
@@ -1160,6 +1163,13 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   const heroPhotoId = asString(editorial?.hero_photo_id);
   // B3: a consent-vetoed capture (or a failed veto resolve) never leads the recap,
   // even when the couple curated it as the hero — consent wins over curation.
+  //
+  // ⚖ DELIBERATELY NOT SOFTENED by the 2026-08-17 blur ruling, and this is the
+  // ONE site that keeps the old drop. The ruling exists so a group photo is not
+  // DELETED; it still appears, blurred, in the gallery and timeline below. The
+  // hero is a single curated lead image, and an all-faces-blurred photograph is
+  // not a thing to open a wedding recap with. Softening here would gain no
+  // photo — it would only make the front door worse.
   if (!heroPhotoUrl && heroPhotoId && !consentVeto.failed && !consentVeto.ids.has(heroPhotoId)) {
     try {
       // PUBLIC surface → a moderation-withheld capture never renders as the
@@ -1526,9 +1536,12 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     // gallery map where it overlaps; presign any ids outside the gallery slice.
     // B3: never presign a consent-vetoed capture (or anything, on a failed veto)
     // — a vetoed id then has no URL in the map, so it drops out of the essay.
+    // A vetoed id is NO LONGER dropped here — it may still resolve to its
+    // blurred stand-in below. `publicKeyForCapture` makes that decision; a
+    // pre-filter would take it away from the gate.
     const missing = consentVeto.failed
       ? []
-      : essayIds.filter((id) => !papicUrlByPhotoId.has(id) && !consentVeto.ids.has(id));
+      : essayIds.filter((id) => !papicUrlByPhotoId.has(id));
     if (missing.length > 0) {
       try {
         const { data: rows } = await admin
@@ -1540,7 +1553,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           .is('hidden_at', null);
         for (const r of filterPublicSafeRows((rows ?? []) as Array<Record<string, unknown>>)) {
           const id = asString(r.photo_id);
-          const key = asString(r.r2_object_key);
+          const key = publicKeyForCapture(consentVeto, id, asString(r.r2_object_key));
           if (!id || !key) continue;
           const u = await displayUrlForStoredAsset(key);
           if (u) papicUrlByPhotoId.set(id, u);
@@ -1928,8 +1941,9 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
             // B3: a Kwento wish anchored to a consent-vetoed capture (or any
             // capture, on a failed veto) resolves to text-only — the words are
             // still approved, but the opted-out guest's media never renders.
-            if (!id || !key || consentVeto.failed || consentVeto.ids.has(id)) continue;
-            photoAnchors.set(id, { type, key, posterKey: asString(p.poster_r2_key) });
+            const shown = publicKeyForCapture(consentVeto, id, key);
+            if (!id || !shown) continue;
+            photoAnchors.set(id, { type, key: shown, posterKey: asString(p.poster_r2_key) });
           }
         } catch {
           // table/column absent → these anchors resolve to text-only
@@ -2272,8 +2286,9 @@ export async function loadEditorialChaptersForEditor(
       for (const r of filterPublicSafeRows(data as Array<Record<string, unknown>>)) {
         const photoId = asString(r.photo_id);
         const key = asString(r.r2_object_key);
-        if (photoId && key && !consentVeto.failed && !consentVeto.ids.has(photoId))
-          rows.push({ photoId, key, posterKey: null, capturedAt: asString(r.captured_at), kind: 'photo' });
+        const shown = publicKeyForCapture(consentVeto, photoId, key);
+        if (photoId && shown)
+          rows.push({ photoId, key: shown, posterKey: null, capturedAt: asString(r.captured_at), kind: 'photo' });
       }
     }
   } catch {
@@ -2293,8 +2308,9 @@ export async function loadEditorialChaptersForEditor(
       for (const r of filterPublicSafeRows(data as Array<Record<string, unknown>>)) {
         const photoId = asString(r.photo_id);
         const key = asString(r.r2_object_key);
-        if (photoId && key && !consentVeto.failed && !consentVeto.ids.has(photoId))
-          rows.push({ photoId, key, posterKey: asString(r.poster_r2_key), capturedAt: asString(r.captured_at), kind: 'clip' });
+        const shown = publicKeyForCapture(consentVeto, photoId, key);
+        if (photoId && shown)
+          rows.push({ photoId, key: shown, posterKey: asString(r.poster_r2_key), capturedAt: asString(r.captured_at), kind: 'clip' });
       }
     }
   } catch {

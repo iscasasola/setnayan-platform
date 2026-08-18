@@ -5,12 +5,21 @@
  * vendor. Demo vendors are unclaimed (no owning user), so these threads have
  * nowhere else to land — here the team reads them and replies as the vendor.
  * Service-role read (no admin RLS policy on chat tables); scoped to is_demo=TRUE.
+ *
+ * ⚠ THE READ ERROR WAS NEVER EVEN CAPTURED. The query destructured `data` only,
+ * then `(threadsRaw ?? [])` turned a refused read into an empty array and the
+ * page printed "No demo inquiries yet." with instructions for seeding demo
+ * vendors — i.e. it told the reader to go fix data that may well already exist.
+ * `error` is now bound, kept null all the way to the render, and reported.
+ * Corrected 2026-08-17 (lane D of the admin console-table conversion).
  */
 
 import Link from 'next/link';
-import { MessageSquare, ChevronLeft } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isInquiryRevealed, inquiryPlaceholderLabel, inquiryCityLabel } from '@/lib/inquiry-mask.server';
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Demo inquiries · Admin' };
@@ -30,6 +39,9 @@ const STATUS_STYLE: Record<ThreadRow['inquiry_status'], string> = {
   accepted: 'bg-success-50 text-success-700',
   declined: 'bg-ink/10 text-ink/60',
 };
+
+/** Passed to ConsoleTable as `cap` so a full page says so rather than implying it is the whole inbox. */
+const ROW_LIMIT = 300;
 
 function fmt(iso: string | null): string {
   if (!iso) return '—';
@@ -51,7 +63,7 @@ export default async function DemoInquiriesPage() {
 
   // Threads whose vendor is a demo vendor. `!inner` + the embedded filter keep
   // this to demo vendors only. Pending first, then most-recently-updated.
-  const { data: threadsRaw } = await admin
+  const { data: threadsRaw, error } = await admin
     .from('chat_threads')
     .select(
       'thread_id, event_id, inquiry_status, accepted_at, updated_at, vendor:vendor_profiles!inner(business_name, is_demo)',
@@ -59,18 +71,25 @@ export default async function DemoInquiriesPage() {
     .eq('vendor.is_demo', true)
     .order('inquiry_status', { ascending: true })
     .order('updated_at', { ascending: false })
-    .limit(300);
-  const threads = (threadsRaw ?? []) as unknown as ThreadRow[];
+    .limit(ROW_LIMIT);
+  // NULL, not []: a refused read must stay distinguishable from a real zero all
+  // the way to the render.
+  const threads = threadsRaw as unknown as ThreadRow[] | null;
+  const listed = threads ?? [];
 
   // Anonymization-until-accept (Glass PR-6b): demo surfaces mask the SAME as
   // production so demos look real. PRE-accept (unrevealed) rows show the neutral
   // placeholder (event_type + city-level region only); post-accept rows show the
   // couple's event display_name + date. The team still "accepts" as the vendor
   // before the identity reveals — exactly the production flow.
-  const eventIds = Array.from(new Set(threads.map((t) => t.event_id)));
+  const eventIds = Array.from(new Set(listed.map((t) => t.event_id)));
   const eventLabel = new Map<string, string>();
+  // "Couple" is the fallback when a label is missing, and it looks exactly like
+  // a deliberate anonymised label — so a failed lookup is indistinguishable from
+  // the masking this page does on purpose unless it is said out loud.
+  let labelsUnresolved = false;
   if (eventIds.length > 0) {
-    const { data: events } = await admin
+    const { data: events, error: eventsError } = await admin
       .from('events')
       .select('event_id, display_name, event_date, event_type, region')
       .in('event_id', eventIds);
@@ -83,7 +102,8 @@ export default async function DemoInquiriesPage() {
         region: string | null;
       }>).map((e) => [e.event_id, e]),
     );
-    for (const t of threads) {
+    labelsUnresolved = Boolean(eventsError) || events === null;
+    for (const t of listed) {
       const e = eventById.get(t.event_id);
       if (!e) continue;
       eventLabel.set(
@@ -98,71 +118,91 @@ export default async function DemoInquiriesPage() {
     }
   }
 
-  const pendingCount = threads.filter((t) => t.inquiry_status === 'pending').length;
+  // `null` when nothing was counted — "0 pending" over a refused read is the
+  // same lie in a smaller box.
+  const pendingCount = threads
+    ? threads.filter((t) => t.inquiry_status === 'pending').length
+    : null;
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <Link
-          href="/admin/demo-vendors"
-          className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          Demo vendors
-        </Link>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <MessageSquare className="h-6 w-6 text-ink/70" />
-          Demo inquiries
-        </h1>
-        <p className="text-sm text-ink/60">
-          Inquiries couples have sent to demo vendors. Open one to reply{' '}
-          <strong>as the vendor</strong> — demo vendors are unclaimed, so the team
-          role-plays their responses here. {pendingCount} pending.
-        </p>
-      </header>
+      <PageMasthead
+        className="mb-6"
+        back="/admin/demo-vendors"
+        backLabel="Demo vendors"
+        title="Demo inquiries"
+        lede={
+          <>
+            Inquiries couples have sent to demo vendors. Open one to reply{' '}
+            <strong>as the vendor</strong> — demo vendors are unclaimed, so the team
+            role-plays their responses here.{' '}
+            {pendingCount === null ? 'Pending count unavailable.' : `${pendingCount} pending.`}
+          </>
+        }
+      />
 
-      {threads.length === 0 ? (
-        <p className="rounded-md border border-dashed border-ink/15 px-4 py-8 text-center text-sm text-ink/60">
-          No demo inquiries yet. Re-seed demo vendors (they now get unique contact
-          emails), then — as a couple with an event — open a demo vendor at{' '}
-          <code className="rounded bg-ink/5 px-1 text-[12px]">/explore?demo=1</code>,
-          Follow, and Message. The inquiry will appear here.
+      {labelsUnresolved ? (
+        <p
+          role="alert"
+          className="mb-4 rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+        >
+          The events behind these inquiries could not be looked up, so every row
+          below reads &ldquo;Couple&rdquo;. That is a failed lookup, not the
+          before-you-accept masking this page does on purpose.
         </p>
-      ) : (
-        <div className="sn-tile overflow-x-auto !p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-ink/10 bg-ink/5 text-left text-[11px] uppercase tracking-wider text-ink/55">
-                <th className="px-4 py-2 font-medium">Demo vendor</th>
-                <th className="px-4 py-2 font-medium">Couple / event</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {threads.map((t) => (
-                <tr key={t.thread_id} className="border-b border-ink/5 last:border-b-0 hover:bg-ink/[0.02]">
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/admin/demo-vendors/inquiries/${t.thread_id}`}
-                      className="font-medium text-ink hover:text-terracotta"
-                    >
-                      {t.vendor?.business_name ?? 'Demo vendor'}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-ink/70">{eventLabel.get(t.event_id) ?? 'Couple'}</td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${STATUS_STYLE[t.inquiry_status]}`}>
-                      {t.inquiry_status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-ink/55">{fmt(t.updated_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      ) : null}
+
+      <ConsoleTable
+        rows={threads}
+        readPermitted
+        readError={error}
+        reads="the demo inquiry inbox"
+        cap={ROW_LIMIT}
+        label="Demo inquiries"
+        minWidth="44rem"
+        rowKey={(t) => t.thread_id}
+        empty={{
+          Icon: MessageSquare,
+          title: 'No demo inquiries yet',
+          blurb:
+            'Re-seed demo vendors (they get unique contact emails), then — as a couple with an event — open a demo vendor from Explore with the demo flag on, Follow, and Message. The inquiry appears here.',
+        }}
+        columns={[
+          {
+            header: 'Demo vendor',
+            cell: (t) => (
+              <Link
+                href={`/admin/demo-vendors/inquiries/${t.thread_id}`}
+                className="font-medium text-ink hover:text-mulberry"
+              >
+                {t.vendor?.business_name ?? 'Demo vendor'}
+              </Link>
+            ),
+          },
+          {
+            header: 'Couple / event',
+            cell: (t) => (
+              <span className="text-ink/70">{eventLabel.get(t.event_id) ?? 'Couple'}</span>
+            ),
+          },
+          {
+            header: 'Status',
+            cell: (t) => (
+              <span
+                className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-medium ${STATUS_STYLE[t.inquiry_status]}`}
+              >
+                {t.inquiry_status}
+              </span>
+            ),
+          },
+          {
+            header: 'Updated',
+            hideBelow: 'md',
+            mono: true,
+            cell: (t) => <span className="whitespace-nowrap text-ink/70">{fmt(t.updated_at)}</span>,
+          },
+        ]}
+      />
     </div>
   );
 }

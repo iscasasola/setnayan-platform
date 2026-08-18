@@ -9,14 +9,14 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6254
+# facts: 6250
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     672
-#   col       4517
-#   policy    840
-#   view      9
+#   tpriv     659
+#   col       4526
+#   policy    841
+#   view      8
 #   func      212
 #
 schema	auth	usage=anon,authenticated
@@ -31,7 +31,6 @@ tpriv	public.anniversary_email_log|anon	SIUD
 tpriv	public.anniversary_email_log|authenticated	SIUD
 tpriv	public.anniversary_headsup_log|anon	SIUD
 tpriv	public.anniversary_headsup_log|authenticated	SIUD
-tpriv	public.anon_onboarding_ip_throttle|anon	SIUD
 tpriv	public.anon_onboarding_ip_throttle|authenticated	SIUD
 tpriv	public.api_keys|authenticated	SIUD
 tpriv	public.app_telemetry_logs|authenticated	SIUD
@@ -94,7 +93,6 @@ tpriv	public.coordinator_broadcasts|anon	SD
 tpriv	public.coordinator_broadcasts|authenticated	SD
 tpriv	public.coordinator_feature_recommendations|anon	SIUD
 tpriv	public.coordinator_feature_recommendations|authenticated	SIUD
-tpriv	public.couple_briefs|anon	SIUD
 tpriv	public.couple_briefs|authenticated	SIUD
 tpriv	public.couple_event_type_notify_signups|anon	SIUD
 tpriv	public.couple_event_type_notify_signups|authenticated	SIUD
@@ -104,8 +102,8 @@ tpriv	public.couple_wedding_type_notify_signups|anon	SIUD
 tpriv	public.couple_wedding_type_notify_signups|authenticated	SIUD
 tpriv	public.creator_chapters|anon	SIUD
 tpriv	public.creator_chapters|authenticated	SIUD
-tpriv	public.cron_job_runs|anon	SIUD
 tpriv	public.cron_job_runs|authenticated	SIUD
+tpriv	public.csp_violation_reports|authenticated	S
 tpriv	public.custom_domains|anon	SIUD
 tpriv	public.custom_domains|authenticated	SIUD
 tpriv	public.demand_radar_rollups|anon	SIUD
@@ -123,7 +121,6 @@ tpriv	public.drive_copy_artifacts|anon	SIUD
 tpriv	public.drive_copy_artifacts|authenticated	SIUD
 tpriv	public.drive_copy_folders|anon	SIUD
 tpriv	public.drive_copy_folders|authenticated	SIUD
-tpriv	public.earned_token_vouchers|anon	SIUD
 tpriv	public.earned_token_vouchers|authenticated	SIUD
 tpriv	public.editorial_vendor_media|anon	SD
 tpriv	public.editorial_vendor_media|authenticated	SD
@@ -261,7 +258,6 @@ tpriv	public.guest_groups|anon	SIUD
 tpriv	public.guest_groups|authenticated	SIUD
 tpriv	public.guest_message_blocks|anon	SIUD
 tpriv	public.guest_message_blocks|authenticated	SIUD
-tpriv	public.guest_qr_rotations|anon	SIUD
 tpriv	public.guest_qr_rotations|authenticated	SIUD
 tpriv	public.guest_saved_vendors|anon	SIUD
 tpriv	public.guest_saved_vendors|authenticated	SIUD
@@ -354,7 +350,6 @@ tpriv	public.papic_guest_captures|anon	SIUD
 tpriv	public.papic_guest_captures|authenticated	SIUD
 tpriv	public.papic_limited_snapshots|anon	SIUD
 tpriv	public.papic_limited_snapshots|authenticated	SIUD
-tpriv	public.papic_mission_completions|anon	SIUD
 tpriv	public.papic_mission_completions|authenticated	SIUD
 tpriv	public.papic_missions|anon	SIUD
 tpriv	public.papic_missions|authenticated	SIUD
@@ -440,7 +435,6 @@ tpriv	public.seo_health_snapshots|anon	SIUD
 tpriv	public.seo_health_snapshots|authenticated	SIUD
 tpriv	public.seo_metrics|anon	SIUD
 tpriv	public.seo_metrics|authenticated	SIUD
-tpriv	public.seo_suggestions|anon	SIUD
 tpriv	public.seo_suggestions|authenticated	SIUD
 tpriv	public.service_catalog|anon	SIUD
 tpriv	public.service_catalog|authenticated	SIUD
@@ -474,7 +468,6 @@ tpriv	public.supplier_vendor_sku_pricing|anon	SIUD
 tpriv	public.supplier_vendor_sku_pricing|authenticated	SIUD
 tpriv	public.supplier_vendor_skus|anon	SIUD
 tpriv	public.supplier_vendor_skus|authenticated	SIUD
-tpriv	public.supplies_order_line_items|anon	SIUD
 tpriv	public.supplies_order_line_items|authenticated	SIUD
 tpriv	public.supplies_orders|anon	SIUD
 tpriv	public.supplies_orders|authenticated	SIUD
@@ -483,11 +476,9 @@ tpriv	public.thread_calls|anon	SIUD
 tpriv	public.thread_calls|authenticated	SIUD
 tpriv	public.thread_service_interests|anon	SIUD
 tpriv	public.thread_service_interests|authenticated	SIUD
-tpriv	public.token_grants_log|anon	SIUD
 tpriv	public.token_grants_log|authenticated	SIUD
 tpriv	public.token_redemptions_log|anon	SIUD
 tpriv	public.token_redemptions_log|authenticated	SIUD
-tpriv	public.token_rewards_log|anon	SIUD
 tpriv	public.token_rewards_log|authenticated	SIUD
 tpriv	public.user_devices|anon	SIUD
 tpriv	public.user_devices|authenticated	SIUD
@@ -511,7 +502,6 @@ tpriv	public.vendor_admin_motions|anon	SIUD
 tpriv	public.vendor_admin_motions|authenticated	SIUD
 tpriv	public.vendor_availability_freed|anon	SIUD
 tpriv	public.vendor_availability_freed|authenticated	SIUD
-tpriv	public.vendor_bid_submissions|anon	SIUD
 tpriv	public.vendor_bid_submissions|authenticated	SIUD
 tpriv	public.vendor_billing_catalog|anon	SIUD
 tpriv	public.vendor_billing_catalog|authenticated	SIUD
@@ -559,7 +549,6 @@ tpriv	public.vendor_feature_recommendations|anon	SIUD
 tpriv	public.vendor_feature_recommendations|authenticated	SIUD
 tpriv	public.vendor_follows|anon	SIUD
 tpriv	public.vendor_follows|authenticated	SIUD
-tpriv	public.vendor_guest_deliveries|anon	SIUD
 tpriv	public.vendor_guest_deliveries|authenticated	SIUD
 tpriv	public.vendor_ig_media|anon	SIUD
 tpriv	public.vendor_ig_media|authenticated	SIUD
@@ -631,7 +620,6 @@ tpriv	public.vendor_schedule_pool_categories|anon	SIUD
 tpriv	public.vendor_schedule_pool_categories|authenticated	SIUD
 tpriv	public.vendor_schedule_pools|anon	SIUD
 tpriv	public.vendor_schedule_pools|authenticated	SIUD
-tpriv	public.vendor_screen_name_sequences|anon	SIUD
 tpriv	public.vendor_screen_name_sequences|authenticated	SIUD
 tpriv	public.vendor_self_comp_caps|anon	SIUD
 tpriv	public.vendor_self_comp_caps|authenticated	SIUD
@@ -667,7 +655,6 @@ tpriv	public.vendor_team_members|anon	SIUD
 tpriv	public.vendor_team_members|authenticated	SIUD
 tpriv	public.vendor_tier_history|anon	SIUD
 tpriv	public.vendor_tier_history|authenticated	SIUD
-tpriv	public.vendor_token_boosters|anon	SIUD
 tpriv	public.vendor_token_boosters|authenticated	SIUD
 tpriv	public.vendor_token_purchases|anon	SIUD
 tpriv	public.vendor_token_purchases|authenticated	SIUD
@@ -742,9 +729,9 @@ col	public.anniversary_headsup_log.anniversary_year	anon=SIU authenticated=SIU
 col	public.anniversary_headsup_log.event_id	anon=SIU authenticated=SIU
 col	public.anniversary_headsup_log.resend_id	anon=SIU authenticated=SIU
 col	public.anniversary_headsup_log.sent_at	anon=SIU authenticated=SIU
-col	public.anon_onboarding_ip_throttle.attempts	anon=SIU authenticated=SIU
-col	public.anon_onboarding_ip_throttle.ip_hash	anon=SIU authenticated=SIU
-col	public.anon_onboarding_ip_throttle.window_start	anon=SIU authenticated=SIU
+col	public.anon_onboarding_ip_throttle.attempts	anon=- authenticated=SIU
+col	public.anon_onboarding_ip_throttle.ip_hash	anon=- authenticated=SIU
+col	public.anon_onboarding_ip_throttle.window_start	anon=- authenticated=SIU
 col	public.api_keys.api_key_id	anon=- authenticated=SIU
 col	public.api_keys.created_at	anon=- authenticated=SIU
 col	public.api_keys.expires_at	anon=- authenticated=SIU
@@ -1130,19 +1117,19 @@ col	public.coordinator_feature_recommendations.recommendation_id	anon=SIU authen
 col	public.coordinator_feature_recommendations.recommended_by_user_id	anon=SIU authenticated=SIU
 col	public.coordinator_feature_recommendations.resolved_at	anon=SIU authenticated=SIU
 col	public.coordinator_feature_recommendations.status	anon=SIU authenticated=SIU
-col	public.couple_briefs.awarded_vendor_id	anon=SIU authenticated=SIU
-col	public.couple_briefs.brief_body	anon=SIU authenticated=SIU
-col	public.couple_briefs.brief_id	anon=SIU authenticated=SIU
-col	public.couple_briefs.brief_title	anon=SIU authenticated=SIU
-col	public.couple_briefs.brief_valuation_tier	anon=SIU authenticated=SIU
-col	public.couple_briefs.category	anon=SIU authenticated=SIU
-col	public.couple_briefs.created_at	anon=SIU authenticated=SIU
-col	public.couple_briefs.estimated_budget_range	anon=SIU authenticated=SIU
-col	public.couple_briefs.event_id	anon=SIU authenticated=SIU
-col	public.couple_briefs.expires_at	anon=SIU authenticated=SIU
-col	public.couple_briefs.status	anon=SIU authenticated=SIU
-col	public.couple_briefs.token_cost_per_submission	anon=SIU authenticated=SIU
-col	public.couple_briefs.updated_at	anon=SIU authenticated=SIU
+col	public.couple_briefs.awarded_vendor_id	anon=- authenticated=SIU
+col	public.couple_briefs.brief_body	anon=- authenticated=SIU
+col	public.couple_briefs.brief_id	anon=- authenticated=SIU
+col	public.couple_briefs.brief_title	anon=- authenticated=SIU
+col	public.couple_briefs.brief_valuation_tier	anon=- authenticated=SIU
+col	public.couple_briefs.category	anon=- authenticated=SIU
+col	public.couple_briefs.created_at	anon=- authenticated=SIU
+col	public.couple_briefs.estimated_budget_range	anon=- authenticated=SIU
+col	public.couple_briefs.event_id	anon=- authenticated=SIU
+col	public.couple_briefs.expires_at	anon=- authenticated=SIU
+col	public.couple_briefs.status	anon=- authenticated=SIU
+col	public.couple_briefs.token_cost_per_submission	anon=- authenticated=SIU
+col	public.couple_briefs.updated_at	anon=- authenticated=SIU
 col	public.couple_event_type_notify_signups.created_at	anon=SIU authenticated=SIU
 col	public.couple_event_type_notify_signups.email	anon=SIU authenticated=SIU
 col	public.couple_event_type_notify_signups.event_type	anon=SIU authenticated=SIU
@@ -1177,6 +1164,7 @@ col	public.creator_chapters.created_at	anon=SIU authenticated=SIU
 col	public.creator_chapters.embed_provider	anon=SIU authenticated=SIU
 col	public.creator_chapters.embed_url	anon=SIU authenticated=SIU
 col	public.creator_chapters.event_id	anon=SIU authenticated=SIU
+col	public.creator_chapters.host_included_at	anon=SIU authenticated=SIU
 col	public.creator_chapters.id	anon=SIU authenticated=SIU
 col	public.creator_chapters.kind	anon=SIU authenticated=SIU
 col	public.creator_chapters.public_id	anon=SIU authenticated=SIU
@@ -1190,8 +1178,16 @@ col	public.creator_chapters.title	anon=SIU authenticated=SIU
 col	public.creator_chapters.updated_at	anon=SIU authenticated=SIU
 col	public.creator_chapters.user_id	anon=SIU authenticated=SIU
 col	public.creator_chapters.view_count	anon=SIU authenticated=SIU
-col	public.cron_job_runs.job_key	anon=SIU authenticated=SIU
-col	public.cron_job_runs.last_run_at	anon=SIU authenticated=SIU
+col	public.cron_job_runs.job_key	anon=- authenticated=SIU
+col	public.cron_job_runs.last_run_at	anon=- authenticated=SIU
+col	public.csp_violation_reports.blocked_origin	anon=- authenticated=S
+col	public.csp_violation_reports.day	anon=- authenticated=S
+col	public.csp_violation_reports.directive	anon=- authenticated=S
+col	public.csp_violation_reports.first_seen_at	anon=- authenticated=S
+col	public.csp_violation_reports.hits	anon=- authenticated=S
+col	public.csp_violation_reports.last_seen_at	anon=- authenticated=S
+col	public.csp_violation_reports.report_id	anon=- authenticated=S
+col	public.csp_violation_reports.route_shape	anon=- authenticated=S
 col	public.custom_domains.created_at	anon=SIU authenticated=SIU
 col	public.custom_domains.domain	anon=SIU authenticated=SIU
 col	public.custom_domains.domain_id	anon=SIU authenticated=SIU
@@ -1290,14 +1286,14 @@ col	public.drive_copy_folders.drive_provider	anon=SIU authenticated=SIU
 col	public.drive_copy_folders.event_id	anon=SIU authenticated=SIU
 col	public.drive_copy_folders.folder_row_id	anon=SIU authenticated=SIU
 col	public.drive_copy_folders.kind	anon=SIU authenticated=SIU
-col	public.earned_token_vouchers.expires_at	anon=SIU authenticated=SIU
-col	public.earned_token_vouchers.grant_metadata	anon=SIU authenticated=SIU
-col	public.earned_token_vouchers.grant_source	anon=SIU authenticated=SIU
-col	public.earned_token_vouchers.granted_at	anon=SIU authenticated=SIU
-col	public.earned_token_vouchers.tokens_granted	anon=SIU authenticated=SIU
-col	public.earned_token_vouchers.tokens_remaining	anon=SIU authenticated=SIU
-col	public.earned_token_vouchers.vendor_id	anon=SIU authenticated=SIU
-col	public.earned_token_vouchers.voucher_id	anon=SIU authenticated=SIU
+col	public.earned_token_vouchers.expires_at	anon=- authenticated=SIU
+col	public.earned_token_vouchers.grant_metadata	anon=- authenticated=SIU
+col	public.earned_token_vouchers.grant_source	anon=- authenticated=SIU
+col	public.earned_token_vouchers.granted_at	anon=- authenticated=SIU
+col	public.earned_token_vouchers.tokens_granted	anon=- authenticated=SIU
+col	public.earned_token_vouchers.tokens_remaining	anon=- authenticated=SIU
+col	public.earned_token_vouchers.vendor_id	anon=- authenticated=SIU
+col	public.earned_token_vouchers.voucher_id	anon=- authenticated=SIU
 col	public.editorial_vendor_media.boomerang_r2_key	anon=S authenticated=SIU
 col	public.editorial_vendor_media.caption	anon=S authenticated=SIU
 col	public.editorial_vendor_media.created_at	anon=S authenticated=SIU
@@ -2314,14 +2310,14 @@ col	public.guest_message_blocks.guest_id	anon=SIU authenticated=SIU
 col	public.guest_message_blocks.id	anon=SIU authenticated=SIU
 col	public.guest_message_blocks.reason	anon=SIU authenticated=SIU
 col	public.guest_message_blocks.revoked_at	anon=SIU authenticated=SIU
-col	public.guest_qr_rotations.actor_kind	anon=SIU authenticated=SIU
-col	public.guest_qr_rotations.actor_user_id	anon=SIU authenticated=SIU
-col	public.guest_qr_rotations.created_at	anon=SIU authenticated=SIU
-col	public.guest_qr_rotations.event_id	anon=SIU authenticated=SIU
-col	public.guest_qr_rotations.guest_id	anon=SIU authenticated=SIU
-col	public.guest_qr_rotations.old_token_sha256	anon=SIU authenticated=SIU
-col	public.guest_qr_rotations.reason	anon=SIU authenticated=SIU
-col	public.guest_qr_rotations.rotation_id	anon=SIU authenticated=SIU
+col	public.guest_qr_rotations.actor_kind	anon=- authenticated=SIU
+col	public.guest_qr_rotations.actor_user_id	anon=- authenticated=SIU
+col	public.guest_qr_rotations.created_at	anon=- authenticated=SIU
+col	public.guest_qr_rotations.event_id	anon=- authenticated=SIU
+col	public.guest_qr_rotations.guest_id	anon=- authenticated=SIU
+col	public.guest_qr_rotations.old_token_sha256	anon=- authenticated=SIU
+col	public.guest_qr_rotations.reason	anon=- authenticated=SIU
+col	public.guest_qr_rotations.rotation_id	anon=- authenticated=SIU
 col	public.guest_saved_vendors.id	anon=SIU authenticated=SIU
 col	public.guest_saved_vendors.saved_at	anon=SIU authenticated=SIU
 col	public.guest_saved_vendors.source_event_id	anon=SIU authenticated=SIU
@@ -2928,14 +2924,14 @@ col	public.papic_limited_snapshots.snapshot_id	anon=SIU authenticated=SIU
 col	public.papic_limited_snapshots.status	anon=SIU authenticated=SIU
 col	public.papic_limited_snapshots.superseded_at	anon=SIU authenticated=SIU
 col	public.papic_limited_snapshots.tier	anon=SIU authenticated=SIU
-col	public.papic_mission_completions.capture_id	anon=SIU authenticated=SIU
-col	public.papic_mission_completions.completion_id	anon=SIU authenticated=SIU
-col	public.papic_mission_completions.consent_to_share	anon=SIU authenticated=SIU
-col	public.papic_mission_completions.created_at	anon=SIU authenticated=SIU
-col	public.papic_mission_completions.event_id	anon=SIU authenticated=SIU
-col	public.papic_mission_completions.guest_id	anon=SIU authenticated=SIU
-col	public.papic_mission_completions.id	anon=SIU authenticated=SIU
-col	public.papic_mission_completions.mission_id	anon=SIU authenticated=SIU
+col	public.papic_mission_completions.capture_id	anon=- authenticated=SIU
+col	public.papic_mission_completions.completion_id	anon=- authenticated=SIU
+col	public.papic_mission_completions.consent_to_share	anon=- authenticated=SIU
+col	public.papic_mission_completions.created_at	anon=- authenticated=SIU
+col	public.papic_mission_completions.event_id	anon=- authenticated=SIU
+col	public.papic_mission_completions.guest_id	anon=- authenticated=SIU
+col	public.papic_mission_completions.id	anon=- authenticated=SIU
+col	public.papic_mission_completions.mission_id	anon=- authenticated=SIU
 col	public.papic_missions.approved	anon=SIU authenticated=SIU
 col	public.papic_missions.board_slot	anon=SIU authenticated=SIU
 col	public.papic_missions.capture_kind	anon=SIU authenticated=SIU
@@ -3563,16 +3559,16 @@ col	public.seo_metrics.impressions	anon=SIU authenticated=SIU
 col	public.seo_metrics.metric_date	anon=SIU authenticated=SIU
 col	public.seo_metrics.source	anon=SIU authenticated=SIU
 col	public.seo_metrics.top_queries	anon=SIU authenticated=SIU
-col	public.seo_suggestions.created_at	anon=SIU authenticated=SIU
-col	public.seo_suggestions.current_value	anon=SIU authenticated=SIU
-col	public.seo_suggestions.field	anon=SIU authenticated=SIU
-col	public.seo_suggestions.id	anon=SIU authenticated=SIU
-col	public.seo_suggestions.rationale	anon=SIU authenticated=SIU
-col	public.seo_suggestions.reviewed_at	anon=SIU authenticated=SIU
-col	public.seo_suggestions.reviewed_by	anon=SIU authenticated=SIU
-col	public.seo_suggestions.route	anon=SIU authenticated=SIU
-col	public.seo_suggestions.status	anon=SIU authenticated=SIU
-col	public.seo_suggestions.suggested_value	anon=SIU authenticated=SIU
+col	public.seo_suggestions.created_at	anon=- authenticated=SIU
+col	public.seo_suggestions.current_value	anon=- authenticated=SIU
+col	public.seo_suggestions.field	anon=- authenticated=SIU
+col	public.seo_suggestions.id	anon=- authenticated=SIU
+col	public.seo_suggestions.rationale	anon=- authenticated=SIU
+col	public.seo_suggestions.reviewed_at	anon=- authenticated=SIU
+col	public.seo_suggestions.reviewed_by	anon=- authenticated=SIU
+col	public.seo_suggestions.route	anon=- authenticated=SIU
+col	public.seo_suggestions.status	anon=- authenticated=SIU
+col	public.seo_suggestions.suggested_value	anon=- authenticated=SIU
 col	public.service_catalog.category	anon=SIU authenticated=SIU
 col	public.service_catalog.created_at	anon=SIU authenticated=SIU
 col	public.service_catalog.description	anon=SIU authenticated=SIU
@@ -3751,18 +3747,18 @@ col	public.supplier_vendor_skus.sku_id	anon=SIU authenticated=SIU
 col	public.supplier_vendor_skus.unit_of_measure	anon=SIU authenticated=SIU
 col	public.supplier_vendor_skus.updated_at	anon=SIU authenticated=SIU
 col	public.supplier_vendor_skus.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.supplies_order_line_items.created_at	anon=SIU authenticated=SIU
-col	public.supplies_order_line_items.delivered_at	anon=SIU authenticated=SIU
-col	public.supplies_order_line_items.line_item_id	anon=SIU authenticated=SIU
-col	public.supplies_order_line_items.order_id	anon=SIU authenticated=SIU
-col	public.supplies_order_line_items.quantity	anon=SIU authenticated=SIU
-col	public.supplies_order_line_items.retail_centavos_at_order	anon=SIU authenticated=SIU
-col	public.supplies_order_line_items.shipped_at	anon=SIU authenticated=SIU
-col	public.supplies_order_line_items.sku_id	anon=SIU authenticated=SIU
-col	public.supplies_order_line_items.status	anon=SIU authenticated=SIU
-col	public.supplies_order_line_items.supplier_vendor_id	anon=SIU authenticated=SIU
-col	public.supplies_order_line_items.updated_at	anon=SIU authenticated=SIU
-col	public.supplies_order_line_items.wholesale_centavos_at_order	anon=SIU authenticated=SIU
+col	public.supplies_order_line_items.created_at	anon=- authenticated=SIU
+col	public.supplies_order_line_items.delivered_at	anon=- authenticated=SIU
+col	public.supplies_order_line_items.line_item_id	anon=- authenticated=SIU
+col	public.supplies_order_line_items.order_id	anon=- authenticated=SIU
+col	public.supplies_order_line_items.quantity	anon=- authenticated=SIU
+col	public.supplies_order_line_items.retail_centavos_at_order	anon=- authenticated=SIU
+col	public.supplies_order_line_items.shipped_at	anon=- authenticated=SIU
+col	public.supplies_order_line_items.sku_id	anon=- authenticated=SIU
+col	public.supplies_order_line_items.status	anon=- authenticated=SIU
+col	public.supplies_order_line_items.supplier_vendor_id	anon=- authenticated=SIU
+col	public.supplies_order_line_items.updated_at	anon=- authenticated=SIU
+col	public.supplies_order_line_items.wholesale_centavos_at_order	anon=- authenticated=SIU
 col	public.supplies_orders.buyer_user_id	anon=SIU authenticated=SIU
 col	public.supplies_orders.created_at	anon=SIU authenticated=SIU
 col	public.supplies_orders.delivery_address	anon=SIU authenticated=SIU
@@ -3808,15 +3804,15 @@ col	public.thread_service_interests.source	anon=SIU authenticated=SIU
 col	public.thread_service_interests.status	anon=SIU authenticated=SIU
 col	public.thread_service_interests.thread_id	anon=SIU authenticated=SIU
 col	public.thread_service_interests.vendor_service_id	anon=SIU authenticated=SIU
-col	public.token_grants_log.grant_id	anon=SIU authenticated=SIU
-col	public.token_grants_log.grant_source	anon=SIU authenticated=SIU
-col	public.token_grants_log.granted_at	anon=SIU authenticated=SIU
-col	public.token_grants_log.granted_by_admin_id	anon=SIU authenticated=SIU
-col	public.token_grants_log.idempotency_key	anon=SIU authenticated=SIU
-col	public.token_grants_log.rationale	anon=SIU authenticated=SIU
-col	public.token_grants_log.related_voucher_id	anon=SIU authenticated=SIU
-col	public.token_grants_log.tokens_granted	anon=SIU authenticated=SIU
-col	public.token_grants_log.vendor_id	anon=SIU authenticated=SIU
+col	public.token_grants_log.grant_id	anon=- authenticated=SIU
+col	public.token_grants_log.grant_source	anon=- authenticated=SIU
+col	public.token_grants_log.granted_at	anon=- authenticated=SIU
+col	public.token_grants_log.granted_by_admin_id	anon=- authenticated=SIU
+col	public.token_grants_log.idempotency_key	anon=- authenticated=SIU
+col	public.token_grants_log.rationale	anon=- authenticated=SIU
+col	public.token_grants_log.related_voucher_id	anon=- authenticated=SIU
+col	public.token_grants_log.tokens_granted	anon=- authenticated=SIU
+col	public.token_grants_log.vendor_id	anon=- authenticated=SIU
 col	public.token_redemptions_log.metadata	anon=SIU authenticated=SIU
 col	public.token_redemptions_log.redeemed_at	anon=SIU authenticated=SIU
 col	public.token_redemptions_log.redemption_id	anon=SIU authenticated=SIU
@@ -3825,12 +3821,12 @@ col	public.token_redemptions_log.service_code	anon=SIU authenticated=SIU
 col	public.token_redemptions_log.spend_source	anon=SIU authenticated=SIU
 col	public.token_redemptions_log.tokens_spent	anon=SIU authenticated=SIU
 col	public.token_redemptions_log.vendor_id	anon=SIU authenticated=SIU
-col	public.token_rewards_log.event_id	anon=SIU authenticated=SIU
-col	public.token_rewards_log.id	anon=SIU authenticated=SIU
-col	public.token_rewards_log.processed_at	anon=SIU authenticated=SIU
-col	public.token_rewards_log.service_code	anon=SIU authenticated=SIU
-col	public.token_rewards_log.tokens_awarded	anon=SIU authenticated=SIU
-col	public.token_rewards_log.vendor_id	anon=SIU authenticated=SIU
+col	public.token_rewards_log.event_id	anon=- authenticated=SIU
+col	public.token_rewards_log.id	anon=- authenticated=SIU
+col	public.token_rewards_log.processed_at	anon=- authenticated=SIU
+col	public.token_rewards_log.service_code	anon=- authenticated=SIU
+col	public.token_rewards_log.tokens_awarded	anon=- authenticated=SIU
+col	public.token_rewards_log.vendor_id	anon=- authenticated=SIU
 col	public.user_devices.device_hash	anon=SIU authenticated=SIU
 col	public.user_devices.last_seen_at	anon=SIU authenticated=SIU
 col	public.user_devices.user_id	anon=SIU authenticated=SIU
@@ -3998,15 +3994,15 @@ col	public.vendor_availability_freed.blocked_until	anon=SIU authenticated=SIU
 col	public.vendor_availability_freed.freed_at	anon=SIU authenticated=SIU
 col	public.vendor_availability_freed.id	anon=SIU authenticated=SIU
 col	public.vendor_availability_freed.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.vendor_bid_submissions.bid_id	anon=SIU authenticated=SIU
-col	public.vendor_bid_submissions.brief_id	anon=SIU authenticated=SIU
-col	public.vendor_bid_submissions.proposal_body	anon=SIU authenticated=SIU
-col	public.vendor_bid_submissions.proposed_price	anon=SIU authenticated=SIU
-col	public.vendor_bid_submissions.status	anon=SIU authenticated=SIU
-col	public.vendor_bid_submissions.submitted_at	anon=SIU authenticated=SIU
-col	public.vendor_bid_submissions.tokens_burned	anon=SIU authenticated=SIU
-col	public.vendor_bid_submissions.updated_at	anon=SIU authenticated=SIU
-col	public.vendor_bid_submissions.vendor_id	anon=SIU authenticated=SIU
+col	public.vendor_bid_submissions.bid_id	anon=- authenticated=SIU
+col	public.vendor_bid_submissions.brief_id	anon=- authenticated=SIU
+col	public.vendor_bid_submissions.proposal_body	anon=- authenticated=SIU
+col	public.vendor_bid_submissions.proposed_price	anon=- authenticated=SIU
+col	public.vendor_bid_submissions.status	anon=- authenticated=SIU
+col	public.vendor_bid_submissions.submitted_at	anon=- authenticated=SIU
+col	public.vendor_bid_submissions.tokens_burned	anon=- authenticated=SIU
+col	public.vendor_bid_submissions.updated_at	anon=- authenticated=SIU
+col	public.vendor_bid_submissions.vendor_id	anon=- authenticated=SIU
 col	public.vendor_billing_catalog.created_at	anon=SIU authenticated=SIU
 col	public.vendor_billing_catalog.description	anon=SIU authenticated=SIU
 col	public.vendor_billing_catalog.display_order	anon=SIU authenticated=SIU
@@ -4269,15 +4265,15 @@ col	public.vendor_feature_recommendations.vendor_profile_id	anon=SIU authenticat
 col	public.vendor_follows.followed_at	anon=SIU authenticated=SIU
 col	public.vendor_follows.follower_user_id	anon=SIU authenticated=SIU
 col	public.vendor_follows.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.vendor_guest_deliveries.created_at	anon=SIU authenticated=SIU
-col	public.vendor_guest_deliveries.delivered_at	anon=SIU authenticated=SIU
-col	public.vendor_guest_deliveries.delivered_by	anon=SIU authenticated=SIU
-col	public.vendor_guest_deliveries.delivery_id	anon=SIU authenticated=SIU
-col	public.vendor_guest_deliveries.event_id	anon=SIU authenticated=SIU
-col	public.vendor_guest_deliveries.guest_id	anon=SIU authenticated=SIU
-col	public.vendor_guest_deliveries.item_label	anon=SIU authenticated=SIU
-col	public.vendor_guest_deliveries.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.vendor_guest_deliveries.voided_at	anon=SIU authenticated=SIU
+col	public.vendor_guest_deliveries.created_at	anon=- authenticated=SIU
+col	public.vendor_guest_deliveries.delivered_at	anon=- authenticated=SIU
+col	public.vendor_guest_deliveries.delivered_by	anon=- authenticated=SIU
+col	public.vendor_guest_deliveries.delivery_id	anon=- authenticated=SIU
+col	public.vendor_guest_deliveries.event_id	anon=- authenticated=SIU
+col	public.vendor_guest_deliveries.guest_id	anon=- authenticated=SIU
+col	public.vendor_guest_deliveries.item_label	anon=- authenticated=SIU
+col	public.vendor_guest_deliveries.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_guest_deliveries.voided_at	anon=- authenticated=SIU
 col	public.vendor_ig_connections.connected_at	anon=- authenticated=S
 col	public.vendor_ig_connections.created_at	anon=- authenticated=S
 col	public.vendor_ig_connections.ig_user_id	anon=- authenticated=S
@@ -4830,9 +4826,9 @@ col	public.vendor_schedule_pools.pool_id	anon=SIU authenticated=SIU
 col	public.vendor_schedule_pools.pool_label	anon=SIU authenticated=SIU
 col	public.vendor_schedule_pools.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_schedule_pools.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.vendor_screen_name_sequences.canonical_service	anon=SIU authenticated=SIU
-col	public.vendor_screen_name_sequences.city	anon=SIU authenticated=SIU
-col	public.vendor_screen_name_sequences.last_id	anon=SIU authenticated=SIU
+col	public.vendor_screen_name_sequences.canonical_service	anon=- authenticated=SIU
+col	public.vendor_screen_name_sequences.city	anon=- authenticated=SIU
+col	public.vendor_screen_name_sequences.last_id	anon=- authenticated=SIU
 col	public.vendor_self_comp_caps.quarterly_cap	anon=SIU authenticated=SIU
 col	public.vendor_self_comp_caps.raised_at	anon=SIU authenticated=SIU
 col	public.vendor_self_comp_caps.raised_by_admin	anon=SIU authenticated=SIU
@@ -5032,14 +5028,14 @@ col	public.vendor_tier_history.reason	anon=SIU authenticated=SIU
 col	public.vendor_tier_history.tier_history_id	anon=SIU authenticated=SIU
 col	public.vendor_tier_history.to_state	anon=SIU authenticated=SIU
 col	public.vendor_tier_history.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.vendor_token_boosters.activated_at	anon=SIU authenticated=SIU
-col	public.vendor_token_boosters.booster_id	anon=SIU authenticated=SIU
-col	public.vendor_token_boosters.booster_type	anon=SIU authenticated=SIU
-col	public.vendor_token_boosters.created_at	anon=SIU authenticated=SIU
-col	public.vendor_token_boosters.expires_at	anon=SIU authenticated=SIU
-col	public.vendor_token_boosters.status	anon=SIU authenticated=SIU
-col	public.vendor_token_boosters.tokens_spent	anon=SIU authenticated=SIU
-col	public.vendor_token_boosters.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_token_boosters.activated_at	anon=- authenticated=SIU
+col	public.vendor_token_boosters.booster_id	anon=- authenticated=SIU
+col	public.vendor_token_boosters.booster_type	anon=- authenticated=SIU
+col	public.vendor_token_boosters.created_at	anon=- authenticated=SIU
+col	public.vendor_token_boosters.expires_at	anon=- authenticated=SIU
+col	public.vendor_token_boosters.status	anon=- authenticated=SIU
+col	public.vendor_token_boosters.tokens_spent	anon=- authenticated=SIU
+col	public.vendor_token_boosters.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_token_purchases.amount_php	anon=SIU authenticated=SIU
 col	public.vendor_token_purchases.created_at	anon=SIU authenticated=SIU
 col	public.vendor_token_purchases.granted_voucher_id	anon=SIU authenticated=SIU
@@ -5315,6 +5311,7 @@ policy	public.creator_chapters|admin_full_access_creator_chapters	mode=PERMISSIV
 policy	public.creator_chapters|creator_owns_chapter	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = auth.uid()) check=(user_id = auth.uid())
 policy	public.creator_chapters|public_can_read_published_chapter	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=((status = 'published'::text) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = creator_chapters.user_id) AND (u.public_profile_enabled = true))))) check=NULL
 policy	public.cron_job_runs|cron_job_runs_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
+policy	public.csp_violation_reports|csp_violation_reports_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
 policy	public.custom_domains|admin_full_access_domains	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.custom_domains|user_owns_domain	mode=PERMISSIVE cmd=ALL roles=authenticated using=((owner_type = 'user'::text) AND (owner_id = auth.uid())) check=((owner_type = 'user'::text) AND (owner_id = auth.uid()))
 policy	public.custom_domains|vendor_owns_domain	mode=PERMISSIVE cmd=ALL roles=authenticated using=((owner_type = 'vendor'::text) AND (owner_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))) check=((owner_type = 'vendor'::text) AND (owner_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))
@@ -6056,7 +6053,6 @@ view	public.events_host	type=view owner=postgres honours_rls=NO select=authentic
 view	public.vendor_active_ads	type=view owner=postgres honours_rls=yes select=anon,authenticated
 view	public.vendor_active_tools	type=view owner=postgres honours_rls=yes select=anon,authenticated
 view	public.vendor_completed_events	type=view owner=postgres honours_rls=NO select=anon,authenticated
-view	public.vendor_full_completed_events_stats	type=matview owner=postgres honours_rls=NO select=authenticated
 view	public.vendor_market_stats	type=view owner=postgres honours_rls=yes select=anon,authenticated
 view	public.vendor_public_completed_events_stats	type=matview owner=postgres honours_rls=NO select=anon,authenticated
 view	public.vendor_review_stats	type=matview owner=postgres honours_rls=NO select=anon,authenticated

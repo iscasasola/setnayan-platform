@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Plus, Package as PackageIcon } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { formatCentavosPhp } from '@/lib/vendor-packages';
@@ -27,12 +28,25 @@ export default async function VendorPackagesPage() {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  const { data: packages } = await supabase
+  const { data: packages, error: packagesError } = await supabase
     .from('vendor_packages')
     .select('package_id, package_name, total_price_centavos, is_active, updated_at')
     .eq('vendor_profile_id', profile.vendor_profile_id as string)
     .order('updated_at', { ascending: false });
 
+  // ⚠ THE SHOP'S OWN PACKAGES. Refused, `?? []` printed "No packages yet. Build
+  // ⚠ one and it appears on your page" to a supplier who has built them — an
+  // ⚠ invitation to author a second copy of work that already exists and is
+  // ⚠ already live to couples.
+  if (packagesError) {
+    logQueryError(
+      'VendorPackagesPage.packages',
+      packagesError,
+      { vendorProfileId: profile.vendor_profile_id as string },
+      'graceful_degrade',
+    );
+  }
+  const measured = !packagesError && packages !== null;
   const rows = packages ?? [];
 
   return (
@@ -57,7 +71,16 @@ export default async function VendorPackagesPage() {
         Build a package
       </Link>
 
-      {rows.length === 0 ? (
+      {!measured ? (
+        <p
+          role="alert"
+          className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">We couldn&rsquo;t load your packages.</strong>{' '}
+          This does not mean you have none, and nothing has been removed from
+          your page &mdash; reload in a moment before building anything again.
+        </p>
+      ) : rows.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-ink/15 p-8 text-center text-sm text-ink/50">
           No packages yet. Build one and it appears on your page for couples to
           customize.

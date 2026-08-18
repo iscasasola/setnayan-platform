@@ -6,6 +6,25 @@ import { createClient } from '@/lib/supabase/server';
 import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
 import { TAXONOMY_MAP, WEDDING_FOLDER_LABEL, WEDDING_FOLDER_ORDER, type WeddingFolder } from '@/lib/taxonomy';
 import { DemoVendorActions } from '@/app/admin/demo-vendors/_components/demo-vendor-actions';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
+import { PageMasthead } from '@/app/_components/page-masthead';
+
+/**
+ * The three scan ceilings, named once each.
+ *
+ * 🔢 `BATCH_SCAN_LIMIT` IS THE ONE TO NOTICE and it does not behave like an
+ * ordinary row cap. It limits the vendor rows SCANNED, and the batch table is
+ * then AGGREGATED from them — so hitting it does not truncate the list you see,
+ * it makes the numbers IN that list too small, silently. A batch showing 40
+ * vendors could have 400. That is why the table below carries a `note` that
+ * fires when the scan actually filled up: the `cap` prop can only speak about
+ * the rows it is handed, and here those are batches, not vendors.
+ */
+const BATCH_SCAN_LIMIT = 2000;
+const CATEGORY_SCAN_LIMIT = 5000;
+const CITY_SCAN_LIMIT = 5000;
 
 /**
  * DemoVendorsSurface — the Demo vendors LIST/overview body, re-homed
@@ -23,6 +42,27 @@ import { DemoVendorActions } from '@/app/admin/demo-vendors/_components/demo-ven
  * logAdminDataAccess/after() audit side-effect (the original demo-vendors page
  * had none — only createAdminClient reads + the isAdminDemoModeOn cookie check,
  * both of which move with the body).
+ *
+ * ── 2026-08-17 · onto <ConsoleTable>, and it was NOT a looks change ──────────
+ * FOUR reads here, and not one of them looked at its own `{ error }`. Every
+ * result was coerced — `count ?? 0`, `data ?? []` — so a refused read produced a
+ * page that looked measured and said things that were not true:
+ *
+ *   • "Demo vendors 0" · "Batches 0" — a confident zero for a count nobody got.
+ *   • "No demo batches. Run the seed script to create one." — printed over a
+ *     refused read, telling an admin to seed data that may already be there.
+ *   • "Empty categories" showed the TOTAL NUMBER OF CATEGORIES, because a failed
+ *     read means no category has any vendor. The worst-looking number on the
+ *     page was the one produced by having no data at all, and it even tripped
+ *     the amber warning styling, which reads as a measurement.
+ *   • Every per-folder count fell to 0 and the per-city grid rendered empty with
+ *     no heading change — an absence with nothing to explain it.
+ *
+ * Each read is now judged on its own, unmeasured counts render an em-dash via
+ * KpiStatCard, and the derived breakdowns say when they could not be built.
+ *
+ * The local `Stat` re-declaration is GONE — KpiStatCard is the admin stat tile
+ * and already renders the em-dash for null. It was one of 22 such local copies.
  */
 
 type BatchRow = {
@@ -91,27 +131,43 @@ export async function DemoVendorsSurface() {
       .eq('is_demo', true)
       .not('demo_batch_id', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(2000),
+      .limit(BATCH_SCAN_LIMIT),
     admin
       .from('vendor_profiles')
       .select('services')
       .eq('is_demo', true)
-      .limit(5000),
+      .limit(CATEGORY_SCAN_LIMIT),
     admin
       .from('vendor_profiles')
       .select('location_city')
       .eq('is_demo', true)
-      .limit(5000),
+      .limit(CITY_SCAN_LIMIT),
   ]);
 
-  const totalDemoVendors = totalRes.count ?? 0;
+  if (totalRes.error) logQueryError('AdminDemoVendors (total count)', totalRes.error);
+  if (batchesRes.error) logQueryError('AdminDemoVendors (batch scan)', batchesRes.error);
+  if (categoryRes.error) logQueryError('AdminDemoVendors (category scan)', categoryRes.error);
+  if (cityRes.error) logQueryError('AdminDemoVendors (city scan)', cityRes.error);
+
+  // 🪤 `count === null` MEANS "NOT MEASURED", NOT "ZERO". This was `?? 0`, so a
+  // refused count rendered a confident 0 demo vendors — and the Actions panel
+  // below is handed the same number, which is what decides how a cleanup button
+  // describes itself.
+  const totalDemoVendors = totalRes.error ? null : totalRes.count;
+
+  const batchScan = batchesRes.error
+    ? null
+    : (batchesRes.data as Array<{ demo_batch_id: string; created_at: string }> | null);
+  const categoryScan = categoryRes.error
+    ? null
+    : (categoryRes.data as Array<{ services: string[] | null }> | null);
+  const cityScan = cityRes.error
+    ? null
+    : (cityRes.data as Array<{ location_city: string | null }> | null);
 
   // Build batch summary
   const batchMap = new Map<string, { count: number; min: string; max: string }>();
-  for (const row of (batchesRes.data ?? []) as Array<{
-    demo_batch_id: string;
-    created_at: string;
-  }>) {
+  for (const row of batchScan ?? []) {
     const existing = batchMap.get(row.demo_batch_id);
     if (existing) {
       existing.count += 1;
@@ -125,21 +181,31 @@ export async function DemoVendorsSurface() {
       });
     }
   }
-  const batches: BatchRow[] = Array.from(batchMap.entries())
-    .map(([demo_batch_id, v]) => ({
-      demo_batch_id,
-      vendor_count: v.count,
-      earliest_created_at: v.min,
-      latest_created_at: v.max,
-    }))
-    .sort((a, b) =>
-      b.latest_created_at.localeCompare(a.latest_created_at),
-    );
+  // null when the scan behind it was refused — an aggregate of nothing is not a
+  // list of no batches, and "No demo batches. Run the seed script" is a costly
+  // thing to say to someone who may already have 2,000 of them.
+  const batches: BatchRow[] | null =
+    batchScan === null
+      ? null
+      : Array.from(batchMap.entries())
+          .map(([demo_batch_id, v]) => ({
+            demo_batch_id,
+            vendor_count: v.count,
+            earliest_created_at: v.min,
+            latest_created_at: v.max,
+          }))
+          .sort((a, b) => b.latest_created_at.localeCompare(a.latest_created_at));
+
+  // Did the scan FILL UP? Then every vendor_count below is a floor, not a count.
+  // This is the truthful disclosure for an aggregated read; `cap` alone cannot
+  // say it, because the rows the table holds are batches and the ceiling is on
+  // vendors.
+  const batchScanFilled = (batchScan?.length ?? 0) >= BATCH_SCAN_LIMIT;
 
   // Per-canonical-service counts — extract the canonical_service from
   // services[] (first element by convention from the seed script).
   const perCanonical = new Map<string, number>();
-  for (const row of (categoryRes.data ?? []) as Array<{ services: string[] | null }>) {
+  for (const row of categoryScan ?? []) {
     const services = row.services ?? [];
     const canonical = services[0];
     if (canonical) {
@@ -157,79 +223,104 @@ export async function DemoVendorsSurface() {
 
   // Per-city counts
   const perCity = new Map<string, number>();
-  for (const row of (cityRes.data ?? []) as Array<{ location_city: string | null }>) {
+  for (const row of cityScan ?? []) {
     const city = row.location_city ?? '—';
     perCity.set(city, (perCity.get(city) ?? 0) + 1);
   }
   const citySorted = Array.from(perCity.entries()).sort((a, b) => b[1] - a[1]);
 
   // Coverage gaps — canonical_services with 0 demo vendors (would
-  // hint to owner "this category is empty; compare view will be sad here")
-  const gapCount = Object.keys(TAXONOMY_MAP).filter(
-    (k) => !perCanonical.has(k),
-  ).length;
-  const lowCoverageCount = Object.keys(TAXONOMY_MAP).filter((k) => {
-    const c = perCanonical.get(k) ?? 0;
-    return c > 0 && c < 3;
-  }).length;
+  // hint to owner "this category is empty; compare view will be sad here").
+  //
+  // 🚨 THESE TWO WERE THE MOST MISLEADING NUMBERS ON THE PAGE. They are derived
+  // by ABSENCE, so a refused category scan made "Empty categories" equal to the
+  // total number of categories — the single most alarming figure the tile can
+  // show, produced by having no data rather than by measuring any. It also
+  // crossed the >50 threshold and painted itself amber, which reads as a finding.
+  // null when the scan did not happen; KpiStatCard renders an em-dash.
+  const gapCount =
+    categoryScan === null
+      ? null
+      : Object.keys(TAXONOMY_MAP).filter((k) => !perCanonical.has(k)).length;
+  const lowCoverageCount =
+    categoryScan === null
+      ? null
+      : Object.keys(TAXONOMY_MAP).filter((k) => {
+          const c = perCanonical.get(k) ?? 0;
+          return c > 0 && c < 3;
+        }).length;
 
   return (
     <div>
-      <header className="mb-6 space-y-2">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Database className="h-6 w-6 text-ink/70" />
-          Demo Vendors
-        </h1>
-        <p className="text-sm text-ink/60">
-          Synthetic vendor data for marketplace simulation. All rows are flagged{' '}
-          <code className="rounded bg-ink/5 px-1 py-0.5 text-[12px]">is_demo=TRUE</code>{' '}
-          and only appear publicly when the marketplace is opened with{' '}
-          <code className="rounded bg-ink/5 px-1 py-0.5 text-[12px]">?demo=1</code>{' '}
-          (Agent 2&apos;s gate).
-        </p>
-        <div className="pt-1">
+      <PageMasthead
+        className="mb-4"
+        titleNode={
+          <span className="flex items-center gap-2">
+            <Database aria-hidden className="h-6 w-6 text-ink/70" />
+            Demo Vendors
+          </span>
+        }
+        lede={
+          <>
+            Synthetic vendor data for marketplace simulation. All rows are flagged{' '}
+            <code className="rounded bg-ink/5 px-1 py-0.5 text-[12px]">is_demo=TRUE</code>{' '}
+            and only appear publicly when the marketplace is opened with{' '}
+            <code className="rounded bg-ink/5 px-1 py-0.5 text-[12px]">?demo=1</code>{' '}
+            (Agent 2&apos;s gate).
+          </>
+        }
+        actions={
           <Link
             href="/admin/demo-vendors/inquiries"
-            className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-sm font-medium text-ink/80 hover:bg-ink/10"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-sm font-medium text-ink/80 hover:bg-ink/10"
           >
-            <MessageSquare className="h-4 w-4" />
+            <MessageSquare aria-hidden className="h-4 w-4" />
             Demo inquiries — read &amp; respond as the vendor →
           </Link>
-        </div>
-        <p className="rounded-md border-l-4 border-warn-500 bg-warn-50 px-3 py-2 text-sm text-warn-900">
-          <AlertTriangle className="mb-0.5 mr-1 inline-block h-4 w-4" />
-          <strong>Hard cleanup deadline:</strong> 2026-12-01 (public launch). All demo
-          vendors must be removed by this date. The{' '}
-          <code className="font-mono text-[12px]">check-no-demo-in-prod</code> CI guard
-          fails any merge that ships demo vendors past this date unless the{' '}
-          <code className="font-mono text-[12px]">ALLOW_DEMO_VENDORS</code> env flag is
-          explicitly set.
-        </p>
-      </header>
+        }
+      />
+
+      {/* The deadline warning stays OUT of the masthead: PageMasthead's lede is
+          desktop-only by council lock, and a hard cleanup deadline is not
+          orienting prose that a phone can afford to lose. */}
+      <p className="mb-6 rounded-md border-l-4 border-warn-500 bg-warn-50 px-3 py-2 text-sm text-warn-900">
+        <AlertTriangle aria-hidden className="mb-0.5 mr-1 inline-block h-4 w-4" />
+        <strong>Hard cleanup deadline:</strong> 2026-12-01 (public launch). All demo
+        vendors must be removed by this date. The{' '}
+        <code className="font-mono text-[12px]">check-no-demo-in-prod</code> CI guard
+        fails any merge that ships demo vendors past this date unless the{' '}
+        <code className="font-mono text-[12px]">ALLOW_DEMO_VENDORS</code> env flag is
+        explicitly set.
+      </p>
 
       {/* ───────────────────── Stats overview ───────────────────── */}
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">Overview</h2>
+        {/* Every tile takes a NUMBER OR NULL. KpiStatCard renders an em-dash for
+            null, so a read that did not happen can no longer arrive as a 0 — and
+            the amber "warn" tone is gone with the local Stat, because a threshold
+            crossed by missing data is not a finding. */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Demo vendors" value={totalDemoVendors.toLocaleString()} />
-          <Stat label="Batches" value={String(batches.length)} />
-          <Stat
-            label="Empty categories"
-            value={String(gapCount)}
-            tone={gapCount > 50 ? 'warn' : 'ok'}
-          />
-          <Stat
-            label="Low coverage (<3)"
-            value={String(lowCoverageCount)}
-            tone={lowCoverageCount > 20 ? 'warn' : 'ok'}
-          />
+          <KpiStatCard label="Demo vendors" value={totalDemoVendors} />
+          <KpiStatCard label="Batches" value={batches === null ? null : batches.length} />
+          <KpiStatCard label="Empty categories" value={gapCount} />
+          <KpiStatCard label="Low coverage (<3)" value={lowCoverageCount} />
         </div>
-        <p className="mt-2 text-xs text-ink/55">
+        <p className="mt-2 text-xs text-ink/70">
           Empty / low-coverage categories show how complete the simulation looks
           to a couple browsing the marketplace. Re-run the seed script with a
           higher{' '}
           <code className="rounded bg-ink/5 px-1 text-[11px]">--max</code> if
           coverage is thin.
+          {categoryScan === null ? (
+            <>
+              {' '}
+              <strong>
+                The category scan was refused on this load, so those two tiles
+                show an em-dash rather than a count.
+              </strong>
+            </>
+          ) : null}
         </p>
       </section>
 
@@ -285,7 +376,22 @@ export async function DemoVendorsSurface() {
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">Actions</h2>
         <div className="sn-tile p-4">
-          <DemoVendorActions totalCount={totalDemoVendors} demoMode={demoMode} />
+          {/* 🔒 NO BULK ACTION OVER AN UNKNOWN COUNT. The old `?? 0` handed this
+              panel a zero, whose confirmation read "Confirm: delete all 0 demo
+              vendors" — a destructive control describing itself with a number
+              nobody measured. A sentence takes its place, in the slot where the
+              buttons would be. */}
+          {totalDemoVendors === null ? (
+            <p className="text-sm text-ink/70">
+              The demo-vendor count could not be read on this load, so cleanup and
+              regenerate are not offered here. That is deliberate: every control in
+              this panel acts on <em>all</em> demo vendors, and none of them should
+              be pressed against a number we do not have. Reload — if it repeats,
+              the read is being refused rather than returning nothing.
+            </p>
+          ) : (
+            <DemoVendorActions totalCount={totalDemoVendors} demoMode={demoMode} />
+          )}
           <div className="mt-4 rounded-md bg-ink/5 p-3 font-mono text-[12px] text-ink/75">
             <p className="mb-1 text-ink/55">Seed a fresh batch from terminal:</p>
             <p>
@@ -302,91 +408,144 @@ export async function DemoVendorsSurface() {
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">
           Batches{' '}
-          <span className="font-normal text-ink/55">({batches.length})</span>
+          <span className="font-normal text-ink/70">
+            ({batches === null ? 'not measured' : batches.length})
+          </span>
         </h2>
-        {batches.length === 0 ? (
-          <p className="rounded-md border border-dashed border-ink/15 px-4 py-6 text-center text-sm text-ink/60">
-            No demo batches. Run the seed script to create one.
-          </p>
-        ) : (
-          <div className="sn-tile overflow-x-auto !p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-ink/10 bg-ink/5 text-left text-[11px] uppercase tracking-wider text-ink/55">
-                  <th className="px-4 py-2 font-medium">Batch</th>
-                  <th className="px-4 py-2 font-medium">Vendors</th>
-                  <th className="px-4 py-2 font-medium">Created</th>
-                  <th className="px-4 py-2 font-medium">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {batches.map((b) => (
-                  <tr key={b.demo_batch_id} className="border-b border-ink/5 last:border-b-0">
-                    <td className="px-4 py-3 font-mono text-[12px]">
-                      <span className="text-ink/85">
-                        {shortBatchId(b.demo_batch_id)}
-                      </span>
-                      <span className="ml-2 text-ink/40">
-                        {b.demo_batch_id === LEGACY_BATCH_ID
-                          ? '(2026-06-01 test seed)'
-                          : ''}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">{b.vendor_count.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-ink/60">{fmtDate(b.earliest_created_at)}</td>
-                    <td className="px-4 py-3">
-                      <DemoVendorActions
-                        totalCount={b.vendor_count}
-                        batchId={b.demo_batch_id}
-                        compact
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <ConsoleTable
+          rows={batches}
+          readPermitted
+          readError={batchesRes.error}
+          reads="the demo batches"
+          /* An honest-but-rare backstop, NOT the disclosure that matters here: it
+             fires only if 2,000 scanned vendors turn out to be 2,000 distinct
+             batches. The ceiling this read actually hits is on vendors, and what
+             it corrupts is the per-batch COUNTS, so `note` below is what tells
+             the truth. Do not read this prop as covering the scan. */
+          cap={BATCH_SCAN_LIMIT}
+          label="Demo batches"
+          minWidth="40rem"
+          rowKey={(b) => b.demo_batch_id}
+          note={
+            batchScanFilled ? (
+              <>
+                <strong>These counts are floors, not totals.</strong> The batch
+                summary is built by scanning the {BATCH_SCAN_LIMIT.toLocaleString()}{' '}
+                most recent demo vendors, and that scan came back full — so any
+                batch below may hold more vendors than it shows, and an older batch
+                may be missing entirely.
+              </>
+            ) : undefined
+          }
+          empty={{
+            Icon: Database,
+            title: 'No demo batches',
+            blurb:
+              'Nothing carries a batch id yet. Run the seed script from the terminal block above to create one.',
+            verifiedNote: 'Verified: read permitted · 0 batches',
+          }}
+          columns={[
+            {
+              header: 'Batch',
+              mono: true,
+              cell: (b) => (
+                <>
+                  <span className="text-ink/85">{shortBatchId(b.demo_batch_id)}</span>
+                  {b.demo_batch_id === LEGACY_BATCH_ID ? (
+                    <span className="ml-2 text-ink/70">(2026-06-01 test seed)</span>
+                  ) : null}
+                </>
+              ),
+            },
+            {
+              header: 'Vendors',
+              align: 'right',
+              mono: true,
+              cell: (b) => (
+                <span title={batchScanFilled ? 'At least this many — the scan was full.' : undefined}>
+                  {b.vendor_count.toLocaleString()}
+                  {batchScanFilled ? '+' : ''}
+                </span>
+              ),
+            },
+            {
+              header: 'Created',
+              hideBelow: 'md',
+              mono: true,
+              cell: (b) => (
+                <span className="text-ink/70">{fmtDate(b.earliest_created_at)}</span>
+              ),
+            },
+            {
+              header: 'Action',
+              align: 'right',
+              cell: (b) => (
+                <DemoVendorActions
+                  totalCount={b.vendor_count}
+                  batchId={b.demo_batch_id}
+                  compact
+                />
+              ),
+            },
+          ]}
+        />
       </section>
 
       {/* ───────────────────── Per-folder breakdown ───────────────────── */}
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">Vendors per folder</h2>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {WEDDING_FOLDER_ORDER.map((folder) => {
-            const count = perFolder.get(folder) ?? 0;
-            return (
-              <div
-                key={folder}
-                className="sn-tile px-4 py-3"
-              >
-                <p className="text-sm text-ink/75">{WEDDING_FOLDER_LABEL[folder]}</p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums">
-                  {count.toLocaleString()}
-                </p>
-              </div>
-            );
-          })}
-        </div>
+        {categoryScan === null ? (
+          <p className="rounded-md border border-dashed border-ink/15 px-4 py-6 text-sm text-ink/70">
+            The scan these counts are built from was refused, so there is nothing
+            to break down. Every folder would have read <strong>0</strong> — which
+            is what this section used to show, and it is not what happened.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {WEDDING_FOLDER_ORDER.map((folder) => {
+              const count = perFolder.get(folder) ?? 0;
+              return (
+                <div key={folder} className="sn-tile px-4 py-3">
+                  <p className="text-sm text-ink/75">{WEDDING_FOLDER_LABEL[folder]}</p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums">
+                    {count.toLocaleString()}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* ───────────────────── Per-city breakdown ───────────────────── */}
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">Vendors per city</h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-          {citySorted.map(([city, count]) => (
-            <div
-              key={city}
-              className="flex items-center justify-between sn-tile px-4 py-2"
-            >
-              <span className="flex items-center gap-1.5 text-sm text-ink/75">
-                <MapPin className="h-3.5 w-3.5 text-ink/50" />
-                {city}
-              </span>
-              <span className="font-mono text-sm tabular-nums">{count}</span>
-            </div>
-          ))}
-        </div>
+        {cityScan === null ? (
+          <p className="rounded-md border border-dashed border-ink/15 px-4 py-6 text-sm text-ink/70">
+            The city scan was refused, so this breakdown could not be built. It
+            used to render as an empty grid with nothing to say why — an absence
+            that looked like a layout, not a failure.
+          </p>
+        ) : citySorted.length === 0 ? (
+          <p className="rounded-md border border-dashed border-ink/15 px-4 py-6 text-sm text-ink/70">
+            No demo vendor carries a city yet.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            {citySorted.map(([city, count]) => (
+              <div
+                key={city}
+                className="flex items-center justify-between sn-tile px-4 py-2"
+              >
+                <span className="flex items-center gap-1.5 text-sm text-ink/75">
+                  <MapPin aria-hidden className="h-3.5 w-3.5 text-ink/70" />
+                  {city}
+                </span>
+                <span className="font-mono text-sm tabular-nums">{count}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ───────────────────── Footer cross-PR coordination ───────────────────── */}
@@ -412,20 +571,8 @@ export async function DemoVendorsSurface() {
   );
 }
 
-function Stat({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone?: 'ok' | 'warn';
-}) {
-  const toneClass = tone === 'warn' ? 'text-warn-700' : 'text-ink';
-  return (
-    <div className="sn-tile px-4 py-3">
-      <p className="text-xs uppercase tracking-wider text-ink/55">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold tabular-nums ${toneClass}`}>{value}</p>
-    </div>
-  );
-}
+// The local `Stat` re-declaration lived here. It is DELETED, not moved:
+// KpiStatCard three files away is the admin stat tile and already renders an
+// em-dash for a null value, which is the whole reason this surface could not
+// tell a refused count from a zero. It was one of 22 such local copies against
+// the one shared tile.

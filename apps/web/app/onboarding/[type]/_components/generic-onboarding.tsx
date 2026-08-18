@@ -52,6 +52,7 @@ import { SpecialtyFields } from './specialty-fields';
 // Same reporter the wedding flow uses for a rejected commit — one failure, one
 // place to read it, rather than a silent console line on the customer's phone.
 import { trackFailure } from '@/lib/telemetry/track-error';
+import { SHOP_ACCOUNT_CANNOT_CREATE_COPY } from '@/lib/vendor-event-creation-copy';
 
 type Props = {
   eventType: string;
@@ -543,7 +544,7 @@ export function GenericOnboarding(props: Props) {
           setError(null);
         } else {
           setError(
-            'You already have one of these in planning. Finish or archive it first.',
+            'You already have one of these in planning. Finish it first, or open it and choose “Put this away”.',
           );
         }
         return;
@@ -551,7 +552,12 @@ export function GenericOnboarding(props: Props) {
       setError(
         res.error === 'not_authenticated'
           ? 'sign_in'
-          : 'Something went wrong saving your plan. Please try again.',
+          : res.error === 'shop_account'
+            ? /* Owner ruling 2026-08-15 — the shop account is the business. NOT
+                 the generic "try again": retrying is exactly what cannot work,
+                 the same reason the life-event refusal gets its own branch. */
+              SHOP_ACCOUNT_CANNOT_CREATE_COPY
+            : 'Something went wrong saving your plan. Please try again.',
       );
     } catch (err) {
       // Unwind everything and let them press the button again. Same words the

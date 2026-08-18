@@ -8,6 +8,8 @@ import {
   DATA_SUBJECT_REGISTER_ORDER,
 } from '@/lib/data-subject-register';
 import type { SubProcessor } from '../actions';
+import { ErrorState } from '@/app/_components/states/error-state';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 // Admin Compliance — NPC data-sheet export view.
@@ -19,7 +21,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 // processing" section. Everything is server-rendered — no client JS needed.
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'NPC data sheet · Setnayan HQ' };
+export const metadata = { title: 'NPC data sheet HQ' };
 
 const NF = new Intl.NumberFormat('en-PH');
 const TBD = '[TO CONFIRM]';
@@ -51,6 +53,20 @@ function Row({ field, value }: { field: string; value: unknown }) {
   );
 }
 
+/**
+ * ⛔ THIS TABLE IS NOT OWED A CONVERSION, AND THE BILL LINE THAT REMAINS ON THIS
+ * FILE IS THIS COMPONENT — deliberately, not as unfinished work.
+ *
+ * It is a FIELD SHEET, not a records list: `<th scope="row">` label + value
+ * pairs, rendered five times down a document the owner prints and files with the
+ * NPC. ConsoleTable is a columns-with-headers records component, so wearing it
+ * here would add a visible "Field | Value" header row to a filed document and
+ * drop the row-header semantics a screen reader uses to announce each field.
+ *
+ * Same reasoning as `ugat-console.tsx`: the shape is present, the conversion is
+ * not what is wanted. The file's other two tables — categories of data subjects,
+ * and sub-processors — ARE records lists and DID convert.
+ */
 function FieldTable({ children }: { children: React.ReactNode }) {
   return (
     <div className="sn-tile overflow-x-auto !p-0">
@@ -110,10 +126,24 @@ export default async function ComplianceDataSheetPage() {
     activeFaceCount(),
   ]);
 
+  /**
+   * ⚠ `factsRes.error` WAS NEVER CHECKED, ON THE PAGE A REGULATOR'S QUESTIONS
+   * LAND ON. `(factsRes.data ?? {})` turned a refused read into an empty object,
+   * so every NPC field rendered "[TO CONFIRM]" — indistinguishable from fields
+   * genuinely not yet settled — and the sub-processor table rendered "No
+   * sub-processors recorded." on a document the owner prints and files.
+   * Declaring no cross-border sub-processors when the read simply failed is the
+   * worst version of this defect in the admin tree. Corrected 2026-08-17.
+   */
+  const factsError = factsRes.error ?? null;
   const f = (factsRes.data ?? {}) as Record<string, unknown>;
-  const subs: SubProcessor[] = Array.isArray(f.sub_processors)
-    ? (f.sub_processors as SubProcessor[])
-    : [];
+  // NULL = not measured. An absent `sub_processors` on a row that DID load is a
+  // genuine zero and stays a zero.
+  const subs: SubProcessor[] | null = factsError
+    ? null
+    : Array.isArray(f.sub_processors)
+      ? (f.sub_processors as SubProcessor[])
+      : [];
 
   // Total data subjects = every account + every guest (couples/organizers,
   // vendors, and internal accounts are all in `users`; guests are separate).
@@ -142,6 +172,21 @@ export default async function ComplianceDataSheetPage() {
           itself.
         </p>
       </header>
+
+      {/* The field sheet below is deliberately NOT a ConsoleTable — see the
+          FieldTable docblock. But it still owes the distinction, and it cannot
+          make it cell-by-cell: every field would read "[TO CONFIRM]", which is
+          exactly what a settled-but-blank field reads. So the refusal is
+          declared ONCE, above the whole sheet, before anything can be copied
+          off it. */}
+      {factsError ? (
+        <ErrorState
+          title="Couldn’t read the stored compliance facts"
+          broke={`The read was refused: ${factsError.message}`}
+          survived="Every field below is showing its placeholder because nothing loaded — NOT because it is unsettled. Do not copy this sheet into a filing while this message is here."
+          todo="Reload. If it repeats, the query is being rejected rather than returning nothing, and the column, value or migration it names is the thing to check."
+        />
+      ) : null}
 
       <Block title="B.1 — Personal Information Controller (PIC)">
         <Row field="Registered / legal name" value={f.legal_name} />
@@ -186,50 +231,66 @@ export default async function ComplianceDataSheetPage() {
         <h3 className="pt-1 text-sm font-semibold tracking-tight text-ink">
           Categories of data subjects
         </h3>
-        <div className="sn-tile overflow-x-auto !p-0">
-          <table className="w-full min-w-[720px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-ink/15 text-left text-[11px] uppercase tracking-[0.12em] text-ink/55">
-                <th className="px-4 py-2 font-medium">Category</th>
-                <th className="px-4 py-2 font-medium">Personal data collected</th>
-                <th className="px-4 py-2 font-medium">Purpose</th>
-                <th className="px-4 py-2 font-medium">Retention (as enforced)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {DATA_SUBJECT_REGISTER_ORDER.map((key) => {
-                const c = DATA_SUBJECT_REGISTER[key];
-                return (
-                  <tr key={key} className="border-b border-ink/10 last:border-0 align-top">
-                    <td className="px-4 py-2 text-ink/90">
-                      {c.label}
-                      <span className="mt-0.5 block text-[11px] text-ink/50">
-                        {c.holdsAccount ? 'Holds a Setnayan account' : 'No Setnayan account'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-ink/80">
-                      <ul className="list-disc space-y-0.5 pl-4">
-                        {c.personalData.map((d) => (
-                          <li key={d}>{d}</li>
-                        ))}
-                      </ul>
-                    </td>
-                    <td className="px-4 py-2 text-ink/80">{c.purpose}</td>
-                    <td className="px-4 py-2 text-ink/80">
-                      {c.retention}
-                      {c.disposalDateSettled ? null : (
-                        <span className="mt-1 block text-[11px] italic text-ink/50">
-                          {TBD} — no automatic disposal date exists in code; the DPO
-                          must settle one before filing.
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {/* `readPermitted` is honestly `true` for a third reason again: this
+            renders from `lib/data-subject-register`, a local constant, so there
+            is no read to refuse and no permission to prove. It is a records list
+            in the register's own order, which is why it wears the table. */}
+        <ConsoleTable
+          rows={DATA_SUBJECT_REGISTER_ORDER.map((key) => ({ key, ...DATA_SUBJECT_REGISTER[key] }))}
+          readPermitted
+          label="Categories of data subjects"
+          minWidth="45rem"
+          rowKey={(c) => c.key}
+          empty={{
+            Icon: FileText,
+            title: 'No categories registered',
+            blurb:
+              'The categories come from the single register the guard holds against the schema. An empty list would mean that register is empty, which the guard would already have failed on.',
+          }}
+          columns={[
+            {
+              header: 'Category',
+              cell: (c) => (
+                <>
+                  <span className="text-ink/90">{c.label}</span>
+                  <span className="mt-0.5 block text-[11px] text-ink/70">
+                    {c.holdsAccount ? 'Holds a Setnayan account' : 'No Setnayan account'}
+                  </span>
+                </>
+              ),
+            },
+            {
+              header: 'Personal data collected',
+              hideBelow: 'md',
+              cell: (c) => (
+                <ul className="list-disc space-y-0.5 pl-4 text-ink/80">
+                  {c.personalData.map((d) => (
+                    <li key={d}>{d}</li>
+                  ))}
+                </ul>
+              ),
+            },
+            {
+              header: 'Purpose',
+              hideBelow: 'lg',
+              cell: (c) => <span className="text-ink/80">{c.purpose}</span>,
+            },
+            {
+              header: 'Retention (as enforced)',
+              cell: (c) => (
+                <span className="text-ink/80">
+                  {c.retention}
+                  {c.disposalDateSettled ? null : (
+                    <span className="mt-1 block text-[11px] italic text-ink/70">
+                      {TBD} — no automatic disposal date exists in code; the DPO must settle one
+                      before filing.
+                    </span>
+                  )}
+                </span>
+              ),
+            },
+          ]}
+        />
       </section>
 
       {/* NOT "B.4". The adopted registration sheet has no B-numbered field for
@@ -249,42 +310,40 @@ export default async function ComplianceDataSheetPage() {
         <h2 className="text-base font-semibold tracking-tight text-ink">
           B.8 — Sub-processors / cross-border transfers
         </h2>
-        <div className="sn-tile overflow-x-auto !p-0">
-          <table className="w-full min-w-[640px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-ink/15 text-left text-[11px] uppercase tracking-[0.12em] text-ink/55">
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Role</th>
-                <th className="px-4 py-2 font-medium">Jurisdiction</th>
-                <th className="px-4 py-2 font-medium">Personal data</th>
-                <th className="px-4 py-2 font-medium">DPA on file</th>
-              </tr>
-            </thead>
-            <tbody>
-              {subs.length === 0 ? (
-                <tr>
-                  <td className="px-4 py-3 italic text-ink/40" colSpan={5}>
-                    No sub-processors recorded.
-                  </td>
-                </tr>
-              ) : (
-                subs.map((sp, i) => (
-                  <tr key={i} className="border-b border-ink/10 last:border-0 align-top">
-                    <td className="px-4 py-2 text-ink/90">{val(sp.name)}</td>
-                    <td className="px-4 py-2 text-ink/80">{val(sp.role)}</td>
-                    <td className="px-4 py-2 text-ink/80">{val(sp.jurisdiction)}</td>
-                    <td className="px-4 py-2 text-ink/80">
-                      {sp.personal_data ? 'Yes' : 'No'}
-                    </td>
-                    <td className="px-4 py-2 text-ink/80">
-                      {sp.dpa_on_file ? 'Yes' : 'No'}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <ConsoleTable
+          rows={subs}
+          readPermitted
+          readError={factsError}
+          reads="the recorded sub-processors"
+          label="Sub-processors and cross-border transfers"
+          minWidth="42rem"
+          rowKey={(sp, i) => `${sp.name ?? 'sub'}-${i}`}
+          empty={{
+            Icon: FileText,
+            title: 'No sub-processors recorded',
+            blurb:
+              'Add each one on the Compliance page before filing. This section of the NPC sheet is where every cross-border transfer has to be declared, so an empty list here is a claim that there are none.',
+          }}
+          columns={[
+            { header: 'Name', cell: (sp) => <span className="text-ink/90">{val(sp.name)}</span> },
+            { header: 'Role', cell: (sp) => <span className="text-ink/80">{val(sp.role)}</span> },
+            {
+              header: 'Jurisdiction',
+              hideBelow: 'md',
+              cell: (sp) => <span className="text-ink/80">{val(sp.jurisdiction)}</span>,
+            },
+            {
+              header: 'Personal data',
+              hideBelow: 'lg',
+              cell: (sp) => <span className="text-ink/80">{sp.personal_data ? 'Yes' : 'No'}</span>,
+            },
+            {
+              header: 'DPA on file',
+              hideBelow: 'lg',
+              cell: (sp) => <span className="text-ink/80">{sp.dpa_on_file ? 'Yes' : 'No'}</span>,
+            },
+          ]}
+        />
       </section>
 
       <Block title="B.4 / B.5 — Processing declarations">

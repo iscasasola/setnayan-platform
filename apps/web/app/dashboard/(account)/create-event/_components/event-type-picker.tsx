@@ -382,12 +382,13 @@ export function EventTypePicker({
           <div className="rounded-xl border border-terracotta/25 bg-terracotta/[0.05] p-4">
             <p className="text-sm font-medium text-ink">A different, new marriage</p>
             <p className="mt-1 text-xs leading-relaxed text-ink/60">
-              You can only plan one wedding at a time. Finish or archive {inPlanningWedding.displayName}{' '}
-              first — once its day has passed or it’s archived, you can start a new one.
+              You can only plan one wedding at a time. Finish {inPlanningWedding.displayName}{' '}
+              first, or put it away — once its day has passed or it’s put away, you can
+              start a new one.
             </p>
             <Link
               className="mt-3 inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-mulberry/90"
-              href={`/dashboard/${inPlanningWedding.eventId}`}
+              href={`/dashboard/${inPlanningWedding.eventId}/details`}
             >
               Go to {inPlanningWedding.displayName}
             </Link>

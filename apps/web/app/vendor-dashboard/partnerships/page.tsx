@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { Handshake, CheckCircle2, Inbox, Send, Sparkles } from 'lucide-react';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { FormFlash } from '@/app/_components/forms/form-flash';
@@ -67,7 +68,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   // Fetch every partnership this vendor is a party to (either direction), in
   // any status. RLS "parties read own vendor partnerships" scopes this to rows
   // where the current vendor is proposer or recipient.
-  const { data: rows } = await supabase
+  const { data: rows, error: rowsError } = await supabase
     .from('vendor_partnerships')
     .select(
       'id, recommending_vendor_id, recommended_vendor_id, relationship_type, status, is_active, created_at',
@@ -75,6 +76,15 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
     .or(`recommending_vendor_id.eq.${myId},recommended_vendor_id.eq.${myId}`)
     .order('created_at', { ascending: false });
 
+  // ⚠ EVERY PARTNERSHIP THEY ARE PART OF, IN ONE READ — so a refusal empties
+  // ⚠ all three inboxes at once. The worst of the three is INCOMING: a proposal
+  // ⚠ from another supplier, waiting on this person to answer, simply is not
+  // ⚠ there. Nothing looks wrong, and the cost lands on somebody who cannot see
+  // ⚠ this page and is waiting for a reply that will never come.
+  if (rowsError) {
+    logQueryError('VendorPartnershipsPage.rows', rowsError, { myId }, 'graceful_degrade');
+  }
+  const partnershipsMeasured = !rowsError && rows !== null;
   const partnerships = (rows ?? []) as PartnershipRow[];
 
   // Resolve the OTHER party's display name for every partnership.
@@ -87,10 +97,17 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   );
   const nameMap = new Map<string, string>();
   if (otherIds.length > 0) {
-    const { data: others } = await supabase
+    const { data: others, error: othersError } = await supabase
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name')
       .in('vendor_profile_id', otherIds);
+    // ⚠ the OTHER shop's name on each partnership. Refused, `nameMap.get(id) ??
+    // ⚠ id` falls through to the raw profile id, so the partner reads as a
+    // ⚠ machine code. A label failure, not a count failure — the partnerships
+    // ⚠ are all still listed, they just stop naming anybody.
+    if (othersError) {
+      logQueryError('VendorPartnershipsPage.others', othersError, { myId }, 'graceful_degrade');
+    }
     for (const v of (others ?? []) as { vendor_profile_id: string; business_name: string }[]) {
       nameMap.set(v.vendor_profile_id, v.business_name);
     }
@@ -112,9 +129,23 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   // "Worked together" hints — vendor_profile_ids this vendor has shared an
   // event with (marketplace co-occurrence). Surfaced as an eligibility hint in
   // the propose picker; NOT a hard block. SECURITY DEFINER RPC, scoped to my id.
-  const { data: workedRows } = await supabase.rpc('vendor_worked_with_ids', {
-    for_vendor: myId,
-  });
+  const { data: workedRows, error: workedRowsError } = await supabase.rpc(
+    'vendor_worked_with_ids',
+    { for_vendor: myId },
+  );
+  // ⚠ THE MILDEST ONE ON THIS PAGE, AND IT IS STILL WORTH BINDING. This only
+  // ⚠ floats shops they have worked with to the top of the picker, so a refusal
+  // ⚠ costs an ordering, not a fact. Nothing is claimed falsely, so there is no
+  // ⚠ notice — but the reason still has to reach the logs, or the ranking
+  // ⚠ quietly stops working and nobody ever learns why.
+  if (workedRowsError) {
+    logQueryError(
+      'VendorPartnershipsPage.workedWith',
+      workedRowsError,
+      { myId },
+      'graceful_degrade',
+    );
+  }
   const workedWith = new Set(
     ((workedRows ?? []) as (string | { vendor_worked_with_ids: string })[]).map((r) =>
       typeof r === 'string' ? r : r.vendor_worked_with_ids,
@@ -129,7 +160,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   // counts use), not by a column that never existed — proposing to a shop that
   // is not live is pointless, and after the 2026-07-27 ruling `verified` is the
   // only publicly-real state.
-  const { data: allVendors } = await supabase
+  const { data: allVendors, error: allVendorsError } = await supabase
     .from('vendor_profiles')
     .select('vendor_profile_id, business_name')
     .eq('public_visibility', 'verified')
@@ -137,6 +168,20 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
     .neq('vendor_profile_id', myId)
     .order('business_name', { ascending: true })
     .limit(300);
+  // ⚠ THIS PICKER HAS ALREADY SHIPPED PERMANENTLY EMPTY ONCE — see the note
+  // ⚠ above: a column that did not exist made PostgREST answer 42703 and no
+  // ⚠ supplier could propose a partnership to anybody. `?? []` is what made
+  // ⚠ that look like an empty marketplace rather than a broken query, and it is
+  // ⚠ still what would hide the next one.
+  if (allVendorsError) {
+    logQueryError(
+      'VendorPartnershipsPage.allVendors',
+      allVendorsError,
+      { myId },
+      'graceful_degrade',
+    );
+  }
+  const vendorOptionsMeasured = !allVendorsError && allVendors !== null;
   const vendorOptions = (allVendors ?? []) as VendorOption[];
 
   // Sort the picker so vendors you've worked with float to the top.
@@ -185,7 +230,17 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
         <h2 className="mb-3 flex items-center gap-2 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           <Inbox className="h-3.5 w-3.5" /> Incoming proposals ({incoming.length})
         </h2>
-        {incoming.length === 0 ? (
+        {!partnershipsMeasured ? (
+          <p
+            role="alert"
+            className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 px-4 py-3 text-sm text-ink/70"
+          >
+            <strong className="text-ink">We couldn&rsquo;t load your partnerships.</strong>{' '}
+            Proposals, partners and sent invitations are all missing from this
+            page because the read failed &mdash; not because there are none.
+            Reload before assuming nobody has written to you.
+          </p>
+        ) : incoming.length === 0 ? (
           <p className="rounded-xl border border-dashed border-ink/15 px-4 py-6 text-center text-sm text-ink/45">
             No pending proposals. When another vendor proposes a partnership with you, it
             shows up here to accept or decline.
@@ -340,6 +395,17 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
             </p>
           </div>
         </div>
+
+        {!vendorOptionsMeasured ? (
+          <p
+            role="alert"
+            className="mb-4 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 px-4 py-3 text-sm text-ink/70"
+          >
+            <strong className="text-ink">We couldn&rsquo;t load the vendor list.</strong>{' '}
+            The picker below is empty because the read failed, not because there
+            is nobody to partner with. Reload in a moment.
+          </p>
+        ) : null}
 
         <form action={proposePartnership} className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">

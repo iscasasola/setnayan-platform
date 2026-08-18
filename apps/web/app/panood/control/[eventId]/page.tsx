@@ -130,7 +130,7 @@ import {
   deleteHighlight,
 } from './actions';
 
-export const metadata = { title: 'Live Studio controller · Setnayan' };
+export const metadata = { title: 'Live Studio controller' };
 
 // ═════════════════════════════════════════════════════════════════════════════
 // LIVE STUDIO CONTROLLER — the OWNER-APPROVED single-screen layout
@@ -339,11 +339,28 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: event } = await supabase
+  // RLS is the gate, so `{ data: null, error: null }` is the designed 404 —
+  // "not your event". A REJECTED query also lands on null, and answering that
+  // with the same 404 tells a host mid-event that their own control room does
+  // not exist. The two are distinguishable; they are now distinguished.
+  const { data: event, error: eventError } = await supabase
     .from('events')
     .select('event_id, display_name, slug, monogram_text')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (eventError) {
+    console.error('[panood/control] event read refused', eventError);
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+        <h1 className="text-xl font-semibold text-ink">We couldn&rsquo;t open the control room</h1>
+        <p className="mt-3 text-sm text-ink/70">
+          Something went wrong reading your event — this is <strong>not</strong> a sign it
+          was deleted or that you have lost access. If you are already on air, you are
+          still on air. Reload in a moment.
+        </p>
+      </main>
+    );
+  }
   if (!event) notFound();
 
   // ── WAVE 4 · HOST GATE, and it is now load-bearing.
@@ -365,13 +382,17 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   const detailHref = liveStudioDetailPath(eventId);
 
   // ── Camera channels (control-plane; RLS scopes to the host's own event).
-  const { data: zoneRows } = await supabase
+  // Refused, the operator sees NO camera zones — identical to an event that has
+  // none set up, on the screen they use to run a live broadcast.
+  const { data: zoneRows, error: zoneError } = await supabase
     .from('live_studio_roam_zones')
     .select(
       'id, zone_index, label, venue_label, is_featured, is_main_stage, status, camera_operator_id',
     )
     .eq('event_id', eventId)
     .order('zone_index', { ascending: true });
+  if (zoneError) console.error('[panood/control] zone read refused', zoneError);
+  const zonesUnreadable = Boolean(zoneError) || zoneRows === null;
   const zoneBase = (zoneRows ?? []) as ZoneRow[];
 
   // ── WAVE 4 · THE JOINED CAMERAS ───────────────────────────────────────────
@@ -459,13 +480,16 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // ── FREE single-camera livestream state (reuses the live panood reads verbatim).
   const oauthReady = (await getYoutubeOAuthConfig()).ready;
 
-  const { data: grantRaw } = await supabase
+  // Refused, this reads as "YouTube not connected" — so an operator whose
+  // channel IS connected is invited to reconnect it mid-event.
+  const { data: grantRaw, error: grantError } = await supabase
     .from('oauth_grants')
     .select('grant_id, external_account_display')
     .eq('event_id', eventId)
     .eq('provider', 'youtube')
     .is('revoked_at', null)
     .maybeSingle();
+  if (grantError) console.error('[panood/control] youtube grant read refused', grantError);
   const youtubeGrant = (grantRaw ?? null) as YoutubeGrant;
 
   let youtubeWatchUrl: string | null = null;
@@ -506,11 +530,16 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // crashing — the same posture as the broadcast read above.
   let manualOnAirAt: string | null = null;
   {
-    const { data } = await admin
+    // Fail-soft is deliberate here and is KEPT (a pre-migration environment must
+    // read "off air" rather than crash the control room). But the swallow was
+    // total: refused, the room reads OFF AIR while the broadcast may be live.
+    // The trade stands; the reason now reaches the logs.
+    const { data, error: onAirError } = await admin
       .from('events')
       .select('panood_manual_on_air_at')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (onAirError) console.error('[panood/control] manual on-air read refused', onAirError);
     manualOnAirAt = (data as { panood_manual_on_air_at?: string | null } | null)
       ?.panood_manual_on_air_at ?? null;
   }
@@ -1279,11 +1308,23 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             ) : null}
           </div>
 
+          {/* 🔑 THE EMPTY STATE IS CORRECTED IN PLACE, NOT ADDED ABOVE. This shell
+              is the owner-locked scroll-free controller ("nothing under and above
+              it"), so a banner is not available here — and it is not needed: the
+              lie was always this sentence, which invited an operator with cameras
+              already set up to go and add their first one, mid-event. */}
           {zones.length === 0 ? (
-            <p className="px-1 text-[11px] leading-snug text-ink/50">
-              No cameras yet. Add your first in Setup — each one becomes its own channel you can put on
-              Channel 1 with a tap. Setting them up and rehearsing with them is free.
-            </p>
+            zonesUnreadable ? (
+              <p className="px-1 text-[11px] leading-snug text-warn-900">
+                Your cameras couldn&rsquo;t be loaded just now — this is not a sign you have
+                none. Any camera already set up is still set up. Reload to bring them back.
+              </p>
+            ) : (
+              <p className="px-1 text-[11px] leading-snug text-ink/50">
+                No cameras yet. Add your first in Setup — each one becomes its own channel you can put on
+                Channel 1 with a tap. Setting them up and rehearsing with them is free.
+              </p>
+            )
           ) : null}
 
           {atCap ? (

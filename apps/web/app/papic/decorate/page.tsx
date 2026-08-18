@@ -1,4 +1,5 @@
 import { Sparkles } from 'lucide-react';
+import { DoorShell } from '@/app/_components/door/door-shell';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestActive } from '@/lib/papic-guest';
@@ -15,28 +16,21 @@ import { KwentoDecorator } from './_components/kwento-decorator';
 
 export const dynamic = 'force-dynamic';
 
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
-      <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center shadow-sm">
-        <Sparkles aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
-        {children}
-      </div>
-    </main>
-  );
-}
-
 export default async function PapicDecoratePage() {
   const session = await readGuestSession();
   if (!session) {
     return (
-      <Shell>
-        <h1 className="mt-3 text-xl font-semibold tracking-tight">Open your invitation first</h1>
-        <p className="mt-2 text-sm text-ink/65">
-          Scan your personal QR or open your invite link, then come back here to
-          decorate a photo for the host.
-        </p>
-      </Shell>
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Photo decorating
+          </>
+        }
+        title="Open your invitation first."
+        sub="Scan your personal QR or open your invite link, then come back here to decorate a photo for the host."
+      />
     );
   }
 
@@ -44,12 +38,17 @@ export default async function PapicDecoratePage() {
   const owns = await eventPapicGuestActive(admin, session.event_id);
   if (!owns) {
     return (
-      <Shell>
-        <h1 className="mt-3 text-xl font-semibold tracking-tight">Not on yet</h1>
-        <p className="mt-2 text-sm text-ink/65">
-          The host hasn&rsquo;t turned on guest cameras for this event yet.
-        </p>
-      </Shell>
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Photo decorating
+          </>
+        }
+        title="Not on yet."
+        sub="The host hasn't turned on guest cameras for this event yet."
+      />
     );
   }
 

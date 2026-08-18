@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { Suspense } from 'react';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventWordsFor } from './_lib/event-words';
 import { InvitationSkeleton } from './_components/invitation-skeleton';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { isSetnayanHost, isLocalOrPreviewHost } from '@/lib/custom-domain-resolve';
@@ -57,6 +58,7 @@ import {
   guestIdentity,
   resolveOwnerCapability,
   resolveVendorCapability,
+  vendorBookingIsCommitted,
   type AnonymousReason,
   type OwnerCapability,
 } from './_lib/site-identity';
@@ -149,7 +151,10 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   // leak the couple's names into SERP snippets via metadata.
   if (visibility !== 'public') {
     return {
-      title: eventNounOf(event) === 'wedding' ? 'Wedding invitation' : 'Event invitation',
+      // The event type's own word, capitalised — "Wedding invitation" on a
+    // wedding (byte-identical), "Birthday invitation" on a birthday. Was a
+    // two-way patch that flattened all 15 other types to "Event".
+    title: `${(await eventWordsFor(event.event_type)).eventWord.replace(/^./, (c) => c.toUpperCase())} invitation`,
       robots: { index: false, follow: false },
     };
   }
@@ -463,6 +468,34 @@ async function InvitationBody({
     // card was a real defect — a `<Link>` prefetch executed it when a card merely
     // scrolled into view. See lib/guest-membership-session.ts.
     let isSeatHolder = false;
+    // Path E — a supplier this couple has BOOKED on this event.
+    //
+    // 🔴 THE BUG THIS CLOSES. The supplier doorway, its gate and its read have
+    // all shipped since 2026-08-03, and the link they key on is stamped
+    // automatically at lock. None of it could ever fire on a PRIVATE event,
+    // because this gate refused the supplier ~200 lines before
+    // `resolveVendorCapability` was called: a booked supplier is not a redeemed
+    // guest, not a host, not a seat-holder and not an invited account, so they
+    // met the lock screen telling them to "scan your invitation QR" — a QR
+    // nobody ever sends a supplier. 4 of 6 production events are private.
+    //
+    // 🔒 IT ADMITS THEM TO THE PAGE AND NOTHING ELSE — the same boundary Path C
+    // states for seat-holders. No guest session is minted (a render cannot write
+    // cookies), so every per-guest surface below still keys on the cookie this
+    // viewer does not have: they fall through to `renderAnonymous`, whose
+    // identity is built by the key-pick firewall in _lib/site-identity.ts and is
+    // structurally incapable of carrying a guest name, seat or RSVP.
+    //
+    // 🔒 BOOKED, NOT MERELY LISTED. The predicate is the row's STATUS, not the
+    // presence of the link — `lib/reusable-bookings.server.ts` mints a linked
+    // row at 'shortlisted' for a reuse offer the couple has yet to lock, and a
+    // supplier the couple is still only considering has not been chosen to read
+    // a private celebration. This is the same boundary PR-H draws on the vendor
+    // brief: an ASKED supplier gets no venue address and no run-of-show.
+    //
+    // Same React.cache'd read the doorway itself uses further down, so this
+    // costs no extra query for the viewer who turns out to be one.
+    let isBookedSupplier = false;
     if (!guestSessionMatches) {
       const supabase = await createClient();
       const {
@@ -485,11 +518,21 @@ async function InvitationBody({
           if (!isSeatHolder && visibility === 'invited_accounts') {
             isSeatHolder = await isInvitedAccount(event.event_id, user.id);
           }
+          // Path E, resolved last — see the block comment above. Deliberately
+          // its OWN flag and never folded into `isSeatHolder`: a supplier is
+          // not a guest, and letting the two share a variable is how a later
+          // edit reaches for "the guest one" and hands a supplier a guest
+          // surface.
+          if (!isSeatHolder) {
+            const booking = await loadVendorBooking(admin, event.event_id, user.id);
+            isBookedSupplier =
+              booking !== null && vendorBookingIsCommitted(booking.bookingStatus);
+          }
         }
       }
     }
 
-    if (!guestSessionMatches && !isAuthedHost && !isSeatHolder) {
+    if (!guestSessionMatches && !isAuthedHost && !isSeatHolder && !isBookedSupplier) {
       return (
         <PrivateLanding
           event={event}
@@ -729,7 +772,11 @@ async function InvitationBody({
     proWatermarkHidden,
     siteColorVars,
     editorMode,
-    // Declared-but-unconsumed foundation (see the owner-layer block above).
+    // ⚠ NO LONGER "declared but unconsumed", which this line claimed long after
+    // both had consumers. `ownerCapability` drives the read-only owner ribbon
+    // and the host's own body copy (lib/owner-ribbon.ts, site-body.tsx);
+    // `vendorCapability` mounts the supplier doorway above the tier fork. Both
+    // are null for everyone else, so nothing renders for a stranger.
     ownerCapability,
     vendorCapability,
   };

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -51,11 +52,15 @@ export default async function TeaCeremonyPage({ params }: Props) {
   }
 
   const supabase = await createClient();
-  const { data: eventRow } = await supabase
+  const { data: eventRow, error: eventRowError } = await supabase
     .from('events')
     .select('event_id, display_name, ceremony_type, secondary_ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ the event record this page reads against. Degrades rather than claiming.
+  if (eventRowError) {
+    logQueryError('TeaCeremonyPage.eventRow', eventRowError, { eventId }, 'graceful_degrade');
+  }
 
   // RLS-denied (not the couple's event) OR not a Chinese wedding → 404. The
   // ceremony gate is the whole reason this tool exists; non-Chinese events

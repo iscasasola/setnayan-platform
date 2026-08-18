@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import {
   AlertCircle,
@@ -75,7 +76,7 @@ type PaymentSettings = {
   gcash_qr_url: string | null;
 };
 
-export const metadata = { title: 'Patiktok · Setnayan' };
+export const metadata = { title: 'Patiktok' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -109,11 +110,15 @@ export default async function PatiktokGallery({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: event } = await supabase
+  const { data: event, error: eventError } = await supabase
     .from('events')
     .select('display_name, event_date')
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ the event record. Degrades rather than claiming.
+  if (eventError) {
+    logQueryError('PatiktokPage.event', eventError, { eventId }, 'graceful_degrade');
+  }
 
   const activeCategory: PatiktokCategory | 'all' =
     PATIKTOK_CATEGORIES.find((c) => c.key === category)?.key ?? 'all';
@@ -123,7 +128,7 @@ export default async function PatiktokGallery({
       ? PATIKTOK_TEMPLATES
       : PATIKTOK_TEMPLATES.filter((t) => t.category === activeCategory);
 
-  const { data: jobsRaw } = await supabase
+  const { data: jobsRaw, error: jobsRawError } = await supabase
     .from('patiktok_render_jobs')
     .select(
       'job_id, template_slug, duration_sec, status, output_url, output_object_key, failure_reason, enqueued_at, completed_at',
@@ -131,6 +136,11 @@ export default async function PatiktokGallery({
     .eq('event_id', eventId)
     .order('enqueued_at', { ascending: false })
     .limit(20);
+  // ⚠ the renders the couple queued. Refused, the list reads as empty and a video
+  // ⚠ they are waiting on looks as though it was never requested.
+  if (jobsRawError) {
+    logQueryError('PatiktokPage.jobsRaw', jobsRawError, { eventId }, 'graceful_degrade');
+  }
   const jobs = (jobsRaw ?? []) as RenderJobRow[];
 
   // Resolve a fresh presigned download URL for completed reels (the stored
@@ -156,12 +166,17 @@ export default async function PatiktokGallery({
     for (const [id, url] of entries) downloadUrls[id] = url;
   }
 
-  const { data: grantRaw } = await supabase
+  const { data: grantRaw, error: grantRawError } = await supabase
     .from('patiktok_oauth_grants')
     .select('tiktok_handle, tiktok_open_id, expires_at')
     .eq('event_id', eventId)
     .is('revoked_at', null)
     .maybeSingle();
+  // ⚠ the connected account. Refused, it reads as never connected and the page offers
+  // ⚠ to link one they already linked.
+  if (grantRawError) {
+    logQueryError('PatiktokPage.grantRaw', grantRawError, { eventId }, 'graceful_degrade');
+  }
   const tiktokGrant = (grantRaw ?? null) as TiktokGrant | null;
 
   // TikTok auto-post (path-A OAuth) ships DORMANT. The optional "connect" CTA

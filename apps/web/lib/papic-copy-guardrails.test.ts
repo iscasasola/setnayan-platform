@@ -46,8 +46,8 @@ const WEB = join(HERE, '..');
  * Add a file here the moment it starts showing one — that is the whole point.
  */
 const PAPIC_COPY_FILES = [
-  'app/pricing/page.tsx',
-  'app/pricing/_papic-estimator.tsx',
+  'app/(shell)/pricing/page.tsx',
+  'app/(shell)/pricing/_papic-estimator.tsx',
   'app/_components/home/pricing-data.ts',
   'app/dashboard/[eventId]/studio/papic/guest-camera-tier-picker.tsx',
   // The onboarding services step (2026-07-29) — the FIRST place most couples
@@ -202,7 +202,7 @@ test('free-pool points come from config, not a literal', () => {
  * A ladder here again is not forbidden — a ladder derived from `papic_tier_config`
  * is. Build it from the RUNG tables (`papic_pass_tiers` / `papic_one_tiers` +
  * `papic_event_pool_config`) priced off the live catalog, the way
- * `app/pricing/page.tsx` does, and phrase it through `papicPoolRungPhrase` /
+ * `app/(shell)/pricing/page.tsx` does, and phrase it through `papicPoolRungPhrase` /
  * `papicOneRungPhrase` — then move this assertion to whatever the new surface is.
  */
 test('the homepage pricing payload makes no Papic claim', () => {

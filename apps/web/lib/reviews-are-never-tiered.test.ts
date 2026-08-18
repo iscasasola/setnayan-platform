@@ -68,7 +68,7 @@ test('no surface tells a couple that reviews unlock on upgrade', () => {
   const banned = /reviews?\s+unlock|unlock[^.]{0,40}reviews?/i;
   for (const rel of [
     'app/v/[slug]/page.tsx',
-    'app/explore/page.tsx',
+    'app/(shell)/explore/page.tsx',
     'app/vendors/_components/vendor-tier-matrix.tsx',
   ]) {
     const src = readFileSync(join(WEB, rel), 'utf8');

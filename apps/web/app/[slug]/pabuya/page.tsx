@@ -1,9 +1,12 @@
+import { RoomFooter } from '../_components/room-footer';
+import { loadRoomLinks } from '../_lib/room-links.server';
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventWordsFor } from '../_lib/event-words';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildSitePaletteVars } from '@/lib/site-palette';
@@ -98,12 +101,24 @@ export default async function PabuyaPublicPage({
     qrUrl: m.qrDisplayUrl,
   }));
 
-  const coupleName = event.display_name ?? 'the couple';
+  // This event type's word for whoever is throwing it. Wedding → 'couple', so
+  // both sentences below stay byte-identical for a wedding.
+  const words = await eventWordsFor(event.event_type);
+
+  // `pabuyaViewerAllowed: true` is EARNED — this IS the money-gift page, and it
+  // ran `canViewSlugEvent` above and redirected away if it failed.
+  const roomLinks = await loadRoomLinks({
+    event,
+    current: 'gifts',
+    pabuyaViewerAllowed: true,
+  });
+  // The event's own name when it has one; otherwise that word.
+  const hostName = event.display_name ?? words.theOrganizer;
 
   return (
     <main className="min-h-dvh bg-cream text-ink" style={wrapStyle}>
       <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-xl items-center justify-between px-4 py-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href={`/${slug}`} className="flex items-center gap-2 text-ink">
             <Logo height={26} />
           </Link>
@@ -113,17 +128,18 @@ export default async function PabuyaPublicPage({
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
+      <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
         <div className="mb-8 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold-deep">
             The pabuya · digital money dance
           </p>
           <h1 className="mt-2 font-display text-3xl font-medium italic sm:text-4xl">
-            A blessing for {coupleName}
+            A blessing for {hostName}
           </h1>
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-ink/65">
-            Pin your cash on the couple — wherever you are in the world. Scan a
-            QR or copy a handle and send it straight to their own account.
+            Pin your cash on {words.theOrganizer} — wherever you are in the
+            world. Scan a QR or copy a handle and send it straight to their own
+            account.
           </p>
         </div>
 
@@ -131,7 +147,7 @@ export default async function PabuyaPublicPage({
           <PabuyaCardList methods={cards} />
         ) : (
           <p className="rounded-2xl border border-dashed border-ink/20 bg-white/60 px-4 py-10 text-center text-sm text-ink/60">
-            {coupleName} hasn&rsquo;t set up e-gifts yet. Check back soon — or
+            {hostName} hasn&rsquo;t set up e-gifts yet. Check back soon — or
             visit their page in the meantime.
           </p>
         )}
@@ -144,12 +160,13 @@ export default async function PabuyaPublicPage({
           <p className="font-display text-xl italic text-mulberry">
             Ang laki ng pasasalamat namin.
           </p>
-          <p className="mt-1 text-sm text-ink/60">— {coupleName}</p>
+          <p className="mt-1 text-sm text-ink/60">— {hostName}</p>
           <p className="mt-6 font-mono text-xs uppercase tracking-[0.14em] text-ink/45">
-            Kept forever on Setnayan
+            Kept safe on Setnayan
           </p>
         </footer>
       </div>
+      <RoomFooter links={roomLinks} />
     </main>
   );
 }

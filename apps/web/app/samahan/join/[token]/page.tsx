@@ -6,10 +6,11 @@ import {
   fetchPendingCommunityInvite,
 } from '@/lib/communities';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
 import { acceptCommunityInvite } from './actions';
 
 export const metadata = {
-  title: 'Join a Samahan · Setnayan',
+  title: 'Join a Samahan',
   robots: { index: false, follow: false },
 };
 
@@ -55,22 +56,23 @@ export default async function SamahanJoinPage({ params, searchParams }: Props) {
   if (resolution.status !== 'ok') {
     const copy = TERMINAL_COPY[resolution.status];
     return (
-      <Shell>
-        <div className="space-y-4 text-center">
-          <p className="inline-flex items-center justify-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+      <DoorShell
+        // Nothing to walk through — a revoked or expired link is a message,
+        // not a task, so it does not wear the action colour.
+        tone="dead_end"
+        eyebrow={
+          <>
             <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Setnayan · Samahan
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight">{copy.title}</h1>
-          <p className="text-sm text-ink/65">{copy.body}</p>
-          <Link
-            href="/"
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-3 text-sm font-medium text-cream transition hover:bg-mulberry-600"
-          >
-            Go home
-          </Link>
-        </div>
-      </Shell>
+            Samahan
+          </>
+        }
+        title={copy.title}
+        sub={copy.body}
+      >
+        <Link href="/" className="button-secondary">
+          Go home
+        </Link>
+      </DoorShell>
     );
   }
 
@@ -85,110 +87,87 @@ export default async function SamahanJoinPage({ params, searchParams }: Props) {
   if (!user) {
     const nextUrl = `/samahan/join/${token}`;
     return (
-      <Shell>
-        <InviteHeader
-                    memberCount={invite.member_count}
-          name={invite.name}
-        />
-        <p className="text-center text-sm text-ink/65">
-          Sign in or create a free account to join.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Link
-            href={`/signup?next=${encodeURIComponent(nextUrl)}`}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-3 text-sm font-medium text-cream transition hover:bg-mulberry-600"
-          >
+      <InviteDoor invite={invite} sub="Sign in or create a free account to join.">
+        <DoorActions>
+          <Link href={`/signup?next=${encodeURIComponent(nextUrl)}`} className="button-primary">
             Create account
           </Link>
-          <Link
-            href={`/login?next=${encodeURIComponent(nextUrl)}`}
-            className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-5 py-3 text-sm font-medium text-ink/80 transition hover:bg-ink/[0.03]"
-          >
+          <Link href={`/login?next=${encodeURIComponent(nextUrl)}`} className="button-secondary">
             Sign in
           </Link>
-        </div>
-      </Shell>
+        </DoorActions>
+      </InviteDoor>
     );
   }
 
   if (search.error) {
     return (
-      <Shell>
-        <div className="space-y-4 text-center">
-          <p className="inline-flex items-center justify-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
             <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Setnayan · Something went wrong
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            We couldn’t complete that just now.
-          </h1>
-          <p className="text-sm text-ink/65">
-            Error: {search.error}. Try again, or ask an organizer for a fresh
-            link.
-          </p>
-        </div>
-      </Shell>
+            Something went wrong
+          </>
+        }
+        title="We couldn’t complete that just now."
+        sub={`Error: ${search.error}. Try again, or ask an organizer for a fresh link.`}
+      >
+        <Link href="/" className="button-secondary">
+          Go home
+        </Link>
+      </DoorShell>
     );
   }
 
   // Signed in — Join / No-thanks.
   return (
-    <Shell>
-      <InviteHeader
-                memberCount={invite.member_count}
-        name={invite.name}
-      />
-      <div className="grid gap-3 sm:grid-cols-2">
+    <InviteDoor invite={invite}>
+      <DoorActions>
         <form action={acceptCommunityInvite}>
-          <input name="token" type="hidden" value={token} />
-          <SubmitButton
-            pendingLabel="Joining…"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-3 text-sm font-medium text-cream transition hover:bg-mulberry-600"
-          >
+          <SubmitButton pendingLabel="Joining…" className="button-primary w-full gap-2">
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Join {invite.name}
           </SubmitButton>
+          <input name="token" type="hidden" value={token} />
         </form>
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-5 py-3 text-sm font-medium text-ink/70 transition hover:bg-ink/[0.03]"
-        >
+        <Link href="/dashboard" className="button-secondary">
           No thanks
         </Link>
-      </div>
-    </Shell>
+      </DoorActions>
+    </InviteDoor>
   );
 }
 
-function InviteHeader({
-  memberCount,
-  name,
+/**
+ * The live invite door — one header for the signed-out and signed-in branches,
+ * which previously rendered it twice from a local <InviteHeader>.
+ *
+ * 🔒 Pre-join we show the samahan's NAME and member COUNT only, never member
+ * names (plan §9, no roster-scraping). That rule is why `meta` is a count.
+ */
+function InviteDoor({
+  invite,
+  sub,
+  children,
 }: {
-  memberCount: number;
-  name: string;
+  invite: { name: string; member_count: number };
+  sub?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <header className="space-y-3 text-center">
-      <p className="inline-flex items-center justify-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
-        <HeartHandshake aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        You&rsquo;re invited
-      </p>
-      <h1 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">
-        Join {name}?
-      </h1>
-      <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
-        {memberCount} {memberCount === 1 ? 'member' : 'members'}
-      </p>
-    </header>
-  );
-}
-
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-4 py-10 sm:px-6">
-      <div className="space-y-6 rounded-2xl border border-ink/10 bg-cream p-6 sm:p-8">
-        {children}
-      </div>
-    </main>
+    <DoorShell
+      eyebrow={
+        <>
+          <HeartHandshake aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          You&rsquo;re invited
+        </>
+      }
+      title={`Join ${invite.name}?`}
+      sub={sub}
+      meta={`${invite.member_count} ${invite.member_count === 1 ? 'member' : 'members'}`}
+    >
+      {children}
+    </DoorShell>
   );
 }

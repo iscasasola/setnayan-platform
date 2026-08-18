@@ -39,6 +39,7 @@ import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventWordsForEvent, type EventWords } from '../../_lib/event-words';
 import {
   resolveEventMonogram,
   HERO_MONOGRAM_COLUMNS,
@@ -53,6 +54,13 @@ const SHARE_SITE_URL = (
 /** The "Watch the Film" section's anchor. Named once so the section that OWNS it
  *  and the colophon link that AIMS at it cannot drift apart. */
 const WATCH_FILM_ANCHOR_ID = 'watch-the-film';
+
+/** 'wedding' → 'Wedding'; 'gender reveal' → 'Gender Reveal'. Two slots in this
+ *  file are Title Case headings ("The Wedding Day (Live)"), so the event word
+ *  has to be capitalised per word rather than lower-cased into them. */
+function capitaliseWords(s: string): string {
+  return s.replace(/\b[a-z]/g, (c) => c.toUpperCase());
+}
 
 export async function EditorialContent({
   eventId,
@@ -72,6 +80,12 @@ export async function EditorialContent({
    */
   galleryAnchorId?: string | null;
 }): Promise<ReactElement> {
+  // The event's own words. This page is the STORY AFTER the event and was the
+  // densest pocket of wedding language left — eleven sentences, including two
+  // Title-Case headings and three screen-reader labels a sighted reader never
+  // sees. Resolved from the event id because this component receives only that;
+  // `resolveProfileByEvent` is request-cached, so it costs nothing.
+  const w = await eventWordsForEvent(eventId);
   let data: EditorialData | null = null;
   try {
     data = await loadEditorialData(eventId);
@@ -80,7 +94,7 @@ export async function EditorialContent({
   }
 
   if (!data) {
-    return <GracefulFallback />;
+    return <GracefulFallback words={w} />;
   }
 
   let copy: ComposedCopy;
@@ -223,7 +237,7 @@ export async function EditorialContent({
     <div className="min-h-screen bg-[#e7e2d6] px-3 py-6 text-ink sm:px-4 sm:py-10">
       <article className="mx-auto max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
         {/* Phase ribbon (cross-links) ----------------------------------------- */}
-        <PhaseRibbon slug={data.slug} />
+        <PhaseRibbon slug={data.slug} words={w} />
 
         <div className="border-t-[3px] border-double border-ink" />
 
@@ -308,6 +322,7 @@ export async function EditorialContent({
         {data.heroPhotoUrl || data.heroVideoUrl ? (
           <div className="pt-2">
             <HeroPhoto
+              words={w}
               url={data.heroPhotoUrl}
               videoUrl={data.heroVideoUrl}
               names={data.firstNames}
@@ -346,7 +361,7 @@ export async function EditorialContent({
 
           {isOn('byTheNumbers') ? (
             <aside className="lg:border-l lg:border-ink/10 lg:pl-8">
-              <ByTheNumbers data={data} />
+              <ByTheNumbers data={data} words={w} />
             </aside>
           ) : null}
         </div>
@@ -399,7 +414,7 @@ export async function EditorialContent({
                 <div key="guestColumns">
                   <SectionRule title="Letters to the Editor" />
                   <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
-                    columns from the guests, approved by the couple
+                    columns from the guests, approved by {w.theOrganizer}
                   </p>
                   <GuestColumnsWall columns={data.guestColumns ?? []} />
                 </div>
@@ -416,7 +431,7 @@ export async function EditorialContent({
               isOn('fromVendors') && data.vendorMedia.length ? (
                 <div key="fromVendors">
                   <SectionRule title="From Your Vendors" />
-                  <VendorMediaStrip items={data.vendorMedia} />
+                  <VendorMediaStrip items={data.vendorMedia} words={w} />
                 </div>
               ) : null,
             // Live Photo Wall (LIVE_WALL SKU).
@@ -479,19 +494,20 @@ export async function EditorialContent({
             excluded from sectionOrder so no reorder can move them. ------------- */}
         {isOn('fromTheCouple') && data.specialMessage ? (
           <>
-            <SectionRule title="From the Couple" />
+            <SectionRule title={`From ${capitaliseWords(w.theOrganizer)}`} />
             <FromTheCouple message={data.specialMessage} attribution={data.firstNames} />
           </>
         ) : null}
         {data.song.url || data.song.label ? (
           <>
             <SectionRule title="Their Song" />
-            <TheirSong song={data.song} names={data.firstNames} />
+            <TheirSong song={data.song} names={data.firstNames} words={w} />
           </>
         ) : null}
 
         {/* Colophon / cross-phase links --------------------------------------- */}
         <Colophon
+          words={w}
           names={data.displayName}
           city={data.venueCity}
           hideWatermark={hideWatermark}
@@ -505,7 +521,7 @@ export async function EditorialContent({
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function GracefulFallback(): ReactElement {
+function GracefulFallback({ words: w }: { words: EventWords }): ReactElement {
   return (
     <div className="flex min-h-[60vh] items-center justify-center bg-cream px-4 py-16 text-ink">
       <div className="mx-auto max-w-md space-y-3 rounded-2xl border border-ink/10 bg-cream/60 p-8 text-center">
@@ -513,7 +529,7 @@ function GracefulFallback(): ReactElement {
           The Editorial
         </p>
         <h2 className="font-display text-2xl italic tracking-tight">
-          This wedding&rsquo;s story isn&rsquo;t available yet.
+          This {w.eventWord}&rsquo;s story isn&rsquo;t available yet.
         </h2>
         <p className="text-sm text-ink/65">
           The recap is composed a few days after the celebration. Please check back soon.
@@ -549,7 +565,7 @@ function Monogram({ text, color }: { text: string; color: string }): ReactElemen
  * there is nowhere for these to go and they are simply not drawn. A phase
  * marker with no phases is still honest; a link that goes nowhere is not.
  */
-function PhaseRibbon({ slug }: { slug: string | null }): ReactElement {
+function PhaseRibbon({ slug, words: w }: { slug: string | null; words: EventWords }): ReactElement {
   return (
     <nav
       aria-label="Site phases"
@@ -567,7 +583,7 @@ function PhaseRibbon({ slug }: { slug: string | null }): ReactElement {
             href={`/${slug}/hub`}
             className="border-b border-terracotta pb-0.5 text-ink/60 no-underline"
           >
-            The Wedding Day (Live) &uarr;
+            The {capitaliseWords(w.eventWord)} Day (Live) &uarr;
           </a>
         </>
       ) : null}
@@ -610,10 +626,12 @@ function HeroPhoto({
   url,
   videoUrl,
   names,
+  words: w,
 }: {
   url: string | null;
   videoUrl?: string | null;
   names: string;
+  words: EventWords;
 }): ReactElement {
   return (
     <figure className="relative aspect-[16/9] w-full overflow-hidden rounded-sm bg-ink/10">
@@ -632,7 +650,7 @@ function HeroPhoto({
           loop
           playsInline
           poster={url ?? undefined}
-          aria-label={`${names}, a moving moment from the wedding`}
+          aria-label={`${names}, a moving moment from the ${w.eventWord}`}
           className="h-full w-full object-cover"
         >
           <source src={videoUrl} />
@@ -641,7 +659,7 @@ function HeroPhoto({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={url}
-          alt={`${names}, from the wedding`}
+          alt={`${names}, from the ${w.eventWord}`}
           className="h-full w-full object-cover"
           loading="lazy"
           decoding="async"
@@ -835,7 +853,7 @@ function VendorsWeLoved({
   );
 }
 
-function ByTheNumbers({ data }: { data: EditorialData }): ReactElement {
+function ByTheNumbers({ data, words: w }: { data: EditorialData; words: EventWords }): ReactElement {
   const m = data.metrics;
   // "Photos & moments" sums the day's stills + living-moment clips when either is
   // known; the photos cell reads that combined figure. "Living moments" surfaces
@@ -906,7 +924,7 @@ function ByTheNumbers({ data }: { data: EditorialData }): ReactElement {
       </div>
 
       <p className="px-2 py-2 text-center font-serif text-[13px] italic text-mulberry">
-        &ldquo;Set na &rsquo;yan.&rdquo; — your wedding, handled.
+        &ldquo;Set na &rsquo;yan.&rdquo; — your {w.eventWord}, handled.
       </p>
     </div>
   );
@@ -1048,9 +1066,11 @@ function PhotoGallery({ photos, names }: { photos: string[]; names: string }): R
 function TheirSong({
   song,
   names,
+  words: w,
 }: {
   song: EditorialData['song'];
   names: string;
+  words: EventWords;
 }): ReactElement {
   return (
     <figure className="mx-auto mt-4 max-w-xl text-center">
@@ -1061,7 +1081,7 @@ function TheirSong({
       ) : null}
       <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
         {names}
-        {song.url ? ' · their wedding song' : ' · the song that follows them'}
+        {song.url ? ` · their ${w.eventWord} song` : ' · the song that follows them'}
       </p>
       {song.url ? (
         // The delivered Pakanta song. Muted-by-default (no autoplay) — the recap
@@ -1071,7 +1091,7 @@ function TheirSong({
           controls
           preload="none"
           src={song.url}
-          aria-label={`${names} — their wedding song`}
+          aria-label={`${names} — their ${w.eventWord} song`}
           className="mx-auto mt-3 w-full max-w-md"
         />
       ) : null}
@@ -1118,11 +1138,17 @@ function MomentsEssay({ photos, names }: { photos: string[]; names: string }): R
  * so the loop never cuts). Each frame credits the vendor. The still is the clip's
  * poster, so there's no black flash before frame one.
  */
-function VendorMediaStrip({ items }: { items: EditorialData['vendorMedia'] }): ReactElement {
+function VendorMediaStrip({
+  items,
+  words: w,
+}: {
+  items: EditorialData['vendorMedia'];
+  words: EventWords;
+}): ReactElement {
   return (
     <div className="mt-4 space-y-3">
       <p className="text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
-        Captured by the couple&rsquo;s vendors
+        Captured by {w.theOrganizerPossessive} vendors
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {items.slice(0, 6).map((m, i) => (
@@ -1441,7 +1467,9 @@ function Colophon({
   hideWatermark = false,
   slug = null,
   watchFilmShown = false,
+  words: w,
 }: {
+  words: EventWords;
   names: string;
   city: string | null;
   /** Paid COUPLE_WEBSITE_PRO perk — drop the masthead "Powered by Setnayan"
@@ -1487,7 +1515,7 @@ function Colophon({
               href={`/${slug}/hub`}
               className="border-b border-terracotta pb-0.5 text-ink no-underline"
             >
-              The Wedding Day (Live)
+              The {capitaliseWords(w.eventWord)} Day (Live)
             </a>
           ) : null}
           {watchFilmShown ? (

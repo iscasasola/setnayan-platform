@@ -1,8 +1,12 @@
+import { RoomFooter } from '../_components/room-footer';
+import type { RoomLink } from '../_lib/room-links';
+import { loadRoomLinks } from '../_lib/room-links.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, DoorOpen, MapPin } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventWordsFromProfile } from '../_lib/event-words';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { Logo } from '@/app/_components/logo';
@@ -15,7 +19,7 @@ import type { EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 
-export const metadata = { title: 'Find your table · Setnayan' };
+export const metadata = { title: 'Find your table' };
 
 // Guest-facing, gated, behind a session cookie — never statically cached.
 export const dynamic = 'force-dynamic';
@@ -60,7 +64,21 @@ export default async function FindMyTablePage({ params }: Props) {
   // Iteration 0053: public guest pages under /[slug] are the 'website' surface.
   // Non-wedding (generic) profiles don't enable it → still notFound() (same as
   // the old `!== 'wedding'`), now config-driven.
-  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+  const profile = await resolveProfile(event.event_type);
+  if (!surfaceEnabled(profile, 'website')) notFound();
+  // Reused for its WORDS as well as its gate. Wedding → 'couple', unchanged.
+  const words = eventWordsFromProfile(profile);
+  const roomLinks = await loadRoomLinks({
+    event,
+    current: 'seat',
+    // `true` is EARNED here, not assumed: this room already ran
+    // `canViewSlugEvent` against the SAME raw visibility column the money-gift
+    // page applies, and redirected away if it failed. Reaching this line means
+    // the viewer passed that exact gate. Anywhere that is NOT true, pass the
+    // real answer — a door drawn by a rule laxer than the one at the other end
+    // sends a guest to a redirect with no explanation.
+    pabuyaViewerAllowed: true,
+  });
 
   // Visibility gate (owner 2026-06-20): a stranger guessing a private (pre-launch)
   // slug must not even see the couple's name in the sign-in prompt. Bounce them
@@ -73,7 +91,7 @@ export default async function FindMyTablePage({ params }: Props) {
   const session = await readGuestSession();
   if (!session || session.event_id !== event.event_id) {
     return (
-      <Shell displayName={event.display_name} slug={slug}>
+      <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
         <PromptCard
           title="Open this from your invitation"
           body="Find your table is part of your personal invitation. Open your invitation link (or scan your QR), then tap “Find my table”."
@@ -114,17 +132,17 @@ export default async function FindMyTablePage({ params }: Props) {
 
   if (tables.length === 0) {
     return (
-      <Shell displayName={event.display_name} slug={slug}>
+      <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
         <PromptCard
           title="The floor plan is on its way"
-          body="The couple is still arranging the venue layout. Check back closer to the day — your table map will appear here."
+          body={`${words.organizerIsHonoree ? 'The venue layout is still being arranged.' : `${words.TheOrganizer} is still arranging the venue layout.`} Check back closer to the day — your table map will appear here.`}
         />
       </Shell>
     );
   }
 
   return (
-    <Shell displayName={event.display_name} slug={slug}>
+    <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
       {/* Day-of: silently re-pull this guest's assignment so a live reseat
           re-lights the map without a manual reload (seat-finding PR 5). */}
       <LiveRefresher eventDate={event.event_date as string | null} />
@@ -164,8 +182,10 @@ export default async function FindMyTablePage({ params }: Props) {
           </p>
         ) : (
           <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/55">
-            You haven&rsquo;t been seated at a table yet. Once the couple seats
-            you, your spot lights up on this map.
+            You haven&rsquo;t been seated at a table yet.{' '}
+            {words.organizerIsHonoree
+              ? 'Once the seating is posted, your spot lights up on this map.'
+              : `Once ${words.theOrganizer} seats you, your spot lights up on this map.`}
           </p>
         )}
 
@@ -212,10 +232,12 @@ function Shell({
   displayName,
   slug,
   children,
+  roomLinks,
 }: {
   displayName: string;
   slug: string;
   children: React.ReactNode;
+  roomLinks: RoomLink[];
 }) {
   return (
     <main className="min-h-dvh bg-cream text-ink">
@@ -237,6 +259,7 @@ function Shell({
         <p className="font-serif text-lg italic text-terracotta">See you soon.</p>
         <p className="mt-3 text-xs text-ink/50">Powered by Setnayan · setnayan.com</p>
       </footer>
+      <RoomFooter links={roomLinks} />
     </main>
   );
 }

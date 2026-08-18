@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { siteOrigin } from '@/lib/site-origin';
 import { redirect } from 'next/navigation';
 import {
@@ -27,7 +28,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ConsentGatedInviteForm } from './_components/consent-gated-invite-form';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 
-export const metadata = { title: 'Hosts · Setnayan' };
+export const metadata = { title: 'Hosts' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -90,7 +91,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
 
   // Gate access — must be a current host on this event (via either
   // event_moderators or the legacy event_members couple row).
-  const { data: modCheck } = await supabase
+  const { data: modCheck, error: modCheckError } = await supabase
     .from('event_moderators')
     .select('moderator_id')
     .eq('event_id', eventId)
@@ -98,13 +99,22 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
     .not('accepted_at', 'is', null)
     .is('removed_at', null)
     .maybeSingle();
+  // ⚠ the moderator check. Absence DENIES rather than renders.
+  if (modCheckError) {
+    logQueryError('HostsPage.modCheck', modCheckError, { eventId }, 'graceful_degrade');
+  }
   let isHost = !!modCheck;
-  const { data: legacy } = await supabase
+  const { data: legacy, error: legacyError } = await supabase
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle();
+  // ⚠ the event's host list. Refused, the couple reads as having no co-hosts — people
+  // ⚠ they invited to help simply are not shown.
+  if (legacyError) {
+    logQueryError('HostsPage.legacy', legacyError, { eventId }, 'graceful_degrade');
+  }
   const isCouple =
     (legacy as { member_type: string } | null)?.member_type === 'couple';
   if (isCouple) isHost = true;
@@ -177,10 +187,14 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   const userIds = accepted.map((r) => r.user_id).filter((id): id is string => !!id);
   let usersById: Record<string, UserMini> = {};
   if (userIds.length > 0) {
-    const { data: userRows } = await admin
+    const { data: userRows, error: userRowsError } = await admin
       .from('users')
       .select('user_id, display_name, email')
       .in('user_id', userIds);
+    // ⚠ the hosts' names. Refused, a real host renders without one.
+    if (userRowsError) {
+      logQueryError('HostsPage.userRows', userRowsError, { eventId }, 'graceful_degrade');
+    }
     usersById = Object.fromEntries(
       ((userRows ?? []) as UserMini[]).map((u) => [u.user_id, u]),
     );

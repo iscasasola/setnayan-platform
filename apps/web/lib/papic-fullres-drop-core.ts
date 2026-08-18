@@ -463,8 +463,8 @@ export type PapicDropItem = DropCandidate & {
    *
    * ⚠ NOT a delete flag. Not choosing a capture only lets this original be
    * replaced by its compressed copy at the normal point; the photo itself is
-   * never deleted and the compressed copy is kept five years for everyone, paid
-   * or not.
+   * never deleted and the compressed copy is kept for life for everyone, paid
+   * or not (owner 2026-08-18, superseding the 2026-08-07 five-year window).
    *
    * 🚨 REQUIRED, NOT OPTIONAL — and that is the whole fix. It shipped as
    * `?: string | null` and NOT ONE of the four mappers below assigned it, so on

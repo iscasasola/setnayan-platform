@@ -145,7 +145,54 @@ export function normalizeHref(raw) {
  * At the app root those same folder names are app-wide and belong to no single
  * route, so `/` gets only its own files.
  */
-const PRIVATE_SUBDIRS = new Set(['_components', '_lib']);
+/**
+ * ⚠ WIDENED 2026-08-17 — `_surfaces` WAS MISSING, AND IT COST 41 FILES.
+ *
+ * The docblock above is right about why an arbitrary walk was wrong (the root
+ * route swallowed `app/_components/**` and absorbed other routes' controls), and
+ * then it named TWO private-folder conventions where this codebase uses THREE.
+ * Measured before the fix: 41 `_surfaces/*.tsx` files under `app/admin`, and ALL
+ * 41 absent from the baseline. `/admin/studio` recorded `destinations: []` and
+ * `actions: []` while its thirteen surfaces carried six real destinations and
+ * five server actions; `/admin/accounts` the same.
+ *
+ * So for every tab-hub route the guard has never protected anything — and it did
+ * not cry wolf about it, it said nothing, which is indistinguishable from a clean
+ * pass. Found while four sessions were porting exactly those files.
+ *
+ * 🔑 A GUARD'S REACH IS SET BY ITS LIST, NOT BY ITS RULES. This is the same shape
+ * as the hand-enumerated door list that missed three doors, and the `CONVERTED`
+ * list that could be silently shortened: a list deciding WHAT gets checked has to
+ * be pinned to something measured, or it narrows without a word. Any future
+ * private-folder convention must be added here in the same commit that
+ * introduces it.
+ */
+const PRIVATE_SUBDIRS = new Set([
+  '_components',
+  '_lib',
+  // Added 2026-08-17. MEASURED, not guessed — and fixing only `_surfaces` would
+  // have been a correction at one site, which is not a correction:
+  '_surfaces', // 41 files under app/admin alone, ALL absent — this was the costly one
+  '_sections', // 10 files, 4 carrying a literal destination (+3 after the fix)
+  '_actions', //  15 files · see the correction below — contributes ZERO
+  '_shared', //   2 files · same, contributes zero
+  //
+  // 🛑 A CORRECTION TO MY OWN REASONING, LEFT HERE BECAUSE THE MISTAKE IS THE
+  // USEFUL PART. I added `_actions` believing 15 files of `'use server'` were
+  // "invisible actions". MEASURED BEFORE AND AFTER: adding it changed the action
+  // count by ZERO (579 → 579). Actions are counted where a form USES them —
+  // `action={doThing}` in the route's own tree — not where they are DEFINED, so an
+  // unwalked definition file hides nothing. Correct fact, invented consequence.
+  // `_actions` and `_shared` stay in the set because they are harmless and a
+  // future destination in them WOULD count, but they are not load-bearing and
+  // nobody should cite them as a fix for anything.
+  // The real numbers: destinations 796 → 849, actions 526 → 579, nothing lost.
+  // DELIBERATELY NOT INCLUDED, each measured to carry no control at all:
+  //   _data    — 9 files, 0 destinations, 0 'use server'
+  //   _styles  — 0 files ·  _fonts — 0 files
+  // If any of those ever gains a link or an action, it belongs above and
+  // `port-guard-reach.test.ts` is what will tell you.
+]);
 
 export function routeSourceFiles(routeDir, { isAppRoot = false } = {}) {
   const out = [];
@@ -249,7 +296,21 @@ const JSX_EL_RE = /<([A-Z][\w$]*(?:\.[A-Z][\w$]*)?)[\s/>]/g;
  * `[:=]` covers both. A TYPE declaration (`href: string`) cannot match — the
  * value has to be a quoted literal.
  */
-const HREF_RE = /\bhref\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|\{\s*`([^`]*)`\s*\}|\{\s*"([^"]*)"\s*\}|\{\s*'([^']*)'\s*\})/g;
+/**
+ * ⚠ WIDENED 2026-08-17 — A DESTINATION HANDED TO A SHARED COMPONENT IS STILL A
+ * DESTINATION. `PageMasthead` takes `back="/admin/demo-vendors"` and renders the
+ * `<Link href={back}>` itself, so requiring the literal token `href` made every
+ * back link invisible the moment a page adopted the shared masthead — and the
+ * sanctioned response to a reported "loss" is to regenerate, which would have
+ * written a route down as having ZERO destinations and then defended that lie.
+ * Exactly the failure the ACTION_EXPR_RE docblock below already warns about, one
+ * prop later.
+ *
+ * The prop list is measured, not guessed: `back` · `backHref` · `returnTo` ·
+ * `cancelHref` are the props carrying a literal route in this codebase today. A
+ * TYPE declaration still cannot match — the value has to be a quoted literal.
+ */
+const HREF_RE = /\b(?:href|back|backHref|returnTo|cancelHref)\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|\{\s*`([^`]*)`\s*\}|\{\s*"([^"]*)"\s*\}|\{\s*'([^']*)'\s*\})/g;
 /**
  * A bound server action.
  *

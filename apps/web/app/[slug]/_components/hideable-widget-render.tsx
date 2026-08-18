@@ -1,3 +1,4 @@
+import type { EventWords } from '../_lib/event-words';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatEventDate } from '@/lib/events';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
@@ -40,9 +41,13 @@ export function HideableWidgetRender({
   scheduleEstimated = false,
   isLimitedPlusOne,
   ourPhotoUrls,
+  words,
 }: {
   widget: InvitationWidgetRow;
   event: EventRow;
+  /** The event type's own words, resolved ONCE by the body and threaded here
+   *  rather than re-resolved per widget. */
+  words: EventWords;
   guest: GuestRow;
   sideLabel: string;
   scheduleBlocks: ScheduleBlockRow[];
@@ -105,14 +110,14 @@ export function HideableWidgetRender({
       return <VenueWidget event={event} />;
 
     case 'dress_code':
-      return <DressCodeWidget config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} />;
 
     case 'photo_moments':
-      return <PhotoMomentsWidget config={event.photo_moments_config} />;
+      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} />;
 
     case 'your_photos':
       return (
-        <YourPhotosWidget
+        <YourPhotosWidget words={words}
           limited={isLimitedPlusOne}
           eventId={event.event_id}
           eventPublicId={event.public_id}
@@ -133,7 +138,13 @@ export function HideableWidgetRender({
       return <OurLoveStoryWidget config={event.love_story} />;
 
     case 'tier_comparison':
-      return <TierComparisonWidget limited={isLimitedPlusOne} eventNoun={eventNounOf(event)} />;
+      return (
+        <TierComparisonWidget
+          limited={isLimitedPlusOne}
+          eventNoun={eventNounOf(event)}
+          words={words}
+        />
+      );
 
     // Always-on widgets (hero, greeting, qr_card, rsvp) are not reachable
     // here — they render in fixed positions in the parent function. The

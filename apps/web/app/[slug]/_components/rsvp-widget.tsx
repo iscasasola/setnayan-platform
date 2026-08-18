@@ -1,3 +1,4 @@
+import type { EventWords } from '../_lib/event-words';
 import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
@@ -14,7 +15,9 @@ export function RsvpWidget({
   eventPublicId,
   faceMode,
   flash = null,
+  words,
 }: {
+  words: EventWords;
   guest: GuestRow;
   eventId: string;
   eventPublicId: string;
@@ -148,7 +151,7 @@ export function RsvpWidget({
 
       <div className="space-y-1.5">
         <label htmlFor="guest_note" className="block text-sm font-medium text-ink">
-          A note to the couple (optional)
+          A note to {words.theOrganizer} (optional)
         </label>
         {/* ⚠ `guest_note`, NOT `notes`. Until 2026-08-06 this box was bound to
             `guests.notes` — the COUPLE'S PRIVATE note about this guest — so it

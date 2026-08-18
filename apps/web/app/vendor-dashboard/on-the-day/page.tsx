@@ -19,6 +19,7 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
@@ -49,7 +50,7 @@ import { ModuleConfigurator, type ConfiguratorModule } from './_components/modul
 import { EventPicker } from './_components/event-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
 
-export const metadata = { title: 'On the Day · Vendor · Setnayan' };
+export const metadata = { title: 'On the Day · Vendor' };
 
 /**
  * Vendor "On the Day" console — reskinned to the finalized 6-menu vendor
@@ -227,10 +228,25 @@ export default async function VendorOnTheDayPage({
   // + aggregation live inside the SECURITY DEFINER RPC; a null means we couldn't
   // read a brief (unbooked / not built) → we degrade to the booking basics.
   let brief: Brief | null = null;
+  let briefMeasured = true;
   if (todaysBooking) {
-    const { data } = await supabase.rpc('get_vendor_event_brief', {
+    const { data, error: briefError } = await supabase.rpc('get_vendor_event_brief', {
       p_event_id: todaysBooking.eventId,
     });
+    // ⚠ THIS IS THE SCREEN A SUPPLIER OPENS AT THE VENUE, ON THE DAY. The brief
+    // ⚠ carries the couple, the place and the live headcount, and an `.rpc()` is
+    // ⚠ refused the same silent way a select is. Refused, `if (data)` is skipped
+    // ⚠ and the headcount below falls to `?? 0` — "0 / 0 attending", which is not
+    // ⚠ a number anybody should set up a room from.
+    if (briefError) {
+      logQueryError(
+        'VendorOnTheDay.brief',
+        briefError,
+        { eventId: todaysBooking.eventId },
+        'graceful_degrade',
+      );
+    }
+    briefMeasured = !briefError;
     if (data) brief = data as Brief;
   }
 
@@ -311,8 +327,10 @@ export default async function VendorOnTheDayPage({
   const coupleName = brief?.event.display_name ?? todaysBooking?.eventName ?? null;
   const place = brief?.event.venue_name ?? null;
   const myCategory = primaryServiceLabel(profile.services);
-  const invited = brief?.pax.invited ?? 0;
-  const attending = brief?.pax.attending ?? 0;
+  // null = not read. A headcount of 0 on the day of the event is a statement
+  // that nobody is coming; an em-dash is the truth when the read was refused.
+  const invited = briefMeasured ? brief?.pax.invited ?? 0 : null;
+  const attending = briefMeasured ? brief?.pax.attending ?? 0 : null;
 
   // Taxonomy-driven controller family + module set. When we have a brief we
   // narrow to the tiles the vendor is actually booked on for THIS event
@@ -502,7 +520,7 @@ export default async function VendorOnTheDayPage({
               </div>
               <div className="mt-3 flex items-baseline gap-2">
                 <span className="font-mono text-2xl font-bold" style={{ color: 'var(--m-ink)' }}>
-                  {attending} / {invited}
+                  {attending ?? '—'} / {invited ?? '—'}
                 </span>
                 <span className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
                   pax
@@ -706,9 +724,22 @@ async function ConfigureEventView({
   booking: { eventId: string; eventName: string; bookedDate: string };
   isToday: boolean;
 }) {
-  const { data: briefData } = await supabase.rpc('get_vendor_event_brief', {
-    p_event_id: booking.eventId,
-  });
+  const { data: briefData, error: briefDataError } = await supabase.rpc(
+    'get_vendor_event_brief',
+    { p_event_id: booking.eventId },
+  );
+  // ⚠ the same brief, one screen earlier (the pre-day configurator). Refused,
+  // ⚠ `booked_categories` reads null and the tile set silently falls back to the
+  // ⚠ vendor's whole service list, so a supplier prepares for work they were not
+  // ⚠ booked for on this event.
+  if (briefDataError) {
+    logQueryError(
+      'VendorOnTheDay.configureBrief',
+      briefDataError,
+      { eventId: booking.eventId },
+      'graceful_degrade',
+    );
+  }
   const eventTiles = tilesForVendorCategories(
     briefData && Array.isArray((briefData as { booked_categories?: unknown }).booked_categories)
       ? (briefData as { booked_categories: string[] }).booked_categories

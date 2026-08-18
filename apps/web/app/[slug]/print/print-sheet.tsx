@@ -1,3 +1,4 @@
+import type { EventWords } from '../_lib/event-words';
 // ============================================================================
 // A3 broadsheet print keepsake — the sheet render (pure server markup)
 // ============================================================================
@@ -131,11 +132,13 @@ function Colophon({
 
 export function PrintSheet({
   data,
+  words,
   copy,
   mono,
   qrSvg,
   hideWatermark,
 }: {
+  words: EventWords;
   data: EditorialData;
   copy: ComposedCopy;
   mono: HeroMonogramData | null;
@@ -188,7 +191,7 @@ export function PrintSheet({
       {heroStill ? (
         <figure className="k-hero">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={heroStill} alt={`${data.firstNames}, from the wedding`} loading="eager" decoding="sync" />
+          <img src={heroStill} alt={`${data.firstNames}, from the ${words.eventWord}`} loading="eager" decoding="sync" />
           <figcaption>{data.firstNames}, from the celebration — captured on the day.</figcaption>
         </figure>
       ) : null}
@@ -235,7 +238,7 @@ export function PrintSheet({
 
       {/* LOCKED CLOSE (front only when there's no back) — the couple's words then
           their song, per the editorial's pinned close. */}
-      {!hasBack ? <LockedClose data={data} /> : null}
+      {!hasBack ? <LockedClose words={words} data={data} /> : null}
 
       {/* Colophon is the last element on the last side → front only when no back. */}
       {!hasBack ? <Colophon qrSvg={qrSvg} hideWatermark={hideWatermark} /> : null}
@@ -330,7 +333,7 @@ export function PrintSheet({
       ) : null}
 
       {/* LOCKED CLOSE — the couple's words then their song. */}
-      <LockedClose data={data} />
+      <LockedClose words={words} data={data} />
 
       {/* Colophon is ALWAYS the last element on the last side. */}
       <Colophon qrSvg={qrSvg} hideWatermark={hideWatermark} />
@@ -345,8 +348,15 @@ export function PrintSheet({
   );
 }
 
-/** The editorial's pinned close: "From the Couple" then "Their Song". */
-function LockedClose({ data }: { data: EditorialData }): ReactElement | null {
+/** The editorial's pinned close: "From the Couple" (or the celebrant, etc.)
+ *  then "Their Song". */
+function LockedClose({
+  data,
+  words,
+}: {
+  data: EditorialData;
+  words: EventWords;
+}): ReactElement | null {
   const hasMessage = Boolean(data.specialMessage);
   const hasSong = Boolean(data.song.label || data.song.url);
   if (!hasMessage && !hasSong) return null;
@@ -354,7 +364,7 @@ function LockedClose({ data }: { data: EditorialData }): ReactElement | null {
     <>
       {hasMessage ? (
         <div className="k-section">
-          <SectionRule title="From the Couple" />
+          <SectionRule title={`From ${words.TheOrganizer.replace(/^The /, "The ")}`} />
           <blockquote className="k-couple-quote">
             <p>&ldquo;{data.specialMessage}&rdquo;</p>
             <footer>&mdash; {data.firstNames}</footer>
@@ -368,7 +378,7 @@ function LockedClose({ data }: { data: EditorialData }): ReactElement | null {
             {data.song.label ? <p className="k-song-title">&ldquo;{data.song.label}&rdquo;</p> : null}
             <p className="k-song-credit">
               {data.firstNames}
-              {data.song.url ? ' · their wedding song' : ' · the song that follows them'}
+              {data.song.url ? ` · their ${words.eventWord} song` : ' · the song that follows them'}
             </p>
           </div>
         </div>

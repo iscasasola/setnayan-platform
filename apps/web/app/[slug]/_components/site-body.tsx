@@ -30,6 +30,8 @@ import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
 import { EventWordsProvider } from './event-words-provider';
 import { eventWordsFor } from '../_lib/event-words';
+import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
+import { resolveProfile } from '@/lib/event-type-profile';
 import {
   resolveSiteNav,
   navPhaseFor,
@@ -460,8 +462,15 @@ export async function SiteBody({
   // server and handed to the client half through the provider below. Wedding →
   // 'the couple', so every sentence downstream is byte-identical for a wedding.
   const clientWords = await eventWordsFor(event.event_type);
+  // Which wedding-only parts this event TYPE may show. The words half of the
+  // owner's ruling is done; this is the other half — a seven-year-old does not
+  // need a neutrally-worded love story, he needs no love story.
+  const weddingOnly = resolveWeddingOnlyParts(
+    await resolveProfile(event.event_type ?? 'wedding'),
+  );
 
   const plan = resolveSiteBodyPlan({
+    weddingOnlyParts: weddingOnly,
     identity: identity.kind,
     phasesEnabled,
     lifecyclePhase,
@@ -707,7 +716,13 @@ export async function SiteBody({
     const bodyRenders = browsableBodyRenders(plan);
     const menuSections = {
       details: bodyRenders && (plan.openBrowse || plan.publicSafeWidgets.length > 0),
-      story: bodyRenders && (plan.openBrowse || Boolean(event.love_story)),
+      // 🔴 THE OWNER SAW THIS ONE: a Story tab on a seven-year-old's birthday.
+      // The love story is wedding-by-nature — it asks how the two of them met,
+      // and a type with no two people has no answer.
+      story:
+        weddingOnly.love_story &&
+        bodyRenders &&
+        (plan.openBrowse || Boolean(event.love_story)),
       // "Gallery" = the live photo wall ON THE DAY (the livestream is a separate
       // concern) and the recap's own photo run AFTER it. Two different sections
       // in two different phases, one tab — which is what a guest coming back the

@@ -201,13 +201,14 @@ test('the guest camera asks about put-away BEFORE it reads 409 as "out of shots"
       `put-away checks for ${quota.length} 409 branches`,
   );
   assert.ok(quota.length >= 2, 'the file should still post a capture from both sites');
-  for (let i = 0; i < quota.length; i += 1) {
+  quota.forEach((quotaAt, i) => {
+    const putAwayAt = putAway[i];
     assert.ok(
-      putAway[i] < quota[i],
+      putAwayAt !== undefined && putAwayAt < quotaAt,
       `capture site ${i + 1}: the put-away check must come BEFORE the 409 branch, ` +
         `or the refusal is read as "you are out of shots"`,
     );
-  }
+  });
 });
 
 test('a put-away refusal is terminal, so the camera never promises a later upload', () => {
@@ -252,7 +253,7 @@ test('the put-away gate is not nested inside the per-camera SKU branch', () => {
   assert.ok(gate > -1, 'the put-away gate should still exist in recordSeatCapture');
   assert.ok(tier > -1, 'the per-camera SKU branch should still exist');
 
-  const indentOf = (i: number) => lines[i].search(/\S/);
+  const indentOf = (i: number) => (lines[i] ?? '').search(/\S/);
   assert.ok(
     gate < tier,
     'the put-away gate must be reached before the per-camera branch',

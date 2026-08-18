@@ -129,7 +129,21 @@ test('every routes.dashboard.addOns builder addresses a route that exists on dis
 test('page-masthead-baseline.json lists no file that has been deleted', () => {
   const baselinePath = join(WEB, 'scripts', 'page-masthead-baseline.json');
   const baseline: string[] = JSON.parse(readFileSync(baselinePath, 'utf8'));
-  assert.ok(baseline.length > 50, 'the masthead baseline should be the full ratchet set');
+  // NON-VACUITY. This asserted `length > 50` — a magic number standing in for
+  // "the file was really read". It made the ratchet UN-SHRINKABLE below 50 and
+  // so punished the one outcome the lint asks for: its own message reads
+  // "migrate to shrink". Porting 94 pages to <PageMasthead> on 2026-08-18 took
+  // it 109 → 15 and turned this red for doing the right thing.
+  //
+  // What it needs to rule out is a baseline that got emptied or garbled, which
+  // would make the deleted-file check below pass over nothing. That is what is
+  // asserted now, and it stays true at any ratchet size — including 0, the day
+  // the last one migrates.
+  assert.ok(Array.isArray(baseline), 'the baseline must parse as an array');
+  assert.ok(
+    baseline.every((rel) => typeof rel === 'string' && rel.endsWith('.tsx')),
+    'every baseline entry must be a repo-relative .tsx path',
+  );
 
   const missing = baseline.filter((rel) => !existsSync(join(WEB, rel)));
   assert.deepEqual(

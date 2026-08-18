@@ -375,14 +375,37 @@ export async function bakeFaceBlurForCapture(opts: {
     const r2Ref = record.r2_object_key as string | null;
     if (!r2Ref) return { baked: false, reason: 'no_object' };
 
-    // Cheap gates: a FaceBlock guest exists AND the event owns the wall.
-    const { count: fbCount } = await admin
-      .from('guests')
-      .select('guest_id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .eq('faceblock_enabled', true)
-      .is('deleted_at', null);
-    if (!fbCount) return { baked: false, reason: 'no_faceblock_guest' };
+    // Cheap gates. TWO reasons an event needs a blurred derivative, and they
+    // carry DIFFERENT entitlement rules:
+    //
+    //   1. A FaceBlock guest — the original P1 reason. Wall-only, so it still
+    //      requires the LIVE_WALL SKU below.
+    //   2. A guest who WITHDREW PHOTO CONSENT (owner ruling 2026-08-17:
+    //      withdrawal must BLUR and KEEP, not hide). This one is NOT a wall
+    //      feature — it governs the public event page too — so it must bake
+    //      whether or not the couple ever bought the wall. Gating it on the
+    //      SKU would mean a withdrawn guest's photos stay HIDDEN forever on
+    //      every event that did not buy a wall, i.e. the ruling would silently
+    //      not apply to most events.
+    //
+    // 🔑 SEPARATE COUNTS, NOT AN `.or()`. A single query counting either
+    // condition cannot tell the two apart, and the SKU gate below must apply
+    // to one and not the other.
+    const [{ count: fbCount }, { count: withdrawnCount }] = await Promise.all([
+      admin
+        .from('guests')
+        .select('guest_id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .eq('faceblock_enabled', true)
+        .is('deleted_at', null),
+      admin
+        .from('guests')
+        .select('guest_id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .eq('photo_consent', false)
+        .is('deleted_at', null),
+    ]);
+    if (!fbCount && !withdrawnCount) return { baked: false, reason: 'no_faceblock_guest' };
 
     // Ownership reads off orders.status via eventOwnsSku() (PR4 dead-unlock
     // repair, 2026-06-15) — bundle-aware, so a Media Pack buyer's FaceBlock
@@ -390,9 +413,15 @@ export async function bakeFaceBlurForCapture(opts: {
     // event_software_activations_v2 read had no payment-path writer, so a
     // paid wall never baked. Dynamic import matches this module's lazy-load
     // posture for its heavy static graph.
-    const { eventSkuActive } = await import('@/lib/entitlements');
-    const ownsWall = await eventSkuActive(admin, eventId, 'LIVE_WALL');
-    if (!ownsWall) return { baked: false, reason: 'no_live_wall' };
+    //
+    // ⚠ SKIPPED ENTIRELY when a withdrawal is what triggered the bake — see
+    // reason 2 above. A withdrawal-driven bake is a privacy obligation, not a
+    // purchased feature.
+    if (!withdrawnCount) {
+      const { eventSkuActive } = await import('@/lib/entitlements');
+      const ownsWall = await eventSkuActive(admin, eventId, 'LIVE_WALL');
+      if (!ownsWall) return { baked: false, reason: 'no_live_wall' };
+    }
 
     // Fetch originals back from R2 by the stored ref (same as nsfw-screen).
     const { readR2Object } = await import('@/lib/drive-upload');

@@ -63,7 +63,15 @@ function isMounted(modulePath: string): boolean {
 
 /**
  * The per-event pages that must be reachable by CLICKING, with what a person
- * loses when they are not. Add a row when a page becomes a place people go.
+ * loses when they are not.
+ *
+ * ⚠ THIS HAND LIST IS THE FLOOR, NOT THE CHECK. The first cut of this file had
+ * exactly two entries — `details` and `hosts` — because those were the two
+ * examples in front of me. An audit hours later found a THIRD page orphaned by
+ * the same dead component, and this list said nothing about it.
+ * 🔑 A GUARD IS ONLY AS WIDE AS ITS LIST. The real check is the derived one
+ * below, which reads the dead component and requires every link it held to have
+ * a home. Keep this list for the sentences; trust the derived one for coverage.
  */
 const MUST_HAVE_A_DOOR: { segment: string; whatIsLost: string }[] = [
   {
@@ -73,6 +81,12 @@ const MUST_HAVE_A_DOOR: { segment: string; whatIsLost: string }[] = [
       'and five screens tell them to do exactly that',
   },
   { segment: 'hosts', whatIsLost: 'the couple cannot add a co-host' },
+  {
+    segment: 'refer',
+    whatIsLost:
+      'no couple can ever start a referral — the admin Studio promises this ' +
+      'page "appears for couples" when the programme is switched on',
+  },
 ];
 
 test('the pages people go to are linked from the event rail, not just addressable', () => {
@@ -90,6 +104,50 @@ test('the pages people go to are linked from the event rail, not just addressabl
     'These pages exist and nothing in the event rail links to them, so the only ' +
       'way in is typing the address:\n  ' +
       unreachable.join('\n  '),
+  );
+});
+
+/**
+ * 🔑 DERIVED FROM THE DEAD COMPONENT, NOT TYPED BY HAND.
+ *
+ * When a menu is REPLACED, the rows the replacement forgot are what strand a
+ * page. That has now happened three times from one component: Personalization,
+ * Hosts, and — three weeks after the component had already stopped rendering —
+ * Refer a couple, which was therefore never clickable for a single day of its
+ * life. A changelog note the same day recorded it as "reachable via direct link
+ * / account", which is what stopped anyone from checking.
+ *
+ * So this reads `profile-menu.tsx` itself and requires every event-scoped link
+ * it holds to exist somewhere a person can press. Adding a link to the dead
+ * component can no longer create a silent orphan: it fails here instead.
+ */
+test('every event link in the retired menu has a home in a mounted surface', () => {
+  const dead = join(WEB, 'app/_components/profile-menu.tsx');
+  const code = stripComments(readFileSync(dead, 'utf8'));
+
+  const segments = [
+    ...code.matchAll(/href=\{`\/dashboard\/\$\{eventId\}\/([a-z0-9-]+)`\}/g),
+  ].map((m) => m[1]!);
+
+  assert.ok(
+    segments.length >= 3,
+    `only ${segments.length} event links found in the retired menu — the pattern ` +
+      'stopped matching, so this test would pass while proving nothing',
+  );
+
+  const hrefs = buildCustomerNavGroups('EVT123', { websiteEnabled: true })
+    .flatMap((g) => g.items)
+    .map((i) => i.href);
+
+  const stranded = segments.filter((seg) => !hrefs.includes(`/dashboard/EVT123/${seg}`));
+  assert.deepEqual(
+    stranded,
+    [],
+    'The retired menu links these pages and the live event rail does not, so ' +
+      'they are reachable only by typing the address:\n  ' +
+      stranded.join('\n  ') +
+      '\n\nEither give each a row, or delete it from the retired component — but ' +
+      'do not leave a link in a menu nobody mounts.',
   );
 });
 

@@ -259,8 +259,24 @@ export default async function EventLayout({ children, params }: Props) {
   // navHideKeys is [] → byte-identical. resolveProfile is React-cached + degrades
   // to a hard-coded profile on any DB hiccup.
   const profile = await resolveProfile((event.event_type as string | null) ?? 'wedding');
-  // Couple referral program — hidden from every nav surface (sidebar, bottom
-  // nav, sub-nav) unless an admin has turned the program on (master toggle).
+  /*
+    Couple referral program — hidden from every nav surface (sidebar, bottom
+    nav, sub-nav) unless an admin has turned the program on (master toggle).
+
+    ⚠ THIS GATE HID NOTHING FOR A MONTH AND STILL COST A QUERY EVERY RENDER.
+    It filters by item KEY, and the 'refer' row had been deleted from both nav
+    SSOTs on 2026-07-10 — so from then until 2026-08-18 this read ran on every
+    event page load to hide a row that did not exist, while the page it governs
+    was reachable only by typing the address.
+
+    🔑 A GATE WHOSE TARGET IS GONE LOOKS EXACTLY LIKE A GATE THAT IS WORKING.
+    Nothing errors; the list simply never contains the thing it excludes. It is
+    the mirror of the gate-with-no-handle: a handle with no gate.
+
+    It is live again because the row is back and keyed 'refer'. Keeping the
+    existing key-based gate is deliberate — a second, parallel gate is how the
+    two halves drift apart.
+  */
   const referralEnabled = await isReferralProgramEnabled();
   const navHideKeys = [
     ...(profile.marketplaceEnabled ? [] : ['explore']),

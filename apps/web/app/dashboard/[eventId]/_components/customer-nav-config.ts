@@ -74,6 +74,7 @@ import {
   CalendarDays,
   Armchair,
   Wallet,
+  Gift,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { NavGroup, NavItem } from '@/app/_components/nav/types';
@@ -163,7 +164,11 @@ export function buildCustomerNavGroups(
           // Messages from the Conversations card + vendor cards + the topbar bell,
           // Contracts from the vendor itemization cards. "Refer a couple" (the
           // lone remaining child) came out too so the item reads as a clean leaf;
-          // its /refer route is unchanged (reachable via direct link / account).
+          // ⚠ CORRECTED 2026-08-18. This said "reachable via direct link /
+          // account" and BOTH halves were false: the only account-menu link
+          // lived in a component nobody mounts, so the sole way in was typing
+          // the address. That sentence is what stopped anyone checking for a
+          // month. The row is now in `alsoItems` above.
         },
         {
           // 2 · Guests — full guest hub, now a PLAIN LEAF (owner 2026-07-10:
@@ -284,6 +289,36 @@ export function buildCustomerNavGroups(
       href: `${base}/hosts`,
       icon: Users,
       matchPrefix: `${base}/hosts`,
+    },
+    /*
+      🚨 THE THIRD ROW FROM THE SAME DEAD MENU, added 2026-08-18 — the one the
+      morning's fix missed. `profile-menu.tsx` carried FIVE links; Personalization
+      and Hosts were restored and this was left behind, so an audit found it
+      hours later still orphaned.
+
+      🔑 A GUARD IS ONLY AS WIDE AS ITS LIST, and the list I wrote that morning
+      had two entries because I had two examples in front of me. The check below
+      it is now DERIVED from the dead component instead of typed by hand.
+
+      ⏳ AND IT WAS NEVER CLICKABLE FOR A SINGLE DAY. The account switcher
+      replaced that menu on 2026-06-17; this link was added to the already-dead
+      menu on 2026-07-10 — three weeks AFTER it stopped rendering — and a
+      changelog note the same day recorded the page as "reachable via direct
+      link / account", which is what stopped anyone checking.
+
+      🔒 KEYED 'refer' ON PURPOSE. The event layout already computes
+      `navHideKeys` containing 'refer' whenever the referral programme is off,
+      and filters by item KEY — but no item was keyed 'refer', so that gate has
+      been hiding nothing while still costing a database read on every event
+      page load. Giving the row this key makes the existing gate work as it was
+      designed to, rather than adding a second one.
+    */
+    {
+      key: 'refer',
+      label: 'Refer a couple',
+      href: `${base}/refer`,
+      icon: Gift,
+      matchPrefix: `${base}/refer`,
     },
     {
       key: 'schedule',

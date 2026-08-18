@@ -1,3 +1,6 @@
+import { RoomFooter } from '../_components/room-footer';
+import { loadRoomLinks } from '../_lib/room-links.server';
+import type { RoomLink } from '../_lib/room-links';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, DoorOpen, MapPin, Users } from 'lucide-react';
@@ -117,13 +120,21 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   // a christening makes it reachable and wrong, so it is fixed in the same
   // change rather than left as a known defect on a newly-unlocked audience.
   const noun = eventNoun(event.event_type);
+  // EARNED, not assumed: this room already ran the same visibility gate the
+  // money-gift page applies, and refused otherwise.
+  const roomLinks = await loadRoomLinks({
+    event,
+    current: 'seat',
+    pabuyaViewerAllowed: true,
+  });
+
 
   // Gate FIRST — before any token lookup. Unowned events get a friendly prompt
   // and we never confirm whether a token is valid for this wedding.
   const owns = await eventOwnsCustomQrGuest(admin, event.event_id);
   if (!owns) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title={`No seat pass for this ${noun} yet`}
           body={`The host hasn’t added the Custom QR seat pass for this ${noun}. You’ll find your table on the printed seating signs at the venue.`}
@@ -156,7 +167,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     // moment it was replaced, and only the current QR gets you in.
     if (!guestRow && !tableRow) {
       return (
-        <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+        <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
           <PromptCard
             title="This QR code isn’t active"
             body="It may have been replaced with a new one. If it’s a guest’s personal QR, ask the guest for their current QR — hosts can also reprint it from their dashboard. At the door, the check-in desk can always find guests by name."
@@ -180,7 +191,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
 
     if (!published) {
       return (
-        <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+        <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
           <PromptCard
             title="Seating isn’t posted yet"
             body={`The host hasn’t published the seating for this ${noun}. Check back closer to the day — this table’s guests will appear here once it’s posted.`}
@@ -205,7 +216,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   const session = await readGuestSession();
   if (!session || session.event_id !== event.event_id) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title="Open this from your invitation"
           body="Your seat pass is part of your personal invitation. Open your invitation link (or scan your personal QR), then tap your seat pass."
@@ -224,7 +235,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
 
   if (!guestRow) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title="Open this from your invitation"
           body="Your seat pass is part of your personal invitation. Open your invitation link (or scan your personal QR), then tap your seat pass."
@@ -303,6 +314,14 @@ async function PersonalPass({
   // Who is throwing this event, in this event type's own word. Wedding →
   // 'couple', so both plates below are byte-identical for a wedding.
   const words = await eventWordsFor(event.event_type);
+  // EARNED, not assumed: this room already ran the same visibility gate the
+  // money-gift page applies, and refused otherwise.
+  const roomLinks = await loadRoomLinks({
+    event,
+    current: 'seat',
+    pabuyaViewerAllowed: true,
+  });
+
 
   // PUBLICATION gate — a DRAFT plan must not reveal the guest's room/seat. The
   // guest's NAME is fine to greet; the room + seat marker stay hidden until the
@@ -311,7 +330,7 @@ async function PersonalPass({
   const published = await eventSeatingPublished(admin, event.event_id);
   if (!published) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title={`Welcome, ${firstName}`}
           body={`Your seat is being arranged. Once ${words.theOrganizer} posts the seating, your exact table and a map to it will appear right here.`}
@@ -348,7 +367,7 @@ async function PersonalPass({
 
   if (tables.length === 0) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title="The floor plan is on its way"
           body={`${words.organizerIsHonoree ? 'The venue layout is still being arranged.' : `${words.TheOrganizer} is still arranging the venue layout.`} Check back closer to the day — your seat pass will appear here.`}
@@ -358,7 +377,7 @@ async function PersonalPass({
   }
 
   return (
-    <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+    <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
       <div className="space-y-6">
         <ArrivalBloom
           firstName={firstName}
@@ -441,6 +460,12 @@ async function PublicTableView({
   tables: EventTableRow[];
   entrance: EntrancePos;
 }) {
+  // Same earned gate as the personal pass above.
+  const roomLinks = await loadRoomLinks({
+    event,
+    current: 'seat',
+    pabuyaViewerAllowed: true,
+  });
   // No scan_events insert on the table path: scan_events.guest_id is NOT NULL,
   // and the table QR carries no guest, so the insert would always fail. Table
   // scans are anonymous public wayfinding — there's no per-guest analytics to
@@ -478,7 +503,7 @@ async function PublicTableView({
   const mono = resolveMonogram(event);
 
   return (
-    <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+    <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
           <EventMonogramBadge
@@ -588,11 +613,15 @@ function SeatPassShell({
   displayName,
   slug,
   eventDate,
+  roomLinks,
   children,
 }: {
   displayName: string;
   slug: string;
   eventDate: string | null;
+  /** REQUIRED on purpose: an optional prop here would let a branch ship without
+   *  a way out, which is the exact defect this closes. */
+  roomLinks: RoomLink[];
   children: React.ReactNode;
 }) {
   return (
@@ -618,6 +647,7 @@ function SeatPassShell({
         <p className="font-serif text-lg italic text-terracotta">See you soon.</p>
         <p className="mt-3 text-xs text-ink/50">Powered by Setnayan · setnayan.com</p>
       </footer>
+      <RoomFooter links={roomLinks} />
     </main>
   );
 }

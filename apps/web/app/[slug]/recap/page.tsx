@@ -1,3 +1,6 @@
+import { RoomFooter } from '../_components/room-footer';
+import { loadRoomLinks } from '../_lib/room-links.server';
+import type { RoomLink } from '../_lib/room-links';
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -114,6 +117,15 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
     event.event_id,
   );
 
+  const roomLinks = await loadRoomLinks({
+    event,
+    current: 'album',
+    // EARNED, not assumed: this room already ran `canViewSlugEvent` against the
+    // SAME raw visibility column the money-gift page applies, and redirected
+    // away if it failed.
+    pabuyaViewerAllowed: true,
+  });
+
   if (!(await isRecapPublished(event.event_id))) {
     return (
       <main className="min-h-dvh bg-cream text-ink" style={wrapStyle}>
@@ -133,7 +145,8 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
           </Link>
         </div>
         <RecapFooter hideWatermark={hideWatermark} />
-      </main>
+        <RoomFooter links={roomLinks} />
+    </main>
     );
   }
 
@@ -176,6 +189,7 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
         />
       </article>
       <RecapFooter />
+      <RoomFooter links={roomLinks} />
     </main>
   );
 }

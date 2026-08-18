@@ -140,7 +140,7 @@ export default async function PlaylistPage({ params }: Props) {
   const bookedMusic = musicVendorRow.data;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:max-w-4xl">
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:max-w-4xl">
       {/* Back-to-event-home link · matches the navigation pattern from
           other add-on surfaces. */}
       <Link
@@ -235,6 +235,6 @@ export default async function PlaylistPage({ params }: Props) {
           />
         ))}
       </div>
-    </main>
+    </div>
   );
 }

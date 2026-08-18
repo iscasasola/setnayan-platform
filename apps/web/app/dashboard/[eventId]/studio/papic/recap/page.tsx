@@ -78,7 +78,7 @@ export default async function CoupleRecapPage({
     recapHasContent && !recapDriveGrant && (await getDriveOAuthConfig()).ready;
 
   return (
-    <main className="mx-auto w-full max-w-2xl space-y-6 px-4 py-8 sm:px-6">
+    <div className="mx-auto w-full max-w-2xl space-y-6 px-4 py-8 sm:px-6">
       <Link
         href={`/dashboard/${eventId}/studio/papic`}
         className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
@@ -250,7 +250,7 @@ export default async function CoupleRecapPage({
         </span>
         <ExternalLink aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
       </Link>
-    </main>
+    </div>
   );
 }
 

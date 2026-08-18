@@ -142,8 +142,16 @@ export default async function HostManpowerPage({
     (g) => g.status === 'completed' || g.status === 'cancelled',
   );
 
+  // Keeps the shared shell (owner 2026-08-18) — this was a second <main> inside
+  // the event layout's own. The full-height paint is KEPT: it is what makes the
+  // page read as its own surface, and dropping it would be a visual change
+  // nobody asked for.
+  //
+  // ⚠ A JSX COMMENT CANNOT SIT HERE. `return ( {/* … */} <div> )` is two
+  // expressions, not one — it parses as an object literal and the file stops
+  // compiling. A note ABOVE the return is the only place it fits.
   return (
-    <main
+    <div
       className="min-h-screen"
       style={{ background: 'var(--m-paper)', color: 'var(--m-ink)' }}
     >
@@ -256,7 +264,7 @@ export default async function HostManpowerPage({
           />
         </section>
       </div>
-    </main>
+    </div>
   );
 }
 

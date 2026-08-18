@@ -170,7 +170,7 @@ export default async function EditorialEditorPage({
   const hasEditorialContent = Object.keys(draft).length > 0 || status === 'published';
   if (!isPro && !hasEditorialContent) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
         <WebsiteProLock
           eventId={eventId}
           backHref={`/dashboard/${eventId}/website`}
@@ -179,7 +179,7 @@ export default async function EditorialEditorPage({
             event.event_type,
           )}'s editorial — your own words, photos, and layout. It's part of Event Hub PRO.`}
         />
-      </main>
+      </div>
     );
   }
 
@@ -243,7 +243,7 @@ export default async function EditorialEditorPage({
     : null;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
       <Link
         href={`/dashboard/${eventId}/website`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink/65 transition-colors hover:text-burgundy focus-visible:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
@@ -278,6 +278,6 @@ export default async function EditorialEditorPage({
         landingVisibility={landingVisibility}
         isWedding={(event.event_type ?? 'wedding') === 'wedding'}
       />
-    </main>
+    </div>
   );
 }

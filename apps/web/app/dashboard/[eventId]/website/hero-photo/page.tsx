@@ -57,7 +57,7 @@ export default async function HeroPhotoEditorPage({
   );
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Back link */}
       <Link
         href={`/dashboard/${eventId}/website`}
@@ -195,6 +195,6 @@ export default async function HeroPhotoEditorPage({
           countdown stay readable on top.
         </p>
       </section>
-    </main>
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { MonitorPlay, Radio, Camera, ArrowRight, Plus, Rocket, Globe, ExternalLink } from 'lucide-react';
+import { MonitorPlay, Radio, Camera, ArrowRight, Plus, Globe, ExternalLink } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -10,6 +10,7 @@ import { resolveAddOnState } from '@/lib/add-on-state';
 import { liveStudioControllerHref } from '@/lib/live-studio-control';
 import { getLifecyclePhase } from '@/lib/invitation-widgets';
 import { PUBLIC_SITE_PAGES } from '@/lib/public-site-pages';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Launch your services' };
 
@@ -142,17 +143,16 @@ export default async function LaunchHubPage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-      <header className="sn-reveal space-y-1">
-        <p className="sn-eye">
-          <Rocket aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Day-of
-        </p>
-        <h1 className="sn-h1">Launch your services</h1>
-        <p className="text-sm text-ink/60">
-          {ownedCount > 0
-            ? 'Start each of your live services as the day unfolds.'
-            : 'Your live services will start from here on the day. Add one to light it up.'}
-        </p>
-      </header>
+      <PageMasthead
+        title="Launch your services"
+        lede={
+          <>
+            {ownedCount > 0
+              ? 'Start each of your live services as the day unfolds.'
+              : 'Your live services will start from here on the day. Add one to light it up.'}
+          </>
+        }
+      />
 
       <div className="mt-6 space-y-3">
         {services.map((s) => {

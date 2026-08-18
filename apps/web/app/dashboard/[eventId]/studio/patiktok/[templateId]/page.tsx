@@ -7,6 +7,7 @@ import {
   type PatiktokTemplate,
 } from '@/lib/patiktok';
 import { RenderForm, type MusicTrackOption } from '../_components/render-form';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 type Props = {
   params: Promise<{ eventId: string; templateId: string }>;
@@ -55,13 +56,18 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
         Back to templates
       </Link>
 
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Reels</p>
-        <h1 className="sn-h1">
-          {template.name}
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">{template.vibe}</p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <>
+            {template.name}
+          </>
+        }
+        lede={
+          <>
+            {template.vibe}
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,360px)_1fr]">
         <div className="space-y-3">

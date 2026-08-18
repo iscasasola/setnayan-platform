@@ -29,6 +29,7 @@ import {
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { KpiStatCard } from '../_components/kpi-stat-card';
+import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Taxonomy Studio · Admin' };
 // Top-level DB reads (admin client + getTaxonomy) — keep this route dynamic so a
 // future root app/loading.tsx can't pull it into build-time static generation.
@@ -539,18 +540,20 @@ export default async function AdminTaxonomyPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">Iteration 0044 · V1.1 vendor taxonomy</p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Taxonomy Studio</h1>
-        <p className="text-base text-ink/65">
-          The single live taxonomy, edited visually. Ten folders, {tiles.length} tiles, {totalRows} services.
-          Drag a tile to reorder it, drop it on a folder to re-home it, and open any tile to edit its icon,
-          photo, event scope, and services. Every change publishes live to the marketplace and onboarding with
-          no deploy
-          {tax.source === 'fallback' ? ' (tables unseeded — using lib/taxonomy.ts)' : ''}. Editing the{' '}
-          <strong>{tax.source === 'db' ? 'DB tree' : 'code fallback'}</strong>.
-        </p>
-      </header>
+      <PageMasthead
+        title="Taxonomy Studio"
+        lede={
+          <>
+            The single live taxonomy, edited visually. Ten folders, {tiles.length} tiles, {totalRows} services.
+            Drag a tile to reorder it, drop it on a folder to re-home it, and open any tile to edit its icon,
+            photo, event scope, and services. Every change publishes live to the marketplace and onboarding with
+            no deploy
+            {tax.source === 'fallback' ? ' (tables unseeded — using lib/taxonomy.ts)' : ''}. Editing the{' '}
+            <strong>{tax.source === 'db' ? 'DB tree' : 'code fallback'}</strong>.
+          </>
+        }
+        className="mb-6"
+      />
 
       {ok ? (
         <div className="mb-4 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">

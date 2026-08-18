@@ -16,6 +16,7 @@ import { eventOwnsAnimatedMonogram, ANIMATED_MONOGRAM_SERVICE_KEY } from '@/lib/
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Monogram Maker' };
 
@@ -141,18 +142,10 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
         Back to add-ons
       </Link>
 
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">
-          Monogram maker
-        </p>
-        <h1 className="sn-h1">
-          Your wedding monogram
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Design your mark from scratch in the Vector Studio. It shows on your
-          Event Hub, your QR codes, and across your dashboard.
-        </p>
-      </header>
+      <PageMasthead
+        title="Your wedding monogram"
+        lede="Design your mark from scratch in the Vector Studio. It shows on your Event Hub, your QR codes, and across your dashboard."
+      />
 
       {/* ── Carry-through: restore a mark designed on the free public studio (pre-signup) ── */}
       <MonogramDraftRestore eventId={eventId} hasCustomMark={Boolean(customSvg)} />

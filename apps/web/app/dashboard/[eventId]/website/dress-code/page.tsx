@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, Shirt } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { eventNoun } from '@/lib/event-noun';
 import { updateDressCode, type DressCodeConfig } from './actions';
 import { DressCodeFields, normalizeDressCodeConfig } from './_components/dress-code-fields';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Edit dress code' };
 
@@ -71,28 +72,18 @@ export default async function DressCodeEditorPage({
   return (
     <section className="space-y-6">
       {/* Header strip */}
-      <header className="sn-reveal space-y-3">
-        <Link
-          href={`/dashboard/${eventId}/website`}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Back to Event Hub
-        </Link>
-        <div>
-          <p className="sn-eye flex items-center gap-2">
-            <Shirt aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Dress code
-          </p>
-          <h1 className="sn-h1 mt-1">
-            Tell your guests what to wear
-          </h1>
-          <p className="mt-2 max-w-prose text-sm text-ink/65">
+      <PageMasthead
+        title="Tell your guests what to wear"
+        back={`/dashboard/${eventId}/website`}
+        backLabel="Back to Event Hub"
+        lede={
+          <>
             Add a palette so guests can match the mood of your {eventNoun(event.event_type)}. Share the look
             you&rsquo;re going for — and the few things you&rsquo;d rather they skip.
-          </p>
-        </div>
-
+          </>
+        }
+      />
+      <div className="mt-3 space-y-3">
         {saved ? (
           <div
             role="status"
@@ -120,7 +111,7 @@ export default async function DressCodeEditorPage({
             <strong className="font-medium"> Save</strong> to share it with your guests.
           </div>
         ) : null}
-      </header>
+      </div>
 
       {/* Two-column layout — editor left, preview right on lg+ */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-8">

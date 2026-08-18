@@ -28,6 +28,7 @@ import {
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { isSameDayInManila } from '@/lib/papic-buy-urgency';
+import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Payments · Admin' };
 
 type Props = {
@@ -193,15 +194,11 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">Money · reconciliation</p>
-        <h1 className="sn-h1">Payments &amp; reconciliation</h1>
-        <p className="max-w-2xl text-sm text-[color:var(--sn-ink-500)]">
-          Couples log payments after they transfer. Match each one against the order&rsquo;s
-          reference code. Submitted orders without a confirmed total need a quote before couples can
-          pay.
-        </p>
-      </header>
+      <PageMasthead
+        title="Payments & reconciliation"
+        lede="Couples log payments after they transfer. Match each one against the order’s reference code. Submitted orders without a confirmed total need a quote before couples can pay."
+        className="mb-6"
+      />
 
       {notice ? (
         <div

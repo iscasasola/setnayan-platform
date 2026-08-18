@@ -14,6 +14,7 @@ import {
 import { markPayoutPaidAction, holdPayoutAction } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Vendor payouts · Admin' };
 
 type FilterKey = 'pending' | 'paid' | 'on_hold' | 'all';
@@ -139,20 +140,20 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">
-          Iteration 0006 + 0034 · Vendor Payout model (2026-05-16 lock)
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight">Vendor payouts</h1>
-        <p className="max-w-3xl text-sm text-ink/65">
-          One row per scheduled disbursement. Verified vendors are paid in a
-          single <span className="font-medium">immediate</span> stage (T+1);
-          coming-soon vendors release in three stages (20% on booking · 60%
-          T+7 from event start · 20% T+7 from event end). Setnayan absorbs the
-          ₱15-25 outbound fee — vendor net is shown post BIR withholding and
-          gateway only.
-        </p>
-      </header>
+      <PageMasthead
+        title="Vendor payouts"
+        lede={
+          <>
+            One row per scheduled disbursement. Verified vendors are paid in a
+            single <span className="font-medium">immediate</span> stage (T+1);
+            coming-soon vendors release in three stages (20% on booking · 60%
+            T+7 from event start · 20% T+7 from event end). Setnayan absorbs the
+            ₱15-25 outbound fee — vendor net is shown post BIR withholding and
+            gateway only.
+          </>
+        }
+        className="mb-6"
+      />
 
       <FlashBanner flash={search.flash} error={search.error} />
 

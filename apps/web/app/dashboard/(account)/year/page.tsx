@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, CalendarHeart, Sparkles, Gift } from 'lucide-react';
+import { CalendarHeart, Sparkles, Gift } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
 import {
@@ -16,6 +16,7 @@ import { buildDependentMoments, type DependentForMoments } from '@/lib/dependent
 import { buildDependentRiteMoments, type DependentForRites } from '@/lib/faith-rites';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Your year' };
 
@@ -162,21 +163,13 @@ export default async function YearPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link className="sn-chip sn-press w-fit" href="/dashboard">
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Back to events
-      </Link>
-
-      <header className="mt-6 space-y-2">
-        <p className="sn-eye">
-          <CalendarHeart aria-hidden strokeWidth={1.75} />
-          The dates ahead
-        </p>
-        <h1 className="sn-h1">Your year</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          The moments ahead — anniversaries, and the dates worth gathering for. Nothing here is
-          on your plate yet; tap one when you’re ready to plan it.
-        </p>
-      </header>
+      <PageMasthead
+        title="Your year"
+        back="/dashboard"
+        backLabel="Back to events"
+        lede="The moments ahead — anniversaries, and the dates worth gathering for. Nothing here is on your plate yet; tap one when you’re ready to plan it."
+        className="mt-6"
+      />
 
       {/* The one date this page can offer before the account has any events —
           and the only reason it would be missing is that nobody has typed it.

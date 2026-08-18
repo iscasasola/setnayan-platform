@@ -8,6 +8,7 @@ import { paletteSwatches, sealColorFromPalette } from '@/lib/site-palette';
 import { fallbackSeedFromPublicId, sanitizeWaxSealConfig } from '@/lib/wax-seal/types';
 import { WaxStampMaker } from './wax-stamp-maker';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Make your wax seal' };
 
@@ -72,14 +73,10 @@ export default async function StampMakerPage({ params }: Props) {
         Back to Save the Date
       </Link>
 
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Wax Seal</p>
-        <h1 className="sn-h1">Make your wax seal</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Your monogram is the stamp. Pour the wax, wait for it to set, then press — every pour is
-          one of a kind. Your seal holds your invitation closed until a guest swipes it away.
-        </p>
-      </header>
+      <PageMasthead
+        title="Make your wax seal"
+        lede="Your monogram is the stamp. Pour the wax, wait for it to set, then press — every pour is one of a kind. Your seal holds your invitation closed until a guest swipes it away."
+      />
 
       <WaxStampMaker
         eventId={eventId}

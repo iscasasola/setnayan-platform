@@ -22,6 +22,7 @@ import { RevealList } from '@/app/_components/reveal-list';
 import { eventNoun, eventNounCap } from '@/lib/event-noun';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { resolveSiteReachability } from '@/lib/launch-save-the-date';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Event Hub' };
 
@@ -138,19 +139,14 @@ export default async function WebsiteHubPage({
   return (
     <section className="space-y-8">
       {/* Header strip — eyebrow + title + lede */}
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye flex items-center gap-2">
-          <Globe aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Your Event Hub
-        </p>
-        <h1 className="sn-h1">
-          {event.display_name || `Your ${eventNounCap(event.event_type)} page`}
-        </h1>
-        <p className="max-w-prose text-base text-ink/70">
-          One page for everything your guests need — your story, the details, and
-          their RSVP. Open the editor to style it, then share your link.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <>
+            {event.display_name || `Your ${eventNounCap(event.event_type)} page`}
+          </>
+        }
+        lede="One page for everything your guests need — your story, the details, and their RSVP. Open the editor to style it, then share your link."
+      />
 
       {/* Hero — public site identity + the primary "Launch editor" action */}
       <div className="overflow-hidden sn-tile">

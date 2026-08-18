@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   proposePartnership,
   acceptPartnership,
@@ -194,17 +195,17 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6">
-      <header className="mb-8 space-y-1">
-        <p className="sn-eye text-[color:var(--m-orange-2)]">Vendor partnerships</p>
-        <h1 className="text-2xl font-extrabold tracking-[-0.015em] text-[color:var(--m-ink)] sm:text-3xl">
-          Partnerships
-        </h1>
-        <p className="text-sm text-ink/60">
-          Team up with vendors you work well with. You propose; the other vendor accepts.
-          Once <strong>both of you agree</strong>, the partnership badge appears on both
-          profiles in couple search results. No admin review needed.
-        </p>
-      </header>
+      <PageMasthead
+        title="Partnerships"
+        lede={
+          <>
+            Team up with vendors you work well with. You propose; the other vendor accepts.
+            Once <strong>both of you agree</strong>, the partnership badge appears on both
+            profiles in couple search results. No admin review needed.
+          </>
+        }
+        className="mb-8"
+      />
 
       {sp.error ? <FormFlash tone="error">{decodeURIComponent(sp.error)}</FormFlash> : null}
       {sp.changed ? (

@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { fetchEventActivity, relativeTime } from '@/lib/activity';
 import { getLocale, makeT } from '@/lib/i18n';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,22 +36,23 @@ export default async function EventActivityPage({
 
   return (
     <section className="sn-col space-y-6">
-      <header className="sn-reveal space-y-2">
-        <Link
-          href={`/dashboard/${eventId}`}
-          className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-terracotta"
-        >
-          <ArrowLeft aria-hidden className="h-3 w-3" />
-          {tr('cta.back')}
-        </Link>
-        <p className="sn-eye">Activity</p>
-        <h1 className="sn-h1">
-          {tr('section.recent_activity')}
-        </h1>
-        <p className="text-sm text-ink/55">
-          {event.display_name} · everything that happened, newest first.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={<>{tr('section.recent_activity')}</>}
+        lede={
+          <>
+            {event.display_name} · everything that happened, newest first.
+          </>
+        }
+        actions={
+          <Link
+            href={`/dashboard/${eventId}`}
+            className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-terracotta"
+          >
+            <ArrowLeft aria-hidden className="h-3 w-3" />
+            {tr('cta.back')}
+          </Link>
+        }
+      />
 
       {activity.length === 0 ? (
         <p className="sn-row border-dashed p-6 text-center text-sm text-ink/55">

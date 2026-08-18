@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Download } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   fetchContract,
   formatFileSize,
@@ -43,27 +44,26 @@ export default async function CustomerContractDetailPage({ params }: Props) {
         Back to contracts
       </Link>
 
-      <header className="sn-reveal space-y-2">
-        <span className="sn-eye">
-          {statusLabel(contract.status)}
-        </span>
-        <h1 className="sn-h1">
-          {contract.title}
-        </h1>
-        <p className="text-sm text-ink/65">
-          From <strong>{vendorName}</strong> ·{' '}
-          {new Date(contract.created_at).toLocaleDateString('en-PH', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          })}
-        </p>
+      <PageMasthead
+        titleNode={<>{contract.title}</>}
+        lede={
+          <>
+            From <strong>{vendorName}</strong> ·{' '}
+            {new Date(contract.created_at).toLocaleDateString('en-PH', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            })}
+          </>
+        }
+      />
+      <div className="mt-3 space-y-3">
         {contract.description ? (
           <p className="sn-row p-3 text-sm text-ink/75">
             {contract.description}
           </p>
         ) : null}
-      </header>
+      </div>
 
       {/* PDF download */}
       <section className="sn-tile p-5">

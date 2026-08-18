@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, CloudUpload, Radio, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Radio, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getPhotoDeliveryOAuthConfig } from '@/lib/photo-delivery-drive';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   PhotoDeliveryPanel,
   type PhotoDeliveryStatus,
@@ -116,21 +117,17 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
         Back to add-ons
       </Link>
 
-      <header className="sn-reveal space-y-3">
-        <p className="sn-eye inline-flex items-center gap-1.5">
-          <CloudUpload aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Photo Delivery · Web V1
-        </p>
-        <h1 className="sn-h1">
-          Send your finalized photos to Google Drive
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Once your photographers and videographers finish their post-event edits,
-          Setnayan pushes the full-resolution archive straight to a Drive folder you
-          control — no hard drives changing hands, no &ldquo;wait for the photographer
-          to upload&rdquo; back-and-forth.
-        </p>
-      </header>
+      <PageMasthead
+        title="Send your finalized photos to Google Drive"
+        lede={
+          <>
+            Once your photographers and videographers finish their post-event edits,
+            Setnayan pushes the full-resolution archive straight to a Drive folder you
+            control — no hard drives changing hands, no &ldquo;wait for the photographer
+            to upload&rdquo; back-and-forth.
+          </>
+        }
+      />
 
       {/* How long we hold things — visible at the top of the page so couples see
           it before they ever click Connect.

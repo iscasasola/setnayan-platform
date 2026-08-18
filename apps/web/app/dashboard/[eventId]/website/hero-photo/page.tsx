@@ -8,6 +8,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { uploadHeroPhoto, removeHeroPhoto } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { eventNoun } from '@/lib/event-noun';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
  * Editor for the wedding landing page hero photo.
@@ -68,17 +69,17 @@ export default async function HeroPhotoEditorPage({
       </Link>
 
       {/* Header */}
-      <header className="sn-reveal mb-8 space-y-2">
-        <p className="sn-eye">Landing page</p>
-        <h1 className="sn-h1">
-          Hero photo
-        </h1>
-        <p className="max-w-prose text-sm text-ink/65 sm:text-base">
-          Choose a hi-res photo of the two of you. It lands as the full-bleed
-          banner on your {eventNoun(event.event_type)}’s public page. JPG, PNG, or WebP up to 10 MB.
-          Aspect ratio works best at 16:9 or 4:3.
-        </p>
-      </header>
+      <PageMasthead
+        title="Hero photo"
+        lede={
+          <>
+            Choose a hi-res photo of the two of you. It lands as the full-bleed
+            banner on your {eventNoun(event.event_type)}’s public page. JPG, PNG, or WebP up to 10 MB.
+            Aspect ratio works best at 16:9 or 4:3.
+          </>
+        }
+        className="mb-8"
+      />
 
       {/* Living hero cross-link */}
       <Link

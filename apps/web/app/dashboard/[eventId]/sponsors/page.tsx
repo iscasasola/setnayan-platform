@@ -29,6 +29,7 @@ import { AddSponsorModal } from './_components/add-sponsor-modal';
 import { InvitationTemplateModal } from './_components/invitation-template-modal';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PairTargetPicker } from './_components/pair-target-picker';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   addSponsor,
   markResponse,
@@ -225,22 +226,18 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
         Back to {eventName}
       </Link>
 
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">
-          <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Filipino wedding tradition · ninong + ninang
-        </p>
-        <h1 className="sn-h1">
-          Your principal sponsors
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Pick the people you want standing beside you on the day — your ninong
-          and ninang, plus the cord, veil, coin, and candle sponsors who carry
-          the rites of the ceremony. Filipino weddings traditionally invite{' '}
-          {PRINCIPAL_PAIR_DEFAULT} pairs of principal sponsors; some couples go
-          up to {PRINCIPAL_PAIR_MAX}.
-        </p>
-      </header>
+      <PageMasthead
+        title="Your principal sponsors"
+        lede={
+          <>
+            Pick the people you want standing beside you on the day — your ninong
+            and ninang, plus the cord, veil, coin, and candle sponsors who carry
+            the rites of the ceremony. Filipino weddings traditionally invite{' '}
+            {PRINCIPAL_PAIR_DEFAULT} pairs of principal sponsors; some couples go
+            up to {PRINCIPAL_PAIR_MAX}.
+          </>
+        }
+      />
 
       {/* Inline status banner */}
       {errorMessage ? (

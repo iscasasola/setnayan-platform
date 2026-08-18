@@ -1,15 +1,7 @@
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
-import {
-  ArrowLeft,
-  Clapperboard,
-  Globe,
-  Handshake,
-  Plus,
-  Sparkles,
-  Trash2,
-} from 'lucide-react';
+import { Clapperboard, Globe, Handshake, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { loadLinkableEvents, type LinkableEvent } from '@/lib/chapter-event-participation';
 import {
@@ -27,6 +19,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { ChapterEmbedFrame } from './_components/chapter-embed-frame';
 import { TeaserGenerator } from './_components/teaser-generator';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   createChapter,
   deleteChapter,
@@ -106,26 +99,13 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        Back to home
-      </Link>
-
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">
-          <Clapperboard aria-hidden strokeWidth={1.75} />
-          Your story
-        </p>
-        <h1 className="sn-h1">Your Chapters</h1>
-        <p className="text-base text-ink/65">
-          A chapter is your story in your own words — and, if you have one, your
-          video alongside it. You don&rsquo;t need a YouTube channel or a TikTok
-          account to tell it. Setnayan adds what only we have: your Papic
-          gallery and the real vendors behind the day. Publish one and your
-          public profile becomes a timeline of chapters, not a feed. Anyone can
-          tell their story here — there&rsquo;s nothing to buy.
-        </p>
-      </header>
+      <PageMasthead
+        title="Your Chapters"
+        back="/dashboard"
+        backLabel="Back to home"
+        lede="A chapter is your story in your own words — and, if you have one, your video alongside it. You don’t need a YouTube channel or a TikTok account to tell it. Setnayan adds what only we have: your Papic gallery and the real vendors behind the day. Publish one and your public profile becomes a timeline of chapters, not a feed. Anyone can tell their story here — there’s nothing to buy."
+        className="mb-6"
+      />
 
       {search.error ? (
         <FormFlash tone="error">{decodeURIComponent(search.error)}</FormFlash>

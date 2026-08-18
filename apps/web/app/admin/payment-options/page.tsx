@@ -19,6 +19,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Payment options · Admin' };
 
 /**
@@ -99,21 +100,19 @@ export default async function AdminPaymentOptionsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">
-          Vendor payment options · Moderation
-        </p>
-        <h1 className="sn-h1">
-          Payment options
-        </h1>
-        <p className="max-w-2xl text-sm text-ink/65">
-          Vendors publish their own payment destinations so couples pay them{' '}
-          <span className="font-medium">directly</span>. Approving here does{' '}
-          <span className="font-medium">not</span> make Setnayan the payment
-          processor — it only screens links &amp; QR codes for fraud before they
-          reach couples. Vendor&nbsp;↔&nbsp;couple money is always off-platform.
-        </p>
-      </header>
+      <PageMasthead
+        title="Payment options"
+        lede={
+          <>
+            Vendors publish their own payment destinations so couples pay them{' '}
+            <span className="font-medium">directly</span>. Approving here does{' '}
+            <span className="font-medium">not</span> make Setnayan the payment
+            processor — it only screens links &amp; QR codes for fraud before they
+            reach couples. Vendor&nbsp;↔&nbsp;couple money is always off-platform.
+          </>
+        }
+        className="mb-6"
+      />
 
       {error ? (
         <FormFlash tone="error">

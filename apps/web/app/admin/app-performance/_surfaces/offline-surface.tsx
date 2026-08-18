@@ -45,6 +45,7 @@
  */
 
 import { OfflineDiagnosticLoader } from '@/app/admin/offline/_components/offline-diagnostic-loader';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 // IndexedDB is client-only (lives on `window`), so the diagnostic panel
 // loads via `next/dynamic({ ssr: false })`. Next.js 15 forbids that call
@@ -56,16 +57,10 @@ import { OfflineDiagnosticLoader } from '@/app/admin/offline/_components/offline
 export function OfflineSurface() {
   return (
     <div className="space-y-6">
-      <header>
-        <p className="sn-eye">Operations</p>
-        <h1 className="sn-h1 mt-2">Offline daemon</h1>
-        <p className="mt-3 max-w-2xl text-sm text-ink-soft">
-          The offline daemon scaffolds IndexedDB queues + a background-sync
-          service worker for the seven media services. During pilot the
-          queues stay empty — the per-service upload paths land alongside
-          each service&rsquo;s V1.x refresh.
-        </p>
-      </header>
+      <PageMasthead
+        title="Offline daemon"
+        lede="The offline daemon scaffolds IndexedDB queues + a background-sync service worker for the seven media services. During pilot the queues stay empty — the per-service upload paths land alongside each service’s V1.x refresh."
+      />
 
       <OfflineDiagnosticLoader />
 

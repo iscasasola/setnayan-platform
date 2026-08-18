@@ -18,6 +18,7 @@ import { getDriveOAuthConfig } from '@/lib/papic-drive';
 import { publishRecap, unpublishRecap } from './actions';
 import { RecapDriveNudge } from './_components/recap-drive-nudge';
 import { RecapSocialFeatureToggle } from './_components/recap-social-feature-toggle';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 // Iteration 0012 Papic — Auto-Recap (couple-side management surface).
 //
@@ -87,17 +88,20 @@ export default async function CoupleRecapPage({
         Back to Papic
       </Link>
 
-      <header className="sn-reveal space-y-2">
+      <PageMasthead
+        title="Your Recap"
+        lede={
+          <>
+            A living recap of your day — your love story, your photos, and the messages your guests
+            left — assembled automatically. Free, and yours to share.
+          </>
+        }
+      />
+      <div className="mt-3 space-y-3">
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
           <Sparkles aria-hidden className="h-5 w-5" strokeWidth={1.75} />
         </span>
-        <p className="sn-eye">Recap</p>
-        <h1 className="sn-h1">Your Recap</h1>
-        <p className="max-w-prose text-sm text-ink/65">
-          A living recap of your day — your love story, your photos, and the messages your guests
-          left — assembled automatically. Free, and yours to share.
-        </p>
-      </header>
+      </div>
 
       {/* What's in your recap */}
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">

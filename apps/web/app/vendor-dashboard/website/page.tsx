@@ -31,6 +31,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { DomainManager } from './_domain-manager';
 import type { DomainRow } from './actions';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Your website' };
@@ -84,18 +85,11 @@ export default async function VendorWebsitePreview() {
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye" style={{ color: 'var(--m-orange-2)' }}>
-          Vendor dashboard · Public page
-        </p>
-        <h1 className="m-display text-3xl font-semibold tracking-tight sm:text-4xl">
-          Your website
-        </h1>
-        <p className="text-base" style={{ color: 'var(--m-slate)' }}>
-          This is your public page — exactly what couples see when they open your
-          link on the marketplace. Edit anything from your Profile.
-        </p>
-      </header>
+      <PageMasthead
+        title="Your website"
+        lede="This is your public page — exactly what couples see when they open your link on the marketplace. Edit anything from your Profile."
+        className="mb-6"
+      />
 
       {previewable && publicPath ? (
         <>

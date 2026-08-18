@@ -7,6 +7,7 @@ import type { ManpowerGigRow, ManpowerGigStatus } from '@/app/vendor-dashboard/m
 import { cancelGigFromHost } from './host-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
  * V2 Phase F · Host-side manpower surface.
@@ -164,25 +165,11 @@ export default async function HostManpowerPage({
           Back to event home
         </Link>
 
-        <header className="sn-reveal mt-6">
-          <p
-            className="sn-eye"
-            style={{ letterSpacing: '0.2em', fontSize: '11px' }}
-          >
-            Phase F · ₱15K offline cash
-          </p>
-          <h1
-            className="sn-h1 mt-2"
-            style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)' }}
-          >
-            Manpower
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-            Post a day-of crew gig. A Setnayan-platform vendor near you accepts,
-            and you pay them direct on the day — cash, GCash, or bank transfer.
-            Setnayan never touches the money.
-          </p>
-        </header>
+        <PageMasthead
+          title="Manpower"
+          lede="Post a day-of crew gig. A Setnayan-platform vendor near you accepts, and you pay them direct on the day — cash, GCash, or bank transfer. Setnayan never touches the money."
+          className="mt-6"
+        />
 
         {sp.posted ? (
           <div

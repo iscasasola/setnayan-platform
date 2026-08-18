@@ -20,6 +20,7 @@ import {
   eventOwnsCoupleWebsitePro,
 } from '@/lib/couple-website-pro';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Editorial PRO' };
 
@@ -98,18 +99,17 @@ export default async function EditorialProBuyPage({ params }: Props) {
         <ArrowLeft aria-hidden className="h-4 w-4" /> Back to services
       </Link>
 
-      <header className="sn-reveal flex items-start gap-3">
-        <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-ink/10 text-ink">
-          <Newspaper aria-hidden className="h-6 w-6" strokeWidth={1.75} />
-        </span>
-        <div>
-          <p className="sn-eye">Editorial</p>
-          <h1 className="sn-h1 mt-1.5">Editorial PRO</h1>
-          <p className="mt-1 text-sm text-ink/65">
-            Your wedding, told as a front-page story — authored by you.
-          </p>
-        </div>
-      </header>
+      <PageMasthead
+        titleNode={
+          <span className="flex items-center gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink/10 text-ink">
+              <Newspaper aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            Editorial PRO
+          </span>
+        }
+        lede="Your wedding, told as a front-page story — authored by you."
+      />
 
       {/* What it does — benefit language, no implementation names. */}
       <ul className="sn-tile space-y-2 p-5">

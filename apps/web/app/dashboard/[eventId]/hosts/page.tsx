@@ -2,15 +2,7 @@ import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { siteOrigin } from '@/lib/site-origin';
 import { redirect } from 'next/navigation';
-import {
-  ArrowLeft,
-  CheckCircle2,
-  ClipboardList,
-  Copy,
-  Mail,
-  Trash2,
-  Users,
-} from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ClipboardList, Mail, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -27,6 +19,7 @@ import { revokeHostInvite, removeHost, setDelegateBudget, setDelegatePhotos } fr
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConsentGatedInviteForm } from './_components/consent-gated-invite-form';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Hosts' };
 
@@ -225,20 +218,14 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         Back to {eventName}
       </Link>
 
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">
-          <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Hosts on this event
-        </p>
-        <h1 className="sn-h1">
-          Who&apos;s planning this wedding with you?
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Add parents, the wedding planner, your maid of honor, ninongs and ninangs —
-          anyone who should see the plan or help make decisions. Each host signs in
-          with their own account; you control what role they have.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <>
+            Who&apos;s planning this wedding with you?
+          </>
+        }
+        lede="Add parents, the wedding planner, your maid of honor, ninongs and ninangs — anyone who should see the plan or help make decisions. Each host signs in with their own account; you control what role they have."
+      />
 
       {justSent && shareUrl ? (
         <section className="space-y-3 rounded-2xl border border-success-300/60 bg-success-50/70 p-4 sm:p-5">

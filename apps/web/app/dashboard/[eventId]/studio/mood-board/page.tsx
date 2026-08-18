@@ -31,6 +31,7 @@ import {
 import { ConceptPdfButton } from './_components/concept-pdf-button';
 import { PrintablePdfButton } from './_components/printable-pdf-button';
 import { ShareWithVendorsButton } from './_components/share-with-vendors-button';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Mood Board' };
 
@@ -311,21 +312,22 @@ export default async function MoodBoardPage({ params }: Props) {
         ‹ Back to add-ons
       </Link>
 
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Palette</p>
-        <h1 className="sn-h1">
-          Mood Board
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Set your palette once, then see it on every part of your day — one look per role,
-          your venue, and your flowers. Pick the colors above; the pictures below follow.
-        </p>
+      <PageMasthead
+        title="Mood Board"
+        lede={
+          <>
+            Set your palette once, then see it on every part of your day — one look per role,
+            your venue, and your flowers. Pick the colors above; the pictures below follow.
+          </>
+        }
+      />
+      <div className="mt-3 space-y-3">
         {event.mood_board_updated_at ? (
           <p className="text-xs text-ink/55">
             Last saved {new Date(event.mood_board_updated_at).toLocaleString()}
           </p>
         ) : null}
-      </header>
+      </div>
 
       {showChineseDefaultNote ? (
         <p className="rounded-lg border border-[#7A1F2B]/25 bg-[#7A1F2B]/[0.05] px-3 py-2 text-sm text-ink/75">

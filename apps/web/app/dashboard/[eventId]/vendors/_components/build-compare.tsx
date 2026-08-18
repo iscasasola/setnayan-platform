@@ -627,9 +627,38 @@ export function BuildCompare({
                     </tr>
                   ))
                 : null}
-              {bodyRows.map((r) => (
+              {bodyRows.map((r) => {
+                /* 🔍 THE DELTA, MARKED — the approved comparison archetype, in its
+                   own words: "shows the delta, never the repetition." Working
+                   memory holds 3–4 items, so a grid where most rows are the same
+                   in every column makes the reader hunt for the one that is not.
+                
+                   LOCKED rows already honour this: they collapse to a single
+                   full-width line reading "locked, the same in every plan". This
+                   is the candidate half — a category where every plan happens to
+                   pick the SAME supplier is repetition too, and it now says so.
+                
+                   ⚖ IT LABELS, IT DOES NOT HIDE. Collapsing these rows would take
+                   away a per-column control the couple uses to CHANGE the pick,
+                   which is the whole point of the candidate half of this grid. The
+                   archetype asks that the delta be findable, not that data be
+                   removed.
+                
+                   A row with one column is not "the same in every plan" — there is
+                   nothing to be the same AS — so the marker needs two or more. */
+                const ids = columns.map((c) => c.picks.get(r.groupId)?.vendorId ?? null);
+                const sameEverywhere =
+                  columns.length > 1 && ids.every((v) => v !== null && v === ids[0]);
+                return (
                 <tr key={r.groupId} className="border-t border-ink/8 align-top">
-                  <td className="px-3 py-2 text-ink/80">{r.label}</td>
+                  <td className="px-3 py-2 text-ink/80">
+                    {r.label}
+                    {sameEverywhere ? (
+                      <span className="ml-1.5 whitespace-nowrap text-[10px] text-ink/40">
+                        — same in every plan
+                      </span>
+                    ) : null}
+                  </td>
                   {columns.map((c) => {
                     const p = c.picks.get(r.groupId);
                     const cellKey = `${c.key}::${r.groupId}`;
@@ -684,7 +713,8 @@ export function BuildCompare({
                     );
                   })}
                 </tr>
-              ))}
+                );
+              })}
               <tr className="border-t-2 border-ink/15 bg-ink/[0.02]">
                 <td className="px-3 py-2 font-semibold text-ink">Total</td>
                 {columns.map((c) => {

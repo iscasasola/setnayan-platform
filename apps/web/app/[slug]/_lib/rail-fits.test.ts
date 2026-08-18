@@ -39,7 +39,11 @@ const ROOT_PX = 16;
 
 /** The widest column any room uses — the STAGE (`max-w-5xl`). This is the
  *  number the rail must clear, and the whole point of the test. */
-const WIDEST_COLUMN_REM = 64;
+/** The widest column any room uses. Was the 64rem stage; became the 76rem
+ *  desktop ceiling when the owner asked the page to fill more of a large
+ *  monitor. The rail's anchor is derived from THIS — change one and this test
+ *  tells you the other is now wrong. */
+const WIDEST_COLUMN_REM = 76;
 
 /** The designed breathing space between the rail and the column. */
 const RAIL_GAP_REM = 1.5;
@@ -116,18 +120,65 @@ test('the rail can never be pushed off the left edge', () => {
   );
 });
 
-test('even clamped, the rail never overlaps the widest column', () => {
-  // The tight case: at the breakpoint the clamp is active, so the rail sits at
-  // its minimum margin while the stage column is at its widest relative share.
+test('even clamped, the rail never overlaps the page — at BOTH desktop steps', () => {
+  // 🔑 THE PAGE HAS TWO WIDTHS ON A DESKTOP, AND THE FIRST CUT OF THIS TEST
+  // KNEW ONLY ONE. It modelled a single "widest column" and went red the moment
+  // the ceiling was raised — correctly, because the rail's anchor is derived
+  // from the LARGER of the two while the TIGHTER case is at the smaller one.
+  //
+  //   at xl  1280px — the page is the 64rem stage
+  //   at 2xl 1536px — the page is the 76rem ceiling, and stops there forever
+  //
+  // The anchor is computed from 76; the squeeze happens at 1280 where the clamp
+  // is active and the page has not yet grown. Both must clear.
   const { clampRem, offsetRem } = railAnchor();
-  const viewportRem = SCREEN_PX[railBreakpoint()] / ROOT_PX;
-  const left = Math.max(clampRem, viewportRem / 2 - offsetRem);
-  const railRight = left + railWidthRem();
-  const contentLeft = viewportRem / 2 - WIDEST_COLUMN_REM / 2;
-  assert.ok(
-    railRight <= contentLeft,
-    `at ${SCREEN_PX[railBreakpoint()]}px the rail ends at ${railRight}rem but the ` +
-      `${WIDEST_COLUMN_REM}rem stage starts at ${contentLeft}rem — they overlap.`,
+  const steps: Array<{ px: number; pageRem: number }> = [
+    { px: SCREEN_PX.xl, pageRem: 64 },
+    { px: 1536, pageRem: WIDEST_COLUMN_REM },
+    { px: 2560, pageRem: WIDEST_COLUMN_REM },
+  ];
+  for (const { px, pageRem } of steps) {
+    const viewportRem = px / ROOT_PX;
+    const left = Math.max(clampRem, viewportRem / 2 - offsetRem);
+    const railRight = left + railWidthRem();
+    const contentLeft = viewportRem / 2 - pageRem / 2;
+    assert.ok(
+      railRight <= contentLeft,
+      `at ${px}px the rail ends at ${railRight}rem but a ${pageRem}rem page ` +
+        `starts at ${contentLeft}rem — they overlap.`,
+    );
+  }
+});
+
+test('the page has a CEILING and never grows past it', () => {
+  // The owner saw the 64rem version on a 2000px monitor — 51% of the glass —
+  // and asked for a limit rather than unbounded growth. **A page that grows
+  // forever stops being a page.** A 2560px screen gets more margin, not a wider
+  // invitation.
+  const shell = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), '../_components/invitation-shell.tsx'),
+    'utf8',
+  );
+  assert.match(
+    shell,
+    /2xl:max-w-\[76rem\]/,
+    'the desktop ceiling is gone — the column will keep growing with the window',
+  );
+  // 🪤 THIS FIRST CHECKED ONLY `2xl:` AND A MUTATION WALKED PAST IT — adding
+  // `3xl:max-w-full` after the ceiling left the guard GREEN while the column
+  // grew without limit again. **A ceiling is only a ceiling if NOTHING above it
+  // reopens.** Any responsive unbounded width, at any breakpoint, is that.
+  const unbounded = shell.match(/\b[a-z0-9]+:max-w-(full|none|screen|\[100)/g) ?? [];
+  assert.deepEqual(
+    unbounded,
+    [],
+    `the ceiling is reopened at a larger breakpoint by: ${unbounded.join(', ')}`,
+  );
+  // …and the rail's anchor must be derived from that same ceiling.
+  assert.equal(
+    railAnchor().offsetRem,
+    WIDEST_COLUMN_REM / 2 + railWidthRem() + RAIL_GAP_REM,
+    'the ceiling moved and the rail anchor did not follow it',
   );
 });
 

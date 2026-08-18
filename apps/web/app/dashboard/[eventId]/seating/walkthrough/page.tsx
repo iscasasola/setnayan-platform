@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { canManageWalkthrough } from './actions';
 import { WalkthroughManager, type ZoneVM, type TableVM } from './_components/walkthrough-manager';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Walkthrough videos · Seating' };
 
@@ -83,17 +84,14 @@ export default async function WalkthroughPage({ params }: Props) {
         <ArrowLeft className="h-4 w-4" /> Back to seating
       </Link>
 
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Seating</p>
-        <h1 className="sn-h1 mt-1.5 flex items-center gap-2">
-          <Video className="h-7 w-7 text-terracotta" strokeWidth={1.75} /> Walkthrough videos
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Record a short first-person walk from the entrance to a cluster of tables, then tag the
-          tables in that zone. When a guest finds their seat, they can watch the exact walk to their
-          table — the kind of arrival help no printed sign can give.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <span className="flex items-center gap-2">
+            <Video className="h-7 w-7 text-terracotta" strokeWidth={1.75} /> Walkthrough videos
+          </span>
+        }
+        lede="Record a short first-person walk from the entrance to a cluster of tables, then tag the tables in that zone. When a guest finds their seat, they can watch the exact walk to their table — the kind of arrival help no printed sign can give."
+      />
 
       <WalkthroughManager eventId={eventId} zones={zones} tables={tables} />
     </section>

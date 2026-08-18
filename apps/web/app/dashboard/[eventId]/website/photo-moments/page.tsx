@@ -1,10 +1,9 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Camera } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { parsePhotoMomentsConfig } from './config';
 import { PhotoMomentsEditor } from './_components/photo-moments-editor';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Photo moments' };
 
@@ -56,29 +55,18 @@ export default async function PhotoMomentsEditorPage({
 
   return (
     <section className="space-y-6">
-      <header className="sn-reveal space-y-3">
-        <Link
-          href={`/dashboard/${eventId}/website`}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Back to Event Hub
-        </Link>
-        <div className="space-y-1.5">
-          <p className="sn-eye flex items-center gap-2">
-            <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Photo moments
-          </p>
-          <h1 className="sn-h1">
-            {event.display_name}
-          </h1>
-        </div>
+      <PageMasthead
+        titleNode={<>{event.display_name}</>}
+        back={`/dashboard/${eventId}/website`}
+        backLabel="Back to Event Hub"
+      />
+      <div className="mt-3 space-y-3">
         <p className="max-w-prose text-base text-ink/70">
           Tell guests when to enjoy the moment phone-down · when to capture freely · and
           which beats your Papic team will own. Up to 8 entries, displayed in order on
           your landing page.
         </p>
-      </header>
+      </div>
 
       <PhotoMomentsEditor eventId={eventId} initial={config} />
 

@@ -1,6 +1,5 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, Music, Video } from 'lucide-react';
+import { CheckCircle2, Music, Video } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -9,6 +8,7 @@ import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { updateSiteChrome } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { WebsiteProLock } from '../_components/website-pro-lock';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Music & video hero' };
 
@@ -79,28 +79,18 @@ export default async function SiteChromeEditorPage({
 
   return (
     <section className="space-y-6">
-      <header className="sn-reveal space-y-3">
-        <Link
-          href={`/dashboard/${eventId}/website`}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Back to Event Hub
-        </Link>
-        <div>
-          <p className="sn-eye flex items-center gap-2">
-            <Music aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Music &amp; video hero
-          </p>
-          <h1 className="sn-h1 mt-1">
-            Set the mood
-          </h1>
-          <p className="mt-2 max-w-prose text-sm text-ink/65">
+      <PageMasthead
+        title="Set the mood"
+        back={`/dashboard/${eventId}/website`}
+        backLabel="Back to Event Hub"
+        lede={
+          <>
             Add a soft background song and a short video behind your monogram.
             Both are optional — leave either empty to keep things simple.
-          </p>
-        </div>
-
+          </>
+        }
+      />
+      <div className="mt-3 space-y-3">
         {saved ? (
           <div
             role="status"
@@ -118,7 +108,7 @@ export default async function SiteChromeEditorPage({
             {error}
           </div>
         ) : null}
-      </header>
+      </div>
 
       <form action={updateAction} className="space-y-8">
         {/* Background music — Event Hub PRO (video hero below stays free). When

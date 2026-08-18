@@ -1,8 +1,8 @@
-import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { LibraryEditor, type LibraryAsset } from '@/app/admin/moodboard-library/_components/library-editor';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
  * MoodboardLibrarySurface — the Moodboard Library body, re-homed byte-identical
@@ -85,32 +85,24 @@ export async function MoodboardLibrarySurface() {
 
   return (
     <div>
-      <Link
-        href="/admin"
-        className="mb-4 inline-block font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
-      >
-        ‹ Back to admin overview
-      </Link>
+      <PageMasthead
+        title="Moodboard Library"
+        back="/admin"
+        backLabel="Back to admin overview"
+        lede={
+          <>
+            The shared template library for the Visual preview pillars (Location feel + Dress codes).
+            Upload a photo, tap a color in the image to sample it, adjust the tolerance, and save it
+            to a palette slot. Couples will see this asset with their own palette applied to the
+            tagged regions.
 
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">
-          Setnayan · Admin · Iteration 0010
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Moodboard Library
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          The shared template library for the Visual preview pillars (Location feel + Dress codes).
-          Upload a photo, tap a color in the image to sample it, adjust the tolerance, and save it
-          to a palette slot. Couples will see this asset with their own palette applied to the
-          tagged regions.
-        </p>
-        <p className="max-w-prose text-xs text-ink/50">
-          V1 source = internet placeholder. V1.x = Higgsfield-generated. V1.x+ = approved stylist
-          contributions. Stylist private uploads stay on the stylist&apos;s own Google Drive (not
-          here).
-        </p>
-      </header>
+V1 source = internet placeholder. V1.x = Higgsfield-generated. V1.x+ = approved stylist
+            contributions. Stylist private uploads stay on the stylist&apos;s own Google Drive (not
+            here).
+          </>
+        }
+        className="mb-6"
+      />
 
       <LibraryEditor initialAssets={assets} />
     </div>

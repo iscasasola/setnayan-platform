@@ -5,6 +5,7 @@ import { getKwentoDensity, type KwentoDensityRow } from '@/lib/kwento-density';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
  * Alaala — the couple's living-memory hub (Lane 2 of the Alaala embed).
@@ -221,23 +222,18 @@ export default async function AlaalaPage({ params }: Props) {
   return (
     <section className="space-y-10">
       {/* ── Header — name the pillar + the promise + the guardrail ── */}
-      <header className="sn-reveal space-y-3">
-        <p className="sn-eye">Alaala</p>
-        <h1
-          className="sn-h1"
-          style={{ color: 'var(--m-ink)' }}
-        >
-          Your wedding, kept alive.
-        </h1>
-        <p className="max-w-prose text-base leading-relaxed" style={{ color: 'var(--m-slate)' }}>
-          This is your <span className="italic">Alaala</span> — the living memory of your day, made
-          from everything Setnayan helps you capture and keep. Watch it come together, piece by
-          piece.
-        </p>
-        <p className="max-w-prose text-sm leading-relaxed" style={{ color: 'var(--m-slate-2)' }}>
-          And it never gets in the way. The day stays yours — the tech just quietly remembers it.
-        </p>
-      </header>
+      <PageMasthead
+        title="Your wedding, kept alive."
+        lede={
+          <>
+            This is your <span className="italic">Alaala</span> — the living memory of your day, made
+            from everything Setnayan helps you capture and keep. Watch it come together, piece by
+            piece.
+
+And it never gets in the way. The day stays yours — the tech just quietly remembers it.
+          </>
+        }
+      />
 
       {/* ── Most storied moments (only when Kwentos exist) ── */}
       {densityCards.length > 0 ? (

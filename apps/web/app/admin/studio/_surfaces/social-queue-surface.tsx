@@ -33,6 +33,7 @@ import {
 } from '@/app/admin/social-queue/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
  * SocialQueueSurface — the Social Sharing & Featuring Program mission control,
@@ -441,23 +442,21 @@ export async function SocialQueueSurface({
 
   return (
     <div>
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">
-          Social Sharing &amp; Featuring Program · § 8 auto-publish · 2026-06-12
-        </p>
-        <h1 className="sn-h1">
-          Social queue
-        </h1>
-        <p className="max-w-2xl text-sm text-ink/65">
-          Mission control for the Setnayan Facebook page. The pipeline
-          composes, schedules, and (when the master switch is on)
-          auto-publishes — couple creations only after{' '}
-          <span className="font-medium">event date + 7 days</span>, never more
-          than 3 posts/day, always inside PH prime windows. The manual
-          copy-paste panels below remain the fallback workflow; revoked
-          consents must come down within 24 hours.
-        </p>
-      </header>
+      <PageMasthead
+        title="Social queue"
+        lede={
+          <>
+            Mission control for the Setnayan Facebook page. The pipeline
+            composes, schedules, and (when the master switch is on)
+            auto-publishes — couple creations only after{' '}
+            <span className="font-medium">event date + 7 days</span>, never more
+            than 3 posts/day, always inside PH prime windows. The manual
+            copy-paste panels below remain the fallback workflow; revoked
+            consents must come down within 24 hours.
+          </>
+        }
+        className="mb-6"
+      />
 
       <FlashBanner search={search} />
 

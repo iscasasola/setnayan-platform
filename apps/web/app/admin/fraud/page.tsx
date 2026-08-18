@@ -21,6 +21,7 @@ import { ErrorState } from '@/app/_components/states/error-state';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Fraud queue · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -207,22 +208,20 @@ export default async function AdminFraudQueuePage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-8 space-y-2">
-        <p className="sn-eye">
-          Setnayan · Internal ops · Trust &amp; integrity
-        </p>
-        <h1 className="sn-h1">
-          Fraud queue
-        </h1>
-        <p className="max-w-3xl text-base text-ink/65">
-          Vendors flagged by the continuous fake-results hunt, worst signal first.
-          Investigate the evidence, then either <strong className="text-ink">dismiss</strong>{' '}
-          a false positive, <strong className="text-ink">un-suspend</strong> a vendor the
-          system auto-froze, or <strong className="text-ink">confirm fraud</strong> to wipe
-          their data + permanently ban them. The wipe is irreversible and needs a{' '}
-          <strong className="text-ink">second admin</strong> to confirm.
-        </p>
-      </header>
+      <PageMasthead
+        title="Fraud queue"
+        lede={
+          <>
+            Vendors flagged by the continuous fake-results hunt, worst signal first.
+            Investigate the evidence, then either <strong className="text-ink">dismiss</strong>{' '}
+            a false positive, <strong className="text-ink">un-suspend</strong> a vendor the
+            system auto-froze, or <strong className="text-ink">confirm fraud</strong> to wipe
+            their data + permanently ban them. The wipe is irreversible and needs a{' '}
+            <strong className="text-ink">second admin</strong> to confirm.
+          </>
+        }
+        className="mb-8"
+      />
 
       <div className="mb-8 flex flex-wrap gap-3 text-xs text-ink/70">
         <span className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 bg-white px-3 py-1.5">

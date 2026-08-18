@@ -30,6 +30,7 @@ import {
 import { KwentoQueue } from '../studio/papic/moderation/_components/kwento-queue';
 import { WallModeControl } from './_components/mode-control';
 import { FlashAutoWallToggle } from './_components/flash-auto-wall-toggle';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Live Wall' };
 export const dynamic = 'force-dynamic';
@@ -233,17 +234,15 @@ export default async function LiveWallConsolePage({
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-6 sm:px-6">
-      <header className="sn-reveal">
-        <p className="sn-eye">Live Wall</p>
-        <h1 className="sn-h1 flex items-center gap-2">
-          <MonitorPlay aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={2} />
-          Live Wall
-        </h1>
-        <p className="mt-1 text-sm text-ink/60">
-          The day-of console — what&rsquo;s on the venue screen, who&rsquo;s connected, and
-          the one-tap controls that keep it yours.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <span className="flex items-center gap-2">
+            <MonitorPlay aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={2} />
+            Live Wall
+          </span>
+        }
+        lede="The day-of console — what’s on the venue screen, who’s connected, and the one-tap controls that keep it yours."
+      />
 
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">

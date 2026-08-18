@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
-import { ArrowLeft, ShieldCheck, ShieldAlert, EyeOff, Eye, Flag, UserX, CheckCircle2, Camera} from 'lucide-react';
+import { ShieldCheck, ShieldAlert, EyeOff, Eye, Flag, UserX, CheckCircle2, Camera } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -23,6 +23,7 @@ import {
   approveScreenedCapture,
   setSeatPhotoHidden,} from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Photo moderation · Papic' };
 export const dynamic = 'force-dynamic';
@@ -264,26 +265,24 @@ export default async function PapicModerationPage({
 
   return (
     <section className="space-y-6">
-      <header className="sn-reveal space-y-3">
-        <Link
-          href={`/dashboard/${eventId}/studio/papic`}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Back to Papic
-        </Link>
-        <p className="sn-eye">Moderation</p>
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
-          <h1 className="sn-h1">Photo moderation</h1>
-        </div>
-        <p className="max-w-2xl text-sm text-ink/65">
-          Every guest photo lands here. Hide anything you don&rsquo;t want in
-          your gallery, report it to the Setnayan team for review, or block a
-          guest&rsquo;s camera for this wedding. Blocking is limited to this
-          event only.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <span className="flex items-center gap-2">
+            <ShieldCheck aria-hidden className="h-5 w-5 shrink-0 text-mulberry" strokeWidth={1.75} />
+            Photo moderation
+          </span>
+        }
+        back={`/dashboard/${eventId}/studio/papic`}
+        backLabel="Back to Papic"
+        lede={
+          <>
+            Every guest photo lands here. Hide anything you don&rsquo;t want in
+            your gallery, report it to the Setnayan team for review, or block a
+            guest&rsquo;s camera for this wedding. Blocking is limited to this
+            event only.
+          </>
+        }
+      />
 
       {notice && (
         <p className="inline-flex items-center gap-2 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-sm text-success-800">

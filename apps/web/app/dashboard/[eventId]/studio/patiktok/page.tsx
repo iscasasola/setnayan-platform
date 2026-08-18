@@ -48,6 +48,7 @@ import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inli
 import { getTiktokOAuthConfig } from '@/lib/patiktok-tiktok';
 import { disconnectPatiktokTiktok } from './actions';
 import { ReelRenderer } from './_components/reel-renderer';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 type RenderJobRow = {
   job_id: string;
@@ -227,22 +228,23 @@ export default async function PatiktokGallery({
         </Link>
       </div>
 
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Reels</p>
-        <h1 className="sn-h1">
-          Pick the reel templates for your booth
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Patiktok places an X-mark booth at your venue. Guests stand on the
-          mark, mimic your chosen reel through the Setnayan app, and we
-          auto-compile a viral-ready group video.{' '}
-          <span className="font-mono text-ink">9:16 · 1080×1920 · 1–30s</span>{' '}
-          per clip.
-        </p>
+      <PageMasthead
+        title="Pick the reel templates for your booth"
+        lede={
+          <>
+            Patiktok places an X-mark booth at your venue. Guests stand on the
+            mark, mimic your chosen reel through the Setnayan app, and we
+            auto-compile a viral-ready group video.{' '}
+            <span className="font-mono text-ink">9:16 · 1080×1920 · 1–30s</span>{' '}
+            per clip.
+          </>
+        }
+      />
+      <div className="mt-3 space-y-3">
         <p className="sn-eye">
           Record · render · download — right in your browser
         </p>
-      </header>
+      </div>
 
       {queued ? (
         <p

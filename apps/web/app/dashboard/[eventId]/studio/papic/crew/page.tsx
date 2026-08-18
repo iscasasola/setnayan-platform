@@ -26,6 +26,7 @@ import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import { provisionPapicSeats, reissuePapicSeat } from '../actions';
 import { CopyButton } from './_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 // Papic · Your photo crew (couple-side seat management)
 //
@@ -255,17 +256,22 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
         Back to Papic
       </Link>
 
-      <header className="sn-reveal space-y-3">
-        <p className="sn-eye">Crew</p>
-        <h1 className="sn-h1 flex items-center gap-3">
-          <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          Your photo crew
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Share a link (or QR) with each person you want shooting. They claim it
-          from their own phone — no app to install — and every photo they take
-          lands in your gallery in real time.
-        </p>
+      <PageMasthead
+        titleNode={
+          <>
+            <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
+            Your photo crew
+          </>
+        }
+        lede={
+          <>
+            Share a link (or QR) with each person you want shooting. They claim it
+            from their own phone — no app to install — and every photo they take
+            lands in your gallery in real time.
+          </>
+        }
+      />
+      <div className="mt-3 space-y-3">
         {seats.length > 0 && (
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-sm text-ink/55">
@@ -282,7 +288,7 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
             </Link>
           </div>
         )}
-      </header>
+      </div>
 
       {seatSet === 'provisioned' && (
         <div className="flex items-start gap-2 rounded-lg border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-sm text-ink/80">

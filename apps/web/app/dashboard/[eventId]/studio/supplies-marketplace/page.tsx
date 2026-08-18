@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOrdersForEvent } from '@/lib/orders';
 import { SuppliesMarketplaceBrowser } from './_components/cart-drawer';
 import { SUPPLY_PRODUCTS, type SupplyProduct } from './_data/products';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Setnayan Supplies' };
 
@@ -115,20 +116,18 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <header className="sn-reveal space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="space-y-2">
-            <p className="sn-eye">Supplies</p>
-            <h1 className="sn-h1">
-              Setnayan-curated supplies, delivered.
-            </h1>
-            <p className="max-w-2xl text-base text-ink/65">
-              Print, rentals, decor, NFC keepsakes, specialty merch — sourced by
-              Setnayan from nearby vetted suppliers in your delivery area. You buy
-              from Setnayan at one transparent retail price; we coordinate
-              fulfillment with the supplier behind the scenes.
-            </p>
-          </div>
+      <PageMasthead
+        title="Setnayan-curated supplies, delivered."
+        lede={
+          <>
+            Print, rentals, decor, NFC keepsakes, specialty merch — sourced by
+            Setnayan from nearby vetted suppliers in your delivery area. You buy
+            from Setnayan at one transparent retail price; we coordinate
+            fulfillment with the supplier behind the scenes.
+          </>
+        }
+        actions={
+          <>
           {/* Was "Web V1 · launching", which reads as open-for-business on a page
               whose checkout is deliberately disabled and whose products are
               placeholders. A couple could pick items, price a wedding off them
@@ -137,8 +136,9 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
             <ShoppingBag aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Not open yet
           </span>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <section className="space-y-3 rounded-2xl border border-warn-200/60 bg-warn-50/60 p-4 sm:p-5">
         {/* 🚨 THIS BLOCK TOLD THE COUPLE TO DO SOMETHING IMPOSSIBLE. Step 2 read

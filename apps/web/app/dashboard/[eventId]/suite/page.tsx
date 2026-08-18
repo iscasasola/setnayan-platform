@@ -36,6 +36,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Suite' };
 export const dynamic = 'force-dynamic';
@@ -539,14 +540,14 @@ export default async function SuitePage({ params }: Props) {
 
   return (
     <section className="space-y-6">
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">In-app services</p>
-        <h1 className="sn-h1 mt-1.5">{SUITE_NAME}</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Everything for your event, in one room — what you have, what’s free, and what you
-          can add. Search to jump straight to a service, or start with what we suggest.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <>
+            {SUITE_NAME}
+          </>
+        }
+        lede="Everything for your event, in one room — what you have, what’s free, and what you can add. Search to jump straight to a service, or start with what we suggest."
+      />
 
       {/* Search filters the whole browse view below to matching services; empty
           query → the normal Recommended / Yours / Add / Free sections. */}

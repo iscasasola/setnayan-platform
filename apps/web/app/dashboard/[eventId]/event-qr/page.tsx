@@ -41,12 +41,13 @@
  */
 
 import { redirect } from 'next/navigation';
-import { RefreshCcw, QrCode } from 'lucide-react';
+import { RefreshCcw } from 'lucide-react';
 import QRCode from 'qrcode';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireHostMembership } from '@/lib/host-gate';
 import { regenerateEventMasterQR } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Event QR' };
 
@@ -95,22 +96,18 @@ export default async function EventQrPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <header className="sn-reveal space-y-2">
-        <div className="sn-eye">
-          <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          <span>Event QR</span>
-        </div>
-        <h1 className="sn-h1">
-          For your photography + livestream crew
-        </h1>
-        <p className="max-w-2xl text-sm leading-relaxed text-ink/70">
-          Each crew member scans this QR with their capture device to pair it
-          with your event. You can register up to 5 devices per vendor —
-          enough for the lead photographer, second shooter, drone operator,
-          and two backup phones. Need to swap a device? Ask your vendor to
-          revoke the slot and re-pair.
-        </p>
-      </header>
+      <PageMasthead
+        title="For your photography + livestream crew"
+        lede={
+          <>
+            Each crew member scans this QR with their capture device to pair it
+            with your event. You can register up to 5 devices per vendor —
+            enough for the lead photographer, second shooter, drone operator,
+            and two backup phones. Need to swap a device? Ask your vendor to
+            revoke the slot and re-pair.
+          </>
+        }
+      />
 
       <div className="m-card p-6 sm:p-8">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:gap-10">

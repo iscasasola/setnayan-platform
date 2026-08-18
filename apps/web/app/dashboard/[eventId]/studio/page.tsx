@@ -34,6 +34,7 @@ import { Eye, MonitorPlay, Gift } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 // The cinema-poster card (service-poster.tsx) still owns the `PosterStyle`
 // type that the catalog + Services tab consume, so it is intentionally kept.
@@ -529,14 +530,10 @@ export default async function StudioPage({ params, searchParams }: Props) {
 
   const master = (
     <section className="space-y-8">
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">In-app services</p>
-        <h1 className="sn-h1 mt-1.5">Your Studio</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Everything you can add to your day. Start with what we suggest for
-          where you are — or browse it all below.
-        </p>
-      </header>
+      <PageMasthead
+        title="Your Studio"
+        lede="Everything you can add to your day. Start with what we suggest for where you are — or browse it all below."
+      />
 
       {coupleSuggestions.length > 0 ? (
         <div className="sn-tile sn-reveal p-5 sm:p-6">

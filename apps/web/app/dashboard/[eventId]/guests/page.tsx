@@ -56,6 +56,7 @@ import { ActiveFilters } from './_components/active-filters';
 import { UndoToastHost } from './_components/undo-toast';
 import { GuestDrawerHost } from './_components/guest-drawer';
 import { GuestDetailBody } from './_components/guest-detail-body';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   InspectorColumn,
   InspectorLayout,
@@ -571,46 +572,47 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       {/* Header is DESKTOP-ONLY (owner directive 2026-06-03 — "remove GUEST
           LIST / N guests since we already have Summary below"). On mobile the
           carousel's Summary panel carries the count; the top is just the list. */}
-      <header className="sn-reveal hidden flex-col gap-3 lg:flex lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="sn-eye">Guest list</p>
-          <h1 className="sn-h1 mt-1.5">
+      <PageMasthead
+        titleNode={
+          <>
             <span className="font-mono">{stats.total}</span>{' '}
             <span className="sn-h1-tail">
               {stats.total === 1 ? 'guest' : 'guests'}
             </span>
-          </h1>
-        </div>
-        <div className="hidden flex-col gap-2 self-start lg:flex lg:flex-row lg:items-center lg:self-auto">
-          {/* Invite doorway (2026-07-15) — the Invite journey stage (/guests/invite:
-              the one join link + QR) was orphaned when the Living Roster reskin
-              dropped the lifecycle ribbon; this restores its desktop entry point.
-              Same button-secondary weight as the Share affordance beside it —
-              discoverable, not shouty. Share stays; the add paths (primary add,
-              CSV import, quick-add list, full form) live in the capture bar. */}
-          <Link
-            href={`/dashboard/${eventId}/guests/invite`}
-            className="button-secondary inline-flex items-center gap-2"
-          >
-            <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Invite guests
-          </Link>
-          {/* Seat-plan doorway (2026-07-15) — the Seat journey stage
-              (/seating: the "Arrange the room" editor, authoring truth for the
-              3D plan) was reachable ONLY from the mobile carousel's journey pill;
-              the desktop Guests page had no door to it. Same disease the Invite
-              door (beside) just cured. Same button-secondary weight — the proto's
-              `.gseat` glass pill. */}
-          <Link
-            href={`/dashboard/${eventId}/seating`}
-            className="button-secondary inline-flex items-center gap-2"
-          >
-            <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Arrange the room
-          </Link>
-          {joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
-        </div>
-      </header>
+          </>
+        }
+        actions={
+          <div className="hidden flex-col gap-2 self-start lg:flex lg:flex-row lg:items-center lg:self-auto">
+            {/* Invite doorway (2026-07-15) — the Invite journey stage (/guests/invite:
+                the one join link + QR) was orphaned when the Living Roster reskin
+                dropped the lifecycle ribbon; this restores its desktop entry point.
+                Same button-secondary weight as the Share affordance beside it —
+                discoverable, not shouty. Share stays; the add paths (primary add,
+                CSV import, quick-add list, full form) live in the capture bar. */}
+            <Link
+              href={`/dashboard/${eventId}/guests/invite`}
+              className="button-secondary inline-flex items-center gap-2"
+            >
+              <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Invite guests
+            </Link>
+            {/* Seat-plan doorway (2026-07-15) — the Seat journey stage
+                (/seating: the "Arrange the room" editor, authoring truth for the
+                3D plan) was reachable ONLY from the mobile carousel's journey pill;
+                the desktop Guests page had no door to it. Same disease the Invite
+                door (beside) just cured. Same button-secondary weight — the proto's
+                `.gseat` glass pill. */}
+            <Link
+              href={`/dashboard/${eventId}/seating`}
+              className="button-secondary inline-flex items-center gap-2"
+            >
+              <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Arrange the room
+            </Link>
+            {joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
+          </div>
+        }
+      />
 
       {flash ? (
         <p

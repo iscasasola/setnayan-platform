@@ -46,6 +46,7 @@ import { GoLiveCard } from './go-live-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FacebookDualStreamCard } from '@/app/_components/facebook-dual-stream-card';
 import { LiveStudioRecordingsCard } from '@/app/_components/live-studio-recordings-card';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Live Studio setup' };
 
@@ -251,22 +252,15 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         Back to Live Studio
       </Link>
 
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Setup</p>
-        <h1 className="sn-h1 flex items-center gap-3">
-          <Tv aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          Broadcast your wedding live
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Connect your YouTube channel, start your stream from OBS, and Setnayan embeds
-          your broadcast on your event page so family abroad can watch in real time.
-          Setnayan sets the broadcast up and hands your encoder a streaming address and
-          key — it never sends the video itself. When you connect your own channel, the
-          watch URL and auto-archive stay on that channel. Want more than one camera? The
-          Setnayan multicam control room — the paid upgrade — lets you switch between
-          several phones with broadcast-style overlays.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <span className="flex items-center gap-3">
+            <Tv aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
+            Broadcast your wedding live
+          </span>
+        }
+        lede="Connect your YouTube channel, start your stream from OBS, and Setnayan embeds your broadcast on your event page so family abroad can watch in real time. Setnayan sets the broadcast up and hands your encoder a streaming address and key — it never sends the video itself. When you connect your own channel, the watch URL and auto-archive stay on that channel. Want more than one camera? The Setnayan multicam control room — the paid upgrade — lets you switch between several phones with broadcast-style overlays."
+      />
 
       {youtubeConnected ? (
         <p

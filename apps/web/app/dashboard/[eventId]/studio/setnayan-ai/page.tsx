@@ -18,6 +18,7 @@ import { SetnayanAiValue } from './_components/setnayan-ai-value';
 import type { AiValueTerms } from './_components/setnayan-ai-value-copy';
 import { setPlanningMode } from '@/app/dashboard/[eventId]/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Setnayan AI' };
 
@@ -169,19 +170,14 @@ export default async function SetnayanAiPage({ params }: Props) {
           shortlist) lives on /vendors, so the active state leads straight there. */}
       {active ? (
         <>
-          <header className="sn-reveal space-y-2">
-            <p className="sn-eye">
-              Setnayan AI
-            </p>
-            <h1 className="sn-h1">
-              Everything it&rsquo;s keeping for {event.display_name ?? 'your wedding'}
-            </h1>
-            <p className="max-w-prose text-base text-ink/65">
-              Setnayan AI is on — here&rsquo;s the full picture of what it&rsquo;s
-              watching, ranking and tracking for you right now, and the work it
-              saves you from holding by hand.
-            </p>
-          </header>
+          <PageMasthead
+            titleNode={
+              <>
+                Everything it&rsquo;s keeping for {event.display_name ?? 'your wedding'}
+              </>
+            }
+            lede="Setnayan AI is on — here’s the full picture of what it’s watching, ranking and tracking for you right now, and the work it saves you from holding by hand."
+          />
 
           <div className="flex flex-col gap-4 rounded-xl border border-mulberry/20 bg-mulberry/5 p-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="inline-flex items-center gap-2 text-sm font-medium text-mulberry">
@@ -227,19 +223,10 @@ export default async function SetnayanAiPage({ params }: Props) {
         </>
       ) : owns || !paywallOn ? (
         <>
-          <header className="sn-reveal space-y-2">
-            <p className="sn-eye">
-              Setnayan AI
-            </p>
-            <h1 className="sn-h1">
-              Setnayan AI is ready for your wedding
-            </h1>
-            <p className="max-w-prose text-base text-ink/65">
-              You have access — it&rsquo;s just switched to manual planning right
-              now. Turn Assisted planning back on and your vendors get ranked for
-              your date, budget and style.
-            </p>
-          </header>
+          <PageMasthead
+            title="Setnayan AI is ready for your wedding"
+            lede="You have access — it’s just switched to manual planning right now. Turn Assisted planning back on and your vendors get ranked for your date, budget and style."
+          />
 
           {/* 🔴 THIS USED TO BE A LINK TO /dashboard — A BUTTON THAT PROMISED AN
               ACTION AND DELIVERED A PAGE WITH NO SUCH CONTROL ON IT. The action
@@ -271,19 +258,16 @@ export default async function SetnayanAiPage({ params }: Props) {
       ) : (
         <>
           {/* BUY — the only state that sells. Non-owner, paywall on. */}
-          <header className="sn-reveal space-y-2">
-            <p className="sn-eye">
-              Setnayan AI
-            </p>
-            <h1 className="sn-h1">
-              Stop guessing who to hire
-            </h1>
-            <p className="max-w-prose text-base text-ink/65">
-              Setnayan AI reads your date, budget, location, guest count and
-              faith, then ranks every available vendor by how well they actually
-              fit — turning a directory into a shortlist made for your wedding.
-            </p>
-          </header>
+          <PageMasthead
+        title="Stop guessing who to hire"
+        lede={
+          <>
+            Setnayan AI reads your date, budget, location, guest count and
+            faith, then ranks every available vendor by how well they actually
+            fit — turning a directory into a shortlist made for your wedding.
+          </>
+        }
+      />
 
           <SetnayanAiValue mode="preview" terms={aiValueTerms} />
 

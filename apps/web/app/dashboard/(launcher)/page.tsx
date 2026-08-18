@@ -907,26 +907,28 @@ export default async function LauncherPage({
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-28 pt-5 sm:px-6 sm:pb-10 sm:pt-10 lg:px-8">
-      <header
-        className="sn-reveal mb-5 space-y-2 sm:mb-6"
-        style={{ animationDelay: '0.24s' }}
-      >
-        <p className="text-[13px] text-[color:var(--sn-ink-500)]">
-          Kumusta, {greeting} · {noEvents ? 'welcome' : 'welcome back'}
-        </p>
+      {/* ONE LINE, IN EVERY STATE (owner 2026-08-18). This was a greeting
+          eyebrow — "Kumusta, {name} · welcome back" — over a title with a grey
+          tail hanging off it. Owner, on a screenshot of exactly this: "we do
+          not need these. it just eats up space… without too much side
+          comments", and on the target: "look at how apple makes everything
+          simple."
+
+          The returning-user tail ("Pick up where you left off.") was
+          decoration and is gone. The first-run copy was the only instruction a
+          brand-new account got up here, so it is not deleted — it BECOMES the
+          title. Either way the header is now a single line, which is what
+          every other page header became in PR #4557.
+
+          The name is not lost: `greeting` still initials the composer
+          directly below this.
+
+          `noEvents` counts the MERGED board, not the organiser-only set —
+          somebody whose only events are invitations must never be told to set
+          up their first one directly above them. */}
+      <header className="sn-reveal mb-5 sm:mb-6" style={{ animationDelay: '0.24s' }}>
         <h1 className="text-[1.375rem] font-extrabold leading-tight tracking-[-0.03em] text-ink sm:text-4xl sm:leading-[1.02]">
-          Where to?{' '}
-          <span
-            className={`font-bold text-[color:var(--sn-ink-400)] ${
-              /* Instructional first-run copy stays visible at every width; the
-                 returning-user soft tail is desktop-only (proto mobile head). */
-              noEvents ? '' : 'hidden sm:inline'
-            }`}
-          >
-            {noEvents
-              ? 'Let’s set up your first event.'
-              : 'Pick up where you left off.'}
-          </span>
+          {noEvents ? 'Let’s set up your first event.' : 'Where to?'}
         </h1>
       </header>
 

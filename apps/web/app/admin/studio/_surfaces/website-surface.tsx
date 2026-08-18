@@ -6,6 +6,7 @@ import {
   type SiteWidgetPage,
 } from '@/lib/site-widgets';
 import { WidgetList } from '@/app/admin/website/widget-list';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
  * WebsiteSurface — the Website editor body, re-homed byte-identical from
@@ -29,18 +30,11 @@ export async function WebsiteSurface({ page: pageRaw }: { page?: string }) {
 
   return (
     <div>
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">
-          Iteration 0023 · § 3.10
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight">Website editor</h1>
-        <p className="max-w-2xl text-sm text-ink/65">
-          Toggle and reorder marketing-site widgets per page. Each change is
-          audit-logged; the public site picks up edits on its next render
-          (cache TTL 60s). Per-widget config (thresholds · copy · variants)
-          stays code-locked in V1.
-        </p>
-      </header>
+      <PageMasthead
+        title="Website editor"
+        lede="Toggle and reorder marketing-site widgets per page. Each change is audit-logged; the public site picks up edits on its next render (cache TTL 60s). Per-widget config (thresholds · copy · variants) stays code-locked in V1."
+        className="mb-6"
+      />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm text-ink/75">

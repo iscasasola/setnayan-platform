@@ -1,20 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowUp,
-  Check,
-  ExternalLink,
-  Eye,
-  EyeOff,
-  GripVertical,
-  LayoutGrid,
-  Lock,
-  Pencil,
-  Sparkles,
-  Wand2,
-} from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ExternalLink, Eye, EyeOff, GripVertical, Lock, Pencil, Sparkles, Wand2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { eventNoun } from '@/lib/event-noun';
@@ -38,6 +24,7 @@ import {
   toggleWidgetVisibility,
 } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
  * Widgets that auto-populate their content from another part of the couple's
@@ -191,23 +178,12 @@ export default async function WidgetsEditorPage({
   return (
     <section className="space-y-8">
       {/* Header strip — back link + title */}
-      <header className="sn-reveal space-y-3">
-        <Link
-          href={`/dashboard/${eventId}/website`}
-          className="inline-flex items-center gap-1.5 text-sm text-terracotta hover:text-terracotta-700"
-        >
-          <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Back to your {eventNoun(event.event_type)} website
-        </Link>
-        <div className="space-y-2">
-          <p className="sn-eye flex items-center gap-2">
-            <LayoutGrid aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Customize widgets
-          </p>
-          <h1 className="sn-h1">
-            Shape your {eventNoun(event.event_type)} page
-          </h1>
-          <p className="max-w-prose text-base text-ink/70">
+      <PageMasthead
+        titleNode={<>Shape your {eventNoun(event.event_type)} page</>}
+        back={`/dashboard/${eventId}/website`}
+        backLabel="Back to your {eventNoun(event.event_type)} website"
+        lede={
+          <>
             Choose which sections appear on{' '}
             {event.slug ? (
               <span className="font-mono text-sm">setnayan.com/{event.slug}</span>
@@ -216,9 +192,9 @@ export default async function WidgetsEditorPage({
             )}
             , and the order they show up in. Hero, Greeting, QR card, and RSVP
             stay pinned in their canonical spots — every guest needs them.
-          </p>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/* Preview-as-guest banner — closes the verification confusion gap
           (owner report 2026-05-23: "widgets do not apply on live website").

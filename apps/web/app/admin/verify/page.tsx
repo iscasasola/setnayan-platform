@@ -69,6 +69,7 @@ import { DeepSearchChat } from './_components/deep-search-chat';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Verification queue · Admin' };
 
 /**
@@ -197,18 +198,20 @@ export default async function AdminVerifyPage({ searchParams }: Props) {
        * Grotesk). Matches admin overview + couple/vendor dashboard treatment.
        * Logic + queue table preserved.
        */}
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">Trust &amp; supply · verification</p>
-        <h1 className="sn-h1">Verification queue</h1>
-        <p className="max-w-2xl text-sm text-[color:var(--sn-ink-500)]">
-          Vendors submit a 12-document checklist; Setnayan reviews within 72
-          hours and flips them to <span className="font-medium">Verified</span>.
-          The companion <span className="font-medium">Visibility</span> surface
-          governs marketplace listing state (hidden · verified · archived)
-          independent of the verification workflow. Only{' '}
-          <span className="font-medium">Verified</span> is publicly visible.
-        </p>
-      </header>
+      <PageMasthead
+        title="Verification queue"
+        lede={
+          <>
+            Vendors submit a 12-document checklist; Setnayan reviews within 72
+            hours and flips them to <span className="font-medium">Verified</span>.
+            The companion <span className="font-medium">Visibility</span> surface
+            governs marketplace listing state (hidden · verified · archived)
+            independent of the verification workflow. Only{' '}
+            <span className="font-medium">Verified</span> is publicly visible.
+          </>
+        }
+        className="mb-6"
+      />
 
       <FlashBanner search={search} />
 

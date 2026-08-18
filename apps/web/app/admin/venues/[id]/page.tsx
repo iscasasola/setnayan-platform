@@ -1,6 +1,5 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -9,6 +8,7 @@ import { deleteVenue, updateVenue } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Edit venue · Admin' };
 
 type Props = { params: Promise<{ id: string }> };
@@ -47,30 +47,26 @@ export default async function EditVenuePage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link
-        href="/admin/venues"
-        className="mb-6 inline-flex items-center gap-1 text-sm font-medium text-ink/65 hover:text-ink"
-      >
-        <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
-        Back to venues
-      </Link>
-
-      <header className="mb-6 space-y-1">
-        <p className="sn-eye">
-          Edit venue
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          {row.name}
-        </h1>
-        <p className="font-mono text-[11px] text-ink/45">
-          {row.slug} · created{' '}
-          {new Date(row.created_at).toLocaleDateString('en-PH', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          })}
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <span className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            {row.name}
+          </span>
+        }
+        back="/admin/venues"
+        backLabel="Back to venues"
+        lede={
+          <>
+            {row.slug} · created{' '}
+            {new Date(row.created_at).toLocaleDateString('en-PH', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            })}
+          </>
+        }
+        className="mb-6"
+      />
 
       <VenueForm
         action={updateBound}

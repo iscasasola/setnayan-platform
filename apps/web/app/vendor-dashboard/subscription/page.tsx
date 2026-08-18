@@ -42,6 +42,7 @@ import {
 } from './_components/subscription-cards';
 import { AiAddonCard } from './_components/ai-addon-card';
 import { BoothAddonCard } from './_components/booth-addon-card';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
  * /vendor-dashboard/subscription — the vendor Plan hub. Self-serve Pro /
@@ -297,62 +298,61 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-      <header className="mb-6 sm:mb-8">
-        <p className="sn-eye">Plan</p>
-        <h1 className="sn-h1 mt-1">
-          Choose your plan.
-        </h1>
-        <p className="mt-2 max-w-prose text-sm text-ink/65">
-          Upgrade to reach more couples and answer unlimited inquiries — no
-          features are locked behind a paywall.
-        </p>
-
+      <PageMasthead
+        title="Choose your plan."
+        lede={
+          <>
+            Upgrade to reach more couples and answer unlimited inquiries — no
+            features are locked behind a paywall.
+          </>
+        }
+      />
+      <div className="mt-3 space-y-3">
         {/* Current tier + renewal */}
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium"
-            style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)' }}
-          >
-            <Crown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            Current plan:{' '}
-            {currentTier === 'custom'
-              ? 'Custom'
-              : currentTier === 'enterprise'
-                ? 'Enterprise'
-                : currentTier === 'pro'
-                  ? 'Pro'
-                  : currentTier === 'solo'
-                    ? 'Solo'
-                    : currentTier === 'verified'
-                      ? 'Free · Verified'
-                      : 'Free'}
-            {currentCycle ? ` · ${currentCycle}` : ''}
-          </span>
-          {isPaid && tierExpiresAt && (
-            <span
-              className={
-                'text-xs ' + (expiresSoon ? 'font-medium text-orange' : 'text-ink/55')
-              }
-            >
-              {expiresSoon ? 'Renews / expires soon — ' : ''}
-              active through {fmtDate(tierExpiresAt)}
-            </span>
-          )}
-        </div>
-
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium"
+                    style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)' }}
+                  >
+                    <Crown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                    Current plan:{' '}
+                    {currentTier === 'custom'
+                      ? 'Custom'
+                      : currentTier === 'enterprise'
+                        ? 'Enterprise'
+                        : currentTier === 'pro'
+                          ? 'Pro'
+                          : currentTier === 'solo'
+                            ? 'Solo'
+                            : currentTier === 'verified'
+                              ? 'Free · Verified'
+                              : 'Free'}
+                    {currentCycle ? ` · ${currentCycle}` : ''}
+                  </span>
+                  {isPaid && tierExpiresAt && (
+                    <span
+                      className={
+                        'text-xs ' + (expiresSoon ? 'font-medium text-orange' : 'text-ink/55')
+                      }
+                    >
+                      {expiresSoon ? 'Renews / expires soon — ' : ''}
+                      active through {fmtDate(tierExpiresAt)}
+                    </span>
+                  )}
+                </div>
         {search.ordered && (
-          <div className="mt-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
-            ✓ Order started. Pay with the reference{' '}
-            <span className="font-mono font-semibold">{search.ordered}</span> using
-            the instructions below — it activates once we confirm the payment.
-          </div>
-        )}
+                  <div className="mt-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
+                    ✓ Order started. Pay with the reference{' '}
+                    <span className="font-mono font-semibold">{search.ordered}</span> using
+                    the instructions below — it activates once we confirm the payment.
+                  </div>
+                )}
         {search.error && (
-          <div className="mt-4 rounded-md border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-900">
-            {search.error}
-          </div>
-        )}
-      </header>
+                  <div className="mt-4 rounded-md border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-900">
+                    {search.error}
+                  </div>
+                )}
+      </div>
 
       {/* Booking-fee doorway — appears only when the fee system is live AND this
           vendor has an unpaid fee (surfacing layer; no fee → nothing shows). */}

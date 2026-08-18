@@ -89,6 +89,7 @@ import {
   type ScheduleMeeting,
 } from './_components/vendor-meetings-section';
 import { venueNowMs } from '@/lib/schedule';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Schedule' };
 
@@ -380,39 +381,40 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
 
   return (
     <section className="sn-col space-y-6">
-      <header className="sn-reveal space-y-3">
-        <div>
-          <p className="sn-eye">Timeline</p>
-          <h1 className="sn-h1 mt-1.5">Schedule</h1>
-        </div>
-        <p className="max-w-prose text-base text-ink/65">
-          {active === 'journey'
-            ? term(profile, {
-                wedding:
-                  'The whole arc of your wedding — from the day you started planning, through every dated step, to the big day and the editorial you publish afterward. Your story, on one continuous timeline.',
-                generic:
-                  'The whole arc of your event — from the day you started planning, through every dated step, to the day itself and the editorial you publish afterward. Your story, on one continuous timeline.',
-              })
-            : active === 'preparation'
-              ? term(profile, {
-                  wedding:
-                    'Your run-up to the wedding — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
-                  generic:
-                    'Your run-up to the event — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
-                })
-              : term(profile, {
-                  wedding:
-                    'Build your wedding-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
-                  generic:
-                    'Build your event-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
-                })}
-        </p>
-        <ScheduleModeToggle
-          active={active}
-          prepCount={agenda.items.length}
-          journeyCount={journey.totalEntries}
-        />
-      </header>
+      <PageMasthead
+        title="Schedule"
+        actions={
+          <>
+            <p className="max-w-prose text-base text-ink/65">
+              {active === 'journey'
+                ? term(profile, {
+                    wedding:
+                      'The whole arc of your wedding — from the day you started planning, through every dated step, to the big day and the editorial you publish afterward. Your story, on one continuous timeline.',
+                    generic:
+                      'The whole arc of your event — from the day you started planning, through every dated step, to the day itself and the editorial you publish afterward. Your story, on one continuous timeline.',
+                  })
+                : active === 'preparation'
+                  ? term(profile, {
+                      wedding:
+                        'Your run-up to the wedding — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
+                      generic:
+                        'Your run-up to the event — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
+                    })
+                  : term(profile, {
+                      wedding:
+                        'Build your wedding-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
+                      generic:
+                        'Build your event-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
+                    })}
+            </p>
+            <ScheduleModeToggle
+              active={active}
+              prepCount={agenda.items.length}
+              journeyCount={journey.totalEntries}
+            />
+          </>
+        }
+      />
 
       <VendorMeetingsSection eventId={eventId} meetings={vendorMeetings} />
 

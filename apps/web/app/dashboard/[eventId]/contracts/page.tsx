@@ -5,6 +5,7 @@ import { ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchEventContracts } from '@/lib/contracts';
 import { ContractCard, ContractsEmptyState } from '@/app/_components/contracts/contract-card';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Vendor contracts' };
 
@@ -44,26 +45,27 @@ export default async function EventContractsPage({ params }: Props) {
 
   return (
     <div className="sn-col space-y-6">
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Contracts</p>
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <h1 className="sn-h1">Vendor contracts</h1>
-          {/* YOUR PLAN consolidation 2026-05-22 — vendor contracts also
+      <PageMasthead
+        title="Vendor contracts"
+        lede={
+          <>
+            PDFs your vendors have uploaded for reference. Setnayan hosts the
+            files so both sides have a copy on hand — signing happens between
+            you and the vendor externally.
+          </>
+        }
+        actions={
+          /* YOUR PLAN consolidation 2026-05-22 — vendor contracts also
            *  appear in the consolidated /documents view alongside
-           *  paperwork, creations, and receipts. */}
+           *  paperwork, creations, and receipts. */
           <Link
             href={`/dashboard/${eventId}/documents`}
             className="inline-flex items-center gap-1 text-xs font-medium text-terracotta-700 hover:text-terracotta-800"
           >
             See all documents <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
           </Link>
-        </div>
-        <p className="text-sm text-ink/65">
-          PDFs your vendors have uploaded for reference. Setnayan hosts the
-          files so both sides have a copy on hand — signing happens between
-          you and the vendor externally.
-        </p>
-      </header>
+        }
+      />
 
       {contracts.length === 0 ? (
         <ContractsEmptyState

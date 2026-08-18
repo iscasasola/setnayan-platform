@@ -22,6 +22,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { reissueGuestToken, updateEventSlug, updateMonogram } from './actions';
 import { SlugField } from './_components/slug-field';
 import { ReissueQrButton } from './_components/reissue-qr-button';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Invitations' };
 
@@ -214,29 +215,28 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
 
   return (
     <section className="space-y-6">
-      <header className="sn-reveal flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="sn-eye">
-            Invitation site
-          </p>
-          <h1 className="sn-h1">
+      <PageMasthead
+        titleNode={
+          <>
             {guests.length} guest{guests.length === 1 ? '' : 's'} · QRs &amp; print sheet
-          </h1>
-        </div>
-        <div className="flex gap-2">
-          <Link
-            href={
-              brandedActive
-                ? `/dashboard/${eventId}/studio/custom-qr-guest/print`
-                : `/dashboard/${eventId}/invitation/print`
-            }
-            className="button-secondary"
-            target="_blank"
-          >
-            Print sheet (A4)
-          </Link>
-        </div>
-      </header>
+          </>
+        }
+        actions={
+          <div className="flex gap-2">
+            <Link
+              href={
+                brandedActive
+                  ? `/dashboard/${eventId}/studio/custom-qr-guest/print`
+                  : `/dashboard/${eventId}/invitation/print`
+              }
+              className="button-secondary"
+              target="_blank"
+            >
+              Print sheet (A4)
+            </Link>
+          </div>
+        }
+      />
 
       {reissuedGuestId ? (
         <p

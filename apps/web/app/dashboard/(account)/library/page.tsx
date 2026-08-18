@@ -1,14 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import {
-  ArrowLeft,
-  Images,
-  Heart,
-  Newspaper,
-  Sparkles,
-  UserCircle,
-  Settings,
-} from 'lucide-react';
+import { Images, Heart, Newspaper, UserCircle, Settings } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { getAlaalaWall } from '@/lib/alaala-wall-data';
@@ -16,6 +8,7 @@ import { AlaalaLensBody } from '@/app/_components/alaala/lens-body';
 import { PhotosTab } from './_components/photos-tab';
 import { VendorsTab } from './_components/vendors-tab';
 import { EditorialsTab } from './_components/editorials-tab';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Alaala' };
 
@@ -147,32 +140,23 @@ export default async function AlaalaPage({
       {/* The account spokes' documented convention is a "Back to home" link
           (see (account)/layout.tsx) — and home is where the Alaala tile lives,
           so "back to events" named the wrong thing on the wrong surface. */}
-      <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        Back to home
-      </Link>
-
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          <p className="sn-eye">
-            <Sparkles aria-hidden strokeWidth={1.75} />
-            All in one place
-          </p>
-          <h1 className="sn-h1">Alaala</h1>
-          <p className="max-w-prose text-base text-ink/65">
-            Every photo, video and story you&rsquo;re part of — across every event you
-            host or attend. Same Alaala as the tile on your home, opened full.
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Link href="/dashboard/profile" className="sn-chip sn-press">
-            <UserCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Profile
-          </Link>
-          <Link href="/dashboard/profile#settings" className="sn-chip sn-press">
-            <Settings aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Settings
-          </Link>
-        </div>
-      </header>
+      <PageMasthead
+        title="Alaala"
+        back="/dashboard"
+        backLabel="Back to home"
+        lede="Every photo, video and story you’re part of — across every event you host or attend. Same Alaala as the tile on your home, opened full."
+        actions={
+          <div className="flex shrink-0 items-center gap-2">
+            <Link href="/dashboard/profile" className="sn-chip sn-press">
+              <UserCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Profile
+            </Link>
+            <Link href="/dashboard/profile#settings" className="sn-chip sn-press">
+              <Settings aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Settings
+            </Link>
+          </div>
+        }
+        className="mb-6"
+      />
 
       {/* Life-Flash entry — the everyone-reachable path (single-event couples
           bypass the account hub via its redirect); flag-gated (Build Plan §5) */}

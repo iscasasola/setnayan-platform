@@ -44,6 +44,7 @@ import { StdBuilderClient } from './_components/StdBuilderClient';
 import { LaunchStdButton } from './_components/launch-std-button';
 import { FeatureUsCard } from '@/app/dashboard/[eventId]/_components/feature-us-card';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 // 2026-06-19 — builder redesign: the 5-step builder (1 Background [+ theme:
 // fonts/colours] · 2 Content · 3 Video/Gallery · 4 Music · 5 Opening/reveal) +
@@ -317,15 +318,10 @@ export default async function SaveTheDatePage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <header className="sn-reveal space-y-3">
-        <p className="sn-eye">Save the Date</p>
-        <h1 className="sn-h1">Save the Date</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Your Save the Date plays as a short, self-running film — it fills itself from what
-          you&rsquo;ve already added. Set the scene, fine-tune the details, add your video and
-          song, choose how it opens — then hit Render.
-        </p>
-      </header>
+      <PageMasthead
+        title="Save the Date"
+        lede="Your Save the Date plays as a short, self-running film — it fills itself from what you’ve already added. Set the scene, fine-tune the details, add your video and song, choose how it opens — then hit Render."
+      />
 
       {/* Save-the-Date views — unique per day, the couple's own visits excluded. */}
       <section className="sn-tile flex flex-wrap items-center gap-x-7 gap-y-2 px-5 py-4">

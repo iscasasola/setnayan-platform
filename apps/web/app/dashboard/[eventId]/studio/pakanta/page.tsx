@@ -18,6 +18,7 @@ import {
 import { PakantaMusicForm } from './_components/pakanta-music-form';
 import { UseSongButton } from './_components/use-song-button';
 import { AiDisclosure } from '@/components/AiDisclosure';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Pakanta' };
 
@@ -139,27 +140,30 @@ export default async function PakantaPage({ params }: Props) {
         <ArrowLeft aria-hidden className="h-4 w-4" /> Back to services
       </Link>
 
-      <header className="sn-reveal flex items-start gap-3">
-        <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-mulberry/10 text-mulberry">
-          <Music aria-hidden className="h-6 w-6" strokeWidth={1.75} />
-        </span>
-        <div>
-          <p className="sn-eye">Music</p>
-          <h1 className="sn-h1">Pakanta</h1>
-          {owned ? (
-            <p className="mt-1 text-sm text-ink/65">
+      <PageMasthead
+        titleNode={
+          <span className="flex items-center gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-mulberry/10 text-mulberry">
+              <Music aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            Pakanta
+          </span>
+        }
+        lede={
+          owned ? (
+            <>
               Your original wedding song. Add or refine the music notes below — we write the
               lyrics from the story you already told us.
-            </p>
+            </>
           ) : (
-            <p className="mt-1 text-sm text-ink/65">
+            <>
               An original song written for your wedding — yours, forever. We write it from{' '}
               <span className="font-medium">the story you already told us</span>, so you only need to
               add a few music notes.
-            </p>
-          )}
-        </div>
-      </header>
+            </>
+          )
+        }
+      />
 
       {/* The story we already have — pulled from onboarding, read-only. */}
       <div className="sn-tile p-5">

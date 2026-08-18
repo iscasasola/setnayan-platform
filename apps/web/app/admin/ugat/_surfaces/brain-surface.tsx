@@ -7,6 +7,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
+import { PageMasthead } from '@/app/_components/page-masthead';
 // V1 MVP catalog over `public.concierge_brain_chunks` (locked 2026-05-18 via
 // migration 20260518500000_iteration_0016_wizard_architecture_schema.sql).
 //
@@ -178,18 +179,20 @@ export async function BrainSurface() {
 
   return (
     <div>
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">
-          Iteration 0023 § 3.13 · Today&apos;s Focus brain
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Today&apos;s Focus brain
-        </h1>
-        <p className="text-base text-ink/65">
-          Curated Filipino-wedding knowledge feeding the AI Today&apos;s Focus
-          chat.
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <span className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            Today&apos;s Focus brain
+          </span>
+        }
+        lede={
+          <>
+            Curated Filipino-wedding knowledge feeding the AI Today&apos;s Focus
+            chat.
+          </>
+        }
+        className="mb-6"
+      />
 
       {/*
         Pilot-state banner — load-bearing per the senior-dev brief.

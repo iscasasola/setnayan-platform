@@ -49,6 +49,7 @@ import {
   removeSpotlight,
 } from '@/app/admin/journal-spotlights/actions';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 type PendingApproval = { approval_id: string; target_id: string; initiated_by: string };
 
@@ -117,20 +118,18 @@ export async function JournalSpotlightsSurface({
 
   return (
     <div>
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye" style={{ color: 'var(--m-orange-2)' }}>
-          Setnayan HQ
-        </p>
-        <h1 className="sn-h1">
-          Journal Spotlights
-        </h1>
-        <p className="max-w-prose text-sm text-ink/65">
-          Credit a vendor inside a published Journal article. Free placements
-          (Featured partner / In partnership with) publish on one admin&rsquo;s
-          approval; a paid <strong>Sponsored</strong> placement needs a second
-          admin and always shows a &ldquo;Sponsored&rdquo; badge.
-        </p>
-      </header>
+      <PageMasthead
+        title="Journal Spotlights"
+        lede={
+          <>
+            Credit a vendor inside a published Journal article. Free placements
+            (Featured partner / In partnership with) publish on one admin&rsquo;s
+            approval; a paid <strong>Sponsored</strong> placement needs a second
+            admin and always shows a &ldquo;Sponsored&rdquo; badge.
+          </>
+        }
+        className="mb-6"
+      />
 
       {ok ? (
         <div className="mb-5 rounded-xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-800">

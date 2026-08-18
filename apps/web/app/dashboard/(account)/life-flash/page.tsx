@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
-import { ArrowLeft, Sparkles } from 'lucide-react';
 
 import { getCurrentUser } from '@/lib/auth';
 import { reScreenStuckCaptures } from '@/lib/nsfw-screen';
@@ -22,6 +21,7 @@ import { compileBeats } from '@/lib/life-story-beats';
 import { ScrollReel, type ReelMoment } from './_components/scroll-reel';
 import { StoryPeople, type StoryPerson } from './_components/story-people';
 import { Flash, type FlashBeatView } from './_components/flash';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Life-Flash' };
 
@@ -244,22 +244,13 @@ export default async function LifeFlashPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        Back to events
-      </Link>
-
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">
-          <Sparkles aria-hidden strokeWidth={1.75} />
-          Gathered while you live them
-        </p>
-        <h1 className="sn-h1">Life-Flash</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          The moments that mattered most, and the people who kept showing up — seen through
-          every camera that was there. Gathered while you&rsquo;re living them.
-        </p>
-      </header>
+      <PageMasthead
+        title="Life-Flash"
+        back="/dashboard"
+        backLabel="Back to events"
+        lede="The moments that mattered most, and the people who kept showing up — seen through every camera that was there. Gathered while you’re living them."
+        className="mb-6"
+      />
 
       {!loadError && !empty ? (
         <nav aria-label="Flash scope" className="mb-6 flex flex-wrap gap-2">

@@ -18,6 +18,7 @@ import {
 } from '@/lib/panood-camera-seats';
 import { CopyLink } from '../_components/copy-link';
 import { ReissueCameraButton } from './reissue-button';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Camera operators' };
 export const dynamic = 'force-dynamic';
@@ -122,46 +123,49 @@ export default async function PanoodCamerasPage({ params }: Props) {
         Back to the control room
       </Link>
 
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Live Studio</p>
-        <h1 className="sn-h1 flex items-center gap-3">
-          <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          Camera operators
-        </h1>
-        <p className="max-w-prose text-sm text-ink/65">
-          Send one link per camera to whoever is holding that phone. They open it, tap once, and
-          their camera appears in your control room — no app to install, no account to make.
-          {/* ⚠ THE COUNT ONLY GETS SAID WHEN IT MATCHES WHAT IS ON SCREEN.
-           *
-           * The free tier provisions PANOOD_FREE_CAMERA_COUNT (3) seats, so the
-           * sentence was true when written. It stopped being true because seats
-           * arrive by a SECOND path: the unified controller mints one per
-           * channel as the host binds it (bindChannelCamera), and
-           * provisionPanoodCamerasAdmin is an idempotent top-up that never
-           * removes. Measured in production: both events holding camera seats
-           * hold EIGHT (indexes 1–8) against zero orders — i.e. on the free
-           * tier — so this paragraph promised three directly above a list of
-           * eight.
-           *
-           * Rather than re-deriving a cap that two writers disagree about, the
-           * number is only spoken when the roster agrees with it. The
-           * watermark clause is the part that is always true, so it always
-           * shows. The constant is still the source of the digit — never a
-           * re-typed "3". */}
-          {unlocked ? null : rows.length <= PANOOD_FREE_CAMERA_COUNT ? (
-            <>
-              {' '}
-              You have <strong>{PANOOD_FREE_CAMERA_COUNT} cameras free</strong> to test with. Every
-              feed carries the Setnayan mark until you unlock Live Studio.
-            </>
-          ) : (
-            <>
-              {' '}
-              Every feed carries the Setnayan mark until you unlock Live Studio.
-            </>
-          )}
-        </p>
-      </header>
+      <PageMasthead
+        titleNode={
+          <span className="flex items-center gap-3">
+            <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
+            Camera operators
+          </span>
+        }
+        lede={
+          <>
+            Send one link per camera to whoever is holding that phone. They open it, tap once, and
+            their camera appears in your control room — no app to install, no account to make.
+            {/* ⚠ THE COUNT ONLY GETS SAID WHEN IT MATCHES WHAT IS ON SCREEN.
+             *
+             * The free tier provisions PANOOD_FREE_CAMERA_COUNT (3) seats, so the
+             * sentence was true when written. It stopped being true because seats
+             * arrive by a SECOND path: the unified controller mints one per
+             * channel as the host binds it (bindChannelCamera), and
+             * provisionPanoodCamerasAdmin is an idempotent top-up that never
+             * removes. Measured in production: both events holding camera seats
+             * hold EIGHT (indexes 1–8) against zero orders — i.e. on the free
+             * tier — so this paragraph promised three directly above a list of
+             * eight.
+             *
+             * Rather than re-deriving a cap that two writers disagree about, the
+             * number is only spoken when the roster agrees with it. The
+             * watermark clause is the part that is always true, so it always
+             * shows. The constant is still the source of the digit — never a
+             * re-typed "3". */}
+            {unlocked ? null : rows.length <= PANOOD_FREE_CAMERA_COUNT ? (
+              <>
+                {' '}
+                You have <strong>{PANOOD_FREE_CAMERA_COUNT} cameras free</strong> to test with. Every
+                feed carries the Setnayan mark until you unlock Live Studio.
+              </>
+            ) : (
+              <>
+                {' '}
+                Every feed carries the Setnayan mark until you unlock Live Studio.
+              </>
+            )}
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-ink/55">

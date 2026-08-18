@@ -15,6 +15,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { createApiKey, revokeApiKey } from './actions';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'API keys' };
 
@@ -58,24 +59,22 @@ export default async function ApiKeysPage({ searchParams }: Props) {
         Back to profile
       </Link>
 
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">
-          <Key aria-hidden strokeWidth={1.75} />
-          Developer access
-        </p>
-        <h1 className="sn-h1">API keys</h1>
-        <p className="text-base text-ink/65">
-          Personal access tokens for the Setnayan API. Each key authenticates as you and is
-          scoped to a subset of resources. Browse the live endpoints at{' '}
-          <Link
-            href="/api/v1"
-            className="underline decoration-ink/40 underline-offset-2 hover:decoration-ink"
-          >
-            /api/v1
-          </Link>
-          .
-        </p>
-      </header>
+      <PageMasthead
+        title="API keys"
+        lede={
+          <>
+            Personal access tokens for the Setnayan API. Each key authenticates as you and is
+            scoped to a subset of resources. Browse the live endpoints at{' '}
+            <Link
+              href="/api/v1"
+              className="underline decoration-ink/40 underline-offset-2 hover:decoration-ink"
+            >
+              /api/v1
+            </Link>
+            .
+          </>
+        }
+      />
 
       {search.error ? (
         <FormFlash tone="error">

@@ -1,3 +1,5 @@
+import { RoomFooter } from '../_components/room-footer';
+import { loadRoomLinks } from '../_lib/room-links.server';
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -102,6 +104,14 @@ export default async function PabuyaPublicPage({
   // This event type's word for whoever is throwing it. Wedding → 'couple', so
   // both sentences below stay byte-identical for a wedding.
   const words = await eventWordsFor(event.event_type);
+
+  // `pabuyaViewerAllowed: true` is EARNED — this IS the money-gift page, and it
+  // ran `canViewSlugEvent` above and redirected away if it failed.
+  const roomLinks = await loadRoomLinks({
+    event,
+    current: 'gifts',
+    pabuyaViewerAllowed: true,
+  });
   // The event's own name when it has one; otherwise that word.
   const hostName = event.display_name ?? words.theOrganizer;
 
@@ -156,6 +166,7 @@ export default async function PabuyaPublicPage({
           </p>
         </footer>
       </div>
+      <RoomFooter links={roomLinks} />
     </main>
   );
 }

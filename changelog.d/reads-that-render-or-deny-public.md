@@ -22,9 +22,20 @@ RENDER AS DATA, or does it DENY?**
 
 ### 🔑 The insight that made most of the rest fixable
 
-An RLS denial and a refused read are **not** the same value after all — with
-`maybeSingle()`, RLS filtering returns `{ data: null, error: null }` while a
-*rejected* query sets `error`. Four surfaces answered both with the same 404:
+⚖ **This REFINES the six-state thesis; it does not overturn it.** That thesis —
+"an RLS denial and an empty read are the SAME VALUE (`count: 0`, no error)" —
+remains true and untouched. What it never named is a **third** state:
+
+```
+  1. RLS-filtered     → no rows, NO error   ┐ indistinguishable from each other,
+  2. genuinely empty  → no rows, NO error   ┘ which is the existing thesis
+  3. REJECTED query   → error IS set        ← separable from both, and nobody was
+```
+
+With `maybeSingle()`, RLS filtering returns `{ data: null, error: null }` while a
+rejected query sets `error`. Four surfaces answered (3) with the same 404 they
+correctly give (1) — "not yours" and "we could not read it" are different
+sentences, and only one of them is a lie:
 
 - **`proposals/[publicId]`** — a quote reached by a link somebody sent. Told the
   recipient it does not exist.

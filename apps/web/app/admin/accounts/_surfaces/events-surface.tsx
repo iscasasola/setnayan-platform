@@ -429,7 +429,7 @@ export async function EventsSurface({
                 ? `Hard-delete "${e.display_name}"? We could NOT read this event's paid vendors, so it may have orders attached that will lose their event link. ${cascade} Not reversible.`
                 : paidVendorCount > 0
                   ? `Hard-delete "${e.display_name}"? This event has ${paidVendorCount} paid vendor${paidVendorCount === 1 ? '' : 's'} — their order rows survive but lose the event link. ${cascade} Not reversible.`
-                  : `Hard-delete "${e.display_name}"? ${cascade} Not reversible — consider archiving instead if you might restore later.`;
+                  : `Hard-delete "${e.display_name}"? ${cascade} Not reversible — the host can put it away instead from its Personalization page if they might want it back.`;
               return (
                 <ConfirmForm action={deleteEvent} message={message}>
                   <input type="hidden" name="event_id" value={e.event_id} />

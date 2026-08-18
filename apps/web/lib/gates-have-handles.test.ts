@@ -94,6 +94,9 @@ const SWITCHES: {
     // check would have concluded: the column name appears in an admin export
     // list, an anon-column-scope migration and a db test, so it looks
     // thoroughly wired from every angle except the one that matters.
+    // Lives on `vendor_profiles`, not `events` — declared explicitly now that
+    // the detector is table-scoped. Before 2026-08-16 the check was table-blind,
+    // so this passed by accident rather than by aim.
     column: 'is_founder',
     table: 'vendor_profiles',
     whoFlips: 'an admin, on the vendor plan page (/admin/vendors/[id]/plan)',
@@ -122,6 +125,39 @@ const SWITCHES: {
       'the photo wall plays on every invited guest’s phone for the whole ' +
       'celebration and the couple cannot stop it — revoking every venue screen ' +
       'code, the only “off” the product offers them, leaves it running',
+  },
+  {
+    // 🚨 SIXTH INSTANCE, registered 2026-08-16 — and the longest-lived. Unlike
+    // the five above, `events.archived` was never obscure: it shipped with the
+    // FIRST migration, a dozen screens read it, eleven database objects
+    // reference it, and the RLS policy plus the column grant have always let an
+    // organiser set it. Everything was in place except a way to press it.
+    //
+    // 🔑 THE TELL WAS NOT SILENCE — IT WAS FIVE SCREENS TELLING PEOPLE TO USE
+    // IT. "Finish or archive it first" is what a couple was told when they
+    // tried to plan a second wedding; the admin console's delete warning
+    // recommended "archiving instead if you might restore later". Every one of
+    // those sentences named a control that did not exist, for two years.
+    //
+    // The owner was personally behind that instruction: holding two upcoming
+    // weddings, a third was refused with nothing to press.
+    //
+    // ⚠ AND IT LOOKED HALF-BUILT, WHICH IS WORSE THAN LOOKING ABSENT. A reader
+    // checking "does archive exist?" finds a column, readers, a filter in the
+    // admin console and an `?archived=1` query param, and concludes yes.
+    column: 'archived',
+    // 🚨 REQUIRED, AND IT IS THE WHOLE POINT HERE. `archived` exists on BOTH
+    // `events` and `communities`, and `samahan/actions.ts` writes
+    // `communities.archived` — so a table-blind detector reported
+    // "events.archived has a writer" while events.archived had none, for two
+    // years. Table-scoping landed on main independently (`gateWritersOf`);
+    // this entry is the instance it was next asked to hold.
+    table: 'events',
+    whoFlips: 'a host, on the event’s Personalization page (“Put this away”)',
+    whatBreaksWhenStuck:
+      'no celebration can ever be put away, so a couple who has finished one ' +
+      'wedding can never start another — the refusal tells them to archive it ' +
+      'and there is nothing anywhere to press',
   },
 ];
 
@@ -345,5 +381,82 @@ test('every feature-flag module has at least one non-test importer', () => {
       'connected at neither end:\n  ' +
       inert.join('\n  ') +
       '\n\nWire it, delete it, or add it to PARKED_ON_PURPOSE with a reason.',
+  );
+});
+
+/*
+  A HOST CHECK WIDER THAN THE RLS POLICY MUST WRITE WITH THE ADMIN CLIENT.
+
+  This is not a style rule; it is the shape of a live defect this PR shipped and
+  had to correct. `setEventArchived` admits `event_members` couple OR
+  coordinator, plus an accepted `event_moderators` row. The only permissive
+  UPDATE policy on `public.events` is `couple_can_update_event`, whose
+  `current_couple_event_ids()` is `member_type = 'couple'` ONLY — read out of
+  production by the object. So on the user client every co-host's update was
+  RLS-filtered to zero rows WITH NO ERROR and answered "Only a host of this
+  celebration can put it away", immediately after deciding they were one.
+
+  🔑 The failure is silent by construction: an RLS refusal and a legitimate
+  no-op are the same value. Nothing can catch this at runtime, which is why it
+  is asserted here instead.
+
+  Asserted as a RULE, not a spelling: the update must be ROOTED at
+  `createAdminClient(`, and must not be rooted at the request-scoped client.
+  Reordering the chain, renaming the local, or adding columns all still pass.
+*/
+test('the put-away writer uses the admin client, because its host check is wider than RLS', () => {
+  const src = readFileSync(
+    join(WEB, 'app/dashboard/[eventId]/archive-actions.ts'),
+    'utf8',
+  );
+  const fn = /export async function setEventArchived\([\s\S]*?\n}/.exec(src);
+  assert.ok(fn, 'setEventArchived should exist in archive-actions.ts');
+  const body = fn[0];
+
+  assert.match(
+    body,
+    /createAdminClient\(\)[\s\S]{0,120}?\.from\(\s*['"`]events['"`]\s*\)[\s\S]{0,400}?\.update\(/,
+    'the events update must be rooted at createAdminClient() — the explicit ' +
+      'host check above is the authorization, matching setEventCeremonyType',
+  );
+
+  // The request-scoped client is still used for the host CHECK, and must be.
+  // What must never come back is a WRITE on it: that is the silent zero-row path.
+  const userClientWrite =
+    /\bsupabase\s*[\s\S]{0,40}?\.from\(\s*['"`]events['"`]\s*\)[\s\S]{0,400}?\.update\(/.test(
+      body,
+    );
+  assert.equal(
+    userClientWrite,
+    false,
+    'the events update must NOT run on the request-scoped client — RLS silently ' +
+      'filters every co-host to zero rows and the caller reports "not a host"',
+  );
+
+  /*
+    And the zero-row branch must not claim a permission problem. With the admin
+    client, zero rows can only mean the id does not exist.
+
+    🪤 THE FIRST CUT OF THIS ASSERTION WAS DECORATIVE AND THE MUTATION RUN PROVED
+    IT: `/data\.length === 0[\s\S]{0,200}?Only a host/`. The sabotage landed
+    (`not_found` 3 → 2) and the suite stayed GREEN, because the explanatory
+    comment I had written BETWEEN the two anchors is longer than the 200-char
+    window, so the pattern could never span them. A guard whose reach is set by
+    a character budget silently shrinks every time somebody documents the code.
+    Sliced by BRACE instead, so the branch is bounded by what it IS.
+  */
+  const branchStart = body.indexOf('if (!data || data.length === 0)');
+  assert.ok(branchStart > -1, 'the zero-row branch should still exist');
+  const branch = body.slice(branchStart, body.indexOf('return { ok: true', branchStart));
+  assert.match(
+    branch,
+    /code: 'not_found'/,
+    'with the admin client, a zero-row result is a missing event, not a refusal',
+  );
+  assert.doesNotMatch(
+    branch,
+    /code: 'unauthorized'|Only a host/,
+    'the zero-row branch must not tell somebody they lack a permission — that ' +
+      'is the exact lie the admin-client fix removed',
   );
 });

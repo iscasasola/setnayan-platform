@@ -3099,7 +3099,7 @@ export function OnboardingShell({
         // create-event picker already explains with its guided router.
         setFinishing(false);
         setCommitError(
-          'You already have a wedding in planning — you can only plan one at a time. Open it from your dashboard, or archive it first to start a new one.',
+          'You already have a wedding in planning — you can only plan one at a time. Open it from your dashboard and choose “Put this away”, or finish it first.',
         );
       } else {
         // Surface the error + let them retry — don't strand them on the overlay.

@@ -139,8 +139,17 @@ export default async function PackageBookingPage({ params }: Props) {
   const isLocked = typedBooking.status === 'locked';
   const isReleased = typedBooking.status === 'released';
 
+  // 🔑 KEEPS THE SHARED SHELL (owner, 2026-08-18: "all should keep our shell").
+  // This was a second <main> INSIDE the event layout's own `<main class="sn-vt-page">`
+  // — a frame within the frame. Two <main> landmarks on one page is also an
+  // accessibility fault: a screen reader offers "skip to main content" twice
+  // and neither is the whole page.
+  //
+  // The width and padding it carried are KEPT, on a <div>, because this page
+  // is a narrow receipt and deliberately reads narrower than a roster. Losing
+  // them would widen the page, which is a different change nobody asked for.
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
+    <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
       <Link
         href={eventHomeHref}
         className="inline-flex items-center gap-1.5 text-xs text-ink/60 transition-colors hover:text-terracotta"
@@ -444,6 +453,6 @@ export default async function PackageBookingPage({ params }: Props) {
           </form>
         ) : null}
       </section>
-    </main>
+    </div>
   );
 }

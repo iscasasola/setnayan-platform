@@ -1378,7 +1378,7 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
  *
  * ⚠ THIS IS NOT A DELETE. Declining lets the normal sweep replace this ORIGINAL
  * with the compressed copy that already exists. The photo stays in the gallery,
- * kept five years for everyone, paid or not. Say "compressed", never "deleted" —
+ * kept for life for everyone, paid or not. Say "compressed", never "deleted" —
  * the owner has corrected that vocabulary twice.
  *
  * 🪤 AND IT IS IRREVERSIBLE ONCE THE SWEEP HAS RUN. If the original is already

@@ -31,7 +31,7 @@
  *
  * ⚠ THIS IS NOT A DELETE FLAG. Declining lets the normal sweep replace one
  * ORIGINAL with its compressed copy. The photo is never deleted, and the
- * compressed copy is kept five years for everyone, paid or not. The owner has
+ * compressed copy is kept for life for everyone, paid or not. The owner has
  * corrected that vocabulary twice — say "compressed", never "deleted".
  */
 

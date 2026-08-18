@@ -451,7 +451,7 @@ function PreservationMeterLine({ totals }: { totals: PreservationTotals | null }
  *
  * 🗣 THE WORDS MATTER MORE THAN THE CONTROL. Releasing does NOT delete a photo —
  * it lets the original be replaced by the compressed copy that already exists,
- * and the photo stays in the gallery for five years either way. The owner has
+ * and the photo stays in the gallery for life either way. The owner has
  * corrected that vocabulary twice, so nothing here says "delete" or "remove".
  *
  * 🪤 AND IT CANNOT BE UNDONE ONCE THE SWEEP HAS RUN. Re-keeping a capture whose

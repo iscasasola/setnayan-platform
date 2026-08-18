@@ -598,7 +598,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
                   dormant screen with a stale number is a landmine for whenever
                   the owner flips the SKU back on. */}
               <p className="text-xs text-ink/60">
-                Your online gallery stays free for 5 years. After 6 months we keep a
+                Your online gallery stays free, for life. After 6 months we keep a
                 beautiful compressed copy, and your full-resolution originals live in
                 your own Google Drive. Want us to keep every pristine original too?
               </p>

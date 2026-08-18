@@ -5,13 +5,20 @@
  *
  *   **₱500/year = 3,000 photos OR 150 videos, or any combination** (a video = 20
  *   photos), running from the day they buy. **Free = the compressed copy of
- *   everything, kept five years** — past five it becomes a paid option and
- *   NOTHING is deleted. So what is sold is **resolution, not space**.
+ *   everything, kept FOR LIFE** — owner 2026-08-18, *"we keep it for life"*,
+ *   superseding the 5-year window set on 2026-08-07. NOTHING is deleted under
+ *   either ruling. So what is sold is **resolution, not space**.
  *
  * Owner, verbatim: *"do not price by drive. price by number of photos and
  * videos"* · *"we will preserve it compressed so they still keep it. we just
- * allow them to preserve it"* · *"if the pay nothing, we still keep their photos
- * for 5 years. but compressed."*
+ * allow them to preserve it"*.
+ *
+ * ⚠ AND ONE VERBATIM QUOTE HERE IS NOW SUPERSEDED — kept because it is a quote,
+ * marked because a future reader would otherwise act on it. On 2026-08-07 the
+ * owner said *"if the pay nothing, we still keep their photos for 5 years. but
+ * compressed."* On **2026-08-18** he replaced the five years with **for life**.
+ * The rest of that sentence — pay nothing, still keep, compressed — still holds.
+ * 🔑 Do not edit a verbatim quote to match a later ruling; date it and move on.
  *
  * ## The three mistakes this file exists to stop
  *
@@ -20,7 +27,7 @@
  * label away from being correct; it is the wrong unit.
  *
  * **2 · Billing for a compressed copy.** Once an original has been replaced, the
- * capture lives as its compressed copy, which is FREE for five years for
+ * capture lives as its compressed copy, which is FREE, for life, for
  * everyone. Charging for it bills a couple for the tier they did not buy.
  *
  * **3 · Losing the clips.** The byte model needed an `unmeasured` flag because a
@@ -94,7 +101,7 @@ test('AN ALREADY-COMPRESSED CAPTURE COSTS NOTHING — it is the free tier', () =
     preservationUnits(photo(true)),
     0,
     'billed a photo whose original was already replaced — that is the compressed ' +
-      'copy everybody gets free for five years',
+      'copy everybody gets free, for life',
   );
   assert.equal(preservationUnits(clip(true)), 0);
 });
@@ -174,7 +181,7 @@ test('there is no free allowance to grant — the free tier is the compressed co
   assert.ok(
     !('STORAGE_BUFFER_GB' in mod),
     'the 5 GB buffer is back. There is no free point allowance: a couple who pays ' +
-      'nothing keeps everything compressed for five years, which is the free tier. ' +
+      'nothing keeps everything compressed for life, which is the free tier. ' +
       'A gigabyte allowance is still pricing by drive.',
   );
 });

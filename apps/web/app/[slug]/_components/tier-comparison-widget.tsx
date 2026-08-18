@@ -99,7 +99,7 @@ export function TierComparisonWidget({
             {papicGamesEnabled() ? (
               <li>· <strong>Papic Challenges</strong> — fun mini-quests</li>
             ) : null}
-            <li>· <strong>Saved for 5 years</strong> — every photo kept, free</li>
+            <li>· <strong>Saved for life</strong> — every photo kept, free</li>
             <li>· Build your own souvenir reel</li>
           </ul>
           <Link href="/signup" className="button-primary inline-flex">

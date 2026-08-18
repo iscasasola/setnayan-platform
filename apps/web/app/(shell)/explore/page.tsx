@@ -1179,6 +1179,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value === '1';
   let inDemoMode = false;
   if (hasDemoCookie && user) {
+    // ⛔ NOT A DEFECT — DO NOT BIND-AND-SURFACE THIS ONE. A refused read leaves
+    // `viewerProfile` null, `isAdminProfile(null)` is false, and demo mode stays
+    // OFF. Absence DENIES here, which is the correct failure mode for a
+    // privilege check: the failure withholds a capability rather than granting
+    // one. Binding an error and reporting it would only add noise to a public
+    // page for a case that is already safe.
     const { data: viewerProfile } = await supabase
       .from('users')
       .select('account_type, is_internal, is_team_member')
@@ -1188,6 +1194,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   }
 
   let coupleEventId: string | null = null;
+  // True when the couple's event could not be READ (not when they simply have
+  // no event) — the two are different and only the first is worth saying.
+  let eventContextFailed = false;
   let matchableEvent: {
     ceremony_type: string;
     // Mixed/interfaith weddings (CLAUDE.md 2026-06-01) carry a second rite;
@@ -1223,13 +1232,21 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       }
     }
     if (coupleEventId) {
-      const { data: ev } = await admin
+      const { data: ev, error: evError } = await admin
         .from('events')
         .select(
           'ceremony_type, secondary_ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude, venue_name, event_date, event_date_precision',
         )
         .eq('event_id', coupleEventId)
         .maybeSingle();
+      // 🚨 THE "MATCH MY EVENT" TOGGLE RENDERS FROM THE URL, BUT ONLY FILTERS IF
+      // THIS READ LANDED. Refused, `matchableEvent` stays null, the filter at
+      // `filters.matchEvent && matchableEvent` never fires, and the couple sees
+      // an UNFILTERED marketplace with the toggle still showing as on — a filter
+      // that claims to be applied and is not, on a public browse page where they
+      // are deciding what to buy. Same for the event-type default filter, the
+      // date-intersection filter and distance sorting, all of which hang off it.
+      eventContextFailed = Boolean(evError) || ev === null;
       if (
         ev?.venue_latitude !== null &&
         ev?.venue_latitude !== undefined &&
@@ -1426,6 +1443,23 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(vendorsItemListJsonLd) }}
         />
+        {/* Said on the page, not only in the logs, because both of these are
+            FALSE STATEMENTS to the person reading rather than missing decoration:
+            a filter that reports itself as applied, and a shop they saved showing
+            as unsaved. The marketplace still renders in full underneath — the
+            deliberate fail-soft for this page is kept, it just stops being
+            silent. */}
+        {eventContextFailed && filters.matchEvent ? (
+          <p
+            role="status"
+            className="mx-auto mb-4 max-w-3xl rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+          >
+            We couldn&rsquo;t load your event just now, so{' '}
+            <strong>&ldquo;match my event&rdquo; isn&rsquo;t narrowing these results</strong> —
+            you&rsquo;re seeing everyone, not only the suppliers who fit your ceremony and
+            date. Reload to try again.
+          </p>
+        ) : null}
         <CatalogView
           admin={admin}
           matchableEvent={matchableEvent}
@@ -1870,23 +1904,36 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // viewer-scoped and only need the IDs we just paginated, so they run in
   // parallel rather than the old sequential await chain.
   const visibleIds = rows.map((r) => r.vendor_profile_id);
+  // A refused viewer read makes the couple's OWN follows and saves read back as
+  // never taken — the heart empty on a shop they saved, which invites them to
+  // save it twice or conclude they lost it. Unlike the card enrichment below,
+  // this is a false statement about something the person themselves did.
+  let viewerStateFailed = false;
   const [followedSet, savedSet] = await Promise.all([
     (async (): Promise<Set<string>> => {
       if (!user || visibleIds.length === 0) return new Set<string>();
-      const { data: follows } = await supabase
+      const { data: follows, error: followsError } = await supabase
         .from('vendor_follows')
         .select('vendor_profile_id')
         .eq('follower_user_id', user.id)
         .in('vendor_profile_id', visibleIds);
+      if (followsError || follows === null) {
+        console.error('[explore] vendor_follows read refused', followsError);
+        viewerStateFailed = true;
+      }
       return new Set((follows ?? []).map((f) => f.vendor_profile_id));
     })(),
     (async (): Promise<Set<string>> => {
       if (!user || !coupleEventId || visibleIds.length === 0) return new Set<string>();
-      const { data: saved } = await supabase
+      const { data: saved, error: savedError } = await supabase
         .from('event_vendors')
         .select('marketplace_vendor_id')
         .eq('event_id', coupleEventId)
         .in('marketplace_vendor_id', visibleIds);
+      if (savedError || saved === null) {
+        console.error('[explore] saved-vendor read refused', savedError);
+        viewerStateFailed = true;
+      }
       return new Set(
         (saved ?? [])
           .map((s) => s.marketplace_vendor_id)
@@ -2148,7 +2195,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         // inner join keeps the active-service constraint (admin bypasses RLS).
         const offPeakByVendor = new Map<string, { value: number; expiresAt: string }>();
         {
-          const { data: dRows } = await admin
+          // Fail-soft is the deliberate policy for this whole enrichment block
+          // (see its header) and it is KEPT — a discount badge is not worth
+          // taking a public marketplace down for. But a silent swallow leaves
+          // nothing to diagnose: refused, every supplier's live off-peak deal
+          // vanishes from their card and the only symptom is an absence.
+          const { data: dRows, error: dRowsError } = await admin
             .from('vendor_service_discounts')
             .select('vendor_profile_id, rate, expires_at, vendor_services!inner(is_active)')
             .in('vendor_profile_id', visibleVendorIds)
@@ -2157,6 +2209,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             .not('expires_at', 'is', null)
             .gt('expires_at', new Date().toISOString())
             .eq('vendor_services.is_active', true);
+          if (dRowsError) {
+            console.error('[vendors] off-peak discount fetch failed', dRowsError);
+          }
           for (const row of dRows ?? []) {
             const d = row as { vendor_profile_id: string; rate: number; expires_at: string };
             const prev = offPeakByVendor.get(d.vendor_profile_id);
@@ -2386,10 +2441,19 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             pData.map((r) => (r as { recommending_vendor_id: string }).recommending_vendor_id),
           ),
         );
-        const { data: nameData } = await admin
+        // 🪤 THE FALLBACK IS AMBIGUOUS WITH A REAL VALUE. `'Your vendor'` is
+        // already what a shop with no business_name on file renders as, so a
+        // refused read here is indistinguishable from an unnamed supplier — every
+        // partnership badge quietly loses the recommender's real name. The
+        // fail-soft is kept (public page, deliberate policy for this block); the
+        // reason now reaches the logs instead of nothing at all.
+        const { data: nameData, error: nameDataError } = await admin
           .from('vendor_profiles')
           .select('vendor_profile_id, business_name')
           .in('vendor_profile_id', recommenderIds);
+        if (nameDataError) {
+          console.error('[vendors] partnership recommender names failed', nameDataError);
+        }
         const nameMap = new Map<string, string>();
         for (const row of nameData ?? []) {
           const r = row as { vendor_profile_id: string; business_name: string | null };
@@ -2684,6 +2748,32 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           sticky-top bars would stack/overlap on scroll. */}
 
       <NoticeBanner noticeKey={noticeKey} />
+
+      {/* Said on the page, not only in the logs: both are FALSE STATEMENTS to
+          the reader rather than missing decoration — a filter reporting itself
+          as applied, and a shop they saved showing as unsaved. The grid still
+          renders in full underneath. */}
+      {eventContextFailed && filters.matchEvent ? (
+        <p
+          role="status"
+          className="mx-auto mb-4 max-w-3xl rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+        >
+          We couldn&rsquo;t load your event just now, so{' '}
+          <strong>&ldquo;match my event&rdquo; isn&rsquo;t narrowing these results</strong> —
+          you&rsquo;re seeing everyone, not only the suppliers who fit your ceremony and
+          date. Reload to try again.
+        </p>
+      ) : null}
+      {viewerStateFailed ? (
+        <p
+          role="status"
+          className="mx-auto mb-4 max-w-3xl rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+        >
+          We couldn&rsquo;t check which suppliers you&rsquo;ve saved or followed, so those
+          marks are missing below. <strong>Nothing has been unsaved</strong> — your list is
+          safe; this page just can&rsquo;t see it right now.
+        </p>
+      ) : null}
       <CompareShortlistBanner compareHref={compareHref} />
 
       {/* 2026-05-30 mobile pattern lock — `pb-36` on mobile gives the page

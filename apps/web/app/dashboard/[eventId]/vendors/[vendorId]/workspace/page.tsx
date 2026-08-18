@@ -29,6 +29,7 @@
 // ============================================================================
 
 import type { ReactNode } from 'react';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
 import Link from 'next/link';
@@ -359,10 +360,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // Crew-meal coverage context (2026-07-09): does the event have a crew-meal
   // provider booked (gates the "covered by crew meals" toggle on other vendors),
   // and how many meals does it cover (Σ crew_size of the vendors marked covered)?
-  const { data: eventVendorCrewRows } = await supabase
+  const { data: eventVendorCrewRows, error: eventVendorCrewRowsError } = await supabase
     .from('event_vendors')
     .select('vendor_id, category, crew_size, crew_meal_covered, marketplace_vendor_id')
     .eq('event_id', eventId);
+  // ⚠ crew counts for this booking. Refused, the crew reads as zero, which on a
+  // ⚠ meals-and-headcount surface is a number somebody plans catering against.
+  if (eventVendorCrewRowsError) {
+    logQueryError('VendorWorkspacePage.eventVendorCrewRows', eventVendorCrewRowsError, { eventId }, 'graceful_degrade');
+  }
   const crewRows = (eventVendorCrewRows ?? []) as Array<{
     vendor_id: string;
     category: string;
@@ -383,11 +389,16 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   );
   const listingCrewByProfile = new Map<string, number>();
   if (mpIds.length > 0) {
-    const { data: svcCrewRows } = await supabase
+    const { data: svcCrewRows, error: svcCrewRowsError } = await supabase
       .from('vendor_services')
       .select('vendor_profile_id, crew_size')
       .in('vendor_profile_id', mpIds)
       .not('crew_size', 'is', null);
+    // ⚠ the service's own declared crew size. Refused, it falls back silently and the
+    // ⚠ headcount above becomes the only source.
+    if (svcCrewRowsError) {
+      logQueryError('VendorWorkspacePage.svcCrewRows', svcCrewRowsError, { eventId }, 'graceful_degrade');
+    }
     for (const s of (svcCrewRows ?? []) as Array<{
       vendor_profile_id: string;
       crew_size: number | null;
@@ -415,25 +426,40 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // Change-Order Trail (Wave 3) — the both-acknowledged add-on/removal log for
   // this booking. RLS-gated to couple-on-event reads. Rendered immutable-trail
   // style; the couple raises + responds to vendor-raised orders via the RPCs.
-  const { data: changeOrderRows } = await supabase
+  const { data: changeOrderRows, error: changeOrderRowsError } = await supabase
     .from('vendor_change_orders')
     .select(
       'change_order_id, raised_by, title, description, delta_amount_php, proposed_due_date, status, acknowledged_at, decline_reason, created_at',
     )
     .eq('event_vendor_id', ev.vendor_id)
     .order('created_at', { ascending: false });
+  // ⚠ a SUPPLIER'S REQUEST to change the agreed deal. Refused, the couple sees none
+  // ⚠ waiting — and the supplier is left waiting on an answer that never appears.
+  // ⚠ The cost of this refusal falls on somebody who cannot see this page.
+  if (changeOrderRowsError) {
+    logQueryError('VendorWorkspacePage.changeOrderRows', changeOrderRowsError, { eventId }, 'graceful_degrade');
+  }
   const changeOrders = (changeOrderRows ?? []) as ChangeOrderRow[];
 
   // Delivery Handover (Wave 4) — the vendor-posted deliverables for this
   // booking. RLS-gated to couple-on-event reads (current_event_ids). The couple
   // confirms receipt via the single-winner acknowledge_handover RPC.
-  const { data: handoverRows } = await supabase
+  const { data: handoverRows, error: handoverRowsError } = await supabase
     .from('booking_handovers')
     .select(
       'handover_id, kind, label, payload, status, delivered_at, couple_acknowledged_at',
     )
     .eq('event_vendor_id', ev.vendor_id)
     .order('created_at', { ascending: false });
+  // ⚠ 🚨 THE COUPLE'S DELIVERY LOOKS UNDELIVERED. These rows ARE the supplier's
+  // ⚠ handover — the gallery link, the files, the thing the couple is waiting for.
+  // ⚠ `?? []` on a refused read empties the list, so a delivered wedding gallery
+  // ⚠ reads as never delivered, on the most emotional asset in the product.
+  // ⚠ 🔑 Same family as the couple's saved plans: an absence that reads as their
+  // ⚠ own things being gone, not as an empty list.
+  if (handoverRowsError) {
+    logQueryError('VendorWorkspacePage.handoverRows', handoverRowsError, { eventId }, 'graceful_degrade');
+  }
   const handovers = (handoverRows ?? []) as HandoverRow[];
   // Offer the "also mark delivered" opt-in only when the booking hasn't already
   // reached delivered/complete (matches updateVendorStatus's own emit guard).
@@ -912,12 +938,21 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   let chatQuoteAmounts: number[] = [];
   if (chatThread) {
     try {
-      const { data: msgRows } = await supabase
+      const { data: msgRows, error: msgRowsError } = await supabase
         .from('chat_messages')
         .select('sender_role, body, created_at')
         .eq('thread_id', chatThread.thread_id)
         .order('created_at', { ascending: false })
         .limit(20);
+      // ⚠ A SWALLOW INSIDE A SWALLOW. This read is unbound AND sits in a try whose
+      // catch resolves the amounts to []. Both arms make the same claim — that the
+      // supplier quoted nothing in chat — by two different routes, and a quote the
+      // couple was shown yesterday simply stops appearing.
+      // 🔑 The fail-soft is defensible (a quote-detection helper must not take the
+      // page down) but a DELIBERATE swallow still has to be visible.
+      if (msgRowsError) {
+        logQueryError('VendorWorkspacePage.msgRows', msgRowsError, { eventId }, 'graceful_degrade');
+      }
       chatQuoteAmounts = detectAmountsFromVendorMessages(
         (msgRows ?? []) as Array<{
           sender_role: string | null;
@@ -937,7 +972,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   let proposalCandidates: QuoteCandidate[] = [];
   if (ev.marketplace_vendor_id) {
     try {
-      const { data: propRows } = await supabase
+      const { data: propRows, error: propRowsError } = await supabase
         .from('vendor_proposals')
         .select('proposal_id, title, status, total_centavos, line_items')
         .eq('event_id', eventId)
@@ -945,6 +980,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         .in('status', ['sent', 'viewed', 'accepted'])
         .order('created_at', { ascending: false })
         .limit(3);
+      // ⚠ the supplier's proposals. Refused, none are shown, so a quote awaiting the
+      // ⚠ couple's answer is invisible to them.
+      if (propRowsError) {
+        logQueryError('VendorWorkspacePage.propRows', propRowsError, { eventId }, 'graceful_degrade');
+      }
       proposalCandidates = ((propRows ?? []) as Array<{
         proposal_id: string;
         title: string | null;

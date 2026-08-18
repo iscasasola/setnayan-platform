@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -51,11 +52,15 @@ export default async function EventStoriesPage({
     .maybeSingle();
   if (membershipError || !membership) redirect(`/dashboard/${eventId}`);
 
-  const { data: event } = await admin
+  const { data: event, error: eventError } = await admin
     .from('events')
     .select('event_id, display_name, event_type')
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ the event record. Degrades rather than claiming.
+  if (eventError) {
+    logQueryError('WebsiteStoriesPage.event', eventError, { eventId }, 'graceful_degrade');
+  }
   if (!event) redirect('/dashboard');
 
   // Everything attached to this celebration by anyone — the author's own page
@@ -78,10 +83,14 @@ export default async function EventStoriesPage({
 
   const authors = new Map<string, { name: string; slug: string | null }>();
   if (chapters.length > 0) {
-    const { data: people } = await admin
+    const { data: people, error: peopleError } = await admin
       .from('users')
       .select('user_id, display_name, slug')
       .in('user_id', [...new Set(chapters.map((c) => c.user_id))]);
+    // ⚠ the people whose stories attach here. Refused, each reads as unnamed.
+    if (peopleError) {
+      logQueryError('WebsiteStoriesPage.people', peopleError, { eventId }, 'graceful_degrade');
+    }
     for (const p of (people ?? []) as Array<{
       user_id: string;
       display_name: string | null;

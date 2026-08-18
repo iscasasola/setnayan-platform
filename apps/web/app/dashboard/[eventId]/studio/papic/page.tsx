@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {
@@ -230,13 +231,17 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: event } = await supabase
+  const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
       'event_id, event_type, event_date, papic_storage_target, papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end',
     )
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ the event this page reads against. Refused, it degrades rather than claiming.
+  if (eventError) {
+    logQueryError('PapicStudioPage.event', eventError, { eventId }, 'graceful_degrade');
+  }
   if (!event) notFound();
 
   const storageTarget: StorageTarget =
@@ -248,11 +253,16 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // defensively: the papic_style column lands in migration 20270307004141, so
   // on a pre-migration DB this select returns an error (not a throw) and we keep
   // the ORIG default — the page never breaks on the new column.
-  const { data: styleRow } = await supabase
+  const { data: styleRow, error: styleRowError } = await supabase
     .from('events')
     .select('papic_style')
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ the couple's chosen Papic style. Refused, it silently reverts to the default,
+  // ⚠ so a choice they made is replaced by one they did not.
+  if (styleRowError) {
+    logQueryError('PapicStudioPage.styleRow', styleRowError, { eventId }, 'graceful_degrade');
+  }
   const papicStyle =
     (styleRow as { papic_style?: string } | null)?.papic_style ?? 'ORIG';
 
@@ -267,11 +277,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // the read failed, and the honest thing to show then is the tier that
   // processes nothing. Never re-type the literal — that is how the two
   // meanings got merged in the first place.
-  const { data: qualityRow } = await supabase
+  const { data: qualityRow, error: qualityRowError } = await supabase
     .from('events')
     .select('papic_quality_tier')
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ the chosen quality setting. Same shape as the style above.
+  if (qualityRowError) {
+    logQueryError('PapicStudioPage.qualityRow', qualityRowError, { eventId }, 'graceful_degrade');
+  }
   const papicQualityTier =
     (qualityRow as { papic_quality_tier?: string } | null)
       ?.papic_quality_tier ?? FIDELITY_READ_FAILSAFE;
@@ -495,11 +509,16 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   let claimLinkTotal = 0;
   let claimLinkUnclaimed = 0;
   {
-    const { data: seatRows } = await supabase
+    const { data: seatRows, error: seatRowsError } = await supabase
       .from('paparazzi_seats')
       .select('claimer_user_id')
       .eq('event_id', eventId)
       .is('revoked_at', null);
+    // ⚠ THE CAMERAS THE COUPLE HANDED OUT. Refused, the crew list empties and every
+    // ⚠ seat they set up reads as never claimed — their own setup, gone.
+    if (seatRowsError) {
+      logQueryError('PapicStudioPage.seatRows', seatRowsError, { eventId }, 'graceful_degrade');
+    }
     const rows = seatRows ?? [];
     claimLinkTotal = rows.length;
     claimLinkUnclaimed = rows.filter((r) => !r.claimer_user_id).length;

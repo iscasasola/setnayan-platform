@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { UsersRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -121,21 +122,29 @@ async function fetchKnownConnectionUserIds(
   userId: string,
 ): Promise<Set<string>> {
   const known = new Set<string>();
-  const { data: me } = await supabase
+  const { data: me, error: meError } = await supabase
     .from('people')
     .select('person_id')
     .eq('claimed_by_user_id', userId)
     .is('deleted_at', null)
     .maybeSingle();
+  // ⚠ the viewer's own person row. Absence DENIES rather than renders.
+  if (meError) {
+    logQueryError('SamahanPeopleSection.me', meError, {}, 'graceful_degrade');
+  }
   const myPerson = (me as { person_id: string } | null)?.person_id;
   if (!myPerson) return known;
 
-  const { data: edges } = await supabase
+  const { data: edges, error: edgesError } = await supabase
     .from('person_connections')
     .select('from_person_id, to_person_id')
     .or(`from_person_id.eq.${myPerson},to_person_id.eq.${myPerson}`)
     .is('deleted_at', null)
     .neq('status', 'declined');
+  // ⚠ the connections themselves. Refused, everyone appears unrelated to everyone.
+  if (edgesError) {
+    logQueryError('SamahanPeopleSection.edges', edgesError, {}, 'graceful_degrade');
+  }
   const otherPersonIds = [
     ...new Set(
       ((edges ?? []) as Array<{ from_person_id: string; to_person_id: string }>).map((e) =>
@@ -145,11 +154,15 @@ async function fetchKnownConnectionUserIds(
   ];
   if (otherPersonIds.length === 0) return known;
 
-  const { data: peopleRows } = await admin
+  const { data: peopleRows, error: peopleRowsError } = await admin
     .from('people')
     .select('claimed_by_user_id')
     .in('person_id', otherPersonIds)
     .not('claimed_by_user_id', 'is', null);
+  // ⚠ the people this person is connected to. Refused, their circle reads as empty.
+  if (peopleRowsError) {
+    logQueryError('SamahanPeopleSection.peopleRows', peopleRowsError, {}, 'graceful_degrade');
+  }
   for (const r of (peopleRows ?? []) as Array<{ claimed_by_user_id: string | null }>) {
     if (r.claimed_by_user_id) known.add(r.claimed_by_user_id);
   }

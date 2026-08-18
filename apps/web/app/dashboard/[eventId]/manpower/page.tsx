@@ -78,13 +78,17 @@ export default async function HostManpowerPage({
 
   // Verify host access via event_members. RLS on event_members will gate
   // this read · if it returns no rows, the user is not a couple/host.
-  const { data: membership } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .eq('member_type', 'couple')
     .maybeSingle();
+  // ⚠ the viewer's membership. Absence DENIES rather than renders.
+  if (membershipError) {
+    logQueryError('ManpowerPage.membership', membershipError, { eventId }, 'graceful_degrade');
+  }
 
   if (!membership) {
     redirect('/dashboard');
@@ -118,10 +122,15 @@ export default async function HostManpowerPage({
     .filter((id): id is string => Boolean(id));
   const vendorNames = new Map<string, string>();
   if (vendorIds.length > 0) {
-    const { data: vendors } = await supabase
+    const { data: vendors, error: vendorsError } = await supabase
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name')
       .in('vendor_profile_id', vendorIds);
+    // ⚠ the suppliers whose crew this page counts. Refused, the headcount reads as zero
+    // ⚠ on a surface somebody plans catering and transport against.
+    if (vendorsError) {
+      logQueryError('ManpowerPage.vendors', vendorsError, { eventId }, 'graceful_degrade');
+    }
     for (const row of vendors ?? []) {
       vendorNames.set(row.vendor_profile_id, row.business_name);
     }

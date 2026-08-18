@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
@@ -87,10 +88,15 @@ export async function DependentsSection() {
   const myUserId = user?.id ?? '';
 
   // RLS now returns MY dependents + any my spouse marked shared (PR-G household).
-  const { data } = await supabase
+  const { data, error: dataError } = await supabase
     .from('dependents')
     .select('dependent_id, dependent_kind, name, birth_date, sex, religion, relationship, owner_user_id, shared_with_spouse, handed_over_at, claimed_user_id, handed_over_by_user_id, claim_token, claim_token_purpose, claim_token_expires_at')
     .order('created_at', { ascending: true });
+  // ⚠ the dependents this person added. Refused, their list reads as empty — people
+  // ⚠ they entered by hand simply are not there.
+  if (dataError) {
+    logQueryError('DependentsSection.data', dataError, {}, 'graceful_degrade');
+  }
   const dependents = (data ?? []) as DependentRow[];
   const today = manilaToday();
 
@@ -102,14 +108,22 @@ export async function DependentsSection() {
 
   // Do I have a spouse on Setnayan? Only then is the "share with spouse" toggle
   // meaningful. current_spouse_user_ids() returns the co-host(s) of my wedding.
-  const { data: spouseIds } = await supabase.rpc('current_spouse_user_ids');
+  const { data: spouseIds, error: spouseIdsError } = await supabase.rpc('current_spouse_user_ids');
+  // ⚠ the spouse link. Refused, it reads as unset.
+  if (spouseIdsError) {
+    logQueryError('DependentsSection.spouseIds', spouseIdsError, {}, 'graceful_degrade');
+  }
   const hasSpouse = Array.isArray(spouseIds) && spouseIds.length > 0;
 
   // Godparents (ninong/ninang) per dependent — RLS scopes to the owner's rows.
-  const { data: gpData } = await supabase
+  const { data: gpData, error: gpDataError } = await supabase
     .from('godparents')
     .select('godparent_id, dependent_id, godparent_name, role')
     .order('created_at', { ascending: true });
+  // ⚠ godparent links. Refused, a named godparent disappears.
+  if (gpDataError) {
+    logQueryError('DependentsSection.gpData', gpDataError, {}, 'graceful_degrade');
+  }
   const godparentsByDependent = new Map<string, GodparentRow[]>();
   for (const g of (gpData ?? []) as GodparentRow[]) {
     const list = godparentsByDependent.get(g.dependent_id) ?? [];

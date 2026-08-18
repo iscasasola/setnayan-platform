@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { ArrowLeft, Sparkles, Users } from 'lucide-react';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
@@ -174,10 +175,15 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   ) {
     // RLS scopes this to the viewer's own (+ married-household shared)
     // dependents; a household concern counts. Handed-over records aged out.
-    const { data: deps } = await supabase
+    const { data: deps, error: depsError } = await supabase
       .from('dependents')
       .select('dependent_id, name, dependent_kind, birth_date, sex, claimed_user_id')
       .is('handed_over_at', null);
+    // ⚠ the dependents this person can create an event for. Refused, the picker offers
+    // ⚠ none and they cannot start an event for a child they already added.
+    if (depsError) {
+      logQueryError('CreateEventPage.deps', depsError, {}, 'graceful_degrade');
+    }
     const rows = (deps ?? []) as DependentSubjectRow[];
     hiddenTypeKeys = hiddenMeasuredTypes(
       rows.filter((r) => isPersonDependent(r.dependent_kind)) as ConcernPerson[],
@@ -204,11 +210,15 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // which folds LESS, the documented fail-open direction.
   let subjects: CreateSubject[] = [];
   if (user && !samahan) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('display_name, birth_date')
       .eq('user_id', user.id)
       .maybeSingle();
+    // ⚠ the account record. Absence DENIES rather than renders.
+    if (profileError) {
+      logQueryError('CreateEventPage.profile', profileError, {}, 'graceful_degrade');
+    }
     subjects = [
       buildSelfSubject((profile?.display_name as string | null) ?? null, {
         birth_date: (profile?.birth_date as string | null) ?? null,
@@ -224,11 +234,15 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // RLS (member-only read) naturally scopes this to the user's own events.
   let blockedLifeEvent: { eventId: string; displayName: string } | null = null;
   if (rawError === 'life_event_exists' && params.existing && user) {
-    const { data: ev } = await supabase
+    const { data: ev, error: evError } = await supabase
       .from('events')
       .select('event_id, display_name')
       .eq('event_id', params.existing)
       .maybeSingle();
+    // ⚠ their existing events. Refused, the page reads as though they have made none.
+    if (evError) {
+      logQueryError('CreateEventPage.ev', evError, {}, 'graceful_degrade');
+    }
     if (ev) blockedLifeEvent = { eventId: ev.event_id, displayName: ev.display_name };
   }
 

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
@@ -91,13 +92,17 @@ export default async function WebsiteEditorPage({
 
   const supabase = await createClient();
 
-  const { data: event } = await supabase
+  const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
       `event_id, display_name, slug, event_type, event_date, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_invitation_launch_date, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ the event record. Degrades rather than claiming.
+  if (eventError) {
+    logQueryError('WebsiteEditorPage.event', eventError, { eventId }, 'graceful_degrade');
+  }
   if (!event) redirect(`/dashboard/${eventId}`);
 
   const profile = await resolveProfile((event.event_type as string | null) ?? 'wedding');
@@ -105,13 +110,17 @@ export default async function WebsiteEditorPage({
 
   // Couple gate — mirrors the launch surface this page absorbs (its go-live
   // actions are requireCouple).
-  const { data: membership } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .eq('member_type', 'couple')
     .maybeSingle();
+  // ⚠ the viewer's membership. An absence here DENIES rather than renders.
+  if (membershipError) {
+    logQueryError('WebsiteEditorPage.membership', membershipError, { eventId }, 'graceful_degrade');
+  }
   if (!membership) redirect(`/dashboard/${eventId}`);
 
   const ownsPro = await eventCoupleWebsiteProActive(supabase, eventId);
@@ -165,12 +174,19 @@ export default async function WebsiteEditorPage({
   ]);
 
   // Sections manager data — the same reads the widgets sub-editor does.
-  const { data: widgetsRaw } = await supabase
+  const { data: widgetsRaw, error: widgetsRawError } = await supabase
     .from('invitation_widgets')
     .select(
       'widget_id, event_id, widget_type, display_order, is_visible, is_always_on, tier, config_json, created_at, updated_at, mode, audience',
     )
     .eq('event_id', eventId);
+  // ⚠ 🚨 THE COUPLE'S OWN WEBSITE BLOCKS. Refused, the editor opens EMPTY — every
+  // ⚠ widget they placed is absent, and an editor that loads blank invites them to
+  // ⚠ rebuild a page that already exists. Worse: saving from that state could
+  // ⚠ overwrite the real one with nothing.
+  if (widgetsRawError) {
+    logQueryError('WebsiteEditorPage.widgetsRaw', widgetsRawError, { eventId }, 'graceful_degrade');
+  }
   const allWidgets: InvitationWidgetRow[] = ((widgetsRaw ?? []) as Array<
     Omit<InvitationWidgetRow, 'widget_type'> & { widget_type: string }
   >)
@@ -189,13 +205,18 @@ export default async function WebsiteEditorPage({
 
   // Public schedule blocks — the same set guests see (source of truth stays
   // the Schedule page; the panel mirrors it + links there).
-  const { data: scheduleBlocksRaw } = await supabase
+  const { data: scheduleBlocksRaw, error: scheduleBlocksRawError } = await supabase
     .from('event_schedule_blocks')
     .select('block_id, label, start_at, location')
     .eq('event_id', eventId)
     .eq('is_public', true)
     .order('start_at', { ascending: true })
     .limit(12);
+  // ⚠ the schedule the couple authored, shown on their site. Refused, the day reads
+  // ⚠ as having no events in it.
+  if (scheduleBlocksRawError) {
+    logQueryError('WebsiteEditorPage.scheduleBlocksRaw', scheduleBlocksRawError, { eventId }, 'graceful_degrade');
+  }
   const scheduleBlocks = (scheduleBlocksRaw ?? []) as Array<{
     block_id: string;
     label: string;

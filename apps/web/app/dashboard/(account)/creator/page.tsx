@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import {
   ArrowLeft,
@@ -86,11 +87,15 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('users')
     .select('display_name, slug, public_profile_enabled, creator_accepts_offers')
     .eq('user_id', user.id)
     .maybeSingle();
+  // ⚠ the creator account record. Absence DENIES rather than renders.
+  if (profileError) {
+    logQueryError('CreatorPage.profile', profileError, {}, 'graceful_degrade');
+  }
   // PR-C opt-out toggle — default ON (only an explicit FALSE reads as off, so a
   // pre-migration row degrades to the default).
   const acceptsOffers =

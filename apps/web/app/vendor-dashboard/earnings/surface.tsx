@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Wallet, Clock3, CheckCircle2, ShieldCheck, Info } from 'lucide-react';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -76,7 +77,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
   // payouts so the page can render the confirmed / in-stage / paid split.
   // RLS already lets the vendor read their own payouts, so we use the user
   // client to respect server-side auth scoping.
-  const { data: payoutRows } = await supabase
+  const { data: payoutRows, error: payoutRowsError } = await supabase
     .from('vendor_payouts')
     .select(
       `payout_id, payout_stage, stage, stage_pct, amount_centavos,
@@ -112,20 +113,38 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
     created_at: string;
     order: { reference_code: string; description: string } | null;
   };
+  // ⚠ THIS SUPPLIER'S OWN MONEY. Refused, `?? []` made every total below ₱0 —
+  // ⚠ nothing pending, nothing paid, nothing on hold — which does not read as a
+  // ⚠ broken page. It reads as "Setnayan has not paid you." The totals now go
+  // ⚠ UNSET rather than to zero, and the page says why.
+  if (payoutRowsError) {
+    logQueryError(
+      'VendorEarningsSurface.payoutRows',
+      payoutRowsError,
+      { vendorProfileId: profile.vendor_profile_id },
+      'graceful_degrade',
+    );
+  }
+  const payoutsMeasured = !payoutRowsError && payoutRows !== null;
   const payouts = (payoutRows ?? []) as unknown as PayoutRow[];
 
   const verificationState: VendorVerificationState =
     resolveVendorVerificationState(profile);
 
-  const pendingCentavos = payouts
-    .filter((r) => !r.paid_at && !r.on_hold)
-    .reduce((acc, r) => acc + (r.vendor_net_centavos ?? r.amount_centavos), 0);
-  const paidCentavos = payouts
-    .filter((r) => !!r.paid_at)
-    .reduce((acc, r) => acc + (r.vendor_net_centavos ?? r.amount_centavos), 0);
-  const onHoldCentavos = payouts
-    .filter((r) => r.on_hold)
-    .reduce((acc, r) => acc + (r.vendor_net_centavos ?? r.amount_centavos), 0);
+  // null = we did not read the payouts, so there is no total to state. A money
+  // figure is the last place a placeholder should be allowed to look real.
+  const sumWhere = (match: (r: PayoutRow) => boolean): number | null =>
+    payoutsMeasured
+      ? payouts
+          .filter(match)
+          .reduce((acc, r) => acc + (r.vendor_net_centavos ?? r.amount_centavos), 0)
+      : null;
+  const pendingCentavos = sumWhere((r) => !r.paid_at && !r.on_hold);
+  const paidCentavos = sumWhere((r) => !!r.paid_at);
+  const onHoldCentavos = sumWhere((r) => r.on_hold);
+  // "0 stage(s)" under a blank figure would put the zero straight back.
+  const stageHelp = (match: (r: PayoutRow) => boolean): string =>
+    payoutsMeasured ? `${payouts.filter(match).length} stage(s)` : 'not read';
 
   // Pagination over the recent-orders list (most recent first).
   const pageRaw = Number.parseInt(search.page ?? '1', 10);
@@ -226,27 +245,43 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
           settle directly, and the row above tracks the booking value for your books.
         </p>
 
+        {/* The three figures below are money. If the read was refused they are
+            unset, not zero — `formatCentavosPhp(null)` renders an em-dash — and
+            this line says why, because an em-dash alone still looks like a
+            product that has nothing to tell you. */}
+        {!payoutsMeasured ? (
+          <p
+            role="alert"
+            className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-3 text-sm text-ink/70"
+          >
+            <strong className="text-ink">We couldn&rsquo;t load your payout record.</strong>{' '}
+            The three figures below are blank because the read failed &mdash; not
+            because nothing is pending, released or on hold. Reload in a moment;
+            nothing owed to you has changed.
+          </p>
+        ) : null}
+
         <div className="grid gap-3 sm:grid-cols-3">
           <PayoutKpi
             tone="bg-warn-100 text-warn-800"
             icon={<Clock3 className="h-4 w-4" />}
             label="Pending (legacy)"
             value={formatCentavosPhp(pendingCentavos)}
-            help={`${payouts.filter((r) => !r.paid_at && !r.on_hold).length} stage(s)`}
+            help={stageHelp((r) => !r.paid_at && !r.on_hold)}
           />
           <PayoutKpi
             tone="bg-success-100 text-success-800"
             icon={<CheckCircle2 className="h-4 w-4" />}
             label="Released (legacy)"
             value={formatCentavosPhp(paidCentavos)}
-            help={`${payouts.filter((r) => !!r.paid_at).length} stage(s)`}
+            help={stageHelp((r) => !!r.paid_at)}
           />
           <PayoutKpi
             tone="bg-danger-100 text-danger-800"
             icon={<Wallet className="h-4 w-4" />}
             label="On hold"
             value={formatCentavosPhp(onHoldCentavos)}
-            help={`${payouts.filter((r) => r.on_hold).length} stage(s)`}
+            help={stageHelp((r) => r.on_hold)}
           />
         </div>
 

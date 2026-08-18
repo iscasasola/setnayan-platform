@@ -587,13 +587,24 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // the booking could plausibly have a review (booked + delivered).
   let hasReview = false;
   if (isBooked && isCompleteConfirmed) {
-    const { data: reviewRow } = await supabase
+    const { data: reviewRow, error: reviewRowError } = await supabase
       .from('vendor_reviews')
       .select('review_id, created_at')
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .eq('event_id', eventId)
       .limit(1)
       .maybeSingle();
+    // ⚠ WHETHER THEY HAVE ALREADY REVIEWED THIS COUPLE. Refused, `Boolean(null)`
+    // ⚠ is false, so the page invites them to write a review they have already
+    // ⚠ written — "you did not do this", said to somebody who did.
+    if (reviewRowError) {
+      logQueryError(
+        'VendorClientDetail.reviewRow',
+        reviewRowError,
+        { eventId },
+        'graceful_degrade',
+      );
+    }
     hasReview = Boolean(reviewRow);
   }
 
@@ -631,7 +642,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   }
 
   // Change-Order Trail — depends on the event_vendor id resolved above.
-  const { data: changeOrderRows } = eventVendorId
+  const { data: changeOrderRows, error: changeOrderRowsError } = eventVendorId
     ? await supabase
         .from('vendor_change_orders')
         .select(
@@ -639,12 +650,25 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         )
         .eq('event_vendor_id', eventVendorId)
         .order('created_at', { ascending: false })
-    : { data: null };
+    : { data: null, error: null };
+  // ⚠ CHANGE ORDERS CARRY MONEY (`delta_amount_php`) AND CAN BE AWAITING AN
+  // ⚠ ANSWER. Refused, `?? []` hides one raised by the couple, so the supplier
+  // ⚠ never acknowledges it and the couple is left waiting on a reply to a
+  // ⚠ request the other side cannot see.
+  if (changeOrderRowsError) {
+    logQueryError(
+      'VendorClientDetail.changeOrders',
+      changeOrderRowsError,
+      { eventId },
+      'graceful_degrade',
+    );
+  }
+  const changeOrdersMeasured = !changeOrderRowsError;
   const changeOrders = (changeOrderRows ?? []) as VendorChangeOrderRow[];
 
   // Delivery handovers (booked). event_vendor scoped — safe to read for the
   // vendor's own booking via their RLS.
-  const { data: handoverRows } = isBooked
+  const { data: handoverRows, error: handoverRowsError } = isBooked
     ? await supabase
         .from('booking_handovers')
         .select('handover_id, kind, label, payload, status, delivered_at, couple_acknowledged_at')
@@ -652,17 +676,43 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .order('created_at', { ascending: false })
         .limit(20)
-    : { data: null };
+    : { data: null, error: null };
+  // ⚠ WORK THEY HAVE ALREADY DELIVERED — the gallery link, the files handed
+  // ⚠ over. Refused, the delivery record reads as empty, so finished work
+  // ⚠ reappears as outstanding on the supplier's own client page.
+  if (handoverRowsError) {
+    logQueryError(
+      'VendorClientDetail.handovers',
+      handoverRowsError,
+      { eventId },
+      'graceful_degrade',
+    );
+  }
+  const handoversMeasured = !handoverRowsError;
   const handovers = (handoverRows ?? []) as HandoverRow[];
 
   // Private CRM notes (vendor-org-only RLS). Author display resolved best-effort
   // via the admin client (RLS on users would otherwise hide teammates).
-  const { data: noteRows } = await supabase
+  const { data: noteRows, error: noteRowsError } = await supabase
     .from('vendor_client_notes')
     .select('note_id, body, remind_at, done_at, author_user_id, created_at')
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .eq('event_id', eventId)
     .order('created_at', { ascending: false });
+  // ⚠ THE TEAM'S PRIVATE NOTES ON THIS CLIENT, INCLUDING THEIR REMINDERS.
+  // ⚠ Refused, the notes read as never written and any `remind_at` on them
+  // ⚠ silently stops being shown — an absence that deletes a warning, which is
+  // ⚠ invisible by construction: there is no wrong-looking empty state, the
+  // ⚠ reminder simply is not there.
+  if (noteRowsError) {
+    logQueryError(
+      'VendorClientDetail.notes',
+      noteRowsError,
+      { eventId },
+      'graceful_degrade',
+    );
+  }
+  const notesMeasured = !noteRowsError && noteRows !== null;
   const rawNotes = (noteRows ?? []) as Omit<ClientNote, 'author_label'>[];
   const authorIds = Array.from(new Set(rawNotes.map((n) => n.author_user_id)));
   const authorLabels = new Map<string, string>();
@@ -1103,8 +1153,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         suggestions={suggestions}
         blockLabel={blockLabel}
         handovers={handovers}
+        handoversMeasured={handoversMeasured}
         eventVendorId={eventVendorId}
         changeOrders={changeOrders}
+        changeOrdersMeasured={changeOrdersMeasured}
         search={search}
       />
       {isBooked ? (
@@ -1147,8 +1199,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     />
   ) : null;
 
+  // One node, both layouts (the flag-on shell and the flag-off card render the
+  // same `activityNode`), so the notice cannot appear on one and not the other.
   const activityNode = (
-    <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} />
+    <>
+      {!notesMeasured ? (
+        <p role="alert" className="mb-2 px-1 text-xs text-ink/70">
+          <strong className="text-ink">We couldn&rsquo;t load your private notes.</strong>{' '}
+          Notes you and your team wrote about this client are missing from the
+          feed below, along with any reminder set on them. Nothing has been
+          deleted.
+        </p>
+      ) : null}
+      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} />
+    </>
   );
 
   // ---- Flag OFF: the current tabbed Customer Card, byte-identical ----
@@ -2608,8 +2672,12 @@ function ScheduleTab(props: {
   suggestions: SuggestionRow[];
   blockLabel: Map<string, string>;
   handovers: HandoverRow[];
+  /** false = the handover read was refused, so "none delivered" is not a fact. */
+  handoversMeasured: boolean;
   eventVendorId: string | null;
   changeOrders: VendorChangeOrderRow[];
+  /** false = the change-order read was refused, so "none raised" is not a fact. */
+  changeOrdersMeasured: boolean;
   search: { suggest?: string; handover?: string; change_order?: string; change_order_resp?: string };
 }) {
   const {
@@ -2626,8 +2694,10 @@ function ScheduleTab(props: {
     suggestions,
     blockLabel,
     handovers,
+    handoversMeasured,
     eventVendorId,
     changeOrders,
+    changeOrdersMeasured,
     search,
   } = props;
 
@@ -2948,6 +3018,14 @@ function ScheduleTab(props: {
             </details>
           </div>
 
+          {!handoversMeasured ? (
+            <p role="alert" className="mt-4 text-xs text-ink/70">
+              <strong className="text-ink">We couldn&rsquo;t load your handovers.</strong>{' '}
+              Anything you have already delivered is still delivered — it just
+              is not listed here right now.
+            </p>
+          ) : null}
+
           {handovers.length > 0 ? (
             <div className="mt-4">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Your handovers</p>
@@ -3072,7 +3150,13 @@ function ScheduleTab(props: {
             </form>
           </details>
 
-          {changeOrders.length === 0 ? (
+          {!changeOrdersMeasured ? (
+            <p role="alert" className="text-xs text-ink/70">
+              <strong className="text-ink">We couldn&rsquo;t load change orders.</strong>{' '}
+              If the couple has raised one, it is not shown here — reload before
+              treating this as settled.
+            </p>
+          ) : changeOrders.length === 0 ? (
             <p className="text-xs italic text-ink/45">No change orders yet.</p>
           ) : (
             <ul className="space-y-2">

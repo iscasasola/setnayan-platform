@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
+import { isPasswordLeaked } from '@/lib/leaked-password';
 
 /**
  * Set a password on a passwordless email-link account (Invite/Join v2). The
@@ -27,6 +28,14 @@ export async function setPasswordAction(eventId: string, formData: FormData) {
   if (password.length < 8) {
     return redirect(
       `/join/${eventId}/set-password?next=${encodeURIComponent(dest)}&error=too_short`,
+    );
+  }
+
+  // Same refusal as signup — a breached password is no safer because the person
+  // arrived through an invitation.
+  if ((await isPasswordLeaked(password)).leaked) {
+    return redirect(
+      `/join/${eventId}/set-password?next=${encodeURIComponent(dest)}&error=leaked`,
     );
   }
 

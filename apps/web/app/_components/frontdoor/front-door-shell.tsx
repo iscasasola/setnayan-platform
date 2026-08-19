@@ -973,9 +973,23 @@ export function FrontDoorShell({
                     correctly forever while quietly never being renameable:
                     a reference that looks like a mechanism and is not.
                     Add the registry entry first, then switch this line. */}
-                <span className="fd-icon" aria-hidden>
-                  People
+                {/* ⚠ THIS SLOT HELD THE WORD "People" IN A CLASS THAT DOES NOT
+                    EXIST. `.fd-icon` has no rule anywhere in front-door.css —
+                    only `.fd-icon-caption` does — so the row rendered its icon
+                    slot as unstyled body text and came out looking like a
+                    SECTION HEADING, not a link. Every sibling row is
+                    `fd-gi` glyph + `fd-label-text` label; this one silently
+                    was not, and it had no visible label at all.
+
+                    The owner read the rail and described it back as "People"
+                    being a heading with "Your Story" inside it — which is
+                    exactly what it looks like. The connections page was
+                    reachable only by clicking something that does not appear
+                    clickable. */}
+                <span className="fd-gi" aria-hidden="true">
+                  ❖
                 </span>
+                <span className="fd-label-text">People</span>
                 <span className="fd-icon-caption">People</span>
               </Link>
               {/*

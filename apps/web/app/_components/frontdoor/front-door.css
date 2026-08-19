@@ -508,12 +508,26 @@
   border-radius: 0 3px 3px 0;
   background: var(--fd-gold);
 }
+/* ── THE ICON SLOT — ONE BOX, EVERY ROW, EVERY CHROME ─────────────────────
+   It used to be a TEXT slot (`text-align:center` over a 15px glyph) with a
+   separate `display:block; margin:0 auto` rule bolted on for SVGs and scoped
+   to `[data-chrome='app']` only. That scoping was a real hole: the same rail
+   mounts on the public front door and the eight product doorways as
+   `chrome="front-door"`, so an SVG there fell outside the only rule that
+   positioned it and sat on the text baseline instead of on the row's centre.
+   A flex box centres both axes for every child in both chromes, so the rail
+   cannot be right on one surface and off by a pixel on another. */
 .fd-gi {
   width: 20px;
   flex: 0 0 20px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--fd-m1);
+  /* Kept for any row that still hands this slot text rather than an icon —
+     the small-print and context groups may. Rows with an icon ignore it. */
   font-size: 15px;
+  line-height: 1;
 }
 /* ── A STUDIO ROW WITH ITS LINE ───────────────────────────────────────────
    Owner 2026-08-14: "that is where we can talk about the different apps."
@@ -1589,12 +1603,12 @@ h2.fd-sechead,
   color: var(--fd-m2);
 }
 
-/* The rail's own rows use glyph characters; the app's nav rows use Lucide
-   icons. Centre an SVG in the same 20px slot so the two read as one list. */
-.fd[data-chrome='app'] .fd-gi > svg {
-  display: block;
-  margin: 0 auto;
-}
+/* ⚠ RETIRED, DELIBERATELY LEFT AS A NOTE. This block read *"The rail's own
+   rows use glyph characters; the app's nav rows use Lucide icons"* and centred
+   an SVG only under `[data-chrome='app']`. Both halves are now untrue: every
+   rail row draws Lucide, and `.fd-gi` above centres it in both chromes. Do not
+   reintroduce a chrome-scoped positioning rule here — that scoping is what let
+   the public doorways drift from the app trees in the first place. */
 
 @media (max-width: 1279.98px) {
   /* At the 72px icon strip the labels are already hidden, and a truncated

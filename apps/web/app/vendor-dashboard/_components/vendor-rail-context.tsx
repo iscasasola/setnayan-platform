@@ -32,7 +32,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Zap } from 'lucide-react';
+import { Store, Zap } from 'lucide-react';
 import { activeRailKey } from '@/app/_components/frontdoor/rail-active';
 import { resolveVendorDestinations } from './vendor-nav-destinations';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
@@ -146,7 +146,12 @@ export function VendorRailContext({
     <>
       <div className="fd-rdiv" />
       <div className="fd-rctx">
-        <span aria-hidden="true">▣</span> {shopName}
+        {/* ▣ U+25A3 until now — a typographic character standing in for the
+            shop mark, in the one row that names the shop. It is the same
+            `Store` the rail's own shop row draws, so the shop reads the same
+            whether you are looking at it from outside or standing in it. */}
+        <Store className="inline h-[15px] w-[15px] align-[-2px]" strokeWidth={1.75} aria-hidden="true" />{' '}
+        {shopName}
       </div>
       <div className="fd-rlabel fd-rlabel-sub">Menu</div>
       {destinations.map((item) => {

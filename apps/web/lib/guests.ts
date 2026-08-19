@@ -367,10 +367,37 @@ function coupleAttending(row: GuestRow): GuestRow {
     : row;
 }
 
-export async function fetchGuestsByEvent(
+/**
+ * The guest list, WITH whether the read actually happened.
+ *
+ * ── Why this exists, and why it does not undo the five hotfix passes ───────
+ * The header below is right that a refused read must not crash the couple's
+ * page. It stopped one step short: the page then STATES the absence. With
+ * `rows: []` and nothing else, `/guests` renders "No guests yet. Start by
+ * adding the couple's first invite.", a masthead reading "0 guests", and an
+ * RSVP meter reading "0 of 0 responded · 0%" — to a couple with 180 names and
+ * 120 replies, three weeks out, in output BYTE-IDENTICAL to a genuinely new
+ * event. Degrading is still correct; claiming is not.
+ *
+ * 🔑 A LOG LINE NEVER CHANGED A PIXEL. The error was already bound and already
+ * sent to Sentry — and the couple was still told they had no guests. So the
+ * measurement has to reach the RENDER, which is what `measured` is for. This
+ * is the rule `vendor-dashboard/reads-are-honest.test.ts` pinned on the
+ * supplier's side on 2026-08-18; this is the couple's half of it.
+ *
+ * ⚠ `measured: false` means "we do not know", NOT "zero". A caller that treats
+ * it as zero has reintroduced the defect.
+ */
+export type MeasuredGuests = {
+  rows: GuestRow[];
+  /** False when the read was refused — the rows are unknown, not empty. */
+  measured: boolean;
+};
+
+export async function fetchGuestsByEventMeasured(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<GuestRow[]> {
+): Promise<MeasuredGuests> {
   const { data, error } = await supabase
     .from('guests')
     .select(GUEST_FIELDS)
@@ -405,10 +432,31 @@ export async function fetchGuestsByEvent(
       },
       'graceful_degrade',
     );
-    return [];
+    return { rows: [], measured: false };
   }
 
-  return ((data ?? []) as unknown as GuestRow[]).map(coupleAttending);
+  return {
+    rows: ((data ?? []) as unknown as GuestRow[]).map(coupleAttending),
+    measured: true,
+  };
+}
+
+/**
+ * Array-only view, for the ~30 callers that never state an absence — seating
+ * actions, print routes, CSV exports, the caterer sheet. They consume the rows
+ * and produce a document or a mutation; none of them tells a person "you have
+ * none", so none of them needs the flag.
+ *
+ * 🛑 IF YOU ARE RENDERING A COUNT, A ZERO-STATE, OR A MONEY FIGURE, USE
+ * `fetchGuestsByEventMeasured` INSTEAD. This wrapper cannot tell you whether
+ * the empty list it hands back is real. It delegates rather than repeating the
+ * query, so the two can never drift apart.
+ */
+export async function fetchGuestsByEvent(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<GuestRow[]> {
+  return (await fetchGuestsByEventMeasured(supabase, eventId)).rows;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Images, Heart, Newspaper, UserCircle, Settings } from 'lucide-react';
+import { Images, Heart, Newspaper } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { getAlaalaWall } from '@/lib/alaala-wall-data';
@@ -144,16 +144,6 @@ export default async function AlaalaPage({
         title="Alaala"
         back="/dashboard"
         backLabel="Back to home"
-        actions={
-          <div className="flex shrink-0 items-center gap-2">
-            <Link href="/dashboard/profile" className="sn-chip sn-press">
-              <UserCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Profile
-            </Link>
-            <Link href="/dashboard/profile#settings" className="sn-chip sn-press">
-              <Settings aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Settings
-            </Link>
-          </div>
-        }
         className="mb-6"
       />
 

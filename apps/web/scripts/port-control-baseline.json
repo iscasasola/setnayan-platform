@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c1f92acee",
+  "generatedFromRef": "f62dad3f0",
   "routeCount": 402,
-  "destinations": 850,
-  "actions": 579,
-  "blocks": 3800,
+  "destinations": 849,
+  "actions": 580,
+  "blocks": 3813,
   "routes": {
     "/": {
       "files": [
@@ -520,6 +520,7 @@
         "[slug]/_components/editorial/gallery-anchor.ts",
         "[slug]/_components/editorial/living-moments.tsx",
         "[slug]/_components/editorial/sample-ids.ts",
+        "[slug]/_components/editorial/voices.ts",
         "[slug]/_components/empty-states.tsx",
         "[slug]/_components/event-words-provider.tsx",
         "[slug]/_components/face-data-notice.tsx",
@@ -786,6 +787,7 @@
         "SupportingStrip",
         "SurfaceMaps",
         "Suspense",
+        "T",
         "THREE.CanvasTexture",
         "THREE.Texture",
         "TeaCeremonyCard",
@@ -2760,6 +2762,7 @@
         "admin/studio/_surfaces/referrals-surface.tsx",
         "admin/studio/_surfaces/reveal-studio-surface.tsx",
         "admin/studio/_surfaces/social-queue-surface.tsx",
+        "admin/studio/_surfaces/songs-danger-controls.tsx",
         "admin/studio/_surfaces/songs-surface.tsx",
         "admin/studio/_surfaces/spotlight-awards-surface.tsx",
         "admin/studio/_surfaces/storytellers-surface.tsx",
@@ -2807,6 +2810,7 @@
         "setReferralProgramEnabled",
         "setShowcaseFeatured",
         "setShowcaseRank",
+        "setSongCuratedAction",
         "updatePublishSettings",
         "updateSocialPostBody"
       ],
@@ -2816,6 +2820,7 @@
         "CardPreview",
         "ConfirmForm",
         "ConsoleTable",
+        "DeleteSongButton",
         "DiscountCodeRow",
         "DiscountCodesSurface",
         "EmptyPage",
@@ -2824,6 +2829,7 @@
         "FilterChip",
         "FlashBanner",
         "FormFlash",
+        "HTMLInputElement",
         "Icon",
         "InfluencerAnalyticsPanel",
         "JobRow",
@@ -2832,6 +2838,7 @@
         "LibraryEditor",
         "Link",
         "ManualAddForm",
+        "MergeSongsFields",
         "Mono",
         "MoodboardLibrarySurface",
         "PageMasthead",
@@ -3604,7 +3611,6 @@
         "/dashboard/create-event",
         "/dashboard/library?tab=[seg]",
         "/dashboard/life-flash",
-        "/dashboard/profile",
         "/explore",
         "/v/[seg]",
         "/v/[seg]?src=favorites"
@@ -4284,6 +4290,7 @@
         "MahrInfoCard",
         "NoFinalizedVendors",
         "OverspendBanner",
+        "PageMasthead",
         "SaveSnapshotResult",
         "SaveState",
         "SetEventBudgetResult",
@@ -4336,7 +4343,8 @@
       "blocks": [
         "ContractCard",
         "ContractsEmptyState",
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/contracts/[contractId]": {
@@ -4445,6 +4453,7 @@
         "FileUpload",
         "FlagCard",
         "NewFlagForm",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -5633,6 +5642,7 @@
         "InlineCheckoutDrawer",
         "Link",
         "OwnedView",
+        "PageMasthead",
         "PaymentUnderReview",
         "UnownedView"
       ]
@@ -5660,7 +5670,8 @@
       "actions": [],
       "blocks": [
         "InlineCheckoutDrawer",
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/studio/guest-columns": {
@@ -5802,6 +5813,7 @@
         "HTMLFormElement",
         "InlineCheckoutDrawer",
         "Link",
+        "PageMasthead",
         "PakantaIntakeResponses",
         "PakantaMusicForm",
         "Result",
@@ -6106,6 +6118,7 @@
         "KwentoQueue",
         "KwentoQueueControls",
         "Link",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -6397,6 +6410,7 @@
         "CategoryChip",
         "HTMLDivElement",
         "Link",
+        "PageMasthead",
         "ProductCard",
         "SuppliesMarketplaceBrowser",
         "SupplyCategoryKey"
@@ -6427,7 +6441,8 @@
       "actions": [],
       "blocks": [
         "InlineCheckoutDrawer",
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/suite": {

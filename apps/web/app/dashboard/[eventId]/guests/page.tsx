@@ -13,7 +13,7 @@ import {
   computePaxProgress,
   fetchGroupMembershipsByEvent,
   fetchGuestGroupsByEvent,
-  fetchGuestsByEvent,
+  fetchGuestsByEventMeasured,
   guestDisplayName,
   GROUP_CATEGORY_LABELS,
   ROLE_LABELS,
@@ -191,9 +191,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // which used to run as a 5th *sequential* round-trip after this block (owner
   // perf pass 2026-06-03). Folding it in drops one Singapore RTT off every
   // visit to the Guests tab.
-  const [guests, eventRow, groups, membershipsMap, joinUrl, pendingClaims, unsentInvites, assignments, tables, arrived, floorPlan, brandedQrActive] =
+  const [guestsRead, eventRow, groups, membershipsMap, joinUrl, pendingClaims, unsentInvites, assignments, tables, arrived, floorPlan, brandedQrActive] =
     await Promise.all([
-      fetchGuestsByEvent(supabase, eventId),
+      fetchGuestsByEventMeasured(supabase, eventId),
       supabase
         .from('events')
         .select('role_palette, estimated_pax')
@@ -271,6 +271,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         () => false,
       ),
     ]);
+
+  // `measured: false` means the guest read was REFUSED — the rows are unknown,
+  // NOT empty. Every count, meter and zero-state below is computed from
+  // `guests`, so without this flag each of them states a fact about somebody's
+  // wedding that nobody actually measured.
+  const guests = guestsRead.rows;
+  const guestsMeasured = guestsRead.measured;
   // Self-join reconcile queue — the ids feed the inline blush roster rows; the
   // count still drives the /guests/claims banner + the mobile carousel badge.
   const selfJoinIds = ((pendingClaims.data ?? []) as { guest_id: string }[]).map(
@@ -567,12 +574,17 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           carousel's Summary panel carries the count; the top is just the list. */}
       <PageMasthead
         titleNode={
-          <>
-            <span className="font-mono">{stats.total}</span>{' '}
-            <span className="sn-h1-tail">
-              {stats.total === 1 ? 'guest' : 'guests'}
-            </span>
-          </>
+          guestsMeasured ? (
+            <>
+              <span className="font-mono">{stats.total}</span>{' '}
+              <span className="sn-h1-tail">
+                {stats.total === 1 ? 'guest' : 'guests'}
+              </span>
+            </>
+          ) : (
+            // A refused read must never render as a headcount of zero.
+            <span className="sn-h1-tail">Guests</span>
+          )
         }
         actions={
           <div className="hidden flex-col gap-2 self-start lg:flex lg:flex-row lg:items-center lg:self-auto">
@@ -683,6 +695,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             uses the carousel's own compose-row + Journey switch. */}
         <SummaryFacetBar
           stats={stats}
+          measured={guestsMeasured}
           eventId={eventId}
           search={search}
           q={q}
@@ -786,7 +799,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
          the bar on first load (frozen under prefers-reduced-motion). */
       <div key={rosterLensKey} className="gl-settle-delayed sn-lens-swap min-w-0 space-y-4">
           {visible.length === 0 ? (
-            <EmptyState hasGuests={stats.total > 0} eventId={eventId} />
+            <EmptyState
+              hasGuests={stats.total > 0}
+              eventId={eventId}
+              measured={guestsMeasured}
+            />
           ) : (
             <GuestListMultiselect
               eventId={eventId}
@@ -1104,6 +1121,7 @@ const SUMMARY_FILTER_KEYS = [
 
 function SummaryFacetBar({
   stats,
+  measured,
   eventId,
   search,
   q,
@@ -1122,6 +1140,8 @@ function SummaryFacetBar({
   tags,
 }: {
   stats: GuestStats;
+  /** False when the guest read was refused — every figure here is then unknown. */
+  measured: boolean;
   eventId: string;
   search: Record<string, string | undefined>;
   q: string;
@@ -1260,13 +1280,25 @@ function SummaryFacetBar({
         <div className="flex items-baseline justify-between text-xs text-ink/55">
           <span className="font-mono uppercase tracking-[0.15em]">Confirmations</span>
           <span className="font-mono tabular-nums">
-            {responded} of {stats.total} responded · {pct}%
-            {stats.plus_ones > 0 ? ` · ${stats.plus_ones} plus-ones` : ''}
+            {measured ? (
+              <>
+                {responded} of {stats.total} responded · {pct}%
+                {stats.plus_ones > 0 ? ` · ${stats.plus_ones} plus-ones` : ''}
+              </>
+            ) : (
+              // "0 of 0 responded · 0%" is the most confident sentence on this
+              // page, and on a refused read it is pure invention.
+              'not loaded'
+            )}
           </span>
         </div>
         <div
           role="img"
-          aria-label={`${responded} of ${stats.total} guests have responded (${stats.attending} attending, ${stats.maybe} maybe, ${stats.declined} declined, ${stats.pending} pending)`}
+          aria-label={
+            measured
+              ? `${responded} of ${stats.total} guests have responded (${stats.attending} attending, ${stats.maybe} maybe, ${stats.declined} declined, ${stats.pending} pending)`
+              : 'Responses could not be loaded'
+          }
           className="mt-1.5 flex h-2 overflow-hidden rounded-full bg-ink/10"
         >
           <div className="h-full bg-success-400" style={{ width: `${seg(stats.attending)}%` }} />
@@ -1454,7 +1486,45 @@ function ShareDropdown({ joinUrl }: { joinUrl: string }) {
   );
 }
 
-function EmptyState({ hasGuests, eventId }: { hasGuests: boolean; eventId: string }) {
+function EmptyState({
+  hasGuests,
+  eventId,
+  measured,
+}: {
+  hasGuests: boolean;
+  eventId: string;
+  /** False when the guest read was refused — see fetchGuestsByEventMeasured. */
+  measured: boolean;
+}) {
+  // THE READ WAS REFUSED. "No guests yet" here is not a neutral default, it is
+  // a statement about their wedding built on a query that never came back —
+  // and it renders BYTE-IDENTICAL for a couple with 180 names. Three beats,
+  // the shape ErrorState uses elsewhere: what broke, what SURVIVED, what to do.
+  // Survived leads, because an error that only says what broke reads as loss.
+  if (!measured) {
+    return (
+      <div
+        role="status"
+        className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-6 text-center"
+      >
+        <p className="text-base font-extrabold tracking-tight text-ink">
+          We couldn&rsquo;t load your guest list.
+        </p>
+        <p className="mt-2 text-sm text-ink/70">
+          Nothing has been lost &mdash; everyone you have added is still there.
+          We just couldn&rsquo;t reach it this time.
+        </p>
+        {/* A plain anchor, not a Link: this needs a real round trip to the
+            server, which a client-side navigation to the same URL may not do. */}
+        <a
+          href={`/dashboard/${eventId}/guests`}
+          className="button-secondary mt-4 inline-flex items-center"
+        >
+          Try again
+        </a>
+      </div>
+    );
+  }
   if (hasGuests) {
     return (
       <div className="rounded-lg border border-dashed border-ink/15 bg-cream p-6 text-center text-ink/60">

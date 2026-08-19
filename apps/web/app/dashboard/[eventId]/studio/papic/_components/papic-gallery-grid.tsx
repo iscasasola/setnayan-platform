@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import { Play, Download, Sparkles, X, Loader2, Gem } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource, PreservationTotals } from '@/lib/papic-gallery';
 import { PAPIC_POINTS_PER_CLIP } from '@/lib/papic-cameras-pure';
@@ -53,8 +53,28 @@ export function PapicGalleryGrid({
   eventId,
   kwentoDensity,
   preservationTotals,
+  chapters,
 }: {
   photos: GalleryPhoto[];
+  /**
+   * The day split into the moments it happened in — computed server-side by
+   * `lib/alaala-chapters.ts` from the event's run of show.
+   *
+   * OPTIONAL, and absent means this renders EXACTLY as it always has: one flat
+   * grid, newest first. An event with no schedule gets no headings rather than
+   * invented ones, and every existing caller keeps its behaviour untouched.
+   *
+   * ⚠ Chapters carry PHOTO IDS, not photos. The filter bar still owns which
+   * frames are visible, so a chapter shows whatever survives the active filter
+   * and vanishes entirely when nothing does — otherwise "Videos" would print a
+   * column of empty headings.
+   *
+   * ⚠ AND CHAPTERS REVERSE THE SORT, deliberately. The flat gallery is
+   * newest-first, which is right for "what just came in". A story is not: the
+   * day reads forward, hair & make-up before the send-off. So when chapters are
+   * present the frames follow the day, and when they are absent nothing moves.
+   */
+  chapters?: { key: string; label: string; photoIds: string[] }[];
   /**
    * ⚠ REQUIRED. It was optional, so a caller that forgot it silently rendered a
    * gallery with no preserve toggle, no sparkle and no meter — no build error,
@@ -78,6 +98,34 @@ export function PapicGalleryGrid({
     if (filter === 'preserved') return p.preserved === true;
     return true;
   });
+
+  // Chapter order wins when chapters exist; otherwise `shown` is untouched.
+  const chapterOf = new Map<string, number>();
+  chapters?.forEach((c, i) => c.photoIds.forEach((id) => chapterOf.set(id, i)));
+  const ordered =
+    chapters && chapters.length > 0
+      ? [...shown].sort((a, b) => {
+          // A frame in no chapter sorts after every chaptered one rather than
+          // being hidden — nothing in this gallery is ever silently dropped.
+          const ca = chapterOf.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+          const cb = chapterOf.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+          if (ca !== cb) return ca - cb;
+          return a.capturedAt < b.capturedAt ? -1 : a.capturedAt > b.capturedAt ? 1 : 0;
+        })
+      : shown;
+
+  // The first VISIBLE frame of each chapter carries its heading, so a chapter
+  // whose every frame was filtered out prints nothing at all.
+  const headingFor = new Map<string, string>();
+  if (chapters && chapters.length > 0) {
+    const seen = new Set<number>();
+    for (const photo of ordered) {
+      const idx = chapterOf.get(photo.id);
+      if (idx === undefined || seen.has(idx)) continue;
+      seen.add(idx);
+      headingFor.set(photo.id, chapters[idx]!.label);
+    }
+  }
 
   return (
     <>
@@ -133,8 +181,16 @@ export function PapicGalleryGrid({
           className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6"
           aria-label="Papic gallery"
         >
-          {shown.map((p) => (
-            <li key={p.id}>
+          {ordered.map((p) => (
+            <Fragment key={p.id}>
+              {headingFor.has(p.id) ? (
+                <li className="col-span-full pt-3 first:pt-0">
+                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink/45">
+                    {headingFor.get(p.id)}
+                  </h3>
+                </li>
+              ) : null}
+            <li>
               <div className="relative aspect-square overflow-hidden rounded-lg bg-ink/5">
                 {p.url ? (
                   // Presigned R2 thumbnail — a plain img keeps the dynamic, short-
@@ -219,6 +275,7 @@ export function PapicGalleryGrid({
                 ) : null}
               </div>
             </li>
+            </Fragment>
           ))}
         </ul>
       )}

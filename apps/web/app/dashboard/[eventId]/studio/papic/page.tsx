@@ -98,6 +98,8 @@ import { FaceTaggingChoice } from './_components/face-tagging-choice';
 import { GuestCamerasChoice } from './_components/guest-cameras-choice';
 import { resolvePapicRoom, PAPIC_ROOM_TABS } from './_lib/rooms';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { groupIntoChapters } from '@/lib/alaala-chapters';
+import { fetchScheduleBlocks, DEFAULT_EVENT_TZ } from '@/lib/schedule';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -1915,6 +1917,52 @@ async function GalleryPreviewCard({
   const hasPhotos = photos.length > 0;
   const kwentoDensity = new Map(densityRows.map((r) => [r.photoId, r.density]));
 
+  /**
+   * THE DAY, SPLIT INTO THE MOMENTS IT HAPPENED IN (owner 2026-08-19).
+   *
+   * Derived, never stored: the run of show already knows when each part ran and
+   * every frame already carries when it was taken. `groupIntoChapters` does the
+   * one dangerous part — the schedule keeps the VENUE'S WALL CLOCK while a
+   * capture time is a real instant, eight hours apart in Manila.
+   *
+   * ⚠ FAILS TO NOTHING, ON PURPOSE. A schedule that cannot be read gives an
+   * undefined `chapters`, and the gallery then renders exactly as it always
+   * has — one flat grid. A gallery is somebody's wedding; it must never be a
+   * blank page because a heading could not be computed.
+   */
+  let galleryChapters:
+    | { key: string; label: string; photoIds: string[] }[]
+    | undefined;
+  try {
+    const blocks = await fetchScheduleBlocks(supabase, eventId);
+    if (blocks.length > 0 && photos.length > 0) {
+      const { days } = groupIntoChapters({
+        frames: photos.map((ph) => ({ id: ph.id, capturedAt: ph.capturedAt })),
+        blocks: blocks.map((b) => ({
+          blockId: b.block_id,
+          label: b.label,
+          startAt: b.start_at,
+          endAt: b.end_at,
+          actualStartAt: b.actual_start_at,
+          actualEndAt: b.actual_end_at,
+        })),
+        tz: DEFAULT_EVENT_TZ,
+      });
+      const flat = days.flatMap((d) => d.chapters);
+      // One chapter over the whole gallery is not a chapter — it is a heading
+      // over everything, which tells the couple nothing they cannot already see.
+      if (flat.length > 1) {
+        galleryChapters = flat.map((c) => ({
+          key: c.key,
+          label: c.label,
+          photoIds: c.frames.map((f) => f.id),
+        }));
+      }
+    }
+  } catch {
+    galleryChapters = undefined;
+  }
+
   return (
     <article className="space-y-4 sn-tile p-5 sm:p-6">
       <div className="space-y-1">
@@ -1945,6 +1993,7 @@ async function GalleryPreviewCard({
           eventId={eventId}
           kwentoDensity={kwentoDensity}
           preservationTotals={preservationTotals}
+          chapters={galleryChapters}
         />
       ) : (
         <div className="sn-row p-6 text-center">

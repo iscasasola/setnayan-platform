@@ -147,6 +147,11 @@ test('every claim on the page is gated on that measurement', () => {
   };
   assert.match(propOf('EmptyState'), /measured=\{guestsMeasured\}/, 'the zero-state must know');
   assert.match(propOf('SummaryFacetBar'), /measured=\{guestsMeasured\}/, 'the summary bar must know');
+  // 4 · THE PHONE. The page hides its desktop header on mobile on purpose, so
+  //     this panel is the ONLY count there — an ungated zero here is not a
+  //     duplicate of a lie told elsewhere, it is the whole lie. Missed on the
+  //     first cut of this fix and found by re-counting the ungated `stats.` uses.
+  assert.match(propOf('MobileGuestCarousel'), /measured=\{guestsMeasured\}/, 'the phone summary must know');
   assert.match(src, /We couldn&rsquo;t load your guest list/, 'and must say so');
   // 2 · the headcount (precedent rule 3)
   assert.match(
@@ -157,4 +162,17 @@ test('every claim on the page is gated on that measurement', () => {
   // 3 · the confirmations meter
   assert.match(src, /measured \? \(\s*<>\s*\{responded\} of \{stats\.total\}/, 'the RSVP figure must be gated');
   assert.match(src, /: 'Responses could not be loaded'/, 'including for screen readers');
+});
+
+test('the phone summary states no figure it did not measure', () => {
+  const src = stripComments(
+    readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '..',
+        'app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx'),
+      'utf8',
+    ),
+  );
+  assert.match(src, /measured \? \(\s*<>\s*\{total\}/, 'the headline count must be gated');
+  const pills = src.match(/\{measured \? \w+ : '—'\}/g) ?? [];
+  assert.equal(pills.length, 3, 'all three RSVP pills — attending, pending, declined');
 });

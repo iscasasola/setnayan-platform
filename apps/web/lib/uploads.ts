@@ -107,6 +107,48 @@ export async function displayUrlForStoredAsset(
 }
 
 /**
+ * Every stored photo ref in a guest list → a display URL, keyed by the STORED
+ * value so a caller looks each row up by the same string the database holds.
+ *
+ * ── WHY THIS EXISTS (2026-08-19) ───────────────────────────────────────────
+ * This exact block was hand-copied, byte for byte, in FOUR loaders — the guest
+ * list, the seating chart, the 3D lab and the plan-3D demo. And THREE other
+ * loaders that also hand a guest photo to a client component never wrote it at
+ * all: the check-in desk, the souvenir desk and the Patiktok booth tag sheet.
+ * Those three put a raw `r2://…` string into an `<img src>`, which renders a
+ * broken-image glyph and nothing else.
+ *
+ * 🔑 THE OMISSION IS THE DEFECT, AND FOUR COPIES ARE HOW IT HAPPENS. There was
+ * nothing to import, so writing the resolution was something each author had to
+ * remember. Two of them left an eslint-disable for "arbitrary R2/OAuth photo
+ * hosts" beside the raw ref — they believed a stored reference would render.
+ *
+ * It is guaranteed to fail for an RSVP selfie, not merely possible: the selfie
+ * writers refuse anything that is not an `r2://` ref, and a selfie REPLACES the
+ * Google avatar that would otherwise have been a passthrough URL.
+ *
+ * A Google avatar passes through verbatim; a ref that cannot be signed is
+ * dropped, so a caller's lookup misses and it falls back to initials — never a
+ * broken image.
+ */
+export async function guestPhotoDisplayUrls(
+  rows: ReadonlyArray<{ photo_url: string | null }>,
+): Promise<Record<string, string>> {
+  return Object.fromEntries(
+    (
+      await Promise.all(
+        rows
+          .filter((g) => g.photo_url)
+          .map(
+            async (g) =>
+              [g.photo_url!, await displayUrlForStoredAsset(g.photo_url)] as const,
+          ),
+      )
+    ).filter((e): e is [string, string] => e[1] !== null),
+  );
+}
+
+/**
  * Generates a presigned GET URL for an R2 object.
  *
  * If `R2_PUBLIC_URL` is set the bucket may already be publicly readable —

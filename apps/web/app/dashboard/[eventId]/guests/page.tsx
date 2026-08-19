@@ -39,7 +39,7 @@ import { suggestTableFor } from '@/lib/seat-suggest';
 import { ensureFinalized } from '@/lib/pax';
 import { eventSkuActive } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
 import { CaptureBar } from './_components/capture-bar';
 import { GroupsSidebar } from './_components/groups-sidebar';
@@ -518,18 +518,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // <FileUpload> uses. Resolved over the FULL guest list (not `visible`) so
   // re-filtering/sorting never re-signs; signing runs in parallel per the
   // displayUrlForStoredAsset doc guidance.
-  const photoDisplayUrls: Record<string, string> = Object.fromEntries(
-    (
-      await Promise.all(
-        guests
-          .filter((g) => g.photo_url)
-          .map(
-            async (g) =>
-              [g.photo_url!, await displayUrlForStoredAsset(g.photo_url)] as const,
-          ),
-      )
-    ).filter((e): e is [string, string] => e[1] !== null),
-  );
+  const photoDisplayUrls = await guestPhotoDisplayUrls(guests);
 
   // Team Bride / Team Groom counts — "both" counts to both sides on
   // purpose (a guest invited by both shows in either team view).

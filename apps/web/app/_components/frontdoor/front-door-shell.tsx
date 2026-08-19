@@ -240,6 +240,7 @@ export type RailNavLabels = Record<string, { label: string }>;
 const RAIL_SLOT = {
   events: 'customer.account.events',
   alaala: 'customer.account.library',
+  year: 'customer.account.year',
   find: 'customer.account.marketplace',
 } as const;
 
@@ -939,6 +940,21 @@ export function FrontDoorShell({
                   </span>
                   <span className="fd-icon-caption">Alaala</span>
                   <Count value={account.alaalaCount} />
+                </Link>
+                {/* YOUR YEAR — a real door, added 2026-08-19.
+                    Its only in-app entrances were the strip on the account home
+                    and a ⌘K row. The home is becoming events-only, and this
+                    page's own docblock states the standard it would then fail:
+                    "a palette entry is not a doorway". So the doorway moves to
+                    the rail BEFORE the strip is removed, not after. */}
+                <Link href="/dashboard/year" {...rowProps('year')}>
+                  <span className="fd-gi" aria-hidden="true">
+                    ❒
+                  </span>
+                  <span className="fd-label-text">
+                    {slotLabel(RAIL_SLOT.year, 'Your year')}
+                  </span>
+                  <span className="fd-icon-caption">Year</span>
                 </Link>
               {/*
                 PEOPLE — A DOOR, NOT A NOTICE. This was a "coming soon · waiting

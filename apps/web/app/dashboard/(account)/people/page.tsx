@@ -8,6 +8,7 @@ import { ConnectionsPanel, type ConnectionItem } from './_components/connections
 import { DependentsSection } from './_components/dependents-section';
 import { SamahanPeopleSection } from './_components/samahan-people-section';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { YourStorySection } from './_components/your-story-section';
 
 export const metadata = {
   title: 'People',
@@ -83,6 +84,7 @@ export default async function PeoplePage({
       {/* Samahan (owner degree model 2026-07-17): groups are FIRST degree
           beside connections + alaga; their members are SECOND degree. Not
           flag-gated — samahan is live product. */}
+      <YourStorySection />
       <SamahanPeopleSection />
     </div>
   );
@@ -191,7 +193,8 @@ function PeoplePreview() {
           coming-soon note is about connections only. It also carries its own
           "Create one" door when the user has none, so it is never dead weight. */}
       <div className="mb-8">
-        <SamahanPeopleSection />
+        <YourStorySection />
+      <SamahanPeopleSection />
       </div>
 
       <div className="sn-tile mb-8 flex items-start gap-3">

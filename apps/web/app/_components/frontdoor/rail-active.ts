@@ -98,6 +98,8 @@ export function railMatchRows(who: {
           // match here lights "your events" while you read your settings.
           { key: 'events', href: '/dashboard', exact: true },
           { key: 'alaala', href: '/dashboard/library' },
+          // Longest-prefix wins, so this beats the exact-only '/dashboard' row.
+          { key: 'year', href: '/dashboard/year' },
           { key: 'people', href: '/dashboard/people' },
           { key: 'story', href: '/dashboard/creator' },
         ]

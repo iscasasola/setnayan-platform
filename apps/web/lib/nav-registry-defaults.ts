@@ -245,6 +245,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 0,
   },
   {
+    key: "customer.account.year",
+    scope: "customer",
+    area: "customer-account",
+    route: "/dashboard/year",
+    label: "Your year",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "CalendarRange",
+    customRef: null,
+    sortOrder: 0,
+  },
+  {
     key: "customer.account.notifications",
     scope: "customer",
     area: "customer-account",

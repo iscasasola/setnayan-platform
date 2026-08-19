@@ -36,7 +36,7 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import { guestDisplayName, resolveGuestAttire, type GuestRole, type GuestAttire } from '@/lib/guests';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForStoredAsset, guestPhotoDisplayUrls } from '@/lib/uploads';
 import {
   shapeHintFor,
   VENUE_OBJECT_CATALOG,
@@ -277,15 +277,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
   // a display URL so the 3D avatars wear the guest's actual selfie — mirrors the
   // couple lab's resolver (seating/lab/page.tsx), signed in parallel. The sample
   // event's guests are fictional, so these photos carry zero privacy surface.
-  const photoDisplayUrls: Record<string, string> = Object.fromEntries(
-    (
-      await Promise.all(
-        guestRows
-          .filter((g) => g.photo_url)
-          .map(async (g) => [g.photo_url!, await displayUrlForStoredAsset(g.photo_url)] as const),
-      )
-    ).filter((e): e is [string, string] => e[1] !== null),
-  );
+  const photoDisplayUrls = await guestPhotoDisplayUrls(guestRows);
 
   const guests: Plan3DGuest[] = guestRows
     .map((g): Plan3DGuest | null => {

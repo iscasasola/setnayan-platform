@@ -310,6 +310,50 @@ export function FileUpload({
   // orphaned R2 object. Covering only the validator sub-window (the prior fix)
   // left the far longer compression window open.
   const busyRef = useRef(false);
+  /** The root node, used only to find the enclosing <form>. */
+  const rootRef = useRef<HTMLDivElement>(null);
+  /** Set when a submit was refused, so the refusal is never silent. */
+  const [blockedSubmit, setBlockedSubmit] = useState(false);
+
+  /**
+   * ⚠ SAVE MUST NOT OUTRUN THE UPLOAD — this was live data loss.
+   *
+   * The hidden inputs that carry the value into the parent form are emitted
+   * from `items` (finished uploads) only; an upload still in `inFlight` has no
+   * input. In SINGLE-FILE mode `atCapacity` also means the dropzone only opens
+   * once `items` is empty — so replacing a photo is necessarily
+   * remove-then-add, and a submit in the gap posted **nothing**.
+   *
+   * On /dashboard/profile that reached `nullIfBlank(null)` and wrote NULL, then
+   * redirected to `?saved=1`, so the screen said **"Saved."** while the person's
+   * photo had just been deleted AND the replacement never landed. Both losses,
+   * one click, cheerful confirmation. Reachable by construction, not bad luck.
+   *
+   * The refusal lives here rather than on each parent's submit button because
+   * every consumer of this component has the same gap, and because the parents
+   * are server components whose buttons cannot see this state.
+   *
+   * 🔑 IT REFUSES OUT LOUD. A guard that blocks in silence is indistinguishable
+   * from one that passed — the person would press Save, see nothing happen, and
+   * press it again.
+   */
+  useEffect(() => {
+    if (inFlight.length === 0) return;
+    const form = rootRef.current?.closest('form');
+    if (!form) return;
+    const refuse = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setBlockedSubmit(true);
+    };
+    form.addEventListener('submit', refuse, { capture: true });
+    return () => form.removeEventListener('submit', refuse, { capture: true });
+  }, [inFlight.length]);
+
+  // Clear the notice once the upload lands, so it never lingers as a false alarm.
+  useEffect(() => {
+    if (inFlight.length === 0 && blockedSubmit) setBlockedSubmit(false);
+  }, [inFlight.length, blockedSubmit]);
 
   // We need to seed `items` from `currentValue` on mount AND any time
   // `currentValue` changes (e.g. server re-renders with new defaults after
@@ -771,7 +815,7 @@ export function FileUpload({
     !!first.displayUrl;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" ref={rootRef}>
       {label ? (
         <span className="block text-sm font-medium text-ink">{label}</span>
       ) : null}
@@ -789,6 +833,12 @@ export function FileUpload({
             ),
           )
         : null}
+
+      {blockedSubmit ? (
+        <p role="alert" className="text-sm font-medium text-mulberry-600">
+          Still uploading — give it a second, then save.
+        </p>
+      ) : null}
 
       {!atCapacity ? (
         <label

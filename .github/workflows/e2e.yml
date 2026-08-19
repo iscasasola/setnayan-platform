@@ -36,8 +36,39 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
 
+      # Cache the browser binary, keyed on the resolved Playwright version.
+      #
+      # WHY: this job's timeout-minutes is 15, and every cancellation observed
+      # on 2026-08-19 was EXACTLY 15m — i.e. the timeout, not a test failure —
+      # with the job dying inside this step. Measured over 30 runs: 22 success
+      # (5–14 min), 5 cancelled at 15m, and one of those was on `main`, so it is
+      # not branch-specific. Successes at 14m are one slow minute from the cap.
+      # The browser download is the variable part; caching removes it rather
+      # than raising the ceiling and waiting for the tail to catch up again.
+      #
+      # The key includes the version so a Playwright bump misses the cache and
+      # re-downloads, instead of silently testing against a stale browser.
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(pnpm --filter @setnayan/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}-chromium
+
+      # A cache hit still needs the OS-level shared libraries, which live
+      # outside ~/.cache and are NOT restored by the cache. `--with-deps` on a
+      # hit installs those without re-downloading the browser.
       - name: Install Playwright Chromium
-        run: pnpm --filter @setnayan/web exec playwright install --with-deps chromium
+        run: |
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+            pnpm --filter @setnayan/web exec playwright install-deps chromium
+          else
+            pnpm --filter @setnayan/web exec playwright install --with-deps chromium
+          fi
 
       - name: Build web app
         run: pnpm --filter @setnayan/web build

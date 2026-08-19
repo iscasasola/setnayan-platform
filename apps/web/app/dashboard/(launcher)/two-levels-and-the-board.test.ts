@@ -804,11 +804,16 @@ test('home has no greeting eyebrow and no tail hanging off the title', () => {
       'the state the owner actually screenshotted.',
   );
   // NOT a "no <span> in the h1" rule: the point is ONE line, not a ban on markup.
+  // ⚠ UPDATED 2026-08-19. This pinned the per-state title
+  // `{noEvents ? '…first event.' : 'Where to?'}`. The page is now ONLY events,
+  // and the zero-state had to go with the rest: `fetchUserEvents` degrades to
+  // `[]` on any error, so "Let's set up your first event." was a claim the page
+  // could not stand behind — and on an events-only page it would be the whole
+  // screen shown to somebody with six weddings whose read just failed.
   assert.match(
     src,
-    /\{noEvents \? '.*first event\.' : 'Where to\?'\}/,
-    'The home title stopped being a single line per state. A brand-new account ' +
-      'has no events to look at, so the instruction IS its title; everyone else ' +
-      'gets "Where to?" and nothing else.',
+    /<h1[\s\S]{0,200}?Your events/,
+    'The home title must name the page and claim nothing about how many events ' +
+      'you have, so it stays true when the read fails.',
   );
 });

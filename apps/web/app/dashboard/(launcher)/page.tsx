@@ -61,19 +61,9 @@ import { EventMonogram } from '@/app/_components/event-monogram';
 import { ShopLogo } from './_components/shop-logo';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
 import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
-import { YearMomentsStrip } from './_components/year-moments-strip';
-import { personLifeStoriesEnabled } from '@/lib/person-life-stories';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
-import { getMyLifeStory } from '../(account)/people/life-stories';
-import {
-  LifeStorySection,
-  type LifeStoryGroup,
-} from '../(account)/_components/life-story-section';
 import { CountUp } from '@/app/_components/count-up';
-import { AlaalaTile, AlaalaTileSkeleton } from './_components/alaala-tile';
-import { AlaalaWall, AlaalaWallSkeleton } from './_components/alaala-wall';
-import { CreatorBenefits } from './_components/creator-benefits';
-import { HomeBoard, buildHomeBoardTiles } from './_components/home-board';
+import { buildHomeBoardTiles } from './_components/home-board';
 import { HomePillNav } from './_components/home-pill-nav';
 /*
   ⚠ THE BADGE AND THE TWO LABEL HELPERS NOW COME FROM THE SHARED INDEX, and
@@ -370,7 +360,7 @@ export default async function LauncherPage({
   // only events are ones they were invited to got **"Let's set up your first
   // event"** printed directly above the weddings they had been invited to.
   // Found by an adversarial pass 2026-08-13.
-  const noEvents = boardEvents.length === 0;
+
 
   // "% planned" per event — real done/total from the event checklist, fetched in
   // parallel (event count is small). Null when an event has no checklist rows yet
@@ -452,12 +442,6 @@ export default async function LauncherPage({
     );
   }
 
-  // Person-spine · Phase 2 · Life Stories (STAGED / flag-off / counsel-gated).
-  // Runs ONLY when the flag is on; otherwise `lifeStoryGroups` stays null and the
-  // "Your story" section never renders — zero visible change in production.
-  const lifeStoryGroups = personLifeStoriesEnabled()
-    ? await buildLifeStoryGroups(supabase)
-    : null;
 
   // SPACES — doorways into surfaces with their own dashboards. Marketplace
   // is intentionally excluded (it's an in-event vendor-discovery surface).
@@ -711,7 +695,6 @@ export default async function LauncherPage({
     }
   }
 
-  const lifeOn = lifeStoryEnabled();
   const spaces: SpaceCardProps[] = [];
   // SPACES → the vendor's actual shop(s), by name. One card per shop the
   // user owns or is on the team of (owner: "show what shop we have"), so a
@@ -886,49 +869,33 @@ export default async function LauncherPage({
           shopNeedCount(a.vendor_profile_id),
       )[0]
     : undefined;
-  const boardTiles = buildHomeBoardTiles({
-    // Same rule as the greeting: this tile sits above the shelves, so it counts
-    // what the shelves show — the merged set, minus the finished ones — not the
-    // organiser-only set. It read `active.length` and would have said "0 in
-    // motion" over a board full of invitations.
-    activeCount: upcoming.length,
-    needsTotal,
-    nextEventLabel: soonest ? `Next: ${soonest.display_name}` : null,
-    topWatchName: watchRows[0]?.name ?? null,
-    hasVendorAccess: roles.hasVendorAccess,
-    shopNeedsTotal,
-    shopCount: roles.vendorProfiles.length,
-    topShopName:
-      topShop && shopNeedsTotal > 0 ? topShop.business_name : null,
-    hasAdminAccess: roles.hasAdminAccess,
-    adminOpenTotal,
-    finishedCount: finished.length,
-  });
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-28 pt-5 sm:px-6 sm:pb-10 sm:pt-10 lg:px-8">
-      {/* ONE LINE, IN EVERY STATE (owner 2026-08-18). This was a greeting
-          eyebrow — "Kumusta, {name} · welcome back" — over a title with a grey
-          tail hanging off it. Owner, on a screenshot of exactly this: "we do
-          not need these. it just eats up space… without too much side
-          comments", and on the target: "look at how apple makes everything
-          simple."
+      {/* ONE LINE, ONE CLAIM-FREE TITLE (owner 2026-08-18 · 2026-08-19).
+          No eyebrow, no grey tail — that was the 08-18 ruling and it stands.
 
-          The returning-user tail ("Pick up where you left off.") was
-          decoration and is gone. The first-run copy was the only instruction a
-          brand-new account got up here, so it is not deleted — it BECOMES the
-          title. Either way the header is now a single line, which is what
-          every other page header became in PR #4557.
+          ⚠ AND THE ZERO-STATE HAD TO GO, because this page is now ONLY events.
+          It read "Let's set up your first event." whenever `boardEvents` was
+          empty — but `fetchUserEvents` GRACEFULLY DEGRADES TO `[]` ON EVERY
+          ERROR (lib/events.ts, "collapse to graceful-degrade-always" after a
+          re-throw crashed every dashboard surface twice). So an empty list
+          cannot be told apart from a REFUSED READ.
 
-          The name is not lost: `greeting` still initials the composer
-          directly below this.
+          While four other blocks rendered, that was a bad line in a corner. On
+          an events-only page it is the ENTIRE SCREEN: somebody with six
+          weddings, whose read just failed, is told to set up their first one
+          and shown nothing else.
 
-          `noEvents` counts the MERGED board, not the organiser-only set —
-          somebody whose only events are invitations must never be told to set
-          up their first one directly above them. */}
+          The FINISHED shelf below already states this rule — "an empty shelf
+          cannot be told apart from a refused read — the line therefore says
+          what this shelf is FOR and never that you have none." The title now
+          obeys the same rule its own page wrote: it NAMES the page and makes no
+          claim about how many events you have, so it is true in both states.
+          The invitation to create one is the composer directly beneath it. */}
       <header className="sn-reveal mb-5 sm:mb-6" style={{ animationDelay: '0.24s' }}>
         <h1 className="text-[1.375rem] font-extrabold leading-tight tracking-[-0.03em] text-ink sm:text-4xl sm:leading-[1.02]">
-          {noEvents ? 'Let’s set up your first event.' : 'Where to?'}
+          Your events
         </h1>
       </header>
 
@@ -943,10 +910,38 @@ export default async function LauncherPage({
           question ("Who are we celebrating?") and every guard behind it. */}
       <EventComposer initial={greeting.charAt(0).toUpperCase()} />
 
-      {/* The board — the same aggregates the old one-line stat printed, but each
-          number is now a door with its own context line. Capability-gated: the
-          shop/HQ tiles exist only for a user who has them. */}
-      <HomeBoard tiles={boardTiles} />
+
+      {/* ⚠ PROMOTED TO EVERY WIDTH (2026-08-19), and this is not cosmetic.
+          This nudge was inside `sm:hidden` — the phone's stand-in for the
+          desktop Watch tile. Stripping this page to events removed BOTH desktop
+          carriers of that number: the Watch tile and the "Needs you" board tile.
+          Left where it was, the one thing on this page a couple has to ACT on
+          would have existed on phones only, and the loss would have been
+          invisible on the screen most people build on.
+
+          Real data only — hidden when nothing is waiting, so it never says
+          "0 things need you". */}
+      {watchRows[0] ? (
+        <Link
+          href={`/dashboard/${watchRows[0].eventId}`}
+          className="sn-reveal sn-press mb-5 flex items-center gap-2.5 rounded-xl bg-[color:var(--sn-warning-soft)] px-3 py-3 sm:mb-6"
+          style={{ animationDelay: '0.3s' }}
+        >
+          <AlertCircle
+            aria-hidden
+            className="h-[18px] w-[18px] shrink-0 text-[color:var(--sn-warning)]"
+          />
+          <span className="flex-1 truncate text-[13px] font-bold text-[color:var(--sn-warning)] sm:text-sm">
+            {watchRows[0].total}{' '}
+            {watchRows[0].total === 1 ? 'thing needs' : 'things need'} you —{' '}
+            {watchRows[0].name}
+          </span>
+          <ArrowUpRight
+            aria-hidden
+            className="h-4 w-4 shrink-0 text-[color:var(--sn-warning)]"
+          />
+        </Link>
+      ) : null}
 
       {/* COMING UP — the first of the board's TWO ALWAYS-PRESENT shelves
           (owner 2026-08-13). Glass cards, date descending (newest on top, owner
@@ -985,29 +980,6 @@ export default async function LauncherPage({
                 />
               ))}
             </div>
-          ) : null}
-          {/* The overdue NUDGE row — the mobile stand-in for the desktop Watch
-              tile. Real data only: hidden when nothing is waiting. */}
-          {watchRows[0] ? (
-            <Link
-              href={`/dashboard/${watchRows[0].eventId}`}
-              className="sn-reveal sn-press flex items-center gap-2.5 rounded-xl bg-[color:var(--sn-warning-soft)] px-3 py-3"
-              style={{ animationDelay: '0.66s' }}
-            >
-              <AlertCircle
-                aria-hidden
-                className="h-[18px] w-[18px] shrink-0 text-[color:var(--sn-warning)]"
-              />
-              <span className="flex-1 truncate text-[13px] font-bold text-[color:var(--sn-warning)]">
-                {watchRows[0].total}{' '}
-                {watchRows[0].total === 1 ? 'thing needs' : 'things need'} you —{' '}
-                {watchRows[0].name}
-              </span>
-              <ArrowUpRight
-                aria-hidden
-                className="h-4 w-4 shrink-0 text-[color:var(--sn-warning)]"
-              />
-            </Link>
           ) : null}
           <NewEventCard delay={0.74} />
         </div>
@@ -1097,311 +1069,6 @@ export default async function LauncherPage({
         </div>
       ) : null}
 
-      {/* ALAALA + THE WATCH + SPACES — the prototype's BENTO (owner-approved
-          final design 2026-07-15): the obsidian Alaala·Life-Flash tile with the
-          five lenses on the left; the Setnayan AI "Watch" aggregate and the
-          Spaces doorways stacked on the right. "This year" + Memories Hub
-          continue full-width beneath — all still ONE Alaala surface. */}
-      <section className="mb-7 sm:mb-6">
-        <div className="grid gap-3 sm:gap-4 lg:grid-cols-[1.3fr_1fr] lg:items-start">
-          <div className="space-y-3 sm:space-y-4">
-            <Suspense fallback={<AlaalaTileSkeleton />}>
-              <AlaalaTile userId={user.id} lifeOn={lifeOn} />
-            </Suspense>
-
-            {/* Person-spine "Your story" (flag-gated, counsel-gated) — the
-                "With me" lens made concrete once the flag turns on. */}
-            {lifeStoryGroups && lifeStoryGroups.length > 0 ? (
-              <div>
-                <h3 className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/40">
-                  Your story
-                </h3>
-                <LifeStorySection groups={lifeStoryGroups} />
-              </div>
-            ) : null}
-          </div>
-
-          <div className="space-y-3 sm:space-y-4">
-            {/* YOUR CREATOR BENEFITS — the storyteller who already holds active
-                vendor collabs (owner req #6, plan 2026-07-16). Self-fetching +
-                null-returning: renders ONLY once this user has ≥1 accepted
-                collab, so it's invisible for everyone else (the "Become a
-                Storyteller" promo below covers non-creators). Deterministic —
-                active offers + the same /u reach numbers, no LLM, and worded as
-                "offers/benefits", never earnings. */}
-            <Suspense fallback={null}>
-              <CreatorBenefits userId={user.id} />
-            </Suspense>
-
-            {/* SETNAYAN AI · THE WATCH — the deterministic aggregate of
-                everything waiting on the user (pay · approve · message ·
-                overdue), per event. Sums, not an LLM (Rule 1). Desktop-only
-                (proto): on mobile the Events-block nudge row carries this
-                signal, so Alaala follows Events immediately. */}
-            <div
-              className="sn-tile-glass sn-lift-3 sn-reveal hidden rounded-2xl p-4 sm:p-[18px] lg:block"
-              style={{ animationDelay: '0.78s' }}
-            >
-              <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
-                <Wand2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Setnayan AI · The Watch
-              </p>
-              {needsTotal > 0 ? (
-                <>
-                  <p className="mt-2.5">
-                    <span className="font-mono text-[26px] font-bold tracking-[-0.01em] text-ink">
-                      <CountUp value={needsTotal} delayMs={850} />
-                    </span>{' '}
-                    <span className="text-[13px] font-semibold text-[color:var(--sn-ink-500)]">
-                      {needsTotal === 1 ? 'thing needs' : 'things need'} you
-                    </span>
-                  </p>
-                  <ul className="mt-3 space-y-[11px]">
-                    {watchRows.map((row, i) => (
-                      <li
-                        key={row.eventId}
-                        className="flex items-center gap-[9px] text-[12.5px] text-ink"
-                      >
-                        <span
-                          aria-hidden
-                          className="h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--sn-warning)]"
-                        />
-                        <span className="min-w-0 truncate">{row.name}</span>
-                        <span className="ml-auto shrink-0 font-mono text-xs font-bold text-[color:var(--sn-warning)]">
-                          <CountUp value={row.total} delayMs={1050 + 150 * i} />
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-[13px] flex items-center gap-2 border-t border-ink/[0.08] pt-3 text-[11.5px] text-[color:var(--sn-ink-400)]">
-                    <span
-                      aria-hidden
-                      className="h-[7px] w-[7px] shrink-0 rounded-full bg-[color:var(--sn-success)]"
-                      style={{ animation: 'sn-pulse 1.9s infinite' }}
-                    />
-                    Everything else — quiet
-                  </p>
-                </>
-              ) : (
-                <p className="mt-3 flex items-center gap-2 text-sm text-ink/55">
-                  <span
-                    aria-hidden
-                    className="h-[7px] w-[7px] shrink-0 rounded-full bg-[color:var(--sn-success)]"
-                    style={{ animation: 'sn-pulse 1.9s infinite' }}
-                  />
-                  Everything — quiet. Nothing needs you right now.
-                </p>
-              )}
-            </div>
-
-            {/* SPACES → "YOURS TO RUN" (owner 2026-07-30 "split it in two").
-                The stances this account OPERATES, as labelled groups: the
-                vendor shop(s) + Admin HQ rows, "Vendors you saved", and the
-                Creator's Lab. Shop + HQ rows are capability-gated (absent for a
-                plain couple); the Creator row always renders, so the heading is
-                never empty. The other half of the split is the PEOPLE tile
-                below — Samahan moved out of here entirely. These still NAVIGATE
-                — their own dashboards are allowed jumps. */}
-            <div
-              className="sn-tile-glass sn-lift-3 sn-reveal rounded-2xl p-4 sm:p-[18px]"
-              style={{ animationDelay: '0.9s' }}
-            >
-              <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
-                <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Yours to run
-              </p>
-              {/* CREATE YOUR SHOP — the create-door for an account with no shop
-                  (found 2026-08-10: a customer had no way to open one).
-                  Owner 2026-08-10: "place a button on the user home where the
-                  shop button will be … but instead of entering a shop. Create
-                  your shop."
-
-                  So it renders IN the shop-row slot — first inside the same
-                  divided list, ABOVE the HQ row, which is exactly where a real
-                  shop row is pushed (shops are appended before HQ). It is not a
-                  separate block below the list: an admin with no shop would
-                  otherwise read it AFTER HQ, which is not where the shop button
-                  goes. Same idiom as CreateSamahanRow / BecomeStorytellerRow,
-                  both already in this file for the same reason.
-
-                  Gated on `canOpenShop` — shops they OWN measured against the
-                  cap — NOT on `!hasVendorAccess`. `hasVendorAccess` is also
-                  true for a TEAM MEMBER of someone else's shop who owns
-                  nothing, so gating on it hid this door from exactly the people
-                  most likely to want their own (a second shooter, an
-                  assistant). Someone who already owns a shop reads
-                  `canOpenShop === false` and gets their real shop row instead,
-                  so the create-door and a real shop row still never both
-                  render. The container condition keeps an account with neither
-                  (a team member at the cap) from rendering an empty div. */}
-              {spaces.length > 0 || roles.canOpenShop ? (
-                <div className="mt-2 divide-y divide-ink/[0.07]">
-                  {roles.canOpenShop ? <OpenShopRow /> : null}
-                  {spaces.map((space) => (
-                    <SpaceRow
-                      key={space.id ?? space.href + space.title}
-                      {...space}
-                    />
-                  ))}
-                </div>
-              ) : null}
-              {/* SAVED VENDORS — owner 2026-07-31: "saved vendors can be with
-                  the group of your shop, hq, and creators lab, and favorite
-                  vendors." They were previously only advertised (never shown)
-                  under Memories Hub, whose panel has no vendor code at all.
-                  Here they sit with the other business doorways, and the link
-                  goes to the tab that actually renders them.
-
-                  NOTE for the 2026-07-30 "split it in two" decision: this stays
-                  a LABELLED GROUP inside "Yours to run" rather than a second
-                  tile, because the owner's 2026-07-31 line above is the later
-                  word and puts saved vendors *with* shop/HQ/Creator's Lab. The
-                  split the owner asked for is still visible — it is the group
-                  headings, and Samahan left this tile entirely for PEOPLE. */}
-              <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
-                Vendors you saved
-              </p>
-              <Link
-                href="/dashboard/library?tab=vendors"
-                className="group -mx-1 flex items-center gap-2 rounded-lg px-1 py-1.5 text-sm text-ink/70 hover:text-ink"
-              >
-                <Heart aria-hidden className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-gold-700)]" strokeWidth={1.75} />
-                <span className="flex-1 truncate">Your shortlist</span>
-                <ArrowUpRight
-                  aria-hidden
-                  className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-ink-400)] transition-[transform,color] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-mulberry"
-                />
-              </Link>
-
-              {/* CREATOR'S LAB — the ONE doorway to /dashboard/creator
-                  (readiness verdict 2026-07-16 B4: the funnel had no entry
-                  anywhere; the wayfinding rule — a page ships with its
-                  doorway). Zero chapters → the "Become a Storyteller" promo row
-                  (owner requirement) sells it in a line and IS the doorway; ≥1
-                  chapter → it collapses to a plain "Your Story" row. Honest
-                  copy only — nothing unbuilt, no earnings, no tiers. */}
-              <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
-                Creator&rsquo;s Lab
-              </p>
-              <div className="mt-1">
-                {chapterCount > 0 ? (
-                  <SpaceRow
-                    href="/dashboard/creator"
-                    icon={Clapperboard}
-                    title="Your Story"
-                    subtitle={`${chapterCount} ${chapterCount === 1 ? 'chapter' : 'chapters'} · your public page`}
-                    tone="default"
-                  />
-                ) : (
-                  <BecomeStorytellerRow />
-                )}
-              </div>
-            </div>
-
-            {/* PEOPLE — the first rendered People doorway on the home. Only
-                sources that are REAL for this account appear (see the file
-                header): Samahan always, Alaga and Connections only behind their
-                flags AND with real rows. */}
-            <div
-              className="sn-tile-glass sn-lift-3 sn-reveal rounded-2xl p-4 sm:p-[18px]"
-              style={{ animationDelay: '1.06s' }}
-            >
-              <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
-                <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                People
-              </p>
-              {/* Alaga + Connections — flag-gated AND row-gated, so neither can
-                  render an empty facet. Both are OFF in production today. */}
-              {alagaCount != null && alagaCount > 0 ? (
-                <div className="mt-2">
-                  <SpaceRow
-                    id="people-alaga"
-                    href="/dashboard/people"
-                    icon={Baby}
-                    title="Alaga"
-                    subtitle={`${alagaCount} ${alagaCount === 1 ? 'person' : 'people'} you care for`}
-                    tone="default"
-                  />
-                </div>
-              ) : null}
-              {connectionCount != null && connectionCount > 0 ? (
-                <div className="mt-1">
-                  <SpaceRow
-                    id="people-connections"
-                    href="/dashboard/people"
-                    icon={HeartHandshake}
-                    title="Connections"
-                    subtitle={`${connectionCount} confirmed ${connectionCount === 1 ? 'connection' : 'connections'}`}
-                    tone="default"
-                  />
-                </div>
-              ) : null}
-              {/* Samahan — communities are LIVE (owner 2026-07-15 composable-
-                  event model): real rows + a create door for everyone. Moved
-                  here from Spaces: a samahan is who you gather with, not a
-                  console you operate. */}
-              <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
-                Samahan · Communities
-              </p>
-              {communities.length === 0 ? (
-                <p className="mb-1 mt-1 text-xs text-ink/45">
-                  A shared space for your barkada, parish, or clan.
-                </p>
-              ) : null}
-              <div className="mt-1 divide-y divide-ink/[0.07]">
-                {samahanRows.map((space) => (
-                  <SpaceRow
-                    key={space.id ?? space.href + space.title}
-                    {...space}
-                  />
-                ))}
-                <CreateSamahanRow />
-              </div>
-              {/* The /dashboard/people door opens ONLY when that page has
-                  something to render. With both person flags off it
-                  short-circuits to a non-interactive "coming soon" preview, and
-                  a link to a preview is a door to nothing. */}
-              {peoplePageIsLive ? (
-                <Link
-                  href="/dashboard/people"
-                  className="mt-[13px] inline-flex items-center gap-1 text-xs font-bold text-[color:var(--sn-gold-700)] transition-colors hover:text-[color:var(--sn-gold-600)]"
-                >
-                  Everyone you gather
-                  <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
-                </Link>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-3 space-y-3 sm:mt-4 sm:space-y-4">
-          {/* ── THE MEMORY WALL — the five lenses over PHOTOGRAPHS ──────────
-              Alaala is for KEEPING; the board above is for DOING. This row
-              used to be a collapsed "Photos & videos" panel rendering
-              PhotosTab — ONE CARD PER EVENT WITH A PHOTO COUNT — so Alaala
-              was a second list of events, and the lenses in the tile above it
-              answered with sentences about events too. Frames now, not
-              occasions. "With me" is every photo of you across six years and
-              belongs to no single event, which is exactly why it lives here at
-              the account level and not inside one.
-
-              The per-event albums (and Download all) did not go away — they
-              are one tap deeper, in Alaala opened full, where a whole-event
-              download is the job. */}
-          <Suspense fallback={<AlaalaWallSkeleton />}>
-            <AlaalaWall userId={user.id} />
-          </Suspense>
-
-          {/* Date-anchor model — the next few derived moments (own birthday ·
-              anniversaries · wedding countdowns). Self-fetching, and it ALWAYS
-              renders: with nothing to list it shows a written invitation, because
-              the list it draws carries the only in-app link to /dashboard/year
-              and returning null used to take that door down with it. */}
-          <Suspense fallback={null}>
-            <YearMomentsStrip userId={user.id} />
-          </Suspense>
-        </div>
-      </section>
 
       {/* Phone-only thumb nav. Every target is a link this page already renders. */}
       <HomePillNav
@@ -1412,58 +1079,6 @@ export default async function LauncherPage({
   );
 }
 
-/**
- * Assemble the signed-in person's life story into per-event groups for the
- * flag-gated "Your story" section. Reads the flag-guarded `getMyLifeStory`
- * (returns [] while the flag is off / no person node), then resolves each
- * event's display_name in ONE lookup and groups items by event (newest-first).
- * Only ever called when the flag is on.
- */
-async function buildLifeStoryGroups(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-): Promise<LifeStoryGroup[]> {
-  const items = await getMyLifeStory({ includeHidden: true });
-  if (items.length === 0) return [];
-
-  const eventIds = [...new Set(items.map((i) => i.eventId))];
-  const nameById = new Map<string, string | null>();
-  const { data: eventRows, error: eventRowsError } = await supabase
-    .from('events')
-    .select('event_id, display_name')
-    .in('event_id', eventIds);
-  // ⚠ 🚨 EVERY EVENT THIS PERSON HAS. Refused, the launcher — the first screen after
-  // ⚠ signing in — reads as though they have no celebrations at all. There is no
-  // ⚠ louder way to tell somebody their work is gone than an empty home screen.
-  if (eventRowsError) {
-    logQueryError('LauncherPage.eventRows', eventRowsError, {}, 'graceful_degrade');
-  }
-  for (const row of (eventRows ?? []) as Array<{
-    event_id: string;
-    display_name: string | null;
-  }>) {
-    nameById.set(row.event_id, row.display_name);
-  }
-
-  // Group by event, keeping the newest-first ordering getMyLifeStory returns.
-  const byEvent = new Map<string, LifeStoryGroup>();
-  for (const item of items) {
-    let group = byEvent.get(item.eventId);
-    if (!group) {
-      group = {
-        eventId: item.eventId,
-        eventName: nameById.get(item.eventId) ?? null,
-        items: [],
-      };
-      byEvent.set(item.eventId, group);
-    }
-    group.items.push({
-      storyItemId: item.storyItemId,
-      itemKind: item.itemKind,
-      hiddenAt: item.hiddenAt,
-    });
-  }
-  return [...byEvent.values()];
-}
 
 /**
  * Section header (proto .sec-h): sentence-case bold title with an optional

@@ -65,13 +65,18 @@ function count(haystack: string, needle: RegExp): number {
   return [...haystack.matchAll(needle)].length;
 }
 
-test('the home mounts the memory wall', () => {
-  const s = src(LAUNCHER);
+test('the memory wall is mounted where Alaala lives', () => {
+  // ⚠ REPOINTED 2026-08-19. This asserted the wall was on the ACCOUNT HOME. The
+  // owner made that page only his events, so the wall is no longer there — but
+  // the rule it protects is unchanged: the five lenses must have a surface, or
+  // Alaala has no photographs. That surface is now Alaala's own page, which
+  // mounts the same shared body the home used to.
+  const s = src(ALAALA_PAGE);
   assert.equal(
-    count(s, /<AlaalaWall\b/g),
-    1,
-    'The home has no Alaala memory wall. Without it the five lenses have no ' +
-      'surface and Alaala has no photographs.',
+    count(s, /<AlaalaLensBody\b|<AlaalaWall\b/g) >= 1,
+    true,
+    'Alaala has no memory wall. Without it the five lenses have no surface and ' +
+      'Alaala has no photographs.',
   );
 });
 

@@ -1332,7 +1332,11 @@ function SummaryFacetBar({
               key={s.key}
               href={buildHref({ team: s.key === 'all' ? null : s.key })}
               active={teamActive === s.key}
-              count={s.count}
+              // Seven confident zeros beside one small "not loaded" line reads
+              // as "we could not measure it, and it is zero" — the hedge loses.
+              // LensPill hides the badge entirely when the count is undefined,
+              // so the filter still works and only the invented number goes.
+              count={measured ? s.count : undefined}
               dot={s.dot}
             >
               {s.label}
@@ -1348,7 +1352,7 @@ function SummaryFacetBar({
                 key={r.key}
                 href={buildHref({ rsvp: isActive ? null : r.key })}
                 active={isActive}
-                count={r.count}
+                count={measured ? r.count : undefined}
                 title={isActive ? `Clear ${r.label} filter` : `Show only ${r.label}`}
               >
                 {r.label}

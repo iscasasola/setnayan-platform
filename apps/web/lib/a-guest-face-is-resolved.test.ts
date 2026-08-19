@@ -61,13 +61,13 @@ test('no loader passes the raw column straight through', () => {
     const src = read(path);
     // The bug's exact shape: handing the stored value to the client unresolved.
     assert.equal(
-      /photoUrl: g\.photo_url(?!\s*\?)/.test(src),
+      /photoUrl: g\.photo_url(?!\s*\?[^?])/.test(src),
       false,
       `${path} assigns photoUrl straight from the stored column. It must look the ` +
         `value up in the resolved map.`,
     );
     assert.equal(
-      /photo_url: g\.photo_url(?!\s*\?)/.test(src),
+      /photo_url: g\.photo_url(?!\s*\?[^?])/.test(src),
       false,
       `${path} passes photo_url through unresolved.`,
     );

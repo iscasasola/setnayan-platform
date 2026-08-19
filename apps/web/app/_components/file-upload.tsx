@@ -175,6 +175,29 @@ const DEFAULT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
  */
 const UPLOAD_STALL_MS = 45_000;
 
+/**
+ * How long to wait for R2 to ANSWER, once every byte has been handed to the
+ * network stack.
+ *
+ * 🔑 THIS IS A SEPARATE CLOCK, AND LEAVING IT OUT WAS A REAL BUG. `upload`
+ * progress events stop permanently the moment the body is written, so after
+ * that point nothing could ever re-arm the transfer-silence watchdog — and its
+ * 45s became a fixed TOTAL-DURATION cap on the server's reply, the very thing
+ * `stall-watchdog.ts` says it refuses to be. On a slow uplink with a large file
+ * (the save-the-date picker allows 300 MB) the bar reached 100%, the send
+ * buffer and R2's commit took longer than 45s, and a healthy, essentially
+ * finished upload was aborted with "check your connection" — advice that was
+ * wrong twice: the connection was fine, and re-picking re-sends the same bytes.
+ *
+ * ⚠ The verification that missed it is worth recording: the only real-world
+ * check was a 171 KB file completing in ~1s — the one size that CANNOT show
+ * this, because its tail is instant.
+ *
+ * Still bounded, so a genuinely hung response resolves instead of spinning
+ * forever: five minutes, not infinity.
+ */
+const UPLOAD_RESPONSE_MS = 300_000;
+
 type UploadedItem = {
   /** Local-only ID for React keys + cancellation. */
   id: string;
@@ -723,6 +746,13 @@ export function FileUpload({
         );
         setInFlight((prev) => prev.filter((i) => i.id !== id));
       },
+    });
+
+    // Every byte is now on the network stack. No further upload-progress event
+    // can fire, so hand the clock over to the response budget rather than
+    // leaving the transfer clock armed against a wait it cannot measure.
+    xhr.upload.addEventListener('loadend', () => {
+      watchdog.arm(UPLOAD_RESPONSE_MS);
     });
 
     xhr.upload.addEventListener('progress', (evt) => {

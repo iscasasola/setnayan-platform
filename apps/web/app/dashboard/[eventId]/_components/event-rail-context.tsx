@@ -159,7 +159,7 @@ export function EventRailContext({
                     aria-current={on ? 'page' : undefined}
                   >
                     <span className="fd-gi" aria-hidden="true">
-                      <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                      <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
                     </span>
                     <span className="fd-label-text">{item.label}</span>
                     <span className="fd-icon-caption">{item.label}</span>

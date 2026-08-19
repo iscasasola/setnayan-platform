@@ -64,6 +64,55 @@ import { LogoMark } from '@/app/_components/brand-marks';
 import type { DemoOverlayId } from '@/lib/demo-overlay-bus';
 import { activeRailKey, railMatchRows } from './rail-active';
 import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
+/*
+  ─── THE RAIL'S OWN ROWS DRAW LUCIDE, LIKE EVERY OTHER ROW IN IT ──────────
+  Until now they drew TYPOGRAPHIC CHARACTERS — ⌂ ◎ ⌕ ▦ ✧ ❖ ✎ ▣ ⛨ ▸ ⌃ ⌄ — while
+  the rows that push in below (an event's sections, a shop's, the admin's) drew
+  Lucide SVGs. `front-door.css` said so in writing: *"The rail's own rows use
+  glyph characters; the app's nav rows use Lucide icons."* One list, two icon
+  systems, and the seam fell in the middle of the account slot.
+
+  🔑 A CHARACTER IS NOT AN ICON — IT IS A FONT LOOKUP, AND THE FONT DECIDES.
+  These are Miscellaneous-Technical and Dingbat codepoints, not the Latin the
+  UI font ships. Every one of them is resolved per platform:
+    ⌂ U+2302 HOUSE           — absent from the Android system font
+    ⛨ U+26E8 CROSS ON SHIELD — absent nearly everywhere; a tofu box □ on most
+    ⌃ ⌄ U+2303/2304          — Mac modifier-key glyphs, thin coverage off macOS
+    ✎ ✧ U+270E/U+2727        — in ranges a phone may hand to the EMOJI font,
+                               which returns a colour picture at another weight
+  Nothing throws when the lookup misses. The row keeps its label and its tap
+  target, so the only symptom is a wrong-looking or empty square — the absence
+  this project keeps paying for. An SVG has no font to miss: it draws the same
+  strokes on a phone, a tablet and a desktop, in both themes.
+
+  ⌕ U+2315 is TELEPHONE RECORDER. It sat in the Marketplace row for months
+  doing duty as a magnifier. It is now `Compass`, which is what `customer-menu`
+  has always given Explore — the app's own answer, not a second one.
+*/
+import {
+  ArrowLeft,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  Compass,
+  Home,
+  LayoutGrid,
+  PenLine,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Store,
+  Users,
+} from 'lucide-react';
+/*
+  🔑 ONE ICON PER CATEGORY, FROM THE MAP THE APP ALREADY OWNS. The fifteen
+  category rows drew the SAME arrow fifteen times while `WEDDING_FOLDER_ICON`
+  — exhaustive over the taxonomy and pinned by `taxonomy-icons.test.ts` — was
+  already drawing a distinct icon for each of them on the Explore strip. A
+  second hand-typed map here is how a rail and a page start disagreeing about
+  what "Venues & churches" looks like, so this imports the one that exists.
+*/
+import { folderIcon } from '@/lib/taxonomy-icons';
 
 /**
  * ─── THE SAME RAIL, MOUNTED IN TWO PLACES (One Shell slice 0, 2026-08-13) ──
@@ -357,6 +406,37 @@ function Count({ value }: { value?: number | null }) {
     return <span className="fd-ct fd-unknown">couldn&rsquo;t load</span>;
   }
   return <span className="fd-ct fd-mono">{value}</span>;
+}
+
+/**
+ * The rail's icon slot — ONE component, so a row cannot pick its own size.
+ *
+ * 🔑 THE SIZE IS THE HALF THAT DRIFTS. Three sibling rails already render
+ * Lucide into this same `.fd-gi` slot and two of them agreed on 18px while the
+ * event rail drew 16px, so an event's sections came out a hair smaller than the
+ * account rows directly above them in the SAME list. Nothing was wrong enough
+ * to report and the whole column read as slightly unaligned. Every row on
+ * every tree now goes through here.
+ *
+ * `strokeWidth` is pinned for the same reason: Lucide's default of 2 next to
+ * the 1.75 the app's nav rows already use reads as two weights of icon.
+ *
+ * 🪤 THE CLASS IS A LITERAL AND MUST STAY ONE. `h-[${PX}px]` composed from a
+ * constant looks tidier and is dead on arrival — Tailwind scans SOURCE TEXT,
+ * so a class assembled at runtime is never generated, the rule never exists,
+ * and the icon falls back to Lucide's own 24px with nothing to notice. The
+ * same shape as every other "a sentence is not a mechanism" note in this repo.
+ */
+function RailIcon({
+  as: Icon,
+}: {
+  as: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+}) {
+  return (
+    <span className="fd-gi" aria-hidden="true">
+      <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+    </span>
+  );
 }
 
 export function FrontDoorShell({
@@ -864,24 +944,18 @@ export function FrontDoorShell({
               URL this rail rendered on and would have lit Home on all 296
               pages the moment it rendered anywhere else. */}
           <Link href="/" {...rowProps('home')}>
-            <span className="fd-gi" aria-hidden="true">
-              ⌂
-            </span>
+            <RailIcon as={Home} />
             <span className="fd-label-text">Home</span>
             <span className="fd-icon-caption">Home</span>
           </Link>
           <Link href="/realstories" {...rowProps('stories')}>
-            <span className="fd-gi" aria-hidden="true">
-              ◎
-            </span>
+            <RailIcon as={BookOpen} />
             <span className="fd-label-text">Stories</span>
             <span className="fd-icon-caption">Stories</span>
           </Link>
           {account.signedIn ? (
             <Link href="/explore" {...rowProps('find')}>
-              <span className="fd-gi" aria-hidden="true">
-                ⌕
-              </span>
+              <RailIcon as={Compass} />
               <span className="fd-label-text">
                 {/* Fallback MUST equal the registry's label for this slot
                     (`customer.account.marketplace` = "Marketplace"). They
@@ -920,9 +994,11 @@ export function FrontDoorShell({
                 given it in the nav registry. Same href, same count.
               */}
               <Link href="/dashboard" {...rowProps('events')}>
-                  <span className="fd-gi" aria-hidden="true">
-                    {inApp ? '▦' : '←'}
-                  </span>
+                  {/* THE ARROW IS THE SENTENCE'S OTHER HALF. Outside the app
+                      this row says "Back to your events" and points BACK; inside
+                      it names the board. The icon has always followed the words
+                      and still does — only the drawing changed. */}
+                  <RailIcon as={inApp ? LayoutGrid : ArrowLeft} />
                   <span className="fd-label-text">
                     {inApp
                       ? slotLabel(RAIL_SLOT.events, 'Your events')
@@ -932,9 +1008,7 @@ export function FrontDoorShell({
                   <Count value={account.eventCount} />
                 </Link>
                 <Link href="/dashboard/library" {...rowProps('alaala')}>
-                  <span className="fd-gi" aria-hidden="true">
-                    ✧
-                  </span>
+                  <RailIcon as={Sparkles} />
                   <span className="fd-label-text">
                     {slotLabel(RAIL_SLOT.alaala, 'Alaala')}
                   </span>
@@ -1002,9 +1076,7 @@ export function FrontDoorShell({
                     exactly what it looks like. The connections page was
                     reachable only by clicking something that does not appear
                     clickable. */}
-                <span className="fd-gi" aria-hidden="true">
-                  ❖
-                </span>
+                <RailIcon as={Users} />
                 <span className="fd-label-text">People</span>
                 <span className="fd-icon-caption">People</span>
               </Link>
@@ -1017,9 +1089,7 @@ export function FrontDoorShell({
                 href whether you have chapters or none.
               */}
               <Link href="/dashboard/creator" {...rowProps('story')}>
-                <span className="fd-gi" aria-hidden="true">
-                  ✎
-                </span>
+                <RailIcon as={PenLine} />
                 <span className="fd-label-text">Your Story</span>
                 <span className="fd-icon-caption">Story</span>
                 {typeof account.storyChapterCount === 'number' ? (
@@ -1046,9 +1116,7 @@ export function FrontDoorShell({
               ) : null}
               {account.shopName ? (
                 <Link href="/vendor-dashboard" {...rowProps('shop')}>
-                  <span className="fd-gi" aria-hidden="true">
-                    ▣
-                  </span>
+                  <RailIcon as={Store} />
                   <span className="fd-label-text">{account.shopName}</span>
                   <span className="fd-icon-caption">Shop</span>
                   <span className="fd-ct">your shop</span>
@@ -1056,9 +1124,7 @@ export function FrontDoorShell({
               ) : null}
               {account.isAdmin ? (
                 <Link href="/admin" {...rowProps('hq')}>
-                  <span className="fd-gi" aria-hidden="true">
-                    ⛨
-                  </span>
+                  <RailIcon as={ShieldCheck} />
                   <span className="fd-label-text">Setnayan HQ</span>
                   <span className="fd-icon-caption">HQ</span>
                   <span className="fd-ct">admin</span>
@@ -1083,9 +1149,7 @@ export function FrontDoorShell({
                 </Link>
               </div>
               <Link href="/alaala" className="fd-row">
-                <span className="fd-gi" aria-hidden="true">
-                  ✧
-                </span>
+                <RailIcon as={Sparkles} />
                 <span className="fd-label-text">What is Alaala?</span>
                 <span className="fd-icon-caption">Alaala</span>
               </Link>
@@ -1129,9 +1193,7 @@ export function FrontDoorShell({
                   href={`/explore?folder=${encodeURIComponent(f.slug)}`}
                   className="fd-row"
                 >
-                  <span className="fd-gi" aria-hidden="true">
-                    ▸
-                  </span>
+                  <RailIcon as={folderIcon(f.slug)} />
                   <span className="fd-label-text">{f.label}</span>
                   <span className="fd-icon-caption">{f.label}</span>
                   <span className="fd-ct fd-mono">{f.count}</span>
@@ -1142,9 +1204,7 @@ export function FrontDoorShell({
                 className="fd-row"
                 onClick={() => setMoreOpen((v) => !v)}
               >
-                <span className="fd-gi" aria-hidden="true">
-                  {moreOpen ? '⌃' : '⌄'}
-                </span>
+                <RailIcon as={moreOpen ? ChevronUp : ChevronDown} />
                 <span className="fd-label-text">
                   {moreOpen
                     ? 'Show fewer'
@@ -1342,8 +1402,12 @@ function SearchBox() {
         placeholder={publicSearchPlaceholder()}
         aria-label="Search Setnayan"
       />
+      {/* SAME REASON AS THE RAIL ROWS ABOVE: this was ⌕ U+2315 TELEPHONE
+          RECORDER doing duty as a magnifier, and it is the ONE control a
+          signed-out visitor uses to search. A codepoint the font may not carry
+          is a submit button that can render as an empty square. */}
       <button type="submit" className="fd-searchgo" aria-label="Search">
-        ⌕
+        <Search className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
       </button>
     </form>
   );

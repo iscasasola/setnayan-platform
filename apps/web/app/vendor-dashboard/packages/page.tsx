@@ -52,9 +52,6 @@ export default async function VendorPackagesPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
       <header className="mb-6">
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/40">
-          My Shop → Packages
-        </p>
         <h1 className="mt-1 font-serif text-2xl text-ink/90">Your packages</h1>
         <p className="mt-2 max-w-xl text-sm text-ink/60">
           A package is a bundle a couple can make their own — they swap what they

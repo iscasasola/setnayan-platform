@@ -30,9 +30,6 @@ export function VendorTierGate({
             <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
           </span>
         </span>
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          {TIER_LABEL[requiredTier]} feature
-        </p>
         <h1 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">
           {feature} unlocks with {TIER_LABEL[requiredTier]}
         </h1>

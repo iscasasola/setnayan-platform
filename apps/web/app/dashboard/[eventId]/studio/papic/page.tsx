@@ -100,6 +100,7 @@ import { resolvePapicRoom, PAPIC_ROOM_TABS } from './_lib/rooms';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { groupIntoChapters } from '@/lib/alaala-chapters';
 import { fetchScheduleBlocks, DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { LifeFlashCard } from './_components/life-flash-card';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -668,6 +669,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
         <MagazineCard eventId={eventId} />
         <RecapCard eventId={eventId} />
+        <LifeFlashCard eventId={eventId} />
 
         </>
       ) : null}

@@ -489,6 +489,52 @@ export type FlashScope =
 
 /** Dignity thresholds — a scope is only OFFERED when it has enough substance
  *  (Build Plan §11: no hollow recaps for quiet months). */
+/**
+ * How many moments a single event would contribute to Life-Flash.
+ *
+ * ⚠ THIS EXISTS BECAUSE THREE NEARBY COUNTS ARE THE WRONG ANSWER, and each is
+ * already sitting on the page that needs this number:
+ *
+ *   • `fetchPapicGallery(...).length` uses a DENY-list — `moderation_state !==
+ *     'nsfw_blocked'` — which is WIDER than the graph's `=== 'clean'`, and it
+ *     also counts VENDOR documentation media the graph never reads. It can say
+ *     "3" while the flash has nothing, sending a couple to an empty page.
+ *   • `fetchPreservationTotals` counts `full_res_dropped_at IS NULL` — the
+ *     RETENTION filter. Six months after the event it reads 0 for a full flash.
+ *   • `fetchMomentGraph` reads the viewer's WHOLE LIFE — up to 2,400 rows across
+ *     every event they own — to answer a question about one.
+ *
+ * So the count lives here, beside the filters it must match, and a db test
+ * asserts the two filter sets stay equal.
+ *
+ * Returns null when the count could not be READ. A rejected Supabase query
+ * resolves with `{ error }` and a null count — it never throws — so `null` means
+ * "not measured", never "zero". Callers must fail closed on it.
+ */
+export async function countEventMoments(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<number | null> {
+  const [photos, captures] = await Promise.all([
+    supabase
+      .from('papic_photos')
+      .select('photo_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .eq('moderation_state', 'clean')
+      .is('hidden_at', null),
+    supabase
+      .from('papic_guest_captures')
+      .select('capture_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .eq('moderation_state', 'clean')
+      .is('hidden_at', null)
+      .not('r2_object_key', 'is', null),
+  ]);
+  if (photos.error || captures.error) return null;
+  if (photos.count === null || captures.count === null) return null;
+  return photos.count + captures.count;
+}
+
 export const SCOPE_MIN_MOMENTS = { year: 5, month: 5, event: 3 } as const;
 
 /** URL form: 'life' · 'y2026' · 'm2026-07' · 'e<eventId>'. */

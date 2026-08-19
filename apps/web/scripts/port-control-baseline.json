@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f62dad3f0",
+  "generatedFromRef": "303b9b0a5",
   "routeCount": 402,
   "destinations": 849,
   "actions": 580,
-  "blocks": 3813,
+  "blocks": 3805,
   "routes": {
     "/": {
       "files": [
@@ -3599,6 +3599,7 @@
     },
     "/dashboard/(account)/library": {
       "files": [
+        "dashboard/(account)/library/_components/album-shelf.tsx",
         "dashboard/(account)/library/_components/editorials-tab.tsx",
         "dashboard/(account)/library/_components/photos-tab.tsx",
         "dashboard/(account)/library/_components/saved-vendor-card.tsx",
@@ -3619,6 +3620,7 @@
       "blocks": [
         "AlaalaLensBody",
         "AlbumCard",
+        "AlbumShelf",
         "EditorialCard",
         "EditorialsTab",
         "EventMonogram",
@@ -3694,6 +3696,7 @@
         "dashboard/(account)/people/_components/connections-panel.tsx",
         "dashboard/(account)/people/_components/dependents-section.tsx",
         "dashboard/(account)/people/_components/samahan-people-section.tsx",
+        "dashboard/(account)/people/_components/your-story-section.tsx",
         "dashboard/(account)/people/actions.ts",
         "dashboard/(account)/people/dependent-actions.ts",
         "dashboard/(account)/people/life-stories.ts",
@@ -3723,13 +3726,15 @@
         "ConnectionsPanel",
         "CopyButton",
         "DependentsSection",
+        "LifeStorySection",
         "Link",
         "PageMasthead",
         "PeoplePreview",
         "PreviewRow",
         "Result",
         "SamahanPeopleSection",
-        "SubmitButton"
+        "SubmitButton",
+        "YourStorySection"
       ]
     },
     "/dashboard/(account)/profile": {
@@ -3901,7 +3906,6 @@
         "/dashboard/create-event",
         "/dashboard/creator",
         "/dashboard/library",
-        "/dashboard/library?tab=vendors",
         "/dashboard/life-flash",
         "/dashboard/notifications",
         "/dashboard/people",
@@ -3919,20 +3923,13 @@
         "AlaalaLensBody",
         "AlaalaLensKey",
         "AlaalaLenses",
-        "AlaalaTile",
-        "AlaalaTileSkeleton",
-        "AlaalaWall",
-        "AlaalaWallSkeleton",
         "AppRailShell",
         "AttentionPill",
         "AutoSurfacedEvents",
-        "BecomeStorytellerRow",
         "CardShell",
         "CollabRow",
         "ComingSoonNote",
         "CountUp",
-        "CreateSamahanRow",
-        "CreatorBenefits",
         "EmptyYear",
         "EventComposer",
         "EventMonogram",
@@ -3941,27 +3938,21 @@
         "GlassEventCard",
         "HTMLDivElement",
         "HTMLInputElement",
-        "HomeBoard",
         "HomePillNav",
         "Icon",
         "Image",
-        "LifeStorySection",
         "Link",
         "MobileEventChip",
         "MobileEventHero",
         "MomentRow",
         "NewEventCard",
-        "OpenShopRow",
         "ProgressRing",
         "SectionLabel",
         "ShopLogo",
-        "SpaceRow",
         "StanceChip",
-        "Suspense",
         "Tile",
         "UnreadBellBadge",
-        "YearMomentsList",
-        "YearMomentsStrip"
+        "YearMomentsList"
       ]
     },
     "/dashboard/[eventId]": {
@@ -5944,6 +5935,7 @@
         "dashboard/[eventId]/studio/papic/_components/guest-cameras-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-contributions-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/host-pool-meter-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/life-flash-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/live-wall-actions.ts",
         "dashboard/[eventId]/studio/papic/_components/live-wall-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/live-wall-controls.tsx",
@@ -5983,7 +5975,8 @@
         "/dashboard/[seg]/studio/papic/magazine",
         "/dashboard/[seg]/studio/papic/moderation",
         "/dashboard/[seg]/studio/papic/recap",
-        "/dashboard/[seg]/studio/papic?tab=[seg]"
+        "/dashboard/[seg]/studio/papic?tab=[seg]",
+        "/dashboard/life-flash?scope=e[seg]"
       ],
       "actions": [
         "action",
@@ -6020,6 +6013,7 @@
         "ExtraCamerasPicker",
         "FaceTaggingChoice",
         "FilterId",
+        "Fragment",
         "GalleryPhoto",
         "GalleryPreviewCard",
         "GuestCameraTierPicker",
@@ -6029,6 +6023,7 @@
         "HostPoolMeterCard",
         "InlineCheckoutDrawer",
         "LegendDot",
+        "LifeFlashCard",
         "LimitedCard",
         "Link",
         "LiveWallCard",

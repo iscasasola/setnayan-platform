@@ -654,6 +654,13 @@ export async function EventDashboard({
 
   const stats = computeGuestStats(guests);
 
+  // 🔑 THE CATCH ABOVE THESE READS CAN NEVER FIRE. Supabase RESOLVES with
+  // `{ error }` instead of throwing, so a refused query never reaches a
+  // `catch` — it arrives here as `data: null`, `?? []` turns it into an empty
+  // list, and every total below is computed from nothing. The try/catch is
+  // kept (it still catches a genuine throw), but the ERROR is what actually
+  // needed reading, and nothing read it.
+  const vendorsMeasured = !eventVendorsRes.error;
   const eventVendors = (eventVendorsRes.data ?? []) as Array<{
     vendor_id: string;
     vendor_name: string;
@@ -684,6 +691,7 @@ export async function EventDashboard({
 
   // ---- Committed budget — same formula as the Overview (paid + fulfilled
   // orders plus every contracted-or-better vendor with a known cost). --------
+  const ordersMeasured = !paidOrdersRes.error;
   const paidOrders = (paidOrdersRes.data ?? []) as Array<{
     order_id: string;
     service_key: string | null;
@@ -705,6 +713,12 @@ export async function EventDashboard({
   const committedCentavos = Math.round(
     (paidOrdersTotalPhp + contractedVendorsTotalPhp) * 100,
   );
+  // `committed` is the SUM of both reads, so either refusal understates it —
+  // and the tile renders whenever a budget target exists, so a couple who set
+  // one was shown "₱0 committed" against it with a 0% ring. A number that is
+  // silently short is worse than no number: it reads as progress they have not
+  // made, on the screen they check to decide what they can still afford.
+  const committedMeasured = vendorsMeasured && ordersMeasured;
   const budgetTargetCentavos =
     (event as { estimated_budget_centavos?: number | string | null })
       .estimated_budget_centavos != null
@@ -1346,17 +1360,19 @@ export async function EventDashboard({
             </ProgressRing>
             <span className="min-w-0">
               <span className="block font-mono text-[20px] font-bold leading-none text-ink">
-                {formatPeso(committedCentavos)}
+                {committedMeasured ? formatPeso(committedCentavos) : '—'}
               </span>
               <span className="mt-0.5 block text-[11.5px] text-ink/55">
-                committed of {formatPeso(budgetTargetCentavos)}
+                {committedMeasured
+                  ? `committed of ${formatPeso(budgetTargetCentavos)}`
+                  : "couldn't load — your budget is unchanged"}
               </span>
             </span>
           </span>
         ) : (
           <>
             <span className="mt-3 block font-mono text-[20px] font-bold leading-none text-ink">
-              {formatPeso(committedCentavos)}
+              {committedMeasured ? formatPeso(committedCentavos) : '—'}
             </span>
             <span className="mt-0.5 block text-[11.5px] text-ink/55">
               committed so far
@@ -2311,15 +2327,25 @@ export async function EventDashboard({
                  *  host, so non-weddings show a plain booked count until their
                  *  per-type category map ships. */
                 <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
-                  {eventType === 'wedding'
-                    ? `${lockedVendorCount} of ${totalLockableCategories} booked`
-                    : `${teamVendors.length} ${teamVendors.length === 1 ? 'vendor' : 'vendors'} booked`}
+                  {!vendorsMeasured
+                    ? 'not loaded'
+                    : eventType === 'wedding'
+                      ? `${lockedVendorCount} of ${totalLockableCategories} booked`
+                      : `${teamVendors.length} ${teamVendors.length === 1 ? 'vendor' : 'vendors'} booked`}
                 </span>
               }
               fullHref={`${base}/vendors`}
               fullLabel="Manage vendors"
               preview={
-                teamVendors.length > 0 ? (
+                !vendorsMeasured ? (
+                  // "No vendors booked yet" to a couple with a booked venue is
+                  // not a neutral default — it invites them to start work they
+                  // have already done, and it renders identically either way.
+                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                    We couldn&rsquo;t load your suppliers just now. Nothing has
+                    changed &mdash; refresh to try again.
+                  </p>
+                ) : teamVendors.length > 0 ? (
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
                     {teamVendors.length}{' '}
                     {teamVendors.length === 1 ? 'vendor' : 'vendors'} booked —

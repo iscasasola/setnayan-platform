@@ -131,6 +131,26 @@ export type VendorBudgetSummary = {
   paidTotal: number;
   remaining: number;
   /**
+   * False when the PAYMENTS read was refused.
+   *
+   * 🔑 `paidTotal` is then 0 and `remaining` becomes the FULL itemised total —
+   * so the card told a couple who had paid ₱150,000 of ₱200,000 that they had
+   * paid nothing and still owed all of it. A wrong number about money is the
+   * worst version of "a failed read rendered as a fact": it is not a missing
+   * list, it is a demand.
+   *
+   * Only the vendor row's own error was ever checked (`vendorRes.error`);
+   * payments and line items were `?? []`, which cannot tell a refusal from a
+   * couple who genuinely has not paid yet.
+   *
+   * ⚠ False means UNKNOWN, not zero. A caller that treats it as zero has
+   * reintroduced the defect.
+   */
+  paymentsMeasured: boolean;
+  /** False when the LINE ITEMS read was refused — `itemizedTotal` then silently
+   * falls back to the headline figure, which is a different number. */
+  lineItemsMeasured: boolean;
+  /**
    * Where this vendor's pricing comes from. Drives the UI on the budget
    * card:
    *  - 'manual': legacy host-entered line items only. Off-platform /
@@ -562,6 +582,11 @@ export async function fetchVendorBudgetSummary(
   const vendor = vendorRes.data as EventVendorRow;
   const myLineItems = (lineItemsRes.data ?? []) as LineItemRow[];
   const myPayments = (paymentsRes.data ?? []) as PaymentRow[];
+  // Supabase RESOLVES with `{ error }` rather than throwing, so a refused read
+  // arrives here as `data: null` and `?? []` erases the difference between
+  // "nothing paid" and "we could not find out".
+  const lineItemsMeasured = !lineItemsRes.error;
+  const paymentsMeasured = !paymentsRes.error;
 
   const pricingLookup = await buildVendorPricingLookup(supabase, eventId, [vendor]);
   const pricing = pricingLookup.get(vendor.vendor_id);
@@ -590,6 +615,8 @@ export async function fetchVendorBudgetSummary(
     itemizedTotal,
     paidTotal,
     remaining: Math.max(0, itemizedTotal - paidTotal),
+    paymentsMeasured,
+    lineItemsMeasured,
     priceSource,
     vendorControlledItems,
   };
@@ -695,6 +722,14 @@ export async function fetchBudgetSnapshot(
       itemizedTotal,
       paidTotal,
       remaining: Math.max(0, itemizedTotal - paidTotal),
+      // Honest BY CONSTRUCTION, not by flag: this loader THROWS on any of the
+      // three read errors above rather than degrading to `?? []`, so a summary
+      // can only exist here if all three reads happened. That is the opposite
+      // choice from fetchVendorBudgetSummary and it is the right one for a
+      // snapshot whose whole job is totals — the flags exist for the loader
+      // that CANNOT throw, not to soften this one.
+      paymentsMeasured: true,
+      lineItemsMeasured: true,
       priceSource,
       vendorControlledItems,
     };

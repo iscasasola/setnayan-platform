@@ -88,3 +88,24 @@ proves nothing, and a measured one still needs the count read.*
    image types; the server accepts GIF/HEIC/AVIF/PDF at 10 MB, and there is **no
    NSFW screen on a profile photo** (`nsfw-screen.ts` is wired into ~23 other files
    and neither this path nor the upload route is one).
+
+
+---
+
+## Also · the profile page's first section stops reading as a subtitle
+
+Owner 2026-08-19, pointing at the header while reporting the photo problem.
+
+`Profile & settings` carried an `<h2>Personal info</h2>` directly beneath it, with
+nothing between them — so the section label read as a **page subtitle**, the exact
+shape being removed all week. Its masthead was already clean; this was one level
+below it, which is why the sweep never saw it.
+
+**The five sections below keep their headings, and should** — "Change password",
+"Sessions", "Planner mode", "Planning reminders" each follow other content and you
+need to know which one you are in. **The first group follows only the page title**,
+which already names it, and its fields say the rest: Display name · Phone ·
+Profile photo · Birthday.
+
+That is also Apple's pattern: the first group on a Settings screen has no header;
+later groups do.

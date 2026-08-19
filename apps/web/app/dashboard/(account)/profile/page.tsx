@@ -338,13 +338,18 @@ export default async function ProfilePage({ searchParams }: Props) {
         <FormFlash tone="success">Public profile setting saved.</FormFlash>
       ) : null}
 
-      {/* Personal info */}
+      {/* PERSONAL INFO — deliberately UNLABELLED (owner 2026-08-19).
+          It carried an <h2>Personal info</h2>. As the FIRST section it sat flush
+          under "Profile & settings" with nothing above it, so it read as a
+          subtitle rather than a group label — the exact shape the owner has been
+          removing all week, and he spotted it here.
+
+          The five sections BELOW keep their headings, and should: "Change
+          password", "Sessions", "Planner mode", "Planning reminders" each follow
+          other content and you need to know which one you are in. The first group
+          follows only the page title, which already names it — and its fields say
+          the rest out loud: Display name · Phone · Profile photo · Birthday. */}
       <section className="mb-10 space-y-4">
-        <div className="space-y-1">
-          <h2 className="sn-sec">
-            Personal info
-          </h2>
-        </div>
         <form action={updatePersonalInfo} className="space-y-4">
           <Field label="Display name" htmlFor="display_name">
             <input

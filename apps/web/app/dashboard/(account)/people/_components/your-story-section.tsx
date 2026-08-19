@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { personLifeStoriesEnabled } from '@/lib/person-life-stories';
-import { logQueryError } from '@/lib/log-query-error';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   LifeStorySection,
   type LifeStoryGroup,

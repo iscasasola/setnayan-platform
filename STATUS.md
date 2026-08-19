@@ -20,7 +20,11 @@
 
 Measured against the live database and the live site, not remembered.
 
-**8 events · 39 guests** (largest roster 32) · **2 shops** · **0 orders, ever** · 0 photos.
+**8 events · 39 guests** (largest roster 32) · **2 shops** · **0 orders, ever** · **14 Papic
+photos** (13 stills + 1 clip, one event, none hidden).
+⚠ This line said **"0 photos"** when first written *today*, in the section headed "measured, not
+remembered". It was not measured. **Do not treat the gallery as empty** when reasoning about
+retention, the compression sweep, face-matching or the photo wall.
 Nothing has been bought and almost nothing has been exercised — **which is why defects here are
 found by reading code rather than by anyone complaining.** Every one fixed on 2026-08-19 had been
 live for weeks: the upload stall since 5 July, the call-room initials since 11 July.
@@ -91,7 +95,7 @@ corpus `WHAT_IS_LEFT_2026-08-17.md` §6, which no amount of engineering moves.
 
 ### Owner-side actions
 
-Flag-gated features await owner env-flip / provisioning, not code. The canonical, always-current list is **`OWNER_ACTIONS.md`**; the standing items include the PayMongo one-time gateway (open PR #3146, Phase 0/1 seam) and any remaining counsel-gated flags. Auto-merge is armed automatically on every non-draft PR (see the workflow note under Locked decisions).
+Flag-gated features await owner env-flip / provisioning, not code. The canonical, always-current list is **`OWNER_ACTIONS.md`**; the standing items include any remaining counsel-gated flags. ⚠ **The PayMongo one-time gateway is NOT one of them: PR #3146 was CLOSED unmerged on 2026-07-30** (verified 2026-08-19). Do not report it to the owner as code-complete-and-waiting — there is no payment gateway sitting one flip away. Auto-merge is armed automatically on every non-draft PR (see the workflow note under Locked decisions).
 
 ---
 
@@ -125,7 +129,8 @@ Applies to: 0011 Live Studio (Panood), 0012 Papic, future time-budgeted SKUs. **
 - **Hosting:** Vercel — auto-deploys from `main` (`deploy-prod.yml` + Vercel's native git webhook)
 - **Domain:** `setnayan.com` (+ `setnayan.ph`), Vercel-managed SSL
 - **DB:** Supabase (Singapore region) — migrations via `supabase db push`; `migration-drift-monitor.yml` + a "migration timestamp guard" required check keep prod and disk in sync
-- **Storage:** Cloudflare R2 — 4 PH/APAC-region buckets (`setnayan-media`, `-thread-files`, `-vendor-contracts`, `-samples`)
+- **Storage:** Cloudflare R2 — **FIVE** buckets in **Asia-Pacific (APAC)**: `setnayan-media`, `-thread-files`, `-vendor-contracts`, `-samples`, **`-vendor-verification`** (this one holds vendor government IDs). `R2_BUCKETS` in `apps/web/lib/r2.ts` is canonical.
+  ⚠ **NOT "PH-region".** R2 has no Philippines region, and saying so implies a data residency we do not have — the same wording reached the live `/privacy` page once. Nothing is hosted in the Philippines: the database is Supabase **Singapore**.
 - **Email:** Resend — domain `setnayan.com` verified, `noreply@setnayan.com` from-address (email-only; no SMS in V1)
 - **Observability:** Sentry (errors) + PostHog (product analytics) + Better Stack (uptime/status) — iteration 0035
 - **Native:** Tauri 2 desktop wrapper (`.dmg` + `.msi` via `build-desktop.yml`) + Capacitor/PWA mobile shells (`build-android.yml`); true-native iOS/Android Papic is Phase 2

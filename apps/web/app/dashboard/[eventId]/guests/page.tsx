@@ -448,6 +448,28 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // rail. The body is the SAME <GuestDetailBody> the mobile sheet renders — one
   // body, two frames — so the desktop column can't diverge from the sheet.
   const inspectId = typeof search.inspect === 'string' ? search.inspect : null;
+  // ⚠ RESOLVED BEFORE THE INSPECTOR, not after: the inspector body reads
+  // this map, and it used to be declared below it.
+  // Resolve each guest's stored photo ref → a display URL once on the server:
+  // a 24h presigned GET for r2:// refs, or the raw Google avatar URL passed
+  // through verbatim (oauth_google). Keyed by the stored value so the client
+  // grid looks each card up — the same `initialDisplayUrls` contract
+  // <FileUpload> uses. Resolved over the FULL guest list (not `visible`) so
+  // re-filtering/sorting never re-signs; signing runs in parallel per the
+  // displayUrlForStoredAsset doc guidance.
+  const photoDisplayUrls: Record<string, string> = Object.fromEntries(
+    (
+      await Promise.all(
+        guests
+          .filter((g) => g.photo_url)
+          .map(
+            async (g) =>
+              [g.photo_url!, await displayUrlForStoredAsset(g.photo_url)] as const,
+          ),
+      )
+    ).filter((e): e is [string, string] => e[1] !== null),
+  );
+
   const inspectedGuest = inspectId
     ? (guests.find((g) => g.guest_id === inspectId) ?? null)
     : null;
@@ -472,6 +494,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         eventId={eventId}
         brandedQrActive={brandedQrActive}
         showFullDetailsLink={false}
+        photoDisplayUrl={photoDisplayUrls[inspectedGuest.photo_url ?? ''] ?? null}
       />
     </InspectorColumn>
   ) : null;
@@ -511,25 +534,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     '|',
   );
 
-  // Resolve each guest's stored photo ref → a display URL once on the server:
-  // a 24h presigned GET for r2:// refs, or the raw Google avatar URL passed
-  // through verbatim (oauth_google). Keyed by the stored value so the client
-  // grid looks each card up — the same `initialDisplayUrls` contract
-  // <FileUpload> uses. Resolved over the FULL guest list (not `visible`) so
-  // re-filtering/sorting never re-signs; signing runs in parallel per the
-  // displayUrlForStoredAsset doc guidance.
-  const photoDisplayUrls: Record<string, string> = Object.fromEntries(
-    (
-      await Promise.all(
-        guests
-          .filter((g) => g.photo_url)
-          .map(
-            async (g) =>
-              [g.photo_url!, await displayUrlForStoredAsset(g.photo_url)] as const,
-          ),
-      )
-    ).filter((e): e is [string, string] => e[1] !== null),
-  );
 
   // Team Bride / Team Groom counts — "both" counts to both sides on
   // purpose (a guest invited by both shows in either team view).
@@ -838,7 +842,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           slide-in quick-view a roster row opens. Both are portal-rendered
           client islands that sit idle until acted on. */}
       <UndoToastHost />
-      <GuestDrawerHost eventId={eventId} brandedQrActive={brandedQrActive} />
+      <GuestDrawerHost
+        eventId={eventId}
+        brandedQrActive={brandedQrActive}
+        photoDisplayUrls={photoDisplayUrls}
+      />
     </section>
   );
 

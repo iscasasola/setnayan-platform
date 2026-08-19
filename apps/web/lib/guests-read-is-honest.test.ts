@@ -162,6 +162,11 @@ test('every claim on the page is gated on that measurement', () => {
   // 3 · the confirmations meter
   assert.match(src, /measured \? \(\s*<>\s*\{responded\} of \{stats\.total\}/, 'the RSVP figure must be gated');
   assert.match(src, /: 'Responses could not be loaded'/, 'including for screen readers');
+  // 5 · the facet pills sit in the SAME panel as that hedge. Seven confident
+  //     zeros beside one small "not loaded" line reads as "we could not
+  //     measure it, and it is zero" — the hedge loses.
+  const pills = src.match(/count=\{measured \? \w+\.count : undefined\}/g) ?? [];
+  assert.equal(pills.length, 2, 'both facet rows — Side and RSVP — must drop their counts');
 });
 
 test('the phone summary states no figure it did not measure', () => {

@@ -29,8 +29,17 @@ const REAL_TIMERS: WatchdogTimers = {
 };
 
 export type StallWatchdog = {
-  /** Restart the clock. Called at send, and on every progress event. */
-  arm: () => void;
+  /**
+   * Restart the clock. Called at send, and on every progress event.
+   *
+   * `timeoutMs` overrides the default for THIS arm onward — used when the
+   * thing being waited on changes character. See the note on the response
+   * wait in `uploadOne`: once the body is written, no further progress event
+   * can ever fire, so the transfer-silence budget would become a fixed
+   * total-duration cap on the server's reply, which is exactly what this
+   * watchdog exists to avoid.
+   */
+  arm: (timeoutMs?: number) => void;
   /** The transfer reached a terminal state — the clock must never fire again. */
   settle: () => void;
   readonly settled: boolean;
@@ -51,12 +60,13 @@ export function createStallWatchdog(opts: {
   };
 
   return {
-    arm() {
+    arm(timeoutMs?: number) {
       // A progress event can land in the same tick as `load`. Re-arming after
       // the transfer finished would resurrect the clock and report a stall on
       // an upload that already succeeded.
       if (settled) return;
       clear();
+      const ms = timeoutMs ?? opts.timeoutMs;
       handle = timers.setTimeout(() => {
         // Belt-and-braces, and knowingly unreachable: `settle()` disposes the
         // clock and `arm()` refuses to schedule once settled, so this callback
@@ -67,7 +77,7 @@ export function createStallWatchdog(opts: {
         settled = true;
         handle = undefined;
         opts.onStall();
-      }, opts.timeoutMs);
+      }, ms);
     },
     settle() {
       settled = true;

@@ -122,3 +122,24 @@ test('re-arming does not pile up timers', () => {
   for (let i = 0; i < 50; i += 1) wd.arm();
   assert.equal(clock.outstanding, 1, 'exactly one clock at a time');
 });
+
+test('arm(ms) switches budget — the response wait is not the transfer wait', () => {
+  const { clock, wd, stalls } = build(1000);
+  wd.arm();          // transfer clock: 1s of silence is fatal
+  clock.tick(900);
+  wd.arm(10_000);    // body fully sent; now waiting on the server
+  clock.tick(9_000); // 9x the transfer budget, and still healthy
+  assert.equal(stalls(), 0, 'the server may take longer than a stalled byte');
+  clock.tick(1_000);
+  assert.equal(stalls(), 1, 'but it is still bounded — never infinite');
+});
+
+test('the longer budget still cannot fire after the transfer settles', () => {
+  const { clock, wd, stalls } = build(1000);
+  wd.arm();
+  wd.arm(10_000);
+  wd.settle();
+  clock.tick(60_000);
+  assert.equal(stalls(), 0);
+  assert.equal(clock.outstanding, 0, 'and leaves no timer behind');
+});

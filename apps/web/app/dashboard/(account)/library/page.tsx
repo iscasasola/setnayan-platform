@@ -9,6 +9,7 @@ import { PhotosTab } from './_components/photos-tab';
 import { VendorsTab } from './_components/vendors-tab';
 import { EditorialsTab } from './_components/editorials-tab';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { AlbumShelf } from './_components/album-shelf';
 
 export const metadata = { title: 'Alaala' };
 
@@ -169,6 +170,11 @@ export default async function AlaalaPage({
           </span>
         </Link>
       ) : null}
+
+      {/* THE SHELF — one cover per event, oldest first, above the library grid
+          (owner 2026-08-19: "first row should be chronological albums of each
+          event. then under it can be all the photos in grid"). */}
+      <AlbumShelf userId={user.id} />
 
       {/* LENSES — the same five words as the tile. Plain links so the page
           stays a Server Component. */}

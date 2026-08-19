@@ -40,7 +40,7 @@ import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import type { VendorCategory } from '@/lib/vendors';
 import { PLAN3D_BOOTH_ADS_ENABLED, placedGhostBooths, type GhostBooth3D } from '@/lib/ghost-booths';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForStoredAsset, guestPhotoDisplayUrls } from '@/lib/uploads';
 import {
   sanitizeRolePalette,
   resolveAttirePaletteColor,
@@ -127,15 +127,7 @@ export default async function SeatingLabPage({ params }: Props) {
   // Guest photo_url is a stored r2:// ref (or a raw avatar URL) — resolve each to
   // a display URL so the 3D avatars wear the guest's actual selfie (owner
   // 2026-06-25). Mirrors the 2D seating page's resolver; signs in parallel.
-  const photoDisplayUrls: Record<string, string> = Object.fromEntries(
-    (
-      await Promise.all(
-        guestsRaw
-          .filter((g) => g.photo_url)
-          .map(async (g) => [g.photo_url!, await displayUrlForStoredAsset(g.photo_url)] as const),
-      )
-    ).filter((e): e is [string, string] => e[1] !== null),
-  );
+  const photoDisplayUrls = await guestPhotoDisplayUrls(guestsRaw);
 
   // Attire motif colours from the mood-board role palette. TAXONOMY v2: each
   // guest's colour resolves through the STRICT chain (specific role palette key →

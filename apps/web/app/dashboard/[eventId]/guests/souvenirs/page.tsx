@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { guestDisplayName, type GuestRole, type GuestSide } from '@/lib/guests';
 import { SouvenirDesk, type DeskGuest, type DeskClaim } from './_components/souvenir-desk';
 import { LiveRefresher } from '@/app/_components/live-refresher';
+import { guestPhotoDisplayUrls } from '@/lib/uploads';
 
 export const metadata = { title: 'Souvenir table' };
 
@@ -81,10 +82,19 @@ export default async function SouvenirTablePage({ params }: Props) {
     if (label) tableByGuestId.set(a.guest_id, label);
   }
 
+  // ⚠ RESOLVE THE REF, DO NOT HAND IT TO AN <img>. `photo_url` holds an
+  // `r2://…` reference, not a URL — a raw one renders a broken-image glyph and
+  // nothing else. Guaranteed to bite an RSVP selfie: the selfie writers refuse
+  // anything that is not an r2:// ref, and a selfie REPLACES the Google avatar
+  // that would otherwise have passed through verbatim.
+  const photoDisplayUrls = await guestPhotoDisplayUrls(
+    (guestsRaw ?? []) as GuestRow[],
+  );
+
   const guests: DeskGuest[] = ((guestsRaw ?? []) as GuestRow[]).map((g) => ({
     guestId: g.guest_id,
     name: guestDisplayName(g),
-    photoUrl: g.photo_url,
+    photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
     plusOneName: g.plus_one_name,
     qrToken: g.qr_token,
     tableLabel: tableByGuestId.get(g.guest_id) ?? null,

@@ -40,6 +40,10 @@ export const getDashboardShell = cache(async (userId: string) => {
         hasVendorAccess: false,
         hasAdminAccess: false,
         vendorProfiles: [],
+        // Nothing was measured here — this literal exists BECAUSE the read
+        // failed. False keeps `canOpenShop` closed, so a supplier who has a
+        // shop is not invited to create a second, permanent one.
+        shopsMeasured: false,
         ownedShopCount: 0,
         canOpenShop: false,
       } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;

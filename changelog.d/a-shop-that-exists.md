@@ -18,3 +18,19 @@ default is universal — pick by what the wrong answer costs.
 🔑 A LOG LINE NEVER CHANGED A PIXEL. The error was bound the whole time.
 
 SPEC IMPACT: None.
+
+### CI caught what my local check could not — 2026-08-19
+
+Adding a required field to `UserRoleSummary` broke **two consumers** that build
+that object by hand in a `catch`: `app/dashboard/(launcher)/page.tsx` and
+`lib/dashboard-shell.ts`. Both now set `shopsMeasured: false`, which is not a
+formality — those literals exist *because* a read failed, so marking them
+unmeasured is what keeps the fail-closed rule whole at the exact point the read
+already went wrong.
+
+🔑 **I MISSED IT LOCALLY BY GREPPING FOR THE FILES I CHANGED.** `tsc` was run and
+its output filtered with `grep -c "roles.ts\|account-switcher"` → 0, read as
+"clean". **A type change breaks its CONSUMERS, which are by definition files you
+did not name.** Compare the TOTAL error count against the known baseline (270)
+instead — that is what caught it on the retry, and it is the same family as
+grepping a TAP log for a filename it never prints.

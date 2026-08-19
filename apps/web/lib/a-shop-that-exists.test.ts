@@ -51,6 +51,22 @@ test('the flag is actually returned, so a caller can see it', () => {
   assert.match(roles, /\n\s*shopsMeasured,\n/, 'shopsMeasured must be on the returned summary');
 });
 
+test('every degraded fallback also reports that it measured nothing', () => {
+  // A type change breaks its CONSUMERS, not the file you edited. Both of these
+  // construct a UserRoleSummary by hand in a catch block — they exist BECAUSE a
+  // read failed — so each must say so, or the fail-closed rule has a hole in the
+  // exact place the read already went wrong.
+  for (const rel of ['../app/dashboard/(launcher)/page.tsx', 'dashboard-shell.ts']) {
+    const src = stripComments(readFileSync(join(HERE, rel), 'utf8'));
+    if (!/hasCustomerAccess: true/.test(src)) continue;
+    assert.match(
+      src,
+      /shopsMeasured: false/,
+      `${rel} builds a degraded role summary and must mark it unmeasured`,
+    );
+  }
+});
+
 test('the anonymous fallback was already closed and stays closed', () => {
   const switcher = stripComments(
     readFileSync(join(HERE, '..', 'app/_components/account-switcher/get-switcher-data.ts'), 'utf8'),

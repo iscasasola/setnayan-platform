@@ -226,7 +226,7 @@ export default async function LauncherPage({
         try {
           return await supabase
             .from('users')
-            .select('display_name')
+            .select('display_name, profile_photo_url')
             .eq('user_id', user.id)
             .maybeSingle();
         } catch (caught) {
@@ -351,6 +351,15 @@ export default async function LauncherPage({
     redirect('/dashboard/create-event');
   }
   const profile = profileRes.data;
+  // The composer circle stands in for the PERSON, so it shows their face when
+  // they have set one. `profile_photo_url` holds an `r2://` REFERENCE, never a
+  // URL — dropping the raw value into an <img> renders a broken glyph and says
+  // nothing about why. Resolved here, beside the greeting that already reads
+  // this row, so no extra query is added. Fails soft to the initial: a signing
+  // hiccup must not put a broken picture where a letter worked.
+  const composerPhotoUrl = profile?.profile_photo_url
+    ? await displayUrlForStoredAsset(profile.profile_photo_url).catch(() => null)
+    : null;
   const greeting =
     profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
   // 🚨 THE GREETING MUST COUNT THE SAME THING THE BOARD SHOWS. This read
@@ -908,7 +917,10 @@ export default async function LauncherPage({
           its composer: the first full-width thing under the greeting.
           It is a navigation, not a form — the create screen owns the real
           question ("Who are we celebrating?") and every guard behind it. */}
-      <EventComposer initial={greeting.charAt(0).toUpperCase()} />
+      <EventComposer
+        initial={greeting.charAt(0).toUpperCase()}
+        photoUrl={composerPhotoUrl}
+      />
 
 
       {/* ⚠ PROMOTED TO EVERY WIDTH (2026-08-19), and this is not cosmetic.
@@ -1614,7 +1626,18 @@ function AttentionPill({ label, more = 0 }: { label: string; more?: number }) {
  * on the very next screen. It looks like a composer and behaves like the door
  * it already was.
  */
-function EventComposer({ initial }: { initial: string }) {
+function EventComposer({
+  initial,
+  photoUrl,
+}: {
+  initial: string;
+  /**
+   * The signed-in person's own profile photo, ALREADY resolved to a fetchable
+   * URL. Absent (not set, or signing failed) falls back to the initial — the
+   * same photo-or-letter contract the top-bar avatar uses.
+   */
+  photoUrl?: string | null;
+}) {
   return (
     <Link
       href="/dashboard/create-event"
@@ -1623,9 +1646,21 @@ function EventComposer({ initial }: { initial: string }) {
     >
       <span
         aria-hidden
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--sn-gold-100)] text-[13px] font-extrabold text-[color:var(--sn-gold-700)] sm:h-10 sm:w-10 sm:text-sm"
+        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color:var(--sn-gold-100)] text-[13px] font-extrabold text-[color:var(--sn-gold-700)] sm:h-10 sm:w-10 sm:text-sm"
       >
-        {initial}
+        {photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          // ^ Same call the top-bar avatar makes: the URL is a short-lived
+          // presigned R2 link, so `next/image` would re-transform it on every
+          // render (billed per transformation) for no gain at 40px.
+          <img
+            src={photoUrl}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          initial
+        )}
       </span>
       <span className="flex-1 truncate text-[13.5px] font-semibold text-[color:var(--sn-ink-400)] sm:text-[15px]">
         What’s your event?

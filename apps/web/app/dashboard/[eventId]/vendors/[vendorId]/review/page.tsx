@@ -233,9 +233,6 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
           <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
           Back to vendors
         </Link>
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-          Leave a review
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           How was {vendorProfile.business_name || eventVendor.vendor_name}?
         </h1>

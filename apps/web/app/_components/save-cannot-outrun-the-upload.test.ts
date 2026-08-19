@@ -70,6 +70,31 @@ test('the notice clears itself when the upload lands', () => {
   );
 });
 
+test('a freshly uploaded file does not claim to be saved', () => {
+  // The owner uploaded a photo, saw a GREEN TICK and the word "Uploaded", and
+  // left. His account was unchanged — profile_photo_url still NULL, updated_at
+  // five weeks old — because the value only reaches the row when the parent form
+  // is submitted, and that button sits ~3,000px down a 4,744px page.
+  //
+  // Nothing was broken. The file was in R2 and the hidden input was correctly
+  // filled. The screen simply said "done" about the UPLOAD while meaning nothing
+  // about the ACCOUNT.
+  assert.ok(
+    /Not saved yet/.test(SRC),
+    'A file that has not been submitted must not present as saved.',
+  );
+  assert.ok(
+    /name && !item\.id\.startsWith\('seed-'\)/.test(SRC),
+    'The distinction must come from WHERE the item came from: a seeded item was ' +
+      'read out of the database and IS saved; one uploaded this session is not. ' +
+      'And only when there is a `name` — without one the widget feeds no form.',
+  );
+  assert.ok(
+    /<span className="truncate">Saved<\/span>/.test(SRC),
+    'a seeded item should say Saved, because for it that is true',
+  );
+});
+
 test('the listener is removed when the upload finishes', () => {
   assert.ok(
     /removeEventListener\('submit', refuse, \{ capture: true \}\)/.test(SRC),

@@ -1,4 +1,30 @@
-## 2026-08-19 · fix(upload): Save could delete the photo it was saving, and say "Saved."
+## 2026-08-19 · fix(upload): the upload said "Uploaded" and meant nothing about the account
+
+### The one the owner actually hit — measured on his own row
+
+He chose a photo, saw a **green tick and the word "Uploaded"**, and left. Then:
+*"once we uploaded it, the logo on the upper right did not change."*
+
+**Nothing was broken.** Read from prod: the file is in R2, and the form's hidden
+input carried `r2://setnayan-media/profile-photo/…` correctly. But
+`users.profile_photo_url` was **NULL** and his `updated_at` was **2026-07-13 — five
+weeks old**, which proves the UPDATE never ran at all.
+
+The value only reaches the row when the **parent form** is submitted, and on
+`/dashboard/profile` that button sits roughly **3,000px down a 4,744px page**.
+
+🔑 **A GREEN TICK SAYING "UPLOADED" IS A CLAIM ABOUT THE FILE, READ AS A CLAIM
+ABOUT THE ACCOUNT.** The widget was telling the truth about the wrong subject.
+
+A **seeded** item came out of the database, so for it "Saved" is true. An item
+uploaded in this session has not been saved, and now says
+**"Not saved yet — press Save below."** The two were already distinguishable —
+seeds carry an `id` of `seed-<ref>` — so this needed no new state, only an honest
+sentence. Scoped to widgets that actually feed a form (`name` present).
+
+---
+
+## Also in this PR · Save could delete the photo it was saving, and say "Saved."
 
 **SPEC IMPACT:** None — a defect fix on every upload field in the app.
 

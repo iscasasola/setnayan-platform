@@ -990,11 +990,36 @@ export function FileUpload({
                   />
                 </span>
               )}
+              {/* ⚠ "Uploaded" WITH A GREEN TICK WAS A LIE ABOUT STATE, and it cost
+                  the owner a real attempt (2026-08-19): he chose a photo, saw a
+                  green tick and the word "Uploaded", and left. His account was
+                  unchanged — `users.profile_photo_url` still NULL, `updated_at`
+                  still five weeks old — because the value only reaches the row
+                  when the PARENT FORM is submitted, and on /dashboard/profile
+                  that button sits ~3,000px further down a 4,744px page.
+                  The file was in R2 and the hidden input was correctly filled.
+                  Nothing was broken. The screen simply said "done" about the
+                  upload while meaning nothing about the account.
+
+                  A SEEDED item came from the database, so for it "Saved" is
+                  true. An item uploaded in THIS session has not been saved yet,
+                  and says so. The two are already distinguishable — seeds carry
+                  an `id` of `seed-<ref>` — so this needed no new state.
+
+                  Only when there is a `name`: without one this widget is not
+                  feeding a form and there is nothing to save. */}
               <div className="flex items-center justify-between gap-3">
-                <p className="inline-flex min-w-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-success-700">
-                  <CheckCircle2 aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
-                  <span className="truncate">Uploaded</span>
-                </p>
+                {name && !item.id.startsWith('seed-') ? (
+                  <p className="inline-flex min-w-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-mulberry-600">
+                    <AlertCircle aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
+                    <span className="truncate">Not saved yet — press Save below</span>
+                  </p>
+                ) : (
+                  <p className="inline-flex min-w-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-success-700">
+                    <CheckCircle2 aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
+                    <span className="truncate">Saved</span>
+                  </p>
+                )}
                 <button
                   type="button"
                   onClick={() => removeItem(item.id)}

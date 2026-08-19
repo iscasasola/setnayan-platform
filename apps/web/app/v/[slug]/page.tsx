@@ -823,7 +823,7 @@ export async function renderVendorBySlug({
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
-  const [reviewStats, trustedReviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingCount, completedEvents, hidePricesPublicly] = await Promise.all([
+  const [reviewStats, trustedReviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingRead, completedEvents, hidePricesPublicly] = await Promise.all([
     fetchReviewStats(admin, vendor.vendor_profile_id),
     // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the PUBLIC headline average
     // + review count read the TRUSTED (receipt-backed, arm's-length) stat, so
@@ -849,7 +849,14 @@ export async function renderVendorBySlug({
     // `vendor_activity_stats.finalized_booking_count`, so a vendor can't inflate
     // the Experience tier by self-creating "delivered" events. Best-effort:
     // missing view / unapplied migration → 0 → "New to Setnayan". Never blocks.
-    (async (): Promise<number | null> => {
+    // ⚠ `null` USED TO MEAN TWO THINGS HERE: "this vendor is genuinely new"
+    // and "we could not find out". Both fell through `experienceTier(null)` to
+    // the tier **"New to Setnayan"**, which the hero states as a fact — so a
+    // refused read publicly demoted an Elite supplier with 200 finalised events
+    // to NEW, on their own shop page, in front of couples deciding whether to
+    // hire them. That is not a missing number; it is a claim about somebody's
+    // business, and it is the kind a stranger reads.
+    (async (): Promise<{ count: number | null; measured: boolean }> => {
       const { data, error } = await admin
         .from('vendor_public_completed_events_stats')
         .select('public_completed_count')
@@ -857,9 +864,13 @@ export async function renderVendorBySlug({
         .maybeSingle();
       if (error) {
         console.warn('[v/[slug]] vendor_public_completed_events_stats fetch failed', error.message);
-        return null;
+        return { count: null, measured: false };
       }
-      return (data as { public_completed_count: number | null } | null)?.public_completed_count ?? null;
+      // No row is a real answer: this vendor has no completed events yet.
+      return {
+        count: (data as { public_completed_count: number | null } | null)?.public_completed_count ?? null,
+        measured: true,
+      };
     })(),
     // Receipt-backed dated track record (Wave 5) — one row per delivered/
     // complete LINKED booking, with the same owner/team/internal/self-comp
@@ -915,6 +926,8 @@ export async function renderVendorBySlug({
 
   // Spec §5 experience tier — surfaced as a subtle hero badge. We render the
   // tier even for "New to Setnayan" on the profile (honest, not negative).
+  const finalizedBookingCount = finalizedBookingRead.count;
+  const bookingCountMeasured = finalizedBookingRead.measured;
   const expTier = experienceTier(finalizedBookingCount);
 
   // Declared + DTI-verified experience (flag + schema gated; soft-probe degrades
@@ -2051,16 +2064,23 @@ export async function renderVendorBySlug({
                 tier (unlike the dense explore card, which suppresses it). Same
                 violet tokens as the explore card's experience chip so the badge
                 reads identically across surfaces. */}
-            <p
-              className="inline-flex w-fit items-center gap-1 rounded-full border border-violet-300/50 bg-violet-50 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-violet-900"
-              title={
-                finalizedBookingCount && finalizedBookingCount > 0
-                  ? `${finalizedBookingCount} finalized event${finalizedBookingCount === 1 ? '' : 's'} through Setnayan.`
-                  : 'New to Setnayan — many excellent vendors are.'
-              }
-            >
-              {expTier.longLabel}
-            </p>
+            {/* Suppressed when the count was not measured — the same thing the
+                dense explore card already does with this chip, so there is
+                precedent for its absence and none for guessing. "New to
+                Setnayan" is honest for a vendor who IS new and defamatory for
+                one who is not, and the two were indistinguishable. */}
+            {bookingCountMeasured ? (
+              <p
+                className="inline-flex w-fit items-center gap-1 rounded-full border border-violet-300/50 bg-violet-50 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-violet-900"
+                title={
+                  finalizedBookingCount && finalizedBookingCount > 0
+                    ? `${finalizedBookingCount} finalized event${finalizedBookingCount === 1 ? '' : 's'} through Setnayan.`
+                    : 'New to Setnayan — many excellent vendors are.'
+                }
+              >
+                {expTier.longLabel}
+              </p>
+            ) : null}
             {/* Rating trust chip (2026-07-02 vendor-website redesign) — surfaces
                 the star average + review count up in the hero beside the
                 experience badge, so the two headline trust signals cluster at the

@@ -64,6 +64,7 @@ export function MobileGuestCarousel({
   tags,
   activeTag,
   allVisibleIds,
+  measured = true,
   total,
   attending,
   pending,
@@ -88,6 +89,14 @@ export function MobileGuestCarousel({
   tags: string[];
   activeTag: string;
   allVisibleIds: string[];
+  /**
+   * False when the guest read was REFUSED. THIS PANEL IS THE ONLY COUNT ON A
+   * PHONE — the page hides its desktop header here on purpose ("the carousel's
+   * Summary panel carries the count"), so an ungated zero is not a duplicate of
+   * a lie told elsewhere, it is the whole lie. Defaults true so the component
+   * stays honest for any caller that has genuinely measured.
+   */
+  measured?: boolean;
   total: number;
   attending: number;
   pending: number;
@@ -209,7 +218,14 @@ export function MobileGuestCarousel({
                 Guest list
               </p>
               <h2 className="text-2xl font-semibold leading-tight tracking-tight text-ink">
-                {total} {total === 1 ? 'guest' : 'guests'}
+                {measured ? (
+                  <>
+                    {total} {total === 1 ? 'guest' : 'guests'}
+                  </>
+                ) : (
+                  // A refused read must never render as a headcount of zero.
+                  'Guests'
+                )}
               </h2>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
@@ -371,13 +387,13 @@ export function MobileGuestCarousel({
           {/* RSVP pills (prototype `mPills`). */}
           <div className="flex gap-1.5">
             <MPill href={buildHref({ rsvp: 'attending' })} active={currentRsvp === 'attending'} tone="attending">
-              <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> {attending}
+              <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> {measured ? attending : '—'}
             </MPill>
             <MPill href={buildHref({ rsvp: 'pending' })} active={currentRsvp === 'pending'} tone="pending">
-              <Clock className="h-3.5 w-3.5" strokeWidth={2} aria-hidden /> {pending}
+              <Clock className="h-3.5 w-3.5" strokeWidth={2} aria-hidden /> {measured ? pending : '—'}
             </MPill>
             <MPill href={buildHref({ rsvp: 'declined' })} active={currentRsvp === 'declined'} tone="declined">
-              <X className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> {declined}
+              <X className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> {measured ? declined : '—'}
             </MPill>
             <MPill href={buildHref({ rsvp: null })} active={!currentRsvp} tone="all">
               All

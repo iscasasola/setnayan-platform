@@ -755,6 +755,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           tags={allTags}
           activeTag={tagFilter}
           allVisibleIds={visible.map((g) => g.guest_id)}
+          measured={guestsMeasured}
           total={stats.total}
           attending={stats.attending}
           pending={stats.pending}

@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import { trackFailure } from '@/lib/telemetry/track-error';
+import { createStallWatchdog } from '@/lib/stall-watchdog';
 
 /**
  * Reusable file-upload widget that targets Cloudflare R2 via the
@@ -164,6 +165,15 @@ export type FileUploadProps = {
 };
 
 const DEFAULT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+/**
+ * How long an upload may move ZERO bytes before it is declared dead.
+ *
+ * Not a total-duration cap — see `lib/stall-watchdog.ts`. 45s is long
+ * enough to ride out a phone changing cell or a slow TLS handshake, and short
+ * enough that nobody sits watching a spinner that will never move.
+ */
+const UPLOAD_STALL_MS = 45_000;
 
 type UploadedItem = {
   /** Local-only ID for React keys + cancellation. */
@@ -685,7 +695,40 @@ export function FileUpload({
       prev.map((i) => (i.id === id ? { ...i, xhr } : i)),
     );
 
+    // STALL WATCHDOG. Every other failure below announces itself with an event
+    // — `error`, `abort`, a non-2xx `load`. A transfer that simply DIES fires
+    // none of them: no event, no `setError`, nothing. The chip then sat at 0%
+    // with a spinner forever, which reads as "still working" and is the one
+    // state the person cannot tell from success in progress. Same shape as the
+    // guards in this codebase that refused in silence.
+    //
+    // XHR's own `xhr.timeout` is the wrong instrument: it caps TOTAL duration,
+    // so it would kill a slow-but-healthy 10 MB video on hotel wifi. This one
+    // measures SILENCE — it is reset by every progress event, so it only fires
+    // when no byte has moved for UPLOAD_STALL_MS.
+    const watchdog = createStallWatchdog({
+      timeoutMs: UPLOAD_STALL_MS,
+      onStall: () => {
+        // Aborting fires the `abort` handler, which removes the chip; it does
+        // not clear this message, so the person is told WHY it stopped instead
+        // of watching a spinner that will never move.
+        try {
+          xhr.abort();
+        } catch {
+          /* already dead — nothing left to stop */
+        }
+        if (!isMountedRef.current) return;
+        setError(
+          `${file.name} stopped uploading — check your connection and pick it again.`,
+        );
+        setInFlight((prev) => prev.filter((i) => i.id !== id));
+      },
+    });
+
     xhr.upload.addEventListener('progress', (evt) => {
+      // Re-armed BEFORE the computable check: bytes moved either way, which is
+      // the only thing this clock is measuring.
+      watchdog.arm();
       if (!evt.lengthComputable) return;
       const pct = Math.round((evt.loaded / evt.total) * 100);
       setInFlight((prev) =>
@@ -694,17 +737,20 @@ export function FileUpload({
     });
 
     xhr.addEventListener('error', () => {
+      watchdog.settle();
       if (!isMountedRef.current) return;
       setError(`Upload failed for ${file.name}. Check your connection and retry.`);
       setInFlight((prev) => prev.filter((i) => i.id !== id));
     });
 
     xhr.addEventListener('abort', () => {
+      watchdog.settle();
       if (!isMountedRef.current) return;
       setInFlight((prev) => prev.filter((i) => i.id !== id));
     });
 
     xhr.addEventListener('load', () => {
+      watchdog.settle();
       if (!isMountedRef.current) return;
       // R2 returns 200 OR 201 on success — anything 2xx is a win.
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -732,6 +778,9 @@ export function FileUpload({
     xhr.open('PUT', presign.uploadUrl, true);
     xhr.setRequestHeader('Content-Type', contentType);
     xhr.send(file);
+    // Armed here too, so a request that never connects at all is caught — not
+    // only one that starts and then stops.
+    watchdog.arm();
   }
 
   function removeItem(id: string) {

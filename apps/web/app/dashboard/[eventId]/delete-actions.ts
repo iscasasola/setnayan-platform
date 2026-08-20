@@ -172,7 +172,26 @@ export async function getEventDeletionImpact(
 
   const HEAD = { count: 'exact' as const, head: true };
   const [guests, photos, bookedVendors, settledOrders] = await Promise.all([
-    readCount(admin.from('guests').select('*', HEAD).eq('event_id', trimmed)),
+    /*
+      🪤 `.is('deleted_at', null)` IS LOAD-BEARING — guests are SOFT-deleted.
+      Removing a guest writes `deleted_at`; the row stays. Every guest-facing
+      read in the app filters it out, and so does the RLS SELECT policy itself
+      (`event_member_can_read_guest … AND deleted_at IS NULL`). This read uses
+      the ADMIN client, so RLS applies no filter — the service role is exactly
+      what makes those rows visible again.
+
+      Measured in prod: "Cale & Ice" holds 6 guest rows of which the couple has
+      only ever seen 2. Without this clause the confirmation said "6 guests go
+      with it" — and because ImpactLines hides zeros, that wrong number was the
+      ONLY figure on the screen, read immediately before an irreversible press.
+    */
+    readCount(
+      admin
+        .from('guests')
+        .select('*', HEAD)
+        .eq('event_id', trimmed)
+        .is('deleted_at', null),
+    ),
     readCount(
       admin.from('papic_photos').select('*', HEAD).eq('event_id', trimmed),
     ),

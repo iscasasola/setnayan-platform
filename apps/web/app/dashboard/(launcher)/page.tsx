@@ -946,8 +946,14 @@ export default async function LauncherPage({
               className="sn-reveal grid grid-cols-2 gap-2.5"
               style={{ animationDelay: '0.58s' }}
             >
-              {upcoming.slice(1).map((event) => (
-                <BoardCardWithMenu key={event.event_id} event={event}>
+              {upcoming.slice(1).map((event, i) => (
+                <BoardCardWithMenu
+                  key={event.event_id}
+                  event={event}
+                  /* Two-up grid: even index = left column. Its menu hangs from
+                     the card's LEFT edge so a 280px panel stays on screen. */
+                  align={i % 2 === 0 ? 'left' : 'right'}
+                >
                   <MobileEventChip
                     event={event}
                     pct={progressByEvent.get(event.event_id) ?? null}
@@ -1011,8 +1017,12 @@ export default async function LauncherPage({
             {/* MOBILE — compact chips, muted (the same treatment the hidden
                 half used to get once revealed). */}
             <div className="grid grid-cols-2 gap-2.5 sm:hidden">
-              {finished.map((event) => (
-                <BoardCardWithMenu key={event.event_id} event={event}>
+              {finished.map((event, i) => (
+                <BoardCardWithMenu
+                  key={event.event_id}
+                  event={event}
+                  align={i % 2 === 0 ? 'left' : 'right'}
+                >
                   <MobileEventChip
                     event={event}
                     pct={progressByEvent.get(event.event_id) ?? null}
@@ -1652,13 +1662,29 @@ function AttentionPill({
     <span className="flex items-center gap-1.5 rounded-lg bg-[color:var(--sn-warning-soft)] px-[9px] py-[5px] text-[color:var(--sn-warning)]">
       <AlertCircle aria-hidden className="h-[13px] w-[13px] shrink-0" />
       {count != null ? (
+        /*
+          🚨 THE TOTAL NEEDS ITS OWN NOUN, AND THE FIRST CUT DID NOT GIVE IT ONE.
+          `summarizeEventDecisions` returns a label that is ALREADY COUNT-LED —
+          "3 payments to settle" — so printing the total straight before it
+          rendered "9 3 payments to settle", and "3 3 payments to settle"
+          whenever one kind was the only kind waiting. Two numbers in a row with
+          nothing between them, on the pill the owner asked for by name.
+
+          "need you" is what makes the first number a TOTAL and the second one a
+          BREAKDOWN. It is also the banner's own word, so the count reads as the
+          same fact that used to sit at the top of the page.
+        */
         <span className="shrink-0 font-mono text-[12px] font-bold leading-none">
-          {count}
+          {count} need you
         </span>
       ) : null}
       <span className="truncate text-[11px] font-bold">
+        {count != null ? <span className="opacity-60">· </span> : null}
         {label}
-        {more > 0 ? (
+        {/* `· N more` is SUPPRESSED once the total is shown: the total already
+            counts the remainder (9 = 3 + 6), so keeping both prints the same
+            arithmetic twice and invites the reader to add them again. */}
+        {more > 0 && count == null ? (
           <span className="font-mono font-normal opacity-70"> · {more} more</span>
         ) : null}
       </span>
@@ -1725,10 +1751,15 @@ function EventAttention({
 function BoardCardWithMenu({
   event,
   tone = 'light',
+  align = 'right',
   children,
 }: {
   event: EventWithRole;
   tone?: 'light' | 'dark';
+  /** Which card edge the popover hangs from — see EventCardMenu's `align`.
+   *  The two-up phone chips MUST alternate or the left column's menu renders
+   *  partly off the left of the screen, where it cannot be scrolled to. */
+  align?: 'left' | 'right';
   children: ReactNode;
 }) {
   if (event.member_type !== 'couple') return <>{children}</>;
@@ -1740,6 +1771,7 @@ function BoardCardWithMenu({
         eventName={event.display_name}
         archived={!!event.archived}
         tone={tone}
+        align={align}
       />
     </div>
   );

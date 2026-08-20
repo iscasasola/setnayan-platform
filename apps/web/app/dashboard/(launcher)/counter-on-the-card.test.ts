@@ -35,6 +35,10 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LAUNCHER = resolve(HERE, 'page.tsx');
 const MENU = resolve(HERE, '_components/event-card-menu.tsx');
+const DELETE_ACTIONS = resolve(
+  HERE,
+  '../../dashboard/[eventId]/delete-actions.ts',
+);
 const read = (p: string) => readFileSync(p, 'utf8');
 
 test('all three card compositions receive their own event’s summary', () => {
@@ -183,5 +187,77 @@ test('a blocked event states the refusal before anything is typed', () => {
     'The blocked branch must render its reason INSTEAD of the confirm form. ' +
       'Asking somebody to type their wedding’s name and then refusing is a ' +
       'worse refusal than offering no button at all.',
+  );
+});
+
+test('the card menu is actually MOUNTED on all five card call sites', () => {
+  const src = stripComments(read(LAUNCHER));
+  // 🚨 THE GAP AN ADVERSARIAL PASS FOUND IN THIS FILE'S FIRST CUT. Every other
+  // assertion here proved the wrapper was DEFINED and that cards were told a
+  // menu would be laid over them (`hasMenu`) — neither of which renders it.
+  // Deleting all five <BoardCardWithMenu> wrappers left the whole launcher
+  // suite green while the menu vanished from the product: the classic
+  // imported-but-not-mounted decoration, in a guard file written to prevent
+  // exactly that.
+  const mounts = src.match(/<BoardCardWithMenu\b/g) ?? [];
+  assert.equal(
+    mounts.length,
+    5,
+    `Expected the menu wrapper to be mounted on all 5 card call sites; found ` +
+      `${mounts.length}. A defined-but-unmounted wrapper is not a control.`,
+  );
+});
+
+test('the two-up chip grids alternate the popover anchor', () => {
+  const src = stripComments(read(LAUNCHER));
+  // The popover is a fixed 280px and a phone chip is ~160px. Hung from the
+  // right edge of a LEFT-column chip it lands ~97px off the left of the
+  // viewport, which an LTR page cannot scroll to — permanently unreachable.
+  const alternating = src.match(/align=\{i % 2 === 0 \? 'left' : 'right'\}/g) ?? [];
+  assert.equal(
+    alternating.length,
+    2,
+    'Both two-up chip grids (Coming up and Finished) must alternate the ' +
+      'popover anchor by column, or half the menus render off-screen.',
+  );
+});
+
+test('the pill never prints its total straight into a count-led label', () => {
+  const src = stripComments(read(LAUNCHER));
+  // summarizeEventDecisions returns "3 payments to settle" — the label ALREADY
+  // leads with a number. Rendering {count} immediately before it produced
+  // "9 3 payments to settle", and "3 3 payments to settle" when one kind was
+  // the only kind waiting. The total needs its own noun.
+  assert.match(
+    src,
+    /\{count\} need you/,
+    'The pill total lost its noun. Printed bare it collides with the label’s ' +
+      'own leading count and the card reads "3 3 payments to settle".',
+  );
+  // And the remainder must not be printed alongside a total that already counts it.
+  assert.match(
+    src,
+    /more > 0 && count == null/,
+    'The "· N more" tail must be suppressed when the total is shown — the ' +
+      'total already includes it, so printing both states the arithmetic twice.',
+  );
+});
+
+test('the removal dialog counts only guests the couple can actually see', () => {
+  const src = stripComments(read(DELETE_ACTIONS));
+  // 🚨 GUESTS ARE SOFT-DELETED. Removing one writes `deleted_at` and leaves the
+  // row; every guest read in the app filters it out, and so does the RLS SELECT
+  // policy. This read uses the ADMIN client, which applies no RLS at all — so
+  // without the clause it counts people the couple deleted long ago.
+  //
+  // Measured in prod: "Cale & Ice" holds 6 rows of which 2 are visible. The
+  // dialog said "6 guests go with it", and because zero-valued lines are hidden
+  // that wrong number was the ONLY figure on a screen read immediately before
+  // an irreversible press.
+  assert.match(
+    src,
+    /\.from\('guests'\)[\s\S]{0,200}?\.is\('deleted_at', null\)/,
+    'The guests count lost its soft-delete filter — the confirmation would ' +
+      'name more people than the couple has ever seen on their own list.',
   );
 });

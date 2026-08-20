@@ -72,7 +72,7 @@ export function MobileGuestCarousel({
   paxProgress,
   teamFilter,
   pendingClaims,
-  unsent = 0,
+  inviteLinkReady = true,
   unseated = 0,
   arrived = 0,
   roleSetKey,
@@ -107,9 +107,24 @@ export function MobileGuestCarousel({
   // Pending invite-claims (review queue) — badges the Journey panel's Confirm
   // step, mirroring the desktop ribbon (redesign Phase 1).
   pendingClaims: number;
-  // Phase 3 live-progress badges, mirroring the desktop ribbon: invitations
-  // not yet sent · attending guests without a seat · day-of arrivals.
-  unsent?: number;
+  /**
+   * 🚨 THIS WAS `unsent?: number` AND IT COULD NEVER FALL. It counted guests
+   * whose `invitation_sent_at` was null — a column with zero writers anywhere,
+   * because this product has no per-guest send to stamp it. The Invite stage
+   * hands out ONE link for everybody. So the step read "32 to send" beside
+   * three siblings whose numbers move, and would have said it forever.
+   *
+   * What that stage actually has is binary: can the link be handed out, or
+   * does it open to "Link not found"? The page already knows — `fetchJoinUrl`
+   * asks `sharedJoinLinkState` and returns null when the event has no address,
+   * is still private, or its token was revoked. This costs no extra read.
+   *
+   * Defaults TRUE: a caller that has not measured must not paint a warning on
+   * a link that is probably fine. Absence of a measurement is not a fault.
+   */
+  inviteLinkReady?: boolean;
+  // Phase 3 live-progress badges: attending guests without a seat · day-of
+  // arrivals. Both are counts of real rows and both move.
   unseated?: number;
   arrived?: number;
   // Iteration 0053 P4 Unit 5: event's role-set key → bulk-assign picker sections.
@@ -271,7 +286,11 @@ export function MobileGuestCarousel({
             {(
               [
                 { key: 'build', label: 'Build', Icon: PencilLine, href: buildHref({}), active: true },
-                { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/invite`, badge: unsent, word: 'to send' },
+                // No number here on purpose — see `inviteLinkReady`. A word
+                // only when the link is dead, because that IS this stage's
+                // outstanding work; the invite page one tap away says why in
+                // full sentences.
+                { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/invite`, badge: inviteLinkReady ? null : 'link not working', word: '' },
                 { key: 'confirm', label: 'Confirm', Icon: CircleCheck, href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims, word: 'to review' },
                 { key: 'seat', label: 'Seat', Icon: LayoutGrid, href: `/dashboard/${eventId}/seating`, badge: unseated, word: 'to seat' },
                 { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}/guests/checkin`, badge: arrived, done: true, word: 'arrived' },

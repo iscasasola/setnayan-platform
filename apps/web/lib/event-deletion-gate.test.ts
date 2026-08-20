@@ -242,3 +242,36 @@ test('paid is read four ways, because a couple records it four ways', () => {
   );
   assert.equal(supplierWasPaid({ ...NONE, hasLoggedPayment: true }), true);
 });
+
+test('a supplier who AGREED releases, whatever else is true', () => {
+  // Owner 2026-08-21: "they can only delete it if the vendors with paid purchase
+  // accepts that this deletion." An 'agreed' IS that acceptance — it releases
+  // even though the day has not passed and the job is not finished, because the
+  // supplier has answered the actual question.
+  assert.equal(
+    supplierIsReleased({
+      eventHasPassed: false,
+      completionStatus: 'awaiting_vendor',
+      vendorStatus: 'deposit_paid',
+      deleteRequestState: 'agreed',
+    }),
+    true,
+    'a supplier who said yes is still holding the deletion — the handshake ' +
+      'exists precisely so this releases',
+  );
+});
+
+test('a pending or declined ask does NOT release', () => {
+  for (const state of ['pending', 'declined', 'cancelled', null]) {
+    assert.equal(
+      supplierIsReleased({
+        eventHasPassed: false,
+        completionStatus: 'awaiting_vendor',
+        vendorStatus: 'deposit_paid',
+        deleteRequestState: state,
+      }),
+      false,
+      `"${state}" released the deletion — only an explicit agreement may`,
+    );
+  }
+});

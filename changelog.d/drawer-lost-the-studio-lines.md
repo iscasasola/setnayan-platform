@@ -47,6 +47,19 @@ local and checked. Behaviour re-measured afterwards and unchanged — the drawer
 still resolves `display: revert`, the strip still `none`, the full rail still
 visible. **The evaluator was right; only its types were wrong.**
 
+🪤 **AND THE GUARD'S VACUITY FLOOR WAS A MADE-UP NUMBER THAT FAILED CI.** It
+demanded `> 200` parsed rules; the stylesheet parses to **180**, so the guard
+rejected a stylesheet it should have accepted. The floor exists for a real
+reason — a walk pointed at nothing would pass silently forever — but a number
+nobody measured is not a floor. Now `> 100` (far under the measured 180, far
+over the 0 a broken walk gives) **plus** a demand that it found the SPECIFIC
+rules it reasons about, so a parser that quietly stopped finding them fails
+here and names the cause.
+🔑 **I VALIDATED A PARAPHRASE, NOT THE TEST.** The standalone script I measured
+with was a rewrite of the test's logic, and it passed while the test failed.
+Re-run by transpiling THE TEST FILE ITSELF: 180 rules, 3 mentions, and all six
+cascade assertions green.
+
 Not verified locally: no `node_modules` in this checkout and `npm run build`
 cannot complete on this machine. Typecheck, lint and the unit run are CI's.
 

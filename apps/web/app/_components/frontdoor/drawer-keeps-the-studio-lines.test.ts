@@ -120,9 +120,35 @@ function winningDisplay(rules: Rule[], cls: string, w: number): string | null {
 
 const visible = (d: string | null) => d === null || d !== 'none';
 
+/** how many rules name this class in any comma-separated branch */
+function mentioning(rules: Rule[], cls: string): number {
+  return rules.filter((r) => r.sel.split(',').some((s) => s.trim().endsWith(cls))).length;
+}
+
 test('the 280px drawer shows what each Studio product does', () => {
   const rules = parse(readFileSync(CSS, 'utf8'));
-  assert.ok(rules.length > 200, `expected to parse the whole stylesheet, got ${rules.length} rules`);
+
+  /*
+    🪤 THIS FLOOR WAS A MADE-UP NUMBER AND IT FAILED CI. It demanded `> 200`
+    rules; the stylesheet parses to 180, so the guard rejected a stylesheet it
+    should have accepted — a vacuity check that had become a false alarm. The
+    lesson is the repo's own: a magic number nobody measured is not a floor.
+
+    Both assertions below are now grounded in something real. 100 sits far
+    under the measured 180 and far over the 0 a broken walk would produce, and
+    the second one demands the SPECIFIC rules this test reasons about — so a
+    parser that silently stopped finding them fails here, naming the cause,
+    instead of passing with nothing to check.
+  */
+  assert.ok(
+    rules.length > 100,
+    `expected to parse the whole stylesheet, got ${rules.length} rules`,
+  );
+  assert.ok(
+    mentioning(rules, '.fd-toolline') >= 2,
+    `expected to find BOTH the icon-strip rule that hides .fd-toolline and the ` +
+      `drawer rule that restores it; found ${mentioning(rules, '.fd-toolline')}`,
+  );
 
   const DRAWER = 800; // ≤1023.98px — the rail is a 280px off-canvas drawer
 

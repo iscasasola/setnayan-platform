@@ -136,8 +136,69 @@ export function chapterHasReadableContent(chapter: {
 export const EMBED_PROVIDERS = ['youtube', 'instagram', 'tiktok'] as const;
 export type EmbedProvider = (typeof EMBED_PROVIDERS)[number];
 
-export const CHAPTER_STATUSES = ['draft', 'published'] as const;
+/**
+ * WHO READS A CHAPTER — three answers, one column (owner 2026-08-20:
+ * *"they also get to choose whether it is only me, private (all in that event
+ * only), public"*).
+ *
+ *   draft      →  only me
+ *   event      →  the people of the attached celebration
+ *   published  →  everyone
+ *
+ * 🔑 THE STORED WORDS ARE NOT THE WORDS ON SCREEN, and that is deliberate. Ten
+ * shipped read paths ask `status = 'published'`, so keeping the audience inside
+ * `status` means every one of them — and every one written in future — refuses
+ * an event-only chapter WITHOUT being edited. Forgetting hides; forgetting
+ * cannot leak. What a person reads is `CHAPTER_AUDIENCE_LABEL`.
+ */
+export const CHAPTER_STATUSES = ['draft', 'event', 'published'] as const;
 export type ChapterStatus = (typeof CHAPTER_STATUSES)[number];
+
+/** The three choices, in the order the composer offers them. */
+export const CHAPTER_AUDIENCES = ['draft', 'event', 'published'] as const;
+
+export const CHAPTER_AUDIENCE_LABEL: Record<ChapterStatus, string> = {
+  draft: 'Only me',
+  event: 'The people of this celebration',
+  published: 'Everyone',
+};
+
+/** What each choice actually does, said before it is pressed. */
+export const CHAPTER_AUDIENCE_NOTE: Record<ChapterStatus, string> = {
+  draft: 'Nobody else can open it. You can keep writing and choose later.',
+  event:
+    'The people of that day can read it — the hosts, the guests who have a seat, ' +
+    'and the suppliers who worked it. It stays off your public page and off Setnayan’s ' +
+    'Stories.',
+  published:
+    'Anyone with your address can read it, and Setnayan may feature it on Stories.',
+};
+
+/**
+ * Is this chapter readable by somebody other than its author?
+ *
+ * The single question behind "needs a story before you can share it" and behind
+ * every this-is-live badge. Never `status !== 'draft'` written out by hand at
+ * each call site — that is the comparison that gets one call site wrong.
+ */
+export function chapterIsShared(status: ChapterStatus): boolean {
+  return status === 'event' || status === 'published';
+}
+
+/**
+ * May this chapter be shared with the celebration's people?
+ *
+ * Only when there IS a celebration. The composer hides the choice rather than
+ * offering one that would be refused, and the database refuses it anyway
+ * (`creator_chapters_event_audience_needs_event`).
+ */
+export function canShareWithEvent(eventId: string | null | undefined): boolean {
+  return typeof eventId === 'string' && eventId.length > 0;
+}
+
+export function isChapterStatus(v: unknown): v is ChapterStatus {
+  return typeof v === 'string' && (CHAPTER_STATUSES as readonly string[]).includes(v);
+}
 
 export type NormalizedEmbed = {
   provider: EmbedProvider;

@@ -22,6 +22,7 @@ import { resolveRenamedPath } from '@/lib/slug-forwarding';
 import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
 import { readGuestSession } from '@/lib/guest-session';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
+import { loadChaptersOnThisDay } from '@/lib/chapters-on-this-day';
 import { canViewSlugEvent, isInvitedAccount } from '@/lib/slug-access';
 import type { DoorwayFacts } from './_lib/site-nav';
 import {
@@ -697,6 +698,30 @@ async function InvitationBody({
     viewerUserId: viewerAccount?.id ?? null,
     checkVendorBooking: (userId) => loadVendorBooking(admin, event.event_id, userId),
   });
+  // ── THE PEOPLE OF THIS CELEBRATION ───────────────────────────────────────
+  //
+  // Owner 2026-08-20: a chapter can be shared with "all in that event only".
+  // This is the question that answer depends on, and it is NOT "did they open
+  // the page": two of six production events are public, so a passer-by opens
+  // this page as an ordinary visitor. Anyone who is genuinely OF this day is
+  // one of four things, and three of them are already resolved above:
+  //
+  //   • the host                     → ownerCapability
+  //   • a booked supplier            → vendorCapability
+  //   • a guest carrying their pass  → the guest session below
+  //   • a signed-in guest holding a seat WITHOUT a current pass
+  //
+  // 🪤 THE FOURTH IS THE ONE THAT WOULD HAVE BEEN MISSED, and it is the most
+  // ordinary person in the list. The guest pass is a cookie with a hard 60-day
+  // life carrying ONE event, while save-the-dates go out 6–12 months ahead — so
+  // the invited cousin is very often a signed-in account with a seat and no
+  // cookie. The seat lookup already exists; it just only ran inside the
+  // private-event gate, which never runs on a public event at all.
+  const viewerHoldsASeat =
+    viewerAccount?.id && !ownerCapability
+      ? (await findGuestSeatForUser(event.event_id, viewerAccount.id)) !== null
+      : false;
+
   // ── THE TWO DOORS, BEFORE THE DAY. ───────────────────────────────────────
   //
   // The 3D walk-through of the reception and the money-gift page already have
@@ -779,6 +804,14 @@ async function InvitationBody({
     // are null for everyone else, so nothing renders for a stranger.
     ownerCapability,
     vendorCapability,
+    // The stories written about this day, for the people of this day. Loaded
+    // ONLY for a viewer the event recognises — a passer-by on a public event
+    // page is not one of them — so a chapter shared with "the people of this
+    // celebration" cannot reach the internet through this route.
+    chaptersOnThisDay:
+      ownerCapability || vendorCapability || viewerHoldsASeat || session?.event_id === event.event_id
+        ? await loadChaptersOnThisDay(event.event_id)
+        : [],
   };
   const renderAnonymous = (reason: AnonymousReason) => (
     <SiteBody

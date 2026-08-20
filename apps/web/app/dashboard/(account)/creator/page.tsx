@@ -1,10 +1,15 @@
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
-import { Clapperboard, Globe, Handshake, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { Check, Clapperboard, Globe, Handshake, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { loadLinkableEvents, type LinkableEvent } from '@/lib/chapter-event-participation';
 import {
+  canShareWithEvent,
+  CHAPTER_AUDIENCE_LABEL,
+  CHAPTER_AUDIENCE_NOTE,
+  CHAPTER_AUDIENCES,
+  chapterIsShared,
   CHAPTER_BODY_MAX,
   CHAPTER_KINDS,
   CHAPTER_KIND_LABEL,
@@ -24,8 +29,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   createChapter,
   deleteChapter,
-  publishChapter,
-  unpublishChapter,
+  setChapterAudience,
   updateChapter,
 } from './actions';
 import {
@@ -60,8 +64,6 @@ type ChapterRow = {
 const FLASH: Record<string, string> = {
   created: 'Chapter created.',
   saved: 'Chapter saved.',
-  published: 'Chapter published.',
-  unpublished: 'Chapter moved back to draft.',
   deleted: 'Chapter deleted.',
   accepted: 'Offer accepted — the vendor was notified.',
   declined: 'Offer declined.',
@@ -476,6 +478,7 @@ function ChapterCard({
     vendor_ids?: string[];
   };
   const published = c.status === 'published';
+  const shared = chapterIsShared(c.status);
 
   return (
     <div className="sn-tile space-y-4">
@@ -497,14 +500,15 @@ function ChapterCard({
                 {EMBED_PROVIDER_LABEL[c.embed_provider]}
               </span>
             ) : null}
+            {/* The badge says WHO, not whether a switch is on. "Draft" told
+                somebody sharing with one celebration that their finished piece
+                was unfinished. */}
             <span
               className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                published
-                  ? 'bg-success-100 text-success-800'
-                  : 'bg-ink/[0.06] text-ink/60'
+                shared ? 'bg-success-100 text-success-800' : 'bg-ink/[0.06] text-ink/60'
               }`}
             >
-              {published ? 'Published' : 'Draft'}
+              {CHAPTER_AUDIENCE_LABEL[c.status]}
             </span>
           </div>
         </div>
@@ -571,63 +575,74 @@ function ChapterCard({
         </form>
       </details>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
-        {published ? (
-          <form action={unpublishChapter}>
-            <input type="hidden" name="chapter_id" value={c.chapter_id} />
-            <SubmitButton
-              className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10"
-              pendingLabel="Unpublishing…"
-            >
-              Move to draft
-            </SubmitButton>
-          </form>
-        ) : (
-          <>
-            <form action={publishChapter}>
-              <input type="hidden" name="chapter_id" value={c.chapter_id} />
-              <SubmitButton
-                className="button-primary inline-flex items-center gap-1"
-                pendingLabel="Publishing…"
-              >
-                <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Publish
-              </SubmitButton>
-            </form>
-            {/* Publish-time expectation (readiness verdict 2026-07-16 · B5):
-                say what publish DOES — live public page + possible Real
-                Stories featuring — so nobody is surprised either way.
-                EXTENDED 2026-08-12: publishing now also switches the public
-                page ON when it is off. That default-FALSE switch had never been
-                turned on by anyone in prod, so a published chapter used to land
-                somewhere nobody could reach. A privacy-relevant change is
-                stated HERE, before the press — never discovered afterwards. */}
-            <span className="min-w-0 max-w-xs text-[11px] leading-snug text-ink/50">
-              {!slug ? (
-                <>
-                  First pick your web address in{' '}
-                  <Link
-                    href="/dashboard/profile#url-slug"
-                    className="underline decoration-ink/25 underline-offset-2 hover:text-ink"
-                  >
-                    Profile
-                  </Link>{' '}
-                  — that address is where people will read your story.
-                </>
-              ) : publicProfileEnabled ? (
-                <>
-                  Published chapters are visible on your public page right away;
-                  Setnayan may feature standout chapters on Stories.
-                </>
-              ) : (
-                <>
-                  Publishing also switches on your public page at /u/{slug} so
-                  people can read this. Your private event details stay private.
-                </>
-              )}
-            </span>
-          </>
-        )}
+      {/* WHO READS THIS — the whole decision in one row of three (owner
+          2026-08-20). It replaced a Publish button and a "Move to draft"
+          button: two doors onto one question, with no way at all to say the
+          third answer. The current choice is the pressed one; pressing another
+          moves it. */}
+      <div className="space-y-2 border-t border-ink/10 pt-3">
+        <p className="text-xs font-medium text-ink">Who can read this?</p>
+        <div className="flex flex-wrap items-center gap-2">
+          {CHAPTER_AUDIENCES.map((choice) => {
+            const current = c.status === choice;
+            // The middle answer needs a celebration to share WITH. Offering it
+            // on a chapter about no celebration would be a button whose only
+            // outcome is a refusal.
+            if (choice === 'event' && !canShareWithEvent(c.event_id)) return null;
+            return (
+              <form action={setChapterAudience} key={choice}>
+                <input type="hidden" name="chapter_id" value={c.chapter_id} />
+                <input type="hidden" name="audience" value={choice} />
+                <SubmitButton
+                  className={
+                    current
+                      ? 'inline-flex items-center gap-1 rounded-full bg-mulberry px-3 py-1.5 text-xs font-medium text-white'
+                      : 'inline-flex items-center gap-1 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5 hover:text-ink'
+                  }
+                  pendingLabel="Saving…"
+                >
+                  {current ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> : null}
+                  {CHAPTER_AUDIENCE_LABEL[choice]}
+                </SubmitButton>
+              </form>
+            );
+          })}
+        </div>
+        <p className="text-[11px] leading-snug text-ink/55">
+          {CHAPTER_AUDIENCE_NOTE[c.status]}
+        </p>
+        {/* Everything the "Everyone" answer depends on, said BEFORE it is
+            pressed — a privacy-relevant change is never discovered afterwards.
+            (2026-07-16 · B5, extended 2026-08-12: choosing Everyone also
+            switches the public page on when it is off. That default-FALSE
+            switch had never been turned on by anyone in production, so a
+            published chapter used to land somewhere nobody could reach.) */}
+        {c.status !== 'published' ? (
+          <p className="text-[11px] leading-snug text-ink/50">
+            {!slug ? (
+              <>
+                To choose Everyone, pick your web address first in{' '}
+                <Link
+                  href="/dashboard/profile#url-slug"
+                  className="underline decoration-ink/25 underline-offset-2 hover:text-ink"
+                >
+                  Profile
+                </Link>{' '}
+                — that address is where people will read your story.
+              </>
+            ) : publicProfileEnabled ? (
+              <>Setnayan may feature standout chapters on Stories.</>
+            ) : (
+              <>
+                Choosing Everyone also switches on your public page at /u/{slug} so
+                people can read this. Your private event details stay private.
+              </>
+            )}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
         <form action={deleteChapter} className="ml-auto">
           <input type="hidden" name="chapter_id" value={c.chapter_id} />
           <SubmitButton

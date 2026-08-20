@@ -32,6 +32,13 @@
  * Run: pnpm --filter @setnayan/web test:db
  */
 
+/*
+ * ⚠ THE CONSTRAINT WAS RENAMED ON 2026-08-20 — `creator_chapters_published_needs_body`
+ * → `creator_chapters_shared_needs_body`. The RULE did not change, it WIDENED: a
+ * chapter can now also be shared with the people of one celebration ('event'),
+ * and that is just as much a thing somebody else opens, so the old name had
+ * become a lie about its own scope. See migration 20271150237136.
+ */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
@@ -91,7 +98,7 @@ test('a published chapter with NO story is refused by the DATABASE', async () =>
          VALUES ($1, 'Empty', 'travel', 'published', now())`,
         [author],
       ),
-    /creator_chapters_published_needs_body/,
+    /creator_chapters_shared_needs_body/,
     'the app action validates first with a readable sentence; this is the control',
   );
   await db.exec('ROLLBACK').catch(() => {});
@@ -108,7 +115,7 @@ test('a video CANNOT substitute for the story on a published chapter', async () 
                  'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'youtube', 'published', now())`,
         [author],
       ),
-    /creator_chapters_published_needs_body/,
+    /creator_chapters_shared_needs_body/,
   );
   await db.exec('ROLLBACK').catch(() => {});
 });
@@ -121,7 +128,7 @@ test('whitespace is not a story', async () => {
          VALUES ($1, 'Blank', 'travel', '   ', 'published', now())`,
         [author],
       ),
-    /creator_chapters_published_needs_body/,
+    /creator_chapters_shared_needs_body/,
   );
   await db.exec('ROLLBACK').catch(() => {});
 });

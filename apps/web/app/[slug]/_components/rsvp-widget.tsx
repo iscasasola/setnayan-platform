@@ -200,13 +200,18 @@ export function RsvpWidget({
             displayed to them whatever the couple had written ("seat away from
             Tita"), and submitting the RSVP overwrote it. Never bind a
             guest-facing field to `notes`. */}
+        {/* The label one line above already uses the event's own words; this
+            placeholder was hardcoded to a sample couple, so EVERY event — a
+            birthday, a graduation, a debut — asked its guests to write to
+            "Maria & Juan". Even the seeded sample is Maria & JOSE, so the demo
+            was wrong by a name. */}
         <textarea
           id="guest_note"
           name="guest_note"
           rows={3}
           defaultValue={guest.guest_note ?? ''}
           className="input-field min-h-[88px] resize-y py-2"
-          placeholder="Anything you'd like Maria &amp; Juan to know."
+          placeholder={`Anything you'd like ${words.theOrganizer} to know.`}
         />
       </div>
 

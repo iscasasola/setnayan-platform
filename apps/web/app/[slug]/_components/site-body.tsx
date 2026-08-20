@@ -1021,7 +1021,10 @@ export async function SiteBody({
               hasDetails: menuSections.details,
               liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
               destinations: {
-                camera: hostCameraOpen ? '/papic/guest' : null,
+                // Carries the event so the guest camera's refusal screen can
+                // send an unrecognised visitor BACK TO THIS INVITATION instead
+                // of to Setnayan's homepage — which was the only way off it.
+                camera: hostCameraOpen ? `/papic/guest?from=${event.slug}` : null,
                 watch: `/${event.slug}/hub`,
                 join: `/${event.slug}/invite`,
               },
@@ -1827,7 +1830,9 @@ export async function SiteBody({
                 camera: papicGuest
                   ? `/papic/me/${guest.qr_token}`
                   : hostCameraOpen
-                    ? '/papic/guest'
+                    ? // Same reason as the anonymous tree: carry the event so a
+                      // refusal can hand them back their invitation.
+                      `/papic/guest?from=${event.slug}`
                     : null,
                 watch: `/${event.slug}/hub`,
                 join: `/${event.slug}/invite`,

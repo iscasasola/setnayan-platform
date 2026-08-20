@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6192
+# facts: 6199
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     600
-#   col       4527
+#   tpriv     598
+#   col       4533
 #   policy    841
 #   view      8
-#   func      212
+#   func      215
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -210,8 +210,6 @@ tpriv	public.event_vendor_working_notes|authenticated	SIUD
 tpriv	public.event_vendors|anon	SIUD
 tpriv	public.event_vendors|authenticated	SIUD
 tpriv	public.event_walkthrough_zones|authenticated	SIUD
-tpriv	public.events|anon	D
-tpriv	public.events|authenticated	D
 tpriv	public.faith_vocab|anon	SIUD
 tpriv	public.faith_vocab|authenticated	SIUD
 tpriv	public.feature_policy|anon	SIUD
@@ -1851,6 +1849,12 @@ col	public.event_vendors.created_at	anon=SIU authenticated=SIU
 col	public.event_vendors.crew_meal_covered	anon=SIU authenticated=SIU
 col	public.event_vendors.crew_size	anon=SIU authenticated=SIU
 col	public.event_vendors.customer_confirmed_received_at	anon=SIU authenticated=SIU
+col	public.event_vendors.delete_answered_at	anon=SIU authenticated=SIU
+col	public.event_vendors.delete_answered_by_user_id	anon=SIU authenticated=SIU
+col	public.event_vendors.delete_decline_reason	anon=SIU authenticated=SIU
+col	public.event_vendors.delete_request_state	anon=SIU authenticated=SIU
+col	public.event_vendors.delete_requested_at	anon=SIU authenticated=SIU
+col	public.event_vendors.delete_requested_by_user_id	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_acknowledged_at	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_method_id	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_method_label	anon=SIU authenticated=SIU
@@ -6022,6 +6026,7 @@ func	public.booking_fee_centavos(p_amount_centavos bigint)	secdef=no exec=anon,a
 func	public.booking_fee_proposal_cleared(p_proposal_id uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.bundles_granting_sku(p_child text)	secdef=no exec=anon,authenticated search_path=public
 func	public.call_rtc_can_access(p_topic text)	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.cancel_event_deletion_request(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_service_slot_reservation(p_reservation_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_vendor_lock_request(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.claim_anon_mint_slot(p_ip_hash text, p_max integer, p_window_seconds integer)	secdef=yes exec=anon,authenticated search_path=pg_catalog, public
@@ -6136,6 +6141,7 @@ func	public.reject_vendor_token_purchase(p_purchase_id uuid, p_reason text)	secd
 func	public.release_schedule_pools(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.release_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.report_guest_capture(p_reporter_guest_id uuid, p_capture_id uuid, p_reason text, p_details text)	secdef=yes exec=anon,authenticated search_path=public
+func	public.request_event_deletion(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.reserve_service_slot_seats(p_event_id uuid, p_slot_id uuid, p_reserved_date date, p_party_size integer, p_guest_note text)	secdef=yes exec=authenticated search_path=public
 func	public.resolve_custom_domain(p_host text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_event_subdomain(p_label text)	secdef=yes exec=anon,authenticated search_path=public
@@ -6167,6 +6173,7 @@ func	public.unread_message_threads_by_event()	secdef=yes exec=anon,authenticated
 func	public.unread_message_threads_by_vendor()	secdef=yes exec=anon,authenticated search_path=public
 func	public.user_holds_founder_seat(p_user_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.vendor_agree_to_lock(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.vendor_answer_event_deletion(p_event_vendor_id uuid, p_agree boolean, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_booking_daily_series(p_vendor_profile_id uuid, p_days integer, p_service_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_booking_monthly_series(p_vendor_profile_id uuid, p_months integer, p_service_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_cancel_admin_motion(p_motion_id uuid)	secdef=yes exec=anon,authenticated search_path=public

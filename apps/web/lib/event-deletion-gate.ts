@@ -150,7 +150,22 @@ export function supplierIsReleased(args: {
   completionStatus: string | null;
   /** `event_vendors.status` — the older booking enum. */
   vendorStatus: string | null;
+  /**
+   * `event_vendors.delete_request_state` — the supplier's own answer.
+   *
+   * Owner 2026-08-21: *"they can only delete it if the vendors with paid
+   * purchase accepts that this deletion."* An `'agreed'` here IS that
+   * acceptance, and it releases regardless of whether the day has passed or the
+   * job is finished — a supplier who has said yes has said yes.
+   */
+  deleteRequestState?: string | null;
 }): boolean {
+  // 🔑 THE SUPPLIER'S OWN YES OUTRANKS EVERY DERIVED SIGNAL. The completion
+  // ladder below is how we RELEASE a supplier who never answered; this is the
+  // supplier answering. Checked before the dispute clause on purpose: a
+  // supplier can look at a disputed job and still agree the celebration may go.
+  if (args.deleteRequestState === 'agreed') return true;
+
   // 🚨 A DISPUTE IS NEVER A RELEASE. `disputed` means the couple and the
   // supplier disagree about whether the job was done — the one state where
   // deleting the evidence is least acceptable. Checked first so no later

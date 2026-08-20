@@ -4,6 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import {
+  collectEventMediaRefs,
+  sweepEventMedia,
+} from '@/lib/event-media-sweep';
+import {
   BOOKED_VENDOR_STATUSES,
   SETTLED_ORDER_STATUSES,
   confirmationMatches,
@@ -350,6 +354,19 @@ export async function deleteOwnEvent(formData: FormData): Promise<DeleteResult> 
     The delete uses the admin client with the membership check above as the
     authorization — the house pattern named in `archive-actions.ts`.
   */
+  /*
+    🪤 COLLECT THE FILES BEFORE THE DELETE — afterwards there is no row left to
+    tell us which objects were theirs. `lib/erasure/purge.ts` states the same
+    rule for the same reason. The keys live on `papic_photos` and on the event
+    itself, and both are gone the moment the DELETE lands.
+
+    A collection FAILURE returns null, and null is not an empty list: it means
+    we could not read what to remove. The delete still proceeds — the couple
+    asked for it, and refusing at this point would leave them unable to remove
+    anything because of a storage read — but nothing is reported as swept.
+  */
+  const mediaRefs = await collectEventMediaRefs(eventId);
+
   const { data, error } = await createAdminClient()
     .from('events')
     .delete()
@@ -370,6 +387,29 @@ export async function deleteOwnEvent(formData: FormData): Promise<DeleteResult> 
       code: 'not_found',
       message: 'We couldn’t find that celebration.',
     };
+  }
+
+  /*
+    THE FILES GO LAST, and only once the row is really gone.
+    Owner 2026-08-20, asked directly: when a couple deletes their own
+    celebration, the photographs go with it.
+
+    🔑 THIS EXTENDS THE PHOTO LOCK RATHER THAN REVERSING IT. "not delete, just
+    compress" and "we keep it for life" govern RETENTION — what time may do to
+    photographs nobody asked us to remove. This is the one case they never
+    covered: the couple themselves asking. The retention sweep is untouched.
+
+    Best-effort by contract. The celebration IS deleted by this point; a failed
+    file delete leaves an orphaned object, never lost data, and must not turn a
+    successful removal into an error message.
+  */
+  if (mediaRefs && mediaRefs.length > 0) {
+    const swept = await sweepEventMedia(mediaRefs);
+    if (swept.failed > 0) {
+      console.error(
+        `[delete-event] ${swept.failed} of ${mediaRefs.length} files could not be removed`,
+      );
+    }
   }
 
   revalidatePath('/dashboard');

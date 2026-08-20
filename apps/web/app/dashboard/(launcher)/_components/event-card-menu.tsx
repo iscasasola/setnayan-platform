@@ -250,7 +250,7 @@ export function EventCardMenu({
                   <span>
                     <span className="block font-semibold">Remove for good</span>
                     <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
-                      Deletes everything. Can’t be undone.
+                      Photos and everything else, gone for good.
                     </span>
                   </span>
                 </button>
@@ -362,7 +362,25 @@ function ImpactLines({ impact }: { impact: DeletionImpact }) {
       ) : (
         <>Everything on it goes, including the page your guests use. </>
       )}
-      This can’t be undone.
+      {/*
+        ⚠ THE SENTENCE THE OWNER ASKED FOR, 2026-08-20: "give them the
+        information that you will also lose your photos and information of the
+        event permanently."
+
+        It is separate from the counted line above on purpose. That line lists
+        WHAT — and a count reads as an inventory, something you could imagine
+        asking us to restore. This says the photographs are GONE, in the two
+        words people actually check for. Until today it was not even true that
+        the files went; now it is, so the warning has to say so before the press
+        rather than after.
+
+        "Deleted for good" and "can't be undone" are not the same promise. The
+        second one is about the button; the first is about the photographs.
+      */}
+      <strong className="font-semibold text-ink">
+        Your photos and everything about this celebration are deleted for good
+      </strong>{' '}
+      — you can’t bring any of it back, and neither can we.
     </p>
   );
 }

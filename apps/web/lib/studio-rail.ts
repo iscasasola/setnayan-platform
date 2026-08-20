@@ -51,7 +51,7 @@ export function railToolsSignedOut(): ReadonlyArray<RailTool> {
  *
  * 🔴 AND A ROW IS DROPPED WHEN ITS SURFACE IS OFF FOR THAT EVENT TYPE. `monogram`
  * is WEDDING-ONLY and `/dashboard/[id]/monogram` `redirect()`s away with no
- * message — so a birthday organiser pressing "Palogo" would be silently dumped
+ * message — so a birthday organiser pressing "Logo Maker" would be silently dumped
  * on their event page, strictly worse than the marketing page it replaced. The
  * couple's own Studio hub filters on exactly this field; this is the same
  * predicate, not a second one.

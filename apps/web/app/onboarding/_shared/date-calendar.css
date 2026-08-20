@@ -71,7 +71,7 @@
  * never describe a colour the calendar has stopped using. */
 .sn-datecal-legend{display:flex;flex-wrap:wrap;gap:10px 14px;margin-top:12px;list-style:none;padding:0;}
 .sn-datecal-legend li{display:inline-flex;align-items:center;gap:6px;font-family:var(--cal-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--cal-ink-soft);}
-.sn-datecal-legend .swatch{width:14px;height:14px;border-radius:4px;border:1px solid var(--cal-line-2);display:inline-block;}
+.sn-datecal-legend .swatch{width:14px;height:14px;border-radius: var(--m-r-sm);border:1px solid var(--cal-line-2);display:inline-block;}
 .sn-datecal-legend .swatch.heat-0{background:var(--cal-surface);}
 .sn-datecal-legendnote{margin-top:8px;font-size:12px;line-height:1.5;color:var(--cal-ink-soft);}
 /* The hint line, for flows that do not have the wedding shell's `.micro`. */

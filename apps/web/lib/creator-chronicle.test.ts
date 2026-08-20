@@ -17,6 +17,17 @@ import {
   rankChronicle,
 } from './creator-chronicle';
 
+test('chronicleDay takes the author’s own answer first', () => {
+  assert.equal(
+    chronicleDay({
+      happenedOn: '2019-05-04',
+      eventDate: '2026-12-18',
+      publishedAt: '2026-08-12',
+    }),
+    '2019-05-04',
+  );
+});
+
 test('chronicleDay prefers the celebration over the publish date', () => {
   assert.equal(
     chronicleDay({ eventDate: '2019-05-04', publishedAt: '2026-08-12 15:50:28+00' }),
@@ -36,6 +47,40 @@ test('chronicleDay returns null for an unpublished standalone chapter', () => {
   assert.equal(chronicleDay({ eventDate: '', publishedAt: 'not a date' }), null);
 });
 
+test('a chapter about no celebration files under the day it HAPPENED, not the day it was typed', () => {
+  // The whole reason `happened_on` exists: without it a 2019 trip written up
+  // today lands in 2026.
+  const days = [
+    chronicleDay({ happenedOn: '2019-07-01', publishedAt: '2026-08-20' }),
+    chronicleDay({ happenedOn: null, publishedAt: '2026-08-20' }),
+  ];
+  assert.deepEqual(days, ['2019-07-01', '2026-08-20']);
+});
+
+test('THE NUMBER RESTARTS EACH YEAR — like episodes inside a season', () => {
+  const { numberByIndex, yearByIndex } = rankChronicle([
+    '2026-12-18', // 2026's third
+    '2026-02-02', // 2026's first
+    '2019-05-04', // 2019's first
+    '2026-06-06', // 2026's second
+  ]);
+  assert.equal(numberByIndex.get(2), 1, '2019 starts again at 1');
+  assert.equal(numberByIndex.get(1), 1, 'and so does 2026');
+  assert.equal(numberByIndex.get(3), 2);
+  assert.equal(numberByIndex.get(0), 3);
+  assert.equal(yearByIndex.get(2), '2019');
+});
+
+test('ADDING AN OLD MEMORY MOVES ONLY ITS OWN YEAR', () => {
+  // The reason numbering is per-year and not across a life: a number somebody
+  // has already read must not change because of something in another year.
+  const before = rankChronicle(['2026-02-02', '2026-06-06']);
+  const after = rankChronicle(['2026-02-02', '2026-06-06', '2019-05-04']);
+  assert.equal(before.numberByIndex.get(0), after.numberByIndex.get(0));
+  assert.equal(before.numberByIndex.get(1), after.numberByIndex.get(1));
+  assert.equal(after.numberByIndex.get(2), 1, 'the old memory opens its own year');
+});
+
 test('THE REGRESSION THIS EXISTS FOR: writing up an old day does not make it the newest chapter', () => {
   // Published newest-first, as every stored chapter list arrives:
   //   [0] the 2026 wedding, published in June
@@ -45,8 +90,8 @@ test('THE REGRESSION THIS EXISTS FOR: writing up an old day does not make it the
     chronicleDay({ eventDate: '2019-05-04', publishedAt: '2026-08-12' }),
   ];
   const { numberByIndex, newestFirst } = rankChronicle(days);
-  assert.equal(numberByIndex.get(1), 1, 'the 2019 engagement is Chapter 1');
-  assert.equal(numberByIndex.get(0), 2, 'the 2026 wedding is Chapter 2');
+  assert.equal(numberByIndex.get(1), 1, 'the 2019 engagement opens 2019');
+  assert.equal(numberByIndex.get(0), 1, 'the 2026 wedding opens 2026');
   assert.deepEqual(newestFirst, [0, 1], 'reading order is newest day first');
 });
 
@@ -58,8 +103,8 @@ test('an undated chapter carries no number and sits at the tail', () => {
   ]);
   assert.equal(numberByIndex.has(0), false);
   assert.equal(yearByIndex.has(0), false);
-  assert.equal(numberByIndex.get(2), 1);
-  assert.equal(numberByIndex.get(1), 2);
+  assert.equal(numberByIndex.get(2), 1, '2024 opens with its own Chapter 1');
+  assert.equal(numberByIndex.get(1), 1, 'and 2026 opens with its own');
   assert.deepEqual(newestFirst, [1, 2, 0]);
 });
 
@@ -94,7 +139,7 @@ test('groupChronicleByYear blocks by year, newest first, undated last', () => {
     blocks[0]!.entries.map((e) => e.item.t),
     ['wedding', 'reception'],
   );
-  assert.equal(blocks[0]!.entries[0]!.number, 3, 'the 2026 wedding is the third milestone');
+  assert.equal(blocks[0]!.entries[0]!.number, 2, 'the 2026 wedding is 2026’s second');
   assert.equal(blocks[1]!.entries[0]!.number, 1);
   assert.equal(blocks[2]!.entries[0]!.number, null, 'an undated chapter has no number');
 });

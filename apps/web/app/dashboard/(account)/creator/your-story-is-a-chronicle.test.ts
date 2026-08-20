@@ -147,3 +147,68 @@ test('a ?event= from the browser only preselects a celebration really on offer',
       'preselect a celebration this account cannot attach.',
   );
 });
+
+/* ── the season shape (owner 2026-08-20, second ruling) ─────────────────── */
+
+test('the composer asks WHEN it happened', () => {
+  const body = code(page());
+  assert.match(
+    body,
+    /name="happened_on"/,
+    'The one question that puts a chapter in the right year is gone. Without it a ' +
+      '2019 trip written up today files under 2026.',
+  );
+  assert.match(
+    body,
+    /max=\{manilaToday\(\)\}/,
+    'The date ceiling is not Manila’s today. `new Date().toISOString()` is today ' +
+      'in UTC — yesterday for eight hours of every Philippine evening — so ' +
+      'somebody writing up tonight’s party would find their own day greyed out.',
+  );
+});
+
+test('the chronicle reads the author’s own day FIRST', () => {
+  assert.match(
+    code(page()),
+    /happenedOn: c\.happened_on/,
+    'The composer stopped handing the author’s stated day to the chronicle, so ' +
+      'their answer changes nothing.',
+  );
+});
+
+test('the public timeline shows the YEAR, and never says "Your year"', () => {
+  const profile = code(
+    readFileSync(join(process.cwd(), 'app', 'u', '[userSlug]', 'page.tsx'), 'utf8'),
+  );
+  assert.match(
+    profile,
+    /groupChronicleByYear\(chapters/,
+    'The public timeline is a flat list again — nobody reading a person’s story ' +
+      'ever sees a year.',
+  );
+  assert.match(profile, /uprof-tl-year/, 'the year heading is gone');
+  assert.equal(
+    count(profile, /Your year/g),
+    0,
+    '"Your year" is the name of a DIFFERENT page in the same menu — the one that ' +
+      'looks forward at what is coming. Same words on two things is exactly the ' +
+      'collision the Event Hub vocabulary lock exists to prevent.',
+  );
+  assert.match(
+    profile,
+    /happenedOn: c\.happened_on/,
+    'The public timeline stopped reading the day the author gave it.',
+  );
+});
+
+test('the number restarts inside each year', () => {
+  const lib = code(
+    readFileSync(join(process.cwd(), 'lib', 'creator-chronicle.ts'), 'utf8'),
+  );
+  assert.match(
+    lib,
+    /seenInYear/,
+    'Numbering runs across a whole life again. Then a memory added years later ' +
+      'shifts the number on every chapter after it — including ones already read.',
+  );
+});

@@ -88,6 +88,37 @@ function readBody(formData: FormData): string | undefined {
 }
 
 /**
+ * WHEN DID THIS HAPPEN? — the author's own answer, and the first thing the
+ * chronicle asks (lib/creator-chronicle.chronicleDay).
+ *
+ * Returns `undefined` when the form did not carry the field (leave the column
+ * alone), `null` when it was submitted empty (an explicit clear — the day then
+ * falls back to the attached celebration, or to the publish date).
+ *
+ * 🔑 A DAY, NOT AN INSTANT. `<input type="date">` posts `YYYY-MM-DD` and it is
+ * stored exactly as typed. Parsing it into a Date to "validate" it is how a
+ * 12 December memory becomes the 11th for a reader west of Greenwich — the
+ * 2026-08-04 sweep found that on 41 screens.
+ */
+function readHappenedOn(formData: FormData): string | null | undefined {
+  if (!formData.has('happened_on')) return undefined;
+  const raw = formData.get('happened_on');
+  const day = typeof raw === 'string' ? raw.trim() : '';
+  if (day.length === 0) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    fail('Give the day as a date, or leave it blank.');
+  }
+  // Tomorrow in Manila is the ceiling, matching the database CHECK: the servers
+  // run in UTC and the person writing is eight hours ahead, so "today" here has
+  // to mean their today, not Greenwich's.
+  const manilaToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  if (day > manilaToday) {
+    fail('A chapter is something that already happened — pick a day up to today.');
+  }
+  return day;
+}
+
+/**
  * Substrate = the raw moat behind the chapter (Papic gallery id / booked vendor
  * ids). Stored now, surfaced publicly in CP-3/CP-4. We keep a conservative,
  * explicit shape and drop anything else.
@@ -186,6 +217,8 @@ export async function createChapter(formData: FormData) {
     insert.embed_provider = embed.embed_provider;
   }
   if (body !== undefined) insert.body = body;
+  const happenedOn = readHappenedOn(formData);
+  if (happenedOn !== undefined) insert.happened_on = happenedOn;
   // 🔴 THE WRITER THIS COLUMN NEVER HAD. `creator_chapters.event_id` was
   // selected, joined and commented about in three files, and set by NOTHING —
   // so the cross-links between a couple's own chapter and Setnayan's editorial
@@ -218,6 +251,9 @@ export async function updateChapter(formData: FormData) {
   }
   const body = readBody(formData);
   if (body !== undefined) update.body = body;
+  // Clearing the day is a real answer, so `null` must be written, not skipped.
+  const happenedOn = readHappenedOn(formData);
+  if (happenedOn !== undefined) update.happened_on = happenedOn;
   const eventId = await readEventLink(formData, supabase, userId);
   // Unlinking is a real answer, so `null` must be written, not skipped —
   // `undefined` (field absent) is the only case that leaves the column alone.

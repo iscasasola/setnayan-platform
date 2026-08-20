@@ -8,15 +8,34 @@
  *  year, or a milestone? … They do not decide what chapter they are on. we
  *  automate it, they just complete what should be posted."
  *
- *   • A CHAPTER IS A MILESTONE — one celebration, told once. Not a year.
- *     The product already reads it that way: Life-Flash calls a celebration
- *     with no photos yet a "chapter still to fill", and the composer attaches
- *     exactly one celebration to one chapter.
- *   • THE YEAR IS A HEADING, NOT A VOLUME. It groups the chapters that happened
- *     in it and is written on nothing.
- *   • THE NUMBER IS DERIVED, NEVER TYPED. Oldest milestone = Chapter 1.
+ * AMENDED THE SAME DAY, by the owner: *"we want the chapters to make sense.
+ * just like in a book. or in an adventure novel of a person. chapters are
+ * defined not just per celebration. for tv shows. season is annual and episode
+ * is everything that happened for that season."*
  *
- * 🛑 WHY NOT "VOLUME", WHICH IS THE OBVIOUS WORD AND IS ALREADY TAKEN.
+ *   • THE YEAR IS THE SEASON — and it is written as its own name, `2026`.
+ *     A TV season needs the word "Season" because a show's year has no name of
+ *     its own; a person's year does. It also costs nothing to explain, reads
+ *     the same in English, Tagalog and Bisaya, and can never be renumbered.
+ *   • A CHAPTER IS THE EPISODE — one thing that happened. **Not one per
+ *     celebration.** A trip, a move, an ordinary day worth keeping are all
+ *     chapters; the celebrations are simply the ones we already know about.
+ *   • THE NUMBER IS DERIVED, NEVER TYPED, AND IT RESTARTS EACH YEAR.
+ *     `2026 · Chapter 3` is the third thing that happened to them in 2026.
+ *
+ * 🛑 WHY NOT "SEASON", WHICH IS THE OWNER'S OWN WORD. Measured, not assumed:
+ * "season" already means THREE other things a customer meets — the weather on
+ * the couple's own date picker (`Cool dry season`, `Peak season · book vendors
+ * early`), an `Off-season savings` filter/badge/vendor mechanic in the
+ * marketplace, and `Liga season` in the tournament run-of-show. It is also a
+ * NOT NULL CHECK-constrained column meaning weather. The same customer meets
+ * two meanings in the same week. And "Season 1, Episode 3" has no Filipino: one
+ * word, *kabanata*, covers both chapter and episode, and there is no native
+ * word for a TV season — while *kabanata* is what every Filipino counted
+ * through Noli Me Tangere at school, and *"bagong kabanata"* is already how a
+ * new phase of a life is described.
+ *
+ * 🛑 AND WHY NOT "VOLUME", WHICH IS THE OTHER OBVIOUS WORD AND IS ALSO TAKEN.
  * `Vol. I · No. 7` ships today on the couple's editorial masthead and on every
  * Real Stories card, and there it means SETNAYAN'S publication: the Volume is
  * our awards cycle (Nov 18 → Nov 17) and the No. is that wedding's position
@@ -55,11 +74,25 @@ export type ChronicleDay = string | null;
  * yet, and guessing one would renumber somebody's life on every draft.
  */
 export function chronicleDay(input: {
+  /** The day the author told us this happened. Beats everything else. */
+  happenedOn?: string | null;
   eventDate?: string | null;
   publishedAt?: string | null;
 }): ChronicleDay {
+  // 🔑 THE AUTHOR'S OWN ANSWER FIRST. Without it, a chapter about no
+  // celebration files under the year it was TYPED — so writing up a 2019
+  // engagement today put it in 2026, in a chronicle whose whole job is life
+  // order.
+  const stated = normalizeDay(input.happenedOn);
+  if (stated) return stated;
   const day = normalizeDay(input.eventDate);
   if (day) return day;
+  // ⚠ LAST RESORT, AND IT MOVES. `published_at` is re-stamped on republish, so
+  // a chapter taken back to draft and posted again jumps to the end of the
+  // story — and, once years are headings, into a different year. That is the
+  // reason `happened_on` exists, not a reason to drop the fallback: an
+  // already-published chapter written before the field existed still needs a
+  // place, and its publish day is the only honest one we have.
   return normalizeDay(input.publishedAt);
 }
 
@@ -79,12 +112,20 @@ function normalizeDay(value: string | null | undefined): ChronicleDay {
 
 export type ChronicleRank = {
   /**
-   * 1-based number keyed by the row's index in the input array, oldest = 1.
-   * A row with no day is ABSENT — a number is a claim about sequence, and
-   * without a day there is no sequence to claim.
+   * 1-based number keyed by the row's index in the input array — **restarting
+   * at 1 in each calendar year**, oldest first, exactly as episodes restart in
+   * each season. A row with no day is ABSENT: a number is a claim about
+   * sequence, and without a day there is no sequence to claim.
+   *
+   * 🔑 WHY PER YEAR AND NOT ACROSS A WHOLE LIFE. Both are honest orderings; the
+   * difference is what happens when somebody writes up an old memory. Numbered
+   * across a life, a 2019 chapter added today shifts EVERY chapter after it by
+   * one — including ones already read and linked. Numbered inside its year,
+   * only 2019 moves, which is correct: something genuinely happened before the
+   * rest of that year.
    */
   numberByIndex: Map<number, number>;
-  /** `2026` keyed by input index. Absent for a dated-less row, like the number. */
+  /** `2026` keyed by input index. Absent for an undated row, like the number. */
   yearByIndex: Map<number, string>;
   /** Input indexes, newest day first, undated rows at the TAIL in input order. */
   newestFirst: number[];
@@ -93,8 +134,10 @@ export type ChronicleRank = {
 /**
  * Rank a chapter list into the chronicle: numbers, years, and reading order.
  *
- * Ties (two celebrations on one day) keep input order — `Array#sort` is stable,
- * so the caller's own ordering decides, and nothing is invented.
+ * Ties (two things on one day — a couple's own write-up and their
+ * photographer's, say) keep input order: `Array#sort` is stable, so the
+ * caller's own ordering decides and nothing is invented. Callers that can have
+ * ties should hand rows in the order they want them tie-broken.
  */
 export function rankChronicle(days: ReadonlyArray<ChronicleDay>): ChronicleRank {
   const dated = days
@@ -107,10 +150,14 @@ export function rankChronicle(days: ReadonlyArray<ChronicleDay>): ChronicleRank 
 
   const numberByIndex = new Map<number, number>();
   const yearByIndex = new Map<number, string>();
-  oldestFirst.forEach((x, k) => {
-    numberByIndex.set(x.i, k + 1);
-    yearByIndex.set(x.i, x.day.slice(0, 4));
-  });
+  const seenInYear = new Map<string, number>();
+  for (const x of oldestFirst) {
+    const year = x.day.slice(0, 4);
+    const n = (seenInYear.get(year) ?? 0) + 1;
+    seenInYear.set(year, n);
+    numberByIndex.set(x.i, n);
+    yearByIndex.set(x.i, year);
+  }
 
   const newestFirst = [...oldestFirst].reverse().map((x) => x.i);
   // Undated rows sit at the tail in the order the caller gave them — they have

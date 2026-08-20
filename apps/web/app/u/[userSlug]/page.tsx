@@ -22,7 +22,7 @@ import {
   loadChapterEventDays,
   type PublicChapter,
 } from '@/lib/creator-public';
-import { chronicleDay, rankChronicle } from '@/lib/creator-chronicle';
+import { chronicleDay, groupChronicleByYear } from '@/lib/creator-chronicle';
 import {
   fetchCreatorInfluence,
   type CreatorInfluenceVendor,
@@ -466,34 +466,45 @@ function ChapterTimeline({
   eventDays: Map<string, string>;
   slug: string;
 }) {
-  // THE CHRONICLE ORDER — by the day each chapter is ABOUT (the celebration's
-  // own date; the publish date only for a chapter about no celebration), oldest
-  // = Chapter 1. It used to rank by published_at alone, so writing up an old
-  // day made it the person's LATEST chapter.
+  // THE CHRONICLE — the year is the season, the chapter is the episode, and the
+  // number restarts inside each year (owner 2026-08-20). The day comes from the
+  // author's own answer, then the celebration it is attached to, then — last
+  // resort — the publish date.
   //
   // Derived from PARSED DAYS, never from array position: the query orders
   // published_at DESC and Postgres DESC is NULLS FIRST, so `chapters[0]` can be
-  // an undated row. Undated rows get no number and can never be "latest";
-  // "· Latest" is suppressed in a set of one, where the poster still renders.
+  // an undated row. Undated rows get no number and can never be "latest".
   const days = chapters.map((c) =>
     chronicleDay({
+      happenedOn: c.happened_on,
       eventDate: c.event_id ? eventDays.get(c.event_id) ?? null : null,
       publishedAt: c.published_at,
     }),
   );
-  const { numberByIndex, newestFirst } = rankChronicle(days);
-  const newestIndex = newestFirst.length > 0 ? (newestFirst[0] as number) : -1;
-  const showLatest = numberByIndex.size > 1;
-  const ordered = newestFirst.map((i) => ({ chapter: chapters[i] as PublicChapter, i }));
+  const blocks = groupChronicleByYear(chapters, (_c, i) => days[i] ?? null);
+  // The poster + "Latest" belong to the newest DATED chapter in the whole
+  // timeline, which is the first entry of the first block that has a year.
+  const newestIndex = blocks.find((b) => b.year !== null)?.entries[0]?.index ?? -1;
+  const datedCount = days.filter((d) => d !== null).length;
+  const showLatest = datedCount > 1;
 
   return (
     <section className="uprof-tl" aria-label="Chapters">
       <h2 className="m-serif uprof-tl-head">Chapters</h2>
-      <ol className="uprof-tl-list">
-        {ordered.map(({ chapter: c, i }) => {
+      {blocks.map((block) => (
+        <div key={block.year ?? 'unplaced'}>
+          {/* THE YEAR IS THE SEASON, and it is written as its own name.
+              ⛔ NEVER as the words "Your year" — that is a DIFFERENT page one
+              click away in the same menu, which looks FORWARD at what is coming;
+              this looks back at what happened. Same words on two things is the
+              failure the Event Hub vocabulary lock exists to prevent. */}
+          {block.year ? (
+            <p className="uprof-tl-year m-serif">{block.year}</p>
+          ) : null}
+          <ol className="uprof-tl-list">
+        {block.entries.map(({ item: c, index: i, number: n }) => {
           // The day the chapter is ABOUT — the celebration's, when it has one.
           const date = formatChapterDate(days[i] ?? c.published_at);
-          const n = numberByIndex.get(i) ?? null;
           const isLatest = i === newestIndex && showLatest;
           // Poster: the newest DATED chapter only, and only when the stored
           // embed is the canonical YouTube shape. An Instagram / TikTok chapter
@@ -566,7 +577,9 @@ function ChapterTimeline({
             </li>
           );
         })}
-      </ol>
+          </ol>
+        </div>
+      ))}
     </section>
   );
 }
@@ -911,6 +924,18 @@ const UPROF_CSS = `
     margin: 0 0 clamp(1.5rem, 4vw, 2.25rem);
     color: var(--m-ink, #1B1A17);
   }
+  /* THE YEAR — the season heading. It sits ON the spine, so a reader scrolling
+     back through a life passes a year the way they pass a chapter break in a
+     book. Deliberately quiet: it is furniture, not a title. */
+  .uprof-tl-year {
+    max-width: 620px;
+    margin: clamp(1.6rem, 4vw, 2.2rem) auto 0.7rem;
+    padding-left: 1.9rem;
+    font-size: 1.05rem;
+    letter-spacing: 0.04em;
+    color: var(--m-slate-2, #6A6E76);
+  }
+  .uprof-tl-year:first-of-type { margin-top: 0; }
   .uprof-tl-list {
     list-style: none;
     margin: 0 auto;

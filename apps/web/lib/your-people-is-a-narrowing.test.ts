@@ -1,0 +1,163 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/**
+ * The properties that make the "Your people" chip safe to ship.
+ *
+ * Not a style test. Each assertion pins a rule whose failure is SILENT — a
+ * shelf that quietly widens, a scope that quietly becomes "everyone", a
+ * failed read that quietly claims a stranger is a friend. Every one was
+ * mutation-checked by occurrence count before being trusted.
+ */
+const HERE = dirname(fileURLToPath(import.meta.url));
+const APP = resolve(HERE, '..');
+
+function code(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '');
+}
+
+const PEOPLE = readFileSync(join(HERE, 'your-people.ts'), 'utf8');
+const PEOPLE_CODE = code(PEOPLE);
+const COMPOSER = code(readFileSync(join(HERE, 'front-door-composition.ts'), 'utf8'));
+const FEED = code(
+  readFileSync(join(APP, 'app/_components/frontdoor/front-door-feed.tsx'), 'utf8'),
+);
+const DOOR = code(readFileSync(join(APP, 'app/_components/frontdoor/front-door.tsx'), 'utf8'));
+
+test('the guards are reading real source, not a stub', () => {
+  for (const [name, src] of [
+    ['your-people.ts', PEOPLE_CODE],
+    ['front-door-composition.ts', COMPOSER],
+    ['front-door-feed.tsx', FEED],
+    ['front-door.tsx', DOOR],
+  ] as const) {
+    assert.ok(src.length > 800, `${name} is missing or a stub — this guard reads nothing.`);
+  }
+});
+
+/* ── 🚨 RLS IS A FLOOR, NOT A SCOPE ──────────────────────────────────────
+   `member_reads_membership` and `community_roster_member_read` BOTH end in
+   `OR is_admin()`, and production has an admin who is also an ordinary user —
+   the owner's own account, the one he tests with. A read that leaned on RLS
+   to scope it would hand HIM every event membership and every samahan roster
+   in the database, so "Your people" would silently mean "everybody" for
+   exactly one person. Same shape as the 2026-08-12 defect where My Shop read
+   every other shop's correction requests.
+
+   So every membership read must scope ITSELF. */
+test('every membership read scopes itself — RLS is never the fence', () => {
+  const chains = [...PEOPLE_CODE.matchAll(/\.from\('(event_members|community_members)'\)/g)];
+  assert.ok(
+    chains.length >= 4,
+    `Expected at least 4 membership reads, found ${chains.length}. If they were ` +
+      'removed this guard must be re-aimed, not deleted.',
+  );
+  for (const m of chains) {
+    const chain = PEOPLE_CODE.slice(m.index ?? 0, (m.index ?? 0) + 420);
+    assert.match(
+      chain,
+      /\.eq\('user_id', me\)|\.in\('event_id',|\.in\('community_id',/,
+      `A read of ${m[1]} is not explicitly scoped. It would inherit ` +
+        "`OR is_admin()` from the policy and return EVERY row for an admin " +
+        'account. Scope it by ids derived from a `user_id = me` read.',
+    );
+  }
+});
+
+test('no auth UUID leaves this module', () => {
+  assert.doesNotMatch(
+    PEOPLE_CODE,
+    /\buserIds\b\s*[,}]\s*$/m,
+    'the module appears to return raw user ids',
+  );
+  assert.match(
+    PEOPLE_CODE,
+    /slugs:\s*ReadonlySet<string>/,
+    'YourPeople must expose SLUGS, never ids — a slug is public by ' +
+      'construction, an auth UUID is not.',
+  );
+});
+
+/* ── THE READ THAT FAILED IS NOT THE PERSON WITH NO FRIENDS ────────────── */
+test('a failed read is distinguishable from having nobody', () => {
+  assert.match(PEOPLE_CODE, /ok:\s*false/, 'nothing ever reports a failed read');
+  assert.match(PEOPLE_CODE, /ok:\s*true/, 'nothing ever reports a successful empty read');
+  assert.match(
+    FEED,
+    /yourPeopleOk/,
+    'The feed ignores whether the people read succeeded, so "we could not ' +
+      'check" renders as "you have nobody" — the one thing a broken read must ' +
+      'not claim about somebody’s friends.',
+  );
+});
+
+test('every Supabase read checks error explicitly — a catch cannot see a rejection', () => {
+  const reads = (PEOPLE_CODE.match(/\.from\('/g) ?? []).length;
+  const checks = (PEOPLE_CODE.match(/\berror\b/g) ?? []).length;
+  assert.ok(
+    checks >= reads,
+    `${reads} reads but only ${checks} error mentions. Supabase RESOLVES with ` +
+      '{ data: null, error } — a phantom column returns quietly and no catch runs.',
+  );
+});
+
+/* ── THE CHIP IS A NARROWING, AND IT FAILS CLOSED ───────────────────────── */
+test('an unknown author is not a friend — the composer compares === true', () => {
+  assert.match(
+    COMPOSER,
+    /fromYourPeople === true/,
+    'The composer must admit a story only on an explicit `true`. A truthy ' +
+      'test would admit any non-empty value, and an OPTIONAL field that is ' +
+      'absent (caller has not computed it, or its read failed) must read as ' +
+      '"not yours".',
+  );
+});
+
+test('the chip is offered only to somebody signed in', () => {
+  assert.match(
+    FEED,
+    /c !== 'Your people' \|\| signedIn/,
+    'The chip is no longer gated on a session. A stranger has no people, so ' +
+      'the button is a door onto a room that can never fill.',
+  );
+  assert.match(
+    DOOR,
+    /signedIn=\{account\.signedIn\}/,
+    'The page stopped telling the feed who is looking, so the gate above ' +
+      'always sees the default and the chip disappears for everyone.',
+  );
+});
+
+test('the module never loads a story — that is the whole safety argument', () => {
+  for (const table of ['creator_chapters', 'event_showcases', 'person_story_items']) {
+    assert.doesNotMatch(
+      PEOPLE_CODE,
+      new RegExp(`\\.from\\('${table}'\\)`),
+      `your-people.ts reads ${table}. It must only answer WHO the viewer ` +
+        'knows; the shelf it filters is already public. The moment this ' +
+        'module loads content, "it can only narrow" stops being true and the ' +
+        'privacy reasoning has to start again.',
+    );
+  }
+});
+
+/* ── THE GROUP DELIBERATELY LEFT OUT ─────────────────────────────────────
+   A guest at an event cannot read that event's member list, so counting the
+   OTHER guests would let them infer that a stranger is also attending — a
+   disclosure the product makes nowhere else. The omission is a decision. */
+test('only events the viewer ORGANISES contribute their co-members', () => {
+  assert.match(
+    PEOPLE_CODE,
+    /\.eq\('member_type', 'couple'\)/,
+    'The organiser narrowing is gone. Without it this counts co-guests of ' +
+      'events the viewer merely ATTENDS — people they cannot otherwise see — ' +
+      'and a guest could learn from a chip that a stranger is at their event. ' +
+      'Widening that is an owner/DPO call, not a filtering convenience.',
+  );
+});

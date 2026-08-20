@@ -41,8 +41,18 @@ export type BirthdayWhoKey = 'kids' | 'milestone' | 'adult' | 'golden';
 
 /** Oldest age still described by "A kids' party". */
 export const KIDS_MAX_AGE = 12;
-/** Youngest age described by "A golden one (50+)". */
-export const GOLDEN_MIN_AGE = 50;
+/**
+ * Youngest age described by the golden option.
+ *
+ * 🔒 SIXTY, BECAUSE THE OWNER-LOCKED MILESTONE LADDER SAYS SIXTY. The ladder is
+ * `1 · 7 · 18 (F) / 21 (M) · 60` (`milestoneAges` in lib/event-anchor.ts, and
+ * DECISION_LOG's own wording: "there is no 50"). The option label said "50+"
+ * and had done since it was written, so the screen and the ladder disagreed
+ * about the same milestone — flagged three times before the owner confirmed
+ * the ladder is the settled one ("i think i already discussed this from another
+ * session"). The label now says 60 too.
+ */
+export const GOLDEN_MIN_AGE = 60;
 
 /**
  * The debut ages, taken from the app's OWN ladder rather than re-typed here:

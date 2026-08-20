@@ -2,10 +2,11 @@
 
 > Loaded automatically by Claude Code at session start. Read first, before any code.
 
-## ▶▶▶ NEWEST — 2026-08-19 · SILENT FAILURES (read before `WHAT_IS_LEFT.md`, which is 12 days older)
+## ▶▶▶ NEWEST — 2026-08-20 · HANDOFF FOR A NEW ACCOUNT (read before `WHAT_IS_LEFT.md`, which is 13 days older)
 
-Full handoff lives in the spec corpus as `WHATS_NEXT_Silent_Failures_2026-08-19.md`
-(remote: `github.com/iscasasola/Setnayan-specs`). **The essentials are inlined here because
+Full handoff lives in the spec corpus as `WHATS_NEXT_HANDOFF_2026-08-20.md`
+(remote: `github.com/iscasasola/Setnayan-specs`) — it supersedes the 2026-08-19 one, whose build
+list is COMPLETE and one of whose owner recommendations was false. **The essentials are inlined here because
 that corpus is "a second repo you may not have" — as the block below says of itself.**
 
 🛑 **THE TRAP THAT COSTS A WHOLE SESSION: `/Users/icecasasola` IS A CHECKOUT OF THIS REPO AND IS
@@ -37,6 +38,29 @@ has a shop** to *"Create your shop"*. Full list with file:line in the corpus han
 `apps/web/app/vendor-dashboard/reads-are-honest.test.ts` (supplier side, 2026-08-18) and
 `apps/web/lib/guests.ts` + `apps/web/lib/guests-read-is-honest.test.ts` (couple side, today).
 ⚠ `actions.ts` files are OUT OF SCOPE — there an absence DENIES, and failing closed is correct.
+
+✅ **THE 11-ITEM BUILD LIST FROM THAT SWEEP IS COMPLETE** (#4583 → #4594). Nothing is open on it.
+⏭ **What is left is small and listed in the handoff §5**, chiefly: the wedding-onboarding account
+gate posts `public_summary_consent=yes` as a **hidden field**, silently opting a couple into public
+publication, while `/signup` has the same field as an **unticked box** — because the owner already
+ruled that on 2026-07-12. **One door missed an existing ruling; one line; do NOT re-ask him.** Also
+`guests.invitation_sent_at` has **zero writers**, so the guest list's "N to send" can never
+decrease.
+
+🔎 **READY? Measured 2026-08-20: 9 accounts · 8 events · 2 shops (1 published) · 2 services ·
+0 packages · 0 ORDERS EVER.** Marketplace search WORKS (verified live) — it is **empty, not
+broken**. **Packages WORK and are switched ON.**
+🛑 **THAT LAST ONE WAS REPORTED TO THE OWNER AS "SWITCHED OFF", FROM THE CODE DEFAULT, AND HE
+CAUGHT IT.** 🔑 **A FLAG'S DEFAULT IN CODE IS NOT ITS VALUE IN PRODUCTION — open the page; it takes
+thirty seconds.** `NEXT_PUBLIC_*` also inlines into the prod bundle and is readable; server-side
+vars (`RESEND_API_KEY`) are **not readable from a session at all** — say so rather than guess.
+
+💳 **THE OWNER IS NOW TOLD WHEN SOMEBODY PAYS** (#4595). Order submission had notified admins
+in-app since June; the moment a customer LOGGED A PAYMENT notified nobody, and the existing
+notification was **not on the email allowlist** — a tray badge reaching nobody away from the
+console. 🔑 **The notification and the allowlist are two halves of one mechanism; having one is
+indistinguishable from having neither.** The daily digest is the net UNDERNEATH, not a substitute.
+⚠ Both send **nothing, silently**, if `RESEND_API_KEY` is unset in Vercel.
 
 🪤 **Traps that each cost real time today:** a guard's lookahead `(?!\s*\?)` **could not match
 the line it was written to catch** (`g.photo_url ?? null` — the `??` slipped through), so it

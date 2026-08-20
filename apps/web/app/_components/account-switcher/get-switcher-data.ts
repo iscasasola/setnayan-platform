@@ -61,6 +61,13 @@ export type SwitcherData = {
   isAnonymous: boolean;
   photoUrl: string | null;
   events: SwitcherEvent[];
+  /**
+   * False when the EVENT-MEMBERSHIP read was refused. `events` is then empty
+   * and means nothing — and the library turns an empty `events` into
+   * "You're not hosting an event yet", which is a statement about somebody's
+   * life, not a missing list.
+   */
+  eventsMeasured: boolean;
   context: SwitcherContext;
 };
 
@@ -206,6 +213,7 @@ export const getSwitcherData = cache(async (userId: string): Promise<SwitcherDat
     isAnonymous: isPlaceholderEmail(profile?.email),
     photoUrl: photoUrl ?? null,
     events,
+    eventsMeasured: !membershipRes.error,
     context,
   };
   } catch (err) {
@@ -217,6 +225,7 @@ export const getSwitcherData = cache(async (userId: string): Promise<SwitcherDat
       isAnonymous: false,
       photoUrl: null,
       events: [],
+      eventsMeasured: false,
       context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
     };
   }

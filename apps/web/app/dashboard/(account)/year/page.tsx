@@ -89,6 +89,9 @@ export default async function YearPage() {
     .eq('member_type', 'couple');
   // ⚠ the events this person belongs to. Refused, their year reads as empty — every
   // ⚠ celebration they are part of disappears from the one page that lists them all.
+  // A refused read leaves `rows` empty, and the page then says "Nothing on
+  // your calendar yet" to somebody whose anniversaries are all in there.
+  const momentsMeasured = !rowsError;
   if (rowsError) {
     logQueryError('YearPage.rows', rowsError, {}, 'graceful_degrade');
   }
@@ -199,7 +202,12 @@ export default async function YearPage() {
 
       <section className="mt-8">
         <h2 className="sn-sec">The year ahead</h2>
-        {moments.length === 0 ? (
+        {!momentsMeasured ? (
+          <p role="status" className="sn-tile mt-3 px-4 py-8 text-center text-sm text-ink/70">
+            We couldn’t load your year just now. Nothing has changed — refresh to
+            try again.
+          </p>
+        ) : moments.length === 0 ? (
           <p className="sn-tile mt-3 px-4 py-8 text-center text-sm text-ink/55">
             Nothing on your calendar yet. Create an anniversary or a celebration and it’ll appear
             here every year.

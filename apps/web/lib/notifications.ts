@@ -12,6 +12,11 @@ export type NotificationType =
   | 'event_auto_surfaced'
   | 'chat_message'
   | 'order_quoted'
+  // Added 2026-08-20. The buyer removed the celebration an unpaid order belonged
+  // to, so the order was cancelled with it rather than left detached and
+  // unreachable — see delete-actions.ts. Distinct from payment_rejected: nobody
+  // refused anything, and the buyer did this themselves.
+  | 'order_cancelled'
   | 'order_paid'
   | 'payment_matched'
   | 'payment_rejected'
@@ -271,6 +276,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   order_paid: 'Order paid',
   payment_matched: 'Payment matched',
   payment_rejected: 'Payment rejected',
+  order_cancelled: 'Order cancelled',
   payment_refunded: 'Refund issued',
   payment_resubmit_requested: 'Please resubmit payment',
   rsvp_received: 'RSVP received',
@@ -350,6 +356,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   order_paid: 'bg-success-200 text-success-900',
   payment_matched: 'bg-success-100 text-success-800',
   payment_rejected: 'bg-danger-100 text-danger-800',
+  order_cancelled: 'bg-ink/15 text-ink/70',
   payment_refunded: 'bg-violet-100 text-violet-800',
   // Amber matches the "still pending · action needed" register used by
   // payment_status='pending' (PAYMENT_STATUS_TONE in lib/orders.ts) — the

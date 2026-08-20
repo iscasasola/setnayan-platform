@@ -1032,7 +1032,7 @@ const UPROF_CSS = `
     background: #A8421C; color: #FCEFE3;
     margin: clamp(1.6rem, 5vw, 2.4rem) 0 0;
     padding: 1.05rem clamp(1rem, 4vw, 1.6rem) 1.15rem;
-    border-radius: 12px;
+    border-radius: var(--m-r-md);
   }
   .uprof-who-h {
     margin: 0 0 0.75rem; font-size: 0.66rem; font-weight: 600;
@@ -1070,7 +1070,7 @@ const UPROF_CSS = `
     font-size: 0.82rem; font-weight: 700; letter-spacing: 0.17em;
     text-transform: uppercase; color: #C24E25;
   }
-  .uprof-yr-rule { height: 2px; border-radius: 2px; flex: 1; background: var(--m-line, #E2DED4); }
+  .uprof-yr-rule { height: 2px; border-radius: var(--m-r-xs); flex: 1; background: var(--m-line, #E2DED4); }
   .uprof-yr-c {
     font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
     color: var(--m-slate-2, #6A6E76);
@@ -1088,7 +1088,7 @@ const UPROF_CSS = `
   .uprof-lead-a { display: block; text-decoration: none; color: inherit; }
   .uprof-lead-img {
     display: block; position: relative; width: 100%;
-    aspect-ratio: 16 / 10; border-radius: 10px; overflow: hidden;
+    aspect-ratio: 16 / 10; border-radius: var(--m-r-sm); overflow: hidden;
     background: var(--m-ivory, #F6F2EA);
   }
   .uprof-count, .uprof-play {
@@ -1096,7 +1096,7 @@ const UPROF_CSS = `
   }
   .uprof-count {
     right: 10px; bottom: 10px; font-size: 0.62rem; letter-spacing: 0.11em;
-    text-transform: uppercase; padding: 4px 9px; border-radius: 999px;
+    text-transform: uppercase; padding: 4px 9px; border-radius: var(--m-r-full);
   }
   .uprof-play {
     left: 10px; bottom: 10px; width: 30px; height: 30px; border-radius: 50%;
@@ -1123,7 +1123,7 @@ const UPROF_CSS = `
   }
   .uprof-med-img {
     display: block; position: relative; width: 104px; height: 74px; flex: none;
-    border-radius: 7px; overflow: hidden; background: var(--m-ivory, #F6F2EA);
+    border-radius: var(--m-r-xs); overflow: hidden; background: var(--m-ivory, #F6F2EA);
   }
   .uprof-med-b { display: block; min-width: 0; }
   .uprof-med-t {

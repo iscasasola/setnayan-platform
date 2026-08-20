@@ -344,6 +344,52 @@ test('a garbage birthdate produces nothing rather than throwing', () => {
   assert.equal(buildSelfMoments({ birth_date: 'not-a-date' }, '2026-08-15').length, 0);
 });
 
+// ── created-or-not: the state each Year row must be able to answer ──────────
+// The Year page renders "Open plan" off eventId and "Start planning" off its
+// absence, and prefills the create picker from createEventType. These pin the
+// derivation side of that contract; the page's rendering side is pinned in
+// year-page-answers-created-or-not.test.ts.
+
+test('a self birthday is a create prompt that KNOWS its kind — Birthday preselect', () => {
+  const m = selfOne({ birth_date: '1992-12-04' }, '2026-08-15');
+  assert.equal(m.eventId, null, 'a suggestion, never an event');
+  assert.equal(m.createEventType, 'birthday');
+});
+
+test('a self birthday is marked as YOURS — the create flow stops asking who', () => {
+  // Without this the wizard re-asks "who are we celebrating?" on a row that
+  // just said "Your birthday". Untested, deleting the flag stayed fully green.
+  const m = selfOne({ birth_date: '1992-12-04' }, '2026-08-15');
+  assert.equal(m.forSelf, true);
+});
+
+test('a holiday is a GENERIC create prompt — no event, no preselect guessed', () => {
+  const moments = buildYearMoments([], '2026-07-12');
+  const xmas = moments.find((m) => m.label === 'Christmas')!;
+  assert.ok(xmas, 'expected the Christmas holiday moment');
+  assert.equal(xmas.eventId, null);
+  assert.equal(
+    xmas.createEventType,
+    undefined,
+    'a holiday must not guess an event type — the plain picker is the honest link',
+  );
+  assert.notEqual(
+    xmas.forSelf,
+    true,
+    'Christmas is a date, not a fact about you — it must never claim to be yours',
+  );
+});
+
+test('an event-backed moment carries its eventId and never a create preselect', () => {
+  const ev: MomentEvent = {
+    ...base, event_id: 'w2', event_type: 'wedding', display_name: 'Carlo & Bianca',
+    event_date: '2026-11-20', recurs: false,
+  };
+  const m = first([ev], '2026-07-12', { includeHolidays: false });
+  assert.equal(m.eventId, 'w2');
+  assert.equal(m.createEventType, undefined);
+});
+
 test('withinDays clips the self moment like every other', () => {
   // Birthday ~3 months out; a 30-day window must not include it.
   assert.equal(buildSelfMoments({ birth_date: '1992-11-20' }, '2026-08-15', { withinDays: 30 }).length, 0);

@@ -25,6 +25,7 @@ import {
   ordinal,
 } from '@/lib/anchor-celebration-dates';
 import { takeHonoree } from '@/lib/onboarding/honoree-handoff';
+import { takeMoment } from '@/lib/onboarding/moment-handoff';
 import { resolvePersona, type ExpAxis } from '@/app/onboarding/wedding/_data/experience-personas';
 import { PH_REGIONS } from '@/lib/regions';
 import { commitOnboardingEvent } from '@/app/onboarding/_shared/commit-event';
@@ -170,6 +171,11 @@ export function GenericOnboarding(props: Props) {
   // how a link ends up on the wrong person. A resumed draft keeps the name and
   // falls back to label-keyed capping, which is the shipped behaviour.
   const [honoreeDependentId, setHonoreeDependentId] = useState<string | null>(null);
+  // Arrived from the reader's OWN moment on /dashboard/year (their birthday off
+  // their own profile). Blank honoree has always meant "the account holder", so
+  // there is nothing to prefill — only a question to stop asking as if we did
+  // not know. Set during hydration from the single-read carry.
+  const [momentForSelf, setMomentForSelf] = useState(false);
   const gatedLifeType = isGatedLifeType(eventType);
   // The date this event COMMEMORATES, and why — asked only for anniversary,
   // whose whole nature is "the day we're marking". Never asked for
@@ -299,6 +305,23 @@ export function GenericOnboarding(props: Props) {
         // under `owner_user_id = you` and drops anything else.
         setHonoreeDependentId(carried.dependentId);
       }
+    }
+    // Started from a row on /dashboard/year: that row was DERIVED from facts
+    // this account already holds, so the day it falls on and "this one is mine"
+    // are answers, not questions (owner 2026-08-20). Same single-read
+    // sessionStorage hop as the honoree carry, and for the same reason — a
+    // birthday is personal data and never goes in a URL.
+    //
+    // It seeds, it does not decide: the date screen still renders with the day
+    // in it, changeable, and the celebrant line still has its field. Nothing is
+    // removed from the sequence — dropping a screen here would shift every
+    // later index, and `?resume=1` navigates BY index (just above).
+    const moment = takeMoment();
+    if (moment) {
+      // The draft wins: a day the person actually chose on an earlier visit is
+      // never overwritten by the suggestion that brought them here.
+      if (moment.celebrationISO) setDateValue((v) => v || moment.celebrationISO!);
+      if (moment.forSelf) setMomentForSelf(true);
     }
     setDetails(seededDetails);
     setSpecialtyValues(seededSpecialty);
@@ -620,13 +643,21 @@ export function GenericOnboarding(props: Props) {
       return (
         <div>
           <Eyebrow>The basics</Eyebrow>
-          <Title>Who are we celebrating?</Title>
+          {/* Started from your own row on the Year page, we already know the
+              answer, so the screen SAYS it rather than asking again — while
+              leaving the field there, because "actually it's for someone else"
+              has to stay one tap away. `honoree` blank IS the "it's yours"
+              answer; there is nothing to prefill into the box. */}
+          <Title>{momentForSelf && !honoree ? 'This one’s yours' : 'Who are we celebrating?'}</Title>
           <p className="mt-2 text-ink/55">
-            Their first name is enough. It keeps each {label.toLowerCase()} on its
-            own plan, so you can have one for each person.
+            {momentForSelf && !honoree
+              ? `We’ll keep this ${label.toLowerCase()} under your name. Celebrating someone else? Put their first name below.`
+              : `Their first name is enough. It keeps each ${label.toLowerCase()} on its own plan, so you can have one for each person.`}
           </p>
           <input
-            autoFocus
+            // Don't put the cursor in a box the person has no reason to fill —
+            // an autofocused empty field reads as "you still owe me an answer".
+            autoFocus={!(momentForSelf && !honoree)}
             value={honoree}
             onChange={(e) => {
               setHonoree(e.target.value);

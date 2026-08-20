@@ -105,7 +105,7 @@ export type DoorwayProps = {
    * `demo` to `/setnayan-ai` without building one first.
    */
   demo?: { id: DemoOverlayId; label: string; sublabel?: string };
-  /** Anchors each `aria-label` to the product's own name — "How Pa3D works". */
+  /** Anchors each `aria-label` to the product's own name — "How 3D Plan works". */
   productName: string;
   steps: readonly DoorwayStep[];
   differentiator: { heading: string; lede: string; rows: readonly DoorwayVersus[] };

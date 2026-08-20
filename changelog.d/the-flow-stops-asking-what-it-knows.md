@@ -39,6 +39,17 @@ holding back a wider brief: a fix built behind it would ship switched off. Typin
 celebrant name puts the question back, and a stored answer that differs from the
 derived one keeps its screen rather than being hidden with no way back to it.
 
+**And the owner's reasoning exposed a hole in the mapping itself.** He said: *"i am
+turning 40. that is not a kids' party. that is an adult party since that is already
+above 21 (debut for men)."* His case was already right — but the line between a
+child's party and an adult one had been a hand-picked **12**, so a **thirteen-year-old
+resolved to "An adult birthday"**, which is his own correction pointed the other way.
+The boundary is now the **debut age**, read from the app's own ladder rather than
+re-typed: 18 for women, 21 for men. Past it is an adult birthday; at it is the debut;
+below it **no option is true, so the flow asks** instead of guessing. Ages whose
+meaning depends on a sex not on file (19, 20) are asked too. 40 is above both debut
+ages, so it still answers without one.
+
 ⚠ The four birthday options do not match the owner-locked milestone ladder (1 · 7 ·
 18/21 · 60 — there is no 50). The mapping deliberately follows what the labels SAY;
 reconciling the two is a copy decision, flagged rather than made.

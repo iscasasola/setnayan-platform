@@ -360,7 +360,21 @@ export function FrontDoorFeed({
             <span className="fd-badge" aria-hidden="true">
               ◎
             </span>
-            <span>Stories</span>
+            {/*
+              THE HEADING IS THE DOOR TO THE HUB. The rail's "Stories" row was
+              retired on 2026-08-20 (it was a second door to this very shelf),
+              and this link is what replaces it — the only PERMANENT link from
+              the front page to `/realstories`, which keeps the event-type
+              filter and the search box that the chips above do not have.
+              ⚠ The other link on this page lives inside the real-weddings
+              invitation and renders ONLY while that grid is unearned, so it
+              vanishes the day the second couple publishes. Pinned by
+              `front-door-invariants.test.ts`; do not turn this back into a
+              plain <span>.
+            */}
+            <Link href="/realstories" className="fd-sechead-go">
+              Stories
+            </Link>
             <span className="fd-meta">
               {/* THE ARCHIVE's size, and a story count that can say it does
                   not know — not the length of what this page happens to

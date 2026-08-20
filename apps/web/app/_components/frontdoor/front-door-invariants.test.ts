@@ -714,3 +714,54 @@ test('the story poster is not routed through the image optimizer', () => {
     );
   }
 });
+
+/* ── THE STORIES HUB MUST NEVER BE ORPHANED ──────────────────────────────
+   Owner 2026-08-20: *"what we want is the stories menu to be inside this as
+   well"*. The rail's "Stories" destination was retired — it was a second door
+   to the shelf directly below it, reading the SAME three voices from the SAME
+   loaders as `/realstories`, with the chip row already carrying "Their
+   stories".
+
+   🔑 THE HUB ITSELF IS NOT RETIRED, AND THAT IS THE WHOLE RISK. `/realstories`
+   still holds the event-type filter and the search box the chips do not have,
+   and it is where all storyteller SEO equity is deliberately concentrated
+   (chapter detail pages are noindex so the hub keeps it). The front page's
+   ONLY other link to it lives inside the real-weddings written invitation,
+   which renders exclusively while that grid is UNEARNED — so it disappears on
+   the day the second couple publishes. Retiring the rail row without promoting
+   the shelf heading would have left the hub with zero links from the front
+   page at exactly the moment it started to matter: a page nobody can reach,
+   the defect this project has already paid for more than once.
+
+   These two assertions were mutation-checked by occurrence count. */
+test('the front page keeps a permanent door into the stories hub', () => {
+  const links = FEED_CODE.match(/href="\/realstories"/g) ?? [];
+  assert.ok(
+    links.length >= 2,
+    `The feed holds ${links.length} link(s) to /realstories; at least 2 are ` +
+      'required — the shelf HEADING (permanent) and the invitation (conditional). ' +
+      'If the heading link was removed, the hub is orphaned every day the real-' +
+      'weddings grid is earned.',
+  );
+  // …and specifically the PERMANENT one. Counting alone would stay green if
+  // somebody added a second conditional link and deleted the heading.
+  assert.match(
+    FEED_CODE,
+    /<Link href="\/realstories" className="fd-sechead-go">/,
+    'The "Stories" shelf heading is no longer a link into the hub. It replaced ' +
+      'the rail row retired on 2026-08-20 and is the only link here that does ' +
+      'not depend on the real-weddings grid being empty.',
+  );
+});
+
+test('the retired Stories rail row has not quietly returned', () => {
+  const rows = SHELL_CODE.match(/<Link href="\/realstories"/g) ?? [];
+  assert.equal(
+    rows.length,
+    0,
+    'The rail renders a Stories destination again. Stories is a CHIP over the ' +
+      'feed; a row here is a second door to one shelf. If it is genuinely ' +
+      'coming back, declare it to the resolver in `rail-active.ts` in the same ' +
+      'commit — a row that is rendered but not declared can never light.',
+  );
+});

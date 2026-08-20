@@ -13,7 +13,7 @@
  * component) and passes straight through.
  *
  * ─── THE RAIL'S FIVE GROUPS, IN ORDER ────────────────────────────────────
- *   1 · Destinations   Home · Stories · Marketplace (signed in only)
+ *   1 · Destinations   Home · Marketplace (signed in only)
  *   2 · THE ACCOUNT SLOT  ← second, above the categories
  *   3 · Browse by category  the five visible folders + Show more (signed in
  *                           only) — the shortcuts INTO the Marketplace row
@@ -91,7 +91,6 @@ import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
 */
 import {
   ArrowLeft,
-  BookOpen,
   ChevronDown,
   ChevronUp,
   Compass,
@@ -948,11 +947,34 @@ export function FrontDoorShell({
             <span className="fd-label-text">Home</span>
             <span className="fd-icon-caption">Home</span>
           </Link>
-          <Link href="/realstories" {...rowProps('stories')}>
-            <RailIcon as={BookOpen} />
-            <span className="fd-label-text">Stories</span>
-            <span className="fd-icon-caption">Stories</span>
-          </Link>
+          {/*
+            STORIES IS NOT A DESTINATION ANY MORE — IT IS A CHIP (owner
+            2026-08-20: *"what we want is the stories menu to be inside this as
+            well"*).
+
+            THE ROW WAS A SECOND DOOR TO THE SHELF DIRECTLY BELOW IT. The feed
+            on this page and `/realstories` read the SAME three voices from the
+            SAME loaders — featured chapters, consented showcases, the Journal
+            — and the chip row over the feed already carried "Their stories".
+            So the rail offered a menu item whose whole job was done by a
+            button four inches to its right, and a person pressing it landed on
+            the same pieces in different chrome. One shelf, one door.
+
+            🔑 THE HUB IS NOT RETIRED AND MUST NOT BE ORPHANED. `/realstories`
+            keeps its address (shared links, and it is where all storyteller
+            SEO equity is concentrated by design), and it still carries what
+            the chips do not: the event-type filter and the search box. Its one
+            permanent link from this page is now the "Stories" SHELF HEADING in
+            `front-door-feed.tsx`.
+            ⚠ The other link on this page renders ONLY while the real-weddings
+            grid is unearned — it is inside the written invitation that
+            disappears the day the second couple publishes. Removing this row
+            without promoting the heading would have left the hub with ZERO
+            links from the front page on exactly the day it started to matter,
+            which is the "a page nobody can reach" defect this project has
+            already paid for. `front-door-invariants.test.ts` now fails if the
+            heading link goes.
+          */}
           {account.signedIn ? (
             <Link href="/explore" {...rowProps('find')}>
               <RailIcon as={Compass} />

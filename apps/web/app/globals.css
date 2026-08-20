@@ -2620,10 +2620,25 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     font-size: 0.66rem;
     letter-spacing: 0.28em;
     text-transform: uppercase;
-    color: rgb(var(--color-gild));
+    /* 🔴 THESE WORDS WERE THE FAINTEST TEXT ON THE INVITATION — measured 3.37:1
+       on cream, 3.08:1 on the plates and 2.97:1 on the veil panels, against a
+       4.5:1 floor for text this size. They are the labels a guest scans to find
+       WHERE TO REPLY, so they were the least readable thing on the page that
+       matters most.
+       The design's own rule already said so: gild is decor-only and "below
+       ~0.85rem use text-ink/70" — and this rule is 0.66rem. The metal is not
+       lost, it moves to where it was always meant to be: the numeral and the
+       rule below, both of which are decoration and carry no meaning. */
+    color: rgb(var(--color-ink) / 0.72);
     display: inline-flex;
     align-items: baseline;
     gap: 0.6em;
+  }
+  /* The № numeral and the ✦ star — decorative by construction (they are
+     aria-hidden, so a screen reader never reads them) and therefore free to
+     stay metallic at any contrast. */
+  .sn-editorial .pahina-eyebrow > [aria-hidden='true'] {
+    color: rgb(var(--color-gild));
   }
   .sn-editorial .pahina-eyebrow::after {
     content: '';

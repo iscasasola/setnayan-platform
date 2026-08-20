@@ -26,6 +26,7 @@ import {
 import { chronicleDay, groupChronicleByYear } from '@/lib/creator-chronicle';
 import { weighYearWithFloor, type ChapterWeight } from '@/lib/chapter-weight';
 import { loadChapterPictures, type ChapterPicture } from '@/lib/chapter-picture';
+import { loadWhoWasThere, type WhoWasThere } from '@/lib/who-was-there';
 import {
   fetchCreatorInfluence,
   type CreatorInfluenceVendor,
@@ -178,14 +179,23 @@ export default async function AccountProfilePage({ params }: Props) {
   // The chronicle is ordered by the day each celebration HAPPENED, so the
   // timeline needs those days. Only read when there is something to place, and
   // only for chapters that name a celebration.
-  const [chapterEventDays, chapterPictures] = hasChapters
+  const [chapterEventDays, chapterPictures, whoWasThere] = hasChapters
     ? await Promise.all([
         loadChapterEventDays(chapters.map((c) => c.event_id)),
         // The photographs. One snapshot per celebration, not per chapter — see
         // lib/chapter-picture.ts for why that distinction is the whole cost.
         loadChapterPictures(chapters),
+        // 🔒 The entourage — ACCEPTED roles only. See lib/who-was-there.ts:
+        // being on a guest list is not agreeing to be named in public.
+        loadWhoWasThere(
+          chapters.map((c) => c.event_id).filter((id): id is string => !!id),
+        ),
       ])
-    : [new Map<string, string>(), new Map<string, ChapterPicture>()];
+    : [
+        new Map<string, string>(),
+        new Map<string, ChapterPicture>(),
+        [] as WhoWasThere[],
+      ];
 
   // Creator "influence" — accepted vendor partnerships (aggregate, public). Only
   // relevant for a creator profile; never exposes the offer terms or the graph,
@@ -401,12 +411,15 @@ export default async function AccountProfilePage({ params }: Props) {
         />
 
         {hasChapters ? (
-          <ChapterTimeline
-            chapters={chapters}
-            eventDays={chapterEventDays}
-            pictures={chapterPictures}
-            slug={canonicalSlug}
-          />
+          <>
+            <WhoWasThereBand people={whoWasThere} />
+            <ChapterTimeline
+              chapters={chapters}
+              eventDays={chapterEventDays}
+              pictures={chapterPictures}
+              slug={canonicalSlug}
+            />
+          </>
         ) : null}
 
         {influenceVendors.length > 0 ? (
@@ -465,6 +478,36 @@ function formatChapterDate(iso: string | null): string | null {
 // view at /u/[slug]/c/[public_id]. The embed itself is NOT mounted here — the
 // timeline is lightweight cards; the sandboxed ChapterEmbedFrame lives on the
 // detail page.
+/**
+ * WHO WAS THERE — the band the whole field is missing.
+ *
+ * 🔒 It renders ONLY people who ACCEPTED a named role (lib/who-was-there.ts).
+ * An empty list renders nothing at all: a heading over no names would announce
+ * an entourage that either does not exist or did not consent, and both are
+ * worse than silence.
+ *
+ * ⚠ NO GUEST COUNT HERE, deliberately. "+ 42 guests" was in the drawing, and a
+ * count is harmless — but it can only be measured from `guests`, and a failed
+ * read of that table is indistinguishable from a wedding of nine people. A
+ * number nobody can trust does not belong next to names that are true.
+ */
+function WhoWasThereBand({ people }: { people: WhoWasThere[] }) {
+  if (people.length === 0) return null;
+  return (
+    <section className="uprof-who" aria-label="Who was there">
+      <p className="uprof-who-h">Who was there</p>
+      <ul className="uprof-who-l">
+        {people.map((p) => (
+          <li key={`${p.role}-${p.name}`} className="uprof-who-i">
+            <span className="uprof-who-n">{p.name}</span>
+            <span className="uprof-who-r">{p.role}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function ChapterTimeline({
   chapters,
   eventDays,
@@ -979,6 +1022,35 @@ const UPROF_CSS = `
   }
   .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink, #1B1A17); }
   .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2, #6A6E76); }
+
+  /* ── WHO WAS THERE ────────────────────────────────────────────────────
+     The warm band, and the one thing measured nowhere else in the category:
+     every competitor's couple page names exactly two people. Clay ground so the
+     page is not one long stretch of cream — the research bride read the
+     all-cream draft as a memorial page. */
+  .uprof-who {
+    background: #A8421C; color: #FCEFE3;
+    margin: clamp(1.6rem, 5vw, 2.4rem) 0 0;
+    padding: 1.05rem clamp(1rem, 4vw, 1.6rem) 1.15rem;
+    border-radius: 12px;
+  }
+  .uprof-who-h {
+    margin: 0 0 0.75rem; font-size: 0.66rem; font-weight: 600;
+    letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.92;
+  }
+  .uprof-who-l {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-wrap: wrap; gap: 0.5rem 1.6rem;
+  }
+  .uprof-who-i { min-width: 0; }
+  .uprof-who-n {
+    display: block; font-family: var(--font-editorial-display), Georgia, serif;
+    font-size: 1.02rem; line-height: 1.2;
+  }
+  .uprof-who-r {
+    display: block; font-size: 0.62rem; letter-spacing: 0.14em;
+    text-transform: uppercase; opacity: 0.7; margin-top: 0.1rem;
+  }
 
   /* ── THE CHRONICLE, AT THREE SIZES ────────────────────────────────────
      Scale carries meaning: the chapter with a photograph AND writing takes the

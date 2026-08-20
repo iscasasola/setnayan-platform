@@ -15,22 +15,58 @@ import {
   deletionIsBlocked,
 } from './event-deletion-gate';
 
-test('the money gate fails CLOSED on an unmeasured read', () => {
-  // 🔒 THE ONE THAT MATTERS. `null` is "we could not check whether this couple
-  // has paid for anything", and the safe answer to that is no. If this ever
-  // returns false for null, an unreadable orders table becomes a green light to
-  // destroy a paid-for celebration.
-  assert.equal(deletionIsBlocked(null), true);
+/** Nothing anywhere — the only shape that may be deleted. */
+const CLEAR = { settledOrders: 0, paymentRows: 0, receiptRows: 0 };
+
+test('the money gate fails CLOSED on an unmeasured read — on EVERY signal', () => {
+  // 🔒 THE ONE THAT MATTERS. `null` is "we could not check", and the safe
+  // answer to that is no. All three must fail closed independently: an
+  // unreadable payments table is exactly as blinding as an unreadable orders
+  // table, and a gate that only guards its first input is a gate with one hinge.
+  assert.equal(deletionIsBlocked({ ...CLEAR, settledOrders: null }), true);
+  assert.equal(deletionIsBlocked({ ...CLEAR, paymentRows: null }), true);
+  assert.equal(deletionIsBlocked({ ...CLEAR, receiptRows: null }), true);
 });
 
 test('the money gate refuses when anything has been paid for', () => {
-  assert.equal(deletionIsBlocked(1), true);
-  assert.equal(deletionIsBlocked(12), true);
+  assert.equal(deletionIsBlocked({ ...CLEAR, settledOrders: 1 }), true);
+  assert.equal(deletionIsBlocked({ ...CLEAR, settledOrders: 12 }), true);
 });
 
-test('the money gate allows when no money has moved', () => {
-  // Prod today: every event has 0 settled orders, so this is the live path.
-  assert.equal(deletionIsBlocked(0), false);
+test('a cancelled-after-paid order STILL blocks, via its payment row', () => {
+  // 🚨 THE BYPASS THIS FILE SHIPPED WITH. `cancelOrder` writes
+  // status='cancelled' with no check on the status it leaves, and the RLS guard
+  // behind it only constrains the NEW value — so a couple could cancel a PAID
+  // order and walk the event past a status-only gate.
+  //
+  // The order now reads 'cancelled', so settledOrders is 0 and the old gate
+  // said "go ahead". The payment row is what a couple cannot rewrite.
+  assert.equal(
+    deletionIsBlocked({ settledOrders: 0, paymentRows: 1, receiptRows: 0 }),
+    true,
+  );
+});
+
+test('a BIR receipt blocks on its own, whatever the order says', () => {
+  // A sequential official-receipt serial. Deleting the celebration it belongs
+  // to is not the couple's call, and no status flip may unlock it.
+  assert.equal(
+    deletionIsBlocked({ settledOrders: 0, paymentRows: 0, receiptRows: 1 }),
+    true,
+  );
+});
+
+test('the money gate allows when no money has moved anywhere', () => {
+  // Prod today: every event has 0 settled orders, 0 payments, 0 receipts.
+  assert.equal(deletionIsBlocked(CLEAR), false);
+});
+
+test('`lapsed` counts as money moved — it is only reachable from paid', () => {
+  // lib/subscriptions.ts is the sole writer of 'lapsed' and it filters
+  // `.eq('status','paid')`, so a lapsed order IS a paid order whose service
+  // later expired. Omitting it let a once-paid celebration — possibly carrying
+  // a receipt — be deleted by pressing a button.
+  assert.ok(SETTLED_ORDER_STATUSES.includes('lapsed'));
 });
 
 test('a refund still counts as money moved', () => {
@@ -52,7 +88,6 @@ test('the settled list never counts intent as payment', () => {
     'submitted',
     'awaiting_payment',
     'cancelled',
-    'lapsed',
   ]) {
     assert.ok(
       !(SETTLED_ORDER_STATUSES as readonly string[]).includes(notMoney),

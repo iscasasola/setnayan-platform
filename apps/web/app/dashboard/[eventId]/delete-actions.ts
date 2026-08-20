@@ -212,6 +212,52 @@ export async function getEventDeletionImpact(
   ]);
 
   /*
+    🚨 AND NOW THE PART THE STATUS CANNOT TELL US.
+
+    `cancelOrder` writes `status='cancelled'` with no check on the status it is
+    leaving, and the RLS guard behind it only constrains the NEW value — so a
+    couple holding a PAID order can cancel it and walk the event past a gate
+    that reads only the current status. The first cut of this file had exactly
+    that hole.
+
+    Payment and receipt rows are the evidence a couple cannot rewrite: a
+    `payments` row means a transfer was logged or a screenshot uploaded, and a
+    `receipts` row is a BIR official receipt carrying a sequential serial. Both
+    outlive the cancellation.
+
+    Read in two steps because PostgREST cannot express "a payment whose order
+    belongs to this event" in one filter — get the event's order ids, then ask
+    about those. An order-id read that FAILS yields null and fails closed, the
+    same as every other money signal here.
+  */
+  const { data: orderRows, error: orderErr } = await admin
+    .from('orders')
+    .select('order_id')
+    .eq('event_id', trimmed);
+
+  let paymentRows: number | null = null;
+  let receiptRows: number | null = null;
+  if (orderErr) {
+    // Unreadable order list ⇒ both money signals stay null ⇒ blocked.
+  } else {
+    const orderIds = (orderRows ?? []).map((r) => r.order_id as string);
+    if (orderIds.length === 0) {
+      // No orders at all — nothing could have been paid against this event.
+      paymentRows = 0;
+      receiptRows = 0;
+    } else {
+      [paymentRows, receiptRows] = await Promise.all([
+        readCount(
+          admin.from('payments').select('*', HEAD).in('order_id', orderIds),
+        ),
+        readCount(
+          admin.from('receipts').select('*', HEAD).in('order_id', orderIds),
+        ),
+      ]);
+    }
+  }
+
+  /*
     🔒 THE MONEY GATE FAILS CLOSED, AND THAT ASYMMETRY IS THE POINT.
     `settledOrders === null` means we could not check whether this couple has
     paid for anything. Every other count on this screen degrades to "we couldn't
@@ -221,9 +267,12 @@ export async function getEventDeletionImpact(
     side. Same rule the admin work list learned: an UNMEASURED queue is not a
     clear one.
   */
-  const blocked = deletionIsBlocked(settledOrders);
+  const evidence = { settledOrders, paymentRows, receiptRows };
+  const blocked = deletionIsBlocked(evidence);
+  const unreadable =
+    settledOrders === null || paymentRows === null || receiptRows === null;
   const blockedReason = blocked
-    ? settledOrders === null
+    ? unreadable
       ? 'We couldn’t check whether anything has been paid for on this celebration, so we haven’t removed it. Please try again in a moment, or message us and we’ll sort it out.'
       : 'Something on this celebration has already been paid for, so it can’t be removed here. Put it away instead, or message us and we’ll help.'
     : null;

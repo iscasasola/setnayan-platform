@@ -70,10 +70,44 @@ export const FRONT_DOOR_CHIPS = [
    * must behave.
    */
   'Your people',
+  /**
+   * 🏷 "STORIES", NOT "THEIR STORIES" (owner 2026-08-20, who wrote the row back
+   * to us as *"Stories, Articles and Marketplace"* — his own word, his own
+   * order). The possessive only ever earned its place as a contrast to "Your
+   * people" sitting beside it; read alone it is distancing, and NN/g's tab
+   * guidance is 1–2 words because shorter labels scan. It also matches the
+   * hub's own address and the menu row this chip replaced.
+   */
+  'Stories',
   'Articles',
-  'Their stories',
-  'With video',
 ] as const;
+
+/*
+ * ─── WHAT CAME OFF, AND WHAT MUST NOT GO ON ─────────────────────────────
+ *
+ * ⛔ "With video" — RETIRED 2026-08-20. It is a MODIFIER on a story, not a
+ * KIND of thing on the shelf, so it was the one chip that was not parallel
+ * with its neighbours (NN/g: a tab row must hold parallel content — same
+ * layout, different data). Nothing is lost: every card still carries its own
+ * "▶ with video" badge, so a person can still SEE which have video — they
+ * simply cannot filter to them, on a shelf where zero do today.
+ *
+ * ⛔ "Marketplace" — CONSIDERED AND REFUSED, twice over, and this note exists
+ * so it is not proposed a third time.
+ *   1 · It is not a KIND OF READING, it is a different room — and it already
+ *       has THREE doors: the shops rail below this shelf, the rail
+ *       destination, and the search box's "find suppliers" row. NN/g on
+ *       duplicate links: indiscriminate extra doors deplete attention rather
+ *       than aid findability.
+ *   2 · It would be the only chip that NAVIGATES instead of FILTERING, which
+ *       breaks this row's whole contract (see the note above).
+ *   Precedent is unusually clean: Instagram removed the Shop tab from its
+ *   content home in 2023 for want of engagement, and TikTok's push of shop
+ *   content INTO the feed produced measurable backlash.
+ *   📉 And the local arithmetic agrees. Measured 2026-08-20: two shops exist;
+ *   the one with services is HIDDEN, and the one a stranger can reach has
+ *   ZERO services. A chip pointing at that is a fourth door to an empty room.
+ */
 
 export type ChipKey = (typeof FRONT_DOOR_CHIPS)[number];
 
@@ -118,10 +152,7 @@ export function selectShelf<
 ): ShelfSelection<A, S> {
   const wantsArticles = chip === 'All' || chip === 'Articles';
   const wantsStories =
-    chip === 'All' ||
-    chip === 'Their stories' ||
-    chip === 'With video' ||
-    chip === 'Your people';
+    chip === 'All' || chip === 'Stories' || chip === 'Your people';
 
   /*
     🔑 "YOUR PEOPLE" IS A NARROWING OF THIS SHELF, NEVER A SECOND SOURCE.
@@ -141,11 +172,9 @@ export function selectShelf<
     the viewer could know.
   */
   const pickedStories = wantsStories
-    ? chip === 'With video'
-      ? stories.filter((s) => s.hasVideo)
-      : chip === 'Your people'
-        ? stories.filter((s) => s.fromYourPeople === true)
-        : [...stories]
+    ? chip === 'Your people'
+      ? stories.filter((s) => s.fromYourPeople === true)
+      : [...stories]
     : [];
   const pickedArticles = wantsArticles ? [...articles] : [];
 

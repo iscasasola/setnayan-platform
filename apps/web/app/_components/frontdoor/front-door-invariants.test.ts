@@ -765,3 +765,47 @@ test('the retired Stories rail row has not quietly returned', () => {
       'commit — a row that is rendered but not declared can never light.',
   );
 });
+
+/* ── ONE SEARCH MAKES ONE PROMISE, SIGNED IN OR OUT ──────────────────────
+   The signed-out box and the signed-in palette open the SAME destination —
+   `/explore?q=` — which has resolved suppliers, stories and guides since
+   2026-08-15. But the palette's row said "Find suppliers for X", so a
+   signed-in person had no reason to press it for a guide and concluded the
+   search could not reach our writing at all. The owner concluded exactly that
+   on 2026-08-20 and proposed deleting two chips because of it.
+
+   🔑 DERIVED FROM THE NOUN LIST, NOT TYPED BESIDE IT. `public-search-nouns.ts`
+   exists because a guard comparing two hand-typed strings is not a guard —
+   this repo has paid for that twice. Drop a noun there and this fails until
+   the row's words drop with it. */
+test('the signed-in search row promises what the signed-out box does', async () => {
+  const { PUBLIC_SEARCH_NOUNS } = await import('@/lib/public-search-nouns');
+  const { marketplaceEscapeItem } = await import('./command-escape');
+
+  const row = marketplaceEscapeItem('doves');
+  assert.ok(row, 'the escape row vanished — the palette can no longer reach anything public');
+
+  const words = `${row.label} ${row.sublabel}`.toLowerCase();
+  for (const noun of PUBLIC_SEARCH_NOUNS) {
+    assert.ok(
+      words.includes(noun),
+      `The search row does not mention "${noun}", which the signed-out box ` +
+        'promises. One box that makes two different promises depending on ' +
+        'whether you are logged in is what sent the owner to delete two chips.',
+    );
+  }
+
+  assert.match(
+    row.href,
+    /^\/explore\?q=/,
+    'the row stopped opening the page that answers all three nouns',
+  );
+});
+
+test('an empty query still yields no row — the palette is not an advert', () => {
+  // Untouched by the relabel, and worth keeping pinned: a palette nobody has
+  // typed into must be a list of your own things.
+  return import('./command-escape').then(({ marketplaceEscapeItem }) => {
+    assert.equal(marketplaceEscapeItem('   '), null);
+  });
+});

@@ -48,6 +48,9 @@ type ChapterRow = {
   substrate: Record<string, unknown> | null;
   /** The celebration this chapter is about — the column that had no writer. */
   event_id: string | null;
+  /** The day the author says this happened. Beats the celebration and the
+   *  publish date when deciding which year it files under. */
+  happened_on: string | null;
   teaser_r2_key: string | null;
   status: ChapterStatus;
   published_at: string | null;
@@ -152,7 +155,7 @@ async function CreatorBody({
     supabase
       .from('creator_chapters')
       .select(
-        'chapter_id, public_id, title, kind, body, embed_url, embed_provider, substrate, event_id, teaser_r2_key, status, published_at, updated_at',
+        'chapter_id, public_id, title, kind, body, embed_url, embed_provider, substrate, event_id, happened_on, teaser_r2_key, status, published_at, updated_at',
       )
       .eq('user_id', userId)
       .order('updated_at', { ascending: false }),
@@ -178,6 +181,7 @@ async function CreatorBody({
   // is a heading and not a "Volume".
   const chronicle = groupChronicleByYear(chapters, (c) =>
     chronicleDay({
+      happenedOn: c.happened_on,
       eventDate: c.event_id ? dayByEventId.get(c.event_id) ?? null : null,
       publishedAt: c.published_at,
     }),
@@ -639,6 +643,17 @@ function ChapterCard({
   );
 }
 
+/**
+ * Today in Manila, as a plain `YYYY-MM-DD`.
+ *
+ * The date input's ceiling. Never `new Date().toISOString()` — that is today in
+ * UTC, which is YESTERDAY for eight hours of every Philippine evening, so
+ * somebody writing up tonight's party would find their own day greyed out.
+ */
+function manilaToday(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+}
+
 /** A celebration this account hosts, offered in the picker. */
 
 function ChapterFields({
@@ -724,6 +739,25 @@ function ChapterFields({
           Leave this empty if you don’t have one — your story stands on its own.
           If you paste a link we store a privacy-enhanced embed only; Setnayan
           never hosts your video, it stays on your platform.
+        </span>
+      </label>
+
+      {/* WHEN — the one question that puts a chapter in the right year.
+          Rendered beside the story, not buried in the optional fieldset: a
+          chronicle is ordered by when things happened, and for a chapter about
+          no celebration this is the only day there is. */}
+      <label className="block space-y-1">
+        <span className="block text-xs font-medium text-ink">When did this happen?</span>
+        <input
+          type="date"
+          name="happened_on"
+          max={manilaToday()}
+          defaultValue={chapter?.happened_on?.slice(0, 10) ?? ''}
+          className="input-field"
+        />
+        <span className="block text-[11px] text-ink/55">
+          This decides which year your chapter files under. Leave it blank if you
+          pick a celebration below — we’ll use that day.
         </span>
       </label>
 

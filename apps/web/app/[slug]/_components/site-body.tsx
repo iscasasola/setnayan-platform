@@ -115,7 +115,6 @@ import { HideableWidgetRender } from './hideable-widget-render';
 import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
 import { RsvpWidget } from './rsvp-widget';
-import { RsvpClosedNote } from './rsvp-closed-note';
 import { PahinaKeepsake } from './pahina-keepsake';
 import { WatchLiveBlock } from './watch-live-block';
 import { SpotlightCard } from './spotlight-card';
@@ -1672,48 +1671,44 @@ export async function SiteBody({
                         </p>
                       </section>
                     )}
-                    {plan.rsvpAskOpen ? (
-                      <details className="group">
-                        <summary className="cursor-pointer list-none font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50 hover:text-ink/70">
-                          Need to change your reply?
-                        </summary>
-                        <div className="mt-4">
-                          <RsvpWidget words={clientWords}
-                            guest={guest}
-                            eventId={event.event_id}
-                            eventPublicId={event.public_id}
-                            faceMode={faceMode}
-                            flash={rsvpFlash}
-                          />
-                        </div>
-                      </details>
-                    ) : (
-                      /* The list is final. The drawer went with it — offering a
-                         change the guest list will refuse is worse than not
-                         offering one. Their answer, seat and keepsake above are
-                         untouched. */
-                      <RsvpClosedNote words={clientWords} replied flash={rsvpFlash} />
-                    )}
+                    <details className="group">
+                      <summary className="cursor-pointer list-none font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50 hover:text-ink/70">
+                        {plan.guestListClosed
+                          ? 'Need to update your details?'
+                          : 'Need to change your reply?'}
+                      </summary>
+                      <div className="mt-4">
+                        <RsvpWidget words={clientWords}
+                          guest={guest}
+                          eventId={event.event_id}
+                          eventPublicId={event.public_id}
+                          faceMode={faceMode}
+                          flash={rsvpFlash}
+                          replyLocked={plan.guestListClosed}
+                        />
+                      </div>
+                    </details>
                   </>
-                ) : plan.rsvpAskOpen ? (
+                ) : (
                   /* pending + maybe: the ask stays exactly as it is. "Maybe"
                      deliberately keeps the full card visible (design §11) — an
-                     undecided guest still has a question to answer. */
+                     undecided guest still has a question to answer.
+
+                     Once the list is final the card STAYS — only the
+                     going-or-not answer inside it freezes. This form is also
+                     where a guest sets their meal, their dietary notes and the
+                     selfie that makes their photos findable, and the list
+                     finalizes about two weeks out. Taking the whole card away
+                     would take the allergy box away from a caterer's last
+                     fortnight. */
                   <RsvpWidget words={clientWords}
                     guest={guest}
                     eventId={event.event_id}
                     eventPublicId={event.public_id}
                     faceMode={faceMode}
                     flash={rsvpFlash}
+                    replyLocked={plan.guestListClosed}
                   />
-                ) : (
-                  /* Never answered, and the door has shut. The form is gone —
-                     but SILENCE here is the one thing we must not do: this is
-                     the page's load-bearing ask, and a guest who arrives to
-                     find nothing where "will you come?" should be reads it as
-                     a broken invitation, not a closed one. One line, and it
-                     points them at the person who can still help. */
-                  <RsvpClosedNote words={clientWords} replied={false} flash={rsvpFlash} />
                 )
               ) : null}
 

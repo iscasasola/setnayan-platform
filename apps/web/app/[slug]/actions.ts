@@ -118,56 +118,85 @@ export async function submitRsvp(
   // the couple had written about that person.
   const guestNote = clean(formData.get('guest_note')) || null;
 
-  if (!RSVP_VALUES.includes(status)) {
-    return;
-  }
   if (meal && !MEAL_VALUES.includes(meal)) {
     return;
   }
 
   const admin = createAdminClient();
 
-  // ── THE DOOR, NOT JUST THE FORM ───────────────────────────────────────────
-  // The hub stops DRAWING the RSVP once the guest list is final (owner
-  // 2026-08-20). That hides a form; it does not close an endpoint — this is a
-  // server action, reachable by anyone who had the page open when the deadline
-  // passed, or who taps a stale tab.
+  // ── ONLY THE ANSWER FREEZES ───────────────────────────────────────────────
+  // Owner, 2026-08-20: the invitation link exists so guests "update their
+  // info", so the host can "see who will go and not go", and so guests can
+  // preview the event hub. Once the guest list is final only the MIDDLE one is
+  // settled. The other two are the reason the link exists at all.
   //
-  // 🔑 AND THE DATABASE WILL NOT CATCH IT. `guard_guest_edits_when_locked`
-  // exists to refuse exactly this write, and its own header names "the guest
-  // self-RSVP portal" as a path it covers — but its first branch exempts
-  // `auth.role() = 'service_role'`, and this action writes with the ADMIN
-  // client. So the one guest-facing path the guard was written for is the one
-  // path it cannot fire on. Until that is reconciled at the database, this
-  // check IS the enforcement, not a courtesy pre-check.
+  // 🔑 THIS FORM IS NOT A HEADCOUNT. It carries five things and only one is
+  // the count: the answer · the selfie that makes their photos findable ·
+  // their meal · their dietary notes · a note to the host. The list finalizes
+  // about two weeks out — exactly when "nut allergy" matters most. So a closed
+  // list drops the ANSWER from this write and saves everything else.
+  //
+  // 🔑 AND THE DATABASE WILL NOT DRAW THIS LINE FOR US.
+  // `guard_guest_edits_when_locked` draws it correctly — it blocks only
+  // count-affecting writes and lets meal / photo / seating through by design —
+  // but its first branch exempts `auth.role() = 'service_role'`, and this
+  // action writes with the ADMIN client. Its own header names "the guest
+  // self-RSVP portal" as a path it covers; that is the one path it cannot fire
+  // on. Until that is reconciled at the database, this IS the enforcement.
   const { data: evRsvp } = await admin
     .from('events')
     .select('slug, event_date, guest_list_edit_deadline, guest_count_locked_at')
     .eq('event_id', eventId)
     .maybeSingle();
-  if (
-    guestListIsClosed({
-      lockedAt: evRsvp?.guest_count_locked_at,
-      editDeadline: evRsvp?.guest_list_edit_deadline,
-      eventDate: evRsvp?.event_date,
-    })
-  ) {
-    // Told, never silently dropped. A reply that vanishes without a word is
-    // the failure this file already learned the hard way twelve lines below.
-    redirect(evRsvp?.slug ? `/${evRsvp.slug}?rsvp=closed` : '/');
+  const replyLocked = guestListIsClosed({
+    lockedAt: evRsvp?.guest_count_locked_at,
+    editDeadline: evRsvp?.guest_list_edit_deadline,
+    eventDate: evRsvp?.event_date,
+  });
+
+  // A locked reply renders NO rsvp_status control, so an ordinary save posts
+  // nothing here — and the old `!RSVP_VALUES.includes(status) → return` would
+  // then drop the guest's meal and allergy on the floor IN SILENCE. The status
+  // check therefore only guards the path that actually writes a status.
+  if (!replyLocked && !RSVP_VALUES.includes(status)) {
+    return;
+  }
+
+  // Did somebody POST a DIFFERENT answer into a closed list — a tab that was
+  // open when the deadline passed, or a crafted request? Then say so. A submit
+  // that quietly ignores half of what was sent is indistinguishable from one
+  // that worked.
+  //
+  // ⚠ It must be a real CHANGE. A stale tab still carries the guest's own
+  // answer pre-checked, so it reposts it unchanged on an ordinary details save
+  // — telling that guest "your reply was refused" would be alarming and false.
+  let answerRefused = false;
+  if (replyLocked && RSVP_VALUES.includes(status)) {
+    const { data: current } = await admin
+      .from('guests')
+      .select('rsvp_status')
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    answerRefused = Boolean(current) && current!.rsvp_status !== status;
   }
 
   const { error } = await admin
     .from('guests')
     .update({
-      rsvp_status: status,
+      // The count is frozen: the stored answer is left exactly as it is.
+      ...(replyLocked
+        ? {}
+        : {
+            rsvp_status: status,
+            rsvp_responded_at:
+              status === 'attending' || status === 'declined'
+                ? new Date().toISOString()
+                : null,
+          }),
       meal_preference: meal,
       dietary_restrictions: dietary,
       guest_note: guestNote,
-      rsvp_responded_at:
-        status === 'attending' || status === 'declined'
-          ? new Date().toISOString()
-          : null,
       updated_at: new Date().toISOString(),
     })
     .eq('guest_id', guestId)
@@ -209,7 +238,11 @@ export async function submitRsvp(
   // NON-declined reply (declined is handled DB-side by free_seat_on_decline).
   // Admin client — the guest session has no RLS write on event_seat_assignments.
   // Best-effort; no-op if autoplace is off or they're already seated.
-  if (status !== 'declined') {
+  // ⚠ On a locked save `status` is EMPTY (no control is rendered), and `'' !==
+  // 'declined'` is TRUE — so this would run a seat reconcile on every details
+  // edit for a finalized event. Harmless but pointless work; the answer, and
+  // therefore the seating question, cannot have changed.
+  if (!replyLocked && status !== 'declined') {
     await applyReconcileForEvent(admin, eventId);
   }
 
@@ -398,7 +431,11 @@ export async function submitRsvp(
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
-  redirect(ev?.slug ? `/${ev.slug}?rsvp=ok` : '/');
+  // `details` = their information was saved and their answer was left alone
+  // (the list is final). `refused` additionally says an attempted CHANGE of
+  // answer did not take — the one outcome a guest would otherwise never learn.
+  const outcome = answerRefused ? 'refused' : replyLocked ? 'details' : 'ok';
+  redirect(ev?.slug ? `/${ev.slug}?rsvp=${outcome}` : '/');
 }
 
 /**

@@ -363,13 +363,15 @@ test('hidden hideable rows are excluded from both widget lists', () => {
 });
 
 // ---------------------------------------------------------------------------
-// The invitation closes when the guest list is final (owner 2026-08-20).
+// ONLY THE ANSWER FREEZES (owner 2026-08-20).
 //
-// 🔑 The load-bearing assertion is the NEGATIVE one: `rsvpShouldRender` must
-// NOT move. It gates the whole RSVP section, and the section is where a guest
-// who already replied finds their keepsake ticket and their seat. The list
-// finalizes ~2 weeks out, so ANDing the closure into that flag would delete
-// the ticket in the fortnight it matters most. Only the ASK closes.
+// 🔑 Both load-bearing assertions here are NEGATIVE. `guestListClosed` must
+// gate NOTHING in this plan: not the RSVP section (which also holds the
+// keepsake ticket and seat), and not any other widget. It is carried through
+// to the reply card, which freezes the going-or-not answer and leaves the
+// selfie, meal, dietary notes and host note open — the database's post-lock
+// guard draws exactly that line, and the list finalizes ~2 weeks out, when
+// "nut allergy" matters most.
 // ---------------------------------------------------------------------------
 
 test('guest list open (the default) leaves the plan byte-identical', () => {
@@ -383,57 +385,41 @@ test('guest list open (the default) leaves the plan byte-identical', () => {
         `omitting guestListClosed must equal passing false (${identity}/${phase})`,
       );
       assert.equal(absent.guestListClosed, false);
-      assert.equal(
-        absent.rsvpAskOpen,
-        absent.rsvpShouldRender,
-        `an open list means the ask tracks the section (${identity}/${phase})`,
-      );
     }
   }
 });
 
-test('a final guest list closes the ASK and nothing else', () => {
+test('a final guest list changes NOTHING the plan gates', () => {
   for (const identity of IDENTITIES) {
     for (const phase of PHASES) {
       const open = planFor(identity, phase);
       const closed = planFor(identity, phase, { guestListClosed: true });
-
-      assert.equal(closed.rsvpAskOpen, false, `ask still open (${identity}/${phase})`);
       assert.equal(closed.guestListClosed, true);
 
-      // THE REGRESSION GUARD: the section — and therefore the keepsake, the
-      // seat and the "we'll miss you" line — survives a closed list.
-      assert.equal(
-        closed.rsvpShouldRender,
-        open.rsvpShouldRender,
-        `closing the list must not close the RSVP section (${identity}/${phase})`,
-      );
-
-      // And nothing else in the plan moves either.
+      // THE REGRESSION GUARD, and it is the whole point of this block: the
+      // first build of this feature hid the form, which took the guest's meal
+      // and allergy box with it. Nothing in the plan may gate on the closure.
       assert.deepEqual(
-        { ...closed, guestListClosed: false, rsvpAskOpen: open.rsvpAskOpen },
+        { ...closed, guestListClosed: false },
         open,
-        `closing the list changed an unrelated gate (${identity}/${phase})`,
+        `closing the list gated something (${identity}/${phase}) — the reply card freezes the ANSWER, the plan closes nothing`,
       );
     }
   }
 });
 
-test('a final guest list closes the ask under open-browse too', () => {
-  // Open-browse is the OTHER branch of the gate computation. A fix written in
-  // one branch and not the other is exactly the fork this module exists to
-  // prevent — `website_open_browse` is per-event, so both are live shapes.
+test('the same holds under open-browse', () => {
+  // The other branch of the gate computation. `website_open_browse` is
+  // per-event, so both are live shapes and a fix in one is not a fix.
   for (const phase of PHASES) {
+    const open = planFor('guest', phase, { openBrowse: true });
     const closed = planFor('guest', phase, {
       openBrowse: true,
       guestListClosed: true,
     });
-    assert.equal(closed.rsvpAskOpen, false, `open-browse ask still open (${phase})`);
+    assert.deepEqual({ ...closed, guestListClosed: false }, open, `open-browse ${phase}`);
   }
-  // …and the ask is genuinely open there when the list is, so the assertion
-  // above is not passing for some unrelated reason (a vacuity check).
-  assert.equal(
-    planFor('guest', 'rsvp', { openBrowse: true, guestListClosed: false }).rsvpAskOpen,
-    true,
-  );
+  // Vacuity check: the RSVP section really does render somewhere here, so the
+  // deepEqual above is not passing over a pair of all-false plans.
+  assert.equal(planFor('guest', 'rsvp', { openBrowse: true }).rsvpShouldRender, true);
 });

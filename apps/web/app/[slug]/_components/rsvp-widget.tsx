@@ -15,6 +15,7 @@ export function RsvpWidget({
   eventPublicId,
   faceMode,
   flash = null,
+  replyLocked = false,
   words,
 }: {
   words: EventWords;
@@ -27,6 +28,25 @@ export function RsvpWidget({
    *  error at the bottom is below the fold on a phone and the whole point is
    *  that the guest must not walk away thinking they replied. */
   flash?: { tone: 'ok' | 'error'; text: string } | null;
+  /**
+   * The guest list is final, so the GOING-OR-NOT answer is frozen (owner
+   * 2026-08-20). Everything else on this card stays open.
+   *
+   * 🔑 THIS FORM IS NOT A HEADCOUNT — it is five things, and only one of them
+   * is the count: the answer · the selfie that makes their photos findable ·
+   * their meal · their dietary notes · a note to the host. The list finalizes
+   * about two weeks out, which is exactly when "nut allergy" and "vegetarian"
+   * matter MOST. Closing the whole card to freeze the count would take the
+   * allergy box away from a caterer's last fortnight.
+   *
+   * The database already drew this line and drew it correctly: its post-lock
+   * guard blocks only count-affecting writes and lets meal, photo and seating
+   * through by design. This prop makes the screen agree with it.
+   *
+   * When true no `rsvp_status` control is rendered AT ALL — the answer cannot
+   * be posted, rather than being posted and refused.
+   */
+  replyLocked?: boolean;
 }) {
   const action = submitRsvp.bind(null, eventId, guest.guest_id);
 
@@ -46,8 +66,13 @@ export function RsvpWidget({
       ) : null}
       {/* The selfie step reveals once the guest picks "attending" — pure
           CSS :has(), the same pattern as the has-[:checked] ring on the radios
-          below, so this stays a server component with no client state. */}
-      <style>{`.rsvp-form .selfie-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal{display:block}`}</style>
+          below, so this stays a server component with no client state.
+          Omitted when the answer is locked: there is no radio to watch, so the
+          rule is dead weight AND its selector text is the only `rsvp_status`
+          left in the markup, which reads to any scan like a live control. */}
+      {replyLocked ? null : (
+        <style>{`.rsvp-form .selfie-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal{display:block}`}</style>
+      )}
 
       {/* THE REPLY CARD (design 2026-07-25 §7) — the only thing on the page that
           is a card in real life, so it is the only thing still shaped like one:
@@ -94,37 +119,54 @@ export function RsvpWidget({
       {/* Three quiet outlined options; the chosen one takes the palette's DEEP
           accent fill. Labels are the spec's reply-card wording — the `key`
           values (and therefore the server action's contract) are unchanged. */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {(
-          [
-            { key: 'attending', label: 'Joyfully accepts' },
-            { key: 'maybe', label: 'Undecided, for now' },
-            { key: 'declined', label: 'Regretfully declines' },
-          ] as const
-        ).map((option) => (
-          <label
-            key={option.key}
-            className={`flex h-16 cursor-pointer items-center justify-center border px-3 text-center font-pahina text-base font-light italic leading-tight transition-colors has-[:checked]:ring-1 has-[:checked]:ring-terracotta-700 has-[:checked]:ring-offset-2 has-[:checked]:ring-offset-paper-deep ${
-              guest.rsvp_status === option.key
-                ? 'border-terracotta-700 bg-terracotta-700 text-cream'
-                : 'border-ink/20 bg-paper text-ink hover:border-ink/40'
-            }`}
-          >
-            <input
-              type="radio"
-              name="rsvp_status"
-              value={option.key}
-              defaultChecked={guest.rsvp_status === option.key}
-              className="sr-only"
-            />
-            {option.label}
-          </label>
-        ))}
-      </div>
+      {replyLocked ? (
+        <LockedAnswer status={guest.rsvp_status} />
+      ) : (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {(
+            [
+              { key: 'attending', label: 'Joyfully accepts' },
+              { key: 'maybe', label: 'Undecided, for now' },
+              { key: 'declined', label: 'Regretfully declines' },
+            ] as const
+          ).map((option) => (
+            <label
+              key={option.key}
+              className={`flex h-16 cursor-pointer items-center justify-center border px-3 text-center font-pahina text-base font-light italic leading-tight transition-colors has-[:checked]:ring-1 has-[:checked]:ring-terracotta-700 has-[:checked]:ring-offset-2 has-[:checked]:ring-offset-paper-deep ${
+                guest.rsvp_status === option.key
+                  ? 'border-terracotta-700 bg-terracotta-700 text-cream'
+                  : 'border-ink/20 bg-paper text-ink hover:border-ink/40'
+              }`}
+            >
+              <input
+                type="radio"
+                name="rsvp_status"
+                value={option.key}
+                defaultChecked={guest.rsvp_status === option.key}
+                className="sr-only"
+              />
+              {option.label}
+            </label>
+          ))}
+        </div>
+      )}
 
-      <div className="selfie-reveal">
-        <SelfieCapture faceMode={faceMode} />
-      </div>
+      {/* ⚠ THE SELFIE IS REVEALED BY `:has(rsvp_status=attending:checked)`. With
+          the answer locked there IS no radio, so that selector can never match
+          and the selfie step would vanish for exactly the guests who are
+          coming — in the fortnight before the day, when getting their photos to
+          find them is the whole point. Locked + attending renders it outright. */}
+      {replyLocked ? (
+        guest.rsvp_status === 'attending' ? (
+          <div>
+            <SelfieCapture faceMode={faceMode} />
+          </div>
+        ) : null
+      ) : (
+        <div className="selfie-reveal">
+          <SelfieCapture faceMode={faceMode} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Select
@@ -168,10 +210,40 @@ export function RsvpWidget({
         />
       </div>
 
-      <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Saving RSVP…">
-        Save RSVP
+      <SubmitButton
+        className="button-primary w-full sm:w-auto"
+        pendingLabel={replyLocked ? 'Saving details…' : 'Saving RSVP…'}
+      >
+        {replyLocked ? 'Save details' : 'Save RSVP'}
       </SubmitButton>
     </form>
+  );
+}
+
+/**
+ * The frozen answer, where the three choices were. Shows what they said (or
+ * that they never said), and why it can no longer move — a control that
+ * silently stops working teaches nothing.
+ */
+function LockedAnswer({ status }: { status: GuestRow['rsvp_status'] }) {
+  const said =
+    status === 'attending'
+      ? 'You said you are coming.'
+      : status === 'declined'
+        ? 'You said you cannot make it.'
+        : status === 'maybe'
+          ? 'You were undecided.'
+          : 'No reply was received from you.';
+  return (
+    <div className="border-l-2 border-ink/25 bg-paper-deep px-5 py-4">
+      <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50">
+        Replies are closed
+      </p>
+      <p className="mt-2 text-sm leading-relaxed text-ink/70">
+        {said} The guest list is final, so this part can no longer change — but
+        everything below is still yours to update.
+      </p>
+    </div>
   );
 }
 

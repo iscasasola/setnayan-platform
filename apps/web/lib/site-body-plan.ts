@@ -129,21 +129,23 @@ export type SiteBodyPlan = {
    * the invitation "will only show while the guest list is not yet
    * finalized").
    *
-   * 🔑 THIS IS DELIBERATELY *NOT* ANDed INTO `rsvpShouldRender`. That flag
-   * gates the whole RSVP SECTION, and the section is also where a guest who
-   * already replied finds their keepsake ticket — their seat, their standing,
-   * the thing the run-up is for. The list finalizes ~2 weeks before the day,
-   * so closing the section would delete that ticket in exactly the fortnight
-   * it matters most. What closes is the ASK (`rsvpAskOpen`), never the answer.
+   * 🔑 IT GATES NOTHING ON ITS OWN — it is handed to the reply card, which
+   * freezes the going-or-not ANSWER and leaves the rest of itself open.
+   *
+   * The obvious implementation (AND it into `rsvpShouldRender`, or hide the
+   * form) was built first and was WRONG, twice over. That flag gates the whole
+   * RSVP SECTION, which is also where a guest who already replied finds their
+   * keepsake ticket and seat. And the form itself is not a headcount: it also
+   * carries the selfie that makes their photos findable, their meal, their
+   * dietary notes and a note to the host. The list finalizes about two weeks
+   * out — exactly when "nut allergy" matters most — so hiding it takes the
+   * allergy box away from a caterer's last fortnight.
+   *
+   * The database drew this line correctly all along: its post-lock guard
+   * blocks only count-affecting writes and lets meal / photo / seating
+   * through. Only the ANSWER freezes.
    */
   guestListClosed: boolean;
-  /**
-   * May the RSVP FORM render? `rsvpShouldRender && !guestListClosed`. False
-   * closes both the open ask and the quiet "need to change your reply?"
-   * drawer — after the deadline that drawer is an offer the guest list will
-   * refuse.
-   */
-  rsvpAskOpen: boolean;
   /** Guest-tree hideable widgets in display order — old InvitationSite:
    *  `visibleHideableWidgets(widgets).filter(w => !phasesEnabled ||
    *   widgetInPhase(w.widget_type, lifecyclePhase))`. */
@@ -370,7 +372,6 @@ export function resolveSiteBodyPlan(input: {
     qrCardShouldRender,
     rsvpShouldRender,
     guestListClosed,
-    rsvpAskOpen: rsvpShouldRender && !guestListClosed,
     hideableInOrder,
     publicSafeWidgets,
     // Guests always see live media; an anonymous viewer only when the couple

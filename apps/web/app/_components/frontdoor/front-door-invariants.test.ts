@@ -809,3 +809,66 @@ test('an empty query still yields no row — the palette is not an advert', () =
     assert.equal(marketplaceEscapeItem('   '), null);
   });
 });
+
+/* ── AN EMPTY CHIP EXPLAINS ITSELF; IT DOES NOT DEAD-END ─────────────────
+   Two of the four chips are empty for everybody today (prod holds ZERO
+   published stories and ZERO people-connections), so the empty state is not
+   an edge case — it is what most people who press them will meet.
+
+   The generic "Nothing under X yet — try another chip" is right for a filter
+   that happens to be bare. It is WRONG for the two chips that name what this
+   product is for: it reads as a filter that broke rather than a shelf waiting
+   to fill, which is the same defect the front door's own composition module
+   forbids ("an empty shelf reads as BROKEN, not young"). */
+test('the two chips that are empty for everyone say what they are FOR', () => {
+  /*
+    🪤 THE FIRST CUT OF THIS GUARD WAS DECORATION, TWICE OVER, and both
+    mutations reported GREEN:
+
+      1 · It matched the invitation's TEXT anywhere in the file. Renaming the
+          branch condition to `chip === 'NEVER'` made the whole invitation
+          UNREACHABLE while leaving every searched string in place — a guard
+          that matches a string, not the act.
+      2 · It counted `fd-go` links across the WHOLE FILE with a `>= 4`
+          threshold. Deleting the Stories invitation's own link took 7 → 6 and
+          sailed through — a file-level count cannot say WHICH branch lost its
+          way onward.
+
+    Both are fixed by bounding each branch STRUCTURALLY: split on the
+    condition itself, so a segment only exists while its `chip === '<X>'` test
+    does, and judge the heading and the link INSIDE that segment.
+  */
+  const segments = FEED_CODE.split(/chip === '/).slice(1);
+  assert.ok(
+    segments.length >= 2,
+    `Found ${segments.length} chip branches in the feed; expected at least 2. ` +
+      'If the empty states were restructured, re-aim this guard rather than ' +
+      'deleting it.',
+  );
+
+  for (const [chip, heading] of [
+    ['Stories', /The first real stories are still to come/],
+    ['Your people', /Nobody you know has shared a story yet/],
+  ] as const) {
+    const seg = segments.find((x) => x.startsWith(`${chip}'`));
+    assert.ok(
+      seg,
+      `No branch is conditioned on chip === '${chip}'. Its invitation may still ` +
+        'be in the file and simply unreachable — which is how the first ' +
+        'version of this guard passed while the defect was live.',
+    );
+    assert.match(
+      seg,
+      heading,
+      `The "${chip}" branch no longer carries its own written invitation and ` +
+        'falls through to the generic "try another chip" dead end. Prod has ' +
+        'zero of these, so that is what most people pressing it would read.',
+    );
+    assert.match(
+      seg,
+      /className="fd-go"/,
+      `The "${chip}" invitation has no way onward — an apology with no door. ` +
+        'Checked inside this branch, never as a file-level count.',
+    );
+  }
+});

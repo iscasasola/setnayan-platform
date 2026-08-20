@@ -181,6 +181,7 @@ export default function PanoodLandingPage() {
       primary={{ href: '/onboarding/wedding?from=panood', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Panood"
+      studioKey="panood"
       steps={STEPS}
       differentiator={{ heading: 'Presence, not just a link', lede: 'A live stream shouldn’t feel like homework. Live Studio lives where your guests already are — your wedding.', rows: VS }}
       faq={FAQ}

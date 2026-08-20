@@ -414,6 +414,7 @@ export default async function PapicLandingPage() {
       primary={{ href: '/onboarding/wedding?from=papic', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Papic"
+      studioKey="papic"
       // Step 02 · "Every photo finds its people" keeps the signature tile-settle.
       steps={STEPS.map((s, i) => (i === 1 ? { ...s, figure: <SettleTiles /> } : s))}
       differentiator={{

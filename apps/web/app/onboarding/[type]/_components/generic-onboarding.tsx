@@ -27,6 +27,7 @@ import {
 import { takeHonoree } from '@/lib/onboarding/honoree-handoff';
 import { takeMoment } from '@/lib/onboarding/moment-handoff';
 import { birthdayWhoFromAge } from '@/lib/onboarding/birthday-who-from-age';
+import { effortLimit } from '@/lib/onboarding/generic-plan';
 import type { Sex } from '@/lib/event-anchor';
 import { resolvePersona, type ExpAxis } from '@/app/onboarding/wedding/_data/experience-personas';
 import { PH_REGIONS } from '@/lib/regions';
@@ -502,8 +503,30 @@ export function GenericOnboarding(props: Props) {
     const picks: string[] = [];
     const labels: string[] = [];
     const seen = new Set<string>();
-    for (const id of [...plan.picks, ...extraPicks]) {
+    // ── "KEEP IT SIMPLE" NOW KEEPS IT SIMPLE (owner 2026-08-20) ─────────────
+    //
+    // The effort answer — Keep it simple · A balanced plan · Go all out — caps
+    // the persona plan at 4 / 6 / 9. It did NOT cap this list: the answers to
+    // the per-type questions were appended afterwards with no limit, so somebody
+    // who asked for simple could finish with nine categories — exactly what
+    // "Go all out" would have given them. Measured before the fix: cap 4 plus
+    // five appended = 9. Owner, asked directly: "yes keep it simple keeps it
+    // simple."
+    //
+    // 🔑 EXPLICIT ANSWERS TAKE THE SLOTS FIRST, and that ordering is the whole
+    // design. Capping the concatenation as it stood would have dropped the
+    // photo booth somebody deliberately asked for while keeping a category the
+    // persona quiz GUESSED — taking away a stated choice to honour a preference
+    // is the wrong way round. So what they said wins, and the guesses give way.
+    //
+    // ⚖ And when the stated choices alone exceed the cap, they ALL stand. The
+    // cap exists to stop us piling on; it must never delete an answer. A person
+    // who picks five things has asked for five things.
+    const limit = effortLimit(axes.effort);
+    for (const id of [...extraPicks, ...plan.picks]) {
       if (seen.has(id) || !labelById.has(id)) continue;
+      // Stated choices are never cut; derived ones stop at the limit.
+      if (picks.length >= limit && !extraPicks.includes(id)) continue;
       seen.add(id);
       picks.push(id);
       labels.push(labelById.get(id)!);

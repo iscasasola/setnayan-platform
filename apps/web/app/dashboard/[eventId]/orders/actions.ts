@@ -8,6 +8,7 @@ import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { paymentRowFor } from '@/lib/order-mint-identity';
+import { notifyAdminsPaymentProofSubmitted } from '@/lib/order-admin-notify';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -234,6 +235,17 @@ export async function logPayment(formData: FormData) {
     });
     throw new Error(error.message);
   }
+
+  // Somebody has just moved real money and is waiting for their purchase to
+  // switch on. Before this, that step told NOBODY — the only trace was a row in
+  // a queue an admin had to already be looking at. Awaited, but fail-soft
+  // inside, so it can never roll back a recorded payment.
+  await notifyAdminsPaymentProofSubmitted({
+    orderId,
+    eventId,
+    amountPhp: amount,
+    channel,
+  });
 
   revalidatePath(`/dashboard/${eventId}/orders/${orderId}`);
   redirect(`/dashboard/${eventId}/orders/${orderId}?paid_logged=1`);

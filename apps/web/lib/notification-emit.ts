@@ -63,6 +63,11 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // Payments + orders (0028 transactional core).
   'order_quoted',
   'order_paid',
+  // Admin-side, and the reason this list exists: without it the alert is a tray
+  // badge only, so "you have been paid" reaches nobody who is not already
+  // looking at the console. This type covers BOTH the order submission and the
+  // payment-proof notification.
+  'order_awaiting_reconciliation',
   'payment_matched',
   'payment_rejected',
   'payment_resubmit_requested',

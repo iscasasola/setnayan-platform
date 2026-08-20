@@ -330,7 +330,7 @@ export async function approvePaymentCore(args: {
   if (promoteOrder) {
     // SHORTFALL GUARD (2026-06-25): an order must not be marked fully 'paid'
     // (which issues a receipt + fires vendor payouts) unless the MATCHED payments
-    // cover the gross owed — pre-VAT base + 12% VAT, net of any voucher. The
+    // cover the gross owed — base + the CONFIGURED rate (0 today), net of any voucher. The
     // payment above is matched either way; a short/partial transfer simply must
     // NOT promote the order. The admin leaves "promote to paid" off to record it
     // as partial, or re-runs once the balance is matched. Closes the audit's
@@ -375,7 +375,10 @@ export async function approvePaymentCore(args: {
         // short-paid order, and the order was never promoted.
         const notice =
           `Payment matched, but the order was NOT marked paid: ` +
-          `${formatPhp(matchedTotal)} received vs ${formatPhp(owed)} owed (incl. 12% VAT) — ` +
+          // `owed` already IS the amount owed at the configured rate (0 today),
+          // so naming a 12% VAT inside it was describing a tax that is not in
+          // the figure. Owner 2026-08-20: remove the 12%.
+          `${formatPhp(matchedTotal)} received vs ${formatPhp(owed)} owed — ` +
           `${formatPhp(owed - matchedTotal)} short. Leave “Also mark order as paid” unchecked to ` +
           `record it as partial, or promote once the balance is paid.`;
         return { ok: false, shortfall: true, message: notice };
@@ -738,7 +741,7 @@ async function schedulePayoutsForOrder(args: {
   const basePhp = Number(row.confirmed_total_php ?? row.requested_total_php ?? 0);
   if (basePhp <= 0) return;
 
-  // Gross = pre-VAT base + 12% VAT (the customer pays gross).
+  // Gross = base + the CONFIGURED rate (0 today), never a hardcoded 12%.
   const { gross } = computeVatFromBase(basePhp, await getEffectiveVatRatePct(admin));
   const grossCentavos = phpToCentavos(gross);
 

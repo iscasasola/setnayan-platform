@@ -439,15 +439,22 @@ function CartDrawer({
             <>
               <div className="space-y-1 rounded-xl border border-ink/10 bg-cream p-4">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-ink/65">Subtotal (pre-VAT)</span>
+                  <span className="text-sm text-ink/65">Subtotal</span>
                   <span className="font-mono text-base font-semibold text-ink">
                     {formatPhp(subtotal)}
                   </span>
                 </div>
+                {/*
+                  Promised the customer "+ 12% VAT" on top of what they were
+                  reading. Setnayan is not VAT-registered and charges none, so
+                  this quoted a surcharge that does not exist — on the one line
+                  a shopper reads to decide what this will cost them.
+                  Owner 2026-08-20: "just stay with 499. remove the 12%."
+                */}
                 <p className="text-xs text-ink/55">
-                  Final price + 12% VAT are confirmed by the Setnayan team once
-                  vendor availability is locked. Nothing is charged until you
-                  approve the quote.
+                  The final price is confirmed by the Setnayan team once vendor
+                  availability is locked. Nothing is charged until you approve
+                  the quote.
                 </p>
               </div>
 

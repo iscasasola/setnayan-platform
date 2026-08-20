@@ -62,7 +62,12 @@ export default async function JoinPage({ params, searchParams }: Props) {
 
   const { data: event } = await admin
     .from('events')
-    .select('event_id, public_id, display_name, event_date, venue_name, slug')
+    .select(
+      // `event_date_precision` travels WITH `event_date` everywhere it is shown.
+      // The column alone cannot say whether it is a decided day or a placeholder,
+      // and this screen prints it to a stranger. See `doorMeta` in join-shell.tsx.
+      'event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
 

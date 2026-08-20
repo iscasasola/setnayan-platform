@@ -14,6 +14,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { DoorShell, DoorNotice } from '@/app/_components/door/door-shell';
+import { joinDoorMeta } from '@/lib/join-door-meta';
 
 export const metadata = { title: 'You\'re in' };
 
@@ -37,7 +38,7 @@ export default async function JoinSuccessPage({ params, searchParams }: Props) {
   const [{ data: event }, { data: membership }] = await Promise.all([
     admin
       .from('events')
-      .select('display_name, event_date, venue_name, public_id')
+      .select('display_name, event_date, event_date_precision, venue_name, public_id')
       .eq('event_id', eventId)
       .maybeSingle(),
     admin
@@ -56,7 +57,10 @@ export default async function JoinSuccessPage({ params, searchParams }: Props) {
     <DoorShell
       eyebrow="You're in"
       title={event.display_name}
-      meta={[event.event_date, event.venue_name].filter(Boolean).join(' · ') || undefined}
+      // Same one line as every other /join step, from the same helper — a second
+      // copy of the precision rule here is exactly how the doors drifted apart
+      // in the first place.
+      meta={joinDoorMeta(event)}
     >
       <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-5">
         <p className="text-sm text-ink/70">You joined as</p>

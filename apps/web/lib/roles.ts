@@ -60,6 +60,23 @@ export type UserRoleSummary = {
    * `lib/shop-limits.ts`.
    */
   canOpenShop: boolean;
+  /**
+   * False when the OWNED-SHOPS read was refused.
+   *
+   * 🔑 `canOpenShop` fails CLOSED on it, and that direction is deliberate. A
+   * refused read makes `ownedShopCount` 0, which makes "may they open one?"
+   * true — so the account menu invited a supplier who ALREADY HAS A SHOP to
+   * create another, contradicting the promise in account-switcher.tsx's own
+   * docblock ("a vendor who already owns one gets canOpenShop === false").
+   *
+   * Hiding the button for one render is a small, self-correcting harm. A
+   * duplicate shop is not: shop addresses are IMMUTABLE once minted, so the
+   * mistake is permanent and needs an admin to unpick.
+   *
+   * ⚠ The error was already bound and already logged before this existed. A log
+   * line never changed a pixel — the measurement has to reach the render.
+   */
+  shopsMeasured: boolean;
 };
 
 export type VendorSwitchTarget = {
@@ -180,12 +197,16 @@ export const fetchUserRoleSummary = cache(async (
   }
 
   const ownedShopCount = ownedIds.size;
+  // `?? []` above cannot tell "owns nothing" from "we could not find out".
+  const shopsMeasured = !ownedRes.error;
   return {
     hasCustomerAccess: profile?.account_type !== 'vendor',
     hasVendorAccess: vendorProfiles.length > 0,
     hasAdminAccess,
     vendorProfiles,
     ownedShopCount,
-    canOpenShop: canOpenAnotherShop(ownedShopCount),
+    // Fails CLOSED: an unmeasured shop list must never read as "you have none".
+    canOpenShop: shopsMeasured && canOpenAnotherShop(ownedShopCount),
+    shopsMeasured,
   };
 });

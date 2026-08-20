@@ -2,6 +2,10 @@ import Link from 'next/link';
 import { MapPin, Sparkles, X } from 'lucide-react';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { formatEventDate } from '@/lib/events';
+import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
+// The event hub's sanctioned column widths — a page-level column outside the
+// four is a defect, and `measures.test.ts` counts them.
+import { PLATE } from '../_lib/measures';
 import { ROLE_LABELS } from '@/lib/guests';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
@@ -359,6 +363,9 @@ type SiteBodyProps = {
    *  it — and must keep the gate here on the server, never by hiding UI. */
   ownerCapability?: OwnerCapability | null;
   /** A booked supplier's server-verified grant; drives the doorway strip. */
+  /** Stories about THIS day, for the people of this day. Empty for anybody the
+   *  event does not recognise — the page never decides that itself. */
+  chaptersOnThisDay?: ChapterOnThisDay[];
   vendorCapability?: VendorCapability | null;
 };
 
@@ -397,6 +404,7 @@ export async function SiteBody({
   editorMode = false,
   ownerCapability = null,
   vendorCapability = null,
+  chaptersOnThisDay = [],
 }: SiteBodyProps) {
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
 
@@ -1917,6 +1925,52 @@ export async function SiteBody({
           dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
         />
       )}
+      {/* STORIES ABOUT THIS DAY — the surface the middle privacy answer needed.
+          Owner 2026-08-20: a chapter can be shared with "all in that event
+          only", and until now there was nowhere for such a chapter to be read.
+
+          🔒 The page does NOT decide who may see this. `chaptersOnThisDay`
+          arrives EMPTY for anybody the event does not recognise, decided in
+          page.tsx against the database — host, booked supplier, guest with a
+          pass, or a signed-in seat-holder. On a public event a passer-by gets
+          an empty array and this renders nothing at all.
+
+          ── WHY OUTSIDE BOTH TIER TREES ─────────────────────────────────────
+          Same reason as the supplier doorway and the guest strip: a host and a
+          supplier both render through the ANONYMOUS tree (identity comes from a
+          guest cookie they do not carry), so gating this inside the guest tree
+          would hide it from most of the people it is for. */}
+      {chaptersOnThisDay.length > 0 ? (
+        <section className={`mx-auto mt-10 w-full ${PLATE} px-4`}>
+          <h2 className="m-serif text-lg text-ink">Stories about this day</h2>
+          <p className="mt-1 text-[13px] text-ink/60">
+            Written by the people who were here.
+          </p>
+          <ul className="mt-4 space-y-3">
+            {chaptersOnThisDay.map((c) => (
+              <li key={c.publicId} className="rounded-tile border border-ink/10 p-3">
+                <p className="text-sm font-semibold text-ink">
+                  {/* A link ONLY when the chapter's own page would really open —
+                      an event-only piece has no public page, and offering one
+                      would be a dead end dressed as a story. */}
+                  {c.href ? (
+                    <a href={c.href} className="hover:underline">
+                      {c.title}
+                    </a>
+                  ) : (
+                    c.title
+                  )}
+                </p>
+                <p className="mt-0.5 text-[12px] text-ink/60">
+                  by {c.authorName}
+                  {c.day ? ` · ${c.day}` : ''}
+                  {c.isPublic ? '' : ' · shared with the people of this day'}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {/* Unified Website Editor (PR-1) — the click-to-edit bridge for the
           editor's preview iframe. `editorMode` is TRUE only for a verified host
           who passed `?editor=1`; for every guest/anonymous visitor this renders

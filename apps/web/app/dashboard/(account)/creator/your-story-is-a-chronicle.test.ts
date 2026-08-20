@@ -212,3 +212,62 @@ test('the number restarts inside each year', () => {
       'shifts the number on every chapter after it — including ones already read.',
   );
 });
+
+/* ── who can read it (owner 2026-08-20, item 4) ─────────────────────────── */
+
+test('the composer offers all three answers, and the middle one only with a celebration', () => {
+  const body = code(page());
+  assert.match(
+    body,
+    /CHAPTER_AUDIENCES\.map/,
+    'The three-way choice is gone — "who can read this" is back to a Publish button.',
+  );
+  assert.match(
+    body,
+    /choice === 'event' && !canShareWithEvent\(c\.event_id\)/,
+    'The middle answer is offered on a chapter about no celebration, where its ' +
+      'only possible outcome is a refusal.',
+  );
+  assert.equal(
+    count(body, /action=\{publishChapter\}|action=\{unpublishChapter\}/g),
+    0,
+    'The old two-door publish/unpublish pair is back beside the three-way choice.',
+  );
+});
+
+test('ONLY the public answer touches the public page', () => {
+  const actions = code(
+    readFileSync(join(HERE, 'actions.ts'), 'utf8'),
+  );
+  assert.match(
+    actions,
+    /audience === 'published' && profile && profile\.public_profile_enabled !== true/,
+    'Sharing a chapter with one celebration now flips the author’s whole profile ' +
+      'public — the opposite of what they just asked for.',
+  );
+  assert.match(
+    actions,
+    /audience === 'published' && wasPrivate/,
+    'Followers are notified for something that is not an announcement.',
+  );
+});
+
+test('the event page never decides for itself who is one of the celebration’s people', () => {
+  const slugPage = code(
+    readFileSync(join(process.cwd(), 'app', '[slug]', 'page.tsx'), 'utf8'),
+  );
+  assert.match(
+    slugPage,
+    /ownerCapability \|\| vendorCapability \|\| viewerHoldsASeat \|\| session\?\.event_id === event\.event_id/,
+    'The gate on the day’s stories changed shape. On a PUBLIC event page a ' +
+      'passer-by must get an empty list — the four ways to belong are the host, ' +
+      'a booked supplier, a signed-in seat-holder, and a guest carrying their pass.',
+  );
+  assert.match(
+    slugPage,
+    /findGuestSeatForUser\(event\.event_id, viewerAccount\.id\)/,
+    'The signed-in guest with a seat and no current pass is unrecognised again — ' +
+      'the most ordinary invited person there is, because the pass expires long ' +
+      'before a wedding booked a year out.',
+  );
+});

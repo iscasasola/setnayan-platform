@@ -27,6 +27,7 @@ import {
 import { takeHonoree } from '@/lib/onboarding/honoree-handoff';
 import { takeMoment } from '@/lib/onboarding/moment-handoff';
 import { birthdayWhoFromAge } from '@/lib/onboarding/birthday-who-from-age';
+import type { Sex } from '@/lib/event-anchor';
 import { resolvePersona, type ExpAxis } from '@/app/onboarding/wedding/_data/experience-personas';
 import { PH_REGIONS } from '@/lib/regions';
 import { commitOnboardingEvent } from '@/app/onboarding/_shared/commit-event';
@@ -92,6 +93,8 @@ type Props = {
   prefill?: OnboardingPrefill;
   /** The signed-in person's own next-birthday age, when this is a birthday. */
   selfBirthdayAge?: number | null;
+  /** Their sex, when on file — it decides which debut age is the adult line. */
+  selfSex?: Sex;
   /**
    * The services step's server-resolved view-model (Papic + Setnayan AI).
    * NULL = the NEXT_PUBLIC_ONBOARDING_SERVICES_STEP flag is off ⇒ the screen is
@@ -151,6 +154,7 @@ export function GenericOnboarding(props: Props) {
     nextPath = null,
     prefill = EMPTY_PREFILL,
   selfBirthdayAge = null,
+  selfSex = null,
     servicesStepView = null,
     servicesStepAiValue = null,
     todayISO,
@@ -545,7 +549,7 @@ export function GenericOnboarding(props: Props) {
    * "since we already know it is for his birthday, then it is not a question of
    * what type of party."
    */
-  const derivedWho = birthdayWhoFromAge(knownBirthdayAge);
+  const derivedWho = birthdayWhoFromAge(knownBirthdayAge, selfSex);
 
   const skippedScreens = useMemo(() => {
     const set = new Set<string>();

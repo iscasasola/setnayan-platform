@@ -158,6 +158,7 @@ export default async function GenericOnboardingPage({
       nextPath={nextPath !== '/' ? nextPath : null}
       prefill={prefill}
       selfBirthdayAge={selfBirthdayAge}
+      selfSex={self.gender}
       // Manila today, so the anchor's next return is computed off the server's
       // clock rather than the visitor's device timezone.
       todayISO={manilaToday()}

@@ -71,6 +71,8 @@ export type Album = {
 
 export type PhotosAlbumsData = {
   albums: Album[];
+  /** False when the event list behind these albums was never read. */
+  albumsMeasured: boolean;
   /** First album with a public slug — anchors the top "Share to Facebook" card. */
   shareEvent: { displayName: string; slug: string } | null;
 };
@@ -175,7 +177,7 @@ async function loadAttendedAlbum(
 }
 
 export async function getPhotosAlbums(userId: string): Promise<PhotosAlbumsData> {
-  const { events } = await getSwitcherData(userId);
+  const { events, eventsMeasured } = await getSwitcherData(userId);
 
   // Public-landing slugs (for the Facebook share link) — best-effort under the
   // user's RLS session; degrades to no-slug if the column/policy is unavailable.
@@ -271,5 +273,5 @@ export async function getPhotosAlbums(userId: string): Promise<PhotosAlbumsData>
     ? { displayName: shareAlbum.event.display_name, slug: shareAlbum.slug as string }
     : null;
 
-  return { albums: ordered, shareEvent };
+  return { albums: ordered, shareEvent, albumsMeasured: eventsMeasured };
 }

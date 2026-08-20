@@ -202,6 +202,10 @@ export default async function ProfilePage({ searchParams }: Props) {
     });
   // ⚠ the CONSENTS this person has given. Refused, the page shows none — so somebody
   // ⚠ reviewing what they agreed to is told they agreed to nothing.
+  // These rows are CONSENTS the person granted. Saying "Nothing here" when the
+  // read failed tells them they have granted none — and this block is where they
+  // come to REVOKE one, so the false absence removes the control too.
+  const shareConsentsMeasured = !shareConsentRowsProbeError;
   if (shareConsentRowsProbeError) {
     logQueryError('AccountProfilePage.shareConsentRows', shareConsentRowsProbeError, {}, 'graceful_degrade');
   }
@@ -1137,7 +1141,12 @@ export default async function ProfilePage({ searchParams }: Props) {
               before.
             </p>
           </div>
-          {shareConsents.length === 0 ? (
+          {!shareConsentsMeasured ? (
+            <p role="status" className="text-xs text-ink/70">
+              We couldn’t load these just now, so anything you’ve allowed isn’t
+              shown. Nothing has changed — refresh to try again.
+            </p>
+          ) : shareConsents.length === 0 ? (
             <p className="text-xs text-ink/45">
               Nothing here — when you allow a creation to be featured, it shows up
               here and can be revoked any time.

@@ -3843,6 +3843,16 @@ async function fetchVendorPackagesWithItems(
     // ⚠ the shop appears to be selling nothing — and nothing on screen looks wrong.
     if (itemsError) {
       logQueryError('PublicVendorPage.items', itemsError, { vendorProfileId }, 'graceful_degrade');
+      // FAIL THE FETCH, don't empty the package. The function already returns []
+      // from its own catch, and the section is gated on `length > 0` — so an
+      // empty list OMITS the section, which is an honest absence. A package
+      // rendered with no items is not an absence, it is a false statement about
+      // what this vendor sells, on a public page, to somebody deciding what to
+      // buy. Between "we are showing you nothing" and "we are showing you the
+      // wrong thing", only the second is a lie.
+      // 🔑 The warning above this block was already written, and only logged.
+      // A comment describing a failure mode is not a guard against it.
+      return [];
     }
 
     // CHOICE lines. A line is a choice iff it has options, so this join is what
@@ -3865,6 +3875,11 @@ async function fetchVendorPackagesWithItems(
     // 🔑 A comment describing a failure mode is not a guard against it.
     if (optionsError) {
       logQueryError('PublicVendorPage.packageItemOptions', optionsError, { vendorProfileId }, 'graceful_degrade');
+      // Same rule, one level down. "A line is a choice iff it has options" — so
+      // a refused options read turns every choice into a fixed inclusion, and
+      // the couple never learns they could have picked. That is the same
+      // misrepresentation of the offer, so it gets the same answer.
+      return [];
     }
 
     const optionsByItem = new Map<string, VendorPackageItemOptionRow[]>();

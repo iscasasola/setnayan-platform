@@ -48,7 +48,7 @@ export async function PhotosTab({
   userId: string;
   lens?: PhotosLens;
 }) {
-  const { albums: allAlbums, shareEvent } = await getPhotosAlbums(userId);
+  const { albums: allAlbums, shareEvent, albumsMeasured } = await getPhotosAlbums(userId);
 
   const albums =
     lens === 'owned'
@@ -56,6 +56,22 @@ export async function PhotosTab({
       : lens === 'attended'
         ? allAlbums.filter((a) => a.role === 'guest')
         : allAlbums;
+
+  if (albums.length === 0 && !albumsMeasured) {
+    // The event list behind every lens was never read, so NONE of the three
+    // empty messages below is safe: each states something about this person's
+    // life. The comment on those messages already says saying "you're not
+    // hosting an event yet" to a host "would be a lie" — a refused read makes
+    // it exactly that lie, for every lens at once.
+    return (
+      <div role="status" className="mt-6 rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center">
+        <p className="text-base font-semibold text-ink">We couldn’t load your albums.</p>
+        <p className="mt-2 text-sm text-ink/70">
+          Nothing has changed — your photos are safe. Refresh to try again.
+        </p>
+      </div>
+    );
+  }
 
   if (albums.length === 0) {
     // Per-lens empty copy — an empty ATTENDED lens is not "no albums yet", and

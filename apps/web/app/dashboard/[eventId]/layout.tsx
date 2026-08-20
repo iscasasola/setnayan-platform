@@ -141,6 +141,9 @@ export default async function EventLayout({ children, params }: Props) {
     isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
+    // This literal exists BECAUSE a read failed — it measured nothing, and
+    // saying so is what stops the library reporting that you host no events.
+    eventsMeasured: false,
     context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
   };
   const [

@@ -101,6 +101,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
+    // This literal exists BECAUSE a read failed — it measured nothing, and
+    // saying so is what stops the library reporting that you host no events.
+    eventsMeasured: false,
     context: { hasVendor: false, vendorName: null, isAdmin: true, canOpenShop: false },
   };
 

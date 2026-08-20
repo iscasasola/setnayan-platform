@@ -29,6 +29,16 @@ with a non-null assertion whose next line calls a string method on it, and it wo
 disarm the "you already have one of these" walk-back for exactly the people it
 targets. A bracket the person chose themselves always wins.
 
+**Then the owner sharpened it:** *"since we already know it is for his birthday, then
+it is not a question of what type of party."* The skip only fired when a Year row
+handed over an age, so the same birthday created from the Create button still asked.
+The age now also comes from the signed-in person's own profile — a blank celebrant has
+always meant "mine" — so the question is answered at every door into the flow. It is
+deliberately NOT routed through the prefill seam, which is gated by a fail-closed flag
+holding back a wider brief: a fix built behind it would ship switched off. Typing a
+celebrant name puts the question back, and a stored answer that differs from the
+derived one keeps its screen rather than being hidden with no way back to it.
+
 ⚠ The four birthday options do not match the owner-locked milestone ladder (1 · 7 ·
 18/21 · 60 — there is no 50). The mapping deliberately follows what the labels SAY;
 reconciling the two is a copy decision, flagged rather than made.

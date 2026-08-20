@@ -479,3 +479,49 @@ export async function loadBookedVendorProfileIds(eventId: string): Promise<strin
     return [];
   }
 }
+
+/**
+ * The DAY each attached celebration happened, for the chapters on a public
+ * timeline.
+ *
+ * 🔑 WHY A SECOND READ RATHER THAN A COLUMN. A chapter's place in the chronicle
+ * is the celebration's date, and that date lives on the celebration — a copy
+ * stamped onto the chapter at write time would keep the old day the moment a
+ * host moved theirs, and the wrong number would then be printed on a public
+ * page with nothing to blame.
+ *
+ * ⚠ A REFUSED READ RETURNS AN EMPTY MAP, and the caller falls back to the
+ * publish date — the numbering the page had before this existed. Degrading to
+ * the old order is honest; refusing to render somebody's timeline because a
+ * date lookup failed is not.
+ */
+export async function loadChapterEventDays(
+  eventIds: ReadonlyArray<string | null>,
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const ids = Array.from(new Set(eventIds.filter((id): id is string => !!id)));
+  if (ids.length === 0) return out;
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return out;
+  }
+  const { data, error } = await admin
+    .from('events')
+    .select('event_id, event_date')
+    .in('event_id', ids);
+  if (error) {
+    console.error('[creator-public] chapter event days read failed', error);
+    return out;
+  }
+  for (const row of (data ?? []) as Array<{
+    event_id: string;
+    event_date: string | null;
+  }>) {
+    // A plain day string, never a Date — a 12 Dec celebration must not read as
+    // 11 Dec for a reader west of Greenwich.
+    if (row.event_date) out.set(row.event_id, row.event_date.slice(0, 10));
+  }
+  return out;
+}

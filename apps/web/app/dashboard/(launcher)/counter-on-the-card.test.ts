@@ -41,16 +41,29 @@ const DELETE_ACTIONS = resolve(
 );
 const read = (p: string) => readFileSync(p, 'utf8');
 
-test('all three card compositions receive their own event’s summary', () => {
+/**
+ * Every place the board mounts a card. Counted from the SOURCE rather than
+ * written down as a number: the board grew a shelf on 2026-08-20 (Finished
+ * split into Unpublished + Published) and a hardcoded 5 turned that into a
+ * failure of a guard that was not actually broken. **A count of what exists is
+ * a fact; a count typed into a test is a claim with an expiry date.**
+ */
+function cardMounts(src: string): number {
+  return (src.match(/<(MobileEventHero|MobileEventChip|GlassEventCard)\s/g) ?? [])
+    .length;
+}
+
+test('EVERY card composition receives its own event’s summary', () => {
   const src = stripComments(read(LAUNCHER));
-  const passes = src.match(/summary=\{decisionByEvent\.get\(/g) ?? [];
-  // 5 card call sites: hero + chips + glass on Coming up, chips + glass on
-  // Finished. Fewer means a composition silently lost its counter.
+  const mounts = cardMounts(src);
+  const passes = (src.match(/summary=\{decisionByEvent\.get\(/g) ?? []).length;
+  assert.ok(mounts >= 5, `Only ${mounts} card mounts found — the board lost a composition.`);
   assert.equal(
-    passes.length,
-    5,
-    `Expected all 5 board card call sites to pass a per-event summary; found ${passes.length}. ` +
-      'A card that stops receiving one shows no count and looks perfectly fine.',
+    passes,
+    mounts,
+    `${mounts} board cards are mounted but only ${passes} are handed a per-event ` +
+      'summary. A card that stops receiving one shows no count and looks ' +
+      'perfectly fine.',
   );
 });
 
@@ -149,10 +162,10 @@ test('every card that shows a menu also reserves room for it', () => {
     src.match(/hasMenu=\{upcoming\[0\]\.member_type === 'couple'\}/g) ?? [];
   assert.equal(
     reserved.length + heroReserved.length,
-    5,
-    'Every one of the 5 card call sites must tell its card whether a menu will ' +
-      'be laid over it. Without the reservation the button sits on top of a ' +
-      'line of truncating text.',
+    cardMounts(src),
+    'Every board card must tell its card whether a menu will be laid over it. ' +
+      'Without the reservation the button sits on top of a line of truncating ' +
+      'text.',
   );
 });
 
@@ -190,35 +203,49 @@ test('a blocked event states the refusal before anything is typed', () => {
   );
 });
 
-test('the card menu is actually MOUNTED on all five card call sites', () => {
+test('the card menu is actually MOUNTED on every card, not merely defined', () => {
   const src = stripComments(read(LAUNCHER));
   // 🚨 THE GAP AN ADVERSARIAL PASS FOUND IN THIS FILE'S FIRST CUT. Every other
   // assertion here proved the wrapper was DEFINED and that cards were told a
   // menu would be laid over them (`hasMenu`) — neither of which renders it.
-  // Deleting all five <BoardCardWithMenu> wrappers left the whole launcher
-  // suite green while the menu vanished from the product: the classic
+  // Deleting every <BoardCardWithMenu> wrapper left the whole launcher suite
+  // green while the menu vanished from the product: the classic
   // imported-but-not-mounted decoration, in a guard file written to prevent
   // exactly that.
-  const mounts = src.match(/<BoardCardWithMenu\b/g) ?? [];
+  //
+  // DERIVED from cardMounts for the reason this file's own header gives — a
+  // count typed into a test is a claim with an expiry date. It expired inside
+  // one branch: the PUBLISHED shelf arrived with two more card call sites and
+  // a hardcoded 5 would have failed for a reason that had nothing to do with
+  // whether those new cards were wired.
+  const wrapped = (src.match(/<BoardCardWithMenu\b/g) ?? []).length;
   assert.equal(
-    mounts.length,
-    5,
-    `Expected the menu wrapper to be mounted on all 5 card call sites; found ` +
-      `${mounts.length}. A defined-but-unmounted wrapper is not a control.`,
+    wrapped,
+    cardMounts(src),
+    `${cardMounts(src)} board cards are mounted but ${wrapped} are wrapped in ` +
+      'the menu. A card rendered outside the wrapper cannot be put away or ' +
+      'removed, and looks completely normal.',
   );
 });
 
-test('the two-up chip grids alternate the popover anchor', () => {
+test('every two-up chip grid alternates the popover anchor', () => {
   const src = stripComments(read(LAUNCHER));
   // The popover is a fixed 280px and a phone chip is ~160px. Hung from the
   // right edge of a LEFT-column chip it lands ~97px off the left of the
   // viewport, which an LTR page cannot scroll to — permanently unreachable.
-  const alternating = src.match(/align=\{i % 2 === 0 \? 'left' : 'right'\}/g) ?? [];
+  //
+  // DERIVED from the chip count: MobileEventChip is only ever rendered inside a
+  // `grid-cols-2`, so a NEW chip shelf that forgets to alternate fails here.
+  // That is not hypothetical — the PUBLISHED shelf landed mid-branch with a
+  // third chip grid and no anchor, and this is what caught it.
+  const chips = (src.match(/<MobileEventChip\s/g) ?? []).length;
+  const alternating = (src.match(/align=\{i % 2 === 0 \? 'left' : 'right'\}/g) ?? []).length;
   assert.equal(
-    alternating.length,
-    2,
-    'Both two-up chip grids (Coming up and Finished) must alternate the ' +
-      'popover anchor by column, or half the menus render off-screen.',
+    alternating,
+    chips,
+    `${chips} two-up chip grids but ${alternating} alternate the popover ` +
+      'anchor. The left column of any grid that does not will open its menu ' +
+      'off the side of the screen, where it cannot be scrolled to.',
   );
 });
 

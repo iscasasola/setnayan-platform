@@ -11,6 +11,14 @@
  * rule: never hard-cap ninong/ninang / the 18s / the court). Pure controlled
  * component; every field optional (the whole screen is skippable upstream).
  */
+// 🔴 OPTIONS ARE PRINTED THROUGH `specialtyOptionLabel`, NEVER RAW. A FIELD in
+// the specialty catalog carries a key AND a label; an OPTION carries only a
+// string, and the type has no slot for an option label at all — so these three
+// render sites used to print `1st_birthday` and `ninong` at a customer. The
+// lookup keeps the stored value untouched (it is what `show_when` compares and
+// what is already saved on live rows) and humanises anything it does not know,
+// so a database-authored spec cannot reintroduce raw keys.
+import { specialtyOptionLabel } from '@/lib/onboarding/specialty-option-labels';
 import type { SpecialtyField, SpecialtyItemField } from '@/lib/onboarding/specialty-catalog';
 import { isSpecialtyFieldVisible } from '@/lib/onboarding/specialty-values';
 
@@ -51,7 +59,7 @@ function ItemInput({
         <option value="">—</option>
         {(field.options ?? []).map((o) => (
           <option key={o} value={o}>
-            {o}
+            {specialtyOptionLabel(o)}
           </option>
         ))}
       </select>
@@ -219,7 +227,7 @@ function Field({
               onClick={() => onChange(asStr(value) === o ? '' : o)}
               className={`${CHIP} ${asStr(value) === o ? CHIP_ON : CHIP_OFF}`}
             >
-              {o}
+              {specialtyOptionLabel(o)}
             </button>
           ))}
         </div>
@@ -240,7 +248,7 @@ function Field({
                 onClick={() => onChange(on ? vals.filter((x) => x !== o) : [...vals, o])}
                 className={`${CHIP} ${on ? CHIP_ON : CHIP_OFF}`}
               >
-                {o}
+                {specialtyOptionLabel(o)}
               </button>
             );
           })}

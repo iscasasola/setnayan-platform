@@ -20,11 +20,13 @@ import {
   MapPin,
   Baby,
   Mail,
+  PenLine,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, type EventWithRole } from '@/lib/events';
 import {
+  canWriteStoryFor,
   daysUntilEventDay,
   eventBoardHref,
   eventStance,
@@ -32,6 +34,7 @@ import {
   manilaTodayISO,
   mergeBoardMemberships,
   splitEventBoard,
+  splitFinishedByStory,
   stanceLabel,
   type EventStance,
 } from '@/lib/event-board';
@@ -518,12 +521,26 @@ export default async function LauncherPage({
   // exactly ONE entry either way). Graceful-degrade to 0 (promo renders)
   // rather than the error boundary.
   let chapterCount = 0;
+  // Which FINISHED celebrations this account has already turned into a posted
+  // story — the Unpublished / Published split below (owner 2026-08-20).
+  // `null` = NOT MEASURED, which is a different thing from "none", and the
+  // split degrades to a single shelf rather than inviting somebody to write a
+  // story they have already written.
+  let storyEventIds: Set<string> | null = null;
   try {
-    const { count, error } = await supabase
+    const { data, error } = await supabase
       .from('creator_chapters')
-      .select('*', { count: 'exact', head: true })
+      .select('event_id, status')
       .eq('user_id', user.id);
-    if (!error) chapterCount = count ?? 0;
+    if (!error) {
+      const rows = (data ?? []) as Array<{ event_id: string | null; status: string }>;
+      chapterCount = rows.length;
+      storyEventIds = new Set(
+        rows
+          .filter((r) => r.status === 'published' && r.event_id)
+          .map((r) => r.event_id as string),
+      );
+    }
   } catch {
     // ⚠ 0, NOT null — AND THAT DIFFERS FROM ITS THREE NEIGHBOURS ON PURPOSE.
     // adminOpenTotal / alagaCount / connectionCount all degrade to null so the
@@ -535,6 +552,16 @@ export default async function LauncherPage({
     // this pattern to a count that feeds a number or a list.
     chapterCount = 0;
   }
+
+  // FINISHED SPLITS IN TWO (owner 2026-08-20: *"change it to unpublished and
+  // published. They get to choose on the unpublish which they will make a story
+  // of."*). Same shelf, same order, same cards — the question added is whether
+  // the day has been written up yet.
+  const {
+    unpublished: unwritten,
+    published: written,
+    measured: storiesMeasured,
+  } = splitFinishedByStory(finished, storyEventIds);
 
   // PEOPLE · Alaga — the dependants this account holds. Both gates are checked
   // BEFORE the query, so while NEXT_PUBLIC_DEPENDENT_PEOPLE is off (production
@@ -987,37 +1014,49 @@ export default async function LauncherPage({
         </div>
       </section>
 
-      {/* FINISHED — the second shelf, and it is ALWAYS HERE (owner 2026-08-13).
+      {/* FINISHED, IN TWO SHELVES (owner 2026-08-13, split 2026-08-20).
           It used to be the hidden half of the Events block, revealed by a
           "Show all" link: **a thing you have to switch on reads as a thing that
-          might not be there**, and what was behind it is somebody's memories —
-          prod's one finished wedding sat there. Now it is a named place on the
-          board whether or not anything has reached it yet.
+          might not be there**, and what was behind it is somebody's memories.
+          Then the owner asked for Your Story to live here: *"we have a place
+          there for finished. change it to unpublished and published. They get
+          to choose on the unpublish which they will make a story of."*
+
+          🔑 THE TWO WORDS ARE ABOUT THE STORY, NOT THE CELEBRATION. Every day
+          on both shelves is finished and kept; what is unpublished is the
+          chapter about it. Each shelf therefore says so in a sentence, and
+          neither ever calls a wedding "unpublished" on its own.
+
+          🪤 AND THE SPLIT ONLY HAPPENS WHEN THE STORIES WERE MEASURED. A
+          refused read of somebody's own chapters is indistinguishable from
+          having written none, and acting on that would put a "Write the story"
+          button beside a story they already wrote. Unmeasured ⇒ one shelf, the
+          board exactly as it was.
 
           🔑 THE EMPTY STATE MAKES NO ZERO-CLAIM. `fetchUserEvents`
           graceful-degrades to `[]` on every error including an RLS denial, so an
           empty shelf cannot be told apart from a refused read — the line
-          therefore says what this shelf is FOR ("celebrations move here on their
-          own once the day has passed") and never that you have none. Same rule
-          the Alaala wall learned on 2026-08-12: "no photos yet" printed over a
-          failed read is a lie told about somebody's memories. */}
+          therefore says what this shelf is FOR and never that you have none. */}
       <section
         id="finished"
         className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
         style={{ animationDelay: '0.46s' }}
       >
-        <SectionLabel sub="kept for good">Finished</SectionLabel>
-        {finished.length === 0 ? (
+        <SectionLabel sub={storiesMeasured ? 'no story written yet' : 'kept for good'}>
+          {storiesMeasured ? 'Unpublished' : 'Finished'}
+        </SectionLabel>
+        {unwritten.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
-            Celebrations move here on their own once the day has passed. Nothing
-            you keep is ever taken away.
+            {storiesMeasured
+              ? 'Celebrations move here on their own once the day has passed — this is where you pick the ones to tell. Nothing you keep is ever taken away.'
+              : 'Celebrations move here on their own once the day has passed. Nothing you keep is ever taken away.'}
           </p>
         ) : (
           <>
             {/* MOBILE — compact chips, muted (the same treatment the hidden
                 half used to get once revealed). */}
             <div className="grid grid-cols-2 gap-2.5 sm:hidden">
-              {finished.map((event, i) => (
+              {unwritten.map((event, i) => (
                 <BoardCardWithMenu
                   key={event.event_id}
                   event={event}
@@ -1037,7 +1076,7 @@ export default async function LauncherPage({
             {/* DESKTOP — the same glass cards, muted scene, reading
                 "Celebrated". */}
             <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-              {finished.map((event, i) => (
+              {unwritten.map((event, i) => (
                 <BoardCardWithMenu key={event.event_id} event={event}>
                   <GlassEventCard
                     event={event}
@@ -1053,9 +1092,84 @@ export default async function LauncherPage({
                 </BoardCardWithMenu>
               ))}
             </div>
+            {/* THE CHOICE, and it is a LINK, never a form: pressing it opens
+                the composer with this celebration already picked. Nothing is
+                written, nothing is posted, and nothing happens when the card
+                merely scrolls past — a `<Link>` prefetches, so a side effect
+                behind one fires by itself. */}
+            {storiesMeasured ? (
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {unwritten.filter(canWriteStoryFor).map((event) => (
+                  <li key={event.event_id}>
+                    <Link
+                      href={`/dashboard/creator?event=${encodeURIComponent(event.event_id)}`}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/75 hover:bg-ink/5 hover:text-ink"
+                    >
+                      <PenLine aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      Write the story of {event.display_name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </>
         )}
       </section>
+
+      {/* PUBLISHED — the celebrations that are now chapters. Only ever rendered
+          when the stories were actually measured; an unmeasured read leaves one
+          shelf above and none here. */}
+      {storiesMeasured && written.length > 0 ? (
+        <section
+          id="published"
+          className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
+          style={{ animationDelay: '0.48s' }}
+        >
+          <SectionLabel sub="told in Your Story">Published</SectionLabel>
+          <div className="grid grid-cols-2 gap-2.5 sm:hidden">
+            {written.map((event, i) => (
+              <BoardCardWithMenu
+                key={event.event_id}
+                event={event}
+                align={i % 2 === 0 ? 'left' : 'right'}
+              >
+                <MobileEventChip
+                  event={event}
+                  pct={progressByEvent.get(event.event_id) ?? null}
+                  finished
+                  todayISO={todayISO}
+                  summary={decisionByEvent.get(event.event_id)}
+                  hasMenu={event.member_type === 'couple'}
+                />
+              </BoardCardWithMenu>
+            ))}
+          </div>
+          <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            {written.map((event, i) => (
+              <BoardCardWithMenu key={event.event_id} event={event}>
+                <GlassEventCard
+                  event={event}
+                  pct={progressByEvent.get(event.event_id) ?? null}
+                  heroSrc={heroFor(event.event_type)}
+                  ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                  finished
+                  index={upcoming.length + unwritten.length + i}
+                  todayISO={todayISO}
+                  summary={decisionByEvent.get(event.event_id)}
+                  hasMenu={event.member_type === 'couple'}
+                />
+              </BoardCardWithMenu>
+            ))}
+          </div>
+          <p className="mt-3 text-[12px] text-[color:var(--sn-ink-500)]">
+            These days are chapters now —{' '}
+            <Link href="/dashboard/creator" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
+              read them in Your Story
+            </Link>
+            .
+          </p>
+        </section>
+      ) : null}
 
       {/* #7b (gap G5): events auto-surfaced to this account + a one-tap Leave.
           Flag-gated so there is ZERO extra query while FEATURE_ACCOUNT_AUTOSURFACE

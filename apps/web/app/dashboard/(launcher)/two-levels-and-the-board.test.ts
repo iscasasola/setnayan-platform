@@ -43,6 +43,7 @@ import {
   eventBoardHref,
   eventStance,
   isFinishedEvent,
+  splitFinishedByStory,
   mergeBoardMemberships,
   splitEventBoard,
   stanceLabel,
@@ -301,16 +302,25 @@ test('the launcher renders BOTH shelves, always', () => {
     /<SectionLabel[^>]*>\s*Coming up\s*<\/SectionLabel>/,
     'The "Coming up" shelf heading is gone.',
   );
+  // The finished shelf is a NAMED place. Since 2026-08-20 its name depends on
+  // whether this account's stories could be read: "Unpublished" when they were
+  // (the owner's word), "Finished" when they were not. Either way it is named,
+  // and either way every finished celebration is on it.
   assert.match(
     src,
-    /<SectionLabel[^>]*>\s*Finished\s*<\/SectionLabel>/,
-    'The "Finished" shelf heading is gone — the second shelf must be a NAMED place, ' +
-      'not an unlabelled tail of the first.',
+    /storiesMeasured \? 'Unpublished' : 'Finished'/,
+    'The finished shelf heading is gone — the second shelf must be a NAMED ' +
+      'place, not an unlabelled tail of the first.',
   );
   assert.match(
     src,
     /id="finished"/,
     'The Finished section lost its own anchor, so nothing can link to it.',
+  );
+  assert.match(
+    src,
+    /id="published"/,
+    'The Published shelf lost its own anchor.',
   );
 });
 
@@ -337,7 +347,7 @@ test('NOTHING gates the finished shelf behind a query param', () => {
   );
   // …and the finished cards must actually be rendered from the shelf.
   assert.ok(
-    count(src, /finished\.map\(/) >= 2,
+    count(src, /unwritten\.map\(/) >= 2,
     'The finished shelf renders no cards on one of the two compositions (phone / ' +
       'desktop). Both must list them.',
   );
@@ -350,22 +360,75 @@ test('the finished cards are gated by NOTHING except emptiness', () => {
   // gate passed; and the `finished.map(` count was satisfied inside an arbitrary
   // condition. **A guard can match a string instead of the act.**
   //
-  // This asserts the ACT: inside the Finished section, the ONLY condition
-  // standing between a person and their memories is whether there are any.
+  // This asserts the ACT: inside the shelf, the ONLY conditions are whether
+  // there are any cards, and — since the 2026-08-20 split — whether the stories
+  // could be read at all. The second one is allowed ONLY in front of the
+  // write-the-story chips, never in front of a card, which the position checks
+  // below prove rather than trust.
   const section = sectionBody(launcher(), 'finished');
   const conditions = [...section.matchAll(/\{([^{}]+?)\s*\?\s*\(/g)].map((m) =>
     m[1]!.trim(),
   );
   assert.deepEqual(
     conditions,
-    ['finished.length === 0'],
-    'The Finished shelf has a condition other than "is it empty" standing in ' +
-      `front of it: ${JSON.stringify(conditions)}. Whatever it is named, that is ` +
-      'a switch in front of somebody\'s memories.',
+    ['unwritten.length === 0', 'storiesMeasured'],
+    'The finished shelf has a condition other than "is it empty" / "were the ' +
+      `stories measured" standing in front of it: ${JSON.stringify(conditions)}. ` +
+      'Whatever it is named, that is a switch in front of somebody\'s memories.',
   );
   assert.ok(
-    count(section, /finished\.map\(/) >= 2,
-    'The Finished section renders no cards on one of the two compositions.',
+    count(section, /unwritten\.map\(/) >= 2,
+    'The finished section renders no cards on one of the two compositions.',
+  );
+  // THE CARDS COME FIRST. `storiesMeasured` may only wrap the write chips that
+  // follow them — a card rendered inside it would vanish on a refused read.
+  const gate = section.indexOf('storiesMeasured ? (');
+  assert.ok(gate > 0, 'The write-the-story chips lost their measured gate.');
+  for (const marker of ['MobileEventChip', 'GlassEventCard']) {
+    const at = section.indexOf(marker);
+    assert.ok(at > 0, `The finished shelf no longer renders ${marker}.`);
+    assert.ok(
+      at < gate,
+      `${marker} is rendered inside the storiesMeasured branch — a failed read ` +
+        'of somebody\'s own chapters would empty their finished shelf.',
+    );
+  }
+});
+
+test('every finished celebration is on exactly one shelf', () => {
+  // The split is only safe because it is EXHAUSTIVE: unmeasured puts everything
+  // on the first shelf, measured puts each event on exactly one of the two.
+  // Proven on the function, not on the markup.
+  const finished = [
+    { event_id: 'a', member_type: 'couple' },
+    { event_id: 'b', member_type: 'couple' },
+  ] as never as Parameters<typeof splitFinishedByStory>[0];
+  for (const ids of [null, new Set<string>(), new Set(['a']), new Set(['a', 'b'])]) {
+    const { unpublished, published } = splitFinishedByStory(finished, ids);
+    assert.deepEqual(
+      [...unpublished, ...published].map((e) => e.event_id).sort(),
+      ['a', 'b'],
+      'A finished celebration fell off the board entirely.',
+    );
+  }
+});
+
+test('the write-the-story chip is a LINK to the composer, never a side effect', () => {
+  // A `<Link>` PREFETCHES: a route handler here would mint or write something
+  // when a card merely scrolled into view. The chip opens the composer with the
+  // celebration preselected and writes nothing.
+  const src = launcher();
+  assert.match(
+    src,
+    /href=\{`\/dashboard\/creator\?event=\$\{encodeURIComponent\(event\.event_id\)\}`\}/,
+    'The write-the-story chip no longer opens the composer with the celebration ' +
+      'preselected.',
+  );
+  assert.match(
+    src,
+    /unwritten\.filter\(canWriteStoryFor\)/,
+    'The chip is offered to people who cannot attach that celebration — the ' +
+      'composer will not list it, so the button opens onto nothing.',
   );
 });
 
@@ -373,13 +436,13 @@ test('the empty Finished shelf explains the shelf and claims no zero', () => {
   const src = launcher();
   assert.match(
     src,
-    /finished\.length === 0/,
-    'The empty state for the Finished shelf is gone.',
+    /unwritten\.length === 0/,
+    'The empty state for the finished shelf is gone.',
   );
   assert.match(
     src,
     /Celebrations move here on their own/,
-    'The empty Finished shelf lost the line that says what it is FOR.',
+    'The empty finished shelf lost the line that says what it is FOR.',
   );
   // 🔑 fetchUserEvents graceful-degrades to [] on EVERY error including an RLS
   // denial, so an empty shelf cannot be told apart from a refused read. The old

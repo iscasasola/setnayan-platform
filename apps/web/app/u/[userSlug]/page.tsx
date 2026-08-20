@@ -15,10 +15,14 @@ import { CreatorTierChip } from '@/app/_components/creator-tier-chip';
 import {
   CHAPTER_KIND_LABEL,
   EMBED_PROVIDER_LABEL,
-  rankChaptersByPublishedAt,
   youtubeThumbFromEmbedUrl,
 } from '@/lib/creator-chapters';
-import { fetchPublishedChaptersResult, type PublicChapter } from '@/lib/creator-public';
+import {
+  fetchPublishedChaptersResult,
+  loadChapterEventDays,
+  type PublicChapter,
+} from '@/lib/creator-public';
+import { chronicleDay, rankChronicle } from '@/lib/creator-chronicle';
 import {
   fetchCreatorInfluence,
   type CreatorInfluenceVendor,
@@ -168,6 +172,12 @@ export default async function AccountProfilePage({ params }: Props) {
   const chaptersRead = await fetchPublishedChaptersResult(user.user_id);
   const chapters: PublicChapter[] = chaptersRead.items;
   const hasChapters = chapters.length > 0;
+  // The chronicle is ordered by the day each celebration HAPPENED, so the
+  // timeline needs those days. Only read when there is something to place, and
+  // only for chapters that name a celebration.
+  const chapterEventDays = hasChapters
+    ? await loadChapterEventDays(chapters.map((c) => c.event_id))
+    : new Map<string, string>();
 
   // Creator "influence" — accepted vendor partnerships (aggregate, public). Only
   // relevant for a creator profile; never exposes the offer terms or the graph,
@@ -383,7 +393,11 @@ export default async function AccountProfilePage({ params }: Props) {
         />
 
         {hasChapters ? (
-          <ChapterTimeline chapters={chapters} slug={canonicalSlug} />
+          <ChapterTimeline
+            chapters={chapters}
+            eventDays={chapterEventDays}
+            slug={canonicalSlug}
+          />
         ) : null}
 
         {influenceVendors.length > 0 ? (
@@ -421,15 +435,20 @@ export default async function AccountProfilePage({ params }: Props) {
   );
 }
 
+/**
+ * The chapter's day, long form.
+ *
+ * 🪤 `new Date('2026-12-18')` IS MIDNIGHT UTC — the 17th anywhere west of
+ * Greenwich — and this function used to do exactly that. It only ever received
+ * a publish TIMESTAMP, where the hour absorbed the shift; it now also receives
+ * the celebration's DATE, which is a bare calendar day and would have drifted
+ * on the phone of every relative reading from abroad. `formatEventDate` builds
+ * the date from its parts for precisely this reason (2026-08-04 sweep, 41 call
+ * sites), so this delegates rather than repeating the mistake a third time.
+ */
 function formatChapterDate(iso: string | null): string | null {
   if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('en-PH', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  return formatEventDate(iso.slice(0, 10), 'en-PH') || null;
 }
 
 // CP-3 — the published-chapter TIMELINE (reverse-chronological, a spine of
@@ -439,26 +458,41 @@ function formatChapterDate(iso: string | null): string | null {
 // detail page.
 function ChapterTimeline({
   chapters,
+  eventDays,
   slug,
 }: {
   chapters: PublicChapter[];
+  /** event_id → the day it happened, for the chapters that name a celebration. */
+  eventDays: Map<string, string>;
   slug: string;
 }) {
-  // E5 numbering + the latest-chapter poster. Derived from published_at, NEVER
-  // from array position — see rankChaptersByPublishedAt for why index 0 is the
-  // wrong answer (Postgres DESC is NULLS FIRST). Undated rows get no number and
-  // can never be "latest"; "· Latest" is suppressed in a set of one, where the
-  // poster still renders.
-  const { numberByIndex, newestIndex, showLatest } = rankChaptersByPublishedAt(
-    chapters.map((c) => c.published_at),
+  // THE CHRONICLE ORDER — by the day each chapter is ABOUT (the celebration's
+  // own date; the publish date only for a chapter about no celebration), oldest
+  // = Chapter 1. It used to rank by published_at alone, so writing up an old
+  // day made it the person's LATEST chapter.
+  //
+  // Derived from PARSED DAYS, never from array position: the query orders
+  // published_at DESC and Postgres DESC is NULLS FIRST, so `chapters[0]` can be
+  // an undated row. Undated rows get no number and can never be "latest";
+  // "· Latest" is suppressed in a set of one, where the poster still renders.
+  const days = chapters.map((c) =>
+    chronicleDay({
+      eventDate: c.event_id ? eventDays.get(c.event_id) ?? null : null,
+      publishedAt: c.published_at,
+    }),
   );
+  const { numberByIndex, newestFirst } = rankChronicle(days);
+  const newestIndex = newestFirst.length > 0 ? (newestFirst[0] as number) : -1;
+  const showLatest = numberByIndex.size > 1;
+  const ordered = newestFirst.map((i) => ({ chapter: chapters[i] as PublicChapter, i }));
 
   return (
     <section className="uprof-tl" aria-label="Chapters">
       <h2 className="m-serif uprof-tl-head">Chapters</h2>
       <ol className="uprof-tl-list">
-        {chapters.map((c, i) => {
-          const date = formatChapterDate(c.published_at);
+        {ordered.map(({ chapter: c, i }) => {
+          // The day the chapter is ABOUT — the celebration's, when it has one.
+          const date = formatChapterDate(days[i] ?? c.published_at);
           const n = numberByIndex.get(i) ?? null;
           const isLatest = i === newestIndex && showLatest;
           // Poster: the newest DATED chapter only, and only when the stored

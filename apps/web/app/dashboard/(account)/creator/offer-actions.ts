@@ -159,23 +159,14 @@ export async function linkCreatorOfferDeliverable(formData: FormData) {
 }
 
 /**
- * Creator "accept vendor offers" toggle (PR-C · RA-10173 must-plan — an
- * unsolicited offers inbox is the fastest way to make a user feel farmed).
- * Default ON; turning it OFF (a) hides the creator from the vendor Creators
- * browse and (b) makes offer_creator_reach_hold raise CREATOR_OFFERS_OFF —
- * the server-side floor. Self-update on the RLS client (same pattern as the
- * profile marketing_opt_in toggle).
+ * 🛑 `setCreatorAcceptsOffers` WAS DELETED HERE — owner 2026-08-20: *"accept
+ * vendor offers will forever be on. so no need to toggle since all users can be
+ * deemed content creators."*
+ *
+ * `users.creator_accepts_offers` still exists and is still READ — the vendor
+ * Creators browse filters on it and `offer_creator_reach_hold` raises
+ * CREATOR_OFFERS_OFF from it. It defaults TRUE and now has no writer, so every
+ * account accepts offers. The column is kept, not dropped, because it is the
+ * whole mechanism for an opt-out and a privacy review may ask for one back; a
+ * dropped column would have to be rebuilt from nothing.
  */
-export async function setCreatorAcceptsOffers(formData: FormData) {
-  const { supabase, user } = await ensureUser();
-  const enabled = formData.get('accepts_offers') === 'on';
-
-  const { error } = await supabase
-    .from('users')
-    .update({ creator_accepts_offers: enabled } as Record<string, unknown>)
-    .eq('user_id', user.id);
-  if (error) back('Couldn’t save that preference. Please try again.');
-
-  revalidatePath(PANEL_PATH);
-  redirect(`${PANEL_PATH}?${enabled ? 'offers_on' : 'offers_off'}=1`);
-}

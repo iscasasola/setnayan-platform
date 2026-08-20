@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "80a3a64da",
+  "generatedFromRef": "3bf12d351",
   "routeCount": 402,
-  "destinations": 849,
-  "actions": 580,
-  "blocks": 3804,
+  "destinations": 850,
+  "actions": 579,
+  "blocks": 3807,
   "routes": {
     "/": {
       "files": [
@@ -3578,7 +3578,6 @@
         "deleteChapter",
         "linkCreatorOfferDeliverable",
         "publishChapter",
-        "setCreatorAcceptsOffers",
         "unpublishChapter",
         "updateChapter"
       ],
@@ -3693,6 +3692,7 @@
     },
     "/dashboard/(account)/people": {
       "files": [
+        "dashboard/(account)/people/_components/add-alaga-fields.tsx",
         "dashboard/(account)/people/_components/connections-panel.tsx",
         "dashboard/(account)/people/_components/dependents-section.tsx",
         "dashboard/(account)/people/_components/samahan-people-section.tsx",
@@ -3721,10 +3721,12 @@
       ],
       "blocks": [
         "ActionResult",
+        "AddAlagaFields",
         "ConfirmForm",
         "ConnectionRelation",
         "ConnectionsPanel",
         "CopyButton",
+        "DependentKind",
         "DependentsSection",
         "LifeStorySection",
         "Link",
@@ -3867,6 +3869,7 @@
     },
     "/dashboard/(account)/year": {
       "files": [
+        "dashboard/(account)/year/_components/start-planning-link.tsx",
         "dashboard/(account)/year/page.tsx"
       ],
       "destinations": [
@@ -3878,7 +3881,8 @@
         "Link",
         "MomentCard",
         "MomentIcon",
-        "PageMasthead"
+        "PageMasthead",
+        "StartPlanningLink"
       ]
     },
     "/dashboard/(launcher)": {
@@ -3905,6 +3909,7 @@
         "/dashboard/[seg]",
         "/dashboard/create-event",
         "/dashboard/creator",
+        "/dashboard/creator?event=[seg]",
         "/dashboard/library",
         "/dashboard/life-flash",
         "/dashboard/notifications",

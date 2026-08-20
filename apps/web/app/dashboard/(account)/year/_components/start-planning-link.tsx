@@ -25,12 +25,15 @@ export function StartPlanningLink({
   href,
   celebrationISO,
   forSelf,
+  age,
   className,
   children,
 }: {
   href: string;
   celebrationISO: string | null;
   forSelf: boolean;
+  /** The age a birthday row turns — already on this card's own label. */
+  age: number | null;
   className?: string;
   children: React.ReactNode;
 }) {
@@ -38,7 +41,7 @@ export function StartPlanningLink({
     <Link
       className={className}
       href={href}
-      onClick={() => stashMoment({ celebrationISO, forSelf })}
+      onClick={() => stashMoment({ celebrationISO, forSelf, age })}
     >
       {children}
     </Link>

@@ -56,6 +56,20 @@ export const TRENDING_MIN_LIVE_SHOPS = 12;
  */
 export const FRONT_DOOR_CHIPS = [
   'All',
+  /**
+   * 🔑 "YOUR PEOPLE", NOT "CONNECTED" (owner 2026-08-20). He described it as
+   * *"all events around the people you are with"* and rejected his own word in
+   * the same breath — "Connected" reads as a wifi state, not as a person.
+   * "Your people" is the word the rail already uses for the same set (family ·
+   * godparents · friends · samahan), and one word meaning one thing is the
+   * lesson the Marketplace/"Find a supplier" collision already cost.
+   *
+   * ⚠ THE CHIP IS SIGNED-IN ONLY. A stranger has no people, so offering them
+   * the button is offering a door onto a permanently empty room. The renderer
+   * gates it; `selectShelf` still answers for it, because a hand-typed `?c=`
+   * must behave.
+   */
+  'Your people',
   'Articles',
   'Their stories',
   'With video',
@@ -94,19 +108,44 @@ export type ShelfSelection<A, S> = {
  * is the ported prototype's rule, not an accident: `reads = (kind==='w' ||
  * kind==='v') ? [] : arts`.
  */
-export function selectShelf<A, S extends { hasVideo: boolean }>(
+export function selectShelf<
+  A,
+  S extends { hasVideo: boolean; fromYourPeople?: boolean },
+>(
   chip: ChipKey,
   articles: readonly A[],
   stories: readonly S[],
 ): ShelfSelection<A, S> {
   const wantsArticles = chip === 'All' || chip === 'Articles';
   const wantsStories =
-    chip === 'All' || chip === 'Their stories' || chip === 'With video';
+    chip === 'All' ||
+    chip === 'Their stories' ||
+    chip === 'With video' ||
+    chip === 'Your people';
 
+  /*
+    🔑 "YOUR PEOPLE" IS A NARROWING OF THIS SHELF, NEVER A SECOND SOURCE.
+    It filters pieces the caller has ALREADY loaded and that every stranger can
+    already see, down to the ones whose author the viewer already knows. It
+    cannot surface anything private, because nothing here loads a story — see
+    `lib/your-people.ts`, which carries the same rule at the other end.
+
+    `fromYourPeople` is OPTIONAL on the type and `!== true` is deliberate: a
+    caller that has not computed it yet (or whose read FAILED) yields an empty
+    shelf and the written invitation, never somebody else's stories mislabelled
+    as a friend's. Absence must fail closed here — it is a claim about who a
+    person knows.
+
+    Articles are OURS, so this chip takes none — the same rule "With video"
+    already follows, and for the same reason: a Setnayan guide has no author
+    the viewer could know.
+  */
   const pickedStories = wantsStories
     ? chip === 'With video'
       ? stories.filter((s) => s.hasVideo)
-      : [...stories]
+      : chip === 'Your people'
+        ? stories.filter((s) => s.fromYourPeople === true)
+        : [...stories]
     : [];
   const pickedArticles = wantsArticles ? [...articles] : [];
 

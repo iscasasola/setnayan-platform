@@ -146,10 +146,13 @@ const STORIES: S[] = [
   { href: '/s/written', hasVideo: false },
 ];
 
-test('ANCHOR — the shelf has exactly the four owner-named chips, in order', () => {
+test('ANCHOR — the shelf has exactly the owner-named chips, in order', () => {
   assert.deepEqual(
     [...FRONT_DOOR_CHIPS],
-    ['All', 'Articles', 'Their stories', 'With video'],
+    ['All', 'Your people', 'Articles', 'Their stories', 'With video'],
+    'The chip set and its ORDER are the owner\u2019s. "Your people" sits second ' +
+      'because it is the one chip about the viewer rather than about a kind ' +
+      'of piece (owner 2026-08-20).',
   );
   assert.equal(isChip('All'), true);
   assert.equal(isChip('Journal'), false, 'there is no Journal chip — one shelf');
@@ -276,4 +279,84 @@ test('the lead grid never exceeds four across, whatever it is fed', () => {
 test('an empty shelf splits into empty rows rather than throwing', () => {
   const r = splitShelfRows([], []);
   assert.deepEqual(r, { leadStories: [], leadArticles: [], trailingArticles: [] });
+});
+
+/* ── "YOUR PEOPLE" — A NARROWING, AND IT MUST FAIL CLOSED ────────────────
+   Owner 2026-08-20, having rejected his own word for it: *"your people - yes"*.
+
+   The chip filters pieces the caller has ALREADY loaded and that every
+   stranger can already see, down to the ones whose author the viewer already
+   knows. Nothing here loads a story, which is the property that makes it safe
+   — see `lib/your-people.ts`, which carries the same rule at the other end.
+
+   The direction of failure is the whole design: this is a claim about who a
+   person knows, so an unknown must read as "not yours", never as "yours". */
+const PEOPLE_STORIES: Array<{
+  href: string;
+  hasVideo: boolean;
+  fromYourPeople?: boolean;
+}> = [
+  { href: '/s/friend-video', hasVideo: true, fromYourPeople: true },
+  { href: '/s/friend-written', hasVideo: false, fromYourPeople: true },
+  { href: '/s/stranger', hasVideo: true, fromYourPeople: false },
+  // The field absent entirely — a caller that has not computed it, or whose
+  // read failed. Must be treated as NOT yours.
+  { href: '/s/unknown', hasVideo: true },
+];
+
+test('Your people — only theirs, and written chapters count too', () => {
+  const r = selectShelf('Your people', ARTICLES, PEOPLE_STORIES);
+  assert.equal(
+    r.articles.length,
+    0,
+    'Articles are OURS. A Setnayan guide has no author the viewer could know, ' +
+      'so one appearing under this chip is mislabelled as a friend’s work.',
+  );
+  assert.deepEqual(
+    r.stories.map((s) => s.href).sort(),
+    ['/s/friend-video', '/s/friend-written'],
+    'a friend’s chapter told purely in writing is still a friend’s chapter',
+  );
+});
+
+test('Your people — an UNKNOWN author is not your friend (fails closed)', () => {
+  const r = selectShelf('Your people', ARTICLES, [
+    { href: '/s/unknown', hasVideo: true },
+  ]);
+  assert.equal(
+    r.stories.length,
+    0,
+    'A story with no `fromYourPeople` was admitted. A missing flag means the ' +
+      'caller has not computed it or its read FAILED — and inventing `true` ' +
+      'tells a person that a stranger is somebody they know.',
+  );
+  assert.equal(r.empty, true, 'and the page must then show its written invitation');
+});
+
+test('Your people NARROWS the shelf — it can never add a story', () => {
+  const all = selectShelf('All', ARTICLES, PEOPLE_STORIES);
+  const mine = selectShelf('Your people', ARTICLES, PEOPLE_STORIES);
+  const allHrefs = new Set(all.stories.map((s) => s.href));
+  for (const s of mine.stories) {
+    assert.ok(
+      allHrefs.has(s.href),
+      `${s.href} appears under "Your people" but not under "All" — this chip ` +
+        'is a FILTER over the public shelf. If it can add a piece, it can add ' +
+        'a private one, and the safety argument for the whole feature is gone.',
+    );
+  }
+  assert.ok(mine.stories.length <= all.stories.length);
+});
+
+test('Your people — nobody yet is EMPTY, not a fallback to everyone', () => {
+  const r = selectShelf('Your people', ARTICLES, [
+    { href: '/s/stranger', hasVideo: true, fromYourPeople: false },
+  ]);
+  assert.equal(
+    r.stories.length,
+    0,
+    'An empty result must stay empty. Falling back to the full shelf would ' +
+      'label strangers as the viewer’s people — worse than showing nothing.',
+  );
+  assert.equal(r.empty, true);
 });

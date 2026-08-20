@@ -49,11 +49,33 @@ export type MomentCarry = {
    * prefill, only a question to stop asking.
    */
   forSelf: boolean;
+  /**
+   * The age a BIRTHDAY moment turns, when the row knew it. Null otherwise.
+   *
+   * The Year row already prints it ("Your birthday — turning 40") and the wizard
+   * then asked which age bracket the birthday was in. Carrying the number stops
+   * the second question; it is not used to derive anything else.
+   *
+   * ⚠ THE AGE, NEVER THE BIRTH DATE. Both are personal, and the age is the
+   * lesser of the two — carry the smallest fact that answers the question. It
+   * rides in sessionStorage with the rest for the same RA 10173 reason.
+   */
+  age: number | null;
 };
 
 /** A plain civil day. Anything else is dropped rather than coerced into a date. */
 function isCivilDay(v: unknown): v is string {
   return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+}
+
+/**
+ * A whole, plausible human age. The Year page only ever produces ages >= 1, so
+ * this is a boundary check on data crossing a storage hop, not a guess about
+ * people: anything non-integer, negative or absurd is dropped, and the wizard
+ * asks — which is exactly today's behaviour.
+ */
+function isPlausibleAge(v: unknown): v is number {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 130;
 }
 
 /**
@@ -65,6 +87,10 @@ export function stashMoment(carry: MomentCarry): void {
   if (typeof window === 'undefined') return;
   const iso = isCivilDay(carry.celebrationISO) ? carry.celebrationISO : null;
   const forSelf = carry.forSelf === true;
+  // A plausible human age or nothing. Out-of-range is DROPPED rather than
+  // clamped: a wrong age would silently pre-answer a question with a lie, which
+  // is worse than asking.
+  const age = isPlausibleAge(carry.age) ? carry.age : null;
   try {
     if (!iso && !forSelf) {
       window.sessionStorage.removeItem(KEY);
@@ -72,7 +98,12 @@ export function stashMoment(carry: MomentCarry): void {
     }
     window.sessionStorage.setItem(
       KEY,
-      JSON.stringify({ ...(iso ? { c: iso } : {}), ...(forSelf ? { s: 1 } : {}), t: Date.now() }),
+      JSON.stringify({
+        ...(iso ? { c: iso } : {}),
+        ...(forSelf ? { s: 1 } : {}),
+        ...(age != null ? { a: age } : {}),
+        t: Date.now(),
+      }),
     );
   } catch {
     /* private mode / quota — the wizard simply asks */
@@ -90,12 +121,13 @@ export function takeMoment(): MomentCarry | null {
     const raw = window.sessionStorage.getItem(KEY);
     if (!raw) return null;
     window.sessionStorage.removeItem(KEY);
-    const parsed = JSON.parse(raw) as { c?: unknown; s?: unknown; t?: unknown };
+    const parsed = JSON.parse(raw) as { c?: unknown; s?: unknown; a?: unknown; t?: unknown };
     if (!isHandoffFresh(parsed?.t, Date.now())) return null;
     const celebrationISO = isCivilDay(parsed?.c) ? parsed.c : null;
     const forSelf = parsed?.s === 1;
+    const age = isPlausibleAge(parsed?.a) ? parsed.a : null;
     if (!celebrationISO && !forSelf) return null;
-    return { celebrationISO, forSelf };
+    return { celebrationISO, forSelf, age };
   } catch {
     return null;
   }

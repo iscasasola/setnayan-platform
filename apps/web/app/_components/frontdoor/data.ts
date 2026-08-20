@@ -43,6 +43,7 @@ import {
   readingMinutes,
 } from '@/lib/blog';
 import { loadFeaturedChaptersResult } from '@/lib/storytellers';
+import { loadYourPeople } from '@/lib/your-people';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
 
 /**
@@ -121,6 +122,20 @@ export type FrontDoorStory = {
   thumbUrl: string | null;
   /** The opening line — the hero for a chapter told in writing. */
   excerpt: string | null;
+  /**
+   * True when this ALREADY-PUBLIC story was written by somebody the viewer
+   * already knows — what the "Your people" chip filters on.
+   *
+   * 🔑 A DERIVED BOOLEAN, NOT AN IDENTITY. The people set is resolved to
+   * public profile slugs server-side (`lib/your-people.ts`) and collapsed to
+   * this flag before anything crosses to the page, so no auth UUID and no
+   * non-public person's handle travels with the payload.
+   *
+   * ⚠ FALSE FOR A STRANGER AND FALSE WHEN THE READ FAILED — both must fail
+   * CLOSED. This is a claim about who somebody knows; a `true` invented by a
+   * broken read would tell a person a stranger is their friend.
+   */
+  fromYourPeople: boolean;
 };
 
 export type FrontDoorShop = {
@@ -163,6 +178,18 @@ export type FrontDoorData = {
    * trusted as a displayed number and is deliberately not displayed.
    */
   realWeddingCount: number;
+  /**
+   * `false` when the "your people" read FAILED — never when the viewer simply
+   * has nobody yet, and never for a signed-out stranger (who correctly has
+   * none, which is not a failure).
+   *
+   * 🔑 THE CHIP'S EMPTY STATE IS TWO DIFFERENT SENTENCES. "Nobody you know has
+   * shared a story yet" is an invitation; "we couldn't check who you know" is
+   * an apology. Collapsing them would tell somebody with twenty friends that
+   * they have none — the same `null`-is-not-`0` rule every other count on this
+   * page already keeps.
+   */
+  yourPeopleOk: boolean;
 };
 
 /*
@@ -254,12 +281,21 @@ async function folderOfService(key: string) {
  * the writing that is carrying the page.
  */
 export async function loadFrontDoorData(): Promise<FrontDoorData> {
-  const [articlesRaw, storiesRaw, shopsRaw, showcasesRaw] = await Promise.all([
-    Promise.resolve(publishedBlogArticles()).catch(() => null),
-    loadFeaturedChaptersResult(24).catch(() => ({ items: [], ok: false })),
-    loadLiveShops(8).catch(() => ({ shops: [], count: null })),
-    loadPublishedShowcases(24).catch(() => null),
-  ]);
+  const [articlesRaw, storiesRaw, shopsRaw, showcasesRaw, yourPeople] =
+    await Promise.all([
+      Promise.resolve(publishedBlogArticles()).catch(() => null),
+      loadFeaturedChaptersResult(24).catch(() => ({ items: [], ok: false })),
+      loadLiveShops(8).catch(() => ({ shops: [], count: null })),
+      loadPublishedShowcases(24).catch(() => null),
+      /*
+        💸 NAMED COST, AND ONLY FOR SOMEBODY SIGNED IN. `loadYourPeople`
+        returns on its first line without a session — which is every visitor to
+        `/` in production today — for the auth check this page already makes.
+        Signed in it is at most four small reads, all scoped by ids the viewer
+        already owns, and it degrades on its own like every other rail here.
+      */
+      loadYourPeople().catch(() => ({ slugs: new Set<string>(), ok: false })),
+    ]);
 
   const articles: FrontDoorArticle[] = (articlesRaw ?? [])
     .slice()
@@ -284,6 +320,16 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
     // The handle, carried so the byline can be a door. See the field's note on
     // the type: never sliced back out of `href`.
     ownerSlug: s.ownerSlug,
+    /*
+      MATCHED ON THE PUBLIC SLUG, WHICH IS WHY NO UUID HAS TO TRAVEL. Both
+      sides of this comparison are values the shelf already publishes:
+      `ownerSlug` is non-null by construction (`fetchPublicOwners` refuses an
+      owner without a public page), and the set holds only slugs of people with
+      `public_profile_enabled`. A failed people read yields an EMPTY set, so
+      every story reads `false` — the chip then shows its written invitation
+      instead of quietly claiming a stranger is a friend.
+    */
+    fromYourPeople: yourPeople.slugs.has(s.ownerSlug),
     kindLabel: s.kindLabel,
     /*
       ⚠ THE LOADER'S OWN `hasVideo`, NEVER `Boolean(thumbUrl)`.
@@ -333,5 +379,6 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
     shops: shopsRaw.shops,
     liveShopCount: shopsRaw.count,
     realWeddingCount,
+    yourPeopleOk: yourPeople.ok,
   };
 }

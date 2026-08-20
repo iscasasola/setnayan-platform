@@ -37,21 +37,21 @@ function withSessionStorage(run: (storage: Storage) => void): void {
 
 test('the carry brings the day and the fact that it is your own', () => {
   withSessionStorage(() => {
-    stashMoment({ celebrationISO: '2026-12-16', forSelf: true });
-    assert.deepEqual(takeMoment(), { celebrationISO: '2026-12-16', forSelf: true });
+    stashMoment({ celebrationISO: '2026-12-16', forSelf: true, age: null });
+    assert.deepEqual(takeMoment(), { celebrationISO: '2026-12-16', forSelf: true, age: null });
   });
 });
 
 test('a holiday carries its day WITHOUT claiming it is about you', () => {
   withSessionStorage(() => {
-    stashMoment({ celebrationISO: '2026-12-25', forSelf: false });
-    assert.deepEqual(takeMoment(), { celebrationISO: '2026-12-25', forSelf: false });
+    stashMoment({ celebrationISO: '2026-12-25', forSelf: false, age: null });
+    assert.deepEqual(takeMoment(), { celebrationISO: '2026-12-25', forSelf: false, age: null });
   });
 });
 
 test('it is read ONCE — a later onboarding never inherits the date', () => {
   withSessionStorage(() => {
-    stashMoment({ celebrationISO: '2026-12-16', forSelf: true });
+    stashMoment({ celebrationISO: '2026-12-16', forSelf: true, age: null });
     assert.notEqual(takeMoment(), null);
     assert.equal(takeMoment(), null, 'a second read must find nothing');
   });
@@ -59,8 +59,8 @@ test('it is read ONCE — a later onboarding never inherits the date', () => {
 
 test('an empty carry CLEARS rather than consuming the read with nothing', () => {
   withSessionStorage((storage) => {
-    stashMoment({ celebrationISO: '2026-12-16', forSelf: true });
-    stashMoment({ celebrationISO: null, forSelf: false });
+    stashMoment({ celebrationISO: '2026-12-16', forSelf: true, age: null });
+    stashMoment({ celebrationISO: null, forSelf: false, age: null });
     assert.equal(storage.getItem('setnayan_year_moment_v1'), null);
     assert.equal(takeMoment(), null);
   });
@@ -70,8 +70,8 @@ test('a malformed day is dropped on its own — the rest still crosses', () => {
   withSessionStorage(() => {
     // A wrong date is worse than no date: the wizard would show a day nobody
     // chose and it would read as ours.
-    stashMoment({ celebrationISO: '16/12/2026', forSelf: true });
-    assert.deepEqual(takeMoment(), { celebrationISO: null, forSelf: true });
+    stashMoment({ celebrationISO: '16/12/2026', forSelf: true, age: null });
+    assert.deepEqual(takeMoment(), { celebrationISO: null, forSelf: true, age: null });
   });
 });
 
@@ -100,9 +100,43 @@ test('with no window at all it is inert in both directions', () => {
   const prev = g.window;
   if (had) delete g.window;
   try {
-    assert.doesNotThrow(() => stashMoment({ celebrationISO: '2026-12-16', forSelf: true }));
+    assert.doesNotThrow(() => stashMoment({ celebrationISO: '2026-12-16', forSelf: true, age: null }));
     assert.equal(takeMoment(), null);
   } finally {
     if (had) g.window = prev;
   }
+});
+
+// ── the age the Year row already printed ───────────────────────────────────
+test('a plausible age crosses the hop', () => {
+  withSessionStorage(() => {
+    stashMoment({ celebrationISO: '2026-12-16', forSelf: true, age: 40 });
+    assert.equal(takeMoment()?.age, 40);
+  });
+});
+
+test('an age we cannot trust is dropped, and the rest still crosses', () => {
+  const bad = [0, -3, 40.5, 999, Number.NaN, null];
+  let checked = 0;
+  withSessionStorage(() => {
+    for (const b of bad) {
+      stashMoment({ celebrationISO: '2026-12-16', forSelf: true, age: b as number | null });
+      const got = takeMoment();
+      assert.equal(got?.age, null, `${String(b)} must not survive as an age`);
+      assert.equal(got?.celebrationISO, '2026-12-16', 'a bad age must not cost the day');
+      assert.equal(got?.forSelf, true, 'a bad age must not cost the celebrant');
+      checked += 1;
+    }
+  });
+  // A loop that skips everything passes — count what was examined.
+  assert.equal(checked, bad.length);
+});
+
+test('an age alone is not a carry — it cannot answer anything on its own', () => {
+  // Matches the module's existing rule: a stash with no day and not self-owned
+  // stores nothing, because it would consume the single read and say nothing.
+  withSessionStorage(() => {
+    stashMoment({ celebrationISO: null, forSelf: false, age: 40 });
+    assert.equal(takeMoment(), null);
+  });
 });

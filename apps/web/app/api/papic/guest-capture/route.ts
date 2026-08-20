@@ -3,6 +3,8 @@ import { eventAcceptsNewCaptures } from '@/lib/event-accepts-captures';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
+import { enforceRateLimit, rateLimited429 } from '@/lib/with-rate-limit';
+import { PAPIC_SEAT_BURST, PAPIC_SEAT_BURST_WINDOW_S } from '@/app/papic/actions';
 import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-window';
 import { ingestToWall } from '@/lib/live-wall';
 import { papicCaptureCost } from '@/lib/papic-cameras';
@@ -381,6 +383,16 @@ export async function POST(req: Request) {
   // is why the rule lives in one helper rather than being written twice. Fails
   // OPEN on an unreadable row — see the helper for why a read failure must
   // never stop a live celebration's cameras.
+  // ⏱ THE SAME PER-CAMERA CEILING, on the guest door. Keyed on the guest, not
+  // the event: 250 captures/second across an event is the product working; 12
+  // from one phone is a loop. See PAPIC_SEAT_BURST for the reasoning and why it
+  // fails open.
+  const burst = await enforceRateLimit('papic_guest_capture', session.guest_id, {
+    limit: PAPIC_SEAT_BURST,
+    windowSecs: PAPIC_SEAT_BURST_WINDOW_S,
+  });
+  if (!burst.ok) return rateLimited429(burst.retryAfterSecs);
+
   if (!(await eventAcceptsNewCaptures(admin, session.event_id))) {
     return NextResponse.json({ status: 'event_put_away' }, { status: 409 });
   }

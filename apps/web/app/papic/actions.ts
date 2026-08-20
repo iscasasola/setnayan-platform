@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 import { ingestToWall } from '@/lib/live-wall';
+import { enforceRateLimit } from '@/lib/with-rate-limit';
 import { parsePapicTagScan } from '@/lib/papic-tag';
 import { autoTagCapture } from '@/lib/face-match';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
@@ -186,6 +187,18 @@ export type EventPoolSignal = {
   soft: boolean;
 };
 
+/**
+ * The per-camera capture ceiling. NOT a product rule and not a quota — a
+ * runaway-client backstop, the "accepts/sec limiter" the Papic plan listed as an
+ * open risk. A human with a shutter never reaches it; a loop reaches it at once.
+ *
+ * 60 shots per 5 seconds = ~12/second sustained. Deliberately generous: the
+ * failure this prevents (a stuck camera draining a couple's credits) is cheaper
+ * to catch a second late than to catch a real photographer by mistake.
+ */
+export const PAPIC_SEAT_BURST = 60;
+export const PAPIC_SEAT_BURST_WINDOW_S = 5;
+
 export type RecordSeatCaptureResult =
   | {
       ok: true;
@@ -223,6 +236,34 @@ export async function recordSeatCapture(
   // Poster frame (clips only) — the NSFW screen's image proxy for the video.
   const cleanPoster = kind === 'clip' ? posterR2Key?.trim() || null : null;
   if (!cleanToken || !cleanKey) return { ok: false, error: 'missing_input' };
+
+  // ⏱ ONE CAMERA CANNOT EMPTY THE POT — the accepts/sec limiter the Papic plan
+  // asked for (Papic_Build_Brief_2026-07-17 · Papic_v3_Whats_Next_2026-07-18,
+  // both under "Open risks / must-hold invariants"). It was written, wired to
+  // three other routes, and put on no capture path at all.
+  //
+  // 🔑 PER CAMERA, NEVER PER EVENT, and that is the whole design. The owner's
+  // stated peak is 1–250 captures per second FOR AN EVENT, spread over many
+  // phones; an event-level limiter would have to sit above that to avoid
+  // capping the product, at which point it protects nothing. A single camera
+  // shooting faster than this is not a person — it is a stuck loop, a replayed
+  // request, or a script, and each one of those spends real credits from the
+  // couple's pot.
+  //
+  // ⚖ THE CEILING IS DELIBERATELY FAR ABOVE A HUMAN. `PAPIC_SEAT_BURST` in five
+  // seconds is ~12/second sustained with a full second of burst headroom — a
+  // paparazzo hammering the shutter never meets it, and a runaway client meets
+  // it immediately.
+  //
+  // 🪤 IT FAILS OPEN BY CONSTRUCTION (see lib/with-rate-limit.ts): a limiter
+  // outage must never stop a wedding being photographed. That is the correct
+  // direction here — the thing being protected is a credit balance, not a
+  // security boundary.
+  const burst = await enforceRateLimit('papic_seat_capture', cleanToken, {
+    limit: PAPIC_SEAT_BURST,
+    windowSecs: PAPIC_SEAT_BURST_WINDOW_S,
+  });
+  if (!burst.ok) return { ok: false, error: 'too_fast' };
 
   // Server-side 10-second clip cap (defense-in-depth · owner 2026-07-22 · §0).
   // The client enforces it with a recorder timer, but the 10s cap must not rely

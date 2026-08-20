@@ -13,10 +13,17 @@ import {
   SETTLED_ORDER_STATUSES,
   confirmationMatches,
   deletionIsBlocked,
+  supplierIsReleased,
+  supplierWasPaid,
 } from './event-deletion-gate';
 
 /** Nothing anywhere — the only shape that may be deleted. */
-const CLEAR = { settledOrders: 0, paymentRows: 0, receiptRows: 0 };
+const CLEAR = {
+  settledOrders: 0,
+  paymentRows: 0,
+  receiptRows: 0,
+  unsettledPaidSuppliers: 0,
+};
 
 test('the money gate fails CLOSED on an unmeasured read — on EVERY signal', () => {
   // 🔒 THE ONE THAT MATTERS. `null` is "we could not check", and the safe
@@ -26,6 +33,10 @@ test('the money gate fails CLOSED on an unmeasured read — on EVERY signal', ()
   assert.equal(deletionIsBlocked({ ...CLEAR, settledOrders: null }), true);
   assert.equal(deletionIsBlocked({ ...CLEAR, paymentRows: null }), true);
   assert.equal(deletionIsBlocked({ ...CLEAR, receiptRows: null }), true);
+  assert.equal(
+    deletionIsBlocked({ ...CLEAR, unsettledPaidSuppliers: null }),
+    true,
+  );
 });
 
 test('the money gate refuses when anything has been paid for', () => {
@@ -42,7 +53,7 @@ test('a cancelled-after-paid order STILL blocks, via its payment row', () => {
   // The order now reads 'cancelled', so settledOrders is 0 and the old gate
   // said "go ahead". The payment row is what a couple cannot rewrite.
   assert.equal(
-    deletionIsBlocked({ settledOrders: 0, paymentRows: 1, receiptRows: 0 }),
+    deletionIsBlocked({ ...CLEAR, paymentRows: 1 }),
     true,
   );
 });
@@ -51,7 +62,7 @@ test('a BIR receipt blocks on its own, whatever the order says', () => {
   // A sequential official-receipt serial. Deleting the celebration it belongs
   // to is not the couple's call, and no status flip may unlock it.
   assert.equal(
-    deletionIsBlocked({ settledOrders: 0, paymentRows: 0, receiptRows: 1 }),
+    deletionIsBlocked({ ...CLEAR, receiptRows: 1 }),
     true,
   );
 });
@@ -128,4 +139,106 @@ test('an empty box can never delete a nameless event', () => {
   // nobody could have typed.
   assert.equal(confirmationMatches('', ''), false);
   assert.equal(confirmationMatches('   ', '   '), false);
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// SUPPLIERS THE COUPLE PAID DIRECTLY (owner 2026-08-21)
+//
+// "when a user decides to delete an event and they paid vendors. they can only
+// delete it if the vendors with paid purchase accepts that this deletion. but
+// if the event is already completed and they have completed their service for
+// that event, the user can delete it anytime."
+//
+// ⚠ NONE of the three money signals above can see this. Setnayan never holds
+// the couple→supplier money. Prod carries a wedding with 12 booked suppliers,
+// 3 of them paid — and every Setnayan-side signal reads zero for it.
+// ───────────────────────────────────────────────────────────────────────────
+
+test('a paid supplier who has not finished BLOCKS the delete', () => {
+  assert.equal(
+    deletionIsBlocked({ ...CLEAR, unsettledPaidSuppliers: 3 }),
+    true,
+    'Prod’s "Maria & Jose" has exactly this shape: 3 suppliers paid a deposit ' +
+      'for a wedding that has not happened. One press would erase their bookings.',
+  );
+});
+
+test('a released supplier does not block — the event passed AND the job is confirmed', () => {
+  assert.equal(
+    supplierIsReleased({
+      eventHasPassed: true,
+      completionStatus: 'confirmed',
+      vendorStatus: 'deposit_paid',
+    }),
+    true,
+  );
+});
+
+test('BOTH halves are required — one alone never releases', () => {
+  // The owner named both: "the event is already completed AND they have
+  // completed their service".
+  assert.equal(
+    supplierIsReleased({
+      eventHasPassed: false,
+      completionStatus: 'confirmed',
+      vendorStatus: null,
+    }),
+    false,
+    'a job marked done for a celebration that has not happened yet is not finished',
+  );
+  assert.equal(
+    supplierIsReleased({
+      eventHasPassed: true,
+      completionStatus: 'awaiting_vendor',
+      vendorStatus: 'deposit_paid',
+    }),
+    false,
+    'the day passing does not finish a supplier’s job for them',
+  );
+});
+
+test('"vendor_marked" is a CLAIM, not a release', () => {
+  // The ladder is awaiting_vendor → vendor_marked → confirmed/auto_confirmed.
+  // Treating vendor_marked as finished lets the couple delete on the supplier's
+  // own unconfirmed word — the opposite of the consent the owner asked for.
+  assert.equal(
+    supplierIsReleased({
+      eventHasPassed: true,
+      completionStatus: 'vendor_marked',
+      vendorStatus: null,
+    }),
+    false,
+  );
+});
+
+test('a DISPUTED completion never releases, whatever else is true', () => {
+  // 🚨 The one state where deleting the evidence is least acceptable: the couple
+  // and the supplier disagree about whether the job was done.
+  assert.equal(
+    supplierIsReleased({
+      eventHasPassed: true,
+      completionStatus: 'disputed',
+      vendorStatus: 'complete',
+    }),
+    false,
+    'a dispute was released because the older status enum said complete — the ' +
+      'dispute check must win over every other signal',
+  );
+});
+
+test('paid is read four ways, because a couple records it four ways', () => {
+  const NONE = {
+    vendorStatus: 'contracted',
+    depositPaidPhp: 0,
+    depositRecordedAt: null,
+    hasLoggedPayment: false,
+  };
+  assert.equal(supplierWasPaid(NONE), false);
+  assert.equal(supplierWasPaid({ ...NONE, vendorStatus: 'deposit_paid' }), true);
+  assert.equal(supplierWasPaid({ ...NONE, depositPaidPhp: 5000 }), true);
+  assert.equal(
+    supplierWasPaid({ ...NONE, depositRecordedAt: '2026-08-01T00:00:00Z' }),
+    true,
+  );
+  assert.equal(supplierWasPaid({ ...NONE, hasLoggedPayment: true }), true);
 });

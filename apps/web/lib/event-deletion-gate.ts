@@ -53,6 +53,24 @@ export type MoneyEvidence = {
   paymentRows: number | null;
   /** BIR official receipts against ANY of this event's orders. */
   receiptRows: number | null;
+  /**
+   * Suppliers this couple has PAID whose service is not yet finished.
+   *
+   * ⚠ THIS IS MONEY SETNAYAN NEVER TOUCHED. The couple pays the supplier
+   * directly, off-platform; the three signals above only see money paid to
+   * Setnayan. A wedding can carry twelve booked suppliers, three of them paid a
+   * deposit, and every Setnayan-side signal reads zero.
+   *
+   * Owner 2026-08-21: *"when a user decides to delete an event and they paid
+   * vendors. they can only delete it if the vendors with paid purchase accepts
+   * that this deletion. but if the event is already completed and they have
+   * completed their service for that event, the user can delete it anytime."*
+   *
+   * So a supplier counts here only while BOTH halves of the release are unmet —
+   * paid, and not yet finished. A supplier who took a deposit and delivered on a
+   * day that has passed is settled and holds nothing.
+   */
+  unsettledPaidSuppliers: number | null;
 };
 
 /** Supplier states that mean really booked, not merely being considered. */
@@ -77,11 +95,93 @@ export const BOOKED_VENDOR_STATUSES = [
  * Returns TRUE when deletion must be refused.
  */
 export function deletionIsBlocked(evidence: MoneyEvidence): boolean {
-  const { settledOrders, paymentRows, receiptRows } = evidence;
-  if (settledOrders === null || paymentRows === null || receiptRows === null) {
+  const { settledOrders, paymentRows, receiptRows, unsettledPaidSuppliers } =
+    evidence;
+  if (
+    settledOrders === null ||
+    paymentRows === null ||
+    receiptRows === null ||
+    unsettledPaidSuppliers === null
+  ) {
     return true;
   }
-  return settledOrders > 0 || paymentRows > 0 || receiptRows > 0;
+  return (
+    settledOrders > 0 ||
+    paymentRows > 0 ||
+    receiptRows > 0 ||
+    unsettledPaidSuppliers > 0
+  );
+}
+
+/**
+ * Is this supplier released — may the couple delete without asking them?
+ *
+ * BOTH halves, because the owner named both: *"if the event is already completed
+ * AND they have completed their service for that event"*. A supplier who marked
+ * the job done for a wedding that has not happened yet has not finished it; a
+ * wedding that has passed with a supplier still mid-delivery has not released
+ * them either.
+ *
+ * ⚠ `eventHasPassed` MUST be computed on the PH-local day (`manilaTodayISO`),
+ * never from the server's clock. This repo has a documented family of defects
+ * where a UTC server and a Manila venue disagree by a day — a card read
+ * "Tomorrow" on the morning of the wedding. Getting it wrong here decides
+ * whether a supplier is asked at all.
+ */
+export function supplierIsReleased(args: {
+  eventHasPassed: boolean;
+  /** `event_vendors.completion_status` — the purpose-built signal. */
+  completionStatus: string | null;
+  /** `event_vendors.status` — the older booking enum. */
+  vendorStatus: string | null;
+}): boolean {
+  // 🚨 A DISPUTE IS NEVER A RELEASE. `disputed` means the couple and the
+  // supplier disagree about whether the job was done — the one state where
+  // deleting the evidence is least acceptable. Checked first so no later
+  // clause can override it.
+  if (args.completionStatus === 'disputed') return false;
+
+  /*
+    CONFIRMED, NOT MERELY CLAIMED. The ladder is
+    awaiting_vendor → vendor_marked → confirmed / auto_confirmed, and
+    `vendor_marked` is the supplier SAYING they finished with nobody agreeing
+    yet. Treating that as a release would let the couple delete on the
+    supplier's own unconfirmed word — which is the opposite of the consent the
+    owner asked for.
+  */
+  const done =
+    args.completionStatus === 'confirmed' ||
+    args.completionStatus === 'auto_confirmed' ||
+    args.vendorStatus === 'delivered' ||
+    args.vendorStatus === 'complete';
+
+  return args.eventHasPassed && done;
+}
+
+/**
+ * Has this supplier been paid anything for this celebration?
+ *
+ * FOUR SIGNALS, because the couple can record a payment four ways and any one of
+ * them means real money left their hands: the booking sitting at `deposit_paid`,
+ * a deposit amount, a deposit timestamp, or a logged payment row.
+ *
+ * ⚠ Setnayan never holds this money — the couple pays the supplier directly —
+ * so every signal here is the COUPLE'S OWN RECORD of having paid. That is the
+ * best evidence the platform has, and it is why the remedy is to ask the
+ * supplier rather than to decide for them.
+ */
+export function supplierWasPaid(args: {
+  vendorStatus: string | null;
+  depositPaidPhp: number | null;
+  depositRecordedAt: string | null;
+  hasLoggedPayment: boolean;
+}): boolean {
+  return (
+    args.vendorStatus === 'deposit_paid' ||
+    (args.depositPaidPhp ?? 0) > 0 ||
+    args.depositRecordedAt !== null ||
+    args.hasLoggedPayment
+  );
 }
 
 /**

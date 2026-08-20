@@ -58,8 +58,23 @@ test('every membership read scopes itself — RLS is never the fence', () => {
     `Expected at least 4 membership reads, found ${chains.length}. If they were ` +
       'removed this guard must be re-aimed, not deleted.',
   );
-  for (const m of chains) {
-    const chain = PEOPLE_CODE.slice(m.index ?? 0, (m.index ?? 0) + 420);
+  /*
+    🪤 THIS GUARD WAS DECORATION ON ITS FIRST RUN, for exactly the case it
+    exists to catch. It sliced a FIXED 420 characters after each `.from(`, so
+    when the sabotage removed `.eq('user_id', me)` from the first chain the
+    window simply ran on into the NEXT chain — which has its own scoping call —
+    and the guard passed while the defect was live. The mutation landed
+    (2 → 1 occurrences) and reported green.
+
+    A chain now ends where the next one begins. Bound the window by structure,
+    never by a character count.
+  */
+  const starts = chains.map((m) => m.index ?? 0);
+  const allFroms = [...PEOPLE_CODE.matchAll(/\.from\('/g)].map((m) => m.index ?? 0);
+  for (const start of starts) {
+    const next = allFroms.find((i) => i > start) ?? PEOPLE_CODE.length;
+    const chain = PEOPLE_CODE.slice(start, next);
+    const m = /\.from\('(event_members|community_members)'\)/.exec(chain)!;
     assert.match(
       chain,
       /\.eq\('user_id', me\)|\.in\('event_id',|\.in\('community_id',/,

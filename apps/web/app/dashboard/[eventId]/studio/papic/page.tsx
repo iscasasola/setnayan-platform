@@ -134,6 +134,7 @@ type Props = {
     storage_set?: string;
     storage_error?: string;
     papic_purchased?: string;
+    papic_order?: string;
     papic_ref?: string;
     papic_amount?: string;
     papic_error?: string;
@@ -204,6 +205,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     storage_set: storageSet,
     storage_error: storageError,
     papic_purchased: papicPurchased,
+    papic_order: papicOrder,
     papic_ref: papicRef,
     papic_amount: papicAmount,
     papic_error: papicError,
@@ -573,7 +575,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         storageSet={storageSet}
         storageError={storageError}
         connectedAccount={driveGrant?.external_account_display ?? null}
+        eventId={eventId}
         papicPurchased={papicPurchased}
+        papicOrder={papicOrder}
         papicRef={papicRef}
         papicAmount={papicAmount}
         papicUnlockProvisioned={papicUnlockProvisioned}
@@ -1147,6 +1151,7 @@ function LimitedCard({
 // -----------------------------------------------------------------------------
 
 function StatusBanners({
+  eventId,
   driveConnected,
   driveDisconnected,
   driveError,
@@ -1154,6 +1159,7 @@ function StatusBanners({
   storageError,
   connectedAccount,
   papicPurchased,
+  papicOrder,
   papicRef,
   papicAmount,
   papicUnlockProvisioned,
@@ -1174,6 +1180,7 @@ function StatusBanners({
   preserveSet,
   preserveError,
 }: {
+  eventId: string;
   driveConnected: boolean;
   driveDisconnected: boolean;
   driveError: string | undefined;
@@ -1181,6 +1188,7 @@ function StatusBanners({
   storageError: string | undefined;
   connectedAccount: string | null;
   papicPurchased: string | undefined;
+  papicOrder: string | undefined;
   papicRef: string | undefined;
   papicAmount: string | undefined;
   papicUnlockProvisioned: string | undefined;
@@ -1243,11 +1251,42 @@ function StatusBanners({
       {papicPurchased ? (
         <div className={neutral}>
           <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          {/*
+            🔴 THIS USED TO PROMISE AN EMAIL THAT DOES NOT EXIST. "Payment
+            instructions are on the way" was on every one of these buy paths,
+            and there is no `payment_instructions` notification type in the app —
+            lib/notification-emit.ts says so in its own comment ("instructions go
+            out via the checkout email path"), and none of these actions touches
+            an email path. So the sentence sent the buyer away to wait for
+            something that was never coming.
+
+            🔑 THE INSTRUCTIONS ARE NOT "ON THE WAY" — THEY ARE ONE TAP AWAY.
+            The order's own page already carries the total, the reference with a
+            copy button, the BDO/GCash accounts and the form for telling us the
+            transfer is made. Link to it rather than describe a message.
+
+            Same defect the owner hit in onboarding on 2026-08-20: "i had a price
+            to pay. but i there was no payment. it just created."
+          */}
           <span>
             Order received{papicAmount ? ` — ${formatPhp(Number(papicAmount))} due` : ''}.
-            Reference <span className="font-mono">{papicRef}</span>. Payment
-            instructions are on the way; your cameras activate once the Setnayan
-            team confirms your transfer.
+            Reference <span className="font-mono">{papicRef}</span>.{' '}
+            {papicOrder ? (
+              <Link
+                className="font-semibold underline underline-offset-2"
+                href={`/dashboard/${eventId}/orders/${papicOrder}`}
+              >
+                See how to pay
+              </Link>
+            ) : (
+              <Link
+                className="font-semibold underline underline-offset-2"
+                href={`/dashboard/${eventId}/orders`}
+              >
+                See how to pay
+              </Link>
+            )}
+            {' '}— your cameras activate once the Setnayan team confirms your transfer.
           </span>
         </div>
       ) : null}

@@ -168,6 +168,7 @@ export default function ThreeDPlanLandingPage() {
       primary={{ href: '/onboarding/wedding?from=pa3d', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="3D Plan"
+      studioKey="pa3d"
       steps={STEPS}
       differentiator={{
         heading: 'More than a chart',

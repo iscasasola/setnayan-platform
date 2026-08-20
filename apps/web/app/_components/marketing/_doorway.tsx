@@ -9,6 +9,7 @@ import Link from 'next/link';
 */
 import { DOORWAY_TONE } from './_doorway-tone';
 import { DemoOverlayHost } from './demo-overlay-host';
+import { AddToEventCta } from './add-to-event-cta';
 
 import { Reveal } from './_motion';
 import { LineRevealHeading, RevealBand, RevealList, HowItWorksPanel } from './_pa-motion';
@@ -107,6 +108,14 @@ export type DoorwayProps = {
   demo?: { id: DemoOverlayId; label: string; sublabel?: string };
   /** Anchors each `aria-label` to the product's own name — "How 3D Plan works". */
   productName: string;
+  /**
+   * The `STUDIO_APPS` key, when this doorway sells a service that can be added
+   * to a celebration. Present ⇒ the PRIMARY CTA becomes "Add to an event" for a
+   * signed-in person and stays the ordinary link for everyone else. Absent ⇒
+   * the page renders exactly as before, which is why `/alaala` and any future
+   * non-service doorway need no change.
+   */
+  studioKey?: string;
   steps: readonly DoorwayStep[];
   differentiator: { heading: string; lede: string; rows: readonly DoorwayVersus[] };
   faq: readonly DoorwayFaq[];
@@ -190,6 +199,7 @@ export function DoorwayPage({
   secondary,
   demo,
   productName,
+  studioKey,
   steps,
   differentiator,
   faq,
@@ -238,9 +248,20 @@ export function DoorwayPage({
           </LineRevealHeading>
           <RevealBand stagger={0.08} y={14}>
             <div data-reveal-item className="mt-7 flex flex-wrap items-center justify-center gap-3">
-              <Link href={primary.href} className={PRIMARY_CTA}>
-                {primary.label}
-              </Link>
+              {/*
+                THE ONE DIFFERENCE BETWEEN SIGNED OUT AND SIGNED IN, and it is
+                deliberately a SWAP rather than an addition: owner 2026-08-21,
+                the page must otherwise be identical. `AddToEventCta` renders
+                this very link when nobody is signed in, so the signed-out page
+                is byte-identical to what it was.
+              */}
+              {studioKey ? (
+                <AddToEventCta studioKey={studioKey} primary={primary} />
+              ) : (
+                <Link href={primary.href} className={PRIMARY_CTA}>
+                  {primary.label}
+                </Link>
+              )}
               <Link href={secondary.href} className={SECONDARY_CTA}>
                 {secondary.label}
               </Link>

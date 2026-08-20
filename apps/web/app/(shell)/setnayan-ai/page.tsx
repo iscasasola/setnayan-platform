@@ -187,6 +187,7 @@ export default function SetnayanAiLandingPage() {
       primary={{ href: '/onboarding/wedding?from=setnayan-ai', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Setnayan AI"
+      studioKey="setnayan-ai"
       steps={STEPS}
       differentiator={{
         heading: 'A chatbot waits. Setnayan AI watches.',

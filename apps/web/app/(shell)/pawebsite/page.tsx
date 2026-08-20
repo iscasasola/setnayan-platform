@@ -181,6 +181,7 @@ export default function PawebsiteLandingPage() {
       primary={{ href: '/onboarding/wedding?from=pawebsite', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Event Hub"
+      studioKey="pawebsite"
       steps={STEPS}
       differentiator={{
         heading: 'Not just a wedding form',

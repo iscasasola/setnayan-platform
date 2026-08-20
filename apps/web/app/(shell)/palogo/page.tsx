@@ -169,6 +169,7 @@ export default function LogoMakerLandingPage() {
       primary={{ href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
       secondary={{ href: '/monogram', label: 'Preview yours · free' }}
       productName="Logo Maker"
+      studioKey="palogo"
       steps={STEPS}
       differentiator={{ heading: 'Not a clip-art logo', lede: 'A template looks like everyone else’s. Logo Maker looks like you — and it moves.', rows: VS }}
       faq={FAQ}

@@ -167,6 +167,7 @@ export default function PatiktokLandingPage() {
       primary={{ href: '/onboarding/wedding?from=patiktok', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Patiktok"
+      studioKey="patiktok"
       steps={STEPS}
       differentiator={{ heading: 'Made to be shared', lede: 'The keepsake film is for keeping. Patiktok is for sharing — fast, vertical, and ready the same night.', rows: VS }}
       faq={FAQ}

@@ -7,8 +7,11 @@ import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Adaptive Pax Pricing couple settings (decisions #5 + #6). Two controls:
- *  - Guest-list edit deadline: after it, the count auto-finalizes and vendor
- *    costs become binding. Blank = the default (14 days before the event).
+ *  - Guest-list edit deadline: after it, the count auto-finalizes, vendor
+ *    costs become binding, AND the invitation on the event page stops taking
+ *    replies (owner 2026-08-20). Blank = the default (14 days before the
+ *    event) — a couple who never opens this card still gets that date, so the
+ *    copy beside the field has to say what it costs them.
  *  - Pricing view: realtime (see costs adapt as the count grows) vs final-only
  *    (hold at the floor; settle once at finalization).
  * Couple-settable (the finalize LOCK itself stays service-role-only).
@@ -54,8 +57,9 @@ export function PaxSettingsCard({
       <label className="block">
         <span className="text-sm font-medium text-ink">Guest-list edit deadline</span>
         <span className="mt-0.5 block text-xs text-ink/55">
-          After this date your count finalizes and vendor costs become binding. Leave
-          blank to use the default (14 days before your event).
+          After this date your count finalizes, vendor costs become binding, and
+          your guests can no longer reply on your event page. Leave blank to use
+          the default (14 days before your event).
         </span>
         <input
           type="date"

@@ -156,6 +156,12 @@ export type EventRow = {
   // input. Dormant in prod (DEFAULT FALSE); flipped by the couple board (PR9) /
   // new-event default (PR11).
   website_open_browse?: boolean | null;
+  // The guest-list edit deadline + its finalize stamp (Adaptive Pax Pricing,
+  // owner decision ⑥ 2026-06-13). Together they answer "is the list closed?"
+  // for the invitation half of the hub — see lib/guest-list-closed.ts. Absent
+  // on both = a list that never closes on its own.
+  guest_list_edit_deadline?: string | null;
+  guest_count_locked_at?: string | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the

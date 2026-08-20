@@ -945,7 +945,14 @@ async function InvitationBody({
             tone: 'error' as const,
             text: 'We could not save your reply just now. Please try again — it has not been recorded yet.',
           }
-        : null;
+        : // The guest list finalized while this form was open. Their tap did
+          // nothing, and they have to be told that in the same breath as why.
+          search.rsvp === 'closed'
+          ? {
+              tone: 'error' as const,
+              text: 'Replies have closed — the guest list is final, so this change was not saved.',
+            }
+          : null;
 
   const saveFlash =
     search.save === 'ok'

@@ -8,6 +8,7 @@ import { deletePublicAsset } from '@/lib/storage';
 import { r2Delete } from '@/lib/r2';
 import { parseStoredAsset } from '@/lib/uploads';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { createClient } from '@/lib/supabase/server';
 import { VECTOR_MODEL } from '@/lib/face-embed-core';
 import {
@@ -125,6 +126,37 @@ export async function submitRsvp(
   }
 
   const admin = createAdminClient();
+
+  // ── THE DOOR, NOT JUST THE FORM ───────────────────────────────────────────
+  // The hub stops DRAWING the RSVP once the guest list is final (owner
+  // 2026-08-20). That hides a form; it does not close an endpoint — this is a
+  // server action, reachable by anyone who had the page open when the deadline
+  // passed, or who taps a stale tab.
+  //
+  // 🔑 AND THE DATABASE WILL NOT CATCH IT. `guard_guest_edits_when_locked`
+  // exists to refuse exactly this write, and its own header names "the guest
+  // self-RSVP portal" as a path it covers — but its first branch exempts
+  // `auth.role() = 'service_role'`, and this action writes with the ADMIN
+  // client. So the one guest-facing path the guard was written for is the one
+  // path it cannot fire on. Until that is reconciled at the database, this
+  // check IS the enforcement, not a courtesy pre-check.
+  const { data: evRsvp } = await admin
+    .from('events')
+    .select('slug, event_date, guest_list_edit_deadline, guest_count_locked_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (
+    guestListIsClosed({
+      lockedAt: evRsvp?.guest_count_locked_at,
+      editDeadline: evRsvp?.guest_list_edit_deadline,
+      eventDate: evRsvp?.event_date,
+    })
+  ) {
+    // Told, never silently dropped. A reply that vanishes without a word is
+    // the failure this file already learned the hard way twelve lines below.
+    redirect(evRsvp?.slug ? `/${evRsvp.slug}?rsvp=closed` : '/');
+  }
+
   const { error } = await admin
     .from('guests')
     .update({

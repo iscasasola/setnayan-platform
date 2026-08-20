@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from './supabase/admin';
+import { guestListDeadlineEndMs } from './guest-list-closed';
 
 // Which guests count toward the live pax (events.headcount_basis). 'attending'
 // = sure guests only (owner-locked default). Mirrors the same union in
@@ -76,23 +77,23 @@ export async function ensureFinalized(
     return { locked: true, finalPax: ev.final_pax ?? null, estimatedPax, basis };
   }
 
-  // Effective deadline (end of day): the couple's explicit date, else 14 days
-  // before the event — a sane default (FINALIZE_LEAD_DAYS, provisional) so
-  // auto-finalize works out-of-box; the explicit column overrides once the
-  // settings UI to change it lands. No event date + no explicit → never locks.
-  // Parsed as UTC (trailing 'Z') so the lock fires at the same instant
-  // regardless of the server's timezone — a couple's end-of-deadline-day in
-  // UTC. (Review fix: bare "T23:59:59" parses as server-local time.)
-  const FINALIZE_LEAD_DAYS = 14;
-  let deadlineEnd: number | null = null;
-  if (ev.guest_list_edit_deadline) {
-    deadlineEnd = Date.parse(`${ev.guest_list_edit_deadline}T23:59:59Z`);
-  } else if (ev.event_date) {
-    const d = new Date(`${ev.event_date}T23:59:59Z`);
-    d.setUTCDate(d.getUTCDate() - FINALIZE_LEAD_DAYS);
-    deadlineEnd = d.getTime();
-  }
-  if (deadlineEnd == null || Number.isNaN(deadlineEnd) || Date.now() <= deadlineEnd) {
+  // Effective deadline (end of day): the couple's explicit date, else
+  // FINALIZE_LEAD_DAYS before the event — a sane default so auto-finalize
+  // works out-of-box. No event date + no explicit → never locks. Parsed as UTC
+  // so the lock fires at the same instant regardless of the server's timezone
+  // (review fix: bare "T23:59:59" parses as server-local time).
+  //
+  // ⚠ THIS MATH IS NOT WRITTEN HERE ANY MORE. It moved to
+  // lib/guest-list-closed.ts because the guest-facing event hub has to answer
+  // the same question — "is the list closed?" — and it cannot call this
+  // function: this one WRITES (service-role), and a public page load must not
+  // write. Two copies of the arithmetic would drift into the hub taking
+  // replies the roster has already refused. Derive; never re-type.
+  const deadlineEnd = guestListDeadlineEndMs(
+    ev.guest_list_edit_deadline,
+    ev.event_date,
+  );
+  if (deadlineEnd == null || Date.now() <= deadlineEnd) {
     return { locked: false, finalPax: null, estimatedPax, basis };
   }
   // Deadline passed → finalize now (freeze the binding count). The WRITE goes

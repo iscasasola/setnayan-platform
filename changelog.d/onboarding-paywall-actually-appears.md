@@ -17,5 +17,13 @@ the generic and wedding flows; the simple flow was already right), and the shots
 now names what the next press costs **before** it is pressed instead of reading
 free · included · free with an unlabelled `+` as its only way to buy.
 
+And the bill now stays findable. Every couple-facing "you owe money" surface asked
+for `awaiting_payment` alone — a real status that almost nothing writes. Every mint
+in the app writes `submitted`, and prod's only order is `submitted`, so the prompt
+that exists to say *settle this* could never see an ordinary unpaid bill. An earlier
+correction had fixed those filters from a non-existent enum value to a real one and
+never checked which value the app actually mints: a fix that makes a query legal is
+not a fix that makes it true.
+
 SPEC IMPACT: DECISION_LOG.md 2026-08-20 — supersedes the studio landing chosen in the
 2026-08-11 onboarding-paywall row, which was an engineering call, not an owner lock.

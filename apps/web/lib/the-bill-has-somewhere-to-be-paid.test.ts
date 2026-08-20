@@ -147,3 +147,42 @@ test('the shots card does not send the reader elsewhere to do what it does', () 
     'the card must say buying happens here',
   );
 });
+
+// ── 5 · the bill stays findable after they leave it ────────────────────────
+//
+// Landing on the bill fixes the moment. It does not fix the day after. Every
+// couple-facing "you owe money" surface asked for `awaiting_payment` ALONE —
+// a real enum member that almost nothing writes. Every mint in the app writes
+// `submitted`; prod's only order is `submitted`. So the prompt that exists to
+// say "settle this" could not see an ordinary unpaid bill.
+const UNPAID_READERS: ReadonlyArray<readonly [string, string]> = [
+  ['app/dashboard/[eventId]/_components/event-dashboard.tsx', 'the couple\'s "Settle a payment" group'],
+  ['lib/event-decisions.ts', 'the event needs-you count'],
+  ['lib/setnayan-ai-snapshot.ts', 'the planner\'s pending-money bucket'],
+];
+
+test('every couple-facing unpaid-order read asks for BOTH unpaid states', () => {
+  for (const [rel, what] of UNPAID_READERS) {
+    const src = stripComments(read(rel));
+    assert.match(
+      src,
+      /\.in\(\s*'status',\s*\[\s*'submitted',\s*'awaiting_payment'\s*\]\s*\)/,
+      `${what} (${rel}) must count 'submitted' too — it is the state every mint writes`,
+    );
+    assert.doesNotMatch(
+      src,
+      /\.eq\(\s*'status',\s*'awaiting_payment'\s*\)/,
+      `${what} (${rel}) still filters one unpaid state and will read empty for real bills`,
+    );
+  }
+});
+
+test('the mint writes a status those readers can see', () => {
+  const mint = stripComments(read(MINT));
+  const minted = /status:\s*'(\w+)'/.exec(mint)?.[1];
+  assert.ok(minted, 'the mint must name the status it writes');
+  assert.ok(
+    ['submitted', 'awaiting_payment'].includes(minted!),
+    `the mint writes '${minted}', which no couple-facing unpaid surface reads`,
+  );
+});

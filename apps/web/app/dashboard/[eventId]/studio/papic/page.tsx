@@ -1271,21 +1271,24 @@ function StatusBanners({
           <span>
             Order received{papicAmount ? ` — ${formatPhp(Number(papicAmount))} due` : ''}.
             Reference <span className="font-mono">{papicRef}</span>.{' '}
-            {papicOrder ? (
-              <Link
-                className="font-semibold underline underline-offset-2"
-                href={`/dashboard/${eventId}/orders/${papicOrder}`}
-              >
-                See how to pay
-              </Link>
-            ) : (
-              <Link
-                className="font-semibold underline underline-offset-2"
-                href={`/dashboard/${eventId}/orders`}
-              >
-                See how to pay
-              </Link>
-            )}
+            {/*
+              ONE link, not a ternary over two identical ones. The label is the
+              thing a guard can count, and two copies of it meant deleting one
+              left the other standing and the guard green — measured, not
+              guessed. The branch belongs in the href, where it is a fallback:
+              an older redirect still in someone's history carries no order id,
+              and the orders list is the honest landing for it. Never nothing.
+            */}
+            <Link
+              className="font-semibold underline underline-offset-2"
+              href={
+                papicOrder
+                  ? `/dashboard/${eventId}/orders/${papicOrder}`
+                  : `/dashboard/${eventId}/orders`
+              }
+            >
+              See how to pay
+            </Link>
             {' '}— your cameras activate once the Setnayan team confirms your transfer.
           </span>
         </div>

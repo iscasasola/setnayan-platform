@@ -57,15 +57,19 @@ test('the promise is still unsendable — if this fails, the email now exists an
 
 test('the banner sends the buyer somewhere they can actually pay', () => {
   const src = stripComments(read(STUDIO_PAGE));
-  assert.match(src, /See how to pay/, 'the banner must offer a way to pay');
+  // Counted, not merely matched: this label used to be duplicated across two
+  // ternary branches, and a mutation deleting ONE left the other standing and
+  // this guard green. Exactly one link, so removing it cannot hide.
+  const labels = (src.match(/See how to pay/g) ?? []).length;
+  assert.equal(labels, 1, `expected exactly one pay link, found ${labels}`);
   assert.match(
     src,
-    /href=\{`\/dashboard\/\$\{eventId\}\/orders\/\$\{papicOrder\}`\}/,
+    /`\/dashboard\/\$\{eventId\}\/orders\/\$\{papicOrder\}`/,
     'the link must open the order that was just minted',
   );
   assert.match(
     src,
-    /href=\{`\/dashboard\/\$\{eventId\}\/orders`\}/,
+    /`\/dashboard\/\$\{eventId\}\/orders`/,
     'and must fall back to the orders list when the id is missing, never to nothing',
   );
 });

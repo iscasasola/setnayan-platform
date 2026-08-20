@@ -811,10 +811,25 @@ test('home has no greeting eyebrow and no tail hanging off the title', () => {
   // `[]` on any error, so "Let's set up your first event." was a claim the page
   // could not stand behind — and on an events-only page it would be the whole
   // screen shown to somebody with six weddings whose read just failed.
+  // ⚠ UPDATED 2026-08-20 — the title is UNPAINTED, not deleted (owner:
+  // "Remove Your Events on My Events. we don't need that text."). The top bar
+  // already names this place, so the visible h1 was the same word twice.
+  //
+  // The rule this now holds is the one that survived: the page still HAS a
+  // name — stripping the h1 outright would leave the document with no heading
+  // at all and start the outline at "Coming up" with no parent — and that name
+  // still claims nothing about how many events you have, so it stays true when
+  // the read fails.
   assert.match(
     src,
-    /<h1[\s\S]{0,200}?Your events/,
-    'The home title must name the page and claim nothing about how many events ' +
-      'you have, so it stays true when the read fails.',
+    /<h1 className="sr-only">\s*Your events\s*<\/h1>/,
+    'The home title must still exist for a screen reader and must still claim ' +
+      'nothing about how many events you have.',
+  );
+  assert.doesNotMatch(
+    src,
+    /<h1 className="text-\[1\.375rem\]/,
+    'The visible page title is back. The owner removed it on 2026-08-20 as a ' +
+      'duplicate of the "My Events" nav entry directly above it.',
   );
 });

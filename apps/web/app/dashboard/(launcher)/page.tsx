@@ -63,8 +63,8 @@ import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
 import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { CountUp } from '@/app/_components/count-up';
-import { buildHomeBoardTiles } from './_components/home-board';
 import { HomePillNav } from './_components/home-pill-nav';
+import { EventCardMenu } from './_components/event-card-menu';
 /*
   ⚠ THE BADGE AND THE TWO LABEL HELPERS NOW COME FROM THE SHARED INDEX, and
   that direction is deliberate. The palette and this board must badge one event
@@ -504,22 +504,11 @@ export default async function LauncherPage({
     }
   }
 
-  // Hero "Watch" stat — everything currently waiting on the user across all
-  // active events (pay + approve + message + overdue), straight from the
-  // per-event decision summaries above. Real data only.
-  let needsTotal = 0;
-  for (const summary of decisionByEvent.values()) needsTotal += summary.total;
-
-  // The Watch tile's per-event rows — only events with something waiting,
-  // busiest first. Same real summaries as the hero stat.
-  const watchRows = active
-    .map((e) => ({
-      eventId: e.event_id,
-      name: e.display_name,
-      total: decisionByEvent.get(e.event_id)?.total ?? 0,
-    }))
-    .filter((r) => r.total > 0)
-    .sort((a, b) => b.total - a.total);
+  /* The cross-event rollup (`needsTotal`) and the busiest-first `watchRows`
+     list are GONE, not moved. Both existed to feed The Watch tile and the
+     one-event nudge banner; The Watch went with the strip-to-events change and
+     the banner is retired below, so each was computing a number that nothing
+     rendered. `decisionByEvent` is now read straight by the cards. */
 
   // STORYTELLER doorway signal — does this account already author chapters?
   // Real head-count on the user's own creator_chapters rows (owner-scoped RLS).
@@ -869,11 +858,26 @@ export default async function LauncherPage({
           claim about how many events you have, so it is true in both states.
           The invitation to create one is the top bar's "+ Create event" (and,
           on phones, the bottom bar's ➕ and the dashed New-event card below). */}
-      <header className="sn-reveal mb-5 sm:mb-6" style={{ animationDelay: '0.24s' }}>
-        <h1 className="text-[1.375rem] font-extrabold leading-tight tracking-[-0.03em] text-ink sm:text-4xl sm:leading-[1.02]">
-          Your events
-        </h1>
-      </header>
+      {/* ⚠ THE TITLE IS NO LONGER PAINTED (owner 2026-08-20: "Remove Your Events
+          on My Events. we don't need that text.").
+
+          It is not DELETED, it is unpainted. The top bar already names this
+          place — the nav entry `customer.account.events` reads "My Events" — so
+          the h1 was the same word twice, one under the other, which is the
+          shape the 2026-08-18 one-line ruling was aimed at in the first place.
+
+          🔑 BUT A PAGE STILL NEEDS A NAME. Stripping the h1 outright leaves the
+          document with no heading at all: a screen-reader user landing here
+          would be told nothing about where they are, and the heading outline
+          would start at the "Coming up" h2 with no parent. `sr-only` is the
+          honest version of "we don't need that text" — nobody SEES it, the page
+          still says what it is. The <title> metadata already says "Your events"
+          and stays in step with it.
+
+          The anti-regression guards on the greeting eyebrow and the
+          "Pick up where you left off" tail still apply and still pass: what was
+          removed is the visible duplicate, never the page's identity. */}
+      <h1 className="sr-only">Your events</h1>
 
       {/* THE COMPOSER IS RETIRED (owner 2026-08-20: "we do not need it there
           because create event is already found on the top nav"). The
@@ -886,38 +890,30 @@ export default async function LauncherPage({
           the top bar and ⌘K. */}
 
 
-      {/* ⚠ PROMOTED TO EVERY WIDTH (2026-08-19), and this is not cosmetic.
-          This nudge was inside `sm:hidden` — the phone's stand-in for the
-          desktop Watch tile. Stripping this page to events removed BOTH desktop
-          carriers of that number: the Watch tile and the "Needs you" board tile.
-          Left where it was, the one thing on this page a couple has to ACT on
-          would have existed on phones only, and the loss would have been
-          invisible on the screen most people build on.
+      {/* ⚠ THE ONE-EVENT NUDGE BANNER IS RETIRED (owner 2026-08-20: "for the
+          9 things need you - Cale & Ice, can't we just place a counter on the
+          event card for that event itself on that page?").
 
-          Real data only — hidden when nothing is waiting, so it never says
-          "0 things need you". */}
-      {watchRows[0] ? (
-        <Link
-          href={`/dashboard/${watchRows[0].eventId}`}
-          className="sn-reveal sn-press mb-5 flex items-center gap-2.5 rounded-xl bg-[color:var(--sn-warning-soft)] px-3 py-3 sm:mb-6"
-          style={{ animationDelay: '0.3s' }}
-        >
-          <AlertCircle
-            aria-hidden
-            className="h-[18px] w-[18px] shrink-0 text-[color:var(--sn-warning)]"
-          />
-          <span className="flex-1 truncate text-[13px] font-bold text-[color:var(--sn-warning)] sm:text-sm">
-            {watchRows[0].total}{' '}
-            {watchRows[0].total === 1 ? 'thing needs' : 'things need'} you —{' '}
-            {watchRows[0].name}
-          </span>
-          <ArrowUpRight
-            aria-hidden
-            className="h-4 w-4 shrink-0 text-[color:var(--sn-warning)]"
-          />
-        </Link>
-      ) : null}
+          🔑 HIS INSTINCT IS A REAL DEFECT, NOT A PREFERENCE. The banner rendered
+          `watchRows[0]` — the BUSIEST event and no other. `watchRows` is built
+          from every active event and then sorted, so an account with two events
+          that both need something showed one number and silently swallowed the
+          rest. The count was on the page; the OTHER counts were nowhere, and
+          nothing on the second event's card hinted that anything was waiting.
 
+          ⚖ THIS REVERSES AN OWNER RULING, AND THE PREMISE IT RESTED ON HAS
+          EXPIRED. GlassEventCard's docblock records owner 2026-07-15: attention
+          counts live in ONE home (The Watch tile / the mobile nudge row), never
+          on a card. That was right while a home existed — The Watch listed EVERY
+          event with its own count. Stripping this page to events (2026-08-19)
+          deleted The Watch tile AND the "Needs you" board tile, and what
+          survived was this banner, which is not a home for the numbers: it is a
+          home for ONE of them. "One home for overdue counts" quietly became
+          "one count", and the ruling outlived the thing that made it correct.
+
+          Per-card is now the only place that can carry all of them, so the
+          count travels with the event it belongs to, on every shelf and at
+          every width. */}
       {/* COMING UP — the first of the board's TWO ALWAYS-PRESENT shelves
           (owner 2026-08-13). Glass cards, date descending (newest on top, owner
           2026-07-13 ordering), UNDATED at the tail reading "Date to be set".
@@ -935,11 +931,15 @@ export default async function LauncherPage({
             real data + hrefs as the desktop cards. */}
         <div className="space-y-3 sm:hidden">
           {upcoming[0] ? (
-            <MobileEventHero
-              event={upcoming[0]}
-              pct={progressByEvent.get(upcoming[0].event_id) ?? null}
-              todayISO={todayISO}
-            />
+            <BoardCardWithMenu event={upcoming[0]} tone="dark">
+              <MobileEventHero
+                event={upcoming[0]}
+                pct={progressByEvent.get(upcoming[0].event_id) ?? null}
+                todayISO={todayISO}
+                summary={decisionByEvent.get(upcoming[0].event_id)}
+                hasMenu={upcoming[0].member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
           ) : null}
           {upcoming.length > 1 ? (
             <div
@@ -947,12 +947,15 @@ export default async function LauncherPage({
               style={{ animationDelay: '0.58s' }}
             >
               {upcoming.slice(1).map((event) => (
-                <MobileEventChip
-                  key={event.event_id}
-                  event={event}
-                  pct={progressByEvent.get(event.event_id) ?? null}
-                  todayISO={todayISO}
-                />
+                <BoardCardWithMenu key={event.event_id} event={event}>
+                  <MobileEventChip
+                    event={event}
+                    pct={progressByEvent.get(event.event_id) ?? null}
+                    todayISO={todayISO}
+                    summary={decisionByEvent.get(event.event_id)}
+                    hasMenu={event.member_type === 'couple'}
+                  />
+                </BoardCardWithMenu>
               ))}
             </div>
           ) : null}
@@ -961,15 +964,18 @@ export default async function LauncherPage({
         {/* DESKTOP grid (proto .evrow — 4 columns on the wide canvas). */}
         <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {upcoming.map((event, i) => (
-            <GlassEventCard
-              key={event.event_id}
-              event={event}
-              pct={progressByEvent.get(event.event_id) ?? null}
-              heroSrc={heroFor(event.event_type)}
-              ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
-              index={i}
-              todayISO={todayISO}
-            />
+            <BoardCardWithMenu key={event.event_id} event={event}>
+              <GlassEventCard
+                event={event}
+                pct={progressByEvent.get(event.event_id) ?? null}
+                heroSrc={heroFor(event.event_type)}
+                ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                index={i}
+                todayISO={todayISO}
+                summary={decisionByEvent.get(event.event_id)}
+                hasMenu={event.member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
           ))}
           <NewEventCard delay={0.5 + upcoming.length * 0.08} />
         </div>
@@ -1006,29 +1012,35 @@ export default async function LauncherPage({
                 half used to get once revealed). */}
             <div className="grid grid-cols-2 gap-2.5 sm:hidden">
               {finished.map((event) => (
-                <MobileEventChip
-                  key={event.event_id}
-                  event={event}
-                  pct={progressByEvent.get(event.event_id) ?? null}
-                  finished
-                  todayISO={todayISO}
-                />
+                <BoardCardWithMenu key={event.event_id} event={event}>
+                  <MobileEventChip
+                    event={event}
+                    pct={progressByEvent.get(event.event_id) ?? null}
+                    finished
+                    todayISO={todayISO}
+                    summary={decisionByEvent.get(event.event_id)}
+                    hasMenu={event.member_type === 'couple'}
+                  />
+                </BoardCardWithMenu>
               ))}
             </div>
             {/* DESKTOP — the same glass cards, muted scene, reading
                 "Celebrated". */}
             <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {finished.map((event, i) => (
-                <GlassEventCard
-                  key={event.event_id}
-                  event={event}
-                  pct={progressByEvent.get(event.event_id) ?? null}
-                  heroSrc={heroFor(event.event_type)}
-                  ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
-                  finished
-                  index={upcoming.length + i}
-                  todayISO={todayISO}
-                />
+                <BoardCardWithMenu key={event.event_id} event={event}>
+                  <GlassEventCard
+                    event={event}
+                    pct={progressByEvent.get(event.event_id) ?? null}
+                    heroSrc={heroFor(event.event_type)}
+                    ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                    finished
+                    index={upcoming.length + i}
+                    todayISO={todayISO}
+                    summary={decisionByEvent.get(event.event_id)}
+                    hasMenu={event.member_type === 'couple'}
+                  />
+                </BoardCardWithMenu>
               ))}
             </div>
           </>
@@ -1212,9 +1224,13 @@ function GlassEventCard({
   finished,
   index = 0,
   todayISO,
+  summary,
+  hasMenu = false,
 }: {
   event: EventWithRole;
   pct: number | null;
+  /** This event's own decision summary. `undefined` ⇒ no pill — never a 0. */
+  summary?: EventDecisionSummary;
   /** The board's PH-local day — the countdown and the shelf must share it. */
   todayISO: string;
   /** Resolved event-type hero (admin upload → repo asset) for the scene band.
@@ -1227,6 +1243,8 @@ function GlassEventCard({
   /** Position in the grid — drives the entrance-cascade + ring/count-up
    *  stagger delays (computed, never hardcoded per card). */
   index?: number;
+  /** Reserve the scene band's top-right corner for the card menu. */
+  hasMenu?: boolean;
 }) {
   const { badge, dateLabel, place, status, plannedLabel, stance, href, closedReason } =
     deriveEventView(event, pct, finished, todayISO);
@@ -1234,7 +1252,7 @@ function GlassEventCard({
   return (
     <CardShell
       href={href}
-      className={`sn-tile-glass sn-lift-4 sn-press sn-reveal group flex min-h-[196px] flex-col overflow-hidden rounded-2xl hover:border-mulberry/30 ${
+      className={`sn-tile-glass sn-lift-4 sn-press sn-reveal group flex h-full min-h-[196px] flex-col overflow-hidden rounded-2xl hover:border-mulberry/30 ${
         finished ? 'opacity-75 hover:opacity-100' : ''
       }`}
       style={{ animationDelay: `${0.5 + index * 0.08}s` }}
@@ -1258,7 +1276,11 @@ function GlassEventCard({
         />
         {/* Type badge + STANCE, one row: what kind of event this is, and which
             side of it you are on. */}
-        <div className="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-1.5">
+        <div
+          className={`absolute left-3 top-3 flex flex-wrap items-center gap-1.5 ${
+            hasMenu ? 'max-w-[calc(100%-3.75rem)]' : 'max-w-[calc(100%-1.5rem)]'
+          }`}
+        >
           <span className="inline-flex rounded-full bg-white/85 px-2 py-1 font-mono text-[9px] font-normal uppercase tracking-[0.12em] text-[color:var(--sn-gold-700)] shadow-[0_2px_8px_rgba(30,26,18,0.08)]">
             {badge}
           </span>
@@ -1305,6 +1327,10 @@ function GlassEventCard({
         <p className="truncate text-[12.5px] text-[color:var(--sn-ink-500)]">
           {dateLabel ?? 'Date to be set'}
         </p>
+        {/* THE COUNTER (owner 2026-08-20). Above the progress row so it is the
+            first thing read after the date — what is waiting outranks how far
+            along the plan is. Absent entirely when nothing waits. */}
+        <EventAttention summary={summary} stance={stance} />
         <div className="mt-auto flex items-center gap-2.5 pt-1">
           {pct != null ? (
             <ProgressRing
@@ -1439,16 +1465,25 @@ function MobileEventHero({
   event,
   pct,
   todayISO,
+  summary,
+  hasMenu = false,
 }: {
   event: EventWithRole;
   pct: number | null;
   /** The board's PH-local day — the countdown and the shelf must share it. */
   todayISO: string;
+  /** This event's own decision summary. `undefined` ⇒ no pill — never a 0. */
+  summary?: EventDecisionSummary;
+  /** Reserve the top-right corner for the card menu. */
+  hasMenu?: boolean;
 }) {
   const { badge, dateLabel, countdown, plannedLabel, status, stance, href, closedReason } =
     deriveEventView(event, pct, undefined, todayISO);
-  // Attention/overdue lives ONLY in the mobile nudge row now (owner 2026-07-15:
-  // one home for overdue counts). The hero keeps identity/date/progress facts.
+  // ⚠ The comment here used to read "attention/overdue lives ONLY in the mobile
+  // nudge row now (owner 2026-07-15: one home for overdue counts)". That nudge
+  // row IS the banner retired above, and it only ever carried the busiest
+  // event — so on a phone this hero could be the neediest card on screen and
+  // say nothing. The counter now rides the card (owner 2026-08-20).
   // An INVITED hero shows its status line instead of a plan percentage it has no
   // business quoting — `plannedLabel` is already null for it.
   const facts = [
@@ -1460,7 +1495,9 @@ function MobileEventHero({
   return (
     <CardShell
       href={href}
-      className="sn-press sn-reveal block w-full rounded-2xl bg-ink p-4 text-cream shadow-[0_20px_44px_-26px_rgba(23,22,15,0.7)]"
+      className={`sn-press sn-reveal block w-full rounded-2xl bg-ink p-4 text-cream shadow-[0_20px_44px_-26px_rgba(23,22,15,0.7)] ${
+        hasMenu ? 'pr-12' : ''
+      }`}
       style={{ animationDelay: '0.5s' }}
     >
       <p className="flex flex-wrap items-center gap-x-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-gold-300)]">
@@ -1489,6 +1526,11 @@ function MobileEventHero({
             </span>
           ))}
         </p>
+      ) : null}
+      {summary && stance !== 'invited' && summary.total > 0 ? (
+        <span className="mt-2 flex">
+          <EventAttention summary={summary} stance={stance} />
+        </span>
       ) : null}
       {pct != null ? (
         <span className="sn-bar mt-2.5 block h-1.5 overflow-hidden rounded-full bg-white/15">
@@ -1519,12 +1561,18 @@ function MobileEventChip({
   pct,
   finished,
   todayISO,
+  summary,
+  hasMenu = false,
 }: {
   event: EventWithRole;
   pct: number | null;
   finished?: boolean;
   /** The board's PH-local day — the countdown and the shelf must share it. */
   todayISO: string;
+  /** This event's own decision summary. `undefined` ⇒ no pill — never a 0. */
+  summary?: EventDecisionSummary;
+  /** Reserve the top-right corner for the card menu. */
+  hasMenu?: boolean;
 }) {
   const { badge, dateLabel, status, stance, href, closedReason } = deriveEventView(
     event,
@@ -1535,9 +1583,9 @@ function MobileEventChip({
   return (
     <CardShell
       href={href}
-      className={`sn-press block rounded-2xl border border-ink/15 bg-white/60 p-3 text-left ${
+      className={`sn-press block h-full rounded-2xl border border-ink/15 bg-white/60 p-3 text-left ${
         finished ? 'opacity-75' : ''
-      }`}
+      } ${hasMenu ? 'pr-9' : ''}`}
     >
       <p className="truncate font-mono text-[9px] uppercase text-mulberry">
         {badge}
@@ -1556,6 +1604,17 @@ function MobileEventChip({
       {closedReason ? (
         <p className="text-[10.5px] leading-snug text-ink/45">{closedReason}</p>
       ) : null}
+      {/* AT CHIP DENSITY THE COUNT IS THE WHOLE MESSAGE. These sit two-up on a
+          phone, so the named action ("3 payments to settle") cannot fit beside
+          a name and a status without truncating to noise. The number and
+          "need you" fit, and the named line is one tap away on the event
+          itself — which is where pressing this chip goes. */}
+      {summary && summary.total > 0 && stance !== 'invited' ? (
+        <p className="mt-1.5 flex items-center gap-1 text-[10.5px] font-bold text-[color:var(--sn-warning)]">
+          <AlertCircle aria-hidden className="h-3 w-3 shrink-0" />
+          <span className="font-mono">{summary.total}</span> need you
+        </p>
+      ) : null}
     </CardShell>
   );
 }
@@ -1564,12 +1623,39 @@ function MobileEventChip({
  * The "needs a decision now" line — a gold pill naming the top pending
  * action (+ "· N more" when other kinds are also waiting). Named, not a bare
  * count badge, so the couple knows WHAT before they click (owner 2026-07-10).
- * Reused on the vendor shop + admin HQ cards.
+ * Reused on the vendor shop + admin HQ cards, and on every event card.
+ *
+ * ─── `count` — THE TOTAL, LEADING (owner 2026-08-20) ────────────────────────
+ * The owner asked for "a counter on the event card", having watched a banner
+ * say "9 things need you" for one event while the rest said nothing. So the
+ * event cards pass `count` and the pill leads with that whole number.
+ *
+ * 🔑 IT LEADS WITH THE NUMBER AND STILL NAMES THE ACTION, because BOTH owner
+ * rulings are live and neither cancels the other: 2026-07-10 asked for a named
+ * line rather than a bare badge ("so the couple knows WHAT before they click"),
+ * and 2026-08-20 asked for the count to be visible per event. A bare "9" would
+ * satisfy the new instruction by breaking the old one. The number is first so
+ * that it survives truncation on the narrowest card — the label is what gives
+ * way when there is no room, never the count.
  */
-function AttentionPill({ label, more = 0 }: { label: string; more?: number }) {
+function AttentionPill({
+  label,
+  more = 0,
+  count,
+}: {
+  label: string;
+  more?: number;
+  /** Total waiting on this surface. Omitted → the original label-only pill. */
+  count?: number;
+}) {
   return (
     <span className="flex items-center gap-1.5 rounded-lg bg-[color:var(--sn-warning-soft)] px-[9px] py-[5px] text-[color:var(--sn-warning)]">
       <AlertCircle aria-hidden className="h-[13px] w-[13px] shrink-0" />
+      {count != null ? (
+        <span className="shrink-0 font-mono text-[12px] font-bold leading-none">
+          {count}
+        </span>
+      ) : null}
       <span className="truncate text-[11px] font-bold">
         {label}
         {more > 0 ? (
@@ -1577,6 +1663,85 @@ function AttentionPill({ label, more = 0 }: { label: string; more?: number }) {
         ) : null}
       </span>
     </span>
+  );
+}
+
+/**
+ * The event-card counter — `AttentionPill` fed from a card's own decision
+ * summary, or nothing at all.
+ *
+ * ─── THE TWO WAYS THIS MUST STAY SILENT ────────────────────────────────────
+ * 1. NO SUMMARY, NO PILL. `decisionByEvent` is keyed on the organiser's ACTIVE
+ *    events. An invited card, an archived card and a card whose decision read
+ *    graceful-degraded all arrive here as `undefined` — and none of the three
+ *    may render "0 need you". An absence is not a zero; the pill is simply not
+ *    there, exactly as the home board's tiles were never rendered as
+ *    zero-with-a-flourish.
+ * 2. NEVER ON AN INVITED CARD, even if a summary somehow exists for it. A
+ *    guest has no payments to settle and no quotes to approve — those are the
+ *    host's decisions, and quoting them at somebody who cannot act on them is
+ *    the same error as printing "% planned" on a card for somebody else's
+ *    plan, which `deriveEventView` already refuses to do.
+ */
+function EventAttention({
+  summary,
+  stance,
+}: {
+  summary: EventDecisionSummary | undefined;
+  stance: EventStance | null;
+}) {
+  if (!summary || summary.total <= 0 || !summary.top) return null;
+  if (stance === 'invited') return null;
+  return (
+    <AttentionPill
+      count={summary.total}
+      label={summary.top.label}
+      more={Math.max(0, summary.total - summary.top.count)}
+    />
+  );
+}
+
+/**
+ * A board card plus its "⋯" menu — put away / remove for good.
+ *
+ * ─── WHY IT WRAPS RATHER THAN NESTS ────────────────────────────────────────
+ * 🪤 Every board card is a `<Link>` (see CardShell). A `<button>` inside an
+ * `<a>` is invalid HTML and behaves like it: the press activates both, so
+ * opening the menu would navigate into the event underneath. The menu is
+ * therefore a SIBLING of the card inside a `relative` wrapper, and each card
+ * takes `hasMenu` so it can reserve the corner the button will occupy — a
+ * button laid over a truncating line of text is the same bug one layer up.
+ *
+ * ─── WHO GETS ONE ──────────────────────────────────────────────────────────
+ * `member_type === 'couple'` ONLY. This board carries exactly two kinds of card
+ * (couple → organiser, guest → invited; `splitEventBoard` drops the rest), and
+ * a guest must not be offered controls over somebody else's celebration. It
+ * matches the server gate exactly — `deleteOwnEvent` admits couple members and
+ * nobody else — so the menu is never a door to a refusal.
+ *
+ * `h-full` on the wrapper keeps the card filling its grid cell: the card, not
+ * this div, used to be the grid item.
+ */
+function BoardCardWithMenu({
+  event,
+  tone = 'light',
+  children,
+}: {
+  event: EventWithRole;
+  tone?: 'light' | 'dark';
+  children: ReactNode;
+}) {
+  if (event.member_type !== 'couple') return <>{children}</>;
+  return (
+    <div className="relative h-full">
+      {children}
+      <EventCardMenu
+        eventId={event.event_id}
+        eventName={event.display_name}
+        archived={!!event.archived}
+        tone={tone}
+      />
+    </div>
   );
 }
 

@@ -2955,12 +2955,18 @@ export function OnboardingShell({
       eventId: string,
       toServices = false,
       /**
-       * Set only when the couple bought Papic shots or cameras on the services
-       * step (owner 2026-08-11) — the studio, carrying its payment banner. It
-       * sits BELOW every explicit destination below and below `nextPath`: a
-       * couple who tapped Purchase Now, or who arrived mid-errand from a vendor
-       * invite, asked to go somewhere, and the payment banner is waiting for
-       * them in the studio either way.
+       * Set only when the couple bought something on the services step — the
+       * order's own BILL page, carrying the amount, the reference and the
+       * BDO/GCash instructions.
+       *
+       * It still sits BELOW the explicit pay destinations below (Purchase Now
+       * and the AI keep-card both take the couple to a checkout already), but
+       * it now sits ABOVE `nextPath`: the vendor-invite errand's destination is
+       * an ordinary public vendor page, permanently reachable, while a bill is
+       * time-sensitive and was promised one screen earlier. It previously
+       * yielded to `nextPath` on the reasoning that "the payment banner is
+       * waiting for them in the studio either way" — that banner named no
+       * amount, so it was not.
        */
       papicPaymentPath: string | null = null,
     ) => {
@@ -2981,11 +2987,11 @@ export function OnboardingShell({
           ? `${base}/studio/${paySlug}`
           : toServices
             ? `${base}/vendors`
-            // Plain "continue free" finish: if the couple was sent here from a
-            // vendor-invite claim to create their first event, return them to it
-            // (vendor-invite/[slug]) to finish shortlisting; then the Papic
-            // payment page if they bought shots or cameras; else land on Home.
-            : (nextPath ?? papicPaymentPath ?? base);
+            // Plain "continue free" finish: the BILL first when they bought
+            // something (see papicPaymentPath's doc above); else the
+            // vendor-invite errand they were sent here mid-way through
+            // (vendor-invite/[slug], to finish shortlisting); else Home.
+            : (papicPaymentPath ?? nextPath ?? base);
       try {
         router.prefetch(base); // Home
         router.prefetch(`${base}/guests`); // Guests

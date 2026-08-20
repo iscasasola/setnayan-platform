@@ -272,16 +272,41 @@ export async function mintOnboardingServiceOrders(
     // provisioned at commit there is no partial state to detect or undo.
 
 
-    // Land them on their own Papic studio with the payment banner the studio's
-    // buy paths already render, rather than on a new payment screen: it is the
-    // same banner, on the page they will use to add more later.
-    const params = new URLSearchParams({
-      papic_purchased: String(order.public_id),
-      papic_ref: referenceCode,
-    });
+    // ── WHERE A BUYER GOES NEXT — the order's OWN page ──────────────────────
+    //
+    // 🔴 THIS USED TO LAND THEM ON THE PAPIC STUDIO, and that is the defect the
+    // owner reported on 2026-08-20: "i had a price to pay. but i there was no
+    // payment. it just created." He was right, and the order existed the whole
+    // time (public_id S89O-GCR6BDC4Z6 · Setnayan AI · PHP 499 · submitted).
+    //
+    // The studio's banner is a CONFIRMATION, not a bill. It names no amount —
+    // that banner only prints a figure when `papic_amount` is in the URL, and
+    // this path never set one — it gives no account to send to, and its copy
+    // says "your cameras activate", which is addressed to a Papic buyer. On an
+    // AI-only order it was the wrong page saying the wrong thing about a number
+    // it did not show.
+    //
+    // 🔑 RULE 0: THE BILL PAGE ALREADY EXISTS AND IS ALREADY CANONICAL.
+    // app/dashboard/[eventId]/orders/[orderId]/page.tsx renders "Total to pay",
+    // the reference code with a copy button, the BDO + GCash instructions and
+    // the payment-logging form with its screenshot upload. `?created=1` is its
+    // own post-creation copy: "Order created. Pay the amount below and log the
+    // payment so we can match it." Nothing was designed here; a destination was
+    // corrected.
+    //
+    // 🔒 The buyer can read it: `orders_owner_read` admits `user_id = auth.uid()`
+    // and this order is minted with that userId.
+    //
+    // ⚖ THIS MOVES THE PAPIC BUYER TOO, deliberately. The 2026-08-11 studio
+    // landing was an ENGINEERING call, not an owner lock — the owner's own words
+    // that day were "so this can be their paywall for the onboarding", and a
+    // banner with no amount on a page that sells something else is not a paywall.
+    // The studio is one tap away and is where they go once it is paid; arriving
+    // there is not load-bearing, because nothing is provisioned until an admin
+    // approves the payment.
     return {
       orderPublicIds: [String(order.public_id)],
-      paymentPath: `/dashboard/${eventId}/studio/papic?${params.toString()}`,
+      paymentPath: `/dashboard/${eventId}/orders/${orderId}?created=1`,
     };
   } catch (e) {
     // Non-fatal by contract — see the docblock. The event and its free grants

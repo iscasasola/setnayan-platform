@@ -12,7 +12,10 @@ import {
   SETTLED_ORDER_STATUSES,
   confirmationMatches,
   deletionIsBlocked,
+  supplierIsReleased,
+  supplierWasPaid,
 } from '@/lib/event-deletion-gate';
+import { manilaTodayISO } from '@/lib/event-board';
 import { emitNotification } from '@/lib/notification-emit';
 
 /**
@@ -272,14 +275,98 @@ export async function getEventDeletionImpact(
     side. Same rule the admin work list learned: an UNMEASURED queue is not a
     clear one.
   */
-  const evidence = { settledOrders, paymentRows, receiptRows };
+  /*
+    ── SUPPLIERS THE COUPLE HAS PAID DIRECTLY ────────────────────────────────
+    Owner 2026-08-21: a paid supplier must ACCEPT the deletion, unless the event
+    is over and they finished the job.
+
+    🔑 NONE OF THE THREE SIGNALS ABOVE CAN SEE THIS MONEY. The couple pays the
+    supplier off-platform; Setnayan never holds it. Prod today carries a wedding
+    with twelve booked suppliers, three of them paid a deposit — and every
+    Setnayan-side money signal reads zero for it.
+
+    A supplier counts as unsettled while EITHER half of the release is unmet.
+    `paid` is read two ways because the couple records it two ways: the booking
+    sitting at `deposit_paid`, or a payment they logged against that supplier.
+
+    ⚠ THE DAY IS PH-LOCAL. `manilaTodayISO` — never the server's clock, which is
+    UTC on Vercel. An event that has "passed" by one measure and not the other
+    decides whether a supplier is asked at all.
+  */
+  let unsettledPaidSuppliers: number | null = null;
+  {
+    const [vendorsRes, vendorPaymentsRes, eventDateRes] = await Promise.all([
+      admin
+        .from('event_vendors')
+        .select(
+          'vendor_id, status, completion_status, deposit_paid_php, deposit_recorded_at',
+        )
+        .eq('event_id', trimmed),
+      admin
+        .from('event_vendor_payments')
+        .select('vendor_id')
+        .eq('event_id', trimmed),
+      admin
+        .from('events')
+        .select('event_date, event_end_date')
+        .eq('event_id', trimmed)
+        .maybeSingle(),
+    ]);
+
+    if (!vendorsRes.error && !vendorPaymentsRes.error && !eventDateRes.error) {
+      const paidVendorIds = new Set(
+        (vendorPaymentsRes.data ?? []).map((r) => r.vendor_id as string),
+      );
+      // The LAST day releases it — a celebration spanning several days is not
+      // over on its first morning.
+      const lastDay =
+        (eventDateRes.data?.event_end_date as string | null) ??
+        (eventDateRes.data?.event_date as string | null);
+      const eventHasPassed =
+        typeof lastDay === 'string' && lastDay.slice(0, 10) < manilaTodayISO();
+
+      unsettledPaidSuppliers = (vendorsRes.data ?? []).filter((v) => {
+        const paid = supplierWasPaid({
+          vendorStatus: (v.status as string | null) ?? null,
+          depositPaidPhp: (v.deposit_paid_php as number | null) ?? null,
+          depositRecordedAt: (v.deposit_recorded_at as string | null) ?? null,
+          hasLoggedPayment: paidVendorIds.has(v.vendor_id as string),
+        });
+        if (!paid) return false;
+        return !supplierIsReleased({
+          eventHasPassed,
+          completionStatus: (v.completion_status as string | null) ?? null,
+          vendorStatus: (v.status as string | null) ?? null,
+        });
+      }).length;
+    }
+    // Any read error leaves it null ⇒ blocked. We cannot ask suppliers we
+    // could not count.
+  }
+
+  const evidence = {
+    settledOrders,
+    paymentRows,
+    receiptRows,
+    unsettledPaidSuppliers,
+  };
   const blocked = deletionIsBlocked(evidence);
   const unreadable =
-    settledOrders === null || paymentRows === null || receiptRows === null;
+    settledOrders === null ||
+    paymentRows === null ||
+    receiptRows === null ||
+    unsettledPaidSuppliers === null;
+  /*
+    The supplier reason is checked BEFORE the Setnayan-money reason because it is
+    the one a couple can actually do something about, and it names WHO is holding
+    it. "Something has been paid for" would be true and useless here.
+  */
   const blockedReason = blocked
     ? unreadable
-      ? 'We couldn’t check whether anything has been paid for on this celebration, so we haven’t removed it. Please try again in a moment, or message us and we’ll sort it out.'
-      : 'Something on this celebration has already been paid for, so it can’t be removed here. Put it away instead, or message us and we’ll help.'
+      ? 'We couldn’t check what’s been paid for on this celebration, so we haven’t removed it. Please try again in a moment, or message us and we’ll sort it out.'
+      : (unsettledPaidSuppliers ?? 0) > 0
+        ? `You’ve paid ${unsettledPaidSuppliers === 1 ? 'a supplier' : `${unsettledPaidSuppliers} suppliers`} for this celebration, so it can’t be removed yet — they’d lose the booking they were paid for. Put it away instead, or message us and we’ll help sort it out with them.`
+        : 'Something on this celebration has already been paid for, so it can’t be removed here. Put it away instead, or message us and we’ll help.'
     : null;
 
   return {

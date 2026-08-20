@@ -255,6 +255,13 @@ export const MEAL_LABELS: Record<MealPreference, string> = {
   no_preference: 'No preference',
 };
 
+/**
+ * The meal values, DERIVED from the labels rather than re-typed (owner
+ * 2026-08-21, when the self-profile gained the same field). Two hand-typed
+ * lists drift the moment one gains a value; this pair cannot.
+ */
+export const MEAL_PREFERENCES = Object.keys(MEAL_LABELS) as MealPreference[];
+
 export const ROLE_LABELS: Record<GuestRole, string> = {
   guest: 'Guest',
   bride: 'Bride',

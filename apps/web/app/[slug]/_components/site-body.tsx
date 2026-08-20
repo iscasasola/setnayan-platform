@@ -1050,6 +1050,7 @@ export async function SiteBody({
       pabati,
       showClaimAccountCta,
       accountlessPhotosClosed,
+      profileFood,
       eventVendorCredits,
       saveFlash,
       rsvpFlash,
@@ -1688,6 +1689,7 @@ export async function SiteBody({
                           faceMode={faceMode}
                           flash={rsvpFlash}
                           replyLocked={plan.guestListClosed}
+                    profileFood={profileFood}
                         />
                       </div>
                     </details>
@@ -1711,6 +1713,7 @@ export async function SiteBody({
                     faceMode={faceMode}
                     flash={rsvpFlash}
                     replyLocked={plan.guestListClosed}
+                    profileFood={profileFood}
                   />
                 )
               ) : null}

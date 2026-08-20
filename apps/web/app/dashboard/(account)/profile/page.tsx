@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { MEAL_LABELS, MEAL_PREFERENCES } from '@/lib/guests';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Download, AlertTriangle, Compass, KeyRound, Gem, MonitorSmartphone } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -101,7 +102,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, reminders_enabled, slug, public_profile_enabled, created_at',
+      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -485,6 +486,57 @@ export default async function ProfilePage({ searchParams }: Props) {
               </select>
             </Field>
           </fieldset>
+
+          {/* ── AT THE TABLE (owner 2026-08-21) ────────────────────────────
+              *"if they create an account to sync, these information will be
+              saved on their account automatically."* A guest answers these on
+              every invitation they accept, and today the answer dies with that
+              one event. Kept here, the reply card offers them back — so
+              somebody invited to their fourth wedding types "nut allergy"
+              once, not four times, and never gets it wrong on the fourth.
+              Whatever they answer for a specific event still wins there. */}
+          <fieldset className="space-y-4">
+            <legend className="text-sm font-semibold text-ink">At the table</legend>
+            <p className="-mt-1 text-xs text-ink/55">
+              Optional. We fill these in for you when you reply to an invitation — you
+              can always change them for a particular event.
+            </p>
+            <Field
+              label="Meal preference"
+              htmlFor="meal_preference"
+              help="Used as your default when you RSVP"
+            >
+              <select
+                id="meal_preference"
+                name="meal_preference"
+                defaultValue={profile?.meal_preference ?? ''}
+                className="input-field"
+              >
+                <option value="">No default</option>
+                {MEAL_PREFERENCES.map((m) => (
+                  <option key={m} value={m}>
+                    {MEAL_LABELS[m]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              label="Dietary needs"
+              htmlFor="dietary_restrictions"
+              help="Allergies or restrictions your hosts should know — shared only with an event you join"
+            >
+              <input
+                id="dietary_restrictions"
+                name="dietary_restrictions"
+                type="text"
+                maxLength={300}
+                defaultValue={profile?.dietary_restrictions ?? ''}
+                placeholder="halal · nut allergy · …"
+                className="input-field"
+              />
+            </Field>
+          </fieldset>
+
           <label className="flex cursor-pointer items-start gap-3 rounded-md border border-ink/10 bg-cream p-3 text-sm">
             <input
               type="checkbox"

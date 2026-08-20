@@ -107,6 +107,13 @@ export type GuestSiteIdentity = {
   /** Server-resolved effective face-tag mode (One-Pool spec §3.4) for the
    *  RSVP selfie + day-of enroll surfaces. mode_b ⇒ no descriptor computed. */
   faceMode: PapicFaceMode;
+  /**
+   * This person's OWN saved meal + dietary answers, from their Setnayan account
+   * (owner 2026-08-21). Offered as the reply card's DEFAULT when they have not
+   * answered for THIS event — never as an override of what they already said
+   * here. Null for a cookie-only guest with no account.
+   */
+  profileFood: { mealPreference: string | null; dietaryRestrictions: string | null } | null;
 };
 
 export type SiteIdentity = AnonymousSiteIdentity | GuestSiteIdentity;
@@ -365,7 +372,16 @@ export function anonymousIdentity(input: {
  * layer cannot ride in on a guest object either. The orchestrator used to
  * spread an inline literal here; the field list and values are unchanged.
  */
-export function guestIdentity(input: Omit<GuestSiteIdentity, 'kind'>): GuestSiteIdentity {
+/**
+ * `profileFood` is OPTIONAL at the input and REQUIRED on the result: every
+ * consumer can read it without a null-check, while the callers that have no
+ * account to read from (the simulated `?as=replied` preview) need not invent
+ * one. Absent ⇒ null ⇒ the card behaves exactly as it did before this existed.
+ */
+export function guestIdentity(
+  input: Omit<GuestSiteIdentity, 'kind' | 'profileFood'> &
+    Partial<Pick<GuestSiteIdentity, 'profileFood'>>,
+): GuestSiteIdentity {
   return {
     kind: 'guest',
     guest: input.guest,
@@ -384,6 +400,7 @@ export function guestIdentity(input: Omit<GuestSiteIdentity, 'kind'>): GuestSite
     saveFlash: input.saveFlash,
     rsvpFlash: input.rsvpFlash,
     faceMode: input.faceMode,
+    profileFood: input.profileFood ?? null,
   };
 }
 

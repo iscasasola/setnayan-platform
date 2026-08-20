@@ -218,8 +218,21 @@ export default async function HomePage({
     already on the executed path — so retiring the old page changes nothing
     about how `/` renders.
   */
-  const chipParam = (await searchParams).c;
+  const params = await searchParams;
+  const chipParam = params.c;
   const chip = Array.isArray(chipParam) ? chipParam[0] : chipParam;
+  /*
+    `?q=` — the top bar's search now answers HERE, in this page's own body,
+    rather than handing every typed word to the supplier marketplace (owner
+    2026-08-20; see `front-door-results.tsx` for the measured reason).
+
+    🔒 NOTHING ABOUT INDEXING CHANGES: `metadata.alternates.canonical` above is
+    the bare '/', so every `?q=` url canonicalizes to the front page and no
+    thin results page competes with it in search. That was already true of the
+    `?c=` chips.
+  */
+  const qParam = params.q;
+  const q = Array.isArray(qParam) ? qParam[0] : qParam;
 
   // Admin morning-digest flush — cron-free, piggybacks on the homepage's
   // guaranteed public traffic so the digest reaches an admin who isn't in the
@@ -248,7 +261,7 @@ export default async function HomePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
-      <FrontDoor chip={chip} />
+      <FrontDoor chip={chip} q={q} />
     </>
   );
 }

@@ -52,9 +52,19 @@ export function marketplaceEscapeItem(query: string): HomeCommandItem | null {
       live 2026-08-20 — `?q=doves` returns the doves guide, and `?q=mobile bar`
       the mobile-bar guide.
 
-      ⚠ SO THIS IS A LABEL FIX, NOT A FEATURE. Nothing about where the row goes
-      changed. The words now match what is already there, which is the
-      cheapest possible version of the thing the owner asked for.
+      ⚠ THAT WAS A LABEL FIX. THE DESTINATION MOVED LATER THE SAME DAY, and
+      this is that change: the row now lands on the FRONT DOOR, which answers
+      in its own body. The label above was true of /explore and is true of `/`
+      — the front page resolves stories and guides in full, matches the shops
+      it already publishes, and carries a permanent row handing the same words
+      to the marketplace for the search only it can do.
+
+      🔑 WHY THE DESTINATION HAD TO MOVE. /explore leads with its vendor
+      verdict. Measured live 2026-08-20, `?q=doves` printed "No vendors match
+      exactly. Try widening your search" ABOVE the doves guide it had found —
+      so the one row offering our writing delivered a failure about suppliers
+      first. Prod holds two shops; the marketplace could not lead well on
+      anything.
       🔑 The nouns are the SIGNED-OUT box's own promise
       (`PUBLIC_SEARCH_NOUNS` → "suppliers, stories and guides"), so one search
       makes one promise whether or not you are logged in. If a noun is ever
@@ -62,7 +72,13 @@ export function marketplaceEscapeItem(query: string): HomeCommandItem | null {
     */
     label: `Search Setnayan for “${q}”`,
     sublabel: 'Suppliers, stories and guides',
-    href: `/explore?q=${encodeURIComponent(q)}`,
+    /*
+      ⚠ `/`, NOT `/explore`. The front door reads `?q=` and renders results in
+      its own body. Sending this to the marketplace again re-creates the defect
+      above; the marketplace is reached from a row ON the results page, which
+      is where a supplier-shaped query still gets the stronger search.
+    */
+    href: `/?q=${encodeURIComponent(q)}`,
     kind: 'action',
     icon: 'store',
   };

@@ -795,7 +795,8 @@ test('home has no greeting eyebrow and no tail hanging off the title', () => {
     src,
     /Kumusta,\s*\{greeting\}/,
     'The greeting eyebrow is back above the title. It is the shape the owner ' +
-      'pointed at, and the name already appears on the composer right below it.',
+      'pointed at on 2026-08-18 (and the composer that once repeated the name ' +
+      'below it is itself retired, 2026-08-20).',
   );
   assert.doesNotMatch(
     src,

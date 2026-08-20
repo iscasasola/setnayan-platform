@@ -25,3 +25,18 @@ carries the version, so a Playwright bump misses the cache and re-downloads
 instead of silently testing against a stale browser.
 
 SPEC IMPACT: None.
+
+### The cache could not land itself — the ceiling had to move too
+
+Re-running the cancelled check three times produced three more cancellations,
+which is exactly what this fragment already warns about. The reason is
+structural: **this PR must pass the very check it repairs, on a run that has no
+cache yet to benefit from.**
+
+So `timeout-minutes` goes **15 → 25**, and the number is derived rather than
+picked: across the 30 measured runs the SUCCESSES ranged **5–14 minutes** against
+a **15 minute** cap. **A ceiling one minute above the observed maximum is not a
+timeout, it is a coin toss** — and five runs, one of them on `main`, lost it.
+
+The cache is still the actual fix and should pull normal runs back to ~5 min, at
+which point the higher ceiling costs nothing and only catches a genuine hang.

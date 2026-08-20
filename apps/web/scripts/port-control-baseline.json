@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "303b9b0a5",
+  "generatedFromRef": "80a3a64da",
   "routeCount": 402,
   "destinations": 849,
   "actions": 580,
-  "blocks": 3805,
+  "blocks": 3804,
   "routes": {
     "/": {
       "files": [
@@ -3931,7 +3931,6 @@
         "ComingSoonNote",
         "CountUp",
         "EmptyYear",
-        "EventComposer",
         "EventMonogram",
         "EventScene",
         "Facet",

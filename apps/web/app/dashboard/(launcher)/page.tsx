@@ -191,7 +191,7 @@ export default async function LauncherPage({
   // JWT/trigger commit for ~1-2s right after a Google / Facebook OAuth callback.
   // Every query graceful-degrades with a safe default so the page renders the
   // launcher instead of flashing the global error boundary.
-  const [organiserEvents, invitedEvents, profileRes, roles, communities] =
+  const [organiserEvents, invitedEvents, roles, communities] =
     await Promise.all([
       fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
         logQueryError(
@@ -222,23 +222,6 @@ export default async function LauncherPage({
         );
         return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
       }),
-      (async () => {
-        try {
-          return await supabase
-            .from('users')
-            .select('display_name, profile_photo_url')
-            .eq('user_id', user.id)
-            .maybeSingle();
-        } catch (caught) {
-          logQueryError(
-            'Launcher (users.display_name SELECT threw)',
-            caught instanceof Error ? caught : new Error(String(caught)),
-            { user_id: user.id },
-            'graceful_degrade',
-          );
-          return { data: null, error: null } as never;
-        }
-      })(),
       fetchUserRoleSummary(supabase, user.id).catch((err: unknown) => {
         logQueryError(
           'Launcher (fetchUserRoleSummary threw)',
@@ -354,27 +337,6 @@ export default async function LauncherPage({
   if (active.length === 0 && hasConsole && !wantsHub && boardEvents.length === 0) {
     redirect('/dashboard/create-event');
   }
-  const profile = profileRes.data;
-  // The composer circle stands in for the PERSON, so it shows their face when
-  // they have set one. `profile_photo_url` holds an `r2://` REFERENCE, never a
-  // URL — dropping the raw value into an <img> renders a broken glyph and says
-  // nothing about why. Resolved here, beside the greeting that already reads
-  // this row, so no extra query is added. Fails soft to the initial: a signing
-  // hiccup must not put a broken picture where a letter worked.
-  const composerPhotoUrl = profile?.profile_photo_url
-    ? await displayUrlForStoredAsset(profile.profile_photo_url).catch(() => null)
-    : null;
-  const greeting =
-    profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
-  // 🚨 THE GREETING MUST COUNT THE SAME THING THE BOARD SHOWS. This read
-  // `events.length === 0` — the ORGANISER-only set — while the shelves below
-  // render the MERGED set. Before invited events reached the board the two were
-  // the same list and could not contradict each other; afterwards, somebody whose
-  // only events are ones they were invited to got **"Let's set up your first
-  // event"** printed directly above the weddings they had been invited to.
-  // Found by an adversarial pass 2026-08-13.
-
-
   // "% planned" per event — real done/total from the event checklist, fetched in
   // parallel (event count is small). Null when an event has no checklist rows yet
   // → the card shows the countdown without a fabricated percentage. Only the
@@ -905,26 +867,23 @@ export default async function LauncherPage({
           what this shelf is FOR and never that you have none." The title now
           obeys the same rule its own page wrote: it NAMES the page and makes no
           claim about how many events you have, so it is true in both states.
-          The invitation to create one is the composer directly beneath it. */}
+          The invitation to create one is the top bar's "+ Create event" (and,
+          on phones, the bottom bar's ➕ and the dashed New-event card below). */}
       <header className="sn-reveal mb-5 sm:mb-6" style={{ animationDelay: '0.24s' }}>
         <h1 className="text-[1.375rem] font-extrabold leading-tight tracking-[-0.03em] text-ink sm:text-4xl sm:leading-[1.02]">
           Your events
         </h1>
       </header>
 
-      {/* THE COMPOSER — "What's your event?" (owner 2026-08-07, from the
-          Facebook comparison: "instead of what's on your mind? what's your
-          event?"). Creating an event was already reachable three ways — the
-          trailing ghost card, the raised ➕ in the phone pill, and ⌘K — but all
-          three are small and none of them ASKS. This is the same single
-          destination worded as an invitation and given the width Facebook gives
-          its composer: the first full-width thing under the greeting.
-          It is a navigation, not a form — the create screen owns the real
-          question ("Who are we celebrating?") and every guard behind it. */}
-      <EventComposer
-        initial={greeting.charAt(0).toUpperCase()}
-        photoUrl={composerPhotoUrl}
-      />
+      {/* THE COMPOSER IS RETIRED (owner 2026-08-20: "we do not need it there
+          because create event is already found on the top nav"). The
+          "What's your event?" row was asked for on 2026-08-07, when creation
+          had only three SMALL doors; the top bar's full "+ Create event"
+          button arrived 2026-08-15 and overtook that premise. It also read as
+          a second search bar one row under the real one — the owner himself
+          misread it — so keeping it cost more than it invited. Creation stays
+          reachable here via the dashed New-event card, the phone pill's ➕,
+          the top bar and ⌘K. */}
 
 
       {/* ⚠ PROMOTED TO EVERY WIDTH (2026-08-19), and this is not cosmetic.
@@ -1618,71 +1577,6 @@ function AttentionPill({ label, more = 0 }: { label: string; more?: number }) {
         ) : null}
       </span>
     </span>
-  );
-}
-
-/**
- * EventComposer — the full-width "What's your event?" row under the greeting.
- *
- * Deliberately NOT an input. A text box would promise that typing a sentence
- * creates something, and the create flow needs a type, a subject and a date
- * before it can do anything real — so a half-answer here would be thrown away
- * on the very next screen. It looks like a composer and behaves like the door
- * it already was.
- */
-function EventComposer({
-  initial,
-  photoUrl,
-}: {
-  initial: string;
-  /**
-   * The signed-in person's own profile photo, ALREADY resolved to a fetchable
-   * URL. Absent (not set, or signing failed) falls back to the initial — the
-   * same photo-or-letter contract the top-bar avatar uses.
-   */
-  photoUrl?: string | null;
-}) {
-  return (
-    <Link
-      href="/dashboard/create-event"
-      className="sn-press sn-reveal group mb-5 flex items-center gap-3 rounded-full border border-ink/12 bg-white/70 py-2 pl-2 pr-2.5 transition-[border-color,background-color] duration-200 hover:border-terracotta hover:bg-white sm:mb-6 sm:py-2.5 sm:pl-2.5"
-      style={{ animationDelay: '0.3s' }}
-    >
-      <span
-        aria-hidden
-        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color:var(--sn-gold-100)] text-[13px] font-extrabold text-[color:var(--sn-gold-700)] sm:h-10 sm:w-10 sm:text-sm"
-      >
-        {photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          // ^ Same call the top-bar avatar makes: the URL is a short-lived
-          // presigned R2 link, so `next/image` would re-transform it on every
-          // render (billed per transformation) for no gain at 40px.
-          <img
-            src={photoUrl}
-            alt=""
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          initial
-        )}
-      </span>
-      <span className="flex-1 truncate text-[13.5px] font-semibold text-[color:var(--sn-ink-400)] sm:text-[15px]">
-        What’s your event?
-      </span>
-      <span
-        aria-hidden
-        /* CTA slot, so `bg-mulberry` (#C24E25) — NOT `bg-terracotta`, which
-           the 2026-08-01 palette lock remapped to the GOLD accent #A9834B.
-           The lock's whole point is structural: terracotta ACTS, gold
-           HIGHLIGHTS, and "gold is never a button" is the rule this circle
-           was breaking. Label is `text-cream`, the pairing the contrast
-           guard actually measures (4.61:1 AA); `text-white` is a different,
-           unmeasured pairing. */
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-mulberry text-cream transition-[transform,background-color] duration-200 group-hover:bg-mulberry-600 group-hover:scale-105 sm:h-9 sm:w-9"
-      >
-        <Plus className="h-[18px] w-[18px]" strokeWidth={2.4} />
-      </span>
-    </Link>
   );
 }
 

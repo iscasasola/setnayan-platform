@@ -4,10 +4,12 @@
  * Two defects of one family, found by sweeping for every surface that paints a
  * stand-in for the SIGNED-IN person:
  *
- *   1. The home composer — the "What's your event?" row — showed the first
- *      letter of your name in the exact slot a profile picture belongs, on a
- *      page whose top bar was already showing your actual photo. Two different
- *      faces for the same person, inches apart.
+ *   1. (RETIRED WITH ITS SURFACE, 2026-08-20.) The home composer — the
+ *      "What's your event?" row — showed the first letter of your name where a
+ *      profile picture belongs. The composer itself was removed by the owner
+ *      ("we do not need it there because create event is already found on the
+ *      top nav"), so the three assertions that pinned its photo plumbing went
+ *      with it — a guard for a surface that no longer exists can only cry wolf.
  *
  *   2. The call room derived its monogram by slicing character zero off
  *      WHATEVER STRING IT WAS HANDED — and every string it was handed except
@@ -22,10 +24,6 @@
  * the other end — now passes its initial EXPLICITLY, so the difference between
  * "this is a person" and "this is a state" is stated in the call, not guessed
  * at from the string.
- *
- * 🔑 AND A STORED REF IS NOT A URL. `users.profile_photo_url` holds `r2://…`.
- * Handing the raw value to an <img> renders a broken glyph silently — so the
- * resolution is asserted here, not just the presence of the photo.
  *
  * 🛡 Every assertion mutation-checked by occurrence count, each confirmed RED.
  */
@@ -43,7 +41,6 @@ const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
 
 const CALL_ROOM = 'app/_components/thread-call-room.tsx';
-const LAUNCHER = 'app/dashboard/(launcher)/page.tsx';
 
 test('the call room never slices a monogram out of a caption', () => {
   const src = read(CALL_ROOM);
@@ -76,27 +73,3 @@ test('every status circle in the call room is given an icon', () => {
   assert.equal(icons.length, avatars.length, 'every status circle takes an icon, never a letter');
 });
 
-test('the launcher actually reads the photo column', () => {
-  const src = read(LAUNCHER);
-  assert.match(
-    src,
-    /\.select\('display_name, profile_photo_url'\)/,
-    'the composer cannot show a face the page never asked the database for',
-  );
-});
-
-test('the composer photo is RESOLVED, never a raw r2:// ref', () => {
-  const src = read(LAUNCHER);
-  assert.match(
-    src,
-    /composerPhotoUrl\s*=[\s\S]{0,200}?displayUrlForStoredAsset\(/,
-    'a stored ref in an <img> is a broken glyph and says nothing about why',
-  );
-});
-
-test('the composer renders the photo, with the letter only as a fallback', () => {
-  const src = read(LAUNCHER);
-  assert.match(src, /photoUrl \? \(/, 'the photo must be preferred when present');
-  assert.match(src, /src=\{photoUrl\}/, 'the resolved photo must reach an <img>');
-  assert.match(src, /\) : \(\s*initial\s*\)/, 'the initial must remain the fallback');
-});

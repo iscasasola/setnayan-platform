@@ -22,6 +22,7 @@ import { manilaToday } from '@/lib/std-views';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { onboardingV2BriefEnabled } from '@/lib/onboarding-v2-brief-flag';
 import { getSelfPersonalization } from '@/lib/self-personalization';
+import { nextBirthday } from '@/lib/event-anchor';
 import { deriveOnboardingPrefill, EMPTY_PREFILL } from '@/lib/onboarding/prefill';
 import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-flag';
 import { readServicesStepView } from '@/lib/onboarding/services-step-server';
@@ -84,9 +85,32 @@ export default async function GenericOnboardingPage({
   // per-type answers they already settle, so onboarding pre-fills those and only
   // asks what's missing. Flag OFF (default) → EMPTY_PREFILL → the flow is
   // byte-identical. SELF facts only; RLS scopes the read to this user.
+  const self = await getSelfPersonalization();
   const prefill = onboardingV2BriefEnabled()
-    ? deriveOnboardingPrefill(type, await getSelfPersonalization())
+    ? deriveOnboardingPrefill(type, self)
     : EMPTY_PREFILL;
+
+  // ── THE AGE OF THE PERSON SIGNED IN, WHEN THIS IS A BIRTHDAY ──────────────
+  //
+  // Owner, 2026-08-20: "since we already know it is for his birthday, then it
+  // is not a question of what type of party." A birthday with no celebrant name
+  // on it IS the account holder's — blank has always meant "mine" — so the
+  // party-type question answers itself from a date already on their profile.
+  //
+  // 🔑 DELIBERATELY NOT ROUTED THROUGH `prefill`. That seam is gated by
+  // `onboardingV2BriefEnabled()`, which is fail-closed and OFF, so a fix built
+  // behind it would ship switched off — and the flag exists to hold back a
+  // WIDER brief, not this one fact.
+  //
+  // 🔒 It is the reader's OWN age, derived from their OWN row (RLS-scoped, self
+  // facts only), handed to their OWN wizard: nothing is disclosed that the
+  // person on the screen does not already know about themselves. The AGE
+  // crosses, never the birth date — the smaller of the two facts, and the only
+  // one the question needs.
+  const selfBirthdayAge =
+    type === 'birthday' && self.birthdate
+      ? (nextBirthday(self.birthdate, manilaToday())?.age ?? null)
+      : null;
 
   // The services step (Papic + Setnayan AI). Flag OFF ⇒ null ⇒ the wizard drops
   // the screen from its sequence and the flow is byte-identical to today.
@@ -133,6 +157,7 @@ export default async function GenericOnboardingPage({
       resume={sp.resume === '1'}
       nextPath={nextPath !== '/' ? nextPath : null}
       prefill={prefill}
+      selfBirthdayAge={selfBirthdayAge}
       // Manila today, so the anchor's next return is computed off the server's
       // clock rather than the visitor's device timezone.
       todayISO={manilaToday()}

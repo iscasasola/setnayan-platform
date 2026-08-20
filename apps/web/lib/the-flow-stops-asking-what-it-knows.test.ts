@@ -106,8 +106,53 @@ test('a bracket the person chose themselves always wins over one we derived', ()
   const src = stripComments(read(WIZARD));
   assert.match(
     src,
-    /!seededDetails\.who/,
-    'the carried answer must only fill an ANSWER-SHAPED HOLE, never overwrite a draft',
+    /setDetails\(\(d\) => \(d\.who \? d : \{ \.\.\.d, who: derivedWho \}\)\)/,
+    'the derived answer must only fill an ANSWER-SHAPED HOLE, never overwrite one',
   );
   assert.match(src, /eventType === 'birthday'/, 'the age answers a BIRTHDAY question only');
+});
+
+// ── every door, not just the Year row ──────────────────────────────────────
+test('🚨 the party-type question is answered from the profile too, not only the Year hop', () => {
+  // Owner, 2026-08-20: "since we already know it is for his birthday, then it is
+  // not a question of what type of party." Creating the same birthday from the
+  // Create button carries nothing, so a carry-only fix would still have asked.
+  const page = stripComments(read('app/onboarding/[type]/page.tsx'));
+  assert.match(page, /const selfBirthdayAge =/, 'the page must work out the reader’s own age');
+  assert.match(page, /nextBirthday\(self\.birthdate, manilaToday\(\)\)/, 'from their own profile');
+  assert.match(page, /selfBirthdayAge=\{selfBirthdayAge\}/, 'and hand it to the wizard');
+
+  const src = stripComments(read(WIZARD));
+  assert.match(
+    src,
+    /carriedAge \?\? selfBirthdayAge/,
+    'the tapped row wins, and the profile answers every other door',
+  );
+});
+
+test('🪤 the age is NOT routed through the flag-gated prefill seam', () => {
+  // `onboardingV2BriefEnabled()` is fail-closed and OFF, so a fix built behind
+  // it ships switched off. The flag holds back a WIDER brief, not this fact.
+  const page = read('app/onboarding/[type]/page.tsx');
+  const decl = /const selfBirthdayAge =[\s\S]*?;\n/.exec(page)?.[0] ?? '';
+  assert.ok(decl.length > 0, 'the age derivation must exist');
+  assert.doesNotMatch(decl, /onboardingV2BriefEnabled|prefill/, 'it must not depend on the brief flag');
+});
+
+test('a blank celebrant means "mine", and typing a name puts the question back', () => {
+  const src = stripComments(read(WIZARD));
+  const decl = /const knownBirthdayAge =[\s\S]*?;\n/.exec(src)?.[0] ?? '';
+  assert.match(decl, /!honoree\.trim\(\)/, 'a typed celebrant must stop us answering for them');
+  assert.match(decl, /eventType === 'birthday'/, 'only a birthday has this question');
+});
+
+test('a stored answer that differs from ours keeps its screen', () => {
+  // Skipping a screen that holds somebody's own earlier answer is a wall, not a
+  // default — they would have no way back to it.
+  const src = stripComments(read(WIZARD));
+  assert.match(
+    src,
+    /stored === undefined \|\| stored === derivedWho/,
+    'only skip when what is stored is what we would have derived',
+  );
 });

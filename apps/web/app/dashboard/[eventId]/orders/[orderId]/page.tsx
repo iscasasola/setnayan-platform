@@ -55,6 +55,19 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
   ]);
   const totals = computeOrderTotals(order, payments);
 
+  // Whose name will the buyer actually see on the transfer screen? Take it from
+  // whichever rail is configured (BDO first, matching the order they render in),
+  // and compare it to the business name with punctuation and case ignored, so
+  // "Setnayan" vs "SETNAYAN Events" is judged on words rather than characters.
+  // Only a genuine mismatch is explained — see the notice below.
+  const merchantAccountName =
+    settings.bdo_account_name?.trim() || settings.gcash_account_name?.trim() || null;
+  const normalizeName = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const accountNameDiffersFromBusiness =
+    !!merchantAccountName &&
+    !!settings.business_name?.trim() &&
+    !normalizeName(merchantAccountName).includes(normalizeName(settings.business_name));
+
   // Pre-resolve screenshot display URLs for every payment row. Legacy http(s)
   // values pass through; r2:// refs get a 24h presigned GET. We do this on
   // the server so the existing "Screenshot" link below the payment row works
@@ -352,6 +365,31 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         </p>
 
         {hasMerchantPaymentInfo(settings) ? (
+          <>
+            {/*
+              WHY THE ACCOUNT IS IN A PERSON'S NAME, SAID BEFORE THEY WONDER.
+              Setnayan is a sole proprietorship, so its receiving accounts are
+              legally in the proprietor's own name — but a buyer who is told to
+              send money to "Setnayan" and then sees a stranger's personal name
+              on the transfer screen has just been shown the exact shape of a
+              scam. Nothing is wrong; nothing SAYS so, and silence is what costs
+              the trust.
+
+              Rendered only when the displayed account name is not already the
+              business name — the day a business account replaces it, this line
+              disappears by itself rather than explaining away a mismatch that
+              no longer exists.
+            */}
+            {accountNameDiffersFromBusiness ? (
+              <p className="border-t border-ink/10 pt-4 text-sm text-ink/70">
+                The account below is in the name of{' '}
+                <span className="font-medium text-ink">{merchantAccountName}</span>, the
+                registered owner of {settings.business_name || 'Setnayan'}
+                {settings.business_tin ? ` (TIN ${settings.business_tin})` : ''}. That is the
+                correct account — your receipt comes from{' '}
+                {settings.business_name || 'Setnayan'}.
+              </p>
+            ) : null}
           <div className="grid gap-3 border-t border-ink/10 pt-4 sm:grid-cols-2">
             {settings.bdo_account_number || settings.bdo_qr_url ? (
               <div className="sn-row space-y-2 p-4">
@@ -411,6 +449,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
               </div>
             ) : null}
           </div>
+          </>
         ) : null}
       </section>
 

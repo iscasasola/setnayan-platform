@@ -34,6 +34,12 @@ export default async function ReceiptPage({ params }: Props) {
   if (receipt.user_id !== user.id) notFound();
 
   const receiptNumber = formatReceiptNumber(receipt.or_serial, receipt.issued_at);
+  // Was VAT actually assessed on THIS receipt? Read from the row, never from a
+  // constant — see the note beside the amounts below. Both halves are checked:
+  // a rate of 0 and an amount of 0 each mean "no VAT", and a row that somehow
+  // carries a rate with no amount (the exact defect this fixes) prints no VAT
+  // line rather than a contradiction.
+  const vatWasCharged = Number(receipt.vat_rate_pct) > 0 && Number(receipt.vat_amount_php) > 0;
 
   return (
     <>
@@ -111,14 +117,34 @@ export default async function ReceiptPage({ params }: Props) {
 
           <section className="space-y-2 border-t border-ink/10 pt-4">
             <dl className="space-y-1 text-sm">
-              <Line
-                label="Sales (VAT-exclusive)"
-                value={formatPhpFromString(receipt.pre_vat_php)}
-              />
-              <Line
-                label={`VAT @ ${receipt.vat_rate_pct}%`}
-                value={formatPhpFromString(receipt.vat_amount_php)}
-              />
+              {/*
+                A NON-VAT SELLER MUST NOT PRINT A VAT LINE. Setnayan is not
+                VAT-registered (sole prop, 8% flat; VAT only at the ₱3M
+                tripwire), so the configured rate is 0 — and a line reading
+                "VAT @ 0%  ₱0.00" is not a harmless zero, it tells the reader a
+                tax was assessed. "VAT-exclusive" on the sales line says the
+                same thing.
+
+                Driven by the rate STORED ON THE ROW, not by a constant: the day
+                the threshold is crossed the rate is set in settings, new
+                receipts carry it, and this line appears by itself. Old receipts
+                keep printing whatever they were actually issued at, which is
+                what a receipt is for.
+              */}
+              {vatWasCharged ? (
+                <>
+                  <Line
+                    label="Sales (VAT-exclusive)"
+                    value={formatPhpFromString(receipt.pre_vat_php)}
+                  />
+                  <Line
+                    label={`VAT @ ${receipt.vat_rate_pct}%`}
+                    value={formatPhpFromString(receipt.vat_amount_php)}
+                  />
+                </>
+              ) : (
+                <Line label="Sales" value={formatPhpFromString(receipt.pre_vat_php)} />
+              )}
               <Line
                 label="Total amount paid"
                 value={formatPhpFromString(receipt.gross_total_php)}

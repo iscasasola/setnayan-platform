@@ -865,9 +865,26 @@ async function issueReceiptForOrder(args: {
   // VAT-inclusive vendor orders: back the VAT OUT of the gross so the receipt's
   // pre_vat + vat sum to the ₱999 actually paid (not ₱999 + ₱119.88). Customer
   // orders: build VAT UP from the pre-VAT base, unchanged.
+  // ONE rate, resolved once, used by BOTH branches and WRITTEN DOWN.
+  //
+  // 🚨 THE RECEIPT USED TO DECLARE A TAX SETNAYAN DOES NOT CHARGE, TWO WAYS.
+  // (a) The insert below never passed `vat_rate_pct`, so it fell to the column
+  //     DEFAULT of 12.00 — on a customer receipt whose VAT amount was correctly
+  //     ₱0.00. The printed document read "VAT @ 12%  ₱0.00": it contradicted
+  //     itself in front of the buyer.
+  // (b) The vendor branch called `computeVatFromGross` with no rate at all, and
+  //     that argument defaulted to 12 — so a ₱999 receipt actually stated ~₱107
+  //     of VAT, a tax this business is not registered to collect, on a document
+  //     the vendor hands to their accountant.
+  // Nobody had met either one only because no receipt has ever been generated.
+  //
+  // 🔑 AND NOTHING WOULD HAVE COMPLAINED. The table's CHECK constraint only
+  // asserts pre_vat + vat ≈ gross; it never cross-checks the RATE against the
+  // amount. So the row inserts cleanly and is wrong — accepted, not rejected.
+  const vatRatePct = await getEffectiveVatRatePct(admin);
   const { preVat, vat, gross } = isVatInclusiveServiceKey(order.service_key)
-    ? computeVatFromGross(storedTotal)
-    : computeVatFromBase(storedTotal, await getEffectiveVatRatePct(admin));
+    ? computeVatFromGross(storedTotal, vatRatePct)
+    : computeVatFromBase(storedTotal, vatRatePct);
 
   // or_serial defaults from public.or_serial_seq (atomic) — don't pass it.
   // The display "Transaction No." is composed at read-time via formatReceiptNumber().
@@ -877,6 +894,7 @@ async function issueReceiptForOrder(args: {
     issued_to_email: buyer?.email ?? 'unknown@setnayan.com',
     issued_to_name: buyer?.display_name ?? guestReceiptFallback,
     pre_vat_php: preVat,
+    vat_rate_pct: vatRatePct,
     vat_amount_php: vat,
     gross_total_php: gross,
   });

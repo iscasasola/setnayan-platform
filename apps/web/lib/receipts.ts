@@ -35,8 +35,9 @@ const SELECT =
 export const PH_STATUTORY_VAT_RATE_PCT = 12;
 
 /**
- * @deprecated Reads as "our rate" but is the statutory one. Kept as an alias so no call site
- * silently changes meaning; new code must take the rate from settings.
+ * @deprecated Reads as "our rate" but is the statutory one. Retained ONLY so an old import does
+ * not break; it now has no callers in application code and must never become a default parameter
+ * again — that is precisely how a hardcoded 12% outlived a configured 0% in two functions.
  */
 export const DEFAULT_VAT_RATE_PCT = PH_STATUTORY_VAT_RATE_PCT;
 
@@ -74,7 +75,11 @@ export function computeVatFromBase(
  */
 export function computeVatFromGross(
   grossPhp: number,
-  vatRatePct: number = DEFAULT_VAT_RATE_PCT,
+  // REQUIRED, exactly like computeVatFromBase — and for the same reason, one
+  // layer further on. This defaulted to 12 long after its twin was fixed, so a
+  // vendor's ₱999 receipt declared ~₱107 of VAT that Setnayan is not registered
+  // to collect, on a document they hand to their own accountant.
+  vatRatePct: number,
 ): { preVat: number; vat: number; gross: number; rate: number } {
   const gross = Math.round(grossPhp * 100) / 100;
   const rate = vatRatePct;

@@ -27,6 +27,7 @@ import {
 import { takeHonoree } from '@/lib/onboarding/honoree-handoff';
 import { takeMoment } from '@/lib/onboarding/moment-handoff';
 import { birthdayWhoFromAge } from '@/lib/onboarding/birthday-who-from-age';
+import type { Sex } from '@/lib/event-anchor';
 import { resolvePersona, type ExpAxis } from '@/app/onboarding/wedding/_data/experience-personas';
 import { PH_REGIONS } from '@/lib/regions';
 import { commitOnboardingEvent } from '@/app/onboarding/_shared/commit-event';
@@ -90,6 +91,10 @@ type Props = {
    * / flag-off) makes the flow byte-identical.
    */
   prefill?: OnboardingPrefill;
+  /** The signed-in person's own next-birthday age, when this is a birthday. */
+  selfBirthdayAge?: number | null;
+  /** Their sex, when on file — it decides which debut age is the adult line. */
+  selfSex?: Sex;
   /**
    * The services step's server-resolved view-model (Papic + Setnayan AI).
    * NULL = the NEXT_PUBLIC_ONBOARDING_SERVICES_STEP flag is off ⇒ the screen is
@@ -148,6 +153,8 @@ export function GenericOnboarding(props: Props) {
     resume,
     nextPath = null,
     prefill = EMPTY_PREFILL,
+  selfBirthdayAge = null,
+  selfSex = null,
     servicesStepView = null,
     servicesStepAiValue = null,
     todayISO,
@@ -197,8 +204,8 @@ export function GenericOnboarding(props: Props) {
    * is written inside the hydrate effect, and feeding it back into `screens`
    * would put a value that effect SETS into the same effect's dependency list.
    */
-  const carriedWhoRef = useRef<string | null>(null);
-  const [carriedWho, setCarriedWho] = useState<string | null>(null);
+  /** The age a tapped Year row handed over, if any. */
+  const [carriedAge, setCarriedAge] = useState<number | null>(null);
   const gatedLifeType = isGatedLifeType(eventType);
   // The date this event COMMEMORATES, and why — asked only for anniversary,
   // whose whole nature is "the day we're marking". Never asked for
@@ -350,20 +357,17 @@ export function GenericOnboarding(props: Props) {
       // a sentence about a wedding that does not exist.
       if (moment.celebrationISO) setMomentDayISO(moment.celebrationISO);
       if (moment.age != null) setMomentAge(moment.age);
+      if (moment.age != null) setCarriedAge(moment.age);
       // ── ANSWER THE AGE-BRACKET QUESTION FROM THE AGE WE WERE HANDED ───────
       // The Year row printed "turning 40" and the wizard then asked which
       // bracket the birthday was in. Seeded ONLY when the draft has no answer
       // of its own: a bracket the person actually chose on an earlier visit
       // always wins over one derived for them.
-      const carried = birthdayWhoFromAge(moment.age);
-      if (carried && eventType === 'birthday' && !seededDetails.who) {
-        seededDetails = { ...seededDetails, who: carried };
-        carriedWhoRef.current = carried;
-      }
+      // The age itself is what crosses; the answer is derived below, in one
+      // place, so the carry and the profile cannot disagree about the mapping.
     }
     setDetails(seededDetails);
     setSpecialtyValues(seededSpecialty);
-    setCarriedWho(carriedWhoRef.current);
     setHydrated(true);
   }, [draftKey, resume, screens, prefillDetails, prefillSpecialty, gatedLifeType]);
 
@@ -528,11 +532,46 @@ export function GenericOnboarding(props: Props) {
    * a screen nobody sees, so one tap moves it two notches. It still reaches
    * 100%, and nothing else in the file reads `screens.length`.
    */
+  /**
+   * The age of whoever this birthday is FOR, when we know it.
+   *
+   * Blank `honoree` has always meant "the account holder", so a birthday with no
+   * name typed on it is theirs — and their age is a date already on their own
+   * profile. The Year hop's carry is preferred when present (it is the row the
+   * person actually tapped); the profile answers every other door into the same
+   * flow, which is the half that was still asking.
+   */
+  const knownBirthdayAge =
+    eventType === 'birthday' && !honoree.trim() ? (carriedAge ?? selfBirthdayAge ?? null) : null;
+
+  /**
+   * The party-type answer we can derive rather than ask for. Owner, 2026-08-20:
+   * "since we already know it is for his birthday, then it is not a question of
+   * what type of party."
+   */
+  const derivedWho = birthdayWhoFromAge(knownBirthdayAge, selfSex);
+
   const skippedScreens = useMemo(() => {
     const set = new Set<string>();
-    if (carriedWho) set.add('tq_who');
+    // Skip only when what is on file MATCHES what we would derive. If a draft
+    // holds a different answer — one this person chose on an earlier visit,
+    // before we could work it out — the screen stays, because hiding a screen
+    // that holds somebody's own answer is a wall, not a default, and they would
+    // have no way back to it.
+    const stored = details.who;
+    if (derivedWho && (stored === undefined || stored === derivedWho)) set.add('tq_who');
     return set;
-  }, [carriedWho]);
+  }, [derivedWho, details.who]);
+
+  /**
+   * Fill the answer in, so the starter plan still gets the vendor categories
+   * that answer contributes (`extraPicksFrom` reads `details`). Never overwrites
+   * an answer already there.
+   */
+  useEffect(() => {
+    if (!hydrated || !derivedWho) return;
+    setDetails((d) => (d.who ? d : { ...d, who: derivedWho }));
+  }, [hydrated, derivedWho]);
 
   const go = useCallback(
     (delta: number) => {

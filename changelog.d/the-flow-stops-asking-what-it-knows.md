@@ -29,6 +29,27 @@ with a non-null assertion whose next line calls a string method on it, and it wo
 disarm the "you already have one of these" walk-back for exactly the people it
 targets. A bracket the person chose themselves always wins.
 
+**Then the owner sharpened it:** *"since we already know it is for his birthday, then
+it is not a question of what type of party."* The skip only fired when a Year row
+handed over an age, so the same birthday created from the Create button still asked.
+The age now also comes from the signed-in person's own profile — a blank celebrant has
+always meant "mine" — so the question is answered at every door into the flow. It is
+deliberately NOT routed through the prefill seam, which is gated by a fail-closed flag
+holding back a wider brief: a fix built behind it would ship switched off. Typing a
+celebrant name puts the question back, and a stored answer that differs from the
+derived one keeps its screen rather than being hidden with no way back to it.
+
+**And the owner's reasoning exposed a hole in the mapping itself.** He said: *"i am
+turning 40. that is not a kids' party. that is an adult party since that is already
+above 21 (debut for men)."* His case was already right — but the line between a
+child's party and an adult one had been a hand-picked **12**, so a **thirteen-year-old
+resolved to "An adult birthday"**, which is his own correction pointed the other way.
+The boundary is now the **debut age**, read from the app's own ladder rather than
+re-typed: 18 for women, 21 for men. Past it is an adult birthday; at it is the debut;
+below it **no option is true, so the flow asks** instead of guessing. Ages whose
+meaning depends on a sex not on file (19, 20) are asked too. 40 is above both debut
+ages, so it still answers without one.
+
 ⚠ The four birthday options do not match the owner-locked milestone ladder (1 · 7 ·
 18/21 · 60 — there is no 50). The mapping deliberately follows what the labels SAY;
 reconciling the two is a copy decision, flagged rather than made.

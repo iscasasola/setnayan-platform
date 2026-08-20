@@ -45,11 +45,31 @@ export function EventCardMenu({
   archived,
   /** Dark cards (the mobile hero) need light chrome to stay visible. */
   tone = 'light',
+  align = 'right',
 }: {
   eventId: string;
   eventName: string;
   archived: boolean;
   tone?: 'light' | 'dark';
+  /**
+   * Which edge of the CARD the popover hangs from.
+   *
+   * 🚨 THIS IS NOT COSMETIC — right-anchoring it everywhere put the menu
+   * PARTLY OFF THE SCREEN, permanently unreachable.
+   *
+   * The popover is a fixed 280px. On a phone the two-up chip grid gives each
+   * chip about 160px: 393px viewport − 32px of page padding = 329px, split in
+   * two. Hung from the right edge of a LEFT-column chip, the popover spans
+   * roughly x = −97 … 183 — about a hundred pixels of it, including the icons
+   * and the left third of "Put this away" and "Remove for good", sits left of
+   * the viewport, and an LTR page cannot scroll left of the origin.
+   *
+   * Hanging it from the chip's LEFT edge instead puts it at 32 … 312, fully on
+   * screen — so the two columns take opposite anchors and both fit. Callers
+   * pass `align` from the grid index; everything wider than a chip keeps the
+   * natural right anchor.
+   */
+  align?: 'left' | 'right';
 }) {
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -141,14 +161,27 @@ export function EventCardMenu({
   const dark = tone === 'dark';
 
   return (
-    <div className="absolute right-2 top-2 z-20">
+    /*
+      🪤 A FRAGMENT, NOT A POSITIONED WRAPPER — AND THAT IS THE WHOLE FIX.
+      This used to be `<div className="absolute right-2 top-2 z-20">` holding
+      both the button and the popover, which made that ~32px box the popover's
+      containing block. `right-0` then measured from the BUTTON's right edge
+      (not the card's), so the 280px popover hung off the left of a narrow chip;
+      and `left-0` would have measured from the button's LEFT edge and hung off
+      the right instead. Anchoring to a 32px box can never place a 280px panel.
+
+      Both children are now positioned against `BoardCardWithMenu`'s
+      `relative h-full` wrapper — the CARD's box — so `left-0` / `right-0` mean
+      the card's edges and `align` can actually put the panel on screen.
+    */
+    <>
       <button
         type="button"
         onClick={() => (open ? close() : setOpen(true))}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Options for ${eventName}`}
-        className={`grid h-8 w-8 place-items-center rounded-full backdrop-blur-[6px] transition-colors ${
+        className={`absolute right-2 top-2 z-20 grid h-8 w-8 place-items-center rounded-full backdrop-blur-[6px] transition-colors ${
           dark
             ? 'bg-black/35 text-white/80 hover:bg-black/55 hover:text-white'
             : 'bg-white/80 text-ink/60 shadow-[0_2px_8px_rgba(30,26,18,0.10)] hover:bg-white hover:text-ink'
@@ -170,7 +203,9 @@ export function EventCardMenu({
           />
           <div
             role="menu"
-            className="absolute right-0 z-50 mt-2 w-[17.5rem] overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 text-left shadow-lg"
+            className={`absolute top-11 z-50 w-[17.5rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 text-left shadow-lg ${
+              align === 'left' ? 'left-0' : 'right-0'
+            }`}
           >
             {!confirming ? (
               <>
@@ -296,7 +331,7 @@ export function EventCardMenu({
           </div>
         </>
       ) : null}
-    </div>
+    </>
   );
 }
 

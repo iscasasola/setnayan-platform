@@ -35,6 +35,10 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LAUNCHER = resolve(HERE, 'page.tsx');
 const MENU = resolve(HERE, '_components/event-card-menu.tsx');
+const DELETE_ACTIONS = resolve(
+  HERE,
+  '../../dashboard/[eventId]/delete-actions.ts',
+);
 const read = (p: string) => readFileSync(p, 'utf8');
 
 /**
@@ -196,5 +200,91 @@ test('a blocked event states the refusal before anything is typed', () => {
     'The blocked branch must render its reason INSTEAD of the confirm form. ' +
       'Asking somebody to type their wedding’s name and then refusing is a ' +
       'worse refusal than offering no button at all.',
+  );
+});
+
+test('the card menu is actually MOUNTED on every card, not merely defined', () => {
+  const src = stripComments(read(LAUNCHER));
+  // 🚨 THE GAP AN ADVERSARIAL PASS FOUND IN THIS FILE'S FIRST CUT. Every other
+  // assertion here proved the wrapper was DEFINED and that cards were told a
+  // menu would be laid over them (`hasMenu`) — neither of which renders it.
+  // Deleting every <BoardCardWithMenu> wrapper left the whole launcher suite
+  // green while the menu vanished from the product: the classic
+  // imported-but-not-mounted decoration, in a guard file written to prevent
+  // exactly that.
+  //
+  // DERIVED from cardMounts for the reason this file's own header gives — a
+  // count typed into a test is a claim with an expiry date. It expired inside
+  // one branch: the PUBLISHED shelf arrived with two more card call sites and
+  // a hardcoded 5 would have failed for a reason that had nothing to do with
+  // whether those new cards were wired.
+  const wrapped = (src.match(/<BoardCardWithMenu\b/g) ?? []).length;
+  assert.equal(
+    wrapped,
+    cardMounts(src),
+    `${cardMounts(src)} board cards are mounted but ${wrapped} are wrapped in ` +
+      'the menu. A card rendered outside the wrapper cannot be put away or ' +
+      'removed, and looks completely normal.',
+  );
+});
+
+test('every two-up chip grid alternates the popover anchor', () => {
+  const src = stripComments(read(LAUNCHER));
+  // The popover is a fixed 280px and a phone chip is ~160px. Hung from the
+  // right edge of a LEFT-column chip it lands ~97px off the left of the
+  // viewport, which an LTR page cannot scroll to — permanently unreachable.
+  //
+  // DERIVED from the chip count: MobileEventChip is only ever rendered inside a
+  // `grid-cols-2`, so a NEW chip shelf that forgets to alternate fails here.
+  // That is not hypothetical — the PUBLISHED shelf landed mid-branch with a
+  // third chip grid and no anchor, and this is what caught it.
+  const chips = (src.match(/<MobileEventChip\s/g) ?? []).length;
+  const alternating = (src.match(/align=\{i % 2 === 0 \? 'left' : 'right'\}/g) ?? []).length;
+  assert.equal(
+    alternating,
+    chips,
+    `${chips} two-up chip grids but ${alternating} alternate the popover ` +
+      'anchor. The left column of any grid that does not will open its menu ' +
+      'off the side of the screen, where it cannot be scrolled to.',
+  );
+});
+
+test('the pill never prints its total straight into a count-led label', () => {
+  const src = stripComments(read(LAUNCHER));
+  // summarizeEventDecisions returns "3 payments to settle" — the label ALREADY
+  // leads with a number. Rendering {count} immediately before it produced
+  // "9 3 payments to settle", and "3 3 payments to settle" when one kind was
+  // the only kind waiting. The total needs its own noun.
+  assert.match(
+    src,
+    /\{count\} need you/,
+    'The pill total lost its noun. Printed bare it collides with the label’s ' +
+      'own leading count and the card reads "3 3 payments to settle".',
+  );
+  // And the remainder must not be printed alongside a total that already counts it.
+  assert.match(
+    src,
+    /more > 0 && count == null/,
+    'The "· N more" tail must be suppressed when the total is shown — the ' +
+      'total already includes it, so printing both states the arithmetic twice.',
+  );
+});
+
+test('the removal dialog counts only guests the couple can actually see', () => {
+  const src = stripComments(read(DELETE_ACTIONS));
+  // 🚨 GUESTS ARE SOFT-DELETED. Removing one writes `deleted_at` and leaves the
+  // row; every guest read in the app filters it out, and so does the RLS SELECT
+  // policy. This read uses the ADMIN client, which applies no RLS at all — so
+  // without the clause it counts people the couple deleted long ago.
+  //
+  // Measured in prod: "Cale & Ice" holds 6 rows of which 2 are visible. The
+  // dialog said "6 guests go with it", and because zero-valued lines are hidden
+  // that wrong number was the ONLY figure on a screen read immediately before
+  // an irreversible press.
+  assert.match(
+    src,
+    /\.from\('guests'\)[\s\S]{0,200}?\.is\('deleted_at', null\)/,
+    'The guests count lost its soft-delete filter — the confirmation would ' +
+      'name more people than the couple has ever seen on their own list.',
   );
 });

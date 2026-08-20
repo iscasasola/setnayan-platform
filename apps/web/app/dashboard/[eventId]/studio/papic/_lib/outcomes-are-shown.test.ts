@@ -71,8 +71,24 @@ function outcomeKeys(): string[] {
     if (!name.endsWith('actions.ts')) continue;
     const src = codeOnly(readFileSync(join(ROUTE, name), 'utf8'));
     const targetsThisPage = /const back = `\/dashboard\/\$\{eventId\}\/studio\/papic`/.test(src);
-    const patterns = [/\/studio\/papic\?([^`'"\n]*)/g];
-    if (targetsThisPage) patterns.push(/\$\{back\}\?([^`'"\n]*)/g);
+    // 🔴 THE `\n` USED TO BE IN THESE CHARACTER CLASSES, AND IT MADE THIS GUARD
+    // BLIND TO EVERY PARAM AFTER A LINE BREAK. These redirects are template
+    // literals wrapped across lines by the formatter, so the match died at the
+    // first newline and each multi-line redirect contributed only its FIRST
+    // parameter. Measured before the fix: the scan found 16 keys and missed
+    // `papic_ref`, `papic_amount` and `papic_order` — all real outcomes, all on
+    // continuation lines.
+    //
+    // 🔑 AND THE BLIND SPOT HAD BEEN WRITTEN DOWN AS A DECISION. Two of the
+    // three sat in this file's exemption list, which reads as "we considered
+    // these and they are fine" — but the scan had never seen them, so the
+    // exemption was never doing anything. A guard's blind spot becomes a lie
+    // the moment somebody records it as an intentional exclusion.
+    //
+    // Stopping at the closing backtick/quote instead is safe in the same
+    // direction the old class was: it can only under-match, never over-match.
+    const patterns = [/\/studio\/papic\?([^`'"]*)/g];
+    if (targetsThisPage) patterns.push(/\$\{back\}\?([^`'"]*)/g);
     for (const m of patterns.flatMap((re) => [...src.matchAll(re)])) {
       for (const kv of m[1]!.split('&')) {
         const key = kv.split('=')[0]?.trim();
@@ -86,6 +102,29 @@ function outcomeKeys(): string[] {
 
 const KEYS = outcomeKeys();
 
+/**
+ * Props that DETAIL a banner rather than trigger one. A banner is keyed on its
+ * own outcome param; these carry the words and the destination it renders with,
+ * so they must not appear in `hasAny` (a URL carrying only one of them would
+ * open an empty block) and they have no copy of their own to read.
+ *
+ * ⚠ THIS LIST IS A BILL, NOT A DECISION. Every entry is a promise that the prop
+ * cannot be the ONLY thing a redirect sends. Adding one to silence a failure,
+ * when it really is a banner's trigger, is how a confirmation gets written,
+ * passed in and never shown — the exact defect the two tests below exist for.
+ *   • connectedAccount · papicRef · papicAmount — words inside another banner
+ *   • eventId — the route's own id, always present, never an outcome
+ *   • papicOrder — the bill link's destination, shown only inside the
+ *     `papic_purchased` banner, which has its own trigger
+ */
+const DETAIL_ONLY_PROPS = [
+  'connectedAccount',
+  'papicRef',
+  'papicAmount',
+  'eventId',
+  'papicOrder',
+];
+
 /** The `<StatusBanners … />` call site, and the component's bail-out condition. */
 function bannerCallSite(): string {
   return region('<StatusBanners', '/>');
@@ -95,7 +134,24 @@ function bailOut(): string {
 }
 
 test('the scan finds the outcomes (a guard reading nothing passes everything)', () => {
-  assert.ok(KEYS.length >= 15, `expected this route's redirect outcomes, found ${KEYS.length}`);
+  // 🔑 THE FLOOR IS A REAL NUMBER, NOT A COMFORTABLE ONE. It sat at 15 while the
+  // scan found 16 — one spare notch — so the day the pattern went blind to every
+  // param after a line break (three real outcomes) the count fell to 16 and this
+  // assertion still passed. A vacuity guard whose floor cannot be reached by the
+  // narrowing it exists to catch is not a guard.
+  //
+  // Raise this deliberately when a redirect adds an outcome; NEVER lower it to
+  // make a failing run green — a drop means the scan stopped seeing something.
+  assert.ok(
+    KEYS.length >= 19,
+    `expected this route's redirect outcomes, found ${KEYS.length}: ${KEYS.join(', ')}`,
+  );
+  for (const spanning of ['papic_ref', 'papic_amount', 'papic_order']) {
+    assert.ok(
+      KEYS.includes(spanning),
+      `${spanning} sits on a continuation line — if it is missing the scan has gone newline-blind again`,
+    );
+  }
   for (const known of ['style_set', 'quality_error', 'faceTagging', 'guestCameras']) {
     assert.ok(KEYS.includes(known), `${known} must be found by the scan`);
   }
@@ -138,12 +194,24 @@ function bannerProps(): string[] {
   return [...bannerCallSite().matchAll(/(\w+)=\{/g)].map((m) => m[1]!);
 }
 
+test('the detail-only exemption list is exactly what it claims', () => {
+  // An exemption list silences the two tests below for whatever is in it, so a
+  // real banner trigger added here disappears from BOTH without any failure.
+  // Pinned so that widening it is a deliberate edit to this line, reviewed —
+  // not a quiet way to make a red run green.
+  assert.deepEqual(
+    [...DETAIL_ONLY_PROPS].sort(),
+    ['connectedAccount', 'eventId', 'papicAmount', 'papicOrder', 'papicRef'],
+    'the exemption list changed — every entry must be a prop that DETAILS a banner, never one that triggers it',
+  );
+});
+
 test('🚨 nothing handed to the banner dies at the bail-out', () => {
   // The half that is easiest to forget: add a banner below without adding its
   // param to `hasAny` and the whole component returns null before rendering
   // anything. The confirmation is written, passed in, and STILL never seen.
   const guard = bailOut();
-  const props = bannerProps().filter((n) => !['connectedAccount', 'papicRef', 'papicAmount'].includes(n));
+  const props = bannerProps().filter((n) => !DETAIL_ONLY_PROPS.includes(n));
   assert.ok(props.length >= 10, `expected the banner's props, found ${props.length}`);
   const swallowed = props.filter((n) => !new RegExp(`\\b${n}\\b`).test(guard));
   assert.deepEqual(
@@ -155,7 +223,7 @@ test('🚨 nothing handed to the banner dies at the bail-out', () => {
 
 test('every banner prop has words a person can read', () => {
   const body = codeOnly(PAGE.slice(PAGE.indexOf('if (!hasAny) return null;')));
-  const props = bannerProps().filter((n) => !['connectedAccount', 'papicRef', 'papicAmount'].includes(n));
+  const props = bannerProps().filter((n) => !DETAIL_ONLY_PROPS.includes(n));
   const unrendered = props.filter((n) => !new RegExp(`\\b${n}\\b`).test(body));
   assert.deepEqual(unrendered, [], `passed in but never rendered:\n  ${unrendered.join('\n  ')}`);
 });

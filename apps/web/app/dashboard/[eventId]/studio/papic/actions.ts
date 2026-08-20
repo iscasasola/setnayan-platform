@@ -857,7 +857,7 @@ export async function purchasePapicCameras(formData: FormData) {
   redirect(
     `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
       order.public_id,
-    )}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${quote.totalPhp}`,
+    )}&papic_order=${encodeURIComponent(order.order_id)}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${quote.totalPhp}`,
   );
 }
 
@@ -1033,7 +1033,7 @@ export async function activatePapicLimited(formData: FormData) {
   redirect(
     `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
       order.public_id,
-    )}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${quote.frozenBillPhp}`,
+    )}&papic_order=${encodeURIComponent(order.order_id)}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${quote.frozenBillPhp}`,
   );
 }
 
@@ -1165,7 +1165,7 @@ export async function purchasePapicExtras(formData: FormData) {
   redirect(
     `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
       order.public_id,
-    )}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${quote.totalPhp}`,
+    )}&papic_order=${encodeURIComponent(order.order_id)}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${quote.totalPhp}`,
   );
 }
 
@@ -1364,7 +1364,9 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
   redirect(
     `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
       String(order!.public_id),
-    )}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${pricePhp}`,
+      // `order!` for the same reason the line above uses it: `fail()` throws,
+      // but its return type does not narrow `order` for the compiler.
+    )}&papic_order=${encodeURIComponent(String(order!.order_id))}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${pricePhp}`,
   );
 }
 

@@ -37,16 +37,29 @@ const LAUNCHER = resolve(HERE, 'page.tsx');
 const MENU = resolve(HERE, '_components/event-card-menu.tsx');
 const read = (p: string) => readFileSync(p, 'utf8');
 
-test('all three card compositions receive their own event’s summary', () => {
+/**
+ * Every place the board mounts a card. Counted from the SOURCE rather than
+ * written down as a number: the board grew a shelf on 2026-08-20 (Finished
+ * split into Unpublished + Published) and a hardcoded 5 turned that into a
+ * failure of a guard that was not actually broken. **A count of what exists is
+ * a fact; a count typed into a test is a claim with an expiry date.**
+ */
+function cardMounts(src: string): number {
+  return (src.match(/<(MobileEventHero|MobileEventChip|GlassEventCard)\s/g) ?? [])
+    .length;
+}
+
+test('EVERY card composition receives its own event’s summary', () => {
   const src = stripComments(read(LAUNCHER));
-  const passes = src.match(/summary=\{decisionByEvent\.get\(/g) ?? [];
-  // 5 card call sites: hero + chips + glass on Coming up, chips + glass on
-  // Finished. Fewer means a composition silently lost its counter.
+  const mounts = cardMounts(src);
+  const passes = (src.match(/summary=\{decisionByEvent\.get\(/g) ?? []).length;
+  assert.ok(mounts >= 5, `Only ${mounts} card mounts found — the board lost a composition.`);
   assert.equal(
-    passes.length,
-    5,
-    `Expected all 5 board card call sites to pass a per-event summary; found ${passes.length}. ` +
-      'A card that stops receiving one shows no count and looks perfectly fine.',
+    passes,
+    mounts,
+    `${mounts} board cards are mounted but only ${passes} are handed a per-event ` +
+      'summary. A card that stops receiving one shows no count and looks ' +
+      'perfectly fine.',
   );
 });
 
@@ -145,10 +158,10 @@ test('every card that shows a menu also reserves room for it', () => {
     src.match(/hasMenu=\{upcoming\[0\]\.member_type === 'couple'\}/g) ?? [];
   assert.equal(
     reserved.length + heroReserved.length,
-    5,
-    'Every one of the 5 card call sites must tell its card whether a menu will ' +
-      'be laid over it. Without the reservation the button sits on top of a ' +
-      'line of truncating text.',
+    cardMounts(src),
+    'Every board card must tell its card whether a menu will be laid over it. ' +
+      'Without the reservation the button sits on top of a line of truncating ' +
+      'text.',
   );
 });
 

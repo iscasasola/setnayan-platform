@@ -1,0 +1,89 @@
+/* ── THE CELEBRATION-DATE CALENDAR — the only copy of these rules ──────────
+ *
+ * MOVED here from `wedding/_styles/onboarding.css` (owner 2026-08-21) so every
+ * onboarding flow can render the same calendar. Moved, not copied: one source,
+ * so the wedding and the generic flows cannot drift apart.
+ *
+ * ⚠ THE SCOPE IS `.sn-datecal`, NOT `.onbw`. `.onbw` is not a namespace — it
+ * paints a full-height flex PAGE (`background:#E9E6DF; min-height:100vh;
+ * display:flex`), so wrapping a date step in it would repaint the screen. The
+ * wedding's calendar container now carries BOTH classes; everything that
+ * applied to it before still applies.
+ *
+ * ⚠ AND THE COLOURS ARE ALIASED THROUGH `--cal-*`. The rules used `var(--gold)`
+ * etc., which exist only inside `.onbw`. Outside it every one of them would
+ * resolve to nothing and the calendar would render as unstyled boxes — exactly
+ * the failure DECISION_LOG 2026-07-12 records for the location picker
+ * ("would ship UNSTYLED (its classes are `.onbw`-scoped)"). Each alias reads
+ * the ambient value when there is one and falls back to the wedding's literal
+ * when there is not, so the wedding is byte-for-byte the same colour and the
+ * generic flow gets the same calendar.
+ */
+.sn-datecal{
+  --cal-paper: var(--paper, #FBFBFA);
+  --cal-ink: var(--ink, #1B1A17);
+  --cal-ink-soft: var(--ink-soft, #4F535B);
+  --cal-ink-faint: var(--ink-faint, #8A8F97);
+  --cal-line-2: var(--line-2, rgba(30,26,18,.18));
+  --cal-surface: var(--surface, #fff);
+  --cal-gold: var(--gold, #A9834B);
+  --cal-gold-deep: var(--gold-deep, #8A6B39);
+  --cal-gold-wash: var(--gold-wash, #F3ECDF);
+  --cal-mulberry: var(--mulberry, #1B1A17);
+  --cal-mono: var(--mono, var(--font-mono),'DM Mono',ui-monospace,monospace);
+  --cal-serif: var(--serif, var(--font-display),'Cormorant Garamond',Georgia,serif);
+}
+
+.sn-datecal .cal{border:1px solid var(--cal-line-2);border-radius: var(--m-r-md);background:var(--cal-surface);padding:10px 12px 12px;}
+.sn-datecal .calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.sn-datecal .calmonth{font-family:var(--cal-serif);font-style:italic;font-size:20px;font-weight:600;}
+.sn-datecal .calnav{width:38px;height:38px;border-radius:50%;border:1px solid var(--cal-line-2);background:var(--cal-surface);font-size:18px;cursor:pointer;color:var(--cal-ink);line-height:1;}
+.sn-datecal .calnav:hover:not(:disabled){border-color:var(--cal-gold);}
+.sn-datecal .calnav:disabled{opacity:.28;cursor:not-allowed;}
+.sn-datecal .caldow{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:5px;}
+.sn-datecal .caldow span{text-align:center;font-family:var(--cal-mono);font-size:10px;letter-spacing:.03em;color:var(--cal-ink-faint);padding:3px 0;}
+.sn-datecal .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.sn-datecal .calday{height:31px;display:flex;align-items:center;justify-content:center;border-radius: var(--m-r-sm);font-size:13.5px;cursor:pointer;color:var(--cal-ink);transition:.12s;border:1px solid transparent;}
+.sn-datecal .calday.disabled{color:var(--cal-ink-faint);opacity:.3;cursor:not-allowed;}
+.sn-datecal .calday.sel{background:var(--cal-mulberry);color:#fff;font-weight:700;}
+.sn-datecal .calday.today:not(.sel){box-shadow:inset 0 0 0 1px var(--cal-gold);}
+.sn-datecal .calmode{display:flex;gap:6px;background:var(--cal-gold-wash);border:1px solid var(--cal-line-2);border-radius: var(--m-r-md);padding:4px;margin-bottom:9px;}
+.sn-datecal .calmode button{flex:1;border:0;background:transparent;font-family:inherit;font-size:13px;font-weight:600;color:var(--cal-ink-soft);padding:9px 6px;border-radius: var(--m-r-sm);cursor:pointer;transition:.15s;line-height:1.15;}
+.sn-datecal .calmode button.on{background:var(--cal-surface);color:var(--cal-ink);box-shadow:0 2px 7px rgba(30,26,18,.1);}
+.sn-datecal .calmode button .ms{display:block;font-family:var(--cal-mono);font-size:8.5px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--cal-ink-faint);margin-top:2px;}
+.sn-datecal .calday.rstart{background:var(--cal-mulberry);color:#fff;font-weight:700;border-radius:10px 0 0 10px;}
+.sn-datecal .calday.rend{background:var(--cal-mulberry);color:#fff;font-weight:700;border-radius:0 10px 10px 0;}
+.sn-datecal .calday.rstart.rend{border-radius: var(--m-r-sm);}
+.sn-datecal .rangewarn{margin-top:9px;font-family:var(--cal-mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--cal-gold-deep);}
+.sn-datecal .calpick{margin-top:10px;font-size:13.5px;color:var(--cal-ink-soft);}
+.sn-datecal .calpick b{font-family:var(--cal-serif);font-style:italic;font-size:17px;color:var(--cal-ink);font-weight:600;}
+.sn-datecal .calday.sel{animation:pop .26s cubic-bezier(.2,.8,.3,1.4);}
+.sn-datecal .calday.heat-1{background:rgba(169,131,75,.12);}
+.sn-datecal .calday.heat-2{background:rgba(169,131,75,.26);}
+.sn-datecal .calday.heat-3{background:rgba(190,106,69,.34);}
+.sn-datecal .calday.heat-4{background:#BD5B3D;color:var(--cal-paper);font-weight:700;}
+.sn-datecal button.calday{font-family:inherit;background:none;padding:0;-webkit-appearance:none;appearance:none;}
+
+/* ── THE LEGEND ────────────────────────────────────────────────────────────
+ * The demand tint shipped in 2026-06-09 with nothing that said what it meant.
+ * A colour ramp a person cannot decode is decoration, so the swatches reuse
+ * the SAME `.heat-N` classes as the cells — one definition, so a legend can
+ * never describe a colour the calendar has stopped using. */
+.sn-datecal-legend{display:flex;flex-wrap:wrap;gap:10px 14px;margin-top:12px;list-style:none;padding:0;}
+.sn-datecal-legend li{display:inline-flex;align-items:center;gap:6px;font-family:var(--cal-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--cal-ink-soft);}
+.sn-datecal-legend .swatch{width:14px;height:14px;border-radius:4px;border:1px solid var(--cal-line-2);display:inline-block;}
+.sn-datecal-legend .swatch.heat-0{background:var(--cal-surface);}
+.sn-datecal-legendnote{margin-top:8px;font-size:12px;line-height:1.5;color:var(--cal-ink-soft);}
+/* The hint line, for flows that do not have the wedding shell's `.micro`. */
+.sn-datecal-hint{font-size:12px;line-height:1.5;color:var(--cal-ink-soft);margin-bottom:10px;}
+
+.sn-datecal .calday:hover:not(.disabled):not(.empty){border-color:var(--cal-gold);}
+.sn-datecal .calday.empty{cursor:default;}
+.sn-datecal .calday.inrange{background:rgba(30, 26, 18,.12);border-radius:0;}
+
+/* Micro-interaction bits that lived in MULTI-selector rules shared with
+   non-calendar controls (`.chip,.opt,.sw,.btn,.calnav,…`). Those rules stay in
+   the wedding sheet because most of their selectors are not ours; the calendar
+   nav keeps its behaviour here so a flow without that sheet still gets it. */
+.sn-datecal .calnav{will-change:transform;}
+.sn-datecal .calnav:active:not(:disabled){transform:scale(.92);}

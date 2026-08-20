@@ -1,5 +1,10 @@
 'use client';
 
+import {
+  DateCalendar,
+  type DateCalendarValue,
+} from '@/app/onboarding/_shared/date-calendar';
+
 /**
  * The GENERIC (non-wedding) onboarding flow — a lean, brand-consistent shell
  * (NOT a fork of the 4,700-line wedding wizard). Screens: welcome → name → date
@@ -127,6 +132,12 @@ type Draft = {
   anchorOrigin: string;
   recurs: boolean;
   dateValue: string;
+  /** The calendar's answer. Optional so a draft saved before this existed
+   *  (v is still 1) still parses and simply resumes with an empty calendar. */
+  dateMode?: 'specific' | 'window';
+  dateCandidates?: string[];
+  windowStart?: string | null;
+  windowEnd?: string | null;
   pax: string;
   region: string;
   axes: Record<string, string>;
@@ -213,6 +224,21 @@ export function GenericOnboarding(props: Props) {
   // birthday/debut/christening: their anchor IS a person's birthdate, which
   // events do not store (counsel gate, also enforced in event-insert.ts).
   const [anchorDate, setAnchorDate] = useState('');
+  /**
+   * The celebration date, the platform's way (owner 2026-08-21: *"we used to
+   * allow multiple single dates and a 30 days range date"*).
+   *
+   * 🔑 THIS WAS NEVER A MISSING FEATURE — IT WAS A MISSING WIRE. The commit
+   * payload below has carried `dateMode` / `dateCandidates` / `windowStart` /
+   * `windowEnd` since this flow was written; it hard-coded them to one
+   * candidate and a null window while the calendar that fills them sat inside
+   * the wedding shell. `dateValue` (the single day chip pick) is KEPT as the
+   * first candidate so the day chips above still work exactly as they did.
+   */
+  const [dateMode, setDateMode] = useState<'specific' | 'window'>('specific');
+  const [dateCandidates, setDateCandidates] = useState<string[]>([]);
+  const [windowStart, setWindowStart] = useState<string | null>(null);
+  const [windowEnd, setWindowEnd] = useState<string | null>(null);
   const [anchorOrigin, setAnchorOrigin] = useState<string>('wedding');
   const isAnniversary = eventType === 'anniversary';
   // "Make it a yearly thing?" — the owner-locked toggle types. Anniversary and
@@ -307,6 +333,10 @@ export function GenericOnboarding(props: Props) {
           setDisplayName(d.displayName ?? '');
           setHonoree(d.honoree ?? '');
           setAnchorDate(d.anchorDate ?? '');
+          setDateMode(d.dateMode ?? 'specific');
+          setDateCandidates(d.dateCandidates ?? []);
+          setWindowStart(d.windowStart ?? null);
+          setWindowEnd(d.windowEnd ?? null);
           setAnchorOrigin(d.anchorOrigin ?? 'wedding');
           setRecurs(d.recurs === true);
           setDateValue(d.dateValue ?? '');
@@ -376,12 +406,12 @@ export function GenericOnboarding(props: Props) {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, pax, region, axes, details, specialtyValues };
+      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, pax, region, axes, details, specialtyValues };
       localStorage.setItem(draftKey, JSON.stringify(d));
     } catch {
       /* quota / private mode — non-fatal */
     }
-  }, [hydrated, draftKey, displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, pax, region, axes, details, specialtyValues]);
+  }, [hydrated, draftKey, displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, pax, region, axes, details, specialtyValues]);
 
   // ── ANCHOR ≠ CELEBRATION ────────────────────────────────────────────────────
   // `anchor_date` is what the event commemorates; `event_date` is when it is
@@ -432,7 +462,14 @@ export function GenericOnboarding(props: Props) {
     [isAnniversary, anchorDate, today],
   );
   const activePick = activeCelebrationPick(anchorOptions, dateValue);
-  const dateInputRef = useRef<HTMLInputElement | null>(null);
+  /**
+   * ⚠ THIS USED TO POINT AT A NATIVE `<input type="date">` AND CALL
+   * `showPicker()`. That input is gone — the shared calendar replaced it — so
+   * leaving the ref as it was would have made "Another day" a chip that sets a
+   * value and appears to do nothing. It now points at the calendar and brings
+   * it into view, which is the same promise kept by the control that exists.
+   */
+  const dateCalendarRef = useRef<HTMLDivElement | null>(null);
   // Seed the date field with the anchor's own day the first time an anchor
   // appears. A blank <input type="date"> opens the calendar on TODAY — the one
   // month this event has nothing to do with. Seeding is also what makes "Another
@@ -454,15 +491,11 @@ export function GenericOnboarding(props: Props) {
   function pickCelebrationDay(iso: string, openPicker = false) {
     setDateValue(iso);
     if (!openPicker) return;
-    const el = dateInputRef.current;
+    const el = dateCalendarRef.current;
     if (!el) return;
-    el.focus();
-    // showPicker is Chromium/Safari-only and throws if the input isn't visible.
-    try {
-      el.showPicker?.();
-    } catch {
-      /* the field is focused and seeded either way */
-    }
+    // Bring the calendar to them rather than opening a picker they did not ask
+    // for. `smooth` is respected by the browser's reduced-motion setting.
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   const screen = screens[step]!;
@@ -645,10 +678,20 @@ export function GenericOnboarding(props: Props) {
       pax: pax ? Number(pax) : null,
       budgetBand: null,
       budgetAmountCentavos: null,
-      dateMode: 'specific',
-      dateCandidates: dateValue ? [dateValue] : [],
-      windowStart: null,
-      windowEnd: null,
+      // The calendar's own answer. `dateValue` (the day-chip pick) still counts
+      // as a candidate, so a person who only tapped a chip commits exactly what
+      // they did before this calendar existed.
+      dateMode,
+      dateCandidates:
+        dateMode === 'specific'
+          ? dateCandidates.length > 0
+            ? dateCandidates
+            : dateValue
+              ? [dateValue]
+              : []
+          : [],
+      windowStart: dateMode === 'window' ? windowStart : null,
+      windowEnd: dateMode === 'window' ? windowEnd : null,
       moodFeelKey: feel,
       experiencePersona: personaKey,
       experienceForWhom:
@@ -1075,13 +1118,36 @@ export function GenericOnboarding(props: Props) {
               </button>
             </div>
           ) : null}
-          <input
-            ref={dateInputRef}
-            type="date"
-            value={dateValue}
-            onChange={(e) => setDateValue(e.target.value)}
-            className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
-          />
+          {/* THE CALENDAR — the same one the wedding has had since 2026-06-09:
+              up to 4 candidate days, a range capped at 30, and the hot-date
+              tint with a legend that says what it means. It renders BELOW the
+              day chips, not instead of them: the chips answer "which day of
+              the occasion", the calendar answers "which dates are you
+              considering", and a birthday needs both. */}
+          <div className="mt-6" ref={dateCalendarRef}>
+            <DateCalendar
+              chrome="bare"
+              mode={dateMode}
+              candidates={
+                dateCandidates.length > 0 ? dateCandidates : dateValue ? [dateValue] : []
+              }
+              windowStart={windowStart}
+              windowEnd={windowEnd}
+              onChange={(patch: DateCalendarValue) => {
+                if (patch.dateMode !== undefined) setDateMode(patch.dateMode);
+                if (patch.dateCandidates !== undefined) {
+                  setDateCandidates(patch.dateCandidates);
+                  // Keep the single-date field in step: the day chips, the
+                  // draft and every downstream read still speak `dateValue`,
+                  // and a calendar pick that left it stale would commit the
+                  // day the person had already changed their mind about.
+                  setDateValue(patch.dateCandidates[0] ?? '');
+                }
+                if (patch.windowStart !== undefined) setWindowStart(patch.windowStart);
+                if (patch.windowEnd !== undefined) setWindowEnd(patch.windowEnd);
+              }}
+            />
+          </div>
         </div>
       );
     }

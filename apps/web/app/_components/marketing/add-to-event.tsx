@@ -17,6 +17,14 @@
  *     a thirteen-row list, "Start a new celebration" is invisible to exactly
  *     the person most likely to want it. It sits OUTSIDE the scroll area.
  *
+ * 🔑 FOCUS IS `useModalA11y`'s JOB, NOT THIS FILE'S. The first cut hand-rolled a
+ * Tab trap and an Escape handler here — and `modal-a11y-adoption.test.ts`
+ * rejected it, correctly. That hook already does the trap, the Escape, the
+ * body-scroll lock and the focus restore, AND keeps a stack so a dialog opened
+ * over another peels one layer at a time. A second implementation would have
+ * been a second set of bugs. The guard exists because an audit found overlays
+ * across this app claiming `aria-modal` while leaving focus behind the backdrop.
+ *
  * 🔴 `min-height: 0` ON EVERY ANCESTOR OF THE SCROLL AREA IS LOAD-BEARING.
  * A flex item defaults to `min-height: auto`, which refuses to shrink below its
  * content — so the panel grew past its own `max-height` and the pinned row was
@@ -24,8 +32,10 @@
  * checking the DOM did not catch it. Measured: with `min-height:auto` the row's
  * bottom edge landed 558px below the panel and failed a hit test.
  */
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 import type { AddToEventOption } from './add-to-event-data';
 
@@ -64,13 +74,11 @@ export function AddToEvent({
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const openerRef = useRef<HTMLButtonElement | null>(null);
   const titleId = useId();
 
   const close = useCallback(() => {
     setOpen(false);
     setQ('');
-    openerRef.current?.focus();
   }, []);
 
   const shown = useMemo(() => {
@@ -83,43 +91,10 @@ export function AddToEvent({
     );
   }, [options, q]);
 
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        close();
-        return;
-      }
-      if (e.key !== 'Tab') return;
-      // A dialog you can Tab out of behind is not a dialog.
-      const box = panelRef.current;
-      if (!box) return;
-      const f = box.querySelectorAll<HTMLElement>(
-        'a[href],button:not([disabled]),input,[tabindex]:not([tabindex="-1"])',
-      );
-      if (f.length === 0) return;
-      const first = f[0];
-      const last = f[f.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last?.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first?.focus();
-      }
-    }
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, close]);
-
-  useEffect(() => {
-    if (!open) return;
-    // focus the first real control, not the panel, so a keyboard user starts
-    // where the choices are
-    const box = panelRef.current;
-    box?.querySelector<HTMLElement>('input,a[href],button')?.focus();
-  }, [open]);
+  // The shared hook: traps Tab, closes on Escape, locks body scroll, and hands
+  // focus back to the button on close. `containerRef` goes on the element that
+  // carries role="dialog", which is what the adoption guard checks for.
+  useModalA11y({ open, onClose: close, containerRef: panelRef });
 
   const createRow = (
     <Link
@@ -144,7 +119,6 @@ export function AddToEvent({
   return (
     <>
       <button
-        ref={openerRef}
         type="button"
         className={PRIMARY_CTA}
         aria-haspopup="dialog"

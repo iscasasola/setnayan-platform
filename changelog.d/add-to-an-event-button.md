@@ -53,6 +53,18 @@ what a browser paints.
 ⏭ `/patiktok` is wired with the rest — it is still an active, sellable SKU. If
 it turns out not to work, the fix is deactivating the SKU, not hiding one button.
 
+🛡 **AND AN EXISTING GUARD CAUGHT ME, CORRECTLY.**
+`lib/modal-a11y-adoption.test.ts` failed CI on the first push: the dialog
+claimed `aria-modal="true"` while hand-rolling its own Tab trap and Escape
+handler. **`useModalA11y` already exists and does all of it** — trap, Escape,
+body-scroll lock, focus restore — plus a stack so a dialog opened over another
+peels one layer at a time. My version had none of the stack. Replaced; the
+hand-rolled code is deleted rather than kept alongside. The guard exists because
+a 2026-06-25 audit found overlays across this app announcing themselves as
+modal while leaving focus stranded behind the backdrop.
+🔑 **The rule this repeats: when a shared mechanism exists, a second one is not
+a second safety net — it is a second set of bugs.**
+
 Not verified locally: no `node_modules` in this checkout and `npm run build`
 cannot complete on this machine. Typecheck, lint and the unit run are CI's.
 

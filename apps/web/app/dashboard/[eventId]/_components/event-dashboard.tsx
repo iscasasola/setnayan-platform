@@ -354,12 +354,20 @@ export async function EventDashboard({
           .from('orders')
           .select('order_id, service_key, requested_total_php, reference_code, status')
           .eq('event_id', eventId)
-          // `awaiting_payment` is the couple-facing "needs to be paid" state in
-          // the order_status enum. The old 'pending_payment' is NOT an enum
-          // member (it lives on vendor token/subscription tables), so this query
-          // threw 22P02 and graceful-degraded to [] — the "Settle a payment"
-          // decision group + pendingPaymentCount were silently always 0.
-          .eq('status', 'awaiting_payment');
+          // 🔴 BOTH UNPAID STATES, NOT JUST ONE. `awaiting_payment` is real, but
+          // almost nothing WRITES it — one admin action does (payments/actions.ts,
+          // bouncing an order back for better proof). Every mint in the app —
+          // onboarding, the studio buy paths, checkout, booking fees, vendor add-ons
+          // — writes `submitted`. Prod holds exactly one order and it is `submitted`.
+          //
+          // 🔑 THE EARLIER CORRECTION STOPPED ONE STEP SHORT. This filter used to be
+          // the non-existent 'pending_payment', which threw 22P02 and degraded to
+          // []. That was fixed to a REAL enum member — and never checked against the
+          // member the app actually mints, so it kept reading empty for the ordinary
+          // case. A fix that makes a query legal is not a fix that makes it true.
+          // (`add-on-state`, `entitlements`, `vendor-booking-fees.server` and
+          // `ugat/data` all already ask for both.)
+          .in('status', ['submitted', 'awaiting_payment']);
       } catch (caught) {
         logQueryError(
           'EventDashboard (pending orders SELECT threw)',

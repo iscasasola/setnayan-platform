@@ -545,12 +545,23 @@ export function GenericOnboarding(props: Props) {
       // (/vendor-invite/[slug]) to finish shortlisting; else land on the
       // event dashboard. Mirrors the wedding flow's post-commit goToDashboard.
       //
-      // `paymentPath` (owner 2026-08-11) only appears when they actually bought
-      // shots or cameras on the services step, and it yields to `nextPath`: a
-      // couple who came from a vendor invite is mid-errand, and the payment
-      // banner is waiting for them in the studio either way. Absent ⇒ nothing
-      // was bought, or the order could not be minted ⇒ ordinary landing.
-        router.replace(nextPath ?? res.paymentPath ?? `/dashboard/${res.eventId}`);
+      // `paymentPath` appears only when they actually bought something on the
+      // services step, and it is now the BILL — the order's own page, with the
+      // amount, the reference and the BDO/GCash instructions on it.
+      //
+      // 🔴 IT USED TO YIELD TO `nextPath` AND NO LONGER DOES. The old reasoning
+      // was that a couple arriving mid-errand from a vendor invite asked to go
+      // somewhere, and "the payment banner is waiting for them in the studio
+      // either way". Both halves were wrong: the banner named no amount, and
+      // the errand's `next` is a vendor's ordinary public page — permanently
+      // reachable, no token, no expiry — while a bill is time-sensitive and was
+      // promised to them one screen earlier ("We'll show you where to send it
+      // right after this"). Money first; the errand is one tap from the
+      // shortlist.
+      //
+      // Absent ⇒ nothing was bought, or the order could not be minted ⇒ the
+      // errand, then the ordinary landing.
+        router.replace(res.paymentPath ?? nextPath ?? `/dashboard/${res.eventId}`);
         return;
       }
       setCommitting(false);

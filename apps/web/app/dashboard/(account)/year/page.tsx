@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { CalendarHeart, Sparkles, Gift } from 'lucide-react';
+import { CalendarHeart, Sparkles, Gift, Check, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
 import {
@@ -17,6 +17,7 @@ import { buildDependentRiteMoments, type DependentForRites } from '@/lib/faith-r
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { StartPlanningLink } from './_components/start-planning-link';
 
 export const metadata = { title: 'Your year' };
 
@@ -251,22 +252,64 @@ function MomentCard({ moment: m, highlight = false }: { moment: YearMoment; high
           {m.detail ? <span className="text-ink/40"> · {m.detail}</span> : null}
         </p>
       </div>
-      <span
-        className={[
-          'shrink-0 whitespace-nowrap font-mono text-xs font-medium',
-          highlight ? 'text-gold-deep' : 'text-ink/45',
-        ].join(' ')}
-      >
-        {countdown(m.daysUntil)}
+      <span className="flex shrink-0 flex-col items-end gap-1">
+        <span
+          className={[
+            'whitespace-nowrap font-mono text-xs font-medium',
+            highlight ? 'text-gold-deep' : 'text-ink/45',
+          ].join(' ')}
+        >
+          {countdown(m.daysUntil)}
+        </span>
+        {/* The state the whole row exists to answer: is this already an event
+            of yours, or a date still waiting for one? Both branches always
+            render — a card with no marker would read as "unknown", which is
+            the one thing this line must never say. They are <span>s styled as
+            buttons because the CARD is the link; nesting a real <button> in an
+            <a> is invalid and would split one tap target into two. */}
+        {m.eventId ? (
+          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-ink/15 bg-white/70 px-2.5 py-1 text-xs font-medium text-ink/70">
+            <Check aria-hidden className="h-3 w-3" />
+            Open plan
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-mulberry px-2.5 py-1 text-xs font-medium text-cream">
+            <Plus aria-hidden className="h-3 w-3" />
+            Start planning
+          </span>
+        )}
       </span>
     </div>
   );
 
-  // A moment tied to an event links to it; a holiday prompts a create flow.
-  const href = m.eventId ? `/dashboard/${m.eventId}` : '/dashboard/create-event';
+  // A moment tied to an event links to it; anything else opens the create
+  // flow — preselecting the event type when the moment knows its own kind
+  // (the create page validates the key and ignores anything unknown).
+  const href = m.eventId
+    ? `/dashboard/${m.eventId}`
+    : m.createEventType
+      ? `/dashboard/create-event?event_type=${encodeURIComponent(m.createEventType)}`
+      : '/dashboard/create-event';
+
+  if (m.eventId) {
+    return (
+      <Link className="sn-press block" href={href}>
+        {inner}
+      </Link>
+    );
+  }
+
+  // Starting from a row hands the create flow what the row already knew — the
+  // day, and whether it is about the reader — so the wizard states those
+  // instead of asking for them again.
   return (
-    <Link className="sn-press block" href={href}>
+    <StartPlanningLink
+      celebrationISO={m.dateISO}
+      className="sn-press block"
+      forSelf={m.forSelf === true}
+      href={href}
+    >
       {inner}
-    </Link>
+    </StartPlanningLink>
   );
 }

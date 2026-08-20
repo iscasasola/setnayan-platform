@@ -14,6 +14,14 @@ export type EventRow = {
   event_type: string;
   display_name: string;
   event_date: string | null;
+  /**
+   * Last day, when the celebration spans several (event-type-profile
+   * `multiDay`). NULL on a one-day event and on every prod row today. Read by
+   * `isFinishedEvent` so a wedding week does not move to the Finished shelf on
+   * its first morning — the same "when did this end" the full-res retention
+   * floor already uses.
+   */
+  event_end_date?: string | null;
   is_primary: boolean;
   archived: boolean;
   venue_name: string | null;
@@ -150,6 +158,7 @@ export const fetchUserEvents = cache(async (
          event_type,
          display_name,
          event_date,
+         event_end_date,
          is_primary,
          archived,
          venue_name,

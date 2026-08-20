@@ -15,6 +15,7 @@ import {
 } from '@/lib/creator-chapters';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchCreatorInbox, type CreatorInboxOffer } from '@/lib/creator-offers';
+import { chronicleDay, groupChronicleByYear } from '@/lib/creator-chronicle';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { ChapterEmbedFrame } from './_components/chapter-embed-frame';
@@ -31,7 +32,6 @@ import {
   acceptCreatorOffer,
   declineCreatorOffer,
   linkCreatorOfferDeliverable,
-  setCreatorAcceptsOffers,
 } from './offer-actions';
 
 export const metadata = { title: 'Your chapters' };
@@ -63,9 +63,6 @@ const FLASH: Record<string, string> = {
   accepted: 'Offer accepted — the vendor was notified.',
   declined: 'Offer declined.',
   linked: 'Chapter linked as the deliverable.',
-  offers_on: 'Vendor offers turned on — vendors can offer you a promo again.',
-  offers_off:
-    'Vendor offers turned off — you’re hidden from vendor browse and new offers are blocked.',
 };
 
 type Props = {
@@ -82,18 +79,13 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
 
   const { data: profile, error: profileError } = await supabase
     .from('users')
-    .select('display_name, slug, public_profile_enabled, creator_accepts_offers')
+    .select('display_name, slug, public_profile_enabled')
     .eq('user_id', user.id)
     .maybeSingle();
   // ⚠ the creator account record. Absence DENIES rather than renders.
   if (profileError) {
     logQueryError('CreatorPage.profile', profileError, {}, 'graceful_degrade');
   }
-  // PR-C opt-out toggle — default ON (only an explicit FALSE reads as off, so a
-  // pre-migration row degrades to the default).
-  const acceptsOffers =
-    (profile as { creator_accepts_offers?: boolean | null } | null)
-      ?.creator_accepts_offers !== false;
 
   const successKey = Object.keys(FLASH).find((k) => search[k]);
 
@@ -111,32 +103,22 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
       ) : null}
       {successKey ? <FormFlash tone="success">{FLASH[successKey]}</FormFlash> : null}
 
-      {/* Creator solicitation opt-out (PR-C · RA-10173 must-plan). Default ON.
-          OFF = hidden from the vendor Creators browse + offer_creator_reach_hold
-          blocks new offers server-side (CREATOR_OFFERS_OFF). Existing offers in
-          the inbox are unaffected. */}
-      <section className="sn-tile mb-8 flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-ink">Accept vendor offers</p>
-          <p className="text-xs text-ink/60">
-            {acceptsOffers
-              ? 'Vendors can offer you a promo in exchange for a chapter crediting them. Turn this off to stop new offers.'
-              : 'You’re not receiving vendor offers — you’re hidden from vendor browse and new offers are blocked.'}
-          </p>
-        </div>
-        <form action={setCreatorAcceptsOffers}>
-          {acceptsOffers ? null : (
-            <input type="hidden" name="accepts_offers" value="on" />
-          )}
-          <SubmitButton
-            className="button-secondary"
-            pendingLabel="Saving…"
-          >
-            {acceptsOffers ? 'Turn off' : 'Turn back on'}
-          </SubmitButton>
-        </form>
-      </section>
+      {/* 🛑 THE "ACCEPT VENDOR OFFERS" TOGGLE WAS REMOVED HERE (owner 2026-08-20:
+          *"accept vendor offers will forever be on. so no need to toggle since
+          all users can be deemed content creators"*).
 
+          `users.creator_accepts_offers` is DELIBERATELY NOT DROPPED. It defaults
+          TRUE, no prod row has ever been FALSE, and the vendor-browse filter
+          plus the `CREATOR_OFFERS_OFF` hold in the database still honour it — so
+          the mechanism survives intact for the day an opt-out is required again
+          (a solicitation opt-out is the kind of thing a privacy review asks
+          for). What is gone is the only writer, so the value can now only ever
+          be TRUE.
+          🔑 The reason removing it is safe is the DEFAULT, and that is the thing
+          to check before removing any switch: had this column defaulted FALSE,
+          deleting the toggle would have blocked every vendor offer in the
+          product, permanently and silently. Read the default before you take
+          away the handle. */}
       {/* `=== true`, not `!== false`. The column is NOT NULL DEFAULT false, so
           the only honest reading of a missing/failed profile read is "not
           public" — `!== false` turned an undefined into a claim that the page
@@ -146,6 +128,7 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
         userId={user.id}
         slug={profile?.slug ?? null}
         publicProfileEnabled={profile?.public_profile_enabled === true}
+        prefillEventId={typeof search.event === 'string' ? search.event : null}
       />
     </div>
   );
@@ -156,13 +139,16 @@ async function CreatorBody({
   userId,
   slug,
   publicProfileEnabled,
+  prefillEventId,
 }: {
   supabase: Awaited<ReturnType<typeof createClient>>;
   userId: string;
   slug: string | null;
   publicProfileEnabled: boolean;
+  /** `?event=` — the celebration the events board sent them here to write. */
+  prefillEventId: string | null;
 }) {
-  const [{ data, error: chaptersError }, inbox, myEvents] = await Promise.all([
+  const [{ data, error: chaptersError }, inbox] = await Promise.all([
     supabase
       .from('creator_chapters')
       .select(
@@ -171,13 +157,31 @@ async function CreatorBody({
       .eq('user_id', userId)
       .order('updated_at', { ascending: false }),
     fetchCreatorInbox(supabase, userId),
-    loadLinkableEvents(userId),
   ]);
   // `?? []` cannot tell "you have written none" from "we could not read
   // them" — and one of those is a statement about somebody's own work.
   const chaptersMeasured = !chaptersError;
   const chapters = (data ?? []) as ChapterRow[];
   const publishedChapters = chapters.filter((c) => c.status === 'published');
+
+  // The picker offers CONCLUDED celebrations only (owner 2026-08-20) — plus any
+  // day a chapter is already attached to, so editing a chapter can never
+  // silently detach it from a celebration whose date has since moved. That is
+  // why this read waits for the chapters: it needs their days.
+  const myEvents = await loadLinkableEvents(userId, {
+    keepEventIds: chapters.map((c) => c.event_id),
+  });
+  const dayByEventId = new Map(myEvents.map((e) => [e.event_id, e.day] as const));
+
+  // THE CHRONICLE — every chapter numbered by the day it is ABOUT, grouped by
+  // year. Nobody types a number; see lib/creator-chronicle.ts for why the year
+  // is a heading and not a "Volume".
+  const chronicle = groupChronicleByYear(chapters, (c) =>
+    chronicleDay({
+      eventDate: c.event_id ? dayByEventId.get(c.event_id) ?? null : null,
+      publishedAt: c.published_at,
+    }),
+  );
 
   // Presign any already-rendered teaser so the card can preview/download it.
   const teaserUrls = new Map<string, string | null>();
@@ -200,7 +204,7 @@ async function CreatorBody({
       <section className="sn-tile mb-8 space-y-4">
         <h2 className="sn-sec">New chapter</h2>
         <form action={createChapter} className="space-y-4">
-          <ChapterFields myEvents={myEvents} />
+          <ChapterFields myEvents={myEvents} prefillEventId={prefillEventId} />
           <SubmitButton
             className="button-primary inline-flex items-center justify-center gap-2"
             pendingLabel="Creating…"
@@ -231,19 +235,39 @@ async function CreatorBody({
             </p>
           </div>
         ) : (
-          <ul className="space-y-4">
-            {chapters.map((c) => (
-              <li key={c.chapter_id}>
-                <ChapterCard
-                  chapter={c}
-                  slug={slug}
-                  publicProfileEnabled={publicProfileEnabled}
-                  teaserUrl={teaserUrls.get(c.chapter_id) ?? null}
-                  myEvents={myEvents}
-                />
-              </li>
+          <div className="space-y-8">
+            {chronicle.map((block) => (
+              <div key={block.year ?? 'unplaced'} className="space-y-4">
+                {/* THE YEAR IS A HEADING. It is not a Volume, it is not stored,
+                    and it is not typed — see lib/creator-chronicle.ts. */}
+                <div className="flex items-baseline gap-3">
+                  <h3 className="m-serif text-lg text-ink">
+                    {block.year ?? 'Not placed yet'}
+                  </h3>
+                  <span className="h-px flex-1 bg-ink/10" aria-hidden />
+                  {block.year ? null : (
+                    <span className="text-[11px] text-ink/50">
+                      These land in a year once you post them.
+                    </span>
+                  )}
+                </div>
+                <ul className="space-y-4">
+                  {block.entries.map(({ item: c, number }) => (
+                    <li key={c.chapter_id}>
+                      <ChapterCard
+                        chapter={c}
+                        number={number}
+                        slug={slug}
+                        publicProfileEnabled={publicProfileEnabled}
+                        teaserUrl={teaserUrls.get(c.chapter_id) ?? null}
+                        myEvents={myEvents}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </section>
     </>
@@ -429,12 +453,15 @@ function OfferInbox({
 
 function ChapterCard({
   chapter: c,
+  number,
   slug,
   publicProfileEnabled,
   teaserUrl,
   myEvents,
 }: {
   chapter: ChapterRow;
+  /** Its place in the life — derived, never typed. Null until it has a day. */
+  number: number | null;
   slug: string | null;
   publicProfileEnabled: boolean;
   teaserUrl: string | null;
@@ -450,6 +477,12 @@ function ChapterCard({
     <div className="sn-tile space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
+          {/* The number is the chronicle's, not the author's: it comes from the
+              day the celebration happened. A chapter with no day yet says so
+              rather than borrowing a position it has not earned. */}
+          <p className="sn-eye text-ink/50">
+            {number === null ? 'Chapter — not placed yet' : `Chapter ${number}`}
+          </p>
           <p className="text-base font-semibold text-ink">{c.title}</p>
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="rounded-full bg-ink/[0.06] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/65">
@@ -612,11 +645,23 @@ function ChapterFields({
   chapter,
   substrate,
   myEvents = [],
+  prefillEventId = null,
 }: {
   chapter?: ChapterRow;
   substrate?: { papic_gallery_id?: string; vendor_ids?: string[] };
   myEvents?: LinkableEvent[];
+  /** Preselect the celebration the events board sent them here to write. */
+  prefillEventId?: string | null;
 }) {
+  // The prefill is only honoured when it is REALLY in the list — a `?event=`
+  // anybody can type must never preselect a celebration this account cannot
+  // attach. (The action re-proves the tie server-side either way.)
+  const prefillIsOffered =
+    !!prefillEventId && myEvents.some((e) => e.event_id === prefillEventId);
+  const pickedEventId =
+    chapter?.event_id ??
+    substrate?.papic_gallery_id ??
+    (prefillIsOffered ? (prefillEventId as string) : '');
   return (
     <>
       <label className="block space-y-1">
@@ -698,11 +743,7 @@ function ChapterFields({
           </span>
           {myEvents.length > 0 ? (
             <>
-              <select
-                name="event_id"
-                defaultValue={chapter?.event_id ?? substrate?.papic_gallery_id ?? ''}
-                className="input-field"
-              >
+              <select name="event_id" defaultValue={pickedEventId} className="input-field">
                 <option value="">Not about one of my celebrations</option>
                 {myEvents.map((e) => (
                   <option key={e.event_id} value={e.event_id}>
@@ -711,19 +752,21 @@ function ChapterFields({
                 ))}
               </select>
               <span className="block text-[11px] text-ink/55">
-                Attach the day and your chapter stands on it — its photos, and
-                the suppliers who were really there. Setnayan’s own write-up of
-                the same day will link to your chapter, and yours to it. You can
-                detach it at any time; your film and your words stay.
+                Only celebrations that are over show up here — this is the story
+                of a day that happened. Attach it and your chapter stands on it:
+                its photos, and the suppliers who were really there. Setnayan’s
+                own write-up of the same day will link to your chapter, and yours
+                to it. You can detach it at any time; your film and your words
+                stay.
               </span>
             </>
           ) : (
             <>
               <input type="hidden" name="event_id" value="" />
               <span className="block text-[11px] text-ink/55">
-                You don’t host a celebration on Setnayan yet, so there’s nothing
-                to attach — your chapter stands on its own. If you were a guest
-                or a supplier at someone else’s day, asking them to link it is
+                Nothing to attach yet — a celebration appears here once its day
+                has passed. Your chapter stands on its own until then. If you
+                were a guest at someone else’s day, asking them to link it is
                 coming.
               </span>
             </>

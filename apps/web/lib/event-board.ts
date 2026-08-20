@@ -192,11 +192,20 @@ export function manilaTodayISO(now: Date = new Date()): string {
  * a guess must not move somebody's celebration onto the Finished shelf.
  */
 export function isFinishedEvent(
-  event: Pick<EventWithRole, 'event_date' | 'archived'>,
+  event: Pick<EventWithRole, 'event_date' | 'archived'> & {
+    event_end_date?: string | null;
+  },
   todayISO: string,
 ): boolean {
   if (event.archived) return true;
-  return !!event.event_date && event.event_date.slice(0, 10) < todayISO;
+  // A celebration that spans several days is not finished on its first day.
+  // `event_end_date` is the last day when the type allows a range (see
+  // event-type-profile.ts) — the SAME value the full-res retention floor reads,
+  // so "when did this end" has one answer in the product, not two. Prod holds
+  // no ranged event today, so this is provably behaviour-neutral right now and
+  // correct the first time somebody sets one.
+  const lastDay = event.event_end_date?.slice(0, 10) || event.event_date?.slice(0, 10);
+  return !!lastDay && lastDay < todayISO;
 }
 
 /**
@@ -311,4 +320,56 @@ export function mergeBoardMemberships(
   for (const e of invited) byId.set(e.event_id, e);
   for (const e of organiser) byId.set(e.event_id, e); // organiser overwrites
   return [...byId.values()];
+}
+
+/**
+ * The FINISHED shelf, split by whether this account has turned the celebration
+ * into a story yet (owner 2026-08-20: *"your story should be also integrated in
+ * my events since we have a place there for finished. change it to unpublished
+ * and published. They get to choose on the unpublish which they will make a
+ * story of."*).
+ *
+ * 🔑 THE TWO WORDS DESCRIBE THE STORY, NOT THE CELEBRATION. A finished day is
+ * finished either way; what is unpublished is the chapter about it. That is why
+ * the shelves say what they are for in a sentence and never call a wedding
+ * "unpublished" on its own.
+ *
+ * `storyEventIds` is the set of event ids this account has a POSTED chapter
+ * for. It must be read with an error check by the caller: an unmeasured read
+ * looks exactly like "no stories yet" and would move every finished celebration
+ * onto the unpublished shelf with a Write-the-story button beside a story that
+ * already exists. When the read fails, callers pass `null` and get ONE shelf
+ * back — the state the board has today — rather than a confident wrong split.
+ */
+export function splitFinishedByStory(
+  finished: readonly EventWithRole[],
+  storyEventIds: ReadonlySet<string> | null,
+): { unpublished: EventWithRole[]; published: EventWithRole[]; measured: boolean } {
+  if (!storyEventIds) {
+    return { unpublished: [...finished], published: [], measured: false };
+  }
+  return {
+    unpublished: finished.filter((e) => !storyEventIds.has(e.event_id)),
+    published: finished.filter((e) => storyEventIds.has(e.event_id)),
+    measured: true,
+  };
+}
+
+/**
+ * May THIS account write the story of this celebration?
+ *
+ * Only the organiser. A guest's finished celebration still belongs on their
+ * board — it is their memory — but the chapter composer will not offer them a
+ * day they did not host or work, so a button that opens a picker their
+ * celebration is missing from is a door onto nothing.
+ *
+ * ⚠ A booked supplier MAY attach (owner 2026-08-15) and is deliberately not
+ * offered here: a supplier's celebrations do not reach this board at all
+ * (`STANCE_BY_MEMBER_TYPE` admits couple + guest only), so answering for them
+ * from a member_type would be guessing.
+ */
+export function canWriteStoryFor(event: {
+  member_type: EventWithRole['member_type'];
+}): boolean {
+  return eventStance(event.member_type) === 'organiser';
 }

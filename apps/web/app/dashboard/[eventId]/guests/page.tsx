@@ -665,7 +665,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         <p className="rounded-xl border border-ink/15 bg-ink/[0.03] px-4 py-3 text-sm text-ink/70">
           <span className="font-semibold text-ink">Guest list finalized</span>
           {finalize.finalPax ? ` · ${finalize.finalPax} guests locked in` : ''}. Changes
-          after your guest‑list deadline no longer change vendor costs.
+          after your guest‑list deadline no longer change vendor costs, and your
+          guests can no longer reply on your event page.
         </p>
       ) : null}
 

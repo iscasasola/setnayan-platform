@@ -154,14 +154,56 @@ test('the RSVP action refuses a late reply itself', () => {
   // The hidden form is not the door. This action runs with the ADMIN client,
   // and `guard_guest_edits_when_locked` exempts service_role — so the database
   // will NOT stop a late write. This check is the enforcement.
+  //
+  // 🪤 THE FIRST VERSION OF THIS TEST WAS DECORATION and the mutation run
+  // caught it: it asserted only that `guestListIsClosed` appeared before the
+  // write, so `false && guestListIsClosed(...)` kept the string, kept the
+  // order, and sailed through with the guard disarmed. A guard can match a
+  // string without matching the ACT. So this one reads the CONDITION.
   const src = readFileSync(join(__dirname, '..', 'actions.ts'), 'utf8');
   const submit = src.slice(src.indexOf('export async function submitRsvp'));
-  const guardAt = submit.indexOf('guestListIsClosed');
-  const writeAt = submit.indexOf(".from('guests')");
-  assert.ok(guardAt > -1, 'submitRsvp does not check whether the list is closed');
+  const writeAt = submit.indexOf(".from('guests')\n    .update(");
+  assert.ok(writeAt > -1, 'submitRsvp no longer writes the way this test reads');
+
+  const callAt = submit.indexOf('guestListIsClosed(');
+  // The `if (` that OWNS this call — the last one before it. (`indexOf` finds
+  // the function's first `if`, the session check, and reports its condition.)
+  const ifAt = submit.lastIndexOf('if (', callAt);
+  assert.ok(callAt > -1, 'submitRsvp does not check whether the list is closed');
   assert.ok(
-    guardAt < writeAt,
+    callAt < writeAt,
     'the closed-list check runs AFTER the write — the late reply is already saved',
   );
-  assert.match(submit, /rsvp=closed/, 'the refusal is silent — nothing tells the guest');
+
+  // Nothing but whitespace may sit between `if (` and the call: an operand
+  // there is a way to neuter the guard while leaving every searched string in
+  // place (`false &&`, `SOME_FLAG &&`, a negation).
+  assert.ok(ifAt > -1 && ifAt < callAt, 'the check is not the condition of an if');
+  const between = submit.slice(ifAt + 'if ('.length, callAt);
+  assert.equal(
+    between.trim(),
+    '',
+    `the closed-list condition is qualified by "${between.trim()}" — the guard can be disarmed without changing anything this test would otherwise see`,
+  );
+
+  // And it asks the REAL row, not a hardcoded open answer.
+  const condition = submit.slice(callAt, submit.indexOf('}', callAt));
+  for (const field of [
+    'guest_count_locked_at',
+    'guest_list_edit_deadline',
+    'event_date',
+  ]) {
+    assert.ok(
+      condition.includes(field),
+      `the closed-list check never reads ${field} — it cannot answer the question`,
+    );
+  }
+
+  // The refusal is spoken, and spoken from inside the refusing branch.
+  const branch = submit.slice(callAt, writeAt);
+  assert.match(
+    branch,
+    /redirect\([^)]*rsvp=closed/,
+    'the refusal is silent — nothing tells the guest their reply was not saved',
+  );
 });

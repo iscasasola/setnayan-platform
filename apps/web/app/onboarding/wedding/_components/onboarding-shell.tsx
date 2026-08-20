@@ -4308,7 +4308,22 @@ export function OnboardingShell({
               <form action={signUp} style={{ margin: '14px 0 4px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <input type="hidden" name="next" value={RESUME_NEXT} />
                 <input type="hidden" name="account_type" value="customer" />
-                <input type="hidden" name="public_summary_consent" value="yes" />
+                {/* 🔒 NO HIDDEN CONSENT HERE — this posted `public_summary_consent="yes"`
+                    as a hidden field, with no checkbox and nothing on screen saying so.
+                    It opts the couple into having their wedding published on
+                    setnayan.com/realstories 30 days after the event. The owner already
+                    ruled on this exact field (commit 7f933ece1, 2026-07-12): it "starts
+                    UNTICKED — affirmative consent, not pre-selected", and /signup has
+                    honoured that as a real checkbox beside explanatory copy ever since.
+                    This door missed the ruling.
+
+                    Deleted rather than re-drawn as a checkbox, for two reasons: the
+                    Google button directly above posts no consent field at all, so
+                    silence is what this screen already says on its other path; and the
+                    couple has two shipped places to opt in deliberately and reversibly
+                    (Website → Privacy, Website → Editorial). Consent taken without a
+                    sentence is not consent, and this screen has no room for the
+                    sentence. */}
                 <TurnstileField action="signup" />
                 <input
                   className="field"

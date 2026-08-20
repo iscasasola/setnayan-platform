@@ -41,7 +41,8 @@
     "lint:server-only": "node scripts/lint-server-only-boundary.mjs",
     "lint:migrations-dir": "node scripts/lint-migrations-dir.mjs",
     "lint:fonts": "node scripts/lint-fonts-are-local.mjs",
-    "fonts:fetch": "node scripts/fetch-brand-fonts.mjs"
+    "fonts:fetch": "node scripts/fetch-brand-fonts.mjs",
+    "loadtest:hot-row": "tsx scripts/loadtest-papic-hot-row.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",

@@ -8,6 +8,13 @@ import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 import { ingestToWall } from '@/lib/live-wall';
 import { enforceRateLimit } from '@/lib/with-rate-limit';
+// ⚠ In a plain module, NOT here: a 'use server' file may only export async
+// functions, and exporting a constant from one typechecks and then fails the
+// production build. See lib/papic-capture-ceiling.ts.
+import {
+  PAPIC_SEAT_BURST,
+  PAPIC_SEAT_BURST_WINDOW_S,
+} from '@/lib/papic-capture-ceiling';
 import { parsePapicTagScan } from '@/lib/papic-tag';
 import { autoTagCapture } from '@/lib/face-match';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
@@ -186,18 +193,6 @@ export type EventPoolSignal = {
   /** True once usage crosses the admin-set soft-stop line (default 85%). */
   soft: boolean;
 };
-
-/**
- * The per-camera capture ceiling. NOT a product rule and not a quota — a
- * runaway-client backstop, the "accepts/sec limiter" the Papic plan listed as an
- * open risk. A human with a shutter never reaches it; a loop reaches it at once.
- *
- * 60 shots per 5 seconds = ~12/second sustained. Deliberately generous: the
- * failure this prevents (a stuck camera draining a couple's credits) is cheaper
- * to catch a second late than to catch a real photographer by mistake.
- */
-export const PAPIC_SEAT_BURST = 60;
-export const PAPIC_SEAT_BURST_WINDOW_S = 5;
 
 export type RecordSeatCaptureResult =
   | {

@@ -4,7 +4,10 @@ import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
 import { enforceRateLimit, rateLimited429 } from '@/lib/with-rate-limit';
-import { PAPIC_SEAT_BURST, PAPIC_SEAT_BURST_WINDOW_S } from '@/app/papic/actions';
+import {
+  PAPIC_SEAT_BURST,
+  PAPIC_SEAT_BURST_WINDOW_S,
+} from '@/lib/papic-capture-ceiling';
 import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-window';
 import { ingestToWall } from '@/lib/live-wall';
 import { papicCaptureCost } from '@/lib/papic-cameras';

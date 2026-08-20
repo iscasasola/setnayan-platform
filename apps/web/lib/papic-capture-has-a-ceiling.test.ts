@@ -33,11 +33,24 @@ const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8')
  */
 function num(name: string): number {
   const m = new RegExp(`export const ${name} = (\\d+);`).exec(
-    read('app', 'papic', 'actions.ts'),
+    read('lib', 'papic-capture-ceiling.ts'),
   );
-  if (!m) throw new Error(`${name} is gone from app/papic/actions.ts`);
+  if (!m) throw new Error(`${name} is gone from lib/papic-capture-ceiling.ts`);
   return Number(m[1]);
 }
+
+test('🪤 the ceiling does NOT live in a "use server" file', () => {
+  // Exporting a constant from a 'use server' module typechecks and then fails
+  // the production build: "Only async functions are allowed to be exported in a
+  // 'use server' file". It cost a red CI run. tsc cannot catch it.
+  const actions = read('app', 'papic', 'actions.ts');
+  assert.doesNotMatch(
+    actions.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, ''),
+    /export const PAPIC_SEAT_BURST/,
+    'A constant is exported from a server-action file again — green typecheck, ' +
+      'broken build.',
+  );
+});
 const PAPIC_SEAT_BURST = num('PAPIC_SEAT_BURST');
 const PAPIC_SEAT_BURST_WINDOW_S = num('PAPIC_SEAT_BURST_WINDOW_S');
 /** A guard must read the code, not the comment that explains the trap. */

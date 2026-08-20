@@ -809,3 +809,35 @@ test('an empty query still yields no row — the palette is not an advert', () =
     assert.equal(marketplaceEscapeItem('   '), null);
   });
 });
+
+/* ── AN EMPTY CHIP EXPLAINS ITSELF; IT DOES NOT DEAD-END ─────────────────
+   Two of the four chips are empty for everybody today (prod holds ZERO
+   published stories and ZERO people-connections), so the empty state is not
+   an edge case — it is what most people who press them will meet.
+
+   The generic "Nothing under X yet — try another chip" is right for a filter
+   that happens to be bare. It is WRONG for the two chips that name what this
+   product is for: it reads as a filter that broke rather than a shelf waiting
+   to fill, which is the same defect the front door's own composition module
+   forbids ("an empty shelf reads as BROKEN, not young"). */
+test('the two chips that are empty for everyone say what they are FOR', () => {
+  for (const [chip, marker] of [
+    ['Stories', /The first real stories are still to come/],
+    ['Your people', /Nobody you know has shared a story yet/],
+  ] as const) {
+    assert.match(
+      FEED_CODE,
+      marker,
+      `The "${chip}" chip lost its written invitation and falls through to the ` +
+        'generic "try another chip" dead end. Prod has zero of these, so that ' +
+        'sentence is what most people pressing it would read.',
+    );
+  }
+  // …and each invitation must offer somewhere to go, not just an apology.
+  const invites = FEED_CODE.match(/className="fd-go"/g) ?? [];
+  assert.ok(
+    invites.length >= 4,
+    `Only ${invites.length} invitation link(s) in the feed; each empty state ` +
+      'needs its own way onward.',
+  );
+});

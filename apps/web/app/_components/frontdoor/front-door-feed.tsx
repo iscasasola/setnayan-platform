@@ -409,6 +409,36 @@ export function FrontDoorFeed({
                 </Link>
               </>
             )
+          ) : chip === 'Stories' ? (
+            /*
+              🔑 THE CHIP CARRYING THE PRODUCT'S THESIS MUST NOT SAY "TRY
+              ANOTHER CHIP". Verified live 2026-08-20, the day the row shipped:
+              `?c=Stories` rendered the generic *"Nothing under 'Stories' yet
+              — try another chip, or clear the filter"*, which reads as a
+              filter that broke rather than as a shelf waiting to fill.
+
+              Stories is the one thing this product exists to hold, and the
+              page already knew how to say so — the real-weddings rail below
+              carries exactly this invitation. This is that voice, on the chip
+              that now sends people looking for it. Same rule the "Your
+              people" branch above follows: an empty shelf gets a sentence
+              about what it is FOR, never a dead end.
+
+              ⚠ It will keep rendering until the first chapter or editorial
+              publishes (prod holds ZERO today), so it is the state most
+              people who press this chip will actually meet.
+            */
+            <>
+              <h2>The first real stories are still to come.</h2>
+              <p>
+                When someone decides to share their celebration it lands right
+                here — their photos, their suppliers, their day, in their own
+                words. Nothing appears without them saying yes first.
+              </p>
+              <Link href="/realstories" className="fd-go">
+                See how sharing works &rarr;
+              </Link>
+            </>
           ) : (
             <>
               <h2>Nothing under &ldquo;{chip}&rdquo; yet.</h2>

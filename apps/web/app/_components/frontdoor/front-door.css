@@ -1275,6 +1275,33 @@ h2.fd-sechead,
   .fd-smallprint {
     display: revert;
   }
+  /* 🔑 THIS DRAWER IS 280px WIDE AND THE STUDIO LINES BELONG IN IT.
+     `.fd-toolline` / `.fd-toolplay` are switched off at ≤1279.98px for the
+     72px ICON STRIP, where they genuinely do not fit. The revert list directly
+     above restores the rail's other prose for this drawer and FORGOT THESE
+     TWO — so every Studio row rendered as a dot and a bare name, while the
+     one-line explanation of what each product does sat in the HTML, invisible.
+     Owner, seeing it: "content of each got lost."
+
+     Scoped with `.fd-rail` on purpose, not written bare: the strip's
+     `display: none` lives in a LATER block in this same file, so at equal
+     specificity a bare selector here would lose to it and change nothing. */
+  .fd-rail .fd-toolline,
+  .fd-rail .fd-toolplay {
+    display: revert;
+  }
+  /* And the other half of the same bug: the strip also flattens `.fd-row-2l`
+     to a single 44px centred row. Restoring the text without restoring the
+     height squeezes two lines into one line's worth of space. */
+  .fd-rail .fd-row-2l {
+    min-height: 56px;
+    align-items: flex-start;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .fd-rail .fd-row-2l .fd-dot {
+    margin-top: 7px;
+  }
   .fd-row {
     flex-direction: row;
     gap: 12px;

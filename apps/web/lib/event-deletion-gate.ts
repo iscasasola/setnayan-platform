@@ -73,6 +73,22 @@ export type MoneyEvidence = {
   unsettledPaidSuppliers: number | null;
 };
 
+/**
+ * The only order states a BUYER may cancel — every one is pre-payment.
+ *
+ * 🔑 NAMED POSITIVELY, NOT AS "anything but paid". A deny-list over an
+ * eight-value enum is a bill you keep paying: add a state later and it is
+ * cancellable by default. This way anything unrecognised fails closed.
+ *
+ * Cancelling a SETTLED order is a refund request, not a cancellation, and it
+ * goes through a person — not a button on the buyer's own screen.
+ */
+export const CANCELLABLE_ORDER_STATUSES = [
+  'draft',
+  'submitted',
+  'awaiting_payment',
+] as const;
+
 /** Supplier states that mean really booked, not merely being considered. */
 export const BOOKED_VENDOR_STATUSES = [
   'contracted',

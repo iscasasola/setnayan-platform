@@ -194,20 +194,49 @@ test('the handle exists — a host can actually add and remove', () => {
   );
 });
 
-test('the author cannot stamp their own inclusion', () => {
+/**
+ * 🛑 THIS TEST USED TO ASSERT THE REVOKE, AND THE REVOKE WAS NEVER THE CONTROL.
+ *
+ * It read the 2026-08-15 migration's TEXT for
+ * `REVOKE UPDATE (host_included_at) … FROM authenticated` and passed. Measured
+ * in production on 2026-08-20:
+ *   has_column_privilege('authenticated','creator_chapters',
+ *                        'host_included_at','UPDATE')  →  TRUE
+ * because `authenticated` holds a TABLE-level UPDATE grant here, and a
+ * column-level REVOKE cannot subtract from one. A forged INSERT naming both
+ * `event_id` (somebody else's wedding) and `host_included_at` was ACCEPTED by
+ * the live database, in a rolled-back transaction.
+ *
+ * 🔑 **A GUARD CAN MATCH A STRING INSTEAD OF THE ACT** — this file is the
+ * example. The real proof now lives in
+ * tests/db/chapter-cannot-hang-off-a-strangers-day.db.test.ts, which performs
+ * the forgery under a real `SET ROLE authenticated` and asserts it is refused.
+ * What survives here is the SOURCE-level half: the mechanism must still exist.
+ */
+test('the author cannot stamp their own inclusion — enforced by the trigger', () => {
   const sql = readFileSync(join(WEB, MIGRATION), 'utf8');
   assert.ok(
-    /REVOKE UPDATE \(host_included_at\)[\s\S]*?FROM authenticated/.test(sql),
-    'the column must be revoked from authenticated — creator_chapters RLS is ' +
-      '"this row is yours", which has no opinion about a field recording ' +
-      'somebody else’s decision',
-  );
-  assert.ok(
-    /REVOKE INSERT \(host_included_at\)[\s\S]*?FROM authenticated/.test(sql),
-    'INSERT too — a PERMISSIVE policy admits inserts, not just updates',
-  );
-  assert.ok(
     /set_chapter_host_inclusion/.test(sql),
-    'a trigger must stamp it, since the revoke stops our own action naming it',
+    'the inclusion trigger is gone — it is the only thing standing between an ' +
+      'author and a field recording somebody else’s decision',
+  );
+  const seal = readFileSync(
+    join(WEB, '../../supabase/migrations/20271150064636_a_chapter_cannot_hang_off_a_strangers_day.sql'),
+    'utf8',
+  );
+  assert.ok(
+    /BEFORE INSERT OR UPDATE ON public\.creator_chapters/.test(seal),
+    'the trigger is scoped to named columns again — an UPDATE naming only ' +
+      'host_included_at would never reach it, which is how the forged stamp got ' +
+      'through with the revoke in place',
+  );
+  assert.ok(
+    /NEW\.host_included_at := CASE WHEN TG_OP = 'UPDATE' THEN OLD\.host_included_at ELSE NULL END/.test(seal),
+    'a browser caller must never keep a host_included_at it submitted',
+  );
+  assert.ok(
+    /chapter_event_not_yours/.test(seal),
+    'attaching a celebration the author has no tie to must be refused by the ' +
+      'database, not only by the server action a browser client can go around',
   );
 });

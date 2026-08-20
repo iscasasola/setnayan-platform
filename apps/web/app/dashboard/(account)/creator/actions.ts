@@ -23,6 +23,24 @@ function fail(message: string): never {
 }
 
 /**
+ * Turn a database refusal into a sentence a person can act on.
+ *
+ * `chapter_event_not_yours` is raised by the `set_chapter_host_inclusion`
+ * trigger when a write names a celebration the account has no tie to. The
+ * composer already checks that before writing, so in practice this fires only
+ * for a request that did not come from our own form — but a raw
+ * `chapter_event_not_yours` on screen would be the product speaking SQL to
+ * somebody, and a legitimate race (the tie ending between the page load and the
+ * save) lands here too.
+ */
+function failWithDbMessage(message: string): never {
+  if (message.includes('chapter_event_not_yours')) {
+    fail('You can only attach a celebration you host or worked on.');
+  }
+  fail(message);
+}
+
+/**
  * Resolve the signed-in user. Chapter authoring is USER-NATIVE (owner
  * 2026-07-16): ANY authenticated account may create + publish chapters — there
  * is no `is_creator` gate anymore. Writes go through the authenticated Supabase
@@ -195,7 +213,7 @@ export async function createChapter(formData: FormData) {
   if (substrate) insert.substrate = substrate;
 
   const { error } = await supabase.from('creator_chapters').insert(insert);
-  if (error) fail(error.message);
+  if (error) failWithDbMessage(error.message);
 
   revalidatePath(SURFACE);
   redirect(`${SURFACE}?created=1`);
@@ -230,7 +248,7 @@ export async function updateChapter(formData: FormData) {
     .update(update)
     .eq('chapter_id', chapterId)
     .eq('user_id', userId);
-  if (error) fail(error.message);
+  if (error) failWithDbMessage(error.message);
 
   revalidatePath(SURFACE);
   redirect(`${SURFACE}?saved=1`);

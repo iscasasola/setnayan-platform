@@ -1,0 +1,333 @@
+'use client';
+
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { Archive, MoreVertical, Trash2 } from 'lucide-react';
+
+import { setEventArchived } from '../../[eventId]/archive-actions';
+import {
+  deleteOwnEvent,
+  getEventDeletionImpact,
+  type DeletionImpact,
+} from '../../[eventId]/delete-actions';
+
+/**
+ * event-card-menu.tsx — the per-card "⋯" on My Events.
+ *
+ * ─── WHY IT IS HERE AND NOT ONLY ON THE EVENT'S OWN SCREEN ─────────────────
+ * Owner, 2026-08-20: "we can allow users to delete their planned event. how can
+ * we do that on my events?" My Events is where somebody looks at nine
+ * celebrations at once and decides which ones are real — so that is where
+ * tidying belongs. Opening each event in turn to put it away is the flow that
+ * made the control feel missing in the first place.
+ *
+ * ─── PUT AWAY IS FIRST, ALWAYS ─────────────────────────────────────────────
+ * `archive-actions.ts` calls put-away "the gentle option that delete is
+ * measured against", and that only works if the two are presented TOGETHER.
+ * A menu offering only Delete turns every "I'm done looking at this" into a
+ * destruction. Put away leads, is one press, and is reversible; Delete sits
+ * below a divider, is red, and costs a typed name.
+ *
+ * ─── IT IS A SIBLING OF THE CARD, NOT A CHILD ──────────────────────────────
+ * 🪤 The board cards are `<Link>`s. A button nested inside an anchor is invalid
+ * HTML and behaves accordingly — the click activates BOTH, so opening the menu
+ * would navigate to the event underneath it. This component is therefore
+ * rendered as an absolutely-positioned sibling inside the card's `relative`
+ * wrapper, never inside `CardShell`.
+ *
+ * The popover idiom (backdrop button + `role="menu"`) is the one already
+ * shipping in `app/_components/chat-thread-menu.tsx`, reproduced rather than
+ * redesigned.
+ */
+export function EventCardMenu({
+  eventId,
+  eventName,
+  archived,
+  /** Dark cards (the mobile hero) need light chrome to stay visible. */
+  tone = 'light',
+}: {
+  eventId: string;
+  eventName: string;
+  archived: boolean;
+  tone?: 'light' | 'dark';
+}) {
+  const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [impact, setImpact] = useState<DeletionImpact | null>(null);
+  const [typed, setTyped] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function close() {
+    setOpen(false);
+    setConfirming(false);
+    setImpact(null);
+    setTyped('');
+    setError(null);
+  }
+
+  function putAway() {
+    setError(null);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('archived', archived ? '0' : '1');
+    startTransition(async () => {
+      /*
+        🪤 THE AWAIT IS INSIDE A TRY. A rejected server action escapes an async
+        handler unhandled and the pending flag then never clears — the defect
+        that left "Creating…" on screen forever in the onboarding wizard. The
+        put-away card carries the same guard for the same reason.
+      */
+      try {
+        const res = await setEventArchived(fd);
+        if (!res.ok) {
+          setError(res.message);
+          return;
+        }
+        close();
+        /* revalidatePath marks the cache stale; it does not push fresh props
+           into a component already on screen. Without this the card does not
+           move and a silent success reads exactly like a dead button. */
+        router.refresh();
+      } catch (err) {
+        console.error('[event-card-menu] archive rejected', err);
+        setError('We couldn’t save that just now. Please try again.');
+      }
+    });
+  }
+
+  function openDelete() {
+    setError(null);
+    setConfirming(true);
+    startTransition(async () => {
+      try {
+        const res = await getEventDeletionImpact(eventId);
+        if (!res.ok) {
+          setError(res.message);
+          setConfirming(false);
+          return;
+        }
+        setImpact(res.impact);
+      } catch (err) {
+        console.error('[event-card-menu] impact read rejected', err);
+        setError('We couldn’t check this one just now. Please try again.');
+        setConfirming(false);
+      }
+    });
+  }
+
+  function confirmDelete() {
+    setError(null);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('confirm_name', typed);
+    startTransition(async () => {
+      try {
+        const res = await deleteOwnEvent(fd);
+        if (!res.ok) {
+          setError(res.message);
+          return;
+        }
+        close();
+        router.refresh();
+      } catch (err) {
+        console.error('[event-card-menu] delete rejected', err);
+        setError('We couldn’t remove that just now. Please try again.');
+      }
+    });
+  }
+
+  const dark = tone === 'dark';
+
+  return (
+    <div className="absolute right-2 top-2 z-20">
+      <button
+        type="button"
+        onClick={() => (open ? close() : setOpen(true))}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Options for ${eventName}`}
+        className={`grid h-8 w-8 place-items-center rounded-full backdrop-blur-[6px] transition-colors ${
+          dark
+            ? 'bg-black/35 text-white/80 hover:bg-black/55 hover:text-white'
+            : 'bg-white/80 text-ink/60 shadow-[0_2px_8px_rgba(30,26,18,0.10)] hover:bg-white hover:text-ink'
+        }`}
+      >
+        <MoreVertical aria-hidden className="h-[17px] w-[17px]" strokeWidth={2} />
+      </button>
+
+      {open ? (
+        <>
+          {/* Backdrop — closes on any outside press. `fixed` so it covers the
+              whole board, not just this card. */}
+          <button
+            type="button"
+            aria-hidden
+            tabIndex={-1}
+            onClick={close}
+            className="fixed inset-0 z-40 cursor-default"
+          />
+          <div
+            role="menu"
+            className="absolute right-0 z-50 mt-2 w-[17.5rem] overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 text-left shadow-lg"
+          >
+            {!confirming ? (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={putAway}
+                  disabled={pending}
+                  className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5 disabled:opacity-60"
+                >
+                  <Archive
+                    aria-hidden
+                    className="mt-0.5 h-4 w-4 shrink-0 text-ink/60"
+                    strokeWidth={2}
+                  />
+                  <span>
+                    <span className="block font-semibold">
+                      {archived ? 'Bring it back' : 'Put this away'}
+                    </span>
+                    <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
+                      {archived
+                        ? 'Back onto your active list.'
+                        : 'Off your list. Nothing is deleted.'}
+                    </span>
+                  </span>
+                </button>
+
+                <div className="my-1 h-px bg-ink/10" />
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={openDelete}
+                  disabled={pending}
+                  className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-[color:var(--sn-danger)] hover:bg-[color:var(--sn-danger-soft)] disabled:opacity-60"
+                >
+                  <Trash2
+                    aria-hidden
+                    className="mt-0.5 h-4 w-4 shrink-0"
+                    strokeWidth={2}
+                  />
+                  <span>
+                    <span className="block font-semibold">Remove for good</span>
+                    <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
+                      Deletes everything. Can’t be undone.
+                    </span>
+                  </span>
+                </button>
+
+                {error ? (
+                  <p
+                    role="alert"
+                    className="px-3 pb-2 pt-1 text-[11.5px] font-semibold text-[color:var(--sn-danger)]"
+                  >
+                    {error}
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <div className="px-3 py-2.5">
+                <p className="text-sm font-bold text-ink">
+                  Remove {eventName}?
+                </p>
+
+                {!impact ? (
+                  <p className="mt-1.5 text-[12px] text-ink/60">
+                    {error ? error : 'Checking what’s on this one…'}
+                  </p>
+                ) : impact.blocked ? (
+                  /* The refusal is stated BEFORE anything is typed. Asking
+                     somebody to type their wedding's name and then telling
+                     them no is a worse refusal than no button at all. */
+                  <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
+                    {impact.blockedReason}
+                  </p>
+                ) : (
+                  <>
+                    <ImpactLines impact={impact} />
+                    <label className="mt-2.5 block text-[11.5px] font-semibold text-ink/70">
+                      Type <span className="font-bold text-ink">{eventName}</span> to
+                      confirm
+                      <input
+                        type="text"
+                        value={typed}
+                        onChange={(e) => setTyped(e.target.value)}
+                        autoComplete="off"
+                        className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2.5 py-1.5 text-sm font-normal text-ink outline-none focus:border-mulberry"
+                      />
+                    </label>
+                    {error ? (
+                      <p
+                        role="alert"
+                        className="mt-1.5 text-[11.5px] font-semibold text-[color:var(--sn-danger)]"
+                      >
+                        {error}
+                      </p>
+                    ) : null}
+                  </>
+                )}
+
+                <div className="mt-3 flex items-center justify-end gap-1.5">
+                  <button
+                    type="button"
+                    onClick={close}
+                    disabled={pending}
+                    className="rounded-full px-3 py-1.5 text-[12.5px] font-bold text-ink/70 hover:text-ink disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  {impact && !impact.blocked ? (
+                    <button
+                      type="button"
+                      onClick={confirmDelete}
+                      disabled={pending || typed.trim().length === 0}
+                      className="rounded-full bg-[color:var(--sn-danger)] px-3 py-1.5 text-[12.5px] font-bold text-cream disabled:opacity-45"
+                    >
+                      {pending ? 'Removing…' : 'Remove for good'}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * What disappears, counted. A count that could not be read says so — it never
+ * prints 0, because a zero here is read immediately before an irreversible
+ * press and would be the most expensive lie on the screen.
+ */
+function ImpactLines({ impact }: { impact: DeletionImpact }) {
+  const line = (n: number | null, one: string, many: string) => {
+    if (n === null) return `We couldn’t check the ${many}`;
+    if (n === 0) return null;
+    return `${n} ${n === 1 ? one : many}`;
+  };
+  const parts = [
+    line(impact.photos, 'photo', 'photos'),
+    line(impact.guests, 'guest', 'guests'),
+    line(impact.bookedVendors, 'booked supplier', 'booked suppliers'),
+  ].filter(Boolean) as string[];
+
+  return (
+    <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
+      {parts.length > 0 ? (
+        <>
+          <span className="font-semibold text-ink">{parts.join(' · ')}</span> go
+          with it, along with the page your guests use.{' '}
+        </>
+      ) : (
+        <>Everything on it goes, including the page your guests use. </>
+      )}
+      This can’t be undone.
+    </p>
+  );
+}

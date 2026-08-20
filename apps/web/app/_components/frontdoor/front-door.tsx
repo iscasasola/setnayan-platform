@@ -105,7 +105,13 @@ export async function FrontDoor({ chip }: { chip?: string }) {
         ) : undefined
       }
     >
-      <FrontDoorFeed data={data} chip={activeChip} />
+      {/*
+        WHO IS LOOKING DECIDES WHETHER THE "YOUR PEOPLE" CHIP IS OFFERED — the
+        same one rule this file already settled for the Studio rows, the
+        account cluster and the search box. A stranger has no people; showing
+        them the button is a door onto a room that can never fill.
+      */}
+      <FrontDoorFeed data={data} chip={activeChip} signedIn={account.signedIn} />
     </FrontDoorShell>
   );
 }

@@ -191,7 +191,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // which used to run as a 5th *sequential* round-trip after this block (owner
   // perf pass 2026-06-03). Folding it in drops one Singapore RTT off every
   // visit to the Guests tab.
-  const [guestsRead, eventRow, groups, membershipsMap, joinUrl, pendingClaims, unsentInvites, assignments, tables, arrived, floorPlan, brandedQrActive] =
+  const [guestsRead, eventRow, groups, membershipsMap, joinUrl, pendingClaims, assignments, tables, arrived, floorPlan, brandedQrActive] =
     await Promise.all([
       fetchGuestsByEventMeasured(supabase, eventId),
       supabase
@@ -215,17 +215,20 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         .eq('event_id', eventId)
         .eq('entry_source', 'self_added_unlisted')
         .is('deleted_at', null),
-      // Lifecycle-ribbon live progress (Phase 3) — three more head+count reads
-      // in the same batch (no extra RTT cost beyond the parallel fan-out).
-      // invitation_sent_at isn't part of GUEST_FIELDS, so unsent is counted
-      // here rather than widening the shared GuestRow contract.
-      supabase
-        .from('guests')
-        .select('guest_id', { count: 'exact', head: true })
-        .eq('event_id', eventId)
-        .is('deleted_at', null)
-        .is('invitation_sent_at', null)
-        .neq('rsvp_status', 'declined'),
+      // 🚨 THE "N TO SEND" READ USED TO SIT HERE AND IT COULD NEVER FALL.
+      // It counted guests with `invitation_sent_at IS NULL` — a column with
+      // ZERO writers anywhere: not in this repo, not in a migration, and not in
+      // any function in the production schema (checked all three; 0 of 35 live
+      // guests are stamped). There is no per-guest send in this product to
+      // stamp it: the Invite stage hands out ONE link for everybody. So the pill
+      // read "32 to send" and would have read "32 to send" forever, next to
+      // three siblings whose numbers move.
+      //
+      // 🔑 The column was not written because the feature was never built — the
+      // save-the-date fan-out has its own `std_email_sent_at`, and its migration
+      // says this one is for "the later formal RSVP invitation". Stamping it
+      // would have been a lie in the other direction. The step now reports the
+      // one thing that stage genuinely has: whether the link can be handed out.
       // Living Roster P3 — the per-guest seat READ. `fetchAssignments` returns the
       // live seat rows (its length also gives the aggregate seatedCount the mobile
       // carousel wants), and `fetchTables` gives each assignment's table_label +
@@ -284,7 +287,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     (r) => r.guest_id,
   );
   const pendingClaimsCount = pendingClaims.count ?? selfJoinIds.length;
-  const unsentCount = unsentInvites.count ?? 0;
   // Seated count now derives from the seat rows we already fetched (P3) rather
   // than a separate head+count round-trip — one fewer Singapore RTT.
   const seatedCount = assignments.length;
@@ -763,7 +765,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           paxProgress={paxProgress}
           teamFilter={teamFilter}
           pendingClaims={pendingClaimsCount}
-          unsent={unsentCount}
+          inviteLinkReady={Boolean(joinUrl)}
           unseated={Math.max(0, stats.attending - seatedCount)}
           arrived={arrivedCount}
           roleSetKey={guestRoleSetKey}

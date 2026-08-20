@@ -70,6 +70,9 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'order_awaiting_reconciliation',
   'payment_matched',
   'payment_rejected',
+  // An order the buyer no longer has any way to see MUST reach them off-app —
+  // its event is gone, so there is no screen left to notice a tray badge on.
+  'order_cancelled',
   'payment_resubmit_requested',
   'payment_refunded',
   // Account + security.

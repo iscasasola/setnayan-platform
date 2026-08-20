@@ -70,6 +70,13 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'order_awaiting_reconciliation',
   'payment_matched',
   'payment_rejected',
+  // The unpaid-order window (2026-08-20). BOTH are emailed on purpose: a
+  // deadline the buyer only learns about inside the app is a tray badge that
+  // reaches nobody away from their desk — the same half-a-mechanism that made
+  // the "somebody paid you" notification useless until #4595 put it on this
+  // list. A warning nobody receives is not a warning.
+  'order_payment_reminder',
+  'order_payment_expired',
   'payment_resubmit_requested',
   'payment_refunded',
   // Account + security.

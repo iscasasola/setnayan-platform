@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { isRequestPlatform } from '@/lib/request-platform';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
+import { sweepUnpaidOrderWindow } from '@/lib/order-payment-window.server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { InboxMatcher, type MatcherPayment } from './_components/inbox-matcher';
@@ -139,6 +140,13 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
   // dashboards gets caught here. Fire-and-forget — never blocks the queue
   // render.
   void sweepLapsedSubscriptions(admin);
+
+  // The unpaid-order window (owner 2026-08-20: 15 days). Same cron-free
+  // precedent as the subscription sweep directly above — this platform runs
+  // sweeps on page visits, and the payments queue is the page whose whole job
+  // is money, so it is the honest place to put it. Fire-and-forget: a stumbling
+  // sweep must never take down the reconciliation queue.
+  void sweepUnpaidOrderWindow(admin);
 
   let payments: PaymentJoined[] = [];
   let unquotedOrders: OrderJoined[] = [];

@@ -24,6 +24,12 @@ import {
   fetchPlatformSettings,
   hasMerchantPaymentInfo,
 } from '@/lib/platform-settings';
+import {
+  UNPAID_ORDER_STATUSES,
+  paymentDeadlineSentence,
+  paymentDeadlineShort,
+  paymentWindowHasClosed,
+} from '@/lib/order-payment-window';
 import { cancelOrder, logPayment } from '../actions';
 
 export const metadata = { title: 'Order detail' };
@@ -47,6 +53,12 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
   if (!user) redirect('/login');
 
   const order = await fetchOrderById(supabase, orderId);
+  // Is this order still waiting for money, and has its window shut? Both read
+  // from the row, so a settled or cancelled order never shows a countdown and a
+  // closed one never wears the "act now" colour.
+  const isAwaitingPayment =
+    !!order && (UNPAID_ORDER_STATUSES as readonly string[]).includes(order.status);
+  const windowClosed = !!order && paymentWindowHasClosed(order.payment_due_at, new Date());
   if (!order || order.event_id !== eventId) notFound();
   const [payments, receipt, settings] = await Promise.all([
     fetchPaymentsForOrder(supabase, orderId),
@@ -240,13 +252,30 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
               <span className="font-mono text-terracotta-700">{order.reference_code}</span>
             </h1>
           </div>
-          <span
-            className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-              ORDER_STATUS_TONE[order.status]
-            }`}
-          >
-            {ORDER_STATUS_LABEL[order.status]}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {/*
+              THE DEADLINE IS SHOWN BECAUSE IT IS ENFORCED. Until 2026-08-20
+              nothing anywhere told a buyer their order could expire — and an
+              unpaid order now cancels itself after 15 days (owner ruling). A
+              rule the customer was never told is not a rule, it is a surprise.
+            */}
+            {isAwaitingPayment ? (
+              <span
+                className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                  windowClosed ? 'bg-ink/15 text-ink/70' : 'bg-terracotta/15 text-terracotta-700'
+                }`}
+              >
+                {paymentDeadlineShort(order.payment_due_at, new Date())}
+              </span>
+            ) : null}
+            <span
+              className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                ORDER_STATUS_TONE[order.status]
+              }`}
+            >
+              {ORDER_STATUS_LABEL[order.status]}
+            </span>
+          </div>
         </div>
         <p className="whitespace-pre-wrap text-sm text-ink/75">{order.description}</p>
 
@@ -327,6 +356,26 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
 
       <section className="sn-tile space-y-4 p-5">
         <h2 className="sn-eye">Payment instructions</h2>
+
+        {/*
+          The deadline, in a full sentence, on the screen that asks for the
+          money. The chip in the header is the glance; this is the promise —
+          and it names the actual date rather than "15 days", because a person
+          reading this on day nine needs to know when, not how long.
+        */}
+        {isAwaitingPayment ? (
+          <p
+            className={`rounded-xl border px-4 py-3 text-sm ${
+              windowClosed
+                ? 'border-ink/15 bg-ink/[0.03] text-ink/70'
+                : 'border-terracotta/30 bg-terracotta/[0.05] text-ink/80'
+            }`}
+          >
+            {windowClosed
+              ? 'This order’s payment window has closed, so it is being cancelled. Nothing has been charged — if you have already sent payment, tell us and we will sort it out.'
+              : paymentDeadlineSentence(order.payment_due_at)}
+          </p>
+        ) : null}
 
         {/* The two values a couple must get exactly right — amount + reference. */}
         <div className="grid gap-3 sm:grid-cols-2">

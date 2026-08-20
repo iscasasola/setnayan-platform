@@ -15,6 +15,12 @@ export type NotificationType =
   | 'order_paid'
   | 'payment_matched'
   | 'payment_rejected'
+  // Added 2026-08-20 — the unpaid-order window (owner: 15 days). Two types, not
+  // one, because they say opposite things to the buyer: the first is a chance
+  // to act, the second is the outcome. Collapsing them into one "payment" type
+  // would mean the nudge and the cancellation shared a tone and a subject line.
+  | 'order_payment_reminder'
+  | 'order_payment_expired'
   // Added 2026-06-07 alongside migration 20260607060000_iteration_0023_order_refunds.sql
   // for the /admin/payments refund action (CLAUDE.md 2026-05-23 row). Fired
   // from /admin/payments/actions.ts → refundOrder() after the orders row is
@@ -271,6 +277,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   order_paid: 'Order paid',
   payment_matched: 'Payment matched',
   payment_rejected: 'Payment rejected',
+  order_payment_reminder: 'Payment still due',
+  order_payment_expired: 'Order cancelled — unpaid',
   payment_refunded: 'Refund issued',
   payment_resubmit_requested: 'Please resubmit payment',
   rsvp_received: 'RSVP received',
@@ -350,6 +358,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   order_paid: 'bg-success-200 text-success-900',
   payment_matched: 'bg-success-100 text-success-800',
   payment_rejected: 'bg-danger-100 text-danger-800',
+  order_payment_reminder: 'bg-terracotta/15 text-terracotta-700',
+  order_payment_expired: 'bg-ink/15 text-ink/70',
   payment_refunded: 'bg-violet-100 text-violet-800',
   // Amber matches the "still pending · action needed" register used by
   // payment_status='pending' (PAYMENT_STATUS_TONE in lib/orders.ts) — the

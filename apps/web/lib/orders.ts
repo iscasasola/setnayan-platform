@@ -75,6 +75,9 @@ export type OrderRow = {
   admin_notes: string | null;
   created_at: string;
   updated_at: string;
+  /** When an unpaid order cancels itself — see lib/order-payment-window.ts. */
+  payment_due_at: string;
+  payment_reminder_sent_at: string | null;
 };
 
 export type PaymentRow = {
@@ -100,7 +103,7 @@ export type PaymentRow = {
 };
 
 const ORDER_SELECT =
-  'order_id,public_id,event_id,user_id,service_key,description,requested_total_php,confirmed_total_php,status,reference_code,admin_notes,created_at,updated_at';
+  'order_id,public_id,event_id,user_id,service_key,description,requested_total_php,confirmed_total_php,status,reference_code,admin_notes,created_at,updated_at,payment_due_at,payment_reminder_sent_at';
 
 /**
  * PostgREST `.or()` predicate that DROPS vendor-payer orders from a couple /

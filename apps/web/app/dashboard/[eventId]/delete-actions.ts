@@ -9,6 +9,8 @@ import {
   confirmationMatches,
   deletionIsBlocked,
 } from '@/lib/event-deletion-gate';
+import { emitNotification } from '@/lib/notification-emit';
+import { UNPAID_ORDER_STATUSES } from '@/lib/order-payment-window';
 
 /**
  * delete-actions.ts — removing a celebration for good.
@@ -350,6 +352,57 @@ export async function deleteOwnEvent(formData: FormData): Promise<DeleteResult> 
     The delete uses the admin client with the membership check above as the
     authorization — the house pattern named in `archive-actions.ts`.
   */
+  /*
+    🚨 CANCEL THE UNPAID ORDERS FIRST, OR THEY OUTLIVE THE EVENT INVISIBLY.
+
+    `orders.event_id` is ON DELETE SET NULL, so deleting an event does not take
+    its orders with it — it DETACHES them. The order stays alive, still
+    "submitted", still owing money, with its event link wiped. And a buyer's
+    only route to an order is `/dashboard/<eventId>/orders/<orderId>`, with no
+    account-level orders page anywhere — so the customer keeps the debt and
+    loses the one screen naming the amount, the reference and where to send it,
+    while the order sits in the admin queue attached to nothing.
+
+    Not hypothetical: this happened in production on 2026-08-20 to a real ₱499
+    order, and is what surfaced the whole unpaid-order window.
+
+    The gate above deliberately does NOT block on an unpaid order — that would
+    trap somebody who just wants a test celebration gone — so the honest move is
+    the one the owner chose for expiry: CANCEL it, never orphan it. Same verb,
+    same reason, and the buyer is told.
+
+    Idempotent + race-safe through the status filter, exactly like the sweep.
+  */
+  const { data: strandedOrders, error: strandErr } = await createAdminClient()
+    .from('orders')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .in('status', UNPAID_ORDER_STATUSES as unknown as string[])
+    .select('order_id, public_id, user_id');
+
+  if (strandErr) {
+    // Non-fatal by choice: refusing to delete because a tidy-up failed would
+    // strand the PERSON instead of the order. Logged so the drift is visible.
+    console.error('[delete-event] could not cancel unpaid orders', strandErr);
+  } else {
+    for (const row of (strandedOrders ?? []) as {
+      public_id: string | null;
+      user_id: string | null;
+    }[]) {
+      if (!row.user_id) continue;
+      await emitNotification({
+        userId: row.user_id,
+        type: 'order_payment_expired',
+        title: `Order ${row.public_id ?? ''} was cancelled with the celebration`.trim(),
+        body:
+          'You removed the celebration this order belonged to, so the order has been ' +
+          'cancelled. Nothing has been charged. If you have already sent payment, tell ' +
+          'us and we will sort it out.',
+        relatedUrl: null,
+      });
+    }
+  }
+
   const { data, error } = await createAdminClient()
     .from('events')
     .delete()

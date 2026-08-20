@@ -89,8 +89,13 @@ test('every source this file inspects is real and non-trivial', () => {
 test('each URL lights the row a person would point at', () => {
   const cases: Array<[url: string, expected: string | null]> = [
     ['/', 'home'],
-    ['/realstories', 'stories'],
-    ['/realstories/a-wedding-in-cavite', 'stories'],
+    // THE HUB LIGHTS NOTHING, ON PURPOSE (owner 2026-08-20). Stories folded
+    // into the chips over the feed and the rail's row was retired, so
+    // `/realstories` belongs to no row and `null` is the honest answer —
+    // "no row lit", never a fallback to Home. Both are pinned so that
+    // re-adding a row without a resolver entry (or the reverse) fails here.
+    ['/realstories', null],
+    ['/realstories/a-wedding-in-cavite', null],
     ['/explore', 'find'],
     ['/dashboard', 'events'],
     ['/dashboard/library', 'alaala'],
@@ -231,10 +236,26 @@ test('every rail row that can be a page is declared to the resolver', () => {
   // A row rendered but never declared can never light: silent, and it looks
   // exactly like a rail that simply does not highlight that page.
   const declared = new Set(ROWS.map((r) => r.href));
-  for (const href of ['/', '/realstories', '/explore', '/dashboard', '/dashboard/library',
+  for (const href of ['/', '/explore', '/dashboard', '/dashboard/library',
     '/dashboard/creator', '/vendor-dashboard', '/admin']) {
     assert.ok(declared.has(href), `${href} is rendered as a row but never declared to the resolver`);
   }
+  // AND THE INVERSE, which is the half a hand-written list always forgets: a
+  // declared row that nothing renders can never light either, and it reads as
+  // a resolver bug rather than as a missing row. `/realstories` was retired as
+  // a destination on 2026-08-20 and must be absent from BOTH sides.
+  assert.ok(
+    !declared.has('/realstories'),
+    'the resolver still declares /realstories, but the rail renders no such ' +
+      'row — one half of the retirement was reverted without the other.',
+  );
+  assert.ok(
+    !/<Link href="\/realstories"/.test(SHELL),
+    'the rail rendered a Stories destination again. Stories is a CHIP over ' +
+      'the feed (owner 2026-08-20); the row was a second door to the shelf ' +
+      'directly below it. If it is genuinely coming back, declare it to the ' +
+      'resolver in the same commit.',
+  );
 });
 
 /* ── 3 · ONE CHROME AT A TIME ─────────────────────────────────────────── */

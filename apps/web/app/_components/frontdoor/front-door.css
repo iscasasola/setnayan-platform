@@ -1048,6 +1048,21 @@ h2.fd-sechead,
   font-size: 11.5px;
   color: var(--fd-m3);
 }
+/* THE SHELF HEADING IS A DOOR (2026-08-20). It replaces the rail's retired
+   "Stories" row as the front page's one permanent link to the hub, so it must
+   read as a heading first and reveal itself as a link on hover/focus —
+   inheriting the heading's own weight and size rather than declaring its own.
+   ⚠ `color: inherit` is deliberate: the link colour token would repaint an
+   <h2> mid-sentence and the badge beside it would no longer match. */
+.fd-sechead-go {
+  color: inherit;
+  text-decoration: none;
+}
+.fd-sechead-go:hover,
+.fd-sechead-go:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .fd-badge {
   width: 22px;
   height: 22px;

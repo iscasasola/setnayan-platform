@@ -124,6 +124,26 @@ export type SiteBodyPlan = {
   greetingShouldRender: boolean;
   qrCardShouldRender: boolean;
   rsvpShouldRender: boolean;
+  /**
+   * The guest list is finalized — the invitation is closed (owner 2026-08-20:
+   * the invitation "will only show while the guest list is not yet
+   * finalized").
+   *
+   * 🔑 THIS IS DELIBERATELY *NOT* ANDed INTO `rsvpShouldRender`. That flag
+   * gates the whole RSVP SECTION, and the section is also where a guest who
+   * already replied finds their keepsake ticket — their seat, their standing,
+   * the thing the run-up is for. The list finalizes ~2 weeks before the day,
+   * so closing the section would delete that ticket in exactly the fortnight
+   * it matters most. What closes is the ASK (`rsvpAskOpen`), never the answer.
+   */
+  guestListClosed: boolean;
+  /**
+   * May the RSVP FORM render? `rsvpShouldRender && !guestListClosed`. False
+   * closes both the open ask and the quiet "need to change your reply?"
+   * drawer — after the deadline that drawer is an offer the guest list will
+   * refuse.
+   */
+  rsvpAskOpen: boolean;
   /** Guest-tree hideable widgets in display order — old InvitationSite:
    *  `visibleHideableWidgets(widgets).filter(w => !phasesEnabled ||
    *   widgetInPhase(w.widget_type, lifecyclePhase))`. */
@@ -199,6 +219,16 @@ export function resolveSiteBodyPlan(input: {
    */
   openBrowse?: boolean;
   /**
+   * `guestListIsClosed(...)` for this event — the guest-list edit deadline has
+   * passed (or the finalize stamp is already written), so the count is frozen
+   * and `guard_guest_edits_when_locked` refuses changes.
+   *
+   * Optional and defaulting to FALSE so every existing caller and golden test
+   * stays byte-identical while absent — the same posture `weddingOnlyParts`
+   * took. Only the guest tree passes it.
+   */
+  guestListClosed?: boolean;
+  /**
    * Per-widget content presence for the shared `hasContent` predicate
    * (open-browse only). A widget the couple kept visible but that has no
    * content this event (e.g. `schedule` with zero public blocks) is dropped
@@ -221,6 +251,7 @@ export function resolveSiteBodyPlan(input: {
     widgets,
     weddingOnlyParts,
     openBrowse = false,
+    guestListClosed = false,
     content = {},
   } = input;
 
@@ -338,6 +369,8 @@ export function resolveSiteBodyPlan(input: {
     greetingShouldRender,
     qrCardShouldRender,
     rsvpShouldRender,
+    guestListClosed,
+    rsvpAskOpen: rsvpShouldRender && !guestListClosed,
     hideableInOrder,
     publicSafeWidgets,
     // Guests always see live media; an anonymous viewer only when the couple

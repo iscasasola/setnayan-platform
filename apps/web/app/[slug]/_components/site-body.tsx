@@ -89,6 +89,7 @@ import {
   type LifecyclePhase,
 } from '@/lib/invitation-widgets';
 import { resolveSiteBodyPlan } from '@/lib/site-body-plan';
+import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { buildAfterEventMemento } from '@/lib/pahina-memento';
 import { OwnerRibbon } from './owner-ribbon';
@@ -114,6 +115,7 @@ import { HideableWidgetRender } from './hideable-widget-render';
 import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
 import { RsvpWidget } from './rsvp-widget';
+import { RsvpClosedNote } from './rsvp-closed-note';
 import { PahinaKeepsake } from './pahina-keepsake';
 import { WatchLiveBlock } from './watch-live-block';
 import { SpotlightCard } from './spotlight-card';
@@ -489,6 +491,15 @@ export async function SiteBody({
     liveMediaPublic: Boolean(event.live_media_public),
     widgets,
     openBrowse: Boolean(event.website_open_browse),
+    // Is the invitation still open? The couple's guest-list deadline decides
+    // (owner 2026-08-20). Read, never written — a public page load must not
+    // stamp anything, so this asks the DEADLINE rather than waiting for the
+    // lazy finalize write on the couple's own roster.
+    guestListClosed: guestListIsClosed({
+      lockedAt: event.guest_count_locked_at,
+      editDeadline: event.guest_list_edit_deadline,
+      eventDate: event.event_date,
+    }),
     content: openBrowseContent,
   });
 
@@ -1128,7 +1139,7 @@ export async function SiteBody({
               guests. Shows RSVP status, seat, meal, and next schedule item at
               a glance on every return visit. Hidden from anonymous visitors
               (this branch only runs when a guest session is present). */}
-          <GuestHubCard words={clientWords} data={guestHubData} />
+          <GuestHubCard words={clientWords} data={guestHubData} guestListClosed={plan.guestListClosed} />
 
           {/* Invite/Join v2 — accountless guest's "claim your account" prompt.
               Per the lifecycle table: RSVP / Event / Editorial only (never Save the
@@ -1661,22 +1672,30 @@ export async function SiteBody({
                         </p>
                       </section>
                     )}
-                    <details className="group">
-                      <summary className="cursor-pointer list-none font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50 hover:text-ink/70">
-                        Need to change your reply?
-                      </summary>
-                      <div className="mt-4">
-                        <RsvpWidget words={clientWords}
-                          guest={guest}
-                          eventId={event.event_id}
-                          eventPublicId={event.public_id}
-                          faceMode={faceMode}
-                          flash={rsvpFlash}
-                        />
-                      </div>
-                    </details>
+                    {plan.rsvpAskOpen ? (
+                      <details className="group">
+                        <summary className="cursor-pointer list-none font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50 hover:text-ink/70">
+                          Need to change your reply?
+                        </summary>
+                        <div className="mt-4">
+                          <RsvpWidget words={clientWords}
+                            guest={guest}
+                            eventId={event.event_id}
+                            eventPublicId={event.public_id}
+                            faceMode={faceMode}
+                            flash={rsvpFlash}
+                          />
+                        </div>
+                      </details>
+                    ) : (
+                      /* The list is final. The drawer went with it — offering a
+                         change the guest list will refuse is worse than not
+                         offering one. Their answer, seat and keepsake above are
+                         untouched. */
+                      <RsvpClosedNote words={clientWords} replied flash={rsvpFlash} />
+                    )}
                   </>
-                ) : (
+                ) : plan.rsvpAskOpen ? (
                   /* pending + maybe: the ask stays exactly as it is. "Maybe"
                      deliberately keeps the full card visible (design §11) — an
                      undecided guest still has a question to answer. */
@@ -1687,6 +1706,14 @@ export async function SiteBody({
                     faceMode={faceMode}
                     flash={rsvpFlash}
                   />
+                ) : (
+                  /* Never answered, and the door has shut. The form is gone —
+                     but SILENCE here is the one thing we must not do: this is
+                     the page's load-bearing ask, and a guest who arrives to
+                     find nothing where "will you come?" should be reads it as
+                     a broken invitation, not a closed one. One line, and it
+                     points them at the person who can still help. */
+                  <RsvpClosedNote words={clientWords} replied={false} flash={rsvpFlash} />
                 )
               ) : null}
 

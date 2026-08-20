@@ -198,9 +198,18 @@ export function pickNextScheduleBlock(
 export function GuestHubCard({
   data,
   words,
+  guestListClosed = false,
 }: {
   data: GuestHubData;
   words: EventWords;
+  /**
+   * The guest list is final (owner 2026-08-20). Drops the "Please confirm
+   * you're coming" nudge — after the deadline there is nothing to confirm
+   * with, so the nudge asks for a thing the guest can no longer do and the
+   * database would refuse. Their status line stays; only the instruction goes.
+   * Defaults FALSE so every existing mount is unchanged.
+   */
+  guestListClosed?: boolean;
 }) {
   const { firstName, displayName, rsvpStatus, tableLabel, mealPreference, dietaryRestrictions, nextScheduleBlock, slug, isLimitedPlusOne, arrived } = data;
   // Day-of arrival: once the guest has checked in at the door AND has a seat,
@@ -291,7 +300,9 @@ export function GuestHubCard({
                 <span className="mt-0.5 text-xs text-ink/70">Your place is reserved.</span>
               ) : rsvpStatus === 'pending' ? (
                 <span className="mt-0.5 text-xs text-ink/70">
-                  Please confirm you&apos;re coming.
+                  {guestListClosed
+                    ? 'Replies are closed.'
+                    : 'Please confirm you\u2019re coming.'}
                 </span>
               ) : null}
             </div>

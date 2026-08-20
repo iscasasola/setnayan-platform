@@ -153,8 +153,13 @@ export default async function SamahanSpacePage({
           </div>
         </div>
         <p className="mt-3 font-mono text-xs text-ink/55">
-          {community.member_count}{' '}
-          {community.member_count === 1 ? 'member' : 'members'} · {events.length}{' '}
+          {/* The reader is BY DEFINITION a member of this Samahan, so "0
+              members" is a number they can personally disprove. When the count
+              was refused, say nothing rather than a figure. */}
+          {community.member_count_measured === false
+            ? 'Members not loaded'
+            : `${community.member_count} ${community.member_count === 1 ? 'member' : 'members'}`}{' '}
+          · {events.length}{' '}
           {events.length === 1 ? 'event' : 'events'}
         </p>
       </div>

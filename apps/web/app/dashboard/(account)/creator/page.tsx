@@ -162,7 +162,7 @@ async function CreatorBody({
   slug: string | null;
   publicProfileEnabled: boolean;
 }) {
-  const [{ data }, inbox, myEvents] = await Promise.all([
+  const [{ data, error: chaptersError }, inbox, myEvents] = await Promise.all([
     supabase
       .from('creator_chapters')
       .select(
@@ -173,6 +173,9 @@ async function CreatorBody({
     fetchCreatorInbox(supabase, userId),
     loadLinkableEvents(userId),
   ]);
+  // `?? []` cannot tell "you have written none" from "we could not read
+  // them" — and one of those is a statement about somebody's own work.
+  const chaptersMeasured = !chaptersError;
   const chapters = (data ?? []) as ChapterRow[];
   const publishedChapters = chapters.filter((c) => c.status === 'published');
 
@@ -209,7 +212,13 @@ async function CreatorBody({
       </section>
 
       <section className="space-y-4">
-        <h2 className="sn-sec">Your chapters ({chapters.length})</h2>
+        {/* A count over somebody's published work. `?? []` cannot tell "you
+            have written none" from "we could not read them", so the heading
+            drops the number rather than reporting zero chapters to an author
+            who has some. */}
+        <h2 className="sn-sec">
+          {chaptersMeasured ? `Your chapters (${chapters.length})` : 'Your chapters'}
+        </h2>
         {chapters.length === 0 ? (
           <div className="sn-tile border-dashed p-8 text-center">
             <Clapperboard

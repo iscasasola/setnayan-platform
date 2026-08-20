@@ -74,6 +74,22 @@ export type YearMoment = {
    * holiday is NOT self-owned — Christmas is a date, not a fact about you.
    */
   forSelf?: boolean;
+  /**
+   * Create-flow context, meaningful only when `eventId` is null: the age this
+   * birthday turns, when the moment is a BIRTHDAY and the age is therefore a
+   * fact rather than a guess. Null on every other kind.
+   *
+   * 🔑 IT IS ALREADY COMPUTED AND WAS ALREADY ON SCREEN — the label two lines
+   * up says "turning 40" — and the create flow then asked the reader which age
+   * bracket their birthday was in. Owner, 2026-08-20: "it also knows my
+   * birthday to be 40th. why do i get asked for this?" Carrying the number is
+   * the whole answer; nothing new is derived anywhere.
+   *
+   * ⚠ Never widen this to a birth DATE. The age is what the wizard needs, and a
+   * birth date is the more sensitive of the two — the moment carry deliberately
+   * moves the smallest fact that answers the question.
+   */
+  age?: number | null;
   /** TRUE = gets a proactive nudge; ordinary years stay quiet lines. */
   isMilestone: boolean;
   tier: NudgeTier;
@@ -485,6 +501,7 @@ export function buildSelfMoments(
       // person it can only ever be about.
       createEventType: 'birthday',
       forSelf: true,
+      age: next.age,
       isMilestone,
       tier: leadTimeFor('birthday', isMilestone ? next.age : null).tier,
     },

@@ -304,6 +304,7 @@ function MomentCard({ moment: m, highlight = false }: { moment: YearMoment; high
   // instead of asking for them again.
   return (
     <StartPlanningLink
+      age={m.age ?? null}
       celebrationISO={m.dateISO}
       className="sn-press block"
       forSelf={m.forSelf === true}

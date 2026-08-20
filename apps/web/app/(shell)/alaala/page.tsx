@@ -56,6 +56,12 @@ import {
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
 const PAGE_TITLE = 'Alaala — A New Way to Remember · Setnayan';
+/** The document title ONLY. `metadata.title` is rendered through the root
+ *  layout's `template: '%s · Setnayan'`, so a PAGE_TITLE that already ends in
+ *  the brand came out as "… · Setnayan · Setnayan" on 11 live pages. The share
+ *  cards and the structured-data name do NOT go through that template and are
+ *  correct WITH the brand — which is why this strips it here and nowhere else. */
+const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION =
   'Alaala brings together everything you create on Setnayan — Papic, Live Studio, your Event Hub, your 3D plan, and your monogram — into one living memory you can open any time: your life-events collection, gathered as you go. A new way to remember, for every event you’ll ever hold.';
 const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
@@ -72,7 +78,7 @@ const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 */
 
 export const metadata = {
-  title: PAGE_TITLE,
+  title: DOC_TITLE,
   description: PAGE_DESCRIPTION,
   alternates: { canonical: '/alaala' },
   keywords: [

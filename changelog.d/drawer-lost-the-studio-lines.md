@@ -40,6 +40,13 @@ outcome; only the drawer changed.
 ⚠ Reasons about the stylesheet, not about rendered pixels. It proves which
 declaration wins. The live symptom is what established the bug.
 
+🪤 **AND THE GUARD ITSELF FAILED TYPECHECK ON THE FIRST PUSH.** Under
+`noUncheckedIndexedAccess` a regex capture group is `string | undefined` even
+when the match succeeded, so `parseFloat(mx[1])` does not compile. Read into a
+local and checked. Behaviour re-measured afterwards and unchanged — the drawer
+still resolves `display: revert`, the strip still `none`, the full rail still
+visible. **The evaluator was right; only its types were wrong.**
+
 Not verified locally: no `node_modules` in this checkout and `npm run build`
 cannot complete on this machine. Typecheck, lint and the unit run are CI's.
 

@@ -89,10 +89,12 @@ function parse(raw: string): Rule[] {
 function applies(media: string[], w: number): boolean {
   return media.every((m) => {
     if (!m.startsWith('@media')) return true;
-    const mx = m.match(/max-width:\s*([\d.]+)px/);
-    const mn = m.match(/min-width:\s*([\d.]+)px/);
-    if (mx && w > parseFloat(mx[1])) return false;
-    if (mn && w < parseFloat(mn[1])) return false;
+    // `noUncheckedIndexedAccess` — a capture group is `string | undefined`
+    // even when the match succeeded, so read it into a local and check it.
+    const mx = m.match(/max-width:\s*([\d.]+)px/)?.[1];
+    const mn = m.match(/min-width:\s*([\d.]+)px/)?.[1];
+    if (mx !== undefined && w > parseFloat(mx)) return false;
+    if (mn !== undefined && w < parseFloat(mn)) return false;
     return true;
   });
 }

@@ -1832,11 +1832,32 @@ function EventAttention({
 }) {
   if (!summary || summary.total <= 0 || !summary.top) return null;
   if (stance === 'invited') return null;
+  /*
+    🔴 THE TOTAL IS ONLY SHOWN WHEN IT SAYS SOMETHING THE LABEL DOES NOT.
+
+    Owner, looking at his own home screen: the card read
+    **"9 need you · 9 tasks overdue"** — nine, twice.
+
+    This is the second costume of the bug fixed the day before. That one was
+    "9 3 payments to settle", where the two numbers DIFFERED and ran together
+    with nothing between them. The noun ("need you") fixed the collision but not
+    the REPETITION: when everything waiting is a single kind, the total and the
+    top action's count are the same number, and the pill states it twice.
+
+    `summarizeEventDecisions` always returns a count-led label, so when
+    `total === top.count` the label alone is the whole truth — "9 tasks overdue"
+    says how many AND what. The total earns its place only when it is larger,
+    i.e. when other kinds are waiting that the label cannot name.
+
+    🔑 A SUMMARY THAT REPEATS ITSELF READS AS A BUG EVEN WHEN THE NUMBER IS
+    RIGHT. The owner did not have to check anything to see it was wrong.
+  */
+  const otherKinds = Math.max(0, summary.total - summary.top.count);
   return (
     <AttentionPill
-      count={summary.total}
+      count={otherKinds > 0 ? summary.total : undefined}
       label={summary.top.label}
-      more={Math.max(0, summary.total - summary.top.count)}
+      more={0}
     />
   );
 }

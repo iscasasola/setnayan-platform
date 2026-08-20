@@ -288,3 +288,26 @@ test('the removal dialog counts only guests the couple can actually see', () => 
       'name more people than the couple has ever seen on their own list.',
   );
 });
+
+test('the pill never says the same number twice', () => {
+  const src = stripComments(read(LAUNCHER));
+  // 🔴 THE OWNER SAW "9 need you · 9 tasks overdue" ON HIS OWN HOME SCREEN.
+  // summarizeEventDecisions always returns a COUNT-LED label, so when the total
+  // equals the top action's count — everything waiting is one kind — printing
+  // the total as well states the same number twice.
+  //
+  // The total is passed ONLY when other kinds are also waiting, i.e. when it is
+  // strictly larger than the top count and therefore says something the label
+  // cannot.
+  assert.match(
+    src,
+    /const otherKinds = Math\.max\(0, summary\.total - summary\.top\.count\);/,
+    'The pill lost the test that decides whether the total adds anything.',
+  );
+  assert.match(
+    src,
+    /count=\{otherKinds > 0 \? summary\.total : undefined\}/,
+    'The total is being passed unconditionally again — a card with one kind of ' +
+      'thing waiting will read "9 need you · 9 tasks overdue".',
+  );
+});

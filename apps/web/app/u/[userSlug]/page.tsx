@@ -13,6 +13,7 @@ import { ProfileShareButton } from '@/app/_components/profile-share-button';
 import { CreatorBadge } from '@/app/_components/creator-badge';
 import { CreatorTierChip } from '@/app/_components/creator-tier-chip';
 import {
+  chapterExcerpt,
   CHAPTER_KIND_LABEL,
   EMBED_PROVIDER_LABEL,
   youtubeThumbFromEmbedUrl,
@@ -23,6 +24,8 @@ import {
   type PublicChapter,
 } from '@/lib/creator-public';
 import { chronicleDay, groupChronicleByYear } from '@/lib/creator-chronicle';
+import { weighYearWithFloor, type ChapterWeight } from '@/lib/chapter-weight';
+import { loadChapterPictures, type ChapterPicture } from '@/lib/chapter-picture';
 import {
   fetchCreatorInfluence,
   type CreatorInfluenceVendor,
@@ -175,9 +178,14 @@ export default async function AccountProfilePage({ params }: Props) {
   // The chronicle is ordered by the day each celebration HAPPENED, so the
   // timeline needs those days. Only read when there is something to place, and
   // only for chapters that name a celebration.
-  const chapterEventDays = hasChapters
-    ? await loadChapterEventDays(chapters.map((c) => c.event_id))
-    : new Map<string, string>();
+  const [chapterEventDays, chapterPictures] = hasChapters
+    ? await Promise.all([
+        loadChapterEventDays(chapters.map((c) => c.event_id)),
+        // The photographs. One snapshot per celebration, not per chapter — see
+        // lib/chapter-picture.ts for why that distinction is the whole cost.
+        loadChapterPictures(chapters),
+      ])
+    : [new Map<string, string>(), new Map<string, ChapterPicture>()];
 
   // Creator "influence" — accepted vendor partnerships (aggregate, public). Only
   // relevant for a creator profile; never exposes the offer terms or the graph,
@@ -396,6 +404,7 @@ export default async function AccountProfilePage({ params }: Props) {
           <ChapterTimeline
             chapters={chapters}
             eventDays={chapterEventDays}
+            pictures={chapterPictures}
             slug={canonicalSlug}
           />
         ) : null}
@@ -459,11 +468,15 @@ function formatChapterDate(iso: string | null): string | null {
 function ChapterTimeline({
   chapters,
   eventDays,
+  pictures,
   slug,
 }: {
   chapters: PublicChapter[];
   /** event_id → the day it happened, for the chapters that name a celebration. */
   eventDays: Map<string, string>;
+  /** chapter_id → its public-safe photograph. Absent = no picture, which is a
+   *  smaller chapter rather than a broken one. */
+  pictures: Map<string, ChapterPicture>;
   slug: string;
 }) {
   // THE CHRONICLE — the year is the season, the chapter is the episode, and the
@@ -490,96 +503,147 @@ function ChapterTimeline({
 
   return (
     <section className="uprof-tl" aria-label="Chapters">
-      <h2 className="m-serif uprof-tl-head">Chapters</h2>
-      {blocks.map((block) => (
-        <div key={block.year ?? 'unplaced'}>
-          {/* THE YEAR IS THE SEASON, and it is written as its own name.
-              ⛔ NEVER as the words "Your year" — that is a DIFFERENT page one
-              click away in the same menu, which looks FORWARD at what is coming;
-              this looks back at what happened. Same words on two things is the
-              failure the Event Hub vocabulary lock exists to prevent. */}
-          {block.year ? (
-            <p className="uprof-tl-year m-serif">{block.year}</p>
-          ) : null}
-          <ol className="uprof-tl-list">
-        {block.entries.map(({ item: c, index: i, number: n }) => {
-          // The day the chapter is ABOUT — the celebration's, when it has one.
-          const date = formatChapterDate(days[i] ?? c.published_at);
-          const isLatest = i === newestIndex && showLatest;
-          // Poster: the newest DATED chapter only, and only when the stored
-          // embed is the canonical YouTube shape. An Instagram / TikTok chapter
-          // derives null and falls back to the shipped compact text card —
-          // never a grey frame with a play button over nothing.
-          const poster =
-            i === newestIndex ? youtubeThumbFromEmbedUrl(c.embed_url) : null;
-          return (
-            <li key={c.chapter_id} className="uprof-tl-item">
-              <span aria-hidden className="uprof-tl-dot" />
-              <Link href={`/u/${slug}/c/${c.public_id}`} className="uprof-tl-card">
-                {poster ? (
-                  <span className="uprof-tl-poster">
-                    {/* A dead thumb (deleted / private / age-gated video) cannot
-                        be detected server-side without a network fetch, so the
-                        frame carries its own ivory background and the img an
-                        empty alt: it degrades to a neutral panel, not a broken
-                        glyph. The card still links to the chapter page, where
-                        the sandboxed embed shows the real reason. */}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={poster}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      referrerPolicy="no-referrer"
-                      className="uprof-tl-poster-img"
-                    />
-                    <span aria-hidden className="uprof-tl-play">
-                      <Play
-                        className="uprof-tl-play-icon"
-                        fill="currentColor"
-                        strokeWidth={0}
-                      />
-                    </span>
-                    {c.embed_provider ? (
-                      <span className="uprof-tl-on">
-                        on {EMBED_PROVIDER_LABEL[c.embed_provider]}
-                      </span>
-                    ) : null}
-                  </span>
-                ) : null}
-                <span className="uprof-tl-card-body">
-                  <span className="uprof-tl-kicker">
-                    {n !== null ? (
-                      <span className="uprof-tl-num">
-                        Chapter {n}
-                        {isLatest ? ' · Latest' : ''}
-                      </span>
-                    ) : null}
-                    <span className="uprof-tl-kind">{CHAPTER_KIND_LABEL[c.kind]}</span>
-                    {date ? <span className="uprof-tl-date">{date}</span> : null}
-                    <span className="uprof-tl-views">
-                      {formatAudienceCount(c.view_count)}{' '}
-                      {c.view_count === 1 ? 'view' : 'views'}
-                    </span>
-                  </span>
-                  <span className="m-serif uprof-tl-title">{c.title}</span>
-                  <span className="uprof-tl-cue">
-                    {/* "Watch" was hardcoded, so a story told in WRITING was
-                        advertised to every visitor as a video they could
-                        watch. The cue follows what the chapter actually is. */}
-                    {c.embed_url ? 'Watch the chapter' : 'Read the chapter'}
-                    <span aria-hidden className="uprof-tl-chev">
-                      &rsaquo;
-                    </span>
-                  </span>
+      {blocks.map((block) => {
+        // 🔑 THE SIZE IS DERIVED, NEVER CHOSEN. A wedding takes the width, a
+        // Tuesday takes a line — and it happens without anybody art-directing
+        // it, which is the only reason it keeps happening after the first week.
+        // See lib/chapter-weight.ts.
+        const weights = weighYearWithFloor(
+          block.entries.map(({ item, index }) => ({
+            hasPicture: pictures.has(item.chapter_id),
+            hasWriting: !!chapterExcerpt(item.body, 200),
+            _i: index,
+          })),
+        );
+        return (
+          <div key={block.year ?? 'unplaced'} className="uprof-yr">
+            {/* THE YEAR IS THE SEASON, and it is written as its own name.
+                ⛔ NEVER as the words "Your year" — that is a DIFFERENT page one
+                click away in the same menu, which looks FORWARD at what is
+                coming; this looks back at what happened. Same words on two
+                things is the failure the Event Hub vocabulary lock exists to
+                prevent. */}
+            {block.year ? (
+              <p className="uprof-yr-mark">
+                <span className="uprof-yr-n">{block.year}</span>
+                <span aria-hidden className="uprof-yr-rule" />
+                <span className="uprof-yr-c">
+                  {block.entries.length === 1 ? '1 chapter' : `${block.entries.length} chapters`}
                 </span>
-              </Link>
-            </li>
-          );
-        })}
-          </ol>
-        </div>
-      ))}
+              </p>
+            ) : null}
+            <ol className="uprof-list">
+              {block.entries.map(({ item: c, index: i, number: n }, k) => {
+                const weight: ChapterWeight = weights[k] ?? 'line';
+                // The day the chapter is ABOUT — the celebration's, when it has one.
+                const date = formatChapterDate(days[i] ?? c.published_at);
+                const isLatest = i === newestIndex && showLatest;
+                const pic = pictures.get(c.chapter_id) ?? null;
+                const kicker = [
+                  n !== null ? `Chapter ${n}` : null,
+                  CHAPTER_KIND_LABEL[c.kind],
+                  date,
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
+
+                // ── A LINE. No picture, no writing: a title and a date. It is
+                // not a lesser chapter, it is a shorter one.
+                if (weight === 'line') {
+                  return (
+                    <li key={c.chapter_id} className="uprof-line">
+                      <Link href={`/u/${slug}/c/${c.public_id}`} className="uprof-line-a">
+                        <span className="uprof-line-d">{date ?? ''}</span>
+                        <span className="uprof-line-t">{c.title}</span>
+                      </Link>
+                    </li>
+                  );
+                }
+
+                // ── THE LEAD. A photograph, the title, one sentence.
+                // ⚠ ONE SENTENCE, NOT AN ESSAY. The research bride has "two
+                // sentences and four hundred photographs" — a slot built for a
+                // long read is the slot she is least able to fill, on the most
+                // prominent part of her own page.
+                if (weight === 'lead') {
+                  return (
+                    <li key={c.chapter_id} className="uprof-lead">
+                      <Link href={`/u/${slug}/c/${c.public_id}`} className="uprof-lead-a">
+                        {pic ? (
+                          <span className="uprof-lead-img">
+                            {/* A dead or expired image cannot be detected
+                                server-side without a fetch, so the frame carries
+                                its own ground and the img an empty alt: it
+                                degrades to a neutral panel, never a broken
+                                glyph. */}
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={pic.url}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                              referrerPolicy="no-referrer"
+                              className="uprof-img"
+                            />
+                            {pic.count > 1 ? (
+                              <span className="uprof-count">{pic.count} photos</span>
+                            ) : null}
+                            {c.embed_url ? (
+                              <span aria-hidden className="uprof-play">
+                                <Play className="uprof-play-i" fill="currentColor" strokeWidth={0} />
+                              </span>
+                            ) : null}
+                          </span>
+                        ) : null}
+                        <span className="uprof-lead-b">
+                          <span className="uprof-k">
+                            {kicker}
+                            {isLatest ? ' · Latest' : ''}
+                          </span>
+                          <span className="uprof-lead-t">{c.title}</span>
+                          <span className="uprof-lead-x">{chapterExcerpt(c.body, 190)}</span>
+                          <span className="uprof-cue">
+                            {c.embed_url ? 'Watch the chapter' : 'Read the chapter'} &rarr;
+                          </span>
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                }
+
+                // ── MEDIUM. A strip: a small picture when there is one, the
+                // title, and whichever of the two it actually has.
+                return (
+                  <li key={c.chapter_id} className="uprof-med">
+                    <Link href={`/u/${slug}/c/${c.public_id}`} className="uprof-med-a">
+                      {pic ? (
+                        <span className="uprof-med-img">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={pic.url}
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
+                            referrerPolicy="no-referrer"
+                            className="uprof-img"
+                          />
+                        </span>
+                      ) : null}
+                      <span className="uprof-med-b">
+                        <span className="uprof-k">{kicker}</span>
+                        <span className="uprof-med-t">{c.title}</span>
+                        {chapterExcerpt(c.body, 110) ? (
+                          <span className="uprof-med-x">{chapterExcerpt(c.body, 110)}</span>
+                        ) : null}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        );
+      })}
     </section>
   );
 }
@@ -643,7 +707,7 @@ const UPROF_CSS = `
     gap: 0.9rem;
     padding: 0.95rem 1.1rem;
     border: 1px solid color-mix(in srgb, var(--m-ink, #1B1A17) 12%, transparent);
-    /* The same token as .uprof-card and .uprof-tl-card — a shared day is a card
+    /* The same token as .uprof-card — a shared day is a card
        in the same stack, so it must not round differently from its neighbours. */
     border-radius: var(--m-r-lg, 22px);
     background: color-mix(in srgb, #FFFFFF 60%, transparent);
@@ -916,174 +980,120 @@ const UPROF_CSS = `
   .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink, #1B1A17); }
   .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2, #6A6E76); }
 
+  /* ── THE CHRONICLE, AT THREE SIZES ────────────────────────────────────
+     Scale carries meaning: the chapter with a photograph AND writing takes the
+     width, the one with either takes a strip, the one with neither takes a
+     line. Derived in lib/chapter-weight.ts, never art-directed — the two
+     publications measured with the least per-item authoring both abandoned
+     variation entirely rather than decide it by hand.
+     Measured against the field: Zola ships 1,618 designs and two layouts;
+     Appy Couple's "Stories" is six identical polaroids. Nobody varies. */
+  .uprof-yr { max-width: 660px; margin: 0 auto; }
+  .uprof-yr-mark {
+    display: flex; align-items: center; gap: 12px;
+    margin: clamp(1.9rem, 5vw, 2.6rem) 0 1.05rem;
+  }
+  .uprof-yr-n {
+    font-family: var(--font-sans, system-ui), sans-serif;
+    font-size: 0.82rem; font-weight: 700; letter-spacing: 0.17em;
+    text-transform: uppercase; color: #C24E25;
+  }
+  .uprof-yr-rule { height: 2px; border-radius: 2px; flex: 1; background: var(--m-line, #E2DED4); }
+  .uprof-yr-c {
+    font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--m-slate-2, #6A6E76);
+  }
+  .uprof-list { list-style: none; margin: 0; padding: 0; }
+
+  .uprof-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .uprof-k {
+    display: block; font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #8A6B39; margin: 0 0 0.4rem;
+  }
+
+  /* THE LEAD */
+  .uprof-lead { margin: 0 0 1.15rem; }
+  .uprof-lead-a { display: block; text-decoration: none; color: inherit; }
+  .uprof-lead-img {
+    display: block; position: relative; width: 100%;
+    aspect-ratio: 16 / 10; border-radius: 10px; overflow: hidden;
+    background: var(--m-ivory, #F6F2EA);
+  }
+  .uprof-count, .uprof-play {
+    position: absolute; background: rgba(20, 14, 10, 0.62); color: #fff;
+  }
+  .uprof-count {
+    right: 10px; bottom: 10px; font-size: 0.62rem; letter-spacing: 0.11em;
+    text-transform: uppercase; padding: 4px 9px; border-radius: 999px;
+  }
+  .uprof-play {
+    left: 10px; bottom: 10px; width: 30px; height: 30px; border-radius: 50%;
+    display: grid; place-items: center;
+  }
+  .uprof-play-i { width: 12px; height: 12px; margin-left: 1px; }
+  .uprof-lead-b { display: block; padding: 0.85rem 0 0; }
+  .uprof-lead-t {
+    display: block; font-family: var(--font-editorial-display), Georgia, serif;
+    font-size: clamp(1.35rem, 4vw, 1.75rem); line-height: 1.12; font-weight: 600;
+    color: var(--m-ink, #1B1A17); margin: 0 0 0.45rem;
+  }
+  .uprof-lead-x {
+    display: block; font-size: 0.94rem; line-height: 1.6;
+    color: var(--m-slate-1, #4A4740); margin: 0 0 0.55rem;
+  }
+  .uprof-cue { display: block; font-size: 0.82rem; font-weight: 600; color: #C24E25; }
+
+  /* MEDIUM */
+  .uprof-med { border-top: 1px solid var(--m-line, #E2DED4); }
+  .uprof-med-a {
+    display: flex; gap: 0.85rem; align-items: center; padding: 0.85rem 0;
+    text-decoration: none; color: inherit;
+  }
+  .uprof-med-img {
+    display: block; position: relative; width: 104px; height: 74px; flex: none;
+    border-radius: 7px; overflow: hidden; background: var(--m-ivory, #F6F2EA);
+  }
+  .uprof-med-b { display: block; min-width: 0; }
+  .uprof-med-t {
+    display: block; font-family: var(--font-editorial-display), Georgia, serif;
+    font-size: 1.13rem; line-height: 1.2; font-weight: 600; color: var(--m-ink, #1B1A17);
+  }
+  .uprof-med-x {
+    display: block; font-size: 0.8rem; line-height: 1.5;
+    color: var(--m-slate-2, #6A6E76); margin: 0.25rem 0 0;
+  }
+
+  /* A LINE */
+  .uprof-line { border-top: 1px solid var(--m-line, #E2DED4); }
+  .uprof-line-a {
+    display: flex; gap: 0.9rem; align-items: baseline; padding: 0.7rem 0;
+    text-decoration: none; color: inherit;
+  }
+  .uprof-line-d {
+    font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--m-slate-2, #6A6E76); width: 84px; flex: none;
+  }
+  .uprof-line-t {
+    font-family: var(--font-editorial-display), Georgia, serif;
+    font-size: 1.02rem; line-height: 1.25; color: var(--m-ink, #1B1A17);
+  }
+
+  /* ⛔ THE OLD SPINE IS RETIRED. It gave every chapter the same dot, the same
+     card and the same width — the listing shape the owner rejected. Its rules
+     are deleted rather than left to rot, so nothing can quietly fall back to
+     them. */
+
   /* CP-3 chapter timeline — a spine of dated cards (not a feed). */
   .uprof-tl { margin-top: clamp(2.5rem, 6vw, 3.75rem); }
-  .uprof-tl-head {
-    font-size: clamp(1.4rem, 4vw, 1.9rem);
-    text-align: center;
-    margin: 0 0 clamp(1.5rem, 4vw, 2.25rem);
-    color: var(--m-ink, #1B1A17);
-  }
   /* THE YEAR — the season heading. It sits ON the spine, so a reader scrolling
      back through a life passes a year the way they pass a chapter break in a
      book. Deliberately quiet: it is furniture, not a title. */
-  .uprof-tl-year {
-    max-width: 620px;
-    margin: clamp(1.6rem, 4vw, 2.2rem) auto 0.7rem;
-    padding-left: 1.9rem;
-    font-size: 1.05rem;
-    letter-spacing: 0.04em;
-    color: var(--m-slate-2, #6A6E76);
-  }
-  .uprof-tl-year:first-of-type { margin-top: 0; }
-  .uprof-tl-list {
-    list-style: none;
-    margin: 0 auto;
-    padding: 0;
-    max-width: 620px;
-    position: relative;
-  }
-  .uprof-tl-list::before {
-    content: '';
-    position: absolute;
-    left: 5px;
-    top: 6px;
-    bottom: 6px;
-    width: 1px;
-    background: linear-gradient(var(--m-line, #E2DED4), transparent);
-  }
-  .uprof-tl-item {
-    position: relative;
-    padding-left: 1.9rem;
-  }
-  .uprof-tl-item + .uprof-tl-item { margin-top: 0.9rem; }
-  .uprof-tl-dot {
-    position: absolute;
-    left: 0;
-    top: 1.35rem;
-    width: 11px;
-    height: 11px;
-    border-radius: var(--m-r-full, 999px);
-    background: var(--m-paper, #FBFBFA);
-    border: 2px solid var(--m-orange, #A9834B);
-  }
-  /* E5 — padding + gap moved to .uprof-tl-card-body so the latest chapter's
+  /* E5 — padding + gap moved to the card body so the latest chapter's
      poster can run full-bleed to the card's rounded edge. EVERY card now wraps
      its text in the body span (poster or not), so the two must never be edited
      apart. overflow:hidden is what clips the poster to the radius. */
-  .uprof-tl-card {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    background: #fff;
-    border: 1px solid var(--m-line, #E2DED4);
-    border-radius: var(--m-r-lg, 22px);
-    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
-    text-decoration: none;
-    color: inherit;
-    transition: transform .18s cubic-bezier(.2,.7,.2,1), border-color .18s, box-shadow .18s;
-  }
-  .uprof-tl-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--m-orange, #A9834B);
-    box-shadow: 0 10px 30px -12px rgba(30,26,18,.18);
-  }
-  .uprof-tl-card-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    padding: 1.1rem 1.25rem;
-  }
-  .uprof-tl-poster {
-    position: relative;
-    display: block;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    background: var(--m-ivory, #EDEAE0);
-    overflow: hidden;
-  }
-  .uprof-tl-poster-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .uprof-tl-play {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 52px;
-    height: 52px;
-    border-radius: var(--m-r-full, 999px);
-    background: rgba(253,251,247,.92);
-    color: rgb(var(--color-mulberry, 194 78 37));
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 10px rgba(30,26,18,.18);
-  }
-  .uprof-tl-play-icon { width: 20px; height: 20px; margin-left: 2px; }
   /* Scrim pill. Cream on rgba(44,42,41,.75) composited over the WORST case (a
      pure-white thumbnail) measures 6.20:1 — clears AA with room. */
-  .uprof-tl-on {
-    position: absolute;
-    right: 0.6rem;
-    bottom: 0.6rem;
-    padding: 0.2rem 0.55rem;
-    border-radius: var(--m-r-full, 999px);
-    background: rgba(44,42,41,.75);
-    color: var(--m-paper, #FDFBF7);
-    font-family: var(--font-mono-marketing), ui-monospace, monospace;
-    font-size: 0.62rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  .uprof-tl-num {
-    font-family: var(--font-mono-marketing), 'JetBrains Mono', ui-monospace, monospace;
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--m-orange-2, #8A6B39);
-  }
-  .uprof-tl-kicker {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem 0.75rem;
-  }
-  .uprof-tl-kind {
-    font-family: var(--font-mono-marketing), 'JetBrains Mono', ui-monospace, monospace;
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--m-orange-2, #8A6B39);
-  }
-  .uprof-tl-date {
-    font-size: 0.78rem;
-    color: var(--m-slate-2, #6A6E76);
-  }
-  .uprof-tl-views {
-    font-size: 0.72rem;
-    color: var(--m-slate-2, #6A6E76);
-    opacity: 0.85;
-  }
-  .uprof-tl-title {
-    font-size: clamp(1.15rem, 3vw, 1.4rem);
-    line-height: 1.2;
-    color: var(--m-ink, #1B1A17);
-  }
-  .uprof-tl-cue {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.82rem;
-    color: var(--m-slate, #4F535B);
-  }
-  .uprof-tl-chev {
-    font-size: 1.15rem;
-    line-height: 1;
-    color: var(--m-orange, #A9834B);
-    transition: transform .18s cubic-bezier(.2,.7,.2,1);
-  }
-  .uprof-tl-card:hover .uprof-tl-chev { transform: translateX(3px); }
 
   .uprof-actions {
     display: flex;

@@ -186,7 +186,11 @@ test('the public timeline shows the YEAR, and never says "Your year"', () => {
     'The public timeline is a flat list again — nobody reading a person’s story ' +
       'ever sees a year.',
   );
-  assert.match(profile, /uprof-tl-year/, 'the year heading is gone');
+  // ⚠ The class was renamed when the timeline became three sizes
+  // (uprof-tl-year → uprof-yr-*). The INVARIANT is unchanged: a reader must see
+  // the year. Anchored to the rendered mark, not to the old spine's name.
+  assert.match(profile, /uprof-yr-mark/, 'the year heading is gone');
+  assert.match(profile, /uprof-yr-n/, 'the year itself no longer renders');
   assert.equal(
     count(profile, /Your year/g),
     0,

@@ -767,12 +767,21 @@ test('the retired Stories rail row has not quietly returned', () => {
 });
 
 /* ── ONE SEARCH MAKES ONE PROMISE, SIGNED IN OR OUT ──────────────────────
-   The signed-out box and the signed-in palette open the SAME destination —
-   `/explore?q=` — which has resolved suppliers, stories and guides since
-   2026-08-15. But the palette's row said "Find suppliers for X", so a
-   signed-in person had no reason to press it for a guide and concluded the
-   search could not reach our writing at all. The owner concluded exactly that
-   on 2026-08-20 and proposed deleting two chips because of it.
+   The signed-out box and the signed-in palette open the SAME destination, and
+   that destination must answer all three promised nouns. The palette's row
+   once said "Find suppliers for X", so a signed-in person had no reason to
+   press it for a guide and concluded the search could not reach our writing at
+   all. The owner concluded exactly that on 2026-08-20 and proposed deleting
+   two chips because of it.
+
+   ⚠ THE DESTINATION MOVED LATER THAT SAME DAY, from `/explore?q=` to `/?q=`,
+   and this test moved with it rather than being relaxed. /explore leads with
+   its VENDOR verdict: measured live, `?q=doves` printed "No vendors match
+   exactly. Try widening your search" ABOVE the doves guide it had found. The
+   front door now answers in its own body — stories and guides in full, the
+   shops it already publishes, and a permanent row handing the same words to
+   the marketplace. `search-answers-here.test.ts` is what holds THAT page to
+   the three nouns; this test holds the ROW to the same page as the box.
 
    🔑 DERIVED FROM THE NOUN LIST, NOT TYPED BESIDE IT. `public-search-nouns.ts`
    exists because a guard comparing two hand-typed strings is not a guard —
@@ -797,8 +806,10 @@ test('the signed-in search row promises what the signed-out box does', async () 
 
   assert.match(
     row.href,
-    /^\/explore\?q=/,
-    'the row stopped opening the page that answers all three nouns',
+    /^\/\?q=/,
+    'the row stopped opening the front door — the page that answers all three ' +
+      'nouns. Sending it to /explore again puts a vendor verdict above the ' +
+      'thing the person was actually looking for.',
   );
 });
 

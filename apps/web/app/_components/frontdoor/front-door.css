@@ -1388,6 +1388,26 @@ h2.fd-sechead,
 /* The shop card's mark. A real logo when the shop has one, its initials when
    it does not — never the word "SHOP", which told a visitor nothing and made a
    live business look like a placeholder. */
+/* A reading result with no cover — help pages and stories. The story cards
+   already tell a piece in words inside their thumb (`.fd-sread`); this is that
+   grammar on the 16:9 card, so a results grid never shows a bare rectangle
+   that reads as an image which failed to load. */
+.fd-readblurb {
+  margin: 0;
+  padding: 14px 16px;
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.45;
+  /* `.fd-thumb` sets a wide placeholder letter-spacing; prose needs none. */
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--fd-m1);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+}
 .fd-thumb-shop {
   background: var(--fd-wash);
 }

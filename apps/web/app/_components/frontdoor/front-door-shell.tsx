@@ -1398,10 +1398,24 @@ export function FrontDoorShell({
 /**
  * The search field.
  *
- * It is a real GET form to `/explore`, which is where the shipped word-bridge
- * lives — typing "photographer" lands on the folder we call Photo & video,
- * with our word shown beside theirs as a place. That bridge is not rebuilt
- * here; this is its doorway.
+ * It is a real GET form to `/` — the FRONT DOOR, which reads `?q=` and renders
+ * the answer in its own body.
+ *
+ * ⚠ IT USED TO POST STRAIGHT TO `/explore`, AND THAT WAS THE DEFECT. Measured
+ * on the live site 2026-08-20: `?q=doves` led with "No vendors match exactly.
+ * Try widening your search or clearing one filter at a time." and put the
+ * doves guide it had found underneath. A box promising "suppliers, stories and
+ * guides" answered a story query with a failure about suppliers. Prod holds
+ * two shops, so the marketplace could not lead well on anything.
+ *
+ * 🔒 THE WORD-BRIDGE IS NOT LOST AND IS NOT REBUILT HERE. Typing
+ * "photographer" still reaches the folder we call Photo & video — through the
+ * marketplace row the results page always carries, and through /explore's own
+ * search box, which is untouched. What moved is which page answers FIRST.
+ *
+ * 🔑 ONE SEARCH, ONE PLACE THE ANSWERS APPEAR (owner 2026-08-20). The
+ * signed-in palette's escape row lands on the same url this form does, so a
+ * member and a stranger typing the same words reach the same page.
  *
  * ⚠ IT ANSWERS A SIGNED-OUT PERSON. The Marketplace GROUP is signed-in only,
  * but finding the one supplier you already need is not browsing a directory,
@@ -1417,7 +1431,7 @@ export function FrontDoorShell({
  */
 function SearchBox() {
   return (
-    <form className="fd-searchbox" action="/explore" method="get" role="search">
+    <form className="fd-searchbox" action="/" method="get" role="search">
       <input
         type="search"
         name="q"

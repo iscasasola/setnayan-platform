@@ -16,6 +16,7 @@ import {
 import { loadFrontDoorData } from './data';
 import { FrontDoorShell } from './front-door-shell';
 import { FrontDoorFeed, isChip, type ChipKey } from './front-door-feed';
+import { FrontDoorResults } from './front-door-results';
 import { SignedInCluster } from './signed-in-cluster';
 import { resolveCommandItems } from './command-data';
 import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
@@ -30,7 +31,7 @@ import {
   toRailFolder,
 } from './rail-data';
 
-export async function FrontDoor({ chip }: { chip?: string }) {
+export async function FrontDoor({ chip, q }: { chip?: string; q?: string }) {
   const [account, data, studioEvent, commandItems] = await Promise.all([
     resolveRailAccount(),
     loadFrontDoorData(),
@@ -52,6 +53,19 @@ export async function FrontDoor({ chip }: { chip?: string }) {
   ]);
 
   const activeChip: ChipKey = isChip(chip) ? chip : 'All';
+
+  /*
+    A SEARCH REPLACES THE SHELF, IT DOES NOT FILTER IT. Owner 2026-08-20: the
+    results belong in this page's own body. The chips are a filter over what
+    the page already holds; a typed query reaches things the page never loaded
+    (help pages, guides, shops, your own events), so it answers with its own
+    list rather than narrowing this one.
+
+    ⚠ THE QUERY WINS OVER THE CHIP, and a whitespace-only `?q=` is not a
+    search. Both matter because the address bar is a real interface here: `?q=`
+    arrives from the palette, from the public box, and from anybody's paste.
+  */
+  const searchQuery = (q ?? '').trim();
 
   return (
     <FrontDoorShell
@@ -111,7 +125,15 @@ export async function FrontDoor({ chip }: { chip?: string }) {
         account cluster and the search box. A stranger has no people; showing
         them the button is a door onto a room that can never fill.
       */}
-      <FrontDoorFeed data={data} chip={activeChip} signedIn={account.signedIn} />
+      {searchQuery ? (
+        <FrontDoorResults
+          query={searchQuery}
+          data={data}
+          commandItems={commandItems}
+        />
+      ) : (
+        <FrontDoorFeed data={data} chip={activeChip} signedIn={account.signedIn} />
+      )}
     </FrontDoorShell>
   );
 }

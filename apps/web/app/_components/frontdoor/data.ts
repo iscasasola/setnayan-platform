@@ -45,6 +45,10 @@ import {
 import { loadFeaturedChaptersResult } from '@/lib/storytellers';
 import { loadYourPeople } from '@/lib/your-people';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
+// The SAME tokenizer the reading search uses, so one typed query is split one
+// way for both halves of the answer. A local split here is how "St. Mary's"
+// finds a guide and misses the shop, with nothing reporting it.
+import { searchTokens } from '@/lib/site-search-core';
 
 /**
  * ─── THE THRESHOLDS LIVE IN ONE MODULE, NOT HERE ─────────────────────────
@@ -204,12 +208,128 @@ export type FrontDoorData = {
  */
 
 /**
- * Live shops — `public_visibility='verified'` AND `verification_state='verified'`.
- * BOTH are required: a shop is live only when it is published and approved,
- * and either one alone has meant a hidden shop on a public shelf before.
+ * THE ONE GATE THAT DECIDES A SHOP MAY APPEAR ON THE FRONT PAGE —
+ * `public_visibility='verified'` AND `verification_state='verified'`. BOTH are
+ * required: a shop is live only when it is published and approved, and either
+ * one alone has meant a hidden shop on a public shelf before.
  *
- * Returns `null` on a failed read so the caller can say "couldn't load"
- * instead of quietly claiming the marketplace is empty.
+ * ⚠ IT IS A FUNCTION BECAUSE THERE ARE NOW TWO READERS. The shelf below and
+ * `searchLiveShops` must admit exactly the same shops — a second hand-typed
+ * pair of `.eq()`s is how one reader starts publishing what the other hides,
+ * silently and in the direction that costs most. Same rule this file already
+ * states about `readingMinutes`: two definitions of one rule do not stay equal.
+ */
+const LIVE_SHOP_GATE = {
+  public_visibility: 'verified',
+  verification_state: 'verified',
+} as const;
+
+/*
+ * ⚠ APPLIED WITH `.match()`, NOT A GENERIC HELPER. The obvious shape — a
+ * `<T extends Builder>(q: T) => T` wrapper — makes `tsc` give up with
+ * "Type instantiation is excessively deep and possibly infinite" on
+ * postgrest-js's builder types. `.match()` takes the same object both readers
+ * share, so the rule is still written once.
+ */
+
+/** The columns both readers need, named once. */
+const SHOP_COLUMNS =
+  'business_name, business_slug, location_city, services, verification_state, logo_url';
+
+/**
+ * One row → one card. Shared for the same reason the gate is: the logo here is
+ * an `r2://` tag that must be resolved (a raw value in an <img> fails in
+ * silence), and a second copy of that resolution is a second place to forget.
+ *
+ * Returns null when the row has no address or no name — there would be nothing
+ * to link to.
+ */
+async function toFrontDoorShop(
+  row: Record<string, unknown>,
+): Promise<FrontDoorShop | null> {
+  const { WEDDING_FOLDER_LABEL } = await import('@/lib/taxonomy');
+  const slug = typeof row.business_slug === 'string' ? row.business_slug : '';
+  const name = typeof row.business_name === 'string' ? row.business_name : '';
+  if (!slug || !name) return null;
+  const services = Array.isArray(row.services) ? (row.services as unknown[]) : [];
+  const first = services.find((s) => typeof s === 'string') as string | undefined;
+  const folder = first ? await folderOfService(first) : null;
+  return {
+    // The bare-root address is canonical; /v/[slug] is legacy.
+    href: `/${slug}`,
+    logoUrl: await displayLogoUrl({
+      logo_url: typeof row.logo_url === 'string' ? row.logo_url : null,
+    }).catch(() => null),
+    name,
+    folderLabel: folder ? WEDDING_FOLDER_LABEL[folder] : 'Setnayan supplier',
+    city: typeof row.location_city === 'string' ? row.location_city : null,
+    verified: row.verification_state === 'verified',
+  };
+}
+
+/**
+ * Shops matching typed words — the front door's own `suppliers` answer.
+ *
+ * ─── WHAT THIS IS AND IS NOT ─────────────────────────────────────────────
+ * It matches the shop's NAME and CITY, over exactly the shops the front page
+ * already publishes. It is NOT the marketplace query: there is no word-bridge
+ * (typing "photographer" does not resolve the Photo & video folder), no
+ * category, faith, event-type, distance or off-peak filter, and no demo or
+ * fraud-frozen exclusion beyond the shared gate above.
+ *
+ * 🔑 THAT LIMIT IS WHY THE RESULTS PAGE ALWAYS CARRIES THE MARKETPLACE ROW.
+ * Re-implementing /explore's pipeline here would be a second definition of who
+ * may be shown and which words reach them — the two would drift, and the
+ * direction that costs is a hidden shop rendered on the front page. The
+ * marketplace stays the one place that knows.
+ *
+ * AND across tokens, matching how the marketplace reads two typed words: a
+ * person typing "manila florist" means both.
+ */
+export async function searchLiveShops(
+  query: string,
+  limit = 12,
+): Promise<FrontDoorShop[]> {
+  const tokens = searchTokens(query);
+  if (tokens.length === 0) return [];
+
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return [];
+  }
+
+  let q = admin.from('vendor_profiles').select(SHOP_COLUMNS).match(LIVE_SHOP_GATE);
+  for (const token of tokens) {
+    // The same `%token%` shape the marketplace uses, on the two columns this
+    // reader can honestly claim. `escaped` keeps a typed comma or parenthesis
+    // out of PostgREST's `or()` grammar, where it would silently change the
+    // filter rather than fail.
+    const escaped = token.replace(/[(),*]/g, '');
+    if (!escaped) continue;
+    q = q.or(`business_name.ilike.%${escaped}%,location_city.ilike.%${escaped}%`);
+  }
+
+  // ⚠ A REJECTED QUERY IS NOT A THROWN ERROR. Checked explicitly, per this
+  // file's own rule — an unchecked `data ?? []` here would report "no shops
+  // match" on a failed read, which is a different fact.
+  const { data, error } = await q.order('created_at', { ascending: false }).limit(limit);
+  if (error) return [];
+
+  const out: FrontDoorShop[] = [];
+  for (const row of (data ?? []) as Record<string, unknown>[]) {
+    const shop = await toFrontDoorShop(row);
+    if (shop) out.push(shop);
+  }
+  return out;
+}
+
+/**
+ * Live shops for the shelf.
+ *
+ * Returns `null` as the COUNT on a failed read so the caller can say
+ * "couldn't load" instead of quietly claiming the marketplace is empty.
  */
 async function loadLiveShops(
   limit: number,
@@ -221,24 +341,18 @@ async function loadLiveShops(
     return { shops: [], count: null };
   }
 
-  const { WEDDING_FOLDER_LABEL } = await import('@/lib/taxonomy');
-
   // The COUNT is its own exact read — the shelf is capped at `limit`, so
   // counting the returned rows would silently under-report the moment a
   // thirteenth shop opens, which is precisely when the threshold matters.
   const counted = await admin
     .from('vendor_profiles')
     .select('vendor_profile_id', { count: 'exact', head: true })
-    .eq('public_visibility', 'verified')
-    .eq('verification_state', 'verified');
+    .match(LIVE_SHOP_GATE);
 
   const { data, error } = await admin
     .from('vendor_profiles')
-    .select(
-      'business_name, business_slug, location_city, services, verification_state, logo_url',
-    )
-    .eq('public_visibility', 'verified')
-    .eq('verification_state', 'verified')
+    .select(SHOP_COLUMNS)
+    .match(LIVE_SHOP_GATE)
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -246,25 +360,10 @@ async function loadLiveShops(
 
   const shops: FrontDoorShop[] = [];
   for (const row of (data ?? []) as Record<string, unknown>[]) {
-    const slug = typeof row.business_slug === 'string' ? row.business_slug : '';
-    const name = typeof row.business_name === 'string' ? row.business_name : '';
-    if (!slug || !name) continue; // no address ⇒ nothing to link to
-    // The shop's own folder, resolved through the taxonomy so the card says
-    // the same word the rail and the search say.
-    const services = Array.isArray(row.services) ? (row.services as unknown[]) : [];
-    const first = services.find((s) => typeof s === 'string') as string | undefined;
-    const folder = first ? await folderOfService(first) : null;
-    shops.push({
-      // The bare-root address is canonical; /v/[slug] is legacy.
-      href: `/${slug}`,
-      logoUrl: await displayLogoUrl({
-        logo_url: typeof row.logo_url === 'string' ? row.logo_url : null,
-      }).catch(() => null),
-      name,
-      folderLabel: folder ? WEDDING_FOLDER_LABEL[folder] : 'Setnayan supplier',
-      city: typeof row.location_city === 'string' ? row.location_city : null,
-      verified: row.verification_state === 'verified',
-    });
+    // The shop's own folder is resolved inside the shared mapper, through the
+    // taxonomy, so the card says the same word the rail and the search say.
+    const shop = await toFrontDoorShop(row);
+    if (shop) shops.push(shop);
   }
   return { shops, count: counted.error ? null : (counted.count ?? null) };
 }

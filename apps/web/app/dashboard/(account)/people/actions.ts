@@ -519,3 +519,124 @@ export async function proposeSamahanConnection(formData: FormData): Promise<void
   revalidatePath('/dashboard/people');
   redirect('/dashboard/people?saved=1');
 }
+
+/**
+ * ASK somebody on your list into a samahan — the second half of the owner's
+ * sentence: *"Then you can set a label. or a samahan, just like the guest list."*
+ *
+ * ⚖ **IT SENDS AN INVITATION; IT DOES NOT ADD THEM, AND THAT IS NOT MY RULE.**
+ * `community_members` has exactly one INSERT policy — `community_member_admin_insert`,
+ * `WITH CHECK (is_admin())` — so through the API nobody but a Setnayan admin can
+ * put a person in a samahan. The only other way in is redeeming the standing
+ * link. The product's consent model is therefore already decided: **you are
+ * asked into a samahan, never placed in one.** A chip that silently inserted a
+ * membership would have had to route around that policy with the service key,
+ * which is the shape of every "the app layer is not the control" defect this
+ * codebase has already paid for.
+ *
+ * So the INTERACTION matches the guest list (a chip on the row, one tap) and the
+ * MECHANISM matches samahan's own: their invitation lands in their inbox, and
+ * the chip appears on the roster when they actually join.
+ *
+ * Organiser-only, because `invite_tokens_organizer_all` is organiser-only: the
+ * token read below runs under the caller's own session, so RLS is the gate and a
+ * refusal reads as "no live link", never as a leak.
+ */
+export async function invitePersonToSamahan(input: {
+  connectionId: string;
+  communityId: string;
+}): Promise<{ ok: true; delivered: boolean; samahan: string } | { ok: false; error: string }> {
+  if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+  if (!input.connectionId || !input.communityId) return { ok: false, error: 'Pick a samahan.' };
+
+  const supabase = await createClient();
+  const myPerson = await myPersonId(supabase, user.id);
+  if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
+
+  // CONFIRMED only. Asking somebody into your group before they have agreed to
+  // be connected to you at all is a second ask stacked on an unanswered one.
+  const { data: edge } = await supabase
+    .from('person_connections')
+    .select('from_person_id, to_person_id, status')
+    .eq('connection_id', input.connectionId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  const row = edge as { from_person_id: string; to_person_id: string; status: string } | null;
+  if (!row || row.status !== 'confirmed') {
+    return { ok: false, error: 'You can invite them once you’re connected.' };
+  }
+  const otherPerson = row.from_person_id === myPerson ? row.to_person_id : row.from_person_id;
+  if (otherPerson === myPerson) return { ok: false, error: 'That’s you.' };
+
+  // The standing link, read under MY session — organiser-only by policy.
+  const { data: tokenRow } = await supabase
+    .from('community_invite_tokens')
+    .select('token, expires_at, revoked_at')
+    .eq('community_id', input.communityId)
+    .maybeSingle();
+  const live = tokenRow as { token: string; expires_at: string | null; revoked_at: string | null } | null;
+  const usable =
+    !!live &&
+    !live.revoked_at &&
+    (!live.expires_at || new Date(live.expires_at) > new Date());
+  if (!usable) {
+    return {
+      ok: false,
+      error: 'That samahan has no live invite link — open it and make one first.',
+    };
+  }
+
+  const { data: community } = await supabase
+    .from('communities')
+    .select('name')
+    .eq('community_id', input.communityId)
+    .maybeSingle();
+  const samahanName = ((community as { name: string } | null)?.name ?? 'your samahan').trim();
+
+  // Their address + whether they are already in it. Server-side only; neither
+  // value is returned to the caller.
+  const admin = createAdminClient();
+  const [{ data: them }, { data: me }] = await Promise.all([
+    admin.from('people').select('email, claimed_by_user_id').eq('person_id', otherPerson).maybeSingle(),
+    admin.from('people').select('display_name').eq('person_id', myPerson).maybeSingle(),
+  ]);
+  const themRow = them as { email: string | null; claimed_by_user_id: string | null } | null;
+  const email = normalizeEmail(themRow?.email);
+  if (!email) return { ok: false, error: 'We don’t have an email for them.' };
+
+  if (themRow?.claimed_by_user_id) {
+    const { data: member } = await admin
+      .from('community_members')
+      .select('id')
+      .eq('community_id', input.communityId)
+      .eq('user_id', themRow.claimed_by_user_id)
+      .maybeSingle();
+    if (member) return { ok: false, error: 'They’re already in it.' };
+  }
+
+  const origin = await appOrigin();
+  const url = `${origin}/samahan/join/${live!.token}`;
+  const who = firstNameOf((me as { display_name: string | null } | null)?.display_name) ?? 'Someone you know';
+  const lines = [
+    `${who} would like you in ${samahanName} on Setnayan — the group they keep their celebrations with.`,
+    'Opening the link puts you in; nothing happens until you do.',
+  ];
+  const delivered = await sendEmail({
+    to: email,
+    subject: `${who} invited you to ${samahanName}`,
+    text: `${lines.join('\n\n')}\n\nJoin ${samahanName}: ${url}`,
+    html: renderBrandedEmail({
+      heading: `You're invited to ${samahanName}`,
+      paragraphs: lines,
+      ctaLabel: `Join ${samahanName}`,
+      ctaHref: url,
+      footnote:
+        'If you weren’t expecting this, you can ignore this email — you are not in the group unless you open the link.',
+    }),
+  });
+
+  revalidatePath('/dashboard/people');
+  return { ok: true, delivered: delivered.ok, samahan: samahanName };
+}

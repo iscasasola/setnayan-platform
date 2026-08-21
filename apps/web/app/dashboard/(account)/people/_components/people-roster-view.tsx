@@ -11,6 +11,7 @@ import {
   addPersonConnection,
   confirmConnection,
   declineConnection,
+  invitePersonToSamahan,
   resendConnectionInvitation,
   setConnectionLabel,
   withdrawConnection,
@@ -319,7 +320,19 @@ export function PeopleRosterView({
                         <LabelCell person={p} relations={relations} disabled={pending} />
                       </td>
                       <td className="px-3 py-2.5">
-                        <SamahanCell person={p} />
+                        <SamahanCell
+                          person={p}
+                          samahan={roster.mySamahan}
+                          disabled={pending}
+                          onSent={(m) => {
+                            setError(null);
+                            setNotice(m);
+                          }}
+                          onFailed={(m) => {
+                            setNotice(null);
+                            setError(m);
+                          }}
+                        />
                       </td>
                       <td className="px-3 py-2.5">
                         <StateCell state={p.state} />
@@ -357,7 +370,19 @@ export function PeopleRosterView({
                     </span>
                     <span className="flex flex-wrap items-center gap-1.5">
                       <LabelCell person={p} relations={relations} disabled={pending} />
-                      <SamahanCell person={p} />
+                      <SamahanCell
+                        person={p}
+                        samahan={roster.mySamahan}
+                        disabled={pending}
+                        onSent={(m) => {
+                          setError(null);
+                          setNotice(m);
+                        }}
+                        onFailed={(m) => {
+                          setNotice(null);
+                          setError(m);
+                        }}
+                      />
                     </span>
                     <span className="flex flex-wrap justify-end gap-2">
                       <RowActions person={p} pending={pending} run={run} setNotice={setNotice} setError={setError} />
@@ -401,20 +426,111 @@ function StateCell({ state, compact }: { state: RosterState; compact?: boolean }
   );
 }
 
-function SamahanCell({ person }: { person: RosterPerson }) {
-  if (person.samahan.length === 0) {
-    return <span className="text-[12px] text-ink/35">—</span>;
+/**
+ * The samahan a person is in, plus the ask.
+ *
+ * ⚖ THE CHIP SENDS AN INVITATION; IT DOES NOT ADD THEM. `community_members`
+ * admits INSERT only for a Setnayan admin, so the product's own consent model
+ * already says a person is ASKED into a samahan and never placed in one. The
+ * interaction is the guest list's (a chip, one tap); the mechanism is samahan's
+ * (their standing link, in that person's inbox). A chip appears here when they
+ * actually join — never before, because there is nothing to show until they do.
+ */
+function SamahanCell({
+  person,
+  samahan,
+  disabled,
+  onSent,
+  onFailed,
+}: {
+  person: RosterPerson;
+  /** The samahan this account ORGANISES — the only ones that carry a link. */
+  samahan: Array<{ id: string; name: string }>;
+  disabled: boolean;
+  onSent: (message: string) => void;
+  onFailed: (message: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, startTransition] = useTransition();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Only a connected person can be asked into a group, and only into a samahan
+  // you organise. Everyone else gets the plain read-only chips.
+  const canAsk =
+    person.kind === 'connection' && person.state === 'connected' && samahan.length > 0;
+
+  const chips = person.samahan.map((s) => (
+    <span
+      key={s}
+      className="inline-flex items-center rounded-full bg-ink/[0.06] px-2 py-0.5 text-[11px] font-medium text-ink/60 ring-1 ring-ink/10"
+    >
+      {s}
+    </span>
+  ));
+
+  if (!canAsk) {
+    return person.samahan.length === 0 ? (
+      <span className="text-[12px] text-ink/35">—</span>
+    ) : (
+      <span className="flex flex-wrap gap-1">{chips}</span>
+    );
   }
+
+  function ask(communityId: string) {
+    setOpen(false);
+    startTransition(async () => {
+      const res = await invitePersonToSamahan({
+        connectionId: person.connectionId ?? '',
+        communityId,
+      });
+      if (!res.ok) {
+        onFailed(res.error);
+        return;
+      }
+      onSent(
+        res.delivered
+          ? `Invitation to ${res.samahan} sent to ${person.name}.`
+          : `The invitation to ${res.samahan} didn’t send — try again in a moment.`,
+      );
+    });
+  }
+
   return (
-    <span className="flex flex-wrap gap-1">
-      {person.samahan.map((s) => (
-        <span
-          key={s}
-          className="inline-flex items-center rounded-full bg-ink/[0.06] px-2 py-0.5 text-[11px] font-medium text-ink/60 ring-1 ring-ink/10"
-        >
-          {s}
-        </span>
-      ))}
+    <span className="flex flex-wrap items-center gap-1">
+      {chips}
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={disabled || busy}
+        aria-haspopup="menu"
+        aria-label={`Ask ${person.name} into a samahan`}
+        className="inline-flex items-center gap-1 rounded-full border border-dashed border-ink/25 px-2 py-0.5 text-[11px] font-medium text-ink/50 outline-none focus-visible:ring-2 focus-visible:ring-terracotta disabled:opacity-50"
+      >
+        <Plus aria-hidden className="h-3 w-3" strokeWidth={2.2} />
+        Samahan
+      </button>
+      {open ? (
+        <Popover anchorRef={triggerRef} onClose={() => setOpen(false)} width={240}>
+          <p className="px-2.5 pb-1 pt-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+            Ask them into
+          </p>
+          {samahan.map((sam) => (
+            <button
+              key={sam.id}
+              type="button"
+              role="menuitem"
+              onClick={() => ask(sam.id)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm text-ink/80 transition-colors hover:bg-ink/[0.04]"
+            >
+              <span className="min-w-0 flex-1 truncate">{sam.name}</span>
+            </button>
+          ))}
+          <p className="px-2.5 pb-1.5 pt-1 text-[11px] leading-snug text-ink/45">
+            They get the group’s link. They’re in it once they open it — not before.
+          </p>
+        </Popover>
+      ) : null}
     </span>
   );
 }

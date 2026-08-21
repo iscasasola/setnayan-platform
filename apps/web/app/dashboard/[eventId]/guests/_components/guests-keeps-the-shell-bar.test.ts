@@ -60,9 +60,35 @@ test('the guest list does not hide the shared top bar', () => {
 });
 
 test('the page does not claw back the space the bar occupies', () => {
+  /*
+    🪤 THE SLICE IS ANCHORED, AND THE FIRST CUT WAS NOT. It read
+    `page.slice(page.indexOf('const master = ('))` with no check. Rename that
+    const — which the live design-port programme could do to a 1,700-line
+    component any week — and `indexOf` returns -1, `slice(-1)` yields the file's
+    last character, the second `indexOf('>')` returns -1, and `section` becomes
+    the EMPTY STRING. Both negatives below then pass over nothing at all.
+
+    MEASURED: restoring the `-mt-6` + safe-area section alone → RED; the same
+    restore PLUS renaming the const → 5 pass, 0 fail, with the hazard verified
+    present by occurrence count. A guard that a rename disarms is not a guard.
+  */
   const page = read('page.tsx');
-  const master = page.slice(page.indexOf('const master = ('));
-  const section = master.slice(0, master.indexOf('>') + 1);
+  const start = page.indexOf('const master = (');
+  assert.ok(
+    start > -1,
+    'The `master` section is gone or renamed — this guard cannot see what it ' +
+      'is asked to guard, so it must fail rather than pass over an empty slice.',
+  );
+  const master = page.slice(start);
+  const gt = master.indexOf('>');
+  assert.ok(gt > -1, 'The master section’s opening tag is unreadable.');
+  const section = master.slice(0, gt + 1);
+  assert.match(
+    section,
+    /className="sn-col/,
+    'The slice no longer lands on the master <section>. Anchor on the class ' +
+      'the regression would have to touch, not on a renameable symbol.',
+  );
   assert.ok(
     !/-mt-6/.test(section),
     'The master section still cancels the layout\'s top padding. That `-mt-6` ' +
@@ -76,15 +102,51 @@ test('the page does not claw back the space the bar occupies', () => {
   );
 });
 
-test('the roster\'s sticky view tabs clear the bar by reading its height', () => {
-  const page = read('page.tsx');
-  const sticky = /sticky top-\[calc\(var\(--fd-bar,0px\)\s*\+\s*0\.5rem\)\]/;
-  assert.match(
-    page,
-    sticky,
-    'The phone view tabs are not offset by `--fd-bar`. Pinned at the safe-area ' +
-      'inset they sit UNDER the restored top bar; hand-typing 61px instead ' +
-      'lets the two drift the first time the account cluster changes height.',
+test('EVERY phone sticky on this route clears the bar by reading its height', () => {
+  /*
+    🪤 THE FIRST CUT CHECKED ONE FILE AND WAS TITLED AFTER A DIFFERENT ELEMENT.
+    It read `page.tsx` only, and called what it found "the roster's view tabs" —
+    which it is not: the element in `page.tsx` is the ACTIVE-FILTERS chip strip,
+    and it renders only while a filter is set. The real phone masthead — the
+    title, the headcount, Invite, the red Needs-you, the pax meter and the
+    stage ribbon — lives in `mobile-guest-carousel.tsx`, renders on EVERY phone
+    visit, and was still pinned at `env(safe-area-inset-top)`.
+
+    That inset is **0** in every mobile browser tab, on Android, on iPad and on
+    any non-notched install, so it sat 4px inside the restored bar's 0–61px
+    band. Whichever of the two won the stacking contest, a person lost controls
+    they needed — including the account switcher, this surface's only route to
+    sign-out.
+
+    🔑 A GUARD NAMED AFTER THE THING IT IS NOT CHECKING IS WORSE THAN NO GUARD:
+    it reads as covered. So this asserts the RULE across both files, and any
+    third phone sticky added here has to satisfy it too.
+  */
+  const files: Array<[string, string]> = [
+    ['page.tsx', read('page.tsx')],
+    ['_components/mobile-guest-carousel.tsx', read('_components', 'mobile-guest-carousel.tsx')],
+  ];
+  for (const [name, src] of files) {
+    const stickies = src.match(/sticky top-\[[^\]]*\]/g) ?? [];
+    for (const s of stickies) {
+      assert.ok(
+        !/safe-area-inset-top/.test(s),
+        `${name} pins a sticky at the notch inset (${s}). That is 0px in a ` +
+          'mobile browser tab, so it lands on the restored shared top bar. ' +
+          'Offset by `var(--fd-bar,0px)` instead.',
+      );
+      assert.ok(
+        /var\(--fd-bar/.test(s),
+        `${name} pins a sticky (${s}) without reading the shell's own bar ` +
+          'height. Hand-typing 61px lets the two drift the first time the ' +
+          'account cluster changes height.',
+      );
+    }
+  }
+  assert.ok(
+    files.every(([, src]) => /sticky top-\[calc\(var\(--fd-bar,0px\)/.test(src)),
+    'One of the two phone stickies stopped existing — if it was deliberately ' +
+      'removed, delete its half of this guard in the same commit.',
   );
 });
 

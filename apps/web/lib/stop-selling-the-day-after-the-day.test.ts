@@ -141,14 +141,23 @@ test('the shared checkout refuses a day-of service once the event is over', () =
 */
 test('every Papic purchase path refuses once the event is over', () => {
   const papic = code('app/dashboard/[eventId]/studio/papic/actions.ts');
+  /*
+    ⚠ THE LOCAL HELPER BECAME THE SHARED ONE (2026-08-21). It was
+    `papicSaleIsClosed`, declared in this file with its own four-column read; the
+    account-less guest buy path needed the same answer, so both now call
+    `lib/event-is-over.server.ts`. This guard caught the rename on the very run
+    that made it, which is what a guard keyed on the ACT rather than a vibe does.
+  */
   assert.equal(
-    (papic.match(/await papicSaleIsClosed\(admin, eventId\)/g) || []).length,
+    (papic.match(/await eventIsOver\(admin, eventId\)/g) || []).length,
     4,
     'purchaseCameras · activateLimited · purchaseExtras · poolTopUp',
   );
+  assert.match(papic, /from '@\/lib\/event-is-over\.server'/, 'one helper, not a second copy');
   // It must not use the capture window, which FAILS OPEN when unset.
-  const helper = papic.slice(papic.indexOf('async function papicSaleIsClosed'));
-  assert.match(helper.slice(0, 900), /getMenuLifecyclePhase\(/);
+  const helper = code('lib/event-is-over.server.ts');
+  assert.match(helper, /getMenuLifecyclePhase\(/);
+  assert.ok(!/captureWindow|papic_window/.test(helper), 'never the capture window');
 });
 
 /*

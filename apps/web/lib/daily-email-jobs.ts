@@ -153,7 +153,11 @@ export async function runAnniversaryHeadsup(): Promise<{ scanned: number; sent: 
       const { subject, text, html } = buildAnniversaryHeadsupEmail({
         coupleName: (c.couple_name ?? '').trim() || (c.display_name ?? '').trim(),
         eventName: (c.display_name ?? '').trim(),
-        ctaHref: `${APP_URL}/dashboard/year`,
+        // The year page is retired into the board's "Worth planning" shelf
+        // (owner 2026-08-21). Pointing at the shelf directly rather than at the
+        // redirect: an email lives for years, and a link that survives one hop
+        // today is a link that 404s the day somebody deletes the redirect.
+        ctaHref: `${APP_URL}/dashboard#worth-planning`,
         weeksAway: HEADSUP_WEEKS,
       });
 

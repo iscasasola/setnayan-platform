@@ -47,7 +47,16 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 
 const WEB = join(import.meta.dirname, '..');
-const YEAR_PAGE = join(WEB, 'app/dashboard/(account)/year/page.tsx');
+// 🔁 THE SURFACE MOVED, THE FEATURE DID NOT (2026-08-21). /dashboard/year is a
+// redirect now; the "Open plan" / "Start planning" rows it owned live on the
+// board's "Worth planning" shelf.
+// 🚨 AND THIS FILE IS WHY THAT MOVE IS NOT A LOSS. The first cut of the
+// retirement redirected the page and left the affordance behind — the shelf
+// listed the date and offered NOTHING to do about it, silently deleting "start
+// planning from a moment". Every assertion below went red and is the only
+// reason it was caught. Re-aiming it, rather than deleting it with the page, is
+// what keeps that true next time.
+const YEAR_PAGE = join(WEB, 'app/dashboard/(launcher)/_components/year-moments-list.tsx');
 const ONBOARDING = join(WEB, 'app/onboarding/[type]/_components/generic-onboarding.tsx');
 
 /** Source with comments blanked — never the raw text. */

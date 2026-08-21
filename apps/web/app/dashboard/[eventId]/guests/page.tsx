@@ -43,6 +43,10 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
 import { CaptureBar } from './_components/capture-bar';
+import {
+  AddFromPeopleSheet,
+  OpenAddFromPeopleButton,
+} from './_components/add-from-people-sheet';
 import { GroupsSidebar } from './_components/groups-sidebar';
 import { GuestsSearch } from './_components/guests-search';
 import { MobileGuestCarousel } from './_components/mobile-guest-carousel';
@@ -594,21 +598,40 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   }));
 
   const master = (
-    /* Owner directive 2026-06-01: top nav removed on Guests (mobile-first),
-       matching the Vendors tab treatment. .shell-topbar{display:none} is
-       scoped to this page via the injected <style> tag — the nav returns
-       the moment the host navigates away. -mt-6 cancels the <main py-6>
-       top-padding so the page content sits flush under the bottom-nav. */
-    <section className="sn-col -mt-6 space-y-6 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:pt-0">
-      <style>{`.shell-topbar{display:none}`}</style>
+    /* 🔴 THE SHELL'S TOP NAV COMES BACK ON GUESTS (owner 2026-08-21, two
+       screenshots: *"the top nav disappeared also … we still want to have the
+       same top nav of the shell"*).
+
+       This page injected `.shell-topbar{display:none}` under a 2026-06-01
+       directive — written when that class was `SidebarShell`'s own event-tree
+       chrome, so hiding it cost the page a duplicated event header and nothing
+       else. The one-shell move (2026-08-14/15) handed the SAME class the
+       product's ONLY top bar: identity, the ⌘K palette, the bell and the
+       account switcher — the surface's only route to sign-out and profile.
+       From that day the rule stopped meaning "no event chrome on Guests" and
+       started meaning "no way out of Guests", at EVERY width, because the
+       injected rule carries no media query. A directive is scoped to the thing
+       it was written about; this one outlived it.
+
+       The `-mt-6` and the safe-area top padding existed only to fill the hole
+       the hidden bar left, so they go with it — leaving them would push the
+       page up UNDER the bar that is now there.
+
+       ⚠ Vendors keeps its own `.shell-topbar` hide. That one is a full-screen
+       takeover and it is scoped `@media (max-width:1023px)`; it is not this. */
+    <section className="sn-col space-y-6">
 
       {/* The floating focus-mode "back X" (top-left) was REMOVED 2026-06-15
           (nav-surfaces follow-up to #1470): the global journey bottom nav is now
           ALWAYS present on this surface — the Guests sub-views moved to top-of-
           page `.sn-seg` tabs (MobileGuestCarousel) rather than a second bottom
-          bar — so a dedicated "back to home" affordance is vestigial. The safe-
-          area top padding is kept (the top bar is still hidden on mobile via the
-          <style> above) but no longer reserves the extra 3.25rem the X needed. */}
+          bar — so a dedicated "back to home" affordance is vestigial.
+          ⚠ THE SENTENCE THAT USED TO FOLLOW HERE OUTLIVED BOTH ITS REFERENTS:
+          it said the safe-area top padding was kept "because the top bar is
+          still hidden on mobile via the <style> above". The <style> is gone
+          (owner 2026-08-21) and so is the padding — the shared bar owns that
+          space now. Prose that names a deleted mechanism is how the next reader
+          gets it wrong. */}
       {/* Header is DESKTOP-ONLY (owner directive 2026-06-03 — "remove GUEST
           LIST / N guests since we already have Summary below"). On mobile the
           carousel's Summary panel carries the count; the top is just the list. */}
@@ -856,7 +879,15 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           (pl-11 left-pad dropped 2026-06-15 — the fixed back-X it cleared is
           gone, so the strip uses symmetric padding.) */}
       {hasAnyFilter ? (
-        <div className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-40 -mt-2 flex gap-2 overflow-x-auto rounded-xl border border-ink/15 bg-white/55 px-3 py-2 backdrop-blur-xl lg:hidden">
+        /* ⚠ THE OFFSET CLEARS THE SHARED TOP BAR, WHICH THIS PAGE USED TO
+            HIDE. It was `env(safe-area-inset-top)+0.5rem` — correct only while
+            the injected `.shell-topbar{display:none}` meant nothing was above
+            it. With the bar restored (owner 2026-08-21) that offset parks this
+            strip UNDERNEATH it on a phone. `--fd-bar` is the shell's own
+            measured bar height (61px in the app variant), read from the
+            ancestor it is declared on, so the two can never drift; the `0px`
+            fallback is what any surface outside that shell gets. */
+        <div className="sticky top-[calc(var(--fd-bar,0px)+0.5rem)] z-40 -mt-2 flex gap-2 overflow-x-auto rounded-xl border border-ink/15 bg-white/55 px-3 py-2 backdrop-blur-xl lg:hidden">
           <ActiveFilters
             eventId={eventId}
             search={search}
@@ -977,6 +1008,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         existingGuests={quickAddPool}
         groups={quickAddGroups}
         roleSetKey={guestRoleSetKey}
+      />
+
+      {/* The second add doorway (owner 2026-08-21): pick from the people
+          Setnayan already knows for you rather than retyping them. Mounted
+          beside QuickAddSheet and idle until a trigger fires — it reads its
+          candidates ON OPEN, so a guest list nobody opens this on costs
+          nothing. Its own header carries the privacy reasoning. */}
+      <AddFromPeopleSheet
+        eventId={eventId}
+        defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
       />
 
       {/* Living Roster P1 · in-page overlay hosts. UndoToastHost is the single
@@ -1350,23 +1391,20 @@ function SummaryFacetBar({
   ];
 
   return (
-    <div
-      className="gl-settle rounded-tile border"
-      style={{
-        background: 'var(--sn-glass-bg)',
-        borderColor: 'var(--sn-glass-line)',
-        backdropFilter: 'var(--sn-glass-blur)',
-        WebkitBackdropFilter: 'var(--sn-glass-blur)',
-        boxShadow: 'var(--sn-sh-tile)',
-      }}
-    >
-      {/* Root has NO overflow-hidden: the inline group pills' rename/delete kebab
-          opens downward and would otherwise be clipped past the bar's bottom edge.
-          Glass panel (§1.2 .sn-tile recipe, inline so the sectioned px-4/py-3
-          layout keeps its own padding). ONE blurred panel — within the §1.6 budget.
-          Meters — the pax target + confirmations progress that headlined the old
-          stat strip, kept verbatim (data-display only). */}
-      <div className="border-b border-ink/[0.07] px-4 py-3">
+    /* NO FRAME (owner 2026-08-21: *"we want to remove the framings so it moves
+       cleanly"*). This was a glass panel wrapping four stacked sections that
+       ALREADY separate themselves with hairlines — so the outer edge was a
+       fifth line saying nothing the four inside were not, and it inset every
+       row 16px from the page measure while the roster below sat flush. The
+       sections and their dividers are untouched; the box around them is gone,
+       which is what lets the eye run straight down the page.
+
+       Root still has NO overflow-hidden: the inline group pills' rename/delete
+       kebab opens downward and would otherwise be clipped past the last row.
+       Meters — the pax target + confirmations progress that headlined the old
+       stat strip, kept verbatim (data-display only). */
+    <div className="gl-settle">
+      <div className="border-b border-ink/[0.07] py-3">
         {paxProgress ? (
           <div className="mb-2.5">
             <div className="flex items-baseline justify-between gap-2 text-xs">
@@ -1448,7 +1486,7 @@ function SummaryFacetBar({
           Toolbar so search is never behind a toggle). Search + Sort are
           Suspense-wrapped client islands (they read useSearchParams); the facet
           bar itself stays a Server Component. */}
-      <div className="flex items-center gap-2 border-b border-ink/[0.07] px-4 py-3">
+      <div className="flex items-center gap-2 border-b border-ink/[0.07] py-3">
         <Suspense fallback={null}>
           <GuestsSearch initialValue={q} />
         </Suspense>
@@ -1461,7 +1499,7 @@ function SummaryFacetBar({
       </div>
 
       {/* Facet lens rows — the counts ride the filter pills. */}
-      <div className="flex flex-col gap-2.5 px-4 py-3">
+      <div className="flex flex-col gap-2.5 py-3">
         <FacetRow label="Side">
           {sideOptions.map((s) => (
             <LensPill
@@ -1673,7 +1711,9 @@ function EmptyState({
   }
   if (hasGuests) {
     return (
-      <div className="rounded-lg border border-dashed border-ink/15 bg-cream p-6 text-center text-ink/60">
+      /* Unframed (owner 2026-08-21) — a dashed rectangle around one sentence
+         reads as a drop zone, which this has never been. */
+      <div className="p-6 text-center text-ink/60">
         No guests match your filters.
         <div className="mt-3">
           <Link href={`/dashboard/${eventId}/guests`} className="button-secondary">
@@ -1684,7 +1724,11 @@ function EmptyState({
     );
   }
   return (
-    <div className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center">
+    /* Unframed (owner 2026-08-21). The dashed box made the emptiest state on
+       the page the most heavily drawn thing on it. The sentence and the two
+       doors carry it; the error state above KEEPS its edge, deliberately —
+       that one is a refusal and has to stop the eye. */
+    <div className="p-8 text-center">
       <p className="text-base text-ink/70">
         {finished
           ? 'No guests were added to this one. You can still add anybody who came.'
@@ -1696,6 +1740,11 @@ function EmptyState({
           beside adding names — share one link and let guests self-add. */}
       <div className="mt-4 flex flex-col items-center gap-2">
         <OpenQuickAddButton label={finished ? '+ Add someone who came' : '+ Add your first guest'} />
+        {/* THE EMPTY STATE IS EXACTLY WHERE THIS DOOR EARNS ITS PLACE. A first
+            guest list is the moment somebody is most likely to be retyping
+            people they have already given us — and the sheet says so honestly
+            when it has nobody to offer yet. */}
+        <OpenAddFromPeopleButton />
         {/* Inviting people to a celebration that already happened is the one
             door that stops making sense. Everything else here stays. */}
         {finished ? null : (

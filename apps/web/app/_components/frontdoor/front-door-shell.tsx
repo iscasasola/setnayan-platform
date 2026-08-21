@@ -55,7 +55,7 @@
  * them.
  */
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
@@ -112,6 +112,17 @@ import {
   what "Venues & churches" looks like, so this imports the one that exists.
 */
 import { folderIcon } from '@/lib/taxonomy-icons';
+
+/**
+ * How long the off-canvas drawer takes to slide, in milliseconds.
+ *
+ * It is the design system's `--sn-dur-control` (200ms, globals.css § motion) —
+ * the tier for "a control changed state", which is what opening a drawer is.
+ * Written as a number here because a `setTimeout` cannot read a CSS custom
+ * property, and handed straight back to the stylesheet as `--fd-drawer-ms` on
+ * the rail so the two halves of one animation can never disagree.
+ */
+const RAIL_DRAWER_MS = 200;
 
 /**
  * ─── THE SAME RAIL, MOUNTED IN TWO PLACES (One Shell slice 0, 2026-08-13) ──
@@ -288,7 +299,10 @@ export type RailNavLabels = Record<string, { label: string }>;
 const RAIL_SLOT = {
   events: 'customer.account.events',
   alaala: 'customer.account.library',
-  year: 'customer.account.year',
+  // `year` is GONE with its rail row and its registry slot (owner 2026-08-21).
+  // Leaving the key would point at a slot that no longer exists, so `slotLabel`
+  // would fall through to its literal forever — a lookup that has quietly
+  // stopped being a lookup, which is how the admin rename surface rots.
   find: 'customer.account.marketplace',
 } as const;
 
@@ -449,6 +463,34 @@ function RailIcon({
   );
 }
 
+/**
+ * One marketplace category row.
+ *
+ * Extracted from the single `folders.map` this file used to run, because the
+ * five always-visible categories and the nine behind "Show more" now live in
+ * two different places in the tree — the extra nine sit inside the `.fd-reveal`
+ * panel that animates its own height. Two copies of the row would be two
+ * answers to what a category row looks like, free to drift the first time one
+ * of them gains a badge.
+ *
+ * ⚠ THE PARAMETER IS `f` ON PURPOSE, and renaming it breaks a shipped guard.
+ * `rail-icons-are-icons.test.ts` pins the literal `folderIcon(f.slug)` — the
+ * rule that a category row reads the shared taxonomy map instead of a
+ * hand-typed one, so the rail and the Explore strip cannot start disagreeing
+ * about what a category looks like. The extraction kept the name the map it
+ * replaced already used, rather than widening a guard to fit a tidier word.
+ */
+function FolderRow({ f }: { f: RailFolder }) {
+  return (
+    <Link href={`/explore?folder=${encodeURIComponent(f.slug)}`} className="fd-row">
+      <RailIcon as={folderIcon(f.slug)} />
+      <span className="fd-label-text">{f.label}</span>
+      <span className="fd-icon-caption">{f.label}</span>
+      <span className="fd-ct fd-mono">{f.count}</span>
+    </Link>
+  );
+}
+
 export function FrontDoorShell({
   account,
   visibleFolders,
@@ -465,10 +507,52 @@ export function FrontDoorShell({
   bleedPaths,
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
+  /*
+    ─── THE DRAWER HAS THREE STATES, NOT TWO ────────────────────────────────
+    Owner 2026-08-21: the rail must animate when it opens and when it shuts.
+    `display: none` cannot be transitioned, and the note on that rule in
+    `front-door.css` explains why the usual workaround — leave it displayed and
+    park it off-screen — is forbidden here: it would leave a dozen focusable
+    links reachable by Tab behind the scrim. So the element is held for exactly
+    one closing animation and then genuinely removed.
+  */
+  const [railClosing, setRailClosing] = useState(false);
+  const railCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const railId = useId();
+
+  const openRail = useCallback(() => {
+    /* Re-opening mid-close must cancel the pending removal, or the drawer
+       slides back in and is then torn out from under the hand that opened it. */
+    if (railCloseTimer.current) {
+      clearTimeout(railCloseTimer.current);
+      railCloseTimer.current = null;
+    }
+    setRailClosing(false);
+    setRailOpen(true);
+  }, []);
+
+  const closeRail = useCallback(() => {
+    // Already closing — a second Escape must not queue a second timer.
+    if (railCloseTimer.current) return;
+    setRailClosing(true);
+    railCloseTimer.current = setTimeout(() => {
+      railCloseTimer.current = null;
+      setRailClosing(false);
+      setRailOpen(false);
+    }, RAIL_DRAWER_MS);
+  }, []);
+
+  /* A drawer left closing while the shell unmounts would set state on a dead
+     component. Cheap to clear, and it is the one leak a timer always has. */
+  useEffect(
+    () => () => {
+      if (railCloseTimer.current) clearTimeout(railCloseTimer.current);
+    },
+    [],
+  );
   const { openSignIn, panel: signInPanel } = useSignInPanel();
 
   const inApp = variant === 'app';
@@ -596,12 +680,12 @@ export function FrontDoorShell({
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Escape') return;
-      if (railOpen) setRailOpen(false);
+      if (railOpen) closeRail();
       else if (menuOpen) setMenuOpen(false);
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [railOpen, menuOpen]);
+  }, [railOpen, menuOpen, closeRail]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -614,9 +698,14 @@ export function FrontDoorShell({
     return () => document.removeEventListener('mousedown', onDown);
   }, [menuOpen]);
 
-  const folders = moreOpen
-    ? [...visibleFolders, ...moreFolders]
-    : visibleFolders;
+  /*
+    ⚠ THE EXTRA CATEGORIES ARE NO LONGER CONCATENATED IN AND OUT OF THE LIST.
+    They render always, inside a `.fd-reveal` panel that animates its own
+    height — a list that is rebuilt on every toggle has nothing to animate,
+    because the rows the browser would tween are brand-new elements. The panel
+    goes `visibility: hidden` at the end of the collapse, so the rows leave the
+    tab order exactly as they did when they were unmounted.
+  */
 
   /*
     THE BAR, DEFINED ONCE. The app variant wraps it in the sticky
@@ -644,7 +733,7 @@ export function FrontDoorShell({
             aria-label="Menu"
             aria-expanded={railOpen}
             aria-controls={railId}
-            onClick={() => setRailOpen((v) => !v)}
+            onClick={() => (railOpen ? closeRail() : openRail())}
           >
             ☰
           </button>
@@ -928,7 +1017,10 @@ export function FrontDoorShell({
         {railOpen ? (
           <div
             className="fd-scrim"
-            onClick={() => setRailOpen(false)}
+            /* Fades out alongside the drawer rather than blinking away a step
+               ahead of it — one event, not two. */
+            data-closing={railClosing ? 'true' : 'false'}
+            onClick={closeRail}
             aria-hidden="true"
           />
         ) : null}
@@ -947,7 +1039,15 @@ export function FrontDoorShell({
             but still reachable by keyboard. Gate on a real condition, never on
             a style that only looks like one.
           */
-          data-open={railOpen ? 'true' : 'false'}
+          data-open={railClosing ? 'closing' : railOpen ? 'true' : 'false'}
+          /*
+            🔑 ONE NUMBER, DECLARED ONCE. The stylesheet reads
+            `var(--fd-drawer-ms)` and this component owns the timer that ends
+            the closing state — handing the same constant to both is what stops
+            them drifting into a drawer that vanishes mid-slide (CSS slower) or
+            hangs half-open (CSS faster).
+          */
+          style={{ '--fd-drawer-ms': `${RAIL_DRAWER_MS}ms` } as React.CSSProperties}
         >
           {/* 1 · DESTINATIONS
               `data-on` comes from the resolver on every row. It was the string
@@ -1044,26 +1144,29 @@ export function FrontDoorShell({
                 <Link href="/dashboard/library" {...rowProps('alaala')}>
                   <RailIcon as={Sparkles} />
                   <span className="fd-label-text">
-                    {slotLabel(RAIL_SLOT.alaala, 'Alaala')}
+                    {slotLabel(RAIL_SLOT.alaala, 'Memories')}
                   </span>
-                  <span className="fd-icon-caption">Alaala</span>
+                  <span className="fd-icon-caption">Memories</span>
                   <Count value={account.alaalaCount} />
                 </Link>
-                {/* YOUR YEAR — a real door, added 2026-08-19.
-                    Its only in-app entrances were the strip on the account home
-                    and a ⌘K row. The home is becoming events-only, and this
-                    page's own docblock states the standard it would then fail:
-                    "a palette entry is not a doorway". So the doorway moves to
-                    the rail BEFORE the strip is removed, not after. */}
-                <Link href="/dashboard/year" {...rowProps('year')}>
-                  <span className="fd-gi" aria-hidden="true">
-                    ❒
-                  </span>
-                  <span className="fd-label-text">
-                    {slotLabel(RAIL_SLOT.year, 'Your year')}
-                  </span>
-                  <span className="fd-icon-caption">Year</span>
-                </Link>
+                {/* YOUR YEAR — THE RAIL ROW IS RETIRED (owner 2026-08-21:
+                    *"this is the your year concept integrated here. deleting
+                    the your year menu"*).
+                    Its premise expired. The row was added 2026-08-19 with the
+                    reasoning "the home is becoming events-only, so the doorway
+                    moves to the rail BEFORE the strip is removed" — and the
+                    board then went the other way: the year's contents are now
+                    the "Worth planning" SHELF on My Events, which is a bigger
+                    door than this row ever was.
+                    🔑 THE ROUTE IS NOT RETIRED, ONLY THE MENU. /dashboard/year
+                    still holds the holidays the shelf leaves out, and the shelf
+                    links to it in BOTH its branches — populated
+                    (year-moments-list) and empty (year-moments-strip's
+                    EmptyYear) — so the "a palette entry is not a doorway"
+                    standard is still met, by a link a person can see rather
+                    than a keyboard shortcut.
+                    `lib/the-controls-have-a-home.test.ts` asserts exactly
+                    that; do not re-add this row without changing it back. */}
               {/*
                 PEOPLE — A DOOR, NOT A NOTICE. This was a "coming soon · waiting
                 on a legal review" notice, and it was WRONG ON BOTH HALVES.
@@ -1115,23 +1218,21 @@ export function FrontDoorShell({
                 <span className="fd-icon-caption">People</span>
               </Link>
               {/*
-                YOUR STORY — a thing you HAVE, not a thing you run, so it is
-                never gated. Writing is open to every signed-in person; gating
-                this row on "is a storyteller" (>=1 published chapter on a
-                public profile) would hide a desk 8 of 9 accounts are entitled
-                to sit at. Matches the shipped launcher, which shows the same
-                href whether you have chapters or none.
+                YOUR STORY — THE RAIL ROW IS RETIRED (owner 2026-08-21: *"remove
+                the your year and your story… we already have your story on
+                untold"*).
+                Its premise was "a thing you HAVE, not a thing you run, so it is
+                never gated" — still true, and now served by the BOARD instead of
+                a rail row. My Events carries both halves: the "Untold" shelf
+                offers *Write the story of <name>* per finished celebration, and
+                "Told" ends with *read them in Your Story*. Both link
+                /dashboard/creator, so the desk keeps two visible doors on the
+                first screen after sign-in and loses only the duplicate.
+                🔑 THE ROUTE IS NOT RETIRED, ONLY THE MENU — do not delete
+                /dashboard/creator, and do not re-add this row without changing
+                `lib/the-controls-have-a-home.test.ts`, which now asserts the
+                doors that replaced it.
               */}
-              <Link href="/dashboard/creator" {...rowProps('story')}>
-                <RailIcon as={PenLine} />
-                <span className="fd-label-text">Your Story</span>
-                <span className="fd-icon-caption">Story</span>
-                {typeof account.storyChapterCount === 'number' ? (
-                  <span className="fd-ct">{account.storyChapterCount}</span>
-                ) : account.storyChapterCount === null ? (
-                  <span className="fd-ct">couldn&apos;t load</span>
-                ) : null}
-              </Link>
               {/*
                 WHAT YOU RUN — the second group, and the rule that decides
                 membership is one sentence: does this destination REFUSE a
@@ -1197,7 +1298,13 @@ export function FrontDoorShell({
             entire difference between one shell and two. Slice 0 passes
             nothing, so this renders nothing.
           */}
-          {railContext}
+          {/* The wrapper is the ANIMATION HOOK and nothing else — a block box
+              inside a block rail, so no row moves by a pixel. `railContext` is
+              a fragment of siblings; without one element to hang it on there is
+              nothing for the arrival to animate. */}
+          {railContext ? (
+            <div className="fd-rgroup">{railContext}</div>
+          ) : null}
 
           {/* 3 · MARKETPLACE — signed-in only.
               ⚠ MARKETPLACE AND STUDIO ARE FRONT-PAGE FURNITURE and collapse
@@ -1215,27 +1322,37 @@ export function FrontDoorShell({
               separate branch.
             */
             railContext ? null : (
-            <>
+            <div className="fd-rgroup">
               <div className="fd-rdiv" />
               {/* NOT "Marketplace" — that is the row above, and the same word
                   twice in one rail reads as two different places. These are
                   shortcuts INTO it (`/explore?folder=…`). See the header. */}
               <div className="fd-rlabel">Browse by category</div>
-              {folders.map((f) => (
-                <Link
-                  key={f.slug}
-                  href={`/explore?folder=${encodeURIComponent(f.slug)}`}
-                  className="fd-row"
-                >
-                  <RailIcon as={folderIcon(f.slug)} />
-                  <span className="fd-label-text">{f.label}</span>
-                  <span className="fd-icon-caption">{f.label}</span>
-                  <span className="fd-ct fd-mono">{f.count}</span>
-                </Link>
+              {visibleFolders.map((f) => (
+                <FolderRow key={f.slug} f={f} />
               ))}
+              {/*
+                THE EXTRA CATEGORIES, ALWAYS RENDERED AND ANIMATED OPEN.
+                `id` + `aria-controls` on the button below are what tell a
+                screen reader which panel the press opened — the button used to
+                rebuild the list around itself and announce nothing.
+              */}
+              <div
+                id={`${railId}-more`}
+                className="fd-reveal"
+                data-open={moreOpen ? 'true' : 'false'}
+              >
+                <div className="fd-reveal-in">
+                  {moreFolders.map((f) => (
+                    <FolderRow key={f.slug} f={f} />
+                  ))}
+                </div>
+              </div>
               <button
                 type="button"
                 className="fd-row"
+                aria-expanded={moreOpen}
+                aria-controls={`${railId}-more`}
                 onClick={() => setMoreOpen((v) => !v)}
               >
                 <RailIcon as={moreOpen ? ChevronUp : ChevronDown} />
@@ -1246,13 +1363,13 @@ export function FrontDoorShell({
                 </span>
                 <span className="fd-icon-caption">More</span>
               </button>
-            </>
+            </div>
             )
           ) : null}
 
           {/* 4 · STUDIO — the things you make. Collapses with Marketplace. */}
           {railContext ? null : (
-            <>
+            <div className="fd-rgroup">
               <div className="fd-rdiv" />
               <div className="fd-rlabel">
                 Studio <small>the things you make</small>
@@ -1298,7 +1415,7 @@ export function FrontDoorShell({
                   <span className="fd-icon-caption">{t.name}</span>
                 </Link>
               ))}
-            </>
+            </div>
           )}
 
           {/* 5 · SMALL PRINT.

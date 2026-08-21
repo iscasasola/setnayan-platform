@@ -82,7 +82,18 @@ function countdown(days: number): string {
   return months <= 1 ? 'in ~1 month' : `in ~${months} months`;
 }
 
-export async function YearMomentsStrip({ userId }: { userId: string }) {
+export async function YearMomentsStrip({
+  userId,
+  heading = 'This year',
+}: {
+  userId: string;
+  /**
+   * The tile's own caption. Pass `null` when the caller already names the row —
+   * the board's "Worth planning" shelf does, and two headings stacked on one
+   * panel reads as a bug rather than as emphasis.
+   */
+  heading?: string | null;
+}) {
   const supabase = await createClient();
   const today = manilaToday();
 
@@ -117,17 +128,22 @@ export async function YearMomentsStrip({ userId }: { userId: string }) {
     return e ? (Array.isArray(e) ? e : [e]) : [];
   });
 
-  // Personal anchor moments only — holidays stay in the full Year view. The own
+  // 🔑 HOLIDAYS ARE IN NOW (owner 2026-08-21). They were excluded because the
+  // full /dashboard/year view existed to carry them — and the owner has since
+  // retired that page into this shelf (*"we already have the your year inside
+  // my events"*). Excluding them would have made the retirement a QUIET LOSS:
+  // Christmas and Valentine's are exactly the dates the shelf exists to warn
+  // about, because they are the ones that book out early. The own
   // birthday is folded in HERE rather than inside buildYearMoments because it
   // comes from the profile, not from an event: it is the one moment an account
   // can offer before it has a single event on it. `mergeSelfMoments` drops it
   // when an event already holds that day, so one date never prints twice.
   const moments = mergeSelfMoments(
-    buildYearMoments(events, today, { includeHolidays: false }),
+    buildYearMoments(events, today, { includeHolidays: true }),
     buildSelfMoments((selfRow as SelfForMoments | null) ?? null, today),
   );
 
-  if (moments.length === 0) return <EmptyYear unsure={readFailed} />;
+  if (moments.length === 0) return <EmptyYear unsure={readFailed} heading={heading} />;
 
   // Precompute display strings server-side (Asia/Manila) so the client list
   // never re-derives dates or timezones.
@@ -139,6 +155,15 @@ export async function YearMomentsStrip({ userId }: { userId: string }) {
     countdownLabel: countdown(m.daysUntil),
     isMilestone: m.isMilestone,
     eventId: m.eventId ?? null,
+    // ⚠ WITHOUT THESE FOUR THE ROW IS A DEAD END. They were added 2026-08-21
+    // with the "Start planning" affordance the retired /dashboard/year used to
+    // own — the mapper is the seam where a ported feature silently becomes
+    // inert, because every field it forgets simply reads `undefined` and the
+    // row renders perfectly with nothing behind it.
+    createEventType: m.createEventType ?? null,
+    dateISO: m.dateISO,
+    forSelf: m.forSelf === true,
+    age: m.age ?? null,
   }));
 
   // "This year" glass row — the strip renders INSIDE the Alaala section
@@ -147,7 +172,7 @@ export async function YearMomentsStrip({ userId }: { userId: string }) {
   // The glass panel lives HERE (not around the call site) so the tile never
   // leaves an empty frame on the page.
   return (
-    <Tile>
+    <Tile heading={heading}>
       <YearMomentsList moments={views} initial={HOME_LIMIT} />
     </Tile>
   );
@@ -159,12 +184,20 @@ export async function YearMomentsStrip({ userId }: { userId: string }) {
  * the populated tile and never on the empty one — and the empty one is the
  * tile a brand-new account actually sees.
  */
-function Tile({ children }: { children: React.ReactNode }) {
+function Tile({
+  children,
+  heading = 'This year',
+}: {
+  children: React.ReactNode;
+  heading?: string | null;
+}) {
   return (
     <div className="sn-tile-glass sn-lift-3 rounded-2xl p-4 sm:p-[18px]">
-      <h3 className="mb-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
-        This year
-      </h3>
+      {heading ? (
+        <h3 className="mb-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
+          {heading}
+        </h3>
+      ) : null}
       {children}
     </div>
   );
@@ -203,9 +236,15 @@ function Tile({ children }: { children: React.ReactNode }) {
  * "turning 0"). "Add your birthday" is a correct instruction either way; "you
  * haven't added one" would not be.
  */
-function EmptyYear({ unsure = false }: { unsure?: boolean }) {
+function EmptyYear({
+  unsure = false,
+  heading = 'This year',
+}: {
+  unsure?: boolean;
+  heading?: string | null;
+}) {
   return (
-    <Tile>
+    <Tile heading={heading}>
       {unsure ? (
         <p className="text-sm text-ink/70">We couldn’t load your dates just now.</p>
       ) : (
@@ -213,7 +252,7 @@ function EmptyYear({ unsure = false }: { unsure?: boolean }) {
       )}
       <p className="mt-1.5 text-xs leading-relaxed text-ink/50">
         {unsure
-          ? 'Your year is still there — open it below, or try again in a moment.'
+          ? 'Your dates are still there — try again in a moment.'
           : 'Your birthday, an anniversary, anything you mark as a yearly thing — it lands here and returns every year.'}
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -222,12 +261,6 @@ function EmptyYear({ unsure = false }: { unsure?: boolean }) {
           className="text-xs font-semibold text-[color:var(--sn-gold-700)] underline-offset-4 hover:underline"
         >
           Add your birthday
-        </Link>
-        <Link
-          href="/dashboard/year"
-          className="text-xs font-semibold text-ink/55 underline-offset-4 hover:text-ink hover:underline"
-        >
-          See the year →
         </Link>
       </div>
     </Tile>

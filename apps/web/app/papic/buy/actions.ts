@@ -12,6 +12,7 @@ import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
 import { fetchPapicOneTiers, papicOneOrderRow } from '@/lib/papic-one';
 import { guestOrderRowFor, guestPaymentRowFor } from '@/lib/order-mint-identity';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
+import { eventIsOver } from '@/lib/event-is-over.server';
 import { r2Upload } from '@/lib/r2';
 import { encodeR2Ref, R2_BUCKETS } from '@/lib/uploads';
 import {
@@ -208,6 +209,30 @@ export async function startPapicGuestPurchase(formData: FormData) {
 
   const buyer = await resolveGuestBuyer(String(formData.get('seat_token') ?? '').trim());
   if (!buyer) backTo(returnTo, 'not_here');
+
+  /*
+    ── THE CELEBRATION IS OVER: SHOTS BELONG TO A NEW EVENT ────────────────
+
+    Owner, 2026-08-21, asked whether a guest may still buy Papic shots after
+    the event: **"no. it needs to be in a new event."**
+
+    Papic credits are scoped to ONE celebration — they are spent by cameras
+    shooting it, and there is nothing left to shoot. Selling more into a
+    finished event takes money for something the buyer can never use.
+
+    🔑 IT GOES HERE, ON THE CREDENTIAL'S OWN EVENT. Every export of a
+    'use server' module is POST-able by action id whether or not any UI
+    references it — the same reason the flag check five lines up gates the
+    server and not just the surfaces. The event is read off the credential,
+    never off a form field, so this cannot be pointed at somebody else's
+    event either.
+
+    ⚠ THE SIBLING ACTION IS DELIBERATELY NOT GATED. `submitPapicGuestPayment`
+    settles an order that ALREADY EXISTS: a guest who bought before the party
+    ended still owes that money and must be able to pay it. Blocking them
+    would strand a real debt behind a rule about new purchases.
+  */
+  if (await eventIsOver(createAdminClient(), buyer!.eventId)) backTo(returnTo, 'event_over');
 
   // Flood backstop keyed on the CREDENTIAL, not on an IP or a form value, so
   // one camera cannot mint orders faster than a person can plausibly buy.

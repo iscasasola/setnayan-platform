@@ -30,6 +30,21 @@ export type QuickAddInput = {
   side: string;
   role: string;
   group_id?: string | null;
+  /**
+   * Optional, and it does more than store an address: `set_guest_person` is a
+   * BEFORE INSERT OR UPDATE OF email trigger, so writing it here resolves
+   * `guests.person_id` to the SAME person node this address already has.
+   *
+   * That is what makes "add from your people" a re-invitation rather than a
+   * new stranger with a familiar name. The CSV import has always written this
+   * column; the field is added here so the picker reuses this one canonical
+   * insert instead of growing a second, softer one beside it.
+   *
+   * 🔒 The caller may pass an address it can prove is the HOST'S OWN record —
+   * a guest row on another of their events. It is deliberately never carried
+   * for a samahan co-member or a connection; see `people-you-can-invite.ts`.
+   */
+  email?: string | null;
 };
 
 export type QuickAddResult =
@@ -67,6 +82,7 @@ export async function quickAddGuest(
   const last_name = normalizeGuestName(input.last_name);
   const side = input.side as GuestSide;
   const role = (input.role || 'guest') as GuestRole;
+  const email = (input.email ?? '').trim().toLowerCase() || null;
 
   // Both names required — matches createGuest's contract and the
   // guests.last_name NOT NULL column. Edge cases (mononyms, TBA) go
@@ -105,6 +121,9 @@ export async function quickAddGuest(
       photo_consent: true,
       invited_to_blocks: defaultInvitedToForRole(role),
       custom_tags: [],
+      // Omitted entirely when absent, so every existing caller inserts exactly
+      // the row it inserted before. See the field's note on QuickAddInput.
+      ...(email ? { email } : {}),
     })
     .select('guest_id')
     .single();

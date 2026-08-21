@@ -295,20 +295,40 @@ test('holding both memberships on one event resolves to the organiser', () => {
 
 // ── 3 · THE CALLER — the launcher actually renders all of it ────────────────
 
-test('the launcher renders BOTH shelves, always', () => {
+test('the launcher renders EVERY shelf, always', () => {
   const src = launcher();
+  // FIVE SHELVES SINCE 2026-08-21 (owner). The two this test was written for
+  // are still here under the names he chose: "Coming up" → "Planning", and the
+  // finished pair → "Untold"/"Told". Renaming a shelf is a copy decision; a
+  // shelf DISAPPEARING is the regression, and that is what these still catch.
   assert.match(
     src,
-    /<SectionLabel[^>]*>\s*Coming up\s*<\/SectionLabel>/,
-    'The "Coming up" shelf heading is gone.',
+    /<SectionLabel[\s\S]{0,400}?>\s*Planning\s*<\/SectionLabel>/,
+    'The "Planning" shelf heading is gone.',
   );
-  // The finished shelf is a NAMED place. Since 2026-08-20 its name depends on
-  // whether this account's stories could be read: "Unpublished" when they were
-  // (the owner's word), "Finished" when they were not. Either way it is named,
-  // and either way every finished celebration is on it.
   assert.match(
     src,
-    /storiesMeasured \? 'Unpublished' : 'Finished'/,
+    /<SectionLabel[\s\S]{0,400}?>\s*Worth planning\s*<\/SectionLabel>/,
+    'The "Worth planning" shelf is gone — the days that come around for this ' +
+      'person have no other home now that the Your Year menu is retired.',
+  );
+  assert.match(
+    src,
+    /<SectionLabel[\s\S]{0,500}?>\s*Now happening\s*<\/SectionLabel>/,
+    'The "Now happening" row is gone.',
+  );
+  // The finished shelf is a NAMED place. Its name depends on whether this
+  // account's stories could be read: "Untold" when they were (owner
+  // 2026-08-21), "Ended" when they were not. Either way it is named, and either
+  // way every finished celebration is on it.
+  assert.match(
+    src,
+    /storiesMeasured\s*\n?\s*\? 'The day has passed/,
+    'The Untold shelf lost the sentence its (i) reveals.',
+  );
+  assert.match(
+    src,
+    /\{storiesMeasured \? 'Untold' : 'Ended'\}/,
     'The finished shelf heading is gone — the second shelf must be a NAMED ' +
       'place, not an unlabelled tail of the first.',
   );

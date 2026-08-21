@@ -244,18 +244,13 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 0,
   },
-  {
-    key: "customer.account.year",
-    scope: "customer",
-    area: "customer-account",
-    route: "/dashboard/year",
-    label: "Your year",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "CalendarRange",
-    customRef: null,
-    sortOrder: 0,
-  },
+  // "Your year" IS RETIRED AS A MENU ENTRY (owner 2026-08-21): its contents are
+  // the board's "Worth planning" shelf now, so a second door to the same days
+  // is how one of them goes stale. ⚠ THE ROUTE ITSELF IS DELIBERATELY LEFT
+  // ALIVE — /dashboard/year still renders the full calendar with the holidays
+  // the shelf omits, and it is linked from the shelf's own "See the year →".
+  // Deleting the entry removes a DOOR, not the room; removing the room would
+  // break that link and any bookmark somebody already has.
   {
     key: "customer.account.notifications",
     scope: "customer",
@@ -315,7 +310,15 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     // every shipped link points at that URL. Only the default LABEL changes,
     // matching home-pill-nav.tsx and home-board.tsx, which already say "Alaala".
     // ⚠ An explicit admin rename in `nav_slot_overrides` still wins over this.
-    label: "Alaala",
+    //
+    // 🔁 RENAMED BACK TO "Memories" (owner 2026-08-21: *"My Memories (formerly
+    // Ala ala)"*, then *"Events / Memories / People will be the ones
+    // remaining"*). This REVERSES the 2026-07-31 rename recorded above — it is
+    // not an oversight of it, and the reversal is left visible rather than
+    // tidied away so nobody re-applies the older decision from the comment.
+    // The slot KEY and the ROUTE are unchanged, so every admin override and
+    // every shipped link still resolves.
+    label: "Memories",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Sparkles",

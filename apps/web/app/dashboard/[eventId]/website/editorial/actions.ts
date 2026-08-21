@@ -226,18 +226,27 @@ export async function saveEditorial(
       ? (existing.draft_json as Record<string, unknown>)
       : {};
 
-  // ── Event Hub PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
-  // Editorial editing is a Event Hub PRO perk. Defense-in-depth mirror of the page
-  // gate: a NOT-PRO couple with NO authored editorial (empty draft_json AND never
-  // published) can't create one via a crafted request. A couple that already
-  // authored editorial (grandfathered) OR owns PRO saves freely — and we never
-  // touch what they already saved. isPro is computed once here and reused below.
+  /*
+    ⚠ THE EVENT HUB PRO GATE IS RETIRED HERE (owner 2026-08-21):
+    "make this feature part of free and not part of the event hub pro."
+
+    It used to refuse a save from a non-PRO couple who had never authored an
+    editorial, with "Editing your editorial is part of Event Hub PRO."
+
+    🔑 THE REASON THE OWNER GAVE IS WORTH KEEPING: Setnayan auto-crafts this
+    story for them. An auto-written story its own subject cannot correct reads
+    worse than no story at all — and the first name a generator gets wrong is
+    the couple's own. Charging to fix our sentence about their wedding is the
+    wrong side of the line. PRO sells premium touches, not the right to correct
+    yourself.
+
+    ⛔ Do NOT reinstate this as a "cheap upsell". It was ruled on directly.
+  */
+  // Still resolved: the genuinely-premium EXTRAS below (chapter curation,
+  // section order, manual guest wishes) remain PRO. What is now free is the
+  // couple's own WORDS — starting an editorial, and correcting it.
   const isPro = await isEditorialProActive(admin, eventId);
-  const hasExistingEditorial =
-    Object.keys(base).length > 0 || existing?.published_at != null;
-  if (!isPro && !hasExistingEditorial) {
-    return { ok: false, error: 'Editing your editorial is part of Event Hub PRO.' };
-  }
+
 
   const t = (s: string) => s.trim();
   const draft: Record<string, unknown> = { ...base };

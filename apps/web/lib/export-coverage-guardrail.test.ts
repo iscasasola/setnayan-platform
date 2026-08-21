@@ -177,6 +177,17 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  calendar_feed_tokens:
+    'A CREDENTIAL, NOT A RECORD ABOUT THEM — and exporting it would be a way to ' +
+    'leak it. The row holds a random subscription token that serves this ' +
+    'person’s calendar feed to ANYONE who has it, with no login. An RA 10173 ' +
+    'export is a file people download, email to themselves and store; putting a ' +
+    'live access key inside it turns a privacy right into a disclosure risk. ' +
+    'Nothing else in the row is information about the person (a creation time, a ' +
+    'last-read time and a revocation time — all facts about the LINK), and the ' +
+    'celebrations the feed describes are exported in full from `events` and ' +
+    '`event_members` already. The subject can see and reset the link on My ' +
+    'Events at any time, which is the surface that right belongs on.',
   // ── added 2026-08-05 with the table itself ──
   event_stage_notes:
     'Not the subject’s data to export. A stage note is an operational instruction about ' +

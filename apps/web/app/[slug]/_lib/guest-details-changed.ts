@@ -11,15 +11,25 @@
  * the update runs unconditionally with `updated_at` always moving. So NEITHER
  * the write NOR the timestamp is a change signal — only this comparison is.
  */
-export type DetailField = 'meal' | 'dietary' | 'note';
+export type DetailField = 'meal' | 'dietary' | 'note' | 'email' | 'mobile' | 'name';
 
 export function guestDetailsChanged(
   before: {
     meal_preference?: string | null;
     dietary_restrictions?: string | null;
     guest_note?: string | null;
+    email?: string | null;
+    mobile?: string | null;
+    display_name?: string | null;
   } | null,
-  next: { meal: string; dietary: string | null; guestNote: string | null },
+  next: {
+    meal: string;
+    dietary: string | null;
+    guestNote: string | null;
+    email: string | null;
+    mobile: string | null;
+    displayName: string | null;
+  },
 ): DetailField[] {
   const norm = (v: string | null | undefined) => (v ?? '').trim();
   const out: DetailField[] = [];
@@ -35,6 +45,17 @@ export function guestDetailsChanged(
   // would otherwise read as a change on every single submit, forever.
   if (norm(before?.dietary_restrictions) !== norm(next.dietary)) out.push('dietary');
   if (norm(before?.guest_note) !== norm(next.guestNote)) out.push('note');
+
+  // The three the guest could never give until 2026-08-21. Same '' -> null
+  // normalisation: `clean(...) || null` on the way in means a stored '' would
+  // otherwise report a change on every submit for the rest of the guest's life.
+  // 🪤 Email is compared CASE-INSENSITIVELY. Addresses are case-insensitive in
+  // the half that matters, so a guest whose keyboard capitalises the first
+  // letter would otherwise tell the couple their email "changed" every time
+  // they opened their own card.
+  if (norm(before?.email).toLowerCase() !== norm(next.email).toLowerCase()) out.push('email');
+  if (norm(before?.mobile) !== norm(next.mobile)) out.push('mobile');
+  if (norm(before?.display_name) !== norm(next.displayName)) out.push('name');
 
   return out;
 }

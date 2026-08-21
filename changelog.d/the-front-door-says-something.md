@@ -57,6 +57,22 @@ name turns one red, restoring returns all nine green. It strips comments first,
 in the file AND the stylesheet — my first cut read the lede's own comment (which
 NAMES the rejected token) as evidence and reported a false failure.
 
+🛡 **AND AN EXISTING GUARD CAUGHT THIS, CORRECTLY.**
+`rail-active.test.ts` — *"the app variant does not bring the front door's hidden
+`<h1>` with it"* — failed CI, because it matched the literal shape
+`{ownsHeading ? null : (<h1 …` and mine now reads
+`{ownsHeading ? null : (heading ?? (<h1 …`.
+
+**The gate was never removed** — an account page still renders no sr-only `<h1>`
+— so the guard's INTENT held and only its pattern had gone stale. It is
+**widened, not weakened**: the optional `heading ?? (` is the only thing allowed
+between the gate and the fallback, and a SECOND assertion is added that the
+sr-only `<h1>` may appear exactly once, so it cannot be re-added outside the
+gate while the pattern still matches inside it. Mutation-proved: deleting the
+variant gate turns it red.
+🔑 **A brittle guard failing an honest change is not a reason to loosen it.**
+The test is stricter after this than before.
+
 ⏭ **THIS IS THE OPENING, NOT THE WHOLE CONCEPT.** The group-chat vignette, the
 "one link, every phone, one album" turn, and the section for the family who
 could not fly home are the rest of it and are NOT built. The reading feed still

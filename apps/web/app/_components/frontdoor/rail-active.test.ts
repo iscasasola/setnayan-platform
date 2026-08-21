@@ -297,10 +297,28 @@ test('the app variant renders the SAME bar — never a second one', () => {
 });
 
 test('the app variant does not bring the front door\'s hidden <h1> with it', () => {
+  /*
+    ⚠ WIDENED 2026-08-21, NOT WEAKENED. The front door now supplies a REAL
+    heading, so the shell reads `{ownsHeading ? null : (heading ?? (<h1 …`.
+    The optional `heading ?? (` is the only thing allowed between the variant
+    gate and the fallback — the gate itself is still required, which is the
+    whole point: an account page must render NO sr-only <h1>, or every one of
+    them carries two.
+
+    The second assertion is new and is what makes the widening safe: the
+    sr-only <h1> may appear only ONCE in the file, so it cannot be re-added
+    outside the gate while this pattern still matches inside it.
+  */
   assert.ok(
-    /\{\w+ \? null : \(\s*<h1 className="fd-sr-only"/.test(SHELL),
+    /\{\w+ \? null : \((?:\s*\w+ \?\? \()?\s*<h1 className="fd-sr-only"/.test(SHELL),
     'the sr-only <h1> is not gated on the variant — every account page would ' +
       'render two <h1>s, the defect the doorway work measured and closed.',
+  );
+  assert.equal(
+    (SHELL.match(/<h1 className="fd-sr-only"/g) ?? []).length,
+    1,
+    'the sr-only <h1> appears more than once — one of them is outside the ' +
+      'variant gate, which is the same defect wearing a different shape.',
   );
 });
 

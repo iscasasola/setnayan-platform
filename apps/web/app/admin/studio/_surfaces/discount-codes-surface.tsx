@@ -326,7 +326,6 @@ export async function DiscountCodesSurface({
     <div className="space-y-6">
       <PageMasthead
         title="Discount codes"
-        lede="Vouchers couples paste at checkout to unlock a special price. Set an expires-at on every code · pick which services it covers · optionally cap how many times it can be used."
         actions={
           <Link
             href="/admin/discount-codes/new"

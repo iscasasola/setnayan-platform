@@ -71,14 +71,6 @@ export default async function HeroPhotoEditorPage({
       {/* Header */}
       <PageMasthead
         title="Hero photo"
-        lede={
-          <>
-            Choose a hi-res photo of the two of you. It lands as the full-bleed
-            banner on your {eventNoun(event.event_type)}’s public page. JPG, PNG, or WebP up to 10 MB.
-            Aspect ratio works best at 16:9 or 4:3.
-          </>
-        }
-        className="mb-8"
       />
 
       {/* Living hero cross-link */}

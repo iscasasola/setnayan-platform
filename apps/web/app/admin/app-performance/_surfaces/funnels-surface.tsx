@@ -255,7 +255,7 @@ export async function FunnelsSurface({ searchParams }: Props) {
           <span>
             {/* Gold on an ICON clears the 3:1 non-text bar; gold on a WORD does
                 not. The class sits on the glyph, never on a text container. */}
-            <LineChart aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+            <LineChart aria-hidden strokeWidth={1.75} />
             Funnels
           </span>
         }

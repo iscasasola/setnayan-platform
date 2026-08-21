@@ -444,18 +444,6 @@ export async function SocialQueueSurface({
     <div>
       <PageMasthead
         title="Social queue"
-        lede={
-          <>
-            Mission control for the Setnayan Facebook page. The pipeline
-            composes, schedules, and (when the master switch is on)
-            auto-publishes — couple creations only after{' '}
-            <span className="font-medium">event date + 7 days</span>, never more
-            than 3 posts/day, always inside PH prime windows. The manual
-            copy-paste panels below remain the fallback workflow; revoked
-            consents must come down within 24 hours.
-          </>
-        }
-        className="mb-6"
       />
 
       <FlashBanner search={search} />

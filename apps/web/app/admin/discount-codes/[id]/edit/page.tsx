@@ -184,7 +184,6 @@ export default async function EditDiscountCodePage({ params }: Props) {
           they stay, behind the (i). */}
       <PageMasthead
         title={`Edit ${code.code}`}
-        lede={`Used ${code.uses_count} time${code.uses_count === 1 ? '' : 's'} so far. Code identifier itself isn’t editable — disable this one and create a fresh code if you need to rename it.`}
       />
 
       {!code.is_active && (

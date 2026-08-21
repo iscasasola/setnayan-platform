@@ -366,3 +366,45 @@ test('the dashboard countdown reads the venue clock', () => {
   assert.ok(!/setHours\(0, 0, 0, 0\)/.test(fn), 'the runtime-local midnight must be gone');
   assert.match(dash, /event_date_precision, timezone/, 'and the zone must actually be selected');
 });
+
+/*
+  18 · THE EVENT NAMES ITSELF IN THE BROWSER TAB.
+
+  Every sibling surface exports a title; this one — the page a person actually
+  lands on — exported none, so it fell through to the marketing default and
+  several open events were indistinguishable in the tab strip.
+
+  🔒 The read must go through the CALLER's session. `generateMetadata` runs
+  before the page body's membership check, so an admin-client read would put an
+  event's name in front of anyone who guessed an id.
+*/
+test('the event Overview names the event, and reads it as the caller', () => {
+  const page = src('app/dashboard/[eventId]/page.tsx');
+  const i = page.indexOf('export async function generateMetadata(');
+  assert.ok(i >= 0, 'the Overview must name itself');
+  const fn = page.slice(i, page.indexOf('export default async function', i));
+  assert.match(fn, /createClient\(\)/, 'through the caller’s own session');
+  assert.ok(!/createAdminClient/.test(fn), 'never the admin client — it runs before the auth check');
+  assert.match(fn, /return name \? \{ title: name \} : \{\}/, 'and falls back rather than guessing');
+});
+
+/*
+  19 · THE FROZEN HEAD COUNT SAYS WHAT IT IS FOR.
+
+  It is `max(estimated_pax, headcount)` — on an event nobody was added to, it is
+  just the number typed at sign-up. Labelling that "N guests locked in" printed a
+  figure contradicting the list directly above it.
+*/
+test('the finalized banner does not claim guests the list does not have', () => {
+  const g = src('app/dashboard/[eventId]/guests/page.tsx');
+  /*
+    🪤 COMMENTS STRIPPED FIRST — this assertion failed on its own first run
+    because the fix carries a comment QUOTING the string it removed. A raw
+    source match reports the defect it just repaired, which is the same trap
+    `doors-are-designed.test.ts` was corrected for. Raw: 1. Stripped: 0. Zero
+    is the true number.
+  */
+  const code = g.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  assert.ok(!/guests locked in/.test(code), '"N guests locked in" must not return');
+  assert.match(code, /your suppliers price for/, 'it must say what the number is for');
+});

@@ -273,23 +273,23 @@ export async function StorytellersSurface({
 
   return (
     <div>
+      {/* Same as Real Stories: the only link to the shelf this page controls
+          lived inside the retired (i) sentence. A door outlives the sentence
+          that happened to contain it. NOTE the anchor — the route-level control
+          guard passes on `/realstories` alone because a SIBLING surface links
+          there, so it could not have told us this one went missing. */}
       <PageMasthead
         title="Storytellers"
-        lede={
-          <>
-            Choose which published creator chapters get{' '}
-            <strong className="font-semibold text-ink">featured</strong> in the &ldquo;From Our
-            Storytellers&rdquo; shelf on the public{' '}
-            <Link href="/realstories#storytellers" className="underline hover:text-mulberry">
-              Real Stories
-            </Link>{' '}
-            page, and in what order. Publishing never lists a chapter by itself — your Feature
-            click here is the moderation review (deny-by-default). Chapters told in writing are
-            featurable too — their shelf tile leads with the story instead of a thumbnail. With
-            zero featured chapters the shelf doesn&rsquo;t render at all.
-          </>
+        actions={
+          <Link
+            href="/realstories#storytellers"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-sm font-medium text-ink/80 hover:bg-ink/10"
+          >
+            <BookOpen aria-hidden className="h-4 w-4" strokeWidth={2} />
+            View the shelf
+          </Link>
         }
-        className="mb-8"
+        className="mb-6"
       />
 
       {ok ? (

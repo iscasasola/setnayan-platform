@@ -75,7 +75,6 @@ export default async function StampMakerPage({ params }: Props) {
 
       <PageMasthead
         title="Make your wax seal"
-        lede="Your monogram is the stamp. Pour the wax, wait for it to set, then press — every pour is one of a kind. Your seal holds your invitation closed until a guest swipes it away."
       />
 
       <WaxStampMaker

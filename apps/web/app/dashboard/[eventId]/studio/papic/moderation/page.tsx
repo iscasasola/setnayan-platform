@@ -268,7 +268,7 @@ export default async function PapicModerationPage({
       <PageMasthead
         titleNode={
           <span>
-            <ShieldCheck aria-hidden className="h-5 w-5 shrink-0 text-mulberry" strokeWidth={1.75} />
+            <ShieldCheck aria-hidden strokeWidth={1.75} />
             Photo moderation
           </span>
         }

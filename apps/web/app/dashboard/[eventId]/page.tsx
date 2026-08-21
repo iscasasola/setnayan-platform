@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AccessRequestsDoorway } from './_components/access-requests-doorway';
 import { notFound, redirect } from 'next/navigation';
@@ -51,6 +52,44 @@ import { papicNudgeShouldShow } from '@/lib/papic-home-tile';
 import { planNextYearEvent } from '@/app/dashboard/(account)/create-event/actions';
 
 export const dynamic = 'force-dynamic';
+
+/*
+  ─── THE BROWSER TAB SAID "FILIPINO WEDDING PLANNING + VERIFIED VENDORS" ───
+
+  Every sibling surface names itself — "Guests · Setnayan", "Suite · Setnayan",
+  "Editorial · Setnayan" — because each one exports a `metadata.title` and the
+  root layout's template wraps it. This page, the one a person actually lands
+  on, exported none, so it fell through to the marketing default. With several
+  events open in tabs there was no way to tell which was which.
+
+  🔒 READ THROUGH THE CALLER'S OWN SESSION, NOT THE ADMIN CLIENT.
+  `generateMetadata` runs BEFORE the page body's membership check, so an admin
+  read here would put an event's name in the tab title of anyone who guessed an
+  id. Under RLS a stranger gets no row and the default title, which is exactly
+  right.
+
+  Fail-soft in both directions: no name, no row, or a refused read all fall
+  back to the site default rather than rendering an id or an empty title.
+*/
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ eventId: string }>;
+}): Promise<Metadata> {
+  try {
+    const { eventId } = await params;
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from('events')
+      .select('display_name')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const name = ((data as { display_name?: string | null } | null)?.display_name ?? '').trim();
+    return name ? { title: name } : {};
+  } catch {
+    return {};
+  }
+}
 
 /**
  * /dashboard/[eventId] — the event Home.

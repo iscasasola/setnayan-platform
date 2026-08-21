@@ -103,7 +103,6 @@ export default async function NewDiscountCodePage() {
           order to fill the form, so it stays, behind the (i). */}
       <PageMasthead
         title="Create discount code"
-        lede="Couples paste the code at checkout to unlock the special price. Effective-until is required so codes can’t hang around forever."
       />
 
       <VoucherForm

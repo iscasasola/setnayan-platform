@@ -127,16 +127,7 @@ export default async function DemoInquiriesPage() {
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
       <PageMasthead
-        className="mb-6"
         title="Demo inquiries"
-        lede={
-          <>
-            Inquiries couples have sent to demo vendors. Open one to reply{' '}
-            <strong>as the vendor</strong> — demo vendors are unclaimed, so the team
-            role-plays their responses here.{' '}
-            {pendingCount === null ? 'Pending count unavailable.' : `${pendingCount} pending.`}
-          </>
-        }
       />
 
       {labelsUnresolved ? (

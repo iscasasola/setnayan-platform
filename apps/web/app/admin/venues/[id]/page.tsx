@@ -53,7 +53,6 @@ export default async function EditVenuePage({ params }: Props) {
             {row.name}
           </span>
         }
-        className="mb-6"
       />
 
       <VenueForm

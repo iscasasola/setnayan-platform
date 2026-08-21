@@ -158,8 +158,6 @@ export default async function PlaylistPage({ params }: Props) {
           because it is the only place that says the DJ reads this list. */}
       <PageMasthead
         title="Your wedding playlist"
-        lede="Pick the songs you want at each moment — your DJ or band sees this lineup the second you book them. Add favorites; flag must-not-plays. They handle the rest of the night."
-        className="mb-6"
       />
 
       {/* Sync status chip · whether a Music vendor is already booked. */}

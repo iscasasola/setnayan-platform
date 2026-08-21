@@ -11,6 +11,13 @@
  * the options put to him, to remove the back arrow and the big page name
  * entirely so each page starts straight at its content.
  *
+ * Owner 2026-08-21, hours later, pointing at what was left of THAT: a lone (i)
+ * floating above the content on Your year. **RUNG FOUR.** With no title beside
+ * it, a circle announces nothing — it reads as a stray dot, and it cost a row on
+ * 58 pages to say nothing. The (i) and the `lede` prop are gone; the sentences
+ * that were genuinely load-bearing moved into their pages, beside the thing they
+ * govern.
+ *
  * 🛑 THIS FILE PREVIOUSLY ASSERTED THE OPPOSITE. Its last test was called "the
  * title is never invisible" and it pinned the 22px→36px step as the reason the
  * h1 survived on a phone. That argument was sound and it was OVERRULED by the
@@ -45,25 +52,16 @@ test('the masthead has no eyebrow prop, at any width', () => {
     '.sn-eye is the TILE eyebrow — its own spec comment says so. Not a page identity.');
 });
 
-test('the lede renders ONLY inside the (i), never as a paragraph', () => {
-  const uses = CODE.match(/\{lede\}|\{children\}/g) ?? [];
-  assert.ok(uses.length > 0, 'the lede has to render somewhere');
-  assert.equal(/<p[^>]*>\s*\{lede\}/.test(CODE), false,
-    'A lede paragraph is the "side comment" the owner asked us to remove.');
-  assert.ok(CODE.includes('<details'),
-    'the (i) is a native <details>: zero client JS, and these pages are server components');
-  assert.ok(/lede && <MastheadInfo/.test(CODE),
-    'no lede means no (i) — an (i) that opens onto nothing is worse than none');
+test('there is no lede prop and no (i) — a lone circle explains nothing', () => {
+  assert.equal(/\blede\b/.test(CODE), false,
+    'the lede prop is gone; a sentence a page needs goes IN the page, beside the thing it governs');
+  assert.equal(/<details|MastheadInfo|\bInfo\b/.test(CODE), false,
+    'the (i) is gone. With no title beside it, a circle tells nobody there is help behind it.');
+  assert.equal(/<p[^>]*>/.test(CODE), false,
+    'and it does not come back as a paragraph either — that was rung two');
 });
 
-test('the (i) is reachable by touch and named for a screen reader', () => {
-  assert.ok(/aria-label=\{title \? `What \$\{title\} is for`/.test(CODE),
-    'the (i) no longer sits beside a title, so its accessible name is the ONLY thing saying what it opens');
-  assert.ok(/h-7 w-7/.test(CODE),
-    '28px clears the 24px WCAG 2.2 target-size floor — a hover tooltip is unreachable on a phone');
-});
-
-test('the (i) never wears the gold slot', () => {
+test('the masthead never wears the gold slot', () => {
   // In this repo the Tailwind slot named `terracotta` IS the atelier gold
   // #A9834B — 3.37:1 on cream, under the 4.5:1 AA floor, with 0.29 of headroom,
   // so any tint under it fails too. design#6 shipped that exact bug publicly.
@@ -91,10 +89,10 @@ test('the masthead has no back chevron and cannot grow one back', () => {
 });
 
 test('a page with nothing to show renders NO strip at all', () => {
-  assert.ok(/if \(!lede && !actions\) return heading;/.test(CODE),
+  assert.ok(/if \(!actions\) return heading;/.test(CODE),
     'without the early return, an empty flex box plus a mb-6 leaves the same gap the row used to occupy');
   assert.ok(/className=\{`flex flex-wrap items-center[^`]*\$\{className\}`\}/.test(CODE),
-    'the strip, when it exists, is one row — actions and the (i), nothing else');
+    'the strip, when it exists, is one row of actions and nothing else');
 });
 
 test('actions survive — 25 old headers held the ONLY doorway to another surface', () => {

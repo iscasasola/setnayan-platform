@@ -204,8 +204,6 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
       <PageMasthead
         title="Payments & reconciliation"
-        lede="Couples log payments after they transfer. Match each one against the order’s reference code. Submitted orders without a confirmed total need a quote before couples can pay."
-        className="mb-6"
       />
 
       {notice ? (

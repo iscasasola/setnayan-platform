@@ -2,7 +2,11 @@ import { redirect } from 'next/navigation';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { Plus, Trash2, Eye, EyeOff, MapPin, CalendarClock, Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { seedNonWeddingRunOfShow } from './actions';
+// ⚠ NOT from './actions'. That module is `'use server'`, and the version there
+// ended with `revalidatePath` — which Next.js forbids during a render, so this
+// very call 500'd on the first open of every non-wedding schedule. See
+// lib/schedule-seed.server.ts.
+import { seedNonWeddingRunOfShow } from '@/lib/schedule-seed.server';
 import {
   SCHEDULE_BLOCK_LABEL,
   SCHEDULE_BLOCK_TYPES,

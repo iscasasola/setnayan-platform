@@ -519,7 +519,7 @@ export default async function PricingPage() {
         { n: 'Save-the-Date page' },
         { n: 'RSVP page', note: 'unlimited RSVP collection' },
         { n: 'Event / on-the-day page' },
-        { n: 'Editorial page' },
+        { n: 'Story page' },
       ],
     },
     {

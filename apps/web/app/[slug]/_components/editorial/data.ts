@@ -3298,7 +3298,7 @@ function sofiaReyes(): EditorialData {
       headline: 'Sofia Turns Eighteen',
       deck:
         'Chandeliers, eighteen roses, and eighteen candles — a Makati debut that turned one family’s love into a room of ceremony.',
-      byline: 'Setnayan Editorial',
+      byline: 'By the Setnayan Desk',
       pullQuote: 'I wanted the people who shaped me in the same room on the same night.',
       leadParagraphs: [
         'The ballroom doors opened on the first chord and Sofia came down the staircase in a rose-gold gown her lola had quietly helped choose. Two hundred people stood without being asked to. It was, by design, a homecoming: every person who had a hand in raising her, gathered under one set of chandeliers to watch her step into adulthood.',

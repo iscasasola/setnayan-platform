@@ -82,10 +82,13 @@ export default async function EditorialEditorPage({
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="rounded-2xl border border-ink/12 bg-white/60 p-6 sm:p-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
-            Not yet
-          </p>
-          <h1 className="mt-2 text-2xl font-extrabold tracking-[-0.02em] text-ink">
+          {/*
+            NO EYEBROW. A "Not yet" kicker above this headline only repeats the
+            headline, and page eyebrows are owner-retired (2026-08-xx: a page
+            header is ONE LINE — 24px of layout for 10.5px of type that says what
+            the sentence under it already says). `lint-page-masthead` enforces it.
+          */}
+          <h1 className="text-2xl font-extrabold tracking-[-0.02em] text-ink">
             Your story opens the day after {event.display_name as string}
           </h1>
           <p className="mt-3 max-w-prose text-sm leading-relaxed text-ink/70">

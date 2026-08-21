@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
 import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
 import { addOnOfferedForEvent } from '@/lib/add-on-event-scope';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import {
   AddOnDetailView,
@@ -58,20 +59,39 @@ export default async function AddOnDetailPage({ params }: Props) {
   // notFound() rather than a redirect: the couple asked for a service their
   // event type does not offer, and there is no honest "instead, try…" — bouncing
   // them to the Suite grid would imply the thing exists somewhere in it.
+  let eventHasHappened = false;
   if (entry) {
     const [profile, { data: eventRow }] = await Promise.all([
       resolveProfileByEvent(eventId),
       createAdminClient()
         .from('events')
-        .select('community_id')
+        // ⚠ the three lifecycle columns ride along in the SAME read — no extra
+        // round trip. They decide whether the buy path below is still open.
+        .select('community_id, event_date, event_end_date, cleared_at, timezone')
         .eq('event_id', eventId)
         .maybeSingle(),
     ]);
     const communityId =
       (eventRow as { community_id?: string | null } | null)?.community_id ?? null;
     if (!addOnOfferedForEvent(entry, profile, communityId)) notFound();
+    eventHasHappened =
+      getMenuLifecyclePhase(
+        (eventRow as { event_date?: string | null } | null)?.event_date ?? null,
+        (eventRow as { cleared_at?: string | null } | null)?.cleared_at ?? null,
+        (eventRow as { timezone?: string | null } | null)?.timezone ?? undefined,
+        undefined,
+        (eventRow as { event_end_date?: string | null } | null)?.event_end_date ?? null,
+      ) === 'after';
   }
 
+  /*
+    ⚠ THE OWNERSHIP REDIRECT RUNS FIRST, AND THE ORDER IS THE WHOLE POINT.
+
+    A couple who PAID for Papic and deep-links this URL the morning after must
+    land on their working tool. Closing the page above this branch would hand
+    them a 404 for a service they own — the opposite of the owner's ruling,
+    which was about OFFERING, never about taking away what somebody bought.
+  */
   if (
     entry?.serviceKey &&
     (await eventSkuActive(createAdminClient(), eventId, entry.serviceKey))
@@ -83,6 +103,13 @@ export default async function AddOnDetailPage({ params }: Props) {
         : addOnHref(addon, eventId),
     );
   }
+
+  /*
+    Not owned, and the celebration is over: this is a buy screen for something
+    that can only happen during the event. `notFound()` is the shipped refusal
+    on this route — the same one the event-type scope gate uses a few lines up.
+  */
+  if (entry?.dayOfOnly && eventHasHappened) notFound();
 
   return <AddOnDetailView eventId={eventId} addon={addon} />;
 }

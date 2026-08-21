@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
 import { reviewVendorChallenge } from '@/lib/papic-games';
@@ -729,6 +730,50 @@ function rungCount(formData: FormData, field: string): number {
  * apply-then-pay order, and provisions the cameras at their rungs. Redirects
  * back to the Papic page with payment instructions (reference code + amount).
  */
+/*
+  ─── THE CELEBRATION IS OVER: PAPIC STOPS SELLING ──────────────────────────
+
+  Owner, 2026-08-21, on Live Studio / Papic cameras / Custom QR once the event
+  has finished: **"stop offering them."**
+
+  🔑 THESE FOUR ACTIONS MINT ORDERS WITHOUT EVER TOUCHING `submitOrderAction`,
+  so the refusal added to the shared checkout does not reach them. A gate there
+  alone would be a button-not-a-door fix.
+
+  ⚠ IT ASKS THE LIFECYCLE RESOLVER, NOT THE CAPTURE WINDOW. `fetchEventPapicWindow`
+  FAILS OPEN by design when a couple never set bounds — most events — so a gate
+  built on it would simply not exist for them. `getMenuLifecyclePhase` is the one
+  answer to "has this happened", shared with the Overview, the rail, the guest
+  list and the public page.
+
+  ⚠ AND IT IS NOT A PRICE INPUT. The window's day multiplier still feeds the
+  quote; this only decides whether there is a sale at all.
+
+  Fail-soft: an event row we cannot read does NOT block a purchase. The card is
+  already closed in the UI, so reaching this at all means something unusual, and
+  refusing a paying customer over a transient read is the worse error.
+*/
+async function papicSaleIsClosed(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+): Promise<boolean> {
+  const { data } = await admin
+    .from('events')
+    .select('event_date, event_end_date, cleared_at, timezone')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (!data) return false;
+  return (
+    getMenuLifecyclePhase(
+      (data as { event_date?: string | null }).event_date ?? null,
+      (data as { cleared_at?: string | null }).cleared_at ?? null,
+      (data as { timezone?: string | null }).timezone ?? undefined,
+      undefined,
+      (data as { event_end_date?: string | null }).event_end_date ?? null,
+    ) === 'after'
+  );
+}
+
 export async function purchasePapicCameras(formData: FormData) {
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
@@ -754,6 +799,11 @@ export async function purchasePapicCameras(formData: FormData) {
   };
 
   const admin = createAdminClient();
+
+  // The celebration is over — no sale. See `papicSaleIsClosed` above.
+  if (await papicSaleIsClosed(admin, eventId)) {
+    redirect(`/dashboard/${eventId}/studio/papic?papic_error=event_over`);
+  }
 
   // Cost cap + event date (the per-day validity window; days defaults to 1 —
   // "1 day for ~all weddings" per the per-camera spec).
@@ -895,6 +945,11 @@ export async function activatePapicLimited(formData: FormData) {
   }
 
   const admin = createAdminClient();
+
+  // The celebration is over — no sale. See `papicSaleIsClosed` above.
+  if (await papicSaleIsClosed(admin, eventId)) {
+    redirect(`/dashboard/${eventId}/studio/papic?limited_error=event_over`);
+  }
 
   // Chosen tier (owner 2026-06-26 — "upgrade to Unlimited"). Default Limited(roll).
   const rawTier = formData.get('tier');
@@ -1082,6 +1137,11 @@ export async function purchasePapicExtras(formData: FormData) {
   }
 
   const admin = createAdminClient();
+
+  // The celebration is over — no sale. See `papicSaleIsClosed` above.
+  if (await papicSaleIsClosed(admin, eventId)) {
+    redirect(`/dashboard/${eventId}/studio/papic?papic_error=event_over`);
+  }
   const { data: ev } = await admin
     .from('events')
     .select('papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, event_date, event_type')
@@ -1313,6 +1373,11 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
     redirect(`/dashboard/${eventId}/studio/papic?papic_pool_error=${code}`);
 
   const admin = createAdminClient();
+
+  // The celebration is over — no sale. See `papicSaleIsClosed` above.
+  if (await papicSaleIsClosed(admin, eventId)) {
+    redirect(`/dashboard/${eventId}/studio/papic?papic_pool_error=event_over`);
+  }
 
   // The rung must be a LIVE, NON-TOPUP Pool rung. Read from the table, never an
   // allow-list here: a rung an admin deactivates stops being sellable the moment

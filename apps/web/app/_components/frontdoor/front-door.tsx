@@ -16,6 +16,7 @@ import {
 import { loadFrontDoorData } from './data';
 import { FrontDoorShell } from './front-door-shell';
 import { FrontDoorOpening } from './front-door-opening';
+import { FrontDoorStory } from './front-door-story';
 import { FrontDoorFeed, isChip, type ChipKey } from './front-door-feed';
 import { FrontDoorResults } from './front-door-results';
 import { SignedInCluster } from './signed-in-cluster';
@@ -141,7 +142,18 @@ export async function FrontDoor({ chip, q }: { chip?: string; q?: string }) {
           commandItems={commandItems}
         />
       ) : (
-        <FrontDoorFeed data={data} chip={activeChip} signedIn={account.signedIn} />
+        <>
+          {/*
+            THE STORY SITS ABOVE THE FEED AND ONLY ON THE FEED BRANCH. A person
+            who has typed a query is looking for a specific thing; putting the
+            marketing argument above their results would push the answer they
+            asked for below the fold to sell them something they are already
+            using. `/?q=` therefore renders results and nothing else, exactly as
+            before this change.
+          */}
+          <FrontDoorStory />
+          <FrontDoorFeed data={data} chip={activeChip} signedIn={account.signedIn} />
+        </>
       )}
     </FrontDoorShell>
   );

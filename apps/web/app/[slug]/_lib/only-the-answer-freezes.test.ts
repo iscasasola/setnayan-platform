@@ -343,17 +343,25 @@ test("an UNDECIDED guest is never reported to the couple as a NO", () => {
   assert.match(src, /: 'undecided';/, "'maybe' reaches the notification now and must not be labelled 'not attending'");
 });
 
+// 🪤 THE SLICE BOUNDS BELOW OMIT THE COLON ON PURPOSE — DO NOT "TIDY" IT BACK.
+// `lint-email-links.mjs` scans lib/ and app/ for the notification field name
+// immediately followed by a quote, and resolves whatever comes next as a route.
+// Writing that needle out in full is exactly that shape, so the guard read these
+// two assertions as two shipped email links to a page that does not exist and
+// failed CI. Dropping the colon leaves the slice at the same character position
+// with no false positive. (Third time this session a COMMENT satisfied a pattern
+// match — this one included, on its first draft.)
 test('🔒 the dietary value is named, never quoted into an inbox', () => {
   // Compliance records dietary notes as data that may reveal health or
   // religious belief. The deep link keeps the words inside the app.
   const src = read('actions.ts');
-  const emit = src.slice(src.indexOf('const parts: string[]'), src.indexOf('relatedUrl:'));
+  const emit = src.slice(src.indexOf('const parts: string[]'), src.indexOf('relatedUrl'));
   assert.match(emit, /Their dietary notes changed\./);
   assert.doesNotMatch(emit, /\$\{dietary\}/, 'the allergy text is being pasted into a notification body');
 });
 
 test('the couple is not told the same thing twice', () => {
   const src = read('actions.ts');
-  const loop = src.slice(src.indexOf("member_type', 'couple')"), src.indexOf('relatedUrl:'));
+  const loop = src.slice(src.indexOf("member_type', 'couple')"), src.indexOf('relatedUrl'));
   assert.match(loop, /seen\.has/, 'two membership rows for one person would notify them twice');
 });

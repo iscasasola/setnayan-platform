@@ -64,6 +64,7 @@ import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-comm
 export async function AppRailShell({
   children,
   railContext,
+  studioEventId,
   topBarSlot,
   variant = 'app',
   bleed,
@@ -75,6 +76,16 @@ export async function AppRailShell({
    * nothing; slice 1 mounts "In this event — {name}" here.
    */
   railContext?: React.ReactNode;
+  /**
+   * WHICH EVENT THE STUDIO ROWS OPEN, when the surface knows (owner 2026-08-21:
+   * *"now it is link to that event"*). Only the event tree passes it. Without
+   * it the resolver falls back to its shipped answer — the single event you
+   * organise, or the board as the picker — so every other tree is unchanged.
+   *
+   * 🔒 IT IS VERIFIED, NOT TRUSTED. `resolveRailStudioEvent` matches it against
+   * the person's own organiser events before pointing a single row at it.
+   */
+  studioEventId?: string;
   /**
    * The surface's OWN top-bar utility cluster, handed straight through to the
    * shared bar — its live bell, its account switcher, and anything only it
@@ -143,7 +154,7 @@ export async function AppRailShell({
       page that explains the product is what somebody without an event needs.
       All reads are React cache()d and shared with the resolvers above.
     */
-    resolveRailStudioEvent(),
+    resolveRailStudioEvent(studioEventId ?? null),
   ]);
 
   return (

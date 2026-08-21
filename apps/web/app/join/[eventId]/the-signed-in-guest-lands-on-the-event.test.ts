@@ -122,3 +122,56 @@ test('the "you weren’t on the list" sentence survives', () => {
   );
   assert.match(ACTIONS, /unlisted=1/, 'the unlisted ending stopped reaching its own notice');
 });
+
+// ── THE EMAIL THEY TYPED AT THE DOOR ────────────────────────────────────────
+//
+// The shared invite door asks for "Email (optional)". It used that address to
+// send a sign-in link and NEVER WROTE IT DOWN — so the host, whose own guest
+// page carries an Email box, never received it, and the reply card asked the
+// same person for the same address again thirty seconds later.
+// Owner, 2026-08-21: stop asking for what the app already knows.
+
+/** The accountless door only. `entry_source: 'self_added_unlisted'` appears
+ *  TWICE — the signed-in path writes it too, and that one deliberately stores no
+ *  email. Anchoring on the first hit guards the wrong function. */
+function selfJoinBody(): string {
+  const at = ACTIONS.indexOf('export async function selfJoinAction');
+  assert.ok(at > -1, 'selfJoinAction was renamed — re-point these guards');
+  return ACTIONS.slice(at);
+}
+
+test('a self-joined guest keeps the email they just typed', () => {
+  const body = selfJoinBody();
+  const at = body.indexOf("entry_source: 'self_added_unlisted'");
+  assert.ok(at > -1, 'the self-join insert moved — re-point this guard');
+  const insert = body.slice(at, body.indexOf('.select(', at));
+  assert.match(insert, /email: email \|\| null/, 'the email is asked for and thrown away again');
+});
+
+test('🔒 a matched seat FILLS A BLANK and never overwrites', () => {
+  // That row was written by the HOST, and the token reaching this branch is
+  // printed on a poster. An address the host already has must not be replaceable
+  // by whoever scanned it.
+  // 🪤 Anchor on the CALL, not on the string — the first occurrence of
+  // `self_join_bound_seed` is inside recordJoinScan's own type signature.
+  const body = selfJoinBody();
+  const at = body.indexOf("recordJoinScan(admin, eventId, match.candidate.guestId");
+  assert.ok(at > -1, 'the bound-seed branch moved');
+  const branch = body.slice(at, at + 700);
+  assert.match(branch, /!match\.candidate\.email/, 'the write is no longer conditional on the seat being blank');
+  assert.match(
+    branch,
+    /\.is\('email', null\)/,
+    'the database-side no-op filter is gone — the app check is now the only guard, and app checks get forgotten',
+  );
+  // Vacuity: the slice must actually contain the update.
+  assert.match(branch, /\.update\(\{ email \}\)/, 'the slice does not contain the write this guard is about');
+});
+
+test('the signed-in path deliberately has no email of its own to store', () => {
+  // A signed-in joiner's address is already on their account, and the reply card
+  // prefills from it. Adding a second copy here would be two sources for one fact.
+  const at = ACTIONS.indexOf('async function admitAsUnlisted');
+  const sig = ACTIONS.slice(at, ACTIONS.indexOf(') {', at));
+  assert.doesNotMatch(sig, /email/, 'admitAsUnlisted grew an email argument — say which source wins before adding one');
+});

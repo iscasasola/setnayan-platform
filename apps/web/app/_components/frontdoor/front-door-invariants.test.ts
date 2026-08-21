@@ -566,10 +566,24 @@ test('every card in the one shelf declares its kind', () => {
     /fd-kindtag[^]*?>\s*Their story\s*</.test(FEED_CODE),
     'the story card must carry the words Their story',
   );
-  // …and the shelf itself must NOT be split back into two headed rows.
+  /* …and the shelf itself must NOT be split back into two headed rows.
+
+     ⚠ FIXED 2026-08-21 — THIS ASSERTION COULD NOT FAIL. It read the RAW
+     `FEED`, and the phrase "one shelf" also appears in an ordinary source
+     COMMENT in that file. Deleting the sentence the VISITOR reads left the
+     comment behind, so the guard stayed green while the rule it exists to
+     keep had stopped being stated at all.
+
+     🔑 The file already ships `code()` for exactly this — its own docblock
+     says "Strip comments so a rule mentioned in prose can never satisfy a
+     check" — and every sibling assertion in this test already uses the
+     stripped source. This one did not, so the stripper's whole purpose was
+     defeated in the single place a prose string was being matched, which is
+     the only place it mattered. Swept the other front-door guards: no second
+     instance. */
   assert.ok(
-    /one shelf/.test(FEED),
-    'the shelf still states the rule it exists to keep',
+    /one shelf/.test(FEED_CODE),
+    'the shelf still states the rule it exists to keep, where a visitor can read it',
   );
 });
 

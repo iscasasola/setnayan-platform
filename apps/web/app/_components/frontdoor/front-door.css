@@ -700,6 +700,119 @@
   color: var(--fd-ink);
   text-decoration: underline;
 }
+
+/* ══ THE RAIL MOVES WHEN IT CHANGES SHAPE ══════════════════════════════════
+   Owner, 2026-08-21: *"on the sidebar. when something add/ expands/collapses,
+   we want it to animate properly."*
+
+   Measured before this block: ONE transition existed in 1970 lines of this
+   file — the top bar's hide-on-scroll — so every other shape change the rail
+   makes was a jump cut. Nine categories appear under "Show more"; a wedding's
+   own sections push in the moment you open it and the Studio group vanishes;
+   the phone drawer blinks into place behind a scrim that blinks with it.
+
+   🔑 THE CHROME IS FROZEN DURING A ROUTE CHANGE, DELIBERATELY, AND THAT IS
+   WHY THIS BLOCK HAS TO EXIST. `::view-transition-old(root)` /
+   `-new(root) { animation: none }` in globals.css holds the rail still while
+   the page slides — correct, and untouched here. Nothing else will ever give
+   the rail motion, so its own changes have to carry it. Beside a page that
+   slides, a rail that snaps does not read as calm; it reads as a glitch.
+
+   ⏱ EVERY NUMBER IS THE DESIGN SYSTEM'S (`--sn-dur-*` / `--sn-ease*`, declared
+   on `:root` in globals.css). Nothing here re-types a duration or a curve.
+
+   ♿ REDUCED MOTION NEEDS NO OPT-OUT HERE — it is already covered twice: the
+   global `*{animation-duration:.001ms; transition-duration:.001ms}` block in
+   globals.css, and this file's own `.fd *` block. Both freeze these to their
+   end state, which is the correct still frame in every case below. */
+
+/* ── 1 · A GROUP THAT ARRIVES ──────────────────────────────────────────────
+   The context group ("you are in this wedding, here are its sections") and the
+   two front-page groups it displaces (Browse by category · Studio). One of
+   these three arrives on nearly every navigation between the board and an
+   event, and the swap was instant in both directions.
+
+   It is an ENTRY animation only. A group that LEAVES is unmounted by the
+   server render that replaced it — there is no element left to animate, and
+   holding a stale rail on screen to fade it out would mean showing a wedding's
+   menu for a third of a second after you left the wedding. The arrival is the
+   half that can be honest, so it is the half that moves. */
+@keyframes fd-group-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+.fd-rgroup {
+  animation: fd-group-in var(--sn-dur-elem) var(--sn-ease-out) both;
+}
+
+/* ── 2 · "SHOW MORE" / "SHOW FEWER" ────────────────────────────────────────
+   The nine extra marketplace categories. `grid-template-rows: 0fr → 1fr` is
+   what animates a list of unknown height with no measurement and no JS — and,
+   unlike a `max-height` guess, it lands exactly on the content's own height
+   instead of springing at the end.
+
+   🔑 `visibility` IS THE TAB ORDER, and it is why this is not simply
+   `height: 0; overflow: hidden`. A clipped row is still focusable: Tab would
+   walk a keyboard visitor through nine invisible category links sitting behind
+   a button that says "Show more". That is the identical defect the off-canvas
+   rail's `display: none` exists to prevent, and this file already states the
+   rule ("a control that is invisible but still reachable by keyboard"). The
+   flip is delayed to the END of the collapse and immediate on the reveal, so
+   it never clips the animation it is riding on. */
+.fd-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--sn-dur-elem) var(--sn-ease-out),
+    opacity var(--sn-dur-control) var(--sn-ease),
+    visibility 0s var(--sn-dur-elem);
+}
+.fd-reveal[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    grid-template-rows var(--sn-dur-elem) var(--sn-ease-out),
+    opacity var(--sn-dur-control) var(--sn-ease),
+    visibility 0s;
+}
+/* BOTH declarations are required and neither is decoration: a grid item's
+   automatic minimum size is its own content, so without `min-height: 0` the
+   0fr track never actually reaches zero and the panel simply never closes. */
+.fd-reveal-in {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── 3 · THE PHONE DRAWER (keyframes; the rules live in the <1024 block) ───
+   Top level because that is where `@keyframes` belong — putting them inside
+   the media query would define them only at that width, which happens to work
+   and is a trap for whoever next moves a rule. The rail is `position: fixed;
+   left: 0` down there, so -100% is exactly off the left edge. */
+@keyframes fd-drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@keyframes fd-drawer-out {
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes fd-scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fd-scrim-out {
+  to {
+    opacity: 0;
+  }
+}
 .fd-copy {
   margin-top: 10px;
   color: var(--fd-m3);
@@ -1251,6 +1364,38 @@ h2.fd-sechead,
      reachable by keyboard behind the scrim while appearing closed. */
   .fd-rail[data-open='false'] {
     display: none;
+  }
+  /* ── 3 · THE PHONE DRAWER SLIDES, BOTH WAYS ────────────────────────────
+     🔑 `display: none` CANNOT BE TRANSITIONED, so the closing half is a real
+     third state, not a style. `data-open` is `true` → `closing` → `false`, and
+     the row above only fires on `false` — which is set once the slide is over.
+     The alternative everybody reaches for first is to leave the drawer
+     displayed and translate it off-screen permanently; the note above says
+     exactly why that is forbidden here, and it stays forbidden. This holds the
+     element for one animation, not for the whole time it is shut.
+
+     ⏱ `--fd-drawer-ms` is supplied INLINE by the shell, which owns the timer
+     that ends the closing state. One number, declared once in the component
+     and read here — the two cannot drift apart into a drawer that vanishes
+     mid-slide or hangs half-open. The fallback is the design system's control
+     duration, which is the value the component declares. */
+  .fd-rail[data-open='true'] {
+    animation: fd-drawer-in var(--fd-drawer-ms, var(--sn-dur-control))
+      var(--sn-ease-out) both;
+  }
+  .fd-rail[data-open='closing'] {
+    animation: fd-drawer-out var(--fd-drawer-ms, var(--sn-dur-control))
+      var(--sn-ease) both;
+  }
+  /* The scrim fades with it. A dimmed page that appears and disappears
+     instantly under a sliding panel reads as two separate events. */
+  .fd-scrim {
+    animation: fd-scrim-in var(--fd-drawer-ms, var(--sn-dur-control))
+      var(--sn-ease) both;
+  }
+  .fd-scrim[data-closing='true'] {
+    animation: fd-scrim-out var(--fd-drawer-ms, var(--sn-dur-control))
+      var(--sn-ease) both;
   }
   .fd-rail {
     position: fixed;

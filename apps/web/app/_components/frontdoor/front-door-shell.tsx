@@ -55,7 +55,7 @@
  * them.
  */
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
@@ -112,6 +112,17 @@ import {
   what "Venues & churches" looks like, so this imports the one that exists.
 */
 import { folderIcon } from '@/lib/taxonomy-icons';
+
+/**
+ * How long the off-canvas drawer takes to slide, in milliseconds.
+ *
+ * It is the design system's `--sn-dur-control` (200ms, globals.css § motion) —
+ * the tier for "a control changed state", which is what opening a drawer is.
+ * Written as a number here because a `setTimeout` cannot read a CSS custom
+ * property, and handed straight back to the stylesheet as `--fd-drawer-ms` on
+ * the rail so the two halves of one animation can never disagree.
+ */
+const RAIL_DRAWER_MS = 200;
 
 /**
  * ─── THE SAME RAIL, MOUNTED IN TWO PLACES (One Shell slice 0, 2026-08-13) ──
@@ -452,6 +463,34 @@ function RailIcon({
   );
 }
 
+/**
+ * One marketplace category row.
+ *
+ * Extracted from the single `folders.map` this file used to run, because the
+ * five always-visible categories and the nine behind "Show more" now live in
+ * two different places in the tree — the extra nine sit inside the `.fd-reveal`
+ * panel that animates its own height. Two copies of the row would be two
+ * answers to what a category row looks like, free to drift the first time one
+ * of them gains a badge.
+ *
+ * ⚠ THE PARAMETER IS `f` ON PURPOSE, and renaming it breaks a shipped guard.
+ * `rail-icons-are-icons.test.ts` pins the literal `folderIcon(f.slug)` — the
+ * rule that a category row reads the shared taxonomy map instead of a
+ * hand-typed one, so the rail and the Explore strip cannot start disagreeing
+ * about what a category looks like. The extraction kept the name the map it
+ * replaced already used, rather than widening a guard to fit a tidier word.
+ */
+function FolderRow({ f }: { f: RailFolder }) {
+  return (
+    <Link href={`/explore?folder=${encodeURIComponent(f.slug)}`} className="fd-row">
+      <RailIcon as={folderIcon(f.slug)} />
+      <span className="fd-label-text">{f.label}</span>
+      <span className="fd-icon-caption">{f.label}</span>
+      <span className="fd-ct fd-mono">{f.count}</span>
+    </Link>
+  );
+}
+
 export function FrontDoorShell({
   account,
   visibleFolders,
@@ -468,10 +507,52 @@ export function FrontDoorShell({
   bleedPaths,
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
+  /*
+    ─── THE DRAWER HAS THREE STATES, NOT TWO ────────────────────────────────
+    Owner 2026-08-21: the rail must animate when it opens and when it shuts.
+    `display: none` cannot be transitioned, and the note on that rule in
+    `front-door.css` explains why the usual workaround — leave it displayed and
+    park it off-screen — is forbidden here: it would leave a dozen focusable
+    links reachable by Tab behind the scrim. So the element is held for exactly
+    one closing animation and then genuinely removed.
+  */
+  const [railClosing, setRailClosing] = useState(false);
+  const railCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const railId = useId();
+
+  const openRail = useCallback(() => {
+    /* Re-opening mid-close must cancel the pending removal, or the drawer
+       slides back in and is then torn out from under the hand that opened it. */
+    if (railCloseTimer.current) {
+      clearTimeout(railCloseTimer.current);
+      railCloseTimer.current = null;
+    }
+    setRailClosing(false);
+    setRailOpen(true);
+  }, []);
+
+  const closeRail = useCallback(() => {
+    // Already closing — a second Escape must not queue a second timer.
+    if (railCloseTimer.current) return;
+    setRailClosing(true);
+    railCloseTimer.current = setTimeout(() => {
+      railCloseTimer.current = null;
+      setRailClosing(false);
+      setRailOpen(false);
+    }, RAIL_DRAWER_MS);
+  }, []);
+
+  /* A drawer left closing while the shell unmounts would set state on a dead
+     component. Cheap to clear, and it is the one leak a timer always has. */
+  useEffect(
+    () => () => {
+      if (railCloseTimer.current) clearTimeout(railCloseTimer.current);
+    },
+    [],
+  );
   const { openSignIn, panel: signInPanel } = useSignInPanel();
 
   const inApp = variant === 'app';
@@ -599,12 +680,12 @@ export function FrontDoorShell({
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Escape') return;
-      if (railOpen) setRailOpen(false);
+      if (railOpen) closeRail();
       else if (menuOpen) setMenuOpen(false);
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [railOpen, menuOpen]);
+  }, [railOpen, menuOpen, closeRail]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -617,9 +698,14 @@ export function FrontDoorShell({
     return () => document.removeEventListener('mousedown', onDown);
   }, [menuOpen]);
 
-  const folders = moreOpen
-    ? [...visibleFolders, ...moreFolders]
-    : visibleFolders;
+  /*
+    ⚠ THE EXTRA CATEGORIES ARE NO LONGER CONCATENATED IN AND OUT OF THE LIST.
+    They render always, inside a `.fd-reveal` panel that animates its own
+    height — a list that is rebuilt on every toggle has nothing to animate,
+    because the rows the browser would tween are brand-new elements. The panel
+    goes `visibility: hidden` at the end of the collapse, so the rows leave the
+    tab order exactly as they did when they were unmounted.
+  */
 
   /*
     THE BAR, DEFINED ONCE. The app variant wraps it in the sticky
@@ -647,7 +733,7 @@ export function FrontDoorShell({
             aria-label="Menu"
             aria-expanded={railOpen}
             aria-controls={railId}
-            onClick={() => setRailOpen((v) => !v)}
+            onClick={() => (railOpen ? closeRail() : openRail())}
           >
             ☰
           </button>
@@ -931,7 +1017,10 @@ export function FrontDoorShell({
         {railOpen ? (
           <div
             className="fd-scrim"
-            onClick={() => setRailOpen(false)}
+            /* Fades out alongside the drawer rather than blinking away a step
+               ahead of it — one event, not two. */
+            data-closing={railClosing ? 'true' : 'false'}
+            onClick={closeRail}
             aria-hidden="true"
           />
         ) : null}
@@ -950,7 +1039,15 @@ export function FrontDoorShell({
             but still reachable by keyboard. Gate on a real condition, never on
             a style that only looks like one.
           */
-          data-open={railOpen ? 'true' : 'false'}
+          data-open={railClosing ? 'closing' : railOpen ? 'true' : 'false'}
+          /*
+            🔑 ONE NUMBER, DECLARED ONCE. The stylesheet reads
+            `var(--fd-drawer-ms)` and this component owns the timer that ends
+            the closing state — handing the same constant to both is what stops
+            them drifting into a drawer that vanishes mid-slide (CSS slower) or
+            hangs half-open (CSS faster).
+          */
+          style={{ '--fd-drawer-ms': `${RAIL_DRAWER_MS}ms` } as React.CSSProperties}
         >
           {/* 1 · DESTINATIONS
               `data-on` comes from the resolver on every row. It was the string
@@ -1203,7 +1300,13 @@ export function FrontDoorShell({
             entire difference between one shell and two. Slice 0 passes
             nothing, so this renders nothing.
           */}
-          {railContext}
+          {/* The wrapper is the ANIMATION HOOK and nothing else — a block box
+              inside a block rail, so no row moves by a pixel. `railContext` is
+              a fragment of siblings; without one element to hang it on there is
+              nothing for the arrival to animate. */}
+          {railContext ? (
+            <div className="fd-rgroup">{railContext}</div>
+          ) : null}
 
           {/* 3 · MARKETPLACE — signed-in only.
               ⚠ MARKETPLACE AND STUDIO ARE FRONT-PAGE FURNITURE and collapse
@@ -1221,27 +1324,37 @@ export function FrontDoorShell({
               separate branch.
             */
             railContext ? null : (
-            <>
+            <div className="fd-rgroup">
               <div className="fd-rdiv" />
               {/* NOT "Marketplace" — that is the row above, and the same word
                   twice in one rail reads as two different places. These are
                   shortcuts INTO it (`/explore?folder=…`). See the header. */}
               <div className="fd-rlabel">Browse by category</div>
-              {folders.map((f) => (
-                <Link
-                  key={f.slug}
-                  href={`/explore?folder=${encodeURIComponent(f.slug)}`}
-                  className="fd-row"
-                >
-                  <RailIcon as={folderIcon(f.slug)} />
-                  <span className="fd-label-text">{f.label}</span>
-                  <span className="fd-icon-caption">{f.label}</span>
-                  <span className="fd-ct fd-mono">{f.count}</span>
-                </Link>
+              {visibleFolders.map((f) => (
+                <FolderRow key={f.slug} f={f} />
               ))}
+              {/*
+                THE EXTRA CATEGORIES, ALWAYS RENDERED AND ANIMATED OPEN.
+                `id` + `aria-controls` on the button below are what tell a
+                screen reader which panel the press opened — the button used to
+                rebuild the list around itself and announce nothing.
+              */}
+              <div
+                id={`${railId}-more`}
+                className="fd-reveal"
+                data-open={moreOpen ? 'true' : 'false'}
+              >
+                <div className="fd-reveal-in">
+                  {moreFolders.map((f) => (
+                    <FolderRow key={f.slug} f={f} />
+                  ))}
+                </div>
+              </div>
               <button
                 type="button"
                 className="fd-row"
+                aria-expanded={moreOpen}
+                aria-controls={`${railId}-more`}
                 onClick={() => setMoreOpen((v) => !v)}
               >
                 <RailIcon as={moreOpen ? ChevronUp : ChevronDown} />
@@ -1252,13 +1365,13 @@ export function FrontDoorShell({
                 </span>
                 <span className="fd-icon-caption">More</span>
               </button>
-            </>
+            </div>
             )
           ) : null}
 
           {/* 4 · STUDIO — the things you make. Collapses with Marketplace. */}
           {railContext ? null : (
-            <>
+            <div className="fd-rgroup">
               <div className="fd-rdiv" />
               <div className="fd-rlabel">
                 Studio <small>the things you make</small>
@@ -1304,7 +1417,7 @@ export function FrontDoorShell({
                   <span className="fd-icon-caption">{t.name}</span>
                 </Link>
               ))}
-            </>
+            </div>
           )}
 
           {/* 5 · SMALL PRINT.

@@ -624,9 +624,22 @@ async function basketGrantsSku(
  * price, and this entry is what keeps the feature switched ON — the route that
  * accepts the message, the guest's prompt, and the couple's review queue all
  * ask `eventSkuActive('KWENTO')`.
+ *
+ * PABATI — owner 2026-08-21: "we already agreed all features of papic will be
+ * free like kwento", then, asked to draw the line: Pabati free, the Thank-You
+ * film stays paid. The guest-recorded greeting video, ₱1,299 per day, never
+ * bought by anyone. 🔑 It is a PAPIC CHALLENGE ("pabati is part of papic
+ * challenge") — the challenge library already carries a `greeting` category,
+ * "a message to camera for the host", so pricing one challenge inside a free
+ * library was a contradiction rather than a price.
+ *
+ * ⛔ THE SHOT LADDER IS NOT IN THIS SET AND MUST NOT JOIN IT. Papic FEATURES are
+ * free; Papic SHOTS are the product — 50 free, then ₱50 / ₱1,000 / ₱3,000 /
+ * ₱5,000, owner-locked. Same for PAPIC_ADDON_THANK_YOU: the produced video is
+ * the thing that gets monetised.
  */
 export const FREE_FOR_ALL_SKUS: ReadonlySet<string> = Object.freeze(
-  new Set(['LIVE_WALL', 'KWENTO']),
+  new Set(['LIVE_WALL', 'KWENTO', 'PABATI']),
 ) as ReadonlySet<string>;
 
 export async function eventOwnsSku(

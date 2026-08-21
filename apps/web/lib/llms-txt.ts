@@ -136,7 +136,10 @@ const REQUIRED_RETAIL = [
   // hand-written fixture where every code is is_active:true, so nothing in CI
   // ever compares this list against the real catalog.
   'PATIKTOK_COMPILER',
-  'PABATI',
+  // PABATI removed 2026-08-21 — owner set it FREE alongside Kwento ("all
+  // features of papic will be free like kwento"). Its prose line stayed and now
+  // reads "free": the FEATURE is on for every event (FREE_FOR_ALL_SKUS).
+  // 🪤 The entry AND the price call must go together — see the KWENTO note below.
   // KWENTO removed 2026-08-21 — owner set it FREE ("kwento is free"), so it no
   // longer has a price to advertise and its row is deactivated. Its prose line
   // stayed and now reads "free": the FEATURE is on for every event
@@ -369,7 +372,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Event Hub PRO** — ${R('COUPLE_WEBSITE_PRO')}. Unlocks every premium touch — the Save-the-Date Cinematic Reveal and Editorial PRO — across the whole site, and removes the Setnayan watermark.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Patiktok** — ${R('PATIKTOK_COMPILER')}. Mimic-station booth; unlimited 9:16 vertical recordings compiled into post-ready reels.
-- **Pabati** — ${R('PABATI')} per day. Guest-recorded greeting videos.
+- **Pabati** — free. Guest-recorded greeting videos.
 - **Kwento** — free. Guest-contributed stories and messages.
 - **Papic** — one shared pot of shots every guest's phone can spend from, and the host can set some aside for one camera's QR that nobody else can touch. 50 shots free on every event, then ${R('PAPIC_GUEST_100')} for 100 · ${R('PAPIC_GUEST')} for 3,000 · ${R('PAPIC_GUEST_10K')} for 10,000 · ${R('PAPIC_GUEST_20K')} for 20,000, added on top and repeatable. Cameras are free and unlimited. A photo spends 1 credit; a video spends 2 to 8 depending on its length (1–2s = 2 · 3s = 3 · 4–6s = 5 · 7–10s = 8). 6-month access window.
 - **Custom QR per Guest** — free. Individual QR codes for guests (RSVP, seating, photo tagging).

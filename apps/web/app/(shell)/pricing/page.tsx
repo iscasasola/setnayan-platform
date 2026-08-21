@@ -139,7 +139,14 @@ const ADDON_GROUPS: CatalogGroup[] = [
       { code: 'PAPIC_POOL' }, // Papic Pool — the shared shot pool, additive top-ups
       { code: 'PAPIC_CAMERAS' }, // Papic One — a dedicated camera, its own QR + shots
       { code: 'CAMERA_BRIDGE', withPapic: true },
-      { code: 'PABATI', withPapic: true },
+      // PABATI is FREE for every event since 2026-08-21 (owner: "all features of
+      // papic will be free like kwento") — is_active=false, so it drops out of
+      // resolvedGroups automatically and no longer appears among the paid rows,
+      // which is correct: this page lists what you PAY for. The feature is still
+      // on for everyone (entitlements FREE_FOR_ALL_SKUS) and llms.txt describes
+      // it as free. Code kept listed — same convention as KWENTO below — so the
+      // change is legible rather than looking like an accidental deletion.
+      { code: 'PABATI', withPapic: true }, // FREE 2026-08-21 — no longer a paid row
       // KWENTO is FREE for every event since 2026-08-21 (owner: "kwento is
       // free") — is_active=false, so it drops out of resolvedGroups
       // automatically and no longer appears among the paid rows, which is

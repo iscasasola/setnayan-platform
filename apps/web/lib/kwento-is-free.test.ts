@@ -29,8 +29,31 @@ const code = (p: string) =>
 
 test('Kwento is free for every event', () => {
   assert.ok(FREE_FOR_ALL_SKUS.has('KWENTO'), 'the switch that keeps the feature ON');
-  // The precedent it copies must not be lost in the process.
+  // The precedents it copies must not be lost in the process.
   assert.ok(FREE_FOR_ALL_SKUS.has('LIVE_WALL'), 'LIVE_WALL stays free');
+  assert.ok(FREE_FOR_ALL_SKUS.has('PABATI'), 'Pabati went free the same day');
+});
+
+/*
+  ⛔ THE LINE THE OWNER DREW, ASSERTED.
+
+  Owner 2026-08-21: "all features of papic will be free like kwento" — then,
+  asked to place the boundary exactly: **Pabati free, the Thank-You film stays
+  paid.** Papic FEATURES are free; Papic SHOTS are the product.
+
+  This is the assertion that stops a future "make Papic free" sweep from taking
+  the revenue with it.
+*/
+test('the shot ladder and the produced film are NOT free', () => {
+  for (const paid of [
+    'PAPIC_GUEST_100',
+    'PAPIC_GUEST',
+    'PAPIC_GUEST_10K',
+    'PAPIC_GUEST_20K',
+    'PAPIC_ADDON_THANK_YOU',
+  ]) {
+    assert.ok(!FREE_FOR_ALL_SKUS.has(paid), `${paid} is what Papic SELLS`);
+  }
 });
 
 /*
@@ -40,6 +63,7 @@ test('Kwento is free for every event', () => {
 */
 test('the catalog row is deactivated in the same change', () => {
   const dir = join(WEB, '..', '..', 'supabase', 'migrations');
+  // Pabati's twin migration is asserted the same way, below.
   const file = readdirSync(dir).find((f) => f.endsWith('_kwento_is_free.sql'));
   assert.ok(file, 'the migration must exist alongside the code half');
   const raw = readFileSync(join(dir, file), 'utf8');
@@ -87,9 +111,14 @@ test('llms.txt stops requiring a price and stops printing one', () => {
     !/^\s*'KWENTO',/m.test(body),
     'a retired row this file still requires drops the document to its stub',
   );
-  // The neighbours prove the slice is really the list and not an empty match.
+  /*
+    The neighbours prove the slice is really the list and not an empty match.
+    ⚠ One of them was PABATI until hours later the same day, when Pabati went
+    free too and left the list — so this assertion failed for exactly the right
+    reason. A "neighbour" has to be something that is NOT part of the change.
+  */
   assert.match(body, /^\s*'PAKANTA',/m);
-  assert.match(body, /^\s*'PABATI',/m);
+  assert.match(body, /^\s*'SETNAYAN_AI',/m);
   /*
     🪤 STRIPPED, because the fix QUOTES the call it removed. On raw source this
     assertion failed on its own first run and reported the defect it had just
@@ -128,4 +157,26 @@ test('the entitlement check is still asked, everywhere it was', () => {
   }
   // And that helper must still route through the free-for-all short circuit.
   assert.match(code('lib/kwento-access.ts'), /eventSkuActive\(admin, eventId, 'KWENTO'\)/);
+});
+
+
+/*
+  PABATI — the same two halves, asserted the same way. Owner 2026-08-21, on the
+  line: **Pabati free, the Thank-You film stays paid.**
+*/
+test('Pabati ships both halves too', () => {
+  const dir = join(WEB, '..', '..', 'supabase', 'migrations');
+  const file = readdirSync(dir).find((f) => f.endsWith('_pabati_is_free.sql'));
+  assert.ok(file, 'the migration must exist alongside the code half');
+  const sql = readFileSync(join(dir, file), 'utf8').replace(/^\s*--.*$/gm, '');
+  assert.match(sql, /SET is_active\s*=\s*false/i);
+  assert.match(sql, /service_code = 'PABATI'/);
+  assert.equal(
+    (sql.match(/IS DISTINCT FROM false/gi) || []).length,
+    1,
+    'exactly one guard, in the statement — not one in the prose',
+  );
+  const src = readFileSync(join(WEB, 'lib/llms-txt.ts'), 'utf8');
+  assert.ok(!/R\('PABATI'\)/.test(code('lib/llms-txt.ts')), 'no price printed');
+  assert.match(src, /\*\*Pabati\*\* — free\./, 'the line stays, describing a free feature');
 });

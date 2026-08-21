@@ -237,7 +237,7 @@ export default async function LiveWallConsolePage({
       <PageMasthead
         titleNode={
           <span>
-            <MonitorPlay aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={2} />
+            <MonitorPlay aria-hidden strokeWidth={2} />
             Live Wall
           </span>
         }

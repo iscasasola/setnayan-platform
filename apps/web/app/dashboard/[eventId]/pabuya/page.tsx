@@ -50,7 +50,7 @@ export default async function PabuyaDashboardPage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <PageMasthead title="The digital money dance" lede="Add the accounts guests can send a gift to — your own GCash, Maya, bank, or PayPal. On your event page, guests scan your QR or copy your handle and send straight to you." />
+      <PageMasthead title="The digital money dance" />
 
       <PabuyaManager
         eventId={eventId}

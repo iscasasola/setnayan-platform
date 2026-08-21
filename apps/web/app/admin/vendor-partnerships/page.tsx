@@ -215,18 +215,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
-        className="mb-8"
         title="Vendor Partnerships"
-        lede={
-          <>
-            Vendor partnerships use a <strong className="text-ink">mutual-accept</strong>{' '}
-            handshake: one vendor proposes, the other accepts, and only then does the badge
-            go live for couples. This is HQ&apos;s <strong className="text-ink">oversight</strong>{' '}
-            view — no admin sign-off is needed for a partnership to publish. You can still
-            record a partnership on a vendor&apos;s behalf (it lands in their inbox to accept)
-            and reject anything abusive (sets it inactive — no badge ever shows).
-          </>
-        }
       />
 
       {sp.error ? (

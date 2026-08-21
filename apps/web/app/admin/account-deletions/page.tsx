@@ -113,9 +113,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
       <PageMasthead
-        className="mb-6"
         title="Account deletions"
-        lede="Self-serve deletion requests from Profile → Privacy & data. Review within 24 hours. Approving runs the same hard-delete (or delete + blacklist) as the Users surface, after you’ve checked for active events, bookings, or an outstanding balance."
       />
 
       {accountsUnresolved ? (

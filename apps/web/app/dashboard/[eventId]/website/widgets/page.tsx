@@ -180,18 +180,6 @@ export default async function WidgetsEditorPage({
       {/* Header strip — back link + title */}
       <PageMasthead
         titleNode={<>Shape your {eventNoun(event.event_type)} page</>}
-        lede={
-          <>
-            Choose which sections appear on{' '}
-            {event.slug ? (
-              <span className="font-mono text-sm">setnayan.com/{event.slug}</span>
-            ) : (
-              `your ${eventNoun(event.event_type)} website`
-            )}
-            , and the order they show up in. Hero, Greeting, QR card, and RSVP
-            stay pinned in their canonical spots — every guest needs them.
-          </>
-        }
       />
 
       {/* Preview-as-guest banner — closes the verification confusion gap

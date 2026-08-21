@@ -53,7 +53,7 @@ export default async function LivingHeroPage({
         <span>Back to hero photo</span>
       </Link>
 
-      <PageMasthead title="Living hero" lede="Turn a few seconds of video into a gentle, looping hero for your wedding page — it plays forward, then reverses, so it never feels cut. You pick the moment and the still frame; everything is made right on your device, and the still is your photo for print and slow connections." />
+      <PageMasthead title="Living hero" />
 
       <LivingHeroStudio
         eventId={eventId}

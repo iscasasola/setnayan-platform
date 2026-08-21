@@ -255,14 +255,6 @@ export default async function EditorialEditorPage({
 
       <PageMasthead
         title="Editorial"
-        lede={
-          <>
-            Your {eventNoun(event.event_type)}&rsquo;s front-page story — published after the day. It starts written from your
-            {' '}{eventNoun(event.event_type)} details; edit the words, choose your photos and hero, and pick which features show.
-            Clear any field and we&rsquo;ll rewrite it for you, so it always reads beautifully.
-          </>
-        }
-        className="mb-8"
       />
 
       <EditorialEditor

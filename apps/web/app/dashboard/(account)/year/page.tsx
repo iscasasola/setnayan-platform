@@ -169,8 +169,6 @@ export default async function YearPage() {
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="Your year"
-        lede="The moments ahead — anniversaries, and the dates worth gathering for. Nothing here is on your plate yet; tap one when you’re ready to plan it."
-        className="mt-6"
       />
 
       {/* The one date this page can offer before the account has any events —

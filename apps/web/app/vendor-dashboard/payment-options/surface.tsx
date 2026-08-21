@@ -107,8 +107,6 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="How clients pay you"
-        lede="Add the ways couples can pay you directly. Setnayan takes 0% and never touches this money — these show on your client’s payment screen the moment they book you."
-        className="mb-6"
       />
 
       {search.error ? (

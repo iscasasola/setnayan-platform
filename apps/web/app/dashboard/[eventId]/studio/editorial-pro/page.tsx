@@ -102,7 +102,7 @@ export default async function EditorialProBuyPage({ params }: Props) {
       <PageMasthead
         titleNode={
           <span>
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink/10 text-ink">
+            <span>
               <Newspaper aria-hidden className="h-5 w-5" strokeWidth={1.75} />
             </span>
             Editorial PRO

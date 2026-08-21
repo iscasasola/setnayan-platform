@@ -117,7 +117,6 @@ export default async function EventStoriesPage({
 
       <PageMasthead
         title="Stories about your day"
-        lede={`People who were part of your ${noun} — your suppliers, and you — can write about it. You choose which of their stories appear alongside your ${noun}. Their own page always shows what they wrote; this is only about yours.`}
       />
 
       {search.error ? (

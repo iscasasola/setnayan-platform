@@ -573,3 +573,41 @@ export async function updateRemindersEnabled(formData: FormData) {
 
   revalidatePath('/dashboard', 'layout');
 }
+
+/**
+ * "Let people find me by name" — the way OUT of the people search (owner
+ * 2026-08-21, *"just like facebook"*).
+ *
+ * Default TRUE, as the owner asked and as the product he named behaves. What
+ * matters is that the switch exists and that `lib/people-search.ts` honours it:
+ * a directory with no way out is the version of this an NPC reviewer would
+ * object to. Turned off, the account cannot be found by typing its name, and
+ * can only be added by somebody who already knows their email address.
+ *
+ * ⚠ It does NOT hide an existing connection, an event, or a public profile —
+ * those have their own switches, and quietly changing them from here would be
+ * a control doing more than it says.
+ */
+export async function updateDiscoverableByName(formData: FormData) {
+  const raw = formData.get('discoverable_by_name');
+  if (raw !== 'true' && raw !== 'false') {
+    throw new Error('Invalid discoverability preference');
+  }
+  const enabled = raw === 'true';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('users')
+    .update({ discoverable_by_name: enabled, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/dashboard', 'layout');
+  redirect('/dashboard/profile?discoverable_saved=1#privacy');
+}

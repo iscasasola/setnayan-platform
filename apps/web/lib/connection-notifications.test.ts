@@ -69,8 +69,20 @@ test('the People page is where both signals point', () => {
     join(__dirname, '..', 'app', 'dashboard', '(account)', 'people', 'actions.ts'),
     'utf8',
   );
+  // ⚠ COUNT THE PAIRING, NOT THE CALLS. This first asserted "exactly 2 emits"
+  // and went red the moment a THIRD legitimate caller arrived (adding somebody
+  // picked out of the name search). A guard that fails when the feature grows
+  // correctly teaches people to edit the guard. What must hold is that every
+  // emit still has somewhere to send the reader, and that no third TYPE was
+  // invented without a label and a tone.
   const emits = src.match(/type: 'connection_(request|confirmed)'/g) ?? [];
-  assert.equal(emits.length, 2, 'expected exactly one emit per People signal');
+  assert.ok(emits.length >= 2, 'a People signal lost its emit');
+  const types = new Set(emits.map((m) => m.replace(/^type: '|'$/g, '')));
+  assert.deepEqual(
+    [...types].sort(),
+    ['connection_confirmed', 'connection_request'],
+    'a connection notification type appeared that this file does not know about',
+  );
 
   // Both carry a destination — a tray row with nowhere to go is a dead end.
   //
@@ -82,8 +94,9 @@ test('the People page is where both signals point', () => {
   const field = ['related', 'Url:'].join('');
   const path = ['/dashboard', '/people'].join('');
   const needle = `${field} '${path}'`;
-  assert.ok(
-    src.split(needle).length - 1 >= 2,
+  assert.equal(
+    src.split(needle).length - 1,
+    emits.length,
     'a connection notification landed with no destination',
   );
 });

@@ -60,6 +60,39 @@ test('the amount logged is the ORDER’s, never the form’s', () => {
   assert.equal((actions.match(/Number\(formData\.get\('amount_php'\)\)/g) ?? []).length, 0);
 });
 
+test('the rail is written in the spelling the headroom meter can read', () => {
+  // /admin/settings/payment-methods matches channel === 'gcash' / 'bdo' EXACTLY
+  // to measure how much room the receiving account has left this month.
+  // 'GCash'/'BDO' scored every payment as ₱0 against the cap: the meter read
+  // clear while the account filled up.
+  assert.match(actions, /channelRaw === 'bdo' \? 'bdo'/);
+  assert.match(actions, /channelRaw === 'gcash' \? 'gcash'/);
+  assert.equal((actions.match(/'GCash'|'BDO'/g) ?? []).length, 0);
+});
+
+test('a claim with neither a picture nor a number is refused, not stored', () => {
+  // Both fields are optional and the submit button sits below them: one stray
+  // tap wrote an unreconcilable row AND hid the form that could have fixed it.
+  assert.match(actions, /if \(!screenshotUrl && !last6\)/);
+});
+
+test('the form comes back when we ask for a better picture', () => {
+  // requestPaymentResubmit sets payments.status='resubmit_requested' and
+  // deliberately leaves the ORDER alone. Hiding the form on ANY payment row
+  // meant the shop got an email asking for a clearer shot and arrived at a page
+  // with no way to send one.
+  assert.match(page, /resubmit_requested/);
+  assert.match(page, /needsBetterProof/);
+  assert.match(panel, /resubmitNotice/);
+});
+
+test('a coordinator without payment permission is refused here too', () => {
+  // orders_owner_read admits ANY event member, so this page must carry the same
+  // lock the couple's own order page does — a second door onto one act.
+  assert.match(actions, /coordinatorMoneyScopeAllowed\(/);
+  assert.match(actions, /payable\.eventId/);
+});
+
 test('the payable is resolved on the SESSION client, so RLS scopes it', () => {
   assert.match(actions, /fetchPayableByReference\(supabase, reference\)/);
   assert.equal(

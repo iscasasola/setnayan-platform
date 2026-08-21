@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { purchaseIdFromVendorSubscriptionServiceKey } from '@/lib/vendor-subscription-service-key';
 import {
   GROWTH_BUCKETS,
   GROWTH_RANGE_OPTIONS,
@@ -257,6 +258,13 @@ async function fetchMonetization(admin: Admin, w: Windows): Promise<Monetization
     const php = Number(row.confirmed_total_php ?? row.requested_total_php ?? 0);
     if (!Number.isFinite(php)) continue;
     const key = row.service_key ?? '';
+    // 🚨 ONE TRANSFER, ONE ROW IN THIS REPORT. Since 2026-08-21 a shop's plan
+    // purchase ALSO mints an `orders` row, so it exists in both this table and
+    // vendor_subscriptions — and the vendor stream below counts it already.
+    // Counting it here too reports ₱7,000 for a ₱3,500 plan and skews the mix
+    // the owner reads to decide what is selling. The `orders` row is the
+    // PAYMENT SURFACE for that purchase, not a second sale.
+    if (purchaseIdFromVendorSubscriptionServiceKey(key) !== null) continue;
     add(AI_SERVICE_KEYS.has(key) ? streams.ai : streams.other, row.created_at, php);
   }
 

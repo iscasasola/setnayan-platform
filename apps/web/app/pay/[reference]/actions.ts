@@ -7,6 +7,7 @@ import { createMoneyWriterClient } from '@/lib/supabase/admin';
 import { paymentRowFor } from '@/lib/order-mint-identity';
 import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
+import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 
 /**
  * The one proof submission, for every purchase.
@@ -61,6 +62,30 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
     back(reference, 'error', 'This one is already settled — nothing more to send.');
   }
 
+  // ── The couple's coordinator consent gate, which this page must not be a way
+  // round ─────────────────────────────────────────────────────────────────────
+  // `orders_owner_read` admits ANY member of the event (migration 20270129279924
+  // widened it), so a coordinator the couple invited WITHOUT payment permission
+  // can read the couple's order — and would otherwise be able to log a payment
+  // claim here that the couple's own order page refuses in as many words. A
+  // second door onto the same act has to carry the same lock.
+  // Eventless orders (a shop's plan, a per-user purchase) have no couple to ask.
+  if (payable.eventId) {
+    const allowed = await coordinatorMoneyScopeAllowed(
+      createMoneyWriterClient(),
+      payable.eventId,
+      user.id,
+      'checkout',
+    );
+    if (!allowed) {
+      back(
+        reference,
+        'error',
+        'The couple has not approved payment handling for your access — ask them to re-invite you with payment permission.',
+      );
+    }
+  }
+
   // The screenshot is optional, but a ref that is not bound to THIS order's
   // private-bucket prefix is dropped rather than stored: a bare `r2://` prefix
   // check once let a buyer pin any object in any bucket onto their own order,
@@ -74,8 +99,29 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
     screenshotUrl = refRaw.trim();
   }
 
+  const last6 = normaliseLast6(formData.get('reference_last6'));
+
+  // ── A CLAIM WITH NOTHING IN IT IS WORSE THAN NO CLAIM ──────────────────────
+  // Both fields were optional on the first cut, and the submit button sits
+  // BELOW them: one stray tap wrote a row with no screenshot and no reference,
+  // which is unreconcilable — and, because the page hides the form once
+  // anything is logged, it also took away the only way to send the real proof.
+  // Refuse instead, and say which half is missing.
+  if (!screenshotUrl && !last6) {
+    back(
+      reference,
+      'error',
+      'Add your payment screenshot and the last 6 digits of your reference number — we need at least one of them to find your payment.',
+    );
+  }
+
+  // ⚠ LOWERCASE, AND IT IS LOAD-BEARING. `/admin/settings/payment-methods`
+  // measures how much room the receiving account has left this month by
+  // matching `channel === 'gcash'` / `'bdo'` EXACTLY; anything else scores the
+  // payment as ₱0 against the cap, so the meter reads clear while the account
+  // fills up. 'GCash'/'BDO' looked nicer and was silently unreadable.
   const channelRaw = formData.get('channel');
-  const channel = channelRaw === 'bdo' ? 'BDO' : channelRaw === 'gcash' ? 'GCash' : 'Bank transfer';
+  const channel = channelRaw === 'bdo' ? 'bdo' : channelRaw === 'gcash' ? 'gcash' : 'bank_transfer';
 
   const idempotencyRaw = formData.get('client_idempotency_key');
   const idempotencyKey =
@@ -91,7 +137,7 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
         // The ORDER's amount, never the form's — see the header.
         amount_php: payable.amountPhp,
         channel,
-        reference_number: normaliseLast6(formData.get('reference_last6')),
+        reference_number: last6,
         screenshot_url: screenshotUrl,
         paid_at: new Date().toISOString().slice(0, 10),
         client_idempotency_key: idempotencyKey,

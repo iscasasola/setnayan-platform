@@ -46,17 +46,33 @@ export default async function PayPage({ params, searchParams }: Props) {
 
   const settings = await fetchPlatformSettings(supabase);
 
-  // Have they already told us? A second screenshot for the same transfer is
-  // noise for the admin and reads to the payer as "it didn't go through", so
-  // the form gives way to a plain "we're checking" once anything is logged.
-  // ⚠ A read that ERRORS is not a zero — treat an unreadable count as "no
-  // proof yet" rather than silently hiding the only way to send one.
-  const { data: loggedRows, error: loggedError } = await supabase
+  // Have they already told us — and is that claim still standing?
+  //
+  // 🚨 THE FORM MUST COME BACK WHEN WE ASK FOR A BETTER PICTURE. The first cut
+  // hid it the moment ANY payment row existed. But an admin pressing "ask for a
+  // better picture" sets the payment to 'resubmit_requested' and deliberately
+  // leaves the ORDER alone — so the shop got an email asking for a clearer
+  // screenshot and arrived at a page with no way to send one. 'rejected' is the
+  // same shape. Only a live claim ('pending' / 'matched') closes the form.
+  //
+  // ⚠ A read that ERRORS is not "nothing logged" — an unreadable answer must
+  // leave the form OPEN, never silently remove the only way to send proof.
+  const { data: paymentRows, error: paymentsError } = await supabase
     .from('payments')
-    .select('payment_id')
+    .select('payment_id,status,admin_resubmit_notice,created_at')
     .eq('order_id', payable.orderId)
+    .order('created_at', { ascending: false })
     .limit(1);
-  const proofSent = !loggedError && (loggedRows?.length ?? 0) > 0;
+  const latestPayment = paymentsError ? null : (paymentRows?.[0] ?? null);
+  const latestStatus = (latestPayment as { status?: string } | null)?.status ?? null;
+  const needsBetterProof = latestStatus === 'resubmit_requested' || latestStatus === 'rejected';
+  const proofSent = latestPayment !== null && !needsBetterProof;
+  const resubmitNotice =
+    needsBetterProof
+      ? ((latestPayment as { admin_resubmit_notice?: string | null } | null)
+          ?.admin_resubmit_notice?.trim() ||
+        'We could not read the last picture you sent. Please send a clearer one.')
+      : null;
 
   const gcash: ChannelInfo = {
     payload: mintOrderQr(settings.gcash_qr_payload, payable.amountPhp),
@@ -149,7 +165,8 @@ export default async function PayPage({ params, searchParams }: Props) {
       )}
 
       <PayPanel
-        proofSent={proofSent || search.sent === '1'}
+        proofSent={proofSent || (search.sent === '1' && !needsBetterProof)}
+        resubmitNotice={resubmitNotice}
         amountPhp={payable.amountPhp}
         reference={payable.reference}
         orderId={payable.orderId}

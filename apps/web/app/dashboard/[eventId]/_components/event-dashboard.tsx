@@ -1210,7 +1210,7 @@ export async function EventDashboard({
         background: 'var(--sn-gold-100)',
         color: 'var(--sn-gold-800)',
       };
-  const focalHeadColor = focalDark ? '#FDFBF7' : 'var(--sn-ink-900)';
+  const focalHeadColor = focalDark ? '#FFFFFF' : 'var(--sn-ink-900)';
   const focalSubColor = focalDark ? 'rgba(253,251,247,.65)' : 'var(--sn-ink-500)';
 
   // ── Inspector column selection (desktop, ≥xl) ───────────────────────────
@@ -2011,7 +2011,7 @@ export async function EventDashboard({
             <Link
               href={topPriorityTask.ctaHref}
               className="inline-flex flex-none items-center rounded-full px-4 py-2 text-[13px] font-bold transition-transform hover:-translate-y-0.5"
-              style={{ background: 'var(--sn-gold-700)', color: '#FDFBF7' }}
+              style={{ background: 'var(--sn-gold-700)', color: '#FFFFFF' }}
             >
               {topPriorityTask.ctaLabel}
             </Link>
@@ -2086,7 +2086,7 @@ export async function EventDashboard({
                       {aiActive ? (
                         <span
                           className="ml-auto rounded-full px-2.5 py-0.5 font-mono text-[11px] font-extrabold tracking-wide"
-                          style={{ background: 'var(--sn-gold-700)', color: '#FDFBF7' }}
+                          style={{ background: 'var(--sn-gold-700)', color: '#FFFFFF' }}
                         >
                           PRIORITY {gi + 1}
                         </span>
@@ -2128,7 +2128,7 @@ export async function EventDashboard({
                               className="mt-2 inline-block rounded-full px-3.5 py-1.5 text-[12.5px] font-bold"
                               style={
                                 ii === 0
-                                  ? { background: 'var(--sn-gold-700)', color: '#FDFBF7' }
+                                  ? { background: 'var(--sn-gold-700)', color: '#FFFFFF' }
                                   : { border: '1px solid var(--sn-gold-500)', color: 'var(--sn-gold-700)' }
                               }
                             >

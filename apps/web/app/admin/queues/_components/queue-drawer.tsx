@@ -140,7 +140,7 @@ export function QueueDrawer({
                     <button
                       type="submit"
                       className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                      style={{ background: 'var(--sn-cta, #C24E25)', color: '#FDFBF7' }}
+                      style={{ background: 'var(--sn-cta, #C24E25)', color: '#FFFFFF' }}
                     >
                       {it.action.label}
                     </button>
@@ -185,7 +185,7 @@ export function QueueDrawer({
                     <button
                       type="submit"
                       className="rounded-md px-3 py-1.5 text-xs font-semibold"
-                      style={{ background: 'var(--sn-cta, #C24E25)', color: '#FDFBF7' }}
+                      style={{ background: 'var(--sn-cta, #C24E25)', color: '#FFFFFF' }}
                     >
                       {form.submitLabel}
                     </button>

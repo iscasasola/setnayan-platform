@@ -148,7 +148,7 @@ export type DoorwayProps = {
  *
  * 1 · THE CARDS WERE WHITE ON A CREAM PAGE. `bg-white/60` over `bg-cream`
  *     composites to #FEFDFC — pure white for all practical purposes — on a
- *     #FDFBF7 page. The lock says the page and its cards are BOTH cream and
+ *     page. The lock says the page and its cards are BOTH the same ground and
  *     are separated by a border and a shadow, so that is what they now are.
  *
  * 2 · THE STRUCK-THROUGH COLUMN FAILED AA. #9A8F86 measures 3.06:1 on cream,

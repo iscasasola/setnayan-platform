@@ -914,7 +914,8 @@ const UPROF_CSS = `
      line inside the wrapping .uprof-audience row, so it never reads as a fourth
      stat chip.
      CONTRAST, measured not assumed: --m-slate-2 (#6E6A62) on --m-paper
-     (#FDFBF7) = 5.22:1, clears AA. The spec's own 11.5px #A09A8E is 2.71:1 and
+     (#FFFFFF, white since 2026-08-20) = 5.39:1, clears AA. The spec's own 11.5px
+     #A09A8E is 2.79:1 and
      was NOT used; --m-slate-3 (#8A857B) is 3.55:1 and also fails. Note that
      lint-label-on-fill-contrast.mjs CANNOT catch a miss here — it reads Tailwind
      class pairs and inline style objects, never this template literal. */

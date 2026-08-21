@@ -58,7 +58,7 @@
  */
 
 .fd {
-  --fd-cream: #fdfbf7;
+  --fd-cream: #ffffff; /* owner 2026-08-20 — white, with globals.css */
   --fd-ink: #2c2a29;
   --fd-gold: #8c6932;
   --fd-hi: #a9834b;

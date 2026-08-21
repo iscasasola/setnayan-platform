@@ -195,6 +195,13 @@ export async function AppRailShell({
       }
       railContext={railContext}
       /*
+        Only the event tree passes `studioEventId` — the admin console and
+        the vendor dashboard also push a `railContext`, but neither is a
+        couple's supplier marketplace. See the prop's own note in
+        `front-door-shell.tsx`.
+      */
+      insideEvent={Boolean(studioEventId)}
+      /*
         🔴 A DOORWAY PAGE HANDS IN NO CLUSTER, AND THE SHELL'S FALLBACK IS
         WRITTEN FOR A STRANGER. Owner 2026-08-15, two screenshots: *"why does
         the top nav differ?"* The five app trees pass `topBarSlot` and got the

@@ -353,6 +353,20 @@ type Props = {
    */
   railContext?: React.ReactNode;
   /**
+   * Whether the person is standing inside one specific event right now —
+   * true only on `/dashboard/[eventId]`. Owner 2026-08-22: *"marketplace is
+   * best shown inside an event, not when they just logged in."* Gates the
+   * Marketplace destination row and its "Browse by category" group, which
+   * therefore no longer follows `railContext` — the admin console and the
+   * vendor dashboard also push a `railContext`, and neither of those is a
+   * reason to show a couple's supplier marketplace.
+   *
+   * Defaults to `false`: the front door, the My Events board, the admin
+   * console and the vendor dashboard all render without it and stay exactly
+   * as they were.
+   */
+  insideEvent?: boolean;
+  /**
    * Admin-resolved labels, `getNavSlotMap()`.
    *
    * ⚠ APPLIED IN THE APP VARIANT ONLY, deliberately. On `/` the events row
@@ -500,6 +514,7 @@ export function FrontDoorShell({
   heading,
   variant = 'front-door',
   railContext,
+  insideEvent = false,
   navLabels,
   topBarSlot,
   search,
@@ -1095,17 +1110,20 @@ export function FrontDoorShell({
             heading link goes.
           */}
           {account.signedIn ? (
-            <Link href="/explore" {...rowProps('find')}>
-              <RailIcon as={Compass} />
-              <span className="fd-label-text">
-                {/* Fallback MUST equal the registry's label for this slot
-                    (`customer.account.marketplace` = "Marketplace"). They
-                    diverged, and the same row read two different words on two
-                    pages. `front-door-invariants.test` now pins them equal. */}
-                {slotLabel(RAIL_SLOT.find, 'Marketplace')}
-              </span>
-              <span className="fd-icon-caption">Market</span>
-            </Link>
+            insideEvent ? (
+              <Link href="/explore" {...rowProps('find')}>
+                <RailIcon as={Compass} />
+                <span className="fd-label-text">
+                  {/* Fallback MUST equal the registry's label for this slot
+                      (`customer.account.marketplace` = "Marketplace"). They
+                      diverged, and the same row read two different words on
+                      two pages. `front-door-invariants.test` now pins them
+                      equal. */}
+                  {slotLabel(RAIL_SLOT.find, 'Marketplace')}
+                </span>
+                <span className="fd-icon-caption">Market</span>
+              </Link>
+            ) : null
           ) : null}
 
           <div className="fd-rdiv" />
@@ -1316,24 +1334,27 @@ export function FrontDoorShell({
             <div className="fd-rgroup">{railContext}</div>
           ) : null}
 
-          {/* 3 · MARKETPLACE — signed-in only.
-              ⚠ THE MARKETPLACE IS FRONT-PAGE FURNITURE and collapses away
-              whenever a context group is present, exactly as the drawing has
-              it. A rail carrying a wedding's own sections AND fifteen supplier
-              categories is a list, not a place.
+          {/* 3 · MARKETPLACE — signed-in AND inside an event only (owner
+              2026-08-22: *"marketplace is best shown inside an event, not
+              when they just logged in"*). REVERSES the 2026-08-12 furniture
+              rule below, which this replaces: the group used to show on the
+              front door / My Events board and collapse away the moment a
+              `railContext` pushed in (an event, the admin console, the
+              vendor dashboard). `insideEvent` is narrower than `railContext`
+              on purpose — the admin console and the vendor dashboard also
+              push a context, and neither is a couple's supplier marketplace.
 
               🔄 STUDIO NO LONGER COLLAPSES WITH IT — see section 4. */}
           {account.signedIn ? (
             /*
-              NESTED, NOT `&& !railContext`, deliberately. The shipped guard
-              pins this gate as the literal `{account.signedIn ?` — it exists
-              because the owner's signed-in-only rule was got wrong here once,
-              and it also rejects an INVERTED gate. Folding a second condition
-              into the same expression would have blinded it while reading as
-              a tidier line. The collapse is a separate question, so it gets a
-              separate branch.
+              NESTED, NOT `&& insideEvent`, deliberately — same reasoning as
+              before the reversal: the shipped guard pins this gate as the
+              literal `{account.signedIn ?`, so folding a second condition
+              into the same expression would blind it while reading as a
+              tidier line. The collapse is a separate question, so it keeps
+              its own branch.
             */
-            railContext ? null : (
+            insideEvent ? (
             <div className="fd-rgroup">
               <div className="fd-rdiv" />
               {/* NOT "Marketplace" — that is the row above, and the same word
@@ -1376,7 +1397,7 @@ export function FrontDoorShell({
                 <span className="fd-icon-caption">More</span>
               </button>
             </div>
-            )
+            ) : null
           ) : null}
 
           {/* 4 · STUDIO — the things you make. IT DOES NOT COLLAPSE.

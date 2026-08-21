@@ -95,20 +95,31 @@ test('the Studio group is not gated on the absence of an event context', () => {
   );
 });
 
-test('the Marketplace category group still DOES collapse', () => {
+test('the Marketplace category group shows only inside an event', () => {
   /*
-    The other half of the same decision, and the one that makes this change a
-    change rather than a removal. Fifteen supplier categories beside a
-    wedding's own sections is the list the drawing rejected. If a later edit
-    "makes them consistent" by un-collapsing this one too, that is a different
-    product decision wearing this one's clothes.
+    REVERSED 2026-08-22 — owner: *"marketplace is best shown inside an event,
+    not when they just logged in."* This used to assert the opposite polarity
+    (collapse INSIDE an event, show on the front door / board). The group now
+    gates on `insideEvent`, not `railContext` — the admin console and the
+    vendor dashboard also push a `railContext` and must NOT show a couple's
+    supplier marketplace, which a bare `railContext ?` gate would have done.
   */
   const at = SHELL.indexOf('>Browse by category<');
   assert.ok(at > -1, 'the category group label is missing');
-  const before = SHELL.slice(Math.max(0, at - 700), at);
+  // 260, not 700: the unrelated `railContext ? (<div>{railContext}</div>) :
+  // null` context-group wrapper (section 2b) sits just above this group, and
+  // a wider window would match ITS railContext instead of this group's own
+  // gate — a false pass on the "no railContext" assertion below.
+  const before = SHELL.slice(Math.max(0, at - 260), at);
   assert.ok(
-    /railContext\s*\?\s*null/.test(before),
-    'the Marketplace category group no longer collapses inside an event',
+    /insideEvent\s*\?/.test(before),
+    'the Marketplace category group is not gated on insideEvent — it must ' +
+      'show only inside a specific event, not on the front door or board',
+  );
+  assert.ok(
+    !/railContext/.test(before),
+    'the Marketplace category group is still reading railContext — the admin ' +
+      'console and vendor dashboard would then show it too',
   );
 });
 

@@ -11,6 +11,10 @@ import { sweepExpiredConcierge } from '@/lib/concierge';
 import { fetchGuestsByEvent } from '@/lib/guests';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { loadAfterSummary, type AfterSummary } from '@/lib/after-summary';
+import { formatEventDate } from '@/lib/events';
+import { eventNoun } from '@/lib/event-noun';
+import { FinishedEventSummary } from './_components/after/finished-event-summary';
 import { eventSkuActive } from '@/lib/entitlements';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchBlockRosMeta } from '@/lib/schedule-ros';
@@ -102,7 +106,7 @@ export default async function EventHomePage({
   // pattern for migration drift between local + prod.
   const eventRes = await (async () => {
     const leanSelect =
-      'event_id, event_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation';
+      'event_id, event_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug';
     const leanRes = await supabase
       .from('events')
       .select(leanSelect)
@@ -163,7 +167,14 @@ export default async function EventHomePage({
   // The bounds live in ONE place, lib/day-of-mode.ts; do not restate them here,
   // because a comment that drifts is how a second, disagreeing copy gets
   // written in the first place.
-  const dayOfActive = event.event_date
+  /*
+    ONE phase read, THREE consumers — the day-of takeover below, the
+    finished-event summary added 2026-08-21, and (through the layout) the rail
+    and the bottom bar. It used to be computed here as a bare `=== 'dayof'`
+    boolean, which is fine right up until a second question needs asking of
+    the same clock and gets its own copy of the arithmetic.
+  */
+  const lifecyclePhase = event.event_date
     ? getMenuLifecyclePhase(
         event.event_date,
         (event as { cleared_at?: string | null }).cleared_at ?? null,
@@ -172,8 +183,31 @@ export default async function EventHomePage({
         // 8 hours out, enough to flip this on the wrong side of the boundary on
         // the one day the couple opens the page all morning.
         (event as { timezone?: string | null }).timezone ?? undefined,
-      ) === 'dayof'
-    : false;
+      )
+    : 'plan';
+  const dayOfActive = lifecyclePhase === 'dayof';
+
+  /*
+    ─── THE EVENT IS OVER: LEAD WITH WHAT HAPPENED, NOT WITH WHAT TO PLAN ───
+
+    Owner, 2026-08-21: *"why can i still plan and build and create guest list
+    as if it hasn't ended… show the summary of the overview, guest,
+    marketplace, suite, and the editorial maker."*
+
+    The After phase arrives EITHER when the host closes the day out from the
+    wrap-up screen, OR automatically once the day-of window has fully passed —
+    both already resolved by `getMenuLifecyclePhase`; no new boundary is
+    invented here.
+
+    ⚠ THE LOADER IS FAIL-SOFT AND IS NOT AWAITED ANYWHERE ELSE. Every count is
+    `number | null`, null meaning NOT MEASURED, so a refused read costs the
+    card its figure and nothing else.
+  */
+  const afterActive = lifecyclePhase === 'after';
+  let afterSummary: AfterSummary | null = null;
+  if (afterActive) {
+    afterSummary = await loadAfterSummary(adminClient, eventId).catch(() => null);
+  }
   let dayOfBlocks: Awaited<ReturnType<typeof fetchScheduleBlocks>> = [];
   let dayOfHeadTable: EventTableRow | null = null;
   let dayOfNearbyTables: EventTableRow[] = [];
@@ -558,6 +592,47 @@ export default async function EventHomePage({
             </span>
             <ArrowRight aria-hidden className="h-4 w-4 flex-none text-ink/40" />
           </Link>
+
+          <details className="sn-tile">
+            <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70">
+              Planning tools — still here if you need them
+            </summary>
+            <div className="mt-4 space-y-6">
+              <EventDashboard
+                eventId={eventId}
+                suriPreviewParam={search.suri}
+                inspectId={search.inspect}
+                slotAfterBento={hasOverlays ? overlays : undefined}
+                dayOfActive={dayOfActive}
+                canViewPapicCounts={canViewPapicCounts}
+              />
+            </div>
+          </details>
+        </>
+      ) : afterActive && afterSummary ? (
+        /*
+          ─── AFTER THE DAY: THE SUMMARY LEADS, THE PLANNING STACK RECEDES ───
+
+          Deliberately the SAME two-part shape as the day-of branch above —
+          the thing that matters now on top, the planning tools one click
+          below — because it is the same product move for a different reason,
+          and a second, differently-shaped "receded" state is how two screens
+          drift into disagreeing about what receding means.
+
+          🔒 NOTHING IS TAKEN AWAY. A host still adding the cousin who turned
+          up, or still settling a balance, opens the disclosure and has every
+          tool exactly where it was. The rail keeps all its rows too.
+        */
+        <>
+          <FinishedEventSummary
+            eventId={eventId}
+            noun={eventNoun(event.event_type as string | null)}
+            dateLabel={
+              event.event_date ? formatEventDate(event.event_date as string) || null : null
+            }
+            slug={(event as { slug?: string | null }).slug ?? null}
+            summary={afterSummary}
+          />
 
           <details className="sn-tile">
             <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70">

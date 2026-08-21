@@ -75,12 +75,15 @@ import {
   Armchair,
   Wallet,
   Gift,
+  Newspaper,
+  Images,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { NavGroup, NavItem } from '@/app/_components/nav/types';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import { customerGuestsBadge } from '@/lib/nav-badges';
 import { envFlagEnabled } from '@/lib/env-flag';
+import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 
 /**
  * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; the nav
@@ -117,6 +120,26 @@ export function buildCustomerNavGroups(
     /** Live guest count → the Guests item's badge (neutral tone). Resolved
      *  server-side in layout.tsx; omit/0 → no badge (never fabricated). */
     guestCount?: number | null;
+    /*
+      THE EVENT LIFECYCLE PHASE — plan · dayof · after.
+
+      🚨 THE DESKTOP RAIL HAD NO OPINION ABOUT WHETHER THE EVENT HAD HAPPENED.
+      The phone's roster has swapped to Overview · Review · Editorial ·
+      Galleries in the After phase since 2026-06-16 (`lib/customer-menu.ts`),
+      and this SSOT — the one the desktop rail reads — never took the argument.
+      So on a laptop a celebration that finished last month still led with
+      "Plan", and the Editorial maker (the ONE thing there is left to do)
+      appeared in no menu at all: it was reachable only through the Suite's
+      website card or the /website hub.
+
+      🔑 Owner, 2026-08-21, on a Movie Night that had already happened:
+      *"why can i still plan and build and create guest list as if it hasn't
+      ended."*
+
+      OMITTED ⇒ 'plan' ⇒ BYTE-IDENTICAL to before, which is what keeps the
+      existing callers (and their tests) honest.
+    */
+    phase?: MenuLifecyclePhase;
   },
 ): NavGroup[] {
   const base = `/dashboard/${eventId}`;
@@ -343,12 +366,62 @@ export function buildCustomerNavGroups(
     },
   ];
 
+  /*
+    ─── AFTER THE EVENT, THE MAIN SECTION GAINS TWO ROWS AND A NEW NAME ─────
+
+    The four rows the person already knows (Overview · Guests · Marketplace ·
+    Suite) DO NOT MOVE — the owner asked to see a summary of exactly those,
+    not to lose them, and taking a working row away from somebody mid-use is
+    the failure this repo keeps paying for. Two rows JOIN them:
+
+      · Editorial — the story maker. Its own destination has shipped since
+        iteration 0046 and the phone's After roster has always listed it; the
+        rail never did, so on a laptop the answer to "how do I open the
+        editorial maker" was "through the Suite, through the website card,
+        through a chip". Now it is a row.
+      · Galleries — the photos, which are what the story is made of.
+
+    Both are PLAIN LEAVES (whole-rail plain-leaf rule, owner-locked
+    2026-07-15), and both routes already ship — nothing new is drawn here.
+
+    🔒 THE ROUTES ARE THE SAME ONES `lib/customer-menu.ts` GIVES THE PHONE.
+    Two rosters that name the same phase must not disagree about where it
+    goes, and a second copy of these hrefs is how they would.
+  */
+  const afterItems: NavItem[] =
+    opts?.phase === 'after'
+      ? [
+          {
+            key: 'editorial',
+            label: 'Editorial',
+            href: `${base}/website/editorial`,
+            icon: Newspaper,
+            matchPrefix: `${base}/website/editorial`,
+          },
+          {
+            key: 'galleries',
+            label: 'Galleries',
+            href: `${base}/galleries`,
+            icon: Images,
+            matchPrefix: `${base}/galleries`,
+          },
+        ]
+      : [];
+
   // Two labelled sidebar sections (design: setnayan-overview-energy.html):
   //   PLAN    → Overview · Guests · Marketplace · Studio
   //   GO LIVE → Launch (the couple's live personal website)
   //   ALSO IN THIS EVENT → Personalization · Hosts · Schedule · Seat plan · Budget
   const groups: NavGroup[] = [
-    { key: 'plan', label: 'Plan', defaultOpen: true, items: planItems },
+    {
+      key: 'plan',
+      // "Plan" is the wrong word for a celebration that has already happened.
+      // The KEY stays 'plan' — the registry slots, the hideKeys gate and every
+      // test key off it; only the word a person reads changes.
+      label: opts?.phase === 'after' ? 'Your event' : 'Plan',
+      defaultOpen: true,
+      items: [...planItems, ...afterItems],
+    },
     ...(launchItem
       ? [{ key: 'golive', label: 'Go live', defaultOpen: true, items: [launchItem] } as NavGroup]
       : []),

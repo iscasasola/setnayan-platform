@@ -559,7 +559,7 @@ function GracefulFallback({ words: w }: { words: EventWords }): ReactElement {
     <div className="flex min-h-[60vh] items-center justify-center bg-cream px-4 py-16 text-ink">
       <div className="mx-auto max-w-md space-y-3 rounded-2xl border border-ink/10 bg-cream/60 p-8 text-center">
         <p className="font-mono text-xs uppercase tracking-[0.3em] text-terracotta">
-          The Editorial
+          The Story
         </p>
         <h2 className="font-display text-2xl italic tracking-tight">
           This {w.eventWord}&rsquo;s story isn&rsquo;t available yet.
@@ -620,7 +620,7 @@ function PhaseRibbon({ slug, words: w }: { slug: string | null; words: EventWord
           </a>
         </>
       ) : null}
-      <span className="border-b border-mulberry pb-0.5 text-mulberry">The Editorial — Today</span>
+      <span className="border-b border-mulberry pb-0.5 text-mulberry">The Story — Today</span>
     </nav>
   );
 }

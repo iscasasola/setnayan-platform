@@ -418,7 +418,7 @@ Vendor-side: public profile editor · inquiry inbox · calendar with intra-day b
 - **Does Setnayan have a mobile app?** Web-first responsive site, installable as a PWA on iOS Safari and Chrome Android, plus a desktop app for macOS and Windows at /download. Native apps are in preparation ahead of the December 2026 launch.
 - **How are vendors verified?** Business-legitimacy check plus a short video call with a Setnayan admin. Free during launch.
 - **Does Setnayan take a commission?** No. 0% on every booking, every tier. Revenue comes from couple software purchases and vendor subscriptions.
-- **What about my privacy?** RA 10173 compliant. Guest list and event details are never publicly shared without explicit opt-in. Real-wedding editorials publish 30 days post-event with explicit consent. NPC registration in progress. DPO contact: iscasasolaii@gmail.com.
+- **What about my privacy?** RA 10173 compliant. Guest list and event details are never publicly shared without explicit opt-in. Real-wedding stories publish 30 days post-event with explicit consent. NPC registration in progress. DPO contact: iscasasolaii@gmail.com.
 - **How do I contact support?** The contact form at /help.
 
 ## What makes Setnayan structurally different

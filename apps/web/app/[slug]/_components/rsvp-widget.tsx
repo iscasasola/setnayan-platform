@@ -398,11 +398,19 @@ function Field({
   label,
   defaultValue,
   placeholder,
+  type = 'text',
+  autoComplete,
 }: {
   id: string;
   label: string;
   defaultValue?: string;
   placeholder?: string;
+  /** `email` puts the @ keyboard on a phone; the contact boxes are the only
+   *  fields on this card that are not free text. */
+  type?: 'text' | 'email' | 'tel';
+  /** Lets the phone's own autofill offer what it already knows — the same
+   *  "stop asking what you can read" the account prefill does one layer up. */
+  autoComplete?: 'email' | 'tel' | 'name';
 }) {
   return (
     <div className="space-y-1.5">
@@ -411,6 +419,8 @@ function Field({
       </label>
       <input
         id={id}
+        type={type}
+        autoComplete={autoComplete}
         name={id}
         defaultValue={defaultValue}
         placeholder={placeholder}

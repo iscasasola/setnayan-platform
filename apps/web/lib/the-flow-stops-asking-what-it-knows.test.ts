@@ -26,7 +26,13 @@ const stripComments = (src: string) =>
 
 const WIZARD = 'app/onboarding/[type]/_components/generic-onboarding.tsx';
 const CARRY = 'lib/onboarding/moment-handoff.ts';
-const YEAR = 'app/dashboard/(account)/year/page.tsx';
+// 🔁 THE ROW MOVED, THE HAND-OVER DID NOT (2026-08-21). /dashboard/year is a
+// redirect; its moment rows are the board's "Worth planning" shelf. This
+// assertion is the RECEIVING end of the same wire that
+// `year-page-answers-created-or-not.test.ts` guards at the sending end — both
+// went red when the retirement left the affordance behind, which is exactly
+// what a two-ended guard is for.
+const YEAR = 'app/dashboard/(launcher)/_components/year-moments-list.tsx';
 
 // ── 1 · the celebrant ──────────────────────────────────────────────────────
 test('when we know the celebrant, no empty box is rendered under the answer', () => {

@@ -1144,9 +1144,9 @@ export function FrontDoorShell({
                 <Link href="/dashboard/library" {...rowProps('alaala')}>
                   <RailIcon as={Sparkles} />
                   <span className="fd-label-text">
-                    {slotLabel(RAIL_SLOT.alaala, 'Alaala')}
+                    {slotLabel(RAIL_SLOT.alaala, 'Memories')}
                   </span>
-                  <span className="fd-icon-caption">Alaala</span>
+                  <span className="fd-icon-caption">Memories</span>
                   <Count value={account.alaalaCount} />
                 </Link>
                 {/* YOUR YEAR — THE RAIL ROW IS RETIRED (owner 2026-08-21:
@@ -1218,23 +1218,21 @@ export function FrontDoorShell({
                 <span className="fd-icon-caption">People</span>
               </Link>
               {/*
-                YOUR STORY — a thing you HAVE, not a thing you run, so it is
-                never gated. Writing is open to every signed-in person; gating
-                this row on "is a storyteller" (>=1 published chapter on a
-                public profile) would hide a desk 8 of 9 accounts are entitled
-                to sit at. Matches the shipped launcher, which shows the same
-                href whether you have chapters or none.
+                YOUR STORY — THE RAIL ROW IS RETIRED (owner 2026-08-21: *"remove
+                the your year and your story… we already have your story on
+                untold"*).
+                Its premise was "a thing you HAVE, not a thing you run, so it is
+                never gated" — still true, and now served by the BOARD instead of
+                a rail row. My Events carries both halves: the "Untold" shelf
+                offers *Write the story of <name>* per finished celebration, and
+                "Told" ends with *read them in Your Story*. Both link
+                /dashboard/creator, so the desk keeps two visible doors on the
+                first screen after sign-in and loses only the duplicate.
+                🔑 THE ROUTE IS NOT RETIRED, ONLY THE MENU — do not delete
+                /dashboard/creator, and do not re-add this row without changing
+                `lib/the-controls-have-a-home.test.ts`, which now asserts the
+                doors that replaced it.
               */}
-              <Link href="/dashboard/creator" {...rowProps('story')}>
-                <RailIcon as={PenLine} />
-                <span className="fd-label-text">Your Story</span>
-                <span className="fd-icon-caption">Story</span>
-                {typeof account.storyChapterCount === 'number' ? (
-                  <span className="fd-ct">{account.storyChapterCount}</span>
-                ) : account.storyChapterCount === null ? (
-                  <span className="fd-ct">couldn&apos;t load</span>
-                ) : null}
-              </Link>
               {/*
                 WHAT YOU RUN — the second group, and the rule that decides
                 membership is one sentence: does this destination REFUSE a

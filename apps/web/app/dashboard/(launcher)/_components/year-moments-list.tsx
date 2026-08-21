@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ArrowRight, CalendarHeart, Sparkles } from 'lucide-react';
+import { ChevronDown, CalendarHeart, Sparkles, Check, Plus } from 'lucide-react';
+
+import { StartPlanningLink } from './start-planning-link';
 
 /**
  * Serializable view of one "Your year" moment — the strings are precomputed on
@@ -17,6 +19,21 @@ export type YearMomentView = {
   isMilestone: boolean;
   /** Dashboard target when the moment belongs to an event; null = no navigation. */
   eventId: string | null;
+  /**
+   * ⚠ THE FOUR FIELDS BELOW ARE WHAT MAKES A ROW ACTIONABLE, and they were
+   * missing here until 2026-08-21 — a moment with no event was a DEAD ROW that
+   * printed a date and offered nothing to do about it. The affordance lived on
+   * /dashboard/year, and retiring that page into this shelf without carrying
+   * them would have deleted "start planning from a moment" from the product.
+   */
+  /** `event_type_vocab` key to preselect in the create flow, when known. */
+  createEventType?: string | null;
+  /** ISO day the moment falls on — handed to the wizard so it need not ask. */
+  dateISO?: string | null;
+  /** Is this moment about the reader themselves? */
+  forSelf?: boolean;
+  /** The age a birthday row turns — already printed on this row's own label. */
+  age?: number | null;
 };
 
 /**
@@ -66,14 +83,11 @@ export function YearMomentsList({
             />
           </button>
         ) : null}
-        {/* Door to the full Year calendar (holidays + every moment). */}
-        <Link
-          href="/dashboard/year"
-          className="inline-flex items-center gap-1 text-xs font-medium text-gold-deep transition-colors hover:text-ink"
-        >
-          See the year
-          <ArrowRight aria-hidden className="h-3.5 w-3.5" />
-        </Link>
+        {/* The "See the year" door is GONE (owner 2026-08-21). It opened the
+            full Year calendar for the holidays this list used to exclude —
+            those are IN this list now, and /dashboard/year redirects here, so
+            the link would send a person back to the page they are standing on.
+            A door onto the room you are already in is worse than no door. */}
       </div>
     </div>
   );
@@ -109,21 +123,69 @@ function MomentRow({ moment: m }: { moment: YearMomentView }) {
       >
         {m.countdownLabel}
       </span>
+      {/* The state the row exists to answer: is this already an event of yours,
+          or a date still waiting for one? BOTH branches always render — a row
+          with no marker reads as "unknown", which is the one thing this line
+          must never say. They are <span>s styled as buttons because the ROW is
+          the link; nesting a <button> in an <a> is invalid and would split one
+          tap target into two. */}
+      {m.eventId ? (
+        <span className="hidden shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-ink/15 bg-white/70 px-2.5 py-1 text-xs font-medium text-ink/70 sm:inline-flex">
+          <Check aria-hidden className="h-3 w-3" />
+          Open plan
+        </span>
+      ) : (
+        <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-mulberry px-2.5 py-1 text-xs font-medium text-cream">
+          <Plus aria-hidden className="h-3 w-3" />
+          Start planning
+        </span>
+      )}
     </>
   );
 
-  // An event moment deep-links into that event's dashboard (allowed jump);
-  // a derived/undated moment is a plain non-navigating row.
-  return m.eventId ? (
-    <Link
-      href={`/dashboard/${m.eventId}`}
-      className={`${shell} sn-press transition-colors ${
-        m.isMilestone ? 'hover:bg-gold/[0.1]' : 'hover:bg-ink/[0.04]'
-      }`}
+  const hover = m.isMilestone ? 'hover:bg-gold/[0.1]' : 'hover:bg-ink/[0.04]';
+
+  // An event moment deep-links into that event's dashboard (an allowed jump);
+  // everything else opens the create flow, preselecting the type when the
+  // moment knows its own kind (the create page validates the key and ignores
+  // anything unknown).
+  // ⚠ THE EVENT LINK IS WRITTEN INLINE, NOT LIFTED INTO `href` BELOW, AND THAT
+  // IS DELIBERATE. `lint-port-no-lost-controls` reads destinations STATICALLY
+  // out of JSX attributes; hoisting this into a variable made the launcher stop
+  // declaring `/dashboard/[seg]` and the guard reported a lost control that was
+  // never actually lost. Keeping the literal where the scanner can see it costs
+  // one duplicated template and keeps the guard able to catch the day somebody
+  // really does delete this.
+  if (m.eventId) {
+    return (
+      <Link
+        href={`/dashboard/${m.eventId}`}
+        className={`${shell} sn-press transition-colors ${hover}`}
+      >
+        {inner}
+      </Link>
+    );
+  }
+
+  const href = m.createEventType
+    ? `/dashboard/create-event?event_type=${encodeURIComponent(m.createEventType)}`
+    : '/dashboard/create-event';
+
+  // 🔑 STARTING FROM A ROW HANDS THE CREATE FLOW WHAT THE ROW ALREADY KNEW —
+  // the day, the type, and whether it is about the reader — so the wizard states
+  // those instead of asking for them again (owner 2026-08-20: *"we already know
+  // that it is for me and this is a specific time of event, so these information
+  // don't need to be filled"*). The age rides in sessionStorage, never the URL:
+  // a birthday is personal data.
+  return (
+    <StartPlanningLink
+      age={m.age ?? null}
+      celebrationISO={m.dateISO ?? null}
+      className={`${shell} sn-press transition-colors ${hover}`}
+      forSelf={m.forSelf === true}
+      href={href}
     >
       {inner}
-    </Link>
-  ) : (
-    <div className={shell}>{inner}</div>
+    </StartPlanningLink>
   );
 }

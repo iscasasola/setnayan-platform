@@ -992,54 +992,66 @@ export default async function LauncherPage({
           The FINISHED shelf follows as its own section — it is no longer hidden
           behind a "Show all" toggle. */}
       {/* NOW HAPPENING — the day itself (owner 2026-08-21).
-          🔑 IT IS ABSENT, NOT EMPTY, WHEN NOBODY IS CELEBRATING. Most days that
-          is everybody, and a permanent "nothing today" row would be the loudest
-          thing on the board saying the least. It appears on the morning of the
-          day and leaves on its own the morning after — no state, no switch, and
-          nothing to clean up. */}
-      {happeningNow.length > 0 ? (
-        <section
-          id="now"
-          className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
-          style={{ animationDelay: '0.36s' }}
+          ⚠ IT RENDERS EVEN WHEN EMPTY, and that REVERSES the call this block
+          shipped with. The first cut hid the row on every ordinary day, on the
+          reasoning that "a permanent 'nothing today' row would be the loudest
+          thing on the board saying the least". The owner ruled otherwise the
+          same day: *"we show the different rows and leave it blank when no
+          event is there."*
+          🔑 AND HIS CALL IS THE BETTER ONE FOR A BOARD PEOPLE LEARN. Five rows
+          that are always in the same place can be navigated from memory; rows
+          that appear and vanish make the page a different shape every visit, so
+          a person cannot learn where anything lives. The empty line says what
+          the row is FOR — never that they have nothing, because
+          `fetchUserEvents` degrades to `[]` on an RLS denial and an empty read
+          is indistinguishable from an empty life. */}
+      <section
+        id="now"
+        className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
+        style={{ animationDelay: '0.36s' }}
+      >
+        <SectionLabel
+          sub="today"
+          info="Your celebration is running today. It leaves this row on its own tomorrow."
         >
-          <SectionLabel
-            sub="today"
-            info="Your celebration is running today. It leaves this row on its own tomorrow."
-          >
-            Now happening
-          </SectionLabel>
-          <div className="space-y-3 sm:hidden">
-            {happeningNow.map((event) => (
-              <BoardCardWithMenu key={event.event_id} event={event} tone="dark">
-                <MobileEventHero
-                  event={event}
-                  pct={progressByEvent.get(event.event_id) ?? null}
-                  todayISO={todayISO}
-                  summary={decisionByEvent.get(event.event_id)}
-                  hasMenu={event.member_type === 'couple'}
-                />
-              </BoardCardWithMenu>
-            ))}
-          </div>
-          <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-            {happeningNow.map((event, i) => (
-              <BoardCardWithMenu key={event.event_id} event={event}>
-                <GlassEventCard
-                  event={event}
-                  pct={progressByEvent.get(event.event_id) ?? null}
-                  heroSrc={heroFor(event.event_type)}
-                  ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
-                  index={i}
-                  todayISO={todayISO}
-                  summary={decisionByEvent.get(event.event_id)}
-                  hasMenu={event.member_type === 'couple'}
-                />
-              </BoardCardWithMenu>
-            ))}
-          </div>
-        </section>
-      ) : null}
+          Now happening
+        </SectionLabel>
+        {happeningNow.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
+            On the day itself, your celebration moves up here — and moves on by
+            itself the morning after.
+          </p>
+        ) : null}
+        <div className="space-y-3 sm:hidden">
+          {happeningNow.map((event) => (
+            <BoardCardWithMenu key={event.event_id} event={event} tone="dark">
+              <MobileEventHero
+                event={event}
+                pct={progressByEvent.get(event.event_id) ?? null}
+                todayISO={todayISO}
+                summary={decisionByEvent.get(event.event_id)}
+                hasMenu={event.member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
+          ))}
+        </div>
+        <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          {happeningNow.map((event, i) => (
+            <BoardCardWithMenu key={event.event_id} event={event}>
+              <GlassEventCard
+                event={event}
+                pct={progressByEvent.get(event.event_id) ?? null}
+                heroSrc={heroFor(event.event_type)}
+                ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                index={i}
+                todayISO={todayISO}
+                summary={decisionByEvent.get(event.event_id)}
+                hasMenu={event.member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
+          ))}
+        </div>
+      </section>
 
       <section
         id="events"
@@ -1308,56 +1320,79 @@ export default async function LauncherPage({
         )}
       </section>
 
-      {/* PUBLISHED — the celebrations that are now chapters. Only ever rendered
-          when the stories were actually measured; an unmeasured read leaves one
-          shelf above and none here. */}
-      {storiesMeasured && written.length > 0 ? (
-        <section
-          id="published"
-          className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
-          style={{ animationDelay: '0.48s' }}
+      {/* TOLD — the celebrations that are now chapters.
+          ⚠ IT RENDERS EVEN WHEN EMPTY (owner 2026-08-21: *"we show the different
+          rows and leave it blank when no event is there"*). It used to vanish
+          unless there was something on it, which made the board a different
+          shape for every account.
+          🔑 BUT THE EMPTY LINE MUST NOT CLAIM "YOU HAVE NONE", AND THERE ARE TWO
+          DIFFERENT REASONS IT CAN BE EMPTY. When the stories were MEASURED, the
+          shelf is honestly empty and the line can invite them to write one. When
+          the read was REFUSED, `unwritten` holds everything and `written` holds
+          nothing — telling that person they have told no stories would be
+          asserting a fact from a read that never completed, beside a shelf that
+          is silently claiming their published celebrations are unpublished. So
+          the unmeasured line says what the row is FOR and nothing about them. */}
+      <section
+        id="published"
+        className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
+        style={{ animationDelay: '0.48s' }}
+      >
+        <SectionLabel
+          sub="in your story"
+          info="These days are chapters in your story now."
         >
-          <SectionLabel
-            sub="in your story"
-            info="These days are chapters in your story now."
-          >
-            Told
-          </SectionLabel>
-          <div className="grid grid-cols-2 gap-2.5 sm:hidden">
-            {written.map((event, i) => (
-              <BoardCardWithMenu
-                key={event.event_id}
+          Told
+        </SectionLabel>
+        {written.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
+            {storiesMeasured
+              ? 'The celebrations you write up land here, as chapters of your story.'
+              : 'This is where the celebrations you have written up live.'}
+          </p>
+        ) : null}
+        <div className="grid grid-cols-2 gap-2.5 sm:hidden">
+          {written.map((event, i) => (
+            <BoardCardWithMenu
+              key={event.event_id}
+              event={event}
+              align={i % 2 === 0 ? 'left' : 'right'}
+            >
+              <MobileEventChip
                 event={event}
-                align={i % 2 === 0 ? 'left' : 'right'}
-              >
-                <MobileEventChip
-                  event={event}
-                  pct={progressByEvent.get(event.event_id) ?? null}
-                  finished
-                  todayISO={todayISO}
-                  summary={decisionByEvent.get(event.event_id)}
-                  hasMenu={event.member_type === 'couple'}
-                />
-              </BoardCardWithMenu>
-            ))}
-          </div>
-          <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-            {written.map((event, i) => (
-              <BoardCardWithMenu key={event.event_id} event={event}>
-                <GlassEventCard
-                  event={event}
-                  pct={progressByEvent.get(event.event_id) ?? null}
-                  heroSrc={heroFor(event.event_type)}
-                  ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
-                  finished
-                  index={upcoming.length + unwritten.length + i}
-                  todayISO={todayISO}
-                  summary={decisionByEvent.get(event.event_id)}
-                  hasMenu={event.member_type === 'couple'}
-                />
-              </BoardCardWithMenu>
-            ))}
-          </div>
+                pct={progressByEvent.get(event.event_id) ?? null}
+                finished
+                todayISO={todayISO}
+                summary={decisionByEvent.get(event.event_id)}
+                hasMenu={event.member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
+          ))}
+        </div>
+        <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          {written.map((event, i) => (
+            <BoardCardWithMenu key={event.event_id} event={event}>
+              <GlassEventCard
+                event={event}
+                pct={progressByEvent.get(event.event_id) ?? null}
+                heroSrc={heroFor(event.event_type)}
+                ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                finished
+                index={upcoming.length + unwritten.length + i}
+                todayISO={todayISO}
+                summary={decisionByEvent.get(event.event_id)}
+                hasMenu={event.member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
+          ))}
+        </div>
+        {/* ⚠ ONLY WHEN THERE IS SOMETHING TO READ. "These days are chapters
+            now" beside an empty shelf names days that are not there.
+            🔑 AND THIS LINK IS LOAD-BEARING NOW: the "Your Story" rail row was
+            retired the same day, so the two doors to /dashboard/creator are
+            this line and the "Write the story of <name>" chips on Untold.
+            Removing it would strand the desk. */}
+        {written.length > 0 ? (
           <p className="mt-3 text-[12px] text-[color:var(--sn-ink-500)]">
             These days are chapters now —{' '}
             <Link href="/dashboard/creator" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
@@ -1365,8 +1400,14 @@ export default async function LauncherPage({
             </Link>
             .
           </p>
-        </section>
-      ) : null}
+        ) : (
+          <p className="mt-3 text-[12px] text-[color:var(--sn-ink-500)]">
+            <Link href="/dashboard/creator" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
+              Open Your Story
+            </Link>
+          </p>
+        )}
+      </section>
 
       {/* #7b (gap G5): events auto-surfaced to this account + a one-tap Leave.
           Flag-gated so there is ZERO extra query while FEATURE_ACCOUNT_AUTOSURFACE

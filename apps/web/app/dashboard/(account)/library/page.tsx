@@ -11,7 +11,7 @@ import { EditorialsTab } from './_components/editorials-tab';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { AlbumShelf } from './_components/album-shelf';
 
-export const metadata = { title: 'Alaala' };
+export const metadata = { title: 'Memories' };
 
 /**
  * ALAALA — the account-level, CROSS-EVENT memory surface. This route is
@@ -142,7 +142,7 @@ export default async function AlaalaPage({
           (see (account)/layout.tsx) — and home is where the Alaala tile lives,
           so "back to events" named the wrong thing on the wrong surface. */}
       <PageMasthead
-        title="Alaala"
+        title="Memories"
       />
 
       {/* Life-Flash entry — the everyone-reachable path (single-event couples
@@ -175,7 +175,7 @@ export default async function AlaalaPage({
 
       {/* LENSES — the same five words as the tile. Plain links so the page
           stays a Server Component. */}
-      <nav aria-label="Alaala lenses" className="mb-3 flex gap-2 overflow-x-auto pb-1">
+      <nav aria-label="Memories lenses" className="mb-3 flex gap-2 overflow-x-auto pb-1">
         {LENSES.map(({ key, label }) => {
           const isActive = key === active;
           return (

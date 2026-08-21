@@ -383,6 +383,37 @@ so it is evidence of what SHIPPED, never of what is currently broken.
 
 ---
 
+## 10. One story per day — the board pointed at the wrong product
+
+**Opened 2026-08-22.** Contract:
+[`WHATS_NEXT_One_Story_Per_Day_2026-08-22.md`](WHATS_NEXT_One_Story_Per_Day_2026-08-22.md)
+— read it before touching the story, the editorial, or the Storyteller.
+
+The owner read My Events and asked *"isn't that the editorial. the story?"* He
+was right, and it was not a naming clash: **the board was measuring, and opening,
+a different product.** A couple could publish her wedding's story page, see *"Your
+story is live"*, return to the board and find the same wedding under *"Untold —
+no story written yet"* with a button that opened a **blank page** asking her to
+write the day again from memory.
+
+Six PRs shipped (#4687 · #4660 · #4690 · #4696 · #4712 · #4715). What is left is
+mostly **`[OWNER]`**:
+
+- **`[OWNER]`** what the couple's dashboard calls it — "Story" collides **six**
+  ways, and eight sites must move together or a screen names one thing twice.
+- **`[OWNER]`** "Editorial PRO" — a paid SKU's display name, ~24 user-visible
+  occurrences, one decision or none.
+- **`[OWNER]`** does the love story yield the word? If yes, the first one is
+  trivial.
+- **`[OWNER]` 🔴 the free/paid split may be inverted** — the blank page is free,
+  while naming the moments and ordering the sections on the story we already
+  wrote for her are sold as Event Hub PRO.
+- **Engineering:** the plain editor · the three audiences · **three doorway rows
+  that render nowhere, with two guards passing on strings inside them** · gold
+  eyebrows at **3.48:1** on the story page (7 sites — a whole-component call).
+
+---
+
 ## Where to start
 
 **Group 1, "armed to go wrong the first time a real customer arrives."** Seven
@@ -395,3 +426,8 @@ a regulator can both read those sentences today.
 
 **Then one rehearsal livestream end to end.** Nobody has ever streamed anything.
 It settles ten interlocking items at once and cannot be settled any other way.
+
+**Group 10 is different — it is mostly yours, not engineering's.** Four rulings
+sit in front of the story work, and one of them (the free/paid split) may be
+backwards in a way that costs money on the first real customer. Deciding them
+takes an afternoon and unblocks the rest.

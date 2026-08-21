@@ -638,6 +638,17 @@ async function InvitationBody({
     }
   }
 
+  /*
+    🚨 TWO LINES APART, TWO CLOCKS — until 2026-08-21.
+
+    `getDayOfPhase` below was already told the venue's timezone; the
+    `getLifecyclePhase` call fifteen lines under it was not, so it asked a
+    Vercel server in UTC what time it was at a wedding in Manila. Eight hours
+    apart, deciding which page a guest opens. The zone is now resolved ONCE,
+    here, and both are handed the same answer.
+  */
+  const venueTz = eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude);
+
   // Task #13 — day-of phase (drives the live badge + pinned schedule). Real,
   // unless the demo override forces a phase (event→live so the day-of UI shows).
   const dayOfPhase: DayOfPhase = phaseOverride
@@ -647,12 +658,18 @@ async function InvitationBody({
         ? 'post'
         : 'pre'
     : event.event_date
-      ? getDayOfPhase(event.event_date, eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude))
+      ? getDayOfPhase(event.event_date, venueTz)
       : 'inactive';
 
   // `lifecyclePhase` is only consumed when `phasesEnabled`; threads into
   // SiteBody like heroPhotoUrl.
-  const lifecyclePhase: LifecyclePhase = phaseOverride ?? getLifecyclePhase(event.event_date);
+  const lifecyclePhase: LifecyclePhase =
+    phaseOverride ??
+    getLifecyclePhase(
+      event.event_date,
+      venueTz,
+      (event as { event_end_date?: string | null }).event_end_date ?? null,
+    );
 
   // PR4 P1 — flag-gate the auto-playing Save-the-Date "film". The bare film is
   // the free base (the static STD view is the fallback); the cinematic openings

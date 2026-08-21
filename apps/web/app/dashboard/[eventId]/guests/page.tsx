@@ -37,6 +37,7 @@ import { SIDE_DOT } from '@/lib/side-colors';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
 import { suggestTableFor } from '@/lib/seat-suggest';
 import { ensureFinalized } from '@/lib/pax';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
@@ -196,7 +197,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       fetchGuestsByEventMeasured(supabase, eventId),
       supabase
         .from('events')
-        .select('role_palette, estimated_pax')
+        // ⚠ THIS PAGE DID NOT READ THE EVENT'S DATE AT ALL. Owner, the morning
+        // after his Movie Night: *"i can still invite"*. It could not have known
+        // otherwise — nothing here asked when the celebration was, so every
+        // affordance on it addressed a party that had not happened yet.
+        .select('role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone')
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchGuestGroupsByEvent(supabase, eventId),
@@ -291,6 +296,39 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // than a separate head+count round-trip — one fewer Singapore RTT.
   const seatedCount = assignments.length;
   const arrivedCount = arrived.count ?? 0;
+  /*
+    ─── HAS THIS CELEBRATION ALREADY HAPPENED? ──────────────────────────────
+
+    Owner, 2026-08-21, the morning after his Movie Night: *"nothing changed.
+    i can still invite."* He was right, and the reason is one line up in the
+    query above: this page never read the event's date, so it could not have
+    known. Every affordance on it — the name box, "Invite guests", "+ Add your
+    first guest", "Arrange the room" — addressed a party still to come.
+
+    🔒 NOTHING IS DISABLED BY THIS. A host adding the cousin who turned up
+    unannounced, or recording who actually came, must still be able to. What
+    changes is what the page LEADS with; the add paths recede one line down,
+    exactly as the day-of takeover already recedes the planning stack.
+
+    🔑 ONE RESOLVER. The boundary is `getMenuLifecyclePhase` — the same call
+    the Overview, the rail and the bottom bar make — passed the venue's own
+    clock and the event's LAST day. A second "is it past?" comparison here is
+    how the guest list and the dashboard would come to disagree about whether
+    the wedding happened.
+  */
+  const finished =
+    getMenuLifecyclePhase(
+      (eventRow.data as { event_date?: string | null } | null)?.event_date ?? null,
+      (eventRow.data as { cleared_at?: string | null } | null)?.cleared_at ?? null,
+      (eventRow.data as { timezone?: string | null } | null)?.timezone ?? undefined,
+      undefined,
+      (eventRow.data as { event_end_date?: string | null } | null)?.event_end_date ?? null,
+    ) === 'after';
+  // ⚠ `arrived.count` is null when the read was REFUSED, and `arrivedCount`
+  // above collapses that to 0. Fine for a meter; NOT fine for a sentence that
+  // tells somebody how many people came to their wedding. This keeps the
+  // distinction so the wrap strip can stay silent rather than say "0 came".
+  const arrivedMeasured = !arrived.error;
   // Log silent palette-read errors so a future ADD COLUMN regression
   // would surface in Sentry instead of falling through to an empty
   // palette. sanitizeRolePalette already handles null input cleanly, so
@@ -590,36 +628,91 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         }
         actions={
           <div className="hidden flex-col gap-2 self-start lg:flex lg:flex-row lg:items-center lg:self-auto">
+            {/* AFTER THE CELEBRATION the two doors change meaning. "Invite
+                guests" and "Arrange the room" are both about a party still to
+                come; the door that matters now is the record of who actually
+                walked in. Neither of the other two is orphaned — the add paths
+                sit one line below in the roster, and the seat plan keeps its
+                own rail row under "Also in this event". */}
+            {finished ? (
+              <Link
+                href={`/dashboard/${eventId}/guests/checkin`}
+                className="button-secondary inline-flex items-center gap-2"
+              >
+                <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Who came
+              </Link>
+            ) : null}
             {/* Invite doorway (2026-07-15) — the Invite journey stage (/guests/invite:
                 the one join link + QR) was orphaned when the Living Roster reskin
                 dropped the lifecycle ribbon; this restores its desktop entry point.
                 Same button-secondary weight as the Share affordance beside it —
                 discoverable, not shouty. Share stays; the add paths (primary add,
                 CSV import, quick-add list, full form) live in the capture bar. */}
-            <Link
-              href={`/dashboard/${eventId}/guests/invite`}
-              className="button-secondary inline-flex items-center gap-2"
-            >
-              <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Invite guests
-            </Link>
+            {finished ? null : (
+              <Link
+                href={`/dashboard/${eventId}/guests/invite`}
+                className="button-secondary inline-flex items-center gap-2"
+              >
+                <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Invite guests
+              </Link>
+            )}
             {/* Seat-plan doorway (2026-07-15) — the Seat journey stage
                 (/seating: the "Arrange the room" editor, authoring truth for the
                 3D plan) was reachable ONLY from the mobile carousel's journey pill;
                 the desktop Guests page had no door to it. Same disease the Invite
                 door (beside) just cured. Same button-secondary weight — the proto's
                 `.gseat` glass pill. */}
-            <Link
-              href={`/dashboard/${eventId}/seating`}
-              className="button-secondary inline-flex items-center gap-2"
-            >
-              <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Arrange the room
-            </Link>
+            {finished ? null : (
+              <Link
+                href={`/dashboard/${eventId}/seating`}
+                className="button-secondary inline-flex items-center gap-2"
+              >
+                <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Arrange the room
+              </Link>
+            )}
             {joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
           </div>
         }
       />
+
+      {/* ─── THE CELEBRATION HAPPENED: LEAD WITH THE RECORD, NOT THE PLAN ───
+           One line, because the page header is one line (owner-locked) and this
+           is the same idea one level down. It states the fact first, then hands
+           over the two things that are still worth doing with a guest list
+           afterwards: the arrivals record and the story.
+
+           ⚠ THE ARRIVALS FIGURE IS OMITTED WHEN IT WAS NOT MEASURED, not
+           printed as 0. Telling somebody nobody came to their wedding because
+           a query was refused is the worst version of this whole page. */}
+      {finished ? (
+        <div className="flex flex-col gap-2 rounded-xl border border-terracotta/25 bg-terracotta/[0.04] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-ink/75">
+            <span className="font-semibold text-ink">That&rsquo;s a wrap.</span>{' '}
+            {arrivedMeasured && arrivedCount > 0
+              ? `${arrivedCount} ${arrivedCount === 1 ? 'person' : 'people'} checked in on the day.`
+              : guestsMeasured && stats.total === 0
+                ? 'Nobody was added to this one.'
+                : 'This is the list as it stood.'}
+          </p>
+          <span className="flex flex-wrap items-center gap-3">
+            <Link
+              href={`/dashboard/${eventId}/guests/checkin`}
+              className="text-sm font-medium text-mulberry underline underline-offset-2"
+            >
+              Who came
+            </Link>
+            <Link
+              href={`/dashboard/${eventId}/website/editorial`}
+              className="text-sm font-medium text-mulberry underline underline-offset-2"
+            >
+              Write the story
+            </Link>
+          </span>
+        </div>
+      ) : null}
 
       {flash ? (
         <p
@@ -687,10 +780,30 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             it inline. A new guest inherits the active Side lens. FIND lives in
             the SummaryFacetBar query row now (search consolidation 2026-07-13),
             not behind a mode toggle here. */}
-        <CaptureBar
-          eventId={eventId}
-          defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
-        />
+        {/* ⚠ THE NAME BOX IS THE THING THE OWNER POINTED AT. It invites you to
+            type a guest into a celebration that is over. It is RECEDED, not
+            removed — somebody who turned up unannounced still belongs on the
+            list, and a host writing thank-yous needs them there. Same
+            disclosure the day-of takeover uses for the planning stack, so
+            "receded" means one thing in this product and not two. */}
+        {finished ? (
+          <details className="rounded-xl border border-ink/12 bg-white/50 px-4 py-3">
+            <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70">
+              Still adding someone? — the list is open
+            </summary>
+            <div className="mt-3">
+              <CaptureBar
+                eventId={eventId}
+                defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
+              />
+            </div>
+          </details>
+        ) : (
+          <CaptureBar
+            eventId={eventId}
+            defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
+          />
+        )}
 
         {/* The single facet instrument. Search + Sort + List/Mind-map fold into
             its query row (they were a separate Toolbar block pre-2026-07-13);
@@ -804,6 +917,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       <div key={rosterLensKey} className="gl-settle-delayed sn-lens-swap min-w-0 space-y-4">
           {visible.length === 0 ? (
             <EmptyState
+              finished={finished}
               hasGuests={stats.total > 0}
               eventId={eventId}
               measured={guestsMeasured}
@@ -1498,11 +1612,17 @@ function EmptyState({
   hasGuests,
   eventId,
   measured,
+  finished = false,
 }: {
   hasGuests: boolean;
   eventId: string;
   /** False when the guest read was refused — see fetchGuestsByEventMeasured. */
   measured: boolean;
+  /** The celebration has already happened. "Start by adding the couple's first
+   *  invite" is then a sentence about a party that is over — it is the copy the
+   *  owner was reading the morning after his Movie Night. The add paths STAY
+   *  (a late name still belongs on the list); only the framing changes. */
+  finished?: boolean;
 }) {
   // THE READ WAS REFUSED. "No guests yet" here is not a neutral default, it is
   // a statement about their wedding built on a query that never came back —
@@ -1548,21 +1668,27 @@ function EmptyState({
   return (
     <div className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center">
       <p className="text-base text-ink/70">
-        No guests yet. Start by adding the couple&rsquo;s first invite.
+        {finished
+          ? 'No guests were added to this one. You can still add anybody who came.'
+          : 'No guests yet. Start by adding the couple’s first invite.'}
       </p>
       {/* Lead with the one-tap quick-add sheet (name + side, done) — the heavy
           detailed form stays one click away for power users. Inviting is THE
           zero-state action, so the Invite doorway (2026-07-15) sits right here
           beside adding names — share one link and let guests self-add. */}
       <div className="mt-4 flex flex-col items-center gap-2">
-        <OpenQuickAddButton label="+ Add your first guest" />
-        <Link
-          href={`/dashboard/${eventId}/guests/invite`}
-          className="button-secondary inline-flex items-center gap-2"
-        >
-          <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Invite guests
-        </Link>
+        <OpenQuickAddButton label={finished ? '+ Add someone who came' : '+ Add your first guest'} />
+        {/* Inviting people to a celebration that already happened is the one
+            door that stops making sense. Everything else here stays. */}
+        {finished ? null : (
+          <Link
+            href={`/dashboard/${eventId}/guests/invite`}
+            className="button-secondary inline-flex items-center gap-2"
+          >
+            <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Invite guests
+          </Link>
+        )}
         <Link
           href={`/dashboard/${eventId}/guests/new`}
           className="text-xs text-ink/55 underline underline-offset-2 hover:text-ink"

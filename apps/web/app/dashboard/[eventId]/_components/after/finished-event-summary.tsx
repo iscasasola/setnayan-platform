@@ -96,13 +96,6 @@ function Card({
 export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }: Props) {
   const base = `/dashboard/${eventId}`;
 
-  // Suppliers still owed a review. Only computed when BOTH halves were
-  // measured — subtracting an unmeasured figure invents a number.
-  const toReview =
-    summary.suppliers !== null && summary.suppliersReviewed !== null
-      ? Math.max(0, summary.suppliers - summary.suppliersReviewed)
-      : null;
-
   const editorialLine =
     summary.editorial === 'published'
       ? 'Your story is published on your page.'
@@ -148,15 +141,25 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
           href={`${base}/vendors`}
           Icon={Compass}
           title="Marketplace"
-          cta={toReview && toReview > 0 ? 'Leave a review' : 'Open your suppliers'}
+          cta={summary.suppliers === 0 ? 'Open the marketplace' : 'Open your suppliers'}
         >
           <Figure value={summary.suppliers} unit="supplier" />
+          {/* ⚠ NO "N STILL NEED A REVIEW" NUMBER, ON PURPOSE.
+              The first cut subtracted reviews-written from suppliers-on-the-list
+              and called the remainder "still waiting on a word from you" — two
+              inventions in one line. The list included every name the couple had
+              only shortlisted, and a review is not even OPEN until the supplier
+              marks the job done or a month has passed (`reviewState`, the gate
+              the review page and RLS both enforce). A prompt to do something the
+              product would then refuse is worse than no prompt.
+
+              The supplier list on /vendors already shows "Leave a review" beside
+              exactly the ones whose window is open. One place decides; this card
+              points at it. */}
           <span className="mt-0.5 block text-[12.5px] text-ink/55">
             {summary.suppliers === 0
               ? 'You booked nobody through Setnayan for this one.'
-              : toReview !== null && toReview > 0
-                ? `${toReview} still waiting on a word from you.`
-                : 'Everyone who worked your day.'}
+              : 'Everyone who worked your day — leave each of them a review.'}
           </span>
         </Card>
 

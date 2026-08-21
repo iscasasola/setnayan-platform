@@ -158,7 +158,7 @@ export default async function EventLayout({ children, params }: Props) {
     (async () => {
       try {
         const fullSelect =
-          'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone';
+          'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -266,6 +266,12 @@ export default async function EventLayout({ children, params }: Props) {
     event.event_date as string | null,
     (event as { cleared_at?: string | null }).cleared_at ?? null,
     (event as { timezone?: string | null }).timezone ?? undefined,
+    undefined,
+    // The LAST day, for a celebration that spans several. Threaded here as well
+    // as in the Overview so the RAIL and the PAGE cannot answer "is it over?"
+    // from different inputs — which is the whole failure this call already
+    // carries one correction for.
+    (event as { event_end_date?: string | null }).event_end_date ?? null,
   );
 
   // Per-event-type nav gating (iteration 0053 — Simple Event, owner 2026-06-27).

@@ -7,6 +7,7 @@ import { Archive, MoreVertical, Trash2 } from 'lucide-react';
 import { setEventArchived } from '../../[eventId]/archive-actions';
 import {
   askSuppliersToAgree,
+  withdrawSupplierAsk,
   deleteOwnEvent,
   getEventDeletionImpact,
   type DeletionImpact,
@@ -157,6 +158,26 @@ export function EventCardMenu({
       } catch (err) {
         console.error('[event-card-menu] ask rejected', err);
         setError('We couldn’t send that just now. Please try again.');
+      }
+    });
+  }
+
+  function withdrawAsk() {
+    setError(null);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    startTransition(async () => {
+      try {
+        const res = await withdrawSupplierAsk(fd);
+        if (!res.ok) {
+          setError(res.message);
+          return;
+        }
+        setAsked(null);
+        router.refresh();
+      } catch (err) {
+        console.error('[event-card-menu] withdraw rejected', err);
+        setError('We couldn’t withdraw that just now. Please try again.');
       }
     });
   }
@@ -351,11 +372,29 @@ export function EventCardMenu({
                 )}
 
                 {asked !== null ? (
-                  <p className="mt-2 text-[12px] leading-snug text-[color:var(--sn-ink-500)]">
-                    {asked === 0
-                      ? 'Everyone has already been asked — we’re waiting on them.'
-                      : `Asked ${asked === 1 ? '1 supplier' : `${asked} suppliers`}. We’ll let you know as they answer; you can remove this once they agree.`}
-                  </p>
+                  <>
+                    <p className="mt-2 text-[12px] leading-snug text-[color:var(--sn-ink-500)]">
+                      {asked === 0
+                        ? 'Everyone has already been asked — we’re waiting on them.'
+                        : `Asked ${asked === 1 ? '1 supplier' : `${asked} suppliers`}. We’ll let you know as they answer; you can remove this once they agree.`}
+                    </p>
+                    {/*
+                      🔑 THE INVERSE, AND IT IS REACHABLE. `withdrawSupplierAsk`
+                      shipped with ZERO CALLERS while its own docblock cited
+                      `cancel_vendor_lock_request` — granted, tested, uncallable
+                      for its whole life — as the thing not to repeat. A couple
+                      who asks by mistake, or sorts it out by phone, must be able
+                      to take the question back.
+                    */}
+                    <button
+                      type="button"
+                      onClick={withdrawAsk}
+                      disabled={pending}
+                      className="sn-press mt-1.5 text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink disabled:opacity-60"
+                    >
+                      {pending ? 'Withdrawing…' : 'Withdraw the request'}
+                    </button>
+                  </>
                 ) : null}
                 <div className="mt-3 flex items-center justify-end gap-1.5">
                   <button

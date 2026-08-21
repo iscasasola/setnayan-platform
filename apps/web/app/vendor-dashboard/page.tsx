@@ -15,6 +15,8 @@ import {
   vendorAcknowledgeDeposit,
   vendorAgreeToLock,
   vendorDeclineLock,
+  vendorAgreeToDeletion,
+  vendorDeclineDeletion,
 } from './clients/[eventId]/actions';
 import {
   VendorTodayFocal,
@@ -304,6 +306,8 @@ export default async function VendorOverviewPage() {
         confirmLock={vendorAcknowledgeDeposit}
         agreeLock={vendorAgreeToLock}
         declineLock={vendorDeclineLock}
+        agreeDeletion={vendorAgreeToDeletion}
+        declineDeletion={vendorDeclineDeletion}
       />
 
       {/* 2 · Token note — cost follows the customer's event location. A subtle

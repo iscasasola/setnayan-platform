@@ -607,18 +607,63 @@ export async function askSuppliersToAgree(
     };
   }
 
+  const asked = Number((data as { asked?: number })?.asked ?? 0);
+
+  /*
+    🔑 TELL THE SUPPLIERS. The RPC marks rows; it does not speak to anybody, and
+    a supplier who is never told cannot answer — which would leave the couple
+    blocked forever by a question nobody knows was asked.
+
+    Best-effort by contract: the asks are already recorded, and a notification
+    hiccup must not roll them back or fail the couple's press.
+  */
+  if (asked > 0) {
+    try {
+      const admin = createAdminClient();
+      const { data: rows } = await admin
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .eq('event_id', eventId)
+        .eq('delete_request_state', 'pending')
+        .not('marketplace_vendor_id', 'is', null);
+      const shopIds = [
+        ...new Set((rows ?? []).map((r) => r.marketplace_vendor_id as string)),
+      ];
+      if (shopIds.length > 0) {
+        const { data: seats } = await admin
+          .from('vendor_team_members')
+          .select('user_id, vendor_profile_id')
+          .in('vendor_profile_id', shopIds);
+        for (const seat of seats ?? []) {
+          await emitNotification({
+            userId: seat.user_id as string,
+            type: 'deletion_request_received',
+            title: 'A celebration you were paid for is being removed',
+            body: 'The couple has asked whether you agree. Nothing is removed until you answer.',
+            relatedUrl: '/vendor-dashboard',
+          });
+        }
+      }
+    } catch (err) {
+      console.error('[delete-event] could not tell the suppliers', err);
+    }
+  }
+
   revalidatePath('/dashboard');
   revalidatePath(`/dashboard/${eventId}`);
-  return { ok: true, asked: Number((data as { asked?: number })?.asked ?? 0) };
+  return { ok: true, asked };
 }
 
 /**
  * Withdraw the ask.
  *
- * 🔑 SHIPS BESIDE THE ASK, AND IS CALLED. A forward primitive with no inverse is
- * a defect this repo has paid for repeatedly — most recently
- * `cancel_vendor_lock_request`, which was granted, commented, db-tested and had
- * ZERO CALLERS for its whole life, so a couple could not un-ask.
+ * 🔑 SHIPS BESIDE THE ASK, AND IS NOW ACTUALLY CALLED.
+ *
+ * ⚠ THIS DOCBLOCK WAS FALSE FOR A DAY. It claimed "AND IS CALLED" while citing
+ * `cancel_vendor_lock_request` — granted, commented, db-tested, ZERO CALLERS for
+ * its whole life — as the cautionary tale, and then had zero callers itself.
+ * Written in the same breath as the warning, which is exactly how the original
+ * one happened. The Withdraw button in the event-card menu is the caller.
  *
  * Only PENDING asks are withdrawn. An answer already given is the supplier's
  * record of what they were asked and what they said.

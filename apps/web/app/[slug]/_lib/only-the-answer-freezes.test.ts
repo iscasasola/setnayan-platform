@@ -286,3 +286,74 @@ test('a stale tab reposting the SAME answer is not called a refusal', () => {
     'answerRefused does not compare against the STORED answer',
   );
 });
+
+// ── THE HOST IS TOLD WHAT MOVED (2026-08-21) ────────────────────────────────
+
+/** Strip comments before matching source. A note that NAMES the pattern it
+ *  forbids satisfies a raw search — that has produced both false passes and,
+ *  in this very file's history, a false FAILURE. */
+function stripComments(src: string): string {
+  return src
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+}
+
+test('🔴 the notification no longer keys on the ANSWER', () => {
+  // It fired only on `attending` / `declined`. After the list is final the
+  // answer control is not rendered, so `status` arrives EMPTY — an allergy
+  // typed twelve days out reached nobody. Every `maybe` was silent too.
+  // ⚠ Do NOT locate the gate with `lastIndexOf('if (')` before the emit — the
+  // body between them is full of `if (changed.includes(...))` and the dedupe
+  // check, so that finds the nearest one, not the gate. Assert on the shapes.
+  const src = stripComments(read('actions.ts'));
+  assert.doesNotMatch(
+    src,
+    /if \(status === 'attending' \|\| status === 'declined'\)/,
+    'the notify gate keys on the answer again — the post-lock allergy is silent',
+  );
+  assert.match(
+    src,
+    /if \(answerChanged \|\| changed\.length > 0\) \{/,
+    'the change-driven gate is gone',
+  );
+});
+
+test('a refused answer is never reported as a reply that moved', () => {
+  const src = read('actions.ts');
+  assert.match(
+    src,
+    /const answerChanged = !replyLocked && before\?\.rsvp_status !== status;/,
+    'answerChanged lost its !replyLocked guard — a stale tab would be reported as a reply',
+  );
+});
+
+test('the notification is driven by a comparison, not by the write', () => {
+  const src = read('actions.ts');
+  assert.match(src, /guestDetailsChanged\(before, \{ meal, dietary, guestNote \}\)/);
+  // The "before" read must be a SELECT. A .update( here retargets the guard
+  // above onto the wrong statement.
+  const beforeBlock = src.slice(src.indexOf('const { data: before }'), src.indexOf('let answerRefused'));
+  assert.match(beforeBlock, /\.select\(/);
+  assert.doesNotMatch(beforeBlock, /\.update\(/);
+});
+
+test("an UNDECIDED guest is never reported to the couple as a NO", () => {
+  const src = read('actions.ts');
+  assert.match(src, /: 'undecided';/, "'maybe' reaches the notification now and must not be labelled 'not attending'");
+});
+
+test('🔒 the dietary value is named, never quoted into an inbox', () => {
+  // Compliance records dietary notes as data that may reveal health or
+  // religious belief. The deep link keeps the words inside the app.
+  const src = read('actions.ts');
+  const emit = src.slice(src.indexOf('const parts: string[]'), src.indexOf('relatedUrl:'));
+  assert.match(emit, /Their dietary notes changed\./);
+  assert.doesNotMatch(emit, /\$\{dietary\}/, 'the allergy text is being pasted into a notification body');
+});
+
+test('the couple is not told the same thing twice', () => {
+  const src = read('actions.ts');
+  const loop = src.slice(src.indexOf("member_type', 'couple')"), src.indexOf('relatedUrl:'));
+  assert.match(loop, /seen\.has/, 'two membership rows for one person would notify them twice');
+});

@@ -295,3 +295,58 @@ test('{who} still asks each side about the half they know', async () => {
   assert.ok((await promptsFor(eventId, 'groom')).includes('Brag about the groom for ten seconds.'));
   assert.ok((await promptsFor(eventId, 'both')).includes('Brag about the couple for ten seconds.'));
 });
+
+test('a date that ALREADY has a wedding board gets it taken away — the real movie-night', async () => {
+  // 🚨 THE TEST THE FIRST CUT OF THIS FILE DID NOT HAVE, AND A MUTATION FOUND.
+  //
+  // Sabotaging the SLOTTING lane's scope left all twelve tests green, because
+  // every one of them built a board from scratch — and a fresh date never
+  // MATERIALIZES a wedding row, so the slotting lane had nothing out-of-scope to
+  // reject. The suite proved new events are fine and said nothing at all about
+  // the one event in production that is actually broken.
+  //
+  // `movie-night` carries 20 wedding missions materialized under the old
+  // function. Rebuilding its board has to take their slots away — a scope that
+  // only filters the INSERT would leave every one of them exactly where it is,
+  // and the defect would survive its own fix.
+  const eventId = await newEvent('Movie Night, already broken', 'date');
+
+  // Reproduce the state, the way it got there: rows already in the table.
+  await db.query(
+    `INSERT INTO public.papic_missions
+       (event_id, mission_type, source, prompt, library_id, capture_kind, approved, is_active, board_slot)
+     SELECT $1, l.mission_type, 'setnayan', l.prompt, l.library_id, l.capture_kind, true, true,
+            row_number() OVER (ORDER BY l.priority_rank NULLS LAST, l.library_id)
+       FROM public.papic_challenge_library l
+      WHERE l.library_id <= 60 AND l.capture_kind <> 'pabati'
+      ORDER BY l.priority_rank NULLS LAST, l.library_id
+      LIMIT 20`,
+    [eventId],
+  );
+  const before = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.papic_missions
+      WHERE event_id = $1 AND board_slot IS NOT NULL AND library_id <= 60`,
+    [eventId],
+  );
+  assert.equal(Number(before.rows[0]!.n), 20, 'the broken state must actually be set up');
+
+  const board = await boardOf(eventId);
+
+  const after = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.papic_missions
+      WHERE event_id = $1 AND board_slot IS NOT NULL AND library_id <= 60`,
+    [eventId],
+  );
+  assert.equal(Number(after.rows[0]!.n), 0,
+    'the wedding challenges kept their slots — the scope is not being applied when the board is REBUILT');
+  assert.equal(board.length, 20, 'and the date must still end up with a full board');
+
+  // ⚠ NOTHING IS DELETED. The rows stay in the table with board_slot NULL, so a
+  // completion (there are none in production, but still) is never un-finished
+  // and an event that changes type back finds its board again.
+  const kept = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.papic_missions WHERE event_id = $1 AND library_id <= 60`,
+    [eventId],
+  );
+  assert.equal(Number(kept.rows[0]!.n), 20, 'the old rows must be de-slotted, never deleted');
+});

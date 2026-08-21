@@ -101,6 +101,46 @@ export function isDefaultView(f: PickerFilters): boolean {
   return f.q === '' && f.category === null && f.kind === null;
 }
 
+/** A row with the ordering key the shelf needs, before the key is dropped. */
+export type OrderableRow = PickerRow & { priority_rank: number | null };
+
+/**
+ * WHICH ORDER THE SHELF IS IN, AND WHETHER IT MAY BE CALLED POPULARITY.
+ *
+ * Pulled out of `fetchPickerRows` for one reason: it is the claim most likely to
+ * become a lie, and inside a function that needs a Supabase client it could not
+ * be tested at all. A mutation run proved that — deleting the `picks > 0` half
+ * of this condition changed nothing anywhere, and the screen would have started
+ * telling couples that OUR recommendations were what other couples chose most,
+ * on a product with zero picks in it. Every other guard in this change caught
+ * its sabotage; this one had nowhere to fire.
+ *
+ * Two rules:
+ *   · Popularity ONLY in the default view. Somebody who typed "cake" wants the
+ *     cake ones, not the popular ones that happen to mention cake.
+ *   · Popularity ONLY when somebody has actually picked something. Otherwise the
+ *     curated order stands and `rankedByPicks` is false, and the caller must say
+ *     so in the heading.
+ */
+export function orderForShelf(
+  rows: OrderableRow[],
+  filters: PickerFilters,
+): { rows: OrderableRow[]; rankedByPicks: boolean } {
+  const rankedByPicks = isDefaultView(filters) && rows.some((r) => r.picks > 0);
+  if (!rankedByPicks) return { rows, rankedByPicks: false };
+  return {
+    rows: [...rows].sort(
+      (a, b) =>
+        b.picks - a.picks ||
+        // Ties broken by OUR order, then by id — never left to the database's
+        // whim, or the same two challenges swap places between page loads.
+        (a.priority_rank ?? 999) - (b.priority_rank ?? 999) ||
+        a.library_id - b.library_id,
+    ),
+    rankedByPicks: true,
+  };
+}
+
 /**
  * The picker's rows.
  *
@@ -173,18 +213,7 @@ export async function fetchPickerRows(
       picks: picks.get(Number(r.library_id)) ?? 0,
     }));
 
-  // The default view is the owner's "top 20 most picked". A filtered or searched
-  // view keeps the curated order, because somebody who typed "cake" wants the
-  // cake ones, not the popular ones that happen to mention cake.
-  const rankedByPicks = isDefaultView(filters) && available.some((r) => r.picks > 0);
-  const ordered = rankedByPicks
-    ? [...available].sort(
-        (a, b) =>
-          b.picks - a.picks ||
-          (a.priority_rank ?? 999) - (b.priority_rank ?? 999) ||
-          a.library_id - b.library_id,
-      )
-    : available;
+  const { rows: ordered, rankedByPicks } = orderForShelf(available, filters);
 
   return {
     rows: ordered.slice(0, PICKER_PAGE_SIZE).map(({ priority_rank: _rank, ...row }) => row),

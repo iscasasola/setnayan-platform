@@ -17,7 +17,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { sanitizeQuery, readFilters, isDefaultView } from './papic-challenge-picker';
+import { sanitizeQuery, readFilters, isDefaultView, orderForShelf } from './papic-challenge-picker';
 
 test('a plain search survives intact', () => {
   assert.equal(sanitizeQuery('cake'), 'cake');
@@ -98,4 +98,45 @@ test('the default view is exactly "nothing chosen"', () => {
   assert.equal(isDefaultView(readFilters({ ckind: 'photo' })), false);
   // Junk that sanitises away is NOT a question.
   assert.equal(isDefaultView(readFilters({ cq: '...', ccat: 'nope' })), true);
+});
+
+// ── The shelf must not claim popularity it does not have ───────────────────
+
+const row = (library_id: number, picks: number, priority_rank: number | null = null) => ({
+  library_id,
+  picks,
+  priority_rank,
+  category: 'selfie' as const,
+  title: `T${library_id}`,
+  prompt: `P${library_id}`,
+  capture_kind: 'photo' as const,
+});
+
+test('with zero picks the shelf keeps the curated order and says it is not popularity', () => {
+  // 🔑 THE CASE THAT IS TRUE IN PRODUCTION TODAY. Nobody has picked anything, so
+  // "the 20 other hosts add most often" would be a claim about other people that
+  // is simply false. A mutation run caught this being unguarded.
+  const rows = [row(3, 0, 3), row(1, 0, 1), row(2, 0, 2)];
+  const out = orderForShelf(rows, readFilters({}));
+  assert.equal(out.rankedByPicks, false);
+  assert.deepEqual(out.rows.map((r) => r.library_id), [3, 1, 2], 'the order must not be touched');
+});
+
+test('with real picks the shelf sorts by them and says so', () => {
+  const out = orderForShelf([row(1, 2, 1), row(2, 9, 2), row(3, 0, 3)], readFilters({}));
+  assert.equal(out.rankedByPicks, true);
+  assert.deepEqual(out.rows.map((r) => r.library_id), [2, 1, 3]);
+});
+
+test('a tie is broken by our own order, never left to chance', () => {
+  const out = orderForShelf([row(50, 4, null), row(9, 4, 2), row(7, 4, 1)], readFilters({}));
+  assert.deepEqual(out.rows.map((r) => r.library_id), [7, 9, 50]);
+});
+
+test('a search or a chip turns popularity OFF, even when picks exist', () => {
+  for (const search of [{ cq: 'cake' }, { ccat: 'stories' }, { ckind: 'photo' }]) {
+    const out = orderForShelf([row(1, 0), row(2, 99)], readFilters(search));
+    assert.equal(out.rankedByPicks, false, `${JSON.stringify(search)} must answer the question asked`);
+    assert.deepEqual(out.rows.map((r) => r.library_id), [1, 2]);
+  }
 });

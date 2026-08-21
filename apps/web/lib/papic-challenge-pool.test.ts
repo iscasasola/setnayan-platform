@@ -134,6 +134,32 @@ const BANNED = [
   'wears the trousers',
 ];
 
+/**
+ * STRICTER STILL, AND ONLY FOR THE CONFESSION BOX. These come from the shipped
+ * `papic-story-challenges.db.test.ts`, which has held the story set since
+ * 2026-08-10 — this file must never be the LOOSER of the two guards on the same
+ * rows, or adding a story here would quietly pass a bar the older test then
+ * fails in CI. They are scoped to the story categories on purpose: "Worst
+ * Angle" is a fine photo challenge and a terrible question.
+ */
+const BANNED_IN_STORIES = [
+  /\bembarrass/i, /\bwildest\b/i, /\bsecret/i, /\bnever told\b/i, /\bworst\b/i,
+  /\bregret/i, /\bex[- ]/i, /\bcheat/i, /\bdirt\b/i, /\bconfess/i,
+];
+
+test('a story asks for nothing the older, stricter guard would refuse', () => {
+  for (const row of CHALLENGE_POOL) {
+    if (row.category !== 'stories' && row.category !== 'stories_couple') continue;
+    for (const bad of BANNED_IN_STORIES) {
+      assert.ok(!bad.test(row.prompt), `${row.slug} invites an unsafe answer (${bad}): ${row.prompt}`);
+    }
+    // The shipped guard also pins these two, and a story that misses either
+    // reaches a guest as a question with no way to answer it.
+    assert.equal(row.captureKind, 'clip', `${row.slug} must be answered to camera`);
+    assert.match(row.prompt, /[Tt]en seconds/, `${row.slug} must state the length`);
+  }
+});
+
 test('no prompt asks for the answer nobody wants played back', () => {
   for (const row of CHALLENGE_POOL) {
     const lower = row.prompt.toLowerCase();

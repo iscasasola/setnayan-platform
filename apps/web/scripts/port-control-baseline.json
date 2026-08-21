@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ba4df9809",
+  "generatedFromRef": "8606a6f87",
   "routeCount": 402,
-  "destinations": 862,
+  "destinations": 864,
   "actions": 580,
-  "blocks": 3825,
+  "blocks": 3835,
   "routes": {
     "/": {
       "files": [
@@ -3695,9 +3695,10 @@
     },
     "/dashboard/(account)/people": {
       "files": [
+        "dashboard/(account)/people/_components/add-alaga-button.tsx",
         "dashboard/(account)/people/_components/add-alaga-fields.tsx",
-        "dashboard/(account)/people/_components/connections-panel.tsx",
         "dashboard/(account)/people/_components/dependents-section.tsx",
+        "dashboard/(account)/people/_components/people-roster-view.tsx",
         "dashboard/(account)/people/_components/samahan-people-section.tsx",
         "dashboard/(account)/people/_components/your-story-section.tsx",
         "dashboard/(account)/people/actions.ts",
@@ -3723,20 +3724,30 @@
       ],
       "blocks": [
         "ActionResult",
+        "AddAlagaButton",
         "AddAlagaFields",
+        "Avatar",
         "ConfirmForm",
-        "ConnectionRelation",
-        "ConnectionsPanel",
         "CopyButton",
         "DependentKind",
         "DependentsSection",
+        "Drawer",
+        "Facet",
+        "Fragment",
+        "HTMLButtonElement",
+        "HTMLInputElement",
+        "LabelCell",
         "LifeStorySection",
         "Link",
         "PageMasthead",
         "PeoplePreview",
+        "PeopleRosterView",
+        "Popover",
         "PreviewRow",
-        "Result",
+        "RowActions",
+        "SamahanCell",
         "SamahanPeopleSection",
+        "StateCell",
         "SubmitButton",
         "YourStorySection"
       ]
@@ -4597,7 +4608,8 @@
         "/dashboard/[seg]/guests/quick",
         "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/seating",
-        "/dashboard/[seg]/studio/custom-qr-guest"
+        "/dashboard/[seg]/studio/custom-qr-guest",
+        "/dashboard/[seg]/website/editorial"
       ],
       "actions": [],
       "blocks": [
@@ -7440,6 +7452,7 @@
         "join/[eventId]/success/page.tsx"
       ],
       "destinations": [
+        "/[seg]",
         "/dashboard"
       ],
       "actions": [],

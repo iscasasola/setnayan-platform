@@ -16,6 +16,7 @@ export function RsvpWidget({
   faceMode,
   flash = null,
   replyLocked = false,
+  profileFood = null,
   words,
 }: {
   words: EventWords;
@@ -47,6 +48,16 @@ export function RsvpWidget({
    * be posted, rather than being posted and refused.
    */
   replyLocked?: boolean;
+  /**
+   * This person's OWN saved answers (owner 2026-08-21). Used ONLY as a default
+   * where they have not answered for THIS event — so somebody invited to their
+   * fourth wedding is not typing "nut allergy" for the fourth time.
+   *
+   * 🔒 NEVER AN OVERRIDE. `guest.*` wins whenever it holds anything: the answer
+   * they gave HERE is the one the caterer cooks from, and a stale profile must
+   * not quietly replace it.
+   */
+  profileFood?: { mealPreference: string | null; dietaryRestrictions: string | null } | null;
 }) {
   const action = submitRsvp.bind(null, eventId, guest.guest_id);
 
@@ -172,7 +183,7 @@ export function RsvpWidget({
         <Select
           id="meal_preference"
           label="Meal preference"
-          defaultValue={guest.meal_preference ?? 'no_preference'}
+          defaultValue={guest.meal_preference ?? profileFood?.mealPreference ?? 'no_preference'}
           options={[
             ['no_preference', 'No preference'],
             ['beef', 'Beef'],
@@ -186,7 +197,7 @@ export function RsvpWidget({
         <Field
           id="dietary_restrictions"
           label="Dietary notes"
-          defaultValue={guest.dietary_restrictions ?? ''}
+          defaultValue={guest.dietary_restrictions ?? profileFood?.dietaryRestrictions ?? ''}
           placeholder="halal · nut allergy · …"
         />
       </div>

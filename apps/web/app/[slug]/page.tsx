@@ -960,6 +960,29 @@ async function InvitationBody({
   // on the form; a failure left the form showing whatever was there before,
   // which for a first-time reply is an empty form — indistinguishable from
   // never having tapped Save.
+  /**
+   * The answers this person has already given Setnayan once (owner 2026-08-21:
+   * *"we can just grab those answers"*). Read ONLY for a signed-in viewer —
+   * a cookie-only guest has no account to read from — and used ONLY as a
+   * default where this event's own answer is blank.
+   * Best-effort: a failed read must cost a convenience, never the page.
+   */
+  let profileFood: { mealPreference: string | null; dietaryRestrictions: string | null } | null =
+    null;
+  if (viewerAccount?.id) {
+    const { data: me } = await admin
+      .from('users')
+      .select('meal_preference, dietary_restrictions')
+      .eq('user_id', viewerAccount.id)
+      .maybeSingle();
+    if (me && (me.meal_preference || me.dietary_restrictions)) {
+      profileFood = {
+        mealPreference: (me.meal_preference as string | null) ?? null,
+        dietaryRestrictions: (me.dietary_restrictions as string | null) ?? null,
+      };
+    }
+  }
+
   const rsvpFlash =
     search.rsvp === 'ok'
       ? { tone: 'ok' as const, text: 'Your reply is in — thank you.' }
@@ -1018,6 +1041,7 @@ async function InvitationBody({
           saveFlash,
           rsvpFlash,
           faceMode: rsvpFaceMode,
+          profileFood,
         })}
       />
       {/* Guest event-page hub bar (owner 2026-06-26) — fixed bottom control bar

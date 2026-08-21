@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { MEAL_PREFERENCES, type MealPreference } from '@/lib/guests';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -114,6 +115,25 @@ export async function updatePersonalInfo(formData: FormData) {
   const civil_status = normalizeCivilStatus(formData.get('civil_status'));
   const sex = normalizeSex(formData.get('sex'));
 
+  /**
+   * FOOD — the answer a guest gives on every invitation, kept once (owner
+   * 2026-08-21). `meal_preference` is the SAME enum the guest row uses, so an
+   * unrecognised value is dropped rather than written; dietary needs are
+   * bounded to the 300 the column's CHECK allows so a long paste is refused by
+   * this form, not by the database.
+   *
+   * ⚠ Dietary text is HEALTH DATA under RA 10173 — it carries a per-field
+   * consent stamp, exactly like religion beside it.
+   */
+  const mealRaw = formData.get('meal_preference');
+  const meal_preference =
+    typeof mealRaw === 'string' && MEAL_PREFERENCES.includes(mealRaw as MealPreference)
+      ? (mealRaw as MealPreference)
+      : null;
+  const dietaryRaw = formData.get('dietary_restrictions');
+  const dietary_restrictions =
+    typeof dietaryRaw === 'string' ? dietaryRaw.trim().slice(0, 300) || null : null;
+
   // RA 10173 durable proof-of-consent (migration 20270705000000). Read the
   // current opt-in state so we only STAMP marketing_consent_at on an actual
   // transition — opting in sets now(), opting out clears it to NULL, and an
@@ -121,7 +141,7 @@ export async function updatePersonalInfo(formData: FormData) {
   // timestamp untouched (unlike updated_at, which every save overwrites).
   const { data: existing } = await supabase
     .from('users')
-    .select('marketing_opt_in, religion, civil_status, sex')
+    .select('marketing_opt_in, religion, civil_status, sex, dietary_restrictions')
     .eq('user_id', user.id)
     .maybeSingle();
   const wasOptedIn = existing?.marketing_opt_in === true;
@@ -139,6 +159,11 @@ export async function updatePersonalInfo(formData: FormData) {
   const religionConsent = consentPatch(religion, existing?.religion ?? null, nowIso);
   const civilConsent = consentPatch(civil_status, existing?.civil_status ?? null, nowIso);
   const sexConsent = consentPatch(sex, existing?.sex ?? null, nowIso);
+  const dietaryConsent = consentPatch(
+    dietary_restrictions,
+    existing?.dietary_restrictions ?? null,
+    nowIso,
+  );
 
   const { error } = await supabase
     .from('users')
@@ -161,6 +186,11 @@ export async function updatePersonalInfo(formData: FormData) {
       sex,
       ...(sexConsent.consent_at !== undefined
         ? { sex_consent_at: sexConsent.consent_at }
+        : {}),
+      meal_preference,
+      dietary_restrictions,
+      ...(dietaryConsent.consent_at !== undefined
+        ? { dietary_restrictions_consent_at: dietaryConsent.consent_at }
         : {}),
       updated_at: nowIso,
     })

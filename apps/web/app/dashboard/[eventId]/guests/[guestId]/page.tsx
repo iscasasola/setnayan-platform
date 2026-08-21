@@ -505,6 +505,14 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
                 <p className="text-xs text-ink/50">
                   The couple is the foundation of the event — always attending.
                 </p>
+                {/* 🔴 AND NO "Answer recorded" LINE BELOW THIS ONE. There is no
+                    answer to record: the action COERCES bride and groom to
+                    attending, so their stamp only ever says when a host last
+                    pressed Save. In production both of them carry a value
+                    byte-identical to their row's created_at — the instant the
+                    row was written. Printing a date under "Answer recorded" one
+                    sentence after "always attending" contradicts the sentence
+                    above it with something that was never an answer. */}
                 <input type="hidden" name="rsvp_status" value="attending" />
               </>
             ) : (
@@ -519,7 +527,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               pending and maybe, so an absent value means "no answer on record",
               and saying "hasn't replied" here would be false for anyone who
               answered and then changed their mind back. */}
-          {recordedAt ? (
+          {!isCouple && recordedAt ? (
             <p className="text-xs text-ink/50">Answer recorded {recordedAt}</p>
           ) : null}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

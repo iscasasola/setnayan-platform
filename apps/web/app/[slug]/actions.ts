@@ -453,8 +453,18 @@ export async function submitRsvp(
         ? `${guestName} RSVP'd: ${statusLabel}`
         : `${guestName} updated their details`;
       const parts: string[] = [];
-      if (changed.includes('meal') && meal !== 'no_preference') {
-        parts.push(`Meal preference: ${meal}.`);
+      // ⚠ EVERY MEMBER OF `changed` MUST PRODUCE A SENTENCE, or the couple gets
+      // a heading with nothing under it. Clearing a meal (beef → no preference)
+      // used to yield changed=['meal'] and parts=[] — an email whose entire
+      // content was "Ana updated their details", from a change the couple can
+      // only discover by opening the app. Same missing set/clear branch the
+      // dietary line below always had, on a third field.
+      if (changed.includes('meal')) {
+        parts.push(
+          meal !== 'no_preference'
+            ? `Meal preference: ${meal}.`
+            : 'They cleared their meal preference.',
+        );
       }
       // 🔒 THE DIETARY VALUE IS NAMED, NEVER QUOTED. The compliance record
       // classes dietary notes as data that may reveal health or religious
@@ -463,7 +473,14 @@ export async function submitRsvp(
       if (changed.includes('dietary')) {
         parts.push(dietary ? 'Their dietary notes changed.' : 'They cleared their dietary notes.');
       }
-      if (changed.includes('note')) parts.push('They left you a note.');
+      // ⚠ The note branch must answer the SAME question the dietary branch above
+      // already answers: set or CLEARED. It said "They left you a note" either
+      // way, so deleting a note sent the couple to open a note that is not
+      // there — a trip made for nothing, and the second time it teaches them to
+      // ignore the notification.
+      if (changed.includes('note')) {
+        parts.push(guestNote ? 'They left you a note.' : 'They removed their note.');
+      }
 
       const { data: coupleMembers } = await admin
         .from('event_members')

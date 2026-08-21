@@ -278,13 +278,18 @@ export function GuestHubCard({
                     🔒 "Hello", never "Welcome": Welcome already means "you have
                     checked in at the door" in five other places, and telling
                     somebody at home that they have arrived at the venue is a
-                    different lie. */}
+                    different lie.
+                    🪤 THE BLANK-NAME ARM BROKE THAT RULE THREE LINES BELOW THE
+                    SENTENCE STATING IT — it read "Hello — welcome." The guard
+                    written to enforce the rule only ever rendered a NAMED guest,
+                    so the one arm that broke it was the one arm never tested.
+                    All four arms are asserted now. */}
                 {firstName.trim()
                   ? firstVisit
                     ? `Hello, ${firstName.trim()}.`
                     : `Hi again, ${firstName.trim()}.`
                   : firstVisit
-                    ? 'Hello — welcome.'
+                    ? 'Hello.'
                     : 'Your invitation.'}
               </span>
               <span className="mt-1 font-mono text-[0.6rem] uppercase tracking-[0.28em] text-gild">

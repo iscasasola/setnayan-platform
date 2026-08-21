@@ -198,12 +198,46 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   const supabase = await createClient();
   // Smart seat-plan Phase 5: snapshot the tier-affecting fields before the write
   // so we only re-place the guest when role / group_category actually changed.
+  // ── rsvp_status / rsvp_responded_at ride along on the SAME read, for the SAME
+  // reason one field over: this form saves fifteen unrelated things, and only an
+  // actual change of ANSWER may move the date attached to that answer.
   const { data: prevGuest } = await supabase
     .from('guests')
-    .select('role, group_category')
+    .select('role, group_category, rsvp_status, rsvp_responded_at')
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
     .maybeSingle();
+
+  /**
+   * 🔴 THE DATE MUST SURVIVE A SAVE THAT DID NOT TOUCH THE ANSWER.
+   *
+   * This payload used to write `now()` unconditionally whenever the answer was
+   * attending or declined — so a host opening a guest in December to correct a
+   * phone number moved a March reply to December. Nobody could see it until the
+   * date was put on screen; a stamp that nothing reads cannot be caught lying.
+   *
+   * Three cases, and the third is the fix:
+   *   · not attending/declined  → null. The stamp means "an answer is on record",
+   *     and pending/maybe is not one. Unchanged behaviour, and the reason an
+   *     absent value must never be rendered as "hasn't replied".
+   *   · the answer CHANGED      → stamp now. That is what the column is for.
+   *   · the answer is the SAME  → keep whatever was already there, INCLUDING null.
+   *     Stamping an untouched answer invents a date; a row that never had one is
+   *     honestly blank and must stay blank rather than gain today's.
+   *
+   * ⚖ IF THE READ FAILED we stamp — deliberately. `prevGuest` is null on a read
+   * error, so the comparison reports "changed" and the old behaviour returns.
+   * That is the safe direction: the alternative writes null and DESTROYS a
+   * correct date because a SELECT failed. A stale date is wrong; a deleted one
+   * is gone.
+   */
+  const answerIsOnRecord = ['attending', 'declined'].includes(effectiveRsvp);
+  const answerChanged = prevGuest?.rsvp_status !== effectiveRsvp;
+  const rsvp_responded_at = !answerIsOnRecord
+    ? null
+    : answerChanged
+      ? new Date().toISOString()
+      : ((prevGuest?.rsvp_responded_at as string | null) ?? null);
   const { data: updatedRows, error } = await supabase
     .from('guests')
     .update({
@@ -227,7 +261,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       plus_one_allowed,
       notes,
       invited_to_blocks,
-      rsvp_responded_at: ['attending', 'declined'].includes(effectiveRsvp) ? new Date().toISOString() : null,
+      rsvp_responded_at,
       updated_at: new Date().toISOString(),
     })
     .eq('event_id', eventId)

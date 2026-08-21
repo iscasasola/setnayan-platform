@@ -941,8 +941,24 @@ export function EditorialEditor({
         </div>
         <p className="mt-0.5 text-sm text-ink/60">
           Write a section of your own — anything the rest of the page has no room
-          for. Give it a name and put it wherever you like in the running order.
+          for.{' '}
+          {isPro
+            ? 'Give it a name and put it wherever you like in the running order.'
+            : 'It goes at the end of your story.'}
         </p>
+        {/*
+          ⚖ WRITING A COLUMN IS FREE; MOVING IT IS THE PRO PERK THAT ALREADY
+          EXISTS. Putting a wall in front of the writing itself would be a
+          PRICING decision, and a pricing decision must never be a side effect of
+          a build — so this panel is ungated and the sentence above tells a free
+          couple exactly where their column lands instead of leaving them to
+          wonder why the arrows are dim.
+        */}
+        {!isPro ? (
+          <ProUpsellLine eventId={eventId}>
+            Move your column anywhere in the story with Editorial PRO.
+          </ProUpsellLine>
+        ) : null}
 
         {columns.length === 0 ? (
           <p className="mt-3 text-sm text-ink/55">You haven&rsquo;t written one yet.</p>

@@ -627,20 +627,6 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
       // while the no-match branch below records one (step 8). Best-effort;
       // a failure here must never block a legitimate guest.
       await recordJoinScan(admin, eventId, match.candidate.guestId, 'self_join_bound_seed');
-      // ⚠ FILL A BLANK, NEVER OVERWRITE. This row was written by the HOST, and
-      // the token that reached this branch is printed on a poster — so an address
-      // the host already has must not be replaceable by whoever scanned it. The
-      // `.is('email', null)` filter is the whole safeguard: it makes the write a
-      // no-op on any seat that already carries one, in the database rather than
-      // in a check we could forget.
-      if (email && !match.candidate.email) {
-        await admin
-          .from('guests')
-          .update({ email })
-          .eq('guest_id', match.candidate.guestId)
-          .eq('event_id', eventId)
-          .is('email', null);
-      }
       if (email) {
         await sendEventAccountMagicLink({ eventId, guestId: match.candidate.guestId, email });
         return redirect(`/join/${eventId}/check-email?email=${encodeURIComponent(email)}`);
@@ -670,14 +656,6 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
       invited_to_blocks: ['ceremony', 'reception'],
       entry_source: 'self_added_unlisted',
       custom_tags: ['self_joined'],
-      // 🔴 THE EMAIL THEY JUST TYPED WAS THROWN AWAY. This door asks for it, uses
-      // it to send a sign-in link, and never wrote it down — so the host, whose
-      // own guest page has an Email box, never got it, and the reply card asked
-      // the same person for the same address again thirty seconds later.
-      // Owner, 2026-08-21: stop asking for what the app already knows.
-      // ⚠ Unverified — it is a CONTACT detail, not an identity claim; the row it
-      // lands on is one this person just created for themselves.
-      email: email || null,
     })
     .select('guest_id, qr_token')
     .single();

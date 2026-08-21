@@ -1293,6 +1293,49 @@ export const loadGuestContext = cache(
       }
     }
 
+    // ── FIRST ARRIVAL vs RETURN ──────────────────────────────────────────
+    // `scan_events` is written by every door that mints a guest session and was
+    // read by nothing. The EARLIEST row is the whole signal: it does not move
+    // when a guest re-scans the card in their hand, and it survives the redeem
+    // route's observed DOUBLE-FIRE — prod holds two rows 1.3 seconds apart for
+    // ONE arrival — so a count would lie where a minimum does not.
+    //
+    // ⛔ DO NOT ADD A SECOND CONJUNCT. `rsvp_responded_at` is stamped by three
+    // HOST dashboard paths with no guest session in sight (in prod most guests
+    // carry it and have never scanned anything, because the couple typed their
+    // answers in), and `arrived` is written only by the door crew. Either one
+    // would demote a genuine first arrival to "Hi again" — the exact bug.
+    // A scan OLDER than the window already IS the proof of a previous visit.
+    //
+    // ⏱ TWO CLOCKS: `scanned_at` defaults to the database's now(), this runs on
+    // the app runtime. The window absorbs ordinary skew, and a database clock
+    // running ahead yields a negative difference that stays inside it — i.e. it
+    // fails toward "Hello". `scanned_at` is a true instant, so parsing it
+    // directly is correct here; the venue-wall-clock helper is for schedule
+    // blocks and would INTRODUCE the error it exists to prevent.
+    //
+    // ↩ FAILS TOWARD TODAY'S COPY: a door that mints a session without writing
+    // a scan leaves no evidence, and no evidence means "Hi again".
+    const ARRIVAL_WINDOW_MS = 5 * 60 * 1000;
+    let guestFirstVisit = false;
+    try {
+      const { data: firstScan, error: firstScanErr } = await admin
+        .from('scan_events')
+        .select('scanned_at')
+        .eq('guest_id', guest.guest_id)
+        .order('scanned_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      // 🔑 A REJECTED QUERY IS NOT A THROWN ERROR — check the error, or a lost
+      // grant reads as "no scan ever" and greets every returning guest as new.
+      if (!firstScanErr && firstScan?.scanned_at) {
+        const firstAt = Date.parse(firstScan.scanned_at as string);
+        guestFirstVisit = Number.isFinite(firstAt) && Date.now() - firstAt < ARRIVAL_WINDOW_MS;
+      }
+    } catch {
+      guestFirstVisit = false;
+    }
+
     const guestHubData: GuestHubData = {
       firstName: guest.first_name,
       displayName:
@@ -1311,6 +1354,7 @@ export const loadGuestContext = cache(
       isLimitedPlusOne:
         guest.plus_one_of_guest_id !== null && guest.plus_one_mode === 'limited',
       arrived: guestArrived,
+      firstVisit: guestFirstVisit,
     };
 
     // "Your seat" inline map — surface the entrance→table wayfinding map on the

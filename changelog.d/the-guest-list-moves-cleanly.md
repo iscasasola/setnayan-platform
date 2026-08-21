@@ -47,9 +47,10 @@ event you organise**, your **People page** (connections + alaga), and
 
 🔑 **"The people's list" taken literally would have opened EMPTY for the person
 who asked for it.** Measured in prod the same day: **0 connections · 0 alaga ·
-0 samahan members**, against **40 guests across 8 events**. The other-events
-source is the only non-empty one today and is the obvious one — the same tita is
-at the graduation and the anniversary.
+0 samahan members**, against **5 events · 40 guest rows (36 not deleted) · 5
+couple memberships across 3 organisers**. The other-events source is the only
+non-empty one today and is the obvious one — the same tita is at the graduation
+and the anniversary.
 
 🚨 **RLS IS A FLOOR, NOT A SCOPE, AND HERE IT WAS THE WHOLE RISK.** `guests`
 carries `couple_writes_guest` = `(event_id IN current_couple_event_ids()) OR
@@ -91,6 +92,17 @@ same tita in a second time. Partial adds are stated ("Added 7. 2 didn't go on �
 single-add (names check, side check, offered-role set, post-finalize lock, the
 single-bride/single-groom message) instead of growing a second, softer insert
 beside it. Every existing caller inserts exactly the row it inserted before.
+
+🪤 **AND THE REPO'S OWN COLUMN SCAN CAUGHT A PHANTOM COLUMN IN THIS VERY
+CHANGE, BEFORE IT SHIPPED.** The event-title read asked `events.select('title')`.
+**There is no `events.title`** — the column is `display_name`. PostgREST rejects
+the WHOLE query with 42703 rather than throwing, so `.data` would have been
+null, the title map empty, and **every row in the picker would have read
+"another event"** — a feature that looks finished and quietly never worked, with
+green CI. Exactly the family this repo already names four times over (phantom
+column · enum value · RPC argument · blocked iframe): **rejected, not thrown,
+and the only symptom is an absence.** Fixed and re-verified against the live
+catalog; `select-column-scan.test.ts` is green.
 
 **Guards** — `guests-keeps-the-shell-bar.test.ts` (5) ·
 `add-from-people-is-scoped.test.ts` (5) · `people-you-can-invite-core.test.ts`

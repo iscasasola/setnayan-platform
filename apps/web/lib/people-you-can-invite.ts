@@ -146,7 +146,16 @@ export async function getPeopleYouCanInvite(
 
     if (myEventIds.length > 0) {
       const [titles, rows] = await Promise.all([
-        supabase.from('events').select('event_id, title').in('event_id', myEventIds),
+        /*
+          🪤 `events` HAS NO `title`. The first cut of this read asked for one,
+          and the repo's own column scan caught it before it shipped. PostgREST
+          rejects the WHOLE query with 42703 rather than throwing, so `.data`
+          would have been null, `titleById` empty, and EVERY row in the picker
+          would have said "another event" — a feature that looks finished and
+          silently never worked. The event's name is `display_name`, same
+          column `calendar-feed.ts` and `chat-actions.ts` read.
+        */
+        supabase.from('events').select('event_id, display_name').in('event_id', myEventIds),
         supabase
           .from('guests')
           .select('guest_id, first_name, last_name, email, event_id')
@@ -165,10 +174,9 @@ export async function getPeopleYouCanInvite(
         partial = true;
       }
       const titleById = new Map(
-        ((titles.data ?? []) as Array<{ event_id: string; title: string | null }>).map((e) => [
-          e.event_id,
-          (e.title ?? '').trim() || 'another event',
-        ]),
+        (
+          (titles.data ?? []) as Array<{ event_id: string; display_name: string | null }>
+        ).map((e) => [e.event_id, (e.display_name ?? '').trim() || 'another event']),
       );
       for (const g of (rows.data ?? []) as Array<{
         guest_id: string;

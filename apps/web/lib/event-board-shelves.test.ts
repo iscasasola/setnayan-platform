@@ -183,8 +183,8 @@ test('two celebrations on one day are reported once, naming both', () => {
     ev({ event_id: 'b', display_name: 'Mia turns 1', event_date: '2027-02-14' }),
   ]);
   assert.equal(clashes.length, 1);
-  assert.equal(clashes[0].dayISO, '2027-02-14');
-  assert.deepEqual(clashes[0].names, ['Lolo Ben’s 80th', 'Mia turns 1']);
+  assert.equal(clashes[0]!.dayISO, '2027-02-14');
+  assert.deepEqual(clashes[0]!.names, ['Lolo Ben’s 80th', 'Mia turns 1']);
 });
 
 test('a celebration that swallows another day catches it', () => {
@@ -200,7 +200,7 @@ test('a celebration that swallows another day catches it', () => {
     ev({ event_id: 'b', display_name: 'Mia turns 1', event_date: '2027-04-03' }),
   ]);
   assert.equal(clashes.length, 1, 'one day collides, not four');
-  assert.equal(clashes[0].dayISO, '2027-04-03');
+  assert.equal(clashes[0]!.dayISO, '2027-04-03');
 });
 
 test('nothing collides with itself, and undated days never collide', () => {

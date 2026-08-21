@@ -19,6 +19,7 @@ export type EditorialOrderKey =
   | 'chapters' // "As the Day Unfolded" / "Moments" (gated by the `gallery` toggle)
   | 'kwento' // "What They Whispered"
   | 'guestColumns' // "Letters to the Editor" (Guest Columns · GUEST_COLUMNS_ENABLED)
+  | 'challengeAnswers' // "What We Asked" — Papic Challenge answers (owner 2026-08-21)
   | 'gallery' // "From the Day" photo gallery (gated by the `gallery` toggle)
   | 'fromVendors' // "From Your Vendors"
   | 'liveWall' // "Live Photo Wall"
@@ -38,6 +39,10 @@ export type EditorialOrderKey =
 export const EDITORIAL_ORDERABLE_KEYS: ReadonlyArray<EditorialOrderKey> = [
   'chapters',
   'kwento',
+  // Owner, 2026-08-21: challenge answers "have their own column". Placed beside
+  // the other two guest voices — Kwento's whispers and the Letters — because
+  // that is what it is: the guests talking, in their own words.
+  'challengeAnswers',
   'guestColumns',
   'gallery',
   'fromVendors',

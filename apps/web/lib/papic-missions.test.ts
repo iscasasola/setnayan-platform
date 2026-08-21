@@ -14,6 +14,7 @@ import {
   CHALLENGE_SIDE_TOKEN,
   CHALLENGE_SIDE_NEUTRAL,
   BOARD_SIZE,
+  VENDOR_SLOTS,
 } from './papic-missions';
 import type {
   GuestMissionRow,
@@ -111,9 +112,20 @@ test('vendorChallengeStatus maps approved/active to a lifecycle', () => {
 // Ranks 1..10 = the §9.4 Top-10 heroes. Ranks 11..14 = the four STORY
 // challenges (library 41–44, owner 2026-08-10) — see LIBRARY_SIZE below for why
 // their rank is the whole point.
+/**
+ * The fixture's running order, mirroring PRODUCTION's shape for a board of ten.
+ *
+ * ⚠ IT USED TO BE 14 RANKS WITH EVERY STORY AT 11-14, and that modelled the real
+ * library exactly — while the board was 20. When the owner moved the board to 10
+ * ("we keep the 600+ challenges but the user only picks 10"), that shape meant
+ * ranks 1-10 were all photo errands and NOT ONE story or greeting could reach a
+ * default board. The real ranks were rebalanced; so is this.
+ *
+ * Six doing, three telling, one greeting — id 4 stands in for the greeting and
+ * 41/42/43 for the stories, exactly as production's ten is built.
+ */
 const RANK: Record<number, number> = {
-  1: 1, 40: 2, 5: 3, 2: 4, 15: 5, 38: 6, 4: 7, 18: 8, 6: 9, 22: 10,
-  41: 11, 42: 12, 43: 13, 44: 14,
+  1: 1, 41: 2, 4: 3, 2: 4, 40: 5, 43: 6, 18: 7, 22: 8, 42: 9, 6: 10,
 };
 const CLIPS = new Set([1, 4, 12, 15, 16, 17, 19, 20, 21, 25, 32, 37, 38, 40, 41, 42, 43, 44]);
 
@@ -126,6 +138,41 @@ const CLIPS = new Set([1, 4, 12, 15, 16, 17, 19, 20, 21, 25, 32, 37, 38, 40, 41,
 // goes red: that is the whole guard.
 const STORY_IDS = [41, 42, 43, 44] as const;
 const LIBRARY_SIZE = 44;
+
+/**
+ * WHAT THE SETNAYAN LANE SHOULD CONTAIN, worked out from the documented rule
+ * rather than from the resolver.
+ *
+ * 🔑 THIS IS NOT THE RESOLVER RE-CALLED. It is a second, deliberately naive
+ * reading of the ONE sentence the rule is: "by priority_rank NULLS LAST, then
+ * library_id, skipping taken / vetoed / inactive / Pabati-when-off". Every test
+ * below used to hard-code the resulting list for a 20-slot board, so moving the
+ * board broke ten of them at once and each had to be re-derived by hand — which
+ * is how a test ends up asserting whatever the code happens to do.
+ */
+function expectedSetnayan(
+  lib: ChallengeLibraryItem[],
+  opts: { slots: number; taken?: number[]; vetoed?: number[]; pabatiActive?: boolean },
+): number[] {
+  const taken = new Set(opts.taken ?? []);
+  const vetoed = new Set(opts.vetoed ?? []);
+  return lib
+    .filter(
+      (l) =>
+        l.isActive &&
+        l.missionType !== 'face_verified' &&
+        (l.captureKind !== 'pabati' || opts.pabatiActive) &&
+        !taken.has(l.libraryId) &&
+        !vetoed.has(l.libraryId),
+    )
+    .sort(
+      (a, b) =>
+        (a.priorityRank ?? Number.POSITIVE_INFINITY) - (b.priorityRank ?? Number.POSITIVE_INFINITY) ||
+        a.libraryId - b.libraryId,
+    )
+    .slice(0, Math.max(0, opts.slots))
+    .map((l) => l.libraryId);
+}
 
 function makeLibrary(): ChallengeLibraryItem[] {
   const lib: ChallengeLibraryItem[] = [];
@@ -159,18 +206,20 @@ function laneKeys(board: BoardEntry[], lane: 'couple' | 'vendor'): string[] {
 test('T1 — empty event, Pabati active → 20 Setnayan by rank then library order', () => {
   const board = resolveChallengeBoard({ couplePicks: [], vendorMissions: [], library: makeLibrary(), pabatiActive: true });
   assert.equal(board.length, BOARD_SIZE);
-  // 10 heroes (ranks 1–10) → 4 stories (ranks 11–14) → 6 errands by library id.
-  assert.deepEqual(setnayanIds(board), [1, 40, 5, 2, 15, 38, 4, 18, 6, 22, 41, 42, 43, 44, 3, 7, 8, 9, 10, 11]);
-  // board_slot is 1..20, contiguous and ordered.
-  assert.deepEqual(board.map((b) => b.slot), Array.from({ length: 20 }, (_, i) => i + 1));
+  assert.deepEqual(
+    setnayanIds(board),
+    expectedSetnayan(makeLibrary(), { slots: BOARD_SIZE, pabatiActive: true }),
+  );
+  // board_slot is 1..BOARD_SIZE, contiguous and ordered.
+  assert.deepEqual(board.map((b) => b.slot), Array.from({ length: BOARD_SIZE }, (_, i) => i + 1));
 });
 
-test('T2 — Pabati INACTIVE → #5 skipped, backfilled, board still 20', () => {
+test('T2 — Pabati INACTIVE → #5 skipped, backfilled, board still full', () => {
   const board = resolveChallengeBoard({ couplePicks: [], vendorMissions: [], library: makeLibrary(), pabatiActive: false });
   const ids = setnayanIds(board);
   assert.equal(board.length, BOARD_SIZE);
   assert.ok(!ids.includes(5), 'Pabati must be absent when its SKU is inactive');
-  assert.deepEqual(ids.slice(0, 9), [1, 40, 2, 15, 38, 4, 18, 6, 22]);
+  assert.deepEqual(ids, expectedSetnayan(makeLibrary(), { slots: BOARD_SIZE, pabatiActive: false }));
 });
 
 test('T3 — couple 10 + vendor 5 → exactly the Top-5 Setnayan', () => {
@@ -184,7 +233,13 @@ test('T3 — couple 10 + vendor 5 → exactly the Top-5 Setnayan', () => {
     pabatiActive: true,
   });
   assert.equal(board.length, BOARD_SIZE);
-  assert.deepEqual(setnayanIds(board), [1, 40, 5, 2, 15]);
+  // A full couple lane plus the vendor share leaves the Setnayan lane whatever
+  // is left — the point is that it is exactly the remainder, never a hole.
+  const left = BOARD_SIZE - laneKeys(board, 'couple').length - laneKeys(board, 'vendor').length;
+  assert.deepEqual(
+    setnayanIds(board),
+    expectedSetnayan(makeLibrary(), { slots: left, pabatiActive: true }),
+  );
 });
 
 test('T4 — couple picks the Top-5 as library items → no duplication, backfill from #6', () => {
@@ -196,7 +251,14 @@ test('T4 — couple picks the Top-5 as library items → no duplication, backfil
   });
   const ids = setnayanIds(board);
   for (const hero of [1, 40, 5, 2, 15]) assert.ok(!ids.includes(hero), `#${hero} must not appear twice`);
-  assert.deepEqual(ids, [38, 4, 18, 6, 22, 41, 42, 43, 44, 3]);
+  assert.deepEqual(
+    ids,
+    expectedSetnayan(makeLibrary(), {
+      slots: BOARD_SIZE - laneKeys(board, 'couple').length,
+      taken: [1, 40, 5, 2, 15],
+      pabatiActive: true,
+    }),
+  );
   assert.equal(board.length, BOARD_SIZE);
 });
 
@@ -207,8 +269,15 @@ test('T5 — couple picks all Top-10 → stories lead, then library-order backfi
     library: makeLibrary(),
     pabatiActive: true,
   });
-  // Taking all ten heroes leaves ranks 11–14 at the head of the remainder.
-  assert.deepEqual(setnayanIds(board), [41, 42, 43, 44, 3, 7, 8, 9, 10, 11]);
+  // Taking heroes as their OWN picks removes them from the Setnayan remainder.
+  assert.deepEqual(
+    setnayanIds(board),
+    expectedSetnayan(makeLibrary(), {
+      slots: BOARD_SIZE - laneKeys(board, 'couple').length,
+      taken: [1, 40, 5, 2, 15, 38, 4, 18, 6, 22],
+      pabatiActive: true,
+    }),
+  );
 });
 
 test('T6 — 8 vendor missions → capped at 5, PAID before booth', () => {
@@ -222,7 +291,11 @@ test('T6 — 8 vendor missions → capped at 5, PAID before booth', () => {
     library: makeLibrary(),
     pabatiActive: true,
   });
-  assert.deepEqual(laneKeys(board, 'vendor'), ['a', 'b', 'h', 'c', 'd']); // 3 paid first, then booth by order
+  // PAID first (in order), then booth (in order), capped at the vendor share.
+  assert.deepEqual(
+    laneKeys(board, 'vendor'),
+    ['a', 'b', 'h', 'c', 'd', 'e', 'f', 'g'].slice(0, VENDOR_SLOTS),
+  );
 });
 
 test('T7 — no vendor availed → Setnayan fills the vendor slots up to 20 (no holes)', () => {
@@ -232,10 +305,10 @@ test('T7 — no vendor availed → Setnayan fills the vendor slots up to 20 (no 
     library: makeLibrary(),
     pabatiActive: true,
   });
-  assert.equal(board.length, BOARD_SIZE); // 3 couple + 17 Setnayan
+  assert.equal(board.length, BOARD_SIZE);
   assert.equal(laneKeys(board, 'couple').length, 3);
-  assert.equal(setnayanIds(board).length, 17);
-  assert.ok(board.every((b) => b.slot >= 1 && b.slot <= 20));
+  assert.equal(setnayanIds(board).length, BOARD_SIZE - 3, 'Setnayan fills the unsold slots — no holes');
+  assert.ok(board.every((b) => b.slot >= 1 && b.slot <= BOARD_SIZE));
 });
 
 test('T9 — couple picks a library id a Setnayan fill would hold → appears once (couple)', () => {
@@ -252,16 +325,76 @@ test('T9 — couple picks a library id a Setnayan fill would hold → appears on
   assert.equal(board.length, BOARD_SIZE);
 });
 
-test('T10 — couple picks 12 → capped at 10, all 12 library ids stay untaken by Setnayan', () => {
+test('T10 — the couple can fill the whole board with their own picks', () => {
+  // ⚠ THIS TEST USED TO ASSERT `length === 10`, AND THAT WAS THE DEFECT.
+  // Owner, 2026-08-21: "the need to have a real screen to pick their challenges
+  // UP TO 20 CHALLENGES." A couple who chose twelve got ten; the other two had
+  // no board position and nothing on any screen said so. The cap is now the
+  // whole board minus whatever a supplier has paid for.
+  // ⚠ DERIVED FROM BOARD_SIZE, NEVER RETYPED. This test asserted `=== 12`
+  // against a 20-slot board; when the owner moved the board to 10 the literal
+  // would have been the only thing standing between a silent behaviour change
+  // and a red test — and it would have gone red for the wrong reason.
+  const ids = Array.from({ length: BOARD_SIZE }, (_, i) => i + 1);
   const board = resolveChallengeBoard({
-    couplePicks: couple(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
+    couplePicks: couple(...ids),
     vendorMissions: [],
     library: makeLibrary(),
     pabatiActive: true,
   });
-  assert.equal(laneKeys(board, 'couple').length, 10); // capped
-  for (let id = 1; id <= 12; id++) assert.ok(!setnayanIds(board).includes(id), `#${id} taken by couple`);
+  assert.equal(laneKeys(board, 'couple').length, BOARD_SIZE);
+  for (const id of ids) assert.ok(!setnayanIds(board).includes(id), `#${id} taken by couple`);
   assert.equal(board.length, BOARD_SIZE);
+});
+
+test('T10b — a full board of their own leaves Setnayan filling nothing', () => {
+  const ids = Array.from({ length: BOARD_SIZE }, (_, i) => i + 1);
+  const board = resolveChallengeBoard({
+    couplePicks: couple(...ids),
+    vendorMissions: [],
+    library: makeLibrary(),
+    pabatiActive: true,
+  });
+  assert.equal(laneKeys(board, 'couple').length, BOARD_SIZE);
+  assert.equal(setnayanIds(board).length, 0, 'a board of their own picks is entirely theirs');
+  assert.equal(board.length, BOARD_SIZE);
+});
+
+test('T10c — a PAID booth mission keeps its slot; the couple ceiling drops to match', () => {
+  // 🔒 THE HALF THAT IS ABOUT SOMEBODY ELSE'S MONEY. A flat ceiling of 20 would
+  // make the Setnayan target go negative the moment a sponsorship existed, and
+  // — worse than the arithmetic — would delete a paid placement the instant the
+  // couple added a twentieth of their own, with nothing anywhere saying so.
+  const ids = Array.from({ length: BOARD_SIZE + 5 }, (_, i) => i + 1);
+  const board = resolveChallengeBoard({
+    couplePicks: couple(...ids),
+    vendorMissions: vend({ key: 'paid-1', paid: true }, { key: 'paid-2', paid: true }),
+    library: makeLibrary(),
+    pabatiActive: true,
+  });
+  assert.deepEqual(laneKeys(board, 'vendor'), ['paid-1', 'paid-2'], 'a paid slot survives a greedy couple');
+  assert.equal(laneKeys(board, 'couple').length, BOARD_SIZE - 2, 'the board minus what is sold');
+  assert.equal(setnayanIds(board).length, 0);
+  assert.equal(board.length, BOARD_SIZE, 'and the board never overflows');
+});
+
+test('T10d — the vendor lane can never take more than its quarter share', () => {
+  // 🔒 THE GUARD AGAINST SELLING THE PARTY. Six suppliers all wanting a slot
+  // must still only get VENDOR_SLOTS between them, and the couple keeps the
+  // rest — never a negative target, never a board that is mostly advertising.
+  const board = resolveChallengeBoard({
+    couplePicks: couple(...Array.from({ length: BOARD_SIZE * 3 }, (_, i) => i + 1)),
+    vendorMissions: vend(
+      { key: 'v1', paid: true }, { key: 'v2', paid: true }, { key: 'v3', paid: true },
+      { key: 'v4', paid: true }, { key: 'v5', paid: true }, { key: 'v6', paid: true },
+    ),
+    library: makeLibrary(),
+    pabatiActive: true,
+  });
+  assert.equal(laneKeys(board, 'vendor').length, VENDOR_SLOTS);
+  assert.equal(laneKeys(board, 'couple').length, BOARD_SIZE - VENDOR_SLOTS);
+  assert.equal(board.length, BOARD_SIZE);
+  assert.ok(VENDOR_SLOTS * 4 <= BOARD_SIZE, 'a supplier may never hold more than a quarter of a guest\'s board');
 });
 
 test('order — a paid vendor always precedes a free booth', () => {
@@ -294,8 +427,14 @@ test('veto — couple hides a Top-5 hero → excluded, board backfills the next 
   });
   const ids = setnayanIds(board);
   assert.ok(!ids.includes(40), 'a vetoed hero is never resurrected');
-  assert.equal(board.length, BOARD_SIZE, 'veto wins but the board still fills to 20');
-  assert.ok(ids.includes(12), 'backfill pulls in the next item that would otherwise be off-board');
+  assert.equal(board.length, BOARD_SIZE, 'veto wins but the board still fills');
+  assert.deepEqual(
+    ids,
+    expectedSetnayan(makeLibrary(), { slots: BOARD_SIZE, vetoed: [40], pabatiActive: true }),
+  );
+  const withoutVeto = expectedSetnayan(makeLibrary(), { slots: BOARD_SIZE, pabatiActive: true });
+  const pulledIn = ids.find((x) => !withoutVeto.includes(x));
+  assert.ok(pulledIn !== undefined, 'a veto must pull in something that was off-board');
 });
 
 test('face_verified library items are never placed (dormant face model)', () => {
@@ -339,9 +478,13 @@ test('minor-safety guard blocks drinking dares, allows a toast', () => {
 // fail the moment a story stops being placed — not to restate the algorithm.
 // ---------------------------------------------------------------------------
 
-test('T-STORY-1 — an ordinary event places ALL FOUR stories on the guest board', () => {
-  // The common case by far: no couple picks, no booked vendors → the Setnayan
-  // lane fills all 20 slots on its own.
+test('T-STORY-1 — an ordinary event is asked for stories, not only errands', () => {
+  // ⚠ THIS ASSERTED "ALL FOUR STORIES" AND THAT EXPIRED WITH THE BOARD SIZE.
+  // With 20 slots every ranked story fitted, so "all four" and "stories reach a
+  // guest" were the same sentence. At 10 they are not, and the one that matters
+  // is the second: a default board must ASK SOMEBODY TO SPEAK, because the
+  // couple's story column is built out of those answers. Pinning "all four"
+  // again would just re-break the next time the number moves.
   const board = resolveChallengeBoard({
     couplePicks: [],
     vendorMissions: [],
@@ -349,8 +492,16 @@ test('T-STORY-1 — an ordinary event places ALL FOUR stories on the guest board
     pabatiActive: true,
   });
   const ids = setnayanIds(board);
-  for (const id of STORY_IDS) {
-    assert.ok(ids.includes(id), `story #${id} must reach the board — a story nobody is asked is not a feature`);
+  const stories = STORY_IDS.filter((id) => ids.includes(id));
+  assert.ok(
+    stories.length >= 2,
+    `only ${stories.length} story reached a board of ${BOARD_SIZE} — a story nobody is asked is not a feature, ` +
+      `and the story column has nothing to fill it`,
+  );
+  // And the ranked ones specifically: an unranked story riding in on a low id is
+  // luck, not design.
+  for (const id of STORY_IDS.filter((x) => RANK[x] !== undefined)) {
+    assert.ok(ids.includes(id), `ranked story #${id} must reach the board`);
   }
 });
 
@@ -370,8 +521,16 @@ test('T-STORY-2 — a FULL couple lane + a FULL vendor lane still leaves no stor
     pabatiActive: true,
   });
   const ids = setnayanIds(board);
-  assert.equal(ids.length, 5);
-  for (const id of STORY_IDS) assert.ok(!ids.includes(id), `story #${id} yields to a curated board`);
+  assert.equal(
+    ids.length,
+    BOARD_SIZE - laneKeys(board, 'couple').length - laneKeys(board, 'vendor').length,
+    'the Setnayan lane is exactly the remainder',
+  );
+  assert.deepEqual(
+    ids,
+    expectedSetnayan(makeLibrary(), { slots: ids.length, pabatiActive: true }),
+    'and it is the highest-ranked remainder, not an arbitrary one',
+  );
 });
 
 test('T-STORY-3 — an UNRANKED story would never be placed (why the rank is load-bearing)', () => {
@@ -399,7 +558,11 @@ test('T-STORY-4 — the couple can veto a story like any other challenge', () =>
     }),
   );
   assert.ok(!ids.includes(43), 'a vetoed story stays off, same as a vetoed hero');
-  assert.ok(ids.includes(41) && ids.includes(42) && ids.includes(44), 'the other three are untouched');
+  // The other RANKED stories are untouched. #44 is unranked and may or may not
+  // fit a board of ten — asserting it would be asserting the board size again.
+  for (const id of STORY_IDS.filter((x) => x !== 43 && RANK[x] !== undefined)) {
+    assert.ok(ids.includes(id), `story #${id} must be untouched by an unrelated veto`);
+  }
 });
 
 // ---------------------------------------------------------------------------

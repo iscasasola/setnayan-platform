@@ -258,19 +258,45 @@ test('every story is clip-answered, says ten seconds, and asks for nothing unsaf
   }
 });
 
-test('side token appears in the side set and NEVER in the couple set', async () => {
-  const r = await db.query<{ slug: string; category: string; prompt: string }>(
-    `SELECT slug, category, prompt FROM public.papic_challenge_library
+test('every story is addressed to somebody, and a couple story is NEVER one-sided', async () => {
+  // ⚠ THIS ASSERTION'S PREMISE CHANGED ON 2026-08-21 AND IS NOT WEAKENED.
+  //
+  // It used to read "every `stories` row must carry {who}", which was exactly
+  // right while the confession box existed only at weddings. The pool now runs
+  // to 631 challenges across sixteen event types, and {who} resolves from
+  // `guests.side` — bride · groom · both. At a birthday it falls through to "the
+  // couple" and names two people who do not exist, so the universal half of the
+  // confession box is addressed with {host} instead.
+  //
+  // 🔒 THE SAFETY PROPERTY IS UNTOUCHED, AND IT IS THE SECOND HALF: a
+  // `stories_couple` question must NEVER carry a side token. That is the one
+  // that silently turns "about the two of you" into a one-sided question, and
+  // the couple picked those rows precisely to avoid it.
+  //
+  // 🔑 AND THE NEW FIRST HALF IS STRICTER THAN "carries {who}" WAS: a story with
+  // NEITHER token is addressed to nobody — "Share a story. Ten seconds." — which
+  // is the prompt that produces a shrug and a wasted shot from the pool.
+  const r = await db.query<{ slug: string; category: string; prompt: string; event_types: string[] | null }>(
+    `SELECT slug, category, prompt, event_types FROM public.papic_challenge_library
       WHERE category IN ('stories','stories_couple')`,
   );
   for (const row of r.rows) {
-    const hasToken = row.prompt.includes('{who}');
+    const hasSide = row.prompt.includes('{who}');
     if (row.category === 'stories') {
-      assert.ok(hasToken, `${row.slug} is a side story and must carry {who}`);
+      // {event} counts as an anchor: "why you would not have missed this
+      // {event}" is about the day rather than a person, which is a real
+      // confession-box question and still tells the guest what to talk about.
+      // What this refuses is the promptless prompt — "Share a story. Ten
+      // seconds." — which produces a shrug and a spent shot from the pool.
+      const hasAnchor = /\{(hosts?|event)\}/.test(row.prompt);
+      assert.ok(hasSide || hasAnchor, `${row.slug} is a story addressed to nobody`);
+      // A side token outside a wedding is the bug this split exists to stop.
+      if (hasSide) {
+        assert.deepEqual(row.event_types, ['wedding'],
+          `${row.slug} carries {who} and is not scoped to a wedding`);
+      }
     } else {
-      // A token here would silently turn an "about the two of you" question
-      // into a one-sided one — the couple picked it precisely to avoid that.
-      assert.ok(!hasToken, `${row.slug} is a COUPLE story and must not carry {who}`);
+      assert.ok(!hasSide, `${row.slug} is a COUPLE story and must not carry {who}`);
     }
   }
 });

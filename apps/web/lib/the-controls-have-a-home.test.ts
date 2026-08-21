@@ -42,52 +42,75 @@ test('the only way to hide a story item still has a home, in BOTH branches', () 
   );
 });
 
-test('Your year has a doorway that is not a keyboard shortcut', () => {
-  // THE DOORWAY MOVED, THE STANDARD DID NOT (owner 2026-08-21: *"this is the
-  // your year concept integrated here. deleting the your year menu"*).
+test('Your year and Your Story are retired as MENUS, not as places', () => {
+  // THE OWNER RETIRED BOTH MENUS (2026-08-21): *"remove the your year and your
+  // story. we already have the your year inside my events. we already have your
+  // story on untold."*
   //
-  // History, because this test asserted the opposite two days ago. On
-  // 2026-08-19 /dashboard/year had two in-app doors — a strip on the account
-  // home and a ⌘K row — and the rail row was added on the reasoning that "the
-  // home is becoming events-only, so the doorway moves to the rail BEFORE the
-  // strip is removed". The board then went the OTHER way: the year's contents
-  // are now the "Worth planning" shelf on My Events. So the rail row, its
-  // rail-active match and its registry slot are retired together.
-  //
-  // 🔑 WHAT THIS TEST IS ACTUALLY FOR IS UNCHANGED: "a palette entry is not a
-  // doorway". A keyboard shortcut is not a door, and neither is a route with no
-  // visible link. So it now asserts the door that replaced the row — and
-  // asserts it in BOTH branches, because the empty branch is the one a
-  // brand-new account actually sees, and a door that only exists once you
-  // already have moments is no door for the person who has none.
-  const list = read('app/dashboard/(launcher)/_components/year-moments-list.tsx');
-  assert.ok(
-    /href="\/dashboard\/year"/.test(list),
-    'the populated "Worth planning" shelf lost its "See the year →" door',
-  );
+  // 🔑 WHAT THIS TEST HAS ALWAYS BEEN FOR IS UNCHANGED: "a palette entry is not
+  // a doorway". Retiring a menu is only safe if the place it led to is still
+  // reachable by something a person can SEE. So this asserts the replacements,
+  // not the removals — a test that only checked the old rows were gone would
+  // pass just as happily if the destinations had been orphaned.
 
-  const strip = read('app/dashboard/(launcher)/_components/year-moments-strip.tsx');
-  assert.ok(
-    /href="\/dashboard\/year"/.test(strip),
-    'the EMPTY branch lost its door — and that is the branch a new account sees',
-  );
-
+  // ── YOUR YEAR — its contents are the board's "Worth planning" shelf ────────
   const page = read('app/dashboard/(launcher)/page.tsx');
   assert.ok(
     /<YearMomentsStrip /.test(page),
-    'the shelf that CARRIES the door is no longer mounted on the board, so the ' +
-      'door is a link in a component nothing renders. ⚠ This strip had NO ' +
-      'consumer at all before 2026-08-21 — it was built, its docblock claimed ' +
-      'it rendered inside Alaala, and it was imported by nothing.',
+    'the "Worth planning" shelf is no longer mounted on the board — the year has ' +
+      'no home at all now that its own page redirects here.',
   );
 
-  // And the retired row stays retired: re-adding it without deleting this
-  // assertion gives Your year two doors again, which is the duplication the
-  // owner removed.
+  // ⚠ THE HOLIDAYS HAD TO MOVE FIRST. They were the ONE thing /dashboard/year
+  // held that the shelf did not, and they are the dates the shelf exists to warn
+  // about (Christmas, Valentine's — the ones that book out early). Retiring the
+  // page without this flag would have deleted them from the product silently.
+  const strip = read('app/dashboard/(launcher)/_components/year-moments-strip.tsx');
+  assert.ok(
+    /includeHolidays:\s*true/.test(strip),
+    'the shelf stopped including holidays, so retiring /dashboard/year now loses ' +
+      'them — that page was the only other place they rendered.',
+  );
+
+  // The old page must not serve content any more, or there are two years again.
+  const yearPage = read('app/dashboard/(account)/year/page.tsx');
+  assert.ok(
+    /redirect\('\/dashboard#worth-planning'\)/.test(yearPage),
+    '/dashboard/year no longer redirects to the shelf. It is linked from the ' +
+      'daily digest email and from anybody who bookmarked it — deleting the ' +
+      'route 404s them, and restoring the page brings back the duplicate.',
+  );
+
+  // ── YOUR STORY — its doors are the Untold and Told shelves ────────────────
+  // The rail row is gone, so these two ARE the desk's entrances. If both were
+  // removed, /dashboard/creator would be reachable only by typing the URL.
+  assert.ok(
+    /Write the story of /.test(page),
+    'the "Write the story of <name>" chips are gone from Untold — with the rail ' +
+      'row retired, that is half the remaining way in to Your Story.',
+  );
+  assert.ok(
+    /href="\/dashboard\/creator"/.test(page),
+    'the board no longer links /dashboard/creator at all. The Your Story rail ' +
+      'row was retired on the promise that Untold and Told carry it.',
+  );
+
+  // ── AND THE RETIRED ROWS STAY RETIRED ────────────────────────────────────
   const rail = read('app/_components/frontdoor/front-door-shell.tsx');
   assert.ok(
     !/href="\/dashboard\/year"/.test(rail),
-    'the Your year rail row is back. It was retired with the menu (owner ' +
-      '2026-08-21) — if it is wanted again, change this test deliberately.',
+    'the Your year rail row is back (owner retired it 2026-08-21).',
+  );
+  assert.ok(
+    !/href="\/dashboard\/creator"/.test(rail),
+    'the Your Story rail row is back (owner retired it 2026-08-21).',
+  );
+
+  const palette = read('app/_components/frontdoor/command-data.ts');
+  assert.ok(
+    !/'\/dashboard\/year'/.test(palette) && !/'\/dashboard\/creator'/.test(palette),
+    'a ⌘K row for a retired menu is back. Both were removed with their rails; ' +
+      'the year one now points at a redirect, which is a door that lies about ' +
+      'where it goes.',
   );
 });

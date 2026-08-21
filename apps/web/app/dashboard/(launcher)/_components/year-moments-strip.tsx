@@ -128,13 +128,18 @@ export async function YearMomentsStrip({
     return e ? (Array.isArray(e) ? e : [e]) : [];
   });
 
-  // Personal anchor moments only — holidays stay in the full Year view. The own
+  // 🔑 HOLIDAYS ARE IN NOW (owner 2026-08-21). They were excluded because the
+  // full /dashboard/year view existed to carry them — and the owner has since
+  // retired that page into this shelf (*"we already have the your year inside
+  // my events"*). Excluding them would have made the retirement a QUIET LOSS:
+  // Christmas and Valentine's are exactly the dates the shelf exists to warn
+  // about, because they are the ones that book out early. The own
   // birthday is folded in HERE rather than inside buildYearMoments because it
   // comes from the profile, not from an event: it is the one moment an account
   // can offer before it has a single event on it. `mergeSelfMoments` drops it
   // when an event already holds that day, so one date never prints twice.
   const moments = mergeSelfMoments(
-    buildYearMoments(events, today, { includeHolidays: false }),
+    buildYearMoments(events, today, { includeHolidays: true }),
     buildSelfMoments((selfRow as SelfForMoments | null) ?? null, today),
   );
 
@@ -238,7 +243,7 @@ function EmptyYear({
       )}
       <p className="mt-1.5 text-xs leading-relaxed text-ink/50">
         {unsure
-          ? 'Your year is still there — open it below, or try again in a moment.'
+          ? 'Your dates are still there — try again in a moment.'
           : 'Your birthday, an anniversary, anything you mark as a yearly thing — it lands here and returns every year.'}
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -247,12 +252,6 @@ function EmptyYear({
           className="text-xs font-semibold text-[color:var(--sn-gold-700)] underline-offset-4 hover:underline"
         >
           Add your birthday
-        </Link>
-        <Link
-          href="/dashboard/year"
-          className="text-xs font-semibold text-ink/55 underline-offset-4 hover:text-ink hover:underline"
-        >
-          See the year →
         </Link>
       </div>
     </Tile>

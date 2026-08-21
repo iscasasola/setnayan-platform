@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ArrowRight, CalendarHeart, Sparkles } from 'lucide-react';
+import { ChevronDown, CalendarHeart, Sparkles } from 'lucide-react';
 
 /**
  * Serializable view of one "Your year" moment — the strings are precomputed on
@@ -66,14 +66,11 @@ export function YearMomentsList({
             />
           </button>
         ) : null}
-        {/* Door to the full Year calendar (holidays + every moment). */}
-        <Link
-          href="/dashboard/year"
-          className="inline-flex items-center gap-1 text-xs font-medium text-gold-deep transition-colors hover:text-ink"
-        >
-          See the year
-          <ArrowRight aria-hidden className="h-3.5 w-3.5" />
-        </Link>
+        {/* The "See the year" door is GONE (owner 2026-08-21). It opened the
+            full Year calendar for the holidays this list used to exclude —
+            those are IN this list now, and /dashboard/year redirects here, so
+            the link would send a person back to the page they are standing on.
+            A door onto the room you are already in is worse than no door. */}
       </div>
     </div>
   );

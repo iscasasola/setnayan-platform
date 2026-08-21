@@ -16,6 +16,7 @@ import {
   DECLARABLE_RELATIONS,
 } from '@/lib/people-connections';
 import { getSpouseContext } from '@/lib/people-spouse-context';
+import { searchPeopleByName, type PersonHit } from '@/lib/people-search';
 import { firstNameOf, normalizeEmail, spouseIsOfferable } from '@/lib/people-add';
 
 /**
@@ -692,4 +693,139 @@ export async function invitePersonToSamahan(input: {
 
   revalidatePath('/dashboard/people');
   return { ok: true, delivered: delivered.ok, samahan: samahanName };
+}
+
+/**
+ * FIND SOMEBODY BY NAME (owner 2026-08-21, *"just like facebook"*).
+ *
+ * A thin, guarded wrapper: the flag, the signed-in caller, and nothing else —
+ * every refusal and every "what a result may carry" rule lives in
+ * `lib/people-search.ts`, which is where a reader will look for them.
+ *
+ * 🔒 It cannot be used to test whether an account exists: an opted-out person,
+ * a name nobody has, and a name only anonymous drafts carry all return `[]`.
+ */
+export async function findPeopleByName(query: string): Promise<PersonHit[]> {
+  if (!peopleConnectionsEnabled()) return [];
+  const user = await getCurrentUser();
+  if (!user) return [];
+  return searchPeopleByName(query, user.id);
+}
+
+/**
+ * ADD SOMEBODY YOU PICKED OUT OF THE SEARCH — the owner's *"pick the person they
+ * want to add"*, and the reason this exists separately from
+ * `addPersonConnection`: there is no email to type, because we already know
+ * exactly which account it is.
+ *
+ * ⚠ THE HANDLE IS A PUBLIC ID, NEVER A user_id. The browser is given
+ * `users.public_id` and hands it straight back; a raw `user_id` in a client
+ * payload is an internal key travelling through an untrusted place for no gain.
+ *
+ * Everything else is the ordinary add: a PENDING claim, unlabelled unless the
+ * caller says otherwise, their tray gets the ask, and their inbox gets the same
+ * invitation. Only they can confirm it.
+ */
+export async function addPersonByPublicId(input: {
+  publicId: string;
+  relation?: ConnectionRelation | null;
+}): Promise<ActionResult> {
+  if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+  const publicId = (input.publicId ?? '').trim();
+  if (!publicId) return { ok: false, error: 'Pick somebody first.' };
+  const relation = input.relation ?? null;
+  if (relation !== null && !DECLARABLE_RELATIONS.includes(relation)) {
+    return { ok: false, error: 'That isn’t a label.' };
+  }
+  if (relation === 'spouse') {
+    const ctx = await getSpouseContext(user.id);
+    if (!spouseIsOfferable(ctx)) {
+      return {
+        ok: false,
+        error:
+          'Set “Married” on your profile — or hold until your wedding day has passed — before adding a spouse.',
+      };
+    }
+  }
+
+  const supabase = await createClient();
+  const fromPerson = await myPersonId(supabase, user.id);
+  if (!fromPerson) return { ok: false, error: 'Your profile isn’t ready yet — try again in a moment.' };
+
+  // Resolve the pick server-side. The discoverability switch is re-checked HERE
+  // and not trusted from the search that produced the row: a public id lives as
+  // long as the account does, and somebody who turned themselves off between the
+  // search and the tap has turned themselves off.
+  const admin = createAdminClient();
+  const { data: target } = await admin
+    .from('users')
+    .select('user_id, display_name, email, discoverable_by_name')
+    .eq('public_id', publicId)
+    .maybeSingle();
+  const them = target as {
+    user_id: string;
+    display_name: string | null;
+    email: string | null;
+    discoverable_by_name: boolean | null;
+  } | null;
+  if (!them || them.discoverable_by_name === false) {
+    return { ok: false, error: 'We couldn’t find that person any more.' };
+  }
+  if (them.user_id === user.id) return { ok: false, error: 'That’s you.' };
+
+  const { data: theirPerson } = await admin
+    .from('people')
+    .select('person_id')
+    .eq('claimed_by_user_id', them.user_id)
+    .is('deleted_at', null)
+    .maybeSingle();
+  const toPerson = (theirPerson as { person_id: string } | null)?.person_id ?? null;
+  if (!toPerson) return { ok: false, error: 'Their profile isn’t ready yet.' };
+
+  const { data: already } = await supabase
+    .from('person_connections')
+    .select('connection_id')
+    .eq('from_person_id', fromPerson)
+    .eq('to_person_id', toPerson)
+    .is('deleted_at', null)
+    .limit(1);
+  if (((already ?? []) as unknown[]).length > 0) {
+    return { ok: false, error: 'They’re already on your list.' };
+  }
+
+  const theirName = (them.display_name ?? '').trim().slice(0, 120) || 'Someone';
+  const { error } = await supabase.from('person_connections').insert({
+    from_person_id: fromPerson,
+    to_person_id: toPerson,
+    relation,
+    layer: relation ? layerForRelation(relation) : null,
+    declared_name: theirName,
+    status: 'pending',
+    created_by_user_id: user.id,
+  });
+  if (error && error.code !== '23505') {
+    return { ok: false, error: 'Couldn’t send the request.' };
+  }
+
+  const me = await supabase
+    .from('people')
+    .select('display_name')
+    .eq('person_id', fromPerson)
+    .maybeSingle();
+  const myFirstName = firstNameOf((me.data as { display_name: string | null } | null)?.display_name);
+
+  await emitNotification({
+    userId: them.user_id,
+    type: 'connection_request',
+    title: `${myFirstName ?? 'Someone'} added you to their people`,
+    body: 'Open your people to see who it is and decide. Nothing connects until you confirm.',
+    relatedUrl: '/dashboard/people',
+  });
+  const email = normalizeEmail(them.email);
+  if (email) await sendPeopleInvitation(email, myFirstName);
+
+  revalidatePath('/dashboard/people');
+  return { ok: true };
 }

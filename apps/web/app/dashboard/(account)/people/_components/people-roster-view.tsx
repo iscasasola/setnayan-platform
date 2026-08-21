@@ -1,15 +1,18 @@
 'use client';
 
-import { Fragment, useMemo, useRef, useState, useTransition } from 'react';
-import { Check, Plus, Send, Users, X } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { Check, Clock, Plus, Send, Users, X } from 'lucide-react';
 import { Popover } from '@/app/dashboard/[eventId]/guests/_components/overlay-primitives';
 import type { ConnectionRelation } from '@/lib/people-connections';
 import { RELATION_LABEL, addConfirmation, normalizeEmail } from '@/lib/people-add';
 import { parsePersonLine } from '@/lib/people-parse';
 import type { PeopleRoster, RosterPerson, RosterState } from '@/lib/people-roster';
+import type { PersonHit } from '@/lib/people-search-query';
 import {
+  addPersonByPublicId,
   addPersonConnection,
   confirmConnection,
+  findPeopleByName,
   declineConnection,
   invitePersonToSamahan,
   resendConnectionInvitation,
@@ -146,6 +149,58 @@ export function PeopleRosterView({
   const draft = useMemo(() => parsePersonLine(line), [line]);
   const canAdd = draft.name.length > 0 && normalizeEmail(draft.email) !== null;
 
+  // ── FIND SOMEBODY BY NAME (owner 2026-08-21, "just like facebook") ───────
+  // The same one line does both: type an address and it invites, type a name
+  // and it looks. No mode switch, because a person typing a name should not
+  // first have to tell the app what kind of thing they are typing.
+  const [hits, setHits] = useState<PersonHit[]>([]);
+  const [looking, setLooking] = useState(false);
+  // Who you have ALREADY asked in this sitting. Facebook's "Requested": the row
+  // stays put and its button changes, so the ask is something you can SEE
+  // happening rather than a row that vanishes and a sentence somewhere else.
+  const [asked, setAsked] = useState<Set<string>>(new Set());
+  const nameQuery = draft.email ? '' : line.trim();
+
+  useEffect(() => {
+    // An address is not a name — while one is being typed, nothing is searched.
+    if (nameQuery.length < 2) {
+      setHits([]);
+      setLooking(false);
+      return;
+    }
+    // Debounced, and every stale answer is dropped: `cancelled` is what stops a
+    // slow response for "Ma" landing on top of the results for "Maria".
+    let cancelled = false;
+    setLooking(true);
+    const t = setTimeout(async () => {
+      const found = await findPeopleByName(nameQuery);
+      if (cancelled) return;
+      setHits(found);
+      setLooking(false);
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [nameQuery]);
+
+  function addPicked(hit: PersonHit) {
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      const res = await addPersonByPublicId({ publicId: hit.publicId });
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      // The result list is deliberately NOT cleared. Tapping Add is half of a
+      // handshake, so the row stays and says so — clearing it would look like
+      // the connection had been made.
+      setAsked((prev) => new Set(prev).add(hit.publicId));
+      setNotice(`Asked ${hit.name}. You're connected when they say yes.`);
+    });
+  }
+
   function run(fn: () => Promise<{ ok: true } | { ok: false; error: string }>) {
     setError(null);
     setNotice(null);
@@ -213,7 +268,7 @@ export function PeopleRosterView({
             }
           }}
           disabled={pending}
-          placeholder="Type a name and their email — e.g. “Maria Cruz maria@email.com” → Enter"
+          placeholder="Type a name to find them — or a name and their email to invite"
           aria-label="Add someone by name and email"
           className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink/40"
         />
@@ -226,6 +281,53 @@ export function PeopleRosterView({
           {pending ? 'Adding…' : 'Add'}
         </button>
       </div>
+
+      {nameQuery.length >= 2 ? (
+        <div className="rounded-tile border border-ink/10 bg-paper">
+          {looking && hits.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-ink/45">Looking…</p>
+          ) : hits.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-ink/55">
+              {/* An opted-out person, a name nobody has, and a name only
+                  half-finished accounts carry all land HERE — the empty result
+                  must never say which of the three happened. */}
+              Nobody by that name. Add their email instead and we’ll invite them.
+            </p>
+          ) : (
+            <ul className="flex list-none flex-col">
+              {hits.map((h) => (
+                <li
+                  key={h.publicId}
+                  className="flex items-center gap-3 border-b border-ink/[0.06] px-4 py-2.5 last:border-b-0"
+                >
+                  <Avatar name={h.name} kind="connection" photoUrl={h.photoUrl} />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-sm font-medium text-ink">{h.name}</span>
+                    {h.hint ? (
+                      <span className="truncate text-[11.5px] text-ink/50">{h.hint}</span>
+                    ) : null}
+                  </span>
+                  {asked.has(h.publicId) ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warn-100 px-2.5 py-1 text-[11px] font-medium text-warn-900">
+                      <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
+                      Asked
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => addPicked(h)}
+                      disabled={pending}
+                      className="button-secondary shrink-0 text-xs disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
 
       <p className="text-xs text-ink/55">
         {/* Said the same way whether or not that address has an account — the
@@ -276,15 +378,15 @@ export function PeopleRosterView({
         </p>
       ) : null}
 
-      {roster.counts.all === 0 ? (
-        <p className="rounded-tile border border-dashed border-ink/15 bg-paper px-4 py-6 text-center text-sm text-ink/55">
-          Nobody here yet. Add the first person above — a name and their email is all it takes.
-        </p>
-      ) : null}
-
-      {/* DESKTOP — the roster table. */}
-      {sections.length > 0 ? (
-        <div className="hidden overflow-hidden rounded-tile border border-ink/10 bg-paper sm:block">
+      {/* DESKTOP — the roster table.
+          IT RENDERS EMPTY (owner 2026-08-21: "we want to see the empty table if
+          they have no people yet"). The columns ARE the explanation: a person
+          who has added nobody can see that a row will carry a label, a samahan
+          and a status, which a single sentence saying "nobody here yet" never
+          told them. The empty row lives INSIDE the table for the same reason —
+          floated above it, the headers would sit over nothing and read as a
+          rendering fault. */}
+      <div className="hidden overflow-hidden rounded-tile border border-ink/10 bg-paper sm:block">
           <table className="w-full table-fixed text-left text-sm">
             <thead className="border-b border-ink/[0.07] font-mono text-[11px] uppercase tracking-[0.12em] text-ink/55">
               <tr>
@@ -344,12 +446,27 @@ export function PeopleRosterView({
                   ))}
                 </Fragment>
               ))}
+              {sections.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-ink/55">
+                    {roster.counts.all === 0
+                      ? 'Nobody here yet. Add the first person above — a name is enough to find them.'
+                      : 'Nobody in this view. Try another chip.'}
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
-        </div>
-      ) : null}
+      </div>
 
       {/* PHONE — the same rows, stacked. People is one of the five thumb targets. */}
+      {sections.length === 0 ? (
+        <p className="rounded-tile border border-dashed border-ink/15 bg-paper px-4 py-8 text-center text-sm text-ink/55 sm:hidden">
+          {roster.counts.all === 0
+            ? 'Nobody here yet. Add the first person above — a name is enough to find them.'
+            : 'Nobody in this view. Try another chip.'}
+        </p>
+      ) : null}
       {sections.length > 0 ? (
         <div className="space-y-4 sm:hidden">
           {sections.map((sec) => (
@@ -398,13 +515,36 @@ export function PeopleRosterView({
   );
 }
 
-function Avatar({ name, kind }: { name: string; kind: 'connection' | 'alaga' }) {
+function Avatar({
+  name,
+  kind,
+  photoUrl,
+}: {
+  name: string;
+  kind: 'connection' | 'alaga';
+  photoUrl?: string | null;
+}) {
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? '')
     .join('');
+  // A stored photo may be an `r2://` reference rather than a URL — those never
+  // render, so only an http(s) value is used and everything else falls back to
+  // initials rather than a broken glyph (the logo_url lesson, 2026-08-08).
+  const src = photoUrl && /^https?:\/\//.test(photoUrl) ? photoUrl : null;
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        aria-hidden
+        className="h-7 w-7 shrink-0 rounded-full object-cover"
+      />
+    );
+  }
   return (
     <span
       aria-hidden

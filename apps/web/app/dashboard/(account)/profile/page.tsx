@@ -33,6 +33,7 @@ import {
   updatePersonalInfo,
   updatePlannerMode,
   updatePublicProfileEnabled,
+  updateDiscoverableByName,
   updateRemindersEnabled,
   updateUserSlug,
 } from './actions';
@@ -102,7 +103,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, created_at',
+      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -154,6 +155,9 @@ export default async function ProfilePage({ searchParams }: Props) {
   // the preview matches production (falls back to the canonical apex).
   const currentSlug = (profile?.slug ?? null) as string | null;
   const publicProfileOn = (profile?.public_profile_enabled ?? false) as boolean;
+  // Findable by name is ON unless they said otherwise (owner 2026-08-21). A row
+  // that predates the column reads NULL, which must mean the default, not off.
+  const findableByName = (profile?.discoverable_by_name ?? true) as boolean;
   const publicHost = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
     .replace(/\/+$/, '')
     .replace(/^https?:\/\//, '');
@@ -874,6 +878,65 @@ export default async function ProfilePage({ searchParams }: Props) {
               );
             })}
           </div>
+          {/* FINDABLE BY NAME — the way out of the people search (owner
+              2026-08-21, "just like facebook"). It sits under the public-profile
+              block because both answer "who can find me", and deliberately NOT
+              inside it: a public profile is a page you publish, this is whether
+              a signed-in person who knows your name can ask to connect. */}
+          <div className="space-y-3 border-t border-ink/10 pt-6">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-ink">Can people find you by name?</h3>
+              <p className="text-sm text-ink/60">
+                When this is on, somebody signed in to Setnayan who types your name can find you
+                and ask to connect. They see your name and photo — never your email, your phone,
+                or your celebrations — and nothing connects until you confirm it. Turn it off and
+                you can only be added by someone who already knows your email address.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {(
+                [
+                  {
+                    key: 'true' as const,
+                    label: 'On',
+                    tagline: 'People who know your name can ask to connect',
+                  },
+                  {
+                    key: 'false' as const,
+                    label: 'Off',
+                    tagline: 'Only somebody with your email address can add you',
+                  },
+                ]
+              ).map((opt) => {
+                const isActive = (opt.key === 'true') === findableByName;
+                return (
+                  <form key={opt.key} action={updateDiscoverableByName}>
+                    <input type="hidden" name="discoverable_by_name" value={opt.key} />
+                    <button
+                      type="submit"
+                      disabled={isActive}
+                      className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
+                        isActive
+                          ? 'border-terracotta bg-terracotta/5'
+                          : 'border-ink/10 bg-cream hover:border-terracotta/50'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-ink">{opt.label}</span>
+                        {isActive ? (
+                          <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+                            Active
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="text-xs text-ink/55">{opt.tagline}</span>
+                    </button>
+                  </form>
+                );
+              })}
+            </div>
+          </div>
+
           {publicProfileOn && currentSlug ? (
             <div className="flex flex-wrap items-center gap-3">
               <Link

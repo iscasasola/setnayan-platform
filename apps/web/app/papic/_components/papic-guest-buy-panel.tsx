@@ -3,6 +3,7 @@ import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
 import { fetchPapicOneTiers } from '@/lib/papic-one';
 import { papicOneRungPhrase, papicPoolRungPhrase } from '@/lib/papic-tier-copy';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
+import { eventIsOver } from '@/lib/event-is-over.server';
 import { guestOneRungs, guestPoolRungs, type PapicGuestOffer } from '@/lib/papic-guest-buy';
 import { isSameDayInManila, buyWaitCopy } from '@/lib/papic-buy-urgency';
 import { PapicBuyShell } from './papic-buy-shell';
@@ -57,11 +58,27 @@ export async function PapicGuestBuyPanel({
   if (!papicGuestBuyEnabled()) return null;
 
   const admin = createAdminClient();
-  const [poolTiers, oneTiers, eventDate] = await Promise.all([
+  const [poolTiers, oneTiers, eventDate, isOver] = await Promise.all([
     fetchPapicPassTiers(admin),
     fetchPapicOneTiers(admin),
     fetchEventDate(admin, eventId),
+    /*
+      ── THE CELEBRATION IS OVER: STOP OFFERING ────────────────────────────
+      Owner, 2026-08-21: **"no. it needs to be in a new event."** Papic credits
+      are scoped to ONE celebration, and there is nothing left to shoot.
+
+      🔑 THE DOORWAY, NOT THE RULE. The rule is enforced in the buy action —
+      every export of a 'use server' module is POST-able whether or not any UI
+      references it, so hiding this panel closes the button and not the door.
+      This is here so a guest is not offered something they would then be
+      refused.
+
+      Rides in the SAME parallel batch as the three reads already here, so it
+      costs no extra round trip on the surfaces that do show the panel.
+    */
+    eventId ? eventIsOver(admin, eventId) : Promise.resolve(false),
   ]);
+  if (isOver) return null;
   // Same-day → the guest is promised the front of the queue, and /admin/payments
   // puts them there off the SAME function. Missing date → the ordinary 24-hour
   // line, because over-promising a wait we might not beat is the worse failure.

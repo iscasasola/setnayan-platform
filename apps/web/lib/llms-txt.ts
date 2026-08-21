@@ -261,6 +261,7 @@ export const LINKED_ROUTES = [
   '/palogo',
   '/pawebsite',
   '/patiktok',
+  '/pakanta',
   '/monogram',
   '/alaala',
   '/how-it-works',
@@ -325,7 +326,7 @@ What is LIVE today: a household's own event(s); the wedding automatically becomi
 - [Why Setnayan](${url('/why-setnayan')}) — Setnayan versus a spreadsheet, a coordinator, and international platforms.
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
 - [Features](${url('/features')}) — Planning tools and in-app services.
-- Service landing pages: [Papic](${url('/papic')}) · [Live Studio](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Animated Monogram](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Patiktok](${url('/patiktok')}) · [Alaala](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
+- Service landing pages: [Papic](${url('/papic')}) · [Live Studio](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Animated Monogram](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Patiktok](${url('/patiktok')}) · [Pakanta](${url('/pakanta')}) · [Alaala](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
 - [How It Works](${url('/how-it-works')}) · [About](${url('/about')}) · [Stories](${url('/weddings')}) · [Help](${url('/help')}) · [Articles](${url('/blog')}) · [Download](${url('/download')}).
 - [Sign in](${url('/login')}) · [Create account](${url('/signup')}) · [Privacy](${url('/privacy')}) · [Terms](${url('/terms')}) — RA 10173 compliant. NPC registration in progress.
 

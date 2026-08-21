@@ -96,6 +96,8 @@ test('the create row reuses the signed-out destination, inventing no second rout
 test('every doorway that sells an addable service passes its key', () => {
   const expected = [
     'papic', 'panood', 'pawebsite', 'pa3d', 'palogo', 'setnayan-ai', 'patiktok',
+    // The song — public page added 2026-08-21 so it could join the Studio rail.
+    'pakanta',
   ].sort();
   const found: string[] = [];
   for (const dir of readdirSync(SHELL, { withFileTypes: true })) {

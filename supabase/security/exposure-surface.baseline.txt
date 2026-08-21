@@ -5217,9 +5217,9 @@ policy	public.budget_builds|couple_updates_budget_builds	mode=PERMISSIVE cmd=UPD
 policy	public.budget_leaf_benchmarks|budget_leaf_benchmarks_admin_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=is_admin() check=is_admin()
 policy	public.budget_leaf_benchmarks|budget_leaf_benchmarks_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
 policy	public.bundle_components|bundle_components_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
-policy	public.calendar_feed_tokens|calendar_feed_tokens_insert_own	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=((user_id = auth.uid()) AND (revoked_at IS NULL))
-policy	public.calendar_feed_tokens|calendar_feed_tokens_revoke_own	mode=PERMISSIVE cmd=UPDATE roles=PUBLIC using=(user_id = auth.uid()) check=((user_id = auth.uid()) AND (revoked_at IS NOT NULL))
-policy	public.calendar_feed_tokens|calendar_feed_tokens_select_own	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(user_id = auth.uid()) check=NULL
+policy	public.calendar_feed_tokens|calendar_feed_tokens_insert_own	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((user_id = auth.uid()) AND (revoked_at IS NULL))
+policy	public.calendar_feed_tokens|calendar_feed_tokens_revoke_own	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(user_id = auth.uid()) check=((user_id = auth.uid()) AND (revoked_at IS NOT NULL))
+policy	public.calendar_feed_tokens|calendar_feed_tokens_select_own	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = auth.uid()) check=NULL
 policy	public.canonical_service_schemas|canonical_service_schemas_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.canonical_service_schemas|canonical_service_schemas_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.canonical_service_taxonomy|canonical_service_taxonomy_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()

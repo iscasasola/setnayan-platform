@@ -59,6 +59,16 @@ ALTER TABLE public.calendar_feed_tokens ENABLE ROW LEVEL SECURITY;
 
 -- Pattern: owner-scoped on `user_id = auth.uid()`.
 --
+-- ⚠ ALL THREE ARE `TO authenticated`, AND THAT IS NOT DECORATION. A policy with
+-- no `TO` clause is written for PUBLIC, which INCLUDES `anon` — so combined with
+-- the REVOKE below it would leave three rules written for anonymous visitors
+-- that no anonymous visitor can ever reach: they survive in the catalog and can
+-- never fire. `anon-table-grants-closed.db.test.ts` calls that an ORPHANED
+-- POLICY and refuses it, correctly — the next person reading the catalog would
+-- see a rule for `anon` and reasonably conclude anonymous access is intended.
+-- Naming the role costs nothing here (an anonymous caller has no `auth.uid()`,
+-- so every one of these already refused it) and makes the intent readable.
+--
 -- ⚠ SPLIT BY VERB ON PURPOSE, NEVER `FOR ALL`. A permissive `FOR ALL` policy
 -- admits INSERT and DELETE as well as UPDATE, and the 2026-08-12 sweep found
 -- eight live defects of exactly that shape. What must never happen here is a
@@ -67,16 +77,19 @@ ALTER TABLE public.calendar_feed_tokens ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS calendar_feed_tokens_select_own ON public.calendar_feed_tokens;
 CREATE POLICY calendar_feed_tokens_select_own
   ON public.calendar_feed_tokens FOR SELECT
+  TO authenticated
   USING (user_id = auth.uid());
 
 DROP POLICY IF EXISTS calendar_feed_tokens_insert_own ON public.calendar_feed_tokens;
 CREATE POLICY calendar_feed_tokens_insert_own
   ON public.calendar_feed_tokens FOR INSERT
+  TO authenticated
   WITH CHECK (user_id = auth.uid() AND revoked_at IS NULL);
 
 DROP POLICY IF EXISTS calendar_feed_tokens_revoke_own ON public.calendar_feed_tokens;
 CREATE POLICY calendar_feed_tokens_revoke_own
   ON public.calendar_feed_tokens FOR UPDATE
+  TO authenticated
   USING (user_id = auth.uid())
   -- A row this person writes may only ever come out REVOKED. Un-revoking is how
   -- a leaked link comes back to life, so the database refuses it rather than

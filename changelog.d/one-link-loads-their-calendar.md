@@ -99,3 +99,17 @@ Also regenerated in the same PR: `user-fk-behaviour.generated.txt`, one line —
 `calendar_feed_tokens.user_id CASCADE NOT NULL` — which agrees with the erasure
 decision above (CASCADE + NOT NULL means the row is ABOUT them, so it is deleted
 rather than detached).
+
+### …and the revoke then orphaned its own policies
+
+The `anon` revoke above created the next failure, which is the correct sequel to
+it: a policy with no `TO` clause is written for **PUBLIC, which includes `anon`**
+— so revoking anon's grant left three rules written for anonymous visitors that
+no anonymous visitor can ever reach. They survive in the catalog and can never
+fire, and the next person reading them would reasonably conclude anonymous
+access was intended.
+
+All three are now `TO authenticated`. It costs nothing — an anonymous caller has
+no `auth.uid()`, so every one of them already refused it — and it makes the
+intent readable instead of inferred. **M21** (drop the `TO` clauses, 3 → 0) →
+`anon-table-grants-closed.db.test.ts` **RED**.

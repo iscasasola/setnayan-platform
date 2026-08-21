@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Clock, Users, HeartHandshake, UserPlus } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
@@ -86,11 +87,29 @@ export default async function PeoplePage({
           {errorMsg}
         </p>
       ) : null}
-      {/* The alaga form is a BUTTON now (owner 2026-08-21) — it opened as an
-          eight-field form on a page whose job is to show you your people. */}
-      {showDependents ? (
-        <div className="mb-4 flex justify-end">
-          <AddAlagaButton />
+      {/* THE PAGE'S OWN ACTIONS, TOGETHER (owner 2026-08-22, comparing the live
+          page against the approved mock: "where the buttons live"). One row, at
+          the top, in the order the mock draws them — the two doors this page
+          owns that are not "add a person".
+
+          ⚠ THE MOCK'S THIRD BUTTON, "Import contacts", IS DELIBERATELY ABSENT.
+          It cannot be built honestly under the rule the owner locked the day
+          before: a person must hold an account to be listed. A pasted address
+          book is mostly people who do not, so the feature reduces to either
+          telling you which of your contacts have Setnayan accounts — an
+          enumeration oracle over a list you supply, exactly what the name search
+          was built NOT to be — or bulk-emailing strangers who never asked. A
+          button that opens neither is a fake door, and this codebase has already
+          removed one product for being sold and undeliverable.
+
+          `New samahan` goes to the page that already exists; nothing here is a
+          new destination. */}
+      {showConnections || showDependents ? (
+        <div className="mb-4 flex flex-wrap justify-end gap-2">
+          {showDependents ? <AddAlagaButton /> : null}
+          <Link href="/dashboard/samahan/new" className="button-secondary text-sm">
+            New samahan
+          </Link>
         </div>
       ) : null}
       {showConnections && roster ? (

@@ -42,6 +42,7 @@ import {
 import {
   EDITORIAL_ORDERABLE_KEYS,
   resolveSectionOrder,
+  shippedSections,
 } from '@/app/[slug]/_components/editorial/editorial-order';
 
 // ── 1 · Which moment the bar thinks it is ───────────────────────────────────
@@ -117,7 +118,7 @@ const NOTHING: EditorialPhotoInput = {
 };
 
 const anchorFor = (input: EditorialPhotoInput, saved?: string[] | null) =>
-  editorialGalleryAnchorKey(editorialPhotoBlocks(input), resolveSectionOrder(saved));
+  editorialGalleryAnchorKey(editorialPhotoBlocks(input), shippedSections(resolveSectionOrder(saved)));
 
 test('a recap with prose and no pictures offers no gallery landing', () => {
   assert.equal(anchorFor(NOTHING), null);
@@ -202,7 +203,7 @@ test('a drawn Gallery tab always has somewhere to land, over every combination',
                   };
                   const blocks = editorialPhotoBlocks(input);
                   const tabDrawn = editorialShowsPhotos(blocks);
-                  const landing = editorialGalleryAnchorKey(blocks, resolveSectionOrder(saved));
+                  const landing = editorialGalleryAnchorKey(blocks, shippedSections(resolveSectionOrder(saved)));
                   assert.equal(
                     tabDrawn,
                     landing !== null,

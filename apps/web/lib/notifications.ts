@@ -275,7 +275,18 @@ export type NotificationType =
   // creator's chapter Book CTA. In-app only — not on the email allowlist, so no
   // email fires regardless of consent; the tray row is the whole delivery.
   // Recipient = the chapter's creator; body names the chapter, never the couple.
-  | 'chapter_drove_inquiry';
+  | 'chapter_drove_inquiry'
+  // People · connections (2026-08-21). Somebody put you on their people list and
+  // is asking you to confirm what you are to each other. The tray is where they
+  // MEET it: the launcher counts only CONFIRMED connections, so before this a
+  // request existed only on /dashboard/people, and only if you happened to open
+  // it. Deliberately NOT on the email allowlist — `addPersonConnection` sends
+  // its own tailored invitation, and the generic template would arrive as a
+  // second email about the same thing.
+  | 'connection_request'
+  // The answer, back to the person who asked. Without it the declarer learns
+  // nothing: their row silently changes state the next time they load the page.
+  | 'connection_confirmed';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -359,6 +370,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   ai_guard_alert: 'Setnayan AI flagged something',
   // A meeting the other party confirmed (2026-07-11).
   appointment_reminder: 'Appointment confirmed',
+  connection_request: 'Someone added you',
+  connection_confirmed: 'Connection confirmed',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -501,6 +514,12 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // The creator's payoff signal ("inquiries driven" ticked up) — same warm
   // collab register as the offer pair.
   chapter_drove_inquiry: 'bg-amber-100 text-amber-900',
+  // People · connections. The ask needs an ANSWER from the reader, so it takes
+  // the same terracotta "you're being asked" register as rsvp_received rather
+  // than an informational blue. The confirmation is a settled good thing, so it
+  // takes the emerald the other mutual-yes signals use.
+  connection_request: 'bg-terracotta/15 text-terracotta-700',
+  connection_confirmed: 'bg-success-100 text-success-800',
 };
 
 export type NotificationRow = {

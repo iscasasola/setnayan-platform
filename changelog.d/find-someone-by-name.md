@@ -69,3 +69,24 @@ SPEC IMPACT: `DECISION_LOG.md` — people are findable by name by default, the
 2026-07-05 "never a browsable directory" clause is superseded by owner ruling,
 and the opt-out that comes with it. The `/privacy` connection-tree section will
 need a line about being findable once the owner confirms the wording.
+
+### Adding is a handshake — made visible, and pinned
+
+Owner, same day: *"it needs to be a handshake for them to become friends like
+facebook."* It already was — every add path writes a **pending** claim, only the
+person it is about can answer it, and the database refuses a declarer who tries
+to confirm their own. What was missing is that you could not **see** it happen:
+the search results vanished and a sentence appeared elsewhere.
+
+Now the row stays and its button becomes **Asked**, the way Facebook's turns to
+*Requested*, and the message says *"Asked X. You're connected when they say yes."*
+Clearing the list would have looked like the connection had been made.
+
+🔒 **And the rule is now guarded above the database, not only inside it.** The
+transition trigger only inspects UPDATEs — an INSERT that arrives already
+`confirmed` was never a transition, so it walks straight past the guard everyone
+assumes covers this. `adding-is-a-handshake.test.ts` reads every
+`person_connections` insert in the People actions and fails if any of them
+carries anything but `pending`, with a vacuity check so an empty parse cannot
+pass for the wrong reason. Mutation-measured: flipping one add path to
+`'confirmed'` (3 → 2 pending inserts) turns **2 tests red**.

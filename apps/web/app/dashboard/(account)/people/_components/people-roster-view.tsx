@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { Check, Plus, Send, Users, X } from 'lucide-react';
+import { Check, Clock, Plus, Send, Users, X } from 'lucide-react';
 import { Popover } from '@/app/dashboard/[eventId]/guests/_components/overlay-primitives';
 import type { ConnectionRelation } from '@/lib/people-connections';
 import { RELATION_LABEL, addConfirmation, normalizeEmail } from '@/lib/people-add';
@@ -155,6 +155,10 @@ export function PeopleRosterView({
   // first have to tell the app what kind of thing they are typing.
   const [hits, setHits] = useState<PersonHit[]>([]);
   const [looking, setLooking] = useState(false);
+  // Who you have ALREADY asked in this sitting. Facebook's "Requested": the row
+  // stays put and its button changes, so the ask is something you can SEE
+  // happening rather than a row that vanishes and a sentence somewhere else.
+  const [asked, setAsked] = useState<Set<string>>(new Set());
   const nameQuery = draft.email ? '' : line.trim();
 
   useEffect(() => {
@@ -189,10 +193,11 @@ export function PeopleRosterView({
         setError(res.error);
         return;
       }
-      setNotice(`Sent to ${hit.name}. They confirm before it connects.`);
-      setLine('');
-      setHits([]);
-      inputRef.current?.focus();
+      // The result list is deliberately NOT cleared. Tapping Add is half of a
+      // handshake, so the row stays and says so — clearing it would look like
+      // the connection had been made.
+      setAsked((prev) => new Set(prev).add(hit.publicId));
+      setNotice(`Asked ${hit.name}. You're connected when they say yes.`);
     });
   }
 
@@ -302,14 +307,21 @@ export function PeopleRosterView({
                       <span className="truncate text-[11.5px] text-ink/50">{h.hint}</span>
                     ) : null}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => addPicked(h)}
-                    disabled={pending}
-                    className="button-secondary shrink-0 text-xs disabled:opacity-50"
-                  >
-                    Add
-                  </button>
+                  {asked.has(h.publicId) ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warn-100 px-2.5 py-1 text-[11px] font-medium text-warn-900">
+                      <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
+                      Asked
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => addPicked(h)}
+                      disabled={pending}
+                      className="button-secondary shrink-0 text-xs disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

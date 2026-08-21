@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { eventIsOver } from '@/lib/event-is-over.server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
 import { reviewVendorChallenge } from '@/lib/papic-games';
@@ -734,46 +734,23 @@ function rungCount(formData: FormData, field: string): number {
   ─── THE CELEBRATION IS OVER: PAPIC STOPS SELLING ──────────────────────────
 
   Owner, 2026-08-21, on Live Studio / Papic cameras / Custom QR once the event
-  has finished: **"stop offering them."**
+  has finished: **"stop offering them."** And, asked the same about a GUEST
+  buying shots: **"no. it needs to be in a new event."**
 
   🔑 THESE FOUR ACTIONS MINT ORDERS WITHOUT EVER TOUCHING `submitOrderAction`,
-  so the refusal added to the shared checkout does not reach them. A gate there
-  alone would be a button-not-a-door fix.
+  so the refusal in the shared checkout does not reach them. A gate there alone
+  would be a button-not-a-door fix.
+
+  🔑 ONE HELPER, NOT A SECOND COPY. `lib/event-is-over.server.ts` is the shared
+  I/O half — the same one the account-less guest buy path calls. This file used
+  to carry its own four-column read and its own five-argument call; two copies
+  of "did this happen" is how the product comes to disagree with itself.
 
   ⚠ IT ASKS THE LIFECYCLE RESOLVER, NOT THE CAPTURE WINDOW. `fetchEventPapicWindow`
   FAILS OPEN by design when a couple never set bounds — most events — so a gate
-  built on it would simply not exist for them. `getMenuLifecyclePhase` is the one
-  answer to "has this happened", shared with the Overview, the rail, the guest
-  list and the public page.
-
-  ⚠ AND IT IS NOT A PRICE INPUT. The window's day multiplier still feeds the
-  quote; this only decides whether there is a sale at all.
-
-  Fail-soft: an event row we cannot read does NOT block a purchase. The card is
-  already closed in the UI, so reaching this at all means something unusual, and
-  refusing a paying customer over a transient read is the worse error.
+  built on it would simply not exist for them. And the window's day multiplier
+  is a PRICE input, not a gate.
 */
-async function papicSaleIsClosed(
-  admin: ReturnType<typeof createAdminClient>,
-  eventId: string,
-): Promise<boolean> {
-  const { data } = await admin
-    .from('events')
-    .select('event_date, event_end_date, cleared_at, timezone')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (!data) return false;
-  return (
-    getMenuLifecyclePhase(
-      (data as { event_date?: string | null }).event_date ?? null,
-      (data as { cleared_at?: string | null }).cleared_at ?? null,
-      (data as { timezone?: string | null }).timezone ?? undefined,
-      undefined,
-      (data as { event_end_date?: string | null }).event_end_date ?? null,
-    ) === 'after'
-  );
-}
-
 export async function purchasePapicCameras(formData: FormData) {
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
@@ -800,8 +777,9 @@ export async function purchasePapicCameras(formData: FormData) {
 
   const admin = createAdminClient();
 
-  // The celebration is over — no sale. See `papicSaleIsClosed` above.
-  if (await papicSaleIsClosed(admin, eventId)) {
+  // The celebration is over — no sale. See the note above this file's
+  // purchase actions, and lib/event-is-over.server.ts.
+  if (await eventIsOver(admin, eventId)) {
     redirect(`/dashboard/${eventId}/studio/papic?papic_error=event_over`);
   }
 
@@ -946,8 +924,9 @@ export async function activatePapicLimited(formData: FormData) {
 
   const admin = createAdminClient();
 
-  // The celebration is over — no sale. See `papicSaleIsClosed` above.
-  if (await papicSaleIsClosed(admin, eventId)) {
+  // The celebration is over — no sale. See the note above this file's
+  // purchase actions, and lib/event-is-over.server.ts.
+  if (await eventIsOver(admin, eventId)) {
     redirect(`/dashboard/${eventId}/studio/papic?limited_error=event_over`);
   }
 
@@ -1138,8 +1117,9 @@ export async function purchasePapicExtras(formData: FormData) {
 
   const admin = createAdminClient();
 
-  // The celebration is over — no sale. See `papicSaleIsClosed` above.
-  if (await papicSaleIsClosed(admin, eventId)) {
+  // The celebration is over — no sale. See the note above this file's
+  // purchase actions, and lib/event-is-over.server.ts.
+  if (await eventIsOver(admin, eventId)) {
     redirect(`/dashboard/${eventId}/studio/papic?papic_error=event_over`);
   }
   const { data: ev } = await admin
@@ -1374,8 +1354,9 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
 
   const admin = createAdminClient();
 
-  // The celebration is over — no sale. See `papicSaleIsClosed` above.
-  if (await papicSaleIsClosed(admin, eventId)) {
+  // The celebration is over — no sale. See the note above this file's
+  // purchase actions, and lib/event-is-over.server.ts.
+  if (await eventIsOver(admin, eventId)) {
     redirect(`/dashboard/${eventId}/studio/papic?papic_pool_error=event_over`);
   }
 

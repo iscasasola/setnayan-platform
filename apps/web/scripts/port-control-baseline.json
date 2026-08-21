@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8606a6f87",
-  "routeCount": 402,
+  "generatedFromRef": "18fd0e466",
+  "routeCount": 403,
   "destinations": 864,
-  "actions": 580,
-  "blocks": 3835,
+  "actions": 581,
+  "blocks": 3846,
   "routes": {
     "/": {
       "files": [
@@ -590,6 +590,7 @@
         "[slug]/_components/your-seat-block.tsx",
         "[slug]/_lib/event-noun.ts",
         "[slug]/_lib/event-words.ts",
+        "[slug]/_lib/guest-details-changed.ts",
         "[slug]/_lib/host-scope.ts",
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/measures.ts",
@@ -4139,6 +4140,7 @@
         "MarketplaceContact",
         "MarketplaceReviewsData",
         "MarketplaceVendorSuggestion",
+        "Metadata",
         "MethodCard",
         "MethodIcon",
         "ModalMode",
@@ -6984,7 +6986,6 @@
         "ProChip",
         "ProUpsellLine",
         "ShareButtons",
-        "WebsiteProLock",
         "WishRow"
       ]
     },
@@ -8038,6 +8039,30 @@
         "PapicSinkDeps",
         "PapicStyle",
         "Shot"
+      ]
+    },
+    "/pay/[reference]": {
+      "files": [
+        "pay/[reference]/_components/pay-panel.tsx",
+        "pay/[reference]/actions.ts",
+        "pay/[reference]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "submitPaymentProof"
+      ],
+      "blocks": [
+        "Channel",
+        "ChannelTab",
+        "CopyButton",
+        "FileUpload",
+        "PayPanel",
+        "ProofForm",
+        "QrTile",
+        "Step",
+        "StepHead",
+        "StickyBar",
+        "SubmitButton"
       ]
     },
     "/proposals/[publicId]": {

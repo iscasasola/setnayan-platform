@@ -28,7 +28,17 @@ export async function generateMetadata({ params }: Props) {
       .select('event_type')
       .eq('event_id', eventId)
       .maybeSingle();
-    return { title: checklistChrome((data?.event_type as string | null) ?? null).pageTitle };
+    /*
+      ⚠ THE TAB READ "Date checklist · Setnayan · Setnayan".
+
+      `pageTitle` bakes the brand in ("Wedding checklist · Setnayan") and the
+      root layout's title template appends it again ('%s · Setnayan'). Stripped
+      at this call site rather than in the label table, because the table's
+      strings are pinned by tests as complete titles — and this is the only
+      place any of them is ever consumed.
+    */
+    const chromeTitle = checklistChrome((data?.event_type as string | null) ?? null).pageTitle;
+    return { title: chromeTitle.replace(/\s*·\s*Setnayan\s*$/, '') };
   } catch {
     return { title: 'Checklist' };
   }

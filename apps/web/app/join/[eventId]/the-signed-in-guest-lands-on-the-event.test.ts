@@ -123,55 +123,64 @@ test('the "you weren’t on the list" sentence survives', () => {
   assert.match(ACTIONS, /unlisted=1/, 'the unlisted ending stopped reaching its own notice');
 });
 
-// ── THE EMAIL THEY TYPED AT THE DOOR ────────────────────────────────────────
+// ── ONE WRITER FOR THE GUEST'S EMAIL ────────────────────────────────────────
 //
-// The shared invite door asks for "Email (optional)". It used that address to
-// send a sign-in link and NEVER WROTE IT DOWN — so the host, whose own guest
-// page carries an Email box, never received it, and the reply card asked the
-// same person for the same address again thirty seconds later.
-// Owner, 2026-08-21: stop asking for what the app already knows.
+// 🔴 THIS GUARD EXISTS BECAUSE I ADDED A SECOND WRITER AND SHIPPED IT.
+//
+// The invite door asks for "Email (optional)". I followed that value as far as
+// the CALL to sendEventAccountMagicLink, saw the word "magic link", concluded
+// the address was used for mail and thrown away, and wrote a second copy into
+// the insert — with tests locking the duplicate in place.
+//
+// Opening the callee would have taken ten seconds. `lib/event-account-link.ts`
+// step 1 stamps the address onto the guest row BEFORE it generates any mail,
+// with the identical fill-a-blank rule, and all three join endings call it.
+// The feature already worked. **I read the call site and never opened the
+// callee** — the exact failure this repo writes down as "a sentence is not a
+// mechanism; grep the WRITER".
+//
+// It was not harmless. A second writer means two places to keep in step, and
+// mine wrote at INSERT time while the real one writes on UPDATE — and prod
+// carries a trigger firing `BEFORE INSERT OR UPDATE OF email` that binds the
+// guest to a person identity, so the duplicate quietly moved WHEN that binding
+// happens. A redundant write is not a no-op when something is listening.
 
-/** The accountless door only. `entry_source: 'self_added_unlisted'` appears
- *  TWICE — the signed-in path writes it too, and that one deliberately stores no
- *  email. Anchoring on the first hit guards the wrong function. */
-function selfJoinBody(): string {
-  const at = ACTIONS.indexOf('export async function selfJoinAction');
-  assert.ok(at > -1, 'selfJoinAction was renamed — re-point these guards');
-  return ACTIONS.slice(at);
-}
-
-test('a self-joined guest keeps the email they just typed', () => {
-  const body = selfJoinBody();
-  const at = body.indexOf("entry_source: 'self_added_unlisted'");
-  assert.ok(at > -1, 'the self-join insert moved — re-point this guard');
-  const insert = body.slice(at, body.indexOf('.select(', at));
-  assert.match(insert, /email: email \|\| null/, 'the email is asked for and thrown away again');
-});
-
-test('🔒 a matched seat FILLS A BLANK and never overwrites', () => {
-  // That row was written by the HOST, and the token reaching this branch is
-  // printed on a poster. An address the host already has must not be replaceable
-  // by whoever scanned it.
-  // 🪤 Anchor on the CALL, not on the string — the first occurrence of
-  // `self_join_bound_seed` is inside recordJoinScan's own type signature.
-  const body = selfJoinBody();
-  const at = body.indexOf("recordJoinScan(admin, eventId, match.candidate.guestId");
-  assert.ok(at > -1, 'the bound-seed branch moved');
-  const branch = body.slice(at, at + 700);
-  assert.match(branch, /!match\.candidate\.email/, 'the write is no longer conditional on the seat being blank');
-  assert.match(
-    branch,
-    /\.is\('email', null\)/,
-    'the database-side no-op filter is gone — the app check is now the only guard, and app checks get forgotten',
+test('🔴 exactly ONE place writes a guest email from the join door', () => {
+  const writes = (ACTIONS.match(/\.update\(\{\s*email/g) ?? []).length;
+  assert.equal(
+    writes,
+    0,
+    'the join door writes the guest email directly again — sendEventAccountMagicLink already does it, with the same fill-a-blank rule',
   );
-  // Vacuity: the slice must actually contain the update.
-  assert.match(branch, /\.update\(\{ email \}\)/, 'the slice does not contain the write this guard is about');
+  const inserts = ACTIONS.slice(ACTIONS.indexOf('export async function selfJoinAction'));
+  const at = inserts.indexOf("entry_source: 'self_added_unlisted'");
+  assert.ok(at > -1, 'the self-join insert moved — re-point this guard');
+  const insert = inserts.slice(at, inserts.indexOf('.select(', at));
+  assert.doesNotMatch(
+    insert,
+    /(^|[^_a-zA-Z])email\s*:/,
+    'the self-join insert carries an email again — that is the SECOND writer, and it fires the person-binding trigger at a different moment than the real one',
+  );
 });
 
-test('the signed-in path deliberately has no email of its own to store', () => {
-  // A signed-in joiner's address is already on their account, and the reply card
-  // prefills from it. Adding a second copy here would be two sources for one fact.
-  const at = ACTIONS.indexOf('async function admitAsUnlisted');
-  const sig = ACTIONS.slice(at, ACTIONS.indexOf(') {', at));
-  assert.doesNotMatch(sig, /email/, 'admitAsUnlisted grew an email argument — say which source wins before adding one');
+test('…and the one that does it is reached from every ending that asks for an email', () => {
+  // Three endings ask: the returning device, the matched seat, and the new row.
+  // If one stopped calling it, that guest's address would be the one the host
+  // never gets — and nothing else would notice.
+  assert.equal(
+    (ACTIONS.match(/sendEventAccountMagicLink\(/g) ?? []).length,
+    3,
+    'an ending stopped sending the address to the one writer',
+  );
+  const lib = readFileSync(
+    join(__dirname, '..', '..', '..', 'lib', 'event-account-link.ts'),
+    'utf8',
+  );
+  const step = lib.slice(lib.indexOf('async function sendEventAccountMagicLink'));
+  assert.match(step, /\.update\(\{ email/, 'the one writer stopped writing');
+  assert.match(
+    step,
+    /\.is\('email', null\)/,
+    "the fill-a-blank rule is gone — a stranger scanning a poster could overwrite an address the host recorded",
+  );
 });

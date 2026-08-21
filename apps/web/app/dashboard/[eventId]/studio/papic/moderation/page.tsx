@@ -11,9 +11,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventPapicGuestActive } from '@/lib/papic-guest';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { eventKwentoEnabled } from '@/lib/kwento-access';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { KwentoQueue } from './_components/kwento-queue';
 import {
   reportCapture,
@@ -83,25 +81,20 @@ export default async function PapicModerationPage({
 
   const owns = await eventPapicGuestActive(admin, eventId);
 
-  // Kwento is paid-to-unlock (owner 2026-06-26) — NEW EVENTS ONLY (grandfathered
-  // events stay free; newer events need KWENTO directly or via a bundle). The
-  // words-on-a-photo queue is gated on Kwento being enabled; photo moderation
-  // above stays free. Price + pay rails for the inline buy when not enabled.
-  // Kwento is a Papic ADD-ON, so it also requires Papic active (owner 2026-06-26):
-  // both the use (queue) and the buy gate on (Kwento enabled) AND (Papic active).
-  // papicActive counts bundle owners, so a Complete/Unlock-all buyer is never
-  // blocked.
-  const [ownsKwento, papicActive, kwentoSku, platformSettings] = await Promise.all([
+  // Kwento is FREE for every event (owner 2026-08-21: "kwento is free").
+  // `eventKwentoEnabled` still runs — it routes through `eventSkuActive`, which
+  // short-circuits on FREE_FOR_ALL_SKUS, so it now answers true for everyone and
+  // the grandfathering branch inside it is moot rather than wrong.
+  // Kwento remains a Papic ADD-ON (owner 2026-06-26): it writes words onto Papic
+  // photos, so Papic must be set up first. That prerequisite is unchanged and is
+  // the only reason the queue is ever withheld now.
+  // 🪤 `formatV2Sku('KWENTO')` and `fetchPlatformSettings` are GONE from this
+  // batch, not left unused: the row is deactivated, so the lookup returns null
+  // and its `?? 500` fallback would have quoted a price for a free feature.
+  const [ownsKwento, papicActive] = await Promise.all([
     eventKwentoEnabled(admin, eventId),
     eventPapicActive(admin, eventId),
-    formatV2Sku('KWENTO').catch(() => null),
-    fetchPlatformSettings(supabase),
   ]);
-  const kwentoPricePhp = kwentoSku?.price_php ?? 500;
-  const kwentoPriceLabel = `₱${Number(kwentoPricePhp).toLocaleString('en-PH', {
-    maximumFractionDigits: 0,
-  })}`;
-
   // Captures (newest first), the blocked-guest list, any open reports, and the
   // NSFW-screened (auto-filtered) captures from BOTH capture tables — one
   // parallel batch.
@@ -596,52 +589,44 @@ export default async function PapicModerationPage({
       {ownsKwento && papicActive ? (
         <KwentoQueue eventId={eventId} />
       ) : (
+        /*
+          ⚠ THIS IS NO LONGER A PAYWALL — owner 2026-08-21: **"kwento is free."**
+
+          `ownsKwento` is true for every event now (KWENTO joined
+          FREE_FOR_ALL_SKUS, and its catalog row is deactivated by migration
+          20271156242842 so nothing quotes a price). The ONLY way to land here
+          is the remaining prerequisite: Kwento writes words onto Papic photos,
+          so Papic has to be set up first.
+
+          🪤 THE BUY DRAWER THAT USED TO LIVE HERE IS DELETED, NOT HIDDEN. It
+          priced itself `kwentoSku?.price_php ?? 500` — and deactivating the row
+          makes that lookup return null, so a drawer left standing would have
+          quoted a **₱500 fallback for something that is free**. That is the
+          hardcoded-fallback trap this repo has been bitten by before; the cure
+          is removing the branch, not trusting it never renders.
+        */
         <section className="space-y-3 sn-tile p-5 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1">
-              <p className="sn-eye">
-                Kwento · words on a photo
-              </p>
-              <h2 className="text-xl font-semibold tracking-tight">
-                Let guests leave a message
-              </h2>
-            </div>
-            <span className="font-mono text-base text-terracotta">{kwentoPriceLabel}</span>
+          <div className="space-y-1">
+            <p className="sn-eye">Kwento · words on a photo</p>
+            <h2 className="text-xl font-semibold tracking-tight">
+              Let guests leave a message
+            </h2>
           </div>
           <p className="max-w-prose text-sm text-ink/70">
-            Unlock Kwento and your guests can anchor a short message, story, or
-            chismis to any photo or clip — you approve each one before it shows in
-            the gallery and on your editorial page.
+            Your guests can anchor a short message, story, or chismis to any photo
+            or clip — you approve each one before it shows in the gallery and on
+            your editorial page. It comes with Papic, free.
           </p>
-          {!papicActive ? (
-            // Papic-active prerequisite (owner 2026-06-26): Kwento rides on Papic
-            // captures, so Papic must be set up first — covers both the buy and a
-            // bundle owner who owns Kwento but hasn't started Papic.
-            <p className="text-sm text-ink/70">
-              Kwento adds words to your Papic photos.{' '}
-              {ownsKwento
-                ? 'You already own it — set up your Papic crew to start using it.'
-                : 'Set up your Papic crew first, then come back to unlock it.'}{' '}
-              <Link
-                href={`/dashboard/${eventId}/studio/papic`}
-                className="font-medium text-mulberry underline-offset-2 hover:underline"
-              >
-                Set up Papic
-              </Link>
-            </p>
-          ) : platformSettings ? (
-            <InlineCheckoutDrawer
-              eventId={eventId}
-              serviceKey="KWENTO"
-              displayName="Kwento — words on a photo"
-              originalPriceCentavos={String(Math.round(kwentoPricePhp * 100))}
-              settings={platformSettings}
-              triggerLabel={`Unlock Kwento · ${kwentoPriceLabel}`}
-              triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
-            />
-          ) : (
-            <span className="text-sm font-mono text-ink/60">{kwentoPriceLabel}</span>
-          )}
+          <p className="text-sm text-ink/70">
+            Kwento adds words to your Papic photos, so set up your Papic crew
+            first.{' '}
+            <Link
+              href={`/dashboard/${eventId}/studio/papic`}
+              className="font-medium text-mulberry underline-offset-2 hover:underline"
+            >
+              Set up Papic
+            </Link>
+          </p>
         </section>
       )}
 

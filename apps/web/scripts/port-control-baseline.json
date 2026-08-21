@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "bef9c5bda",
+  "generatedFromRef": "29c868ac7",
   "routeCount": 403,
   "destinations": 862,
-  "actions": 580,
-  "blocks": 3847,
+  "actions": 582,
+  "blocks": 3849,
   "routes": {
     "/": {
       "files": [
@@ -5171,9 +5171,12 @@
         "/receipts/[seg]"
       ],
       "actions": [
-        "cancelOrder"
+        "cancelOrder",
+        "logPayment"
       ],
       "blocks": [
+        "CopyButton",
+        "FileUpload",
         "Link",
         "Stat",
         "SubmitButton"
@@ -6148,7 +6151,6 @@
       ],
       "actions": [],
       "blocks": [
-        "InlineCheckoutDrawer",
         "KwentoActionResult",
         "KwentoQueue",
         "KwentoQueueControls",
@@ -8058,7 +8060,6 @@
         "ChannelTab",
         "CopyButton",
         "FileUpload",
-        "Link",
         "PayPanel",
         "ProofForm",
         "QrTile",
@@ -8726,11 +8727,15 @@
         "vendor-dashboard/booking-fees/[orderId]/page.tsx"
       ],
       "destinations": [],
-      "actions": [],
+      "actions": [
+        "logBookingFeePayment"
+      ],
       "blocks": [
         "CopyButton",
+        "FileUpload",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/bookings": {

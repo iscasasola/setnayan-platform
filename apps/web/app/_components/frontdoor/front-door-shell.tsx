@@ -298,6 +298,17 @@ type Props = {
   moreFolders: ReadonlyArray<RailFolder>;
   tools: ReadonlyArray<RailTool>;
   children: React.ReactNode;
+  /**
+   * The page's ONE `<h1>`, when it has a real, visible one. Supplied ⇒ it is
+   * rendered in place of the screen-reader-only fallback below — never
+   * alongside it, which would put two `<h1>`s on the page.
+   *
+   * Exists because `/` had no visible headline at all: its heading was
+   * `.fd-sr-only`, so the page opened on the chip bar and the card grid and
+   * read as a bare feed. Any front-door surface that still has none keeps the
+   * fallback and is unchanged.
+   */
+  heading?: React.ReactNode;
   /** See the variant note in the file header. Defaults to the public page. */
   /**
    * `front-door`  `/` — top bar + search + off-canvas rail.
@@ -444,6 +455,7 @@ export function FrontDoorShell({
   moreFolders,
   tools,
   children,
+  heading,
   variant = 'front-door',
   railContext,
   navLabels,
@@ -1380,9 +1392,17 @@ export function FrontDoorShell({
             ("exactly one <h1> each", 2026-08-13). A shared shell must not
             bring the host page's headings with it.
           */}
-          {ownsHeading ? null : (
+          {/*
+            🔑 A REAL HEADING REPLACES THE INVISIBLE ONE — it never joins it.
+            `/` carried an `fd-sr-only` <h1> because it had no visible headline,
+            which is exactly why the page read as a bare feed. A page that
+            supplies `heading` renders THAT as its one <h1>; the fallback stays
+            for any front-door surface that still has none. Two would break the
+            "exactly one <h1> each" rule the doorway work closed 2026-08-13.
+          */}
+          {ownsHeading ? null : (heading ?? (
             <h1 className="fd-sr-only">Setnayan — plan your event, keep it together</h1>
-          )}
+          ))}
           <div className={isBleed ? 'fd-col fd-bleed' : 'fd-col'}>{children}</div>
         </MainEl>
       </div>

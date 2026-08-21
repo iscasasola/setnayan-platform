@@ -100,3 +100,30 @@ COMMENT ON COLUMN public.calendar_feed_tokens.revoked_at IS
 COMMENT ON COLUMN public.calendar_feed_tokens.last_read_at IS
   'Stamped by the feed route. Its job is to answer "is anything still using this '
   'link?" before somebody resets it — not analytics, and never a guest count.';
+
+-- ── THE GRANTS, WHICH DEFAULT TO OPEN ───────────────────────────────────────
+-- 🚨 A NEW TABLE IN `public` ARRIVES REACHABLE. The exposure baseline caught it
+-- on this one: `anon` and `authenticated` were both handed SELECT/INSERT/
+-- UPDATE/DELETE by the schema's default ACL, so a signed-out stranger held
+-- table privileges on a table full of credentials.
+--
+-- RLS refuses them — every policy above requires `auth.uid()`, and a signed-out
+-- caller matches none — so nothing was reachable in practice. That is exactly
+-- why it is worth revoking rather than recording: **RLS IS THE LOCK, THE GRANT
+-- IS WHETHER THERE IS A DOOR AT ALL**, and a door nobody needs is one more
+-- thing that has to keep being locked correctly forever. A future policy edit
+-- that widens a `USING` clause by accident is only a vulnerability if the grant
+-- underneath it survived.
+--
+-- 🔑 AND A BASELINE IS A BILL, NOT A DECISION. Adding these lines to
+-- `exposure-surface.baseline.txt` would have recorded "a stranger may write to
+-- the credential table" as an accepted fact of the system, in the one file
+-- whose job is to make widenings visible. The fix belongs here.
+REVOKE ALL ON public.calendar_feed_tokens FROM anon;
+
+-- `authenticated` keeps SELECT/INSERT/UPDATE — the three verbs the policies
+-- above scope — and loses DELETE. There is no DELETE policy, so RLS already
+-- refuses it; this removes the door as well as the lock. Destroying the row is
+-- how a revoked token becomes mintable again, and nothing in the product needs
+-- to do it.
+REVOKE DELETE ON public.calendar_feed_tokens FROM authenticated;

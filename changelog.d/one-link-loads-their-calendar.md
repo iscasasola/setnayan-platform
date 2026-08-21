@@ -73,3 +73,29 @@ the PR until it was:
   celebrations the feed describes are already exported in full from `events` and
   `event_members`. The subject can see and reset the link on My Events, which is
   where that right belongs.
+
+### The exposure freeze found a real one: the table arrived open to strangers
+
+🚨 **A NEW TABLE IN `public` IS REACHABLE THE MOMENT IT EXISTS.** The default ACL
+handed `anon` — a signed-out stranger — SELECT/INSERT/UPDATE/**DELETE** on a
+table full of credentials. RLS refused them (every policy needs `auth.uid()`),
+so nothing was reachable in practice.
+
+🔑 **REVOKED, NOT BASELINED. RLS IS THE LOCK; THE GRANT IS WHETHER THERE IS A
+DOOR AT ALL** — and a door nobody needs is one more thing that must keep being
+locked correctly forever. A future `USING` clause widened by accident is only a
+vulnerability if the grant underneath it survived. Recording it instead would
+have written *"a stranger may write to the credential table"* into the very file
+whose job is to make widenings visible. **A BASELINE IS A BILL, NOT A DECISION.**
+
+`authenticated` keeps the three verbs its policies scope and loses DELETE —
+destroying the row is how a revoked token becomes mintable again.
+
+**M20** (put the stranger grant back) → exposure freeze **RED**. The feature's
+own tests stay green either way, which is the point: the guard that catches this
+is not the one that tests the feature.
+
+Also regenerated in the same PR: `user-fk-behaviour.generated.txt`, one line —
+`calendar_feed_tokens.user_id CASCADE NOT NULL` — which agrees with the erasure
+decision above (CASCADE + NOT NULL means the row is ABOUT them, so it is deleted
+rather than detached).

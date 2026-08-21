@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6205
+# facts: 6215
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     598
-#   col       4539
-#   policy    841
+#   tpriv     599
+#   col       4545
+#   policy    844
 #   view      8
 #   func      215
 #
@@ -55,6 +55,7 @@ tpriv	public.budget_leaf_benchmarks|authenticated	SIUD
 tpriv	public.build_requote_nudges|authenticated	SIUD
 tpriv	public.bundle_components|anon	SIUD
 tpriv	public.bundle_components|authenticated	SIUD
+tpriv	public.calendar_feed_tokens|authenticated	SIU
 tpriv	public.canonical_service_schemas|anon	SIUD
 tpriv	public.canonical_service_schemas|authenticated	SIUD
 tpriv	public.canonical_service_taxonomy|anon	SIUD
@@ -825,6 +826,12 @@ col	public.build_requote_nudges.thread_id	anon=- authenticated=SIU
 col	public.build_requote_nudges.vendor_profile_id	anon=- authenticated=SIU
 col	public.bundle_components.bundle_sku_code	anon=SIU authenticated=SIU
 col	public.bundle_components.component_service_code	anon=SIU authenticated=SIU
+col	public.calendar_feed_tokens.created_at	anon=- authenticated=SIU
+col	public.calendar_feed_tokens.id	anon=- authenticated=SIU
+col	public.calendar_feed_tokens.last_read_at	anon=- authenticated=SIU
+col	public.calendar_feed_tokens.revoked_at	anon=- authenticated=SIU
+col	public.calendar_feed_tokens.token	anon=- authenticated=SIU
+col	public.calendar_feed_tokens.user_id	anon=- authenticated=SIU
 col	public.canonical_service_schemas.canonical_service	anon=SIU authenticated=SIU
 col	public.canonical_service_schemas.category_specific_attributes	anon=SIU authenticated=SIU
 col	public.canonical_service_schemas.created_at	anon=SIU authenticated=SIU
@@ -5209,6 +5216,9 @@ policy	public.budget_builds|couple_updates_budget_builds	mode=PERMISSIVE cmd=UPD
 policy	public.budget_leaf_benchmarks|budget_leaf_benchmarks_admin_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=is_admin() check=is_admin()
 policy	public.budget_leaf_benchmarks|budget_leaf_benchmarks_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
 policy	public.bundle_components|bundle_components_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
+policy	public.calendar_feed_tokens|calendar_feed_tokens_insert_own	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=((user_id = auth.uid()) AND (revoked_at IS NULL))
+policy	public.calendar_feed_tokens|calendar_feed_tokens_revoke_own	mode=PERMISSIVE cmd=UPDATE roles=PUBLIC using=(user_id = auth.uid()) check=((user_id = auth.uid()) AND (revoked_at IS NOT NULL))
+policy	public.calendar_feed_tokens|calendar_feed_tokens_select_own	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(user_id = auth.uid()) check=NULL
 policy	public.canonical_service_schemas|canonical_service_schemas_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.canonical_service_schemas|canonical_service_schemas_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.canonical_service_taxonomy|canonical_service_taxonomy_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()

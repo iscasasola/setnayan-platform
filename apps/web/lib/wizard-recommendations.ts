@@ -847,10 +847,19 @@ export async function fetchBookedMarketplaceVendorIdsForDate(
     const { data, error } = await admin
       .from('event_vendors')
       .select(
-        'marketplace_vendor_id, event_id, events!inner(event_date, deleted_at)',
+        /*
+          ⚠ THE FOREIGN KEY IS NAMED ON PURPOSE — a bare `events!inner` is
+          AMBIGUOUS from `event_vendors` (direct FK vs the many-to-many through
+          `event_build_picks`) and PostgREST refuses the whole query with
+          PGRST201. The `catch`/`if (error) return []` below then hands back an
+          empty list, so the wizard has been recommending suppliers who are
+          already booked on that exact date. Third site of one fault; the cure
+          was written down in lib/ghosting.ts and never propagated.
+        */
+        'marketplace_vendor_id, event_id, event:events!event_vendors_event_id_fkey!inner(event_date, deleted_at)',
       )
-      .eq('events.event_date', eventDate)
-      .is('events.deleted_at', null)
+      .eq('event.event_date', eventDate)
+      .is('event.deleted_at', null)
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
       .not('marketplace_vendor_id', 'is', null)
       .neq('event_id', eventId);

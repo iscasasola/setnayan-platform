@@ -319,12 +319,12 @@ test('the planning dashboard stops stating things that are no longer true', () =
   a dateless event gets — so it renders no chip at all.
 */
 test('a past event has no overdue supplier categories', () => {
-  assert.equal(timelineStatusOf('venue', -1, 'empty'), 'upcoming', 'the day after');
-  assert.equal(timelineStatusOf('venue', -366, 'empty'), 'upcoming', 'and a year later');
+  assert.equal(timelineStatusOf('reception_venue', -1, 'empty'), 'upcoming', 'the day after');
+  assert.equal(timelineStatusOf('reception_venue', -366, 'empty'), 'upcoming', 'and a year later');
   // The rungs that must NOT be swallowed by the new branch.
-  assert.equal(timelineStatusOf('venue', 5, 'empty'), 'overdue', 'still overdue before the day');
-  assert.equal(timelineStatusOf('venue', -1, 'finalized'), 'locked', 'a booking stays booked');
-  assert.equal(timelineStatusOf('venue', -1, 'awaiting'), 'awaiting', 'an ask stays an ask');
+  assert.equal(timelineStatusOf('reception_venue', 5, 'empty'), 'overdue', 'still overdue before the day');
+  assert.equal(timelineStatusOf('reception_venue', -1, 'finalized'), 'locked', 'a booking stays booked');
+  assert.equal(timelineStatusOf('reception_venue', -1, 'awaiting'), 'awaiting', 'an ask stays an ask');
 });
 
 /*

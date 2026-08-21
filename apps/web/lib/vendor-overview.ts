@@ -71,6 +71,21 @@ export type WhatsNewCard =
       /** Materialized on the row by the guard trigger — shown AND enforced. */
       expiresAt: string | null;
     }
+  /*
+    The couple wants to REMOVE a celebration this supplier was paid for, and
+    only the supplier can release it (owner 2026-08-21). Its own kind: the
+    lock_request card above asks "will you take this booking?", this one asks
+    "may this booking's celebration be erased?" — opposite direction, and the
+    consequences of a mistaken tap are not symmetric.
+  */
+  | {
+      kind: 'delete_request';
+      id: string;
+      eventId: string;
+      eventVendorId: string;
+      eventDate: string | null;
+      requestedAt: string;
+    }
   | {
       kind: 'lock';
       id: string;
@@ -197,18 +212,39 @@ export async function fetchVendorOverviewData(
   // booking — one batched read.
   const inquiryEventIds = pendingThreads.map((t) => t.event_id);
   const bookingEventIds = poolBookings.map((b) => b.eventId);
-  const eventIds = [...new Set([...inquiryEventIds, ...bookingEventIds])];
-  // eventMeta needs the ids derived from step 1; lockRequests needs only the
-  // vendor id — they're independent, so run them together (2026-07-01 perf).
-  const [eventMeta, lockRequests, lockAgreementRequests] = await Promise.all([
-    fetchEventMeta(admin, eventIds),
-    fetchLockRequests(admin, vendorProfileId),
-    // Flag-gated so the extra read does not even run while the handshake is
-    // dark. This file is registered as a GATE for exactly this call.
-    isLockHandshakeEnabled()
-      ? fetchLockAgreementRequests(admin, vendorProfileId)
-      : Promise.resolve([] as LockAgreementRequest[]),
-  ]);
+  /*
+    🔴 THE REQUEST FETCHES MOVED AHEAD OF `fetchEventMeta`, AND IT IS A BUG FIX.
+    They used to run in the SAME `Promise.all` as the meta lookup, so their
+    event ids could never be in `eventIds` — every lock-request card rendered
+    with `meta?.eventDate ?? null`, i.e. a request to take a booking that never
+    said WHICH DATE. The card asks a supplier to commit to a day and did not
+    name the day.
+
+    Both need only the vendor id, so they run first and the meta read then
+    covers their events too. The deletion card would have inherited the
+    identical hole — a supplier asked to release a celebration, not told which.
+  */
+  const [lockRequests, lockAgreementRequests, deletionRequests] =
+    await Promise.all([
+      fetchLockRequests(admin, vendorProfileId),
+      // Flag-gated so the extra read does not even run while the handshake is
+      // dark. This file is registered as a GATE for exactly this call.
+      isLockHandshakeEnabled()
+        ? fetchLockAgreementRequests(admin, vendorProfileId)
+        : Promise.resolve([] as LockAgreementRequest[]),
+      // NOT flag-gated: the deletion handshake is live, not dark.
+      fetchDeletionRequests(admin, vendorProfileId),
+    ]);
+
+  const eventIds = [
+    ...new Set([
+      ...inquiryEventIds,
+      ...bookingEventIds,
+      ...lockAgreementRequests.map((r) => r.eventId),
+      ...deletionRequests.map((r) => r.eventId),
+    ]),
+  ];
+  const eventMeta = await fetchEventMeta(admin, eventIds);
 
   // --- Assemble WHAT'S NEW ---------------------------------------------------
   const whatsNew: WhatsNewCard[] = [];
@@ -247,6 +283,24 @@ export async function fetchVendorOverviewData(
       eventDate: meta?.eventDate ?? null,
       requestedAt: ar.requestedAt,
       expiresAt: ar.expiresAt,
+    });
+  }
+
+  /*
+    THE DELETION ASK SITS FIRST among the booking cards. A supplier can lose a
+    whole celebration's record by ignoring it, and — unlike the lock request —
+    it carries no deadline that would surface it later. Owner 2026-08-21: an
+    unanswered ask stays open forever with one reminder, never auto-agreed.
+  */
+  for (const dr of deletionRequests) {
+    const meta = eventMeta.get(dr.eventId);
+    whatsNew.push({
+      kind: 'delete_request',
+      id: `delreq-${dr.eventVendorId}`,
+      eventId: dr.eventId,
+      eventVendorId: dr.eventVendorId,
+      eventDate: meta?.eventDate ?? null,
+      requestedAt: dr.requestedAt,
     });
   }
 
@@ -448,6 +502,8 @@ function cardTimestamp(card: WhatsNewCard): Date {
     // typecheck failure, which is how this line got written.)
     case 'lock_request':
       return new Date(card.requestedAt);
+    case 'delete_request':
+      return new Date(card.requestedAt);
     case 'review':
       return new Date(card.createdAt);
     case 'dispute':
@@ -567,6 +623,49 @@ async function fetchLockAgreementRequests(
     eventVendorId: r.vendor_id,
     requestedAt: r.lock_requested_at,
     expiresAt: r.lock_request_expires_at,
+  }));
+}
+
+type DeletionRequest = {
+  eventId: string;
+  eventVendorId: string;
+  requestedAt: string;
+};
+
+/**
+ * Celebrations this supplier was PAID for that the couple has asked to remove.
+ *
+ * ⚠ THE LOCK FETCH'S STATUS FLOOR IS DELIBERATELY *NOT* COPIED. That one
+ * excludes `contracted`/`deposit_paid`/`delivered`/`complete`, because offering
+ * an "agree to be booked?" card to somebody already booked is nonsense. Here the
+ * ask goes PRECISELY to paid suppliers — excluding those statuses would exclude
+ * every row this feature exists for.
+ *
+ * The other two floors DO apply: a covered cascade line carries no request of
+ * its own (only the anchor is asked), and an archived row is a withdrawn
+ * booking. `request_event_deletion` marks rows without those predicates, so
+ * filtering here keeps a covered or archived line from ever showing a card.
+ */
+async function fetchDeletionRequests(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+): Promise<DeletionRequest[]> {
+  const { data } = await admin
+    .from('event_vendors')
+    .select('vendor_id, event_id, delete_requested_at')
+    .eq('marketplace_vendor_id', vendorProfileId)
+    .eq('delete_request_state', 'pending')
+    .or('package_role.is.null,package_role.eq.anchor')
+    .is('archived_at', null)
+    .order('delete_requested_at', { ascending: true });
+  return ((data ?? []) as Array<{
+    vendor_id: string;
+    event_id: string;
+    delete_requested_at: string;
+  }>).map((r) => ({
+    eventId: r.event_id,
+    eventVendorId: r.vendor_id,
+    requestedAt: r.delete_requested_at,
   }));
 }
 

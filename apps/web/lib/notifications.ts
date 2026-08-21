@@ -155,6 +155,14 @@ export type NotificationType =
   | 'lock_request_declined'
   | 'lock_request_expired'
   | 'lock_request_withdrawn'
+  // The deletion handshake (owner 2026-08-21). ⚠ These four are also ENUM
+  // values in Postgres — 20271152428061. A TS-only member typechecks and then
+  // the INSERT fails at runtime, and emitNotification only console.errors it,
+  // so the person is simply never told.
+  | 'deletion_request_received'
+  | 'deletion_request_nudge'
+  | 'deletion_request_agreed'
+  | 'deletion_request_declined'
   | 'pax_surcharge_changed'
   | 'vendor_joined'
   | 'editorial_decision'
@@ -320,6 +328,10 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   lock_request_declined: 'Booking request declined',
   lock_request_expired: 'Booking request expired',
   lock_request_withdrawn: 'Booking request withdrawn',
+  deletion_request_received: 'A celebration you were paid for is being removed',
+  deletion_request_nudge: 'Still waiting on your answer',
+  deletion_request_agreed: 'A supplier agreed to the removal',
+  deletion_request_declined: 'A supplier would rather keep it for now',
   pax_surcharge_changed: 'Guest-count charge updated',
   vendor_joined: 'Vendor joined',
   editorial_decision: 'Editorial decision',
@@ -430,6 +442,11 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   lock_request_declined: 'bg-warn-100 text-warn-900',
   lock_request_expired: 'bg-warn-100 text-warn-900',
   lock_request_withdrawn: 'bg-warn-100 text-warn-900',
+  // Danger, not warn: this one asks whether a celebration may be erased.
+  deletion_request_received: 'bg-danger-100 text-danger-900',
+  deletion_request_nudge: 'bg-danger-100 text-danger-900',
+  deletion_request_agreed: 'bg-success-200 text-success-900',
+  deletion_request_declined: 'bg-warn-100 text-warn-900',
   // A changed guest-count charge needs the couple's attention/confirm → amber.
   pax_surcharge_changed: 'bg-warn-100 text-warn-900',
   // An invited vendor accepting/claiming = a positive arrival → emerald.

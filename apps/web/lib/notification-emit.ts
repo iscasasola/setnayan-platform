@@ -156,6 +156,19 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // the strength of the ask. A card that simply vanishes from their Overview
   // cannot tell them whether they lost the work or the app broke.
   'lock_request_withdrawn',
+  /*
+    The deletion handshake (owner 2026-08-21). All four are transactional and
+    must reach somebody who is not in the app — the supplier is holding a
+    couple's celebration in place by not answering, and the couple cannot
+    proceed until they do. Deliberately NOT added to MARKETING_GATED_EMAIL_TYPES:
+    that is the mistake which silenced all six lock_request types for every user
+    (fixed the same day), and `transactional-email-is-not-marketing.test.ts`
+    fails if a deletion_request_* type ever lands there.
+  */
+  'deletion_request_received',
+  'deletion_request_nudge',
+  'deletion_request_agreed',
+  'deletion_request_declined',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email

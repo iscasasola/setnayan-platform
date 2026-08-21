@@ -65,6 +65,17 @@ const CARD_KIND: Record<
     eye: 'var(--sn-warn)',
     eyebrow: 'Booking request — agree?',
   },
+  /*
+    Danger red, not amber. The lock_request card above is a question with a
+    deadline; this one is a question whose "yes" is irreversible for the
+    celebration and whose "no" holds somebody's wedding in place. It should not
+    look like the others.
+  */
+  delete_request: {
+    accent: 'var(--sn-danger)',
+    eye: 'var(--sn-danger)',
+    eyebrow: 'A couple wants to remove a celebration',
+  },
   review: { accent: 'var(--sn-gold-500)', eye: 'var(--sn-gold-700)', eyebrow: 'New 5-star review' },
   dispute: { accent: 'var(--sn-danger)', eye: 'var(--sn-danger)', eyebrow: 'Delivery delay flagged' },
 };
@@ -483,6 +494,8 @@ export function WhatsNewFeed({
   confirmLock,
   agreeLock,
   declineLock,
+  agreeDeletion,
+  declineDeletion,
 }: {
   cards: WhatsNewCard[];
   acceptInquiry: (formData: FormData) => void | Promise<void>;
@@ -490,6 +503,8 @@ export function WhatsNewFeed({
   confirmLock: (formData: FormData) => void | Promise<void>;
   agreeLock: (formData: FormData) => void | Promise<void>;
   declineLock: (formData: FormData) => void | Promise<void>;
+  agreeDeletion: (formData: FormData) => void | Promise<void>;
+  declineDeletion: (formData: FormData) => void | Promise<void>;
 }) {
   return (
     <section id="whats-new" className="mb-8 scroll-mt-24">
@@ -518,6 +533,8 @@ export function WhatsNewFeed({
                 confirmLock={confirmLock}
                 agreeLock={agreeLock}
                 declineLock={declineLock}
+                agreeDeletion={agreeDeletion}
+                declineDeletion={declineDeletion}
               />
             </li>
           ))}
@@ -534,6 +551,8 @@ function FeedCard({
   confirmLock,
   agreeLock,
   declineLock,
+  agreeDeletion,
+  declineDeletion,
 }: {
   card: WhatsNewCard;
   acceptInquiry: (formData: FormData) => void | Promise<void>;
@@ -541,6 +560,8 @@ function FeedCard({
   confirmLock: (formData: FormData) => void | Promise<void>;
   agreeLock: (formData: FormData) => void | Promise<void>;
   declineLock: (formData: FormData) => void | Promise<void>;
+  agreeDeletion: (formData: FormData) => void | Promise<void>;
+  declineDeletion: (formData: FormData) => void | Promise<void>;
 }) {
   return (
     <div className="sn-card relative overflow-hidden py-4 pl-5 pr-4">
@@ -562,6 +583,12 @@ function FeedCard({
         />
       ) : card.kind === 'lock_request' ? (
         <LockRequestBody card={card} agreeLock={agreeLock} declineLock={declineLock} />
+      ) : card.kind === 'delete_request' ? (
+        <DeleteRequestBody
+          card={card}
+          agreeDeletion={agreeDeletion}
+          declineDeletion={declineDeletion}
+        />
       ) : card.kind === 'lock' ? (
         <LockBody card={card} confirmLock={confirmLock} />
       ) : card.kind === 'review' ? (
@@ -708,6 +735,93 @@ function LockRequestBody({
             style={{ borderColor: 'var(--sn-line)' }}
           >
             Turn it down
+          </SubmitButton>
+        </form>
+      </details>
+    </>
+  );
+}
+
+/**
+ * The couple wants to remove a celebration this supplier was PAID for, and only
+ * the supplier can release it (owner 2026-08-21).
+ *
+ * ── WHAT IT SAYS, AND WHY ──────────────────────────────────────────────────
+ * This is somebody being told a wedding they were paid for is being erased. It
+ * may have been cancelled, or called off, or something sad may have happened.
+ * The card does not speculate and does not apologise on the couple's behalf —
+ * it states the fact, the date, and the two things the supplier actually needs
+ * to decide: their own record is kept either way, and nothing is removed until
+ * they answer.
+ *
+ * 🔒 NO AMOUNT (owner ruling, D1). The figure we hold is the COUPLE'S ledger
+ * entry and may not match what the supplier banked; a wrong number on this card
+ * starts a dispute. It says "a payment" and stops there.
+ *
+ * ⏳ NO DEADLINE, deliberately (owner ruling, D3). An unanswered ask stays open
+ * forever with one reminder. There is no fuse to display because there is no
+ * fuse — anything that auto-agreed would manufacture a consent nobody gave.
+ * The card therefore says what silence means: nothing happens.
+ */
+function DeleteRequestBody({
+  card,
+  agreeDeletion,
+  declineDeletion,
+}: {
+  card: Extract<WhatsNewCard, { kind: 'delete_request' }>;
+  agreeDeletion: (formData: FormData) => void | Promise<void>;
+  declineDeletion: (formData: FormData) => void | Promise<void>;
+}) {
+  const detail = metaLine([
+    card.eventDate ? shortDate(card.eventDate) : null,
+    waitingAge(card.requestedAt, Date.now())?.label ?? null,
+  ]);
+  return (
+    <>
+      <p className="text-sm font-semibold text-ink">
+        A celebration you were paid for is being removed
+      </p>
+      <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
+      <p className="mt-2 max-w-prose text-sm text-ink/70">
+        Their records show a payment to you. If you agree, the couple&rsquo;s
+        celebration is removed —{' '}
+        <strong className="font-semibold text-ink">
+          your booking record, your reviews and your figures stay with your shop
+        </strong>
+        . Nothing is removed until you answer, and there is no time limit.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <form action={agreeDeletion}>
+          <input type="hidden" name="vendor_id" value={card.eventVendorId} />
+          <SubmitButton
+            pendingLabel="Agreeing…"
+            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
+            style={{ background: 'var(--sn-danger)' }}
+          >
+            Agree to remove it
+          </SubmitButton>
+        </form>
+      </div>
+      <details className="mt-3">
+        <summary className="cursor-pointer text-sm text-ink/60">
+          Not yet &mdash; say why
+        </summary>
+        <form action={declineDeletion} className="mt-2 flex flex-wrap items-center gap-2">
+          <input type="hidden" name="vendor_id" value={card.eventVendorId} />
+          <input
+            type="text"
+            name="reason"
+            maxLength={240}
+            placeholder="Why? (optional — the couple sees this)"
+            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
+            style={{ borderColor: 'var(--sn-line)' }}
+          />
+          <SubmitButton
+            pendingLabel="Sending…"
+            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
+            style={{ borderColor: 'var(--sn-line)' }}
+          >
+            Keep it for now
           </SubmitButton>
         </form>
       </details>

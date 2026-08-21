@@ -32,6 +32,7 @@ export type ChannelInfo = {
 
 export function PayPanel({
   proofSent,
+  resubmitNotice,
   amountPhp,
   reference,
   orderId,
@@ -40,6 +41,8 @@ export function PayPanel({
   activatesLine,
 }: {
   proofSent: boolean;
+  /** What the admin asked for, when they sent the payer back for better proof. */
+  resubmitNotice: string | null;
   amountPhp: number;
   reference: string;
   orderId: string;
@@ -102,6 +105,11 @@ export function PayPanel({
 
       <section id="proofCard" className="sn-tile mt-5 scroll-mt-4 p-6">
         <StepHead n={3} title="After you pay" />
+        {resubmitNotice && (
+          <p className="mb-4 rounded-lg border border-mulberry/40 bg-mulberry/[0.06] p-3 text-sm text-ink">
+            {resubmitNotice}
+          </p>
+        )}
         {proofSent ? (
           <div className="rounded-xl border border-mulberry bg-white p-5 text-center">
             <h2 className="text-lg font-semibold text-ink">We&rsquo;re checking your payment</h2>

@@ -13,6 +13,7 @@ import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import { qualifyReferralOnFirstPaidOrder } from '@/lib/referrals';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { classifyDuplicate, normalizeReference, MONEY_STATUSES } from '@/lib/payment-reference-match';
 import { emitNotification } from '@/lib/notification-emit';
 import {
@@ -520,6 +521,13 @@ export async function approvePaymentCore(args: {
   if (order && shouldProvisionOnApproval({ promoteOrder, reconciledToPaid })) {
     const activationCtx = {
       admin,
+      // The approving admin's OWN session — required by any hook whose RPC
+      // gates on is_console_admin()/is_admin(), because the service_role
+      // client has no auth.uid() and is refused by the database. Built here
+      // rather than inside the hook so the dependency is visible at the call
+      // site. `createClient()` reads this request's cookies, so it is the
+      // admin who just clicked Approve.
+      sessionClient: await createClient(),
       orderId: payment.order_id,
       eventId: order.event_id ?? null,
       serviceKey: order.service_key ?? '',

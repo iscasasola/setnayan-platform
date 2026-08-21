@@ -73,7 +73,9 @@ export type RosterPerson = {
 
 export type PeopleRoster = {
   people: RosterPerson[];
-  /** The samahan this account can put somebody into, for the "+ Samahan" control. */
+  /** The samahan this account can INVITE somebody into — organiser-only, because
+   *  the standing invite link is organiser-only by RLS. See the note in the
+   *  "+ Samahan" action: nobody is ever put into a samahan, they are asked. */
   mySamahan: Array<{ id: string; name: string }>;
   /** TRUE when the samahan read failed — the chips are unknown, not absent. */
   samahanUnavailable: boolean;
@@ -183,13 +185,20 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
   {
     const { data: mine, error: mineError } = await supabase
       .from('community_members')
-      .select('community_id')
+      .select('community_id, role')
       .eq('user_id', userId);
     if (mineError) {
       samahanUnavailable = true;
       logQueryError('getPeopleRoster.myCommunities', mineError, {}, 'graceful_degrade');
     }
-    const ids = [...new Set(((mine ?? []) as Array<{ community_id: string }>).map((m) => m.community_id))];
+    const myRows = (mine ?? []) as Array<{ community_id: string; role: string | null }>;
+    const ids = [...new Set(myRows.map((m) => m.community_id))];
+    // Only the ones I ORGANISE can carry an invitation — `invite_tokens_organizer_all`
+    // is the policy that decides it, so anything else would render a control
+    // whose action the database refuses.
+    const organiserIds = new Set(
+      myRows.filter((m) => m.role === 'organizer').map((m) => m.community_id),
+    );
     if (ids.length > 0) {
       const [{ data: comms, error: commsError }, { data: members, error: membersError }] =
         await Promise.all([
@@ -213,7 +222,9 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
       }>) {
         if (c.archived) continue;
         nameById.set(c.community_id, c.name);
-        mySamahan.push({ id: c.community_id, name: c.name });
+        if (organiserIds.has(c.community_id)) {
+          mySamahan.push({ id: c.community_id, name: c.name });
+        }
       }
       for (const m of (members ?? []) as Array<{ community_id: string; user_id: string }>) {
         const label = nameById.get(m.community_id);

@@ -1,6 +1,9 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { purchaseIdFromVendorSubscriptionServiceKey } from './vendor-subscription-service-key';
+import { statusOf, type PayableStatus } from './payable-status';
+
+export type { PayableStatus };
 
 /**
  * lib/payable-by-reference.ts — resolve ONE reference code into the thing the
@@ -24,8 +27,6 @@ import { purchaseIdFromVendorSubscriptionServiceKey } from './vendor-subscriptio
  * can never be used to test whether a code is real.
  */
 
-export type PayableStatus = 'awaiting_payment' | 'settled' | 'closed';
-
 export type Payable = {
   orderId: string;
   reference: string;
@@ -39,6 +40,12 @@ export type Payable = {
   status: PayableStatus;
   /** True when this order is a shop's plan, which changes the "next" line. */
   isVendorPlan: boolean;
+  /**
+   * The event this order belongs to, or null for the eventless vendor / per-user
+   * purchases. NOT decoration: an event-scoped order must pass the couple's
+   * coordinator money-consent gate before anyone logs a payment against it.
+   */
+  eventId: string | null;
 };
 
 type OrderRow = {
@@ -56,17 +63,6 @@ type OrderRow = {
 const SELECT =
   'order_id,reference_code,description,service_key,requested_total_php,confirmed_total_php,status,event_id,vendor_profile_id';
 
-/**
- * Which order states still want money. Anything settled or dead renders the
- * page in its closed state rather than showing a QR for money already sent —
- * paying twice is a real harm, and "the page still had a code on it" is how it
- * happens.
- */
-function statusOf(raw: string): PayableStatus {
-  if (raw === 'paid' || raw === 'refunded') return 'settled';
-  if (raw === 'cancelled' || raw === 'expired' || raw === 'failed') return 'closed';
-  return 'awaiting_payment';
-}
 
 const num = (v: number | string | null | undefined): number => {
   const n = typeof v === 'string' ? Number(v) : (v ?? 0);
@@ -106,5 +102,6 @@ export async function fetchPayableByReference(
     rows,
     status: statusOf(order.status),
     isVendorPlan,
+    eventId: order.event_id ?? null,
   };
 }

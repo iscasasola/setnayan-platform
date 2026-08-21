@@ -2,6 +2,7 @@ import { surfaceEnabled, type EventTypeProfile } from '@/lib/event-type-profile'
 import { papicGuestPassAccess } from '@/lib/papic-event-access';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import type { AddOnEntry } from '@/lib/add-ons-catalog';
+import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 
 /**
  * add-on-event-scope.ts — IS THIS ADD-ON OFFERED FOR THIS EVENT?
@@ -82,5 +83,40 @@ export function addOnOfferedForEvent(
   // livestream is never hidden by this: with the flag ON its doorway is the
   // unified tile, which opens the same setup.
   if (entry.key === 'panood') return !liveStudioRoamEnabled();
+  return true;
+}
+
+/**
+ * CAN THIS SERVICE STILL BE BOUGHT, GIVEN WHERE THE EVENT IS IN ITS LIFE?
+ *
+ * Owner, 2026-08-21, on Live Studio / Papic cameras / Custom QR once the
+ * celebration is over: **"stop offering them."**
+ *
+ * ─── WHY THIS IS A SECOND, NARROWER PREDICATE AND NOT A PHASE ARGUMENT ON
+ *     `addOnOfferedForEvent` ABOVE ───────────────────────────────────────────
+ *
+ * 🚨 THE OBVIOUS FIX IS THE HARM. `addOnOfferedForEvent`'s result feeds the
+ * Suite's `eligible` list, and `eligible` is the SOLE parent of three things:
+ * what the couple can add, the free shelf, AND **`active` — the services they
+ * have already PAID FOR**. Threading the phase into it would delete a paid Live
+ * Studio, Papic or Custom QR from the couple's own "Yours" shelf the morning
+ * after their wedding. They bought it; it is theirs; it keeps working.
+ *
+ * So: OFFERED is about whether this event type has such a thing at all, and it
+ * is unchanged. SELLABLE NOW is about whether the buy path is open, and only
+ * the buy path may read it.
+ *
+ * PURE + synchronous, like its neighbour. Callers resolve the phase once — from
+ * `getMenuLifecyclePhase`, the ONE resolver — and pass it in.
+ */
+export function addOnSellableNow(
+  entry: Pick<AddOnEntry, 'dayOfOnly'>,
+  phase: MenuLifecyclePhase,
+): boolean {
+  // The only rule: a thing that can only happen DURING the celebration stops
+  // being sellable once the celebration is over. Everything else — the
+  // editorial maker, the thank-you film, photo preservation, the song — is
+  // exactly what a person comes back for, and stays open.
+  if (entry.dayOfOnly && phase === 'after') return false;
   return true;
 }

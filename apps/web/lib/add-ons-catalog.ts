@@ -154,6 +154,33 @@ export type AddOnEntry = {
    * enables ALL surfaces, so nothing is filtered there (byte-identical).
    */
   surface?: ProfileSurface;
+  /*
+    ─── THIS SERVICE CAN ONLY HAPPEN DURING THE EVENT ───────────────────────
+
+    Owner, 2026-08-21, asked what should happen to Live Studio, Papic cameras
+    and Custom QR once the celebration is over: **"stop offering them."** The
+    card still shows what it was; the buy path closes.
+
+    Set it on the services that are the day itself. Leave it UNSET on the ones
+    that only START after — the editorial maker, the thank-you film, photo
+    preservation, the song, the monogram, handing the gallery to Drive.
+
+    🔑 A NEW FIELD, NOT A NEW `AddOnStatus`. `status` says whether the PRODUCT
+    exists (`live` / `coming_soon` / …); a fourth member would force an edit at
+    every `status === 'coming_soon'` site and would be a lie about the product.
+
+    🔑 AND NOT `tags`. Those are the browse chips the Suite search box indexes
+    (see their docblock above), and they have ALREADY drifted from any such
+    meaning: `custom-qr-guest` carries no 'Day-of' tag while the free `event`
+    and `indoor-blueprint` both do. A gate that reads a filter chip is a gate
+    somebody re-labels by accident.
+
+    ⚠ IT IS READ BY `addOnSellableNow`, NEVER BY `addOnOfferedForEvent`. The
+    latter's result is the sole parent of the couple's OWNED list, so a phase
+    test there would delete a service they PAID FOR from their own shelf the
+    morning after. See lib/add-on-event-scope.ts.
+  */
+  dayOfOnly?: true;
 };
 
 /**
@@ -299,6 +326,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'save-the-date',
+    // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
+    dayOfOnly: true,
     tags: ['Invitation', 'Website', 'Before', 'Free'],
     surface: 'save_the_date',
     label: 'Save the Date',
@@ -359,6 +388,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'event',
+    // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
+    dayOfOnly: true,
     tags: ['Website', 'Guests', 'Day-of', 'Free'],
     surface: 'website',
     opensDirect: true,
@@ -559,6 +590,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'custom-qr-guest',
+    // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
+    dayOfOnly: true,
     tags: ['Invitation', 'Guests', 'Branding'],
     label: 'Custom QR per guest',
     Icon: QrCode,
@@ -580,6 +613,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'papic',
+    // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
+    dayOfOnly: true,
     tags: ['Photos', 'Video', 'Capture', 'Day-of', 'Popular'],
     label: 'Papic',
     Icon: Camera,
@@ -655,6 +690,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // controller split, so it denies nothing today; it still fails closed for a
     // type created after that ruling.
     key: 'papic-guest',
+    // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
+    dayOfOnly: true,
     // ⚠ THE KEY IS NOT THE NAME. `papic-guest` / `PAPIC_GUEST` are frozen
     // technical ids (never-rename-technical-ids lock) from before the products
     // were named. The owner's 2026-07-30 correction: **there are exactly two
@@ -695,6 +732,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'panood',
+    // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
+    dayOfOnly: true,
     tags: ['Live', 'Video', 'Day-of', 'Free'],
     opensDirect: true,
     // "Live Studio Cast" = the directed single-feed variant (owner 2026-07-23: Live
@@ -757,6 +796,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'patiktok',
+    // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
+    dayOfOnly: true,
     tags: ['Video', 'Reels', 'Day-of'],
     label: 'Patiktok',
     Icon: Film,
@@ -845,6 +886,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // plan free-tool pattern. Supersedes the retired paid ₱1,499 INDOOR_BLUEPRINT
     // SKU (catalog row stays is_active=false).
     key: 'indoor-blueprint',
+    // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
+    dayOfOnly: true,
     tags: ['Planning', 'Guests', 'Day-of'],
     label: 'Indoor Blueprint',
     Icon: MapPin,
@@ -944,6 +987,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
  */
 const LIVE_STUDIO_ENTRY: AddOnEntry = {
   key: 'live-studio-roam',
+  // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
+  dayOfOnly: true,
   tags: ['Live', 'Video', 'Multi-cam', 'Day-of'],
   opensDirect: true,
   label: 'Live Studio',

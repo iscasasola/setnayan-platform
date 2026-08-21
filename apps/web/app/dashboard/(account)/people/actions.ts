@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { sendEmail } from '@/lib/email';
 import { renderBrandedEmail } from '@/lib/email-template';
+import { emitNotification } from '@/lib/notification-emit';
 import {
   layerForRelation,
   peopleConnectionsEnabled,
@@ -208,6 +209,24 @@ export async function addPersonConnection(input: {
     }
   }
 
+  // THE TRAY IS WHERE THEY MEET IT. Home counts only CONFIRMED connections, so
+  // before this a request lived on /dashboard/people and nowhere else — findable
+  // only by somebody who already knew to look. The email reaches their inbox;
+  // this reaches them the next time they open Setnayan.
+  //
+  // Non-fatal by construction: `emitNotification` swallows its own failures, and
+  // the claim is already stored either way.
+  const theirUserId = (existing as { claimed_by_user_id: string | null } | null)?.claimed_by_user_id;
+  if (theirUserId) {
+    await emitNotification({
+      userId: theirUserId,
+      type: 'connection_request',
+      title: `${myFirstName ?? 'Someone'} added you to their people`,
+      body: 'Open your people to see who it is and decide. Nothing connects until you confirm.',
+      relatedUrl: '/dashboard/people',
+    });
+  }
+
   const delivered = await sendPeopleInvitation(email, myFirstName);
   revalidatePath('/dashboard/people');
   return { ok: true, delivered };
@@ -360,13 +379,47 @@ export async function confirmConnection(connectionId: string): Promise<ActionRes
   if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
 
   // Only the recipient may confirm: to_person = me AND still pending.
-  const { error } = await supabase
+  // `.select()` so the answer can be carried back to whoever asked — an UPDATE
+  // that matched nothing returns an empty array, which is how a stale click on
+  // an already-answered row is told apart from a real confirmation. RLS denial
+  // and "no such pending row" are the same value here, and both mean: say
+  // nothing to anybody.
+  const { data, error } = await supabase
     .from('person_connections')
     .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
     .eq('connection_id', connectionId)
     .eq('to_person_id', myPerson)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .select('from_person_id');
   if (error) return { ok: false, error: 'Couldn’t confirm.' };
+  const rows = (data ?? []) as Array<{ from_person_id: string }>;
+
+  // THE ANSWER TRAVELS BACK. Without this the person who asked learns nothing —
+  // their row just quietly changes state the next time they load the page.
+  if (rows.length > 0) {
+    const admin = createAdminClient();
+    const [{ data: asker }, { data: me }] = await Promise.all([
+      admin
+        .from('people')
+        .select('claimed_by_user_id')
+        .eq('person_id', rows[0]!.from_person_id)
+        .maybeSingle(),
+      admin.from('people').select('display_name').eq('person_id', myPerson).maybeSingle(),
+    ]);
+    const askerUserId = (asker as { claimed_by_user_id: string | null } | null)?.claimed_by_user_id;
+    if (askerUserId) {
+      const myName =
+        firstNameOf((me as { display_name: string | null } | null)?.display_name) ?? 'They';
+      await emitNotification({
+        userId: askerUserId,
+        type: 'connection_confirmed',
+        title: `${myName} confirmed your connection`,
+        body: 'They’re on your people now — set what they are to you whenever you like.',
+        relatedUrl: '/dashboard/people',
+      });
+    }
+  }
+
   revalidatePath('/dashboard/people');
   return { ok: true };
 }
@@ -518,4 +571,125 @@ export async function proposeSamahanConnection(formData: FormData): Promise<void
 
   revalidatePath('/dashboard/people');
   redirect('/dashboard/people?saved=1');
+}
+
+/**
+ * ASK somebody on your list into a samahan — the second half of the owner's
+ * sentence: *"Then you can set a label. or a samahan, just like the guest list."*
+ *
+ * ⚖ **IT SENDS AN INVITATION; IT DOES NOT ADD THEM, AND THAT IS NOT MY RULE.**
+ * `community_members` has exactly one INSERT policy — `community_member_admin_insert`,
+ * `WITH CHECK (is_admin())` — so through the API nobody but a Setnayan admin can
+ * put a person in a samahan. The only other way in is redeeming the standing
+ * link. The product's consent model is therefore already decided: **you are
+ * asked into a samahan, never placed in one.** A chip that silently inserted a
+ * membership would have had to route around that policy with the service key,
+ * which is the shape of every "the app layer is not the control" defect this
+ * codebase has already paid for.
+ *
+ * So the INTERACTION matches the guest list (a chip on the row, one tap) and the
+ * MECHANISM matches samahan's own: their invitation lands in their inbox, and
+ * the chip appears on the roster when they actually join.
+ *
+ * Organiser-only, because `invite_tokens_organizer_all` is organiser-only: the
+ * token read below runs under the caller's own session, so RLS is the gate and a
+ * refusal reads as "no live link", never as a leak.
+ */
+export async function invitePersonToSamahan(input: {
+  connectionId: string;
+  communityId: string;
+}): Promise<{ ok: true; delivered: boolean; samahan: string } | { ok: false; error: string }> {
+  if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+  if (!input.connectionId || !input.communityId) return { ok: false, error: 'Pick a samahan.' };
+
+  const supabase = await createClient();
+  const myPerson = await myPersonId(supabase, user.id);
+  if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
+
+  // CONFIRMED only. Asking somebody into your group before they have agreed to
+  // be connected to you at all is a second ask stacked on an unanswered one.
+  const { data: edge } = await supabase
+    .from('person_connections')
+    .select('from_person_id, to_person_id, status')
+    .eq('connection_id', input.connectionId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  const row = edge as { from_person_id: string; to_person_id: string; status: string } | null;
+  if (!row || row.status !== 'confirmed') {
+    return { ok: false, error: 'You can invite them once you’re connected.' };
+  }
+  const otherPerson = row.from_person_id === myPerson ? row.to_person_id : row.from_person_id;
+  if (otherPerson === myPerson) return { ok: false, error: 'That’s you.' };
+
+  // The standing link, read under MY session — organiser-only by policy.
+  const { data: tokenRow } = await supabase
+    .from('community_invite_tokens')
+    .select('token, expires_at, revoked_at')
+    .eq('community_id', input.communityId)
+    .maybeSingle();
+  const live = tokenRow as { token: string; expires_at: string | null; revoked_at: string | null } | null;
+  const usable =
+    !!live &&
+    !live.revoked_at &&
+    (!live.expires_at || new Date(live.expires_at) > new Date());
+  if (!usable) {
+    return {
+      ok: false,
+      error: 'That samahan has no live invite link — open it and make one first.',
+    };
+  }
+
+  const { data: community } = await supabase
+    .from('communities')
+    .select('name')
+    .eq('community_id', input.communityId)
+    .maybeSingle();
+  const samahanName = ((community as { name: string } | null)?.name ?? 'your samahan').trim();
+
+  // Their address + whether they are already in it. Server-side only; neither
+  // value is returned to the caller.
+  const admin = createAdminClient();
+  const [{ data: them }, { data: me }] = await Promise.all([
+    admin.from('people').select('email, claimed_by_user_id').eq('person_id', otherPerson).maybeSingle(),
+    admin.from('people').select('display_name').eq('person_id', myPerson).maybeSingle(),
+  ]);
+  const themRow = them as { email: string | null; claimed_by_user_id: string | null } | null;
+  const email = normalizeEmail(themRow?.email);
+  if (!email) return { ok: false, error: 'We don’t have an email for them.' };
+
+  if (themRow?.claimed_by_user_id) {
+    const { data: member } = await admin
+      .from('community_members')
+      .select('id')
+      .eq('community_id', input.communityId)
+      .eq('user_id', themRow.claimed_by_user_id)
+      .maybeSingle();
+    if (member) return { ok: false, error: 'They’re already in it.' };
+  }
+
+  const origin = await appOrigin();
+  const url = `${origin}/samahan/join/${live!.token}`;
+  const who = firstNameOf((me as { display_name: string | null } | null)?.display_name) ?? 'Someone you know';
+  const lines = [
+    `${who} would like you in ${samahanName} on Setnayan — the group they keep their celebrations with.`,
+    'Opening the link puts you in; nothing happens until you do.',
+  ];
+  const delivered = await sendEmail({
+    to: email,
+    subject: `${who} invited you to ${samahanName}`,
+    text: `${lines.join('\n\n')}\n\nJoin ${samahanName}: ${url}`,
+    html: renderBrandedEmail({
+      heading: `You're invited to ${samahanName}`,
+      paragraphs: lines,
+      ctaLabel: `Join ${samahanName}`,
+      ctaHref: url,
+      footnote:
+        'If you weren’t expecting this, you can ignore this email — you are not in the group unless you open the link.',
+    }),
+  });
+
+  revalidatePath('/dashboard/people');
+  return { ok: true, delivered: delivered.ok, samahan: samahanName };
 }

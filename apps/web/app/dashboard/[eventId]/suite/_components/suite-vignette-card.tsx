@@ -36,7 +36,11 @@ export type VignettePersona = {
 type Props = {
   /** Catalog key — picks the vignette scene; unknown keys get the fallback. */
   vignette: string;
-  href: string;
+  /** Null ⇒ the card renders dimmed and unclickable — the same shape
+   *  `SuiteServiceCard` already uses for a card that cannot be opened. A closed
+   *  day-of service must still SHOW (and stay findable in the Suite search),
+   *  so it is re-shaped, never dropped. */
+  href: string | null;
   label: string;
   blurb: string;
   cta: string;
@@ -213,9 +217,14 @@ export function SuiteVignetteCard({
   persona,
   tags,
 }: Props) {
-  return (
-    <li data-reveal-item className="list-none">
-      <Link href={href} className={styles.card}>
+  /*
+    ⚠ RE-SHAPED, NOT REMOVED. Dropping a closed card from the grid would also
+    delete it from the Suite's search index (which is built from the same
+    lists), so a couple typing "papic" the morning after would be told it does
+    not exist. It stays, dimmed, with an "Event over" pill where the price was.
+  */
+  const body = (
+    <>
         {/* The vignette stage — decorative; everything real is below. */}
         <div aria-hidden className={styles.stage} style={{ background: gradient }}>
           <Scene vignette={vignette} persona={persona} />
@@ -242,6 +251,23 @@ export function SuiteVignetteCard({
             {cta} <span aria-hidden>›</span>
           </p>
         </div>
+    </>
+  );
+
+  if (!href) {
+    return (
+      <li data-reveal-item className="list-none">
+        <div aria-disabled="true" className={`${styles.card} opacity-70`}>
+          {body}
+        </div>
+      </li>
+    );
+  }
+
+  return (
+    <li data-reveal-item className="list-none">
+      <Link href={href} className={styles.card}>
+        {body}
       </Link>
     </li>
   );

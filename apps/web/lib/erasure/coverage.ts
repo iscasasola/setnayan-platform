@@ -1213,6 +1213,21 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     why: 'The subject’s own asks for access to an event, including a free-text note they wrote. Their request, their words — and the grant it may have produced lives in event_moderators, which erasure handles separately. `decided_by_user_id` needs no entry: it is ON DELETE SET NULL, and answering someone else’s request is an action ON their record, not personal data OF the answerer.',
   },
   {
+    table: 'calendar_feed_tokens',
+    column: 'user_id',
+    why:
+      'THE LINK MUST DIE WITH THE ACCOUNT, AND DELETION IS THE ONLY CORRECT ' +
+      'HANDLING. This row is a live CREDENTIAL: /api/calendar/<token>.ics ' +
+      'serves whoever holds it, with no login, so a row left behind after an ' +
+      'erasure request is a URL that keeps answering with that person’s ' +
+      'celebrations. Revoking would be enough to stop the feed, but the row ' +
+      'itself is still the subject’s (their token, when they made it, when ' +
+      'their phone last read it) and nothing else references it — so it is ' +
+      'deleted outright rather than tombstoned. ⚠ The FK is ON DELETE CASCADE, ' +
+      'which already covers a hard account delete; this entry covers the ' +
+      'erasure path, which purges WITHOUT deleting the auth row.',
+  },
+  {
     table: 'event_day_requests',
     column: 'author_user_id',
     why: 'Free text the subject wrote on the day ("we are running late", "the cake is missing") in the day-of requests stream. Same call as chat_messages: authored prose is the author’s personal data, the event it coordinated is long over, and the coordinator’s remaining rows are unaffected. `resolved_by_user_id` needs no entry — it is ON DELETE SET NULL, so triage attribution detaches on its own.',

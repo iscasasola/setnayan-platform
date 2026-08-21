@@ -33,6 +33,7 @@ import {
   type MealPreference,
   type RsvpStatus,
 } from '@/lib/guests';
+import { formatRecordedAt } from '@/lib/recorded-at';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from '../_components/invited-to-chips';
 import {
@@ -310,6 +311,8 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   // visible without the host having to remember to expand it.
   // custom_tags removed from this check (no longer host-editable per
   // 2026-05-23 PM directive).
+  const recordedAt = formatRecordedAt(guest.rsvp_responded_at);
+
   const hasMoreDetails =
     !!guest.display_name?.trim() ||
     !!guest.email?.trim() ||
@@ -508,6 +511,17 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               <SegmentedRsvp current={guest.rsvp_status} />
             )}
           </div>
+          {/* When Setnayan learned the answer. Deliberately "recorded", not
+              "replied": three of this column's four writers are host-side
+              dashboard paths, and in production nearly every stamp came from
+              the host typing it in rather than from the guest.
+              Rendered only when there IS one — the writers clear it to null on
+              pending and maybe, so an absent value means "no answer on record",
+              and saying "hasn't replied" here would be false for anyone who
+              answered and then changed their mind back. */}
+          {recordedAt ? (
+            <p className="text-xs text-ink/50">Answer recorded {recordedAt}</p>
+          ) : null}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Select
               id="meal_preference"
@@ -534,6 +548,30 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               initialBlocks={initialInvited}
             />
           </div>
+
+          {/* 🔴 THIS WAS INSIDE THE COLLAPSED DRAWER BELOW, AND THE DRAWER OPENS
+              ITSELF ONLY FOR SEVEN HOST-EDITABLE FIELDS — the guest's own
+              message was not one of them. So a guest who replied with nothing
+              but a message had written to a host who would never see it unless
+              they happened to expand a drawer whose summary advertised
+              something else entirely.
+              It belongs beside their reply, because that is when they wrote it.
+              Read-only: it is theirs, not yours to edit. The separate column
+              exists precisely so that saving your private note cannot erase what
+              they wrote, and vice versa. */}
+          {guest.guest_note?.trim() ? (
+            <div className="space-y-1.5">
+              <span className="block text-sm font-medium text-ink">
+                A note from {guest.first_name}
+              </span>
+              <p className="whitespace-pre-wrap rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2 text-sm text-ink/80">
+                {guest.guest_note}
+              </p>
+              <p className="text-xs text-ink/50">
+                They wrote this when they replied. Only they can change it.
+              </p>
+            </div>
+          ) : null}
         </Section>
 
         {/* Plus-one toggle · owner directive 2026-05-23 PM. Host approves
@@ -603,7 +641,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             <span>More details</span>
             <span className="flex items-center gap-2 text-xs font-normal text-ink/55">
               <span className="hidden sm:inline">
-                Display name · contact · dietary · tags · notes
+                Display name · contact · dietary · tea-ceremony · private note
               </span>
               <ChevronDown
                 aria-hidden
@@ -672,22 +710,6 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               </p>
             </div>
 
-            {/* The guest's OWN message, read-only — it is theirs, not yours to
-                edit. Separate column (`guest_note`) precisely so that saving
-                your private note cannot erase what they wrote, and vice versa. */}
-            {guest.guest_note?.trim() ? (
-              <div className="space-y-1.5">
-                <span className="block text-sm font-medium text-ink">
-                  A note from {guest.first_name}
-                </span>
-                <p className="whitespace-pre-wrap rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2 text-sm text-ink/80">
-                  {guest.guest_note}
-                </p>
-                <p className="text-xs text-ink/50">
-                  They wrote this when they replied. Only they can change it.
-                </p>
-              </div>
-            ) : null}
           </div>
         </details>
 

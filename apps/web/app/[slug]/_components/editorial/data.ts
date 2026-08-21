@@ -35,6 +35,8 @@ import {
   fetchEventRecommendations,
   type EventRecommendation,
 } from '@/lib/vendor-recommendations';
+import { scheduleWindows, labelForCapture } from '@/lib/moments-from-the-schedule';
+import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 
 // ── Tunable constants (admin-tunable later · §6.8 + §6.4 M3) ────────────────
 
@@ -1737,6 +1739,25 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // Presign ONLY the media the plans actually chose (≤3/chapter). One R2 key can
   // appear once; de-dup the resolve set. Reuse the already-presigned gallery URLs
   // where a timeline photo overlaps the recent slice, to save a presign.
+  // The couple's own run-of-show, used to NAME the chapters below. Loaded only
+  // when there are chapters to name.
+  //
+  // 🔒 `is_public` IS PART OF THE QUERY, NOT A NICETY. A block the couple marked
+  // private is one they deliberately kept off the guest schedule — "Ninang's
+  // envelope handover", "family photos without Tita". Painting its label across
+  // a chapter of a PUBLIC story page publishes the thing they hid. The private
+  // block still exists; the photos in it simply keep no name, which is the
+  // behaviour this page had for everybody until now.
+  let dayWindows: ReturnType<typeof scheduleWindows> = [];
+  if (plans.length > 0) {
+    const { data: blockRows } = await admin
+      .from('event_schedule_blocks')
+      .select('label, start_at, end_at')
+      .eq('event_id', eventId)
+      .eq('is_public', true);
+    if (blockRows?.length) dayWindows = scheduleWindows(blockRows, DEFAULT_EVENT_TZ);
+  }
+
   if (plans.length > 0) {
     const resolveKey = new Map<string, string | null>(); // key → presigned url
     const posterByKey = new Map<string, string | null>(); // clip key → poster url
@@ -1783,7 +1804,10 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         .filter((m): m is ChapterMedia => Boolean(m));
       autoChapters.push({
         time: formatClockKicker(p.lead.tsRaw),
-        title: null,
+        // The couple named this moment months ago. A chapter whose lead photo
+        // falls inside "Ceremony" is called Ceremony, not "Moment 3". A photo in
+        // the gaps keeps `null`, exactly as every chapter did before.
+        title: labelForCapture(p.lead.tsRaw, dayWindows),
         writeUp: null,
         leadId: p.lead.photoId,
         media: [leadMedia, ...supporting],
@@ -2264,6 +2288,13 @@ export type ChapterCard = {
   /** Lead thumbnail: a presigned still (photo) or clip poster. Null → film glyph. */
   thumbUrl: string | null;
   isClip: boolean;
+  /**
+   * What the public page calls this moment when the couple hasn't named it —
+   * taken from their own run-of-show. The editor shows it as the placeholder, so
+   * the box a couple sees empty matches the words a visitor actually reads.
+   * Null when the photo falls in no scheduled block.
+   */
+  suggestedTitle: string | null;
 };
 
 export type EditorialChaptersForEditor = {
@@ -2417,6 +2448,20 @@ export async function loadEditorialChaptersForEditor(
     }
   }
 
+  // The same run-of-show the public page names its chapters from, so the
+  // editor's placeholder and the visitor's page cannot say different things.
+  // `is_public` filtered for the same reason as there: a private block's words
+  // must not become public words.
+  let editorWindows: ReturnType<typeof scheduleWindows> = [];
+  if (leads.length > 0) {
+    const { data: blockRows } = await admin
+      .from('event_schedule_blocks')
+      .select('label, start_at, end_at')
+      .eq('event_id', eventId)
+      .eq('is_public', true);
+    if (blockRows?.length) editorWindows = scheduleWindows(blockRows, DEFAULT_EVENT_TZ);
+  }
+
   // Resolve ONLY the lead thumbnails (photo still or clip poster).
   const cards: ChapterCard[] = [];
   await Promise.all(
@@ -2428,6 +2473,7 @@ export async function loadEditorialChaptersForEditor(
         time: formatClockKicker(lead.capturedAt),
         thumbUrl: thumbUrl ?? null,
         isClip: lead.kind === 'clip',
+        suggestedTitle: labelForCapture(lead.capturedAt, editorWindows),
       });
     }),
   );

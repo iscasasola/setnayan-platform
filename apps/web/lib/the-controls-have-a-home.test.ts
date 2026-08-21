@@ -43,24 +43,51 @@ test('the only way to hide a story item still has a home, in BOTH branches', () 
 });
 
 test('Your year has a doorway that is not a keyboard shortcut', () => {
-  // Before this, /dashboard/year had exactly two in-app doors: the strip on the
-  // account home, and a ⌘K row. The account home's own docblock states the
-  // standard — "a palette entry is not a doorway" — which is the justification
-  // it gives for building the People tile.
-  const rail = read('app/_components/frontdoor/front-door-shell.tsx');
-  assert.ok(/href="\/dashboard\/year"/.test(rail), 'the rail must carry a Your year row');
-  assert.ok(/RAIL_SLOT\.year/.test(rail), 'its label must come from the registry, like its siblings');
-
-  const registry = read('lib/nav-registry-defaults.ts');
+  // THE DOORWAY MOVED, THE STANDARD DID NOT (owner 2026-08-21: *"this is the
+  // your year concept integrated here. deleting the your year menu"*).
+  //
+  // History, because this test asserted the opposite two days ago. On
+  // 2026-08-19 /dashboard/year had two in-app doors — a strip on the account
+  // home and a ⌘K row — and the rail row was added on the reasoning that "the
+  // home is becoming events-only, so the doorway moves to the rail BEFORE the
+  // strip is removed". The board then went the OTHER way: the year's contents
+  // are now the "Worth planning" shelf on My Events. So the rail row, its
+  // rail-active match and its registry slot are retired together.
+  //
+  // 🔑 WHAT THIS TEST IS ACTUALLY FOR IS UNCHANGED: "a palette entry is not a
+  // doorway". A keyboard shortcut is not a door, and neither is a route with no
+  // visible link. So it now asserts the door that replaced the row — and
+  // asserts it in BOTH branches, because the empty branch is the one a
+  // brand-new account actually sees, and a door that only exists once you
+  // already have moments is no door for the person who has none.
+  const list = read('app/dashboard/(launcher)/_components/year-moments-list.tsx');
   assert.ok(
-    /"customer\.account\.year"/.test(registry),
-    'without a registry slot the row can never be renamed from admin — the exact ' +
-      'defect the People row carried: a reference that looks like a mechanism.',
+    /href="\/dashboard\/year"/.test(list),
+    'the populated "Worth planning" shelf lost its "See the year →" door',
   );
 
-  const matcher = read('app/_components/frontdoor/rail-active.ts');
+  const strip = read('app/dashboard/(launcher)/_components/year-moments-strip.tsx');
   assert.ok(
-    /key: 'year', href: '\/dashboard\/year'/.test(matcher),
-    'without a match row the rail never lights up on the page it links to',
+    /href="\/dashboard\/year"/.test(strip),
+    'the EMPTY branch lost its door — and that is the branch a new account sees',
+  );
+
+  const page = read('app/dashboard/(launcher)/page.tsx');
+  assert.ok(
+    /<YearMomentsStrip /.test(page),
+    'the shelf that CARRIES the door is no longer mounted on the board, so the ' +
+      'door is a link in a component nothing renders. ⚠ This strip had NO ' +
+      'consumer at all before 2026-08-21 — it was built, its docblock claimed ' +
+      'it rendered inside Alaala, and it was imported by nothing.',
+  );
+
+  // And the retired row stays retired: re-adding it without deleting this
+  // assertion gives Your year two doors again, which is the duplication the
+  // owner removed.
+  const rail = read('app/_components/frontdoor/front-door-shell.tsx');
+  assert.ok(
+    !/href="\/dashboard\/year"/.test(rail),
+    'the Your year rail row is back. It was retired with the menu (owner ' +
+      '2026-08-21) — if it is wanted again, change this test deliberately.',
   );
 });

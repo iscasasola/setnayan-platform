@@ -53,6 +53,8 @@ import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
 import { resolveServiceSellability } from '@/lib/v2-catalog';
 import { isVendorSurfaceServiceKey } from '@/lib/vendor-surface-service-keys';
+import { ADD_ONS } from '@/lib/add-ons-catalog';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import {
   resolveOrderChargeCentavos,
   refusalMessage,
@@ -442,6 +444,65 @@ export async function submitOrderAction(
       // charge / branch / profile exists.
       reason: 'That service is not available from this checkout.',
     };
+  }
+
+  /*
+    ── THE CELEBRATION IS OVER: THE DAY-OF SERVICES STOP SELLING ────────────
+
+    Owner, 2026-08-21, asked what should happen to Live Studio, Papic cameras
+    and Custom QR once the event has finished: **"stop offering them."**
+
+    🔑 IT HAS TO LIVE HERE, FOR THE REASON THE RETIREMENT GUARD ABOVE ALREADY
+    STATES: `submitOrderAction` is POST-able with ANY serviceKey — its action id
+    ships in the client bundle of every drawer mount — so a gate in a page
+    component closes the button and not the door. Fourteen drawer surfaces
+    mount against these keys; this one refusal closes all of them, and closes a
+    stale tab and a back-button too.
+
+    ⚠ A REJECT, BEFORE THE CHARGE RESOLVERS — same rule as the retirement guard
+    directly below. Filtering inside a resolver turns "refused" into "charged
+    whatever the browser sent".
+
+    ⚠ AND IT ASKS THE LIFECYCLE RESOLVER, NOT THE CAPTURE WINDOW. Papic's own
+    capture window FAILS OPEN when a couple never set bounds, so a gate built on
+    it would simply not exist for most events. `getMenuLifecyclePhase` is the
+    one answer to "has this happened", shared with the Overview, the rail, the
+    guest list and the public page.
+
+    Fail-soft on the read: an event row we cannot fetch does NOT block a sale.
+    Refusing a paying customer because of a transient read is the worse error
+    here — the presentation layers have already closed the card, so reaching
+    this line at all means something unusual.
+  */
+  const dayOfOnlyKeys = new Set(
+    ADD_ONS.filter((a) => a.dayOfOnly)
+      .map((a) => a.serviceKey)
+      .filter((k): k is string => Boolean(k)),
+  );
+  if (dayOfOnlyKeys.has(serviceKey)) {
+    // Service-role: the phase is an EVENT fact, and the caller may be a
+    // coordinator whose RLS view of `events` is narrower than the couple's.
+    const { data: lifecycleRow } = await createAdminClient()
+      .from('events')
+      .select('event_date, event_end_date, cleared_at, timezone')
+      .eq('event_id', eventIdClean)
+      .maybeSingle();
+    if (lifecycleRow) {
+      const phase = getMenuLifecyclePhase(
+        (lifecycleRow as { event_date?: string | null }).event_date ?? null,
+        (lifecycleRow as { cleared_at?: string | null }).cleared_at ?? null,
+        (lifecycleRow as { timezone?: string | null }).timezone ?? undefined,
+        undefined,
+        (lifecycleRow as { event_end_date?: string | null }).event_end_date ?? null,
+      );
+      if (phase === 'after') {
+        return {
+          ok: false,
+          reason:
+            'This one only runs during your celebration, and yours has finished. Everything that turns the day into a keepsake is still open.',
+        };
+      }
+    }
   }
 
   // Fails CLOSED on a read error. This knowingly reverses the older "a transient

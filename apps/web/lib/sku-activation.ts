@@ -84,6 +84,28 @@ import {
 
 export type ActivationContext = {
   admin: SupabaseClient;
+  /**
+   * The approving ADMIN'S OWN session client, when the activation is running
+   * inside their request.
+   *
+   * 🚨 WHY THIS EXISTS — `ctx.admin` CANNOT CALL AN ADMIN-GATED RPC.
+   * `createAdminClient()` carries the service_role key and NO user, so
+   * `auth.uid()` is NULL inside the database. Any function that gates on
+   * `is_console_admin()` / `is_admin()` — which read `auth.uid()` — therefore
+   * RAISES `FORBIDDEN: admin only` for it. Reproduced against production on
+   * 2026-08-21: `approve_vendor_subscription` refused a service_role caller
+   * before touching a single row, and the dispatcher's catch swallowed it, so
+   * the shop's payment was approved and their plan silently stayed off.
+   *
+   * `/admin/subscriptions` already had this right and says so in its own
+   * docblock; the activation dispatcher did not, because until now no hook
+   * needed an admin-gated RPC.
+   *
+   * Optional because not every caller runs inside an admin request. A hook
+   * that needs it must REFUSE when it is missing — never fall back to
+   * `ctx.admin`, which fails in a way nobody sees.
+   */
+  sessionClient?: SupabaseClient;
   orderId: string;
   eventId: string | null;
   serviceKey: string;
@@ -1257,7 +1279,17 @@ const PREFIX_HOOKS: ReadonlyArray<{
         ctx,
         (purchase as { vendor_id?: string | null } | null)?.vendor_id ?? null,
       );
-      const { error } = await ctx.admin.rpc('approve_vendor_subscription', {
+      // ⚠ THE ADMIN'S OWN CLIENT, NEVER ctx.admin — see ActivationContext.
+      // approve_vendor_subscription gates on is_console_admin(), which reads
+      // auth.uid(); the service_role client has none and is refused outright.
+      if (!ctx.sessionClient) {
+        throw new Error(
+          `approve_vendor_subscription needs the approving admin's own session ` +
+            `(purchase ${purchaseId}); refusing rather than calling it as service_role, ` +
+            `which the database rejects with FORBIDDEN.`,
+        );
+      }
+      const { error } = await ctx.sessionClient.rpc('approve_vendor_subscription', {
         p_purchase_id: purchaseId,
       });
       // THROW, don't swallow: the dispatcher's catch leaves the order

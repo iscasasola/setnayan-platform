@@ -5,7 +5,8 @@
 // APPROVED missions (RLS-scoped authenticated client) — pending vendor challenges
 // stay in the separate approval panel. Self-gates on papicGamesEnabled().
 
-import { Trophy, Eye, EyeOff, Trash2, Plus, MessageSquareQuote } from 'lucide-react';
+import Link from 'next/link';
+import { Trophy, Eye, EyeOff, Trash2, Plus, MessageSquareQuote, Search, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { papicMissionCost } from '@/lib/papic-cameras';
@@ -13,6 +14,7 @@ import { fetchEventPoolStatus } from '@/lib/papic-event-pool';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { eventPabatiActive } from '@/lib/pabati';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { ensurePapicBoard } from '@/lib/papic-games';
 import {
   BOARD_SIZE,
@@ -21,37 +23,22 @@ import {
   type PapicMissionSource,
 } from '@/lib/papic-missions';
 import {
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+} from '@/lib/papic-challenge-categories';
+import {
+  fetchPickerRows,
+  isDefaultView,
+  readFilters,
+  PICKER_PAGE_SIZE,
+  type PickerFilters,
+} from '@/lib/papic-challenge-picker';
+import {
   createCoupleChallengeAction,
   addLibraryChallengeAction,
   setCoupleChallengeActiveAction,
   deleteCoupleChallengeAction,
 } from './actions';
-
-/** A story question the couple has not added yet. */
-type StoryRow = {
-  library_id: number;
-  category: string;
-  title: string;
-  prompt: string;
-};
-
-/** The two story groups, in the order the couple reads them. `stories` carries
- *  the {who} side token — each guest is asked about the half they know — while
- *  `stories_couple` is always about the pair. The copy has to say which,
- *  because "Share a story about the couple" and "…about the bride" look like
- *  the same question on this screen and are not. */
-const STORY_GROUPS = [
-  {
-    category: 'stories',
-    heading: 'About whichever of you they know',
-    line: 'Their side decides the wording — your guests get asked about you, yours about you.',
-  },
-  {
-    category: 'stories_couple',
-    heading: 'About the two of you together',
-    line: 'Everyone gets the same question, whichever side they came from.',
-  },
-] as const;
 
 type MissionRow = {
   mission_id: string;
@@ -86,7 +73,72 @@ const SOURCE_BADGE: Record<PapicMissionSource, { label: string; cls: string }> =
   setnayan: { label: 'Recommended', cls: 'bg-gold/15 text-gold-700' },
 };
 
-export async function CoupleChallengesManager({ eventId }: { eventId: string }) {
+/**
+ * ONE FILTER CHIP — a LINK, not a button.
+ *
+ * A filter is a place. Making it a link means the back button works, the state
+ * survives a refresh, a couple can send the URL to whoever is helping them
+ * plan, and none of it needs a line of client JavaScript on a screen that is
+ * mostly read on a phone.
+ *
+ * 🔑 `patch` CHANGES ONE AXIS AND CARRIES THE REST. Tapping "Video" while
+ * "Tell a story" is on must not silently drop the category — that reads as the
+ * chip having done something else entirely. Passing `null` in `patch` clears
+ * that one axis on purpose, which is how "All" and "Everything" work; `in` is
+ * used rather than a truthiness check so an explicit null is not mistaken for
+ * "not supplied".
+ */
+function FilterChip({
+  eventId,
+  filters,
+  patch,
+  label,
+  active,
+}: {
+  eventId: string;
+  filters: PickerFilters;
+  patch: Partial<PickerFilters>;
+  label: string;
+  active: boolean;
+}) {
+  const next: PickerFilters = {
+    q: 'q' in patch ? (patch.q ?? '') : filters.q,
+    category: 'category' in patch ? (patch.category ?? null) : filters.category,
+    kind: 'kind' in patch ? (patch.kind ?? null) : filters.kind,
+  };
+  const params = new URLSearchParams();
+  if (next.q) params.set('cq', next.q);
+  if (next.category) params.set('ccat', next.category);
+  if (next.kind) params.set('ckind', next.kind);
+  const qs = params.toString();
+
+  return (
+    <Link
+      href={`/dashboard/${eventId}/studio/papic${qs ? `?${qs}` : ''}#challenges`}
+      // The active chip is announced, not just coloured: on this palette the
+      // difference between a selected and an unselected chip is a fill, and a
+      // fill is invisible to a screen reader and to anyone who cannot see it.
+      aria-current={active ? 'true' : undefined}
+      className={
+        active
+          ? 'rounded-full bg-mulberry px-2.5 py-1 text-[11px] font-medium text-cream'
+          : 'rounded-full border border-ink/15 bg-cream px-2.5 py-1 text-[11px] text-ink/65 transition-colors hover:bg-ink/5 hover:text-ink'
+      }
+    >
+      {label}
+    </Link>
+  );
+}
+
+export async function CoupleChallengesManager({
+  eventId,
+  search,
+}: {
+  eventId: string;
+  /** The picker's own URL keys, prefixed `c` so they cannot collide with the
+   *  fifteen other `?papic_*` params this page already carries. */
+  search?: { cq?: string; ccat?: string; ckind?: string };
+}) {
   if (!papicGamesEnabled()) return null;
 
   const supabase = await createClient();
@@ -155,41 +207,51 @@ export async function CoupleChallengesManager({ eventId }: { eventId: string }) 
   const pool = await fetchEventPoolStatus(createAdminClient(), eventId);
   const poolRemaining = pool.applies ? pool.remainingPoints : null;
 
-  // ── The story picker ──────────────────────────────────────────────────────
-  // Every story question Setnayan supplies, minus the ones this event already
-  // carries. Two reads, not a join: `papic_challenge_library` is a global
-  // catalogue and `papic_missions` is event-scoped under RLS, so the exclusion
-  // happens here.
+  // ── The picker ────────────────────────────────────────────────────────────
+  // Was: a list of the twenty story questions, and nothing else. The library is
+  // now 631 challenges, so a list is no longer a way to choose — hence the
+  // owner's own spec for this block: "here they can filter it so they can pick
+  // which challenge they like. also search. but we will show the top 20 most
+  // picked challenges."
   //
-  // ⚠ The taken-set is read WITHOUT an is_active filter on purpose. A question
-  // the couple has hidden is still THEIRS — re-offering it in the picker would
-  // read as "add this" while their own list a few centimetres below says
-  // "Hidden from guests", and tapping it would do nothing visible. Hidden means
-  // taken; un-hiding is the Show button, not a second Add.
+  // Filtering runs as a URL query (see `lib/papic-challenge-picker.ts`), so the
+  // chips are links and the search box is a plain GET form. No client bundle,
+  // and it works with JavaScript off — the same shape as every other control on
+  // this screen.
+  const filters = readFilters(search ?? {});
+
+  // ⚠ THE TAKEN-SET IS READ WITHOUT AN is_active FILTER ON PURPOSE. A question
+  // the couple has HIDDEN is still theirs — re-offering it would say "add this"
+  // while their own list a few centimetres below says "Hidden from guests", and
+  // tapping it would do nothing visible. Hidden means taken; un-hiding is the
+  // Show button, not a second Add.
   const { data: takenRows, error: takenErr } = await supabase
     .from('papic_missions')
     .select('library_id')
     .eq('event_id', eventId)
     .not('library_id', 'is', null);
-  const { data: storyRows, error: storyErr } = await supabase
-    .from('papic_challenge_library')
-    .select('library_id,category,title,prompt')
-    .in('category', ['stories', 'stories_couple'])
-    .eq('is_active', true)
-    .order('library_id', { ascending: true });
 
-  // 🔑 A REJECTED READ RESOLVES WITH `{ error }` AND A NULL ROW — IT DOES NOT
-  // THROW. `?? []` on a failed read renders an empty picker that is
-  // indistinguishable from "you have added them all", which is the most
-  // reassuring possible way to show a broken screen. Suppress the whole section
-  // instead, and only when BOTH reads are good is the list trustworthy: a
-  // failed taken-read with a good story-read would offer questions they already
-  // have.
-  const pickerReadable = !takenErr && !storyErr;
-  const taken = new Set((takenRows ?? []).map((r) => r.library_id as number));
-  const availableStories = pickerReadable
-    ? ((storyRows ?? []) as StoryRow[]).filter((s) => !taken.has(s.library_id))
-    : [];
+  // What kind of celebration this is (so a birthday is never offered a garter
+  // toss) AND the word it uses for whoever is throwing it. Both come from the
+  // shipped resolver rather than a second hand-rolled read: it is React-cache()d
+  // per request, so this costs nothing the page was not already paying.
+  // ⚠ It degrades to the WEDDING profile on a read failure — a deliberate
+  // choice made when it was written, so that existing wedding flows could not
+  // be disturbed by it. That is the wrong direction for THIS caller in theory;
+  // in practice a couple who cannot read their own event has a broken page
+  // regardless, and inventing a second resolver to disagree with the first is
+  // how two answers to one question get shipped.
+  const profile = await resolveProfileByEvent(eventId);
+  const words = { organizer: profile.terminology.organizerNoun };
+
+  const taken = new Set((takenRows ?? []).map((r) => Number(r.library_id)));
+  // 🔑 ONLY WHEN BOTH READS ARE GOOD IS THE LIST TRUSTWORTHY. A failed taken-read
+  // with a good library read would cheerfully offer questions they already have.
+  const picker = takenErr
+    ? { rows: [], total: 0, rankedByPicks: false, readable: false }
+    : await fetchPickerRows(supabase, profile.eventType, taken, filters);
+
+  const showingDefault = isDefaultView(filters);
 
   // The board shows at most 10 of the couple's own picks. Past that an added
   // question is real but waits its turn, and saying so beats a guest board that
@@ -253,68 +315,182 @@ export async function CoupleChallengesManager({ eventId }: { eventId: string }) 
         </SubmitButton>
       </form>
 
-      {/* Story questions — pick from Setnayan's set.
-          These are the only challenges that ask a guest to SAY something
-          rather than photograph something, so they get their own block
-          instead of being buried in the list below. */}
-      {availableStories.length > 0 ? (
+      {/* ── The picker: 631 challenges, filtered and searched ───────────────
+          The owner's spec, verbatim: "here they can filter it so they can pick
+          which challenge they like. also search. but we will show the top 20
+          most picked challenges."
+
+          🔑 THE SHELF NAMES ITS OWN ORDER. Today nobody has picked anything, so
+          "Most picked" would be a claim about other couples that is not true.
+          `rankedByPicks` says which of the two orders is on screen and the
+          subheading changes with it. Presenting our own recommendations as
+          popularity is the launch-day empty-rail failure wearing a compliment. */}
+      {!picker.readable ? (
+        // Suppressed, not empty. An empty picker is indistinguishable from
+        // "you have added them all", which is the most reassuring possible way
+        // to show a broken screen.
+        <p className="mt-5 rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">
+          We couldn&rsquo;t load the challenge library just now. Refresh the page
+          &mdash; nothing has changed.
+        </p>
+      ) : (
         <div className="mt-5 rounded-xl border border-gold/25 bg-gold/[0.04] p-4">
           <h4 className="flex items-center gap-1.5 text-sm font-medium text-ink">
             <MessageSquareQuote aria-hidden className="h-4 w-4 text-gold-700" strokeWidth={1.75} />
-            Ask your guests for a story
+            {showingDefault
+              ? picker.rankedByPicks
+                ? 'Most picked'
+                : 'Where most people start'
+              : 'Challenges you can add'}
           </h4>
           <p className="mt-1 text-xs text-ink/60">
-            Ten seconds to camera each. A few are already on your guests&rsquo;
-            board &mdash; add any of these and they&rsquo;ll be asked those too.
+            {showingDefault
+              ? picker.rankedByPicks
+                ? `The ${PICKER_PAGE_SIZE} other hosts add most often. Search or filter below for the rest.`
+                : `Our ${PICKER_PAGE_SIZE} to begin with — nobody has picked enough yet for a favourites list. Search or filter below for the rest.`
+              : `${picker.total} ${picker.total === 1 ? 'match' : 'matches'}${
+                  picker.total > picker.rows.length ? ` — showing the first ${picker.rows.length}` : ''
+                }.`}
           </p>
+
+          {/* Search. A GET form, so the result is a shareable URL and the back
+              button works. `cq` rather than `q`: this page already carries
+              fifteen other params and a bare `q` is the first thing another
+              feature would reach for. */}
+          <form method="GET" className="mt-3 flex gap-2">
+            {/* The page's own params are NOT carried through. A stale
+                `?papic_purchased=1` re-firing its banner on every search would
+                congratulate somebody for a purchase they made ten minutes ago. */}
+            <label htmlFor="cq" className="sr-only">
+              Search the challenges
+            </label>
+            <div className="relative flex-1">
+              <Search
+                aria-hidden
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/35"
+                strokeWidth={1.75}
+              />
+              <input
+                id="cq"
+                name="cq"
+                type="search"
+                defaultValue={filters.q}
+                maxLength={60}
+                placeholder="cake, dancing, lola, a story…"
+                className="w-full rounded-xl border border-ink/10 bg-cream/70 py-2 pl-9 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-mulberry/40 focus:outline-none"
+              />
+            </div>
+            {/* The chip and kind survive a search, so typing does not silently
+                widen a filter the couple set a moment ago. */}
+            {filters.category ? (
+              <input type="hidden" name="ccat" value={filters.category} />
+            ) : null}
+            {filters.kind ? <input type="hidden" name="ckind" value={filters.kind} /> : null}
+            <SubmitButton
+              pendingLabel="Searching"
+              className="inline-flex shrink-0 items-center rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+            >
+              Search
+            </SubmitButton>
+          </form>
+
+          {/* Photo / Video, then the twelve themes. Links, not buttons: a filter
+              is a place, and a place should be linkable and go-backable. */}
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <FilterChip eventId={eventId} filters={filters} patch={{ kind: null }} label="All" active={filters.kind === null} />
+            <FilterChip eventId={eventId} filters={filters} patch={{ kind: 'photo' }} label="Photo" active={filters.kind === 'photo'} />
+            <FilterChip eventId={eventId} filters={filters} patch={{ kind: 'clip' }} label="Video" active={filters.kind === 'clip'} />
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <FilterChip
+              eventId={eventId}
+              filters={filters}
+              patch={{ category: null }}
+              label="Everything"
+              active={filters.category === null}
+            />
+            {CATEGORY_ORDER.map((cat) => (
+              <FilterChip
+                key={cat}
+                eventId={eventId}
+                filters={filters}
+                patch={{ category: cat }}
+                label={CATEGORY_LABELS[cat]}
+                active={filters.category === cat}
+              />
+            ))}
+          </div>
+
+          {!showingDefault ? (
+            <Link
+              href={`/dashboard/${eventId}/studio/papic#challenges`}
+              className="mt-3 inline-flex items-center gap-1 text-xs text-link underline underline-offset-2"
+            >
+              <X aria-hidden className="h-3 w-3" strokeWidth={2} />
+              Clear search and filters
+            </Link>
+          ) : null}
+
           {couplePicked >= 10 ? (
-            <p className="mt-2 rounded-lg bg-ink/5 px-3 py-2 text-[11px] text-ink/70">
+            <p className="mt-3 rounded-lg bg-ink/5 px-3 py-2 text-[11px] text-ink/70">
               Your guests see up to 10 of your own picks at once. Anything you add
               now waits until you hide one of yours.
             </p>
           ) : null}
 
-          {STORY_GROUPS.map((group) => {
-            const rows = availableStories.filter((s) => s.category === group.category);
-            if (rows.length === 0) return null;
-            return (
-              <div key={group.category} className="mt-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gold-700">
-                  {group.heading}
-                </p>
-                <p className="mt-0.5 text-[11px] text-ink/55">{group.line}</p>
-                <ul className="mt-2 space-y-1.5">
-                  {rows.map((s) => (
-                    <li
-                      key={s.library_id}
-                      className="flex items-start justify-between gap-3 rounded-lg border border-ink/10 bg-cream/70 px-3 py-2"
+          {picker.rows.length === 0 ? (
+            <p className="mt-4 text-sm text-ink/45">
+              {showingDefault
+                ? 'You have added every challenge we have. That is a first.'
+                : 'Nothing matches that. Try a different word, or clear the filters.'}
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-1.5">
+              {picker.rows.map((row) => (
+                <li
+                  key={row.library_id}
+                  className="flex items-start justify-between gap-3 rounded-lg border border-ink/10 bg-cream/70 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-ink">
+                      {row.title}
+                      <span className="rounded-full bg-ink/10 px-1.5 py-0.5 text-[10px] font-normal text-ink/60">
+                        {KIND_LABEL[row.capture_kind]}
+                      </span>
+                      <span className="rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] font-normal text-ink/50">
+                        {CATEGORY_LABELS[row.category]}
+                      </span>
+                      {/* Only ever shown when it is a real number. A "0 events"
+                          badge on every row would be a worse silence than none. */}
+                      {row.picks > 0 ? (
+                        <span className="rounded-full bg-gold/15 px-1.5 py-0.5 text-[10px] font-normal text-gold-700">
+                          {row.picks} {row.picks === 1 ? 'event' : 'events'}
+                        </span>
+                      ) : null}
+                    </p>
+                    {/* Neutral wording — a raw {who} or {host} token is never
+                        shown to the couple. Each guest sees their own version. */}
+                    <p className="mt-0.5 text-sm text-ink/80">
+                      {displayChallengePrompt(row.prompt, { organizer: words.organizer })}
+                    </p>
+                  </div>
+                  <form action={addLibraryChallengeAction} className="shrink-0">
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="library_id" value={row.library_id} />
+                    <SubmitButton
+                      pendingLabel="Adding"
+                      className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
                     >
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-ink">{s.title}</p>
-                        {/* Neutral wording — the raw {who} token never shown. */}
-                        <p className="mt-0.5 text-sm text-ink/80">
-                          {displayChallengePrompt(s.prompt)}
-                        </p>
-                      </div>
-                      <form action={addLibraryChallengeAction} className="shrink-0">
-                        <input type="hidden" name="event_id" value={eventId} />
-                        <input type="hidden" name="library_id" value={s.library_id} />
-                        <SubmitButton
-                          pendingLabel="Adding"
-                          className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
-                        >
-                          <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                          Add
-                        </SubmitButton>
-                      </form>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
+                      <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                      Add
+                    </SubmitButton>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-      ) : null}
+      )}
 
       {/* ── The list, in two groups ──────────────────────────────────────────
           It used to be ONE flat list in creation order, which answered neither

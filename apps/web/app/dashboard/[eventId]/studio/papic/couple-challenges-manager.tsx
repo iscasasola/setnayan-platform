@@ -18,6 +18,7 @@ import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { ensurePapicBoard } from '@/lib/papic-games';
 import {
   BOARD_SIZE,
+  coupleSlots,
   displayChallengePrompt,
   type CaptureKind,
   type PapicMissionSource,
@@ -133,11 +134,23 @@ function FilterChip({
 export async function CoupleChallengesManager({
   eventId,
   search,
+  standalone = false,
 }: {
   eventId: string;
   /** The picker's own URL keys, prefixed `c` so they cannot collide with the
    *  fifteen other `?papic_*` params this page already carries. */
   search?: { cq?: string; ccat?: string; ckind?: string };
+  /**
+   * TRUE on `/studio/papic/challenges` — the full screen: the picker, the
+   * search, the list, the count. FALSE when embedded on the Papic setup page,
+   * where it renders a SUMMARY and a way in.
+   *
+   * 🔑 THE TWO ARMS SHARE ONE COMPONENT SO THEY CANNOT DISAGREE. The obvious
+   * alternative — a second summary card written on the setup page — is two
+   * readers of the same rows, and the one nobody edits goes quietly wrong. This
+   * one reads the board ONCE and decides how much of it to show.
+   */
+  standalone?: boolean;
 }) {
   if (!papicGamesEnabled()) return null;
 
@@ -253,10 +266,59 @@ export async function CoupleChallengesManager({
 
   const showingDefault = isDefaultView(filters);
 
-  // The board shows at most 10 of the couple's own picks. Past that an added
-  // question is real but waits its turn, and saying so beats a guest board that
-  // quietly does not match what this screen lists.
-  const couplePicked = missions.filter((m) => m.source === 'couple').length;
+  // ── HOW MANY OF THE TWENTY ARE THEIRS ──────────────────────────────────────
+  // Owner, 2026-08-21: "up to 20 challenges." The couple's ceiling is the whole
+  // board minus whatever a supplier has paid for, so it is DERIVED from the live
+  // vendor count and never a hand-typed 20 — see `coupleSlots` and migration
+  // 20271155952591. Today it is exactly 20: production holds zero sponsorships.
+  const vendorLaneUsed = missions.filter(
+    (m) => (m.source === 'vendor' || m.source === 'auto') && m.is_active,
+  ).length;
+  const ceiling = coupleSlots(vendorLaneUsed);
+  const chosen = missions.filter((m) => m.source === 'couple' && m.is_active).length;
+  const roomLeft = Math.max(0, ceiling - chosen);
+  const soldAway = BOARD_SIZE - ceiling;
+
+  // ── EMBEDDED: a summary and a door, never a second copy of the screen ──────
+  if (!standalone) {
+    return (
+      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+        <h3 className="flex items-center gap-2 text-sm font-medium text-ink">
+          <Trophy aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
+          Papic Challenges
+        </h3>
+        <p className="mt-1 text-xs text-ink/60">
+          Little photo missions for your guests. Pick up to {ceiling}.
+        </p>
+        {/* ⚠ A FAILED READ SAYS SO. `missions.length === 0` on an unreadable
+            list would print "none chosen yet" at a couple who may have twenty —
+            the confident lie this screen was rebuilt to stop telling. */}
+        {!missionsReadable ? (
+          <p className="mt-3 rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">
+            We couldn&rsquo;t load your challenges just now. Open the page below to try again.
+          </p>
+        ) : (
+          <p className="mt-3 text-sm text-ink/80">
+            <span className="font-semibold tabular-nums">{chosen}</span> of{' '}
+            <span className="tabular-nums">{ceiling}</span> chosen
+            {onBoard.length > 0 ? (
+              <>
+                {' '}&middot; <span className="tabular-nums">{onBoard.length}</span> showing to guests
+              </>
+            ) : null}
+            .
+          </p>
+        )}
+        <Link
+          href={`/dashboard/${eventId}/studio/papic/challenges`}
+          className="button-primary mt-4 inline-flex"
+        >
+          {chosen > 0 ? 'Change your challenges' : 'Pick your challenges'} &rarr;
+        </Link>
+      </section>
+    );
+  }
+
 
   return (
     <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
@@ -264,11 +326,41 @@ export async function CoupleChallengesManager({
         <Trophy aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
         Papic Challenges
       </h3>
-      <p className="mt-1 text-xs text-ink/60">
-        Little photo missions for your guests. We add a set of recommended ones;
-        write your own, and hide any you don&rsquo;t want — booth challenges
-        appear here as you book vendors.
+
+      {/* ⚠ THE NUMBER IS THE POINT OF THIS SCREEN, SO IT LEADS.
+          Until 2026-08-21 the couple's own lane was capped at TEN while the
+          board showed twenty: a couple who picked twelve got ten, and the two
+          that did not fit had no board position and no explanation anywhere.
+          Now the ceiling is stated, counted down, and enforced at the Add
+          button — a limit somebody can see is a rule; a limit that silently
+          drops their work is a defect. */}
+      <p
+        className="mt-2 text-sm text-ink/80"
+        aria-label={`${chosen} of ${ceiling} challenges chosen, ${roomLeft} still free`}
+      >
+        <span className="font-semibold tabular-nums">{chosen}</span> of{' '}
+        <span className="tabular-nums">{ceiling}</span> chosen
+        {roomLeft > 0 ? (
+          <> &mdash; room for <span className="tabular-nums">{roomLeft}</span> more.</>
+        ) : (
+          <> &mdash; that&rsquo;s the lot. Remove one to swap it out.</>
+        )}
       </p>
+      <p className="mt-1 text-xs text-ink/60">
+        Your guests see up to {BOARD_SIZE} on their phone. Anything you don&rsquo;t
+        pick, we fill in for you &mdash; so the board is never empty. Booth
+        challenges appear here as you book suppliers.
+      </p>
+      {/* Only ever shown when it is TRUE. A permanent "0 slots are sponsored"
+          line would be noise on every event, and today it is nought on all of
+          them. */}
+      {soldAway > 0 ? (
+        <p className="mt-2 rounded-lg bg-ink/5 px-3 py-2 text-[11px] text-ink/70">
+          <span className="tabular-nums">{soldAway}</span>{' '}
+          {soldAway === 1 ? 'slot is' : 'slots are'} held by a supplier who
+          sponsored a challenge for you, so your own limit is {ceiling}.
+        </p>
+      ) : null}
 
       {/* ⚠ THE COST, ON THE SCREEN THAT SPENDS IT. The board lives here in Set
           up; the shared pool lives over in Cameras. A couple could sign their
@@ -431,10 +523,15 @@ export async function CoupleChallengesManager({
             </Link>
           ) : null}
 
-          {couplePicked >= 10 ? (
+          {/* ⚠ THIS SAID "up to 10 of your own picks" AND THAT WAS THE BUG.
+              It was true — the couple lane really was capped at ten — and it was
+              the only place in the product that said so, at the bottom of a
+              block, after they had already chosen. The cap is now the whole
+              board and the count lives at the top; what remains here is the
+              honest end-stop. */}
+          {roomLeft === 0 ? (
             <p className="mt-3 rounded-lg bg-ink/5 px-3 py-2 text-[11px] text-ink/70">
-              Your guests see up to 10 of your own picks at once. Anything you add
-              now waits until you hide one of yours.
+              You have picked all {ceiling}. Remove one below to make room.
             </p>
           ) : null}
 
@@ -474,17 +571,32 @@ export async function CoupleChallengesManager({
                       {displayChallengePrompt(row.prompt, { organizer: words.organizer })}
                     </p>
                   </div>
-                  <form action={addLibraryChallengeAction} className="shrink-0">
-                    <input type="hidden" name="event_id" value={eventId} />
-                    <input type="hidden" name="library_id" value={row.library_id} />
-                    <SubmitButton
-                      pendingLabel="Adding"
-                      className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+                  {/* 🔑 THE END-STOP IS SHOWN, NOT ENFORCED IN SILENCE. When
+                      the board is full the Add button becomes a disabled chip
+                      that says Full, rather than a live button whose press does
+                      nothing visible. The server action refuses independently —
+                      this is the half that stops somebody TRYING. */}
+                  {roomLeft === 0 ? (
+                    <span
+                      aria-disabled="true"
+                      title={`You have picked all ${ceiling}. Remove one to make room.`}
+                      className="inline-flex shrink-0 items-center rounded-md border border-ink/10 bg-ink/5 px-2.5 py-1.5 text-xs font-medium text-ink/40"
                     >
-                      <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                      Add
-                    </SubmitButton>
-                  </form>
+                      Full
+                    </span>
+                  ) : (
+                    <form action={addLibraryChallengeAction} className="shrink-0">
+                      <input type="hidden" name="event_id" value={eventId} />
+                      <input type="hidden" name="library_id" value={row.library_id} />
+                      <SubmitButton
+                        pendingLabel="Adding"
+                        className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+                      >
+                        <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                        Add
+                      </SubmitButton>
+                    </form>
+                  )}
                 </li>
               ))}
             </ul>

@@ -66,3 +66,44 @@ a reason unrelated to what it guards, and teaches whoever sees it to look past
 it. Moved into the unit suite, which already runs under tsx; the three CI edits
 are reversed and the `--check` CLI is kept for humans. Mutation-verified in its
 new home (occurrences 1 → 0, test red, restore asserted, green again).
+
+### A real screen, and the couple may pick all twenty (owner, 2026-08-21)
+
+> *"the need to have a real screen to pick their challenges up to 20 challenges."*
+
+**New route `/dashboard/[eventId]/studio/papic/challenges`.** The picker left the
+Papic setup page, where it sat under the camera ladder, the pool balance, the
+Drive connection and the seat list. Defensible for twenty story questions; not
+for 631 — this is a *choosing* task, and a choosing task buried under a settings
+page is one people abandon. The setup page keeps a summary and a door, rendered
+by **the same component** with `standalone` off, so the two cannot disagree about
+how many are chosen.
+
+**🚨 THE COUPLE LANE WAS CAPPED AT TEN WHILE THE BOARD SHOWED TWENTY.** A couple
+who picked twelve got ten. The other two had no board position, and the only
+sentence anywhere that mentioned it sat at the *bottom* of the picker, after they
+had already chosen. Migration `20271155952591` lifts the ceiling to the whole
+board; the count now leads the screen and counts down as they pick.
+
+**⚠ ONE THING IS NOT LIFTED, AND IT IS ABOUT SOMEBODY ELSE'S MONEY.** A booth
+mission a supplier PAID for keeps its slot: the ceiling is `20 - sold`, measured
+vendor-lane-first. A flat 20 makes the Setnayan target go **negative** the moment
+a sponsorship exists (`20 - 20 - 5 = -5`) and the allocator would place 25 rows
+in 20 seats — and, worse than the arithmetic, a paid placement would vanish the
+instant the couple added a twentieth of their own, silently. Today the ceiling is
+exactly 20: production holds zero sponsorships. The screen says so when it isn't.
+
+**The limit is enforced twice, deliberately.** The Add button becomes a disabled
+*Full* chip, and the server action refuses independently — this is a POST
+reachable from a stale tab, and `lib/supabase/client.ts` ships a browser client
+to every visitor by construction. 🔑 *A limit that only exists in the UI is not a
+limit*; without the server half the extra rows would exist, be counted on the
+couple's own list, and never reach a guest — the same silent drop, one layer
+down. Both refusals write an outcome into the URL and the page **renders it**:
+a guard that refuses in silence is indistinguishable from one that passed.
+
+🪤 **The mutation run caught its own harness again.** Reverting the ceiling to 10
+turned two tests red (correct), but the restore failed — the migration is a NEW
+file, untracked, so `git checkout --` had nothing to restore from and left the
+sabotage in place. Only the asserted restore-count found it. **Restore from an
+explicit backup, not from git, when the file is not yet committed.**

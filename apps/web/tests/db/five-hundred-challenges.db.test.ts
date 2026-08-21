@@ -350,3 +350,78 @@ test('a date that ALREADY has a wedding board gets it taken away — the real mo
   );
   assert.equal(Number(kept.rows[0]!.n), 20, 'the old rows must be de-slotted, never deleted');
 });
+
+// ── The couple may take the whole board (owner, 2026-08-21) ────────────────
+
+test('a couple who picks twelve gets twelve — the ten-cap is gone', async () => {
+  // ⚠ THE DEFECT THIS REPLACES: the couple lane was capped at TEN while the
+  // board showed twenty. A couple who chose twelve got ten, and the two that
+  // did not fit had no board position and no explanation on any screen.
+  const eventId = await newEvent('Twelve Picks', 'wedding');
+  for (let i = 1; i <= 12; i++) {
+    await db.query(
+      `INSERT INTO public.papic_missions (event_id, mission_type, source, prompt, approved, is_active)
+       VALUES ($1, 'prompt', 'couple', $2, true, true)`,
+      [eventId, `Our own challenge number ${i}. Ten seconds.`],
+    );
+  }
+  await boardOf(eventId);
+  const r = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.papic_missions
+      WHERE event_id = $1 AND source = 'couple' AND board_slot IS NOT NULL`,
+    [eventId],
+  );
+  assert.equal(Number(r.rows[0]!.n), 12, 'the couple lane still caps below what they chose');
+});
+
+test('a couple can take all twenty, and Setnayan then fills nothing', async () => {
+  const eventId = await newEvent('All Twenty', 'wedding');
+  for (let i = 1; i <= 20; i++) {
+    await db.query(
+      `INSERT INTO public.papic_missions (event_id, mission_type, source, prompt, approved, is_active)
+       VALUES ($1, 'prompt', 'couple', $2, true, true)`,
+      [eventId, `Twenty of our own, number ${i}. Ten seconds.`],
+    );
+  }
+  const board = await boardOf(eventId);
+  assert.equal(board.length, 20, 'the board is still exactly twenty');
+  const mine = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.papic_missions
+      WHERE event_id = $1 AND source = 'couple' AND board_slot IS NOT NULL`,
+    [eventId],
+  );
+  assert.equal(Number(mine.rows[0]!.n), 20, 'all twenty are theirs');
+  const ours = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.papic_missions
+      WHERE event_id = $1 AND source = 'setnayan' AND board_slot IS NOT NULL`,
+    [eventId],
+  );
+  assert.equal(Number(ours.rows[0]!.n), 0, 'a board of twenty own picks is entirely theirs');
+});
+
+test('the board never overflows, however many the couple writes', async () => {
+  // 🔑 THE ARITHMETIC THAT WOULD HAVE GONE NEGATIVE. A flat ceiling of 20 makes
+  // `v_target := 20 - 20 - vendor` negative the moment a vendor lane exists, and
+  // the slot allocator would then try to place 25 rows in 20 seats. Thirty picks
+  // is the blunt version of the same question.
+  const eventId = await newEvent('Thirty Picks', 'wedding');
+  for (let i = 1; i <= 30; i++) {
+    await db.query(
+      `INSERT INTO public.papic_missions (event_id, mission_type, source, prompt, approved, is_active)
+       VALUES ($1, 'prompt', 'couple', $2, true, true)`,
+      [eventId, `Thirty of our own, number ${i}. Ten seconds.`],
+    );
+  }
+  const board = await boardOf(eventId);
+  assert.equal(board.length, 20);
+  const slots = await db.query<{ board_slot: number }>(
+    `SELECT board_slot FROM public.papic_missions
+      WHERE event_id = $1 AND board_slot IS NOT NULL ORDER BY board_slot`,
+    [eventId],
+  );
+  assert.deepEqual(
+    slots.rows.map((r) => Number(r.board_slot)),
+    Array.from({ length: 20 }, (_, i) => i + 1),
+    'slots must be 1..20 with no gaps and no duplicates',
+  );
+});

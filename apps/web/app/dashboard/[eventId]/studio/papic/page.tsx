@@ -128,11 +128,6 @@ export const dynamic = 'force-dynamic';
 type Props = {
   params: Promise<{ eventId: string }>;
   searchParams: Promise<{
-    /** The challenge picker's own keys — prefixed `c` so they cannot collide
-     *  with the fifteen `papic_*` params already on this route. */
-    cq?: string;
-    ccat?: string;
-    ckind?: string;
     drive_connected?: string;
     drive_disconnected?: string;
     drive_error?: string;
@@ -984,16 +979,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
         {/* Papic Games — the couple's own challenge authoring + curation (§5).
             Self-gates on the flag. */}
-        {/* `#challenges` is the anchor every filter chip and the search form
-            come back to — without it a couple who taps "Food & drinks" lands at
-            the top of a long page and has to scroll back down to see what they
-            just did. */}
-        <div id="challenges" className="scroll-mt-24">
-          <CoupleChallengesManager
-            eventId={eventId}
-            search={{ cq: search.cq, ccat: search.ccat, ckind: search.ckind }}
-          />
-        </div>
+        {/* The picker MOVED to /studio/papic/challenges (owner, 2026-08-21:
+            "the need to have a real screen"). What is left here is a summary
+            and a door — same component, `standalone` off, so the two can never
+            disagree about how many are chosen. */}
+        <CoupleChallengesManager eventId={eventId} />
 
         {/* Papic Games — pending vendor challenges awaiting the couple's okay (§3.6).
             Self-gates on the flag + hides when there's nothing to review. */}

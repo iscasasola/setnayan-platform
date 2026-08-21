@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { storyGate } from '@/lib/story-opens-when-untold';
+import { formatEventDate } from '@/lib/events';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -49,10 +51,72 @@ export default async function EditorialEditorPage({
 
   const { data: event, error } = await supabase
     .from('events')
-    .select('event_id, display_name, slug, landing_page_visibility, event_type')
+    .select(
+      'event_id, display_name, slug, landing_page_visibility, event_type, event_date, event_end_date, archived',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
   if (error || !event) notFound();
+
+  /*
+    ── THE STORY OPENS WHEN THE CELEBRATION IS UNTOLD ────────────────────────
+    Owner 2026-08-21: "editorial will unlock only after the event." A story is
+    written about a day that happened — before it, there are no photos, no
+    moments and nobody to hear from, so the editor would be a set of empty boxes
+    asking a couple to invent their own wedding.
+
+    🔑 THE GATE IS THE SHELF. `storyGate` delegates to `isFinishedEvent`, the
+    same test that moves a card from "Coming up" to Untold on My Events, so the
+    board and the story can never disagree. A second date comparison here would
+    be a second answer to one question.
+
+    This is a WAIT, not a refusal, so it does not use the refusal register: no
+    danger colour, no "you can't". It says when it opens and what will be here.
+  */
+  const gate = storyGate({
+    event_date: (event.event_date as string | null) ?? null,
+    event_end_date: (event.event_end_date as string | null) ?? null,
+    archived: (event.archived as boolean | null) ?? false,
+  });
+  if (!gate.open) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-ink/12 bg-white/60 p-6 sm:p-8">
+          {/*
+            NO EYEBROW. A "Not yet" kicker above this headline only repeats the
+            headline, and page eyebrows are owner-retired (2026-08-xx: a page
+            header is ONE LINE — 24px of layout for 10.5px of type that says what
+            the sentence under it already says). `lint-page-masthead` enforces it.
+          */}
+          <h1 className="text-2xl font-extrabold tracking-[-0.02em] text-ink">
+            Your story opens the day after {event.display_name as string}
+          </h1>
+          <p className="mt-3 max-w-prose text-sm leading-relaxed text-ink/70">
+            There is nothing to tell until the day has happened — no photos, no
+            moments, nobody to hear from.{' '}
+            {gate.opensAfter ? (
+              <>
+                Yours is{' '}
+                <strong className="font-semibold text-ink">
+                  {formatEventDate(gate.opensAfter)}
+                </strong>
+                .{' '}
+              </>
+            ) : null}
+            The morning after, we write the first draft from your own schedule and
+            the day&rsquo;s photos, and email you. Everything in it will be yours to
+            change.
+          </p>
+          <Link
+            href={`/dashboard/${eventId}/website`}
+            className="sn-press mt-5 inline-flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-bold text-ink transition-colors hover:border-terracotta"
+          >
+            Back to your page
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Showcase props — so the couple can publish AND opt into Real Stories from
   // here (the consent flag is per-user; the visibility gates hub eligibility).

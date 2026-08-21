@@ -32,3 +32,29 @@ named rather than quietly bundled — see the PR body.
 🔑 **A MERGE FROM A STALE BRANCH DELETES WHAT LANDED WHILE IT WAS OPEN, AND CI
 CANNOT SEE IT** — every check passed on that PR, because a repo missing a
 feature is internally consistent. The only symptom was a deploy that stopped.
+
+### The migration and its own guard are ONE unit
+
+Restoring the three migrations alone failed, and the failure was the right one:
+`papic-story-challenges.db.test.ts` refused the seeded set — *"the-place is a
+side story and must carry {who}"*. **97 side stories are seeded and 45 do not
+carry it**, so this was never one row.
+
+🔑 **BECAUSE THAT GUARD WAS ITSELF ONE OF THE 43 REVERTED FILES.** The version on
+`main` today is the one that predates the 631-challenge set; the version written
+FOR it was wiped by the same merge. **A migration and the guard that describes it
+travel together — restoring either alone produces a repo that contradicts
+itself.** Restored from `953a9d49e^1`: **20 assertions, all green.**
+
+### The exposure baseline was UNDERSTATING production
+
+Regenerating adds exactly two facts —
+`papic_challenge_library.event_types` (`anon=-`, authenticated read-only) and
+`papic_challenge_pick_counts()` — and **both were verified to exist in
+production already**, with `anon` confirmed unable to read the column.
+
+⚠ **THIS IS A CORRECTION, NOT A WIDENING.** The baseline was generated while the
+migrations were missing from the repo, so the committed file has been claiming a
+smaller reachable surface than the live database actually has. A freeze file that
+understates reality is worse than one that is out of date: it reports green over
+objects nobody has reviewed.

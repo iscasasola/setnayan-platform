@@ -158,7 +158,7 @@ export default async function EventLayout({ children, params }: Props) {
     (async () => {
       try {
         const fullSelect =
-          'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at';
+          'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -249,9 +249,23 @@ export default async function EventLayout({ children, params }: Props) {
   // (live ‖ post) so an EVENING reception — which lands in `post` — still gets
   // the Day-of bar, and the `cleared_at` close-out (PR3) flips it to `after`.
   // (The `after` roster lands in PR4; until then `after` shows the Plan bar.)
+  /*
+    ⚠ THE VENUE'S CLOCK, NOT THE SERVER'S — added 2026-08-21.
+
+    This call had no `tz`, so the phase was anchored to the runtime's own
+    midnight, which on Vercel is UTC. For a Manila event that is 8 hours out,
+    and the Overview's own body (page.tsx) HAS passed the timezone since
+    2026-08-14. Two halves of one screen answering "has this happened yet?"
+    from two different clocks is the wall-clock-vs-instant family all over
+    again — the menu could swap a day early or a day late while the page it
+    points at disagreed.
+
+    🔑 THE BOUNDS ARE NOT RESTATED HERE. One resolver, one set of constants.
+  */
   const phase = getMenuLifecyclePhase(
     event.event_date as string | null,
     (event as { cleared_at?: string | null }).cleared_at ?? null,
+    (event as { timezone?: string | null }).timezone ?? undefined,
   );
 
   // Per-event-type nav gating (iteration 0053 — Simple Event, owner 2026-06-27).
@@ -430,6 +444,7 @@ export default async function EventLayout({ children, params }: Props) {
             monogramEnabled={monogramEnabled}
             slug={(event.slug as string | null) ?? null}
             guestCount={guestCount}
+            phase={phase}
           />
         }
         topBarSlot={topBar}

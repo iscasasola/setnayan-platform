@@ -62,6 +62,7 @@ import { usePathname } from 'next/navigation';
 import { activeRailKey } from '@/app/_components/frontdoor/rail-active';
 import type { RailMatchRow } from '@/app/_components/frontdoor/rail-active';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
+import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { buildCustomerNavGroups } from './customer-nav-config';
 import { applyRegistry } from './customer-sidebar';
 
@@ -74,6 +75,7 @@ export function EventRailContext({
   monogramEnabled,
   slug,
   guestCount,
+  phase,
 }: {
   eventId: string;
   /** Already resolved server-side, and never blank — see the layout's
@@ -85,6 +87,10 @@ export function EventRailContext({
   monogramEnabled?: boolean;
   slug?: string | null;
   guestCount?: number | null;
+  /** Event lifecycle phase, resolved server-side in layout.tsx. In the After
+   *  phase the builder relabels the first section and adds the Editorial +
+   *  Galleries rows — see `buildCustomerNavGroups`. Omitted ⇒ 'plan'. */
+  phase?: MenuLifecyclePhase;
 }) {
   const pathname = usePathname() ?? `/dashboard/${eventId}`;
 
@@ -109,6 +115,7 @@ export function EventRailContext({
       monogramEnabled,
       slug,
       guestCount,
+      phase,
     }),
     navSlots,
   );

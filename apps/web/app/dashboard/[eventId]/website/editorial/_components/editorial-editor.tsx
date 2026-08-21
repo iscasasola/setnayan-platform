@@ -70,6 +70,7 @@ const editorialProUpgradeHref = (eventId: string) =>
 const ORDERABLE_SECTION_LABELS: Record<EditorialOrderKey, string> = {
   chapters: 'As the Day Unfolded',
   kwento: 'What They Whispered',
+  challengeAnswers: 'What We Asked',
   guestColumns: 'Letters to the Editor',
   gallery: 'From the Day (photos)',
   fromVendors: 'From Your Vendors',
@@ -86,6 +87,7 @@ const ORDERABLE_SECTION_LABELS: Record<EditorialOrderKey, string> = {
 const ORDERABLE_SECTION_TOGGLE: Record<EditorialOrderKey, keyof EditorialSections> = {
   chapters: 'gallery',
   kwento: 'kwento',
+  challengeAnswers: 'challengeAnswers',
   guestColumns: 'guestColumns',
   gallery: 'gallery',
   fromVendors: 'fromVendors',

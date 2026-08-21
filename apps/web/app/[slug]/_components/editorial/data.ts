@@ -19,6 +19,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isSampleEditorialId, type SampleEditorialId } from './sample-ids';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayChallengePrompt } from '@/lib/papic-missions';
+import { resolveProfile } from '@/lib/event-type-profile';
 import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
 import {
   PUBLIC_SAFE_MODERATION_STATE,
@@ -87,6 +89,17 @@ export const EDITORIAL_GUEST_COLUMN_CAP = 6;
 
 /** How many clean Papic 10-second clips to pull into the day timeline. */
 export const EDITORIAL_PAPIC_CLIP_CAP = 14;
+
+/**
+ * How many answered challenges the story column carries.
+ *
+ * A guest board is ten questions and a wedding has many guests, so the honest
+ * ceiling is "enough to read, not everything ever answered". Twenty-four is
+ * roughly two screens on a phone.
+ * ⚠ THE CAP IS APPLIED IN SQL, not after presigning — presigning 300 URLs to
+ * throw 276 away is the shape that made the gallery slow.
+ */
+export const EDITORIAL_CHALLENGE_ANSWER_CAP = 24;
 
 /**
  * How many clean Papic PHOTOS to sample for the "As the Day Unfolded" timeline.
@@ -239,6 +252,7 @@ export type EditorialSections = {
   fromVendors: boolean;
   vendorsWeLoved: boolean;
   kwento: boolean;
+  challengeAnswers: boolean;
   guestColumns: boolean;
   watchFilm: boolean;
 };
@@ -255,6 +269,7 @@ export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
   'fromVendors',
   'vendorsWeLoved',
   'kwento',
+  'challengeAnswers',
   'guestColumns',
   'watchFilm',
 ];
@@ -279,6 +294,19 @@ export {
 // item. The DB-backed write path (editorial_vendor_media table + vendor submit
 // UI + NSFW screen + admin) lands in the next increment; today this is seeded
 // on the samples and resolves to [] for real events.
+/** One answered challenge on the story: the question, and what they did about it. */
+export type ChallengeAnswer = {
+  /** The question as a READER should see it — tokens already resolved. */
+  prompt: string;
+  mediaType: 'photo' | 'clip';
+  /** Presigned display URL — the still, or the playable web copy of the clip. */
+  url: string;
+  /** A clip's freeze-frame. Null for photos and for clips with no baked poster. */
+  posterUrl: string | null;
+  /** The guest's first name, when they are publicly named. Null = unattributed. */
+  byline: string | null;
+};
+
 export type VendorMediaItem = {
   vendorName: string;
   category: string | null;
@@ -444,6 +472,21 @@ export type EditorialData = {
   // the words still approved). [] when the couple has no Kwento or the table is
   // absent (section then hidden).
   kwentoQuotes: KwentoQuote[];
+  /**
+   * "WHAT WE ASKED" — Papic Challenge answers (owner, 2026-08-21: challenge
+   * answers *"have their own column"* on the story).
+   *
+   * 🔒 FOUR GATES, EVERY ONE FAIL-CLOSED, AND THEY ARE NOT INTERCHANGEABLE:
+   *   1. the guest ticked "share this" ON THE ANSWER (`consent_to_share`),
+   *   2. the guest consented to their captures being PUBLIC at all
+   *      (`consent_to_public` — a different question, asked once),
+   *   3. the capture is screened CLEAN and not hidden,
+   *   4. the guest has not opted out of photos for this event.
+   * ⚠ Gate 1 alone is not enough: a guest may agree to their answer being seen
+   *   by the couple and never have agreed to a public page. Both, or neither.
+   */
+  challengeAnswers: ChallengeAnswer[];
+
   // "Letters to the Editor" — approved Guest Columns (guest_columns · BUILD ①,
   // GUEST_COLUMNS_ENABLED). Fail-closed exactly like kwentoQuotes: only
   // status='approved' + moderation_state='clean' + author not hidden, bylines
@@ -1898,6 +1941,123 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // table with `.in(...)`. The author's display name comes from the linked guest
   // row (photo_messages has no name column). A missing table/column (pre-Kwento
   // event, 42P01/42703) degrades to [] → section hidden.
+  // ── "What We Asked" — Papic Challenge answers ───────────────────────────────
+  // Owner, 2026-08-21: challenge answers "have their own column" on the story.
+  //
+  // 🔒 FOUR GATES, EVERY ONE FAIL-CLOSED. Deliberately not folded into one flag,
+  // because they answer four different questions and a guest can say yes to one
+  // and no to another:
+  //   1. `consent_to_share` — did this guest tick "share this ANSWER"?
+  //   2. `consent_to_public` — did they ever agree their captures may be PUBLIC
+  //      at all? Asked once, separately. Agreeing the COUPLE may see your answer
+  //      is not agreeing that a page anybody can open may carry your face.
+  //   3. the capture is screened `clean` and not hidden.
+  //   4. the guest has not opted out of photos for this event — the same veto
+  //      every other Papic surface honours, via `publicKeyForCapture`.
+  //
+  // ⚠ A REJECTED READ RESOLVES WITH `{ error }`, IT DOES NOT THROW. Every step
+  // degrades to [] — the section then hides — rather than rendering a partial
+  // list that reads as "these are all the answers".
+  const challengeAnswers: ChallengeAnswer[] = [];
+
+  // The word this event uses for whoever it belongs to. Degrades to undefined →
+  // displayChallengePrompt falls back to "the host": plain, but never WRONG. A
+  // raw {host} on a public page would be.
+  let organizerNoun: string | undefined;
+  try {
+    const profile = await resolveProfile(
+      asString((event as Record<string, unknown>).event_type) ?? 'wedding',
+    );
+    organizerNoun = profile.terminology.organizerNoun;
+  } catch {
+    organizerNoun = undefined;
+  }
+
+  try {
+    const { data: completions, error: cErr } = await admin
+      .from('papic_mission_completions')
+      .select('completion_id, mission_id, capture_id, guest_id, created_at')
+      .eq('event_id', eventId)
+      .eq('consent_to_share', true)
+      .not('capture_id', 'is', null)
+      .order('created_at', { ascending: true })
+      .limit(EDITORIAL_CHALLENGE_ANSWER_CAP);
+
+    if (!cErr && Array.isArray(completions) && completions.length > 0) {
+      const captureIds = completions
+        .map((c) => asString(c.capture_id))
+        .filter((v): v is string => Boolean(v));
+      const missionIds = completions
+        .map((c) => asString(c.mission_id))
+        .filter((v): v is string => Boolean(v));
+
+      // Server-side `.eq('moderation_state', …)` AND filterPublicSafeRows in
+      // memory — the belt-and-braces every other public Papic read uses, so
+      // losing one still leaves the other.
+      const { data: caps, error: capErr } = await admin
+        .from('papic_guest_captures')
+        .select(
+          'capture_id, media_type, display_r2_key, clip_web_r2_key, poster_r2_key, ' +
+            'moderation_state, hidden_at, consent_to_public',
+        )
+        .in('capture_id', captureIds)
+        .is('hidden_at', null)
+        .eq('consent_to_public', true)
+        .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+
+      // The prompt is read from the MISSION, never the completion — a completion
+      // records that somebody answered, not what they were asked.
+      const { data: missions, error: mErr } = await admin
+        .from('papic_missions')
+        .select('mission_id, prompt')
+        .in('mission_id', missionIds);
+
+      if (!capErr && !mErr && Array.isArray(caps) && Array.isArray(missions)) {
+        const promptById = new Map(
+          missions.map((m) => [asString(m.mission_id), asString(m.prompt)]),
+        );
+        const capById = new Map(
+          filterPublicSafeRows(caps as unknown as Array<Record<string, unknown>>).map((c) => [
+            asString(c.capture_id),
+            c,
+          ]),
+        );
+
+        for (const c of completions) {
+          const captureId = asString(c.capture_id);
+          const cap = captureId ? capById.get(captureId) : undefined;
+          if (!cap) continue; // hidden, unscreened, or never consented to public
+          const rawPrompt = promptById.get(asString(c.mission_id));
+          if (!rawPrompt) continue; // a question we cannot show is not an answer
+
+          const isClip = asString(cap.media_type) === 'clip';
+          // A clip plays from its compressed WEB copy — never the original,
+          // which still carries the geo the outbound rule strips.
+          const mediaKey = isClip
+            ? asString(cap.clip_web_r2_key) || asString(cap.display_r2_key)
+            : asString(cap.display_r2_key);
+          const shown = publicKeyForCapture(consentVeto, captureId, mediaKey);
+          if (!shown) continue;
+
+          const url = await displayUrlForStoredAsset(shown);
+          if (!url) continue; // an unresolvable ref is an absence, not a broken img
+
+          challengeAnswers.push({
+            prompt: displayChallengePrompt(rawPrompt, { organizer: organizerNoun }),
+            mediaType: isClip ? 'clip' : 'photo',
+            url,
+            posterUrl: isClip
+              ? await displayUrlForStoredAsset(asString(cap.poster_r2_key))
+              : null,
+            byline: null,
+          });
+        }
+      }
+    }
+  } catch {
+    // table absent (pre-migration) or any error → no column
+  }
+
   const kwentoQuotes: KwentoQuote[] = [];
   try {
     const { data: rows, error } = await admin
@@ -2264,6 +2424,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     photoWallPhotos,
     photoWallActive,
     pabatiClips,
+    challengeAnswers,
     pabatiActive,
     vendorMedia,
     kwentoQuotes,
@@ -2819,6 +2980,7 @@ function mariaAndJuan(): EditorialData {
     photoWallPhotos: [],
     photoWallActive: false,
     pabatiClips: [],
+    challengeAnswers: [],
     pabatiActive: false,
     vendorMedia: [
       { vendorName: 'Goldenhour Photo + Film', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/maria-juan-v1.jpg', boomerangUrl: '/realstories/maria-juan-vclip.mp4', caption: 'The rings, in close' },
@@ -2925,6 +3087,7 @@ function jackAndJill(): EditorialData {
     photoWallPhotos: [],
     photoWallActive: false,
     pabatiClips: [],
+    challengeAnswers: [],
     pabatiActive: false,
     vendorMedia: [
       { vendorName: 'Saltwater Stories', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/jack-jill-v1.jpg', boomerangUrl: '/realstories/jack-jill-vclip.mp4', caption: 'Toes in the sand' },
@@ -3027,6 +3190,7 @@ function johnAndJane(): EditorialData {
     photoWallPhotos: [],
     photoWallActive: false,
     pabatiClips: [],
+    challengeAnswers: [],
     pabatiActive: false,
     vendorMedia: [
       { vendorName: 'Skyline & Co.', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/john-jane-v1.jpg', boomerangUrl: '/realstories/john-jane-vclip.mp4', caption: 'A toast at blue hour' },
@@ -3130,6 +3294,7 @@ function peterAndMary(): EditorialData {
     photoWallPhotos: [],
     photoWallActive: false,
     pabatiClips: [],
+    challengeAnswers: [],
     pabatiActive: false,
     vendorMedia: [
       { vendorName: 'Heirloom Photo + Film', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/peter-mary-v1.jpg', boomerangUrl: '/realstories/peter-mary-vclip.mp4', caption: 'The tables in bloom' },
@@ -3233,6 +3398,7 @@ function jackAndRose(): EditorialData {
     photoWallPhotos: [],
     photoWallActive: false,
     pabatiClips: [],
+    challengeAnswers: [],
     pabatiActive: false,
     vendorMedia: [
       { vendorName: 'Highland Frames', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/jack-rose-v1.jpg', boomerangUrl: '/realstories/jack-rose-vclip.mp4', caption: 'Greens in the mist' },
@@ -3412,6 +3578,7 @@ function sofiaReyes(): EditorialData {
     photoWallPhotos: [],
     photoWallActive: false,
     pabatiClips: [],
+    challengeAnswers: [],
     pabatiActive: false,
     vendorMedia: [
       { vendorName: 'Rose & Gold Studios', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/sofia-reyes-makati.jpg', boomerangUrl: '/realstories/clips/sofia-staircase.mp4', caption: 'Down the staircase, on the first chord' },

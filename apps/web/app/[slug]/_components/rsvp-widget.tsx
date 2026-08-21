@@ -16,7 +16,7 @@ export function RsvpWidget({
   faceMode,
   flash = null,
   replyLocked = false,
-  profileFood = null,
+  profileDetails = null,
   words,
 }: {
   words: EventWords;
@@ -57,9 +57,63 @@ export function RsvpWidget({
    * they gave HERE is the one the caterer cooks from, and a stale profile must
    * not quietly replace it.
    */
-  profileFood?: { mealPreference: string | null; dietaryRestrictions: string | null } | null;
+  profileDetails?: {
+    mealPreference: string | null;
+    dietaryRestrictions: string | null;
+    email: string | null;
+    phone: string | null;
+    displayName: string | null;
+  } | null;
 }) {
   const action = submitRsvp.bind(null, eventId, guest.guest_id);
+
+  // The three boxes, declared ONCE so the folded and unfolded arms can never
+  // drift apart. Both arms render them, so both POST them.
+  const contactFields = (
+    <>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field
+          id="contact_email"
+          label="Email"
+          type="email"
+          autoComplete="email"
+          defaultValue={guest.email ?? profileDetails?.email ?? ''}
+          placeholder="you@email.com"
+        />
+        <Field
+          id="contact_mobile"
+          label="Mobile"
+          autoComplete="tel"
+          defaultValue={guest.mobile ?? profileDetails?.phone ?? ''}
+          placeholder="+63 …"
+        />
+      </div>
+      <Field
+        id="contact_display_name"
+        label="What should we call you? (optional)"
+        defaultValue={guest.display_name ?? profileDetails?.displayName ?? ''}
+        placeholder={guest.first_name}
+      />
+    </>
+  );
+
+  /**
+   * "ALL DETAILS ARE FILLED" — owner, 2026-08-21.
+   *
+   * Both ways of reaching them must be present: an email with no number, or a
+   * number with no email, is still something the host has to chase, so this
+   * asks for BOTH and falls back to the full form when either is missing.
+   * ⚠ Meal and dietary are NOT required. "No preference" and "no allergies" are
+   * real answers, and a guest with neither would otherwise be shown five boxes
+   * forever for facts that have nothing to add.
+   */
+  const knownEmail = (guest.email ?? profileDetails?.email ?? '').trim();
+  const knownMobile = (guest.mobile ?? profileDetails?.phone ?? '').trim();
+  const detailsAlreadyKnown = knownEmail !== '' && knownMobile !== '';
+  const knownName = (guest.display_name ?? profileDetails?.displayName ?? '').trim();
+  const knownSummary = [knownName || `${guest.first_name} ${guest.last_name}`.trim(), knownEmail, knownMobile]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <form action={action} className="rsvp-form pahina-deckle space-y-6 sm:p-8">
@@ -183,7 +237,7 @@ export function RsvpWidget({
         <Select
           id="meal_preference"
           label="Meal preference"
-          defaultValue={guest.meal_preference ?? profileFood?.mealPreference ?? 'no_preference'}
+          defaultValue={guest.meal_preference ?? profileDetails?.mealPreference ?? 'no_preference'}
           options={[
             ['no_preference', 'No preference'],
             ['beef', 'Beef'],
@@ -197,10 +251,59 @@ export function RsvpWidget({
         <Field
           id="dietary_restrictions"
           label="Dietary notes"
-          defaultValue={guest.dietary_restrictions ?? profileFood?.dietaryRestrictions ?? ''}
+          defaultValue={guest.dietary_restrictions ?? profileDetails?.dietaryRestrictions ?? ''}
           placeholder="halal · nut allergy · …"
         />
       </div>
+
+      {/* ── HOW THEY REACH YOU ──────────────────────────────────────────────
+          🔴 THESE THREE BOXES DID NOT EXIST. The host's own guest page carries
+          Email, Mobile and Display name, and NOTHING anywhere in the product
+          let the guest supply any of them — so a host without a number had to
+          leave the app and go and ask for it, for every guest.
+          Owner, 2026-08-21, pointing at that page: "these are all the
+          information we want to fill up."
+
+          🔒 First and last name stay HOST-ONLY, deliberately. The link that
+          reaches this card is printed on a poster, and a stranger who can
+          rename a seat-holder is the exact harm `seedBindAllowed` was hardened
+          against on 2026-08-01. What to CALL you is a label; who you ARE is not
+          a label, and only the host sets it.
+
+          ⚠ NOT FROZEN when the guest list closes. Only the ANSWER freezes
+          (owner, 2026-08-20) — a phone number corrected the week of the event
+          is worth more then than at any other time.
+
+          📦 AND IT FOLDS WHEN WE ALREADY KNOW. Owner, 2026-08-21: "if they have
+          an account, and all details are filled, all they need is to accept the
+          invitation." A signed-in guest whose profile already carries their
+          contact details is shown their answer and a ONE-LINE SUMMARY of what
+          we hold — not five boxes asking what the app can already read.
+
+          ⚠ AND THE SUMMARY NAMES WHAT IS BEHIND IT, or this repeats #4683 — the
+          guest's own message sat in a drawer whose label advertised something
+          else, and the host never saw it. Everything folded away is listed on
+          the line, and the inputs still POST: <details> hides, it does not
+          disable. */}
+      {detailsAlreadyKnown ? (
+        <details className="rounded-lg border border-ink/10 bg-ink/[0.02]">
+          <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm text-ink/80 hover:text-ink">
+            <span className="min-w-0">
+              <span className="block font-medium text-ink">Your details are filled in</span>
+              <span className="mt-0.5 block truncate text-xs text-ink/70">{knownSummary}</span>
+            </span>
+            <span className="shrink-0 text-xs font-medium text-mulberry">Change</span>
+          </summary>
+          <div className="space-y-4 px-4 pb-4">{contactFields}</div>
+        </details>
+      ) : (
+        <div className="space-y-1.5">
+          <span className="block text-sm font-medium text-ink">
+            How {words.theOrganizer} can reach you
+          </span>
+          {contactFields}
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <label htmlFor="guest_note" className="block text-sm font-medium text-ink">

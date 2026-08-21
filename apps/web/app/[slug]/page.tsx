@@ -984,18 +984,33 @@ async function InvitationBody({
    * default where this event's own answer is blank.
    * Best-effort: a failed read must cost a convenience, never the page.
    */
-  let profileFood: { mealPreference: string | null; dietaryRestrictions: string | null } | null =
-    null;
+  // ⚠ RENAMED from `profileFood` 2026-08-21. It now carries a phone number and
+  // an email address, and a value whose NAME misleads is a defect this project
+  // has already paid for twice (`sponsored_included`, `tagged_only`). A comment
+  // does not travel with a value into a log line or a query result; the name does.
+  let profileDetails: {
+    mealPreference: string | null;
+    dietaryRestrictions: string | null;
+    email: string | null;
+    phone: string | null;
+    displayName: string | null;
+  } | null = null;
   if (viewerAccount?.id) {
     const { data: me } = await admin
       .from('users')
-      .select('meal_preference, dietary_restrictions')
+      .select('meal_preference, dietary_restrictions, email, phone, display_name')
       .eq('user_id', viewerAccount.id)
       .maybeSingle();
-    if (me && (me.meal_preference || me.dietary_restrictions)) {
-      profileFood = {
+    if (
+      me &&
+      (me.meal_preference || me.dietary_restrictions || me.email || me.phone || me.display_name)
+    ) {
+      profileDetails = {
         mealPreference: (me.meal_preference as string | null) ?? null,
         dietaryRestrictions: (me.dietary_restrictions as string | null) ?? null,
+        email: (me.email as string | null) ?? null,
+        phone: (me.phone as string | null) ?? null,
+        displayName: (me.display_name as string | null) ?? null,
       };
     }
   }
@@ -1058,7 +1073,7 @@ async function InvitationBody({
           saveFlash,
           rsvpFlash,
           faceMode: rsvpFaceMode,
-          profileFood,
+          profileDetails,
         })}
       />
       {/* Guest event-page hub bar (owner 2026-06-26) — fixed bottom control bar

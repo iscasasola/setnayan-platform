@@ -70,13 +70,7 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
   // claim here that the couple's own order page refuses in as many words. A
   // second door onto the same act has to carry the same lock.
   // Eventless orders (a shop's plan, a per-user purchase) have no couple to ask.
-  // ⚠ AND ONLY WHEN THEY ARE PAYING SOMEBODY ELSE'S ORDER. A supplier paying
-  // Setnayan on a couple-scoped order — a Papic Challenge sponsorship, a
-  // booking fee — owns that order outright; asking the couple's permission
-  // would refuse a shop, in the couple's words, on a page where no couple is
-  // involved. The gate is about acting ON the couple's behalf, not about the
-  // order carrying their event.
-  if (payable.eventId && payable.ownerUserId !== user.id) {
+  if (payable.eventId) {
     const allowed = await coordinatorMoneyScopeAllowed(
       createMoneyWriterClient(),
       payable.eventId,

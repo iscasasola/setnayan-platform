@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6219
+# facts: 6217
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     599
-#   col       4548
+#   col       4547
 #   policy    844
 #   view      8
-#   func      216
+#   func      215
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -2821,7 +2821,6 @@ col	public.paparazzi_seats.valid_from	anon=SIU authenticated=SIU
 col	public.paparazzi_seats.valid_until	anon=SIU authenticated=SIU
 col	public.papic_challenge_library.capture_kind	anon=- authenticated=S
 col	public.papic_challenge_library.category	anon=- authenticated=S
-col	public.papic_challenge_library.event_types	anon=- authenticated=S
 col	public.papic_challenge_library.is_active	anon=- authenticated=S
 col	public.papic_challenge_library.library_id	anon=- authenticated=S
 col	public.papic_challenge_library.mission_type	anon=- authenticated=S
@@ -6129,7 +6128,6 @@ func	public.panood_rtc_can_access(p_topic text)	secdef=yes exec=anon,authenticat
 func	public.papic_accept_ugc_terms(p_guest_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_camera_points_remaining(p_seat_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_camera_remaining(p_seat_id uuid, p_kind text, p_limit integer)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_challenge_pick_counts()	secdef=yes exec=authenticated search_path=public
 func	public.papic_claim_seat(p_token text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_complete_mission(p_guest_id uuid, p_mission_id uuid, p_capture_id uuid, p_consent_to_share boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_create_vendor_challenge(p_event_id uuid, p_prompt text)	secdef=yes exec=anon,authenticated search_path=public

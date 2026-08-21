@@ -979,10 +979,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
         {/* Papic Games — the couple's own challenge authoring + curation (§5).
             Self-gates on the flag. */}
-        {/* The picker MOVED to /studio/papic/challenges (owner, 2026-08-21:
-            "the need to have a real screen"). What is left here is a summary
-            and a door — same component, `standalone` off, so the two can never
-            disagree about how many are chosen. */}
         <CoupleChallengesManager eventId={eventId} />
 
         {/* Papic Games — pending vendor challenges awaiting the couple's okay (§3.6).

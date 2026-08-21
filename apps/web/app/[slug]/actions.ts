@@ -118,6 +118,12 @@ export async function submitRsvp(
   // `notes` from the form and wrote it straight back, so every RSVP erased what
   // the couple had written about that person.
   const guestNote = clean(formData.get('guest_note')) || null;
+  // The guest's OWN contact details. Named `contact_*` on the form so nothing
+  // here can ever collide with the sign-in-link box elsewhere on this page,
+  // which posts `email` to a completely different action.
+  const contactEmail = clean(formData.get('contact_email')) || null;
+  const contactMobile = clean(formData.get('contact_mobile')) || null;
+  const contactName = clean(formData.get('contact_display_name')) || null;
 
   if (meal && !MEAL_VALUES.includes(meal)) {
     return;
@@ -184,7 +190,7 @@ export async function submitRsvp(
   // draft of this very note turned the guard red.
   const { data: before } = await admin
     .from('guests')
-    .select('rsvp_status, meal_preference, dietary_restrictions, guest_note')
+    .select('rsvp_status, rsvp_responded_at, meal_preference, dietary_restrictions, guest_note, email, mobile, display_name')
     .eq('guest_id', guestId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -202,14 +208,31 @@ export async function submitRsvp(
         ? {}
         : {
             rsvp_status: status,
+            // 🔴 ONLY A CHANGED ANSWER MOVES THE DATE. Every field on this card
+            // is `defaultValue=`, so a guest correcting their phone number
+            // reposts the answer they already gave — and this used to restamp
+            // it as though they had just replied. The host's twin of this bug
+            // was fixed the same day; this is the guest-side one.
+            // An unchanged answer keeps its own date, INCLUDING null: stamping
+            // an untouched answer invents one.
+            // ⚖ A failed `before` read stamps, deliberately — a stale date is
+            // wrong, a deleted date is gone.
             rsvp_responded_at:
               status === 'attending' || status === 'declined'
-                ? new Date().toISOString()
+                ? before?.rsvp_status === status
+                  ? ((before?.rsvp_responded_at as string | null) ?? null)
+                  : new Date().toISOString()
                 : null,
           }),
       meal_preference: meal,
       dietary_restrictions: dietary,
       guest_note: guestNote,
+      // ⚠ OUTSIDE the frozen branch on purpose. Only the ANSWER freezes: a
+      // phone number corrected the week of the event is worth more then than
+      // at any other time.
+      email: contactEmail,
+      mobile: contactMobile,
+      display_name: contactName,
       updated_at: new Date().toISOString(),
     })
     .eq('guest_id', guestId)
@@ -423,7 +446,14 @@ export async function submitRsvp(
   //
   // ⚠ DELIBERATE REMOVAL: reposting an unchanged `attending` used to notify the
   // couple again. It is now silent. That is the point.
-  const changed = guestDetailsChanged(before, { meal, dietary, guestNote });
+  const changed = guestDetailsChanged(before, {
+    meal,
+    dietary,
+    guestNote,
+    email: contactEmail,
+    mobile: contactMobile,
+    displayName: contactName,
+  });
   // Only a change that was actually STORED counts. When the list is locked the
   // answer is not written at all, so a stale tab posting a different one must
   // never be reported to the host as a reply that moved.
@@ -480,6 +510,19 @@ export async function submitRsvp(
       // ignore the notification.
       if (changed.includes('note')) {
         parts.push(guestNote ? 'They left you a note.' : 'They removed their note.');
+      }
+      // The three the guest could never give until 2026-08-21. Each says WHICH
+      // detail moved and never the value: a phone number and an email address
+      // in an inbox are contact data leaving the app, and the deep link keeps
+      // them inside it — the same line already drawn on dietary notes.
+      if (changed.includes('email')) {
+        parts.push(contactEmail ? 'They added their email.' : 'They removed their email.');
+      }
+      if (changed.includes('mobile')) {
+        parts.push(contactMobile ? 'They added their mobile number.' : 'They removed their mobile number.');
+      }
+      if (changed.includes('name')) {
+        parts.push(contactName ? 'They told you what to call them.' : 'They cleared what to call them.');
       }
 
       const { data: coupleMembers } = await admin

@@ -214,6 +214,8 @@ test('the note box addresses THIS event, not a sample couple', async () => {
         meal_preference: null,
         dietary_restrictions: null,
         guest_note: null,
+        email: null,
+        mobile: null,
         qr_token: 't',
         photo_source: null,
         photo_url: null,

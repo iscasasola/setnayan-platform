@@ -64,16 +64,6 @@ const MUST_BE_REACHABLE: {
       'moment to enforce never arrives — the exact state this replaced',
   },
   {
-    rpc: 'papic_challenge_pick_counts',
-    whoCallsIt:
-      "lib/papic-challenge-picker.ts, on every render of the couple's challenge picker",
-    whatBreaksWithoutIt:
-      'the "Most picked" shelf silently becomes our own recommendations wearing ' +
-      "somebody else's name — a couple can only read their OWN event's missions, " +
-      'so this aggregate is the only way popularity can exist at all, and its ' +
-      'absence looks exactly like a library nobody has picked from yet',
-  },
-  {
     rpc: 'vendor_decline_lock',
     whoCallsIt: 'the supplier, from the same two places',
     whatBreaksWithoutIt:

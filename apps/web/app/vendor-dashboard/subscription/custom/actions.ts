@@ -1,7 +1,6 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { payPath } from '@/lib/pay-path';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
@@ -257,5 +256,5 @@ export async function requestCustomPlan(formData: FormData) {
 
   revalidatePath(CUSTOM);
   revalidatePath(SUBSCRIPTION);
-  redirect(payPath(referenceCode));
+  redirect(`${CUSTOM}?requested=${encodeURIComponent(referenceCode)}`);
 }

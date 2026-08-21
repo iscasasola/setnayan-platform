@@ -2,7 +2,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { payPath } from '@/lib/pay-path';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { revokeAllSessions } from '@/lib/force-logout';
@@ -359,10 +358,6 @@ export async function buyExtraSeat(formData: FormData) {
     return err('Extra team seats are an Enterprise add-on. Upgrade to Enterprise first.');
   }
 
-  // The rail is CHOSEN ON THE PAYMENT PAGE now, where the QR that carries it is
-  // — so the chooser that used to sit beside this button is gone. This
-  // placeholder row keeps a value only because `channel` is NOT NULL; the real
-  // one is written when they actually send the money.
   const channel = formData.get('channel') === 'gcash' ? 'gcash' : 'bdo';
   const feePhp = await fetchSeatFeePhp(supabase);
   const referenceCode = generateSeatReferenceCode();
@@ -422,10 +417,7 @@ export async function buyExtraSeat(formData: FormData) {
   }
 
   revalidatePath(TEAM);
-  // The ONE payment page (owner 2026-08-21). It carries the amount inside the
-  // QR, takes the screenshot and the last 6 digits of the bank reference, and
-  // links back here — none of which the `?bought=` banner could do.
-  redirect(payPath(referenceCode));
+  redirect(`${TEAM}?bought=${encodeURIComponent(referenceCode)}`);
 }
 
 /** Step down from the admin role yourself (→ agent). Blocked if you're the last admin. */

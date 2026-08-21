@@ -17,7 +17,6 @@
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isSampleEditorialId, type SampleEditorialId } from './sample-ids';
-import { readCustomColumns, type CustomColumn } from './custom-columns';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
@@ -270,21 +269,8 @@ export {
   EDITORIAL_ORDERABLE_KEYS,
   EDITORIAL_LOCKED_CLOSE_KEYS,
   resolveSectionOrder,
-  shippedSections,
   type EditorialOrderKey,
-  type RenderOrderKey,
-  type CustomColumnKey,
 } from './editorial-order';
-export {
-  customColumnKey,
-  customColumnId,
-  MAX_CUSTOM_COLUMNS,
-  CUSTOM_COLUMN_TITLE_MAX,
-  CUSTOM_COLUMN_BODY_MAX,
-  sectionOrderToPersist,
-} from './custom-columns';
-export type { CustomColumn };
-export { readCustomColumns };
 
 // "From your vendors" — day-of media the couple's RECOMMENDED vendor
 // (event_vendors.selection_match_rank = 1) submitted for this event. Clips are
@@ -492,10 +478,6 @@ export type EditorialData = {
   // order (older editorials + the samples). The locked-close sections
   // (fromTheCouple + song) are pinned separately and are never in this list.
   sectionOrder?: string[] | null;
-  // The couple's OWN columns (draft_json.customColumns) — a title and a body
-  // each, placed in the run above via a `custom:<id>` key. Absent/[] for every
-  // editorial that has none, which today is all of them.
-  customColumns?: CustomColumn[];
 };
 
 export type Review = {
@@ -2289,7 +2271,6 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     watchFilmEmbedUrl,
     sections: readSections(draftJson),
     sectionOrder: readSectionOrder(draftJson),
-    customColumns: readCustomColumns(draftJson),
   };
 }
 

@@ -6,6 +6,7 @@ import { Archive, MoreVertical, Trash2 } from 'lucide-react';
 
 import { setEventArchived } from '../../[eventId]/archive-actions';
 import {
+  askSuppliersToAgree,
   deleteOwnEvent,
   getEventDeletionImpact,
   type DeletionImpact,
@@ -76,6 +77,8 @@ export function EventCardMenu({
   const [impact, setImpact] = useState<DeletionImpact | null>(null);
   const [typed, setTyped] = useState('');
   const [error, setError] = useState<string | null>(null);
+  /** How many suppliers were just asked — null until the couple presses. */
+  const [asked, setAsked] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -85,6 +88,7 @@ export function EventCardMenu({
     setImpact(null);
     setTyped('');
     setError(null);
+    setAsked(null);
   }
 
   function putAway() {
@@ -133,6 +137,26 @@ export function EventCardMenu({
         console.error('[event-card-menu] impact read rejected', err);
         setError('We couldn’t check this one just now. Please try again.');
         setConfirming(false);
+      }
+    });
+  }
+
+  function askSuppliers() {
+    setError(null);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    startTransition(async () => {
+      try {
+        const res = await askSuppliersToAgree(fd);
+        if (!res.ok) {
+          setError(res.message);
+          return;
+        }
+        setAsked(res.asked);
+        router.refresh();
+      } catch (err) {
+        console.error('[event-card-menu] ask rejected', err);
+        setError('We couldn’t send that just now. Please try again.');
       }
     });
   }
@@ -278,9 +302,29 @@ export function EventCardMenu({
                   /* The refusal is stated BEFORE anything is typed. Asking
                      somebody to type their wedding's name and then telling
                      them no is a worse refusal than no button at all. */
-                  <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
-                    {impact.blockedReason}
-                  </p>
+                  <>
+                    <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
+                      {impact.blockedReason}
+                    </p>
+                    {/*
+                      🔑 A REFUSAL WITH A DOOR. Owner 2026-08-21: a paid supplier
+                      must ACCEPT the deletion — so where suppliers are what is
+                      holding it, the couple gets the ask rather than a dead end.
+                      Only offered when suppliers are the reason: money paid to
+                      Setnayan, or an unreadable check, has no supplier to ask
+                      and the button would be a door to nothing.
+                    */}
+                    {(impact.unsettledPaidSuppliers ?? 0) > 0 ? (
+                      <button
+                        type="button"
+                        onClick={askSuppliers}
+                        disabled={pending}
+                        className="sn-press mt-2.5 inline-flex items-center gap-2 rounded-full bg-mulberry px-3 py-1.5 text-[12.5px] font-bold text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
+                      >
+                        {pending ? 'Asking…' : 'Ask them to agree'}
+                      </button>
+                    ) : null}
+                  </>
                 ) : (
                   <>
                     <ImpactLines impact={impact} />
@@ -306,6 +350,13 @@ export function EventCardMenu({
                   </>
                 )}
 
+                {asked !== null ? (
+                  <p className="mt-2 text-[12px] leading-snug text-[color:var(--sn-ink-500)]">
+                    {asked === 0
+                      ? 'Everyone has already been asked — we’re waiting on them.'
+                      : `Asked ${asked === 1 ? '1 supplier' : `${asked} suppliers`}. We’ll let you know as they answer; you can remove this once they agree.`}
+                  </p>
+                ) : null}
                 <div className="mt-3 flex items-center justify-end gap-1.5">
                   <button
                     type="button"

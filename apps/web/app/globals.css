@@ -127,15 +127,27 @@
      * Gold is UNCHANGED and keeps every decorative role (active tabs, rules,
      * pills, eyebrows, selected states) — the accent budget stays at two.
      *
-     * Contrast, measured (not estimated), all against #FDFBF7:
-     *   ink   #2C2A29  13.82:1  AAA
-     *   link  #3B4E67   8.22:1  AAA   · white on it 8.50:1 AAA
-     *   CTA   #C24E25            · CREAM label on it 4.61:1 AA ✓
-     *   gold  #A9834B   3.37:1  UI + large text ONLY — never body copy
-     *                           (escalate to --color-terracotta-700 #8A6B39,
-     *                            4.79:1 AA, when gold must carry real text)
+     * ⚠ THE PAGE IS WHITE AGAIN — owner, 2026-08-20: *"let's also make the
+     * background not beige. let's keep it same color as facebook/youtube.
+     * having a white background."* This reverses the 2026-07-13 move to cream
+     * and the lock that followed it. Recorded rather than quietly applied,
+     * because a later reader will find that lock and need to know it was the
+     * owner who lifted it.
+     *
+     * EVERY RATIO IMPROVED AND NONE REGRESSED — white is lighter than cream, so
+     * text-on-page rises and a cream-coloured LABEL on a coloured fill rises
+     * too. Measured (not estimated), all against #FFFFFF, with the old cream
+     * figure beside each so the direction is visible:
+     *   ink   #2C2A29  14.28:1  AAA   (was 13.82)
+     *   link  #3B4E67   8.50:1  AAA   (was  8.22)
+     *   CTA   #C24E25          · label on it 4.76:1 AA ✓ (was 4.61)
+     *   gold  #A9834B   3.48:1  UI + large text ONLY — never body copy
+     *                           (was 3.37 — still under the floor, so the rule
+     *                            is UNCHANGED; escalate to
+     *                            --color-terracotta-700 #8C6932, 5.02:1 AA,
+     *                            when gold must carry real text)
      */
-    --color-cream: 253 251 247;        /* page + card → soft cream #FDFBF7 (was pure white 2026-07-13; ≈ the Atelier paper #FBFAF7 that preceded it) */
+    --color-cream: 255 255 255;        /* page + card → WHITE #FFFFFF (owner 2026-08-20, reversing the 2026-07-13 move to cream #FDFBF7). Token NAME kept: renaming it would churn every `bg-cream`/`text-cream` call site in the app for no behaviour change — the same reason `mulberry` and `terracotta` kept theirs. */
     --color-ink: 44 42 41;             /* primary text → espresso #2C2A29 · 13.82:1 AAA */
     --color-terracotta: 169 131 75;    /* accent → Atelier gold #A9834B (kit gold-500) — UNCHANGED */
     --color-terracotta-600: 168 131 64; /* accent hover → #A88340 */
@@ -145,12 +157,14 @@
      * WHY DARKENED: #E05A2B fails AA with EVERY possible label — white 3.71:1,
      * ink 3.85:1 — both under the 4.5:1 floor for normal-size button text.
      *
-     * WHY 86% AND NOT 89%: the target is not white. `.button-primary` labels
-     * with `text-cream`, and cream is #FDFBF7, not #FFFFFF. Against cream the
-     * ratio is ~0.15 lower than against white, so the first value that clears
-     * AA on white (#C75026, 4.56:1 white / 4.41:1 cream) still FAILS the label
-     * this app actually renders. #C24E25 gives 4.61:1 with cream, 4.76:1 with
-     * white — passing either way, with headroom.
+     * WHY 86% AND NOT 89%: it was chosen against the CREAM label this app used
+     * to render — the first value clearing AA on white (#C75026, 4.56:1 white /
+     * 4.41:1 cream) FAILED that label. #C24E25 was picked because it passes
+     * BOTH: 4.61:1 on cream, 4.76:1 on white.
+     * ⚠ THAT HEADROOM IS WHY THE 2026-08-20 MOVE TO WHITE COST NOTHING HERE —
+     * `text-cream` is now #FFFFFF and the label measures 4.76:1, better than
+     * before. Had the CTA been tuned to cream alone, this change would have
+     * needed a new CTA colour.
      *
      * ⚠ Do not lighten toward #E05A2B "to match the brand": it re-breaks AA.
      * Token NAME `mulberry` kept to avoid churning 239 CTA call sites — the
@@ -167,7 +181,7 @@
     --accent: #c5a059;
     --accent-deep: #a88340;
     --accent-soft: #f4ecd8;            /* Light champagne wash */
-    --surface: #fdfbf7;                /* card = page (see the block comment above) */
+    --surface: #ffffff;                /* card = page (see the block comment above) */
     --surface-soft: #f4f2ec;           /* Warm card surface */
     --ink-soft: 79 83 91;               /* Deep slate #4F535B */
   }
@@ -619,6 +633,101 @@ html.subnav-docked [data-shell-main] {
 }
 
 @layer components {
+  /* ══════════════════════════════════════════════════════════════════════
+     SCALED TILE — one item, at the size its own contents earn.
+     Used by app/_components/scaled-tile.tsx.
+
+     🔑 WHY THESE RULES ARE HERE AND NOT IN A PAGE. The 2026-08-21 site audit
+     found the three-size system living as 484 lines inside ONE page file, its
+     class names appearing nowhere else — which is exactly why no other surface
+     matched it. This product has 106 bespoke card files and 717 more files
+     hand-drawing the same shape; a shared component whose styles are private
+     to one route would have made a 107th.
+
+     THE RULE: a picture AND writing ⇒ the width. One of them ⇒ a strip.
+     Neither ⇒ a line. Derived in lib/chapter-weight.ts, never chosen by hand.
+
+     ⚠ NO PICTURE MEANS NO FRAME. There is no empty-image state in here on
+     purpose: the component omits the element entirely, so an item without a
+     photograph is SMALLER rather than a hole. The audit counted six blank
+     bordered frames on the page selling photography and called them worse
+     than nothing.
+     ══════════════════════════════════════════════════════════════════════ */
+  .sn-scaled { list-style: none; margin: 0; padding: 0; }
+
+  .sn-shot {
+    display: block; position: relative; overflow: hidden;
+    border-radius: var(--m-r-sm); background: var(--m-ivory, #F6F2EA);
+  }
+  .sn-shot-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sn-shot-note, .sn-shot-play {
+    position: absolute; background: rgba(20, 14, 10, 0.62); color: #fff;
+  }
+  .sn-shot-note {
+    right: 10px; bottom: 10px; padding: 4px 9px; border-radius: var(--m-r-full);
+    font-size: 0.62rem; letter-spacing: 0.11em; text-transform: uppercase;
+  }
+  .sn-shot-play {
+    left: 10px; bottom: 10px; width: 30px; height: 30px;
+    border-radius: var(--m-r-full); display: grid; place-items: center;
+  }
+  .sn-shot-play-i { width: 12px; height: 12px; margin-left: 1px; }
+
+  .sn-kick {
+    display: block; margin: 0 0 0.4rem; color: var(--m-orange-2, #8A6B39);
+    font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* THE LEAD */
+  .sn-lead { margin: 0 0 1.15rem; }
+  .sn-lead-a { display: block; text-decoration: none; color: inherit; }
+  .sn-lead-shot { width: 100%; aspect-ratio: 16 / 10; border-radius: var(--m-r-sm); }
+  .sn-lead-b { display: block; padding: 0.85rem 0 0; }
+  .sn-lead-t {
+    display: block; margin: 0 0 0.45rem;
+    font-family: var(--font-editorial-display), Georgia, serif;
+    font-size: clamp(1.35rem, 4vw, 1.75rem); line-height: 1.12; font-weight: 600;
+    color: var(--m-ink, #1B1A17);
+  }
+  .sn-lead-x {
+    display: block; margin: 0 0 0.55rem; font-size: 0.94rem; line-height: 1.6;
+    color: var(--m-slate-1, #4A4740);
+  }
+  .sn-cue { display: block; font-size: 0.82rem; font-weight: 600; color: #C24E25; }
+
+  /* A STRIP */
+  .sn-med { border-top: 1px solid var(--m-line, #E2DED4); }
+  .sn-med-a {
+    display: flex; gap: 0.85rem; align-items: center; padding: 0.85rem 0;
+    text-decoration: none; color: inherit;
+  }
+  .sn-med-shot { width: 104px; height: 74px; flex: none; border-radius: var(--m-r-xs); }
+  .sn-med-b { display: block; min-width: 0; }
+  .sn-med-t {
+    display: block; font-family: var(--font-editorial-display), Georgia, serif;
+    font-size: 1.13rem; line-height: 1.2; font-weight: 600; color: var(--m-ink, #1B1A17);
+  }
+  .sn-med-x {
+    display: block; margin: 0.25rem 0 0; font-size: 0.8rem; line-height: 1.5;
+    color: var(--m-slate-2, #6A6E76);
+  }
+
+  /* A LINE */
+  .sn-line { border-top: 1px solid var(--m-line, #E2DED4); }
+  .sn-line-a {
+    display: flex; gap: 0.9rem; align-items: baseline; padding: 0.7rem 0;
+    text-decoration: none; color: inherit;
+  }
+  .sn-line-d {
+    width: 84px; flex: none; font-size: 0.66rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--m-slate-2, #6A6E76);
+  }
+  .sn-line-t {
+    font-family: var(--font-editorial-display), Georgia, serif;
+    font-size: 1.02rem; line-height: 1.25; color: var(--m-ink, #1B1A17);
+  }
+
   /*
    * .button-primary — TERRACOTTA CTA (Warm Editorial Archive, owner 2026-08-01;
    * was the gold CTA of 2026-07-12, and the Rich Mulberry of 2026-05-29).
@@ -896,7 +1005,7 @@ html.subnav-docked [data-shell-main] {
   /* Surfaces — Soft Cream (Warm Editorial Archive 2026-08-01 · was Warm
    * Alabaster #FBFAF7 · before that warm paper #FBF8F2). Kept in step with
    * --color-cream above; the two families must not drift. */
-  --m-paper:      #FDFBF7;
+  --m-paper:      #FFFFFF;
   --m-paper-2:    #F4F2EC;
   --m-ivory:      #EDEAE0;
   --m-line:       #E1DCD1;

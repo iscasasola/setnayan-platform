@@ -166,28 +166,31 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
 // never widen one.
 const MARKETING_GATED_EMAIL_TYPES: ReadonlySet<NotificationType> = new Set([
   'new_chapter_from_followed',
-  // PR-H lock handshake (2026-07-27). ALL SIX are transactional and all six
-  // must reach a person who is not in the app:
-  //   · received/nudge → the SUPPLIER, who has 7 days to answer and may never
-  //     open the dashboard. An in-app-only nudge reaches exactly the suppliers
-  //     who do not need it, which is the whole reason the owner ordered it.
-  //   · agreed/declined/expired → the COUPLE, who is waiting on an answer they
-  //     cannot get any other way. There is no SMS in V1, so email plus one card
-  //     is the entire channel.
-  //   · withdrawn → the SUPPLIER again, and for the same reason as received:
-  //     they set a date aside for this and are owed the fact that they no
-  //     longer need to.
-  // Deliberately NOT in PUSH_ENABLED_TYPES: that list is four types and a 7-day
-  // fuse is not that urgent.
-  'lock_request_received',
-  'lock_request_nudge',
-  'lock_request_agreed',
-  'lock_request_declined',
-  'lock_request_expired',
-  // slice B · the SIXTH. → the SUPPLIER, who was holding a hard-single slot on
-  // the strength of the ask. A card that simply vanishes from their Overview
-  // cannot tell them whether they lost the work or the app broke.
-  'lock_request_withdrawn',
+  /*
+    🚨 THE SIX `lock_request_*` TYPES WERE IN HERE, AND IT SUPPRESSED EVERY ONE
+    OF THEM FOR EVERY USER.
+
+    They are in `EMAIL_ENABLED_TYPES` above with a long comment arguing that all
+    six are TRANSACTIONAL and must reach somebody who is not in the app. That
+    same comment was pasted in HERE — into the set whose only effect is to
+    SUPPRESS the send unless `users.marketing_opt_in = TRUE`. The column is
+    `NOT NULL DEFAULT FALSE`, and production carries 9 users with 0 opted in, so
+    the suppression was total: a supplier with seven days to answer a booking
+    request was never emailed, and the couple waiting on that answer never heard
+    either.
+
+    🔑 THE GATE'S OWN COMMENT ASSERTED THE OPPOSITE — "Transactional types are
+    unaffected (they're not in the gated set)" — while six transactional types
+    sat in it. A sentence is not a mechanism.
+
+    🔑 AND THE TEST COULD NOT SEE IT. `lock-request-notifications.test.ts`
+    asserts membership of the EMAIL set and never looks at this one, so both
+    halves agreed with each other and the suite stayed green. Two lists, one
+    checked.
+
+    Membership here means "marketing-adjacent, needs consent". A booking request
+    is not marketing. Only genuinely engagement-shaped types belong.
+  */
 ]);
 
 export type EmitNotificationArgs = {

@@ -58,7 +58,7 @@
  */
 
 .fd {
-  --fd-cream: #fdfbf7;
+  --fd-cream: #ffffff; /* owner 2026-08-20 — white, with globals.css */
   --fd-ink: #2c2a29;
   --fd-gold: #8c6932;
   --fd-hi: #a9834b;
@@ -1275,6 +1275,33 @@ h2.fd-sechead,
   .fd-smallprint {
     display: revert;
   }
+  /* 🔑 THIS DRAWER IS 280px WIDE AND THE STUDIO LINES BELONG IN IT.
+     `.fd-toolline` / `.fd-toolplay` are switched off at ≤1279.98px for the
+     72px ICON STRIP, where they genuinely do not fit. The revert list directly
+     above restores the rail's other prose for this drawer and FORGOT THESE
+     TWO — so every Studio row rendered as a dot and a bare name, while the
+     one-line explanation of what each product does sat in the HTML, invisible.
+     Owner, seeing it: "content of each got lost."
+
+     Scoped with `.fd-rail` on purpose, not written bare: the strip's
+     `display: none` lives in a LATER block in this same file, so at equal
+     specificity a bare selector here would lose to it and change nothing. */
+  .fd-rail .fd-toolline,
+  .fd-rail .fd-toolplay {
+    display: revert;
+  }
+  /* And the other half of the same bug: the strip also flattens `.fd-row-2l`
+     to a single 44px centred row. Restoring the text without restoring the
+     height squeezes two lines into one line's worth of space. */
+  .fd-rail .fd-row-2l {
+    min-height: 56px;
+    align-items: flex-start;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .fd-rail .fd-row-2l .fd-dot {
+    margin-top: 7px;
+  }
   .fd-row {
     flex-direction: row;
     gap: 12px;
@@ -1716,3 +1743,88 @@ h2.fd-sechead,
    in the other block; the guard was reading the wrong one and reported the
    phone rail as painting. Correct code, red guard, and the next reader would
    have "fixed" the guard. Keep every app-variant sub-1024 rule here. */
+
+/* ── THE OPENING ──────────────────────────────────────────────────────────
+   Added 2026-08-21. The front door had no visible headline — its <h1> was
+   `.fd-sr-only`, so the page opened on the chip bar and the card grid. Owner:
+   *"doesn't it feel like just a youtube rip off?"* A feed with nothing above
+   it is a feed. This is the something above it.
+
+   Sits INSIDE `.fd-col`, so it takes the same measure as the feed below and
+   nothing about the existing grid moves. */
+.fd-opening {
+  padding: 40px 0 30px;
+  border-bottom: 1px solid var(--fd-line);
+  margin-bottom: 20px;
+}
+.fd-opening-kick {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--fd-gold);
+}
+.fd-opening-h1 {
+  margin: 0 0 16px;
+  /* clamp so the sentence keeps its shape from a phone to a wide desktop; it is
+     one sentence and it must not break into four lines on a small screen. */
+  font-size: clamp(28px, 4.4vw, 46px);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+  color: var(--fd-ink);
+  max-width: 20ch;
+  text-wrap: balance;
+}
+.fd-opening-lede {
+  margin: 0 0 24px;
+  font-size: 16.5px;
+  line-height: 1.6;
+  /* --fd-m1 is 6.14:1 on the white ground; --fd-m2 is 3.55:1 and would FAIL
+     here. This is body copy, not metadata. */
+  color: var(--fd-m1);
+  max-width: 62ch;
+}
+.fd-opening-lede b {
+  color: var(--fd-ink);
+  font-weight: 700;
+}
+.fd-opening-acts {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.fd-opening-cta {
+  min-height: 48px;
+  padding: 0 24px;
+  font-size: 15px;
+}
+.fd-opening-alt {
+  font-size: 14.5px;
+  font-weight: 650;
+  /* link slate, 8.22:1 — never the decorative gold, which is 3.48:1 and fails
+     as text. Same rule the doors work closed in #4484. */
+  color: var(--fd-link);
+}
+.fd-opening-alt:hover {
+  text-decoration: underline;
+}
+.fd-opening-fine {
+  margin: 18px 0 0;
+  font-size: 12.5px;
+  color: var(--fd-m1);
+}
+.fd-opening-fine i {
+  font-style: italic;
+  font-weight: 650;
+  color: var(--fd-gold);
+}
+@media (max-width: 620px) {
+  .fd-opening {
+    padding: 26px 0 22px;
+  }
+  .fd-opening-h1 {
+    max-width: none;
+  }
+}

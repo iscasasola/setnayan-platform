@@ -71,6 +71,13 @@ export type DeletionImpact = {
   guests: number | null;
   photos: number | null;
   bookedVendors: number | null;
+  /**
+   * Suppliers who have been paid and have not released the deletion — the ones
+   * the couple can ASK. Distinct from `blocked`: an event can be blocked by
+   * money paid to Setnayan, or by an unreadable check, with no supplier to ask.
+   * The ask button keys on THIS, so it is never a door to nothing.
+   */
+  unsettledPaidSuppliers: number | null;
   /** TRUE when money has moved and this event may not be self-deleted. */
   blocked: boolean;
   /** Why it is blocked, in the couple's words. Null when it is not. */
@@ -299,7 +306,7 @@ export async function getEventDeletionImpact(
       admin
         .from('event_vendors')
         .select(
-          'vendor_id, status, completion_status, deposit_paid_php, deposit_recorded_at',
+          'vendor_id, status, completion_status, deposit_paid_php, deposit_recorded_at, delete_request_state',
         )
         .eq('event_id', trimmed),
       admin
@@ -337,6 +344,7 @@ export async function getEventDeletionImpact(
           eventHasPassed,
           completionStatus: (v.completion_status as string | null) ?? null,
           vendorStatus: (v.status as string | null) ?? null,
+          deleteRequestState: (v.delete_request_state as string | null) ?? null,
         });
       }).length;
     }
@@ -373,6 +381,7 @@ export async function getEventDeletionImpact(
     ok: true,
     impact: {
       eventName: eventRow.display_name ?? 'this celebration',
+      unsettledPaidSuppliers,
       guests,
       photos,
       bookedVendors,
@@ -556,4 +565,91 @@ export async function deleteOwnEvent(formData: FormData): Promise<DeleteResult> 
 
   revalidatePath('/dashboard');
   return { ok: true };
+}
+
+export type AskResult =
+  | { ok: true; asked: number }
+  | { ok: false; message: string };
+
+/**
+ * Ask the paid suppliers to agree to this celebration being removed.
+ *
+ * Owner 2026-08-21: *"they can only delete it if the vendors with paid purchase
+ * accepts that this deletion."* Until this shipped, a paid supplier BLOCKED the
+ * delete outright and the couple had no way through — a refusal with no door.
+ *
+ * The RPC decides who is asked: paid, and not already released. The couple does
+ * not choose, and cannot ask a supplier who is not holding anything.
+ */
+export async function askSuppliersToAgree(
+  formData: FormData,
+): Promise<AskResult> {
+  const eventId = String(formData.get('event_id') ?? '').trim();
+  if (!eventId) return { ok: false, message: 'Which celebration?' };
+
+  const member = await requireCoupleMember(eventId);
+  if (!member) {
+    return {
+      ok: false,
+      message: 'Only the people organising this celebration can ask.',
+    };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('request_event_deletion', {
+    p_event_id: eventId,
+  });
+  if (error) {
+    console.error('[delete-event] ask failed', error);
+    return {
+      ok: false,
+      message: 'We couldn’t send that just now. Please try again.',
+    };
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath(`/dashboard/${eventId}`);
+  return { ok: true, asked: Number((data as { asked?: number })?.asked ?? 0) };
+}
+
+/**
+ * Withdraw the ask.
+ *
+ * 🔑 SHIPS BESIDE THE ASK, AND IS CALLED. A forward primitive with no inverse is
+ * a defect this repo has paid for repeatedly — most recently
+ * `cancel_vendor_lock_request`, which was granted, commented, db-tested and had
+ * ZERO CALLERS for its whole life, so a couple could not un-ask.
+ *
+ * Only PENDING asks are withdrawn. An answer already given is the supplier's
+ * record of what they were asked and what they said.
+ */
+export async function withdrawSupplierAsk(
+  formData: FormData,
+): Promise<AskResult> {
+  const eventId = String(formData.get('event_id') ?? '').trim();
+  if (!eventId) return { ok: false, message: 'Which celebration?' };
+
+  const member = await requireCoupleMember(eventId);
+  if (!member) {
+    return {
+      ok: false,
+      message: 'Only the people organising this celebration can withdraw it.',
+    };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('cancel_event_deletion_request', {
+    p_event_id: eventId,
+  });
+  if (error) {
+    console.error('[delete-event] withdraw failed', error);
+    return {
+      ok: false,
+      message: 'We couldn’t withdraw that just now. Please try again.',
+    };
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath(`/dashboard/${eventId}`);
+  return { ok: true, asked: Number((data as { cancelled?: number })?.cancelled ?? 0) };
 }

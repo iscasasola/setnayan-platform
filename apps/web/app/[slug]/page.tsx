@@ -240,7 +240,30 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     //
     // Only reached on the MISS path — a word that matched no live event — so it
     // adds no query to any page that renders.
-    const renamedTo = await resolveRenamedPath(admin, slug);
+    /*
+      🔴 A COURTESY LOOKUP MUST NOT BE ABLE TO TURN "NOT FOUND" INTO A CRASH.
+      This is the ONLY use of `admin` on the miss path, and it exists to be kind
+      to whoever printed an old link. If it throws — a transient read failure, a
+      client that could not be built — the honest answer for a word matching no
+      event is still "we can't find that", not a 500.
+
+      Measured on 2026-08-21: every unknown top-level address was returning a
+      server error with an empty body earlier that day, and a correct 404 by
+      evening, with nothing in between that touched this route. Whatever went
+      wrong was transient; this makes the 404 not depend on it. Google reads a
+      5xx as "the site is broken, come back later" and keeps the URL — it reads
+      a 404 as "that page is gone".
+
+      ⚠ NARROW ON PURPOSE. `redirect()` throws BY DESIGN in Next, so it stays
+      OUTSIDE the try — catching it here would swallow every forward and silently
+      strand the printed QR this block exists to rescue.
+    */
+    let renamedTo: string | null = null;
+    try {
+      renamedTo = await resolveRenamedPath(admin, slug);
+    } catch {
+      // fall through to the vendor check, which notFound()s — a real 404.
+    }
     if (renamedTo) redirect(renamedTo);
     // Not a renamed event → try a vendor at this slug. renderVendorBySlug
     // notFound()s itself if there's no vendor either.

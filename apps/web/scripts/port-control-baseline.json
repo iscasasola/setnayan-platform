@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8a2d0bbe0",
+  "generatedFromRef": "f0e33519f",
   "routeCount": 402,
-  "destinations": 850,
-  "actions": 578,
-  "blocks": 3815,
+  "destinations": 879,
+  "actions": 580,
+  "blocks": 3821,
   "routes": {
     "/": {
       "files": [
@@ -165,12 +165,14 @@
         "/dashboard/[seg]/vendors",
         "/explore",
         "/explore?browse=1",
+        "/explore?category=[seg]",
         "/explore?category=bridal_hmua",
         "/explore?category=catering",
         "/explore?category=photography",
         "/explore?category=videography",
         "/explore?category=wedding_cake",
         "/explore?category=wedding_coordination",
+        "/explore?event_type=[seg]",
         "/explore?match=0",
         "/tour",
         "/vendors"
@@ -428,6 +430,7 @@
       ],
       "destinations": [
         "/explore",
+        "/realstories/[seg]",
         "/signup"
       ],
       "actions": [],
@@ -2330,7 +2333,10 @@
         "admin/payments/loading.tsx",
         "admin/payments/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/admin/payments?filter=[seg]${platform ?",
+        "/admin/payments?filter=[seg]${target ?"
+      ],
       "actions": [
         "action",
         "approvePayment",
@@ -3917,6 +3923,7 @@
         "/dashboard/people",
         "/dashboard/profile",
         "/dashboard/samahan",
+        "/dashboard/samahan/[seg]",
         "/dashboard/samahan/new",
         "/dashboard/year",
         "/open-shop",
@@ -3970,6 +3977,7 @@
         "dashboard/[eventId]/_actions/day-of-broadcast.ts",
         "dashboard/[eventId]/_actions/share-consent.ts",
         "dashboard/[eventId]/_components/access-requests-doorway.tsx",
+        "dashboard/[eventId]/_components/after/finished-event-summary.tsx",
         "dashboard/[eventId]/_components/checklist/checklist-full.tsx",
         "dashboard/[eventId]/_components/customer-bottom-nav.tsx",
         "dashboard/[eventId]/_components/customer-nav-config.ts",
@@ -4039,6 +4047,8 @@
         "/dashboard/[seg]/website/dress-code",
         "/dashboard/notifications",
         "/help",
+        "/login?next=[seg]",
+        "/signup?next=[seg]",
         "/v/[seg]",
         "/wall/[seg]"
       ],
@@ -4058,11 +4068,13 @@
         "AppRailShell",
         "ApplyVoucherResult",
         "ArchiveResult",
+        "AskResult",
         "AutoPreloadOnEventDay",
         "BankBody",
         "Blob",
         "BottomNav",
         "BudgetHealthCard",
+        "Card",
         "ChannelToggle",
         "ChecklistItemView",
         "ChecklistPhaseGroup",
@@ -4091,7 +4103,9 @@
         "EventVendorRowInput",
         "ExpandCard",
         "Field",
+        "Figure",
         "FileUpload",
+        "FinishedEventSummary",
         "FourFlapEnvelope",
         "FreeVenueShortlistOffer",
         "GetHelpCard",
@@ -5016,6 +5030,7 @@
         "dashboard/[eventId]/messages/page.tsx"
       ],
       "destinations": [
+        "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
         "/dashboard/[seg]/vendors"
       ],
@@ -5570,7 +5585,11 @@
         "dashboard/[eventId]/studio/recommend-actions.ts"
       ],
       "destinations": [
-        "/dashboard/[seg]/orders"
+        "/dashboard/[seg]/event-page",
+        "/dashboard/[seg]/live",
+        "/dashboard/[seg]/orders",
+        "/dashboard/[seg]/pabuya",
+        "/dashboard/[seg]/studio"
       ],
       "actions": [
         "dismissRecommendation",
@@ -5723,6 +5742,7 @@
       ],
       "destinations": [
         "/api/oauth/youtube/start?event_id=[seg]",
+        "/dashboard/[seg]/studio",
         "/privacy"
       ],
       "actions": [],
@@ -5982,6 +6002,7 @@
         "/api/oauth/drive/start?event_id=[seg]&switch=1",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/studio",
+        "/dashboard/[seg]/studio/papic",
         "/dashboard/[seg]/studio/papic/crew",
         "/dashboard/[seg]/studio/papic/crew/print",
         "/dashboard/[seg]/studio/papic/gallery-zip",
@@ -6429,7 +6450,9 @@
         "dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx",
         "dashboard/[eventId]/studio/thank-you/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/studio"
+      ],
       "actions": [],
       "blocks": [
         "Link",
@@ -6460,7 +6483,10 @@
         "dashboard/[eventId]/suite/_components/suite-vignette-card.tsx",
         "dashboard/[eventId]/suite/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/website/editor",
+        "/dashboard/[seg]/website/editorial"
+      ],
       "actions": [
         "routes.dashboard.budget",
         "routes.dashboard.checklist",
@@ -6536,6 +6562,7 @@
         "/dashboard/[seg]",
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/disputes",
+        "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors/[seg]/review",
@@ -6781,7 +6808,8 @@
         "dashboard/[eventId]/vendors/categories/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/vendors"
+        "/dashboard/[seg]/vendors",
+        "/signup?next=[seg]"
       ],
       "actions": [],
       "blocks": [
@@ -6937,7 +6965,10 @@
       "destinations": [
         "/[seg]?phase=editorial",
         "/dashboard/[seg]/website",
-        "/dashboard/[seg]/website/privacy"
+        "/dashboard/[seg]/website/living-hero",
+        "/dashboard/[seg]/website/our-photos",
+        "/dashboard/[seg]/website/privacy",
+        "/dashboard/[seg]/website/special-message"
       ],
       "actions": [],
       "blocks": [
@@ -6951,7 +6982,6 @@
         "ProChip",
         "ProUpsellLine",
         "ShareButtons",
-        "WebsiteProLock",
         "WishRow"
       ]
     },
@@ -7321,6 +7351,7 @@
       ],
       "destinations": [
         "/",
+        "/dashboard/[seg]",
         "/login?next=",
         "/login?next=[seg]",
         "/signup?next=[seg]&email=[seg]"
@@ -7872,6 +7903,7 @@
       ],
       "destinations": [
         "/",
+        "/[seg]",
         "/papic/guest",
         "/terms"
       ],
@@ -8346,7 +8378,9 @@
         "MutualDays",
         "ProfileShareButton",
         "ReportPageButton",
-        "ViewBeacon"
+        "ScaledTileList",
+        "ViewBeacon",
+        "WhoWasThereBand"
       ]
     },
     "/u/[userSlug]/c/[chapterId]": {
@@ -8388,6 +8422,7 @@
         "/[seg]?reviewsPage=[seg]",
         "/dashboard",
         "/login",
+        "/onboarding/wedding?next=[seg]",
         "/signup",
         "/v/[seg]/booth"
       ],
@@ -8523,9 +8558,11 @@
       ],
       "actions": [
         "acceptInquiry",
+        "agreeDeletion",
         "agreeLock",
         "cancelAction",
         "confirmLock",
+        "declineDeletion",
         "declineInquiry",
         "declineLock",
         "disconnectInstagram",
@@ -8551,6 +8588,7 @@
         "CopyButton",
         "CorrectionRequestResult",
         "CountUp",
+        "DeleteRequestBody",
         "DisputeBody",
         "EarnedTile",
         "EmptyCard",
@@ -8747,6 +8785,7 @@
         "vendor-dashboard/calendar/[date]/page.tsx"
       ],
       "destinations": [
+        "/vendor-dashboard/calendar?m=[seg]${\n    search.pool ?",
         "/vendor-dashboard/messages/[seg]"
       ],
       "actions": [
@@ -8944,7 +8983,8 @@
         "vendor-dashboard/clients/[eventId]/production-sheet/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients/[seg]"
+        "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/clients/[seg]/production-sheet"
       ],
       "actions": [
         "addPortionRule",
@@ -9512,7 +9552,8 @@
         "vendor-dashboard/on-the-day/live/[eventId]/papic/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/on-the-day"
+        "/vendor-dashboard/on-the-day",
+        "/vendor-dashboard/on-the-day/live/[seg]"
       ],
       "actions": [],
       "blocks": [

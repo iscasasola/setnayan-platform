@@ -227,7 +227,7 @@ export default async function AdminBookingFeesPage() {
                     <Link
                       href="/admin/payments"
                       className="rounded-md px-3 py-1.5 text-xs font-semibold"
-                      style={{ background: 'var(--sn-cta, #C24E25)', color: '#FDFBF7' }}
+                      style={{ background: 'var(--sn-cta, #C24E25)', color: '#FFFFFF' }}
                     >
                       Check their payment
                     </Link>

@@ -127,15 +127,27 @@
      * Gold is UNCHANGED and keeps every decorative role (active tabs, rules,
      * pills, eyebrows, selected states) — the accent budget stays at two.
      *
-     * Contrast, measured (not estimated), all against #FDFBF7:
-     *   ink   #2C2A29  13.82:1  AAA
-     *   link  #3B4E67   8.22:1  AAA   · white on it 8.50:1 AAA
-     *   CTA   #C24E25            · CREAM label on it 4.61:1 AA ✓
-     *   gold  #A9834B   3.37:1  UI + large text ONLY — never body copy
-     *                           (escalate to --color-terracotta-700 #8A6B39,
-     *                            4.79:1 AA, when gold must carry real text)
+     * ⚠ THE PAGE IS WHITE AGAIN — owner, 2026-08-20: *"let's also make the
+     * background not beige. let's keep it same color as facebook/youtube.
+     * having a white background."* This reverses the 2026-07-13 move to cream
+     * and the lock that followed it. Recorded rather than quietly applied,
+     * because a later reader will find that lock and need to know it was the
+     * owner who lifted it.
+     *
+     * EVERY RATIO IMPROVED AND NONE REGRESSED — white is lighter than cream, so
+     * text-on-page rises and a cream-coloured LABEL on a coloured fill rises
+     * too. Measured (not estimated), all against #FFFFFF, with the old cream
+     * figure beside each so the direction is visible:
+     *   ink   #2C2A29  14.28:1  AAA   (was 13.82)
+     *   link  #3B4E67   8.50:1  AAA   (was  8.22)
+     *   CTA   #C24E25          · label on it 4.76:1 AA ✓ (was 4.61)
+     *   gold  #A9834B   3.48:1  UI + large text ONLY — never body copy
+     *                           (was 3.37 — still under the floor, so the rule
+     *                            is UNCHANGED; escalate to
+     *                            --color-terracotta-700 #8C6932, 5.02:1 AA,
+     *                            when gold must carry real text)
      */
-    --color-cream: 253 251 247;        /* page + card → soft cream #FDFBF7 (was pure white 2026-07-13; ≈ the Atelier paper #FBFAF7 that preceded it) */
+    --color-cream: 255 255 255;        /* page + card → WHITE #FFFFFF (owner 2026-08-20, reversing the 2026-07-13 move to cream #FDFBF7). Token NAME kept: renaming it would churn every `bg-cream`/`text-cream` call site in the app for no behaviour change — the same reason `mulberry` and `terracotta` kept theirs. */
     --color-ink: 44 42 41;             /* primary text → espresso #2C2A29 · 13.82:1 AAA */
     --color-terracotta: 169 131 75;    /* accent → Atelier gold #A9834B (kit gold-500) — UNCHANGED */
     --color-terracotta-600: 168 131 64; /* accent hover → #A88340 */
@@ -145,12 +157,14 @@
      * WHY DARKENED: #E05A2B fails AA with EVERY possible label — white 3.71:1,
      * ink 3.85:1 — both under the 4.5:1 floor for normal-size button text.
      *
-     * WHY 86% AND NOT 89%: the target is not white. `.button-primary` labels
-     * with `text-cream`, and cream is #FDFBF7, not #FFFFFF. Against cream the
-     * ratio is ~0.15 lower than against white, so the first value that clears
-     * AA on white (#C75026, 4.56:1 white / 4.41:1 cream) still FAILS the label
-     * this app actually renders. #C24E25 gives 4.61:1 with cream, 4.76:1 with
-     * white — passing either way, with headroom.
+     * WHY 86% AND NOT 89%: it was chosen against the CREAM label this app used
+     * to render — the first value clearing AA on white (#C75026, 4.56:1 white /
+     * 4.41:1 cream) FAILED that label. #C24E25 was picked because it passes
+     * BOTH: 4.61:1 on cream, 4.76:1 on white.
+     * ⚠ THAT HEADROOM IS WHY THE 2026-08-20 MOVE TO WHITE COST NOTHING HERE —
+     * `text-cream` is now #FFFFFF and the label measures 4.76:1, better than
+     * before. Had the CTA been tuned to cream alone, this change would have
+     * needed a new CTA colour.
      *
      * ⚠ Do not lighten toward #E05A2B "to match the brand": it re-breaks AA.
      * Token NAME `mulberry` kept to avoid churning 239 CTA call sites — the
@@ -167,7 +181,7 @@
     --accent: #c5a059;
     --accent-deep: #a88340;
     --accent-soft: #f4ecd8;            /* Light champagne wash */
-    --surface: #fdfbf7;                /* card = page (see the block comment above) */
+    --surface: #ffffff;                /* card = page (see the block comment above) */
     --surface-soft: #f4f2ec;           /* Warm card surface */
     --ink-soft: 79 83 91;               /* Deep slate #4F535B */
   }
@@ -896,7 +910,7 @@ html.subnav-docked [data-shell-main] {
   /* Surfaces — Soft Cream (Warm Editorial Archive 2026-08-01 · was Warm
    * Alabaster #FBFAF7 · before that warm paper #FBF8F2). Kept in step with
    * --color-cream above; the two families must not drift. */
-  --m-paper:      #FDFBF7;
+  --m-paper:      #FFFFFF;
   --m-paper-2:    #F4F2EC;
   --m-ivory:      #EDEAE0;
   --m-line:       #E1DCD1;

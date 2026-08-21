@@ -280,7 +280,7 @@ export function AccountSwitcher({ data, currentEventName, homeLabel }: Props) {
 
     🔑 A CIRCLE AT 1.17:1 IS NOT A CIRCLE. The avatar was `bg-terracotta/15`
     — the gold slot at 15% over the cream pill, which measures #F0E9DD against
-    #FDFBF7: 1.17:1. WCAG 1.4.11 asks 3:1 of a control's own shape, and GOLD
+    the white page: 1.20:1. WCAG 1.4.11 asks 3:1 of a control's own shape, and GOLD
     CANNOT REACH IT AT ANY ALPHA (solid gold is 3.37:1, so every tint of it is
     worse). So the shape was invisible, the initial inside it measured 4.17:1 —
     under the 4.5:1 AA floor — and for this account the initial is "I", a single

@@ -70,13 +70,32 @@ export function PublicPageActions({
   }
 
   return (
-    <div
-      className={`pointer-events-none fixed inset-x-0 z-30 flex justify-center px-4 print:hidden ${
-        aboveMenuBar
-          ? 'bottom-[calc(4.75rem+env(safe-area-inset-bottom))]'
-          : 'bottom-4'
-      }`}
-    >
+    <>
+      {/* 🔴 A FIXED PILL COVERS WHATEVER IS UNDER IT, AND NOTHING RESERVED ITS
+          SPACE. Measured on the live invitation (2026-08-21, 375px): this bar
+          sat over **85% of the "Sign up free" button** — `elementsFromPoint` at
+          that button's centre returned SHARE — and over three-quarters of the
+          wedding date on the hero. Two of the most consequential things on the
+          page: the action that creates an account, and the single fact an
+          invitation exists to convey.
+          🪤 THE PREVIOUS FIX MOVED THE COLLISION RATHER THAN ENDING IT. The
+          docblock above records the pill being lifted clear of the menu BAR —
+          correct, and it landed it squarely on the CONTENT instead. Anything
+          `fixed` needs its footprint reserved in the flow; lifting it just
+          chooses a different victim.
+          This is the pattern `site-menu-bar.tsx` already uses for its own bar:
+          an in-flow, aria-hidden spacer the height of what floats above it.
+          3.5rem clears the pill in both positions — stacked on top of the menu
+          bar's own 3.5rem spacer when a menu is present, and standing alone
+          when it is not. */}
+      <div aria-hidden className="h-14 print:hidden" />
+      <div
+        className={`pointer-events-none fixed inset-x-0 z-30 flex justify-center px-4 print:hidden ${
+          aboveMenuBar
+            ? 'bottom-[calc(4.75rem+env(safe-area-inset-bottom))]'
+            : 'bottom-4'
+        }`}
+      >
       <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-ink/15 bg-cream/85 px-3 py-1.5 shadow-lg backdrop-blur">
         {canShare && (
           <button
@@ -105,7 +124,8 @@ export function PublicPageActions({
           label="Report"
           className="inline-flex"
         />
+        </div>
       </div>
-    </div>
+    </>
   );
 }

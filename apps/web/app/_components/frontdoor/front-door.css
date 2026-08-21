@@ -1828,3 +1828,143 @@ h2.fd-sechead,
     max-width: none;
   }
 }
+
+/* ── THE STORY ────────────────────────────────────────────────────────────
+   The two blocks under the opening that turn its headline into an argument.
+
+   🔑 NEUTRAL GREY, NOT `--fd-wash`. The wash is #f3ecdf — beige, which on the
+   now-white page is exactly what the owner asked us to stop doing
+   ("let's also make the background not beige"). These blocks get their own
+   neutral so the page stays white and the bubbles still read as surfaces. */
+.fd {
+  --fd-panel: #f4f4f5;
+  --fd-panel-line: #e6e6e8;
+}
+.fd-story {
+  padding: 34px 0 8px;
+  max-width: 66ch;
+}
+.fd-story-h {
+  margin: 0 0 18px;
+  font-size: clamp(21px, 2.6vw, 27px);
+  line-height: 1.2;
+  letter-spacing: -0.022em;
+  font-weight: 700;
+  color: var(--fd-ink);
+}
+.fd-story-body {
+  margin: 0;
+  font-size: 16.5px;
+  line-height: 1.62;
+  color: var(--fd-m1);
+}
+.fd-story-turn {
+  margin: 22px 0 0;
+  font-size: 17.5px;
+  line-height: 1.5;
+  font-weight: 650;
+  color: var(--fd-ink);
+  max-width: 46ch;
+}
+.fd-story-afar {
+  padding-bottom: 26px;
+  border-bottom: 1px solid var(--fd-line);
+  margin-bottom: 8px;
+}
+
+/* the vignette. DELIBERATELY NOT A SCREENSHOT — no avatars, no app chrome, no
+   sender names. See the component docblock: a vignette mistakable for a real
+   person's messages would be a fabricated testimonial. */
+.fd-chat {
+  margin: 0;
+  border: 1px solid var(--fd-panel-line);
+  border-radius: var(--m-r-lg);
+  padding: 18px 16px 4px;
+  background: var(--fd-panel);
+}
+.fd-chat-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  /* the gap WIDENS beat by beat — the silence is the point, and it is drawn
+     rather than described */
+  gap: 14px;
+}
+.fd-chat-beat {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.fd-chat-beat + .fd-chat-beat {
+  margin-top: 4px;
+}
+.fd-chat-beat:nth-child(3) {
+  margin-top: 10px;
+}
+.fd-chat-beat:nth-child(4) {
+  margin-top: 18px;
+}
+.fd-chat-when {
+  flex: none;
+  width: 62px;
+  padding-top: 6px;
+  font-family: var(--fd-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  /* --fd-m1 is 5.14:1 on the panel; --fd-m2 would be 3.42 and fail */
+  color: var(--fd-m1);
+}
+.fd-chat-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.fd-bub {
+  display: inline-block;
+  max-width: 100%;
+  padding: 7px 12px;
+  border-radius: var(--m-r-md);
+  background: var(--fd-cream);
+  border: 1px solid var(--fd-panel-line);
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--fd-ink);
+}
+.fd-bub-quiet {
+  color: var(--fd-m1);
+  font-style: italic;
+}
+.fd-chat-seen {
+  font-size: 11.5px;
+  font-family: var(--fd-mono);
+  color: var(--fd-m1);
+  padding-left: 2px;
+}
+.fd-chat-left {
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--fd-ink);
+  padding-top: 4px;
+}
+.fd-chat-cap {
+  margin: 18px 0 0;
+  padding: 14px 0 16px;
+  border-top: 1px solid var(--fd-panel-line);
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--fd-m1);
+}
+@media (max-width: 560px) {
+  .fd-chat-beat {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .fd-chat-when {
+    width: auto;
+    padding-top: 0;
+  }
+}

@@ -755,11 +755,29 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           passed; the binding count is frozen so late changes no longer move
           vendor costs. Shown on desktop + mobile. */}
       {finalize.locked ? (
+        /*
+          ⚠ IT SAID "2 GUESTS LOCKED IN" ON A LIST WITH NOBODY ON IT.
+
+          The frozen figure is `max(estimated_pax, headcount)` — for an event
+          where nobody was ever added it is simply the head count the couple
+          typed at sign-up. Calling that "guests locked in" put a number that
+          contradicts the list, in bold, at the top of the list. The owner's own
+          screen read "0 guests" and "2 guests locked in" and "0 of 2 pax" at
+          once.
+
+          🔑 SAY WHAT THE NUMBER IS FOR. It is the head count suppliers price
+          against, and that sentence is true whether the list has nobody on it
+          or three hundred — so it is ONE wording, not a conditional that has to
+          decide which case it is in.
+        */
         <p className="rounded-xl border border-ink/15 bg-ink/[0.03] px-4 py-3 text-sm text-ink/70">
           <span className="font-semibold text-ink">Guest list finalized</span>
-          {finalize.finalPax ? ` · ${finalize.finalPax} guests locked in` : ''}. Changes
-          after your guest‑list deadline no longer change vendor costs, and your
-          guests can no longer reply on your event page.
+          {finalize.finalPax
+            ? ` · your suppliers price for ${finalize.finalPax} ${finalize.finalPax === 1 ? 'head' : 'heads'}`
+            : ''}
+          . Changes after your guest‑list deadline no longer change what your
+          suppliers charge, and your guests can no longer reply on your event
+          page.
         </p>
       ) : null}
 

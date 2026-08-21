@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6e8193723",
+  "generatedFromRef": "202e6e6d1",
   "routeCount": 403,
   "destinations": 862,
   "actions": 582,
-  "blocks": 3847,
+  "blocks": 3849,
   "routes": {
     "/": {
       "files": [
@@ -4571,6 +4571,7 @@
     "/dashboard/[eventId]/guests": {
       "files": [
         "dashboard/[eventId]/guests/_components/active-filters.tsx",
+        "dashboard/[eventId]/guests/_components/add-from-people-sheet.tsx",
         "dashboard/[eventId]/guests/_components/capture-bar.tsx",
         "dashboard/[eventId]/guests/_components/chip-editors.tsx",
         "dashboard/[eventId]/guests/_components/groups-sidebar.tsx",
@@ -4596,6 +4597,7 @@
         "dashboard/[eventId]/guests/loading.tsx",
         "dashboard/[eventId]/guests/map-actions.ts",
         "dashboard/[eventId]/guests/page.tsx",
+        "dashboard/[eventId]/guests/people-add-actions.ts",
         "dashboard/[eventId]/guests/quick-add-actions.ts"
       ],
       "destinations": [
@@ -4617,6 +4619,8 @@
       "blocks": [
         "ActiveFilters",
         "AddButton",
+        "AddFromPeopleResult",
+        "AddFromPeopleSheet",
         "AddToGroupControl",
         "AssignSheet",
         "BulkApplyForm",
@@ -4676,6 +4680,7 @@
         "ModeSeg",
         "NewGroupForm",
         "NewGroupInlineForm",
+        "OpenAddFromPeopleButton",
         "OpenQuickAddButton",
         "OptimisticDeleteButton",
         "OptionRow",
@@ -6146,7 +6151,6 @@
       ],
       "actions": [],
       "blocks": [
-        "InlineCheckoutDrawer",
         "KwentoActionResult",
         "KwentoQueue",
         "KwentoQueueControls",

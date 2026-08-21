@@ -137,7 +137,15 @@ const REQUIRED_RETAIL = [
   // ever compares this list against the real catalog.
   'PATIKTOK_COMPILER',
   'PABATI',
-  'KWENTO',
+  // KWENTO removed 2026-08-21 — owner set it FREE ("kwento is free"), so it no
+  // longer has a price to advertise and its row is deactivated. Its prose line
+  // stayed and now reads "free": the FEATURE is on for every event
+  // (entitlements FREE_FOR_ALL_SKUS), so deleting the line would hide something
+  // every couple can actually use.
+  // 🪤 REMOVING THE ENTRY AND THE PROSE PRICE TOGETHER IS MANDATORY — exactly as
+  // recorded for LIVE_WALL above. Leaving the entry throws RetiredSkuError and
+  // drops the whole file to its stub; leaving the `R('KWENTO')` call throws
+  // MissingSkuError for the same result.
   // ⚠ THREE CODES LEFT THIS LIST ON 2026-08-11 and their prose went with them,
   // which is the ONLY correct way to retire one (see the RetiredSkuError note
   // below — deleting the entry without the line, or the line without the entry,
@@ -362,7 +370,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Patiktok** — ${R('PATIKTOK_COMPILER')}. Mimic-station booth; unlimited 9:16 vertical recordings compiled into post-ready reels.
 - **Pabati** — ${R('PABATI')} per day. Guest-recorded greeting videos.
-- **Kwento** — ${R('KWENTO')} (whole event). Guest-contributed stories and messages.
+- **Kwento** — free. Guest-contributed stories and messages.
 - **Papic** — one shared pot of shots every guest's phone can spend from, and the host can set some aside for one camera's QR that nobody else can touch. 50 shots free on every event, then ${R('PAPIC_GUEST_100')} for 100 · ${R('PAPIC_GUEST')} for 3,000 · ${R('PAPIC_GUEST_10K')} for 10,000 · ${R('PAPIC_GUEST_20K')} for 20,000, added on top and repeatable. Cameras are free and unlimited. A photo spends 1 credit; a video spends 2 to 8 depending on its length (1–2s = 2 · 3s = 3 · 4–6s = 5 · 7–10s = 8). 6-month access window.
 - **Custom QR per Guest** — free. Individual QR codes for guests (RSVP, seating, photo tagging).
 

@@ -64,7 +64,12 @@ const RETAIL: RetailRow[] = [
   { service_code: 'PABATI', title: 'Pabati', retail_price_php: 1299, is_active: true },
   { service_code: 'PAPIC_GUEST', title: 'Papic Pool — add 3,000 shots', retail_price_php: 1000, is_active: true },
   { service_code: 'ANIMATED_MONOGRAM', title: 'Animated Monogram', retail_price_php: 1000, is_active: true },
-  { service_code: 'KWENTO', title: 'Kwento', retail_price_php: 299, is_active: true },
+  // KWENTO is FREE since 2026-08-21 (owner: "kwento is free") — its row is
+  // deactivated in prod by migration 20271156242842, and this fixture is a
+  // second hand-typed copy of that catalog which CI reads instead of the
+  // database. Kept listed, inactive, so the change is legible here rather than
+  // looking like an accidental deletion — same convention as the rows below.
+  { service_code: 'KWENTO', title: 'Kwento', retail_price_php: 299, is_active: false },
   { service_code: 'PAPIC_ONE_100', title: 'Papic One — 100 shots', retail_price_php: 100, is_active: false },
   { service_code: 'PAPIC_CAMERA_MINI_DAY', title: 'Papic One — 50 shots', retail_price_php: 50, is_active: false },
   { service_code: 'CUSTOM_QR_GUEST', title: 'Custom QR per Guest', retail_price_php: 0, is_active: true },
@@ -171,14 +176,18 @@ test('every link in the rendered body resolves to an allow-listed route', () => 
 });
 
 test('a missing SKU refuses to render, and names EVERY missing code at once', () => {
+  // ⚠ KWENTO was one of the two codes stripped here until 2026-08-21. It is no
+  // longer in REQUIRED_RETAIL (it is free), so removing it proves nothing —
+  // the assertion would have gone on passing while testing one code instead of
+  // two. Swapped for PABATI, which is still required.
   const stripped = RETAIL.filter(
-    (r) => r.service_code !== 'PAKANTA' && r.service_code !== 'KWENTO',
+    (r) => r.service_code !== 'PAKANTA' && r.service_code !== 'PABATI',
   );
   assert.throws(
     () => renderLlmsTxt({ ...INPUT, retail: stripped }),
     (err: unknown) => {
       assert.ok(err instanceof MissingSkuError);
-      assert.deepEqual([...err.codes].sort(), ['KWENTO', 'PAKANTA']);
+      assert.deepEqual([...err.codes].sort(), ['PABATI', 'PAKANTA']);
       return true;
     },
     'a catalog missing a named SKU must throw rather than emit a half-true file',

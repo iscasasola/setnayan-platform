@@ -140,7 +140,14 @@ const ADDON_GROUPS: CatalogGroup[] = [
       { code: 'PAPIC_CAMERAS' }, // Papic One — a dedicated camera, its own QR + shots
       { code: 'CAMERA_BRIDGE', withPapic: true },
       { code: 'PABATI', withPapic: true },
-      { code: 'KWENTO', withPapic: true },
+      // KWENTO is FREE for every event since 2026-08-21 (owner: "kwento is
+      // free") — is_active=false, so it drops out of resolvedGroups
+      // automatically and no longer appears among the paid rows, which is
+      // correct: this page lists what you PAY for. The feature is still on for
+      // everyone (entitlements FREE_FOR_ALL_SKUS) and llms.txt describes it as
+      // free. Code kept listed — same convention as LIVE_WALL below — so the
+      // change is legible here rather than looking like an accidental deletion.
+      { code: 'KWENTO', withPapic: true }, // FREE 2026-08-21 — no longer a paid row
       // Pakanta moved to "Personal touches" on origin/main (owner 2026-07-10
       // "pakanta is not part of papic"); Stories + Thank You are the genuine
       // Papic add-ons activated 2026-07-10.

@@ -14,6 +14,7 @@ import {
 } from '@/lib/guest-claim';
 import { emitNotification } from '@/lib/notification-emit';
 import { readGuestSession, setGuestSession } from '@/lib/guest-session';
+import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
 import type { GuestRole } from '@/lib/guests';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
@@ -95,7 +96,7 @@ async function recordJoinScan(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,
   guestId: string,
-  entry: 'self_join' | 'self_join_bound_seed',
+  entry: 'self_join' | 'self_join_bound_seed' | 'account_join',
 ) {
   try {
     const h = await headers();
@@ -116,6 +117,61 @@ async function recordJoinScan(
 }
 
 /** Tell the couple an unlisted guest joined so they can reconcile. */
+/**
+ * A SIGNED-IN PERSON WHO JOINS IS NOW ON THIS GUEST LIST — HAND THEM THE SAME
+ * IDENTITY THE ACCOUNTLESS JOINER ALREADY GETS.
+ *
+ * 🔴 THE DEFECT THIS CLOSES. `/{slug}` decides "guest or stranger" from the
+ * `setnayan_guest_session` cookie and from NOTHING ELSE. This action wrote an
+ * `event_members` row and never minted that cookie, so the signed-in joiner was
+ * sent to a success page whose only way on was "Go to your dashboard" — while
+ * the person with NO account was redirected onto the celebration itself,
+ * recognised by name. The one who signed in got the worse ending.
+ *
+ * 🔑 WHY MINTING HERE IS LEGAL, WHEN `lib/guest-membership-session.ts` REFUSES
+ * TO. That module's refusal — and `app/[slug]/page.tsx`'s "a render cannot
+ * write cookies" — are about RENDER TIME, and about a GET route that a Next
+ * `<Link>` PREFETCHED, so a card scrolling into view silently rewrote which
+ * event somebody's single cookie named. This is a Server Action: it runs only
+ * on a real press of "Add me to the guest list". Its accountless twin in this
+ * same file already mints and redirects exactly this way.
+ * ⚠ Do NOT move this into that module — a test there asserts it contains no
+ * mint, and the reason it gives will sound wrong for this case and still be
+ * right.
+ *
+ * ⚠ THE COOKIE HOLDS EXACTLY ONE EVENT AND HAS A HARD 60-DAY LIFE. Minting for
+ * this event ends cookie-recognition on any other. That is already true of the
+ * accountless path, and a join is a deliberate press rather than a prefetch —
+ * but it is a real consequence, not an invisible one.
+ *
+ * Returns the destination, or NULL when we cannot honour it (no readable seat,
+ * no public address) — the caller then keeps today's destination. Failing back
+ * is not defensiveness: `admitAsUnlisted` can fail to bind, so "membership
+ * missing" is reachable.
+ */
+async function enterAsGuest(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  userId: string,
+): Promise<string | null> {
+  // ONE read for all three values the mint and the redirect need. The slug
+  // comes back THROUGH THE DATABASE embed, never from anything the caller sent
+  // — the open-redirect lesson `[slug]/redeem` paid for on 2026-08-06 — and the
+  // qr_token is re-read LIVE rather than hand-carried from the bind, because a
+  // token read before the bind is a value you would then have to prove current.
+  const seat = await findGuestSeatForUser(eventId, userId);
+  if (!seat) return null;
+  await setGuestSession({
+    guest_id: seat.guestId,
+    event_id: eventId,
+    qr_token: seat.qrToken,
+  });
+  // Every other mint site in this product leaves a scan row. Do not be the one
+  // that mints invisibly.
+  await recordJoinScan(admin, eventId, seat.guestId, 'account_join');
+  return `/${seat.slug}`;
+}
+
 async function notifyCoupleUnlisted(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,
@@ -187,14 +243,21 @@ async function admitAsUnlisted(
 
   if (error || !inserted) return false;
 
-  await bindMemberToSeed(admin, {
+  // ⚠ THE BIND RESULT USED TO BE DISCARDED. That was harmless while the only
+  // consequence was which page rendered — but the caller now mints a guest
+  // session off the membership row this writes, so a swallowed bind error is
+  // the difference between "recognised on the celebration page" and "a stranger
+  // on it". Report it.
+  const bindErr = await bindMemberToSeed(admin, {
     eventId: args.eventId,
     userId: args.userId,
     guestId: inserted.guest_id as string,
     seedRole: args.role,
   });
+  // The couple is told either way — they have a row to reconcile regardless of
+  // whether this account got bound to it.
   await notifyCoupleUnlisted(admin, args.eventId, args.presentedName);
-  return true;
+  return !bindErr;
 }
 
 /**
@@ -282,7 +345,11 @@ export async function joinEventAction(eventId: string, token: string, formData: 
     if (existing.member_type === 'couple') {
       return redirect(`/dashboard/${eventId}`);
     }
-    return redirect(`/join/${eventId}/success?token=${encodeURIComponent(token)}`);
+    // A RETURNING GUEST RE-SCANS ON A NEW PHONE. Without this they met "Your
+    // personal invitation site is on its way." every single time — a sentence
+    // about a page they have been a member of for months.
+    const dest = await enterAsGuest(admin, eventId, user.id);
+    return redirect(dest ?? `/join/${eventId}/success?token=${encodeURIComponent(token)}`);
   }
 
   // Gmail-login avatar (owner directive 2026-06-05). DISPLAY-only — never a face
@@ -312,7 +379,10 @@ export async function joinEventAction(eventId: string, token: string, formData: 
         guestId: emailSeed.guest_id as string,
         seedRole: emailSeed.role as GuestRole,
       });
-      if (!err) return redirect(`/join/${eventId}/success?token=${encodeURIComponent(token)}`);
+      if (!err) {
+        const dest = await enterAsGuest(admin, eventId, user.id);
+        return redirect(dest ?? `/join/${eventId}/success?token=${encodeURIComponent(token)}`);
+      }
       // Race → fall through to name-match / optimistic-add.
     }
   }
@@ -359,14 +429,17 @@ export async function joinEventAction(eventId: string, token: string, formData: 
       guestId: match.candidate.guestId,
       seedRole: roleByGuestId.get(match.candidate.guestId) ?? 'guest',
     });
-    if (!err) return redirect(`/join/${eventId}/success?token=${encodeURIComponent(token)}`);
+    if (!err) {
+      const dest = await enterAsGuest(admin, eventId, user.id);
+      return redirect(dest ?? `/join/${eventId}/success?token=${encodeURIComponent(token)}`);
+    }
     // Race lost the seat → fall through to optimistic-add as unlisted.
   }
 
   // 6. No confident match → OPTIMISTIC ADMIT as unlisted. Never blocked; the
   //    couple is notified and reconciles (Link / Keep / Delete). The self-declared
   //    role (validated against selfClaimableRoles above) is used here.
-  await admitAsUnlisted(admin, {
+  const admitted = await admitAsUnlisted(admin, {
     eventId,
     userId: user.id,
     presentedName,
@@ -374,6 +447,12 @@ export async function joinEventAction(eventId: string, token: string, formData: 
     avatarUrl,
   });
 
+  // ⚠ THIS ONE DELIBERATELY KEEPS THE SUCCESS PAGE. It is the ONLY place anyone
+  // is told "you weren't on the original list, so we've added you and let the
+  // hosts know" — dropping that to match the other endings would trade a real
+  // sentence for consistency. The mint still runs first, so the page's way on
+  // lands them recognised rather than as a stranger.
+  if (admitted) await enterAsGuest(admin, eventId, user.id);
   return redirect(`/join/${eventId}/success?token=${encodeURIComponent(token)}&unlisted=1`);
 }
 

@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "29c868ac7",
+  "generatedFromRef": "8a8a38095",
   "routeCount": 403,
   "destinations": 862,
   "actions": 582,
@@ -3913,9 +3913,9 @@
         "/admin",
         "/dashboard",
         "/dashboard/[seg]",
+        "/dashboard/[seg]/website/editorial",
         "/dashboard/create-event",
         "/dashboard/creator",
-        "/dashboard/creator?event=[seg]",
         "/dashboard/library",
         "/dashboard/life-flash",
         "/dashboard/notifications",

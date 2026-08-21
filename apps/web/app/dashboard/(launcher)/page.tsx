@@ -571,20 +571,13 @@ export default async function LauncherPage({
   // `null` = NOT MEASURED, which is a different thing from "none", and the
   // split degrades to a single shelf rather than inviting somebody to write a
   // story they have already written.
-  let storyEventIds: Set<string> | null = null;
   try {
     const { data, error } = await supabase
       .from('creator_chapters')
       .select('event_id, status')
       .eq('user_id', user.id);
     if (!error) {
-      const rows = (data ?? []) as Array<{ event_id: string | null; status: string }>;
-      chapterCount = rows.length;
-      storyEventIds = new Set(
-        rows
-          .filter((r) => r.status === 'published' && r.event_id)
-          .map((r) => r.event_id as string),
-      );
+      chapterCount = ((data ?? []) as unknown[]).length;
     }
   } catch {
     // ⚠ 0, NOT null — AND THAT DIFFERS FROM ITS THREE NEIGHBOURS ON PURPOSE.
@@ -596,6 +589,51 @@ export default async function LauncherPage({
     // to start, and loses the link to their own page. Accepted — but do NOT copy
     // this pattern to a count that feeds a number or a list.
     chapterCount = 0;
+  }
+
+  /*
+    WHICH FINISHED CELEBRATIONS HAVE THEIR STORY WRITTEN.
+
+    🔑 THE STORY OF AN EVENT IS THE EVENT'S OWN STORY PAGE — the one Setnayan
+    drafts from the day's photos and schedule and the couple then corrects. It is
+    NOT a Storyteller chapter.
+
+    This read used to ask `creator_chapters` instead, and that was the whole of
+    the owner's confusion (2026-08-22: *"isn't that the editorial. the story?"*).
+    A chapter is a PERSON's own write-up ABOUT a day, on a blank page, and one day
+    can have several — including one from a supplier who worked it. The event's
+    story page is Setnayan's write-up OF that day, one per celebration, created
+    automatically. They are separate records; nothing copies between them.
+
+    ⚠ THE OLD MEASURE MADE THE SHELF LIE. A couple could compose and publish
+    their whole story page and My Events still filed the celebration under
+    "Untold", still offering *"Write the story of <name>"* — pointing at the OTHER
+    door, where the box opens blank and they are asked to write the same day up a
+    second time from memory. Two buttons in the product read "Write the story" and
+    went to different screens.
+
+    `null` still means NOT MEASURED, which is a different thing from "none": the
+    split degrades to a single shelf rather than inviting somebody to write a
+    story they have already written.
+  */
+  let storyEventIds: Set<string> | null = null;
+  try {
+    const { data, error } = await supabase
+      .from('event_editorial')
+      .select('event_id, status')
+      .eq('status', 'published');
+    if (!error) {
+      storyEventIds = new Set(
+        ((data ?? []) as Array<{ event_id: string | null }>)
+          .filter((r) => r.event_id)
+          .map((r) => r.event_id as string),
+      );
+    }
+    // A REFUSED read leaves it null on purpose — see above. Supabase resolves
+    // with { error } rather than throwing, so the `if (!error)` is the guard
+    // that matters here; the catch below only covers a transport failure.
+  } catch {
+    storyEventIds = null;
   }
 
   // FINISHED SPLITS IN TWO (owner 2026-08-20: *"change it to unpublished and
@@ -1306,7 +1344,12 @@ export default async function LauncherPage({
                 {unwritten.filter(canWriteStoryFor).map((event) => (
                   <li key={event.event_id}>
                     <Link
-                      href={`/dashboard/creator?event=${encodeURIComponent(event.event_id)}`}
+                      /* THE EVENT'S OWN STORY PAGE, not the Storyteller
+                         composer. It opens already written — Setnayan drafts it
+                         from the day's schedule and photos and the couple
+                         corrects it — which is the whole difference from the
+                         blank page this chip used to open. */
+                      href={`/dashboard/${event.event_id}/website/editorial`}
                       className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/75 hover:bg-ink/5 hover:text-ink"
                     >
                       <PenLine aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -1386,24 +1429,30 @@ export default async function LauncherPage({
             </BoardCardWithMenu>
           ))}
         </div>
-        {/* ⚠ ONLY WHEN THERE IS SOMETHING TO READ. "These days are chapters
-            now" beside an empty shelf names days that are not there.
-            🔑 AND THIS LINK IS LOAD-BEARING NOW: the "Your Story" rail row was
-            retired the same day, so the two doors to /dashboard/creator are
-            this line and the "Write the story of <name>" chips on Untold.
-            Removing it would strand the desk. */}
+        {/* ⚠ ONLY WHEN THERE IS SOMETHING TO READ. "These days are told"
+            beside an empty shelf names days that are not there.
+            🔑 THIS LINE USED TO SAY "chapters" AND POINT AT THE STORYTELLER.
+            Both shelves are about the event's OWN story page now, so pointing
+            at the composer for a different kind of writing was the confusion
+            itself. Memories is where a told day is read back: its Editorials
+            shelf opens each celebration's story directly.
+            ⚠ THE STORYTELLER IS NOT STRANDED — the account menu carries "Your
+            Story". But see the note on `chapterCount`: the board's own
+            /dashboard/creator link now lives ONLY in a component nothing
+            renders, so the guard asserting the board has that door is
+            currently satisfied by dead code. Flagged, not fixed here. */}
         {written.length > 0 ? (
           <p className="mt-3 text-[12px] text-[color:var(--sn-ink-500)]">
-            These days are chapters now —{' '}
-            <Link href="/dashboard/creator" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
-              read them in Your Story
+            These days are told —{' '}
+            <Link href="/dashboard/library" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
+              read them in Memories
             </Link>
             .
           </p>
         ) : (
           <p className="mt-3 text-[12px] text-[color:var(--sn-ink-500)]">
-            <Link href="/dashboard/creator" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
-              Open Your Story
+            <Link href="/dashboard/library" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
+              Open Memories
             </Link>
           </p>
         )}

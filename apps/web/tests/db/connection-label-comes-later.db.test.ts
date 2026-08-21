@@ -171,6 +171,45 @@ test('🔒 the person being ASKED cannot re-word the claim about them', async ()
   assert.equal(r.rows[0]!.relation, 'sibling', 'the recipient rewrote the declarer’s label');
 });
 
+test('🔒 the recipient cannot re-word the name the declarer gave them', async () => {
+  // `authenticated` holds table-wide UPDATE, so a column-level REVOKE would be
+  // INERT here (measured on event_vendors, 2026-08-21) — the control is the
+  // BEFORE UPDATE guard. Without it, Ana's own list could silently start
+  // calling Ben something Ben chose.
+  await asUser(ben);
+  const err = await attempt(
+    `UPDATE public.person_connections SET declared_name = 'BDO Support'
+      WHERE from_person_id = $1 AND to_person_id = $2`,
+    [anaPerson, benPerson],
+  );
+  await reset();
+  assert.ok(err, 'the recipient rewrote the declarer’s own note');
+  assert.match(err!, /only the declarer may change the name/i);
+  const r = await db.query<{ declared_name: string | null }>(
+    `SELECT declared_name FROM public.person_connections
+      WHERE from_person_id = $1 AND to_person_id = $2`,
+    [anaPerson, benPerson],
+  );
+  assert.equal(r.rows[0]!.declared_name, 'Ben from work');
+});
+
+test('…and the declarer still can — they typed it', async () => {
+  await asUser(ana);
+  const err = await attempt(
+    `UPDATE public.person_connections SET declared_name = 'Ben Reyes'
+      WHERE from_person_id = $1 AND to_person_id = $2`,
+    [anaPerson, benPerson],
+  );
+  await reset();
+  assert.equal(err, null, 'the guard blocked the person it exists to serve');
+  const r = await db.query<{ declared_name: string | null }>(
+    `SELECT declared_name FROM public.person_connections
+      WHERE from_person_id = $1 AND to_person_id = $2`,
+    [anaPerson, benPerson],
+  );
+  assert.equal(r.rows[0]!.declared_name, 'Ben Reyes');
+});
+
 test('an unlabelled edge produces NO kinship — labels are what derive', async () => {
   // The derivation contract: only confirmed AND labelled edges make kin. An
   // unlabelled edge has nothing to say about lolo, pinsan or the in-laws.

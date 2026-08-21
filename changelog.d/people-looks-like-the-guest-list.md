@@ -61,3 +61,24 @@ are the deleted `ConnectionsPanel` and its two types; **zero destinations lost**
 
 SPEC IMPACT: `DECISION_LOG.md` — the add-first/label-after model, and the alaga
 form becoming a button.
+
+### Follow-up in the same PR — CI's exposure freeze earned its keep
+
+Adding `declared_name` gave `authenticated` SELECT / INSERT / UPDATE on a new
+column, and the freeze said so. SELECT and INSERT are the point. **UPDATE was
+not:** `person_connections_update` deliberately admits the RECIPIENT of a claim
+(that is how they confirm it), so the person a claim is *about* could have
+rewritten the note the declarer made about them — and the declarer's own list
+would quietly have started calling them something else.
+
+⚠ **A column-level REVOKE could not fix it.** `authenticated` holds table-wide
+UPDATE, and `REVOKE UPDATE (declared_name)` is inert against that — measured on
+`event_vendors`, 2026-08-21. The control is a trigger: migration
+`20271154117655` adds one block to `person_connections_transition_guard`, which
+already runs BEFORE UPDATE and already computes `is_from`. The rest of the
+function is the live production body, verbatim.
+
+The baseline is regenerated with exactly one new fact —
+`person_connections.declared_name anon=- authenticated=SIU`. **anon gets
+nothing.** Mutation-measured: deleting the new block (1→0) turns the guard test
+red. 44 pass across the freeze plus the four person suites.

@@ -1696,9 +1696,12 @@ h2.fd-sechead,
    a wordmark alone, and inside a wedding there was neither. Same bar now, on
    all five signed-in trees.                                                 */
 
-/* The sticky wrapper. It carries `shell-topbar` too — the stable hook two
-   shipped event pages use to hide this strip — so it must set no `display` of
-   its own and it must be the sticky box, not the bar inside it. */
+/* The sticky wrapper. It carries `shell-topbar` too — the stable hook the
+   Vendors takeover uses to hide this strip below 1024 — so it must set no
+   `display` of its own and it must be the sticky box, not the bar inside it.
+   ⚠ It was TWO event pages until 2026-08-21: the Guests page hid this strip at
+   EVERY width, having inherited a 2026-06-01 directive written when the class
+   belonged to SidebarShell rather than to the app's only top bar. */
 .fd[data-chrome='app'] .fd-topwrap {
   position: sticky;
   top: 0;

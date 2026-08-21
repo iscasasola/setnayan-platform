@@ -9,11 +9,15 @@
  *
  * ── THE THREE RULES, AND WHY EACH ONE IS HERE ─────────────────────────────
  *
- * 1 · ONE NAME, ONE ROW. The same tita is a guest of last year's graduation
- *     AND a person on your People page. Offering her twice makes the host pick
- *     one and wonder what the other was. First source wins, and the order is
- *     deliberate: `event` rows carry a real first/last split and sometimes an
- *     address, so they are the richest thing we can offer.
+ * 1 · ONE NAME, ONE ROW — UNLESS IT IS TWO PEOPLE. The same tita is a guest of
+ *     last year's graduation AND a person on your People page. Offering her
+ *     twice makes the host pick one and wonder what the other was. First source
+ *     wins, and the order is deliberate: `event` rows carry a real first/last
+ *     split and sometimes an address, so they are the richest we can offer.
+ *     ⚠ But a name is not an identity. Two candidates with DIFFERENT known
+ *     addresses are two different people and both are emitted; merging them
+ *     would put one person's address on the other's guest row, and the
+ *     Save-the-Date mails it. See the note at the merge itself.
  *
  * 2 · AN EMAIL RIDES ONLY ON AN `event` ROW. That address is the host's own
  *     record — they typed it, on their own guest list — and it is what lets
@@ -59,20 +63,43 @@ export function assembleInvitable(
   candidates: InvitableCandidate[],
   hereKeys: ReadonlySet<string>,
 ): InvitablePerson[] {
-  const seen = new Set<string>();
+  /** name key → the effective addresses already emitted under that name. */
+  const kept = new Map<string, Array<string | null>>();
   const out: InvitablePerson[] = [];
 
   for (const c of candidates) {
     const k = nameKey(c.firstName, c.lastName || c.name);
     if (!k) continue;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push({
-      ...c,
-      // RULE 2, enforced here rather than trusted from the caller.
-      email: c.source === 'event' ? (c.email?.trim() || null) : null,
-      alreadyHere: hereKeys.has(k),
-    });
+
+    // RULE 2, enforced here rather than trusted from the caller.
+    const email = c.source === 'event' ? (c.email?.trim().toLowerCase() || null) : null;
+
+    const already = kept.get(k);
+    if (already) {
+      /*
+        🚨 RULE 1 HAS A LIMIT, AND IT IS AN IDENTITY. Two people really can
+        share a name — the cousin Maria Santos on last year's guest list and the
+        colleague Maria Santos on another. Collapsing them on the name alone
+        emitted ONE row, and the survivor was spread wholesale, so picking
+        "Maria Santos" wrote the OTHER Maria's address onto the new guest — and
+        the Save-the-Date mails every guest of the event who has one. The screen
+        could not warn anybody: it renders the name and the `from` line, and the
+        address never reaches the browser at all.
+
+        So a merge now requires the two to be COMPATIBLE: at least one address
+        unknown, or the same address twice. Two known-and-different addresses
+        are two people, and both rows are emitted — the `from` line under each
+        is what tells them apart, which is the whole reason it is there.
+
+        ⚖ This is the boundary `app/join/[eventId]/actions.ts` already draws
+        for an ambiguous name match: admit the ambiguity rather than guess.
+      */
+      const compatible = already.some((e) => e === null || email === null || e === email);
+      if (compatible) continue;
+    }
+
+    kept.set(k, [...(already ?? []), email]);
+    out.push({ ...c, email, alreadyHere: hereKeys.has(k) });
   }
 
   return out.sort((a, b) => {

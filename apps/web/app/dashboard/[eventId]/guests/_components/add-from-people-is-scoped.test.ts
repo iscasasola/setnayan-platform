@@ -119,6 +119,82 @@ test('the write path looks picks up by KEY, never trusting a posted name', () =>
   );
 });
 
+test('every opening of the sheet re-reads, so a failure cannot latch', () => {
+  /*
+    The sheet is mounted ONCE for the life of the page, with no `key`, and its
+    fetch is guarded on `rows === null`. Without a reset on open, that guard
+    means "already fetched EVER" rather than "already fetched for THIS opening",
+    and two things break:
+
+     · A FAILED READ LATCHES FOREVER. The catch writes `rows = []`, which is not
+       null, so nothing refetches — and the panel keeps saying *"close this and
+       try again"*, instructing the one action that cannot work. Only a full
+       navigation recovers, which the sentence never mentions.
+
+     · "ALREADY HERE" GOES STALE. A successful add closes the sheet; reopening
+       showed the people just added with a live checkbox. Tick one and the
+       server — which rebuilds the list honestly — refuses it. The screen
+       offered a row and then told the host off for taking it.
+  */
+  const src = read(
+    'app', 'dashboard', '[eventId]', 'guests', '_components', 'add-from-people-sheet.tsx',
+  );
+  const start = src.indexOf('const onOpen = ()');
+  assert.ok(start > -1, 'The sheet’s open handler is gone or renamed.');
+  /*
+    🪤 BOUNDED BY THE NEXT STATEMENT, NOT BY A CHARACTER COUNT. `stripComments`
+    replaces a comment with SPACES so byte offsets stay true — so a fixed
+    900-char window is consumed by the handler's own explanation and the guard
+    goes red against code that is correct. Slice to where the handler is
+    actually used instead.
+  */
+  const end = src.indexOf('window.addEventListener(OPEN_EVENT', start);
+  assert.ok(end > start, 'The open handler is no longer wired to the open event.');
+  const body = src.slice(start, end);
+  for (const reset of ['setRows(null)', 'setReadFailed(false)', 'setPartial(false)']) {
+    assert.ok(
+      body.includes(reset),
+      `Opening the sheet no longer clears \`${reset}\`. The fetch is guarded on ` +
+        '`rows === null`, so a stale success or a latched failure survives every ' +
+        'reopen for the life of the page.',
+    );
+  }
+});
+
+test('the phone has a door to the picker at all', () => {
+  /*
+    🔴 IT DID NOT, AND THE DOOR VANISHED THE FIRST TIME IT WAS USED. The picker
+    shipped with two mounts: the capture bar's overflow — which sits inside
+    `hidden … lg:block`, so below 1024 it does not exist — and the zero state,
+    which stops rendering the moment the event has ONE guest. Add a guest by any
+    route, including the picker's own first use, and a phone had no control that
+    could open the sheet. The sheet stayed mounted and listening the whole time:
+    a gate with no handle, in the same costume this repo has now met six times.
+
+    A phone is also where the feature is worth the most — retyping a name we
+    already hold costs more on a thumb keyboard than anywhere else.
+  */
+  const src = read(
+    'app', 'dashboard', '[eventId]', 'guests', '_components', 'mobile-guest-carousel.tsx',
+  );
+  assert.match(
+    src,
+    /import \{ OpenAddFromPeopleButton \} from '\.\/add-from-people-sheet'/,
+    'The phone roster lost its import of the picker opener.',
+  );
+  assert.match(
+    src,
+    /<OpenAddFromPeopleButton/,
+    'The phone roster imports the opener but never renders it — which is the ' +
+      'same as not having it.',
+  );
+  assert.ok(
+    !/setnayan:add-from-people-open/.test(src),
+    'The phone roster hand-dispatches the sheet’s private open event. Import ' +
+      'the opener instead, so the two cannot drift apart silently.',
+  );
+});
+
 test('the overflow row IMPORTS the opener rather than retyping its event name', () => {
   /*
     Both sheets open on a CustomEvent whose name is a private constant in the

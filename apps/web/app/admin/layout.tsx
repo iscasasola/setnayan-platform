@@ -67,8 +67,10 @@ export const metadata = { title: 'Setnayan HQ' };
  *     briefly `<AdminStickyTopBar>`; from 2026-08-14 THE SHARED BAR owns it,
  *     for all five signed-in trees at once. That component is RETIRED, and its
  *     three responsibilities went with the job rather than being assumed: the
- *     sticky position, the frost, and the `shell-topbar` hide hook two event
- *     pages inject a rule against. See `front-door-shell.tsx`.
+ *     sticky position, the frost, and the `shell-topbar` hide hook the Vendors
+ *     takeover injects a rule against (it was two event pages until 2026-08-21,
+ *     when the Guests page's unscoped hide was removed). See
+ *     `front-door-shell.tsx`.
  *  2. `.sn-vt-page` ON THE CONTENT — the mobile bottom-nav page slide names
  *     exactly one element (`view-transition-name: sn-page`) and freezes the
  *     rest. `NavSlideController` treats `/admin` as a base tab, so losing the

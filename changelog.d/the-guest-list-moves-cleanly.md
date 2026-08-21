@@ -18,11 +18,18 @@ Nothing failed. The page simply had less on it.
 change; what they pointed at did.
 
 Removed, along with the `-mt-6` and the safe-area top padding that existed only
-to fill the hole it left. ⚠ The roster's phone view-tabs were pinned at
-`env(safe-area-inset-top)+0.5rem` — an offset that is only right while nothing is
-above them — so they now clear `var(--fd-bar)`, the shell's own **measured** bar
-height, rather than a hand-typed 61. Vendors keeps its `.shell-topbar` hide: that
-one is a full-screen takeover and it is scoped `@media (max-width:1023px)`.
+to fill the hole it left. ⚠ **HALF THE BUG IS THE OFFSET, AND IT WAS TWO ELEMENTS, NOT ONE.** Both phone
+stickies on this route were pinned at `env(safe-area-inset-top)` — right only
+while nothing sits above them. That inset is **0** in every mobile browser tab,
+on Android, on iPad and on any non-notched install, so both landed inside the
+restored bar's 0–61px band. The active-filters chip strip (`page.tsx`) renders
+only while a filter is set; **the phone masthead in `mobile-guest-carousel.tsx`
+renders on every phone visit** and carries the headcount, Invite and the red
+Needs-you against the bar's wordmark, search, bell and account switcher — this
+surface's only route to sign-out. Both now clear `var(--fd-bar)`, the shell's own
+**measured** height, read from the ancestor that declares it rather than
+hand-typed. Vendors keeps its `.shell-topbar` hide: that one is a full-screen
+takeover, scoped `@media (max-width:1023px)`.
 
 **2 · THE FRAMES CAME OFF** (owner: *"we want to remove the framings so it moves
 cleanly"*). The capture bar was a glass card around an input that already has its
@@ -112,3 +119,77 @@ count before → after** before its red was trusted.
 SPEC IMPACT: None — no locked price, SKU, schema or owner decision changes. The
 2026-06-01 "no top nav on Guests" directive is superseded by the owner's
 2026-08-21 instruction, recorded in `DECISION_LOG.md`.
+
+
+---
+
+## Follow-up: five defects found by an adversarial review of this very change
+
+A 5-lens review (privacy/scope · the restored bar's layout knock-ons · the write
+path · guard quality · what a person meets), each finding attacked by two
+independent skeptics. 25 candidates, 10 survived, collapsing to five defects —
+**all of them mine, all fixed here.**
+
+**1 · 🚨 A MERGED SAME-NAME ROW CARRIED THE OTHER PERSON'S EMAIL, AND THE
+SAVE-THE-DATE MAILS IT.** The merge de-duplicated on the NAME and kept the first
+row's address. Two different Maria Santoses — the cousin on last year's list and
+the colleague on another — collapsed to ONE row, and picking it wrote the wrong
+address onto the new guest; `save-the-date-emails.ts` then mails every guest of
+the event who has one. The screen could not warn anybody: it shows the name and
+the `from` line, and the address never reaches the browser at all.
+🔑 **A NAME IS NOT AN IDENTITY.** A merge now requires the two to be COMPATIBLE —
+at least one address unknown, or the same address twice. Two known-and-different
+addresses are two people and **both rows are emitted**; the `from` line is what
+tells them apart, which is the whole reason it is there. Same boundary
+`app/join/[eventId]/actions.ts` already draws for an ambiguous name match: admit
+the ambiguity rather than guess. 4 new tests.
+⚖ Latent, not live — every address that can ride is on the host's own other
+guest list, and prod holds no guest emails today. It arms on the first real list.
+
+**2 · 🚨 THE PHONE MASTHEAD LANDED ON THE BAR THIS CHANGE RESTORED.** Fixed
+above; it was the second sticky, in a file not in the original diff.
+🔑 **AND THE GUARD THAT NAMED IT READ THE WRONG FILE.** It scanned `page.tsx`
+while being titled "the roster's sticky view tabs" — which is neither the
+element it checked nor the one that was broken. **A guard named after something
+it is not checking is worse than no guard: it reads as covered.** It now asserts
+the RULE across both files, so a third phone sticky has to satisfy it too.
+
+**3 · 🔴 ON A PHONE THE NEW DOOR DISAPPEARED THE FIRST TIME IT WAS USED.** The
+picker had exactly two mounts: the capture bar's overflow, which lives inside
+`hidden … lg:block` and does not exist below 1024, and the zero state, which
+stops rendering the moment the event has one guest. Add a guest by any route —
+including the picker's own first use — and no control on a phone could open the
+sheet, which stayed mounted and listening the whole time. **The sixth gate with
+no handle.** A phone is also where the feature is worth the most.
+
+**4 · 🔴 THE SHEET NEVER RE-READ, SO A FAILURE LATCHED AND SUCCESS WENT STALE.**
+Mounted once for the life of the page, fetch guarded on `rows === null`, and
+`onOpen` never cleared it — so the guard meant "already fetched EVER". A failed
+read wrote `rows = []` (not null) and the panel then said *"close this and try
+again"* on every reopen forever, **instructing the one action that could not
+work**. And after a successful add, reopening showed the people just added with
+a live checkbox; ticking one got them refused — the screen offered a row and
+then told the host off for taking it. One reset, where every open passes.
+
+**5 · 🪤 A GUARD THAT A RENAME SILENTLY DISARMED.** The `-mt-6` / safe-area
+assertions sliced from `page.indexOf('const master = (')` with no anchor check.
+Rename that const — which the live design-port programme could do any week — and
+`indexOf` returns -1, the slice collapses to the empty string, and both negatives
+pass over nothing. **Measured: restore the hazard alone → RED; restore it AND
+rename the const → 5 pass, 0 fail.** Now anchored on the class the regression
+would have to touch, not on a renameable symbol.
+
+**Prose swept, since it was drift this change created:** three files
+(`front-door-shell.tsx`, `front-door.css`, `admin/layout.tsx`) still said **two**
+event pages hide `.shell-topbar` when only the Vendors takeover does, and a JSX
+comment in `page.tsx` still justified padding that had been deleted by naming the
+`<style>` that had also been deleted.
+
+**What the review pursued to a concrete claim and then killed** — recorded so the
+absence reads as a result, not an omission: server-action authorization on both
+new actions · the `guests` RLS floor (`OR is_admin()`) · the pre-existing
+unfenced `dependents` read (real, untouched here, and every non-`event` row
+writes a bare name anyway) · the 200-pick truncation (no bulk select, so the
+201st pick is a 201st deliberate tap) · `quickAddGuest` gaining `email` as an
+escalation (the full form and CSV import already write one) · one-word names
+never matching "already here".

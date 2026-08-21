@@ -106,3 +106,68 @@ test('a nameless row is skipped rather than rendered blank', () => {
   );
   assert.deepEqual(out.map((p) => p.name), ['Ana Cruz']);
 });
+
+test('TWO DIFFERENT PEOPLE WITH THE SAME NAME ARE BOTH OFFERED', () => {
+  /*
+    The cousin Maria Santos on last year's guest list and the colleague Maria
+    Santos on another. Merging them on the name alone emitted ONE row whose
+    address belonged to whichever came first — and picking it wrote that
+    address onto the new guest, which the Save-the-Date then mails. The screen
+    cannot warn anybody: it shows the name and the `from` line, and the address
+    never reaches the browser at all.
+  */
+  const out = assembleInvitable(
+    [
+      row({ name: 'Maria Santos', key: 'a', from: 'Graduation', email: 'maria.santos@gmail.com' }),
+      row({ name: 'Maria Santos', key: 'b', from: 'Movie Night', email: 'msantos@work.com' }),
+    ],
+    new Set(),
+  );
+  assert.equal(out.length, 2, 'two known-and-different addresses are two people');
+  assert.deepEqual(
+    out.map((p) => p.from).sort(),
+    ['Graduation', 'Movie Night'],
+    'the `from` line is what tells them apart, so both must survive',
+  );
+});
+
+test('the SAME address twice is still one person', () => {
+  const out = assembleInvitable(
+    [
+      row({ name: 'Ana Cruz', key: 'a', from: 'Graduation', email: 'ana@x.ph' }),
+      row({ name: 'Ana Cruz', key: 'b', from: 'Movie Night', email: 'ANA@X.PH' }),
+    ],
+    new Set(),
+  );
+  assert.equal(out.length, 1, 'case differs, the person does not');
+  assert.equal(out[0]!.from, 'Graduation');
+});
+
+test('an UNKNOWN address still merges — absence is not disagreement', () => {
+  /*
+    The common case and the one rule 1 exists for: the same tita as a guest of
+    another event AND as a connection on the People page. The People row carries
+    no address by construction, so it cannot disagree with anything.
+  */
+  const out = assembleInvitable(
+    [
+      row({ name: 'Ana Cruz', key: 'a', from: 'Graduation', email: 'ana@x.ph' }),
+      row({ name: 'Ana Cruz', key: 'b', source: 'people', from: 'Your people' }),
+    ],
+    new Set(),
+  );
+  assert.equal(out.length, 1);
+  assert.equal(out[0]!.email, 'ana@x.ph');
+});
+
+test('three same-name people with three addresses are three rows', () => {
+  const out = assembleInvitable(
+    [
+      row({ name: 'Jose Rizal', key: 'a', from: 'A', email: 'one@x.ph' }),
+      row({ name: 'Jose Rizal', key: 'b', from: 'B', email: 'two@x.ph' }),
+      row({ name: 'Jose Rizal', key: 'c', from: 'C', email: 'three@x.ph' }),
+    ],
+    new Set(),
+  );
+  assert.equal(out.length, 3);
+});

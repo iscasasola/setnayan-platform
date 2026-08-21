@@ -13,12 +13,10 @@ import {
   type DependentSex,
   type DependentKind,
 } from '@/lib/dependent-people';
-import { AddAlagaFields } from './add-alaga-fields';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { CopyButton } from '@/app/dashboard/[eventId]/studio/papic/crew/_components/copy-button';
 import {
-  addDependent,
   deleteDependent,
   addGodparent,
   deleteGodparent,
@@ -392,21 +390,11 @@ export async function DependentsSection() {
         </ul>
       ) : null}
 
-      {/* Add form */}
-      <form
-        action={addDependent}
-        className="space-y-4 rounded-xl border border-ink/10 bg-cream p-4"
-      >
-        <p className="text-sm font-medium text-ink">Add an alaga</p>
-        {/* The fields live in a client component so choosing a non-person kind
-            HIDES relationship / debut year / religion — addDependent nulls all
-            three for those kinds, so showing them asked questions the save was
-            going to discard (owner report, 2026-08-20). */}
-        <AddAlagaFields />
-        <SubmitButton className="button-primary" pendingLabel="Adding…">
-          Add
-        </SubmitButton>
-      </form>
+      {/* THE ADD FORM MOVED OUT (owner 2026-08-21: "Add an alaga needs to be a
+          button to generate the wizard"). It now lives in <AddAlagaButton>, at
+          the head of the page, opening the roster's own drawer — the same
+          <AddAlagaFields> component, unchanged, just no longer sitting open on a
+          page whose job is to show you your people. */}
     </section>
   );
 }

@@ -116,12 +116,15 @@ async function sendPeopleInvitation(
  * from this action whether an address has a Setnayan account.
  */
 export async function addPersonConnection(input: {
-  relation: ConnectionRelation;
+  /** The label, and it is OPTIONAL now — owner 2026-08-21: "just add them first.
+   *  Then you can set a label." NULL lands them on the roster unlabelled. */
+  relation?: ConnectionRelation | null;
   name: string;
   email: string;
 }): Promise<{ ok: true; delivered: boolean } | { ok: false; error: string }> {
   if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
-  if (!DECLARABLE_RELATIONS.includes(input.relation)) {
+  const relation = input.relation ?? null;
+  if (relation !== null && !DECLARABLE_RELATIONS.includes(relation)) {
     return { ok: false, error: 'Pick a relationship.' };
   }
   const user = await getCurrentUser();
@@ -135,7 +138,7 @@ export async function addPersonConnection(input: {
 
   // THE SPOUSE RULE IS ENFORCED HERE, NOT BY THE HIDDEN CHIP. A chip the
   // browser never drew is still a value a hand-made request can post.
-  if (input.relation === 'spouse') {
+  if (relation === 'spouse') {
     const ctx = await getSpouseContext(user.id);
     if (!spouseIsOfferable(ctx)) {
       return {
@@ -177,23 +180,103 @@ export async function addPersonConnection(input: {
   }
   if (toPerson === fromPerson) return { ok: false, error: 'That’s you.' };
 
-  const { error } = await supabase.from('person_connections').insert({
-    from_person_id: fromPerson,
-    to_person_id: toPerson,
-    relation: input.relation,
-    layer: layerForRelation(input.relation),
-    status: 'pending',
-    created_by_user_id: user.id,
-  });
-  if (error && error.code !== '23505') {
-    // 23505 = the edge already exists; re-sending the note is the kind answer,
-    // so it falls through to the send rather than reading as a failure.
-    return { ok: false, error: 'Couldn’t send the request.' };
+  // ONE ROW PER PERSON. The roster shows a person once, so a second add of the
+  // same person is not a second row — it re-sends the note. Checked here rather
+  // than left to a unique violation, because the edge index is per RELATION and
+  // "Maria unlabelled" plus "Maria, sister" are two different keys.
+  const { data: already } = await supabase
+    .from('person_connections')
+    .select('connection_id')
+    .eq('from_person_id', fromPerson)
+    .eq('to_person_id', toPerson)
+    .is('deleted_at', null)
+    .limit(1);
+  const alreadyThere = ((already ?? []) as Array<{ connection_id: string }>).length > 0;
+
+  if (!alreadyThere) {
+    const { error } = await supabase.from('person_connections').insert({
+      from_person_id: fromPerson,
+      to_person_id: toPerson,
+      relation,
+      layer: relation ? layerForRelation(relation) : null,
+      declared_name: name,
+      status: 'pending',
+      created_by_user_id: user.id,
+    });
+    if (error && error.code !== '23505') {
+      return { ok: false, error: 'Couldn’t send the request.' };
+    }
   }
 
   const delivered = await sendPeopleInvitation(email, myFirstName);
   revalidatePath('/dashboard/people');
   return { ok: true, delivered };
+}
+
+/**
+ * SET (or CLEAR) THE LABEL on somebody already on your list.
+ *
+ * Owner, 2026-08-21: *"just add them first. Then you can set a label."* This is
+ * that second step, and it is the same shape as a chip edit on a guest row.
+ *
+ * ⚖ ONLY THE DECLARER LABELS. `relation` means "what to_person IS to
+ * from_person", so the label is the adder's statement about their own life. The
+ * other side answers the CLAIM (confirm / decline); they do not get to rewrite
+ * what it says. RLS would allow the recipient to update the row — the
+ * `from_person_id = my person` filter below is what actually holds the line.
+ *
+ * 🔒 The spouse rule applies here too. Labelling somebody "Spouse" after the
+ * fact is the same claim as adding them as one, and a chip the browser never
+ * drew is still a value a hand-made request can post.
+ */
+export async function setConnectionLabel(
+  connectionId: string,
+  relation: ConnectionRelation | null,
+): Promise<ActionResult> {
+  if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
+  if (relation !== null && !DECLARABLE_RELATIONS.includes(relation)) {
+    return { ok: false, error: 'That isn’t a label.' };
+  }
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+
+  if (relation === 'spouse') {
+    const ctx = await getSpouseContext(user.id);
+    if (!spouseIsOfferable(ctx)) {
+      return {
+        ok: false,
+        error:
+          'Set “Married” on your profile — or hold until your wedding day has passed — before naming a spouse.',
+      };
+    }
+  }
+
+  const supabase = await createClient();
+  const myPerson = await myPersonId(supabase, user.id);
+  if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
+
+  const { error } = await supabase
+    .from('person_connections')
+    .update({
+      relation,
+      // The layer travels with the label — the database refuses the half-state
+      // (person_connections_label_pair_chk), which is the point of that check.
+      layer: relation ? layerForRelation(relation) : null,
+    })
+    .eq('connection_id', connectionId)
+    .eq('from_person_id', myPerson)
+    .is('deleted_at', null);
+  if (error) {
+    return {
+      ok: false,
+      error:
+        error.code === '23505'
+          ? 'You’ve already used that label for them.'
+          : 'Couldn’t save that label.',
+    };
+  }
+  revalidatePath('/dashboard/people');
+  return { ok: true };
 }
 
 /**

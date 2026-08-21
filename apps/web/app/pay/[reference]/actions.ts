@@ -7,6 +7,7 @@ import { createMoneyWriterClient } from '@/lib/supabase/admin';
 import { paymentRowFor } from '@/lib/order-mint-identity';
 import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
+import { notifyAdminsPaymentProofSubmitted } from '@/lib/order-admin-notify';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 
 /**
@@ -177,13 +178,31 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
     ),
   );
 
-  if (error) {
-    // 23505 on (order_id, client_idempotency_key) means their first submit
-    // landed and they pressed again — that is success, not a failure.
-    const code = (error as { code?: string }).code;
-    if (code !== '23505') {
-      back(reference, 'error', "We couldn't record that just now. Please try again.");
-    }
+  // 23505 on (order_id, client_idempotency_key) means their first submit landed
+  // and they pressed again — that is success, not a failure.
+  const duplicateRetry = (error as { code?: string } | null)?.code === '23505';
+  if (error && !duplicateRetry) {
+    back(reference, 'error', "We couldn't record that just now. Please try again.");
+  }
+
+  // ── SOMEBODY HAS TO BE TOLD ───────────────────────────────────────────────
+  // 🚨 THIS PAGE NOTIFIED NOBODY ON ITS FIRST CUT. The couple-side action it
+  // replaces has always alerted the admins who can confirm a payment, and a
+  // guard on that action says why: "the moment money moves must notify
+  // somebody." Moving the surface without carrying the alert would have left
+  // every payment through this page sitting unseen until an admin happened to
+  // open the queue — for TEN purchase paths at once.
+  //
+  // ⚠ Not on the duplicate retry: the FIRST submit already alerted, and a
+  // second alert for one payment trains the reader to ignore the alert.
+  // ⚠ Before the redirect, which throws — anything after it never runs.
+  if (!error) {
+    await notifyAdminsPaymentProofSubmitted({
+      orderId: payable.orderId,
+      eventId: payable.eventId ?? '',
+      amountPhp: payable.amountPhp,
+      channel,
+    });
   }
 
   revalidatePath(`/pay/${reference}`);

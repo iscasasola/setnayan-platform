@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8606a6f87",
-  "routeCount": 402,
+  "generatedFromRef": "2ebd5586a",
+  "routeCount": 403,
   "destinations": 864,
-  "actions": 580,
-  "blocks": 3835,
+  "actions": 579,
+  "blocks": 3844,
   "routes": {
     "/": {
       "files": [
@@ -590,6 +590,7 @@
         "[slug]/_components/your-seat-block.tsx",
         "[slug]/_lib/event-noun.ts",
         "[slug]/_lib/event-words.ts",
+        "[slug]/_lib/guest-details-changed.ts",
         "[slug]/_lib/host-scope.ts",
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/measures.ts",
@@ -4139,6 +4140,7 @@
         "MarketplaceContact",
         "MarketplaceReviewsData",
         "MarketplaceVendorSuggestion",
+        "Metadata",
         "MethodCard",
         "MethodIcon",
         "ModalMode",
@@ -5164,12 +5166,9 @@
         "/receipts/[seg]"
       ],
       "actions": [
-        "cancelOrder",
-        "logPayment"
+        "cancelOrder"
       ],
       "blocks": [
-        "CopyButton",
-        "FileUpload",
         "Link",
         "Stat",
         "SubmitButton"
@@ -8040,6 +8039,31 @@
         "Shot"
       ]
     },
+    "/pay/[reference]": {
+      "files": [
+        "pay/[reference]/_components/pay-panel.tsx",
+        "pay/[reference]/actions.ts",
+        "pay/[reference]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "submitPaymentProof"
+      ],
+      "blocks": [
+        "Channel",
+        "ChannelTab",
+        "CopyButton",
+        "FileUpload",
+        "Link",
+        "PayPanel",
+        "ProofForm",
+        "QrTile",
+        "Step",
+        "StepHead",
+        "StickyBar",
+        "SubmitButton"
+      ]
+    },
     "/proposals/[publicId]": {
       "files": [
         "proposals/[publicId]/page.tsx"
@@ -8698,15 +8722,11 @@
         "vendor-dashboard/booking-fees/[orderId]/page.tsx"
       ],
       "destinations": [],
-      "actions": [
-        "logBookingFeePayment"
-      ],
+      "actions": [],
       "blocks": [
         "CopyButton",
-        "FileUpload",
         "Link",
-        "PageMasthead",
-        "SubmitButton"
+        "PageMasthead"
       ]
     },
     "/vendor-dashboard/bookings": {

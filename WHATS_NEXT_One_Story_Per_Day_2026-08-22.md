@@ -32,6 +32,14 @@ future session can do from here:
 | **append to an existing file** | ❌ **denied** |
 | **create a NEW file** | ✅ **allowed** |
 
+🔴 **THIS BLOCKS ALL SPEC WORK, NOT JUST THIS FILE.** Every future session that
+needs to read `DECISION_LOG.md`, an iteration folder, or any `WHATS_NEXT_*.md`
+will hit the same wall — and the repo's own RULE 0 tells it to grep the corpus
+*before writing any code*. **OWNER ACTION: grant this app access to the Documents
+folder** (macOS Settings → Privacy & Security → Files and Folders, or Full Disk
+Access). Until then, a session can only read what the harness pre-loads —
+`CLAUDE.md` — and will silently work from a smaller picture than it thinks it has.
+
 ⏭ **SO THIS FILE WAS COPIED INTO THE CORPUS AS A NEW FILE, AND THE INDEX ROW IS
 OWED.** `WHATS_NEXT_One_Story_Per_Day_2026-08-22.md` now exists at the corpus
 root (8,579 bytes, verified by size). **`WHATS_NEXT_INDEX.md` does NOT name it**

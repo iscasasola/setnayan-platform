@@ -100,7 +100,7 @@ test('META · the replay actually has anon and some SECURITY DEFINER functions',
   assert.ok((sd[0]?.n ?? 0) > 50, 'suspiciously few SECURITY DEFINER functions — the replay looks wrong');
 });
 
-test('the seven closed on 2026-08-01 are still closed to anon', async () => {
+test('the seven closed on 2026-08-01 and the four closed on 2026-08-06 are still closed to anon', async () => {
   // These are named individually, not left to the baseline, because each was a
   // real finding. A regression here is not "the surface grew" — it is one of
   // these specific holes reopening.
@@ -112,6 +112,14 @@ test('the seven closed on 2026-08-01 are still closed to anon', async () => {
     'papic_event_owns_service',
     'redeem_vendor_token_voucher',
     'detect_self_review_signal',
+    // 2026-08-06 · migration 20271116688263. papic_event_points_remaining is
+    // the one to look at twice: it is a SECURITY DEFINER wrapper over
+    // papic_event_pool_status, four lines above, which was revoked on
+    // 2026-08-01 while this window over it stayed open for five days.
+    'refresh_vendor_fraud_scores',
+    'papic_event_points_remaining',
+    'event_host_is_internal',
+    'review_is_booked_through_setnayan',
   ];
   const live = new Set(await anonCallableSecdef());
   const reopened = closed.filter((fn) => live.has(fn));

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Music, VolumeX } from 'lucide-react';
 
 /**
@@ -23,7 +23,16 @@ import { Music, VolumeX } from 'lucide-react';
 const MUTED_KEY = 'setnayan_onboarding_music_muted';
 const VOLUME = 0.32;
 
-export function OnboardingMusic({ src }: { src: string }) {
+export function OnboardingMusic({ src, srcs }: { src: string; srcs?: string[] }) {
+  // The playlist, in author order. `src` stays the required first track so every
+  // existing call site keeps working and the player can never mount source-less.
+  const tracks = useMemo(() => {
+    const list = (srcs ?? []).filter((u) => typeof u === 'string' && u.length > 0);
+    return list.length > 0 ? list : [src];
+  }, [src, srcs]);
+  const [trackIndex, setTrackIndex] = useState(0);
+  const currentSrc = tracks[trackIndex] ?? src;
+  const multi = tracks.length > 1;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -45,6 +54,23 @@ export function OnboardingMusic({ src }: { src: string }) {
       })
       .catch(() => setPlaying(false));
   }, []);
+
+  // Changing an <audio>'s src PAUSES it, so an advancing playlist would stop
+  // dead after track one without this. Only resumes when we were already
+  // playing — never starts audio the guest did not ask for (and autoplay policy
+  // would refuse it anyway, which is why the .catch is silent).
+  const firstTrackRef = useRef(true);
+  useEffect(() => {
+    if (firstTrackRef.current) {
+      firstTrackRef.current = false;
+      return;
+    }
+    if (!playing) return;
+    const el = audioRef.current;
+    if (!el) return;
+    el.volume = VOLUME;
+    void el.play().catch(() => {});
+  }, [trackIndex, playing]);
 
   // Read the saved mute preference once on mount; invite (pulse) unless muted.
   useEffect(() => {
@@ -125,7 +151,19 @@ export function OnboardingMusic({ src }: { src: string }) {
   return (
     <>
       {/* eslint-disable-next-line jsx-a11y/media-has-caption -- instrumental background loop, no captions */}
-      <audio ref={audioRef} src={src} loop preload="none" />
+      <audio
+        ref={audioRef}
+        src={currentSrc}
+        // A single track keeps the native seamless `loop`. A playlist cannot use
+        // it — `loop` suppresses `ended`, so the next track would never start.
+        loop={!multi}
+        preload="none"
+        onEnded={
+          multi
+            ? () => setTrackIndex((i) => (i + 1) % tracks.length)
+            : undefined
+        }
+      />
       <button
         ref={buttonRef}
         type="button"

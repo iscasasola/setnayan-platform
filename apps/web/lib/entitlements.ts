@@ -10,7 +10,7 @@ import { PANOOD_PAID_SKUS } from '@/lib/panood-watermark';
  *
  * Single source of truth for couple-SKU ownership ("does this event own a
  * paid <serviceKey> order?"). Extracted from the 5 identical eventOwns*
- * helpers (pro-website / indoor-blueprint / animated-monogram / papic-seats /
+ * helpers (indoor-blueprint / animated-monogram / papic-seats /
  * papic-guest) + the inline custom-qr-guest gates so every couple SKU gate
  * reads orders ONE way: refund-aware, graceful-degrade, defense-in-depth.
  *

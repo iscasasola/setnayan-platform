@@ -1449,6 +1449,7 @@ export function OnboardingShell({
   religionDefault = null,
   pricing,
   bgMusicUrl = null,
+  bgMusicUrls,
   refinements = REFINEMENTS_DATA,
   hiddenCats = [],
   dynamicTiles = [],
@@ -1485,6 +1486,7 @@ export function OnboardingShell({
    * /admin/settings). Null when unset/disabled → the player never mounts.
    */
   bgMusicUrl?: string | null;
+  bgMusicUrls?: string[];
   /**
    * DB-backed refinement catalogue (owner 2026-06-08, items 8 + 9) — fetched
    * server-side via getOnboardingRefinements() in page.tsx (DB-first, falls back
@@ -3133,7 +3135,7 @@ export function OnboardingShell({
             </span>
             {/* Owner-uploaded background music (owner 2026-06-08) — only when admin set a
                 track. margin-left:auto right-aligns it; sits beside Skip when shown. */}
-            {bgMusicUrl ? <OnboardingMusic src={bgMusicUrl} /> : null}
+            {bgMusicUrl ? <OnboardingMusic src={bgMusicUrl} srcs={bgMusicUrls} /> : null}
             <button
               className="skip"
               type="button"

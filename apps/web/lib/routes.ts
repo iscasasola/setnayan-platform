@@ -313,13 +313,19 @@ export const routes = {
       },
       pakanta: (eventId: string) => `/dashboard/${eventId}/studio/pakanta`,
       panood: {
+        // `/studio/panood` is now a REDIRECT, not a page (#4170 retired the Cast
+        // App Store detail). It stays a registry entry because the YouTube OAuth
+        // callback + disconnect routes still send a host back here BY NAME.
         index: (eventId: string) => `/dashboard/${eventId}/studio/panood`,
-        // The LEGACY Cast control room. Still the real route (and still selling)
-        // while the unified Live Studio flag is off; when the flag is on it
-        // redirects to addOns.liveStudioControl.control. Link to a control room
-        // via liveStudioControllerHref(), never this builder.
+        // The LEGACY Cast control room. Still the real route while the unified
+        // Live Studio flag is off; when the flag is on it redirects to
+        // addOns.liveStudioControl.control. Link to a control room via
+        // liveStudioControllerHref(), never this builder.
         broadcast: (eventId: string) => `/dashboard/${eventId}/studio/panood/broadcast`,
-        reviews: (eventId: string) => `/dashboard/${eventId}/studio/panood/reviews`,
+        // ⛔ `reviews` REMOVED 2026-08-06. #4170 deleted
+        // studio/panood/reviews/{page,loading}.tsx along with the Cast detail page
+        // that was its only doorway; the builder outlived the route it addressed
+        // and had no callers, so it could only ever have handed somebody a 404.
         setup: (eventId: string) => `/dashboard/${eventId}/studio/panood/setup`,
       },
       papic: {

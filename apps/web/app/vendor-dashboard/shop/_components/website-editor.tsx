@@ -245,7 +245,11 @@ export function WebsiteEditor({
           {websiteLive ? 'Live' : 'Draft'} · curate what couples see — the rest fills
           in from your profile.
         </p>
-        {publicPath ? (
+        {/* Only offer the outbound link when the page actually renders. A shop
+            that has not been approved yet is `public_visibility = 'hidden'` and
+            its own page 404s for everybody — sending the vendor there reads as
+            a broken product. */}
+        {publicPath && websiteLive ? (
           <a
             href={publicPath}
             target="_blank"
@@ -258,27 +262,43 @@ export function WebsiteEditor({
         ) : null}
       </div>
 
+      {/* EVERY SHOP HAS AN ADDRESS, ON EVERY PLAN. It is minted from the shop
+          name the moment the shop is named (migration 20271117527966) — Pro
+          only buys the right to CHANGE it, in the Pro block below. This used to
+          say "Your page goes live once you set a custom address (a Pro
+          feature)", which was the paywall wording of a defect: nothing minted a
+          default, so a Free shop's page had no address at all and its Explore
+          card linked to "#". */}
       {publicPath ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="font-mono text-xs" style={{ color: 'var(--m-slate)' }}>
-            {displayHost}
-            {publicPath}
-          </span>
-          <CopyButton value={`${displayHost}${publicPath}`} label="Copy" />
-          <a
-            href={publicPath}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 text-xs font-medium text-terracotta hover:underline"
-          >
-            <Globe className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-            Open live
-          </a>
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="font-mono text-xs" style={{ color: 'var(--m-slate)' }}>
+              {displayHost}
+              {publicPath}
+            </span>
+            <CopyButton value={`${displayHost}${publicPath}`} label="Copy" />
+            {websiteLive ? (
+              <a
+                href={publicPath}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-medium text-terracotta hover:underline"
+              >
+                <Globe className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                Open live
+              </a>
+            ) : null}
+          </div>
+          {!websiteLive ? (
+            <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              This address is yours for good. Your page opens to couples once
+              Setnayan approves your shop.
+            </p>
+          ) : null}
         </div>
       ) : (
         <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          Your page goes live once you set a custom address (a Pro feature,
-          below). Everything here applies the moment it&rsquo;s live.
+          Add your shop name and we&rsquo;ll give you your web address.
         </p>
       )}
 
@@ -500,8 +520,9 @@ export function WebsiteEditor({
 
         {isPro ? (
           <div className="mt-3 space-y-5">
-            {/* Custom address */}
-            <Row title="Custom address" tight>
+            {/* Change your address. Every plan HOLDS one (minted from the shop
+                name); Pro is what lets you pick a different one. */}
+            <Row title="Change your address" tight>
               <div
                 className="flex items-center rounded-lg border bg-white pl-2"
                 style={{ borderColor: 'var(--m-line)' }}
@@ -637,7 +658,11 @@ export function WebsiteEditor({
           </div>
         ) : (
           <ul className="mt-3 space-y-2">
-            {['Custom address', 'Hero photo', 'Pinned review', 'Featured editorials'].map(
+            {/* "Change your address", not "Custom address" — every plan already
+                HOLDS an address; Pro buys the right to pick a different one.
+                The old wording read as "no address without Pro", which was the
+                shipped defect this PR fixes. */}
+            {['Change your address', 'Hero photo', 'Pinned review', 'Featured editorials'].map(
               (t) => (
                 <li
                   key={t}

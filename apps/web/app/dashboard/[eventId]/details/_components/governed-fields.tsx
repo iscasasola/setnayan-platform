@@ -13,6 +13,7 @@ import {
 } from '../../actions';
 import { deleteVendor } from '../../vendors/actions';
 import { CEREMONY_LABEL, VENUE_LABEL, titleCase } from '@/lib/personalized-menu';
+import { ALLOWED_CEREMONY_VALUES, FAITH_LABELS } from '@/lib/faith-registry';
 import type { ConflictField, ConflictService } from '@/lib/personalization-conflicts';
 
 /**
@@ -41,16 +42,34 @@ import type { ConflictField, ConflictService } from '@/lib/personalization-confl
  * soft warning, and these editors only render at confirmed === 0 anyway).
  */
 
-const CEREMONY_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: 'catholic', label: 'Catholic' },
-  { value: 'civil', label: 'Civil' },
-  { value: 'inc', label: 'INC' },
-  { value: 'christian', label: 'Christian' },
-  { value: 'muslim', label: 'Muslim' },
-  { value: 'cultural', label: 'Cultural' },
-  { value: 'chinese', label: 'Chinese' },
-  { value: 'mixed', label: 'Mixed / interfaith' },
-];
+/**
+ * Every ceremony type the database accepts — DERIVED, never re-typed.
+ *
+ * 🔴 This was a hand-written list of EIGHT, while `events.ceremony_type` accepts
+ * EIGHTEEN. A Born Again, Jewish, Aglipayan, LDS, SDA, JW, Hindu, Sikh, Buddhist
+ * or Orthodox couple could not pick their own faith here.
+ *
+ * Worse than missing: a `<select>` whose `value` matches no `<option>` falls back
+ * to the first one. So a couple whose ceremony was already set — in onboarding,
+ * which DOES offer all of them — opened their own Details page and saw
+ * "Choose a type…", as if their faith had never been set. Editing anything else
+ * on the row and saving would have written a different faith over theirs.
+ *
+ * `ALLOWED_CEREMONY_VALUES` is the canonical keyspace (16 registry faiths +
+ * civil + mixed) and its own docblock says it mirrors the CHECK constraint.
+ * Deriving from it means a faith added to the registry appears here for free —
+ * which is exactly what did not happen when jewish and born_again were added.
+ */
+const CEREMONY_OPTIONS: ReadonlyArray<{ value: string; label: string }> =
+  ALLOWED_CEREMONY_VALUES.map((value) => ({
+    value,
+    label:
+      value === 'mixed'
+        ? 'Mixed / interfaith'
+        : value === 'civil'
+          ? 'Civil'
+          : (FAITH_LABELS[value] ?? titleCase(value)),
+  }));
 
 // The Chinese tea ceremony rides as a SECONDARY overlay on a non-Chinese,
 // non-mixed primary rite (the common Tsinoy "church wedding + tea ceremony"

@@ -18,6 +18,7 @@
  * platform_settings columns are its store.
  */
 
+import { ONBOARDING_MUSIC_MAX_TRACKS } from '@/lib/onboarding-music-limits';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -53,7 +54,18 @@ function r2RefOrNull(v: FormDataEntryValue | null): string | null {
  */
 export async function updateOnboardingMusic(formData: FormData) {
   await requireAdmin();
-  const musicRef = r2RefOrNull(formData.get('bg_music_url'));
+  // getAll — the uploader is now `multiple`, so a save carries 0..N refs in
+  // author order. getValue would silently keep only the first and drop the rest.
+  const musicRefs = formData
+    .getAll('bg_music_url')
+    .map((v) => r2RefOrNull(v))
+    .filter((r): r is string => r !== null)
+    .slice(0, ONBOARDING_MUSIC_MAX_TRACKS);
+  // The legacy singular column is MIRRORED, never abandoned: fetchOnboardingBgMusicUrl()
+  // still reads it, /admin/website-media resolves it to decide whether a track is
+  // "In use", and prod's real track lives there today. Letting the two disagree is
+  // how a live file becomes deletable.
+  const musicRef = musicRefs[0] ?? null;
   const enabledRequested = formData.get('onboarding_bg_music_enabled') === 'on';
   const enabled = enabledRequested && Boolean(musicRef);
 
@@ -62,6 +74,7 @@ export async function updateOnboardingMusic(formData: FormData) {
     .from('platform_settings')
     .update({
       onboarding_bg_music_r2_key: musicRef,
+      onboarding_bg_music_r2_keys: musicRefs,
       onboarding_bg_music_enabled: enabled,
       updated_at: new Date().toISOString(),
     })

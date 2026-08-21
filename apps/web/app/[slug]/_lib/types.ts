@@ -246,6 +246,12 @@ export type LiveLayerData = {
   backdropConfig: RsvpBackdropConfig | null;
   liveWall: LiveWallData | null;
   watchLive: WatchLiveData | null;
+  /** Has the couple staged a broadcast the page can ANNOUNCE before the day?
+   *  `watchLive` is the player and exists only inside the live window; this is
+   *  the single fact the "we'll be streaming" notice needs, and it is read in
+   *  every phase the notice can be drawn in. FALSE during and after the day —
+   *  the player, and then the recap, say it better. */
+  broadcastPlanned: boolean;
   publicCandidCameraActive: boolean;
   /** The host's Papic switch, read on ANY day — the menu's camera slot follows
    *  the SWITCH, not the calendar (owner 2026-08-03). Distinct from

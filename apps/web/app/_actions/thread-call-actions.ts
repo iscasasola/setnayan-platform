@@ -183,7 +183,23 @@ export async function endThreadCall(callId: string): Promise<void> {
   }
 }
 
-export type CallIceServersResult = { iceServers: RTCIceServer[] };
+export type CallIceServersResult = {
+  iceServers: RTCIceServer[];
+  /**
+   * Did a RELAY actually come back for this call?
+   *
+   * MEASURED, not configured. `turnConfigured()` in lib/turn.ts answers "are the
+   * keys present" — and had ZERO callers, so nothing ever asked it. This is the
+   * better question anyway: keys can be set while Cloudflare errors, the caller
+   * can fail the membership check, or the mint can time out. All of those end
+   * with no relay, and the person on the call experiences them identically.
+   *
+   * The UI uses this to say something TRUE when a call fails to connect. It used
+   * to hardcode "(no TURN yet)" — engineering jargon shown to a couple, and a
+   * claim that silently becomes a lie the moment the keys are added.
+   */
+  relayAvailable: boolean;
+};
 
 /**
  * ICE servers for the vendor↔couple call transport (lib/call-webrtc.ts): public
@@ -216,5 +232,5 @@ export async function getCallIceServers(threadId: string): Promise<CallIceServer
     const thread = user ? await fetchThreadById(supabase, clean) : null;
     if (thread) turn = await mintTurnIceServers();
   }
-  return { iceServers: [...stun, ...turn] };
+  return { iceServers: [...stun, ...turn], relayAvailable: turn.length > 0 };
 }

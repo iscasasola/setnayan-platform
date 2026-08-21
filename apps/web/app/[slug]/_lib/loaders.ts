@@ -33,7 +33,9 @@ import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode, resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { eventSkuActive } from '@/lib/entitlements';
-import { eventOwnsCustomQrGuest } from '@/lib/seat-pass';
+import { eventOwnsCustomQrGuest, eventSeatingPublished } from '@/lib/seat-pass';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { DEFAULT_STUDIO_ANIM } from '@/lib/hero-monogram-data';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
@@ -666,6 +668,23 @@ export const loadLiveLayer = cache(
     // overlays upgrade (built at studio/panood/broadcast). (The LIVE_WALL gate
     // below is unchanged.)
     let watchLive: WatchLiveData | null = null;
+    // ── "WE'LL BE STREAMING", THE FACT NOBODY WAS READING BEFORE THE DAY. ───
+    //
+    // Everything above resolves the PLAYER, and the player is a live-window
+    // surface — correctly so. But the couple saves their broadcast link weeks
+    // ahead, and the person that link is FOR is deciding weeks ahead whether to
+    // take the day off. Reading nothing until the window opens meant the page
+    // could only announce the stream at the one moment the announcement was
+    // useless.
+    //
+    // One extra `events` read by primary key, and only where the notice can
+    // actually be drawn: never after the day (the recap carries the replay) and
+    // never during it (the player above is already saying it, louder). Reduced
+    // through `resolveWatchLinks` — the SAME reducer the player is built from —
+    // so a forged or malformed stored URL is "no broadcast" here exactly as it
+    // is there. Promising a stream the player would refuse is the failure this
+    // is meant to end, not a new form of it.
+    let broadcastPlanned = false;
     if (dayOfPhase === 'live') {
       try {
         // LIVE_WALL ownership reads off orders.status via eventOwnsSku() (PR4
@@ -796,6 +815,13 @@ export const loadLiveLayer = cache(
         liveWall = null;
         watchLive = null;
       }
+    } else if (dayOfPhase !== 'post') {
+      try {
+        broadcastPlanned =
+          resolveWatchLinks(await readEventWatchUrls(admin, event.event_id)) !== null;
+      } catch {
+        broadcastPlanned = false;
+      }
     }
 
     // Event-day chrome for the no-guest PublicLanding paths (owner 2026-06-28 —
@@ -832,10 +858,60 @@ export const loadLiveLayer = cache(
       backdropConfig,
       liveWall,
       watchLive,
+      broadcastPlanned,
       publicCandidCameraActive,
       hostCameraOpen,
       publicAlbumHref,
     };
+  },
+);
+
+/**
+ * The facts the two guest doorways need — the 3D walk-through of the reception
+ * and the money-gift page. Each is read the way the DESTINATION reads it, which
+ * is the whole point: a door is only honest if the page behind it would let
+ * this viewer in.
+ *
+ *   · the 3D room → the event TYPE has seating AND the couple has PUBLISHED the
+ *     floor plan. Those are the two questions `public_venue_scene` asks before
+ *     it answers `{published:false}`; asking them here is what stops us handing
+ *     a guest a link to "The 3D venue isn't ready yet".
+ *   · the money gift → the rollout switch is on AND at least one destination is
+ *     enabled, counted through `fetchEgiftMethods(admin, id, {enabledOnly:true})`
+ *     — the same function, the same service-role client and the same filter the
+ *     public page uses. "Is there anything behind this door" must be answered by
+ *     the reader that will actually stand there, not by a cheaper query that
+ *     might be permitted differently. Skipped entirely while the switch is off,
+ *     so a dark flag costs nothing.
+ *
+ * ⚠ The VISIBILITY half of the money-gift page's gate is deliberately NOT here:
+ * it needs the guest-session cookie and the viewer's account, and cookie reads
+ * may never enter a `React.cache`'d loader (the hard rule at the top of this
+ * file). The orchestrator answers it and passes it to `resolveGuestDoorways`.
+ */
+export const loadDoorwayFacts = cache(
+  async (
+    admin: AdminClient,
+    eventId: string,
+    eventType: string | null,
+  ): Promise<{
+    seatingSurfaceEnabled: boolean;
+    seatingPublished: boolean;
+    pabuyaRouteEnabled: boolean;
+    enabledEgiftCount: number;
+  }> => {
+    const seatingSurfaceEnabled = surfaceEnabled(
+      await resolveProfile(eventType ?? 'wedding'),
+      'seating',
+    );
+    const pabuyaRouteEnabled = isPabuyaPublicRouteEnabled();
+    const [seatingPublished, enabledEgiftCount] = await Promise.all([
+      seatingSurfaceEnabled ? eventSeatingPublished(admin, eventId) : Promise.resolve(false),
+      pabuyaRouteEnabled
+        ? fetchEgiftMethods(admin, eventId, { enabledOnly: true }).then((m) => m.length)
+        : Promise.resolve(0),
+    ]);
+    return { seatingSurfaceEnabled, seatingPublished, pabuyaRouteEnabled, enabledEgiftCount };
   },
 );
 

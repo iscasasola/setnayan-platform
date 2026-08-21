@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { siteOrigin } from '@/lib/site-origin';
 import { redirect } from 'next/navigation';
 import {
   ArrowLeft,
@@ -21,7 +22,7 @@ import {
   type ModeratorPermissions,
   type RoleSubtype,
 } from '@/lib/event-moderators';
-import { revokeHostInvite, removeHost, setDelegateBudget } from './actions';
+import { revokeHostInvite, removeHost, setDelegateBudget, setDelegatePhotos } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConsentGatedInviteForm } from './_components/consent-gated-invite-form';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
@@ -185,10 +186,9 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
 
   // Build the share URL with a localhost-safe fallback. In production this
   // resolves to https://www.setnayan.com via SITE_URL; locally to localhost.
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.SITE_URL ??
-    'https://www.setnayan.com';
+  // One resolver (lib/site-origin.ts). Same preview-points-at-production bug
+  // as the Samahan invite link.
+  const siteUrl = siteOrigin();
   const shareUrl = sentToken ? `${siteUrl}/host/accept/${sentToken}` : null;
 
   return (
@@ -383,6 +383,9 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
             {accepted.map((row) => {
               const userInfo = row.user_id ? usersById[row.user_id] ?? null : null;
               const budgetLevel = resolveAreaLevel(row.permissions_json, 'budget');
+              // Owner ruling 2026-08-06 — the couple approves photo access per
+              // delegate. Refused until they press it.
+              const photosLevel = resolveAreaLevel(row.permissions_json, 'photos');
               const grantChips = DELEGATE_AREAS.filter((a) => a !== 'budget')
                 .map((a) => ({ area: a, level: resolveAreaLevel(row.permissions_json, a) }))
                 .filter((g) => g.level !== null);
@@ -448,6 +451,21 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                             className="text-[11px] text-ink/55 underline hover:text-ink"
                           >
                             {budgetLevel ? 'Hide budget' : 'Allow budget view'}
+                          </SubmitButton>
+                        </form>
+                        <form action={setDelegatePhotos}>
+                          <input type="hidden" name="event_id" value={eventId} />
+                          <input type="hidden" name="moderator_id" value={row.moderator_id} />
+                          <input
+                            type="hidden"
+                            name="photos_grant"
+                            value={photosLevel ? 'off' : 'view'}
+                          />
+                          <SubmitButton
+                            pendingLabel="Saving…"
+                            className="text-[11px] text-ink/55 underline hover:text-ink"
+                          >
+                            {photosLevel ? 'Hide event photos' : 'Allow event photos'}
                           </SubmitButton>
                         </form>
                         <form action={removeHost} className="flex items-center gap-1.5">

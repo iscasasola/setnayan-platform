@@ -7,11 +7,15 @@
  * entry back to My Shop and an Open-live link. This is a viewer, not an editor:
  * every field is changed at /vendor-dashboard/shop (My Shop → Website Editor).
  *
- * The public page is keyed on `business_slug` (a Pro/Enterprise custom-address
- * feature) and only renders for publicly-visible profiles (coming_soon +
- * verified; hidden/archived 404). So the preview degrades gracefully:
+ * The public page is keyed on `business_slug`. EVERY shop holds one on EVERY
+ * plan — it is minted from the business name the moment the shop is named
+ * (migration 20271117527966); Pro/Enterprise only buys the right to CHANGE it.
+ * (Until 2026-08-06 nothing minted a default and only Pro+ could set one, so a
+ * Free shop's page had no address at all.) The page renders only for
+ * publicly-visible profiles — `verified` alone, since `coming_soon` was retired
+ * on 2026-07-27; hidden/archived 404. So the preview degrades gracefully:
  *   - has slug + publicly visible → live iframe preview + Open-live + Edit
- *   - no slug yet                 → "set your public address" state
+ *   - no slug yet (unnamed shop)  → "name your shop" state
  *   - slug but not visible        → "not visible yet" state
  *
  * Server Component (auth via cookies). Brand-voice copy only, no dev text,
@@ -171,19 +175,21 @@ export default async function VendorWebsitePreview() {
             style={{ color: 'var(--m-slate)' }}
           >
             <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            {slug ? 'Not visible yet' : 'No public address yet'}
+            {slug ? 'Not visible yet' : 'Name your shop first'}
           </p>
           <h2 className="text-lg font-semibold tracking-tight text-ink">
             {slug
               ? 'Your public page isn’t live yet.'
-              : 'Set your public address to get a shareable page.'}
+              : 'Name your shop and we’ll give you your web address.'}
           </h2>
+          {/* The no-slug branch is now only an UNNAMED shop. Every named shop
+              gets its address automatically (migration 20271117527966) — the
+              old copy here told the vendor to go buy one, which was the paywall
+              wording of a defect, not a real Pro benefit. */}
           <p className="max-w-2xl text-sm" style={{ color: 'var(--m-slate)' }}>
             {slug
               ? 'Your page goes live once your profile is published and verification is underway. Until then it stays private to you.'
-              : 'Your public page lives at a custom address like ' +
-                `${DISPLAY_HOST}/v/your-name` +
-                '. Add yours in My Shop, then this tab shows a live preview of exactly what couples see.'}
+              : `Add your shop name in My Shop and your page address — something like ${DISPLAY_HOST}/your-name — is set up for you. This tab then shows a live preview of exactly what couples see.`}
           </p>
           <div className="pt-1">
             <Link
@@ -191,7 +197,7 @@ export default async function VendorWebsitePreview() {
               className="button-primary inline-flex items-center gap-2"
             >
               <SquarePen aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              {slug ? 'Edit in My Shop' : 'Set up my page'}
+              {slug ? 'Edit in My Shop' : 'Name my shop'}
             </Link>
           </div>
         </section>

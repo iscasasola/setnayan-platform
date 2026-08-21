@@ -1,8 +1,8 @@
 {
-  "generatedFromRef": "a0fde579d",
+  "generatedFromRef": "d09ad366a",
   "routeCount": 403,
   "destinations": 679,
-  "actions": 514,
+  "actions": 515,
   "routes": {
     "/": {
       "files": [
@@ -53,6 +53,7 @@
         "[slug]/_components/guest-camera-player.tsx",
         "[slug]/_components/guest-column-card.tsx",
         "[slug]/_components/guest-column-form.tsx",
+        "[slug]/_components/guest-doorway-strip.tsx",
         "[slug]/_components/guest-hub-bar.tsx",
         "[slug]/_components/guest-hub-card.tsx",
         "[slug]/_components/guest-preload.tsx",
@@ -1558,7 +1559,6 @@
     },
     "/admin/wedding-types": {
       "files": [
-        "admin/wedding-types/actions.ts",
         "admin/wedding-types/loading.tsx",
         "admin/wedding-types/page.tsx"
       ],
@@ -2483,12 +2483,10 @@
     },
     "/dashboard/[eventId]/monogram": {
       "files": [
-        "dashboard/[eventId]/monogram/actions.ts",
         "dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx",
         "dashboard/[eventId]/monogram/draft-restore.tsx",
         "dashboard/[eventId]/monogram/loading.tsx",
         "dashboard/[eventId]/monogram/mark-everywhere.tsx",
-        "dashboard/[eventId]/monogram/monogram-maker-shared.ts",
         "dashboard/[eventId]/monogram/page.tsx",
         "dashboard/[eventId]/monogram/studio-actions.ts",
         "dashboard/[eventId]/monogram/studio.tsx",
@@ -2599,18 +2597,21 @@
         "dashboard/[eventId]/schedule/_components/emcee-picks.tsx",
         "dashboard/[eventId]/schedule/_components/emcee-script-button.tsx",
         "dashboard/[eventId]/schedule/_components/journey-view.tsx",
+        "dashboard/[eventId]/schedule/_components/note-flash.ts",
         "dashboard/[eventId]/schedule/_components/prep-item-controls.tsx",
         "dashboard/[eventId]/schedule/_components/prep-kind-picker.tsx",
         "dashboard/[eventId]/schedule/_components/preparation-agenda.tsx",
         "dashboard/[eventId]/schedule/_components/ros-p2.tsx",
         "dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx",
+        "dashboard/[eventId]/schedule/_components/tell-the-host.tsx",
         "dashboard/[eventId]/schedule/_components/travel-itinerary.tsx",
         "dashboard/[eventId]/schedule/_components/vendor-meetings-section.tsx",
         "dashboard/[eventId]/schedule/actions.ts",
         "dashboard/[eventId]/schedule/activity-picks-actions.ts",
         "dashboard/[eventId]/schedule/loading.tsx",
         "dashboard/[eventId]/schedule/page.tsx",
-        "dashboard/[eventId]/schedule/prep-actions.ts"
+        "dashboard/[eventId]/schedule/prep-actions.ts",
+        "dashboard/[eventId]/schedule/stage-note-actions.ts"
       ],
       "destinations": [
         "/dashboard/[seg]/budget",
@@ -2626,6 +2627,7 @@
         "deleteScheduleBlock",
         "loadScheduleTemplate",
         "resolveScheduleSuggestion",
+        "sendStageNoteFromEvent",
         "setBlockPrepVisibility",
         "setBlockResponsibleParty",
         "toggleActivityPick",
@@ -5359,7 +5361,6 @@
     },
     "/vendor-dashboard/tax-documents": {
       "files": [
-        "vendor-dashboard/tax-documents/actions.ts",
         "vendor-dashboard/tax-documents/loading.tsx",
         "vendor-dashboard/tax-documents/page.tsx"
       ],
@@ -5396,10 +5397,6 @@
       "files": [
         "vendor-dashboard/tokens/_components/balance-card.tsx",
         "vendor-dashboard/tokens/_components/buy-tokens-cta.tsx",
-        "vendor-dashboard/tokens/_components/pending-purchases.tsx",
-        "vendor-dashboard/tokens/_components/purchase-history.tsx",
-        "vendor-dashboard/tokens/_components/recent-history.tsx",
-        "vendor-dashboard/tokens/_components/voucher-list.tsx",
         "vendor-dashboard/tokens/actions.ts",
         "vendor-dashboard/tokens/loading.tsx",
         "vendor-dashboard/tokens/page.tsx"
@@ -5526,7 +5523,6 @@
     },
     "/waitlist": {
       "files": [
-        "waitlist/actions.ts",
         "waitlist/page.tsx"
       ],
       "destinations": [

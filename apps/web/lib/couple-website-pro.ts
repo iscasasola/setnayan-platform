@@ -15,7 +15,9 @@ import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
  * EVENT_WEBSITE (owner 2026-06-14 · "free 4-in-1 couple website + ONE ₱3,999
  * PRO unlock" — Pricing.md §00 + memory project_setnayan_pricing_tiers). Gate
  * EVERY couple-website Pro perk on THIS key, not the legacy ones. The legacy
- * lib/pro-website.ts (PRO_WEBSITE_SERVICE_KEY) is dead-but-inert — do not gate
+ * lib/pro-website.ts (PRO_WEBSITE_SERVICE_KEY) was dead-but-inert and was DELETED
+ * 2026-08-06 (zero importers). Kept in this note so the next reader does not go
+ * looking for it. Do not gate
  * new perks on it.
  *
  * THE V1 PERK · removing the freemium "Powered by Setnayan · setnayan.com"

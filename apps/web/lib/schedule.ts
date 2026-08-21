@@ -219,6 +219,8 @@ export type SeedCeremonyType =
   | 'buddhist'
   | 'orthodox'
   | 'chinese'
+  | 'jewish'
+  | 'born_again'
   | 'mixed';
 
 /** Default sub-blocks under the Ceremony parent · ceremony-type-aware so
@@ -369,6 +371,34 @@ const CEREMONY_PARTS: Record<SeedCeremonyType, string[]> = {
     'Signing of marriage contract',
     'Recessional',
   ],
+  // Born Again — the same evangelical shape faith-registry.ts already describes:
+  // `christian` is defined there as "Evangelical, Protestant & born-again
+  // churches", so this is that spine with the praise-and-worship opening that
+  // Filipino born-again services actually lead with. Not invented — matched to
+  // the vocabulary the product already uses for these congregations.
+  born_again: [
+    'Praise + worship',
+    'Opening prayer',
+    "Pastor's message",
+    'Vows + ring exchange',
+    'Signing of marriage contract',
+    'Closing prayer',
+    'Recessional',
+  ],
+  // Jewish — the beats common to every denomination (Orthodox through Reform).
+  // Deliberately the shared spine and nothing more: the couple's own rabbi
+  // decides what else belongs, and a confidently-wrong detail is worse than an
+  // honest outline.
+  jewish: [
+    'Ketubah signing',
+    'Processional',
+    'Chuppah',
+    'Vows + ring exchange',
+    'Sheva Brachot (seven blessings)',
+    'Breaking of the glass',
+    'Signing of marriage contract',
+    'Recessional',
+  ],
   mixed: [
     'Procession',
     'Opening prayer',
@@ -378,6 +408,30 @@ const CEREMONY_PARTS: Record<SeedCeremonyType, string[]> = {
     'Recessional',
   ],
 };
+
+/**
+ * What a ceremony we do NOT recognise gets.
+ *
+ * 🔴 This used to be `CEREMONY_PARTS.catholic`, reached by a DOUBLE fallback on
+ * line ~580 — `CEREMONY_PARTS[ceremonyType ?? 'catholic'] ?? CEREMONY_PARTS.catholic`.
+ * So a Born Again or Jewish couple pressed "set up my schedule" and their
+ * ceremony filled with a Catholic Mass: Communion, the veil, the cord, the
+ * coins. They had to delete another faith's rites from their own wedding, by
+ * hand, one at a time.
+ *
+ * A neutral spine is the honest answer to "we don't know this rite yet". It is
+ * also the safe default for the NEXT type added to the events.ceremony_type
+ * CHECK constraint before this file catches up — which is exactly how jewish
+ * and born_again became Catholic in the first place.
+ */
+const NEUTRAL_CEREMONY_PARTS: string[] = [
+  'Procession',
+  'Opening',
+  'Vows + ring exchange',
+  'Signing of marriage contract',
+  'Closing',
+  'Recessional',
+];
 
 /** The single 敬茶 Tea-ceremony beat injected into a NON-Chinese primary
  *  ceremony's parts when Chinese is the *secondary* (overlay) rite — the common
@@ -577,7 +631,10 @@ export function buildScheduleSeed(
   // is the PRIMARY rite, `ceremonyType` is already 'chinese' and that spine
   // carries the tea beat, so no injection is needed.
   const baseCeremonyParts =
-    CEREMONY_PARTS[ceremonyType ?? 'catholic'] ?? CEREMONY_PARTS.catholic;
+    // ⚠ NOT `?? CEREMONY_PARTS.catholic` — see NEUTRAL_CEREMONY_PARTS. An
+    // unrecognised rite gets a neutral spine, never another faith's liturgy.
+    (ceremonyType ? CEREMONY_PARTS[ceremonyType] : undefined) ??
+    NEUTRAL_CEREMONY_PARTS;
 
   // Overlay path: Chinese is the SECONDARY rite on a non-Chinese primary (the
   // common Tsinoy "church + tea ceremony" case). `isChineseWedding` reads BOTH

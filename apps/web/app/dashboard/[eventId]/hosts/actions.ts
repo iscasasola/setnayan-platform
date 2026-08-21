@@ -290,6 +290,70 @@ export async function setDelegateBudget(formData: FormData) {
 }
 
 /**
+ * Grant or withdraw a delegate's access to the couple's guest photos.
+ *
+ * Owner ruling 2026-08-06: a coordinator may see them **"but only upon
+ * approval"**. This IS the approval — the couple presses it, per delegate.
+ *
+ * 🔑 THE CONTROL EXISTS BECAUSE THE PERMISSION DOES. The `photos` area, its
+ * database policies and its fail-closed default all shipped together; without
+ * this the couple would hold a right they could never exercise, which is the
+ * shape this codebase keeps re-discovering — a column with readers and no
+ * writer, a gate with no handle.
+ *
+ * Mirrors `setDelegateBudget` exactly, including the couple-only check: a
+ * coordinator must never be able to widen their own access.
+ *
+ * VIEW only, never EDIT. Photos are the guests' likenesses; letting a delegate
+ * DELETE them is a different decision that was not made.
+ */
+export async function setDelegatePhotos(formData: FormData) {
+  const rawEventId = formData.get('event_id');
+  const rawModeratorId = formData.get('moderator_id');
+  const grant = formData.get('photos_grant'); // 'view' | 'off'
+  if (typeof rawEventId !== 'string' || typeof rawModeratorId !== 'string') {
+    redirect('/dashboard');
+  }
+  const eventId = rawEventId as string;
+  const moderatorId = rawModeratorId as string;
+
+  await requireCoupleMembership(eventId);
+
+  const admin = createAdminClient();
+  const { data: row } = await admin
+    .from('event_moderators')
+    .select('permissions_json')
+    .eq('moderator_id', moderatorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (row) {
+    const perms = ((row as { permissions_json: ModeratorPermissions | null })
+      .permissions_json ?? {
+      edit_all: false,
+      checkout: false,
+      invite_hosts: false,
+      remove_hosts: false,
+    }) as ModeratorPermissions;
+    const areas = { ...(perms.areas ?? {}) };
+    // An explicit null, never a deleted key. Absence would fall through to the
+    // resolver's tail, and its TypeScript half FAILS OPEN for a delegate with
+    // edit_all — withdrawal has to be written down, not implied.
+    areas.photos = grant === 'view' ? 'view' : null;
+    await admin
+      .from('event_moderators')
+      .update({
+        permissions_json: { ...perms, areas },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('moderator_id', moderatorId)
+      .eq('event_id', eventId);
+  }
+
+  revalidatePath(`/dashboard/${eventId}/hosts`);
+  redirect(`/dashboard/${eventId}/hosts?grant_updated=1`);
+}
+
+/**
  * Remove an ACCEPTED host (locked doc § 3: "revocation is one toggle,
  * effective immediately"). Soft-removes the moderator row (audit trail
  * preserved) and drops their event_members coordinator row so the event

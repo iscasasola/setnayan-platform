@@ -848,9 +848,11 @@ export async function resolveScheduleSuggestion(formData: FormData) {
 // AUTHENTICATED client so the existing RLS decides who may write: the couple
 // (couple_write) and a coordinator holding the moderator schedule-'edit'
 // grant (event_schedule_blocks_moderator_write, 20261129003000). No new
-// permission surface. UI entry points are flag-gated
-// (NEXT_PUBLIC_SCHEDULE_ROS_P2_ENABLED); the actions themselves are inert
-// until that flag flips because nothing renders a form at them.
+// permission surface. UI entry points are gated by the in-app Data Privacy
+// board control 'coordinator_run_of_show' (isDataPrivacyControlActive), NOT by
+// an env var. This comment named NEXT_PUBLIC_SCHEDULE_ROS_P2_ENABLED, which no
+// code has ever read — and that control is `active` in prod, so these surfaces
+// are LIVE, not inert (verified against the live DB 2026-08-06).
 
 /**
  * Set the responsible party on one run-of-show row: the free-text label

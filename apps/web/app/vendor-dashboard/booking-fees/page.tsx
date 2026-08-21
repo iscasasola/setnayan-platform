@@ -63,9 +63,7 @@ export default async function VendorBookingFeesPage() {
       </Link>
 
       <PageMasthead
-        className="mt-4"
         title="Booking fees"
-        lede="Setnayan's booking fee is 5%, then 1% beyond ₱100,000 (minimum ₱50), charged once a couple confirms a booking with you — but only past your first 5 booked customers, who are free. Fees are paid on the same GCash/BDO rail as everything else and clear once our team confirms your payment (within 24 hours)."
       />
 
       {due.length > 0 ? (

@@ -224,7 +224,6 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
             Who&apos;s planning this wedding with you?
           </>
         }
-        lede="Add parents, the wedding planner, your maid of honor, ninongs and ninangs — anyone who should see the plan or help make decisions. Each host signs in with their own account; you control what role they have."
       />
 
       {justSent && shareUrl ? (

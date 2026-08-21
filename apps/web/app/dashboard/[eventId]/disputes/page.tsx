@@ -104,7 +104,7 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
       <PageMasthead
         titleNode={
           <span>
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+            <span>
               <AlertTriangle aria-hidden className="h-5 w-5" strokeWidth={1.75} />
             </span>
             Disputes

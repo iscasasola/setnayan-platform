@@ -176,7 +176,6 @@ export default async function SetnayanAiPage({ params }: Props) {
                 Everything it&rsquo;s keeping for {event.display_name ?? 'your wedding'}
               </>
             }
-            lede="Setnayan AI is on — here’s the full picture of what it’s watching, ranking and tracking for you right now, and the work it saves you from holding by hand."
           />
 
           <div className="flex flex-col gap-4 rounded-xl border border-mulberry/20 bg-mulberry/5 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -225,7 +224,6 @@ export default async function SetnayanAiPage({ params }: Props) {
         <>
           <PageMasthead
             title="Setnayan AI is ready for your wedding"
-            lede="You have access — it’s just switched to manual planning right now. Turn Assisted planning back on and your vendors get ranked for your date, budget and style."
           />
 
           {/* 🔴 THIS USED TO BE A LINK TO /dashboard — A BUTTON THAT PROMISED AN
@@ -260,13 +258,6 @@ export default async function SetnayanAiPage({ params }: Props) {
           {/* BUY — the only state that sells. Non-owner, paywall on. */}
           <PageMasthead
         title="Stop guessing who to hire"
-        lede={
-          <>
-            Setnayan AI reads your date, budget, location, guest count and
-            faith, then ranks every available vendor by how well they actually
-            fit — turning a directory into a shortlist made for your wedding.
-          </>
-        }
       />
 
           <SetnayanAiValue mode="preview" terms={aiValueTerms} />

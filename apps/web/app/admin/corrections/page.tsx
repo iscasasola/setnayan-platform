@@ -97,8 +97,6 @@ export default async function AdminCorrectionsPage({
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
       <PageMasthead
         title="Profile corrections"
-        lede="Verified shops can’t edit their identity details directly — they file a correction request instead. Applying writes the requested value to the vendor’s profile; declining leaves it untouched. Either way the vendor sees the outcome."
-        className="mb-6"
       />
 
       {search.error ? (

@@ -254,12 +254,11 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
 
       <PageMasthead
         titleNode={
-          <span className="flex items-center gap-3">
+          <span>
             <Tv aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
             Broadcast your wedding live
           </span>
         }
-        lede="Connect your YouTube channel, start your stream from OBS, and Setnayan embeds your broadcast on your event page so family abroad can watch in real time. Setnayan sets the broadcast up and hands your encoder a streaming address and key — it never sends the video itself. When you connect your own channel, the watch URL and auto-archive stay on that channel. Want more than one camera? The Setnayan multicam control room — the paid upgrade — lets you switch between several phones with broadcast-style overlays."
       />
 
       {youtubeConnected ? (

@@ -49,7 +49,6 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
     <section className="sn-col space-y-6">
       <PageMasthead
         title="Orders"
-        lede="Apply for any Setnayan service — describe what you need, propose your budget. Our team confirms the price, then you pay via bank transfer or GCash and log the receipt here. We reconcile within one business day."
         actions={
           <Link
             href={`/dashboard/${eventId}/orders/new`}

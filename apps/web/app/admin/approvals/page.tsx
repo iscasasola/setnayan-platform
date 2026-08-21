@@ -152,16 +152,6 @@ export default async function AdminApprovalsPage() {
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="Two-admin approvals"
-        lede={
-          <>
-            Major, irreversible decisions need a second admin. One admin{' '}
-            <strong className="text-ink">initiates</strong> a request here; a{' '}
-            <strong className="text-ink">different</strong> admin approves it before
-            it executes. V1 governs privileged-role grants (Internal · Team Pool ·
-            Promote-to-admin). Every decision is audit-logged.
-          </>
-        }
-        className="mb-8"
       />
 
       {adminCount !== null && adminCount < 2 ? (

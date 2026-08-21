@@ -212,22 +212,21 @@ export async function RealStoriesSurface({
 
   return (
     <div>
+      {/* The ONLY link to the public page used to live inside the retired (i)
+          sentence. It is a door, not a description, so it moves to `actions`
+          rather than dying with the sentence. */}
       <PageMasthead
         title="Real Stories"
-        lede={
-          <>
-            Choose which real, consented wedding editorials get{' '}
-            <strong className="font-semibold text-ink">featured</strong> on the public{' '}
-            <Link href="/realstories" className="underline hover:text-mulberry">
-              Real Stories
-            </Link>{' '}
-            page, and in what order. The lowest-numbered featured wedding fills the big hero slot
-            at the top. Only weddings that are already public, finished (past the 30-day grace
-            window), and whose couple opted in to showcasing appear below — featuring is a
-            spotlight on top of their consent, never a way around it.
-          </>
+        actions={
+          <Link
+            href="/realstories"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-sm font-medium text-ink/80 hover:bg-ink/10"
+          >
+            <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />
+            View the public page
+          </Link>
         }
-        className="mb-8"
+        className="mb-6"
       />
 
       {ok ? (

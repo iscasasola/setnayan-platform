@@ -188,7 +188,7 @@ export async function PatiktokSurface() {
       <PageMasthead
         titleNode={
           <span>
-            <Clapperboard aria-hidden className="h-6 w-6" strokeWidth={1.75} />
+            <Clapperboard aria-hidden strokeWidth={1.75} />
             Patiktok renders
           </span>
         }

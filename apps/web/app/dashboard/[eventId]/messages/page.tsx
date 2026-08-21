@@ -198,7 +198,6 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
     <section className="space-y-6">
       <PageMasthead
         title="Messages"
-        lede="One thread per vendor you’re working with. Vendors find you via the email on your invitation site or by starting their own thread."
       />
 
       {search.error ? (

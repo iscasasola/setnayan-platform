@@ -185,7 +185,6 @@ export async function BrainSurface() {
             Today&apos;s Focus brain
           </span>
         }
-        className="mb-6"
       />
 
       {/*

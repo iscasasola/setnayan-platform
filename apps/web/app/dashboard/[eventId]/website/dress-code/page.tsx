@@ -74,12 +74,6 @@ export default async function DressCodeEditorPage({
       {/* Header strip */}
       <PageMasthead
         title="Tell your guests what to wear"
-        lede={
-          <>
-            Add a palette so guests can match the mood of your {eventNoun(event.event_type)}. Share the look
-            you&rsquo;re going for — and the few things you&rsquo;d rather they skip.
-          </>
-        }
       />
       <div className="mt-3 space-y-3">
         {saved ? (

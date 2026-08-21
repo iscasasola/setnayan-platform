@@ -96,7 +96,6 @@ export default async function ThankYouVideoPage({
           carries the back chevron, so no separate Studio link. */}
       <PageMasthead
         title="Thank-You Video"
-        lede="A short film for everyone who came. We use the photos of your day that are cleared to share — your own, and any guest shots where the guest agreed and you approved. It is made on this device and saved to your phone, so you can send it however you like."
       />
 
       <ThankYouMaker plan={plan} />

@@ -15,6 +15,7 @@ import {
 
 import { loadFrontDoorData } from './data';
 import { FrontDoorShell } from './front-door-shell';
+import { FrontDoorOpening } from './front-door-opening';
 import { FrontDoorFeed, isChip, type ChipKey } from './front-door-feed';
 import { FrontDoorResults } from './front-door-results';
 import { SignedInCluster } from './signed-in-cluster';
@@ -70,6 +71,14 @@ export async function FrontDoor({ chip, q }: { chip?: string; q?: string }) {
   return (
     <FrontDoorShell
       account={account}
+      /*
+        THE PAGE'S ONE VISIBLE HEADING. It REPLACES the shell's screen-reader-
+        only <h1> rather than joining it — see the shell's `heading` prop. Shown
+        to everybody, signed in or out: a returning person still benefits from
+        the page saying what it is, and branching it would make two front doors
+        to keep true.
+      */
+      heading={<FrontDoorOpening />}
       visibleFolders={FRONT_DOOR_VISIBLE_FOLDERS.map(toRailFolder)}
       moreFolders={FRONT_DOOR_MORE_FOLDERS.map(toRailFolder)}
       /*

@@ -27,6 +27,9 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createMoneyWriterClient } from '@/lib/supabase/admin';
+import { orderRowFor } from '@/lib/order-mint-identity';
+import { vendorSubscriptionServiceKey } from '@/lib/vendor-subscription-service-key';
 import { notifyAdminsSubscriptionPending } from '@/lib/subscription-purchase-notify';
 
 const ERR = (msg: string) =>
@@ -93,6 +96,60 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
   const purchaseId: string | null =
     row && typeof row.purchase_id === 'string' ? row.purchase_id : null;
 
+  // ── The order row that gives this purchase somewhere to send proof ────────
+  // Until 2026-08-21 a plan purchase wrote a `vendor_subscriptions` row and
+  // NOTHING else. `payments.order_id` is NOT NULL, so there was no row a
+  // screenshot or a reference number could attach to — the shop paid and then
+  // had to hope somebody noticed. Every OTHER vendor purchase (extra seat,
+  // branch, deep search, booking fee) already mints this exact shape; the
+  // subscription was the one that did not.
+  //
+  // AUTHORIZATION: none of it comes from the form. `create_vendor_subscription`
+  // is SECURITY DEFINER, resolves the vendor from `auth.uid()`, refuses a
+  // non-admin of that shop (NOT_VENDOR_ADMIN) and an unverified shop
+  // (NOT_VERIFIED), and prices the row from `vendor_billing_catalog` — so by
+  // the time we are here the purchase EXISTS and is theirs. We mirror its own
+  // amount and reference; `orderRowFor` stamps the identity columns.
+  //
+  // Fail-soft on purpose: the money row is already minted and the admin can
+  // still confirm it at /admin/subscriptions. Losing the order row costs the
+  // nicer payment page, and that is never a reason to strand a purchase that
+  // already exists.
+  const vendorId: string | null =
+    row && typeof row.vendor_id === 'string' ? row.vendor_id : null;
+  // The words the shop just picked. Read from the catalog, not from the RPC's
+  // row — `vendor_subscriptions` stores the sku_code and no title at all, so a
+  // `row.title` lookup here would silently always miss and every plan would
+  // render as "Your Setnayan order".
+  const { data: catalogRow } = await supabase
+    .from('vendor_billing_catalog')
+    .select('title')
+    .eq('sku_code', skuCode)
+    .maybeSingle();
+  const amountPhp = Number(row?.amount_php ?? 0);
+  let payPath: string | null = null;
+  if (purchaseId && ref && vendorId && Number.isFinite(amountPhp) && amountPhp > 0) {
+    try {
+      const { error: orderError } = await createMoneyWriterClient()
+        .from('orders')
+        .insert(
+          orderRowFor(
+            { userId: user.id, eventId: null, vendorProfileId: vendorId },
+            {
+              service_key: vendorSubscriptionServiceKey(purchaseId),
+              description: planDescription(skuCode, catalogRow),
+              requested_total_php: amountPhp,
+              status: 'awaiting_payment',
+              reference_code: ref,
+            },
+          ),
+        );
+      if (!orderError) payPath = '/pay/' + encodeURIComponent(ref);
+    } catch {
+      /* keep payPath null — see above */
+    }
+  }
+
   // Alert admins there's a payment to watch for (fail-soft — never blocks the
   // vendor's redirect to the payment instructions).
   if (purchaseId) {
@@ -100,5 +157,19 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
   }
 
   revalidatePath('/vendor-dashboard/subscription');
-  redirect('/vendor-dashboard/subscription?ordered=' + encodeURIComponent(ref ?? ''));
+  // The shared payment page when we have one, otherwise exactly what shipped
+  // before — the plan screen's own instructions panel.
+  redirect(payPath ?? '/vendor-dashboard/subscription?ordered=' + encodeURIComponent(ref ?? ''));
+}
+
+/**
+ * What the shop sees at the top of the payment page. The catalog title is the
+ * words they just picked, so prefer it; the sku_code is a fallback that at
+ * least names the right thing rather than reading "Your Setnayan order".
+ */
+function planDescription(skuCode: string, catalogRow: { title?: unknown } | null): string {
+  const title =
+    catalogRow && typeof catalogRow.title === 'string' ? catalogRow.title.trim() : '';
+  if (title.length > 0) return title;
+  return 'Setnayan plan — ' + skuCode.replace(/_/g, ' ');
 }

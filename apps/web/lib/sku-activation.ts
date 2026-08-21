@@ -7,6 +7,7 @@ import {
 import { activateConcierge } from '@/app/dashboard/(account)/profile/concierge/actions';
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
 import { chargeIdFromBookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
+import { purchaseIdFromVendorSubscriptionServiceKey } from '@/lib/vendor-subscription-service-key';
 import { settleBookingFeeCharge } from '@/lib/booking-fee-charge';
 import {
   seatServiceKey,
@@ -1230,6 +1231,52 @@ const PREFIX_HOOKS: ReadonlyArray<{
   match: (serviceKey: string) => boolean;
   run: ActivationHook;
 }> = Object.freeze([
+  {
+    // 'vendor_subscription__{purchase_id}' → SWITCH THE PLAN ON.
+    //
+    // A plan purchase now mints an `orders` row so the shop has somewhere to
+    // send its screenshot (2026-08-21, the ONE payment page). That gives the
+    // admin two rows describing one payment, and without this hook the one
+    // they approve at /admin/payments would take the money and leave the plan
+    // OFF — the shop would have paid, been thanked, and got nothing.
+    //
+    // `approve_vendor_subscription` is the same RPC /admin/subscriptions calls
+    // and is idempotent (it answers {already:true} on a re-confirm), so
+    // approving in either place, or in both, lands the shop in one state.
+    match: (serviceKey) => purchaseIdFromVendorSubscriptionServiceKey(serviceKey) !== null,
+    run: async (ctx) => {
+      const purchaseId = purchaseIdFromVendorSubscriptionServiceKey(ctx.serviceKey);
+      if (!purchaseId) return;
+      const { data: purchase } = await ctx.admin
+        .from('vendor_subscriptions')
+        .select('vendor_id')
+        .eq('purchase_id', purchaseId)
+        .maybeSingle();
+      // SEC-4b: the paying order must belong to the shop whose plan this is.
+      await assertOrderOwnsVendorTarget(
+        ctx,
+        (purchase as { vendor_id?: string | null } | null)?.vendor_id ?? null,
+      );
+      const { error } = await ctx.admin.rpc('approve_vendor_subscription', {
+        p_purchase_id: purchaseId,
+      });
+      // THROW, don't swallow: the dispatcher's catch leaves the order
+      // recoverable, and a silently unapplied plan is the exact harm this hook
+      // exists to prevent.
+      if (error) {
+        throw new Error(
+          `approve_vendor_subscription failed for ${purchaseId}: ${error.message ?? 'unknown'}`,
+        );
+      }
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'service_activated',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: { service_key: ctx.serviceKey, vendor_subscription_purchase_id: purchaseId },
+      });
+    },
+  },
   {
     // 'vendor_booking_fee__{charge_id}' → SETTLE the booking-fee ledger charge.
     // This is the missing connection: the booking_fee_charges ledger opens

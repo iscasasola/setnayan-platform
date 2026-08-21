@@ -47,10 +47,19 @@ test('the candidate read fences itself by the events the host organises', () => 
     'The candidate list no longer derives the host’s own events from an ' +
       'event_members read. Without that list there is nothing to fence with.',
   );
+  /*
+    🪤 PINNED TO THE `guests` QUERY, NOT TO "somewhere in the file". The first
+    cut of this assertion matched `.in('event_id', myEventIds)` ANYWHERE — and
+    this module has TWO such calls, the other one reading event TITLES. Deleting
+    the fence from the guest query alone would have left the titles call
+    satisfying the regex, and the guard would have gone green over the exact
+    disclosure it exists to stop. Measured: the sabotage could not even be
+    applied uniquely, which is what exposed it.
+  */
   assert.match(
     src,
-    /\.in\('event_id',\s*myEventIds\)/,
-    'The other-events guest query lost its explicit `.in(event_id, myEventIds)` ' +
+    /from\('guests'\)[\s\S]{0,500}?\.in\('event_id',\s*myEventIds\)/,
+    'The other-events GUEST query lost its explicit `.in(event_id, myEventIds)` ' +
       'fence. `couple_writes_guest` is `… OR is_admin()`, and production’s ' +
       'admin is the owner’s own account — leaning on RLS offers him every ' +
       'guest in the database and looks completely fine.',

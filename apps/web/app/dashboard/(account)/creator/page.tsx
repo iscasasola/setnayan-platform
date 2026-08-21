@@ -98,9 +98,6 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="Your Chapters"
-        back="/dashboard"
-        backLabel="Back to home"
-        className="mb-6"
       />
 
       {search.error ? (

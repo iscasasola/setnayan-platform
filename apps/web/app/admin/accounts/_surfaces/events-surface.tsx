@@ -240,7 +240,6 @@ export async function EventsSurface({
   return (
     <div>
       <PageMasthead
-        className="mb-6"
         title="Events"
       />
 

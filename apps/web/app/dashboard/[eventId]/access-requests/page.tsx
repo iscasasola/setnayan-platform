@@ -109,8 +109,6 @@ export default async function AccessRequestsPage({
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
       <PageMasthead
         title="Access requests"
-        back={`/dashboard/${eventId}`}
-        backLabel="Event"
         lede="Your coordinator can ask to see parts of your event. You decide each one, and you can take any of it back later."
       />
 

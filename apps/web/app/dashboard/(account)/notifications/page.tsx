@@ -25,8 +25,6 @@ export default async function CoupleNotificationsPage() {
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="Notifications"
-        back="/dashboard"
-        backLabel="Back to events"
         actions={
           unreadCount > 0 ? (
             <form action={markAllNotificationsRead}>

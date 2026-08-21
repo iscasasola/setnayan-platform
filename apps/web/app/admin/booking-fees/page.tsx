@@ -139,7 +139,6 @@ export default async function AdminBookingFeesPage() {
           page that draws its own, and it has no eyebrow by design. */}
       <PageMasthead
         title="Booking fees owed"
-        className="mb-6"
       />
 
       {unreadable ? (

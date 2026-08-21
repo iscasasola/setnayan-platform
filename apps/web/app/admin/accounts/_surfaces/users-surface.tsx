@@ -269,7 +269,6 @@ export async function UsersSurface({
   return (
     <div>
       <PageMasthead
-        className="mb-6"
         title="Users"
       />
 

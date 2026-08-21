@@ -180,8 +180,6 @@ export default async function WidgetsEditorPage({
       {/* Header strip — back link + title */}
       <PageMasthead
         titleNode={<>Shape your {eventNoun(event.event_type)} page</>}
-        back={`/dashboard/${eventId}/website`}
-        backLabel="Back to your {eventNoun(event.event_type)} website"
         lede={
           <>
             Choose which sections appear on{' '}

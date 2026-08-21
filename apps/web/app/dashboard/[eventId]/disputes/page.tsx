@@ -103,7 +103,7 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
     <section className="sn-col space-y-6">
       <PageMasthead
         titleNode={
-          <span className="flex items-center gap-2">
+          <span>
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
               <AlertTriangle aria-hidden className="h-5 w-5" strokeWidth={1.75} />
             </span>

@@ -92,8 +92,6 @@ export default async function OurPhotosEditorPage({
     <section className="space-y-6">
       <PageMasthead
         title="Your own gallery"
-        back={`/dashboard/${eventId}/website`}
-        backLabel="Back to Event Hub"
         lede={
           <>
             Add a few of your favourite photos — your engagement shoot, a

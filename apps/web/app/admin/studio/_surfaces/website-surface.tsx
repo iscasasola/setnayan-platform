@@ -32,7 +32,6 @@ export async function WebsiteSurface({ page: pageRaw }: { page?: string }) {
     <div>
       <PageMasthead
         title="Website editor"
-        className="mb-6"
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">

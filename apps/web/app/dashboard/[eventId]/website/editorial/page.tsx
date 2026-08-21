@@ -19,7 +19,6 @@ import { EditorialEditor } from './_components/editorial-editor';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import type { EditorialEditorInput } from './actions';
 import { eventNoun } from '@/lib/event-noun';
-import { WebsiteProLock } from '../_components/website-pro-lock';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 type LandingVisibility = 'public' | 'unlisted' | 'private';
@@ -160,29 +159,25 @@ export default async function EditorialEditorPage({
     isPro = false;
   }
 
-  // ── Event Hub PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
-  // Editorial editing is now a Event Hub PRO perk (isEditorialProActive = the
-  // à-la-carte EDITORIAL_PRO OR the Couple Website PRO umbrella). The gate =
-  // (NOT PRO) AND (no editorial content authored yet). A couple that already
-  // saved editorial content (draft_json is non-empty OR it's published) keeps
-  // the editor — grandfathered — and the published guest-site editorial always
-  // renders regardless (only the EDITOR gates). Fail-open: a non-empty draft
-  // from any source resolves to "has content" → editing allowed.
-  const hasEditorialContent = Object.keys(draft).length > 0 || status === 'published';
-  if (!isPro && !hasEditorialContent) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-        <WebsiteProLock
-          eventId={eventId}
-          backHref={`/dashboard/${eventId}/website`}
-          featureName="Author your front-page story"
-          description={`Write and design your ${eventNoun(
-            event.event_type,
-          )}'s editorial — your own words, photos, and layout. It's part of Event Hub PRO.`}
-        />
-      </div>
-    );
-  }
+  /*
+    ⚠ THE EVENT HUB PRO WALL IS RETIRED (owner 2026-08-21):
+    "make this feature part of free and not part of the event hub pro."
+
+    A non-PRO couple with no saved editorial used to meet a WebsiteProLock here
+    reading "Author your front-page story … It's part of Event Hub PRO" — so the
+    story Setnayan had already written ABOUT THEM was visible to them only as a
+    price.
+
+    🔑 THE OWNER'S REASON, WORTH KEEPING: we auto-craft this story for them. An
+    auto-written story its own subject cannot correct reads worse than no story
+    at all, and the first name a generator gets wrong is the couple's own.
+    Charging to fix our sentence about their wedding is the wrong side of the
+    line. PRO still sells the premium touches below (chapter curation, section
+    order, manual guest wishes) — `isPro` above is unchanged and still gates
+    those.
+
+    ⛔ Do NOT reinstate this wall as a "cheap upsell". It was ruled on directly.
+  */
 
   // Compose the couple's CURRENT editorial copy — their own draft_json overrides
   // ON TOP of the onboarding-derived defaults (names → headline, archetype →

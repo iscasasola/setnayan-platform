@@ -433,22 +433,37 @@ test('every finished celebration is on exactly one shelf', () => {
   }
 });
 
-test('the write-the-story chip is a LINK to the composer, never a side effect', () => {
+test('the write-the-story chip is a LINK to THAT EVENT\'S OWN story page', () => {
   // A `<Link>` PREFETCHES: a route handler here would mint or write something
-  // when a card merely scrolled into view. The chip opens the composer with the
-  // celebration preselected and writes nothing.
+  // when a card merely scrolled into view. The chip navigates and writes nothing.
+  //
+  // ⚠ THE DESTINATION CHANGED ON 2026-08-22 AND THAT IS THE POINT OF THIS TEST.
+  // It used to open the Storyteller composer (`/dashboard/creator?event=…`) — a
+  // blank page for a PERSON's own write-up ABOUT a day. The owner asked "isn't
+  // that the editorial. the story?" and he was right: the story of a celebration
+  // is the celebration's own story page, which opens already drafted from the
+  // day's schedule and photos. Two buttons in the product read "Write the story"
+  // and went to different screens; now they agree.
   const src = launcher();
   assert.match(
     src,
-    /href=\{`\/dashboard\/creator\?event=\$\{encodeURIComponent\(event\.event_id\)\}`\}/,
-    'The write-the-story chip no longer opens the composer with the celebration ' +
-      'preselected.',
+    /href=\{`\/dashboard\/\$\{event\.event_id\}\/website\/editorial`\}/,
+    "The write-the-story chip no longer opens that event's own story page.",
+  );
+  assert.doesNotMatch(
+    src,
+    /href=\{`\/dashboard\/creator\?event=/,
+    'The chip points at the Storyteller composer again. That is a different ' +
+      'kind of writing — a blank page, one day can have several, a supplier can ' +
+      'write one too — and sending "Write the story of <name>" there is what ' +
+      'made one wedding look like it had two different stories.',
   );
   assert.match(
     src,
     /unwritten\.filter\(canWriteStoryFor\)/,
-    'The chip is offered to people who cannot attach that celebration — the ' +
-      'composer will not list it, so the button opens onto nothing.',
+    'The chip is offered to people who cannot write that story — the event\'s ' +
+      'story page admits an accepted host only, so the button opens onto a ' +
+      'refusal.',
   );
 });
 

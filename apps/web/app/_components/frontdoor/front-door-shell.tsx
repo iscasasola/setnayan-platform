@@ -1223,11 +1223,14 @@ export function FrontDoorShell({
                 untold"*).
                 Its premise was "a thing you HAVE, not a thing you run, so it is
                 never gated" — still true, and now served by the BOARD instead of
-                a rail row. My Events carries both halves: the "Untold" shelf
-                offers *Write the story of <name>* per finished celebration, and
-                "Told" ends with *read them in Your Story*. Both link
-                /dashboard/creator, so the desk keeps two visible doors on the
-                first screen after sign-in and loses only the duplicate.
+                a rail row.
+                ⚠ CORRECTED 2026-08-22 — THOSE TWO LINKS NO LONGER GO HERE. My
+                Events' "Untold" shelf now opens the EVENT'S OWN story page, and
+                "Told" ends with *read them in Memories*. Both used to point at
+                /dashboard/creator, and that is exactly what made the owner ask
+                "isn't that the editorial. the story?" — a chapter is a person's
+                own write-up ABOUT a day, the event's story page is Setnayan's
+                write-up OF it. The account menu still carries "Your Story".
                 🔑 THE ROUTE IS NOT RETIRED, ONLY THE MENU — do not delete
                 /dashboard/creator, and do not re-add this row without changing
                 `lib/the-controls-have-a-home.test.ts`, which now asserts the

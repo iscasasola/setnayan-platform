@@ -69,6 +69,74 @@ type QueueDef = {
  * admin sees on arrival. Both consumers below build off this list.
  */
 const QUEUE_DEFS: QueueDef[] = [
+  /* ─── ADDED 2026-08-19 · THE OWNER WENT THROUGH THEM ONE BY ONE ───────────
+     The Work page said "You're all caught up" while counting 14 queues and
+     ignoring ten other queue-shaped admin surfaces. Asked which of the ten
+     mattered, the owner answered each in turn. These four are real queues with
+     a real intake, and each filter MIRRORS its destination page's own default —
+     the rule this list already states, because a count that disagrees with the
+     rows on arrival is its own defect.
+
+     ⛔ THREE OF THE TEN ARE DELIBERATELY NOT HERE, and the reason matters more
+     than the omission:
+       · verification-docs — a document BROWSER (what a vendor uploaded to prove
+         who they are), not work awaiting a decision.
+       · data-privacy      — a compliance checklist plus the NPC document set.
+       · repost-watch      — TWO source tables (`vendor_image_flags` AND
+         `vendor_qr_media_flags`). One def counts one table, so adding it here
+         would UNDERCOUNT, and a lane that quietly reports less than its page is
+         worse than a lane that is absent. Extending the framework to sum two
+         tables is a separate change.
+     ⛔ And payouts stays out — owner 2026-08-19: *"we do not have a payout."*
+  ─────────────────────────────────────────────────────────────────────────── */
+  {
+    // Vendors who have not yet paid the fee that syncs them to an event. Owner:
+    // payment comes BEFORE the sync, so this is "who has not paid yet", never a
+    // debt accruing. Mirrors /admin/booking-fees.
+    key: 'booking-fees',
+    table: 'booking_fee_charges',
+    lane: 'money',
+    slaHours: 48,
+    filter: (q) => q.eq('status', 'pending'),
+  },
+  {
+    // A booking whose completion both sides have not settled. Mirrors
+    // /admin/completions exactly, including the unresolved test.
+    key: 'completions',
+    table: 'event_vendors',
+    lane: 'trust',
+    slaHours: 72,
+    filter: (q) =>
+      q
+        .is('completion_resolved_at', null)
+        .in('completion_status', ['disputed', 'awaiting_vendor', 'vendor_marked']),
+  },
+  {
+    // Messages flagged for trying to take a deal off-platform. Mirrors
+    // /admin/chat-flags, whose own default is status 'open'.
+    key: 'chat-flags',
+    table: 'chat_message_flags',
+    lane: 'trust',
+    slaHours: 48,
+    filter: (q) => q.eq('status', 'open'),
+  },
+  {
+    /*
+      A verified shop asking to fix a locked detail. Mirrors /admin/corrections,
+      default status 'open'.
+
+      ⚠ TWO DOCBLOCKS IN THAT FEATURE STILL SAY NOTHING CAN FILE ONE — that is
+      STALE. `requestProfileCorrection` now has a caller:
+      `app/vendor-dashboard/shop/_components/request-correction-card.tsx`. The
+      comments were true when written and were never revisited, which is exactly
+      why this queue looked permanently empty and stayed uncounted.
+    */
+    key: 'corrections',
+    table: 'vendor_correction_requests',
+    lane: 'support',
+    slaHours: 72,
+    filter: (q) => q.eq('status', 'open'),
+  },
   // Verify — applications awaiting review (vendor_verification_applications ·
   // pending_review), NOT the secondary visibility surface (vendor_profiles
   // coming_soon). This is the filter the earlier drift got wrong.

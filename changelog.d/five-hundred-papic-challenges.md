@@ -53,3 +53,16 @@ SPEC IMPACT: `0012_papic/Papic_Games_and_Vendor_Missions_Spec_2026-07-21.md` §9
 the library is 631 rows across 12 categories, rows carry an event-type scope, and
 the couple's picker is search + filter over the whole pool rather than a list of
 the story questions. `DECISION_LOG.md` row 2026-08-21.
+
+### Follow-up, same day: the drift guard could not run
+
+Wired as its own `ci.yml` step it died on every PR with `ERR_MODULE_NOT_FOUND:
+Cannot find package 'tsx'` — `tsx` is a devDependency of `apps/web`, not of the
+repo root, and the step ran from the root. **All three ci.yml edits (step, env
+binding, check line) were correct; the RUNTIME was not there.**
+
+🔑 **A guard that cannot execute is worse than no guard** — it fails loudly, for
+a reason unrelated to what it guards, and teaches whoever sees it to look past
+it. Moved into the unit suite, which already runs under tsx; the three CI edits
+are reversed and the `--check` CLI is kept for humans. Mutation-verified in its
+new home (occurrences 1 → 0, test red, restore asserted, green again).

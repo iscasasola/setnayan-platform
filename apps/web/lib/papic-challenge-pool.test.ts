@@ -292,3 +292,41 @@ test('the seven shapes the owner named each have real depth', () => {
     assert.ok(n >= MIN, `${cat} has only ${n} challenges; the owner asked for this one by name`);
   }
 });
+
+// ── The migration and this file cannot drift ───────────────────────────────
+
+test('the migration that seeds the library still matches this pool', async () => {
+  // 🔑 A GUARD COMPARING TWO HAND-TYPED THINGS IS NOT A GUARD. `llms.txt`
+  // drifted for three weeks with green CI doing exactly that. Six hundred rows
+  // cannot be kept in step with a hand-written seed by care alone, so the
+  // migration is GENERATED from this array and this test re-generates it and
+  // compares. They can only agree.
+  //
+  // ⚠ THIS LIVED AS ITS OWN ci.yml STEP FIRST, AND COULD NOT RUN.
+  // `node --import tsx scripts/emit-…` from the repo root died with
+  // ERR_MODULE_NOT_FOUND: `tsx` is a devDependency of `apps/web`, not of the
+  // root, so the guard failed on every PR for a reason that had nothing to do
+  // with drift. All three ci.yml edits — step, env binding, check line — were
+  // correct; the RUNTIME was not there. A guard that cannot execute is worse
+  // than no guard: it fails loudly and teaches you to look past it. It now
+  // lives in the unit suite, which already runs under tsx.
+  const { emit } = await import('../../../scripts/emit-papic-challenge-pool.mjs');
+  const { sql, count } = await emit();
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const migration = readFileSync(
+    fileURLToPath(
+      new URL(
+        '../../../supabase/migrations/20271154904649_five_hundred_papic_challenges.sql',
+        import.meta.url,
+      ),
+    ),
+    'utf8',
+  );
+  assert.equal(count, CHALLENGE_POOL.length);
+  assert.ok(
+    migration.includes(sql.trim()),
+    'the migration no longer matches the pool. Regenerate it:\n' +
+      '  node --import tsx scripts/emit-papic-challenge-pool.mjs',
+  );
+});

@@ -280,19 +280,6 @@ jobs:
         continue-on-error: true
         run: node apps/web/scripts/lint-migrations-dir.mjs
 
-      # Fails when `apps/web/lib/papic-challenge-pool.ts` and the migration that
-      # seeds `papic_challenge_library` have drifted apart. The 631 challenges
-      # are authored ONCE in TypeScript and the SQL is GENERATED from them —
-      # this re-generates and compares.
-      #
-      # 🔑 A GUARD COMPARING TWO HAND-TYPED THINGS IS NOT A GUARD. `llms.txt`
-      # drifted for three weeks with green CI doing exactly that. Six hundred
-      # rows cannot be kept in step by care.
-      - name: Papic challenge pool matches its migration
-        id: guard_challenge_pool
-        continue-on-error: true
-        run: node --import tsx scripts/emit-papic-challenge-pool.mjs --check supabase/migrations/20271154904649_five_hundred_papic_challenges.sql
-
       # Fails when anything imports `next/font/google`, when a declared local
       # font file is missing, or when a committed face is referenced by
       # nothing. The build used to fetch every family from fonts.gstatic.com AT
@@ -415,7 +402,6 @@ jobs:
           SERVER_ONLY: ${{ steps.guard_server_only.outcome }}
           MIGRATIONS_DIR: ${{ steps.guard_migrations_dir.outcome }}
           FONTS_LOCAL: ${{ steps.guard_fonts_local.outcome }}
-          CHALLENGE_POOL: ${{ steps.guard_challenge_pool.outcome }}
           FUNCTION_LEVEL_SET: ${{ steps.guard_function_level_set.outcome }}
           LABEL_CONTRAST: ${{ steps.guard_label_contrast.outcome }}
           AUTOMERGE_HOLD: ${{ steps.guard_automerge_hold.outcome }}
@@ -446,7 +432,6 @@ jobs:
           check 'lint changelog fragment dir'  "$CHANGELOG_DIR"
           check 'lint server-only boundary'   "$SERVER_ONLY"
           check 'lint fonts are local'        "$FONTS_LOCAL"
-          check 'papic challenge pool matches migration' "$CHALLENGE_POOL"
           check 'lint migrations dir'         "$MIGRATIONS_DIR"
           check 'lint no function-level custom SET' "$FUNCTION_LEVEL_SET"
           check 'lint label-on-fill contrast' "$LABEL_CONTRAST"

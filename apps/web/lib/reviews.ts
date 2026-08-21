@@ -33,7 +33,14 @@ export type ReviewRow = {
   review_id: string;
   public_id: string;
   vendor_profile_id: string;
-  event_id: string;
+  /**
+   * NULL once the couple has deleted the celebration this review was written
+   * about. The supplier KEEPS the review (owner 2026-08-21, "vendors get to
+   * keep it") — so NULL is a real, expected value here, never a data error.
+   * Anything joining through it must not drop the row; the couple's name simply
+   * goes quiet and the review renders as "Verified couple".
+   */
+  event_id: string | null;
   couple_user_id: string | null;
   rating_overall: number;
   rating_communication: number;
@@ -175,7 +182,14 @@ export async function fetchReviewsForVendorWithCouple(
   );
   return reviews.map((r) => ({
     ...r,
-    couple_display_name: names.get(r.event_id) ?? null,
+    /* A review whose celebration the couple has DELETED keeps its words and
+       loses its name: `event_id` is NULL, there is nothing to look up, and the
+       caller renders "Verified couple". That is the owner's rule doing exactly
+       what it says — the supplier keeps the review, the couple's data goes.
+
+       Written as an explicit branch rather than a cast so the null case is a
+       decision a reader can see, not a silenced compiler complaint. */
+    couple_display_name: r.event_id ? (names.get(r.event_id) ?? null) : null,
   }));
 }
 

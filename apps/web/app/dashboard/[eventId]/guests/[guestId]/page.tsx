@@ -33,6 +33,7 @@ import {
   type MealPreference,
   type RsvpStatus,
 } from '@/lib/guests';
+import { formatRecordedAt } from '@/lib/recorded-at';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from '../_components/invited-to-chips';
 import {
@@ -310,6 +311,8 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   // visible without the host having to remember to expand it.
   // custom_tags removed from this check (no longer host-editable per
   // 2026-05-23 PM directive).
+  const recordedAt = formatRecordedAt(guest.rsvp_responded_at);
+
   const hasMoreDetails =
     !!guest.display_name?.trim() ||
     !!guest.email?.trim() ||
@@ -508,6 +511,17 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               <SegmentedRsvp current={guest.rsvp_status} />
             )}
           </div>
+          {/* When Setnayan learned the answer. Deliberately "recorded", not
+              "replied": three of this column's four writers are host-side
+              dashboard paths, and in production nearly every stamp came from
+              the host typing it in rather than from the guest.
+              Rendered only when there IS one — the writers clear it to null on
+              pending and maybe, so an absent value means "no answer on record",
+              and saying "hasn't replied" here would be false for anyone who
+              answered and then changed their mind back. */}
+          {recordedAt ? (
+            <p className="text-xs text-ink/50">Answer recorded {recordedAt}</p>
+          ) : null}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Select
               id="meal_preference"

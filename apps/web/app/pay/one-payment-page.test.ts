@@ -93,6 +93,29 @@ test('a coordinator without payment permission is refused here too', () => {
   assert.match(actions, /payable\.eventId/);
 });
 
+test('a placeholder payment row is not a claim', () => {
+  // Eight buy paths INSERT an empty payments row at checkout. Asking "does a
+  // payment row exist?" thanked the buyer for money they had not sent and took
+  // away the form they were about to use.
+  assert.match(page, /screenshot_url,reference_number/);
+  assert.match(page, /const carriesProof = Boolean\(/);
+  assert.match(page, /proofSent = carriesProof/);
+});
+
+test('the coordinator gate does not fire on a person paying their own order', () => {
+  // A shop paying Setnayan on a couple-scoped order owns it outright; asking
+  // the couple's permission refuses a supplier in the couple's words.
+  assert.match(actions, /payable\.eventId && payable\.ownerUserId !== user\.id/);
+});
+
+test('an anonymous draft session is never taken to a payment page', () => {
+  assert.match(page, /user\.is_anonymous/);
+});
+
+test('the page is not a dead end', () => {
+  assert.match(page, /payable\.back/);
+});
+
 test('the payable is resolved on the SESSION client, so RLS scopes it', () => {
   assert.match(actions, /fetchPayableByReference\(supabase, reference\)/);
   assert.equal(

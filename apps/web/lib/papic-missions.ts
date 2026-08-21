@@ -115,8 +115,29 @@ export function sortGuestMissions(missions: readonly GuestMissionRow[]): GuestMi
 // ---------------------------------------------------------------------------
 
 export const BOARD_SIZE = 20;
-export const COUPLE_SLOTS = 10;
 export const VENDOR_SLOTS = 5;
+
+/**
+ * THE COUPLE MAY TAKE THE WHOLE BOARD, MINUS WHATEVER IS ALREADY SOLD.
+ *
+ * Owner, 2026-08-21: *"the need to have a real screen to pick their challenges
+ * UP TO 20 CHALLENGES."* This was a flat `COUPLE_SLOTS = 10`, so a couple who
+ * chose twelve got ten and the other two had no board position and no
+ * explanation on any screen.
+ *
+ * ⚠ IT IS A FUNCTION, NOT A CONSTANT, AND THE VENDOR COUNT COMES FIRST. A booth
+ * mission is something a supplier PAID for. A flat 20 makes the Setnayan
+ * target go NEGATIVE the moment one exists (20 - 20 - 5 = -5), and — worse than
+ * the arithmetic — it would delete a paid placement the instant the couple added
+ * a twentieth of their own, silently. Today this returns exactly 20, because
+ * production holds zero sponsorships.
+ *
+ * Mirrors `LEAST(COUNT(*), 20 - v_vendor_used)` in `ensure_papic_board`
+ * (migration 20271155952591). The SQL is authoritative; this is the preview.
+ */
+export function coupleSlots(vendorUsed: number): number {
+  return Math.max(0, BOARD_SIZE - Math.min(vendorUsed, VENDOR_SLOTS));
+}
 
 // A library challenge as the resolver sees it (a papic_challenge_library row).
 export type ChallengeLibraryItem = {
@@ -156,8 +177,14 @@ export function resolveChallengeBoard(input: BoardResolverInput): BoardEntry[] {
   const pabatiActive = input.pabatiActive ?? false;
   const vetoed = new Set(input.vetoedLibraryIds ?? []);
 
-  // 1) Couple lane — cap at COUPLE_SLOTS (input already ordered created_at,id).
-  const coupleUsedList = input.couplePicks.slice(0, COUPLE_SLOTS);
+  // 1) Vendor lane is SIZED FIRST now, because the couple's ceiling depends on
+  // it — a paid booth mission keeps its slot and the couple's twenty is
+  // "everything not already sold". Its MEMBERS are still chosen in step 2.
+  const vendorEligible = input.vendorMissions.length;
+
+  // 2) Couple lane — up to the whole board minus what is sold (input already
+  // ordered created_at,id).
+  const coupleUsedList = input.couplePicks.slice(0, coupleSlots(vendorEligible));
 
   // Taken = EVERY live couple pick's library id (even off-board ones), mirroring
   // the SQL NOT EXISTS over all couple rows — a Setnayan fill never duplicates a
@@ -165,7 +192,7 @@ export function resolveChallengeBoard(input: BoardResolverInput): BoardEntry[] {
   const taken = new Set<number>();
   for (const p of input.couplePicks) if (p.libraryId != null) taken.add(p.libraryId);
 
-  // 2) Vendor lane — PAID (source='vendor') before FREE booth (source='auto'),
+  // 2b) Vendor lane members — PAID (source='vendor') before FREE booth (source='auto'),
   // stable within each group, cap at VENDOR_SLOTS. A free booth can never evict a
   // ₱400-paid slot.
   const paid = input.vendorMissions.filter((v) => v.paid);
@@ -235,8 +262,58 @@ export function isChallengePromptBlocked(prompt: string): boolean {
 export const CHALLENGE_SIDE_TOKEN = '{who}';
 export const CHALLENGE_SIDE_NEUTRAL = 'the couple';
 
-export function displayChallengePrompt(prompt: string): string {
-  return prompt.split(CHALLENGE_SIDE_TOKEN).join(CHALLENGE_SIDE_NEUTRAL);
+// ── The {host} / {hosts} / {event} tokens (2026-08-21) ─────────────────────
+// The 500-challenge pool is written for every event type, so most of it names
+// whoever is throwing this one rather than a bride and groom. Resolved per
+// EVENT from `event_type_profiles.terminology` — the same block the guest tree's
+// own vocabulary reads, so a birthday's Papic board and a birthday's seating
+// page finally say "the celebrant" together.
+//
+// ⚠ THE NEUTRAL FALLBACKS ARE NOT A CONVENIENCE, THEY ARE THE FAILURE MODE.
+// Every caller of this helper may not have the event's words to hand — a vendor
+// looking at a challenge they sponsored is three tables away from the event
+// type. "the host" and "event" are plain, and plain is never WRONG; a raw
+// "{host}" on a screen is a visible defect and a bride-and-groom guess at a
+// graduation is worse than either.
+export const CHALLENGE_HOST_TOKEN = '{host}';
+export const CHALLENGE_HOST_POSSESSIVE_TOKEN = '{hosts}';
+export const CHALLENGE_EVENT_TOKEN = '{event}';
+export const CHALLENGE_HOST_NEUTRAL = 'the host';
+export const CHALLENGE_EVENT_NEUTRAL = 'event';
+
+/** The words a caller can supply. Anything missing falls back to neutral. */
+export type ChallengeWords = {
+  /** Bare noun — 'couple' · 'celebrant' · 'graduate' · 'host'. */
+  organizer?: string | null;
+  /** 'wedding' · 'birthday' · 'graduation' · 'event'. */
+  eventWord?: string | null;
+};
+
+/** The typographic apostrophe the product writes everywhere. Never `'`. */
+const APOSTROPHE = '\u2019';
+
+export function displayChallengePrompt(prompt: string, words?: ChallengeWords): string {
+  const organizer = words?.organizer?.trim();
+  const host = organizer ? `the ${organizer}` : CHALLENGE_HOST_NEUTRAL;
+  // A noun already ending in s takes the bare mark ("parents’", never
+  // "parents’s"). No seeded value ends in s today; one added later would
+  // otherwise read wrong on every prompt at once.
+  const hosts = host.endsWith('s') ? `${host}${APOSTROPHE}` : `${host}${APOSTROPHE}s`;
+  const eventWord = words?.eventWord?.trim() || CHALLENGE_EVENT_NEUTRAL;
+
+  // 🔑 {hosts} IS REPLACED BEFORE {host}. The other order turns "{hosts}" into
+  // "the couple}s" — the shorter needle matches inside the longer token and
+  // eats its opening brace. The SQL reader replaces them in the same order for
+  // the same reason; a test pins both.
+  return prompt
+    .split(CHALLENGE_SIDE_TOKEN)
+    .join(CHALLENGE_SIDE_NEUTRAL)
+    .split(CHALLENGE_HOST_POSSESSIVE_TOKEN)
+    .join(hosts)
+    .split(CHALLENGE_HOST_TOKEN)
+    .join(host)
+    .split(CHALLENGE_EVENT_TOKEN)
+    .join(eventWord);
 }
 
 // A vendor's own custom challenge for an event (from the papic_vendor_challenges

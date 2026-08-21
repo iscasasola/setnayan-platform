@@ -5,10 +5,18 @@ import Link from 'next/link';
 import { stashMoment } from '@/lib/onboarding/moment-handoff';
 
 /**
- * The "Start planning" card on /dashboard/year — a plain link that first hands
- * the create flow what this row already knew.
+ * The "Start planning" card on the board's "Worth planning" shelf — a plain
+ * link that first hands the create flow what this row already knew.
  *
- * A Year row is DERIVED from facts on the account, so tapping it should not
+ * ⚠ IT MOVED HERE FROM /dashboard/year ON 2026-08-21, and that move is the whole
+ * reason this file is worth reading. The year page was retired into the shelf,
+ * and the FIRST cut of that retirement redirected the page while leaving this
+ * behind — which silently deleted the only way to start planning FROM a moment.
+ * The shelf listed the date and offered nothing to do about it. A guard caught
+ * it (`the-year-row-hands-over.test.ts` and friends); nothing else would have.
+ * 🔑 RETIRING A PAGE MEANS MOVING WHAT IT DID, NOT ONLY WHERE IT LIVED.
+ *
+ * A moment row is DERIVED from facts on the account, so tapping it should not
  * re-ask them (owner 2026-08-20: "we already know that it is for me and this is
  * a specific time of event, so these information don't need to be filled").
  * The type rides in the href (`?event_type=`, the param the create page already

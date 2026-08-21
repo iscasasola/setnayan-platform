@@ -29,11 +29,17 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'));
 
-test('Your year gates its empty state on whether the read happened', () => {
-  const src = read('year/page.tsx');
-  assert.match(src, /const momentsMeasured = !rowsError;/, 'the flag must exist');
-  assert.match(src, /\{!momentsMeasured \? \(/, 'and must gate the sentence');
-  assert.match(src, /We couldn’t load your year just now/, 'and say so');
+test('the year shelf gates its empty state on whether the read happened', () => {
+  // 🔁 THE SURFACE MOVED (2026-08-21): /dashboard/year is a redirect and the
+  // year's contents are the board's "Worth planning" shelf. The DUTY moved with
+  // the read — an unchecked failure tells somebody who has a birthday on file
+  // that they have nothing coming, forever, with no error anywhere.
+  const src = read('../(launcher)/_components/year-moments-strip.tsx');
+  assert.match(src, /const readFailed = Boolean\(rowsErr\) \|\| Boolean\(selfErr\);/,
+    'the flag must exist — and it must cover BOTH reads, because either one ' +
+    'failing produces the same misleading emptiness');
+  assert.match(src, /unsure=\{readFailed\}/, 'and must gate the sentence');
+  assert.match(src, /We couldn’t load your dates just now/, 'and say so');
 });
 
 test('Your chapters drops the count it could not take', () => {
@@ -57,7 +63,12 @@ test('Featured consents say so rather than reporting none', () => {
 test('none of the three lost its genuine empty state', () => {
   // The honest sentence must survive for the person who really has none —
   // replacing it with the error text everywhere would be the opposite defect.
-  assert.match(read('year/page.tsx'), /Nothing on your calendar yet/);
+  assert.match(
+    read('../(launcher)/_components/year-moments-strip.tsx'),
+    /Nothing in the year ahead yet/,
+    'the shelf lost the honest sentence for somebody who really has none — ' +
+      'showing the error text to everybody is the opposite defect',
+  );
   assert.match(read('profile/page.tsx'), /Nothing here — when you allow a creation/);
   assert.match(read('creator/page.tsx'), /chapters\.length === 0/);
 });

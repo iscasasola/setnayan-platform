@@ -67,3 +67,33 @@ returns.
 
 SPEC IMPACT: DECISION_LOG.md 2026-08-21 (five rows always; Your year + Your
 Story retired as menus; Alaala → Memories, reversing 2026-07-31).
+
+### 🚨 The first cut of this DELETED A FEATURE, and only a guard caught it
+
+Redirecting `/dashboard/year` took **"start planning from a moment"** with it.
+The affordance — *"Open plan"* / *"Start planning"*, carrying the event type in
+the URL and the day + age + "this is mine" in sessionStorage — lived **only** on
+that page. The shelf's rows were plain non-navigating `<div>`s: they printed a
+date and offered nothing to do about it.
+
+🔑 **RETIRING A PAGE MEANS MOVING WHAT IT DID, NOT ONLY WHERE IT LIVED.** Twelve
+assertions across five suites went red and are the only reason this was caught —
+typecheck was clean, the board rendered perfectly, and the rows looked right.
+
+`StartPlanningLink` moved to the launcher, `YearMomentView` grew the four fields
+that make a row actionable (`createEventType` · `dateISO` · `forSelf` · `age`),
+and the strip's mapper now passes them. ⚠ **THE MAPPER IS THE SEAM WHERE A
+PORTED FEATURE SILENTLY BECOMES INERT** — a field it forgets reads `undefined`
+and the row renders perfectly with nothing behind it.
+
+**Every one of the twelve was RE-AIMED, never deleted with the page.** A guard
+whose subject moves is a guard that must move; deleting it is how the next
+retirement goes uncaught. `year-page-answers-created-or-not.test.ts` now reads
+the shelf, `year-view-has-a-door.test.ts` keeps the half that still binds (the
+birthday must be READ, a day must never print twice, the empty state must not
+state a fact it has not established) and drops only the door-counting, and
+`rail-active.test.ts` gained the both-sides retirement rule it already applied
+to `/realstories`.
+
+**M26** (remove the Start planning affordance, 1 → 0) → **red**.
+**M27** (drop the handover wrapper, 3 → 0) → **red**.

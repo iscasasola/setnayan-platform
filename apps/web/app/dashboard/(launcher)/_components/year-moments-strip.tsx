@@ -155,6 +155,15 @@ export async function YearMomentsStrip({
     countdownLabel: countdown(m.daysUntil),
     isMilestone: m.isMilestone,
     eventId: m.eventId ?? null,
+    // ⚠ WITHOUT THESE FOUR THE ROW IS A DEAD END. They were added 2026-08-21
+    // with the "Start planning" affordance the retired /dashboard/year used to
+    // own — the mapper is the seam where a ported feature silently becomes
+    // inert, because every field it forgets simply reads `undefined` and the
+    // row renders perfectly with nothing behind it.
+    createEventType: m.createEventType ?? null,
+    dateISO: m.dateISO,
+    forSelf: m.forSelf === true,
+    age: m.age ?? null,
   }));
 
   // "This year" glass row — the strip renders INSIDE the Alaala section

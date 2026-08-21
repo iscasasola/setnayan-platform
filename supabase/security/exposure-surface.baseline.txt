@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6202
+# facts: 6204
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     598
-#   col       4536
+#   col       4538
 #   policy    841
 #   view      8
 #   func      215
@@ -1861,7 +1861,9 @@ col	public.event_vendors.deposit_method_label	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_paid_php	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_proof_url	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_recorded_at	anon=SIU authenticated=SIU
+col	public.event_vendors.event_date_at_delete	anon=SIU authenticated=SIU
 col	public.event_vendors.event_id	anon=SIU authenticated=SIU
+col	public.event_vendors.event_type_at_delete	anon=SIU authenticated=SIU
 col	public.event_vendors.event_vendor_package_id	anon=SIU authenticated=SIU
 col	public.event_vendors.excluded_from_market_median	anon=SIU authenticated=SIU
 col	public.event_vendors.food_allowance_php	anon=SIU authenticated=SIU

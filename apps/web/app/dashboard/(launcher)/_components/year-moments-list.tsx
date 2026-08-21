@@ -149,19 +149,27 @@ function MomentRow({ moment: m }: { moment: YearMomentView }) {
   // everything else opens the create flow, preselecting the type when the
   // moment knows its own kind (the create page validates the key and ignores
   // anything unknown).
-  const href = m.eventId
-    ? `/dashboard/${m.eventId}`
-    : m.createEventType
-      ? `/dashboard/create-event?event_type=${encodeURIComponent(m.createEventType)}`
-      : '/dashboard/create-event';
-
+  // ⚠ THE EVENT LINK IS WRITTEN INLINE, NOT LIFTED INTO `href` BELOW, AND THAT
+  // IS DELIBERATE. `lint-port-no-lost-controls` reads destinations STATICALLY
+  // out of JSX attributes; hoisting this into a variable made the launcher stop
+  // declaring `/dashboard/[seg]` and the guard reported a lost control that was
+  // never actually lost. Keeping the literal where the scanner can see it costs
+  // one duplicated template and keeps the guard able to catch the day somebody
+  // really does delete this.
   if (m.eventId) {
     return (
-      <Link href={href} className={`${shell} sn-press transition-colors ${hover}`}>
+      <Link
+        href={`/dashboard/${m.eventId}`}
+        className={`${shell} sn-press transition-colors ${hover}`}
+      >
         {inner}
       </Link>
     );
   }
+
+  const href = m.createEventType
+    ? `/dashboard/create-event?event_type=${encodeURIComponent(m.createEventType)}`
+    : '/dashboard/create-event';
 
   // 🔑 STARTING FROM A ROW HANDS THE CREATE FLOW WHAT THE ROW ALREADY KNEW —
   // the day, the type, and whether it is about the reader — so the wizard states

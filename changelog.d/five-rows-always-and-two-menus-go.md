@@ -97,3 +97,21 @@ to `/realstories`.
 
 **M26** (remove the Start planning affordance, 1 → 0) → **red**.
 **M27** (drop the handover wrapper, 3 → 0) → **red**.
+
+### The port guard caught a THIRD thing, and only one of its three was real
+
+`lint-port-no-lost-controls` reported the launcher could no longer reach
+`/dashboard/[seg]` — the deep link into an event.
+
+🪤 **THE CAPABILITY WAS NEVER LOST; THE GUARD'S VIEW OF IT WAS.** Porting the
+"Start planning" rows hoisted `` `/dashboard/${m.eventId}` `` out of a JSX
+attribute into a `const href`, and the guard reads destinations STATICALLY out
+of JSX. **Baselining that would have recorded a loss that never happened and
+blinded the guard to the day somebody deletes the link for real.** The literal
+is written back inline instead — one duplicated template, guard still sharp.
+
+Only then was the baseline regenerated, and it drops **exactly two**
+destinations, both intended: `/dashboard/year` from the launcher, and
+`/dashboard/profile` from the retired year page — the latter verified to still
+ship on the shelf ("Add your birthday" in the empty state), so it is a move, not
+a removal.

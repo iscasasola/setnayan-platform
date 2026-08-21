@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { payPath } from '@/lib/pay-path';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
@@ -299,10 +300,8 @@ export async function runVendorDeepSearch(
   }
 
   revalidatePath(DEEP_SEARCH_PAGE);
-  return {
-    status: 'ordered',
-    referenceCode,
-    amountPhp: pricePhp,
-    message: `Order started. Pay ₱${pricePhp.toLocaleString('en-PH')} with reference ${referenceCode} — your Deep Search runs once our team confirms your payment (within 24 hours).`,
-  };
+  // The ONE payment page (owner 2026-08-21): the amount rides inside the QR,
+  // and it is the only screen that can take the screenshot and the reference.
+  // The old panel just quoted a code and left them to work the rest out.
+  redirect(payPath(referenceCode));
 }

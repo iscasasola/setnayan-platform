@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { payPath } from '@/lib/pay-path';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
@@ -280,12 +281,11 @@ export async function createBranch(
   }
 
   revalidateBranchSurfaces();
-  return {
-    status: 'success',
-    kind: 'created',
-    referenceCode: res.referenceCode,
-    message: `Branch added. Pay ₱${feePhp.toLocaleString('en-PH')} with reference ${res.referenceCode} — it activates once our team confirms your payment (within 24 hours).`,
-  };
+  // ⚠ MANAGEMENT STAYS INLINE — the owner's 2026-07-02 lock ("no more jumping
+  // to a new page, just expand it there") is about adding and running branches,
+  // which still all happens on this screen. Only the PAY step leaves, to the
+  // one payment page that carries the amount in the QR and can take proof.
+  redirect(payPath(res.referenceCode));
 }
 
 /**
@@ -329,12 +329,7 @@ export async function renewBranch(
   if ('error' in res) return err('Could not start the renewal payment. Please try again.');
 
   revalidateBranchSurfaces();
-  return {
-    status: 'success',
-    kind: 'renewed',
-    referenceCode: res.referenceCode,
-    message: `Renewal started. Pay ₱${feePhp.toLocaleString('en-PH')} with reference ${res.referenceCode} — the branch reactivates for another 28 days once our team confirms.`,
-  };
+  redirect(payPath(res.referenceCode));
 }
 
 export async function cancelBranch(

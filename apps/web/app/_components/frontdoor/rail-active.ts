@@ -107,7 +107,8 @@ export function railMatchRows(who: {
           { key: 'events', href: '/dashboard', exact: true },
           { key: 'alaala', href: '/dashboard/library' },
           // Longest-prefix wins, so this beats the exact-only '/dashboard' row.
-          { key: 'year', href: '/dashboard/year' },
+          // 'year' is GONE with the rail row it lit up (owner 2026-08-21) — a
+          // match row for a link nothing renders can only ever be dead weight.
           { key: 'people', href: '/dashboard/people' },
           { key: 'story', href: '/dashboard/creator' },
         ]

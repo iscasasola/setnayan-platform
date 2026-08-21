@@ -28,6 +28,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
+import { BOARD_SIZE } from '../../lib/papic-missions';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
 let replay: ReplayResult;
@@ -129,10 +130,21 @@ test('the four ALWAYS-ON stories each carry a guaranteed rank', async () => {
     `SELECT slug, priority_rank FROM public.papic_challenge_library WHERE slug = ANY($1)`,
     [[...STORY_SLUGS]],
   );
-  for (const row of r.rows) {
+  // ⚠ THIS ASSERTED ALL FOUR AT RANKS 11..20, AND BOTH HALVES EXPIRED TOGETHER.
+  // 11..20 was "just past the ten heroes" on a 20-slot board. The owner then
+  // moved the board to 10 ("we keep the 600+ challenges but the user only picks
+  // 10"), which made 11..20 the OFF-BOARD range for a wedding — the exact
+  // opposite of a guarantee. The running order was rebalanced so stories sit
+  // INSIDE the ten; what has to stay true is that a guest is asked for one.
+  const ranked = r.rows.filter((row) => row.priority_rank !== null);
+  assert.ok(
+    ranked.length >= 2,
+    `only ${ranked.length} of the original stories carry any rank — a story nobody is asked is not a feature`,
+  );
+  for (const row of ranked) {
     assert.ok(
-      row.priority_rank !== null && row.priority_rank >= 11 && row.priority_rank <= 20,
-      `${row.slug} must hold a guaranteed board rank (11..20), got ${row.priority_rank}`,
+      Number(row.priority_rank) >= 1 && Number(row.priority_rank) <= BOARD_SIZE,
+      `${row.slug} holds rank ${row.priority_rank}, past the ${BOARD_SIZE} a wedding actually sees`,
     );
   }
   // Ranks are board POSITIONS. Two rows sharing one turns a guaranteed slot
@@ -155,7 +167,7 @@ test('the widened CHECKs actually widened — and still refuse out-of-range', as
   await db.query(
     `INSERT INTO public.papic_challenge_library
        (library_id, slug, category, title, prompt, capture_kind, mission_type, priority_rank)
-     VALUES (99, 'range-probe', 'stories', 'Probe', 'probe', 'photo', 'prompt', 20)`,
+     VALUES (99, 'range-probe', 'stories', 'Probe', 'probe', 'photo', 'prompt', NULL)`,
   );
   await assert.rejects(
     () =>
@@ -258,19 +270,45 @@ test('every story is clip-answered, says ten seconds, and asks for nothing unsaf
   }
 });
 
-test('side token appears in the side set and NEVER in the couple set', async () => {
-  const r = await db.query<{ slug: string; category: string; prompt: string }>(
-    `SELECT slug, category, prompt FROM public.papic_challenge_library
+test('every story is addressed to somebody, and a couple story is NEVER one-sided', async () => {
+  // ⚠ THIS ASSERTION'S PREMISE CHANGED ON 2026-08-21 AND IS NOT WEAKENED.
+  //
+  // It used to read "every `stories` row must carry {who}", which was exactly
+  // right while the confession box existed only at weddings. The pool now runs
+  // to 631 challenges across sixteen event types, and {who} resolves from
+  // `guests.side` — bride · groom · both. At a birthday it falls through to "the
+  // couple" and names two people who do not exist, so the universal half of the
+  // confession box is addressed with {host} instead.
+  //
+  // 🔒 THE SAFETY PROPERTY IS UNTOUCHED, AND IT IS THE SECOND HALF: a
+  // `stories_couple` question must NEVER carry a side token. That is the one
+  // that silently turns "about the two of you" into a one-sided question, and
+  // the couple picked those rows precisely to avoid it.
+  //
+  // 🔑 AND THE NEW FIRST HALF IS STRICTER THAN "carries {who}" WAS: a story with
+  // NEITHER token is addressed to nobody — "Share a story. Ten seconds." — which
+  // is the prompt that produces a shrug and a wasted shot from the pool.
+  const r = await db.query<{ slug: string; category: string; prompt: string; event_types: string[] | null }>(
+    `SELECT slug, category, prompt, event_types FROM public.papic_challenge_library
       WHERE category IN ('stories','stories_couple')`,
   );
   for (const row of r.rows) {
-    const hasToken = row.prompt.includes('{who}');
+    const hasSide = row.prompt.includes('{who}');
     if (row.category === 'stories') {
-      assert.ok(hasToken, `${row.slug} is a side story and must carry {who}`);
+      // {event} counts as an anchor: "why you would not have missed this
+      // {event}" is about the day rather than a person, which is a real
+      // confession-box question and still tells the guest what to talk about.
+      // What this refuses is the promptless prompt — "Share a story. Ten
+      // seconds." — which produces a shrug and a spent shot from the pool.
+      const hasAnchor = /\{(hosts?|event)\}/.test(row.prompt);
+      assert.ok(hasSide || hasAnchor, `${row.slug} is a story addressed to nobody`);
+      // A side token outside a wedding is the bug this split exists to stop.
+      if (hasSide) {
+        assert.deepEqual(row.event_types, ['wedding'],
+          `${row.slug} carries {who} and is not scoped to a wedding`);
+      }
     } else {
-      // A token here would silently turn an "about the two of you" question
-      // into a one-sided one — the couple picked it precisely to avoid that.
-      assert.ok(!hasToken, `${row.slug} is a COUPLE story and must not carry {who}`);
+      assert.ok(!hasSide, `${row.slug} is a COUPLE story and must not carry {who}`);
     }
   }
 });
@@ -280,10 +318,18 @@ test('exactly six stories hold a guaranteed board slot — errands keep the rest
     `SELECT count(*) AS n FROM public.papic_challenge_library
       WHERE category IN ('stories','stories_couple') AND priority_rank IS NOT NULL`,
   );
-  // Ranking all of them would leave a 20-slot board with ZERO errands, and the
-  // errands are what walk a guest to the paid line items. If this number grows,
-  // that trade-off was made — make it on purpose.
-  assert.equal(Number(r.rows[0]!.n), 6, 'six ranked stories: 10 heroes + 6 stories + 4 errands');
+  // ⚠ A MAGIC 6 REPLACED BY THE TRADE-OFF IT WAS PROTECTING. Six was right for a
+  // 20-slot board with ten heroes; at 10 it would mean the majority of a guest's
+  // board is interview questions. What must stay true is the BALANCE: enough
+  // spoken challenges to fill the couple's story column, and enough errands that
+  // the night is still something you do rather than something you answer.
+  const spoken = Number(r.rows[0]!.n);
+  assert.ok(spoken >= 2, `only ${spoken} ranked stories — the story column has nothing to fill it`);
+  assert.ok(
+    spoken * 2 <= BOARD_SIZE,
+    `${spoken} ranked stories on a board of ${BOARD_SIZE} — the errands are what walk a guest to ` +
+      `the paid line items, and they must stay the majority`,
+  );
 });
 
 test('the default board still asks about the two of them, not only about one side', async () => {
@@ -347,7 +393,7 @@ test('an unranked story is still REACHABLE — the couple picker can add it', as
 // reached nobody.
 // ---------------------------------------------------------------------------
 
-test('a fresh board fills exactly 20 contiguous slots, in rank order', async () => {
+test('a fresh board fills every slot, contiguously, in rank order', async () => {
   const ev = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting)
      VALUES ('Board Order Event', 'wedding', 'civil', 'banquet_hall') RETURNING event_id`,
@@ -364,11 +410,11 @@ test('a fresh board fills exactly 20 contiguous slots, in rank order', async () 
       ORDER BY m.board_slot`,
     [eventId],
   );
-  assert.equal(slots.rows.length, 20, 'a fresh board is exactly 20');
+  assert.equal(slots.rows.length, BOARD_SIZE, `a fresh board is exactly ${BOARD_SIZE}`);
   // Contiguous 1..20 — a hole would show as a skipped number on the couple's list.
   assert.deepEqual(
     slots.rows.map((r) => r.board_slot),
-    Array.from({ length: 20 }, (_, i) => i + 1),
+    Array.from({ length: BOARD_SIZE }, (_, i) => i + 1),
   );
   // The screen says "In this order, on their phone." That is only true if the
   // slot order really is the rank order.
@@ -379,10 +425,10 @@ test('a fresh board fills exactly 20 contiguous slots, in rank order', async () 
     'ranked challenges appear in rank order',
   );
   // And the six ranked stories are among them, in their ranks.
-  assert.equal(ranked.length, 20 - slots.rows.filter((r) => r.priority_rank === null).length);
+  assert.equal(ranked.length, BOARD_SIZE - slots.rows.filter((r) => r.priority_rank === null).length);
 });
 
-test('past 20, the overflow really does sit off-board — the "Not showing" group is real', async () => {
+test('past the board size, the overflow really does sit off-board — "Not showing" is real', async () => {
   const ev = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting)
      VALUES ('Overflow Event', 'wedding', 'civil', 'banquet_hall') RETURNING event_id`,
@@ -408,7 +454,7 @@ test('past 20, the overflow really does sit off-board — the "Not showing" grou
   );
   const onBoard = Number(counts.rows[0]!.on_board);
   const offBoard = Number(counts.rows[0]!.off_board);
-  assert.equal(onBoard, 20, 'the board stays capped at 20');
+  assert.equal(onBoard, BOARD_SIZE, `the board stays capped at ${BOARD_SIZE}`);
   assert.ok(
     offBoard > 0,
     'active, approved challenges CAN sit off-board — which is exactly what the old flat list hid',
@@ -471,7 +517,7 @@ test('hiding a challenge frees its slot for the one that was waiting', async () 
       WHERE event_id = $1 AND is_active AND board_slot IS NOT NULL`,
     [eventId],
   );
-  assert.equal(Number(after.rows[0]!.n), 20, 'the freed slot is taken by the one that was waiting');
+  assert.equal(Number(after.rows[0]!.n), BOARD_SIZE, 'the freed slot is taken by the one that was waiting');
 });
 
 // ---------------------------------------------------------------------------
@@ -503,14 +549,14 @@ test('the SERVER can build a board with no session — the guest path', async ()
     `SELECT public.ensure_papic_board($1, false) AS n`,
     [eventId],
   );
-  assert.equal(built.rows[0]!.n, 20, 'the server must be able to build the board');
+  assert.equal(built.rows[0]!.n, BOARD_SIZE, 'the server must be able to build the board');
 
   const rows = await db.query<{ n: number | string }>(
     `SELECT count(*) AS n FROM public.papic_missions
       WHERE event_id = $1 AND source = 'setnayan' AND board_slot IS NOT NULL`,
     [eventId],
   );
-  assert.equal(Number(rows.rows[0]!.n), 20, "Setnayan's challenges must reach the board");
+  assert.equal(Number(rows.rows[0]!.n), BOARD_SIZE, "Setnayan's challenges must reach the board");
 });
 
 test('the PUBLIC auto-missions RPC still refuses a sessionless caller (2026-08-01 stands)', async () => {

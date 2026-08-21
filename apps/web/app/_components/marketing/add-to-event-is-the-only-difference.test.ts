@@ -59,6 +59,31 @@ test('signed out renders the page’s own primary link, not a substitute', () =>
   );
 });
 
+/**
+ * 🔴 THE REGRESSION THIS EXISTS FOR. The first cut SWAPPED the primary CTA, and
+ * "Start planning · free" is the CREATE button on all seven pages — so a
+ * signed-in person could no longer start a celebration from the page at all.
+ * Owner, within the hour: *"i lost the create button on my page."*
+ *
+ * "The only difference is add to an event button" means the page GAINS one. It
+ * never means it trades one away.
+ */
+test('signed IN keeps the create button — the picker is added, never swapped in', () => {
+  const src = strip(cta);
+  // the signed-in return must contain BOTH the picker and the create link
+  const signedInReturn = src.slice(src.indexOf('return (', src.indexOf('if (!state.signedIn)') + 40));
+  assert.ok(
+    /<AddToEvent\b/.test(signedInReturn),
+    'the signed-in branch must render the picker',
+  );
+  assert.ok(
+    /<Link href=\{primary\.href\}[\s\S]{0,160}\{primary\.label\}/.test(signedInReturn),
+    'the signed-in branch must ALSO still render the page’s own create link. ' +
+      'Removing it takes "start a celebration" away from exactly the people who ' +
+      'are signed in — the owner lost that button once already.',
+  );
+});
+
 test('the create row reuses the signed-out destination, inventing no second route', () => {
   const src = strip(cta);
   assert.ok(

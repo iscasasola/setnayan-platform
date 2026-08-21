@@ -3,6 +3,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { purchaseIdFromVendorSubscriptionServiceKey } from './vendor-subscription-service-key';
 import { statusOf, type PayableStatus } from './payable-status';
 import { readOnboardingOrderItems } from './onboarding-order-items';
+import { isVatInclusiveServiceKey } from './orders';
+import { chargeIdFromBookingFeeLockServiceKey } from './booking-fee-lock';
+import { payableAmountPhp } from './payable-amount';
+import { getEffectiveVatRatePct } from './platform-settings';
 
 export type { PayableStatus };
 
@@ -57,6 +61,12 @@ export type Payable = {
   ownerUserId: string | null;
   /** Where this buyer came from, so the page is not a dead end. */
   back: { label: string; href: string } | null;
+  /**
+   * True when a bank reference is REQUIRED, not merely useful — the booking-fee
+   * lane (owner 2026-08-06), where a shop owes Setnayan money that an admin
+   * reconciles against a bank message rather than guessing at it.
+   */
+  requiresReference: boolean;
 };
 
 type OrderRow = {
@@ -70,10 +80,20 @@ type OrderRow = {
   status: string;
   event_id: string | null;
   vendor_profile_id: string | null;
+  voucher_discount_centavos: number | string | null;
 };
 
 const SELECT =
-  'order_id,user_id,reference_code,description,service_key,requested_total_php,confirmed_total_php,status,event_id,vendor_profile_id';
+  'order_id,user_id,reference_code,description,service_key,requested_total_php,confirmed_total_php,status,event_id,vendor_profile_id,voucher_discount_centavos';
+
+/** Best-effort VAT rate: an unreadable setting must not inflate a bill. */
+async function effectiveVatRate(supabase: SupabaseClient): Promise<number> {
+  try {
+    return await getEffectiveVatRatePct(supabase);
+  } catch {
+    return 0;
+  }
+}
 
 const peso = (n: number): string =>
   '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2 });
@@ -105,7 +125,18 @@ export async function fetchPayableByReference(
   const isVendorPlan =
     purchaseIdFromVendorSubscriptionServiceKey(order.service_key) !== null;
 
-  const amount = num(order.confirmed_total_php) || num(order.requested_total_php);
+  // ── WHAT THEY ACTUALLY OWE ────────────────────────────────────────────────
+  // The rule lives in `lib/payable-amount.ts` — pure, and unit-tested there,
+  // because this module imports `server-only` and cannot be tested at all. It
+  // is a rule about MONEY: the stored column is a pre-voucher base on couple
+  // checkout, and reading it raw would QR-charge a couple who used a code the
+  // full price.
+  const amount = payableAmountPhp({
+    storedTotalPhp: num(order.confirmed_total_php) || num(order.requested_total_php),
+    voucherDiscountCentavos: num(order.voucher_discount_centavos),
+    vatRatePct: await effectiveVatRate(supabase),
+    vatInclusive: isVatInclusiveServiceKey(order.service_key),
+  });
 
   // ── WHO IT IS FOR, AND WHAT IS IN IT ──────────────────────────────────────
   // Both of these were declared and never filled on the first cut, so the page
@@ -133,7 +164,16 @@ export async function fetchPayableByReference(
     eventId: order.event_id ?? null,
     ownerUserId: order.user_id ?? null,
     back: backFor(order),
+    requiresReference: isBookingFeeOrder(order.service_key),
   };
+}
+
+/**
+ * Is this the booking fee? Derived from the same prefix the fee lane itself
+ * keys on, never a second spelling of it.
+ */
+function isBookingFeeOrder(serviceKey: string | null): boolean {
+  return chargeIdFromBookingFeeLockServiceKey(serviceKey ?? '') !== null;
 }
 
 /** The celebration, or the shop — whichever this order belongs to. */

@@ -32,12 +32,24 @@ import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 const back = (reference: string, key: string, value: string): never =>
   redirect(`/pay/${encodeURIComponent(reference)}?${key}=${encodeURIComponent(value)}`);
 
-/** Keep only what a reference number can contain, and only the tail of it. */
-function normaliseLast6(raw: FormDataEntryValue | null): string | null {
+/**
+ * Keep what a bank reference can contain — and keep ALL of it.
+ *
+ * The field asks for the last six digits because that is what a person can read
+ * off a receipt without squinting, but somebody who pastes the whole number has
+ * given us MORE to match on and throwing it away would be perverse. Six is a
+ * minimum, not a maximum.
+ *
+ * ⚠ No format check and no minimum length, deliberately — the same reasoning
+ * `requireBookingFeeReference` already carries: this is the BANK'S id (a GCash
+ * reference, an InstaPay invoice, a BDO confirmation number) and those have no
+ * common shape, so a regex here would refuse real payments.
+ */
+function normaliseReference(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
   const cleaned = raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
   if (cleaned.length === 0) return null;
-  return cleaned.slice(-6);
+  return cleaned.slice(0, 64);
 }
 
 export async function submitPaymentProof(formData: FormData): Promise<void> {
@@ -105,7 +117,7 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
     screenshotUrl = refRaw.trim();
   }
 
-  const last6 = normaliseLast6(formData.get('reference_last6'));
+  const bankReference = normaliseReference(formData.get('reference_last6'));
 
   // ── A CLAIM WITH NOTHING IN IT IS WORSE THAN NO CLAIM ──────────────────────
   // Both fields were optional on the first cut, and the submit button sits
@@ -113,11 +125,25 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
   // which is unreconcilable — and, because the page hides the form once
   // anything is logged, it also took away the only way to send the real proof.
   // Refuse instead, and say which half is missing.
-  if (!screenshotUrl && !last6) {
+  if (!screenshotUrl && !bankReference) {
     back(
       reference,
       'error',
       'Add your payment screenshot and the last 6 digits of your reference number — we need at least one of them to find your payment.',
+    );
+  }
+
+  // ⚖ AND A BOOKING FEE MUST CARRY ONE (owner 2026-08-06). On that lane the
+  // reference is REQUIRED, not merely useful: it is money a shop owes Setnayan
+  // and the admin reconciles it against a bank message rather than guessing.
+  // Note the owner's rule is that a reference is PRESENT — `requireBookingFeeReference`
+  // sets no minimum length and no format, and says so — so the last-six field
+  // satisfies it without either rule bending.
+  if (payable.requiresReference && !bankReference) {
+    back(
+      reference,
+      'error',
+      'Add the reference number from your BDO or GCash confirmation — we need it to match your payment.',
     );
   }
 
@@ -143,7 +169,7 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
         // The ORDER's amount, never the form's — see the header.
         amount_php: payable.amountPhp,
         channel,
-        reference_number: last6,
+        reference_number: bankReference,
         screenshot_url: screenshotUrl,
         paid_at: new Date().toISOString().slice(0, 10),
         client_idempotency_key: idempotencyKey,

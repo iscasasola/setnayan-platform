@@ -70,10 +70,23 @@ test('the rail is written in the spelling the headroom meter can read', () => {
   assert.equal((actions.match(/'GCash'|'BDO'/g) ?? []).length, 0);
 });
 
+test('a booking fee must carry a bank reference — the owner ruled it', () => {
+  // Owner 2026-08-06: on that lane a reference is REQUIRED, because an admin
+  // reconciles it against a bank message rather than guessing at money.
+  assert.match(actions, /payable\.requiresReference && !bankReference/);
+  assert.match(panel, /required=\{requiresReference\}/);
+});
+
+test('a pasted full reference is KEPT, not trimmed to six', () => {
+  // Six is a minimum a person can read off a receipt, not a maximum we store.
+  assert.match(actions, /cleaned\.slice\(0, 64\)/);
+  assert.doesNotMatch(actions, /cleaned\.slice\(-6\)/);
+});
+
 test('a claim with neither a picture nor a number is refused, not stored', () => {
   // Both fields are optional and the submit button sits below them: one stray
   // tap wrote an unreconcilable row AND hid the form that could have fixed it.
-  assert.match(actions, /if \(!screenshotUrl && !last6\)/);
+  assert.match(actions, /if \(!screenshotUrl && !bankReference\)/);
 });
 
 test('the form comes back when we ask for a better picture', () => {

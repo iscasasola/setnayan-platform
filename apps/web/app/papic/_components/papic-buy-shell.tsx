@@ -48,6 +48,10 @@ const ERROR_COPY: Record<string, string> = {
     'This camera shoots from the shared pool, so top up the pool instead — those shots work everywhere.',
   already_pending: 'You already have one of these waiting for payment. Finish that one first.',
   order_failed: "We couldn't start that order, so nothing was charged. Please try again.",
+  // Owner 2026-08-21: buying needs an account. Without one there is nowhere to
+  // put the receipt and nowhere for the buyer to come back to.
+  needs_account:
+    'Sign in to buy shots — that way your purchase and your receipt stay with you.',
 };
 
 export function PapicBuyShell({
@@ -120,8 +124,9 @@ export function PapicBuyShell({
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold tracking-tight">Add shots</h2>
                 <p className="text-sm text-ink/70">
-                  Keep the cameras going. You don&rsquo;t need an account — you&rsquo;ll get a
-                  reference code and a QR to pay.
+                  Keep the cameras going. Sign in first — your shots and your receipt
+                  stay with your account, and the code you scan already has the
+                  amount in it.
                 </p>
               </div>
               <button

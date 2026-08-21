@@ -532,6 +532,25 @@ export function timelineStatusOf(
   // actor is the supplier. Deliberately checked BEFORE the date branch, so it
   // holds on an event with no date set too.
   if (state === 'awaiting') return 'awaiting';
+  /*
+    ─── THE CELEBRATION HAS HAPPENED: THE CLOCK STOPS ───────────────────────
+
+    🚨 EVERY BOOKING DEADLINE IS COMPUTED BACKWARDS FROM THE EVENT DATE, so
+    once that date is past, `daysToFloor` is negative for EVERY category and
+    every one of them reads **overdue** — with a red "⚠ Nd overdue" chip whose
+    N grows by one every day, forever. Owner, the morning after his Movie
+    Night: *"why can i still plan and build and create guest list as if it
+    hasn't ended"*.
+
+    🔑 FIXED HERE, NOT AT THE CHIP. This one function feeds the Build tab's
+    label, the Coverage Strip's ordering and the folder pills — patching the
+    chip would leave the strip still sorting dead deadlines to the front.
+
+    It sits beside the `awaiting` early return above and for the same reason:
+    a status that should not be dated stops being dated. `locked` still wins,
+    because a supplier you booked stays booked.
+  */
+  if (daysUntilWedding !== null && daysUntilWedding < 0) return 'upcoming';
   if (daysUntilWedding === null) return 'upcoming';
   const floor = LEAD_DAYS[groupId] ?? DEFAULT_LEAD_DAYS;
   const start = START_DAYS[groupId] ?? DEFAULT_START_DAYS;

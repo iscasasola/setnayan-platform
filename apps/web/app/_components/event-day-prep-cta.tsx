@@ -24,6 +24,25 @@ type Props = {
   eventId: string;
   /** ISO date string (YYYY-MM-DD) or null. Visibility gate. */
   eventDate: string | null;
+  /*
+    THE EVENT HAS ALREADY HAPPENED — resolved SERVER-SIDE from the lifecycle
+    phase and passed in, because this component cannot work it out.
+
+    🚨 IT SAID "EVENT DAY SOON" TO A MAN WHOSE EVENT WAS YESTERDAY.
+    The window below is T-3d .. T+1d, so this banner renders for a full day
+    AFTER the celebration — and its eyebrow reads "Event day soon" and its
+    button offers to pre-load the guest list for bad venue WiFi at a venue
+    nobody is going back to. Owner, 2026-08-21, the morning after his Movie
+    Night: *"nothing changed. i can still invite. prepare for event day, etc"*.
+
+    🔑 THE FIX IS A HANDED-DOWN ANSWER, NOT A SECOND WINDOW. Narrowing
+    `T_PLUS_DAYS` here would give the app a third opinion about when an event
+    is over, on top of the lifecycle resolver and the events board. One
+    resolver decides; this component is told.
+
+    Omitted ⇒ false ⇒ byte-identical to before for every existing caller.
+  */
+  finished?: boolean;
   /** Override "now" for tests. */
   now?: Date;
 };
@@ -86,12 +105,15 @@ function warmAssetCache(urls: string[]): void {
   }
 }
 
-export function EventDayPrepCta({ eventId, eventDate, now = new Date() }: Props) {
+export function EventDayPrepCta({ eventId, eventDate, finished = false, now = new Date() }: Props) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const save = useSaveLoader();
 
+  // Nothing to prepare for once it has happened — checked BEFORE the window so
+  // the honest answer wins over the arithmetic.
+  if (finished) return null;
   if (!isInPrepWindow(eventDate, now)) return null;
 
   const onClick = (): void => {

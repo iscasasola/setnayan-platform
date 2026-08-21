@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { fetchChecklistProgress } from '@/lib/checklist';
+import { eventDateToEpoch, type MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { digestSubWorthShowing } from '@/lib/digest-sub';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -121,12 +122,26 @@ const CONFIRMED_VENDOR_SET = new Set([
   'complete',
 ]);
 
-function daysUntil(eventDate: string | null): number | null {
+/**
+ * Whole days from today to the event.
+ *
+ * ⚠ IT USED TO ANCHOR ON THE RUNTIME'S OWN MIDNIGHT. `new Date(`${d}T00:00:00`)`
+ * plus `today.setHours(0,0,0,0)` are both the SERVER's clock — UTC on Vercel —
+ * so between 00:00 and 08:00 Manila the day after a wedding this still returned
+ * 0 and the hero read "It's your event day". `eventDateToEpoch` exists in
+ * lib/day-of-mode.ts precisely because a bare Date parse already broke a
+ * countdown once; it is asked here rather than re-derived.
+ */
+function daysUntil(eventDate: string | null, tz?: string): number | null {
   if (!eventDate) return null;
-  const event = new Date(`${eventDate}T00:00:00`);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((event.getTime() - today.getTime()) / 86_400_000);
+  const eventMs = eventDateToEpoch(eventDate, tz);
+  if (!Number.isFinite(eventMs)) return null;
+  // "Today" collapsed in the SAME zone, so both sides of the subtraction are
+  // midnights in one clock rather than midnights in two.
+  const todayIso = new Date().toLocaleDateString('en-CA', tz ? { timeZone: tz } : undefined);
+  const todayMs = eventDateToEpoch(todayIso, tz);
+  if (!Number.isFinite(todayMs)) return null;
+  return Math.round((eventMs - todayMs) / 86_400_000);
 }
 
 /** service_key → couple-facing label via the add-ons catalog, else prettified. */
@@ -201,6 +216,7 @@ export async function EventDashboard({
   inspectId,
   slotAfterBento,
   dayOfActive = false,
+  lifecyclePhase = 'plan',
   canViewPapicCounts = false,
 }: {
   eventId: string;
@@ -216,6 +232,29 @@ export async function EventDashboard({
    * — the one-obsidian-per-view rule (rollout plan § 1.3) stays satisfied.
    */
   dayOfActive?: boolean;
+  /*
+    ─── THE EVENT LIFECYCLE PHASE ──────────────────────────────────────────
+
+    🚨 THIS COMPONENT HAD THE NARROWEST POSSIBLE VIEW OF TIME. It took
+    `dayOfActive`, a boolean that answers only "is it the day itself" — and
+    whose sole use is painting one card dark. It had no way to know a
+    celebration had ALREADY HAPPENED, so the day after it still offered to help
+    book a venue, called the booking "overdue", showed a shimmering "% planned"
+    bar, and headed its digest "Needs you this week".
+
+    Owner, 2026-08-21: *"why can i still plan and build and create guest list as
+    if it hasn't ended"* — and receding this whole component behind a disclosure
+    (PR #4651) was NOT enough, because a wrong statement one click down is still
+    a wrong statement.
+
+    🔑 RESOLVED ONCE, SERVER-SIDE, BY THE ONE RESOLVER. Not re-derived here from
+    `event.event_date` — this component's own `daysUntil` is exactly the kind of
+    second opinion that produced an eight-hour window every morning where the
+    hero said one thing and the rest of the page another.
+
+    Omitted ⇒ 'plan' ⇒ byte-identical for every existing caller.
+  */
+  lifecyclePhase?: MenuLifecyclePhase;
   /**
    * Is the viewer a COUPLE member of this event? Resolved once by the Home page.
    *
@@ -255,7 +294,7 @@ export async function EventDashboard({
     // Overview's fallback-to-'*' pattern for migration drift.
     (async () => {
       const leanSelect =
-        'event_id, display_name, event_date, event_date_precision, venue_name, region, estimated_budget_centavos, palette_finalized_at, event_type, ceremony_type, planning_mode, setnayan_ai_active';
+        'event_id, display_name, event_date, event_date_precision, timezone, venue_name, region, estimated_budget_centavos, palette_finalized_at, event_type, ceremony_type, planning_mode, setnayan_ai_active';
       const leanRes = await supabase
         // SEC-2b: public.events_host, not public.events — this select names a column
         // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
@@ -654,7 +693,14 @@ export async function EventDashboard({
       : event.event_date
         ? 'day'
         : 'year';
-  const daysOut = eventDatePrecision === 'day' ? daysUntil(event.event_date) : null;
+  const venueTz = (event as { timezone?: string | null }).timezone ?? undefined;
+  const daysOut = eventDatePrecision === 'day' ? daysUntil(event.event_date, venueTz) : null;
+  /*
+    THE CELEBRATION HAS ALREADY HAPPENED — handed down, not worked out here.
+    Everything below that states something about work still to do is gated on
+    it. See the prop's docblock for why this is not derived from `daysOut`.
+  */
+  const eventHasHappened = lifecyclePhase === 'after';
   // ONE firm-date predicate shared by the focal's date line AND its countdown
   // numeral so they can never disagree again (the "locked" vs "no firm date
   // yet" split that produced bug 2).
@@ -773,8 +819,11 @@ export async function EventDashboard({
     ? eventPlanGroups.filter((g) => g.countsTowardLockable !== false).length
     : 0;
   const lockedVendorCount = Math.max(0, totalLockableCategories - remainingTaskCount);
+  // "Today's one thing" is a booking deadline computed BACKWARDS from the event
+  // date. Past it, every deadline is behind you, so the picker returns the most
+  // overdue category — i.e. it hands a finished celebration a job to do.
   const topPriorityTask =
-    marketplaceEnabled && event.event_date && eventDatePrecision === 'day'
+    marketplaceEnabled && !eventHasHappened && event.event_date && eventDatePrecision === 'day'
       ? pickTodaysOneThing(vendorRowInputs, event.event_date, now, eventPlanGroups)
       : null;
 
@@ -939,7 +988,16 @@ export async function EventDashboard({
       sub: 'Key people your ceremony needs',
       items: byKind('role'),
     },
-  ] satisfies DecisionGroupView[]).filter((g) => g.items.length > 0);
+  ] satisfies DecisionGroupView[])
+    .filter((g) => g.items.length > 0)
+    /*
+      ⚠ AFTER THE CELEBRATION, THREE OF THESE FOUR ARE ADVICE ABOUT A DAY THAT
+      HAS PASSED — "Book a vendor", "Pick an option", "Fill a role", each of
+      them stamped with a deadline it is now permanently past. `Settle a
+      payment` STAYS: a bill is still a bill the morning after, and hiding it
+      would be the opposite mistake.
+    */
+    .filter((g) => !eventHasHappened || g.id === 'pay');
 
   // AI re-rank: payments + the urgent booking first; free state keeps the
   // natural book → pick → pay → role order. Both deterministic.
@@ -1627,7 +1685,13 @@ export async function EventDashboard({
                     : 'Your countdown begins the moment your date is set.'}
                 </p>
               )}
-              {/* % planned — gold bar, date-independent (vendor-categories locked). */}
+              {/* % planned — gold bar, date-independent (vendor-categories locked).
+                  ⚠ HIDDEN ONCE THE CELEBRATION HAS HAPPENED. A shimmering
+                  progress bar is a promise that the number can still go up.
+                  For the owner's Movie Night it read a shimmering 0%, the
+                  morning after a night that went fine. */}
+              {eventHasHappened ? null : (
+                <>
               <div
                 className="sn-bar mt-3.5 h-1.5 overflow-hidden rounded-full"
                 style={{
@@ -1658,6 +1722,8 @@ export async function EventDashboard({
                 </b>{' '}
                 planned
               </p>
+                </>
+              )}
 
               {/* AI: the Suri briefing sentence + chips, inside the focal. */}
               {aiActive ? (
@@ -1845,7 +1911,10 @@ export async function EventDashboard({
               <div className="sn-tile">
                 <p className="sn-eye">
                   <ListChecks aria-hidden strokeWidth={1.75} />
-                  Needs you this week
+                  {/* "this week" is a deadline, and after the celebration there
+                      is no week left to meet it in. What remains is genuinely
+                      still open — a bill, a document — so it is named that. */}
+                  {eventHasHappened ? 'Still open' : 'Needs you this week'}
                 </p>
                 <div className="mt-2 flex items-baseline gap-2">
                   <b className="font-mono text-[30px] font-bold leading-none text-ink">
@@ -1934,7 +2003,10 @@ export async function EventDashboard({
                        *  No "nudge them?" copy — no nudge mechanism ships, and a question
                        *  implying one is a fake door. Links to the plain roster; no
                        *  invented `?filter=` param. */}
-                      {stats.pending > 0 && rsvpRepliesStarted ? (
+                      {/* ⚠ AND the event must not have happened: chasing replies
+                          to an invitation to a party that is over is the purest
+                          version of the owner's complaint. */}
+                      {!eventHasHappened && stats.pending > 0 && rsvpRepliesStarted ? (
                         <Link
                           href={`${base}/guests`}
                           className="flex min-h-[44px] items-center gap-3 border-t px-4 py-3 transition-colors hover:bg-ink/[0.03]"
@@ -2287,8 +2359,9 @@ export async function EventDashboard({
                   </p>
                 ) : (
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    It&rsquo;s just you so far — invite your partner, family, or a
-                    coordinator to plan this {eventWord} together.
+                    {eventHasHappened
+                      ? `It was just you running this ${eventWord}.`
+                      : `It’s just you so far — invite your partner, family, or a coordinator to plan this ${eventWord} together.`}
                   </p>
                 )
               }
@@ -2361,8 +2434,9 @@ export async function EventDashboard({
                   </p>
                 ) : (
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    No vendors booked yet — start with the ones that book out
-                    first: your venue and catering.
+                    {eventHasHappened
+                      ? 'No suppliers were booked through Setnayan for this one.'
+                      : 'No vendors booked yet — start with the ones that book out first: your venue and catering.'}
                   </p>
                 )
               }
@@ -2450,8 +2524,9 @@ export async function EventDashboard({
                   </p>
                 ) : (
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    Nothing ordered yet — the Studio has everything for the day,
-                    from your monogram to save-the-dates and live streaming.
+                    {eventHasHappened
+                      ? 'Nothing was ordered for this one.'
+                      : 'Nothing ordered yet — the Studio has everything for the day, from your monogram to save-the-dates and live streaming.'}
                   </p>
                 )
               }
@@ -2488,8 +2563,9 @@ export async function EventDashboard({
               preview={
                 schedulePreview.isEmpty ? (
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    No program yet — map out your ceremony &amp; reception, and
-                    your guests follow the timeline live on the day.
+                    {eventHasHappened
+                      ? 'No program was set for this one.'
+                      : 'No program yet — map out your ceremony & reception, and your guests follow the timeline live on the day.'}
                   </p>
                 ) : (
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">

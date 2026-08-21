@@ -106,7 +106,7 @@ export default async function EventHomePage({
   // pattern for migration drift between local + prod.
   const eventRes = await (async () => {
     const leanSelect =
-      'event_id, event_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug';
+      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug';
     const leanRes = await supabase
       .from('events')
       .select(leanSelect)
@@ -183,6 +183,11 @@ export default async function EventHomePage({
         // 8 hours out, enough to flip this on the wrong side of the boundary on
         // the one day the couple opens the page all morning.
         (event as { timezone?: string | null }).timezone ?? undefined,
+        undefined,
+        // The LAST day of a celebration that spans several, so a five-day
+        // festival is not declared over on its third morning. Null for every
+        // event in production today.
+        (event as { event_end_date?: string | null }).event_end_date ?? null,
       )
     : 'plan';
   const dayOfActive = lifecyclePhase === 'dayof';
@@ -540,11 +545,15 @@ export default async function EventHomePage({
 
   return (
     <>
-      <EventDayPrepCta eventId={eventId} eventDate={event.event_date} />
+      {/* "EVENT DAY SOON" was rendering for a full day AFTER the celebration —
+          its own window is T-3d..T+1d and it never asked whether the day had
+          been and gone. It is TOLD, from the one resolver, rather than given a
+          third opinion of its own. */}
+      <EventDayPrepCta eventId={eventId} eventDate={event.event_date} finished={afterActive} />
       {/* Self-hiding: renders nothing unless a coordinator is waiting on an
           answer (owner ruling 2026-07-27 — the host decides what to share). */}
       <AccessRequestsDoorway eventId={eventId} />
-      <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} />
+      <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} finished={afterActive} />
       {dayOfActive ? (
         <DayOfModeGrid
           eventId={eventId}
@@ -604,6 +613,7 @@ export default async function EventHomePage({
                 inspectId={search.inspect}
                 slotAfterBento={hasOverlays ? overlays : undefined}
                 dayOfActive={dayOfActive}
+                lifecyclePhase={lifecyclePhase}
                 canViewPapicCounts={canViewPapicCounts}
               />
             </div>
@@ -645,6 +655,7 @@ export default async function EventHomePage({
                 inspectId={search.inspect}
                 slotAfterBento={hasOverlays ? overlays : undefined}
                 dayOfActive={dayOfActive}
+                lifecyclePhase={lifecyclePhase}
                 canViewPapicCounts={canViewPapicCounts}
               />
             </div>
@@ -661,6 +672,7 @@ export default async function EventHomePage({
           inspectId={search.inspect}
           slotAfterBento={hasOverlays ? overlays : undefined}
           dayOfActive={dayOfActive}
+          lifecyclePhase={lifecyclePhase}
           canViewPapicCounts={canViewPapicCounts}
         />
       )}

@@ -75,11 +75,22 @@ export default async function LaunchHubPage({ params }: Props) {
     // this page needs (owner R5 Option A). Slug builds the `/[slug]?phase=` link;
     // event_date feeds the SAME getLifecyclePhase the public engine uses so we can
     // mark which named page the live QR resolves to right now.
-    supabase.from('events').select('slug, event_date').eq('event_id', eventId).maybeSingle(),
+    // ⚠ `timezone` + `event_end_date` added 2026-08-21: `getLifecyclePhase`
+    // used to resolve this from the SERVER's clock (UTC on Vercel), so which
+    // named page the live QR was said to resolve to could be a day out.
+    supabase
+      .from('events')
+      .select('slug, event_date, event_end_date, timezone')
+      .eq('event_id', eventId)
+      .maybeSingle(),
   ]);
   const eventSlug = (eventRes.data as { slug?: string | null } | null)?.slug ?? null;
   const eventDate = (eventRes.data as { event_date?: string | null } | null)?.event_date ?? null;
-  const activePhase = getLifecyclePhase(eventDate);
+  const activePhase = getLifecyclePhase(
+    eventDate,
+    (eventRes.data as { timezone?: string | null } | null)?.timezone ?? undefined,
+    (eventRes.data as { event_end_date?: string | null } | null)?.event_end_date ?? null,
+  );
 
   type Service = {
     key: string;

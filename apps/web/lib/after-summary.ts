@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventActiveSkus } from '@/lib/entitlements';
+import { countGuestsByEvent } from '@/lib/guests';
+import { BOOKED_VENDOR_STATUSES } from '@/lib/vendors';
 
 /**
  * after-summary.ts — what a finished event has to SHOW for itself.
@@ -36,10 +38,15 @@ export type AfterSummary = {
   guests: Measured;
   guestsAttending: Measured;
   checkedIn: Measured;
-  /** Suppliers on the event's own list, archived rows excluded. */
+  /*
+    Suppliers who actually WORKED the event — booked, not merely shortlisted.
+
+    ⚠ THE FIRST CUT COUNTED EVERY ROW ON THE EVENT'S VENDOR LIST. A couple who
+    shortlisted eleven caterers and hired one would have been told eleven
+    suppliers worked their day. `shortlisted` and `inquiry` are a shopping
+    list; `contracted` upward is a booking.
+  */
   suppliers: Measured;
-  /** Reviews this couple has already written for this event. */
-  suppliersReviewed: Measured;
   /** Services active on the event (paid, comped or free-for-all). */
   services: Measured;
   /** Papic captures held for the event. */
@@ -76,76 +83,87 @@ export async function loadAfterSummary(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<AfterSummary> {
-  const [
-    guests,
-    guestsAttending,
-    checkedIn,
-    suppliers,
-    suppliersReviewed,
-    photos,
-    editorialRow,
-    services,
-  ] = await Promise.all([
-    countOf(supabase, () =>
-      supabase.from('guests').select('guest_id', { count: 'exact', head: true }).eq('event_id', eventId),
-    ),
-    countOf(supabase, () =>
-      supabase
-        .from('guests')
-        .select('guest_id', { count: 'exact', head: true })
-        .eq('event_id', eventId)
-        .eq('rsvp_status', 'attending'),
-    ),
-    countOf(supabase, () =>
-      supabase
-        .from('guest_checkins')
-        .select('checkin_id', { count: 'exact', head: true })
-        .eq('event_id', eventId),
-    ),
-    countOf(supabase, () =>
-      supabase
-        .from('event_vendors')
-        .select('vendor_id', { count: 'exact', head: true })
-        .eq('event_id', eventId)
-        .is('archived_at', null),
-    ),
-    countOf(supabase, () =>
-      supabase
-        .from('vendor_reviews')
-        .select('review_id', { count: 'exact', head: true })
-        .eq('event_id', eventId),
-    ),
-    countOf(supabase, () =>
-      supabase
-        .from('papic_photos')
-        .select('photo_id', { count: 'exact', head: true })
-        .eq('event_id', eventId),
-    ),
-    (async () => {
-      try {
-        const { data, error } = await supabase
-          .from('event_editorial')
-          .select('status, published_at')
+  const [guests, guestsAttending, checkedIn, suppliers, photos, editorialRow, services] =
+    await Promise.all([
+      /*
+        🔑 THE SHIPPED HEAD-COUNT, NOT A SECOND ONE.
+
+        `countGuestsByEvent` excludes soft-deleted guests (`deleted_at IS NULL`)
+        exactly as `fetchGuestsByEvent` does, and already returns `null` for a
+        refused read — the same contract this module is built on. The first cut
+        of this file wrote its own count WITHOUT that filter, so a couple who
+        had removed a guest would have read one number on this summary and a
+        smaller one on the guest list itself, hours after both shipped.
+      */
+      countGuestsByEvent(supabase, eventId),
+      countOf(supabase, () =>
+        supabase
+          .from('guests')
+          .select('guest_id', { count: 'exact', head: true })
           .eq('event_id', eventId)
-          .maybeSingle();
-        if (error) return null;
-        return (data ?? { status: null, published_at: null }) as {
-          status: string | null;
-          published_at: string | null;
-        };
-      } catch {
-        return null;
-      }
-    })(),
-    (async (): Promise<Measured> => {
-      try {
-        const { active } = await eventActiveSkus(supabase, eventId);
-        return active.size;
-      } catch {
-        return null;
-      }
-    })(),
-  ]);
+          // Same soft-delete filter as above — a removed guest is not attending.
+          .is('deleted_at', null)
+          .eq('rsvp_status', 'attending'),
+      ),
+      countOf(supabase, () =>
+        supabase
+          .from('guest_checkins')
+          .select('checkin_id', { count: 'exact', head: true })
+          .eq('event_id', eventId),
+      ),
+      countOf(supabase, () =>
+        supabase
+          .from('event_vendors')
+          .select('vendor_id', { count: 'exact', head: true })
+          .eq('event_id', eventId)
+          .is('archived_at', null)
+          /*
+            ⚠ BOOKED, NOT SHOPPED FOR. `shortlisted` and the other pre-lock
+            states are a couple's shopping list — a name they saved and may
+            never have spoken to. The first cut of this file counted every row,
+            so a couple who shortlisted eleven caterers and hired one would have
+            been told eleven suppliers worked their wedding.
+
+            🔑 THE SET IS IMPORTED, NOT RETYPED. `BOOKED_VENDOR_STATUSES` is
+            the shipped definition — the seating booth picker and the
+            cross-event booth validation both read it, and its own docblock
+            says why 'shortlisted' is excluded. A fourth hand-typed copy of a
+            status list is how the product comes to disagree with itself about
+            what "booked" means.
+          */
+          .in('status', BOOKED_VENDOR_STATUSES as unknown as string[]),
+      ),
+      countOf(supabase, () =>
+        supabase
+          .from('papic_photos')
+          .select('photo_id', { count: 'exact', head: true })
+          .eq('event_id', eventId),
+      ),
+      (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('event_editorial')
+            .select('status, published_at')
+            .eq('event_id', eventId)
+            .maybeSingle();
+          if (error) return null;
+          return (data ?? { status: null, published_at: null }) as {
+            status: string | null;
+            published_at: string | null;
+          };
+        } catch {
+          return null;
+        }
+      })(),
+      (async (): Promise<Measured> => {
+        try {
+          const { active } = await eventActiveSkus(supabase, eventId);
+          return active.size;
+        } catch {
+          return null;
+        }
+      })(),
+    ]);
 
   let editorial: EditorialState = 'none';
   if (editorialRow) {
@@ -158,7 +176,6 @@ export async function loadAfterSummary(
     guestsAttending,
     checkedIn,
     suppliers,
-    suppliersReviewed,
     services,
     photos,
     editorial,

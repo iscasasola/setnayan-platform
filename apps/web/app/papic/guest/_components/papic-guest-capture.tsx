@@ -148,7 +148,10 @@ type Props = {
   /** True when the guest has no active face enrollment — shows the in-camera
    *  "add your face" fallback prompt so their candid shots auto-find them. */
   needsFaceEnroll?: boolean;
-  /** True when the event owns the paid KWENTO SKU. When false the Kwento
+  /** True when Kwento is on for the event. It is FREE for every event since
+   *  2026-08-21 (owner: "kwento is free"), so this is true everywhere Papic is
+   *  set up — the prop stays because the RULE lives in FREE_FOR_ALL_SKUS and
+   *  flipping that set is how it reverses. When false the Kwento
    *  "tell the story" prompt is suppressed entirely — POST /api/papic/kwento
    *  403s feature_not_owned for unowned events, so showing the prompt would
    *  only let the guest type a message that silently fails. */
@@ -591,7 +594,8 @@ export function PapicGuestCapture({
     setKwentoFlashText('');
     setKwentoStoryText('');
     setKwentoConsent(false);
-    // Only open the Flash prompt when the event owns Kwento (paid KWENTO SKU).
+    // Only open the Flash prompt when Kwento is on for the event (free for
+    // every event since 2026-08-21; resolved server-side, never assumed here).
     setKwentoPhase(canKwento && openFlash ? 'flash' : 'idle');
     setFlashCountdown(5);
     setKwentoError(null);

@@ -54,3 +54,22 @@ and bypasses RLS entirely.
 
 SPEC IMPACT: DECISION_LOG.md row 2026-08-21 (calendar subscription: webcal feed,
 one live token per person, past celebrations retained, run-of-show deferred).
+
+### The privacy guards caught the new table, and they were right to
+
+`calendar_feed_tokens` is now classified in BOTH RA 10173 registers — CI refused
+the PR until it was:
+
+- **Erasure — `OWN_ROW_DELETES` (deleted outright).** The row is a live
+  CREDENTIAL: the feed serves whoever holds the token, with no login, so a row
+  left behind after an erasure request is a URL that keeps answering with that
+  person's celebrations. The FK is `ON DELETE CASCADE`, which covers a hard
+  account delete; this covers the ERASURE path, which purges **without** deleting
+  the auth row — the two are not the same journey.
+- **Export — `DELIBERATE_EXCLUSIONS` (never exported).** 🔑 **PUTTING A LIVE
+  ACCESS KEY IN A DOWNLOADABLE EXPORT TURNS A PRIVACY RIGHT INTO A DISCLOSURE
+  RISK.** Nothing else in the row is information about the person — a creation
+  time, a last-read time, a revocation time, all facts about the LINK — and the
+  celebrations the feed describes are already exported in full from `events` and
+  `event_members`. The subject can see and reset the link on My Events, which is
+  where that right belongs.

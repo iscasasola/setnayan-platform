@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { fetchVendorSongs } from '@/lib/songs';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import Image from 'next/image';
@@ -1086,7 +1087,7 @@ export async function renderVendorBySlug({
   }));
 
   // Per-category attribute details + portfolio gallery (iteration 0044).
-  const [attributeDetails, portfolioUrls, microsite, igMedia] = await Promise.all([
+  const [attributeDetails, portfolioUrls, microsite, igMedia, repertoire] = await Promise.all([
     fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
     resolvePortfolioUrls(vendor.portfolio_r2_keys),
     // Microsite curation (My Shop → Website editor). Defensive read — an
@@ -1097,6 +1098,17 @@ export async function renderVendorBySlug({
     // [] on any error (pre-migration DB / no connection), so the portfolio never
     // breaks. Feature is inert until Meta is configured — until then this is [].
     fetchVendorIgMediaForPublic(vendor.vendor_profile_id),
+    /*
+      What this band can play, and a link to them playing it. Owner 2026-08-18:
+      *"bands/musicians can pick the song they can do. and they can link videos
+      of them performing that song via youtube link."*
+
+      🔑 NOTHING PUBLIC READ THE REPERTOIRE BEFORE THIS. It existed only to match
+      requests on the day. So a band's set list — the single most useful thing a
+      couple comparing bands can look at — was invisible to them, and storing a
+      video with no viewer would have been a gate with no handle.
+    */
+    fetchVendorSongs(admin, vendor.vendor_profile_id),
   ]);
   // ── Tier-gated website features · downgrade REVERTS (owner 2026-07-03) ──────
   // Every premium customization is gated on the vendor's CURRENT tier, mirroring
@@ -2283,6 +2295,55 @@ export async function renderVendorBySlug({
             <p className="max-w-2xl whitespace-pre-line text-base leading-relaxed text-ink/75">
               {microsite.about}
             </p>
+          </section>
+        ) : null}
+
+        {/*
+          SONGS THEY PLAY — the band's set list, and a link to them playing it.
+
+          Owner 2026-08-18: *"we have a song bank of all music. bands/musicians
+          can pick the song they can do. and they can link videos of them
+          performing that song via youtube link."*
+
+          🔑 THIS IS THE FIRST PUBLIC READER OF A BAND'S REPERTOIRE. It existed
+          only to match requests on the day, so the one thing a couple comparing
+          bands most wants — what can you actually play? — was invisible to them.
+
+          Rendered only when the band has songs: an empty section would tell a
+          couple this band plays nothing, which is a claim we cannot make about a
+          list the band simply has not filled in yet.
+        */}
+        {repertoire.length > 0 ? (
+          <section className="space-y-3 border-b border-ink/10 py-8">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Songs they play
+            </h2>
+            <p className="max-w-2xl text-sm text-ink/60">
+              {repertoire.length} {repertoire.length === 1 ? 'song' : 'songs'} in their set
+              list. They can usually learn a request too — ask.
+            </p>
+            <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+              {repertoire.map((song) => (
+                <li key={song.song_id} className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="text-sm text-ink/85">{song.title}</span>
+                    {song.artist ? (
+                      <span className="text-sm text-ink/45"> · {song.artist}</span>
+                    ) : null}
+                  </span>
+                  {song.performance_url ? (
+                    <a
+                      href={song.performance_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 text-xs text-link underline underline-offset-2"
+                    >
+                      Watch them play it
+                    </a>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
           </section>
         ) : null}
 

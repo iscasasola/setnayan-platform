@@ -77,20 +77,39 @@ function normalizedKey(title: string, artist: string): string {
 }
 
 /** A music vendor's saved repertoire (newest first). */
+/**
+ * A band's pick, plus the link to THEM playing it.
+ *
+ * Owner 2026-08-18: *"bands/musicians can pick the song they can do. and they
+ * can link videos of them performing that song via youtube link."* The video
+ * belongs to the PICK, not the song — two bands playing Forevermore have two
+ * different recordings, and the shared bank row stays neutral.
+ */
+export type RepertoireSong = Song & { performance_url: string | null };
+
 export async function fetchVendorSongs(
   supabase: SupabaseClient,
   vendorProfileId: string,
-): Promise<Song[]> {
+): Promise<RepertoireSong[]> {
   const { data, error } = await supabase
     .from('vendor_songs')
-    .select('song_id, created_at, songs(song_id, title, artist)')
+    .select('song_id, created_at, performance_url, songs(song_id, title, artist)')
     .eq('vendor_profile_id', vendorProfileId)
     .order('created_at', { ascending: false });
   if (error || !data) return [];
   return (data as unknown[]).flatMap((row) => {
-    const r = row as { songs: unknown };
+    const r = row as { songs: unknown; performance_url?: string | null };
     const s = (Array.isArray(r.songs) ? r.songs[0] : r.songs) as Song | undefined;
-    return s ? [{ song_id: s.song_id, title: s.title, artist: s.artist }] : [];
+    return s
+      ? [
+          {
+            song_id: s.song_id,
+            title: s.title,
+            artist: s.artist,
+            performance_url: r.performance_url ?? null,
+          },
+        ]
+      : [];
   });
 }
 

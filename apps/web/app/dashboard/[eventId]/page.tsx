@@ -613,6 +613,7 @@ export default async function EventHomePage({
                 inspectId={search.inspect}
                 slotAfterBento={hasOverlays ? overlays : undefined}
                 dayOfActive={dayOfActive}
+                lifecyclePhase={lifecyclePhase}
                 canViewPapicCounts={canViewPapicCounts}
               />
             </div>
@@ -654,6 +655,7 @@ export default async function EventHomePage({
                 inspectId={search.inspect}
                 slotAfterBento={hasOverlays ? overlays : undefined}
                 dayOfActive={dayOfActive}
+                lifecyclePhase={lifecyclePhase}
                 canViewPapicCounts={canViewPapicCounts}
               />
             </div>
@@ -670,6 +672,7 @@ export default async function EventHomePage({
           inspectId={search.inspect}
           slotAfterBento={hasOverlays ? overlays : undefined}
           dayOfActive={dayOfActive}
+          lifecyclePhase={lifecyclePhase}
           canViewPapicCounts={canViewPapicCounts}
         />
       )}

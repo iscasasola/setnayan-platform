@@ -219,3 +219,26 @@ export function monthsUntil(earliestIso: string | null, nowMs: number): number |
   if (Number.isNaN(target)) return null;
   return (target - nowMs) / 86_400_000 / 30.44;
 }
+
+/** Which rung of the "how far off is this?" ladder a lede should speak from. */
+export type RoadmapLedeStage = 'undated' | 'far' | 'closer' | 'last_stretch' | 'past';
+
+/**
+ * The rung, from the months-to-date figure — the ONE place that knows the sign.
+ *
+ * 🚨 TWO LADDERS READ THIS NUMBER AND NEITHER HAD A NEGATIVE BRANCH. The Suite
+ * and the Studio both stepped `> 6` → `> 3` → else, so a celebration that
+ * happened LAST NIGHT (months ≈ −0.03) fell through the bottom and both hubs
+ * opened with *"Your last stretch — capture, and the event itself."*
+ *
+ * They are not folded into one string on purpose: the Suite says "event" and
+ * the Studio says "day", and that difference is real copy. What must not
+ * diverge is which rung they are on, so THAT is shared and the words are not.
+ */
+export function roadmapLedeStage(monthsToDate: number | null): RoadmapLedeStage {
+  if (monthsToDate === null) return 'undated';
+  if (monthsToDate < 0) return 'past';
+  if (monthsToDate > 6) return 'far';
+  if (monthsToDate > 3) return 'closer';
+  return 'last_stretch';
+}

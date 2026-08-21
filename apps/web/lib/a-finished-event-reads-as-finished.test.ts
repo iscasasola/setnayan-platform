@@ -7,6 +7,8 @@ import { getMenuLifecyclePhase, getDayOfPhase } from './day-of-mode';
 import { getLifecyclePhase } from './invitation-widgets';
 import { isFinishedEvent } from './event-board';
 import { BOOKED_VENDOR_STATUSES } from './vendors';
+import { timelineStatusOf } from './vendors-plan-budget';
+import { roadmapLedeStage } from './wedding-roadmap';
 
 /**
  * a-finished-event-reads-as-finished.test.ts
@@ -141,7 +143,24 @@ test('the day after rolls over months, years and leap days', () => {
   zone is fixed too, and separately — see assertion 8.
 */
 test('the public page shows the story, not the live day, once it is over', () => {
-  assert.equal(getLifecyclePhase(DAY, MNL, null), 'editorial');
+  /*
+    🪤 THE FIRST VERSION OF THIS ASSERTION PASSED FOR THE WRONG REASON and was
+    caught by a mutation that stayed GREEN. It ran at the real wall clock, and
+    by then `getDayOfPhase` had already reached 'post' — which the old switch
+    ALSO maps to 'editorial'. Deleting the new boundary changed nothing it
+    could see. The instant is now pinned, and it is pinned INSIDE the old live
+    window (08:33 the morning after ⇒ T+32.5h &lt; 36h), which is the only place
+    the two answers differ.
+  */
+  const morningAfter = at('2026-08-21T08:33:00+08:00');
+  assert.equal(
+    getDayOfPhase(DAY, MNL, morningAfter),
+    'live',
+    'the old window still calls this the wedding day — that is the point',
+  );
+  assert.equal(getLifecyclePhase(DAY, MNL, null, morningAfter), 'editorial');
+  // And during the celebration itself it is emphatically NOT the recap.
+  assert.equal(getLifecyclePhase(DAY, MNL, null, at('2026-08-20T22:00:00+08:00')), 'event');
 });
 
 /*
@@ -260,4 +279,90 @@ test('the summary and the guest list count the same guests', () => {
       /is\('deleted_at', null\)/.test(summary),
     'every guests count here must exclude soft-deleted rows',
   );
+});
+
+
+/*
+  14 · RECEDING WAS NOT ENOUGH.
+
+  PR #4651 folded the whole planning dashboard behind a disclosure in the After
+  phase. One click down it still told a finished celebration it was "0%
+  planned", that locking a venue was overdue, and headed its digest "Needs you
+  this week". A wrong statement one click down is still a wrong statement — so
+  the component is TOLD the phase and gates each of those on it.
+*/
+test('the planning dashboard stops stating things that are no longer true', () => {
+  const dash = src('app/dashboard/[eventId]/_components/event-dashboard.tsx');
+  assert.match(dash, /lifecyclePhase\?: MenuLifecyclePhase;/, 'it must be told the phase');
+  assert.match(dash, /const eventHasHappened = lifecyclePhase === 'after';/);
+  // The specific statements, each one asserted at its own site.
+  assert.match(dash, /marketplaceEnabled && !eventHasHappened/, "today's one thing");
+  assert.match(dash, /!eventHasHappened \|\| g\.id === 'pay'/, 'the book/pick/role groups');
+  assert.match(dash, /\{eventHasHappened \? null : \(\s*<>/, 'the % planned bar');
+  assert.match(dash, /eventHasHappened \? 'Still open' : 'Needs you this week'/);
+  assert.match(dash, /!eventHasHappened && stats\.pending > 0/, 'the RSVP nag');
+  // And the page hands it down at EVERY mount, not just the one in view.
+  const page = src('app/dashboard/[eventId]/page.tsx');
+  assert.equal(
+    page.split('lifecyclePhase={lifecyclePhase}').length - 1,
+    3,
+    'all three EventDashboard mounts must be told',
+  );
+});
+
+/*
+  15 · THE MARKETPLACE CLOCK STOPS.
+
+  Every booking deadline is computed backwards from the event date, so once it
+  is past, EVERY category reads overdue and the red "⚠ Nd overdue" chip grows by
+  one a day forever. `'upcoming'` is this ladder's own quiet rung — the same one
+  a dateless event gets — so it renders no chip at all.
+*/
+test('a past event has no overdue supplier categories', () => {
+  assert.equal(timelineStatusOf('venue', -1, 'empty'), 'upcoming', 'the day after');
+  assert.equal(timelineStatusOf('venue', -366, 'empty'), 'upcoming', 'and a year later');
+  // The rungs that must NOT be swallowed by the new branch.
+  assert.equal(timelineStatusOf('venue', 5, 'empty'), 'overdue', 'still overdue before the day');
+  assert.equal(timelineStatusOf('venue', -1, 'finalized'), 'locked', 'a booking stays booked');
+  assert.equal(timelineStatusOf('venue', -1, 'awaiting'), 'awaiting', 'an ask stays an ask');
+});
+
+/*
+  16 · "YOUR LAST STRETCH" IS NOT WHAT YOU SAY THE MORNING AFTER.
+
+  Two ladders read months-to-date and neither had a negative branch, so a
+  celebration that happened last night fell through the bottom of both. The
+  RUNG is shared; the words stay each hub's own.
+*/
+test('the Suite and the Studio know the event is behind them', () => {
+  assert.equal(roadmapLedeStage(-0.03), 'past', 'last night');
+  assert.equal(roadmapLedeStage(null), 'undated');
+  assert.equal(roadmapLedeStage(0.5), 'last_stretch', 'and the rung below is untouched');
+  assert.equal(roadmapLedeStage(7), 'far');
+  for (const f of ['app/dashboard/[eventId]/suite/page.tsx', 'app/dashboard/[eventId]/studio/page.tsx']) {
+    const body = src(f);
+    assert.match(body, /roadmapLedeStage\(monthsToDate\)/, `${f} must read the shared rung`);
+    assert.match(body, /past: /, `${f} must have something to say about a past event`);
+    assert.ok(
+      !/monthsToDate > 6\s*$/m.test(body),
+      `${f} must not keep a second copy of the ladder`,
+    );
+  }
+});
+
+/*
+  17 · THE COUNTDOWN ANCHORS ON THE VENUE'S MIDNIGHT.
+
+  It used `new Date(`${d}T00:00:00`)` against `today.setHours(0,0,0,0)` — both
+  the runtime's own clock, UTC on Vercel — so between midnight and 08:00 Manila
+  the day after a wedding it still returned 0 and the hero read "It's your event
+  day" while the rest of the page had moved on.
+*/
+test('the dashboard countdown reads the venue clock', () => {
+  const dash = src('app/dashboard/[eventId]/_components/event-dashboard.tsx');
+  const fn = dash.slice(dash.indexOf('function daysUntil('), dash.indexOf('function daysUntil(') + 700);
+  assert.match(fn, /eventDateToEpoch\(eventDate, tz\)/, 'the event side');
+  assert.match(fn, /eventDateToEpoch\(todayIso, tz\)/, 'and the today side, in the SAME zone');
+  assert.ok(!/setHours\(0, 0, 0, 0\)/.test(fn), 'the runtime-local midnight must be gone');
+  assert.match(dash, /event_date_precision, timezone/, 'and the zone must actually be selected');
 });

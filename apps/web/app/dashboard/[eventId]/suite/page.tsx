@@ -8,6 +8,7 @@ import {
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { recommendStudioAddOns } from '@/lib/studio-recommendations';
 import { fetchRoadmapState } from '@/lib/wedding-roadmap-signals';
+import { roadmapLedeStage } from '@/lib/wedding-roadmap';
 import { formatPhp } from '@/lib/orders';
 import { eventActiveSkus } from '@/lib/entitlements';
 import { deriveMonogram } from '@/lib/monogram';
@@ -430,14 +431,16 @@ export default async function SuitePage({ params }: Props) {
     .map((key) => ADD_ONS.find((a) => a.key === key))
     .filter((e): e is AddOnEntry => Boolean(e));
 
-  const recommendLede =
-    monthsToDate === null
-      ? 'Great places to start while your date settles.'
-      : monthsToDate > 6
-        ? 'Where couples put their energy with this much time to go.'
-        : monthsToDate > 3
-          ? 'The pieces to line up as your event gets closer.'
-          : 'Your last stretch — capture, and the event itself.';
+  // The RUNG is shared (lib/wedding-roadmap.ts knows the sign); the WORDS are
+  // this hub's own. Before the 'past' rung existed, a celebration that happened
+  // last night read "Your last stretch".
+  const recommendLede = {
+    undated: 'Great places to start while your date settles.',
+    far: 'Where couples put their energy with this much time to go.',
+    closer: 'The pieces to line up as your event gets closer.',
+    last_stretch: 'Your last stretch — capture, and the event itself.',
+    past: 'Everything you had, and what turns it into the story.',
+  }[roadmapLedeStage(monthsToDate)];
 
   // ── Partition the catalog: what you own, what you can add, what's free. ────
   // Tier E (simple_event: marketplace off ⇒ no vendors ⇒ nothing for the

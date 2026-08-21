@@ -443,6 +443,18 @@ export function getLifecyclePhase(
   /** The LAST day, for a celebration spanning several — same value the
    *  dashboard's own resolver anchors on. */
   eventEndDate?: string | null,
+  /*
+    "Now", injectable.
+
+    🪤 ADDED BECAUSE A TEST OF THIS FUNCTION PASSED FOR THE WRONG REASON.
+    Without it the only way to assert the post-event answer is to run at the
+    real wall clock — and on the morning after a test event, `getDayOfPhase`
+    ALREADY returns 'post', which already maps to 'editorial'. So the
+    assertion went green with the new boundary deleted: it was measuring the
+    old path and reporting the new one. Every other resolver in this pair
+    takes an injectable now for exactly this reason.
+  */
+  nowMs?: number,
 ): LifecyclePhase {
   if (!eventDate) return 'save_the_date';
 
@@ -460,11 +472,11 @@ export function getLifecyclePhase(
     HOST action on the host's dashboard, and it must not retire the guests'
     page out from under them mid-celebration.
   */
-  if (getMenuLifecyclePhase(eventDate, null, tz, undefined, eventEndDate ?? null) === 'after') {
+  if (getMenuLifecyclePhase(eventDate, null, tz, nowMs, eventEndDate ?? null) === 'after') {
     return 'editorial';
   }
 
-  switch (getDayOfPhase(eventDate, tz)) {
+  switch (getDayOfPhase(eventDate, tz, nowMs)) {
     case 'live':
       return 'event';
     case 'post':
@@ -479,7 +491,7 @@ export function getLifecyclePhase(
       // that is days away from now.
       const eventMs = new Date(eventDate).getTime();
       if (!Number.isFinite(eventMs)) return 'rsvp';
-      const now = Date.now();
+      const now = nowMs ?? Date.now();
       if (eventMs < now) return 'editorial';
       // Future, beyond the near-event run-up: split the long pre-event window
       // into Save the Date (announcement, > STD_THRESHOLD_DAYS out) and RSVP

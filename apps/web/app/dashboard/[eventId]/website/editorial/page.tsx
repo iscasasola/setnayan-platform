@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   EDITORIAL_SECTION_KEYS,
-  readCustomColumns,
   loadEditorialChaptersForEditor,
   loadEditorialData,
   type EditorialSections,
@@ -198,11 +197,6 @@ export default async function EditorialEditorPage({
     ? (draft.sectionOrder as unknown[]).filter((v): v is string => typeof v === 'string')
     : null;
 
-  // The couple's own columns. Read through the SAME validator the public page
-  // renders through, so the editor can never show a column the page would drop —
-  // a couple editing something invisible is worse than not offering it.
-  const savedCustomColumns = readCustomColumns(draft);
-
   // PRO guest-wishes (draft_json.reviews). Read the saved rows so the editor can
   // list them for editing; each row is coerced to the Review shape (blank-safe).
   const savedReviews: Review[] = Array.isArray(draft.reviews)
@@ -331,7 +325,6 @@ export default async function EditorialEditorPage({
         chapterCards={chapterCards.cards}
         chapterOverrides={chapterCards.overrides}
         savedSectionOrder={savedSectionOrder}
-        savedCustomColumns={savedCustomColumns}
         savedReviews={savedReviews}
         guestColumnsOn={await guestColumnsActive()}
         shareUrl={shareUrl}

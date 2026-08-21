@@ -1,7 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
-import { runConnectionRequestExpiry } from '@/lib/connection-request-expiry';
 import {
   buildAnniversaryEmail,
   buildAnniversaryHeadsupEmail,
@@ -606,16 +605,6 @@ export async function runDailyEmailJobs(): Promise<void> {
   }
   try {
     if (await claimPeriodicJob('papic-fullres-drop-warning', DAILY_GAP_MS)) await runPapicDropWarning();
-  } catch {
-    /* best-effort */
-  }
-  // Not an email job — a RETENTION job, riding the same traffic-driven runner
-  // because this codebase has no cron. It keeps the sentence `/privacy` prints
-  // about unanswered and declined connection requests; before it existed,
-  // nothing deleted them and the promise was live and unbacked.
-  try {
-    if (await claimPeriodicJob('connection-request-expiry', DAILY_GAP_MS))
-      await runConnectionRequestExpiry();
   } catch {
     /* best-effort */
   }

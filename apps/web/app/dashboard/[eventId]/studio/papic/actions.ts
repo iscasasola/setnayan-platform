@@ -8,7 +8,6 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { eventSkuActive } from '@/lib/entitlements';
 import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
-import { coupleSlots } from '@/lib/papic-missions';
 import {
   PAPIC_CAMERAS_ORDER_KEY,
   PAPIC_FREE_CAMERA_INDEX_BASE,
@@ -179,10 +178,10 @@ export async function createCoupleChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(`/dashboard/${eventId}/studio/papic`);
   }
   if (typeof prompt !== 'string' || prompt.trim().length === 0) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(`/dashboard/${eventId}/studio/papic`);
   }
 
   const supabase = await createClient();
@@ -195,8 +194,8 @@ export async function createCoupleChallengeAction(formData: FormData) {
     is_active: true,
   });
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(`/dashboard/${eventId}/studio/papic`);
 }
 
 /**
@@ -224,13 +223,13 @@ export async function addLibraryChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(`/dashboard/${eventId}/studio/papic`);
   }
 
   const rawLibraryId = formData.get('library_id');
   const libraryId = Number(typeof rawLibraryId === 'string' ? rawLibraryId : NaN);
   if (!Number.isInteger(libraryId)) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(`/dashboard/${eventId}/studio/papic`);
   }
 
   const supabase = await createClient();
@@ -249,7 +248,7 @@ export async function addLibraryChallengeAction(formData: FormData) {
   // Falling through on that would insert a mission with an empty prompt, so the
   // two cases are handled together and neither one writes.
   if (error || !row) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(`/dashboard/${eventId}/studio/papic`);
   }
 
   // Idempotent: tapping Add twice (or a double-submit) must not put the same
@@ -262,41 +261,8 @@ export async function addLibraryChallengeAction(formData: FormData) {
     .eq('library_id', libraryId)
     .limit(1);
   if (existing && existing.length > 0) {
-    revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
-  }
-
-  // ── THE CEILING, ENFORCED HERE AND NOT ONLY ON THE SCREEN ──────────────────
-  // Owner, 2026-08-21: "up to 20 challenges." The picker turns its Add button
-  // into a disabled "Full" chip at the limit, and that is a courtesy, not a
-  // control: this is a POST to a server action, reachable from a stale tab or a
-  // double-submit, and `lib/supabase/client.ts` ships a browser client to every
-  // visitor by construction.
-  //
-  // 🔑 A LIMIT THAT ONLY EXISTS IN THE UI IS NOT A LIMIT. Without this, a couple
-  // could push past twenty and the extra rows would exist, be counted on their
-  // own list, and NEVER reach a guest — the exact silent-drop this whole change
-  // was made to stop, moved one layer down.
-  //
-  // Derived, never a hand-typed 20: the vendor lane is measured first because a
-  // paid booth mission keeps its slot. Mirrors `ensure_papic_board`.
-  const { data: laneRows, error: laneErr } = await supabase
-    .from('papic_missions')
-    .select('source,is_active')
-    .eq('event_id', eventId)
-    .eq('approved', true);
-
-  // ⚠ FAILS CLOSED, AND SAYS NOTHING CLEVER. A rejected read resolves with
-  // `{ error }` and null data — treating that as "zero picked so far" would
-  // wave every request through at exactly the moment we cannot count.
-  if (laneErr) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges?add=unavailable`);
-  }
-  const live = (laneRows ?? []).filter((r) => r.is_active);
-  const vendorUsed = live.filter((r) => r.source === 'vendor' || r.source === 'auto').length;
-  const chosen = live.filter((r) => r.source === 'couple').length;
-  if (chosen >= coupleSlots(vendorUsed)) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges?add=full`);
+    revalidatePath(`/dashboard/${eventId}/studio/papic`);
+    redirect(`/dashboard/${eventId}/studio/papic`);
   }
 
   await supabase.from('papic_missions').insert({
@@ -310,8 +276,8 @@ export async function addLibraryChallengeAction(formData: FormData) {
     is_active: true,
   });
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(`/dashboard/${eventId}/studio/papic`);
 }
 
 /** Hide (is_active=false) or show any of the event's missions — auto booth,
@@ -325,14 +291,14 @@ export async function setCoupleChallengeActiveAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(`/dashboard/${eventId}/studio/papic`);
   }
   if (
     typeof missionId !== 'string' ||
     missionId.length === 0 ||
     (active !== 'true' && active !== 'false')
   ) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(`/dashboard/${eventId}/studio/papic`);
   }
 
   const supabase = await createClient();
@@ -342,8 +308,8 @@ export async function setCoupleChallengeActiveAction(formData: FormData) {
     .eq('mission_id', missionId)
     .eq('event_id', eventId);
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(`/dashboard/${eventId}/studio/papic`);
 }
 
 /** Delete one of the couple's OWN challenges. Auto/vendor missions are hidden via
@@ -357,10 +323,10 @@ export async function deleteCoupleChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(`/dashboard/${eventId}/studio/papic`);
   }
   if (typeof missionId !== 'string' || missionId.length === 0) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(`/dashboard/${eventId}/studio/papic`);
   }
 
   const supabase = await createClient();
@@ -371,8 +337,8 @@ export async function deleteCoupleChallengeAction(formData: FormData) {
     .eq('event_id', eventId)
     .eq('source', 'couple');
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(`/dashboard/${eventId}/studio/papic`);
 }
 
 /** The five event-wide Papic looks (mirrors the CHECK on events.papic_style and

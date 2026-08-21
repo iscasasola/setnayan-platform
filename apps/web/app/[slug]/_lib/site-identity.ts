@@ -113,7 +113,13 @@ export type GuestSiteIdentity = {
    * answered for THIS event — never as an override of what they already said
    * here. Null for a cookie-only guest with no account.
    */
-  profileFood: { mealPreference: string | null; dietaryRestrictions: string | null } | null;
+  profileDetails: {
+    mealPreference: string | null;
+    dietaryRestrictions: string | null;
+    email: string | null;
+    phone: string | null;
+    displayName: string | null;
+  } | null;
 };
 
 export type SiteIdentity = AnonymousSiteIdentity | GuestSiteIdentity;
@@ -373,14 +379,14 @@ export function anonymousIdentity(input: {
  * spread an inline literal here; the field list and values are unchanged.
  */
 /**
- * `profileFood` is OPTIONAL at the input and REQUIRED on the result: every
+ * `profileDetails` is OPTIONAL at the input and REQUIRED on the result: every
  * consumer can read it without a null-check, while the callers that have no
  * account to read from (the simulated `?as=replied` preview) need not invent
  * one. Absent ⇒ null ⇒ the card behaves exactly as it did before this existed.
  */
 export function guestIdentity(
-  input: Omit<GuestSiteIdentity, 'kind' | 'profileFood'> &
-    Partial<Pick<GuestSiteIdentity, 'profileFood'>>,
+  input: Omit<GuestSiteIdentity, 'kind' | 'profileDetails'> &
+    Partial<Pick<GuestSiteIdentity, 'profileDetails'>>,
 ): GuestSiteIdentity {
   return {
     kind: 'guest',
@@ -400,7 +406,7 @@ export function guestIdentity(
     saveFlash: input.saveFlash,
     rsvpFlash: input.rsvpFlash,
     faceMode: input.faceMode,
-    profileFood: input.profileFood ?? null,
+    profileDetails: input.profileDetails ?? null,
   };
 }
 

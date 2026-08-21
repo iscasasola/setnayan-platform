@@ -17,6 +17,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -41,7 +43,15 @@ const WORDS = {
 async function render(over: {
   guestMeal?: string | null;
   guestDiet?: string | null;
-  profileFood?: { mealPreference: string | null; dietaryRestrictions: string | null } | null;
+  guestEmail?: string | null;
+  guestMobile?: string | null;
+  profileDetails?: {
+    mealPreference: string | null;
+    dietaryRestrictions: string | null;
+    email?: string | null;
+    phone?: string | null;
+    displayName?: string | null;
+  } | null;
 }) {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { RsvpWidget } = await import('../_components/rsvp-widget');
@@ -57,6 +67,8 @@ async function render(over: {
         meal_preference: over.guestMeal ?? null,
         dietary_restrictions: over.guestDiet ?? null,
         guest_note: null,
+        email: over.guestEmail ?? null,
+        mobile: over.guestMobile ?? null,
         qr_token: 't',
         photo_source: null,
         photo_url: null,
@@ -64,7 +76,7 @@ async function render(over: {
       eventId: 'e-1',
       eventPublicId: 'S89E-X',
       faceMode: 'mode_b',
-      profileFood: over.profileFood ?? null,
+      profileDetails: over.profileDetails ?? null,
     } as never),
   );
 }
@@ -82,7 +94,7 @@ function dietValue(html: string): string {
 
 test('a blank card is filled from what they saved', async () => {
   const html = await render({
-    profileFood: { mealPreference: 'vegetarian', dietaryRestrictions: 'nut allergy' },
+    profileDetails: { mealPreference: 'vegetarian', dietaryRestrictions: 'nut allergy' },
   });
   assert.equal(selectedMeal(html), 'vegetarian', 'their saved meal was not offered back');
   assert.equal(dietValue(html), 'nut allergy', 'their saved allergy was not offered back');
@@ -92,7 +104,7 @@ test('🔴 what they said for THIS event always wins', async () => {
   const html = await render({
     guestMeal: 'fish',
     guestDiet: 'shellfish allergy',
-    profileFood: { mealPreference: 'vegetarian', dietaryRestrictions: 'nut allergy' },
+    profileDetails: { mealPreference: 'vegetarian', dietaryRestrictions: 'nut allergy' },
   });
   assert.equal(
     selectedMeal(html),
@@ -111,14 +123,37 @@ test('one blank and one answered fills only the blank', async () => {
   const html = await render({
     guestMeal: 'beef',
     guestDiet: null,
-    profileFood: { mealPreference: 'vegan', dietaryRestrictions: 'coeliac' },
+    profileDetails: { mealPreference: 'vegan', dietaryRestrictions: 'coeliac' },
   });
   assert.equal(selectedMeal(html), 'beef', 'the answered field was overwritten');
   assert.equal(dietValue(html), 'coeliac', 'the blank field was not filled');
 });
 
 test('no account, no change — the card is exactly as it was', async () => {
-  const html = await render({ guestMeal: null, guestDiet: null, profileFood: null });
+  const html = await render({ guestMeal: null, guestDiet: null, profileDetails: null });
   assert.equal(selectedMeal(html), 'no_preference');
   assert.equal(dietValue(html), '');
+});
+
+test('🔴 a signed-in guest is offered the contact details their account already holds', () => {
+  // Owner, 2026-08-21: "their email will come from the app? and mobile number
+  // can also come from the app?" — yes; the account has stored both since long
+  // before this, and the reply card simply never read them.
+  const src = readFileSync(join(__dirname, '..', '_components', 'rsvp-widget.tsx'), 'utf8');
+  assert.match(src, /guest\.email \?\? profileDetails\?\.email/, 'the saved email is not offered back');
+  assert.match(src, /guest\.mobile \?\? profileDetails\?\.phone/, 'the saved number is not offered back');
+  assert.match(
+    src,
+    /guest\.display_name \?\? profileDetails\?\.displayName/,
+    'what to call them is not offered back',
+  );
+});
+
+test("⚠ THIS EVENT'S own answer always wins over the account default", () => {
+  // A guest who set a different number for THIS event must not have it
+  // overwritten by whatever their profile happens to hold.
+  const src = readFileSync(join(__dirname, '..', '_components', 'rsvp-widget.tsx'), 'utf8');
+  for (const pair of ['guest.email ?? profileDetails?.email', 'guest.mobile ?? profileDetails?.phone']) {
+    assert.ok(src.includes(pair), `${pair} is reversed — the profile would overwrite this event's answer`);
+  }
 });

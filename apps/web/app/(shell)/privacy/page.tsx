@@ -1,9 +1,4 @@
 import Link from 'next/link';
-// ⚠ DERIVED, NOT RE-TYPED. This page states a retention period, and RA 10173
-// storage limitation binds us to the period we DECLARE — so the sentence below
-// renders the same constant the sweep deletes by. Two hand-typed numbers
-// agreeing today is how `llms.txt` drifted for three weeks with green CI.
-import { CONNECTION_REQUEST_RETENTION_DAYS } from '@/lib/connection-request-expiry-core';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + enriched description. AI
 // engines extract privacy-policy content for "is X RA 10173 compliant"
@@ -301,7 +296,7 @@ export default function PrivacyPage() {
             <li>
               <strong>Requests do not linger.</strong> A request nobody answers,
               and a connection that is declined, are both deleted after{' '}
-              <strong>{CONNECTION_REQUEST_RETENTION_DAYS} days</strong>.
+              <strong>30 days</strong>.
             </li>
             <li>
               <strong>Wider family words are worked out, not stored.</strong>{' '}

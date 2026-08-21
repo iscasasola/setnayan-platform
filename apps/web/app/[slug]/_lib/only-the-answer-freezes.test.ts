@@ -73,6 +73,8 @@ function guest(over: Record<string, unknown> = {}) {
     meal_preference: 'chicken',
     dietary_restrictions: 'nut allergy',
     guest_note: null,
+    email: null,
+    mobile: null,
     qr_token: 't',
     photo_source: null,
     photo_url: null,
@@ -330,7 +332,15 @@ test('a refused answer is never reported as a reply that moved', () => {
 
 test('the notification is driven by a comparison, not by the write', () => {
   const src = read('actions.ts');
-  assert.match(src, /guestDetailsChanged\(before, \{ meal, dietary, guestNote \}\)/);
+  // Bound by STRUCTURE, not by characters: this pinned the argument list on ONE
+  // line, so adding a field reformatted the call and the guard failed for a
+  // reason that had nothing to do with what it protects.
+  const at = src.indexOf('guestDetailsChanged(before');
+  assert.ok(at > -1, 'the comparison is no longer fed the "before" snapshot');
+  const call = src.slice(at, src.indexOf('}', src.indexOf('{', at)));
+  for (const field of ['meal', 'dietary', 'guestNote', 'email', 'mobile', 'displayName']) {
+    assert.ok(call.includes(field), `${field} is written but never compared — the host is not told it moved`);
+  }
   // The "before" read must be a SELECT. A .update( here retargets the guard
   // above onto the wrong statement.
   const beforeBlock = src.slice(src.indexOf('const { data: before }'), src.indexOf('let answerRefused'));
@@ -400,4 +410,178 @@ test('⚠ every reported change produces a sentence — no heading with nothing 
   }
   // Vacuity: the slice must really contain the block, not an empty string.
   assert.ok(block.length > 200, 'the parts block slice came back empty — this guard proves nothing');
+});
+
+// ── THE GUEST FILLS THEIR OWN DETAILS ───────────────────────────────────────
+//
+// Owner, 2026-08-21, pointing at the host's guest page: "these are all the
+// information we want to fill up." That page carries Email, Mobile and Display
+// name — and NOTHING anywhere in the product let a guest supply any of them, so
+// a host without a number had to leave the app and go and ask.
+
+test('🔴 the reply card asks for the three details only the guest knows', () => {
+  const w = read('_components/rsvp-widget.tsx');
+  for (const id of ['contact_email', 'contact_mobile', 'contact_display_name']) {
+    assert.match(w, new RegExp(`id="${id}"`), `${id} is gone — the host has to go and ask again`);
+  }
+});
+
+test('🔒 the field names cannot collide with the sign-in box on the same page', () => {
+  // That box posts `email` to claimAccountAction, a completely different action
+  // that emails a sign-in link. Two fields named `email` on one page is how a
+  // contact detail ends up in the wrong action's FormData.
+  const w = read('_components/rsvp-widget.tsx');
+  assert.doesNotMatch(w, /id="email"/, 'the contact email is named `email` again');
+  assert.doesNotMatch(w, /name="email"/, 'the contact email is named `email` again');
+});
+
+test('🔒 the guest still cannot rename WHO THEY ARE', () => {
+  // The link that reaches this card is printed on a poster. A stranger who can
+  // rename a seat-holder is the exact harm seedBindAllowed was hardened against
+  // on 2026-08-01. What to CALL you is a label; who you ARE is not.
+  const w = read('_components/rsvp-widget.tsx');
+  assert.doesNotMatch(w, /id="first_name"/);
+  assert.doesNotMatch(w, /id="last_name"/);
+  const src = read('actions.ts');
+  const at = src.indexOf('.update({');
+  const payload = src.slice(at, src.indexOf('.eq(', at));
+  assert.doesNotMatch(payload, /first_name/, 'the guest can now rewrite their own legal name');
+  assert.doesNotMatch(payload, /last_name/, 'the guest can now rewrite their own legal name');
+});
+
+test('⚠ the contact details are NOT frozen when the guest list closes', () => {
+  // Only the ANSWER freezes (owner 2026-08-20). A phone number corrected the
+  // week of the event is worth more then than at any other time.
+  const src = read('actions.ts');
+  const at = src.indexOf('.update({');
+  const payload = src.slice(at, src.indexOf('.eq(', at));
+  const locked = payload.slice(payload.indexOf('replyLocked'), payload.indexOf('}),'));
+  for (const col of ['email:', 'mobile:', 'display_name:']) {
+    assert.ok(payload.includes(col), `${col} is not written at all`);
+    assert.ok(!locked.includes(col), `${col} is inside the frozen branch — a locked list would refuse it`);
+  }
+});
+
+test('🔴 the guest-side restamp was fixed too, not just the host one', () => {
+  // Every field on this card is defaultValue=, so a guest correcting a phone
+  // number reposts the answer they already gave. That used to restamp it as a
+  // fresh reply — the guest-side twin of the host bug fixed the same day.
+  const src = read('actions.ts');
+  const at = src.indexOf('rsvp_responded_at:');
+  assert.ok(at > -1, 'the stamp is gone');
+  const expr = src.slice(at, src.indexOf('}),', at));
+  assert.match(expr, /before\?\.rsvp_status === status/, 'an unchanged answer is restamped as a fresh reply');
+  assert.match(expr, /before\?\.rsvp_responded_at/, 'an unchanged answer does not keep its own date');
+  // …and the value it leans on must actually be selected.
+  assert.match(
+    src,
+    /\.select\('rsvp_status, rsvp_responded_at,/,
+    'the prior date is not read — the expression above reads undefined',
+  );
+});
+
+test('every reported change produces a sentence, and no branch is neutered', () => {
+  // 🪤 THE FIRST DRAFT OF THIS GUARD WAS DECORATION. It asserted the string
+  // `changed.includes('mobile')` was PRESENT — so rewriting the branch as
+  // `if (false && changed.includes('mobile'))` left it GREEN while the couple
+  // was never told a number had moved. A guard can match a string and not the act.
+  const src = read('actions.ts');
+  const at = src.indexOf('const parts: string[]');
+  assert.ok(at > -1, 'the notification body block moved');
+  const block = src.slice(at, src.indexOf('coupleMembers', at));
+  assert.ok(block.length > 400, 'the parts slice came back short — this guard proves nothing');
+  for (const field of ['meal', 'dietary', 'note', 'email', 'mobile', 'name']) {
+    const i = block.indexOf(`changed.includes('${field}')`);
+    assert.ok(i > -1, `${field} moves and the couple is told nothing`);
+    // Read the WHOLE condition, from `if (` to `)`, and require it to be the
+    // membership test alone — no `&&` on a value, no `false`, no negation.
+    const openIf = block.lastIndexOf('if (', i);
+    const cond = block.slice(openIf + 4, block.indexOf(')', i) + 1);
+    assert.equal(
+      cond.trim(),
+      `changed.includes('${field}')`,
+      `the ${field} sentence is gated on something beyond membership — clearing ${field} sends a heading with an empty body`,
+    );
+  }
+});
+
+test('🔒 a phone number and an email are NAMED, never quoted into an inbox', () => {
+  // The same line already drawn on dietary notes: contact data stays in the app.
+  const src = read('actions.ts');
+  const at = src.indexOf('const parts: string[]');
+  const block = src.slice(at, src.indexOf('coupleMembers', at));
+  assert.doesNotMatch(block, /\$\{contactEmail\}/, 'an email address is being pasted into a notification');
+  assert.doesNotMatch(block, /\$\{contactMobile\}/, 'a phone number is being pasted into a notification');
+});
+
+test("🔴 the guest's own row carries the details the card prefills from", () => {
+  // 🪤 Deleting `email, mobile` from the guest select left every guard green.
+  // The card would then fall back to the ACCOUNT profile — and a cookie-only
+  // guest has no account, so their stored number renders as an empty box. They
+  // press Save and it is written away. A prefill that silently reads blank does
+  // not show a blank; it DELETES.
+  const loaders = read('_lib/loaders.ts');
+  const at = loaders.indexOf('plus_one_name_confirmed_at');
+  assert.ok(at > -1, 'the guest select moved — re-point this guard');
+  const select = loaders
+    .slice(loaders.lastIndexOf("'", at), loaders.indexOf("',", at) + 1)
+    .replaceAll("'", '');
+  // Vacuity: the slice must be the real select list, not an empty match.
+  assert.ok(select.split(',').length > 10, 'the select slice came back short — this guard proves nothing');
+  for (const col of ['email', 'mobile', 'display_name']) {
+    assert.ok(
+      select.split(',').map((c) => c.trim()).includes(col),
+      `${col} is not read for the guest — the box renders empty and Save erases what was there`,
+    );
+  }
+  // …and the couple's private column still must not travel here.
+  assert.ok(!select.split(',').map((c) => c.trim()).includes('notes'), "the couple's private note reached the guest page");
+});
+
+// ── "ALL THEY NEED IS TO ACCEPT" ────────────────────────────────────────────
+//
+// Owner, 2026-08-21: "if they have an account, and all details are filled, all
+// they need is to accept the invitation and they can already see the event hub."
+
+test('the contact boxes fold away only when BOTH ways of reaching them are known', () => {
+  const w = read('_components/rsvp-widget.tsx');
+  const at = w.indexOf('const detailsAlreadyKnown');
+  assert.ok(at > -1, 'the fold condition is gone');
+  const cond = w.slice(at, w.indexOf(';', at));
+  assert.match(cond, /knownEmail !== ''/, 'an email is no longer required to fold');
+  assert.match(cond, /knownMobile !== ''/, 'a number is no longer required to fold');
+  assert.match(cond, /&&/, 'either one alone now folds the boxes — the host still has to chase the other');
+  // Meal and dietary must NOT gate it: "no preference" and "no allergies" are
+  // real answers, and requiring them shows five boxes forever for nothing.
+  assert.doesNotMatch(cond, /meal|dietary/i, 'a guest with no allergies is asked forever');
+});
+
+test('⚠ the folded summary NAMES what is behind it', () => {
+  // This is #4683 in a new position: the guest's own message sat inside a
+  // drawer whose label advertised something else, and the host never saw it.
+  const w = read('_components/rsvp-widget.tsx');
+  const at = w.indexOf('const knownSummary');
+  assert.ok(at > -1, 'the summary is gone — the drawer now hides unnamed values');
+  const sum = w.slice(at, w.indexOf(';', w.indexOf('.join(', at)));
+  for (const part of ['knownEmail', 'knownMobile']) {
+    assert.ok(sum.includes(part), `${part} is folded away and not named on the summary line`);
+  }
+  assert.match(w, /\{knownSummary\}/, 'the summary is computed and never rendered');
+});
+
+test('🔴 both arms render the SAME fields, so folding never drops a value', () => {
+  // <details> HIDES, it does not disable — the inputs still post either way.
+  // Declaring the boxes once is what stops the two arms drifting apart.
+  const w = read('_components/rsvp-widget.tsx');
+  assert.equal(
+    (w.match(/id="contact_email"/g) ?? []).length,
+    1,
+    'the contact boxes are declared twice — the two arms can now drift apart',
+  );
+  assert.equal((w.match(/\{contactFields\}/g) ?? []).length, 2, 'one of the two arms stopped rendering the fields');
+});
+
+test('replying lands the guest on the event hub, not on a dead end', () => {
+  const src = read('actions.ts');
+  assert.match(src, /redirect\(ev\?\.slug \? `\/\$\{ev\.slug\}\?rsvp=\$\{outcome\}`/, 'the guest no longer lands on the event');
 });

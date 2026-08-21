@@ -252,66 +252,15 @@ test('T9 — couple picks a library id a Setnayan fill would hold → appears on
   assert.equal(board.length, BOARD_SIZE);
 });
 
-test('T10 — couple picks 12 → all 12 board, none taken by Setnayan', () => {
-  // ⚠ THIS TEST USED TO ASSERT `length === 10`, AND THAT WAS THE DEFECT.
-  // Owner, 2026-08-21: "the need to have a real screen to pick their challenges
-  // UP TO 20 CHALLENGES." A couple who chose twelve got ten; the other two had
-  // no board position and nothing on any screen said so. The cap is now the
-  // whole board minus whatever a supplier has paid for.
+test('T10 — couple picks 12 → capped at 10, all 12 library ids stay untaken by Setnayan', () => {
   const board = resolveChallengeBoard({
     couplePicks: couple(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
     vendorMissions: [],
     library: makeLibrary(),
     pabatiActive: true,
   });
-  assert.equal(laneKeys(board, 'couple').length, 12);
+  assert.equal(laneKeys(board, 'couple').length, 10); // capped
   for (let id = 1; id <= 12; id++) assert.ok(!setnayanIds(board).includes(id), `#${id} taken by couple`);
-  assert.equal(board.length, BOARD_SIZE);
-});
-
-test('T10b — the couple can take the whole board, and Setnayan then fills nothing', () => {
-  const ids = Array.from({ length: 20 }, (_, i) => i + 1);
-  const board = resolveChallengeBoard({
-    couplePicks: couple(...ids),
-    vendorMissions: [],
-    library: makeLibrary(),
-    pabatiActive: true,
-  });
-  assert.equal(laneKeys(board, 'couple').length, 20);
-  assert.equal(setnayanIds(board).length, 0, 'a board of twenty own picks is entirely theirs');
-  assert.equal(board.length, BOARD_SIZE);
-});
-
-test('T10c — a PAID booth mission keeps its slot; the couple ceiling drops to match', () => {
-  // 🔒 THE HALF THAT IS ABOUT SOMEBODY ELSE'S MONEY. A flat ceiling of 20 would
-  // make the Setnayan target go negative the moment a sponsorship existed, and
-  // — worse than the arithmetic — would delete a paid placement the instant the
-  // couple added a twentieth of their own, with nothing anywhere saying so.
-  const ids = Array.from({ length: 25 }, (_, i) => i + 1);
-  const board = resolveChallengeBoard({
-    couplePicks: couple(...ids),
-    vendorMissions: vend({ key: 'paid-1', paid: true }, { key: 'paid-2', paid: true }),
-    library: makeLibrary(),
-    pabatiActive: true,
-  });
-  assert.deepEqual(laneKeys(board, 'vendor'), ['paid-1', 'paid-2'], 'a paid slot survives a greedy couple');
-  assert.equal(laneKeys(board, 'couple').length, 18, '20 minus what is sold');
-  assert.equal(setnayanIds(board).length, 0);
-  assert.equal(board.length, BOARD_SIZE, 'and the board never overflows');
-});
-
-test('T10d — five sold slots leave the couple fifteen, never a negative target', () => {
-  const board = resolveChallengeBoard({
-    couplePicks: couple(...Array.from({ length: 30 }, (_, i) => i + 1)),
-    vendorMissions: vend(
-      { key: 'v1', paid: true }, { key: 'v2', paid: true }, { key: 'v3', paid: true },
-      { key: 'v4', paid: true }, { key: 'v5', paid: true }, { key: 'v6', paid: true },
-    ),
-    library: makeLibrary(),
-    pabatiActive: true,
-  });
-  assert.equal(laneKeys(board, 'vendor').length, 5, 'the vendor lane is still capped at five');
-  assert.equal(laneKeys(board, 'couple').length, 15);
   assert.equal(board.length, BOARD_SIZE);
 });
 

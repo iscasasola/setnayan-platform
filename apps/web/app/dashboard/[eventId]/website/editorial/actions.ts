@@ -17,9 +17,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { scanEditorial } from '@/lib/editorial-scan';
 import {
   EDITORIAL_ORDERABLE_KEYS,
-  readCustomColumns,
-  sectionOrderToPersist,
-  type CustomColumn,
   EDITORIAL_SECTION_KEYS,
   type ChapterOverride,
   type EditorialSections,
@@ -74,8 +71,6 @@ export type EditorialEditorInput = {
   // PRO — the couple's chosen order of the reorderable content sections (a
   // string[] of EditorialOrderKey values). `null`/empty → default order.
   sectionOrder: string[] | null;
-  /** The couple's own columns — title + body each. Re-validated server-side. */
-  customColumns?: unknown;
   // PRO — the manual "What They Said" guest-wishes list (draft_json.reviews).
   reviews: Review[];
   publish: boolean;
@@ -166,28 +161,23 @@ const REVIEW_ROLE_MAX = 40;
  * order identical-after-clean to the canonical default → `null` (delete the key,
  * revert to default). Never trusts the client.
  */
-/**
- * Validate the couple's own columns before they are stored.
- *
- * Delegates to the SAME reader the render path uses, by handing it the shape it
- * expects. One definition of "what is a legal column", not two — a second copy
- * here would be a second answer, and the two would drift the first time a limit
- * moved.
- */
-function sanitizeCustomColumns(input: unknown): CustomColumn[] {
-  return readCustomColumns({ customColumns: input });
-}
-
-/**
- * The order to persist. Delegates to the pure `sectionOrderToPersist` so the
- * rule lives in ONE place and can be tested — a `'use server'` module exports
- * only async functions, so a copy here would be untestable by construction.
- */
-function sanitizeSectionOrder(
-  input: string[] | null,
-  customIds: readonly string[] = [],
-): string[] | null {
-  return sectionOrderToPersist(input, EDITORIAL_ORDERABLE_KEYS, customIds);
+function sanitizeSectionOrder(input: string[] | null): string[] | null {
+  if (!Array.isArray(input)) return null;
+  const known = new Set<string>(EDITORIAL_ORDERABLE_KEYS);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of input) {
+    if (typeof raw !== 'string') continue;
+    if (!known.has(raw) || seen.has(raw)) continue; // drops unknown + locked-close + dupes
+    seen.add(raw);
+    out.push(raw);
+  }
+  if (out.length === 0) return null;
+  // If the cleaned order (once missing keys append in canonical order) matches the
+  // canonical default exactly, persist nothing — keeps default editorials clean.
+  const full = [...out, ...EDITORIAL_ORDERABLE_KEYS.filter((k) => !seen.has(k))];
+  const isDefault = full.every((k, i) => k === EDITORIAL_ORDERABLE_KEYS[i]);
+  return isDefault ? null : out;
 }
 
 /**
@@ -312,13 +302,7 @@ export async function saveEditorial(
     else delete draft.chapterOverrides;
 
     // Section order (PRO reorder). null → delete (revert to default order).
-    const customColumns = sanitizeCustomColumns(input.customColumns);
-    if (customColumns.length) draft.customColumns = customColumns;
-    else delete draft.customColumns;
-    const sectionOrder = sanitizeSectionOrder(
-      input.sectionOrder,
-      customColumns.map((c) => c.id),
-    );
+    const sectionOrder = sanitizeSectionOrder(input.sectionOrder);
     if (sectionOrder) draft.sectionOrder = sectionOrder;
     else delete draft.sectionOrder;
 

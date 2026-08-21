@@ -328,6 +328,12 @@ export type GuestRow = {
   rsvp_status: 'pending' | 'attending' | 'declined' | 'maybe';
   meal_preference: string | null;
   dietary_restrictions: string | null;
+  /** The guest's OWN contact details — how the host reaches them. Both were
+   *  host-typed-only until 2026-08-21: the host's page has an Email and a
+   *  Mobile box and NOTHING anywhere let the guest supply either, so a host
+   *  who did not already have a number had to go and ask for it. */
+  email: string | null;
+  mobile: string | null;
   /** The GUEST's own message to the couple. NOT `guests.notes`, which is the
    *  couple's PRIVATE note about this guest and must never reach this type —
    *  it used to, and the guest's RSVP overwrote it (fixed 2026-08-06). */

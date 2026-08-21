@@ -71,7 +71,6 @@ function AgentHome() {
             You&apos;re on the team
           </>
         }
-        className="mb-6"
       />
       <div className="sn-tile p-5 text-sm text-ink/65">
         Need access to something now? Ask your vendor owner to assign you to the

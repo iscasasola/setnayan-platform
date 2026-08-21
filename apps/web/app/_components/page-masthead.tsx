@@ -1,47 +1,46 @@
-import Link from 'next/link';
-import { ChevronLeft, Info } from 'lucide-react';
+import { Info } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 /**
  * The single page masthead for every dashboard, vendor-dashboard and admin surface.
  *
- * ── Why this exists ─────────────────────────────────────────────────────────────────────────
- * Until 2026-07-21 there was NO shared page-header component anywhere in the app — every one of
- * ~115 pages hand-rolled the same block. That absence is exactly why a CARD token drifted onto page
- * headers: `.sn-eye`'s own spec comment in globals.css reads "**Tile** eyebrow". It was never the
- * atelier page identity, and `.sn-h1`'s comment already records that "m-serif is retired from
- * dashboards". The atelier masthead lives on the public marketing tree, guest sites and
- * /u/[slug] — none of which this component serves.
+ * ── WHAT IT DRAWS NOW: AS LITTLE AS POSSIBLE ────────────────────────────────────────────────
+ * Owner-locked 2026-08-21, pointing at the back chevron and the 36px "Alaala" on the Alaala
+ * page: *"i still see this across most of pages"* — and, asked which part, choosing to remove
+ * the back arrow and the big page name entirely **so each page starts straight at its content.**
+ * That supersedes the 2026-08-18 one-row lock in this same file, which had already deleted the
+ * eyebrow and the lede paragraph. Same complaint each time, one rung further down: the row was
+ * costing every page 36–44px to answer a question the person had already answered by tapping
+ * the thing that brought them here.
  *
- * ── The rule it encodes ─────────────────────────────────────────────────────────────────────
- *   ONE ROW:  [back chevron] + page title + (i)  (+ actions, right-aligned)
- *   • The EYEBROW is gone at every breakpoint (council-locked 2026-07-21). There is deliberately
- *     no prop for it — 24px of layout for 10.5px of type that repeats what the nav already says.
- *   • The LEDE IS NO LONGER A PARAGRAPH AT ANY WIDTH (owner-locked 2026-08-18). It moves behind
- *     an (i) beside the title. Owner, on three screenshots of this exact block: *"we do not need
- *     these. it just eats up space and we want it to be simpler to understand on each page
- *     without too much side comments. if you need description for what that part does you can
- *     add the (i)"*. The desktop-only paragraph this replaced still cost 48px of a ~900px window
- *     on every visit, forever, to answer a question a person asks once.
- *   • The TITLE IS NEVER INVISIBLE. Below 1024px there is no sidebar, there is no breadcrumb
- *     anywhere in this product, the installed PWA has no browser tab, and on 47 of 102 event
- *     routes the bottom nav highlights nothing. On a phone the h1 is the only thing on screen
- *     that says which page you are on. It carries a responsive step: 22px on phones, 36px from lg.
+ * So on a page with no (i) and no actions — which is most of them — this component renders a
+ * screen-reader-only <h1> and NOTHING ELSE. No box, no margin, no chevron.
  *
- * ── Why `actions` exists ────────────────────────────────────────────────────────────────────
- * 25 of the old headers contain the ONLY doorway to another surface — `orders` holds the only
- * link to /orders/new; `guests` holds the only desktop links to invite and seating. Deleting
- * those headers wholesale would delete navigation. Anything that was an interactive sibling
- * inside the old <header> moves here, and nothing is lost.
+ * ── WHAT SURVIVES, AND WHY EACH ONE ─────────────────────────────────────────────────────────
+ *   • The <h1> stays in the document as `sr-only`. It costs zero pixels and it is what a screen
+ *     reader announces on arrival, what `aria-labelledby`/skip-link targets point at, and what
+ *     keeps the heading order legal. Deleting the element is a different decision from hiding
+ *     it, and the owner asked for the second one.
+ *   • `actions`. 25 of the old headers hold the ONLY doorway to another surface — `orders` holds
+ *     the only link to /orders/new; `guests` the only desktop links to invite and seating.
+ *     Deleting them would delete navigation, which is not what "start at the content" means.
+ *   • The (i), where a page passes a `lede`. It is 28px, it is opt-in, and 55 pages still carry
+ *     a sentence you need in order to USE the page (a limit, an action, a consequence). An (i)
+ *     with no title beside it is a small cost against deleting those 55 sentences outright.
  *
- * No `.sn-reveal` on the masthead: the shell already runs `.sn-page-enter`, and stacking a second
- * 640ms staggered fade on top of it delays the one element that tells you where you are.
+ * ── WHAT IT COSTS, STATED PLAINLY ───────────────────────────────────────────────────────────
+ * Below 1024px there is no rail, there is no breadcrumb anywhere in this product, and the
+ * installed PWA has no browser tab and NO BROWSER BACK BUTTON. The h1 and the chevron were the
+ * two things answering "where am I" and "how do I get out" on a phone. What is left is the
+ * shared top bar (its wordmark goes to /dashboard — where 8 of the 28 chevrons pointed), the
+ * rail on desktop, and the bottom nav inside an event. On ~20 deeper pages — the event website
+ * editor's sub-pages, admin and vendor-dashboard spokes — the chevron walked you UP ONE LEVEL
+ * and nothing else does; those climb one extra tap now. Putting a small arrow back on exactly
+ * those pages is one prop, if the owner wants it.
  */
 export function PageMasthead({
   title,
   titleNode,
-  back,
-  backLabel,
   lede,
   actions,
   id,
@@ -51,50 +50,39 @@ export function PageMasthead({
   title?: string;
   /** For the handful of titles composed at runtime (a couple's names, a vendor's shop). */
   titleNode?: ReactNode;
-  /** Where the back chevron goes. Omit for a top-level surface. */
-  back?: string;
-  /** Accessible name for the chevron — say where it goes, not "back". */
-  backLabel?: string;
   /**
-   * What this page is for. Rendered ONLY inside the (i) — never as a paragraph. Omit it when
-   * the title already says the thing; an (i) that repeats the title is worse than no (i).
+   * What this page is for. Rendered ONLY inside the (i) — never as a paragraph, never as a
+   * title. Omit it unless the page cannot be used without it.
    */
   lede?: ReactNode;
   /** Controls that used to live inside the old <header>. Right-aligned from sm. */
   actions?: ReactNode;
   /** Preserve any id the old header or h1 carried (skip-link / aria-labelledby targets). */
   id?: string;
+  /** Spacing for the strip. Ignored when there is no strip — an invisible h1 needs no margin. */
   className?: string;
 }) {
+  const heading = (
+    <h1 id={id} className="sr-only">
+      {titleNode ?? title}
+    </h1>
+  );
+
+  // The common case: nothing to show. The page begins at its own first element.
+  if (!lede && !actions) return heading;
+
   return (
-    <header className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${className}`}>
-      {back && (
-        <Link
-          href={back}
-          aria-label={backLabel ?? 'Back'}
-          title={backLabel ?? 'Back'}
-          className="-ml-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-ink/55 hover:bg-ink/5 hover:text-ink"
-        >
-          <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
-        </Link>
-      )}
-
-      <div className="flex min-w-0 flex-1 items-center gap-1.5">
-        <h1
-          id={id}
-          className="sn-h1 min-w-0 text-[22px] leading-[1.15] lg:text-[36px] lg:leading-[1.02]"
-        >
-          {titleNode ?? title}
-        </h1>
+    <>
+      {heading}
+      <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${className}`}>
         {lede && <MastheadInfo title={title}>{lede}</MastheadInfo>}
+        {actions && (
+          <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+            {actions}
+          </div>
+        )}
       </div>
-
-      {actions && (
-        <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
-          {actions}
-        </div>
-      )}
-    </header>
+    </>
   );
 }
 
@@ -109,6 +97,9 @@ export function PageMasthead({
  * ⚠ A plain `<details>` does NOT close on click-away — nothing native does that without JS, and
  * a comment elsewhere in this repo claims otherwise. Closing is the same (i) pressed again. That
  * is honest and needs no script; do not add "click-away closes" to this file.
+ *
+ * ⚠ IT NO LONGER SITS BESIDE A TITLE, so its accessible name is the only thing saying what it
+ * opens. Keep the `What ${title} is for` label exactly as it is.
  *
  * COLOUR: `text-ink/55`, never the gold slot. In this repo the Tailwind slot named `terracotta`
  * IS the atelier gold #A9834B, which measures 3.37:1 on cream — under the 4.5:1 AA floor for

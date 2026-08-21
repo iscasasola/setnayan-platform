@@ -74,8 +74,6 @@ export default async function DressCodeEditorPage({
       {/* Header strip */}
       <PageMasthead
         title="Tell your guests what to wear"
-        back={`/dashboard/${eventId}/website`}
-        backLabel="Back to Event Hub"
         lede={
           <>
             Add a palette so guests can match the mood of your {eventNoun(event.event_type)}. Share the look

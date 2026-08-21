@@ -236,7 +236,7 @@ export default async function LiveWallConsolePage({
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-6 sm:px-6">
       <PageMasthead
         titleNode={
-          <span className="flex items-center gap-2">
+          <span>
             <MonitorPlay aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={2} />
             Live Wall
           </span>

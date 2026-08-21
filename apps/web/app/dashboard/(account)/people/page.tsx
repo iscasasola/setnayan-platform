@@ -76,9 +76,6 @@ export default async function PeoplePage({
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="People"
-        back="/dashboard"
-        backLabel="Back to home"
-        className="mb-6"
       />
       {errorMsg ? (
         <p
@@ -195,9 +192,6 @@ function PeoplePreview() {
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="People"
-        back="/dashboard"
-        backLabel="Back to home"
-        className="mb-6"
       />
 
       {/* 🚨 SAMAHAN IS LIVE AND THIS BRANCH USED TO HIDE IT.

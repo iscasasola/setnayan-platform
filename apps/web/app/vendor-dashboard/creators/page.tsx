@@ -97,9 +97,6 @@ export default async function VendorCreatorsPage({
     <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="Creators"
-        back="/vendor-dashboard/shop"
-        backLabel="Back to My Shop"
-        className="mb-6"
       />
 
       {search.error ? (

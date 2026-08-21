@@ -143,9 +143,6 @@ export default async function AlaalaPage({
           so "back to events" named the wrong thing on the wrong surface. */}
       <PageMasthead
         title="Alaala"
-        back="/dashboard"
-        backLabel="Back to home"
-        className="mb-6"
       />
 
       {/* Life-Flash entry — the everyone-reachable path (single-event couples

@@ -128,8 +128,6 @@ export default async function DemoInquiriesPage() {
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
       <PageMasthead
         className="mb-6"
-        back="/admin/demo-vendors"
-        backLabel="Demo vendors"
         title="Demo inquiries"
         lede={
           <>

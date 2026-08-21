@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Archive, MoreVertical, Trash2 } from 'lucide-react';
+import { Archive, CalendarPlus, MoreVertical, Trash2 } from 'lucide-react';
 
 import { setEventArchived } from '../../[eventId]/archive-actions';
 import {
@@ -12,6 +12,7 @@ import {
   getEventDeletionImpact,
   type DeletionImpact,
 } from '../../[eventId]/delete-actions';
+import { buildWeddingIcs, icsDataHref } from '@/lib/calendar-links';
 
 /**
  * event-card-menu.tsx — the per-card "⋯" on My Events.
@@ -45,6 +46,20 @@ export function EventCardMenu({
   eventId,
   eventName,
   archived,
+  /**
+   * THIS one event's own date, for "Add to calendar" — a single all-day
+   * VEVENT, downloaded once. NOT the all-events subscription
+   * (`calendar-subscribe.tsx`), which follows every celebration and keeps
+   * itself up to date. Owner 2026-08-22: *"adding an event to a calendar is
+   * not all events but just per event"* — a person wants ONE wedding on
+   * their phone, not the whole board, and picking it out of the subscribed
+   * feed by name is a worse experience than a button on the card itself.
+   * `null` when there is no date yet ⇒ the row is skipped entirely rather
+   * than offered and refused.
+   */
+  eventDateIso = null,
+  venueName = null,
+  venueAddress = null,
   /** Dark cards (the mobile hero) need light chrome to stay visible. */
   tone = 'light',
   align = 'right',
@@ -52,6 +67,9 @@ export function EventCardMenu({
   eventId: string;
   eventName: string;
   archived: boolean;
+  eventDateIso?: string | null;
+  venueName?: string | null;
+  venueAddress?: string | null;
   tone?: 'light' | 'dark';
   /**
    * Which edge of the CARD the popover hangs from.
@@ -205,6 +223,19 @@ export function EventCardMenu({
 
   const dark = tone === 'dark';
 
+  // Computed once per open menu, not on every render — building a string is
+  // cheap, but there is no reason to redo it on every keystroke elsewhere on
+  // the card (the "type the name to confirm" field re-renders this component).
+  const icsHref = useMemo(() => {
+    const ics = buildWeddingIcs({
+      title: eventName,
+      dateIso: eventDateIso,
+      location: venueName ?? venueAddress ?? null,
+      uid: `wedding-${eventId}@setnayan.com`,
+    });
+    return ics ? icsDataHref(ics) : null;
+  }, [eventName, eventDateIso, venueName, venueAddress, eventId]);
+
   return (
     /*
       🪤 A FRAGMENT, NOT A POSITIONED WRAPPER — AND THAT IS THE WHOLE FIX.
@@ -254,6 +285,33 @@ export function EventCardMenu({
           >
             {!confirming ? (
               <>
+                {icsHref ? (
+                  <>
+                    <a
+                      href={icsHref}
+                      download={`${eventName}.ics`}
+                      role="menuitem"
+                      onClick={close}
+                      className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
+                    >
+                      <CalendarPlus
+                        aria-hidden
+                        className="mt-0.5 h-4 w-4 shrink-0 text-ink/60"
+                        strokeWidth={2}
+                      />
+                      <span>
+                        <span className="block font-semibold">
+                          Add to calendar
+                        </span>
+                        <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
+                          Just this celebration, on your phone.
+                        </span>
+                      </span>
+                    </a>
+                    <div className="my-1 h-px bg-ink/10" />
+                  </>
+                ) : null}
+
                 <button
                   type="button"
                   role="menuitem"

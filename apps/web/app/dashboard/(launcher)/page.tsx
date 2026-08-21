@@ -2320,6 +2320,9 @@ function BoardCardWithMenu({
         eventId={event.event_id}
         eventName={event.display_name}
         archived={!!event.archived}
+        eventDateIso={event.event_date}
+        venueName={event.venue_name}
+        venueAddress={event.venue_address}
         tone={tone}
         align={align}
       />

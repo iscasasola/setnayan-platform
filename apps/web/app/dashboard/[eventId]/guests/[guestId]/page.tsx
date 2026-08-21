@@ -534,6 +534,30 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               initialBlocks={initialInvited}
             />
           </div>
+
+          {/* 🔴 THIS WAS INSIDE THE COLLAPSED DRAWER BELOW, AND THE DRAWER OPENS
+              ITSELF ONLY FOR SEVEN HOST-EDITABLE FIELDS — the guest's own
+              message was not one of them. So a guest who replied with nothing
+              but a message had written to a host who would never see it unless
+              they happened to expand a drawer whose summary advertised
+              something else entirely.
+              It belongs beside their reply, because that is when they wrote it.
+              Read-only: it is theirs, not yours to edit. The separate column
+              exists precisely so that saving your private note cannot erase what
+              they wrote, and vice versa. */}
+          {guest.guest_note?.trim() ? (
+            <div className="space-y-1.5">
+              <span className="block text-sm font-medium text-ink">
+                A note from {guest.first_name}
+              </span>
+              <p className="whitespace-pre-wrap rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2 text-sm text-ink/80">
+                {guest.guest_note}
+              </p>
+              <p className="text-xs text-ink/50">
+                They wrote this when they replied. Only they can change it.
+              </p>
+            </div>
+          ) : null}
         </Section>
 
         {/* Plus-one toggle · owner directive 2026-05-23 PM. Host approves
@@ -603,7 +627,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             <span>More details</span>
             <span className="flex items-center gap-2 text-xs font-normal text-ink/55">
               <span className="hidden sm:inline">
-                Display name · contact · dietary · tags · notes
+                Display name · contact · dietary · tea-ceremony · private note
               </span>
               <ChevronDown
                 aria-hidden
@@ -672,22 +696,6 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               </p>
             </div>
 
-            {/* The guest's OWN message, read-only — it is theirs, not yours to
-                edit. Separate column (`guest_note`) precisely so that saving
-                your private note cannot erase what they wrote, and vice versa. */}
-            {guest.guest_note?.trim() ? (
-              <div className="space-y-1.5">
-                <span className="block text-sm font-medium text-ink">
-                  A note from {guest.first_name}
-                </span>
-                <p className="whitespace-pre-wrap rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2 text-sm text-ink/80">
-                  {guest.guest_note}
-                </p>
-                <p className="text-xs text-ink/50">
-                  They wrote this when they replied. Only they can change it.
-                </p>
-              </div>
-            ) : null}
           </div>
         </details>
 

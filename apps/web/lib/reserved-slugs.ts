@@ -162,6 +162,7 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'papic',
   'patiktok',
   'pawebsite',
+  'pay',
   'pricing',
   'privacy',
   'proposals',

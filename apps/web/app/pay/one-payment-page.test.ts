@@ -129,6 +129,14 @@ test('the page is not a dead end', () => {
   assert.match(page, /payable\.back/);
 });
 
+test('the amount comes from the product’s one authority, not a copy', () => {
+  // A local copy subtracted the voucher a second time on any QUOTED order, so
+  // the QR asked for less than the shortfall guard demanded and the purchase
+  // could never switch on. See lib/the-qr-asks-for-what-is-owed.test.ts.
+  const resolver = stripComments(read('..', '..', 'lib', 'payable-by-reference.ts'));
+  assert.match(resolver, /orderGrossOwed\(/);
+});
+
 test('the payable is resolved on the SESSION client, so RLS scopes it', () => {
   assert.match(actions, /fetchPayableByReference\(supabase, reference\)/);
   assert.equal(

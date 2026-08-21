@@ -3,9 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { purchaseIdFromVendorSubscriptionServiceKey } from './vendor-subscription-service-key';
 import { statusOf, type PayableStatus } from './payable-status';
 import { readOnboardingOrderItems } from './onboarding-order-items';
-import { isVatInclusiveServiceKey } from './orders';
+import { isVatInclusiveServiceKey, orderGrossOwed } from './orders';
 import { chargeIdFromBookingFeeLockServiceKey } from './booking-fee-lock';
-import { payableAmountPhp } from './payable-amount';
 import { getEffectiveVatRatePct } from './platform-settings';
 
 export type { PayableStatus };
@@ -126,16 +125,29 @@ export async function fetchPayableByReference(
     purchaseIdFromVendorSubscriptionServiceKey(order.service_key) !== null;
 
   // ── WHAT THEY ACTUALLY OWE ────────────────────────────────────────────────
-  // The rule lives in `lib/payable-amount.ts` — pure, and unit-tested there,
-  // because this module imports `server-only` and cannot be tested at all. It
-  // is a rule about MONEY: the stored column is a pre-voucher base on couple
-  // checkout, and reading it raw would QR-charge a couple who used a code the
-  // full price.
-  const amount = payableAmountPhp({
-    storedTotalPhp: num(order.confirmed_total_php) || num(order.requested_total_php),
-    voucherDiscountCentavos: num(order.voucher_discount_centavos),
-    vatRatePct: await effectiveVatRate(supabase),
+  // 🔑 THE SAME FUNCTION THE SHORTFALL GUARD USES. `orderGrossOwed` is the
+  // product's ONE authority on what an order is owed, and /admin/payments
+  // refuses to promote an order to 'paid' when the money received falls short
+  // of ITS answer. If this page computed the figure any other way, the QR and
+  // that guard could disagree — and they would disagree silently, in a QR the
+  // buyer cannot check.
+  //
+  // 🚨 THAT IS EXACTLY WHAT A SECOND COPY DID. A local helper here subtracted
+  // `voucher_discount_centavos` unconditionally. But the two total columns are
+  // netted DIFFERENTLY: `requested_total_php` is the PRE-voucher price, while
+  // `confirmed_total_php` (set when an admin quotes the order) is already
+  // voucher-adjusted. So the moment an order was quoted, the QR asked for the
+  // discount twice — measured: requested ₱2,500, discount ₱500, confirmed
+  // ₱2,000 → QR ₱1,500 against ₱2,000 owed. The couple pays what the QR says,
+  // the guard refuses the promotion, and what they bought never switches on.
+  // Deleting the copy is the fix; a patched copy could drift again tomorrow.
+  const amount = orderGrossOwed({
+    requestedTotalPhp: num(order.requested_total_php),
+    confirmedTotalPhp:
+      order.confirmed_total_php == null ? null : num(order.confirmed_total_php),
+    voucherDiscountPhp: num(order.voucher_discount_centavos) / 100,
     vatInclusive: isVatInclusiveServiceKey(order.service_key),
+    vatRatePct: await effectiveVatRate(supabase),
   });
 
   // ── WHO IT IS FOR, AND WHAT IS IN IT ──────────────────────────────────────

@@ -601,77 +601,17 @@ export async function seedDefaultScheduleBlocks(
   return topLevelRows.length + childInserts.length;
 }
 
-/**
- * Idempotent Run-of-Show seed for NON-WEDDING events (owner-locked 2026-07-12:
- * Run-of-Show is FREE). Fires on the schedule's first open when the event has no
- * blocks yet: authors the per-type Filipino program (the 18s, the reveal, the
- * awarding…) from `lib/schedule-run-of-show`, ENRICHED by what the host captured
- * at onboarding (`events.signature_details`). Weddings keep their own spine and
- * are intentionally NOT seeded here (buildRunOfShowSeed returns [] for them).
- *
- * Single-pass, flat blocks (no parent/child) — a non-wedding program is a linear
- * agenda the host reshapes. Mirrors seedDefaultScheduleBlocks' guards: verify
- * access via the RLS-gated SELECT, skip if any block already exists, then write
- * with the admin client (first-open fixture, not a form submit). Returns the
- * number of rows inserted (0 = skipped: wedding, already seeded, or empty).
- */
-export async function seedNonWeddingRunOfShow(eventId: string): Promise<number> {
-  if (!eventId) throw new Error('event_id required');
+/*
+  ─── `seedNonWeddingRunOfShow` MOVED OUT OF THIS FILE (2026-08-21) ────────
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return 0; // page owns auth; the seed is best-effort
+  It lives in `lib/schedule-seed.server.ts` now. It was never a form action:
+  the schedule PAGE was its only caller, and it called it during render — where
+  the two `revalidatePath` calls at the end of it are fatal. Every first-ever
+  visit to a non-wedding event's Schedule returned a 500, and because the INSERT
+  commits before the revalidate, refreshing made it go away.
 
-  const { data: existing, error: existingErr } = await supabase
-    .from('event_schedule_blocks')
-    .select('block_id')
-    .eq('event_id', eventId)
-    .limit(1);
-  if (existingErr) throw new Error(existingErr.message);
-  if (existing && existing.length > 0) return 0; // already has a schedule · skip
-
-  // events_host, not events — signature_details is SELECT-denied to
-  // `authenticated` on the base table by 20271025120000, and this seed reads it
-  // to shape the Run-of-Show. On the base table the error would be swallowed by
-  // the `const { data }` shape, eventType would fall back to 'wedding', and the
-  // free non-wedding Run-of-Show seed would simply stop firing — silently.
-  const { data: ev } = await supabase
-    .from('events_host')
-    .select('event_type, event_date, signature_details')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const eventType = (ev?.event_type as string | null | undefined) ?? 'wedding';
-  if (eventType === 'wedding') return 0; // weddings use their own seed
-
-  const blocks = buildRunOfShowSeed(
-    eventType,
-    (ev?.signature_details as Record<string, unknown> | null | undefined) ?? null,
-    (ev?.event_date as string | null | undefined) ?? null,
-  );
-  if (blocks.length === 0) return 0;
-
-  const admin = createAdminClient();
-  const rows = blocks.map((b) => ({
-    event_id: eventId,
-    label: b.label,
-    block_type: b.block_type,
-    start_at: b.start_at,
-    end_at: b.end_at,
-    is_public: b.is_public,
-    sort_order: b.sort_order,
-    parent_block_id: null,
-    notes: b.notes,
-  }));
-
-  const { error } = await admin.from('event_schedule_blocks').insert(rows);
-  if (error) throw new Error(error.message);
-
-  revalidatePath(`/dashboard/${eventId}/schedule`);
-  revalidatePath(`/dashboard/${eventId}`);
-  return rows.length;
-}
+  Do not move it back. A `'use server'` module is for things a person submits.
+*/
 
 /**
  * Compile the Emcee / Host script for the wedding day. Fetches the event header,

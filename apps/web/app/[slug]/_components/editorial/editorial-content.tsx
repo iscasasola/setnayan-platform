@@ -1427,9 +1427,13 @@ function ChallengeAnswerColumn({ answers }: { answers: ChallengeAnswer[] }) {
               className="aspect-[4/5] w-full bg-ink/5 object-cover"
             />
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element -- presigned R2
-            // URL: it expires, so next/image would cache a dead transform and
-            // bill a transformation per render (2026-08-08).
+            /* A presigned R2 URL EXPIRES, so next/image would cache a dead
+               transform and bill a transformation on every render — the cost
+               shape flagged 2026-08-08. Plain <img> is deliberate here.
+               ⚠ The disable must sit on the line IMMEDIATELY before the JSX:
+               a three-line comment pushed it out of range and the rule warned
+               anyway, which is a suppression nobody can evaluate. */
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={a.url}
               alt={`A guest's answer to: ${a.prompt}`}

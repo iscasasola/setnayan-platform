@@ -21,7 +21,9 @@ import {
   Baby,
   Mail,
   PenLine,
+  CalendarClock,
 } from 'lucide-react';
+import { YearMomentsStrip } from './_components/year-moments-strip';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, type EventWithRole } from '@/lib/events';
@@ -34,6 +36,10 @@ import {
   manilaTodayISO,
   mergeBoardMemberships,
   splitEventBoard,
+  splitPlanningShelves,
+  boardFinished,
+  findDateClashes,
+  type DateClash,
   splitFinishedByStory,
   stanceLabel,
   type EventStance,
@@ -180,13 +186,23 @@ export default async function LauncherPage({
   // `show` is GONE (2026-08-13): the board no longer has a hidden half, so
   // there is nothing for a query param to reveal. A bookmarked or printed
   // `/dashboard?show=all` still renders the board — an unread param is ignored.
-  searchParams?: Promise<{ hub?: string }>;
+  //
+  // `putaway` is NOT that param coming back. The retired one hid a shelf of
+  // celebrations the person never asked to hide; this one reveals the ones they
+  // put away BY HAND, and the switch prints how many there are, so it can never
+  // read as "something might be missing" — which is the sentence that retired
+  // the old one.
+  searchParams?: Promise<{ hub?: string; putaway?: string }>;
 }) {
   const user = await getCurrentUser();
   // Layout already redirects to /login if no user; this is for type narrowing.
   if (!user) redirect('/login');
   const supabase = await createClient();
   const sp = (await searchParams) ?? {};
+  // Server-rendered switch: a link, not client state. Nothing is stored, so the
+  // reveal lasts exactly as long as the person is looking at it — putting an
+  // event away is the durable choice, seeing it again is not.
+  const putAwayRequested = sp.putaway === '1';
 
   // OAuth-race graceful-degrade shielding (preserved from the prior hub): the
   // users / events rows this page reads are the SAME rows supabase-auth just
@@ -295,10 +311,24 @@ export default async function LauncherPage({
   // lib/event-board.ts.
   const dateKey = (e: EventWithRole) => e.event_date?.slice(0, 10) ?? '';
   const boardEvents = mergeBoardMemberships(events, invitedEvents);
-  const { comingUp: upcoming, finished } = splitEventBoard(
+  const { comingUp: comingUpAll, finished: finishedAll } = splitEventBoard(
     boardEvents,
     todayISO,
   );
+  // THE BOARD IS FIVE SHELVES (owner 2026-08-21). Put-away rows are lifted out
+  // of all of them here and handed back only behind the switch on Planning —
+  // see `splitPlanningShelves` for why `isFinishedEvent` was not redefined.
+  const {
+    happeningNow,
+    planning: upcoming,
+    putAway,
+  } = splitPlanningShelves(comingUpAll, finishedAll, todayISO);
+  const finished = boardFinished(finishedAll);
+  const showPutAway = putAwayRequested;
+  // "You are expected in two places." Read off the shelves already in memory —
+  // today's and the ones ahead — never the finished ones: a clash you can no
+  // longer do anything about is a reproach, not a warning.
+  const clashes = findDateClashes([...happeningNow, ...upcoming]);
 
   // ─── LANDING ────────────────────────────────────────────────────────────
   // Owner 2026-07-04: "keep the auto-jump, HUB REACHABLE." Only the first half
@@ -946,12 +976,73 @@ export default async function LauncherPage({
           2026-07-13 ordering), UNDATED at the tail reading "Date to be set".
           The FINISHED shelf follows as its own section — it is no longer hidden
           behind a "Show all" toggle. */}
+      {/* NOW HAPPENING — the day itself (owner 2026-08-21).
+          🔑 IT IS ABSENT, NOT EMPTY, WHEN NOBODY IS CELEBRATING. Most days that
+          is everybody, and a permanent "nothing today" row would be the loudest
+          thing on the board saying the least. It appears on the morning of the
+          day and leaves on its own the morning after — no state, no switch, and
+          nothing to clean up. */}
+      {happeningNow.length > 0 ? (
+        <section
+          id="now"
+          className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
+          style={{ animationDelay: '0.36s' }}
+        >
+          <SectionLabel
+            sub="today"
+            info="Your celebration is running today. It leaves this row on its own tomorrow."
+          >
+            Now happening
+          </SectionLabel>
+          <div className="space-y-3 sm:hidden">
+            {happeningNow.map((event) => (
+              <BoardCardWithMenu key={event.event_id} event={event} tone="dark">
+                <MobileEventHero
+                  event={event}
+                  pct={progressByEvent.get(event.event_id) ?? null}
+                  todayISO={todayISO}
+                  summary={decisionByEvent.get(event.event_id)}
+                  hasMenu={event.member_type === 'couple'}
+                />
+              </BoardCardWithMenu>
+            ))}
+          </div>
+          <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            {happeningNow.map((event, i) => (
+              <BoardCardWithMenu key={event.event_id} event={event}>
+                <GlassEventCard
+                  event={event}
+                  pct={progressByEvent.get(event.event_id) ?? null}
+                  heroSrc={heroFor(event.event_type)}
+                  ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                  index={i}
+                  todayISO={todayISO}
+                  summary={decisionByEvent.get(event.event_id)}
+                  hasMenu={event.member_type === 'couple'}
+                />
+              </BoardCardWithMenu>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section
         id="events"
         className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
         style={{ animationDelay: '0.4s' }}
       >
-        <SectionLabel sub="ongoing & upcoming">Coming up</SectionLabel>
+        <SectionLabel
+          sub="yours to run"
+          info="Everything you’re organising or were invited to. Put one away and it hides here until you switch it back on."
+          action={
+            putAway.length > 0 ? (
+              <PutAwaySwitch on={showPutAway} count={putAway.length} />
+            ) : null
+          }
+        >
+          Planning
+        </SectionLabel>
+        <ClashNotice clashes={clashes} />
         {/* MOBILE composition (proto .mhero/.mbento/.m-nudge/.mghost): the
             primary event as a full-width dark hero, the rest as compact glass
             chips, the neediest-event nudge row, then the New-event ghost. Same
@@ -1012,6 +1103,73 @@ export default async function LauncherPage({
           ))}
           <NewEventCard delay={0.5 + upcoming.length * 0.08} />
         </div>
+        {/* THE ONES THEY PUT AWAY — only when asked for. Muted, and each still
+            carries its own ⋯ menu, because the one thing a person wants here is
+            "bring it back", which is exactly what that menu already offers on an
+            archived row. */}
+        {showPutAway && putAway.length > 0 ? (
+          <div className="mt-4 border-t border-dashed border-ink/12 pt-4">
+            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--sn-ink-400)]">
+              Put away
+            </p>
+            <div className="grid grid-cols-2 gap-2.5 sm:hidden">
+              {putAway.map((event, i) => (
+                <BoardCardWithMenu
+                  key={event.event_id}
+                  event={event}
+                  align={i % 2 === 0 ? 'left' : 'right'}
+                >
+                  <MobileEventChip
+                    event={event}
+                    pct={progressByEvent.get(event.event_id) ?? null}
+                    finished
+                    todayISO={todayISO}
+                    summary={decisionByEvent.get(event.event_id)}
+                    hasMenu={event.member_type === 'couple'}
+                  />
+                </BoardCardWithMenu>
+              ))}
+            </div>
+            <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {putAway.map((event, i) => (
+                <BoardCardWithMenu key={event.event_id} event={event}>
+                  <GlassEventCard
+                    event={event}
+                    pct={progressByEvent.get(event.event_id) ?? null}
+                    heroSrc={heroFor(event.event_type)}
+                    ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                    finished
+                    index={upcoming.length + i}
+                    todayISO={todayISO}
+                    summary={decisionByEvent.get(event.event_id)}
+                    hasMenu={event.member_type === 'couple'}
+                  />
+                </BoardCardWithMenu>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      {/* WORTH PLANNING — the days that come around for this person (owner
+          2026-08-21: the Your Year menu is retired and its contents live on the
+          board).
+          🔑 NOTHING HERE IS AN EVENT YET, and that is the whole reason it is a
+          separate shelf rather than more cards on Planning: Planning holds
+          celebrations that EXIST, this holds days that do not. Merging them
+          would have a person looking for their wedding among suggestions. */}
+      <section
+        id="worth-planning"
+        className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
+        style={{ animationDelay: '0.44s' }}
+      >
+        <SectionLabel
+          sub="not events yet"
+          info="Days that come around for you — birthdays, anniversaries, the seasons that book out early. Nothing here is an event yet."
+        >
+          Worth planning
+        </SectionLabel>
+        <YearMomentsStrip userId={user.id} heading={null} />
       </section>
 
       {/* FINISHED, IN TWO SHELVES (owner 2026-08-13, split 2026-08-20).
@@ -1042,8 +1200,15 @@ export default async function LauncherPage({
         className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
         style={{ animationDelay: '0.46s' }}
       >
-        <SectionLabel sub={storiesMeasured ? 'no story written yet' : 'kept for good'}>
-          {storiesMeasured ? 'Unpublished' : 'Finished'}
+        <SectionLabel
+          sub={storiesMeasured ? 'no story written yet' : 'kept for good'}
+          info={
+            storiesMeasured
+              ? 'The day has passed and its story isn’t written. Pick the ones worth telling.'
+              : 'Celebrations move here on their own once the day has passed.'
+          }
+        >
+          {storiesMeasured ? 'Untold' : 'Ended'}
         </SectionLabel>
         {unwritten.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
@@ -1125,7 +1290,12 @@ export default async function LauncherPage({
           className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
           style={{ animationDelay: '0.48s' }}
         >
-          <SectionLabel sub="told in Your Story">Published</SectionLabel>
+          <SectionLabel
+            sub="in your story"
+            info="These days are chapters in your story now."
+          >
+            Told
+          </SectionLabel>
           <div className="grid grid-cols-2 gap-2.5 sm:hidden">
             {written.map((event, i) => (
               <BoardCardWithMenu
@@ -1197,14 +1367,129 @@ export default async function LauncherPage({
  * a trailing hairline rule filling the line (proto .mtitle). Optional
  * right-aligned action either way.
  */
+/**
+ * The (i) beside a shelf name. `<details>` — no client component, no state, no
+ * hydration: it opens on the server-rendered page and works with JavaScript
+ * off, which matters because this board is the first thing a person sees on a
+ * venue's bad signal.
+ *
+ * 🔑 IT IS NEVER A LONE CIRCLE. `SectionLabel` renders it only when a sentence
+ * was passed, so the failure the owner retired the old one for — a circle that
+ * opens onto nothing — cannot occur here by construction rather than by care.
+ */
+function ShelfInfo({ children }: { children: string }) {
+  return (
+    <details className="group relative shrink-0">
+      <summary
+        className="flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full border border-ink/20 text-[10px] font-bold italic leading-none text-[color:var(--sn-ink-500)] transition hover:border-ink/40 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sn-mulberry-600)] [&::-webkit-details-marker]:hidden"
+        aria-label="What is this row?"
+      >
+        i
+      </summary>
+      <p className="absolute left-0 top-7 z-20 w-[min(17rem,72vw)] whitespace-normal rounded-xl border border-ink/12 bg-white p-3 text-[12.5px] font-normal leading-relaxed text-ink/75 shadow-lg">
+        {children}
+      </p>
+    </details>
+  );
+}
+
+/**
+ * The switch that reveals put-away celebrations, and the count beside it.
+ *
+ * 🔑 THE COUNT IS THE POINT, not decoration. The board's previous hidden half
+ * was retired in 2026-08-13 because *"a thing you have to switch on reads as a
+ * thing that might not be there"*. Printing the number answers that before it
+ * is asked: nothing is missing, two are put away, here is the switch.
+ *
+ * A link rather than a control: the shelf is server-rendered, so flipping it is
+ * a navigation. Nothing is written down — putting an event away is the choice
+ * that persists; looking at it again is not.
+ */
+function PutAwaySwitch({ on, count }: { on: boolean; count: number }) {
+  return (
+    <Link
+      href={on ? '/dashboard#events' : '/dashboard?putaway=1#events'}
+      aria-pressed={on}
+      className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[11.5px] font-semibold transition ${
+        on
+          ? 'border-[color:var(--sn-mulberry-600)] text-ink'
+          : 'border-ink/15 text-[color:var(--sn-ink-500)] hover:border-ink/30 hover:text-ink'
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`relative h-[15px] w-[26px] rounded-full transition ${
+          on ? 'bg-[color:var(--sn-mulberry-600)]' : 'bg-ink/15'
+        }`}
+      >
+        <span
+          className={`absolute top-[2px] h-[11px] w-[11px] rounded-full bg-white shadow transition-all ${
+            on ? 'left-[13px]' : 'left-[2px]'
+          }`}
+        />
+      </span>
+      {on ? 'Hide the ones I put away' : `Show the ${count} I put away`}
+    </Link>
+  );
+}
+
+/**
+ * "You are expected in two places on this day."
+ *
+ * ⚠ IT NAMES THE DAY AND BOTH CELEBRATIONS, and stops there. It does not say
+ * which to move, does not offer to move one, and is not styled as an error —
+ * two celebrations on one day is a thing people genuinely do (a morning
+ * christening and an evening reception), so this is information, not a fault.
+ * The one thing it must never do is stay silent and let somebody find out on
+ * the day.
+ */
+function ClashNotice({ clashes }: { clashes: DateClash[] }) {
+  if (clashes.length === 0) return null;
+  return (
+    <ul className="mb-3 space-y-1.5">
+      {clashes.map((c) => (
+        <li
+          key={c.dayISO}
+          className="flex items-start gap-2 rounded-xl border border-[color:var(--sn-gold-700)]/25 bg-[color:var(--sn-gold-700)]/[0.06] px-3 py-2 text-[12.5px] leading-relaxed text-ink/80"
+        >
+          <CalendarClock
+            aria-hidden
+            className="mt-[2px] h-3.5 w-3.5 shrink-0 text-[color:var(--sn-gold-700)]"
+            strokeWidth={1.9}
+          />
+          <span>
+            <b className="font-semibold">{shortDate(c.dayISO)}</b> holds{' '}
+            {c.names.length === 2
+              ? `${c.names[0]} and ${c.names[1]}`
+              : `${c.names.slice(0, -1).join(', ')} and ${c.names[c.names.length - 1]}`}
+            .
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function SectionLabel({
   children,
   sub,
+  info,
   action,
 }: {
   children: ReactNode;
-  /** Soft caption beside the title (desktop only), e.g. "ongoing & upcoming". */
+  /** Soft caption beside the title (desktop only), e.g. "yours to run". */
   sub?: string;
+  /**
+   * One full sentence saying what this shelf is, revealed by the (i).
+   *
+   * ⚠ THE OWNER RETIRED THE PAGE-HEADER (i) ON 2026-08-21 — *"a lone circle
+   * explains nothing"* — and re-asked for one HERE the same day, per shelf.
+   * It is not a reversal: that one sat beside a page name a person had already
+   * read, and opened onto nothing. These five shelf names are new vocabulary,
+   * and this circle only ever exists where a real sentence is passed. There is
+   * deliberately no empty state: omit `info` and no circle renders at all.
+   */
+  info?: string;
   action?: ReactNode;
 }) {
   return (
@@ -1213,6 +1498,7 @@ function SectionLabel({
         <h2 className="flex flex-1 items-center gap-2.5 whitespace-nowrap text-sm font-extrabold tracking-tight text-ink after:h-px after:flex-1 after:bg-ink/10 sm:flex-none sm:text-base sm:tracking-[-0.015em] sm:after:hidden">
           {children}
         </h2>
+        {info ? <ShelfInfo>{info}</ShelfInfo> : null}
         {sub ? (
           <span className="hidden shrink-0 text-xs text-[color:var(--sn-ink-400)] sm:inline">
             {sub}

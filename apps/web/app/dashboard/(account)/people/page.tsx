@@ -2,6 +2,8 @@ import { Clock, Users, HeartHandshake, UserPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
+import { getSpouseContext } from '@/lib/people-spouse-context';
+import { offerableRelations, spouseAbsenceNote, type SpouseContext } from '@/lib/people-add';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { ConnectionsPanel, type ConnectionItem } from './_components/connections-panel';
@@ -61,6 +63,15 @@ export default async function PeoplePage({
     ? await fetchMyConnections(user.id)
     : { incoming: [], outgoing: [], confirmed: [] };
 
+  // THE SPOUSE RULE (owner 2026-08-21). Read once here and handed to the card,
+  // which never decides it — `addPersonConnection` recomputes the same rule from
+  // the same helper, so a chip that was never drawn is still refused if posted.
+  // No user (or connections off) → the not-married context, which is where a
+  // failed read lands too: the chip can be hidden by a denial, never invented.
+  const spouseCtx: SpouseContext = user
+    ? await getSpouseContext(user.id)
+    : { civilStatus: null, weddingHasHappened: false };
+
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
@@ -78,7 +89,13 @@ export default async function PeoplePage({
         </p>
       ) : null}
       {showConnections ? (
-        <ConnectionsPanel incoming={incoming} outgoing={outgoing} confirmed={confirmed} />
+        <ConnectionsPanel
+          incoming={incoming}
+          outgoing={outgoing}
+          confirmed={confirmed}
+          relations={offerableRelations(spouseCtx)}
+          spouseNote={spouseAbsenceNote(spouseCtx)}
+        />
       ) : null}
       {showDependents ? <DependentsSection /> : null}
       {/* Samahan (owner degree model 2026-07-17): groups are FIRST degree

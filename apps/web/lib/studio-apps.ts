@@ -1,5 +1,5 @@
 /**
- * studio-apps.ts — the ONE place the seven Studio products are described.
+ * studio-apps.ts — the ONE place the Studio products are described.
  *
  * ─── WHY THIS FILE EXISTS ────────────────────────────────────────────────
  * Owner, 2026-08-14, pointing at the rail's Studio group: *"the side menu when
@@ -114,7 +114,7 @@ export type StudioApp = {
 };
 
 /**
- * The seven, in the order the rail shows them.
+ * The eight, in the order the rail shows them.
  *
  * ⚠ ALAALA IS NOT HERE. It is the eighth public doorway but it lives in the
  * rail's ACCOUNT slot ("What is Alaala?" signed out, "Alaala" signed in), not
@@ -198,6 +198,33 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       sublabel: 'Seat a guest, then scan to see the room as them — no sign-up.',
     },
     addOnKey: 'seating',
+  },
+  {
+    /*
+      ─── THE EIGHTH, ADDED 2026-08-21 ──────────────────────────────────────
+      Owner: *"pakanta is paid. so add this to the studio."*
+
+      It has been SOLD since 2026-05-14 and had no public page until today, so
+      `front-door-invariants.test.ts` deliberately kept it out of the rail: a
+      row for it would have been a fake door. `/pakanta` lands in the same
+      commit, and that guard is inverted rather than deleted — it now fails if
+      the page disappears while the row stays.
+
+      🔑 NO `surface`. Pakanta is not wedding-only: `add-ons-catalog.ts` tags it
+      with none either, so a debut or an anniversary can buy a song. Adding one
+      here would silently drop the row for every non-wedding organiser.
+      🔑 NO `demo`. Nothing renders a Pakanta overlay — see the `demo` note
+      above; a "try it" marker on a page with no demo button is the fake door
+      this file forbids.
+    */
+    key: 'pakanta',
+    name: 'Pakanta',
+    href: '/pakanta',
+    description:
+      'Pakanta writes your wedding its own song — an original track composed from the love story you already told us, in the kind of music the two of you actually listen to. Yours to keep, cleared to share, and it becomes the music behind every video from your day, so the whole wedding sounds like you.',
+    railLine:
+      'An original song from your love story — and the music behind your videos.',
+    addOnKey: 'pakanta',
   },
   {
     key: 'palogo',

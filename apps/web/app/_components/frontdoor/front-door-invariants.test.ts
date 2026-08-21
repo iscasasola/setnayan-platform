@@ -18,6 +18,8 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { railToolsSignedOut } from '@/lib/studio-rail';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, '..', '..');
 /*
@@ -322,14 +324,46 @@ test('the shops heading is derived from the shared composer, not hardcoded', () 
   );
 });
 
-/* ── 6 · PAKANTA IS NOT IN THE RAIL ───────────────────────────────────────
-   It is sold and reachable only from inside the app. It has no public page,
-   so a row for it would be a fake door. */
-test('Pakanta is absent from the Studio group', () => {
-  assert.ok(
-    !/pakanta/i.test(DOOR_CODE),
-    'Pakanta has no public page — a rail row for it would be a fake door',
+/* ── 6 · PAKANTA IS IN THE RAIL, AND ITS DOOR IS REAL ─────────────────────
+   🔄 INVERTED 2026-08-21. Owner: *"pakanta is paid. so add this to the
+   studio."* This slot used to assert the opposite — that Pakanta stayed OUT,
+   because it was sold and had no public page, so a row for it would have been
+   a fake door. The right way to satisfy the instruction was to remove the
+   REASON, not the guard: `/pakanta` now exists, so the row is a real door and
+   what needs watching is the reverse — a row surviving a page's deletion.
+
+   🚨 AND THE OLD VERSION COULD NEVER HAVE FIRED. It searched `front-door.tsx`
+   for the string "pakanta". The Studio rows are built from `STUDIO_APPS` in
+   `lib/studio-apps.ts` and that word has never appeared in the front door's
+   own source — so adding Pakanta to the rail would have left this GREEN. It
+   was decoration for its whole life, and the rule it names is real, which is
+   the worst combination: a rule everybody believed was enforced. It now reads
+   the rows themselves and the filesystem. */
+test('every Studio row leads to a page that exists', () => {
+  const doorways = join(APP, '(shell)');
+  const rows = railToolsSignedOut();
+  assert.ok(rows.length > 0, 'the Studio group is empty — this check is vacuous');
+
+  const missing = rows
+    .filter((r) => !existsSync(join(doorways, r.href.replace(/^\//, ''), 'page.tsx')))
+    .map((r) => `${r.name} → ${r.href}`);
+  assert.deepEqual(
+    missing,
+    [],
+    `a signed-out Studio row points at a page that does not exist — a fake door: ${missing.join(', ')}`,
   );
+});
+
+test('Pakanta is one of them', () => {
+  /*
+    Named on its own because it is the one that was deliberately held OUT for
+    three months, and because the check above would go quiet about it the
+    moment somebody removed the row: an empty promise is caught, a missing
+    product is not.
+  */
+  const row = railToolsSignedOut().find((r) => r.name === 'Pakanta');
+  assert.ok(row, 'Pakanta is sold and must have a Studio row (owner 2026-08-21)');
+  assert.equal(row?.href, '/pakanta');
 });
 
 /* ── 7 · THE CRON-FREE JOBS ────────────────────────────────────────────────

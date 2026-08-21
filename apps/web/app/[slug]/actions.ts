@@ -453,8 +453,18 @@ export async function submitRsvp(
         ? `${guestName} RSVP'd: ${statusLabel}`
         : `${guestName} updated their details`;
       const parts: string[] = [];
-      if (changed.includes('meal') && meal !== 'no_preference') {
-        parts.push(`Meal preference: ${meal}.`);
+      // ⚠ EVERY MEMBER OF `changed` MUST PRODUCE A SENTENCE, or the couple gets
+      // a heading with nothing under it. Clearing a meal (beef → no preference)
+      // used to yield changed=['meal'] and parts=[] — an email whose entire
+      // content was "Ana updated their details", from a change the couple can
+      // only discover by opening the app. Same missing set/clear branch the
+      // dietary line below always had, on a third field.
+      if (changed.includes('meal')) {
+        parts.push(
+          meal !== 'no_preference'
+            ? `Meal preference: ${meal}.`
+            : 'They cleared their meal preference.',
+        );
       }
       // 🔒 THE DIETARY VALUE IS NAMED, NEVER QUOTED. The compliance record
       // classes dietary notes as data that may reveal health or religious

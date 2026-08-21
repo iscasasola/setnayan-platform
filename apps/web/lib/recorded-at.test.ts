@@ -85,7 +85,7 @@ test('⚠ it renders only when there IS one, and never claims they did not reply
   // The writers CLEAR the stamp on pending and maybe, so an absent value means
   // "no answer on record" — not "never replied". An unconditional render would
   // print "Answer recorded " with nothing after it.
-  assert.match(PAGE, /\{recordedAt \?/, 'the render is unconditional — a null prints an empty date');
+  assert.match(PAGE, /recordedAt \?/, 'the render is unconditional — a null prints an empty date');
   const line = PAGE.split('\n').find((l) => l.includes('Answer recorded'));
   assert.ok(line, 'the line is gone');
   for (const wrong of [/replied/i, /responded/i, /hasn/i]) {
@@ -119,4 +119,21 @@ test("🔴 the date survives a save that did not touch the ANSWER", () => {
     /\.select\('role, group_category, rsvp_status, rsvp_responded_at'\)/,
     'the prior answer and date are not selected — the comparison reads undefined and stamps every time',
   );
+});
+
+test("🔴 the COUPLE'S OWN row never shows an answer date", () => {
+  // The action coerces bride and groom to attending, so their stamp only ever
+  // records when a host last pressed Save. In production both carry a value
+  // byte-identical to their row's created_at — the instant the row was written,
+  // never an answer. Printed under "Answer recorded", one sentence after "always
+  // attending", it contradicts the sentence above it with something that was
+  // never an answer.
+  const page = code(here('app/dashboard/[eventId]/guests/[guestId]/page.tsx'));
+  const at = page.indexOf('Answer recorded');
+  assert.ok(at > -1, 'the line is gone');
+  const block = page.slice(Math.max(0, at - 200), at);
+  assert.match(block, /!isCouple && recordedAt/, 'the couple is shown a date for an answer they were never asked for');
+  // Vacuity: the branch it leans on must still exist and still coerce.
+  const actions = code(here('app/dashboard/[eventId]/guests/[guestId]/actions.ts'));
+  assert.match(actions, /'bride'|'groom'/, 'the coercion this guard assumes is gone — re-derive it');
 });

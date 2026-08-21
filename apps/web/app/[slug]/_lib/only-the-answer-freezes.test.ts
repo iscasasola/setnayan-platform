@@ -378,3 +378,26 @@ test("⚠ a REMOVED note is not announced as a note", () => {
   assert.match(branch, /guestNote \?/, 'the note branch does not ask whether there IS a note');
   assert.match(branch, /removed their note/, 'there is no sentence for a note that was deleted');
 });
+
+test('⚠ every reported change produces a sentence — no heading with nothing under it', () => {
+  // `changed` can only hold meal / dietary / note. If any branch is conditional
+  // on the VALUE rather than on membership, a guest clearing that field sends the
+  // couple a notification whose whole content is "Ana updated their details" —
+  // a change they can only discover by opening the app and hunting for it.
+  const src = read('actions.ts');
+  const at = src.indexOf('const parts: string[]');
+  assert.ok(at > -1, 'the notification body block moved');
+  const block = src.slice(at, src.indexOf('coupleMembers', at));
+  for (const field of ['meal', 'dietary', 'note']) {
+    const i = block.indexOf(`changed.includes('${field}')`);
+    assert.ok(i > -1, `${field} no longer produces a sentence at all`);
+    const cond = block.slice(i, i + 60);
+    assert.doesNotMatch(
+      cond,
+      /&&/,
+      `the ${field} sentence is gated on its VALUE, so clearing ${field} sends a heading with an empty body`,
+    );
+  }
+  // Vacuity: the slice must really contain the block, not an empty string.
+  assert.ok(block.length > 200, 'the parts block slice came back empty — this guard proves nothing');
+});

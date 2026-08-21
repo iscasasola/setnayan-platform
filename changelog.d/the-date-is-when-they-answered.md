@@ -41,3 +41,23 @@ it was the one arm never constructed. All four arms are now rendered AND the
 ternary is read as source, with a vacuity check on the slice.
 
 SPEC IMPACT: None.
+
+**E · The couple's own page contradicted itself, live in production.** #4684's
+line was appended OUTSIDE the `isCouple` ternary, so on the bride's and the
+groom's page the host read two consecutive sentences: *"The couple is the
+foundation of the event — always attending"* and *"Answer recorded 20 Jun 2026."*
+There is no answer to record — the action COERCES bride/groom to attending, so
+their stamp only ever says when a host last pressed Save. **Verified in prod: both
+carry a value byte-identical to their row's `created_at`** — the instant the row
+was written. Fix A stops it moving; this stops it being shown at all.
+
+**F · A notification with a heading and nothing under it.** The meal sentence was
+gated on the VALUE (`&& meal !== 'no_preference'`), so a guest CLEARING their meal
+produced `changed=['meal']` and `parts=[]` — an email whose entire content was
+"Ana updated their details", about a change they could only find by opening the
+app and hunting. The same missing set/clear branch as B, on a third field. Every
+member of `changed` now produces a sentence, and a guard walks all three.
+
+Found by the completeness critic, which asked what a seventh lens would cover and
+then ran it: the three PRs meet on ONE screen and nobody had audited the branches
+of the section #4683 reorganised while #4684 appended to it.

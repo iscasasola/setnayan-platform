@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6192
+# facts: 6193
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     600
-#   col       4527
+#   tpriv     598
+#   col       4530
 #   policy    841
 #   view      8
 #   func      212
@@ -210,8 +210,6 @@ tpriv	public.event_vendor_working_notes|authenticated	SIUD
 tpriv	public.event_vendors|anon	SIUD
 tpriv	public.event_vendors|authenticated	SIUD
 tpriv	public.event_walkthrough_zones|authenticated	SIUD
-tpriv	public.events|anon	D
-tpriv	public.events|authenticated	D
 tpriv	public.faith_vocab|anon	SIUD
 tpriv	public.faith_vocab|authenticated	SIUD
 tpriv	public.feature_policy|anon	SIUD
@@ -3823,6 +3821,8 @@ col	public.users.concierge_trial_used_at	anon=SU authenticated=SU
 col	public.users.created_at	anon=SU authenticated=SU
 col	public.users.creator_accepts_offers	anon=SU authenticated=SU
 col	public.users.deleted_at	anon=SU authenticated=SU
+col	public.users.dietary_restrictions	anon=SU authenticated=SU
+col	public.users.dietary_restrictions_consent_at	anon=SU authenticated=SU
 col	public.users.display_name	anon=SU authenticated=SU
 col	public.users.email	anon=SU authenticated=SU
 col	public.users.followers_count	anon=SU authenticated=SU
@@ -3834,6 +3834,7 @@ col	public.users.last_login_at	anon=SU authenticated=SU
 col	public.users.locale	anon=SU authenticated=SU
 col	public.users.marketing_consent_at	anon=SU authenticated=SU
 col	public.users.marketing_opt_in	anon=SU authenticated=SU
+col	public.users.meal_preference	anon=SU authenticated=SU
 col	public.users.phone	anon=SU authenticated=SU
 col	public.users.planner_mode	anon=SU authenticated=SU
 col	public.users.profile_photo_url	anon=SU authenticated=SU

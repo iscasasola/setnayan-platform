@@ -55,10 +55,10 @@ const GUESTS = here('lib/guests.ts');
 const PAGE = code(here('app/dashboard/[eventId]/guests/[guestId]/page.tsx'));
 
 test('the column is selected, or nothing can ever render it', () => {
-  const m = /const GUEST_FIELDS =\s*\n?\s*'([^']+)'/.exec(GUESTS);
-  assert.ok(m, 'GUEST_FIELDS moved');
+  const literal = /const GUEST_FIELDS =\s*\n?\s*'([^']+)'/.exec(GUESTS)?.[1];
+  assert.ok(literal, 'GUEST_FIELDS moved');
   assert.ok(
-    m![1].split(',').includes('rsvp_responded_at'),
+    literal.split(',').includes('rsvp_responded_at'),
     'the stamp is written by four paths and selected by none — it is unreadable again',
   );
 });

@@ -41,9 +41,9 @@ after(async () => {
 /** The literal the app ships — never a copy, or this guards the copy. */
 function guestFields(): string[] {
   const src = readFileSync(join(__dirname, '..', '..', 'lib', 'guests.ts'), 'utf8');
-  const m = /const GUEST_FIELDS =\s*\n?\s*'([^']+)'/.exec(src);
-  assert.ok(m, 'GUEST_FIELDS is no longer a single-quoted literal — re-point this guard');
-  return m![1].split(',').map((f) => f.trim()).filter(Boolean);
+  const literal = /const GUEST_FIELDS =\s*\n?\s*'([^']+)'/.exec(src)?.[1];
+  assert.ok(literal, 'GUEST_FIELDS is no longer a single-quoted literal — re-point this guard');
+  return literal.split(',').map((f) => f.trim()).filter(Boolean);
 }
 
 test('the guard actually reads a non-trivial field list', () => {

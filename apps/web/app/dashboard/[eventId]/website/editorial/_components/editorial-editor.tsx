@@ -760,7 +760,16 @@ export function EditorialEditor({
                         list="editorial-canonical-moments"
                         onChange={(e) => patchRow(leadId, { title: e.target.value })}
                         disabled={!isPro}
-                        placeholder={isPro ? 'Name this moment (e.g. First Kiss)' : 'Name this moment with Editorial PRO'}
+                        placeholder={
+                          // The public page already calls this moment by the name
+                          // on their own run-of-show. Showing anything else here
+                          // means the empty box and the live page disagree.
+                          r.card.suggestedTitle
+                            ? r.card.suggestedTitle
+                            : isPro
+                              ? 'Name this moment (e.g. First Kiss)'
+                              : 'Name this moment with Editorial PRO'
+                        }
                         aria-label="Moment name"
                       />
 

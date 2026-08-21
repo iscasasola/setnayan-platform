@@ -244,18 +244,13 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 0,
   },
-  {
-    key: "customer.account.year",
-    scope: "customer",
-    area: "customer-account",
-    route: "/dashboard/year",
-    label: "Your year",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "CalendarRange",
-    customRef: null,
-    sortOrder: 0,
-  },
+  // "Your year" IS RETIRED AS A MENU ENTRY (owner 2026-08-21): its contents are
+  // the board's "Worth planning" shelf now, so a second door to the same days
+  // is how one of them goes stale. ⚠ THE ROUTE ITSELF IS DELIBERATELY LEFT
+  // ALIVE — /dashboard/year still renders the full calendar with the holidays
+  // the shelf omits, and it is linked from the shelf's own "See the year →".
+  // Deleting the entry removes a DOOR, not the room; removing the room would
+  // break that link and any bookmark somebody already has.
   {
     key: "customer.account.notifications",
     scope: "customer",

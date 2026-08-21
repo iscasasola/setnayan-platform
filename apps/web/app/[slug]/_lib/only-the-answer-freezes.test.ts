@@ -365,3 +365,16 @@ test('the couple is not told the same thing twice', () => {
   const loop = src.slice(src.indexOf("member_type', 'couple')"), src.indexOf('relatedUrl'));
   assert.match(loop, /seen\.has/, 'two membership rows for one person would notify them twice');
 });
+
+test("⚠ a REMOVED note is not announced as a note", () => {
+  // The dietary branch had always answered set-or-cleared. The note branch did
+  // not: deleting a note told the couple "They left you a note", and the page
+  // they opened was empty. A trip made for nothing, and the second time it
+  // teaches them to ignore the notification.
+  const src = read('actions.ts');
+  const at = src.indexOf("changed.includes('note')");
+  assert.ok(at > -1, 'the note branch is gone');
+  const branch = src.slice(at, at + 220);
+  assert.match(branch, /guestNote \?/, 'the note branch does not ask whether there IS a note');
+  assert.match(branch, /removed their note/, 'there is no sentence for a note that was deleted');
+});

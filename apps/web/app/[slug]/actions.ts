@@ -463,7 +463,14 @@ export async function submitRsvp(
       if (changed.includes('dietary')) {
         parts.push(dietary ? 'Their dietary notes changed.' : 'They cleared their dietary notes.');
       }
-      if (changed.includes('note')) parts.push('They left you a note.');
+      // ⚠ The note branch must answer the SAME question the dietary branch above
+      // already answers: set or CLEARED. It said "They left you a note" either
+      // way, so deleting a note sent the couple to open a note that is not
+      // there — a trip made for nothing, and the second time it teaches them to
+      // ignore the notification.
+      if (changed.includes('note')) {
+        parts.push(guestNote ? 'They left you a note.' : 'They removed their note.');
+      }
 
       const { data: coupleMembers } = await admin
         .from('event_members')

@@ -96,3 +96,27 @@ test('⚠ it renders only when there IS one, and never claims they did not reply
     );
   }
 });
+
+test("🔴 the date survives a save that did not touch the ANSWER", () => {
+  // The host's guest form saves fifteen unrelated things. It used to write
+  // now() into the reply date on every press, so opening a guest in December to
+  // fix a phone number moved a March reply to December. Invisible until the
+  // date went on screen — a stamp nothing reads cannot be caught lying.
+  const src = code(here('app/dashboard/[eventId]/guests/[guestId]/actions.ts'));
+  assert.doesNotMatch(
+    src,
+    /rsvp_responded_at:\s*\['attending', 'declined'\]\.includes\([a-zA-Z]+\)\s*\?\s*new Date\(\)/,
+    'the unconditional restamp is back — every save rewrites the reply date',
+  );
+  const at = src.indexOf('const rsvp_responded_at');
+  assert.ok(at > -1, 'the derivation is gone — re-point this guard');
+  const derive = src.slice(at, src.indexOf(';', src.indexOf('prevGuest?.rsvp_responded_at')));
+  assert.match(derive, /answerChanged/, 'the new value does not depend on whether the answer changed');
+  assert.match(derive, /prevGuest\?\.rsvp_responded_at/, 'an unchanged answer no longer keeps its own date');
+  // …and the prior value must actually be READ, or the line above reads undefined.
+  assert.match(
+    src,
+    /\.select\('role, group_category, rsvp_status, rsvp_responded_at'\)/,
+    'the prior answer and date are not selected — the comparison reads undefined and stamps every time',
+  );
+});

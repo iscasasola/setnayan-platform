@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { CopyButton } from '@/app/_components/copy-button';
 import { createClient } from '@/lib/supabase/server';
@@ -39,6 +40,13 @@ export default async function PayPage({ params, searchParams }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login?next=' + encodeURIComponent(`/pay/${reference}`));
+  // An anonymous draft session is not an account. Couple checkout already
+  // refuses one before it will mint an order (it sends them to sign up), and a
+  // payment page must not be the one door that takes money from a session the
+  // buyer can lose by closing the tab.
+  if (user.is_anonymous) {
+    redirect('/signup?next=' + encodeURIComponent(`/pay/${reference}`));
+  }
 
   const payable = await fetchPayableByReference(supabase, decodeURIComponent(reference));
   // Not yours and not real are the same answer on purpose — see the resolver.
@@ -57,20 +65,36 @@ export default async function PayPage({ params, searchParams }: Props) {
   //
   // ⚠ A read that ERRORS is not "nothing logged" — an unreadable answer must
   // leave the form OPEN, never silently remove the only way to send proof.
+  //
+  // 🚨 AND A PLACEHOLDER IS NOT A CLAIM. Eight buy paths INSERT an empty
+  // `payments` row at checkout time — no screenshot, no reference, status
+  // 'pending' by column default — purely to reserve the row. Asking "does a
+  // payment row exist?" turns every one of those into "we're checking your
+  // payment… nothing else to do", thanking the buyer for money they have not
+  // sent and taking away the form they were about to use. The honest question
+  // is whether THEY have told us something: a picture, or a number.
   const { data: paymentRows, error: paymentsError } = await supabase
     .from('payments')
-    .select('payment_id,status,admin_resubmit_notice,created_at')
+    .select('payment_id,status,admin_resubmit_notice,screenshot_url,reference_number,created_at')
     .eq('order_id', payable.orderId)
     .order('created_at', { ascending: false })
     .limit(1);
   const latestPayment = paymentsError ? null : (paymentRows?.[0] ?? null);
-  const latestStatus = (latestPayment as { status?: string } | null)?.status ?? null;
+  const latestRow = latestPayment as {
+    status?: string;
+    screenshot_url?: string | null;
+    reference_number?: string | null;
+    admin_resubmit_notice?: string | null;
+  } | null;
+  const latestStatus = latestRow?.status ?? null;
   const needsBetterProof = latestStatus === 'resubmit_requested' || latestStatus === 'rejected';
-  const proofSent = latestPayment !== null && !needsBetterProof;
+  const carriesProof = Boolean(
+    latestRow?.screenshot_url?.trim() || latestRow?.reference_number?.trim(),
+  );
+  const proofSent = carriesProof && !needsBetterProof;
   const resubmitNotice =
     needsBetterProof
-      ? ((latestPayment as { admin_resubmit_notice?: string | null } | null)
-          ?.admin_resubmit_notice?.trim() ||
+      ? (latestRow?.admin_resubmit_notice?.trim() ||
         'We could not read the last picture you sent. Please send a clearer one.')
       : null;
 
@@ -104,6 +128,14 @@ export default async function PayPage({ params, searchParams }: Props) {
               ? "This one is settled — there's nothing left to send. Thank you."
               : 'This order was cancelled, so please don’t send anything for it.'}
           </p>
+          {payable.back && (
+            <Link
+              href={payable.back.href}
+              className="mt-4 inline-flex items-center gap-1.5 text-sm text-link underline"
+            >
+              {payable.back.label}
+            </Link>
+          )}
         </section>
       </main>
     );
@@ -111,6 +143,14 @@ export default async function PayPage({ params, searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-[560px] px-4 pb-32 pt-6">
+      {payable.back && (
+        <Link
+          href={payable.back.href}
+          className="mb-4 inline-flex items-center gap-1.5 text-sm text-link underline"
+        >
+          {payable.back.label}
+        </Link>
+      )}
       <section className="sn-tile p-6">
         <div className="mb-4 flex items-center gap-2.5">
           <span className="grid h-6 w-6 place-items-center rounded-full bg-ink text-[12px] font-bold text-white">
@@ -167,6 +207,7 @@ export default async function PayPage({ params, searchParams }: Props) {
       <PayPanel
         proofSent={proofSent || (search.sent === '1' && !needsBetterProof)}
         resubmitNotice={resubmitNotice}
+        requiresReference={payable.requiresReference}
         amountPhp={payable.amountPhp}
         reference={payable.reference}
         orderId={payable.orderId}

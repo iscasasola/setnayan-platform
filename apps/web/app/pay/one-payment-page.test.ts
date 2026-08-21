@@ -70,10 +70,23 @@ test('the rail is written in the spelling the headroom meter can read', () => {
   assert.equal((actions.match(/'GCash'|'BDO'/g) ?? []).length, 0);
 });
 
+test('a booking fee must carry a bank reference — the owner ruled it', () => {
+  // Owner 2026-08-06: on that lane a reference is REQUIRED, because an admin
+  // reconciles it against a bank message rather than guessing at money.
+  assert.match(actions, /payable\.requiresReference && !bankReference/);
+  assert.match(panel, /required=\{requiresReference\}/);
+});
+
+test('a pasted full reference is KEPT, not trimmed to six', () => {
+  // Six is a minimum a person can read off a receipt, not a maximum we store.
+  assert.match(actions, /cleaned\.slice\(0, 64\)/);
+  assert.doesNotMatch(actions, /cleaned\.slice\(-6\)/);
+});
+
 test('a claim with neither a picture nor a number is refused, not stored', () => {
   // Both fields are optional and the submit button sits below them: one stray
   // tap wrote an unreconcilable row AND hid the form that could have fixed it.
-  assert.match(actions, /if \(!screenshotUrl && !last6\)/);
+  assert.match(actions, /if \(!screenshotUrl && !bankReference\)/);
 });
 
 test('the form comes back when we ask for a better picture', () => {
@@ -91,6 +104,37 @@ test('a coordinator without payment permission is refused here too', () => {
   // lock the couple's own order page does — a second door onto one act.
   assert.match(actions, /coordinatorMoneyScopeAllowed\(/);
   assert.match(actions, /payable\.eventId/);
+});
+
+test('a placeholder payment row is not a claim', () => {
+  // Eight buy paths INSERT an empty payments row at checkout. Asking "does a
+  // payment row exist?" thanked the buyer for money they had not sent and took
+  // away the form they were about to use.
+  assert.match(page, /screenshot_url,reference_number/);
+  assert.match(page, /const carriesProof = Boolean\(/);
+  assert.match(page, /proofSent = carriesProof/);
+});
+
+test('the coordinator gate does not fire on a person paying their own order', () => {
+  // A shop paying Setnayan on a couple-scoped order owns it outright; asking
+  // the couple's permission refuses a supplier in the couple's words.
+  assert.match(actions, /payable\.eventId && payable\.ownerUserId !== user\.id/);
+});
+
+test('an anonymous draft session is never taken to a payment page', () => {
+  assert.match(page, /user\.is_anonymous/);
+});
+
+test('the page is not a dead end', () => {
+  assert.match(page, /payable\.back/);
+});
+
+test('the amount comes from the product’s one authority, not a copy', () => {
+  // A local copy subtracted the voucher a second time on any QUOTED order, so
+  // the QR asked for less than the shortfall guard demanded and the purchase
+  // could never switch on. See lib/the-qr-asks-for-what-is-owed.test.ts.
+  const resolver = stripComments(read('..', '..', 'lib', 'payable-by-reference.ts'));
+  assert.match(resolver, /orderGrossOwed\(/);
 });
 
 test('the payable is resolved on the SESSION client, so RLS scopes it', () => {

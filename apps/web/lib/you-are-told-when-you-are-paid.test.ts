@@ -105,3 +105,26 @@ test('the digest is still there as the net beneath it, not the alert itself', ()
   const digest = read('lib/admin/digest-flush.ts');
   assert.match(digest, /admin_digest_enabled/, 'the daily net must survive');
 });
+
+// ── the ONE payment page is now the live path for ten purchases ────────────
+test('the shared payment page tells them too', () => {
+  // 🚨 IT DID NOT ON ITS FIRST CUT. The surface moved and the alert did not
+  // come with it, so a payment sent through /pay would have sat unseen until
+  // somebody opened the queue — the exact harm this file exists to prevent,
+  // reintroduced by moving the code the file was watching.
+  const src = read('app/pay/[reference]/actions.ts');
+  const fn = src.slice(src.indexOf('export async function submitPaymentProof'));
+  assert.match(fn, /await notifyAdminsPaymentProofSubmitted\(/, 'the moment money moves must notify somebody');
+
+  const notifyAt = fn.indexOf('notifyAdminsPaymentProofSubmitted');
+  const finalRedirect = fn.lastIndexOf('redirect(');
+  assert.ok(notifyAt > -1 && notifyAt < finalRedirect, 'notify must precede the success redirect');
+});
+
+test('the shared page does NOT re-alert on a duplicate submit', () => {
+  const src = read('app/pay/[reference]/actions.ts');
+  const fn = src.slice(src.indexOf('export async function submitPaymentProof'));
+  assert.match(fn, /duplicateRetry/, 'the idempotent-retry branch must still exist');
+  // One payment, one alert.
+  assert.match(fn, /if \(!error\) \{[\s\S]{0,200}notifyAdminsPaymentProofSubmitted/);
+});

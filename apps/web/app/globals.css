@@ -633,6 +633,101 @@ html.subnav-docked [data-shell-main] {
 }
 
 @layer components {
+  /* ══════════════════════════════════════════════════════════════════════
+     SCALED TILE — one item, at the size its own contents earn.
+     Used by app/_components/scaled-tile.tsx.
+
+     🔑 WHY THESE RULES ARE HERE AND NOT IN A PAGE. The 2026-08-21 site audit
+     found the three-size system living as 484 lines inside ONE page file, its
+     class names appearing nowhere else — which is exactly why no other surface
+     matched it. This product has 106 bespoke card files and 717 more files
+     hand-drawing the same shape; a shared component whose styles are private
+     to one route would have made a 107th.
+
+     THE RULE: a picture AND writing ⇒ the width. One of them ⇒ a strip.
+     Neither ⇒ a line. Derived in lib/chapter-weight.ts, never chosen by hand.
+
+     ⚠ NO PICTURE MEANS NO FRAME. There is no empty-image state in here on
+     purpose: the component omits the element entirely, so an item without a
+     photograph is SMALLER rather than a hole. The audit counted six blank
+     bordered frames on the page selling photography and called them worse
+     than nothing.
+     ══════════════════════════════════════════════════════════════════════ */
+  .sn-scaled { list-style: none; margin: 0; padding: 0; }
+
+  .sn-shot {
+    display: block; position: relative; overflow: hidden;
+    border-radius: var(--m-r-sm); background: var(--m-ivory, #F6F2EA);
+  }
+  .sn-shot-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sn-shot-note, .sn-shot-play {
+    position: absolute; background: rgba(20, 14, 10, 0.62); color: #fff;
+  }
+  .sn-shot-note {
+    right: 10px; bottom: 10px; padding: 4px 9px; border-radius: var(--m-r-full);
+    font-size: 0.62rem; letter-spacing: 0.11em; text-transform: uppercase;
+  }
+  .sn-shot-play {
+    left: 10px; bottom: 10px; width: 30px; height: 30px;
+    border-radius: var(--m-r-full); display: grid; place-items: center;
+  }
+  .sn-shot-play-i { width: 12px; height: 12px; margin-left: 1px; }
+
+  .sn-kick {
+    display: block; margin: 0 0 0.4rem; color: var(--m-orange-2, #8A6B39);
+    font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* THE LEAD */
+  .sn-lead { margin: 0 0 1.15rem; }
+  .sn-lead-a { display: block; text-decoration: none; color: inherit; }
+  .sn-lead-shot { width: 100%; aspect-ratio: 16 / 10; border-radius: var(--m-r-sm); }
+  .sn-lead-b { display: block; padding: 0.85rem 0 0; }
+  .sn-lead-t {
+    display: block; margin: 0 0 0.45rem;
+    font-family: var(--font-editorial-display), Georgia, serif;
+    font-size: clamp(1.35rem, 4vw, 1.75rem); line-height: 1.12; font-weight: 600;
+    color: var(--m-ink, #1B1A17);
+  }
+  .sn-lead-x {
+    display: block; margin: 0 0 0.55rem; font-size: 0.94rem; line-height: 1.6;
+    color: var(--m-slate-1, #4A4740);
+  }
+  .sn-cue { display: block; font-size: 0.82rem; font-weight: 600; color: #C24E25; }
+
+  /* A STRIP */
+  .sn-med { border-top: 1px solid var(--m-line, #E2DED4); }
+  .sn-med-a {
+    display: flex; gap: 0.85rem; align-items: center; padding: 0.85rem 0;
+    text-decoration: none; color: inherit;
+  }
+  .sn-med-shot { width: 104px; height: 74px; flex: none; border-radius: var(--m-r-xs); }
+  .sn-med-b { display: block; min-width: 0; }
+  .sn-med-t {
+    display: block; font-family: var(--font-editorial-display), Georgia, serif;
+    font-size: 1.13rem; line-height: 1.2; font-weight: 600; color: var(--m-ink, #1B1A17);
+  }
+  .sn-med-x {
+    display: block; margin: 0.25rem 0 0; font-size: 0.8rem; line-height: 1.5;
+    color: var(--m-slate-2, #6A6E76);
+  }
+
+  /* A LINE */
+  .sn-line { border-top: 1px solid var(--m-line, #E2DED4); }
+  .sn-line-a {
+    display: flex; gap: 0.9rem; align-items: baseline; padding: 0.7rem 0;
+    text-decoration: none; color: inherit;
+  }
+  .sn-line-d {
+    width: 84px; flex: none; font-size: 0.66rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--m-slate-2, #6A6E76);
+  }
+  .sn-line-t {
+    font-family: var(--font-editorial-display), Georgia, serif;
+    font-size: 1.02rem; line-height: 1.25; color: var(--m-ink, #1B1A17);
+  }
+
   /*
    * .button-primary — TERRACOTTA CTA (Warm Editorial Archive, owner 2026-08-01;
    * was the gold CTA of 2026-07-12, and the Rich Mulberry of 2026-05-29).

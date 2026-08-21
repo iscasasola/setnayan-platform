@@ -24,7 +24,7 @@ import {
   type PublicChapter,
 } from '@/lib/creator-public';
 import { chronicleDay, groupChronicleByYear } from '@/lib/creator-chronicle';
-import { weighYearWithFloor, type ChapterWeight } from '@/lib/chapter-weight';
+import { ScaledTileList } from '@/app/_components/scaled-tile';
 import { loadChapterPictures, type ChapterPicture } from '@/lib/chapter-picture';
 import { loadWhoWasThere, type WhoWasThere } from '@/lib/who-was-there';
 import {
@@ -547,17 +547,10 @@ function ChapterTimeline({
   return (
     <section className="uprof-tl" aria-label="Chapters">
       {blocks.map((block) => {
-        // 🔑 THE SIZE IS DERIVED, NEVER CHOSEN. A wedding takes the width, a
-        // Tuesday takes a line — and it happens without anybody art-directing
-        // it, which is the only reason it keeps happening after the first week.
-        // See lib/chapter-weight.ts.
-        const weights = weighYearWithFloor(
-          block.entries.map(({ item, index }) => ({
-            hasPicture: pictures.has(item.chapter_id),
-            hasWriting: !!chapterExcerpt(item.body, 200),
-            _i: index,
-          })),
-        );
+        // 🔑 THE SIZE IS DERIVED, NEVER CHOSEN — and it now lives in the shared
+        // tile (app/_components/scaled-tile.tsx) so every other surface can use
+        // the same rule. This page was where it was born and was the only place
+        // that could reach it.
         return (
           <div key={block.year ?? 'unplaced'} className="uprof-yr">
             {/* THE YEAR IS THE SEASON, and it is written as its own name.
@@ -575,115 +568,35 @@ function ChapterTimeline({
                 </span>
               </p>
             ) : null}
-            <ol className="uprof-list">
-              {block.entries.map(({ item: c, index: i, number: n }, k) => {
-                const weight: ChapterWeight = weights[k] ?? 'line';
-                // The day the chapter is ABOUT — the celebration's, when it has one.
+            <ScaledTileList
+              className="uprof-list"
+              items={block.entries.map(({ item: c, index: i, number: n }) => {
+                // The day the chapter is ABOUT — the celebration's when it has one.
                 const date = formatChapterDate(days[i] ?? c.published_at);
-                const isLatest = i === newestIndex && showLatest;
                 const pic = pictures.get(c.chapter_id) ?? null;
-                const kicker = [
-                  n !== null ? `Chapter ${n}` : null,
-                  CHAPTER_KIND_LABEL[c.kind],
-                  date,
-                ]
-                  .filter(Boolean)
-                  .join(' · ');
-
-                // ── A LINE. No picture, no writing: a title and a date. It is
-                // not a lesser chapter, it is a shorter one.
-                if (weight === 'line') {
-                  return (
-                    <li key={c.chapter_id} className="uprof-line">
-                      <Link href={`/u/${slug}/c/${c.public_id}`} className="uprof-line-a">
-                        <span className="uprof-line-d">{date ?? ''}</span>
-                        <span className="uprof-line-t">{c.title}</span>
-                      </Link>
-                    </li>
-                  );
-                }
-
-                // ── THE LEAD. A photograph, the title, one sentence.
-                // ⚠ ONE SENTENCE, NOT AN ESSAY. The research bride has "two
-                // sentences and four hundred photographs" — a slot built for a
-                // long read is the slot she is least able to fill, on the most
-                // prominent part of her own page.
-                if (weight === 'lead') {
-                  return (
-                    <li key={c.chapter_id} className="uprof-lead">
-                      <Link href={`/u/${slug}/c/${c.public_id}`} className="uprof-lead-a">
-                        {pic ? (
-                          <span className="uprof-lead-img">
-                            {/* A dead or expired image cannot be detected
-                                server-side without a fetch, so the frame carries
-                                its own ground and the img an empty alt: it
-                                degrades to a neutral panel, never a broken
-                                glyph. */}
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={pic.url}
-                              alt=""
-                              loading="lazy"
-                              decoding="async"
-                              referrerPolicy="no-referrer"
-                              className="uprof-img"
-                            />
-                            {pic.count > 1 ? (
-                              <span className="uprof-count">{pic.count} photos</span>
-                            ) : null}
-                            {c.embed_url ? (
-                              <span aria-hidden className="uprof-play">
-                                <Play className="uprof-play-i" fill="currentColor" strokeWidth={0} />
-                              </span>
-                            ) : null}
-                          </span>
-                        ) : null}
-                        <span className="uprof-lead-b">
-                          <span className="uprof-k">
-                            {kicker}
-                            {isLatest ? ' · Latest' : ''}
-                          </span>
-                          <span className="uprof-lead-t">{c.title}</span>
-                          <span className="uprof-lead-x">{chapterExcerpt(c.body, 190)}</span>
-                          <span className="uprof-cue">
-                            {c.embed_url ? 'Watch the chapter' : 'Read the chapter'} &rarr;
-                          </span>
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                }
-
-                // ── MEDIUM. A strip: a small picture when there is one, the
-                // title, and whichever of the two it actually has.
-                return (
-                  <li key={c.chapter_id} className="uprof-med">
-                    <Link href={`/u/${slug}/c/${c.public_id}`} className="uprof-med-a">
-                      {pic ? (
-                        <span className="uprof-med-img">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={pic.url}
-                            alt=""
-                            loading="lazy"
-                            decoding="async"
-                            referrerPolicy="no-referrer"
-                            className="uprof-img"
-                          />
-                        </span>
-                      ) : null}
-                      <span className="uprof-med-b">
-                        <span className="uprof-k">{kicker}</span>
-                        <span className="uprof-med-t">{c.title}</span>
-                        {chapterExcerpt(c.body, 110) ? (
-                          <span className="uprof-med-x">{chapterExcerpt(c.body, 110)}</span>
-                        ) : null}
-                      </span>
-                    </Link>
-                  </li>
-                );
+                return {
+                  id: c.chapter_id,
+                  href: `/u/${slug}/c/${c.public_id}`,
+                  title: c.title,
+                  kicker: [
+                    n !== null ? `Chapter ${n}` : null,
+                    CHAPTER_KIND_LABEL[c.kind],
+                    date,
+                    i === newestIndex && showLatest ? 'Latest' : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · '),
+                  // ONE SENTENCE, never an essay — the slot is built for
+                  // somebody with two sentences and four hundred photographs.
+                  excerpt: chapterExcerpt(c.body, 190),
+                  imageUrl: pic?.url ?? null,
+                  imageNote: pic && pic.count > 1 ? `${pic.count} photos` : null,
+                  hasVideo: !!c.embed_url,
+                  meta: date,
+                  cue: c.embed_url ? 'Watch the chapter' : 'Read the chapter',
+                };
               })}
-            </ol>
+            />
           </div>
         );
       })}
@@ -1078,78 +991,12 @@ const UPROF_CSS = `
   }
   .uprof-list { list-style: none; margin: 0; padding: 0; }
 
-  .uprof-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .uprof-k {
-    display: block; font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em;
-    text-transform: uppercase; color: #8A6B39; margin: 0 0 0.4rem;
-  }
 
   /* THE LEAD */
-  .uprof-lead { margin: 0 0 1.15rem; }
-  .uprof-lead-a { display: block; text-decoration: none; color: inherit; }
-  .uprof-lead-img {
-    display: block; position: relative; width: 100%;
-    aspect-ratio: 16 / 10; border-radius: var(--m-r-sm); overflow: hidden;
-    background: var(--m-ivory, #F6F2EA);
-  }
-  .uprof-count, .uprof-play {
-    position: absolute; background: rgba(20, 14, 10, 0.62); color: #fff;
-  }
-  .uprof-count {
-    right: 10px; bottom: 10px; font-size: 0.62rem; letter-spacing: 0.11em;
-    text-transform: uppercase; padding: 4px 9px; border-radius: var(--m-r-full);
-  }
-  .uprof-play {
-    left: 10px; bottom: 10px; width: 30px; height: 30px; border-radius: 50%;
-    display: grid; place-items: center;
-  }
-  .uprof-play-i { width: 12px; height: 12px; margin-left: 1px; }
-  .uprof-lead-b { display: block; padding: 0.85rem 0 0; }
-  .uprof-lead-t {
-    display: block; font-family: var(--font-editorial-display), Georgia, serif;
-    font-size: clamp(1.35rem, 4vw, 1.75rem); line-height: 1.12; font-weight: 600;
-    color: var(--m-ink, #1B1A17); margin: 0 0 0.45rem;
-  }
-  .uprof-lead-x {
-    display: block; font-size: 0.94rem; line-height: 1.6;
-    color: var(--m-slate-1, #4A4740); margin: 0 0 0.55rem;
-  }
-  .uprof-cue { display: block; font-size: 0.82rem; font-weight: 600; color: #C24E25; }
 
   /* MEDIUM */
-  .uprof-med { border-top: 1px solid var(--m-line, #E2DED4); }
-  .uprof-med-a {
-    display: flex; gap: 0.85rem; align-items: center; padding: 0.85rem 0;
-    text-decoration: none; color: inherit;
-  }
-  .uprof-med-img {
-    display: block; position: relative; width: 104px; height: 74px; flex: none;
-    border-radius: var(--m-r-xs); overflow: hidden; background: var(--m-ivory, #F6F2EA);
-  }
-  .uprof-med-b { display: block; min-width: 0; }
-  .uprof-med-t {
-    display: block; font-family: var(--font-editorial-display), Georgia, serif;
-    font-size: 1.13rem; line-height: 1.2; font-weight: 600; color: var(--m-ink, #1B1A17);
-  }
-  .uprof-med-x {
-    display: block; font-size: 0.8rem; line-height: 1.5;
-    color: var(--m-slate-2, #6A6E76); margin: 0.25rem 0 0;
-  }
 
   /* A LINE */
-  .uprof-line { border-top: 1px solid var(--m-line, #E2DED4); }
-  .uprof-line-a {
-    display: flex; gap: 0.9rem; align-items: baseline; padding: 0.7rem 0;
-    text-decoration: none; color: inherit;
-  }
-  .uprof-line-d {
-    font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase;
-    color: var(--m-slate-2, #6A6E76); width: 84px; flex: none;
-  }
-  .uprof-line-t {
-    font-family: var(--font-editorial-display), Georgia, serif;
-    font-size: 1.02rem; line-height: 1.25; color: var(--m-ink, #1B1A17);
-  }
 
   /* ⛔ THE OLD SPINE IS RETIRED. It gave every chapter the same dot, the same
      card and the same width — the listing shape the owner rejected. Its rules

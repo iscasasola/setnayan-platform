@@ -86,11 +86,10 @@ export default async function WalkthroughPage({ params }: Props) {
 
       <PageMasthead
         titleNode={
-          <span className="flex items-center gap-2">
+          <span>
             <Video className="h-7 w-7 text-terracotta" strokeWidth={1.75} /> Walkthrough videos
           </span>
         }
-        lede="Record a short first-person walk from the entrance to a cluster of tables, then tag the tables in that zone. When a guest finds their seat, they can watch the exact walk to their table — the kind of arrival help no printed sign can give."
       />
 
       <WalkthroughManager eventId={eventId} zones={zones} tables={tables} />

@@ -105,19 +105,6 @@ export default async function PaperworkPage({ params }: Props) {
         </div>
         <PageMasthead
         title="Paperwork"
-        lede={
-          <>
-            This event type has no required government paperwork checklist. Track
-            your own documents and contracts under{' '}
-            <Link
-              href={`/dashboard/${eventId}/documents`}
-              className="font-medium text-terracotta-700 hover:text-terracotta-800"
-            >
-              Documents
-            </Link>
-            .
-          </>
-        }
       />
       </section>
     );
@@ -204,14 +191,6 @@ export default async function PaperworkPage({ params }: Props) {
       </div>
       <PageMasthead
         title="Your wedding paperwork"
-        lede={
-          <>
-            Filipino paperwork rewards lead time. PSA documents take 2–4 weeks
-            to process, the marriage license is valid for 120 days, and most
-            parishes need 60–90 days notice for Pre&#8209;Cana. We track each
-            one and surface the deadline pegged to your wedding date.
-          </>
-        }
       />
       {/* The deadline prompt is page CONTENT pegged to a real date, not a
           title-row control — it keeps its own place, one level out. */}

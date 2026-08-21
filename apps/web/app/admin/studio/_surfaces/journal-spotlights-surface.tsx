@@ -120,7 +120,6 @@ export async function JournalSpotlightsSurface({
     <div>
       <PageMasthead
         title="Journal Spotlights"
-        className="mb-6"
       />
 
       {ok ? (

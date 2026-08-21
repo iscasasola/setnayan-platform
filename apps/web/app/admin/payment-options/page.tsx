@@ -102,16 +102,6 @@ export default async function AdminPaymentOptionsPage() {
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <PageMasthead
         title="Payment options"
-        lede={
-          <>
-            Vendors publish their own payment destinations so couples pay them{' '}
-            <span className="font-medium">directly</span>. Approving here does{' '}
-            <span className="font-medium">not</span> make Setnayan the payment
-            processor — it only screens links &amp; QR codes for fraud before they
-            reach couples. Vendor&nbsp;↔&nbsp;couple money is always off-platform.
-          </>
-        }
-        className="mb-6"
       />
 
       {error ? (

@@ -261,7 +261,6 @@ export async function VendorsSurface({
   return (
     <div>
       <PageMasthead
-        className="mb-6"
         title="Vendors"
       />
 

@@ -542,17 +542,6 @@ export default async function AdminTaxonomyPage({
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="Taxonomy Studio"
-        lede={
-          <>
-            The single live taxonomy, edited visually. Ten folders, {tiles.length} tiles, {totalRows} services.
-            Drag a tile to reorder it, drop it on a folder to re-home it, and open any tile to edit its icon,
-            photo, event scope, and services. Every change publishes live to the marketplace and onboarding with
-            no deploy
-            {tax.source === 'fallback' ? ' (tables unseeded — using lib/taxonomy.ts)' : ''}. Editing the{' '}
-            <strong>{tax.source === 'db' ? 'DB tree' : 'code fallback'}</strong>.
-          </>
-        }
-        className="mb-6"
       />
 
       {ok ? (

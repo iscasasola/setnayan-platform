@@ -82,7 +82,7 @@ export default async function ClearancePage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
-      <PageMasthead title="Close out the day" back={base} backLabel="Back to your dashboard" lede={`When the celebration winds down, wrap up the live services and close out — your ${noun} dashboard then leads with the summary and the editorial maker instead of the planning tools.`} />
+      <PageMasthead title="Close out the day" />
 
       <ul className="mt-6 space-y-2">
         {steps.map((s) => {

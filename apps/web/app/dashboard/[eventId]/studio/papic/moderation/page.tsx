@@ -267,13 +267,11 @@ export default async function PapicModerationPage({
     <section className="space-y-6">
       <PageMasthead
         titleNode={
-          <span className="flex items-center gap-2">
-            <ShieldCheck aria-hidden className="h-5 w-5 shrink-0 text-mulberry" strokeWidth={1.75} />
+          <span>
+            <ShieldCheck aria-hidden strokeWidth={1.75} />
             Photo moderation
           </span>
         }
-        back={`/dashboard/${eventId}/studio/papic`}
-        backLabel="Back to Papic"
       />
 
       {notice && (

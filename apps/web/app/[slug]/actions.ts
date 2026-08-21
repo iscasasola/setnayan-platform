@@ -9,6 +9,7 @@ import { r2Delete } from '@/lib/r2';
 import { parseStoredAsset } from '@/lib/uploads';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
+import { guestDetailsChanged } from './_lib/guest-details-changed';
 import { createClient } from '@/lib/supabase/server';
 import { VECTOR_MODEL } from '@/lib/face-embed-core';
 import {
@@ -170,15 +171,27 @@ export async function submitRsvp(
   // ⚠ It must be a real CHANGE. A stale tab still carries the guest's own
   // answer pre-checked, so it reposts it unchanged on an ordinary details save
   // — telling that guest "your reply was refused" would be alarming and false.
+  // The stored values BEFORE this write — the only way to tell a real change
+  // from an idle Save. Every field on the reply card is `defaultValue=`, so a
+  // guest who opens the card and taps Save reposts their own answer, meal,
+  // allergy and note byte-for-byte.
+  // ⚠ A READ, deliberately — never a write. The guard in
+  // only-the-answer-freezes.test.ts locates the answer-freezing statement by
+  // finding the first writing call after the closed-list check, so a write here
+  // would silently retarget it onto the wrong one.
+  // 🪤 And this comment may not SPELL that call: naming it here is enough for
+  // the guard to find the comment instead of the code, which is how an earlier
+  // draft of this very note turned the guard red.
+  const { data: before } = await admin
+    .from('guests')
+    .select('rsvp_status, meal_preference, dietary_restrictions, guest_note')
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
   let answerRefused = false;
   if (replyLocked && RSVP_VALUES.includes(status)) {
-    const { data: current } = await admin
-      .from('guests')
-      .select('rsvp_status')
-      .eq('guest_id', guestId)
-      .eq('event_id', eventId)
-      .maybeSingle();
-    answerRefused = Boolean(current) && current!.rsvp_status !== status;
+    answerRefused = Boolean(before) && before!.rsvp_status !== status;
   }
 
   const { error } = await admin
@@ -393,10 +406,30 @@ export async function submitRsvp(
     .eq('event_id', eventId)
     .maybeSingle();
 
-  // Notify couple-side members that an RSVP came in. emitNotification handles
-  // both the in-app row + the Resend email (when configured). Failures here
-  // never roll back the RSVP — best-effort.
-  if (status === 'attending' || status === 'declined') {
+  // TELL THE COUPLE WHAT MOVED ON THIS GUEST'S CARD — the answer, or the
+  // details only they can act on. emitNotification handles the in-app row and
+  // the email; failures here never roll back the RSVP.
+  //
+  // 🔴 UNTIL 2026-08-21 THIS FIRED ONLY ON `attending` / `declined`, and that
+  // omitted far more than "maybe". Once the guest list is final the answer
+  // control is not rendered AT ALL, so `status` arrives EMPTY — a guest typing
+  // "severe nut allergy" twelve days out reached nobody, in the exact fortnight
+  // a caterer needs it. The action already knew the control was gone; every
+  // other branch was taught to cope and this one was never revisited.
+  //
+  // 🔑 AND IT FIRES ON THE CHANGE, NEVER ON THE WRITE. The update above runs on
+  // every submit and `updated_at` always moves, while every field on the card
+  // is `defaultValue=` — so neither is a change signal. Only the comparison is.
+  //
+  // ⚠ DELIBERATE REMOVAL: reposting an unchanged `attending` used to notify the
+  // couple again. It is now silent. That is the point.
+  const changed = guestDetailsChanged(before, { meal, dietary, guestNote });
+  // Only a change that was actually STORED counts. When the list is locked the
+  // answer is not written at all, so a stale tab posting a different one must
+  // never be reported to the host as a reply that moved.
+  const answerChanged = !replyLocked && before?.rsvp_status !== status;
+
+  if (answerChanged || changed.length > 0) {
     try {
       const { data: guest } = await admin
         .from('guests')
@@ -407,21 +440,47 @@ export async function submitRsvp(
         (guest?.display_name ?? '').trim() ||
         `${guest?.first_name ?? ''} ${guest?.last_name ?? ''}`.trim() ||
         'A guest';
-      const statusLabel = status === 'attending' ? 'attending' : 'not attending';
+      // 🪤 'maybe' can reach here now. It never could before, so the old label
+      // mapped everything-not-attending to "not attending" — which would report
+      // an UNDECIDED guest to the couple as a NO.
+      const statusLabel =
+        status === 'attending'
+          ? 'attending'
+          : status === 'declined'
+            ? 'not attending'
+            : 'undecided';
+      const title = answerChanged
+        ? `${guestName} RSVP'd: ${statusLabel}`
+        : `${guestName} updated their details`;
+      const parts: string[] = [];
+      if (changed.includes('meal') && meal !== 'no_preference') {
+        parts.push(`Meal preference: ${meal}.`);
+      }
+      // 🔒 THE DIETARY VALUE IS NAMED, NEVER QUOTED. The compliance record
+      // classes dietary notes as data that may reveal health or religious
+      // belief; the deep link keeps the words inside the app rather than in an
+      // inbox.
+      if (changed.includes('dietary')) {
+        parts.push(dietary ? 'Their dietary notes changed.' : 'They cleared their dietary notes.');
+      }
+      if (changed.includes('note')) parts.push('They left you a note.');
+
       const { data: coupleMembers } = await admin
         .from('event_members')
         .select('user_id')
         .eq('event_id', eventId)
         .eq('member_type', 'couple');
+      // ⚠ Two rows can carry the same user_id. Without this the couple gets the
+      // same allergy twice.
+      const seen = new Set<string>();
       for (const m of coupleMembers ?? []) {
+        if (!m.user_id || seen.has(m.user_id as string)) continue;
+        seen.add(m.user_id as string);
         await emitNotification({
           userId: m.user_id,
           type: 'rsvp_received',
-          title: `${guestName} RSVP'd: ${statusLabel}`,
-          body:
-            status === 'attending' && meal && meal !== 'no_preference'
-              ? `Meal preference: ${meal}.`
-              : null,
+          title,
+          body: parts.length ? parts.join(' ') : null,
           relatedUrl: `/dashboard/${eventId}/guests/${guestId}`,
         });
       }

@@ -23,6 +23,13 @@ type Props = {
   eventId: string;
   /** ISO date string (YYYY-MM-DD) or null. Visibility gate. */
   eventDate: string | null;
+  /** The event has already happened — resolved server-side from the lifecycle
+   *  phase. Its own window runs to T+36h, so without this it would still be
+   *  pulling the whole event bundle down the morning after, to serve a venue
+   *  nobody is going back to. Told, not re-derived — see the sibling
+   *  `<EventDayPrepCta>` for why a second window would be worse than none.
+   *  Omitted ⇒ false ⇒ byte-identical for every existing caller. */
+  finished?: boolean;
   /** Override "now" for tests. */
   nowMs?: number;
 };
@@ -93,7 +100,7 @@ function writeDedupeTimestamp(eventId: string, nowMs: number): void {
   }
 }
 
-export function AutoPreloadOnEventDay({ eventId, eventDate, nowMs }: Props) {
+export function AutoPreloadOnEventDay({ eventId, eventDate, finished = false, nowMs }: Props) {
   const firedRef = useRef(false);
   // State only exists so React re-renders when the component remounts; the
   // payload is never read by the UI (this component renders null).
@@ -101,6 +108,9 @@ export function AutoPreloadOnEventDay({ eventId, eventDate, nowMs }: Props) {
 
   useEffect(() => {
     if (firedRef.current) return;
+    // Checked before the window, and INSIDE the effect rather than as an early
+    // return above it: a hook that runs conditionally is a different bug.
+    if (finished) return;
     const now = nowMs ? new Date(nowMs) : new Date();
     if (!isInAutoFireWindow(eventDate, now)) return;
 
@@ -130,7 +140,7 @@ export function AutoPreloadOnEventDay({ eventId, eventDate, nowMs }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [eventId, eventDate, nowMs]);
+  }, [eventId, eventDate, finished, nowMs]);
 
   return null;
 }

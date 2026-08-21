@@ -148,7 +148,7 @@ export default async function PatiktokBoothDashboard({
           <>
             {event?.display_name ?? 'Your event'}
             {event?.event_date ? (
-              <span className="ml-2 font-mono text-base text-ink/55">
+              <span>
                 · {formatCalendarDate(event.event_date, { dateStyle: 'long' })}
               </span>
             ) : null}

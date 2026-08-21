@@ -92,16 +92,6 @@ export default async function OurPhotosEditorPage({
     <section className="space-y-6">
       <PageMasthead
         title="Your own gallery"
-        back={`/dashboard/${eventId}/website`}
-        backLabel="Back to Event Hub"
-        lede={
-          <>
-            Add a few of your favourite photos — your engagement shoot, a
-            pre-wedding session, or candid moments. They appear as a gallery on
-            your Event Hub. Leave it empty to hide the section. JPG, PNG,
-            or WebP up to 10 MB each · up to {MAX_PHOTOS} photos.
-          </>
-        }
       />
       <div className="mt-3 space-y-3">
         {saved ? (

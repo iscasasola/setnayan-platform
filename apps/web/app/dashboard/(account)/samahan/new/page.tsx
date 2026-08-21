@@ -30,10 +30,6 @@ export default async function NewSamahanPage({
     <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="Create a Samahan"
-        back="/dashboard/samahan"
-        backLabel="Back to Samahan"
-        lede="One shared space for your group — free, private, invite-link-only."
-        className="mb-6"
       />
 
       {errorMessage ? (

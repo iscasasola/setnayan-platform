@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f0e33519f",
+  "generatedFromRef": "8606a6f87",
   "routeCount": 402,
-  "destinations": 879,
+  "destinations": 864,
   "actions": 580,
-  "blocks": 3821,
+  "blocks": 3835,
   "routes": {
     "/": {
       "files": [
@@ -1690,7 +1690,6 @@
         "admin/demo-vendors/inquiries/page.tsx"
       ],
       "destinations": [
-        "/admin/demo-vendors",
         "/admin/demo-vendors/inquiries/[seg]"
       ],
       "actions": [],
@@ -1767,6 +1766,7 @@
       "blocks": [
         "EligibilitySection",
         "Link",
+        "PageMasthead",
         "VoucherForm"
       ]
     },
@@ -1783,6 +1783,7 @@
       ],
       "blocks": [
         "Link",
+        "PageMasthead",
         "VoucherForm"
       ]
     },
@@ -2780,10 +2781,8 @@
       "destinations": [
         "/[seg]",
         "/[seg]/recap",
-        "/admin",
         "/admin/discount-codes/[seg]/edit",
         "/admin/discount-codes/new",
-        "/admin/pricing",
         "/admin/studio?tab=discount-codes",
         "/admin/studio?tab=discount-codes&filter=active",
         "/admin/studio?tab=discount-codes&filter=disabled",
@@ -3573,7 +3572,6 @@
         "dashboard/(account)/creator/page.tsx"
       ],
       "destinations": [
-        "/dashboard",
         "/dashboard/profile",
         "/u/[seg]",
         "/v/[seg]"
@@ -3652,7 +3650,6 @@
         "dashboard/(account)/life-flash/page.tsx"
       ],
       "destinations": [
-        "/dashboard",
         "/dashboard/create-event"
       ],
       "actions": [],
@@ -3698,9 +3695,10 @@
     },
     "/dashboard/(account)/people": {
       "files": [
+        "dashboard/(account)/people/_components/add-alaga-button.tsx",
         "dashboard/(account)/people/_components/add-alaga-fields.tsx",
-        "dashboard/(account)/people/_components/connections-panel.tsx",
         "dashboard/(account)/people/_components/dependents-section.tsx",
+        "dashboard/(account)/people/_components/people-roster-view.tsx",
         "dashboard/(account)/people/_components/samahan-people-section.tsx",
         "dashboard/(account)/people/_components/your-story-section.tsx",
         "dashboard/(account)/people/actions.ts",
@@ -3709,7 +3707,6 @@
         "dashboard/(account)/people/page.tsx"
       ],
       "destinations": [
-        "/dashboard",
         "/dashboard/samahan/[seg]",
         "/dashboard/samahan/new",
         "/onboarding/debut"
@@ -3727,20 +3724,30 @@
       ],
       "blocks": [
         "ActionResult",
+        "AddAlagaButton",
         "AddAlagaFields",
+        "Avatar",
         "ConfirmForm",
-        "ConnectionRelation",
-        "ConnectionsPanel",
         "CopyButton",
         "DependentKind",
         "DependentsSection",
+        "Drawer",
+        "Facet",
+        "Fragment",
+        "HTMLButtonElement",
+        "HTMLInputElement",
+        "LabelCell",
         "LifeStorySection",
         "Link",
         "PageMasthead",
         "PeoplePreview",
+        "PeopleRosterView",
+        "Popover",
         "PreviewRow",
-        "Result",
+        "RowActions",
+        "SamahanCell",
         "SamahanPeopleSection",
+        "StateCell",
         "SubmitButton",
         "YourStorySection"
       ]
@@ -3823,7 +3830,6 @@
         "dashboard/(account)/samahan/page.tsx"
       ],
       "destinations": [
-        "/dashboard",
         "/dashboard/samahan/[seg]",
         "/dashboard/samahan/new"
       ],
@@ -3862,9 +3868,7 @@
       "files": [
         "dashboard/(account)/samahan/new/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/samahan"
-      ],
+      "destinations": [],
       "actions": [
         "createCommunity"
       ],
@@ -3879,7 +3883,6 @@
         "dashboard/(account)/year/page.tsx"
       ],
       "destinations": [
-        "/dashboard",
         "/dashboard/profile"
       ],
       "actions": [],
@@ -4209,9 +4212,7 @@
         "dashboard/[eventId]/access-requests/actions.ts",
         "dashboard/[eventId]/access-requests/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "AnswerResult",
@@ -4607,7 +4608,8 @@
         "/dashboard/[seg]/guests/quick",
         "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/seating",
-        "/dashboard/[seg]/studio/custom-qr-guest"
+        "/dashboard/[seg]/studio/custom-qr-guest",
+        "/dashboard/[seg]/website/editorial"
       ],
       "actions": [],
       "blocks": [
@@ -6318,6 +6320,7 @@
         "HTMLFormElement",
         "HostSetlistPanel",
         "Link",
+        "PageMasthead",
         "PlaylistPickRowComponent",
         "PlaylistSlotSection",
         "PlaylistSlotType",
@@ -6559,7 +6562,6 @@
         "dashboard/[eventId]/vendors/requirements-actions.ts"
       ],
       "destinations": [
-        "/dashboard/[seg]",
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/disputes",
         "/dashboard/[seg]/messages",
@@ -6982,6 +6984,7 @@
         "ProChip",
         "ProUpsellLine",
         "ShareButtons",
+        "WebsiteProLock",
         "WishRow"
       ]
     },
@@ -7061,9 +7064,7 @@
         "dashboard/[eventId]/website/our-story/milestones-field.tsx",
         "dashboard/[eventId]/website/our-story/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/website"
-      ],
+      "destinations": [],
       "actions": [
         "updateAction"
       ],
@@ -7083,9 +7084,7 @@
         "dashboard/[eventId]/website/photo-moments/loading.tsx",
         "dashboard/[eventId]/website/photo-moments/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/website"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "Date",
@@ -7124,9 +7123,7 @@
         "dashboard/[eventId]/website/site-chrome/actions.ts",
         "dashboard/[eventId]/website/site-chrome/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/website"
-      ],
+      "destinations": [],
       "actions": [
         "updateAction"
       ],
@@ -7181,8 +7178,7 @@
         "dashboard/[eventId]/website/widgets/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/guests/new",
-        "/dashboard/[seg]/website"
+        "/dashboard/[seg]/guests/new"
       ],
       "actions": [
         "moveWidgetDown",
@@ -7456,6 +7452,7 @@
         "join/[eventId]/success/page.tsx"
       ],
       "destinations": [
+        "/[seg]",
         "/dashboard"
       ],
       "actions": [],
@@ -9067,8 +9064,7 @@
         "vendor-dashboard/creators/page.tsx"
       ],
       "destinations": [
-        "/u/[seg]",
-        "/vendor-dashboard/shop"
+        "/u/[seg]"
       ],
       "actions": [
         "sendCreatorOffer"
@@ -9123,9 +9119,7 @@
         "vendor-dashboard/deep-search/actions.ts",
         "vendor-dashboard/deep-search/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/subscription"
-      ],
+      "destinations": [],
       "actions": [
         "formAction"
       ],

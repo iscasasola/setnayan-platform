@@ -35,7 +35,7 @@ const SRC = readFileSync(
   'utf8',
 );
 
-/** The four hooks, and the first side effect each one performs. */
+/** Each hook, and the first side effect it performs. */
 const HOOKS = [
   {
     name: 'booking fee',
@@ -57,14 +57,24 @@ const HOOKS = [
     extract: 'const vendorProfileId = vendorProfileIdFromCustomPlanServiceKey(ctx.serviceKey);',
     firstEffect: 'assertOrderOwnsVendorTarget(', // gate is this hook's first statement
   },
+  {
+    // Added 2026-08-21 with the ONE payment page: a plan purchase now mints an
+    // order, and approving that order's payment switches the plan on. Same
+    // shape as the others — the key names a purchase, the purchase names a
+    // shop, and the paying order must belong to that shop.
+    name: 'vendor subscription',
+    extract:
+      'const purchaseId = purchaseIdFromVendorSubscriptionServiceKey(ctx.serviceKey);',
+    firstEffect: "rpc('approve_vendor_subscription'",
+  },
 ] as const;
 
-test('all four vendor-surface hooks call the ownership gate', () => {
+test('all five vendor-surface hooks call the ownership gate', () => {
   const calls = SRC.split('await assertOrderOwnsVendorTarget(').length - 1;
   assert.equal(
     calls,
-    4,
-    `expected 4 gated hooks, found ${calls} — a hook lost its gate or a new one was added ungated`,
+    HOOKS.length,
+    `expected ${HOOKS.length} gated hooks, found ${calls} — a hook lost its gate or a new one was added ungated`,
   );
 });
 

@@ -149,3 +149,30 @@ test('the menu is on for a real event, not just the sample', () => {
     'The sample must not be switchable off by a stray env value.',
   );
 });
+
+test('the share/report pill reserves its own footprint instead of covering content', () => {
+  // 🔴 MEASURED ON THE LIVE INVITATION (2026-08-21, 375px): this pill sat over
+  // **85% of the "Sign up free" button** — `elementsFromPoint` at that button's
+  // centre returned SHARE, so the tap that creates an account hit the share
+  // sheet — and over three-quarters of the wedding date on the hero.
+  //
+  // 🪤 AND THE PREVIOUS FIX MOVED THE COLLISION RATHER THAN ENDING IT. The
+  // component's own docblock records it being lifted clear of the menu BAR;
+  // that was right, and it landed the pill on the CONTENT instead. Anything
+  // `fixed` needs its footprint reserved in the flow — lifting it only chooses
+  // a different victim. This asserts the reservation, not the position.
+  const src = read(join(HERE, '..', '..', '_components', 'public-page-actions.tsx'));
+  assert.match(
+    src,
+    /<div aria-hidden className="h-14 print:hidden" \/>/,
+    'the share pill stopped reserving its footprint — it is covering page content again',
+  );
+  // The spacer must be a SIBLING IN THE FLOW, not inside the fixed wrapper
+  // (where it would reserve nothing at all).
+  const spacerAt = src.indexOf('<div aria-hidden className="h-14');
+  const fixedAt = src.indexOf('pointer-events-none fixed inset-x-0');
+  assert.ok(
+    spacerAt > -1 && fixedAt > -1 && spacerAt < fixedAt,
+    'the spacer moved inside the fixed wrapper, where it reserves nothing',
+  );
+});

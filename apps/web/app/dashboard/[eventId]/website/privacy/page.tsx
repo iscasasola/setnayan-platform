@@ -117,19 +117,6 @@ export default async function PrivacyEditorPage({
       {/* Header strip — back link + title */}
       <PageMasthead
         titleNode={<>Set who can see your {eventNoun(event.event_type)} page</>}
-        back={`/dashboard/${eventId}/website`}
-        backLabel="Back to your {eventNoun(event.event_type)} website"
-        lede={
-          <>
-            Choose who can view {event.display_name ? <em>{event.display_name}</em> : `your ${eventNoun(event.event_type)}`} at{' '}
-            {event.slug ? (
-              <span className="font-mono text-sm">setnayan.com/{event.slug}</span>
-            ) : (
-              `your ${eventNoun(event.event_type)} URL`
-            )}
-            . You can change this anytime.
-          </>
-        }
       />
 
       {/* Saved confirmation — polite + non-dismissible (gone on next nav) */}

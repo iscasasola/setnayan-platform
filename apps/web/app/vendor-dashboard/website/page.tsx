@@ -87,8 +87,6 @@ export default async function VendorWebsitePreview() {
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="Your website"
-        lede="This is your public page — exactly what couples see when they open your link on the marketplace. Edit anything from your Profile."
-        className="mb-6"
       />
 
       {previewable && publicPath ? (

@@ -59,12 +59,11 @@ export default async function ReferACouplePage({ params }: Props) {
     <div className="space-y-6">
       <PageMasthead
         titleNode={
-          <span className="flex items-center gap-2">
+          <span>
             <Gift aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
             Refer a couple
           </span>
         }
-        lede="Planning is better together. Share your link with couples you know — when they book their first Setnayan service, you both get a little something to spend on your own event."
       />
 
       {/* Share card — the couple's code + link + one-tap copy. */}

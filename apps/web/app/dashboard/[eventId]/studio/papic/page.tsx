@@ -543,8 +543,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       {/* Header — short. */}
       <PageMasthead
         titleNode={
-          <span className="flex items-center gap-3">
-            <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
+          <span>
+            <Camera aria-hidden strokeWidth={1.75} />
             {papicEventWord === 'wedding' ? 'Wedding' : 'Event'} photo capture
           </span>
         }

@@ -175,12 +175,11 @@ export async function ReferralsSurface() {
     <div className="space-y-6">
       <PageMasthead
         titleNode={
-          <span className="inline-flex items-center gap-2">
+          <span>
             <Gift aria-hidden className="h-6 w-6" strokeWidth={1.75} />
             Referrals
           </span>
         }
-        lede="Couples refer couples. A referral qualifies on the referred couple’s first paid order — both sides then get a single-use reward voucher."
       />
 
       {/* Master toggle. WITHHELD when the setting could not be read: an

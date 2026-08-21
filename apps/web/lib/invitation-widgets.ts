@@ -19,7 +19,7 @@
  * the renderer to drift on widget names, labels, or always-on flags.
  */
 
-import { getDayOfPhase } from './day-of-mode';
+import { getDayOfPhase, getMenuLifecyclePhase } from './day-of-mode';
 import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
@@ -425,9 +425,58 @@ export function isWebsitePhasesEnabled(): boolean {
  * owner 2026-06-18: a rendered Save-the-Date didn't show because of this.)
  */
 // NOT the dashboard menu-phase resolver: that is `getMenuLifecyclePhase` in lib/day-of-mode.ts.
-export function getLifecyclePhase(eventDate: string | null): LifecyclePhase {
+export function getLifecyclePhase(
+  eventDate: string | null,
+  /*
+    THE VENUE'S OWN CLOCK.
+
+    🚨 WITHOUT IT THIS RESOLVER ASKS A SERVER IN UTC WHAT TIME IT IS AT A
+    WEDDING IN MANILA. `getDayOfPhase` below has taken a `tz` since 2026-08-05
+    and this call never passed one, so the PUBLIC page — the one guests open —
+    decided which phase to render from a clock eight hours behind the venue.
+
+    Optional so no caller silently changes meaning; every call site in the app
+    passes it, and `every-public-phase-reads-the-venue-clock` fails if a new one
+    forgets.
+  */
+  tz?: string,
+  /** The LAST day, for a celebration spanning several — same value the
+   *  dashboard's own resolver anchors on. */
+  eventEndDate?: string | null,
+  /*
+    "Now", injectable.
+
+    🪤 ADDED BECAUSE A TEST OF THIS FUNCTION PASSED FOR THE WRONG REASON.
+    Without it the only way to assert the post-event answer is to run at the
+    real wall clock — and on the morning after a test event, `getDayOfPhase`
+    ALREADY returns 'post', which already maps to 'editorial'. So the
+    assertion went green with the new boundary deleted: it was measuring the
+    old path and reporting the new one. Every other resolver in this pair
+    takes an injectable now for exactly this reason.
+  */
+  nowMs?: number,
+): LifecyclePhase {
   if (!eventDate) return 'save_the_date';
-  switch (getDayOfPhase(eventDate)) {
+
+  /*
+    ─── ONE ANSWER TO "HAS IT HAPPENED?", NOT TWO ───────────────────────────
+
+    The dashboard flips to its After phase at 06:00 on the day after the last
+    day (see lib/day-of-mode.ts). This page used to keep saying "Happening now"
+    until T+36h — so on the morning after a wedding, the couple's own dashboard
+    could call it finished while the page their guests were opening still ran
+    the live day-of surface.
+
+    Delegated, never re-derived: the boundary lives in ONE function and this
+    asks it. `cleared_at` is deliberately NOT passed — closing out the day is a
+    HOST action on the host's dashboard, and it must not retire the guests'
+    page out from under them mid-celebration.
+  */
+  if (getMenuLifecyclePhase(eventDate, null, tz, nowMs, eventEndDate ?? null) === 'after') {
+    return 'editorial';
+  }
+
+  switch (getDayOfPhase(eventDate, tz, nowMs)) {
     case 'live':
       return 'event';
     case 'post':
@@ -442,7 +491,7 @@ export function getLifecyclePhase(eventDate: string | null): LifecyclePhase {
       // that is days away from now.
       const eventMs = new Date(eventDate).getTime();
       if (!Number.isFinite(eventMs)) return 'rsvp';
-      const now = Date.now();
+      const now = nowMs ?? Date.now();
       if (eventMs < now) return 'editorial';
       // Future, beyond the near-event run-up: split the long pre-event window
       // into Save the Date (announcement, > STD_THRESHOLD_DAYS out) and RSVP

@@ -78,19 +78,6 @@ export default async function DataPrivacyPage({
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
       <PageMasthead
         title="Data Privacy & NPC Filing"
-        lede={
-          <>
-            One place for the live control board and the NPC filing. Approve each privacy-sensitive
-            capability, check what’s declared to the regulator, and work down the pre-filing
-            checklist. Features read this board, so a control that isn’t <strong>Active</strong> stays
-            off everywhere.
-            <span className="mt-1 block" style={{ color: 'var(--m-slate-3)' }}>
-              {activeCount} of {liveTotal} controls active
-              {retiredCount > 0 ? ` · ${retiredCount} retired` : ''}.
-            </span>
-          </>
-        }
-        className="mb-5"
       />
 
       {/* Tab bar */}

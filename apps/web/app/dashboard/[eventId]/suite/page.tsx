@@ -8,6 +8,9 @@ import {
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { recommendStudioAddOns } from '@/lib/studio-recommendations';
 import { fetchRoadmapState } from '@/lib/wedding-roadmap-signals';
+import { addOnSellableNow } from '@/lib/add-on-event-scope';
+import { getMenuLifecyclePhase, type MenuLifecyclePhase } from '@/lib/day-of-mode';
+import { roadmapLedeStage } from '@/lib/wedding-roadmap';
 import { formatPhp } from '@/lib/orders';
 import { eventActiveSkus } from '@/lib/entitlements';
 import { deriveMonogram } from '@/lib/monogram';
@@ -255,7 +258,12 @@ export default async function SuitePage({ params }: Props) {
       // community_id rides along for papicGuestPassAccess() below — anniversary
       // is the one type whose Papic eligibility splits on the CONTROLLER
       // (personally-owned vs Samahan-owned), not on the type.
-      .select('display_name, event_date, monogram_text, community_id')
+      .select(
+        // ⚠ the three lifecycle columns ride along in the SAME batched read —
+        // zero extra round trips. They answer "has this already happened", which
+        // decides whether the day-of services are still sellable.
+        'display_name, event_date, event_end_date, cleared_at, timezone, monogram_text, community_id',
+      )
       .eq('event_id', eventId)
       .maybeSingle(),
     // Compare-vendors doorway — resolve the couple's saved shortlist in the same
@@ -391,6 +399,25 @@ export default async function SuitePage({ params }: Props) {
     return entry.serviceKey ? ownedActive.has(entry.serviceKey) : false;
   }
 
+  /*
+    ─── HAS THIS CELEBRATION ALREADY HAPPENED? ──────────────────────────────
+    ONE resolver, the same one the Overview, the rail, the guest list and the
+    Hosts page ask. Owner 2026-08-21, on the services that can only happen
+    during the event: **"stop offering them."**
+  */
+  const eventHasHappened =
+    getMenuLifecyclePhase(
+      (eventRow as { event_date?: string | null } | null)?.event_date ?? null,
+      (eventRow as { cleared_at?: string | null } | null)?.cleared_at ?? null,
+      (eventRow as { timezone?: string | null } | null)?.timezone ?? undefined,
+      undefined,
+      (eventRow as { event_end_date?: string | null } | null)?.event_end_date ?? null,
+    ) === 'after';
+  const lifecyclePhase: MenuLifecyclePhase = eventHasHappened ? 'after' : 'plan';
+  /** Closed = a day-of service on an event that is over, and not already owned. */
+  const isClosed = (entry: AddOnEntry): boolean =>
+    !isOwned(entry) && !addOnSellableNow(entry, lifecyclePhase);
+
   // Resolve the App Store-style pill (price/status) — identical rules to Studio.
   function pillFor(entry: AddOnEntry): RowPill {
     if (entry.status === 'coming_soon') return { text: 'Soon', tone: 'soon' };
@@ -398,6 +425,10 @@ export default async function SuitePage({ params }: Props) {
       return { text: 'Active', tone: 'active' };
     if (entry.serviceKey && ownedPending.has(entry.serviceKey))
       return { text: 'Pending', tone: 'pending' };
+    // ⚠ STRICTLY AFTER the owned rungs. A service the couple PAID FOR keeps its
+    // "Active" pill after the event — moving this rung above them would turn a
+    // paid Live Studio grey on the morning after, which is the regression.
+    if (isClosed(entry)) return { text: 'Event over', tone: 'soon' };
     if (entry.tier === 'free') return { text: 'Free', tone: 'free' };
     if (entry.freeTrial) return { text: entry.freeTrial, tone: 'trial' };
     const price = entry.serviceKey ? priceMap.get(entry.serviceKey) : null;
@@ -406,12 +437,19 @@ export default async function SuitePage({ params }: Props) {
 
   // Owned services deep-link into the working tool; not-yet-owned open the
   // detail/learn-more route (opensDirect-aware) — same as the Studio hub.
-  function cardHref(entry: AddOnEntry): string {
-    return isOwned(entry) ? addOnHref(entry.key, eventId) : appStoreDetailHref(entry.key, eventId);
+  function cardHref(entry: AddOnEntry): string | null {
+    if (isOwned(entry)) return addOnHref(entry.key, eventId);
+    // A closed day-of service still SHOWS — dimmed, unclickable. The shipped
+    // shape is `SuiteServiceCard`'s `if (!href)` branch, the same one
+    // `studio/page.tsx` uses for a coming-soon card. Nothing new is drawn.
+    if (isClosed(entry)) return null;
+    return appStoreDetailHref(entry.key, eventId);
   }
 
   // ── The secretary's lead: the phase-aware "what to set up next" picks. ─────
   const monthsToDate = roadmapState?.months ?? null;
+  // ⚠ The recommender is a "what to set up next" engine. After the event it must
+  // not lead with something the buy path refuses — see `isClosed`.
   const recommended = recommendStudioAddOns({
     monthsToDate,
     signals: roadmapState?.signals ?? null,
@@ -419,7 +457,12 @@ export default async function SuitePage({ params }: Props) {
     followRoadmap: profile.eventType === 'wedding',
     isEligible: (key) => {
       const e = ADD_ONS.find((a) => a.key === key);
-      return e ? e.status !== 'coming_soon' && surfaceOk(e) : false;
+      // `addOnSellableNow` last: a day-of service on a finished event is not a
+      // thing to "set up next", and recommending it would lead straight to a
+      // card whose buy path is closed.
+      return e
+        ? e.status !== 'coming_soon' && surfaceOk(e) && addOnSellableNow(e, lifecyclePhase)
+        : false;
     },
     isOwned: (key) => {
       const e = ADD_ONS.find((a) => a.key === key);
@@ -430,14 +473,16 @@ export default async function SuitePage({ params }: Props) {
     .map((key) => ADD_ONS.find((a) => a.key === key))
     .filter((e): e is AddOnEntry => Boolean(e));
 
-  const recommendLede =
-    monthsToDate === null
-      ? 'Great places to start while your date settles.'
-      : monthsToDate > 6
-        ? 'Where couples put their energy with this much time to go.'
-        : monthsToDate > 3
-          ? 'The pieces to line up as your event gets closer.'
-          : 'Your last stretch — capture, and the event itself.';
+  // The RUNG is shared (lib/wedding-roadmap.ts knows the sign); the WORDS are
+  // this hub's own. Before the 'past' rung existed, a celebration that happened
+  // last night read "Your last stretch".
+  const recommendLede = {
+    undated: 'Great places to start while your date settles.',
+    far: 'Where couples put their energy with this much time to go.',
+    closer: 'The pieces to line up as your event gets closer.',
+    last_stretch: 'Your last stretch — capture, and the event itself.',
+    past: 'Everything you had, and what turns it into the story.',
+  }[roadmapLedeStage(monthsToDate)];
 
   // ── Partition the catalog: what you own, what you can add, what's free. ────
   // Tier E (simple_event: marketplace off ⇒ no vendors ⇒ nothing for the

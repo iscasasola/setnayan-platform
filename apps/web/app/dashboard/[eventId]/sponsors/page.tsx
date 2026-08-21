@@ -228,15 +228,6 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
 
       <PageMasthead
         title="Your principal sponsors"
-        lede={
-          <>
-            Pick the people you want standing beside you on the day — your ninong
-            and ninang, plus the cord, veil, coin, and candle sponsors who carry
-            the rites of the ceremony. Filipino weddings traditionally invite{' '}
-            {PRINCIPAL_PAIR_DEFAULT} pairs of principal sponsors; some couples go
-            up to {PRINCIPAL_PAIR_MAX}.
-          </>
-        }
       />
 
       {/* Inline status banner */}

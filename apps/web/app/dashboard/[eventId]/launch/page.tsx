@@ -9,10 +9,17 @@ import { eventSkuActive } from '@/lib/entitlements';
 import { resolveAddOnState } from '@/lib/add-on-state';
 import { liveStudioControllerHref } from '@/lib/live-studio-control';
 import { getLifecyclePhase } from '@/lib/invitation-widgets';
+/* ⚠ TWO NEAR-IDENTICALLY NAMED RESOLVERS LIVE ONE IMPORT APART.
+   `getLifecyclePhase` above is the PUBLIC-WEBSITE phase (save_the_date → rsvp →
+   event → editorial) and it reaches 'editorial' by a second path, so it is NOT
+   a has-it-happened test. `getMenuLifecyclePhase` is. */
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { PUBLIC_SITE_PAGES } from '@/lib/public-site-pages';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
-export const metadata = { title: 'Launch your services' };
+// ⚠ Was a static title; the page has two names now, so it needs the dynamic
+// form. `checklist/page.tsx` is the shipped pattern for a per-event title.
+export const metadata = { title: 'Your services' };
 
 type Props = { params: Promise<{ eventId: string }> };
 
@@ -75,11 +82,22 @@ export default async function LaunchHubPage({ params }: Props) {
     // this page needs (owner R5 Option A). Slug builds the `/[slug]?phase=` link;
     // event_date feeds the SAME getLifecyclePhase the public engine uses so we can
     // mark which named page the live QR resolves to right now.
-    supabase.from('events').select('slug, event_date').eq('event_id', eventId).maybeSingle(),
+    // ⚠ `timezone` + `event_end_date` added 2026-08-21: `getLifecyclePhase`
+    // used to resolve this from the SERVER's clock (UTC on Vercel), so which
+    // named page the live QR was said to resolve to could be a day out.
+    supabase
+      .from('events')
+      .select('slug, event_date, event_end_date, cleared_at, timezone')
+      .eq('event_id', eventId)
+      .maybeSingle(),
   ]);
   const eventSlug = (eventRes.data as { slug?: string | null } | null)?.slug ?? null;
   const eventDate = (eventRes.data as { event_date?: string | null } | null)?.event_date ?? null;
-  const activePhase = getLifecyclePhase(eventDate);
+  const activePhase = getLifecyclePhase(
+    eventDate,
+    (eventRes.data as { timezone?: string | null } | null)?.timezone ?? undefined,
+    (eventRes.data as { event_end_date?: string | null } | null)?.event_end_date ?? null,
+  );
 
   type Service = {
     key: string;
@@ -92,11 +110,28 @@ export default async function LaunchHubPage({ params }: Props) {
     Icon: LucideIcon;
   };
 
+  /*
+    ─── HAS THIS CELEBRATION ALREADY HAPPENED? ──────────────────────────────
+    ONE resolver — the same one the Overview, the rail, the guest list, the
+    Hosts page and the Suite ask. Owner 2026-08-21 on the day-of services:
+    **"stop offering them."**
+  */
+  const eventHasHappened =
+    getMenuLifecyclePhase(
+      eventDate,
+      (eventRes.data as { cleared_at?: string | null } | null)?.cleared_at ?? null,
+      (eventRes.data as { timezone?: string | null } | null)?.timezone ?? undefined,
+      undefined,
+      (eventRes.data as { event_end_date?: string | null } | null)?.event_end_date ?? null,
+    ) === 'after';
+
   const services: Service[] = [
     {
       key: 'panood',
       name: 'Live Studio — livestream',
-      blurb: 'Bring everyone who could not make it into the room.',
+      blurb: eventHasHappened
+        ? 'This one runs during the celebration.'
+        : 'Bring everyone who could not make it into the room.',
       owned: panoodState.state === 'launch',
       launchLabel: 'Go live',
       // ONE CONTROLLER (Wave 6): the day-of "Go live" button follows the flag —
@@ -112,7 +147,9 @@ export default async function LaunchHubPage({ params }: Props) {
     {
       key: 'livewall',
       name: 'Live Photo Wall',
-      blurb: 'Project guest photos at the venue in real time.',
+      blurb: eventHasHappened
+        ? 'This one runs at the venue, on the day.'
+        : 'Project guest photos at the venue in real time.',
       owned: ownsLiveWall,
       launchLabel: 'Open the wall',
       launchHref: `${base}/live`,
@@ -129,9 +166,13 @@ export default async function LaunchHubPage({ params }: Props) {
       // no seat cap, and Pool cameras are unlimited by construction — any phone
       // that scans the event QR shoots from the shared pool. No number here: the
       // crew page derives what this event actually holds.
-      blurb: hasPapic
-        ? 'Your cameras are ready — hand them out and the day gets caught from every angle.'
-        : 'Hand a camera to anyone you trust and the day gets caught from every angle.',
+      blurb: eventHasHappened
+        ? hasPapic
+          ? 'Your cameras have stood down — the photos are in your galleries.'
+          : 'Cameras are handed out on the day.'
+        : hasPapic
+          ? 'Your cameras are ready — hand them out and the day gets caught from every angle.'
+          : 'Hand a camera to anyone you trust and the day gets caught from every angle.',
       owned: hasPapic,
       launchLabel: 'Hand out cameras',
       launchHref: `${base}/studio/papic/crew`,
@@ -144,7 +185,7 @@ export default async function LaunchHubPage({ params }: Props) {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
       <PageMasthead
-        title="Launch your services"
+        title={eventHasHappened ? 'Your services' : 'Launch your services'}
       />
 
       <div className="mt-6 space-y-3">
@@ -178,6 +219,16 @@ export default async function LaunchHubPage({ params }: Props) {
                   {s.launchLabel}
                   <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
                 </Link>
+              ) : eventHasHappened ? (
+                /* ⚠ CLOSED, NOT HIDDEN — the same shape the Suite uses. The row
+                   still says what the service was; it just stops offering to
+                   sell it for a night that has finished. */
+                <span
+                  aria-disabled="true"
+                  className="inline-flex shrink-0 items-center rounded-full border border-ink/10 bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/45"
+                >
+                  Event over
+                </span>
               ) : (
                 <Link
                   href={s.addHref}

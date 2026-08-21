@@ -71,8 +71,6 @@ export default async function OurStoryEditorPage({
     <section className="space-y-6">
       <PageMasthead
         title="The story you tell your guests"
-        back={`/dashboard/${eventId}/website`}
-        backLabel="Back to Event Hub"
       />
       <div className="mt-3 space-y-3">
         {saved ? (

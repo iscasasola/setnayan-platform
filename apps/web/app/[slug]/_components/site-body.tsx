@@ -1774,7 +1774,13 @@ export async function SiteBody({
               {/* Guest Columns (BUILD ① · GUEST_COLUMNS_ENABLED, default OFF) — the
                   guest's one column for the couple's paper + the approved columns.
                   Guest-session tree only (cookie holders); flag off → renders null. */}
-              <GuestColumnCard eventId={event.event_id} guestId={guest.guest_id} eventDate={event.event_date} />
+              <GuestColumnCard
+                eventId={event.event_id}
+                guestId={guest.guest_id}
+                eventDate={event.event_date}
+                eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+                eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
+              />
             </>
           ), memento ? (
             /* Design §11, After Event column: the reply-card ticket returns as

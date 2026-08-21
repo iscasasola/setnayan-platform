@@ -288,7 +288,10 @@ export type RailNavLabels = Record<string, { label: string }>;
 const RAIL_SLOT = {
   events: 'customer.account.events',
   alaala: 'customer.account.library',
-  year: 'customer.account.year',
+  // `year` is GONE with its rail row and its registry slot (owner 2026-08-21).
+  // Leaving the key would point at a slot that no longer exists, so `slotLabel`
+  // would fall through to its literal forever — a lookup that has quietly
+  // stopped being a lookup, which is how the admin rename surface rots.
   find: 'customer.account.marketplace',
 } as const;
 
@@ -1049,21 +1052,24 @@ export function FrontDoorShell({
                   <span className="fd-icon-caption">Alaala</span>
                   <Count value={account.alaalaCount} />
                 </Link>
-                {/* YOUR YEAR — a real door, added 2026-08-19.
-                    Its only in-app entrances were the strip on the account home
-                    and a ⌘K row. The home is becoming events-only, and this
-                    page's own docblock states the standard it would then fail:
-                    "a palette entry is not a doorway". So the doorway moves to
-                    the rail BEFORE the strip is removed, not after. */}
-                <Link href="/dashboard/year" {...rowProps('year')}>
-                  <span className="fd-gi" aria-hidden="true">
-                    ❒
-                  </span>
-                  <span className="fd-label-text">
-                    {slotLabel(RAIL_SLOT.year, 'Your year')}
-                  </span>
-                  <span className="fd-icon-caption">Year</span>
-                </Link>
+                {/* YOUR YEAR — THE RAIL ROW IS RETIRED (owner 2026-08-21:
+                    *"this is the your year concept integrated here. deleting
+                    the your year menu"*).
+                    Its premise expired. The row was added 2026-08-19 with the
+                    reasoning "the home is becoming events-only, so the doorway
+                    moves to the rail BEFORE the strip is removed" — and the
+                    board then went the other way: the year's contents are now
+                    the "Worth planning" SHELF on My Events, which is a bigger
+                    door than this row ever was.
+                    🔑 THE ROUTE IS NOT RETIRED, ONLY THE MENU. /dashboard/year
+                    still holds the holidays the shelf leaves out, and the shelf
+                    links to it in BOTH its branches — populated
+                    (year-moments-list) and empty (year-moments-strip's
+                    EmptyYear) — so the "a palette entry is not a doorway"
+                    standard is still met, by a link a person can see rather
+                    than a keyboard shortcut.
+                    `lib/the-controls-have-a-home.test.ts` asserts exactly
+                    that; do not re-add this row without changing it back. */}
               {/*
                 PEOPLE — A DOOR, NOT A NOTICE. This was a "coming soon · waiting
                 on a legal review" notice, and it was WRONG ON BOTH HALVES.

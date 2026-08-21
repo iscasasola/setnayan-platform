@@ -82,7 +82,18 @@ function countdown(days: number): string {
   return months <= 1 ? 'in ~1 month' : `in ~${months} months`;
 }
 
-export async function YearMomentsStrip({ userId }: { userId: string }) {
+export async function YearMomentsStrip({
+  userId,
+  heading = 'This year',
+}: {
+  userId: string;
+  /**
+   * The tile's own caption. Pass `null` when the caller already names the row —
+   * the board's "Worth planning" shelf does, and two headings stacked on one
+   * panel reads as a bug rather than as emphasis.
+   */
+  heading?: string | null;
+}) {
   const supabase = await createClient();
   const today = manilaToday();
 
@@ -127,7 +138,7 @@ export async function YearMomentsStrip({ userId }: { userId: string }) {
     buildSelfMoments((selfRow as SelfForMoments | null) ?? null, today),
   );
 
-  if (moments.length === 0) return <EmptyYear unsure={readFailed} />;
+  if (moments.length === 0) return <EmptyYear unsure={readFailed} heading={heading} />;
 
   // Precompute display strings server-side (Asia/Manila) so the client list
   // never re-derives dates or timezones.
@@ -147,7 +158,7 @@ export async function YearMomentsStrip({ userId }: { userId: string }) {
   // The glass panel lives HERE (not around the call site) so the tile never
   // leaves an empty frame on the page.
   return (
-    <Tile>
+    <Tile heading={heading}>
       <YearMomentsList moments={views} initial={HOME_LIMIT} />
     </Tile>
   );
@@ -159,12 +170,20 @@ export async function YearMomentsStrip({ userId }: { userId: string }) {
  * the populated tile and never on the empty one — and the empty one is the
  * tile a brand-new account actually sees.
  */
-function Tile({ children }: { children: React.ReactNode }) {
+function Tile({
+  children,
+  heading = 'This year',
+}: {
+  children: React.ReactNode;
+  heading?: string | null;
+}) {
   return (
     <div className="sn-tile-glass sn-lift-3 rounded-2xl p-4 sm:p-[18px]">
-      <h3 className="mb-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
-        This year
-      </h3>
+      {heading ? (
+        <h3 className="mb-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
+          {heading}
+        </h3>
+      ) : null}
       {children}
     </div>
   );
@@ -203,9 +222,15 @@ function Tile({ children }: { children: React.ReactNode }) {
  * "turning 0"). "Add your birthday" is a correct instruction either way; "you
  * haven't added one" would not be.
  */
-function EmptyYear({ unsure = false }: { unsure?: boolean }) {
+function EmptyYear({
+  unsure = false,
+  heading = 'This year',
+}: {
+  unsure?: boolean;
+  heading?: string | null;
+}) {
   return (
-    <Tile>
+    <Tile heading={heading}>
       {unsure ? (
         <p className="text-sm text-ink/70">We couldn’t load your dates just now.</p>
       ) : (

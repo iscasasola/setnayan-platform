@@ -2,7 +2,7 @@
  * doorway-invariants.test.ts — the three things a public doorway must never lose.
  *
  * ─── WHY THIS EXISTS, AND WHY IT EXISTS *FIRST* ──────────────────────────
- * The eight public doorway pages are near-identical by construction — `/pa3d`
+ * The public doorway pages are near-identical by construction — `/pa3d`
  * and `/pawebsite` render byte-identical JSX, differing only in copy strings.
  * The design port collapses them into a shared section kit, which is the right
  * move and also the dangerous one, because all three invariants below are
@@ -84,6 +84,8 @@ const DOORWAYS = [
   'alaala',
   'patiktok',
   'setnayan-ai',
+  // The song — public page added 2026-08-21 so it could join the Studio rail.
+  'pakanta',
 ] as const;
 
 /** Every source file a doorway's markup can live in: its page, plus any
@@ -225,11 +227,11 @@ test('the excluded routes stay excluded', () => {
   );
 });
 
-test('the scan is not vacuous — it really read eight pages', () => {
+test('the scan is not vacuous — it really read nine pages', () => {
   // Every assertion above passes trivially if `sourcesFor` returns nothing:
   // a renamed folder or a moved app root would make this file green while
   // checking absolutely nothing.
-  assert.equal(DOORWAYS.length, 8);
+  assert.equal(DOORWAYS.length, 9);
   for (const route of DOORWAYS) {
     const srcs = sourcesFor(route);
     assert.ok(srcs.length > 0, `/${route}: no source files found — the app root is wrong`);

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "efebf49c0",
-  "routeCount": 404,
-  "destinations": 863,
+  "generatedFromRef": "e340fc7fc",
+  "routeCount": 405,
+  "destinations": 865,
   "actions": 581,
-  "blocks": 3852,
+  "blocks": 3853,
   "routes": {
     "/": {
       "files": [
@@ -281,6 +281,19 @@
       ],
       "destinations": [
         "/onboarding/wedding?from=pa3d",
+        "/pricing"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorwayPage"
+      ]
+    },
+    "/(shell)/pakanta": {
+      "files": [
+        "(shell)/pakanta/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=pakanta",
         "/pricing"
       ],
       "actions": [],

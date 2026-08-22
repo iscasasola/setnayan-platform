@@ -594,15 +594,26 @@ export function EditorialEditor({
           These are written from your wedding details. Edit anything — or clear a field to let us
           rewrite it for you.
         </p>
+        {/*
+          TWO BOXES FIRST, THE MAGAZINE FURNITURE BEHIND A FOLD (owner: the story
+          maker should be "very easy to handle").
+
+          🔑 THE SPLIT IS BY WHO THE FIELD BELONGS TO, not by how often it is
+          used. The headline and the story itself are the couple's own account of
+          their day — the two things a person opens this page intending to write.
+          The eyebrow, the sub-headline, the pull quote and the byline are
+          MAGAZINE FURNITURE: typographic slots our composer already fills, whose
+          names ("eyebrow", "deck", "byline") are a newsroom's words, not a
+          couple's. Six equal boxes made the page read as a form to complete
+          rather than a story to correct.
+
+          ⚠ NOTHING IS REMOVED AND NOTHING IS GATED. Every field keeps its exact
+          state, its exact handler and its exact placeholder — a couple who has
+          already written a pull quote still has it, and `<details>` keeps its
+          contents in the DOM, so an unsaved edit inside the fold survives being
+          collapsed and still submits.
+        */}
         <div className="mt-4 space-y-4">
-          <Field label="Eyebrow" help="The small line above the headline.">
-            <input
-              className={inputCls}
-              value={form.superKicker}
-              onChange={(e) => set('superKicker', e.target.value)}
-              placeholder="A big-hearted celebration"
-            />
-          </Field>
           <Field label="Headline">
             <input
               className={inputCls}
@@ -611,39 +622,64 @@ export function EditorialEditor({
               placeholder="Maria & Juan Are Married"
             />
           </Field>
-          <Field label="Sub-headline" help="The italic line under the headline.">
-            <input
-              className={inputCls}
-              value={form.deck}
-              onChange={(e) => set('deck', e.target.value)}
-              placeholder="After seven years together, married at last…"
-            />
-          </Field>
           <Field label="Your story" help="Your front-page write-up. Leave blank to keep it photo-led.">
             <textarea
-              className={`${inputCls} min-h-[120px] resize-y`}
+              className={`${inputCls} min-h-[160px] resize-y`}
               value={form.leadParagraphs}
               onChange={(e) => set('leadParagraphs', e.target.value)}
               placeholder="Write in a few short paragraphs — leave a blank line between each."
             />
           </Field>
-          <Field label="Pull quote" help="One line, set large in the story.">
-            <input
-              className={inputCls}
-              value={form.pullQuote}
-              onChange={(e) => set('pullQuote', e.target.value)}
-              placeholder="And on the day, everything was just set."
-            />
-          </Field>
-          <Field label="Byline">
-            <input
-              className={inputCls}
-              value={form.byline}
-              onChange={(e) => set('byline', e.target.value)}
-              placeholder="By the Setnayan Desk"
-            />
-          </Field>
         </div>
+        <details className="group mt-4 border-t border-ink/10 pt-4">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-ink/70 transition hover:text-ink">
+            <ChevronDown
+              aria-hidden
+              className="h-4 w-4 transition-transform group-open:rotate-180"
+              strokeWidth={2}
+            />
+            The smaller lines
+          </summary>
+          <p className="mt-1 text-xs text-ink/55">
+            The little line above the headline, the italic one under it, the quote
+            set large, and who it&rsquo;s signed by. We write all four for you —
+            open this only if you want to change them.
+          </p>
+          <div className="mt-4 space-y-4">
+            <Field label="Eyebrow" help="The small line above the headline.">
+              <input
+                className={inputCls}
+                value={form.superKicker}
+                onChange={(e) => set('superKicker', e.target.value)}
+                placeholder="A big-hearted celebration"
+              />
+            </Field>
+            <Field label="Sub-headline" help="The italic line under the headline.">
+              <input
+                className={inputCls}
+                value={form.deck}
+                onChange={(e) => set('deck', e.target.value)}
+                placeholder="After seven years together, married at last…"
+              />
+            </Field>
+            <Field label="Pull quote" help="One line, set large in the story.">
+              <input
+                className={inputCls}
+                value={form.pullQuote}
+                onChange={(e) => set('pullQuote', e.target.value)}
+                placeholder="And on the day, everything was just set."
+              />
+            </Field>
+            <Field label="Byline">
+              <input
+                className={inputCls}
+                value={form.byline}
+                onChange={(e) => set('byline', e.target.value)}
+                placeholder="By the Setnayan Desk"
+              />
+            </Field>
+          </div>
+        </details>
       </section>
 
       {/* Your photos — FREE couple-uploaded imagery. Gives a no-Papic editorial a

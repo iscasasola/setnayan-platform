@@ -40,6 +40,11 @@ import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  storyAudienceAdmits,
+  STRANGER,
+  type StoryViewer,
+} from '@/lib/who-can-see-your-story';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { eventWordsForEvent, type EventWords } from '../../_lib/event-words';
 import { byVoiceWeight, voiceOf, roleLabel } from './voices';
@@ -69,6 +74,7 @@ export async function EditorialContent({
   eventId,
   share,
   galleryAnchorId = null,
+  viewer = STRANGER,
 }: {
   eventId: string;
   /** Share target for the editorial's own "Share this story" element. Omit for a
@@ -82,6 +88,16 @@ export async function EditorialContent({
    * have no bar and leave it null, so their markup is unchanged.
    */
   galleryAnchorId?: string | null;
+  /**
+   * WHO IS ASKING — decides whether this story may be shown at all.
+   *
+   * ⚠ OMITTING IT MEANS "A STRANGER", AND THAT IS THE POINT. Every caller that
+   * does not think about the audience gets the safest answer, so a surface added
+   * later cannot leak a couple's private story by forgetting a prop. The event
+   * site passes the viewer it already resolved for its own lock screen; the
+   * couple's own editor preview passes the host.
+   */
+  viewer?: StoryViewer;
 }): Promise<ReactElement> {
   // The event's own words. This page is the STORY AFTER the event and was the
   // densest pocket of wedding language left — eleven sentences, including two
@@ -97,6 +113,27 @@ export async function EditorialContent({
   }
 
   if (!data) {
+    return <GracefulFallback words={w} />;
+  }
+
+  /*
+    THE ONE GATE (owner 2026-08-22). Three surfaces render this component and
+    two more read the same loader; each asking its own version of "may they see
+    it?" is three chances to forget, and the next surface makes four. That is
+    exactly how the Live Photo Wall ended up mirrored onto every guest's phone.
+
+    🚨 AND IT CLOSES THE DATA, NOT A BLOCK. Until this landed, the public page
+    decided to draw the story from the LIFECYCLE alone and never read the
+    couple's status at all — while a row is created automatically for every
+    event — so after the day an UNPUBLISHED story was already readable by
+    anybody who could open the page. Hiding the block would have left the same
+    words one fetch away; returning before the composed copy is built is what
+    actually withholds them.
+
+    A sample fixture carries no audience and must always render — it exists to
+    be read, and `storyAudienceOf` would otherwise fail it closed to 'draft'.
+  */
+  if (data.audience && !storyAudienceAdmits(data.audience, viewer)) {
     return <GracefulFallback words={w} />;
   }
 

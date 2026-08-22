@@ -67,6 +67,14 @@ export function EventCardMenu({
   eventDateIso = null,
   venueName = null,
   venueAddress = null,
+  /**
+   * TRUE on the Untold + Told shelves (the day has already passed). Owner
+   * 2026-08-22, asked directly: *"shouldn't now happening and planning be
+   * the only ones to have this add to calendar?"* — a day that already
+   * happened is not something to add to a phone calendar, so this drops the
+   * row entirely rather than offering a dead-feeling action on a past card.
+   */
+  finished = false,
   /** Dark cards (the mobile hero) need light chrome to stay visible. */
   tone = 'light',
   align = 'right',
@@ -77,6 +85,7 @@ export function EventCardMenu({
   eventDateIso?: string | null;
   venueName?: string | null;
   venueAddress?: string | null;
+  finished?: boolean;
   tone?: 'light' | 'dark';
   /**
    * Which edge of the CARD the popover hangs from.
@@ -234,6 +243,7 @@ export function EventCardMenu({
   // cheap, but there is no reason to redo it on every keystroke elsewhere on
   // the card (the "type the name to confirm" field re-renders this component).
   const icsHref = useMemo(() => {
+    if (finished) return null;
     const ics = buildWeddingIcs({
       title: eventName,
       dateIso: eventDateIso,
@@ -241,7 +251,7 @@ export function EventCardMenu({
       uid: `wedding-${eventId}@setnayan.com`,
     });
     return ics ? icsDataHref(ics) : null;
-  }, [eventName, eventDateIso, venueName, venueAddress, eventId]);
+  }, [finished, eventName, eventDateIso, venueName, venueAddress, eventId]);
 
   return (
     /*

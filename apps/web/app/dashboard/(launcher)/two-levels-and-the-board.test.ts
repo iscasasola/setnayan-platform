@@ -389,28 +389,36 @@ test('the finished cards are gated by NOTHING except emptiness', () => {
   const conditions = [...section.matchAll(/\{([^{}]+?)\s*\?\s*\(/g)].map((m) =>
     m[1]!.trim(),
   );
+  // ⚠ TIGHTENED 2026-08-22. This used to allow a second condition,
+  // `storiesMeasured`, because a stand-alone "Write the story of X" chip was
+  // rendered behind it below the cards. The owner retired that chip — the CARD
+  // now carries the story destination itself — so the branch is gone and the
+  // only condition left in this shelf is whether it is empty. Accepting the old
+  // pair would let the gate creep back in front of a card.
   assert.deepEqual(
     conditions,
-    ['unwritten.length === 0', 'storiesMeasured'],
-    'The finished shelf has a condition other than "is it empty" / "were the ' +
-      `stories measured" standing in front of it: ${JSON.stringify(conditions)}. ` +
-      'Whatever it is named, that is a switch in front of somebody\'s memories.',
+    ['unwritten.length === 0'],
+    'The finished shelf has a condition other than "is it empty" standing in ' +
+      `front of it: ${JSON.stringify(conditions)}. Whatever it is named, that ` +
+      'is a switch in front of somebody\'s memories.',
   );
   assert.ok(
     count(section, /unwritten\.map\(/) >= 2,
     'The finished section renders no cards on one of the two compositions.',
   );
-  // THE CARDS COME FIRST. `storiesMeasured` may only wrap the write chips that
-  // follow them — a card rendered inside it would vanish on a refused read.
-  const gate = section.indexOf('storiesMeasured ? (');
-  assert.ok(gate > 0, 'The write-the-story chips lost their measured gate.');
+  // AND NO CARD MAY BE PUT BEHIND THE MEASURED GATE. `storiesMeasured` still
+  // decides the shelf's NAME and the story override's destination, but it must
+  // never wrap a card again: a refused read would empty somebody's memories.
+  assert.doesNotMatch(
+    section,
+    /storiesMeasured \?\s*\(/,
+    'A `storiesMeasured ? (…)` branch is back inside the finished shelf. Whatever ' +
+      'it wraps, a failed read of the stories would make it vanish.',
+  );
   for (const marker of ['MobileEventChip', 'GlassEventCard']) {
-    const at = section.indexOf(marker);
-    assert.ok(at > 0, `The finished shelf no longer renders ${marker}.`);
     assert.ok(
-      at < gate,
-      `${marker} is rendered inside the storiesMeasured branch — a failed read ` +
-        'of somebody\'s own chapters would empty their finished shelf.',
+      section.indexOf(marker) > 0,
+      `The finished shelf no longer renders ${marker}.`,
     );
   }
 });
@@ -433,37 +441,60 @@ test('every finished celebration is on exactly one shelf', () => {
   }
 });
 
-test('the write-the-story chip is a LINK to THAT EVENT\'S OWN story page', () => {
-  // A `<Link>` PREFETCHES: a route handler here would mint or write something
-  // when a card merely scrolled into view. The chip navigates and writes nothing.
-  //
-  // ⚠ THE DESTINATION CHANGED ON 2026-08-22 AND THAT IS THE POINT OF THIS TEST.
-  // It used to open the Storyteller composer (`/dashboard/creator?event=…`) — a
-  // blank page for a PERSON's own write-up ABOUT a day. The owner asked "isn't
-  // that the editorial. the story?" and he was right: the story of a celebration
-  // is the celebration's own story page, which opens already drafted from the
-  // day's schedule and photos. Two buttons in the product read "Write the story"
-  // and went to different screens; now they agree.
+test('the Untold card itself opens THAT EVENT\'S OWN story page — no separate chip', () => {
+  // ⚠ THE MECHANISM CHANGED AGAIN ON 2026-08-22, SAME DAY. The previous
+  // version of this test pinned a stand-alone "Write the story of X" chip
+  // rendered BELOW the card grid. The owner then asked for the chip gone
+  // entirely and the CARD itself to jump straight to the story page — two
+  // controls for one celebration collapsed into the one a person actually
+  // presses. A `<Link>` still does the navigating and still writes nothing;
+  // what moved is which element carries the href.
   const src = launcher();
+  assert.doesNotMatch(
+    src,
+    /Write the story of/,
+    'The stand-alone chip is back. The card itself is meant to be the control now.',
+  );
   assert.match(
     src,
-    /href=\{`\/dashboard\/\$\{event\.event_id\}\/website\/editorial`\}/,
-    "The write-the-story chip no longer opens that event's own story page.",
+    /storyHref=\{\s*storiesMeasured && canWriteStoryFor\(event\)\s*\?\s*`\/dashboard\/\$\{event\.event_id\}\/website\/editorial`\s*:\s*undefined\s*\}/,
+    "The Untold shelf's cards no longer override their href to that event's own story page.",
+  );
+  // Both the mobile chip grid and the desktop card grid must carry the
+  // override — a fix wired into only one of them opens correctly on a
+  // laptop and wrongly on the phone that showed it to the owner.
+  const overrideCount = (
+    src.match(
+      /storyHref=\{\s*storiesMeasured && canWriteStoryFor\(event\)\s*\?\s*`\/dashboard\/\$\{event\.event_id\}\/website\/editorial`\s*:\s*undefined\s*\}/g,
+    ) ?? []
+  ).length;
+  assert.equal(
+    overrideCount,
+    2,
+    'The story-page override is wired into only one of the two Untold card ' +
+      'renderings (mobile chips vs. the desktop grid) — the other still opens ' +
+      "the ordinary event dashboard.",
   );
   assert.doesNotMatch(
     src,
     /href=\{`\/dashboard\/creator\?event=/,
-    'The chip points at the Storyteller composer again. That is a different ' +
+    'A card points at the Storyteller composer again. That is a different ' +
       'kind of writing — a blank page, one day can have several, a supplier can ' +
-      'write one too — and sending "Write the story of <name>" there is what ' +
-      'made one wedding look like it had two different stories.',
+      'write one too.',
   );
+});
+
+test('the story-page override never reaches a guest or an unmeasured board', () => {
+  // The override is gated on the SAME two conditions the retired chip used:
+  // `storiesMeasured` (a refused read must not be treated as "nothing written")
+  // and `canWriteStoryFor` (only the organiser may open that editor). Losing
+  // either guard sends a guest, or a board whose read failed, straight into a
+  // celebration's private story editor.
+  const src = launcher();
   assert.match(
     src,
-    /unwritten\.filter\(canWriteStoryFor\)/,
-    'The chip is offered to people who cannot write that story — the event\'s ' +
-      'story page admits an accepted host only, so the button opens onto a ' +
-      'refusal.',
+    /storyHref=\{\s*storiesMeasured && canWriteStoryFor\(event\)/,
+    'The story-page override no longer checks storiesMeasured && canWriteStoryFor together.',
   );
 });
 
@@ -510,12 +541,32 @@ test('no card on the board hardcodes the organiser dashboard path', () => {
     'deriveEventView stopped deriving the destination, so the card and its ' +
       'status line can drift apart again.',
   );
+  // ⚠ 2026-08-22: two of these now render `href={resolvedHref}`, where
+  // `resolvedHref = storyHref ?? href` — the Untold shelf sends its cards to the
+  // celebration's own story page. The derivation is UNCHANGED and is still the
+  // fallback, which the second assertion below pins: an override that stopped
+  // falling back to `href` would strand an invited guest on a 404 again, which
+  // is the exact bug this whole test exists for.
   for (const component of [
     'GlassEventCard',
     'MobileEventHero',
     'MobileEventChip',
   ]) {
     const body = fnBody(src, component);
+    if (/const resolvedHref =/.test(body)) {
+      assert.match(
+        body,
+        /const resolvedHref = storyHref \?\? href;/,
+        `${component}'s href override no longer falls back to the shared ` +
+          'derivation — an invited guest with no public page gets a dead link.',
+      );
+      assert.match(
+        body,
+        /href=\{resolvedHref\}/,
+        `${component} computes resolvedHref and then does not use it.`,
+      );
+      continue;
+    }
     assert.match(
       body,
       /href=\{href\}/,

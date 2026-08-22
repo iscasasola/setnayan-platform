@@ -11,7 +11,7 @@ import {
   isMusicVendor,
   type Song,
 } from '@/lib/songs';
-import { addRepertoireSong, removeRepertoireSong } from './actions';
+import { addRepertoireSong, removeRepertoireSong, setPerformanceLink } from './actions';
 
 export const metadata = { title: 'Your repertoire · Vendor' };
 
@@ -132,7 +132,7 @@ export default async function RepertoirePage({ searchParams }: Props) {
                 return (
                   <li
                     key={song.song_id}
-                    className="flex items-center justify-between gap-2 rounded-xl px-2 py-1.5"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl px-2 py-1.5"
                   >
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium text-ink/90">
@@ -212,6 +212,47 @@ export default async function RepertoirePage({ searchParams }: Props) {
                     >
                       <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                     </SubmitButton>
+                  </form>
+                  {/*
+                    Owner 2026-08-18: a band picks what it can play AND links a
+                    video of itself playing it. Saying "I can play this" and not
+                    being able to show it leaves a couple choosing between three
+                    bands who all claim the same song with nothing to compare.
+
+                    Full width on its own row, because a link is long and this is
+                    edited on a phone. Empty clears it — taking a video down must
+                    be as easy as putting one up.
+                  */}
+                  <form
+                    action={setPerformanceLink}
+                    className="mt-1 flex w-full items-center gap-2 basis-full"
+                  >
+                    <input type="hidden" name="song_id" value={song.song_id} />
+                    <input type="hidden" name="q" value={query} />
+                    <input
+                      type="url"
+                      name="performance_url"
+                      defaultValue={song.performance_url ?? ''}
+                      placeholder="Link a video of you playing it (optional)"
+                      aria-label={`Video of you performing ${song.title}`}
+                      className="input-field h-8 min-w-0 flex-1 text-xs"
+                    />
+                    <SubmitButton
+                      overlay={false}
+                      className="shrink-0 rounded-full border border-ink/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55 hover:bg-ink/5 hover:text-ink"
+                    >
+                      Save
+                    </SubmitButton>
+                    {song.performance_url ? (
+                      <a
+                        href={song.performance_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 text-xs text-link underline underline-offset-2"
+                      >
+                        Watch
+                      </a>
+                    ) : null}
                   </form>
                 </li>
               ))}

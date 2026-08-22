@@ -1,8 +1,8 @@
 {
-  "generatedFromRef": "0deceeb95",
+  "generatedFromRef": "9ec8a9313",
   "routeCount": 404,
   "destinations": 863,
-  "actions": 580,
+  "actions": 581,
   "blocks": 3851,
   "routes": {
     "/": {
@@ -8722,6 +8722,7 @@
     },
     "/vendor-dashboard/booking-fees": {
       "files": [
+        "vendor-dashboard/booking-fees/actions.ts",
         "vendor-dashboard/booking-fees/page.tsx"
       ],
       "destinations": [
@@ -9852,7 +9853,8 @@
       ],
       "actions": [
         "addRepertoireSong",
-        "removeRepertoireSong"
+        "removeRepertoireSong",
+        "setPerformanceLink"
       ],
       "blocks": [
         "Link",

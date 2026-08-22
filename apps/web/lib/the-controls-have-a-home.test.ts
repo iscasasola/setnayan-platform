@@ -81,18 +81,34 @@ test('Your year and Your Story are retired as MENUS, not as places', () => {
       'route 404s them, and restoring the page brings back the duplicate.',
   );
 
-  // ── YOUR STORY — its doors are the Untold and Told shelves ────────────────
-  // The rail row is gone, so these two ARE the desk's entrances. If both were
-  // removed, /dashboard/creator would be reachable only by typing the URL.
+  // ── YOUR STORY — its door is the account switcher ─────────────────────────
+  //
+  // ⚠ REWRITTEN 2026-08-22, AND THE OLD VERSION WAS DECORATION. It asserted two
+  // things about the BOARD: that a "Write the story of <name>" chip existed, and
+  // that the board contained `href="/dashboard/creator"`.
+  //
+  // Both premises are dead. The chip never led here — it opened the Storyteller
+  // composer, and the owner had it repointed at the celebration's OWN story page
+  // and then removed entirely in favour of the card. And the board's only
+  // remaining `/dashboard/creator` string sits inside `BecomeStorytellerRow`,
+  // a component with ZERO call sites anywhere in the app — so that assertion was
+  // passing on a link nothing renders. **A string in an unmounted component is
+  // not a door.**
+  //
+  // The real, visible door is the account switcher in the top bar. So this now
+  // checks the link AND that the component carrying it is actually mounted on
+  // the board's own layout — the two halves that together make it reachable.
+  const switcher = read('app/_components/account-switcher/account-switcher.tsx');
   assert.ok(
-    /Write the story of /.test(page),
-    'the "Write the story of <name>" chips are gone from Untold — with the rail ' +
-      'row retired, that is half the remaining way in to Your Story.',
+    /href="\/dashboard\/creator"/.test(switcher),
+    'the account switcher no longer links /dashboard/creator — that is now the ' +
+      'only door to Your Story a person can see, so removing it strands the desk.',
   );
+  const launcherLayout = read('app/dashboard/(launcher)/layout.tsx');
   assert.ok(
-    /href="\/dashboard\/creator"/.test(page),
-    'the board no longer links /dashboard/creator at all. The Your Story rail ' +
-      'row was retired on the promise that Untold and Told carry it.',
+    /<AccountSwitcher/.test(launcherLayout),
+    'the account switcher is no longer mounted on the board, so its Your Story ' +
+      'link renders nowhere a person standing on the board can reach.',
   );
 
   // ── AND THE RETIRED ROWS STAY RETIRED ────────────────────────────────────

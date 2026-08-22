@@ -8,6 +8,7 @@ import {
 import { recommendStudioAddOns } from '@/lib/studio-recommendations';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { fetchRoadmapState } from '@/lib/wedding-roadmap-signals';
+import { roadmapLedeStage } from '@/lib/wedding-roadmap';
 import { addOnDetail } from '@/lib/add-ons-detail';
 import { formatPhp } from '@/lib/orders';
 import { eventActiveSkus } from '@/lib/entitlements';
@@ -461,14 +462,16 @@ export default async function StudioPage({ params, searchParams }: Props) {
     .map((key) => entryByKey.get(key))
     .filter((e): e is AddOnEntry => Boolean(e));
 
-  const recommendLede =
-    monthsToDate === null
-      ? 'Great places to start while your date settles.'
-      : monthsToDate > 6
-        ? 'Where couples put their energy with this much time to go.'
-        : monthsToDate > 3
-          ? 'The pieces to line up as your day gets closer.'
-          : 'Your last-stretch picks — capture, and the day itself.';
+  // The RUNG is shared (lib/wedding-roadmap.ts knows the sign); the WORDS are
+  // this hub's own. Before the 'past' rung existed, a day that happened last
+  // night read "Your last-stretch picks".
+  const recommendLede = {
+    undated: 'Great places to start while your date settles.',
+    far: 'Where couples put their energy with this much time to go.',
+    closer: 'The pieces to line up as your day gets closer.',
+    last_stretch: 'Your last-stretch picks — capture, and the day itself.',
+    past: 'Everything you had, and what turns it into the story.',
+  }[roadmapLedeStage(monthsToDate)];
 
   const tabs = SECTIONS.map((s) => ({ id: s.anchor, label: s.label }));
 
@@ -663,11 +666,6 @@ export default async function StudioPage({ params, searchParams }: Props) {
           story · music) are the pieces of the couple's living memory. */}
       <div className="sn-tile p-5 sm:p-6">
         <p className="sn-eye">Alaala · the memory you keep</p>
-        <p className="mt-3 max-w-prose text-[15px] leading-relaxed text-ink">
-          The pieces below become your <span className="italic">Alaala</span> — the living memory of
-          your day. The moments you’ll be too busy to see, the people who can’t be there, the stories
-          your guests tell — all kept, and made into something you hold.
-        </p>
         <p className="mt-2 max-w-prose text-[13px] leading-relaxed text-ink/60">
           And it never gets in the way. The day stays yours — the tech just quietly remembers it.
         </p>

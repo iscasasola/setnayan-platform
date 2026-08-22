@@ -89,5 +89,40 @@ export async function GET(request: NextRequest) {
     */
   }
 
+  /*
+    🚨 A REFUSED SIGN-IN MUST NOT LOOK LIKE A CANCELLED ONE.
+
+    When a provider refuses, Supabase redirects here with `?error=` and
+    `?error_description=` and **no `code`** — so the block above is skipped
+    entirely and this line used to bounce the person back to where they
+    started, signed out, with nothing said. Measured live 2026-08-20:
+    `/auth/callback?error=validation_failed&error_description=provider+is+not+
+    enabled` answered **307 → `/`**, silently. The person presses "Continue
+    with Google", the screen flickers, and they are exactly where they were.
+    Nothing errors, nothing logs, and the only symptom is an absence — the
+    same family as the phantom column, the phantom enum value and the blocked
+    iframe.
+
+    🔑 THE DESKTOP TWIN ALREADY GOT THIS RIGHT. `lib/desktop-oauth.ts` reads
+    `error_description ?? error` off its redirect and routes to
+    `/login?error=`. One of two twins handled the failure and the other did
+    not — so this is not a new mechanism, it is the sibling catching up.
+
+    `error_description` is preferred because it is the sentence; `error` is
+    the machine code behind it. Both are provider-controlled strings arriving
+    on a URL, so neither is trusted for display — `humanAuthError` decides at
+    the render what a person actually reads.
+  */
+  const oauthError =
+    url.searchParams.get('error_description') ?? url.searchParams.get('error');
+  if (oauthError) {
+    const back = new URL('/login', url.origin);
+    back.searchParams.set('error', oauthError);
+    // Keep where they were headed, so signing in the other way still lands
+    // them where they meant to go rather than on the account board.
+    back.searchParams.set('next', fallbackNext);
+    return NextResponse.redirect(back);
+  }
+
   return NextResponse.redirect(new URL(fallbackNext, url.origin));
 }

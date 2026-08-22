@@ -119,17 +119,38 @@ export function VendorItemizationCard({
     remaining,
     priceSource,
     vendorControlledItems,
+    paymentsMeasured,
+    lineItemsMeasured,
   } = summary;
 
   const body = (
     <>
+      {/* A refused read must never render as a money figure. `paidTotal` of 0
+          makes `remaining` the FULL total, so an unmeasured payments read does
+          not merely hide what you paid — it bills you for it again. Both
+          figures derive from that one read, so both go together; "Budget" is
+          kept because it survives on the headline figure, and flagged when its
+          own line-items read was refused. */}
+      {paymentsMeasured ? null : (
+        <div
+          role="status"
+          className="mx-5 mt-3 rounded-lg border-t-[3px] border-mulberry/70 bg-mulberry/5 px-3 py-2 text-xs text-ink/70"
+        >
+          We couldn&rsquo;t load your payments for this supplier, so what
+          you&rsquo;ve paid and what&rsquo;s left aren&rsquo;t shown. Nothing has
+          changed &mdash; refresh to try again.
+        </div>
+      )}
       <div className="grid gap-x-4 gap-y-2 px-5 py-3 sm:grid-cols-3">
-        <Money label="Budget" value={formatPhp(itemizedTotal)} />
-        <Money label="Paid" value={formatPhp(paidTotal)} tone="muted" />
+        <Money
+          label={lineItemsMeasured ? 'Budget' : 'Budget (partly loaded)'}
+          value={formatPhp(itemizedTotal)}
+        />
+        <Money label="Paid" value={paymentsMeasured ? formatPhp(paidTotal) : '—'} tone="muted" />
         <Money
           label="Remaining"
-          value={formatPhp(remaining)}
-          tone={remaining > 0 ? 'warn' : 'good'}
+          value={paymentsMeasured ? formatPhp(remaining) : '—'}
+          tone={paymentsMeasured && remaining > 0 ? 'warn' : 'good'}
         />
       </div>
 

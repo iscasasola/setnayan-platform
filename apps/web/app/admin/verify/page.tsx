@@ -200,17 +200,6 @@ export default async function AdminVerifyPage({ searchParams }: Props) {
        */}
       <PageMasthead
         title="Verification queue"
-        lede={
-          <>
-            Vendors submit a 12-document checklist; Setnayan reviews within 72
-            hours and flips them to <span className="font-medium">Verified</span>.
-            The companion <span className="font-medium">Visibility</span> surface
-            governs marketplace listing state (hidden · verified · archived)
-            independent of the verification workflow. Only{' '}
-            <span className="font-medium">Verified</span> is publicly visible.
-          </>
-        }
-        className="mb-6"
       />
 
       <FlashBanner search={search} />

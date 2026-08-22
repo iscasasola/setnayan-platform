@@ -20,6 +20,7 @@ import { BoothCapture } from '../_components/booth-capture';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { formatCalendarDate } from '@/lib/events';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { guestPhotoDisplayUrls } from '@/lib/uploads';
 
 // Iteration 0017 Phase 4 — Patiktok Operator Dashboard.
 //
@@ -91,11 +92,15 @@ export default async function PatiktokBoothDashboard({
   // Guest + table lists power the booth tag sheet (pick-from-list / scan place
   // card / scan table QR). Resolved server-side, client-side matched by token.
   const guestRows = await fetchGuestsByEvent(supabase, eventId);
+  // ⚠ RESOLVE THE REF — see the note in the check-in desk. A raw `r2://` in an
+  // <img src> is a broken-image glyph, and this sheet is used at the booth, on a
+  // phone, by somebody trying to identify a guest by their face.
+  const photoDisplayUrls = await guestPhotoDisplayUrls(guestRows);
   const guests: BoothGuest[] = guestRows.map((g) => ({
     guestId: g.guest_id,
     name: guestDisplayName(g),
     qrToken: g.qr_token,
-    photoUrl: g.photo_url ?? null,
+    photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
   }));
   const { data: tableRows } = await supabase
     .from('event_tables')
@@ -143,7 +148,7 @@ export default async function PatiktokBoothDashboard({
           <>
             {event?.display_name ?? 'Your event'}
             {event?.event_date ? (
-              <span className="ml-2 font-mono text-base text-ink/55">
+              <span>
                 · {formatCalendarDate(event.event_date, { dateStyle: 'long' })}
               </span>
             ) : null}

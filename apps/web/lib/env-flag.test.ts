@@ -141,7 +141,13 @@ const CONVERTED: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['app/admin/_components/admin-nav-groups.tsx', ['NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED']],
   ['app/admin/integrations/page.tsx', ['SETNAYAN_AI_PAYWALL_ENABLED']],
   ['app/admin/offline/_components/offline-diagnostic.tsx', ['NEXT_PUBLIC_OFFLINE_DAEMON_ENABLED']],
-  ['app/dashboard/[eventId]/_components/customer-nav-config.ts', ['NEXT_PUBLIC_SUITE']],
+  /* 🔄 MOVED 2026-08-21. The nav builder no longer reads NEXT_PUBLIC_SUITE
+     itself — `lib/studio-hub.ts` owns the one branch that decides the services
+     hub's address, because the rail's "All services" row needs the same answer
+     and two hand-typed copies would land the rail and the bottom bar on
+     different pages. The half-pair sweep below still checks every reader in the
+     repo, so this list moving is not the list going quiet. */
+  ['lib/studio-hub.ts', ['NEXT_PUBLIC_SUITE']],
   ['app/dashboard/[eventId]/studio/page.tsx', ['NEXT_PUBLIC_SUITE']],
   ['app/dashboard/[eventId]/suite/page.tsx', ['NEXT_PUBLIC_SUITE']],
   ['app/layout.tsx', ['NEXT_PUBLIC_OFFLINE_DAEMON_ENABLED']],

@@ -18,6 +18,7 @@
  */
 
 import 'server-only';
+import { createClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -126,18 +127,34 @@ export async function fetchVendorOutcomeRollup(
 }
 
 /**
- * Read the platform-wide outcome overview for /admin/insights. Uses the
- * service-role admin client; the RPC still self-gates on is_console_admin(), and
- * the /admin layout already 404s non-admins before this renders. Returns an
- * empty overview on error (card renders an empty state instead of throwing).
+ * Read the platform-wide outcome overview for /admin/insights.
+ *
+ * 🚨 THIS RAN ON THE SERVICE-ROLE CLIENT AND COULD NEVER RETURN A ROW. The
+ * comment here used to read "uses the service-role admin client; the RPC still
+ * self-gates on is_console_admin()" — and that sentence is the reason it
+ * failed, not the reason it worked. `createAdminClient()` carries no user, so
+ * `auth.uid()` is NULL, so `is_console_admin()` is false, so the function
+ * RAISES `FORBIDDEN: admin only` (42501). The `if (error) return empty` below
+ * then rendered a permanently blank card — a read that never once succeeded and
+ * never once complained.
+ *
+ * Found 2026-08-21 by `lib/admin-gated-rpc-needs-a-session.test.ts`, written
+ * after the same mistake shipped in the plan-activation hook.
+ *
+ * The ADMIN'S OWN session is what satisfies the gate. `/admin` already 404s
+ * non-admins before this renders, so this is not a new authorization surface —
+ * it is the only client that can pass the one the function already has.
+ *
+ * Still returns an empty overview on error: a broken read must not take the
+ * whole intelligence surface down.
  */
 export async function fetchAdminOutcomeOverview(): Promise<AdminOutcomeOverview> {
   const empty: AdminOutcomeOverview = {
     totals: { ...EMPTY_TOTALS, reporting_vendors: 0 },
     byReason: [],
   };
-  const admin = createAdminClient();
-  const { data, error } = await admin.rpc('admin_inquiry_outcomes_overview');
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('admin_inquiry_outcomes_overview');
   if (error || !data) return empty;
   const rpc = data as RpcRollup;
   return {

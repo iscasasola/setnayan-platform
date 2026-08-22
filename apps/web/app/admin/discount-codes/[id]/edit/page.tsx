@@ -12,6 +12,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { fetchV2CustomerCatalog, fetchV2BundleCatalog, fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { ChevronLeft } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VoucherForm, type VoucherFormInitial } from '../../_components/voucher-form';
 import { EligibilitySection, type EligibleRow } from '../../_components/eligibility-section';
@@ -177,28 +178,13 @@ export default async function EditDiscountCodePage({ params }: Props) {
         All codes
       </Link>
 
-      <div>
-        <h1
-          className="sn-h1"
-          style={{ color: 'var(--m-ink)' }}
-        >
-          Edit{' '}
-          <span
-            className="font-mono text-2xl"
-            style={{ color: 'var(--m-orange-2)' }}
-          >
-            {code.code}
-          </span>
-        </h1>
-        <p
-          className="mt-1 max-w-2xl text-sm"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          Used {code.uses_count} time{code.uses_count === 1 ? '' : 's'} so far.
-          Code identifier itself isn&apos;t editable — disable this one and
-          create a fresh code if you need to rename it.
-        </p>
-      </div>
+      {/* One shared masthead — no 36px title, no paragraph (owner-locked
+          2026-08-21). The two facts here are ones you need in order to use the
+          form (how many times it ran, and that the code itself is frozen), so
+          they stay, behind the (i). */}
+      <PageMasthead
+        title={`Edit ${code.code}`}
+      />
 
       {!code.is_active && (
         <div

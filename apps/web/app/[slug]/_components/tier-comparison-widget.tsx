@@ -70,11 +70,24 @@ export function TierComparisonWidget({
           <ul className="space-y-1 text-sm text-ink/70">
             <li>· View this invitation</li>
             <li>· RSVP for the {eventNoun}</li>
-            <li>· See your tagged photos for <strong>3 days</strong></li>
+            <li>· See your tagged photos through the {eventNoun}</li>
             <li>· Save your QR to your phone</li>
           </ul>
-          <p className="text-xs italic text-ink/50">
-            Photos delete from your view after 3 days unless you sign up.
+          {/* 🔴 THIS CARD PROMISED SOMETHING WE DO NOT DO. It read "See your
+              tagged photos for 3 days" and "Photos delete from your view after
+              3 days unless you sign up." There is NO 3-day mechanism anywhere
+              in the product, and "delete" contradicts the owner's standing lock
+              — photos are never deleted, only compressed, and the gallery is
+              kept for life. So the card applied false pressure at the exact
+              moment a guest decides whether to trust us, and put a promise in
+              writing that we do not keep.
+              What is TRUE is narrower and is already said correctly by the
+              sibling card in site-body.tsx: the accountless GUEST VIEW winds
+              down about a day after the event (`accountlessPhotosClosed`). The
+              photographs are untouched. */}
+          <p className="text-xs italic text-ink/60">
+            Nothing is ever deleted — the guest view just winds down about a day
+            after the {eventNoun}. A free account keeps it open on any device.
           </p>
         </div>
         <div className="space-y-3 rounded-lg border border-terracotta/40 bg-gradient-to-br from-terracotta/10 to-cream p-5">

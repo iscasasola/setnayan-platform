@@ -17,7 +17,7 @@
  * Sign-ins.
  *
  * DEFINITION (owner, 2026-06-28): Alaala is the COMBINATION of the five Pa-
- * services — Papic + Panood + Pawebsite + Pa3D + PaLogo — woven into one living
+ * services — Papic + Panood + Pawebsite + 3D Plan + Logo Maker — woven into one living
  * memory. Each stands alone (its own doorway); together they are the Alaala.
  * The fuller manifesto lives at /our-story, deep-linked below.
  *
@@ -56,6 +56,12 @@ import {
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
 const PAGE_TITLE = 'Alaala — A New Way to Remember · Setnayan';
+/** The document title ONLY. `metadata.title` is rendered through the root
+ *  layout's `template: '%s · Setnayan'`, so a PAGE_TITLE that already ends in
+ *  the brand came out as "… · Setnayan · Setnayan" on 11 live pages. The share
+ *  cards and the structured-data name do NOT go through that template and are
+ *  correct WITH the brand — which is why this strips it here and nowhere else. */
+const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION =
   'Alaala brings together everything you create on Setnayan — Papic, Live Studio, your Event Hub, your 3D plan, and your monogram — into one living memory you can open any time: your life-events collection, gathered as you go. A new way to remember, for every event you’ll ever hold.';
 const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
@@ -72,7 +78,7 @@ const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 */
 
 export const metadata = {
-  title: PAGE_TITLE,
+  title: DOC_TITLE,
   description: PAGE_DESCRIPTION,
   alternates: { canonical: '/alaala' },
   keywords: [
@@ -125,7 +131,7 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'What is Alaala?',
-    a: 'Alaala (ah-LAH-lah) is Tagalog for the memory you keep. On Setnayan it’s everything you create for your event, in one place — your candid photos (Papic), your live broadcast (Live Studio), your event page (Event Hub), your 3D plan (Pa3D), and your monogram (PaLogo) — gathered into one living memory you can return to any time.',
+    a: 'Alaala (ah-LAH-lah) is Tagalog for the memory you keep. On Setnayan it’s everything you create for your event, in one place — your candid photos (Papic), your live broadcast (Live Studio), your event page (Event Hub), your 3D plan (3D Plan), and your monogram (Logo Maker) — gathered into one living memory you can return to any time.',
   },
   {
     q: 'Is it free?',
@@ -178,13 +184,13 @@ const PILLARS: { role: string; name: string; desc: string; href: string }[] = [
   },
   {
     role: 'Space',
-    name: 'Pa3D',
+    name: '3D Plan',
     desc: 'Walk your venue and seating before the day — and keep the space long after.',
     href: '/pa3d',
   },
   {
     role: 'Mark',
-    name: 'PaLogo',
+    name: 'Logo Maker',
     desc: 'Your monogram, drawn to life — the mark that signs every piece of the day.',
     href: '/palogo',
   },
@@ -257,7 +263,7 @@ export default function AlaalaLandingPage() {
         <section className="mt-14 flex flex-col items-center" aria-label="A living memory">
           <AlaalaOrb className="h-[260px] w-[260px] sm:h-[320px] sm:w-[320px]" />
           <p className={`mt-6 max-w-md text-center text-sm ${DOORWAY_TONE.muted}`}>
-            Papic, Live Studio, Event Hub, Pa3D, PaLogo — woven into one. Memories that move.
+            Papic, Live Studio, Event Hub, 3D Plan, Logo Maker — woven into one. Memories that move.
           </p>
         </section>
 

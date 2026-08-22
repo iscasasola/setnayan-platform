@@ -29,6 +29,7 @@ import { useToast } from '@/app/_components/toast/toast-provider';
 import { parseGuestInput } from '@/lib/guest-parse';
 import type { GuestSide } from '@/lib/guests';
 import { OpenQuickAddButton } from './quick-add-sheet';
+import { OpenAddFromPeopleButton } from './add-from-people-sheet';
 import { addSingleGuest } from '../inline-actions';
 
 export function CaptureBar({
@@ -63,17 +64,15 @@ export function CaptureBar({
   };
 
   return (
-    <div
-      className="relative rounded-xl border"
-      style={{
-        background: 'var(--sn-glass-bg)',
-        borderColor: 'var(--sn-glass-line)',
-        backdropFilter: 'var(--sn-glass-blur)',
-        WebkitBackdropFilter: 'var(--sn-glass-blur)',
-        boxShadow: 'var(--sn-sh-tile)',
-      }}
-    >
-      <div className="flex items-center gap-2 p-2">
+    /* NO FRAME (owner 2026-08-21: *"we want to remove the framings so it moves
+       cleanly"*). The glass card around this row drew a box inside a box — the
+       input already has its own border, so the panel was a second edge 8px out
+       from the first, and stacked with the facet bar's panel below it the page
+       read as three nested rectangles before a single guest existed. The row
+       keeps its own spacing and every control is untouched; only the container
+       stopped drawing. */
+    <div className="relative">
+      <div className="flex items-center gap-2 py-1">
         {/* Leading glyph */}
         <span aria-hidden className="shrink-0 pl-1 text-ink/35">
           <Plus className="h-4 w-4" strokeWidth={2} />
@@ -140,6 +139,21 @@ export function CaptureBar({
                 role="menu"
                 className="absolute right-0 z-40 mt-1 flex w-48 flex-col gap-0.5 rounded-lg border border-ink/10 bg-cream p-1 shadow-lg"
               >
+                {/* FIRST, because it is the only one that does not ask the
+                    host to type a name we already hold (owner 2026-08-21).
+                    Rendered as a plain menu row, not a button-primary — the
+                    overflow is a list of ways in, and one of them shouting is
+                    what makes the other three look like second choices. */}
+                {/* ⚠ THE OPENER IS IMPORTED, NEVER RE-DISPATCHED BY HAND.
+                    Both sheets on this page are opened by a CustomEvent whose
+                    name is a private constant in the sheet's own file; a menu
+                    row that typed the string itself would keep compiling, keep
+                    rendering and quietly stop opening anything the first time
+                    that constant moved. A menu item that does nothing is the
+                    hardest kind of broken to notice. */}
+                <div onClick={() => setOverflowOpen(false)}>
+                  <OpenAddFromPeopleButton className="w-full rounded-md px-3 py-2 text-left text-sm text-ink/80 hover:bg-terracotta/10 hover:text-terracotta-700" />
+                </div>
                 <div className="px-1 py-0.5" onClick={() => setOverflowOpen(false)}>
                   <OpenQuickAddButton label="Full add form" />
                 </div>

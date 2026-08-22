@@ -51,7 +51,21 @@ export function SignInCardModal({
         if (e.target === e.currentTarget) dismiss();
       }}
     >
-      <div className="hr-ov-card" style={{ maxWidth: 460 }}>
+      {/*
+        `sn-signin-terra` — SWITCHED ON HERE 2026-08-21 (owner: "switch it on").
+        The seam panel (`sign-in-here-panel.tsx`) has worn this since 2026-08-13,
+        so signing in from anywhere on the public site showed the terracotta
+        card while /login — where you land from a redirect, a refresh, a
+        bookmark or a deep link — showed the plain greige one. Same <SignInCard>
+        inside, two different doors. "One login everywhere" is owner-locked
+        (2026-07-18) and this is the half of it that had not been done.
+
+        What it was wearing instead: `--hr-pop1` #9a7bc9, described in this
+        file's own token block as "a la ELN's purple" — the accent of the
+        cinematic homepage the owner RETIRED COMPLETELY on 2026-08-13. The last
+        two links on the sign-in page were the last thing still painted in it.
+      */}
+      <div className="hr-ov-card sn-signin-terra" style={{ maxWidth: 460 }}>
         <button type="button" className="hr-ov-x" onClick={dismiss} aria-label="Close">
           ✕
         </button>

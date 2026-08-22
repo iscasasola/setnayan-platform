@@ -198,10 +198,7 @@ export function ServicesTakeover({
           breadcrumb component and the masthead's own docblock says so. */}
       {replan ? (
         <PageMasthead
-          className="mb-4"
           title="Marketplace"
-          back={`/dashboard/${eventId}`}
-          backLabel="Back to your event"
         />
       ) : null}
 

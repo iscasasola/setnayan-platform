@@ -310,7 +310,30 @@ const JSX_EL_RE = /<([A-Z][\w$]*(?:\.[A-Z][\w$]*)?)[\s/>]/g;
  * `cancelHref` are the props carrying a literal route in this codebase today. A
  * TYPE declaration still cannot match — the value has to be a quoted literal.
  */
-const HREF_RE = /\b(?:href|back|backHref|returnTo|cancelHref)\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|\{\s*`([^`]*)`\s*\}|\{\s*"([^"]*)"\s*\}|\{\s*'([^']*)'\s*\})/g;
+/**
+ * ⚠ WIDENED 2026-08-21 — A BARE TEMPLATE LITERAL IS STILL A DESTINATION. The
+ * three-size tile was extracted into a shared component that takes its link as
+ * DATA, so its callers now write
+ *
+ *     href: `/u/${slug}/c/${c.public_id}`
+ *
+ * — an object property whose value is a template literal with NO surrounding
+ * braces. Every other form was already covered; this one was not, so the moment
+ * the person's page adopted the shared tile the guard reported
+ * `/u/[seg]/c/[seg]` as unreachable. It is not: the tile renders the link.
+ *
+ * 🔑 THIS IS THE THIRD TIME, AND THE PATTERN IS ALWAYS THE SAME: a page moves
+ * onto a shared component, the destination moves with it into a prop, and the
+ * extractor stops seeing a link that still works. The sanctioned response to a
+ * reported loss is to regenerate the baseline — which, as this file already
+ * warns above, is exactly how a blind spot becomes a recorded lie the guard
+ * then defends. Widen the extractor instead. It matters more each time, because
+ * every page that adopts a shared tile hits it.
+ *
+ * A TYPE declaration still cannot match — the value must be a quoted or
+ * templated literal.
+ */
+const HREF_RE = /\b(?:href|back|backHref|returnTo|cancelHref)\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|`([^`]*)`|\{\s*`([^`]*)`\s*\}|\{\s*"([^"]*)"\s*\}|\{\s*'([^']*)'\s*\})/g;
 /**
  * A bound server action.
  *

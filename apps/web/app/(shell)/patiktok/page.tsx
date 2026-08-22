@@ -23,6 +23,12 @@ import { studioDescription } from '@/lib/studio-apps';
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
 const PAGE_TITLE = 'Patiktok — Short-Form Highlight Reels From Your Day · Setnayan';
+/** The document title ONLY. `metadata.title` is rendered through the root
+ *  layout's `template: '%s · Setnayan'`, so a PAGE_TITLE that already ends in
+ *  the brand came out as "… · Setnayan · Setnayan" on 11 live pages. The share
+ *  cards and the structured-data name do NOT go through that template and are
+ *  correct WITH the brand — which is why this strips it here and nowhere else. */
+const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 /*
  * 🔑 THE DESCRIPTION IS NOT AUTHORED HERE ANY MORE — it is read from
  * `lib/studio-apps.ts`, the ONE place the seven Studio products are
@@ -48,7 +54,7 @@ const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 */
 
 export const metadata = {
-  title: PAGE_TITLE,
+  title: DOC_TITLE,
   description: PAGE_DESCRIPTION,
   alternates: { canonical: '/patiktok' },
   keywords: [
@@ -157,12 +163,11 @@ const VS = [
 export default function PatiktokLandingPage() {
   return (
     <DoorwayPage
-      kicker="In your wedding · highlight reels"
       title={'The moments that travel, ready the same night.'}
-      lede={'Patiktok turns your wedding moments into short, vertical highlight reels — set to music, ready to share, no editing required. The entrance, the first dance, the toast: made the moment they happen.'}
       primary={{ href: '/onboarding/wedding?from=patiktok', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Patiktok"
+      studioKey="patiktok"
       steps={STEPS}
       differentiator={{ heading: 'Made to be shared', lede: 'The keepsake film is for keeping. Patiktok is for sharing — fast, vertical, and ready the same night.', rows: VS }}
       faq={FAQ}

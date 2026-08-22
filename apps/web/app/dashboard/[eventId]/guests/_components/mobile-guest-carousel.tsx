@@ -32,6 +32,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowUpDown, Check, ChevronLeft, ChevronRight, CircleCheck, Clock, LayoutGrid, List, PencilLine, QrCode, Send, Share2, SlidersHorizontal, UserPlus, X } from 'lucide-react';
+import { OpenAddFromPeopleButton } from './add-from-people-sheet';
 import {
   ROLE_LABELS,
   SIDE_LABELS,
@@ -64,6 +65,7 @@ export function MobileGuestCarousel({
   tags,
   activeTag,
   allVisibleIds,
+  measured = true,
   total,
   attending,
   pending,
@@ -71,7 +73,7 @@ export function MobileGuestCarousel({
   paxProgress,
   teamFilter,
   pendingClaims,
-  unsent = 0,
+  inviteLinkReady = true,
   unseated = 0,
   arrived = 0,
   roleSetKey,
@@ -88,6 +90,14 @@ export function MobileGuestCarousel({
   tags: string[];
   activeTag: string;
   allVisibleIds: string[];
+  /**
+   * False when the guest read was REFUSED. THIS PANEL IS THE ONLY COUNT ON A
+   * PHONE — the page hides its desktop header here on purpose ("the carousel's
+   * Summary panel carries the count"), so an ungated zero is not a duplicate of
+   * a lie told elsewhere, it is the whole lie. Defaults true so the component
+   * stays honest for any caller that has genuinely measured.
+   */
+  measured?: boolean;
   total: number;
   attending: number;
   pending: number;
@@ -98,9 +108,24 @@ export function MobileGuestCarousel({
   // Pending invite-claims (review queue) — badges the Journey panel's Confirm
   // step, mirroring the desktop ribbon (redesign Phase 1).
   pendingClaims: number;
-  // Phase 3 live-progress badges, mirroring the desktop ribbon: invitations
-  // not yet sent · attending guests without a seat · day-of arrivals.
-  unsent?: number;
+  /**
+   * 🚨 THIS WAS `unsent?: number` AND IT COULD NEVER FALL. It counted guests
+   * whose `invitation_sent_at` was null — a column with zero writers anywhere,
+   * because this product has no per-guest send to stamp it. The Invite stage
+   * hands out ONE link for everybody. So the step read "32 to send" beside
+   * three siblings whose numbers move, and would have said it forever.
+   *
+   * What that stage actually has is binary: can the link be handed out, or
+   * does it open to "Link not found"? The page already knows — `fetchJoinUrl`
+   * asks `sharedJoinLinkState` and returns null when the event has no address,
+   * is still private, or its token was revoked. This costs no extra read.
+   *
+   * Defaults TRUE: a caller that has not measured must not paint a warning on
+   * a link that is probably fine. Absence of a measurement is not a fault.
+   */
+  inviteLinkReady?: boolean;
+  // Phase 3 live-progress badges: attending guests without a seat · day-of
+  // arrivals. Both are counts of real rows and both move.
   unseated?: number;
   arrived?: number;
   // Iteration 0053 P4 Unit 5: event's role-set key → bulk-assign picker sections.
@@ -201,15 +226,39 @@ export function MobileGuestCarousel({
           `gl-settle` eases the surface in once on mount (frozen under
           prefers-reduced-motion by the global freeze block). */}
       <div className="gl-settle space-y-3 lg:hidden">
-        {/* Sticky masthead — title, Invite + Needs-you, pax meter, ribbon. */}
-        <div className="sticky top-[calc(env(safe-area-inset-top)+0.25rem)] z-30 -mx-1 space-y-2.5 rounded-b-2xl bg-cream/85 px-1 pb-2.5 pt-1 backdrop-blur">
+        {/* Sticky masthead — title, Invite + Needs-you, pax meter, ribbon.
+
+            ⚠ THE OFFSET CLEARS THE SHARED TOP BAR. It was
+            `env(safe-area-inset-top)+0.25rem`, which was right only while the
+            Guests page injected `.shell-topbar{display:none}` and nothing sat
+            above this. That injection is gone (owner 2026-08-21), and the shell
+            bar renders on a PHONE — the sub-1024 block hides only the rail.
+            `env(safe-area-inset-top)` is **0** in every mobile browser tab, on
+            Android, on iPad and on any non-notched install, so this pinned 4px
+            inside the bar's 0–61px band and 57px of it overlapped: the title,
+            Invite and the red Needs-you on one side; the wordmark, the search,
+            the bell and the account switcher — this surface's only route to
+            sign-out — on the other.
+
+            `--fd-bar` is the shell's own MEASURED height, read from the
+            ancestor that declares it, so the two cannot drift; `0px` is what
+            any surface outside that shell gets. Same fix as the ActiveFilters
+            strip in `page.tsx` and the same idiom `.fd-chipbar` already uses. */}
+        <div className="sticky top-[calc(var(--fd-bar,0px)+0.25rem)] z-30 -mx-1 space-y-2.5 rounded-b-2xl bg-cream/85 px-1 pb-2.5 pt-1 backdrop-blur">
           <div className="flex items-end justify-between gap-2">
             <div className="min-w-0">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
                 Guest list
               </p>
               <h2 className="text-2xl font-semibold leading-tight tracking-tight text-ink">
-                {total} {total === 1 ? 'guest' : 'guests'}
+                {measured ? (
+                  <>
+                    {total} {total === 1 ? 'guest' : 'guests'}
+                  </>
+                ) : (
+                  // A refused read must never render as a headcount of zero.
+                  'Guests'
+                )}
               </h2>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
@@ -255,7 +304,11 @@ export function MobileGuestCarousel({
             {(
               [
                 { key: 'build', label: 'Build', Icon: PencilLine, href: buildHref({}), active: true },
-                { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/invite`, badge: unsent, word: 'to send' },
+                // No number here on purpose — see `inviteLinkReady`. A word
+                // only when the link is dead, because that IS this stage's
+                // outstanding work; the invite page one tap away says why in
+                // full sentences.
+                { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/invite`, badge: inviteLinkReady ? null : 'link not working', word: '' },
                 { key: 'confirm', label: 'Confirm', Icon: CircleCheck, href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims, word: 'to review' },
                 { key: 'seat', label: 'Seat', Icon: LayoutGrid, href: `/dashboard/${eventId}/seating`, badge: unseated, word: 'to seat' },
                 { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}/guests/checkin`, badge: arrived, done: true, word: 'arrived' },
@@ -340,8 +393,24 @@ export function MobileGuestCarousel({
           </div>
 
           {addOpen ? (
-            <div className="rounded-xl border border-ink/10 bg-cream/60 p-3">
+            <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-3">
               <QuickAddInlineForm eventId={eventId} />
+              {/* 🔴 THE PHONE'S ONLY DOOR TO THE PICKER, AND WITHOUT IT THERE IS
+                  NONE. "Add from your people" (owner 2026-08-21) shipped with
+                  two mounts: the capture bar's overflow — which lives inside
+                  `hidden … lg:block`, so it does not exist below 1024 — and the
+                  zero state, which stops rendering the moment the event has one
+                  guest. So on a phone the new door DISAPPEARED THE FIRST TIME
+                  IT WAS USED, and the sheet sat mounted and listening with
+                  nothing able to open it. Retyping a name we already hold is
+                  exactly what this feature exists to stop, and a phone is where
+                  typing costs the most.
+
+                  ⚠ IMPORT THE OPENER, never re-dispatch its event name by hand:
+                  the name is a private constant in the sheet's own file, and a
+                  hand-typed copy keeps compiling and quietly stops opening
+                  anything the first time it moves. */}
+              <OpenAddFromPeopleButton className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm text-ink/75 hover:border-ink/30 hover:text-ink" />
             </div>
           ) : null}
 
@@ -371,13 +440,13 @@ export function MobileGuestCarousel({
           {/* RSVP pills (prototype `mPills`). */}
           <div className="flex gap-1.5">
             <MPill href={buildHref({ rsvp: 'attending' })} active={currentRsvp === 'attending'} tone="attending">
-              <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> {attending}
+              <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> {measured ? attending : '—'}
             </MPill>
             <MPill href={buildHref({ rsvp: 'pending' })} active={currentRsvp === 'pending'} tone="pending">
-              <Clock className="h-3.5 w-3.5" strokeWidth={2} aria-hidden /> {pending}
+              <Clock className="h-3.5 w-3.5" strokeWidth={2} aria-hidden /> {measured ? pending : '—'}
             </MPill>
             <MPill href={buildHref({ rsvp: 'declined' })} active={currentRsvp === 'declined'} tone="declined">
-              <X className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> {declined}
+              <X className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> {measured ? declined : '—'}
             </MPill>
             <MPill href={buildHref({ rsvp: null })} active={!currentRsvp} tone="all">
               All

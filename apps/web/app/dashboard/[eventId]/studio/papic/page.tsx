@@ -98,6 +98,9 @@ import { FaceTaggingChoice } from './_components/face-tagging-choice';
 import { GuestCamerasChoice } from './_components/guest-cameras-choice';
 import { resolvePapicRoom, PAPIC_ROOM_TABS } from './_lib/rooms';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { groupIntoChapters } from '@/lib/alaala-chapters';
+import { fetchScheduleBlocks, DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { LifeFlashCard } from './_components/life-flash-card';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -131,6 +134,7 @@ type Props = {
     storage_set?: string;
     storage_error?: string;
     papic_purchased?: string;
+    papic_order?: string;
     papic_ref?: string;
     papic_amount?: string;
     papic_error?: string;
@@ -201,6 +205,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     storage_set: storageSet,
     storage_error: storageError,
     papic_purchased: papicPurchased,
+    papic_order: papicOrder,
     papic_ref: papicRef,
     papic_amount: papicAmount,
     papic_error: papicError,
@@ -538,8 +543,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       {/* Header — short. */}
       <PageMasthead
         titleNode={
-          <span className="flex items-center gap-3">
-            <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
+          <span>
+            <Camera aria-hidden strokeWidth={1.75} />
             {papicEventWord === 'wedding' ? 'Wedding' : 'Event'} photo capture
           </span>
         }
@@ -570,7 +575,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         storageSet={storageSet}
         storageError={storageError}
         connectedAccount={driveGrant?.external_account_display ?? null}
+        eventId={eventId}
         papicPurchased={papicPurchased}
+        papicOrder={papicOrder}
         papicRef={papicRef}
         papicAmount={papicAmount}
         papicUnlockProvisioned={papicUnlockProvisioned}
@@ -666,6 +673,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
         <MagazineCard eventId={eventId} />
         <RecapCard eventId={eventId} />
+        <LifeFlashCard eventId={eventId} />
 
         </>
       ) : null}
@@ -971,6 +979,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
         {/* Papic Games — the couple's own challenge authoring + curation (§5).
             Self-gates on the flag. */}
+        {/* The picker MOVED to /studio/papic/challenges (owner, 2026-08-21:
+            "the need to have a real screen"). What is left here is a summary
+            and a door — same component, `standalone` off, so the two can never
+            disagree about how many are chosen. */}
         <CoupleChallengesManager eventId={eventId} />
 
         {/* Papic Games — pending vendor challenges awaiting the couple's okay (§3.6).
@@ -1143,6 +1155,7 @@ function LimitedCard({
 // -----------------------------------------------------------------------------
 
 function StatusBanners({
+  eventId,
   driveConnected,
   driveDisconnected,
   driveError,
@@ -1150,6 +1163,7 @@ function StatusBanners({
   storageError,
   connectedAccount,
   papicPurchased,
+  papicOrder,
   papicRef,
   papicAmount,
   papicUnlockProvisioned,
@@ -1170,6 +1184,7 @@ function StatusBanners({
   preserveSet,
   preserveError,
 }: {
+  eventId: string;
   driveConnected: boolean;
   driveDisconnected: boolean;
   driveError: string | undefined;
@@ -1177,6 +1192,7 @@ function StatusBanners({
   storageError: string | undefined;
   connectedAccount: string | null;
   papicPurchased: string | undefined;
+  papicOrder: string | undefined;
   papicRef: string | undefined;
   papicAmount: string | undefined;
   papicUnlockProvisioned: string | undefined;
@@ -1239,11 +1255,45 @@ function StatusBanners({
       {papicPurchased ? (
         <div className={neutral}>
           <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          {/*
+            🔴 THIS USED TO PROMISE AN EMAIL THAT DOES NOT EXIST. "Payment
+            instructions are on the way" was on every one of these buy paths,
+            and there is no `payment_instructions` notification type in the app —
+            lib/notification-emit.ts says so in its own comment ("instructions go
+            out via the checkout email path"), and none of these actions touches
+            an email path. So the sentence sent the buyer away to wait for
+            something that was never coming.
+
+            🔑 THE INSTRUCTIONS ARE NOT "ON THE WAY" — THEY ARE ONE TAP AWAY.
+            The order's own page already carries the total, the reference with a
+            copy button, the BDO/GCash accounts and the form for telling us the
+            transfer is made. Link to it rather than describe a message.
+
+            Same defect the owner hit in onboarding on 2026-08-20: "i had a price
+            to pay. but i there was no payment. it just created."
+          */}
           <span>
             Order received{papicAmount ? ` — ${formatPhp(Number(papicAmount))} due` : ''}.
-            Reference <span className="font-mono">{papicRef}</span>. Payment
-            instructions are on the way; your cameras activate once the Setnayan
-            team confirms your transfer.
+            Reference <span className="font-mono">{papicRef}</span>.{' '}
+            {/*
+              ONE link, not a ternary over two identical ones. The label is the
+              thing a guard can count, and two copies of it meant deleting one
+              left the other standing and the guard green — measured, not
+              guessed. The branch belongs in the href, where it is a fallback:
+              an older redirect still in someone's history carries no order id,
+              and the orders list is the honest landing for it. Never nothing.
+            */}
+            <Link
+              className="font-semibold underline underline-offset-2"
+              href={
+                papicOrder
+                  ? `/dashboard/${eventId}/orders/${papicOrder}`
+                  : `/dashboard/${eventId}/orders`
+              }
+            >
+              See how to pay
+            </Link>
+            {' '}— your cameras activate once the Setnayan team confirms your transfer.
           </span>
         </div>
       ) : null}
@@ -1915,6 +1965,52 @@ async function GalleryPreviewCard({
   const hasPhotos = photos.length > 0;
   const kwentoDensity = new Map(densityRows.map((r) => [r.photoId, r.density]));
 
+  /**
+   * THE DAY, SPLIT INTO THE MOMENTS IT HAPPENED IN (owner 2026-08-19).
+   *
+   * Derived, never stored: the run of show already knows when each part ran and
+   * every frame already carries when it was taken. `groupIntoChapters` does the
+   * one dangerous part — the schedule keeps the VENUE'S WALL CLOCK while a
+   * capture time is a real instant, eight hours apart in Manila.
+   *
+   * ⚠ FAILS TO NOTHING, ON PURPOSE. A schedule that cannot be read gives an
+   * undefined `chapters`, and the gallery then renders exactly as it always
+   * has — one flat grid. A gallery is somebody's wedding; it must never be a
+   * blank page because a heading could not be computed.
+   */
+  let galleryChapters:
+    | { key: string; label: string; photoIds: string[] }[]
+    | undefined;
+  try {
+    const blocks = await fetchScheduleBlocks(supabase, eventId);
+    if (blocks.length > 0 && photos.length > 0) {
+      const { days } = groupIntoChapters({
+        frames: photos.map((ph) => ({ id: ph.id, capturedAt: ph.capturedAt })),
+        blocks: blocks.map((b) => ({
+          blockId: b.block_id,
+          label: b.label,
+          startAt: b.start_at,
+          endAt: b.end_at,
+          actualStartAt: b.actual_start_at,
+          actualEndAt: b.actual_end_at,
+        })),
+        tz: DEFAULT_EVENT_TZ,
+      });
+      const flat = days.flatMap((d) => d.chapters);
+      // One chapter over the whole gallery is not a chapter — it is a heading
+      // over everything, which tells the couple nothing they cannot already see.
+      if (flat.length > 1) {
+        galleryChapters = flat.map((c) => ({
+          key: c.key,
+          label: c.label,
+          photoIds: c.frames.map((f) => f.id),
+        }));
+      }
+    }
+  } catch {
+    galleryChapters = undefined;
+  }
+
   return (
     <article className="space-y-4 sn-tile p-5 sm:p-6">
       <div className="space-y-1">
@@ -1945,6 +2041,7 @@ async function GalleryPreviewCard({
           eventId={eventId}
           kwentoDensity={kwentoDensity}
           preservationTotals={preservationTotals}
+          chapters={galleryChapters}
         />
       ) : (
         <div className="sn-row p-6 text-center">

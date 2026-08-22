@@ -32,6 +32,7 @@ import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { signInWithPassword, signInInPlace } from '../actions';
+import { humanAuthError } from '@/lib/human-auth-error';
 import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
 
 export type SignInCardProps = {
@@ -99,7 +100,19 @@ export function SignInCard({
   // One banner slot, two sources: the /login route's `?error=` and the in-place
   // action's returned message. They can never both apply — the route surface
   // has no in-place action and the overlay has no searchParams.
-  const shownError = inPlace ? state.error : errorMessage;
+  /*
+    🔑 ONE GATE FOR EVERY SOURCE. Owner 2026-08-20, screenshotting this exact
+    banner reading `{}`: *"a blank error"*. `{}` is a stringified error object
+    (`JSON.stringify(new Error(...))` is `'{}'` — an Error's own properties are
+    not enumerable), and this line printed whatever string it was handed.
+
+    Messages reach here from at least four places — the /login route's
+    `?error=`, the in-place action, the OAuth start action, and the desktop
+    loopback — and `?error=` is a QUERY PARAM anyone can type into. Sanitising
+    at each producer is four chances to forget and the next producer makes
+    five, so it happens HERE, where they all converge.
+  */
+  const shownError = humanAuthError(inPlace ? state.error : errorMessage);
 
   return (
     <>

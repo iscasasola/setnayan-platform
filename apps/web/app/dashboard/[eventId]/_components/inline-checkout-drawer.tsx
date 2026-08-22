@@ -409,7 +409,18 @@ export function InlineCheckoutDrawer({
                   finalGrossDisplay
                 )}
               </p>
-              <p className="font-mono text-[10px] text-ink/40">incl. 12% VAT</p>
+              {/*
+                🚨 THIS SAID "incl. 12% VAT" TO EVERY CUSTOMER, ALWAYS. The
+                PRICE above it was already right — it is computed from the
+                configured rate, which is 0 — so the number was ₱499 and the
+                sentence under it claimed a 12% tax was inside it. The maths
+                had been fixed; the words had not. Same defect as the receipt.
+                Owner 2026-08-20: "just stay with 499. remove the 12%."
+                Derived, so it returns by itself if a rate is ever set.
+              */}
+              {vatRatePct > 0 ? (
+                <p className="font-mono text-[10px] text-ink/40">incl. {vatRatePct}% VAT</p>
+              ) : null}
             </div>
             <button
               type="button"

@@ -544,11 +544,20 @@ export async function buildPlanningSnapshot(
       .from('orders')
       .select('requested_total_php')
       .eq('event_id', eventId)
-      // `awaiting_payment`, not the non-existent 'pending_payment' enum value —
-      // the old filter threw 22P02, so the AI snapshot's "pending" budget bucket
-      // (money already at checkout) was silently always ₱0. See order_status
-      // enum in 20260513150000_iteration_0034_payments.sql.
-      .eq('status', 'awaiting_payment'),
+      // 🔴 BOTH UNPAID STATES, NOT JUST ONE. `awaiting_payment` is real, but
+      // almost nothing WRITES it — one admin action does (payments/actions.ts,
+      // bouncing an order back for better proof). Every mint in the app —
+      // onboarding, the studio buy paths, checkout, booking fees, vendor add-ons
+      // — writes `submitted`. Prod holds exactly one order and it is `submitted`.
+      //
+      // 🔑 THE EARLIER CORRECTION STOPPED ONE STEP SHORT. This filter used to be
+      // the non-existent 'pending_payment', which threw 22P02 and degraded to
+      // []. That was fixed to a REAL enum member — and never checked against the
+      // member the app actually mints, so it kept reading empty for the ordinary
+      // case. A fix that makes a query legal is not a fix that makes it true.
+      // (`add-on-state`, `entitlements`, `vendor-booking-fees.server` and
+      // `ugat/data` all already ask for both.)
+      .in('status', ['submitted', 'awaiting_payment']),
     admin
       .from('event_vendors')
       .select('status, total_cost_php, category, vendor_name, marketplace_vendor_id')

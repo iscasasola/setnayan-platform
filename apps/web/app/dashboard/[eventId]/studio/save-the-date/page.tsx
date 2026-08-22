@@ -320,7 +320,6 @@ export default async function SaveTheDatePage({ params }: Props) {
 
       <PageMasthead
         title="Save the Date"
-        lede="Your Save the Date plays as a short, self-running film — it fills itself from what you’ve already added. Set the scene, fine-tune the details, add your video and song, choose how it opens — then hit Render."
       />
 
       {/* Save-the-Date views — unique per day, the couple's own visits excluded. */}

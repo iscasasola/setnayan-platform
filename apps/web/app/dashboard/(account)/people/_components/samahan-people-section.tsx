@@ -40,10 +40,6 @@ export async function SamahanPeopleSection() {
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
           Samahan
         </h2>
-        <p className="mt-1 text-sm text-ink/55">
-          The groups you belong to — named by you, whatever they are. The group itself is part
-          of your first degree; the people inside it are your second.
-        </p>
       </header>
 
       {active.length > 0 ? (

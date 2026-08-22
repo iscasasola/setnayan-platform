@@ -185,7 +185,7 @@ export function AdminCommandPalette() {
         aria-modal="true"
         aria-label="Search every admin page"
         className="fixed left-1/2 top-[11vh] z-[61] w-[min(620px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border shadow-2xl"
-        style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-paper, #FDFBF7)' }}
+        style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-paper, #FFFFFF)' }}
       >
         <div
           className="flex items-center gap-3 border-b px-4 py-3.5"

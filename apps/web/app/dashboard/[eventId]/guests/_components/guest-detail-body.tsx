@@ -105,10 +105,23 @@ export function GuestDetailBody({
   brandedQrActive = false,
   headingId,
   showFullDetailsLink = true,
+  photoDisplayUrl = null,
 }: {
   guest: GuestRow;
   groupLabels: string[];
   eventId: string;
+  /**
+   * The guest's face, ALREADY RESOLVED to a displayable URL by the loader.
+   *
+   * ⚠ NEVER pass `guest.photo_url` here. That column holds an `r2://…`
+   * REFERENCE, and a raw one in an <img> is a broken-image glyph — silent, and
+   * exactly the defect three other guest screens shipped with. The loaders all
+   * go through `guestPhotoDisplayUrls`; this takes the value out of that map.
+   *
+   * Null when the guest has no photo, or when the ref could not be signed —
+   * both fall back to initials, which is why a miss is safe.
+   */
+  photoDisplayUrl?: string | null;
   /** Paid CUSTOM_QR_GUEST upgrade admin-approved for this event → offer the
    *  branded PNG download directly (the gated route 403s otherwise, so a
    *  non-owner is routed to the Invitation page instead). */
@@ -130,9 +143,25 @@ export function GuestDetailBody({
     <>
       {/* Identity */}
       <div className="mb-4 flex items-center gap-3">
-        <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10 text-sm font-semibold text-terracotta-700">
-          {guestInitials(guest)}
-        </span>
+        {/* THE FACE, WHEN THERE IS ONE (2026-08-19). This screen read no photo
+            at all — every guest showed initials, including one whose selfie was
+            sitting in the row it was already given. It is the guest screen where
+            you most expect a face: the couple opens it to work out who somebody
+            is. */}
+        {photoDisplayUrl ? (
+          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-terracotta/10">
+            {/* eslint-disable-next-line @next/next/no-img-element -- presigned R2 URL, resolved by the loader */}
+            <img
+              src={photoDisplayUrl}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          </span>
+        ) : (
+          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-sm font-semibold text-terracotta-700">
+            {guestInitials(guest)}
+          </span>
+        )}
         <div className="min-w-0">
           <h2 id={headingId} className="truncate text-xl font-semibold text-ink">
             {name}

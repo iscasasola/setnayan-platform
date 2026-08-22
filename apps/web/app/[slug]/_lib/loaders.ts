@@ -119,7 +119,7 @@ export const loadEventShell = cache(async (slug: string) => {
   const { data, error } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, site_bg_color, site_button_color, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, site_bg_color, site_button_color, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse, guest_list_edit_deadline, guest_count_locked_at',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -996,7 +996,7 @@ export const loadGuestContext = cache(
     const { data: guest, error: guestError } = await admin
       .from('guests')
       .select(
-        'guest_id, first_name, last_name, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source',
+        'guest_id, first_name, last_name, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
       )
       .eq('guest_id', session.guest_id)
       .is('deleted_at', null)
@@ -1293,6 +1293,49 @@ export const loadGuestContext = cache(
       }
     }
 
+    // ── FIRST ARRIVAL vs RETURN ──────────────────────────────────────────
+    // `scan_events` is written by every door that mints a guest session and was
+    // read by nothing. The EARLIEST row is the whole signal: it does not move
+    // when a guest re-scans the card in their hand, and it survives the redeem
+    // route's observed DOUBLE-FIRE — prod holds two rows 1.3 seconds apart for
+    // ONE arrival — so a count would lie where a minimum does not.
+    //
+    // ⛔ DO NOT ADD A SECOND CONJUNCT. `rsvp_responded_at` is stamped by three
+    // HOST dashboard paths with no guest session in sight (in prod most guests
+    // carry it and have never scanned anything, because the couple typed their
+    // answers in), and `arrived` is written only by the door crew. Either one
+    // would demote a genuine first arrival to "Hi again" — the exact bug.
+    // A scan OLDER than the window already IS the proof of a previous visit.
+    //
+    // ⏱ TWO CLOCKS: `scanned_at` defaults to the database's now(), this runs on
+    // the app runtime. The window absorbs ordinary skew, and a database clock
+    // running ahead yields a negative difference that stays inside it — i.e. it
+    // fails toward "Hello". `scanned_at` is a true instant, so parsing it
+    // directly is correct here; the venue-wall-clock helper is for schedule
+    // blocks and would INTRODUCE the error it exists to prevent.
+    //
+    // ↩ FAILS TOWARD TODAY'S COPY: a door that mints a session without writing
+    // a scan leaves no evidence, and no evidence means "Hi again".
+    const ARRIVAL_WINDOW_MS = 5 * 60 * 1000;
+    let guestFirstVisit = false;
+    try {
+      const { data: firstScan, error: firstScanErr } = await admin
+        .from('scan_events')
+        .select('scanned_at')
+        .eq('guest_id', guest.guest_id)
+        .order('scanned_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      // 🔑 A REJECTED QUERY IS NOT A THROWN ERROR — check the error, or a lost
+      // grant reads as "no scan ever" and greets every returning guest as new.
+      if (!firstScanErr && firstScan?.scanned_at) {
+        const firstAt = Date.parse(firstScan.scanned_at as string);
+        guestFirstVisit = Number.isFinite(firstAt) && Date.now() - firstAt < ARRIVAL_WINDOW_MS;
+      }
+    } catch {
+      guestFirstVisit = false;
+    }
+
     const guestHubData: GuestHubData = {
       firstName: guest.first_name,
       displayName:
@@ -1311,6 +1354,7 @@ export const loadGuestContext = cache(
       isLimitedPlusOne:
         guest.plus_one_of_guest_id !== null && guest.plus_one_mode === 'limited',
       arrived: guestArrived,
+      firstVisit: guestFirstVisit,
     };
 
     // "Your seat" inline map — surface the entrance→table wayfinding map on the

@@ -64,6 +64,15 @@ export type GuestHubData = {
   /** True once this guest has scanned in at the door on the day-of (a
    *  guest_checkins row exists). Flips the seat tile to a warm arrival state. */
   arrived: boolean;
+  /**
+   * True only on this guest's VERY FIRST arrival — their earliest recorded scan
+   * is inside the arrival window.
+   *
+   * Optional and defaulting to false so every existing construction site stays
+   * byte-unchanged, and so an unknown answer falls back to today's copy rather
+   * than greeting a returning guest as a stranger.
+   */
+  firstVisit?: boolean;
 };
 
 // ---- Helpers ---------------------------------------------------------------
@@ -198,11 +207,20 @@ export function pickNextScheduleBlock(
 export function GuestHubCard({
   data,
   words,
+  guestListClosed = false,
 }: {
   data: GuestHubData;
   words: EventWords;
+  /**
+   * The guest list is final (owner 2026-08-20). Drops the "Please confirm
+   * you're coming" nudge — after the deadline there is nothing to confirm
+   * with, so the nudge asks for a thing the guest can no longer do and the
+   * database would refuse. Their status line stays; only the instruction goes.
+   * Defaults FALSE so every existing mount is unchanged.
+   */
+  guestListClosed?: boolean;
 }) {
-  const { firstName, displayName, rsvpStatus, tableLabel, mealPreference, dietaryRestrictions, nextScheduleBlock, slug, isLimitedPlusOne, arrived } = data;
+  const { firstName, displayName, rsvpStatus, tableLabel, mealPreference, dietaryRestrictions, nextScheduleBlock, slug, isLimitedPlusOne, arrived, firstVisit = false } = data;
   // Day-of arrival: once the guest has checked in at the door AND has a seat,
   // the seat tile greets them by name with a gentle bloom instead of the
   // neutral "Your seat" copy. Needs both — a checked-in guest with no assigned
@@ -250,7 +268,29 @@ export function GuestHubCard({
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="flex flex-col">
               <span className="font-pahina text-lg font-light italic leading-snug text-ink">
-                Hi again, {firstName}.
+                {/* 🔴 THIS WAS AN UNCONDITIONAL "Hi again". The very first
+                    person ever to scan a printed invitation QR was greeted as
+                    a returning visitor — their arrival mints the session and
+                    lands them straight here, so this is literally the first
+                    sentence they read. The comment above this card's mount even
+                    claimed it was "for identified RETURNING guests", asserting a
+                    gate that did not exist.
+                    🔒 "Hello", never "Welcome": Welcome already means "you have
+                    checked in at the door" in five other places, and telling
+                    somebody at home that they have arrived at the venue is a
+                    different lie.
+                    🪤 THE BLANK-NAME ARM BROKE THAT RULE THREE LINES BELOW THE
+                    SENTENCE STATING IT — it read "Hello — welcome." The guard
+                    written to enforce the rule only ever rendered a NAMED guest,
+                    so the one arm that broke it was the one arm never tested.
+                    All four arms are asserted now. */}
+                {firstName.trim()
+                  ? firstVisit
+                    ? `Hello, ${firstName.trim()}.`
+                    : `Hi again, ${firstName.trim()}.`
+                  : firstVisit
+                    ? 'Hello.'
+                    : 'Your invitation.'}
               </span>
               <span className="mt-1 font-mono text-[0.6rem] uppercase tracking-[0.28em] text-gild">
                 <span aria-hidden>✦ </span>Your invitation summary
@@ -291,7 +331,9 @@ export function GuestHubCard({
                 <span className="mt-0.5 text-xs text-ink/70">Your place is reserved.</span>
               ) : rsvpStatus === 'pending' ? (
                 <span className="mt-0.5 text-xs text-ink/70">
-                  Please confirm you&apos;re coming.
+                  {guestListClosed
+                    ? 'Replies are closed.'
+                    : 'Please confirm you\u2019re coming.'}
                 </span>
               ) : null}
             </div>

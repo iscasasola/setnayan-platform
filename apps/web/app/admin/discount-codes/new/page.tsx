@@ -8,6 +8,7 @@
 
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { VoucherForm, type VoucherFormInitial } from '../_components/voucher-form';
 import { createDiscountCode } from '../actions';
 import { fetchV2CustomerCatalog, fetchV2BundleCatalog, fetchV2VendorCatalog } from '@/lib/v2-catalog';
@@ -97,21 +98,12 @@ export default async function NewDiscountCodePage() {
         All codes
       </Link>
 
-      <div>
-        <h1
-          className="sn-h1"
-          style={{ color: 'var(--m-ink)' }}
-        >
-          Create discount code
-        </h1>
-        <p
-          className="mt-1 max-w-2xl text-sm"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          Couples paste the code at checkout to unlock the special price.
-          Effective-until is required so codes can&apos;t hang around forever.
-        </p>
-      </div>
+      {/* One shared masthead — no 36px title, no paragraph (owner-locked
+          2026-08-21). The rule about effective-until is a rule you need in
+          order to fill the form, so it stays, behind the (i). */}
+      <PageMasthead
+        title="Create discount code"
+      />
 
       <VoucherForm
         initial={initial}

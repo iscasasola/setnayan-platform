@@ -21,6 +21,7 @@
 import { cache } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { storyAudienceAdmits } from '@/lib/who-can-see-your-story';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { canViewSlugEvent, isSignedInEventHost } from '@/lib/slug-access';
@@ -53,7 +54,7 @@ const fetchEvent = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      `event_id, slug, display_name, event_type, event_date, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}`,
+      `event_id, slug, display_name, event_type, event_date, event_end_date, timezone, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}`,
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -93,7 +94,12 @@ export default async function EditorialPrintPage({
   // only see it once the event is past (lifecycle === 'editorial'); a signed-in
   // HOST may preview it any time (mirrors the page's ?phase=editorial host
   // preview allowance). Pre-event, a non-host is bounced to the live page.
-  const isEditorialPhase = getLifecyclePhase(event.event_date) === 'editorial';
+  const isEditorialPhase =
+    getLifecyclePhase(
+      event.event_date,
+      (event as { timezone?: string | null }).timezone ?? undefined,
+      (event as { event_end_date?: string | null }).event_end_date ?? null,
+    ) === 'editorial';
   if (!isEditorialPhase) {
     const hostPreview = await isSignedInEventHost(event.event_id);
     if (!hostPreview) redirect(`/${slug}`);
@@ -106,6 +112,27 @@ export default async function EditorialPrintPage({
     data = await loadEditorialData(event.event_id);
   } catch {
     data = null;
+  }
+
+  /*
+    (3) AUDIENCE GATE — the SAME question the on-screen story asks, because this
+    route reads the SAME loader and would otherwise be the way around it.
+
+    🔑 THIS ROUTE IS WHY THE GATE HAD TO BE ON THE DATA. Every other public
+    surface renders through `EditorialContent`, which now refuses a story its
+    viewer may not read; this one takes the loader directly and prints the words
+    itself. Gating only the component would have left a couple's "only me" story
+    fully readable at /<slug>/print.
+
+    The two checks above already establish who this is: `canViewSlugEvent`
+    admits the event's own people, and `isSignedInEventHost` the host. The
+    audience narrows within that — a story kept to the celebration is refused to
+    nobody who got this far, but a story kept to the couple is refused to
+    everyone but them.
+  */
+  const printViewer = { isHost: await isSignedInEventHost(event.event_id), belongsToEvent: true };
+  if (data && data.audience && !storyAudienceAdmits(data.audience, printViewer)) {
+    redirect(`/${slug}`);
   }
 
   if (!data) {

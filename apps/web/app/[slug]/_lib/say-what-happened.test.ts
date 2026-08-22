@@ -75,9 +75,33 @@ test('a reply that DID save says so too', () => {
   // The old success path redirected with `?saved=1` and NOTHING rendered it, so
   // success and failure produced identical pages. Fixing only the error half
   // would have left "no message" still meaning two different things.
-  assert.match(submitRsvpSource(), /rsvp=ok/, 'the success signal is gone');
-  assert.match(PAGE, /search\.rsvp === 'ok'/, 'the page must turn the success signal into words');
-  assert.match(PAGE, /search\.rsvp === 'error'/, 'and the failure signal too');
+  //
+  // ⚠ 2026-08-20: the success signal became one of THREE outcomes, so the old
+  // literal `rsvp=ok` match stopped holding. This test caught that change —
+  // correctly — and is widened rather than loosened: the property it defends is
+  // "every outcome the action can produce has words on the page", which is now
+  // asserted for all three, not just one.
+  const src = submitRsvpSource();
+  assert.match(
+    src,
+    /rsvp=\$\{outcome\}|rsvp=ok/,
+    'the success signal is gone',
+  );
+
+  // Every literal the outcome can take must have a renderer. A new outcome
+  // added here without a branch on the page is a guest told nothing.
+  const OUTCOMES = ['ok', 'error', 'details', 'refused'];
+  for (const o of OUTCOMES) {
+    assert.ok(
+      src.includes(`'${o}'`) || src.includes(`rsvp=${o}`),
+      `submitRsvp can no longer produce the "${o}" outcome — if it was retired, drop it here too`,
+    );
+    assert.match(
+      PAGE,
+      new RegExp(`search\\.rsvp === '${o}'`),
+      `nothing on the page turns the "${o}" outcome into words`,
+    );
+  }
 });
 
 test('the message reaches the form, at the top of it', () => {

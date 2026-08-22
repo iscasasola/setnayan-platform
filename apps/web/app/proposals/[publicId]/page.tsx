@@ -51,7 +51,7 @@ type ProposalRow = {
   proposal_id: string;
   public_id: string;
   vendor_profile_id: string;
-  event_id: string;
+  event_id: string | null;
   title: string;
   merge_snapshot: {
     values?: Record<string, string | null>;
@@ -201,8 +201,17 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 print:max-w-none print:space-y-4 print:py-2">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link
+          /* `event_id` is NULL once the couple has deleted the celebration
+             (slice 5 of "vendors get to keep it"). Interpolating it blind
+             produces `/dashboard/null/vendors`.
+
+             Unreachable TODAY — an orphaned quote is invisible to the couple,
+             whose read policy keys on `event_id`, so only the supplier can open
+             this page and they take the vendor branch. Guarded anyway: that
+             reasoning depends on no admin or support policy ever being added to
+             `vendor_proposals`, which is not a promise this file can keep. */
           href={
-            isVendorSide
+            isVendorSide || !proposal.event_id
               ? '/vendor-dashboard/proposals'
               : `/dashboard/${proposal.event_id}/vendors`
           }

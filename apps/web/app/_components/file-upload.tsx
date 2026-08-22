@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import { trackFailure } from '@/lib/telemetry/track-error';
+import { createStallWatchdog } from '@/lib/stall-watchdog';
 
 /**
  * Reusable file-upload widget that targets Cloudflare R2 via the
@@ -165,6 +166,38 @@ export type FileUploadProps = {
 
 const DEFAULT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
+/**
+ * How long an upload may move ZERO bytes before it is declared dead.
+ *
+ * Not a total-duration cap — see `lib/stall-watchdog.ts`. 45s is long
+ * enough to ride out a phone changing cell or a slow TLS handshake, and short
+ * enough that nobody sits watching a spinner that will never move.
+ */
+const UPLOAD_STALL_MS = 45_000;
+
+/**
+ * How long to wait for R2 to ANSWER, once every byte has been handed to the
+ * network stack.
+ *
+ * 🔑 THIS IS A SEPARATE CLOCK, AND LEAVING IT OUT WAS A REAL BUG. `upload`
+ * progress events stop permanently the moment the body is written, so after
+ * that point nothing could ever re-arm the transfer-silence watchdog — and its
+ * 45s became a fixed TOTAL-DURATION cap on the server's reply, the very thing
+ * `stall-watchdog.ts` says it refuses to be. On a slow uplink with a large file
+ * (the save-the-date picker allows 300 MB) the bar reached 100%, the send
+ * buffer and R2's commit took longer than 45s, and a healthy, essentially
+ * finished upload was aborted with "check your connection" — advice that was
+ * wrong twice: the connection was fine, and re-picking re-sends the same bytes.
+ *
+ * ⚠ The verification that missed it is worth recording: the only real-world
+ * check was a 171 KB file completing in ~1s — the one size that CANNOT show
+ * this, because its tail is instant.
+ *
+ * Still bounded, so a genuinely hung response resolves instead of spinning
+ * forever: five minutes, not infinity.
+ */
+const UPLOAD_RESPONSE_MS = 300_000;
+
 type UploadedItem = {
   /** Local-only ID for React keys + cancellation. */
   id: string;
@@ -310,6 +343,50 @@ export function FileUpload({
   // orphaned R2 object. Covering only the validator sub-window (the prior fix)
   // left the far longer compression window open.
   const busyRef = useRef(false);
+  /** The root node, used only to find the enclosing <form>. */
+  const rootRef = useRef<HTMLDivElement>(null);
+  /** Set when a submit was refused, so the refusal is never silent. */
+  const [blockedSubmit, setBlockedSubmit] = useState(false);
+
+  /**
+   * ⚠ SAVE MUST NOT OUTRUN THE UPLOAD — this was live data loss.
+   *
+   * The hidden inputs that carry the value into the parent form are emitted
+   * from `items` (finished uploads) only; an upload still in `inFlight` has no
+   * input. In SINGLE-FILE mode `atCapacity` also means the dropzone only opens
+   * once `items` is empty — so replacing a photo is necessarily
+   * remove-then-add, and a submit in the gap posted **nothing**.
+   *
+   * On /dashboard/profile that reached `nullIfBlank(null)` and wrote NULL, then
+   * redirected to `?saved=1`, so the screen said **"Saved."** while the person's
+   * photo had just been deleted AND the replacement never landed. Both losses,
+   * one click, cheerful confirmation. Reachable by construction, not bad luck.
+   *
+   * The refusal lives here rather than on each parent's submit button because
+   * every consumer of this component has the same gap, and because the parents
+   * are server components whose buttons cannot see this state.
+   *
+   * 🔑 IT REFUSES OUT LOUD. A guard that blocks in silence is indistinguishable
+   * from one that passed — the person would press Save, see nothing happen, and
+   * press it again.
+   */
+  useEffect(() => {
+    if (inFlight.length === 0) return;
+    const form = rootRef.current?.closest('form');
+    if (!form) return;
+    const refuse = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setBlockedSubmit(true);
+    };
+    form.addEventListener('submit', refuse, { capture: true });
+    return () => form.removeEventListener('submit', refuse, { capture: true });
+  }, [inFlight.length]);
+
+  // Clear the notice once the upload lands, so it never lingers as a false alarm.
+  useEffect(() => {
+    if (inFlight.length === 0 && blockedSubmit) setBlockedSubmit(false);
+  }, [inFlight.length, blockedSubmit]);
 
   // We need to seed `items` from `currentValue` on mount AND any time
   // `currentValue` changes (e.g. server re-renders with new defaults after
@@ -641,7 +718,47 @@ export function FileUpload({
       prev.map((i) => (i.id === id ? { ...i, xhr } : i)),
     );
 
+    // STALL WATCHDOG. Every other failure below announces itself with an event
+    // — `error`, `abort`, a non-2xx `load`. A transfer that simply DIES fires
+    // none of them: no event, no `setError`, nothing. The chip then sat at 0%
+    // with a spinner forever, which reads as "still working" and is the one
+    // state the person cannot tell from success in progress. Same shape as the
+    // guards in this codebase that refused in silence.
+    //
+    // XHR's own `xhr.timeout` is the wrong instrument: it caps TOTAL duration,
+    // so it would kill a slow-but-healthy 10 MB video on hotel wifi. This one
+    // measures SILENCE — it is reset by every progress event, so it only fires
+    // when no byte has moved for UPLOAD_STALL_MS.
+    const watchdog = createStallWatchdog({
+      timeoutMs: UPLOAD_STALL_MS,
+      onStall: () => {
+        // Aborting fires the `abort` handler, which removes the chip; it does
+        // not clear this message, so the person is told WHY it stopped instead
+        // of watching a spinner that will never move.
+        try {
+          xhr.abort();
+        } catch {
+          /* already dead — nothing left to stop */
+        }
+        if (!isMountedRef.current) return;
+        setError(
+          `${file.name} stopped uploading — check your connection and pick it again.`,
+        );
+        setInFlight((prev) => prev.filter((i) => i.id !== id));
+      },
+    });
+
+    // Every byte is now on the network stack. No further upload-progress event
+    // can fire, so hand the clock over to the response budget rather than
+    // leaving the transfer clock armed against a wait it cannot measure.
+    xhr.upload.addEventListener('loadend', () => {
+      watchdog.arm(UPLOAD_RESPONSE_MS);
+    });
+
     xhr.upload.addEventListener('progress', (evt) => {
+      // Re-armed BEFORE the computable check: bytes moved either way, which is
+      // the only thing this clock is measuring.
+      watchdog.arm();
       if (!evt.lengthComputable) return;
       const pct = Math.round((evt.loaded / evt.total) * 100);
       setInFlight((prev) =>
@@ -650,17 +767,20 @@ export function FileUpload({
     });
 
     xhr.addEventListener('error', () => {
+      watchdog.settle();
       if (!isMountedRef.current) return;
       setError(`Upload failed for ${file.name}. Check your connection and retry.`);
       setInFlight((prev) => prev.filter((i) => i.id !== id));
     });
 
     xhr.addEventListener('abort', () => {
+      watchdog.settle();
       if (!isMountedRef.current) return;
       setInFlight((prev) => prev.filter((i) => i.id !== id));
     });
 
     xhr.addEventListener('load', () => {
+      watchdog.settle();
       if (!isMountedRef.current) return;
       // R2 returns 200 OR 201 on success — anything 2xx is a win.
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -688,6 +808,9 @@ export function FileUpload({
     xhr.open('PUT', presign.uploadUrl, true);
     xhr.setRequestHeader('Content-Type', contentType);
     xhr.send(file);
+    // Armed here too, so a request that never connects at all is caught — not
+    // only one that starts and then stops.
+    watchdog.arm();
   }
 
   function removeItem(id: string) {
@@ -771,7 +894,7 @@ export function FileUpload({
     !!first.displayUrl;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" ref={rootRef}>
       {label ? (
         <span className="block text-sm font-medium text-ink">{label}</span>
       ) : null}
@@ -789,6 +912,12 @@ export function FileUpload({
             ),
           )
         : null}
+
+      {blockedSubmit ? (
+        <p role="alert" className="text-sm font-medium text-mulberry-600">
+          Still uploading — give it a second, then save.
+        </p>
+      ) : null}
 
       {!atCapacity ? (
         <label
@@ -940,11 +1069,36 @@ export function FileUpload({
                   />
                 </span>
               )}
+              {/* ⚠ "Uploaded" WITH A GREEN TICK WAS A LIE ABOUT STATE, and it cost
+                  the owner a real attempt (2026-08-19): he chose a photo, saw a
+                  green tick and the word "Uploaded", and left. His account was
+                  unchanged — `users.profile_photo_url` still NULL, `updated_at`
+                  still five weeks old — because the value only reaches the row
+                  when the PARENT FORM is submitted, and on /dashboard/profile
+                  that button sits ~3,000px further down a 4,744px page.
+                  The file was in R2 and the hidden input was correctly filled.
+                  Nothing was broken. The screen simply said "done" about the
+                  upload while meaning nothing about the account.
+
+                  A SEEDED item came from the database, so for it "Saved" is
+                  true. An item uploaded in THIS session has not been saved yet,
+                  and says so. The two are already distinguishable — seeds carry
+                  an `id` of `seed-<ref>` — so this needed no new state.
+
+                  Only when there is a `name`: without one this widget is not
+                  feeding a form and there is nothing to save. */}
               <div className="flex items-center justify-between gap-3">
-                <p className="inline-flex min-w-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-success-700">
-                  <CheckCircle2 aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
-                  <span className="truncate">Uploaded</span>
-                </p>
+                {name && !item.id.startsWith('seed-') ? (
+                  <p className="inline-flex min-w-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-mulberry-600">
+                    <AlertCircle aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
+                    <span className="truncate">Not saved yet — press Save below</span>
+                  </p>
+                ) : (
+                  <p className="inline-flex min-w-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-success-700">
+                    <CheckCircle2 aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
+                    <span className="truncate">Saved</span>
+                  </p>
+                )}
                 <button
                   type="button"
                   onClick={() => removeItem(item.id)}

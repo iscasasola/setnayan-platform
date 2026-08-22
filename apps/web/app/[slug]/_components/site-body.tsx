@@ -2,6 +2,10 @@ import Link from 'next/link';
 import { MapPin, Sparkles, X } from 'lucide-react';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { formatEventDate } from '@/lib/events';
+import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
+// The event hub's sanctioned column widths — a page-level column outside the
+// four is a defect, and `measures.test.ts` counts them.
+import { PLATE } from '../_lib/measures';
 import { ROLE_LABELS } from '@/lib/guests';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
@@ -85,6 +89,7 @@ import {
   type LifecyclePhase,
 } from '@/lib/invitation-widgets';
 import { resolveSiteBodyPlan } from '@/lib/site-body-plan';
+import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { buildAfterEventMemento } from '@/lib/pahina-memento';
 import { OwnerRibbon } from './owner-ribbon';
@@ -359,6 +364,9 @@ type SiteBodyProps = {
    *  it — and must keep the gate here on the server, never by hiding UI. */
   ownerCapability?: OwnerCapability | null;
   /** A booked supplier's server-verified grant; drives the doorway strip. */
+  /** Stories about THIS day, for the people of this day. Empty for anybody the
+   *  event does not recognise — the page never decides that itself. */
+  chaptersOnThisDay?: ChapterOnThisDay[];
   vendorCapability?: VendorCapability | null;
 };
 
@@ -397,6 +405,7 @@ export async function SiteBody({
   editorMode = false,
   ownerCapability = null,
   vendorCapability = null,
+  chaptersOnThisDay = [],
 }: SiteBodyProps) {
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
 
@@ -481,6 +490,15 @@ export async function SiteBody({
     liveMediaPublic: Boolean(event.live_media_public),
     widgets,
     openBrowse: Boolean(event.website_open_browse),
+    // Is the invitation still open? The couple's guest-list deadline decides
+    // (owner 2026-08-20). Read, never written — a public page load must not
+    // stamp anything, so this asks the DEADLINE rather than waiting for the
+    // lazy finalize write on the couple's own roster.
+    guestListClosed: guestListIsClosed({
+      lockedAt: event.guest_count_locked_at,
+      editDeadline: event.guest_list_edit_deadline,
+      eventDate: event.event_date,
+    }),
     content: openBrowseContent,
   });
 
@@ -615,7 +633,22 @@ export async function SiteBody({
       // answering both "may this visitor browse the new open site?" and "does
       // this visitor get a site at all?". Only the first is what it decides.
       <>
-        <EditorialContent eventId={event.event_id} galleryAnchorId={recapGalleryAnchorId} />
+        <EditorialContent
+          eventId={event.event_id}
+          galleryAnchorId={recapGalleryAnchorId}
+          /*
+            WHO IS ASKING — resolved ONCE here, from the same three facts this
+            page already established for its lock screen and its ribbon, rather
+            than re-derived inside the story where it could disagree with them.
+            "The people of this celebration" is exactly who the page already
+            recognises: a host, a guest with a seat or a redeemed invitation, and
+            a supplier who worked the day.
+          */
+          viewer={{
+            isHost: viewerIsHost,
+            belongsToEvent: identity.kind === 'guest' || vendorCapability !== null,
+          }}
+        />
         {memento}
         <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />
         {normalBody()}
@@ -1003,7 +1036,10 @@ export async function SiteBody({
               hasDetails: menuSections.details,
               liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
               destinations: {
-                camera: hostCameraOpen ? '/papic/guest' : null,
+                // Carries the event so the guest camera's refusal screen can
+                // send an unrecognised visitor BACK TO THIS INVITATION instead
+                // of to Setnayan's homepage — which was the only way off it.
+                camera: hostCameraOpen ? `/papic/guest?from=${event.slug}` : null,
                 watch: `/${event.slug}/hub`,
                 join: `/${event.slug}/invite`,
               },
@@ -1029,6 +1065,7 @@ export async function SiteBody({
       pabati,
       showClaimAccountCta,
       accountlessPhotosClosed,
+      profileDetails,
       eventVendorCredits,
       saveFlash,
       rsvpFlash,
@@ -1120,7 +1157,7 @@ export async function SiteBody({
               guests. Shows RSVP status, seat, meal, and next schedule item at
               a glance on every return visit. Hidden from anonymous visitors
               (this branch only runs when a guest session is present). */}
-          <GuestHubCard words={clientWords} data={guestHubData} />
+          <GuestHubCard words={clientWords} data={guestHubData} guestListClosed={plan.guestListClosed} />
 
           {/* Invite/Join v2 — accountless guest's "claim your account" prompt.
               Per the lifecycle table: RSVP / Event / Editorial only (never Save the
@@ -1655,7 +1692,9 @@ export async function SiteBody({
                     )}
                     <details className="group">
                       <summary className="cursor-pointer list-none font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50 hover:text-ink/70">
-                        Need to change your reply?
+                        {plan.guestListClosed
+                          ? 'Need to update your details?'
+                          : 'Need to change your reply?'}
                       </summary>
                       <div className="mt-4">
                         <RsvpWidget words={clientWords}
@@ -1664,6 +1703,8 @@ export async function SiteBody({
                           eventPublicId={event.public_id}
                           faceMode={faceMode}
                           flash={rsvpFlash}
+                          replyLocked={plan.guestListClosed}
+                    profileDetails={profileDetails}
                         />
                       </div>
                     </details>
@@ -1671,13 +1712,23 @@ export async function SiteBody({
                 ) : (
                   /* pending + maybe: the ask stays exactly as it is. "Maybe"
                      deliberately keeps the full card visible (design §11) — an
-                     undecided guest still has a question to answer. */
+                     undecided guest still has a question to answer.
+
+                     Once the list is final the card STAYS — only the
+                     going-or-not answer inside it freezes. This form is also
+                     where a guest sets their meal, their dietary notes and the
+                     selfie that makes their photos findable, and the list
+                     finalizes about two weeks out. Taking the whole card away
+                     would take the allergy box away from a caterer's last
+                     fortnight. */
                   <RsvpWidget words={clientWords}
                     guest={guest}
                     eventId={event.event_id}
                     eventPublicId={event.public_id}
                     faceMode={faceMode}
                     flash={rsvpFlash}
+                    replyLocked={plan.guestListClosed}
+                    profileDetails={profileDetails}
                   />
                 )
               ) : null}
@@ -1738,7 +1789,13 @@ export async function SiteBody({
               {/* Guest Columns (BUILD ① · GUEST_COLUMNS_ENABLED, default OFF) — the
                   guest's one column for the couple's paper + the approved columns.
                   Guest-session tree only (cookie holders); flag off → renders null. */}
-              <GuestColumnCard eventId={event.event_id} guestId={guest.guest_id} eventDate={event.event_date} />
+              <GuestColumnCard
+                eventId={event.event_id}
+                guestId={guest.guest_id}
+                eventDate={event.event_date}
+                eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+                eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
+              />
             </>
           ), memento ? (
             /* Design §11, After Event column: the reply-card ticket returns as
@@ -1797,7 +1854,9 @@ export async function SiteBody({
                 camera: papicGuest
                   ? `/papic/me/${guest.qr_token}`
                   : hostCameraOpen
-                    ? '/papic/guest'
+                    ? // Same reason as the anonymous tree: carry the event so a
+                      // refusal can hand them back their invitation.
+                      `/papic/guest?from=${event.slug}`
                     : null,
                 watch: `/${event.slug}/hub`,
                 join: `/${event.slug}/invite`,
@@ -1917,6 +1976,52 @@ export async function SiteBody({
           dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
         />
       )}
+      {/* STORIES ABOUT THIS DAY — the surface the middle privacy answer needed.
+          Owner 2026-08-20: a chapter can be shared with "all in that event
+          only", and until now there was nowhere for such a chapter to be read.
+
+          🔒 The page does NOT decide who may see this. `chaptersOnThisDay`
+          arrives EMPTY for anybody the event does not recognise, decided in
+          page.tsx against the database — host, booked supplier, guest with a
+          pass, or a signed-in seat-holder. On a public event a passer-by gets
+          an empty array and this renders nothing at all.
+
+          ── WHY OUTSIDE BOTH TIER TREES ─────────────────────────────────────
+          Same reason as the supplier doorway and the guest strip: a host and a
+          supplier both render through the ANONYMOUS tree (identity comes from a
+          guest cookie they do not carry), so gating this inside the guest tree
+          would hide it from most of the people it is for. */}
+      {chaptersOnThisDay.length > 0 ? (
+        <section className={`mx-auto mt-10 w-full ${PLATE} px-4`}>
+          <h2 className="m-serif text-lg text-ink">Stories about this day</h2>
+          <p className="mt-1 text-[13px] text-ink/60">
+            Written by the people who were here.
+          </p>
+          <ul className="mt-4 space-y-3">
+            {chaptersOnThisDay.map((c) => (
+              <li key={c.publicId} className="rounded-tile border border-ink/10 p-3">
+                <p className="text-sm font-semibold text-ink">
+                  {/* A link ONLY when the chapter's own page would really open —
+                      an event-only piece has no public page, and offering one
+                      would be a dead end dressed as a story. */}
+                  {c.href ? (
+                    <a href={c.href} className="hover:underline">
+                      {c.title}
+                    </a>
+                  ) : (
+                    c.title
+                  )}
+                </p>
+                <p className="mt-0.5 text-[12px] text-ink/60">
+                  by {c.authorName}
+                  {c.day ? ` · ${c.day}` : ''}
+                  {c.isPublic ? '' : ' · shared with the people of this day'}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {/* Unified Website Editor (PR-1) — the click-to-edit bridge for the
           editor's preview iframe. `editorMode` is TRUE only for a verified host
           who passed `?editor=1`; for every guest/anonymous visitor this renders

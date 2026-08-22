@@ -306,7 +306,7 @@ export default async function AdminOverview() {
       <PageMasthead
         titleNode={
           <>
-            Overview <span className="sn-h1-tail">— what needs you</span>
+            Overview <span>— what needs you</span>
           </>
         }
       />

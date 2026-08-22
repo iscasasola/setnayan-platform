@@ -181,7 +181,7 @@ function initialsTexture(initials: string, color: string): THREE.CanvasTexture {
   ctx.beginPath();
   ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#fdfbf7'; // cream, matching the 2D ChairAvatar's text-cream
+  ctx.fillStyle = '#ffffff'; // matches the 2D ChairAvatar's text-cream, which is white since 2026-08-20
   ctx.font = `600 ${size * 0.42}px system-ui, -apple-system, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';

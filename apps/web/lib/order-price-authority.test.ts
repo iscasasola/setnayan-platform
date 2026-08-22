@@ -180,6 +180,15 @@ const ORDER_MINTERS: Record<string, string> = {
     'SEC-4b: paid branch moved to the file’s existing `admin` client (the ₱0 branch was ' +
     'already there). The client-supplied event_id is bound by the admin event_vendors read ' +
     '(own marketplace_vendor_id + COMMITTED_BOOKING_STATUSES) that runs before pricing.',
+  'app/vendor-dashboard/subscription/actions.ts':
+    'Vendor PLAN purchase. The order is a MIRROR, not a price: create_vendor_subscription ' +
+    '(SECURITY DEFINER) has already minted the vendor_subscriptions row from ' +
+    'vendor_billing_catalog and returned it, and this copies that row’s own amount_php and ' +
+    'reference_code so the plan has somewhere to hang a payment proof (added 2026-08-21 with ' +
+    'the ONE payment page — payments.order_id is NOT NULL, so before this a plan purchase had ' +
+    'no row a screenshot could attach to). No figure crosses the boundary: the form carries a ' +
+    'sku_code only. Service-role (`moneyWriter`); authorized by the RPC itself, which resolves ' +
+    'the vendor from auth.uid() and refuses a non-admin or an unverified shop.',
   'app/vendor-dashboard/subscription/booth-addon-actions.ts':
     'Vendor 3D-booth add-on. pricePhp read server-side from the vendor catalog. ' +
     'SEC-4b: paid branch now service-role (`moneyWriter`). Authorized by fetchOwnVendorProfile + ' +

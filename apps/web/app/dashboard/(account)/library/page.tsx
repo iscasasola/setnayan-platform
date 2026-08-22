@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Images, Heart, Newspaper, UserCircle, Settings } from 'lucide-react';
+import { Images, Heart, Newspaper } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { getAlaalaWall } from '@/lib/alaala-wall-data';
@@ -9,8 +9,9 @@ import { PhotosTab } from './_components/photos-tab';
 import { VendorsTab } from './_components/vendors-tab';
 import { EditorialsTab } from './_components/editorials-tab';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { AlbumShelf } from './_components/album-shelf';
 
-export const metadata = { title: 'Alaala' };
+export const metadata = { title: 'Memories' };
 
 /**
  * ALAALA — the account-level, CROSS-EVENT memory surface. This route is
@@ -141,20 +142,7 @@ export default async function AlaalaPage({
           (see (account)/layout.tsx) — and home is where the Alaala tile lives,
           so "back to events" named the wrong thing on the wrong surface. */}
       <PageMasthead
-        title="Alaala"
-        back="/dashboard"
-        backLabel="Back to home"
-        actions={
-          <div className="flex shrink-0 items-center gap-2">
-            <Link href="/dashboard/profile" className="sn-chip sn-press">
-              <UserCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Profile
-            </Link>
-            <Link href="/dashboard/profile#settings" className="sn-chip sn-press">
-              <Settings aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Settings
-            </Link>
-          </div>
-        }
-        className="mb-6"
+        title="Memories"
       />
 
       {/* Life-Flash entry — the everyone-reachable path (single-event couples
@@ -180,9 +168,14 @@ export default async function AlaalaPage({
         </Link>
       ) : null}
 
+      {/* THE SHELF — one cover per event, oldest first, above the library grid
+          (owner 2026-08-19: "first row should be chronological albums of each
+          event. then under it can be all the photos in grid"). */}
+      <AlbumShelf userId={user.id} />
+
       {/* LENSES — the same five words as the tile. Plain links so the page
           stays a Server Component. */}
-      <nav aria-label="Alaala lenses" className="mb-3 flex gap-2 overflow-x-auto pb-1">
+      <nav aria-label="Memories lenses" className="mb-3 flex gap-2 overflow-x-auto pb-1">
         {LENSES.map(({ key, label }) => {
           const isActive = key === active;
           return (

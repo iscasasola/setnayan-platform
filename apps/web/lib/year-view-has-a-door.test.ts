@@ -1,6 +1,17 @@
 /**
- * year-view-has-a-door.test.ts — the Year view must stay reachable by clicking,
- * and the account's own birthday must stay WIRED IN.
+ * year-view-has-a-door.test.ts — the year's contents must stay reachable, and
+ * the account's own birthday must stay WIRED IN.
+ *
+ * 🔁 REAIMED 2026-08-21. The owner retired /dashboard/year as a page (*"we
+ * already have the your year inside my events"*) — it now REDIRECTS to the
+ * board's "Worth planning" shelf, which is the only surface left. So the
+ * door-counting assertions are gone: counting links to a redirect would guard
+ * a hop, not a destination.
+ * 🔑 WHAT THE FILE IS FOR SURVIVES INTACT, and it is the more valuable half —
+ * the birthday must still be READ, the day must still be merged so it cannot
+ * print twice, and the empty state must still refuse to state a fact it has not
+ * established. Those now bind the SHELF. Deleting the file with the page would
+ * have thrown that away.
  *
  * ─── THE REGRESSION THIS EXISTS TO CATCH ─────────────────────────────────────
  * Measured 2026-08-15: a repo-wide sweep for `dashboard/year` found ONE in-app
@@ -89,24 +100,6 @@ function count(src: string, re: RegExp): number {
   return (src.match(re) ?? []).length;
 }
 
-test('the command palette carries a door to the Year view', () => {
-  // The DATA-INDEPENDENT door: built from a static literal, so it is there for a
-  // person with no events, no birthday and nothing derived.
-  assert.equal(
-    doorCount(code(PALETTE), '/dashboard/year'),
-    1,
-    'command-data.ts must list exactly one /dashboard/year action row',
-  );
-});
-
-test('the home strip carries a door to the Year view even when it is empty', () => {
-  assert.equal(
-    doorCount(code(STRIP), '/dashboard/year'),
-    1,
-    'year-moments-strip.tsx must render its own /dashboard/year link (the empty branch)',
-  );
-});
-
 test('the empty strip also offers the one thing that fills it', () => {
   assert.equal(
     doorCount(code(STRIP), '/dashboard/profile'),
@@ -155,33 +148,13 @@ test('the empty tile does not state a fact it has not established', () => {
   );
 });
 
-test('the populated strip keeps its "See the year" door', () => {
-  assert.equal(
-    doorCount(code(LIST), '/dashboard/year'),
-    1,
-    'year-moments-list.tsx must keep the "See the year →" link',
-  );
-});
-
-test('the doors are in at least two independent files', () => {
-  // Losing any single file must not close the route. Counted over FILES, not
-  // occurrences, so three links in one file cannot satisfy it.
-  const filesWithADoor = [PALETTE, STRIP, LIST].filter(
-    (p) => doorCount(code(p), '/dashboard/year') > 0,
-  );
-  assert.ok(
-    filesWithADoor.length >= 2,
-    `expected ≥2 files to carry a /dashboard/year door, found ${filesWithADoor.length}`,
-  );
-});
-
 test('both surfaces actually READ the account’s own birthday', () => {
   // 🚨 Without this the whole feature can be deleted with the suite green: the
   // derivation is unit-tested, but nothing asserted either caller CALLS it.
-  for (const [name, p] of [
-    ['the home strip', STRIP],
-    ['the Year page', YEAR_PAGE],
-  ] as const) {
+  // ⚠ ONE SURFACE NOW, NOT TWO. The Year page is a redirect since 2026-08-21,
+  // so the shelf is the only place this can be wired — which makes the check
+  // MORE important, not less: there is no second surface to notice the loss.
+  for (const [name, p] of [['the "Worth planning" shelf', STRIP]] as const) {
     const src = code(p);
     assert.ok(
       count(src, /\bbuildSelfMoments\s*\(/g) >= 1,
@@ -198,10 +171,7 @@ test('one calendar day never prints twice', () => {
   // A birthday created through onboarding is `recurs: true` by default, so a
   // person with that event AND the date on their profile collided exactly.
   // Both surfaces must go through the shared merge, not concatenate by hand.
-  for (const [name, p] of [
-    ['the home strip', STRIP],
-    ['the Year page', YEAR_PAGE],
-  ] as const) {
+  for (const [name, p] of [['the "Worth planning" shelf', STRIP]] as const) {
     assert.ok(
       count(code(p), /\bmergeSelfMoments\s*\(/g) >= 1,
       `${name} must merge via mergeSelfMoments — a raw spread prints the same date twice`,
@@ -209,13 +179,16 @@ test('one calendar day never prints twice', () => {
   }
 });
 
-test('the Year page checks its birthday read for an error', () => {
-  const src = code(YEAR_PAGE);
-  // Supabase resolves with an error rather than throwing, so an unchecked read
-  // tells somebody who typed their birthday months ago to add it — forever, with
-  // nothing in the logs. Its twin in the strip already checks.
+test('the shelf checks its birthday read for an error', () => {
+  // 🔁 WAS "the Year page checks…" — that page is a redirect since 2026-08-21,
+  // so the duty moved with the read. Supabase RESOLVES with an error rather
+  // than throwing, so an unchecked read tells somebody who typed their birthday
+  // months ago to add it — forever, with no error anywhere.
+  const src = code(STRIP);
   assert.ok(
-    /logQueryError\s*\(/.test(src),
-    'year/page.tsx must log a failed users read — otherwise the prompt lies with no trace',
+    /selfErr/.test(src) && /logQueryError/.test(src),
+    'the shelf must capture and log its birthday read error — an unchecked read ' +
+      'is indistinguishable from an empty profile, and the empty state then ' +
+      'states a fact it has not established.',
   );
 });

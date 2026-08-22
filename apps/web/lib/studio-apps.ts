@@ -106,7 +106,7 @@ export type StudioApp = {
    * WEDDING-ONLY — the non-wedding seed says so verbatim and `GENERIC_PROFILE`
    * omits it — and `/dashboard/[eventId]/monogram` then `redirect()`s to the
    * event home with NO message. Without this filter a birthday organiser
-   * presses "Palogo" and is silently dumped on their event page: strictly worse
+   * presses "Logo Maker" and is silently dumped on their event page: strictly worse
    * than the marketing page it replaced. Same for `website`/Pawebsite.
    * The couple's own Studio hub already filters on exactly this field.
    */
@@ -187,10 +187,10 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'pa3d',
-    name: 'Pa3D',
+    name: '3D Plan',
     href: '/pa3d',
     description:
-      'Pa3D lets you stand in your reception before it’s built. See the room the way your guests will — the head table, the dance floor, every seat — and know it’s right while there’s still time to change it. The free seating plan gets you there; Pa3D lets you walk it.',
+      '3D Plan lets you stand in your reception before it’s built. See the room the way your guests will — the head table, the dance floor, every seat — and know it’s right while there’s still time to change it. The free seating plan gets you there; 3D Plan lets you walk it.',
     railLine: 'Stand in your reception before it’s built.',
     demo: {
       id: 'plan3d-demo',
@@ -201,10 +201,10 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'palogo',
-    name: 'Palogo',
+    name: 'Logo Maker',
     href: '/palogo',
     description:
-      'Palogo gives your wedding one mark of its own — your initials, drawn into a monogram that comes alive. It opens your save-the-date, signs your website, glows on the screen at the reception, and closes every video. One signature, carried beautifully across your whole day.',
+      'Logo Maker gives your wedding one mark of its own — your initials, drawn into a monogram that comes alive. It opens your save-the-date, signs your website, glows on the screen at the reception, and closes every video. One signature, carried beautifully across your whole day.',
     railLine: 'One monogram of your own, carried across your whole day.',
     addOnKey: 'animated-monogram',
     surface: 'monogram',

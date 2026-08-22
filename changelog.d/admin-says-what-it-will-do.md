@@ -71,3 +71,67 @@ label. There is no control to add or remove a song from the couple's list on
 purpose — a separate build.
 
 SPEC IMPACT: None.
+
+## 2026-08-18 · feat(admin): a song can be put into the common list, or taken out
+
+Owner, on how the catalogue is meant to fill: *"songs in the catalogue will be
+filled in by the bands. not from us. but we can place songs that are common for
+now so they can also list them down."*
+
+That is what ships — bands add their own songs from **Your repertoire**, and the
+~390 seeded ones are a common starter set so neither a band nor a couple opens an
+empty box. What was missing is the half Setnayan needs: **the screen printed
+"curated" as a read-only LABEL.** You could delete a song and merge two songs;
+you could not say *this one belongs in the common list*. When 93 songs fell out
+of it, nobody had a button to put a single one back.
+
+Each row now carries **In the list / Add to list**, and the screen says what the
+states mean — that being in the list puts a song in the couple's "most popular"
+browse and a band's starter repertoire, and that everything else still exists and
+is still findable by name.
+
+### ⛔ Deliberately NOT the service-role client — and this is the whole point
+
+The other two actions in that file use `createAdminClient()` to bypass RLS, so
+copying them was the obvious move. **It would have shipped a control that
+silently does nothing.** `songs_nonadmin_guard` pins `is_curated_pick` to its OLD
+value unless `public.is_admin()` is true, and `is_admin()` reads `auth.uid()` —
+NULL under service role. The update would report success, change nothing, and the
+label would not move.
+
+🔑 **A GATE WITH NO HANDLE — built today, by the person fixing them.** Caught by
+reading the trigger before writing the action rather than after.
+
+Verified against production, not inferred: `songs_admin_update` admits
+`authenticated` where `is_admin()`, and both columns are UPDATE-granted to that
+role, so one signed-in admin session satisfies the policy **and** the trigger. A
+zero-row result is reported rather than shown as a save — Supabase resolves
+rather than throwing, so a filtered write is otherwise silent.
+
+### 🪤 Two of my own faults, both caught by measuring
+
+**1 · I renamed a form field and would have broken merge entirely.** Extracting
+the fields into a client component, `canonical_id` became `canon_id`; the server
+action still read `canonical_id`, so every submit would have answered *"Enter two
+different valid song IDs."* forever — a control that looks present, refuses every
+time, and blames the operator's typing. **A form and its action agree by
+convention, and a convention is not a control**; there is now an assertion that
+every field the form posts is read by an action.
+
+**2 · One assertion was decoration and the mutation proved it.** Deleting the
+whole `<form>` from the row left the suite GREEN, because the check matched
+`setSongCuratedAction` anywhere in the file — and the **import line** satisfied
+it. Re-anchored to the rendered JSX. *A guard that matches a string rather than
+the act it names is decoration.*
+
+7 assertions · 3 mutations for these controls, each measured by occurrence count,
+all red.
+
+SPEC IMPACT: None.
+
+🪤 **AND THE FIRST CUT NESTED THE TWO FORMS — CI caught it, not me.** The curate
+switch went *inside* the delete form. HTML forbids a nested form: the browser
+drops the inner one, so pressing **"Add to list"** would have submitted
+**DELETE**. An irreversible action fired by a control labelled as the opposite —
+on the same screen, in the same change, that exists to stop exactly that. They
+are siblings in a flex row now.

@@ -280,6 +280,18 @@ jobs:
         continue-on-error: true
         run: node apps/web/scripts/lint-migrations-dir.mjs
 
+      # Fails when a migration this repo used to carry has GONE. On 2026-08-21 a
+      # merge from a branch cut days earlier deleted three ALREADY-APPLIED
+      # migrations along with most of four merged PRs; `supabase db push` then
+      # refused, and because deploy-prod.yml migrates BEFORE firing the Vercel
+      # hook, production stopped updating for an hour with six merges queued.
+      # CI was green throughout — the clobber took the calling code too, so the
+      # repo was internally consistent. See lint-migrations-never-deleted.mjs.
+      - name: Lint migrations kept
+        id: guard_migrations_kept
+        continue-on-error: true
+        run: node apps/web/scripts/lint-migrations-never-deleted.mjs
+
       # Fails when anything imports `next/font/google`, when a declared local
       # font file is missing, or when a committed face is referenced by
       # nothing. The build used to fetch every family from fonts.gstatic.com AT
@@ -401,6 +413,7 @@ jobs:
           CHANGELOG_DIR: ${{ steps.guard_changelog_dir.outcome }}
           SERVER_ONLY: ${{ steps.guard_server_only.outcome }}
           MIGRATIONS_DIR: ${{ steps.guard_migrations_dir.outcome }}
+          MIGRATIONS_KEPT: ${{ steps.guard_migrations_kept.outcome }}
           FONTS_LOCAL: ${{ steps.guard_fonts_local.outcome }}
           FUNCTION_LEVEL_SET: ${{ steps.guard_function_level_set.outcome }}
           LABEL_CONTRAST: ${{ steps.guard_label_contrast.outcome }}
@@ -433,6 +446,7 @@ jobs:
           check 'lint server-only boundary'   "$SERVER_ONLY"
           check 'lint fonts are local'        "$FONTS_LOCAL"
           check 'lint migrations dir'         "$MIGRATIONS_DIR"
+          check 'lint migrations kept'        "$MIGRATIONS_KEPT"
           check 'lint no function-level custom SET' "$FUNCTION_LEVEL_SET"
           check 'lint label-on-fill contrast' "$LABEL_CONTRAST"
           check 'lint auto-merge hold'        "$AUTOMERGE_HOLD"

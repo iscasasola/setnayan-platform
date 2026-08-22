@@ -8,6 +8,8 @@ import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { paymentRowFor } from '@/lib/order-mint-identity';
+import { notifyAdminsPaymentProofSubmitted } from '@/lib/order-admin-notify';
+import { CANCELLABLE_ORDER_STATUSES } from '@/lib/event-deletion-gate';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -71,12 +73,47 @@ export async function cancelOrder(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { error } = await supabase
+  /*
+    🚨 A PAID BILL IS NOT CANCELLABLE — CANCELLING ONE IS A REFUND REQUEST.
+    This update used to carry no condition on the status it was LEAVING, so a
+    settled order could be walked to 'cancelled' by its own buyer. The RLS guard
+    behind it agrees and cannot help: `orders_update_status_guard` is RESTRICTIVE
+    with `USING (user_id = auth.uid())` and a WITH CHECK that constrains only the
+    NEW value, which admits 'cancelled'. The old status is never consulted.
+
+    Two harms, and the second is the one that bites:
+      · the money record for a service somebody paid for silently reads as though
+        it was never bought, and
+      · until 2026-08-21 it was the way PAST the event-delete gate — cancel the
+        bill, then delete the celebration it belonged to. That gate now reads
+        payment and receipt rows instead of the status precisely because this
+        was reachable, but the underlying action was still wrong.
+
+    🔑 THE PRE-PAYMENT STATES ARE THE ONLY CANCELLABLE ONES, and they are named
+    positively rather than by excluding 'paid': a deny-list is a bill you have to
+    keep paying, and this enum has eight values. Anything not listed — including
+    a value added later — fails closed.
+
+    ⚠ `.select()` AND A ROW-COUNT CHECK. Supabase does not throw; an RLS refusal
+    and a no-op update are the same shape (zero rows, no error). Without reading
+    back, a refused cancel would redirect to "cancelled=1" and the person would
+    be told it worked.
+  */
+  const { data: cancelled, error } = await supabase
     .from('orders')
     .update({ status: 'cancelled', updated_at: new Date().toISOString() })
     .eq('order_id', orderId)
-    .eq('user_id', user.id);
+    .eq('user_id', user.id)
+    .in('status', CANCELLABLE_ORDER_STATUSES)
+    .select('order_id');
   if (error) throw new Error(error.message);
+
+  if (!cancelled || cancelled.length === 0) {
+    // Nothing was cancelled: the order is already settled, already cancelled, or
+    // is not this person's. Say so rather than claiming success.
+    revalidatePath(`/dashboard/${eventId}/orders/${orderId}`);
+    redirect(`/dashboard/${eventId}/orders/${orderId}?cancel=refused`);
+  }
 
   revalidatePath(`/dashboard/${eventId}/orders/${orderId}`);
   redirect(`/dashboard/${eventId}/orders?cancelled=1`);
@@ -234,6 +271,17 @@ export async function logPayment(formData: FormData) {
     });
     throw new Error(error.message);
   }
+
+  // Somebody has just moved real money and is waiting for their purchase to
+  // switch on. Before this, that step told NOBODY — the only trace was a row in
+  // a queue an admin had to already be looking at. Awaited, but fail-soft
+  // inside, so it can never roll back a recorded payment.
+  await notifyAdminsPaymentProofSubmitted({
+    orderId,
+    eventId,
+    amountPhp: amount,
+    channel,
+  });
 
   revalidatePath(`/dashboard/${eventId}/orders/${orderId}`);
   redirect(`/dashboard/${eventId}/orders/${orderId}?paid_logged=1`);

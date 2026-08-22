@@ -13,7 +13,7 @@
  * component) and passes straight through.
  *
  * ─── THE RAIL'S FIVE GROUPS, IN ORDER ────────────────────────────────────
- *   1 · Destinations   Home · Stories · Marketplace (signed in only)
+ *   1 · Destinations   Home · Marketplace (signed in only)
  *   2 · THE ACCOUNT SLOT  ← second, above the categories
  *   3 · Browse by category  the five visible folders + Show more (signed in
  *                           only) — the shortcuts INTO the Marketplace row
@@ -55,7 +55,7 @@
  * them.
  */
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
@@ -64,6 +64,65 @@ import { LogoMark } from '@/app/_components/brand-marks';
 import type { DemoOverlayId } from '@/lib/demo-overlay-bus';
 import { activeRailKey, railMatchRows } from './rail-active';
 import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
+/*
+  ─── THE RAIL'S OWN ROWS DRAW LUCIDE, LIKE EVERY OTHER ROW IN IT ──────────
+  Until now they drew TYPOGRAPHIC CHARACTERS — ⌂ ◎ ⌕ ▦ ✧ ❖ ✎ ▣ ⛨ ▸ ⌃ ⌄ — while
+  the rows that push in below (an event's sections, a shop's, the admin's) drew
+  Lucide SVGs. `front-door.css` said so in writing: *"The rail's own rows use
+  glyph characters; the app's nav rows use Lucide icons."* One list, two icon
+  systems, and the seam fell in the middle of the account slot.
+
+  🔑 A CHARACTER IS NOT AN ICON — IT IS A FONT LOOKUP, AND THE FONT DECIDES.
+  These are Miscellaneous-Technical and Dingbat codepoints, not the Latin the
+  UI font ships. Every one of them is resolved per platform:
+    ⌂ U+2302 HOUSE           — absent from the Android system font
+    ⛨ U+26E8 CROSS ON SHIELD — absent nearly everywhere; a tofu box □ on most
+    ⌃ ⌄ U+2303/2304          — Mac modifier-key glyphs, thin coverage off macOS
+    ✎ ✧ U+270E/U+2727        — in ranges a phone may hand to the EMOJI font,
+                               which returns a colour picture at another weight
+  Nothing throws when the lookup misses. The row keeps its label and its tap
+  target, so the only symptom is a wrong-looking or empty square — the absence
+  this project keeps paying for. An SVG has no font to miss: it draws the same
+  strokes on a phone, a tablet and a desktop, in both themes.
+
+  ⌕ U+2315 is TELEPHONE RECORDER. It sat in the Marketplace row for months
+  doing duty as a magnifier. It is now `Compass`, which is what `customer-menu`
+  has always given Explore — the app's own answer, not a second one.
+*/
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  Compass,
+  Home,
+  LayoutGrid,
+  PenLine,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Store,
+  Users,
+} from 'lucide-react';
+/*
+  🔑 ONE ICON PER CATEGORY, FROM THE MAP THE APP ALREADY OWNS. The fifteen
+  category rows drew the SAME arrow fifteen times while `WEDDING_FOLDER_ICON`
+  — exhaustive over the taxonomy and pinned by `taxonomy-icons.test.ts` — was
+  already drawing a distinct icon for each of them on the Explore strip. A
+  second hand-typed map here is how a rail and a page start disagreeing about
+  what "Venues & churches" looks like, so this imports the one that exists.
+*/
+import { folderIcon } from '@/lib/taxonomy-icons';
+
+/**
+ * How long the off-canvas drawer takes to slide, in milliseconds.
+ *
+ * It is the design system's `--sn-dur-control` (200ms, globals.css § motion) —
+ * the tier for "a control changed state", which is what opening a drawer is.
+ * Written as a number here because a `setTimeout` cannot read a CSS custom
+ * property, and handed straight back to the stylesheet as `--fd-drawer-ms` on
+ * the rail so the two halves of one animation can never disagree.
+ */
+const RAIL_DRAWER_MS = 200;
 
 /**
  * ─── THE SAME RAIL, MOUNTED IN TWO PLACES (One Shell slice 0, 2026-08-13) ──
@@ -240,6 +299,10 @@ export type RailNavLabels = Record<string, { label: string }>;
 const RAIL_SLOT = {
   events: 'customer.account.events',
   alaala: 'customer.account.library',
+  // `year` is GONE with its rail row and its registry slot (owner 2026-08-21).
+  // Leaving the key would point at a slot that no longer exists, so `slotLabel`
+  // would fall through to its literal forever — a lookup that has quietly
+  // stopped being a lookup, which is how the admin rename surface rots.
   find: 'customer.account.marketplace',
 } as const;
 
@@ -249,6 +312,17 @@ type Props = {
   moreFolders: ReadonlyArray<RailFolder>;
   tools: ReadonlyArray<RailTool>;
   children: React.ReactNode;
+  /**
+   * The page's ONE `<h1>`, when it has a real, visible one. Supplied ⇒ it is
+   * rendered in place of the screen-reader-only fallback below — never
+   * alongside it, which would put two `<h1>`s on the page.
+   *
+   * Exists because `/` had no visible headline at all: its heading was
+   * `.fd-sr-only`, so the page opened on the chip bar and the card grid and
+   * read as a bare feed. Any front-door surface that still has none keeps the
+   * fallback and is unchanged.
+   */
+  heading?: React.ReactNode;
   /** See the variant note in the file header. Defaults to the public page. */
   /**
    * `front-door`  `/` — top bar + search + off-canvas rail.
@@ -278,6 +352,20 @@ type Props = {
    * slot exists now so slice 1 mounts into it instead of re-opening this file.
    */
   railContext?: React.ReactNode;
+  /**
+   * Whether the person is standing inside one specific event right now —
+   * true only on `/dashboard/[eventId]`. Owner 2026-08-22: *"marketplace is
+   * best shown inside an event, not when they just logged in."* Gates the
+   * Marketplace destination row and its "Browse by category" group, which
+   * therefore no longer follows `railContext` — the admin console and the
+   * vendor dashboard also push a `railContext`, and neither of those is a
+   * reason to show a couple's supplier marketplace.
+   *
+   * Defaults to `false`: the front door, the My Events board, the admin
+   * console and the vendor dashboard all render without it and stay exactly
+   * as they were.
+   */
+  insideEvent?: boolean;
   /**
    * Admin-resolved labels, `getNavSlotMap()`.
    *
@@ -358,14 +446,75 @@ function Count({ value }: { value?: number | null }) {
   return <span className="fd-ct fd-mono">{value}</span>;
 }
 
+/**
+ * The rail's icon slot — ONE component, so a row cannot pick its own size.
+ *
+ * 🔑 THE SIZE IS THE HALF THAT DRIFTS. Three sibling rails already render
+ * Lucide into this same `.fd-gi` slot and two of them agreed on 18px while the
+ * event rail drew 16px, so an event's sections came out a hair smaller than the
+ * account rows directly above them in the SAME list. Nothing was wrong enough
+ * to report and the whole column read as slightly unaligned. Every row on
+ * every tree now goes through here.
+ *
+ * `strokeWidth` is pinned for the same reason: Lucide's default of 2 next to
+ * the 1.75 the app's nav rows already use reads as two weights of icon.
+ *
+ * 🪤 THE CLASS IS A LITERAL AND MUST STAY ONE. `h-[${PX}px]` composed from a
+ * constant looks tidier and is dead on arrival — Tailwind scans SOURCE TEXT,
+ * so a class assembled at runtime is never generated, the rule never exists,
+ * and the icon falls back to Lucide's own 24px with nothing to notice. The
+ * same shape as every other "a sentence is not a mechanism" note in this repo.
+ */
+function RailIcon({
+  as: Icon,
+}: {
+  as: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+}) {
+  return (
+    <span className="fd-gi" aria-hidden="true">
+      <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+    </span>
+  );
+}
+
+/**
+ * One marketplace category row.
+ *
+ * Extracted from the single `folders.map` this file used to run, because the
+ * five always-visible categories and the nine behind "Show more" now live in
+ * two different places in the tree — the extra nine sit inside the `.fd-reveal`
+ * panel that animates its own height. Two copies of the row would be two
+ * answers to what a category row looks like, free to drift the first time one
+ * of them gains a badge.
+ *
+ * ⚠ THE PARAMETER IS `f` ON PURPOSE, and renaming it breaks a shipped guard.
+ * `rail-icons-are-icons.test.ts` pins the literal `folderIcon(f.slug)` — the
+ * rule that a category row reads the shared taxonomy map instead of a
+ * hand-typed one, so the rail and the Explore strip cannot start disagreeing
+ * about what a category looks like. The extraction kept the name the map it
+ * replaced already used, rather than widening a guard to fit a tidier word.
+ */
+function FolderRow({ f }: { f: RailFolder }) {
+  return (
+    <Link href={`/explore?folder=${encodeURIComponent(f.slug)}`} className="fd-row">
+      <RailIcon as={folderIcon(f.slug)} />
+      <span className="fd-label-text">{f.label}</span>
+      <span className="fd-icon-caption">{f.label}</span>
+      <span className="fd-ct fd-mono">{f.count}</span>
+    </Link>
+  );
+}
+
 export function FrontDoorShell({
   account,
   visibleFolders,
   moreFolders,
   tools,
   children,
+  heading,
   variant = 'front-door',
   railContext,
+  insideEvent = false,
   navLabels,
   topBarSlot,
   search,
@@ -373,10 +522,52 @@ export function FrontDoorShell({
   bleedPaths,
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
+  /*
+    ─── THE DRAWER HAS THREE STATES, NOT TWO ────────────────────────────────
+    Owner 2026-08-21: the rail must animate when it opens and when it shuts.
+    `display: none` cannot be transitioned, and the note on that rule in
+    `front-door.css` explains why the usual workaround — leave it displayed and
+    park it off-screen — is forbidden here: it would leave a dozen focusable
+    links reachable by Tab behind the scrim. So the element is held for exactly
+    one closing animation and then genuinely removed.
+  */
+  const [railClosing, setRailClosing] = useState(false);
+  const railCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const railId = useId();
+
+  const openRail = useCallback(() => {
+    /* Re-opening mid-close must cancel the pending removal, or the drawer
+       slides back in and is then torn out from under the hand that opened it. */
+    if (railCloseTimer.current) {
+      clearTimeout(railCloseTimer.current);
+      railCloseTimer.current = null;
+    }
+    setRailClosing(false);
+    setRailOpen(true);
+  }, []);
+
+  const closeRail = useCallback(() => {
+    // Already closing — a second Escape must not queue a second timer.
+    if (railCloseTimer.current) return;
+    setRailClosing(true);
+    railCloseTimer.current = setTimeout(() => {
+      railCloseTimer.current = null;
+      setRailClosing(false);
+      setRailOpen(false);
+    }, RAIL_DRAWER_MS);
+  }, []);
+
+  /* A drawer left closing while the shell unmounts would set state on a dead
+     component. Cheap to clear, and it is the one leak a timer always has. */
+  useEffect(
+    () => () => {
+      if (railCloseTimer.current) clearTimeout(railCloseTimer.current);
+    },
+    [],
+  );
   const { openSignIn, panel: signInPanel } = useSignInPanel();
 
   const inApp = variant === 'app';
@@ -438,13 +629,20 @@ export function FrontDoorShell({
     is prefix-based and `/dashboard` + `/dashboard/library` both answer yes.
 
     🪤 THE MARKETPLACE FOLDER ROWS AND THE STUDIO TOOLS ARE ABSENT ON PURPOSE.
-    They point at `/explore?folder=…` and the eight public doorways — surfaces
-    no route converted in this slice can reach, so they can never be the
-    current page here and are never lit. Telling them apart from each other
-    needs the current QUERY, and reading the query in a client component pulls
-    in a Suspense contract this slice does not need. It arrives with the slice
-    that converts `/explore`; until then a row that cannot be right is better
-    left unlit than guessed. `activeRailKey` already accepts the params.
+    The folder rows point at `/explore?folder=…`, which no route converted in
+    this slice can reach, so they can never be the current page here. Telling
+    them apart needs the current QUERY, and reading the query in a client
+    component pulls in a Suspense contract this slice does not need.
+
+    ⚠ THE STUDIO ROWS ARE A DIFFERENT CASE SINCE 2026-08-21, AND THIS IS NAMED
+    DEBT RATHER THAN AN OVERSIGHT. Inside an event they now point at real
+    in-app routes, so they CAN be the current page. Lighting them here would
+    need ONE resolver spanning this component and `EventRailContext`, which
+    resolves its own rows independently — and run separately the two would
+    double-light: `3D Plan` opens `/seating/lab` while the event menu's own
+    `Seat plan` row prefix-matches `/seating`. Two lit rows read as broken.
+    Leaving them unlit is exactly today's behaviour, so nothing regresses; the
+    fix is one combined match list, and it is a slice of its own.
   */
   const matchRows = railMatchRows({
     signedIn: account.signedIn,
@@ -504,12 +702,12 @@ export function FrontDoorShell({
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Escape') return;
-      if (railOpen) setRailOpen(false);
+      if (railOpen) closeRail();
       else if (menuOpen) setMenuOpen(false);
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [railOpen, menuOpen]);
+  }, [railOpen, menuOpen, closeRail]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -522,9 +720,14 @@ export function FrontDoorShell({
     return () => document.removeEventListener('mousedown', onDown);
   }, [menuOpen]);
 
-  const folders = moreOpen
-    ? [...visibleFolders, ...moreFolders]
-    : visibleFolders;
+  /*
+    ⚠ THE EXTRA CATEGORIES ARE NO LONGER CONCATENATED IN AND OUT OF THE LIST.
+    They render always, inside a `.fd-reveal` panel that animates its own
+    height — a list that is rebuilt on every toggle has nothing to animate,
+    because the rows the browser would tween are brand-new elements. The panel
+    goes `visibility: hidden` at the end of the collapse, so the rows leave the
+    tab order exactly as they did when they were unmounted.
+  */
 
   /*
     THE BAR, DEFINED ONCE. The app variant wraps it in the sticky
@@ -552,7 +755,7 @@ export function FrontDoorShell({
             aria-label="Menu"
             aria-expanded={railOpen}
             aria-controls={railId}
-            onClick={() => setRailOpen((v) => !v)}
+            onClick={() => (railOpen ? closeRail() : openRail())}
           >
             ☰
           </button>
@@ -836,7 +1039,10 @@ export function FrontDoorShell({
         {railOpen ? (
           <div
             className="fd-scrim"
-            onClick={() => setRailOpen(false)}
+            /* Fades out alongside the drawer rather than blinking away a step
+               ahead of it — one event, not two. */
+            data-closing={railClosing ? 'true' : 'false'}
+            onClick={closeRail}
             aria-hidden="true"
           />
         ) : null}
@@ -855,7 +1061,15 @@ export function FrontDoorShell({
             but still reachable by keyboard. Gate on a real condition, never on
             a style that only looks like one.
           */
-          data-open={railOpen ? 'true' : 'false'}
+          data-open={railClosing ? 'closing' : railOpen ? 'true' : 'false'}
+          /*
+            🔑 ONE NUMBER, DECLARED ONCE. The stylesheet reads
+            `var(--fd-drawer-ms)` and this component owns the timer that ends
+            the closing state — handing the same constant to both is what stops
+            them drifting into a drawer that vanishes mid-slide (CSS slower) or
+            hangs half-open (CSS faster).
+          */
+          style={{ '--fd-drawer-ms': `${RAIL_DRAWER_MS}ms` } as React.CSSProperties}
         >
           {/* 1 · DESTINATIONS
               `data-on` comes from the resolver on every row. It was the string
@@ -863,33 +1077,53 @@ export function FrontDoorShell({
               URL this rail rendered on and would have lit Home on all 296
               pages the moment it rendered anywhere else. */}
           <Link href="/" {...rowProps('home')}>
-            <span className="fd-gi" aria-hidden="true">
-              ⌂
-            </span>
+            <RailIcon as={Home} />
             <span className="fd-label-text">Home</span>
             <span className="fd-icon-caption">Home</span>
           </Link>
-          <Link href="/realstories" {...rowProps('stories')}>
-            <span className="fd-gi" aria-hidden="true">
-              ◎
-            </span>
-            <span className="fd-label-text">Stories</span>
-            <span className="fd-icon-caption">Stories</span>
-          </Link>
+          {/*
+            STORIES IS NOT A DESTINATION ANY MORE — IT IS A CHIP (owner
+            2026-08-20: *"what we want is the stories menu to be inside this as
+            well"*).
+
+            THE ROW WAS A SECOND DOOR TO THE SHELF DIRECTLY BELOW IT. The feed
+            on this page and `/realstories` read the SAME three voices from the
+            SAME loaders — featured chapters, consented showcases, the Journal
+            — and the chip row over the feed already carried "Their stories".
+            So the rail offered a menu item whose whole job was done by a
+            button four inches to its right, and a person pressing it landed on
+            the same pieces in different chrome. One shelf, one door.
+
+            🔑 THE HUB IS NOT RETIRED AND MUST NOT BE ORPHANED. `/realstories`
+            keeps its address (shared links, and it is where all storyteller
+            SEO equity is concentrated by design), and it still carries what
+            the chips do not: the event-type filter and the search box. Its one
+            permanent link from this page is now the "Stories" SHELF HEADING in
+            `front-door-feed.tsx`.
+            ⚠ The other link on this page renders ONLY while the real-weddings
+            grid is unearned — it is inside the written invitation that
+            disappears the day the second couple publishes. Removing this row
+            without promoting the heading would have left the hub with ZERO
+            links from the front page on exactly the day it started to matter,
+            which is the "a page nobody can reach" defect this project has
+            already paid for. `front-door-invariants.test.ts` now fails if the
+            heading link goes.
+          */}
           {account.signedIn ? (
-            <Link href="/explore" {...rowProps('find')}>
-              <span className="fd-gi" aria-hidden="true">
-                ⌕
-              </span>
-              <span className="fd-label-text">
-                {/* Fallback MUST equal the registry's label for this slot
-                    (`customer.account.marketplace` = "Marketplace"). They
-                    diverged, and the same row read two different words on two
-                    pages. `front-door-invariants.test` now pins them equal. */}
-                {slotLabel(RAIL_SLOT.find, 'Marketplace')}
-              </span>
-              <span className="fd-icon-caption">Market</span>
-            </Link>
+            insideEvent ? (
+              <Link href="/explore" {...rowProps('find')}>
+                <RailIcon as={Compass} />
+                <span className="fd-label-text">
+                  {/* Fallback MUST equal the registry's label for this slot
+                      (`customer.account.marketplace` = "Marketplace"). They
+                      diverged, and the same row read two different words on
+                      two pages. `front-door-invariants.test` now pins them
+                      equal. */}
+                  {slotLabel(RAIL_SLOT.find, 'Marketplace')}
+                </span>
+                <span className="fd-icon-caption">Market</span>
+              </Link>
+            ) : null
           ) : null}
 
           <div className="fd-rdiv" />
@@ -919,9 +1153,11 @@ export function FrontDoorShell({
                 given it in the nav registry. Same href, same count.
               */}
               <Link href="/dashboard" {...rowProps('events')}>
-                  <span className="fd-gi" aria-hidden="true">
-                    {inApp ? '▦' : '←'}
-                  </span>
+                  {/* THE ARROW IS THE SENTENCE'S OTHER HALF. Outside the app
+                      this row says "Back to your events" and points BACK; inside
+                      it names the board. The icon has always followed the words
+                      and still does — only the drawing changed. */}
+                  <RailIcon as={inApp ? LayoutGrid : ArrowLeft} />
                   <span className="fd-label-text">
                     {inApp
                       ? slotLabel(RAIL_SLOT.events, 'Your events')
@@ -931,15 +1167,31 @@ export function FrontDoorShell({
                   <Count value={account.eventCount} />
                 </Link>
                 <Link href="/dashboard/library" {...rowProps('alaala')}>
-                  <span className="fd-gi" aria-hidden="true">
-                    ✧
-                  </span>
+                  <RailIcon as={Sparkles} />
                   <span className="fd-label-text">
-                    {slotLabel(RAIL_SLOT.alaala, 'Alaala')}
+                    {slotLabel(RAIL_SLOT.alaala, 'Memories')}
                   </span>
-                  <span className="fd-icon-caption">Alaala</span>
+                  <span className="fd-icon-caption">Memories</span>
                   <Count value={account.alaalaCount} />
                 </Link>
+                {/* YOUR YEAR — THE RAIL ROW IS RETIRED (owner 2026-08-21:
+                    *"this is the your year concept integrated here. deleting
+                    the your year menu"*).
+                    Its premise expired. The row was added 2026-08-19 with the
+                    reasoning "the home is becoming events-only, so the doorway
+                    moves to the rail BEFORE the strip is removed" — and the
+                    board then went the other way: the year's contents are now
+                    the "Worth planning" SHELF on My Events, which is a bigger
+                    door than this row ever was.
+                    🔑 THE ROUTE IS NOT RETIRED, ONLY THE MENU. /dashboard/year
+                    still holds the holidays the shelf leaves out, and the shelf
+                    links to it in BOTH its branches — populated
+                    (year-moments-list) and empty (year-moments-strip's
+                    EmptyYear) — so the "a palette entry is not a doorway"
+                    standard is still met, by a link a person can see rather
+                    than a keyboard shortcut.
+                    `lib/the-controls-have-a-home.test.ts` asserts exactly
+                    that; do not re-add this row without changing it back. */}
               {/*
                 PEOPLE — A DOOR, NOT A NOTICE. This was a "coming soon · waiting
                 on a legal review" notice, and it was WRONG ON BOTH HALVES.
@@ -973,31 +1225,42 @@ export function FrontDoorShell({
                     correctly forever while quietly never being renameable:
                     a reference that looks like a mechanism and is not.
                     Add the registry entry first, then switch this line. */}
-                <span className="fd-icon" aria-hidden>
-                  People
-                </span>
+                {/* ⚠ THIS SLOT HELD THE WORD "People" IN A CLASS THAT DOES NOT
+                    EXIST. `.fd-icon` has no rule anywhere in front-door.css —
+                    only `.fd-icon-caption` does — so the row rendered its icon
+                    slot as unstyled body text and came out looking like a
+                    SECTION HEADING, not a link. Every sibling row is
+                    `fd-gi` glyph + `fd-label-text` label; this one silently
+                    was not, and it had no visible label at all.
+
+                    The owner read the rail and described it back as "People"
+                    being a heading with "Your Story" inside it — which is
+                    exactly what it looks like. The connections page was
+                    reachable only by clicking something that does not appear
+                    clickable. */}
+                <RailIcon as={Users} />
+                <span className="fd-label-text">People</span>
                 <span className="fd-icon-caption">People</span>
               </Link>
               {/*
-                YOUR STORY — a thing you HAVE, not a thing you run, so it is
-                never gated. Writing is open to every signed-in person; gating
-                this row on "is a storyteller" (>=1 published chapter on a
-                public profile) would hide a desk 8 of 9 accounts are entitled
-                to sit at. Matches the shipped launcher, which shows the same
-                href whether you have chapters or none.
+                YOUR STORY — THE RAIL ROW IS RETIRED (owner 2026-08-21: *"remove
+                the your year and your story… we already have your story on
+                untold"*).
+                Its premise was "a thing you HAVE, not a thing you run, so it is
+                never gated" — still true, and now served by the BOARD instead of
+                a rail row.
+                ⚠ CORRECTED 2026-08-22 — THOSE TWO LINKS NO LONGER GO HERE. My
+                Events' "Untold" shelf now opens the EVENT'S OWN story page, and
+                "Told" ends with *read them in Memories*. Both used to point at
+                /dashboard/creator, and that is exactly what made the owner ask
+                "isn't that the editorial. the story?" — a chapter is a person's
+                own write-up ABOUT a day, the event's story page is Setnayan's
+                write-up OF it. The account menu still carries "Your Story".
+                🔑 THE ROUTE IS NOT RETIRED, ONLY THE MENU — do not delete
+                /dashboard/creator, and do not re-add this row without changing
+                `lib/the-controls-have-a-home.test.ts`, which now asserts the
+                doors that replaced it.
               */}
-              <Link href="/dashboard/creator" {...rowProps('story')}>
-                <span className="fd-gi" aria-hidden="true">
-                  ✎
-                </span>
-                <span className="fd-label-text">Your Story</span>
-                <span className="fd-icon-caption">Story</span>
-                {typeof account.storyChapterCount === 'number' ? (
-                  <span className="fd-ct">{account.storyChapterCount}</span>
-                ) : account.storyChapterCount === null ? (
-                  <span className="fd-ct">couldn&apos;t load</span>
-                ) : null}
-              </Link>
               {/*
                 WHAT YOU RUN — the second group, and the rule that decides
                 membership is one sentence: does this destination REFUSE a
@@ -1016,9 +1279,7 @@ export function FrontDoorShell({
               ) : null}
               {account.shopName ? (
                 <Link href="/vendor-dashboard" {...rowProps('shop')}>
-                  <span className="fd-gi" aria-hidden="true">
-                    ▣
-                  </span>
+                  <RailIcon as={Store} />
                   <span className="fd-label-text">{account.shopName}</span>
                   <span className="fd-icon-caption">Shop</span>
                   <span className="fd-ct">your shop</span>
@@ -1026,9 +1287,7 @@ export function FrontDoorShell({
               ) : null}
               {account.isAdmin ? (
                 <Link href="/admin" {...rowProps('hq')}>
-                  <span className="fd-gi" aria-hidden="true">
-                    ⛨
-                  </span>
+                  <RailIcon as={ShieldCheck} />
                   <span className="fd-label-text">Setnayan HQ</span>
                   <span className="fd-icon-caption">HQ</span>
                   <span className="fd-ct">admin</span>
@@ -1053,9 +1312,7 @@ export function FrontDoorShell({
                 </Link>
               </div>
               <Link href="/alaala" className="fd-row">
-                <span className="fd-gi" aria-hidden="true">
-                  ✧
-                </span>
+                <RailIcon as={Sparkles} />
                 <span className="fd-label-text">What is Alaala?</span>
                 <span className="fd-icon-caption">Alaala</span>
               </Link>
@@ -1069,52 +1326,69 @@ export function FrontDoorShell({
             entire difference between one shell and two. Slice 0 passes
             nothing, so this renders nothing.
           */}
-          {railContext}
+          {/* The wrapper is the ANIMATION HOOK and nothing else — a block box
+              inside a block rail, so no row moves by a pixel. `railContext` is
+              a fragment of siblings; without one element to hang it on there is
+              nothing for the arrival to animate. */}
+          {railContext ? (
+            <div className="fd-rgroup">{railContext}</div>
+          ) : null}
 
-          {/* 3 · MARKETPLACE — signed-in only.
-              ⚠ MARKETPLACE AND STUDIO ARE FRONT-PAGE FURNITURE and collapse
-              away whenever a context group is present, exactly as the drawing
-              has it. A rail carrying a wedding's own sections AND fifteen
-              supplier categories is a list, not a place. */}
+          {/* 3 · MARKETPLACE — signed-in AND inside an event only (owner
+              2026-08-22: *"marketplace is best shown inside an event, not
+              when they just logged in"*). REVERSES the 2026-08-12 furniture
+              rule below, which this replaces: the group used to show on the
+              front door / My Events board and collapse away the moment a
+              `railContext` pushed in (an event, the admin console, the
+              vendor dashboard). `insideEvent` is narrower than `railContext`
+              on purpose — the admin console and the vendor dashboard also
+              push a context, and neither is a couple's supplier marketplace.
+
+              🔄 STUDIO NO LONGER COLLAPSES WITH IT — see section 4. */}
           {account.signedIn ? (
             /*
-              NESTED, NOT `&& !railContext`, deliberately. The shipped guard
-              pins this gate as the literal `{account.signedIn ?` — it exists
-              because the owner's signed-in-only rule was got wrong here once,
-              and it also rejects an INVERTED gate. Folding a second condition
-              into the same expression would have blinded it while reading as
-              a tidier line. The collapse is a separate question, so it gets a
-              separate branch.
+              NESTED, NOT `&& insideEvent`, deliberately — same reasoning as
+              before the reversal: the shipped guard pins this gate as the
+              literal `{account.signedIn ?`, so folding a second condition
+              into the same expression would blind it while reading as a
+              tidier line. The collapse is a separate question, so it keeps
+              its own branch.
             */
-            railContext ? null : (
-            <>
+            insideEvent ? (
+            <div className="fd-rgroup">
               <div className="fd-rdiv" />
               {/* NOT "Marketplace" — that is the row above, and the same word
                   twice in one rail reads as two different places. These are
                   shortcuts INTO it (`/explore?folder=…`). See the header. */}
               <div className="fd-rlabel">Browse by category</div>
-              {folders.map((f) => (
-                <Link
-                  key={f.slug}
-                  href={`/explore?folder=${encodeURIComponent(f.slug)}`}
-                  className="fd-row"
-                >
-                  <span className="fd-gi" aria-hidden="true">
-                    ▸
-                  </span>
-                  <span className="fd-label-text">{f.label}</span>
-                  <span className="fd-icon-caption">{f.label}</span>
-                  <span className="fd-ct fd-mono">{f.count}</span>
-                </Link>
+              {visibleFolders.map((f) => (
+                <FolderRow key={f.slug} f={f} />
               ))}
+              {/*
+                THE EXTRA CATEGORIES, ALWAYS RENDERED AND ANIMATED OPEN.
+                `id` + `aria-controls` on the button below are what tell a
+                screen reader which panel the press opened — the button used to
+                rebuild the list around itself and announce nothing.
+              */}
+              <div
+                id={`${railId}-more`}
+                className="fd-reveal"
+                data-open={moreOpen ? 'true' : 'false'}
+              >
+                <div className="fd-reveal-in">
+                  {moreFolders.map((f) => (
+                    <FolderRow key={f.slug} f={f} />
+                  ))}
+                </div>
+              </div>
               <button
                 type="button"
                 className="fd-row"
+                aria-expanded={moreOpen}
+                aria-controls={`${railId}-more`}
                 onClick={() => setMoreOpen((v) => !v)}
               >
-                <span className="fd-gi" aria-hidden="true">
-                  {moreOpen ? '⌃' : '⌄'}
-                </span>
+                <RailIcon as={moreOpen ? ChevronUp : ChevronDown} />
                 <span className="fd-label-text">
                   {moreOpen
                     ? 'Show fewer'
@@ -1122,13 +1396,31 @@ export function FrontDoorShell({
                 </span>
                 <span className="fd-icon-caption">More</span>
               </button>
-            </>
-            )
+            </div>
+            ) : null
           ) : null}
 
-          {/* 4 · STUDIO — the things you make. Collapses with Marketplace. */}
-          {railContext ? null : (
-            <>
+          {/* 4 · STUDIO — the things you make. IT DOES NOT COLLAPSE.
+
+              🔄 REVERSED 2026-08-21. Studio used to disappear the instant you
+              opened a wedding, and the event's own menu carried a single row
+              called Suite in its place. Owner, looking at both: *"this seem
+              wrong since we lose the consistency of the concept. what we want
+              is for that Studio to still show on the sidebar, but now it is
+              link to that event."*
+
+              🔑 THE PRODUCTS ARE THE CONCEPT, AND THEY ARE THE SAME PRODUCTS
+              WHETHER YOU OWN ONE OR NONE. Hiding the group at the exact moment
+              a person finally has somewhere to open it taught them the names
+              only while they were a stranger. The rows still change behaviour
+              — signed out they sell, signed in they open your own tools, and
+              inside an event they open THAT event's — but the group itself is
+              now furniture that never leaves.
+
+              ⚠ THE MARKETPLACE STILL COLLAPSES. Fifteen supplier categories
+              beside a wedding's sections is the list the drawing rejected;
+              seven named products under one heading is not the same thing. */}
+          <div className="fd-rgroup">
               <div className="fd-rdiv" />
               <div className="fd-rlabel">
                 Studio <small>the things you make</small>
@@ -1174,8 +1466,7 @@ export function FrontDoorShell({
                   <span className="fd-icon-caption">{t.name}</span>
                 </Link>
               ))}
-            </>
-          )}
+          </div>
 
           {/* 5 · SMALL PRINT.
               ⚠ "Contact us" does not exist — there is no /contact route, and a
@@ -1268,9 +1559,17 @@ export function FrontDoorShell({
             ("exactly one <h1> each", 2026-08-13). A shared shell must not
             bring the host page's headings with it.
           */}
-          {ownsHeading ? null : (
+          {/*
+            🔑 A REAL HEADING REPLACES THE INVISIBLE ONE — it never joins it.
+            `/` carried an `fd-sr-only` <h1> because it had no visible headline,
+            which is exactly why the page read as a bare feed. A page that
+            supplies `heading` renders THAT as its one <h1>; the fallback stays
+            for any front-door surface that still has none. Two would break the
+            "exactly one <h1> each" rule the doorway work closed 2026-08-13.
+          */}
+          {ownsHeading ? null : (heading ?? (
             <h1 className="fd-sr-only">Setnayan — plan your event, keep it together</h1>
-          )}
+          ))}
           <div className={isBleed ? 'fd-col fd-bleed' : 'fd-col'}>{children}</div>
         </MainEl>
       </div>
@@ -1286,10 +1585,24 @@ export function FrontDoorShell({
 /**
  * The search field.
  *
- * It is a real GET form to `/explore`, which is where the shipped word-bridge
- * lives — typing "photographer" lands on the folder we call Photo & video,
- * with our word shown beside theirs as a place. That bridge is not rebuilt
- * here; this is its doorway.
+ * It is a real GET form to `/` — the FRONT DOOR, which reads `?q=` and renders
+ * the answer in its own body.
+ *
+ * ⚠ IT USED TO POST STRAIGHT TO `/explore`, AND THAT WAS THE DEFECT. Measured
+ * on the live site 2026-08-20: `?q=doves` led with "No vendors match exactly.
+ * Try widening your search or clearing one filter at a time." and put the
+ * doves guide it had found underneath. A box promising "suppliers, stories and
+ * guides" answered a story query with a failure about suppliers. Prod holds
+ * two shops, so the marketplace could not lead well on anything.
+ *
+ * 🔒 THE WORD-BRIDGE IS NOT LOST AND IS NOT REBUILT HERE. Typing
+ * "photographer" still reaches the folder we call Photo & video — through the
+ * marketplace row the results page always carries, and through /explore's own
+ * search box, which is untouched. What moved is which page answers FIRST.
+ *
+ * 🔑 ONE SEARCH, ONE PLACE THE ANSWERS APPEAR (owner 2026-08-20). The
+ * signed-in palette's escape row lands on the same url this form does, so a
+ * member and a stranger typing the same words reach the same page.
  *
  * ⚠ IT ANSWERS A SIGNED-OUT PERSON. The Marketplace GROUP is signed-in only,
  * but finding the one supplier you already need is not browsing a directory,
@@ -1305,15 +1618,19 @@ export function FrontDoorShell({
  */
 function SearchBox() {
   return (
-    <form className="fd-searchbox" action="/explore" method="get" role="search">
+    <form className="fd-searchbox" action="/" method="get" role="search">
       <input
         type="search"
         name="q"
         placeholder={publicSearchPlaceholder()}
         aria-label="Search Setnayan"
       />
+      {/* SAME REASON AS THE RAIL ROWS ABOVE: this was ⌕ U+2315 TELEPHONE
+          RECORDER doing duty as a magnifier, and it is the ONE control a
+          signed-out visitor uses to search. A codepoint the font may not carry
+          is a submit button that can render as an empty square. */}
       <button type="submit" className="fd-searchgo" aria-label="Search">
-        ⌕
+        <Search className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
       </button>
     </form>
   );

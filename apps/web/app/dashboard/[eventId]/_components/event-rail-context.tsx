@@ -62,6 +62,7 @@ import { usePathname } from 'next/navigation';
 import { activeRailKey } from '@/app/_components/frontdoor/rail-active';
 import type { RailMatchRow } from '@/app/_components/frontdoor/rail-active';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
+import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { buildCustomerNavGroups } from './customer-nav-config';
 import { applyRegistry } from './customer-sidebar';
 
@@ -74,6 +75,7 @@ export function EventRailContext({
   monogramEnabled,
   slug,
   guestCount,
+  phase,
 }: {
   eventId: string;
   /** Already resolved server-side, and never blank — see the layout's
@@ -85,6 +87,10 @@ export function EventRailContext({
   monogramEnabled?: boolean;
   slug?: string | null;
   guestCount?: number | null;
+  /** Event lifecycle phase, resolved server-side in layout.tsx. In the After
+   *  phase the builder relabels the first section and adds the Editorial +
+   *  Galleries rows — see `buildCustomerNavGroups`. Omitted ⇒ 'plan'. */
+  phase?: MenuLifecyclePhase;
 }) {
   const pathname = usePathname() ?? `/dashboard/${eventId}`;
 
@@ -102,16 +108,40 @@ export function EventRailContext({
     header). Passing a client-effect value would buy nothing and would open a
     hydration split for a row that cannot render.
   */
-  const groups = applyRegistry(
+  const groupsWithHub = applyRegistry(
     buildCustomerNavGroups(eventId, {
       hideKeys,
       websiteEnabled,
       monogramEnabled,
       slug,
       guestCount,
+      phase,
     }),
     navSlots,
   );
+
+  /*
+    ─── THE SERVICES SHELF IS NOT LISTED TWICE ──────────────────────────────
+    Owner, 2026-08-21: the Studio group must stay in the rail inside an event.
+    It now sits a few rows below this one, headed "Studio", carrying the named
+    products and ending in an "All services" row that opens this exact page.
+
+    So this row — labelled "Studio" or "Suite" depending on the flag — would be
+    the same destination under a second name, directly above a heading using
+    the first. The shell's own Marketplace note records why that is forbidden:
+    the same word twice in one rail is two different places in the reader's
+    head, and here the two words are worse than one repeated.
+
+    🔒 THE BUILDER IS NOT TOUCHED, AND THAT IS DELIBERATE. It is the SSOT for
+    the phone's bottom bar too, and the phone carries NO Studio group — take
+    the row out there and a phone loses its only door to the shelf. This drops
+    it from the DESKTOP RAIL, where the group replaces it, and nowhere else.
+    `lib/customer-menu.test.ts` still pins 'studio' in the phone's keys.
+  */
+  const groups = groupsWithHub.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => i.key !== 'studio'),
+  }));
 
   /*
     Every row that can be the current page, declared ONCE and handed to the
@@ -159,7 +189,7 @@ export function EventRailContext({
                     aria-current={on ? 'page' : undefined}
                   >
                     <span className="fd-gi" aria-hidden="true">
-                      <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                      <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
                     </span>
                     <span className="fd-label-text">{item.label}</span>
                     <span className="fd-icon-caption">{item.label}</span>

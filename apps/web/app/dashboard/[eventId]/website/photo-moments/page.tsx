@@ -57,8 +57,6 @@ export default async function PhotoMomentsEditorPage({
     <section className="space-y-6">
       <PageMasthead
         titleNode={<>{event.display_name}</>}
-        back={`/dashboard/${eventId}/website`}
-        backLabel="Back to Event Hub"
       />
       <div className="mt-3 space-y-3">
         <p className="max-w-prose text-base text-ink/70">

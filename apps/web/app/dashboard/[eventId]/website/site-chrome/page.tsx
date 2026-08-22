@@ -81,8 +81,6 @@ export default async function SiteChromeEditorPage({
     <section className="space-y-6">
       <PageMasthead
         title="Set the mood"
-        back={`/dashboard/${eventId}/website`}
-        backLabel="Back to Event Hub"
       />
       <div className="mt-3 space-y-3">
         {saved ? (

@@ -1,5 +1,5 @@
 /**
- * /pa3d — public marketing landing page for Pa3D, the 3D reception-walkthrough
+ * /pa3d — public marketing landing page for 3D Plan, the 3D reception-walkthrough
  * experience (www.setnayan.com/pa3d).
  *
  * Part of the "Pa-" public-surface wave (owner-approved 2026-06-27; Pa- naming
@@ -10,7 +10,7 @@
  * registered in NAV_ROUTES.
  *
  * POSITIONING (locked "seat plan stays free" + "3D seat-plan roadmap"): the 2D
- * seating plan is FREE and complete on its own; Pa3D is the premium tier that
+ * seating plan is FREE and complete on its own; 3D Plan is the premium tier that
  * lets a couple walk their reception in 3D before the day. Sell the value, not
  * the price (admin-managed + provisional — links to /pricing). Copy sells
  * BENEFITS only (public-surface hygiene).
@@ -22,7 +22,13 @@ import { studioApp, studioDescription } from '@/lib/studio-apps';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PAGE_TITLE = 'Pa3D — Walk Your Reception in 3D Before the Day · Setnayan';
+const PAGE_TITLE = '3D Plan — Walk Your Reception in 3D Before the Day · Setnayan';
+/** The document title ONLY. `metadata.title` is rendered through the root
+ *  layout's `template: '%s · Setnayan'`, so a PAGE_TITLE that already ends in
+ *  the brand came out as "… · Setnayan · Setnayan" on 11 live pages. The share
+ *  cards and the structured-data name do NOT go through that template and are
+ *  correct WITH the brand — which is why this strips it here and nowhere else. */
+const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 /*
  * 🔑 THE DESCRIPTION IS NOT AUTHORED HERE ANY MORE — it is read from
  * `lib/studio-apps.ts`, the ONE place the seven Studio products are
@@ -48,7 +54,7 @@ const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 */
 
 export const metadata = {
-  title: PAGE_TITLE,
+  title: DOC_TITLE,
   description: PAGE_DESCRIPTION,
   alternates: { canonical: '/pa3d' },
   keywords: [
@@ -58,7 +64,7 @@ export const metadata = {
     'wedding floor plan tool',
     '3D table layout wedding',
     'wedding seating chart Philippines',
-    'Pa3D',
+    '3D Plan',
     'Setnayan',
   ],
   openGraph: {
@@ -66,7 +72,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/pa3d',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Pa3D — walk your reception in 3D before the day' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: '3D Plan — walk your reception in 3D before the day' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -81,7 +87,7 @@ export const metadata = {
 const APP_LD = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Pa3D — 3D Reception Walkthrough',
+  name: '3D Plan — Reception Walkthrough',
   url: `${SITE_URL}/pa3d`,
   applicationCategory: 'DesignApplication',
   operatingSystem: 'Any (web browser)',
@@ -101,11 +107,11 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'Do I need to build the room from scratch?',
-    a: 'No. Pa3D builds on the seating plan you already make in Setnayan — your tables, your head table, your dance floor. Switch to the 3D view and your plan stands up into a room you can walk.',
+    a: 'No. 3D Plan builds on the seating plan you already make in Setnayan — your tables, your head table, your dance floor. Switch to the 3D view and your plan stands up into a room you can walk.',
   },
   {
     q: 'Isn’t the seating plan enough on its own?',
-    a: 'The seating plan is free and complete — you can run your whole wedding on it. Pa3D is for when you want to feel the room before it’s real: how close the tables sit, what the lola at table 3 actually sees, whether the aisle has space to breathe.',
+    a: 'The seating plan is free and complete — you can run your whole wedding on it. 3D Plan is for when you want to feel the room before it’s real: how close the tables sit, what the lola at table 3 actually sees, whether the aisle has space to breathe.',
   },
   {
     q: 'What can I catch with it?',
@@ -138,7 +144,7 @@ const STEPS = [
   },
   {
     t: 'Stand up the room',
-    d: 'Switch to Pa3D and your flat plan rises into a room you can walk. See the space the way your guests will, from any seat in the house.',
+    d: 'Switch to 3D Plan and your flat plan rises into a room you can walk. See the space the way your guests will, from any seat in the house.',
   },
   {
     t: 'Get it right before the day',
@@ -154,26 +160,25 @@ const VS = [
 
 ] as const;
 
-export default function Pa3DLandingPage() {
+export default function ThreeDPlanLandingPage() {
   return (
     <DoorwayPage
       demo={studioApp('pa3d')?.demo}
-      kicker="In your wedding · 3D reception"
       title={'Walk your reception before it’s built.'}
-      lede={'Pa3D lets you stand inside your reception before it’s real. See the room the way your guests will — the head table, the dance floor, every seat — and know it’s right while there’s still time to change it.'}
       primary={{ href: '/onboarding/wedding?from=pa3d', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
-      productName="Pa3D"
+      productName="3D Plan"
+      studioKey="pa3d"
       steps={STEPS}
       differentiator={{
         heading: 'More than a chart',
-        lede: 'The free seating plan tells you who sits where. Pa3D shows you what it actually feels like.',
+        lede: 'The free seating plan tells you who sits where. 3D Plan shows you what it actually feels like.',
         rows: VS,
       }}
       faq={FAQ}
       closing={{
         heading: 'See the room before the day',
-        body: 'The seating plan is free inside every Setnayan wedding. Start planning free, lay out your tables, and add Pa3D when you want to walk the room.',
+        body: 'The seating plan is free inside every Setnayan wedding. Start planning free, lay out your tables, and add 3D Plan when you want to walk the room.',
         href: '/onboarding/wedding?from=pa3d',
         label: 'Start planning · free',
       }}

@@ -64,3 +64,59 @@ export async function notifyAdminsOrderAwaitingReconciliation(args: {
     void orderId;
   }
 }
+
+/**
+ * The SECOND event, and the one that matters more.
+ *
+ * `notifyAdminsOrderAwaitingReconciliation` above fires when a couple SUBMITS
+ * an order — before any money exists. This one fires when they come back and
+ * say "I have paid, here is the proof", which is the moment real pesos have
+ * left a real bank account and somebody is waiting for their purchase to switch
+ * on. Until now that step notified NOBODY: `logPayment` wrote the row,
+ * revalidated, and redirected.
+ *
+ * 🔑 THE DAILY OPS DIGEST IS NOT THIS. The digest is a next-morning summary of
+ * what is waiting, and it only sends when a queue is non-empty and only around
+ * 08:00 Manila. For "your customer has paid and is waiting", tomorrow is the
+ * wrong answer. The digest is the safety net UNDER this notification, not a
+ * substitute for it.
+ *
+ * Best-effort, exactly like its sibling: a failed notification must never roll
+ * back a recorded payment.
+ */
+export async function notifyAdminsPaymentProofSubmitted(args: {
+  orderId: string;
+  eventId: string;
+  amountPhp: number;
+  channel: string;
+}): Promise<void> {
+  const { orderId, eventId, amountPhp, channel } = args;
+  try {
+    const admin = createAdminClient();
+    const { data: admins } = await admin
+      .from('users')
+      .select('user_id')
+      .or('is_internal.eq.true,is_team_member.eq.true,account_type.eq.admin');
+    if (!admins?.length) return;
+
+    const how = channel.trim().slice(0, 24) || 'a transfer';
+
+    await Promise.all(
+      admins.map((row) =>
+        emitNotification({
+          userId: row.user_id as string,
+          type: 'order_awaiting_reconciliation',
+          title: `Payment logged · ${peso(amountPhp)} — confirm it`,
+          body: `A customer says they have paid ${peso(
+            amountPhp,
+          )} via ${how} and is waiting for it to be switched on. Check it against the account and confirm.`,
+          relatedUrl: '/admin/payments',
+        }),
+      ),
+    );
+  } catch (e) {
+    console.error('[orders] payment-proof notify failed:', e);
+    void orderId;
+    void eventId;
+  }
+}

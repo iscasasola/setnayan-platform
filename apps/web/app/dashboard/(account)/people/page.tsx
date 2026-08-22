@@ -1,13 +1,18 @@
+import Link from 'next/link';
 import { Clock, Users, HeartHandshake, UserPlus } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
+import { getSpouseContext } from '@/lib/people-spouse-context';
+import { getPeopleRoster } from '@/lib/people-roster';
+import { offerableRelations, spouseAbsenceNote, type SpouseContext } from '@/lib/people-add';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
-import { ConnectionsPanel, type ConnectionItem } from './_components/connections-panel';
+import { PeopleRosterView } from './_components/people-roster-view';
+import { AddAlagaButton } from './_components/add-alaga-button';
 import { DependentsSection } from './_components/dependents-section';
 import { SamahanPeopleSection } from './_components/samahan-people-section';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { YourStorySection } from './_components/your-story-section';
 
 export const metadata = {
   title: 'People',
@@ -32,7 +37,7 @@ const FENCE_ERROR: Record<string, string> = {
  * Flag-gated (`peopleConnectionsEnabled()`, default OFF — Phase 2 is counsel-
  * gated). When OFF (production today) this renders the honest "coming soon"
  * PREVIEW — no interactive controls. When ON (post PH counsel + flag flip) it
- * renders the functional suggest→confirm flow via <ConnectionsPanel>, wiring the
+ * renders the roster (<PeopleRosterView>) — add first, label after — wiring the
  * shipped propose/confirm/decline actions. The preview + functional modes share
  * this one route so nothing repaints on the flip.
  */
@@ -55,18 +60,24 @@ export default async function PeoplePage({
   const sp = await searchParams;
   const errorMsg = sp.error ? (FENCE_ERROR[sp.error] ?? sp.error) : null;
 
-  const user = showConnections ? await getCurrentUser() : null;
-  const { incoming, outgoing, confirmed } = user
-    ? await fetchMyConnections(user.id)
-    : { incoming: [], outgoing: [], confirmed: [] };
+  // ONE ROSTER for connections + alaga, shaped like the guest list (owner
+  // 2026-08-21). The read is skipped entirely when nobody is signed in.
+  const user = await getCurrentUser();
+  const roster = user ? await getPeopleRoster(user.id) : null;
+
+  // THE SPOUSE RULE (owner 2026-08-21). Read once here and handed to the card,
+  // which never decides it — `addPersonConnection` recomputes the same rule from
+  // the same helper, so a chip that was never drawn is still refused if posted.
+  // No user (or connections off) → the not-married context, which is where a
+  // failed read lands too: the chip can be hidden by a denial, never invented.
+  const spouseCtx: SpouseContext = user
+    ? await getSpouseContext(user.id)
+    : { civilStatus: null, weddingHasHappened: false };
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="People"
-        back="/dashboard"
-        backLabel="Back to home"
-        className="mb-6"
       />
       {errorMsg ? (
         <p
@@ -76,98 +87,49 @@ export default async function PeoplePage({
           {errorMsg}
         </p>
       ) : null}
-      {showConnections ? (
-        <ConnectionsPanel incoming={incoming} outgoing={outgoing} confirmed={confirmed} />
+      {/* THE PAGE'S OWN ACTIONS, TOGETHER (owner 2026-08-22, comparing the live
+          page against the approved mock: "where the buttons live"). One row, at
+          the top, in the order the mock draws them — the two doors this page
+          owns that are not "add a person".
+
+          ⚠ THE MOCK'S THIRD BUTTON, "Import contacts", IS DELIBERATELY ABSENT.
+          It cannot be built honestly under the rule the owner locked the day
+          before: a person must hold an account to be listed. A pasted address
+          book is mostly people who do not, so the feature reduces to either
+          telling you which of your contacts have Setnayan accounts — an
+          enumeration oracle over a list you supply, exactly what the name search
+          was built NOT to be — or bulk-emailing strangers who never asked. A
+          button that opens neither is a fake door, and this codebase has already
+          removed one product for being sold and undeliverable.
+
+          `New samahan` goes to the page that already exists; nothing here is a
+          new destination. */}
+      {showConnections || showDependents ? (
+        <div className="mb-4 flex flex-wrap justify-end gap-2">
+          {showDependents ? <AddAlagaButton /> : null}
+          <Link href="/dashboard/samahan/new" className="button-secondary text-sm">
+            New samahan
+          </Link>
+        </div>
       ) : null}
+      {showConnections && roster ? (
+        <PeopleRosterView
+          roster={roster}
+          relations={offerableRelations(spouseCtx)}
+          spouseNote={spouseAbsenceNote(spouseCtx)}
+        />
+      ) : null}
+      {/* The alaga CARDS keep their own section: hand-over links, godparents and
+          the sharing switch live per alaga, and the roster row is a summary of
+          them, not a replacement. */}
       {showDependents ? <DependentsSection /> : null}
       {/* Samahan (owner degree model 2026-07-17): groups are FIRST degree
           beside connections + alaga; their members are SECOND degree. Not
           flag-gated — samahan is live product. */}
+      <YourStorySection />
       <SamahanPeopleSection />
     </div>
   );
-}
-
-/**
- * Fetch the signed-in user's connections, classified into incoming (pending,
- * I'm the recipient) / outgoing (pending, I proposed) / confirmed. RLS on
- * `person_connections` already scopes this to edges I'm a participant in.
- *
- * Name resolution degrades gracefully: `people` RLS only surfaces people I
- * claimed or created, so a connected person's name shows for people I added and
- * falls back to a neutral label otherwise — until the counsel-gated cross-person
- * name-visibility RLS lands with the flag flip.
- */
-async function fetchMyConnections(userId: string): Promise<{
-  incoming: ConnectionItem[];
-  outgoing: ConnectionItem[];
-  confirmed: ConnectionItem[];
-}> {
-  const empty = { incoming: [], outgoing: [], confirmed: [] };
-  const supabase = await createClient();
-
-  const { data: me } = await supabase
-    .from('people')
-    .select('person_id')
-    .eq('claimed_by_user_id', userId)
-    .is('deleted_at', null)
-    .maybeSingle();
-  const myPerson = (me as { person_id: string } | null)?.person_id;
-  if (!myPerson) return empty;
-
-  const { data: rowsData } = await supabase
-    .from('person_connections')
-    .select('connection_id, relation, layer, status, from_person_id, to_person_id')
-    .or(`from_person_id.eq.${myPerson},to_person_id.eq.${myPerson}`)
-    .is('deleted_at', null)
-    .neq('status', 'declined');
-  const rows = (rowsData ?? []) as Array<{
-    connection_id: string;
-    relation: string;
-    layer: string;
-    status: string;
-    from_person_id: string;
-    to_person_id: string;
-  }>;
-  if (rows.length === 0) return empty;
-
-  const otherIds = [
-    ...new Set(rows.map((r) => (r.from_person_id === myPerson ? r.to_person_id : r.from_person_id))),
-  ];
-  // Cross-person name visibility (owner-signed-off rule 2026-07-05): resolve
-  // names ONLY through `visible_connection_names`, which returns display_name and
-  // ONLY for people we share a CONFIRMED edge with — name only, no contact
-  // details. Pending/outgoing connections therefore stay unnamed (the panel
-  // degrades to "Someone"/"Pending") until both sides confirm.
-  const names = new Map<string, string>();
-  const { data: nameRows } = await supabase.rpc('visible_connection_names', {
-    p_person_ids: otherIds,
-  });
-  for (const r of (nameRows ?? []) as Array<{
-    person_id: string;
-    display_name: string | null;
-  }>) {
-    const label = (r.display_name ?? '').trim();
-    if (label) names.set(r.person_id, label);
-  }
-
-  const incoming: ConnectionItem[] = [];
-  const outgoing: ConnectionItem[] = [];
-  const confirmed: ConnectionItem[] = [];
-  for (const r of rows) {
-    const otherId = r.from_person_id === myPerson ? r.to_person_id : r.from_person_id;
-    const item: ConnectionItem = {
-      connectionId: r.connection_id,
-      relation: r.relation,
-      layer: r.layer,
-      status: r.status,
-      otherName: names.get(otherId) ?? null,
-    };
-    if (r.status === 'confirmed') confirmed.push(item);
-    else if (r.to_person_id === myPerson) incoming.push(item);
-    else outgoing.push(item);
-  }
-  return { incoming, outgoing, confirmed };
 }
 
 /** The honest, non-interactive "coming soon" preview (flag OFF — production today). */
@@ -176,9 +138,6 @@ function PeoplePreview() {
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="People"
-        back="/dashboard"
-        backLabel="Back to home"
-        className="mb-6"
       />
 
       {/* 🚨 SAMAHAN IS LIVE AND THIS BRANCH USED TO HIDE IT.
@@ -191,7 +150,8 @@ function PeoplePreview() {
           coming-soon note is about connections only. It also carries its own
           "Create one" door when the user has none, so it is never dead weight. */}
       <div className="mb-8">
-        <SamahanPeopleSection />
+        <YourStorySection />
+      <SamahanPeopleSection />
       </div>
 
       <div className="sn-tile mb-8 flex items-start gap-3">

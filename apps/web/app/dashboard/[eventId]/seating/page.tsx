@@ -21,7 +21,7 @@ import {
   groupColorFor,
 } from '@/lib/seating';
 import { fetchBookedVendorsForBooths } from '@/lib/vendors';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SeatingEditor, type SeatingGuest, type SeatingGroup } from './_components/seating-editor';
@@ -88,15 +88,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
 
   // Guest photo_url is a stored r2:// ref (or a raw avatar URL) — resolve each
   // to a display URL the same way the guest list does, signing in parallel.
-  const photoDisplayUrls: Record<string, string> = Object.fromEntries(
-    (
-      await Promise.all(
-        guests
-          .filter((g) => g.photo_url)
-          .map(async (g) => [g.photo_url!, await displayUrlForStoredAsset(g.photo_url)] as const),
-      )
-    ).filter((e): e is [string, string] => e[1] !== null),
-  );
+  const photoDisplayUrls = await guestPhotoDisplayUrls(guests);
 
   // Deterministic per-group accent colour, indexed by the group's position in
   // the event's group list (no schema column needed). Drives the sidebar dots,

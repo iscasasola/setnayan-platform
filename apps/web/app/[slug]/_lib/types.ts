@@ -156,6 +156,12 @@ export type EventRow = {
   // input. Dormant in prod (DEFAULT FALSE); flipped by the couple board (PR9) /
   // new-event default (PR11).
   website_open_browse?: boolean | null;
+  // The guest-list edit deadline + its finalize stamp (Adaptive Pax Pricing,
+  // owner decision ⑥ 2026-06-13). Together they answer "is the list closed?"
+  // for the invitation half of the hub — see lib/guest-list-closed.ts. Absent
+  // on both = a list that never closes on its own.
+  guest_list_edit_deadline?: string | null;
+  guest_count_locked_at?: string | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the
@@ -322,6 +328,12 @@ export type GuestRow = {
   rsvp_status: 'pending' | 'attending' | 'declined' | 'maybe';
   meal_preference: string | null;
   dietary_restrictions: string | null;
+  /** The guest's OWN contact details — how the host reaches them. Both were
+   *  host-typed-only until 2026-08-21: the host's page has an Email and a
+   *  Mobile box and NOTHING anywhere let the guest supply either, so a host
+   *  who did not already have a number had to go and ask for it. */
+  email: string | null;
+  mobile: string | null;
   /** The GUEST's own message to the couple. NOT `guests.notes`, which is the
    *  couple's PRIVATE note about this guest and must never reach this type —
    *  it used to, and the guest's RSVP overwrote it (fixed 2026-08-06). */

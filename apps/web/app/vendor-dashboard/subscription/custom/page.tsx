@@ -90,21 +90,10 @@ export default async function VendorCustomPlanPage({ searchParams }: Props) {
 
       <PageMasthead
         titleNode={
-          <span className="flex items-center gap-2">
+          <span>
             <Sparkles className="h-7 w-7 text-orange" strokeWidth={1.75} aria-hidden />
             Compose a Custom plan.
           </span>
-        }
-        lede={
-          <>
-            Everything in Enterprise plus white-glove support, then dial in exactly
-            the branches, reach, seats, listings and photos your business
-            needs. Custom starts at{' '}
-            <span className="font-semibold text-ink">
-              ₱{NUMBER.format(unitPrices.base)}
-            </span>{' '}
-            per 28 days.
-          </>
         }
         className="mb-6 mt-3 sm:mb-8"
       />

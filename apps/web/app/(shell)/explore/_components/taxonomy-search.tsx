@@ -174,10 +174,43 @@ export function TaxonomySearch({
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
+        /*
+          🔑 THE BAR VARIANT SAYS WHAT IT NARROWS — IT IS NOT A SECOND GLOBAL
+          SEARCH. Owner 2026-08-20, pointing at this exact box on `/explore`:
+          *"why is there a search bar for this? shouldn't this be same on the
+          top search bar?"*
+
+          Both boxes were visible at once, ~140px apart, and BOTH said
+          "…vendors": the shared top bar reads "Search events, people, vendors"
+          and this read "Search vendors, services, or places". Two controls
+          promising the same noun read as one control drawn twice.
+
+          They are NOT the same job and must not be merged:
+            · the top bar goes ANYWHERE — your events, your shop, your groups,
+              plus a row that searches Setnayan publicly;
+            · this one NARROWS the results already on screen. It suggests real
+              taxonomy folders with their counts (so a person lands somewhere
+              that exists), and `preserve` carries seven filter values through
+              a suggestion pick — city, sort, verified-only, match-event,
+              event type, folder scope and focused mode. Handing this job to
+              the top bar would silently drop every one of them, which is what
+              the "1 filter applied" chip beside this box is counting.
+
+          So the fix is the WORDS, not the control. It now names its job and
+          stops competing for the same noun.
+
+          ⛔ DO NOT "TIDY" THIS BACK TO "Search …". The word "Search" beside a
+          magnifier is what made it read as a rival to the bar above it.
+
+          ⚠ THE HERO VARIANT IS DELIBERATELY UNTOUCHED. It is the marketplace's
+          OWN front door with no results behind it yet, so there is nothing to
+          narrow — and its examples ("photographers, caterers") name concrete
+          things rather than competing for a category noun.
+        */
         placeholder={
           isHero
             ? 'Search photographers, caterers, livestream…'
-            : 'Search vendors, services, or places…'
+            : 'Narrow these results…'
         }
         className={
           isHero

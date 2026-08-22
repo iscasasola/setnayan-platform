@@ -96,7 +96,6 @@ export default async function VendorLinesPage({
   return (
     <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 sm:px-6">
       <header className="space-y-2">
-        <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/60">My lines</p>
         <h1 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
           What you say, kept once
         </h1>

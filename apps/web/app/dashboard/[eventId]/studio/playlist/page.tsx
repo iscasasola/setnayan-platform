@@ -28,7 +28,8 @@
 
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Music as MusicIcon, Sparkles } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { ArrowLeft, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
   fetchPlaylistPicks,
@@ -151,26 +152,13 @@ export default async function PlaylistPage({ params }: Props) {
         Back to {eventRow.data.display_name ?? 'event home'}
       </Link>
 
-      <header className="sn-reveal mb-6 space-y-2">
-        <div className="inline-flex items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1">
-          <MusicIcon
-            aria-hidden
-            className="h-3 w-3 text-terracotta"
-            strokeWidth={2.25}
-          />
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-            Playlist
-          </span>
-        </div>
-        <h1 className="sn-h1">
-          Your wedding playlist
-        </h1>
-        <p className="text-sm leading-relaxed text-ink/75 sm:text-base">
-          Pick the songs you want at each moment — your DJ or band sees
-          this lineup the second you book them. Add favorites; flag
-          must-not-plays. They handle the rest of the night.
-        </p>
-      </header>
+      {/* One shared masthead — the eyebrow chip, the 36px title and the
+          paragraph are exactly the stack the owner retired app-wide
+          (2026-08-18, then 2026-08-21). The sentence survives behind the (i)
+          because it is the only place that says the DJ reads this list. */}
+      <PageMasthead
+        title="Your wedding playlist"
+      />
 
       {/* Sync status chip · whether a Music vendor is already booked. */}
       {bookedMusic ? (

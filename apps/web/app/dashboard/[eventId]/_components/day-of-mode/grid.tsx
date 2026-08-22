@@ -63,6 +63,33 @@ export function DayOfModeGrid({
     >
       <DayOfModeBanner eventId={eventId} blocks={blocks} />
 
+      {/* ─── THE WRAP-UP DOOR, MOVED UP (2026-08-21) ────────────────────────
+          It used to be the LAST element in this section, under seven cards —
+          well below the fold on a phone and easy to miss on a laptop. It is
+          the only door in the entire app to "close out the day", and the owner
+          went looking for a way to say his event was over and did not find one:
+          *"why can i still plan and build and create guest list as if it hasn't
+          ended"*.
+
+          🔑 STILL ONE DOOR, JUST A VISIBLE ONE. A second copy at the bottom
+          would be two entrances to one switch inside one block — clutter, and
+          the kind of duplication that drifts.
+
+          ⚠ It matters LESS than it did, and deliberately so: the phase now
+          flips to After on its own at 06:00 the morning after. This is the
+          "we finished early" switch, not the only way out. */}
+      <Link
+        href={`/dashboard/${eventId}/clearance`}
+        className="group flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-terracotta/30 bg-terracotta/[0.04] px-4 py-2.5 text-sm font-medium text-terracotta-700 transition-colors hover:border-terracotta/50 hover:bg-terracotta/10"
+      >
+        When the day winds down, close it out
+        <ArrowRight
+          aria-hidden
+          className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+          strokeWidth={1.75}
+        />
+      </Link>
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <WhatsHappeningCard blocks={blocks} />
         <YourTableCard
@@ -88,19 +115,6 @@ export function DayOfModeGrid({
         <GetHelpCard sameDayVendors={sameDayVendors} />
       </div>
 
-      {/* Wrap-up entry point (Event Lifecycle Menu PR3) — when the celebration
-          winds down, close out the day to move the app into After mode. */}
-      <Link
-        href={`/dashboard/${eventId}/clearance`}
-        className="group flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-terracotta/30 bg-terracotta/[0.04] px-4 py-2.5 text-sm font-medium text-terracotta-700 transition-colors hover:border-terracotta/50 hover:bg-terracotta/10"
-      >
-        When the day winds down, close it out
-        <ArrowRight
-          aria-hidden
-          className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-          strokeWidth={1.75}
-        />
-      </Link>
     </section>
   );
 }

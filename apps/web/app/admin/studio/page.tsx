@@ -190,6 +190,7 @@ export default async function AdminStudioPage({ searchParams }: Props) {
             q={first(search.q)}
             merged={first(search.merged)}
             deleted={first(search.deleted)}
+            curated={first(search.curated)}
             error={first(search.error)}
           />
         ) : tab === 'moodboard-library' ? (

@@ -378,7 +378,6 @@ export function QueuesTriageFeed({
             {title}
           </>
         }
-        className="mb-6"
       />
 
       {settle && SETTLE_NOTICES[settle] ? (

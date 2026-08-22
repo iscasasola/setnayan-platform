@@ -2,6 +2,81 @@
 
 > Loaded automatically by Claude Code at session start. Read first, before any code.
 
+## ▶▶▶ NEWEST — 2026-08-20 · HANDOFF FOR A NEW ACCOUNT (read before `WHAT_IS_LEFT.md`, which is 13 days older)
+
+Full handoff lives in the spec corpus as `WHATS_NEXT_HANDOFF_2026-08-20.md`
+(remote: `github.com/iscasasola/Setnayan-specs`) — it supersedes the 2026-08-19 one, whose build
+list is COMPLETE and one of whose owner recommendations was false. **The essentials are inlined here because
+that corpus is "a second repo you may not have" — as the block below says of itself.**
+
+🛑 **THE TRAP THAT COSTS A WHOLE SESSION: `/Users/icecasasola` IS A CHECKOUT OF THIS REPO AND IS
+749 COMMITS BEHIND `origin/main`** (sits on the #4287 merge; holds ZERO commits main lacks, so
+there is nothing in it to rescue). On 2026-08-19 a subagent fan-out was aimed at it and returned
+a **coherent, fully control-flow-traced, completely wrong** finding — real line numbers, from a
+file whose code had since been **deleted**; the only surviving match was a comment.
+✅ **Never read code from `~`, and never give a subagent that path.** Use
+`git worktree add --detach /tmp/wt-read origin/main` and hand subagents *that*. A fresh worktree
+has no `node_modules`, so tsc/tests/lint there "pass" while resolving nothing — reuse a worktree
+that has them, or install first.
+
+**ONE DISEASE SHIPPED SEVEN FIXES (PRs #4579 · #4580 · #4581 · #4582 · #4583 · #4584 · #4585 —
+all merged, all live, do NOT rebuild): a failure that renders identically to success or to
+emptiness.** An upload that *stops* fires no event at all — no `error`, no `abort`, no `load` —
+so the chip sat at 0% forever and "still working" looked exactly like "dead". A refused guest
+read returned `[]` and the page then said *"No guests yet. Start by adding the couple's first
+invite."* to a couple with 180 names, **byte-identical** to a genuinely new event. A monogram
+sliced off a *status string* drew **"C"** for "Camera off".
+🔑 **A LOG LINE NEVER CHANGED A PIXEL** — the guest error was already bound and already in
+Sentry, and the couple was still told their wedding was empty. **The measurement must reach the
+RENDER.**
+
+⏭ **THE IMMEDIATE BUILD — 11 confirmed, MONEY FIRST.** Same disease, still live: the Budget tile
+can read **"₱0 committed"** against a real target; a supplier workspace can read **"Paid ₱0"**
+and bill the couple the full amount as still owing; `lib/roles.ts` tells a supplier **who already
+has a shop** to *"Create your shop"*. Full list with file:line in the corpus handoff §2.
+📐 **The pattern to copy is IN THIS REPO — read it first, do not invent a new shape:**
+`apps/web/app/vendor-dashboard/reads-are-honest.test.ts` (supplier side, 2026-08-18) and
+`apps/web/lib/guests.ts` + `apps/web/lib/guests-read-is-honest.test.ts` (couple side, today).
+⚠ `actions.ts` files are OUT OF SCOPE — there an absence DENIES, and failing closed is correct.
+
+✅ **THE 11-ITEM BUILD LIST FROM THAT SWEEP IS COMPLETE** (#4583 → #4594). Nothing is open on it.
+⏭ **What is left is small and listed in the handoff §5**, chiefly: the wedding-onboarding account
+gate posts `public_summary_consent=yes` as a **hidden field**, silently opting a couple into public
+publication, while `/signup` has the same field as an **unticked box** — because the owner already
+ruled that on 2026-07-12. **One door missed an existing ruling; one line; do NOT re-ask him.** Also
+`guests.invitation_sent_at` has **zero writers**, so the guest list's "N to send" can never
+decrease.
+
+🔎 **READY? Measured 2026-08-20: 9 accounts · 8 events · 2 shops (1 published) · 2 services ·
+0 packages · 0 ORDERS EVER.** Marketplace search WORKS (verified live) — it is **empty, not
+broken**. **Packages WORK and are switched ON.**
+🛑 **THAT LAST ONE WAS REPORTED TO THE OWNER AS "SWITCHED OFF", FROM THE CODE DEFAULT, AND HE
+CAUGHT IT.** 🔑 **A FLAG'S DEFAULT IN CODE IS NOT ITS VALUE IN PRODUCTION — open the page; it takes
+thirty seconds.** `NEXT_PUBLIC_*` also inlines into the prod bundle and is readable; server-side
+vars (`RESEND_API_KEY`) are **not readable from a session at all** — say so rather than guess.
+
+💳 **THE OWNER IS NOW TOLD WHEN SOMEBODY PAYS** (#4595). Order submission had notified admins
+in-app since June; the moment a customer LOGGED A PAYMENT notified nobody, and the existing
+notification was **not on the email allowlist** — a tray badge reaching nobody away from the
+console. 🔑 **The notification and the allowlist are two halves of one mechanism; having one is
+indistinguishable from having neither.** The daily digest is the net UNDERNEATH, not a substitute.
+⚠ Both send **nothing, silently**, if `RESEND_API_KEY` is unset in Vercel.
+
+🪤 **Traps that each cost real time today:** a guard's lookahead `(?!\s*\?)` **could not match
+the line it was written to catch** (`g.photo_url ?? null` — the `??` slipped through), so it
+shipped inert in the same commit as its fix · a mutation run **overwrote the guest list with the
+Patiktok booth** because backups were keyed on `basename` and both files are `page.tsx` — **key
+on the full path, and commit before you mutate** · a file-level match **cannot say which
+component** still holds a flag (sabotage landed 2→1 and stayed green — anchor per component and
+print the count) · the upload watchdog was verified with a **171 KB file**, the one size whose
+tail is instant and which therefore *could not* exhibit the bug it shipped with · an **unsigned**
+R2 probe "proved" a CORS fault that did not exist (a real presigned PUT returned 200) · a
+**CONFLICTING PR runs NO CI** and reports zero failing *and* zero running — count the checks ·
+`PIPESTATUS` is **bash-only** (empty in zsh, so the exit check is vacuous) · run unit tests from
+`apps/web`, or every `@/…` import dies including the repo's own guards.
+
+---
+
 ## 📋 START HERE — [`WHAT_IS_LEFT.md`](WHAT_IS_LEFT.md) (2026-08-07)
 
 **The verified register of every remaining item, carried INTO THIS REPO because

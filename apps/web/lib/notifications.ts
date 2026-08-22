@@ -12,6 +12,11 @@ export type NotificationType =
   | 'event_auto_surfaced'
   | 'chat_message'
   | 'order_quoted'
+  // Added 2026-08-20. The buyer removed the celebration an unpaid order belonged
+  // to, so the order was cancelled with it rather than left detached and
+  // unreachable — see delete-actions.ts. Distinct from payment_rejected: nobody
+  // refused anything, and the buyer did this themselves.
+  | 'order_cancelled'
   | 'order_paid'
   | 'payment_matched'
   | 'payment_rejected'
@@ -150,6 +155,14 @@ export type NotificationType =
   | 'lock_request_declined'
   | 'lock_request_expired'
   | 'lock_request_withdrawn'
+  // The deletion handshake (owner 2026-08-21). ⚠ These four are also ENUM
+  // values in Postgres — 20271152428061. A TS-only member typechecks and then
+  // the INSERT fails at runtime, and emitNotification only console.errors it,
+  // so the person is simply never told.
+  | 'deletion_request_received'
+  | 'deletion_request_nudge'
+  | 'deletion_request_agreed'
+  | 'deletion_request_declined'
   | 'pax_surcharge_changed'
   | 'vendor_joined'
   | 'editorial_decision'
@@ -262,7 +275,18 @@ export type NotificationType =
   // creator's chapter Book CTA. In-app only — not on the email allowlist, so no
   // email fires regardless of consent; the tray row is the whole delivery.
   // Recipient = the chapter's creator; body names the chapter, never the couple.
-  | 'chapter_drove_inquiry';
+  | 'chapter_drove_inquiry'
+  // People · connections (2026-08-21). Somebody put you on their people list and
+  // is asking you to confirm what you are to each other. The tray is where they
+  // MEET it: the launcher counts only CONFIRMED connections, so before this a
+  // request existed only on /dashboard/people, and only if you happened to open
+  // it. Deliberately NOT on the email allowlist — `addPersonConnection` sends
+  // its own tailored invitation, and the generic template would arrive as a
+  // second email about the same thing.
+  | 'connection_request'
+  // The answer, back to the person who asked. Without it the declarer learns
+  // nothing: their row silently changes state the next time they load the page.
+  | 'connection_confirmed';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -271,6 +295,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   order_paid: 'Order paid',
   payment_matched: 'Payment matched',
   payment_rejected: 'Payment rejected',
+  order_cancelled: 'Order cancelled',
   payment_refunded: 'Refund issued',
   payment_resubmit_requested: 'Please resubmit payment',
   rsvp_received: 'RSVP received',
@@ -314,6 +339,10 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   lock_request_declined: 'Booking request declined',
   lock_request_expired: 'Booking request expired',
   lock_request_withdrawn: 'Booking request withdrawn',
+  deletion_request_received: 'A celebration you were paid for is being removed',
+  deletion_request_nudge: 'Still waiting on your answer',
+  deletion_request_agreed: 'A supplier agreed to the removal',
+  deletion_request_declined: 'A supplier would rather keep it for now',
   pax_surcharge_changed: 'Guest-count charge updated',
   vendor_joined: 'Vendor joined',
   editorial_decision: 'Editorial decision',
@@ -341,6 +370,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   ai_guard_alert: 'Setnayan AI flagged something',
   // A meeting the other party confirmed (2026-07-11).
   appointment_reminder: 'Appointment confirmed',
+  connection_request: 'Someone added you',
+  connection_confirmed: 'Connection confirmed',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -350,6 +381,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   order_paid: 'bg-success-200 text-success-900',
   payment_matched: 'bg-success-100 text-success-800',
   payment_rejected: 'bg-danger-100 text-danger-800',
+  order_cancelled: 'bg-ink/15 text-ink/70',
   payment_refunded: 'bg-violet-100 text-violet-800',
   // Amber matches the "still pending · action needed" register used by
   // payment_status='pending' (PAYMENT_STATUS_TONE in lib/orders.ts) — the
@@ -423,6 +455,11 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   lock_request_declined: 'bg-warn-100 text-warn-900',
   lock_request_expired: 'bg-warn-100 text-warn-900',
   lock_request_withdrawn: 'bg-warn-100 text-warn-900',
+  // Danger, not warn: this one asks whether a celebration may be erased.
+  deletion_request_received: 'bg-danger-100 text-danger-900',
+  deletion_request_nudge: 'bg-danger-100 text-danger-900',
+  deletion_request_agreed: 'bg-success-200 text-success-900',
+  deletion_request_declined: 'bg-warn-100 text-warn-900',
   // A changed guest-count charge needs the couple's attention/confirm → amber.
   pax_surcharge_changed: 'bg-warn-100 text-warn-900',
   // An invited vendor accepting/claiming = a positive arrival → emerald.
@@ -477,6 +514,12 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // The creator's payoff signal ("inquiries driven" ticked up) — same warm
   // collab register as the offer pair.
   chapter_drove_inquiry: 'bg-amber-100 text-amber-900',
+  // People · connections. The ask needs an ANSWER from the reader, so it takes
+  // the same terracotta "you're being asked" register as rsvp_received rather
+  // than an informational blue. The confirmation is a settled good thing, so it
+  // takes the emerald the other mutual-yes signals use.
+  connection_request: 'bg-terracotta/15 text-terracotta-700',
+  connection_confirmed: 'bg-success-100 text-success-800',
 };
 
 export type NotificationRow = {

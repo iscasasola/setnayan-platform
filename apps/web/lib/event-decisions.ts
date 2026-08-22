@@ -87,9 +87,20 @@ export async function fetchEventDecisionCounts(
         .from('orders')
         .select('event_id')
         .in('event_id', eventIds)
-        // `awaiting_payment` is the couple-facing "needs to be paid" order_status
-        // (NOT 'pending_payment', which is not an enum member).
-        .eq('status', 'awaiting_payment'),
+        // 🔴 BOTH UNPAID STATES, NOT JUST ONE. `awaiting_payment` is real, but
+        // almost nothing WRITES it — one admin action does (payments/actions.ts,
+        // bouncing an order back for better proof). Every mint in the app —
+        // onboarding, the studio buy paths, checkout, booking fees, vendor add-ons
+        // — writes `submitted`. Prod holds exactly one order and it is `submitted`.
+        //
+        // 🔑 THE EARLIER CORRECTION STOPPED ONE STEP SHORT. This filter used to be
+        // the non-existent 'pending_payment', which threw 22P02 and degraded to
+        // []. That was fixed to a REAL enum member — and never checked against the
+        // member the app actually mints, so it kept reading empty for the ordinary
+        // case. A fix that makes a query legal is not a fix that makes it true.
+        // (`add-on-state`, `entitlements`, `vendor-booking-fees.server` and
+        // `ugat/data` all already ask for both.)
+        .in('status', ['submitted', 'awaiting_payment']),
       supabase
         .from('vendor_proposals')
         .select('event_id')

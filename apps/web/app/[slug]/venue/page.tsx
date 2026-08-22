@@ -1,9 +1,10 @@
 import { RoomFooter } from '../_components/room-footer';
 import { loadRoomLinks } from '../_lib/room-links.server';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { eventNoun } from '@/lib/event-noun';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { canViewSlugEvent } from '@/lib/slug-access';
 import { fetchBooths } from '@/lib/seating';
 import { GuestVenueLoader } from './_components/guest-venue-loader';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -40,7 +41,7 @@ export default async function VenuePage({
       // `event_date` joins the row that was ALREADY being read — the room strip
       // needs it to know whether the live hub's window is open. One more column
       // on an existing query, not a second round trip.
-      .select('event_id, event_type, role_palette, event_date, slug')
+      .select('event_id, event_type, role_palette, event_date, slug, landing_page_visibility')
       .ilike('slug', slug)
       .maybeSingle(),
   ]);
@@ -63,6 +64,40 @@ export default async function VenuePage({
   }
   if (!paletteRow.data) notFound();
 
+  // 🚨 THE GATE THIS PAGE'S OWN COMMENTS CLAIMED AND NOBODY HAD WRITTEN.
+  //
+  // The header says "All data + privacy scoping lives in the SECURITY DEFINER
+  // public_venue_scene() RPC", and the note further down says this page
+  // "refuses a stranger on a private event". Read out of production by the
+  // object, that routine's only conditions are the address, whether the event
+  // type allows seating, and whether the plan is PUBLISHED. The event's
+  // visibility appears NOWHERE in it, and appeared nowhere here either.
+  //
+  // So a couple who set their celebration to private — and whom our own lock
+  // screen promises that only their guests and hosts can see it — published a
+  // seating plan and served the room, the tables, the booths and which seats
+  // are taken to anyone holding the address. Guest NAMES and photos still
+  // required a valid personal token, so this was the layout and the occupancy,
+  // not the guest list. Measured 2026-08-20: nothing was exposed, because the
+  // only two events with a published plan are both public. It was a trap
+  // waiting for the first private event to publish one.
+  //
+  // 🔑 A SENTENCE IS NOT A MECHANISM — and this file carried two of them,
+  // one of which pointed confidently at a different layer.
+  //
+  // The gate is the SHIPPED one: `canViewSlugEvent`, the same call the
+  // money-gift page and find-seat already make, redirecting to the event's own
+  // page exactly as find-seat does — so a guest who has not yet redeemed lands
+  // where the lock screen tells them how to get in, rather than on a dead end.
+  if (
+    !(await canViewSlugEvent(
+      (paletteRow.data as { event_id: string }).event_id,
+      (paletteRow.data as { landing_page_visibility?: string | null }).landing_page_visibility,
+    ))
+  ) {
+    redirect(`/${slug}`);
+  }
+
   const rolePalette = sanitizeRolePalette(paletteRow.data?.role_palette ?? null);
   const noun = eventNoun((paletteRow.data as { event_type?: string | null }).event_type);
   let scene = data ? ({ ...(data as object), rolePalette } as VenueScene) : null;
@@ -71,7 +106,9 @@ export default async function VenuePage({
   const eventId = (paletteRow.data as { event_id?: string } | null)?.event_id ?? null;
 
   // The other rooms this event has. EARNED: this page refuses a stranger on a
-  // private event above, the same gate the money-gift page applies.
+  // private event above, the same gate the money-gift page applies — which is
+  // now TRUE. It said so for months while no such check existed anywhere in
+  // this file or in the routine it delegates to.
   const eventRow = paletteRow.data as {
     event_id: string;
     slug: string | null;

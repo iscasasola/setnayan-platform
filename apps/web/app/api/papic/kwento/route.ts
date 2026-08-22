@@ -46,10 +46,16 @@ export async function POST(req: Request) {
   const session = await readGuestSession();
   if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  // Kwento is paid-to-unlock (owner 2026-06-26) — NEW EVENTS ONLY: events that
-  // existed at the 2026-06-27 cutover are grandfathered free; newer events need
-  // the KWENTO entitlement (direct or via a bundle, e.g. PAPIC_UNLOCK). No
-  // enablement, no words — a guest can't anchor a Kwento unless the event has it.
+  // Kwento is FREE for every event (owner 2026-08-21: "kwento is free"), so
+  // `eventKwentoEnabled` now answers true everywhere — it routes through
+  // `eventSkuActive`, which short-circuits on FREE_FOR_ALL_SKUS. It was
+  // paid-to-unlock from 2026-06-26, with events predating the 2026-06-27
+  // cutover grandfathered; that grandfathering branch is now moot rather than
+  // wrong, and it costs nothing to leave standing.
+  //
+  // 🔑 THE CHECK STAYS. It is the one place this rule is enforced, and removing
+  // it would mean a future reversal had to find every gate again instead of
+  // flipping one set.
   const admin = createAdminClient();
   if (!(await eventKwentoEnabled(admin, session.event_id))) {
     return NextResponse.json({ error: 'feature_not_owned' }, { status: 403 });

@@ -61,30 +61,18 @@ test('the account switcher offers /open-shop to someone with no shop', () => {
   );
 });
 
-test('the launcher offers /open-shop to someone with no shop', () => {
-  const src = readFileSync(LAUNCHER, 'utf8');
-  assert.ok(
-    src.includes('href="/open-shop"'),
-    'The "Yours to run" tile is headed with a Store glyph. Without this row ' +
-      'it offers everything EXCEPT the shop.',
-  );
-  assert.ok(
-    src.includes('roles.canOpenShop ? <OpenShopRow />'),
-    'The row must be gated on canOpenShop, not !hasVendorAccess — see the ' +
-      'shared-flag test below.',
-  );
-  // Owner 2026-08-10: "place a button on the user home WHERE THE SHOP BUTTON
-  // WILL BE". That means inside the divided row list, ahead of the HQ row —
-  // shops are pushed to `spaces` before HQ. Rendered after the list instead, an
-  // admin with no shop reads it BELOW HQ, which is not the shop slot.
-  const list = src.indexOf('<OpenShopRow />');
-  const rows = src.indexOf('{spaces.map((space) => (');
-  assert.ok(
-    list > 0 && rows > 0 && list < rows,
-    'The create-door must render INSIDE the row list and BEFORE the mapped ' +
-      'space rows — that is where a real shop row sits.',
-  );
-});
+/*
+ * ⚠ REMOVED 2026-08-19 — "the launcher offers /open-shop to someone with no shop".
+ *
+ * The owner made the account home only his events, which deleted the "Yours to
+ * run" tile this asserted on. The DOOR is not lost: the account switcher carries
+ * "Create your shop" on every width, behind the SAME `canOpenShop` gate, and the
+ * test above (`the switcher offers /open-shop…`) covers it.
+ *
+ * Deleted rather than repointed, because a second assertion on the same door
+ * would say the switcher must carry it twice.
+ */
+
 
 /**
  * THE BUG THIS PAIR OF GATES EXISTS TO PREVENT.
@@ -129,11 +117,11 @@ test('neither doorway gates on hasVendor — that flag includes team members', (
  * list where every other row takes you INTO something, "Open" reads as "go to
  * my shop" — the one thing this row does not do.
  */
-test('both doorways say "Create your shop", not "Open your shop"', () => {
-  for (const [name, path] of [
-    ['switcher', SWITCHER],
-    ['launcher', LAUNCHER],
-  ] as const) {
+test('the doorway says "Create your shop", not "Open your shop"', () => {
+  // ⚠ NARROWED 2026-08-19 to the switcher alone. There were two doorways; the
+  // launcher's went with the "Yours to run" tile when the account home became
+  // events-only. The wording rule is unchanged — it just has one carrier now.
+  for (const [name, path] of [['switcher', SWITCHER]] as const) {
     const src = readFileSync(path, 'utf8');
     assert.ok(
       src.includes('Create your shop'),

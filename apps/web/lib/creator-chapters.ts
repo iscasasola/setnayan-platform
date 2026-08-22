@@ -136,8 +136,69 @@ export function chapterHasReadableContent(chapter: {
 export const EMBED_PROVIDERS = ['youtube', 'instagram', 'tiktok'] as const;
 export type EmbedProvider = (typeof EMBED_PROVIDERS)[number];
 
-export const CHAPTER_STATUSES = ['draft', 'published'] as const;
+/**
+ * WHO READS A CHAPTER — three answers, one column (owner 2026-08-20:
+ * *"they also get to choose whether it is only me, private (all in that event
+ * only), public"*).
+ *
+ *   draft      →  only me
+ *   event      →  the people of the attached celebration
+ *   published  →  everyone
+ *
+ * 🔑 THE STORED WORDS ARE NOT THE WORDS ON SCREEN, and that is deliberate. Ten
+ * shipped read paths ask `status = 'published'`, so keeping the audience inside
+ * `status` means every one of them — and every one written in future — refuses
+ * an event-only chapter WITHOUT being edited. Forgetting hides; forgetting
+ * cannot leak. What a person reads is `CHAPTER_AUDIENCE_LABEL`.
+ */
+export const CHAPTER_STATUSES = ['draft', 'event', 'published'] as const;
 export type ChapterStatus = (typeof CHAPTER_STATUSES)[number];
+
+/** The three choices, in the order the composer offers them. */
+export const CHAPTER_AUDIENCES = ['draft', 'event', 'published'] as const;
+
+export const CHAPTER_AUDIENCE_LABEL: Record<ChapterStatus, string> = {
+  draft: 'Only me',
+  event: 'The people of this celebration',
+  published: 'Everyone',
+};
+
+/** What each choice actually does, said before it is pressed. */
+export const CHAPTER_AUDIENCE_NOTE: Record<ChapterStatus, string> = {
+  draft: 'Nobody else can open it. You can keep writing and choose later.',
+  event:
+    'The people of that day can read it — the hosts, the guests who have a seat, ' +
+    'and the suppliers who worked it. It stays off your public page and off Setnayan’s ' +
+    'Stories.',
+  published:
+    'Anyone with your address can read it, and Setnayan may feature it on Stories.',
+};
+
+/**
+ * Is this chapter readable by somebody other than its author?
+ *
+ * The single question behind "needs a story before you can share it" and behind
+ * every this-is-live badge. Never `status !== 'draft'` written out by hand at
+ * each call site — that is the comparison that gets one call site wrong.
+ */
+export function chapterIsShared(status: ChapterStatus): boolean {
+  return status === 'event' || status === 'published';
+}
+
+/**
+ * May this chapter be shared with the celebration's people?
+ *
+ * Only when there IS a celebration. The composer hides the choice rather than
+ * offering one that would be refused, and the database refuses it anyway
+ * (`creator_chapters_event_audience_needs_event`).
+ */
+export function canShareWithEvent(eventId: string | null | undefined): boolean {
+  return typeof eventId === 'string' && eventId.length > 0;
+}
+
+export function isChapterStatus(v: unknown): v is ChapterStatus {
+  return typeof v === 'string' && (CHAPTER_STATUSES as readonly string[]).includes(v);
+}
 
 export type NormalizedEmbed = {
   provider: EmbedProvider;
@@ -291,51 +352,11 @@ export const CHAPTER_KIND_LABEL: Record<ChapterKind, string> = {
   lifestyle: 'Lifestyle',
 };
 
-/** What `rankChaptersByPublishedAt` knows about a rendered chapter list. */
-export type ChapterRanking = {
-  /**
-   * 1-based CHRONOLOGICAL number (oldest = 1) keyed by the row's index in the
-   * input array. A row with no parseable `published_at` is ABSENT — numbering is
-   * a claim about sequence, and without a date we do not have one to make.
-   */
-  numberByIndex: Map<number, number>;
-  /** Input index of the newest DATED row, or -1 when nothing is dated. */
-  newestIndex: number;
-  /** Whether "latest" carries information — false in a set of one dated row. */
-  showLatest: boolean;
-};
-
 /**
- * Rank a rendered chapter list by `published_at` (E5 — profile timeline
- * numbering + the latest-chapter poster).
- *
- * 🔑 WHY THIS IS NOT `index 0`. `fetchPublishedChapters` orders
- * `published_at` DESC, and Postgres DESC is **NULLS FIRST** — a published row
- * with a NULL `published_at` sorts ABOVE the genuine newest. Taking the first
- * element as "latest" would hand the number and the poster to an undated row.
- * Rank is therefore derived from PARSED DATES, oldest first, and undated rows
- * are excluded from numbering entirely rather than guessed at.
- *
- * `publishChapter` always stamps `published_at`, so an undated published row is
- * only reachable by a direct DB write — which is exactly the case a rendered
- * page must survive without lying.
- *
- * Pure: takes the dates, returns positions. Ties keep input order (Array#sort is
- * stable), so two rows published in the same millisecond stay newest-first as
- * the query returned them, and the LAST of them by that order is not promoted.
+ * 🛑 `ChapterRanking` + `rankChaptersByPublishedAt` LIVED HERE AND ARE GONE
+ * (2026-08-20). They numbered a person's chapters by the day each was
+ * PUBLISHED, so writing up a 2019 engagement today made it the newest chapter
+ * of that person's life. Numbering now follows the day the celebration
+ * HAPPENED — `lib/creator-chronicle.ts`, which carries the same NULLS-FIRST
+ * protection (rank from parsed days, never from array position) and its tests.
  */
-export function rankChaptersByPublishedAt(
-  publishedAt: ReadonlyArray<string | null | undefined>,
-): ChapterRanking {
-  const dated = publishedAt
-    .map((iso, i) => ({ i, t: iso ? Date.parse(iso) : Number.NaN }))
-    .filter((x) => !Number.isNaN(x.t))
-    .sort((a, b) => a.t - b.t); // oldest → newest
-  const numberByIndex = new Map<number, number>();
-  dated.forEach((x, k) => numberByIndex.set(x.i, k + 1));
-  return {
-    numberByIndex,
-    newestIndex: dated.length > 0 ? dated[dated.length - 1]!.i : -1,
-    showLatest: dated.length > 1,
-  };
-}

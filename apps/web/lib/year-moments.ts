@@ -58,6 +58,38 @@ export type YearMoment = {
   kind: YearMomentKind;
   /** Link target — the event to open, or null for a holiday (a create prompt). */
   eventId: string | null;
+  /**
+   * Create-flow prefill, meaningful only when `eventId` is null: the
+   * `event_type_vocab` key the create page should preselect (the page validates
+   * it against the enabled roster and ignores anything unknown, so a stale key
+   * here degrades to the plain picker). Absent = generic create flow — set it
+   * only where the moment KNOWS its kind (a birthday), never guessed from a
+   * label.
+   */
+  createEventType?: string;
+  /**
+   * Create-flow context, meaningful only when `eventId` is null: TRUE when the
+   * moment is the reader's OWN (their birthday, off their own profile), so the
+   * create flow can state the celebrant instead of asking who it is for. A
+   * holiday is NOT self-owned — Christmas is a date, not a fact about you.
+   */
+  forSelf?: boolean;
+  /**
+   * Create-flow context, meaningful only when `eventId` is null: the age this
+   * birthday turns, when the moment is a BIRTHDAY and the age is therefore a
+   * fact rather than a guess. Null on every other kind.
+   *
+   * 🔑 IT IS ALREADY COMPUTED AND WAS ALREADY ON SCREEN — the label two lines
+   * up says "turning 40" — and the create flow then asked the reader which age
+   * bracket their birthday was in. Owner, 2026-08-20: "it also knows my
+   * birthday to be 40th. why do i get asked for this?" Carrying the number is
+   * the whole answer; nothing new is derived anywhere.
+   *
+   * ⚠ Never widen this to a birth DATE. The age is what the wizard needs, and a
+   * birth date is the more sensitive of the two — the moment carry deliberately
+   * moves the smallest fact that answers the question.
+   */
+  age?: number | null;
   /** TRUE = gets a proactive nudge; ordinary years stay quiet lines. */
   isMilestone: boolean;
   tier: NudgeTier;
@@ -464,6 +496,12 @@ export function buildSelfMoments(
       detail: isMilestone ? 'A milestone year' : 'Every year',
       kind: isMilestone ? 'milestone' : 'recurring',
       eventId: null,
+      // The one eventId-null moment whose kind is CERTAIN — tapping it should
+      // land on the create picker with Birthday already chosen, for the one
+      // person it can only ever be about.
+      createEventType: 'birthday',
+      forSelf: true,
+      age: next.age,
       isMilestone,
       tier: leadTimeFor('birthday', isMilestone ? next.age : null).tier,
     },

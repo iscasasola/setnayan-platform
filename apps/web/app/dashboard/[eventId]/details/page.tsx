@@ -172,14 +172,11 @@ export default async function PersonalizationPage({
 
   return (
     <section className="sn-col space-y-5">
-      <PageMasthead title="Personalization" lede="Everything from your onboarding lives here. Refine it anytime — it tunes the services we match and sort for you." />
+      <PageMasthead title="Personalization" />
 
       {/* Band 1 — the basics (governance-free, editable inline) */}
       <div className="sn-tile p-4 sm:p-5">
         <h2 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">The basics</h2>
-        <p className="mb-3 mt-0.5 text-sm text-ink/55">
-          Your names, where you’re celebrating, the feel you’re after, and your working budget.
-        </p>
         <DetailsForm
           eventId={eventId}
           initialBrideFirst={brideName.first}

@@ -21,7 +21,18 @@ jobs:
     # have deployed by the time this job kicks off — race-y at best).
     # When Vercel preview deployments are integrated later, set
     # E2E_BASE_URL on the runner to skip the build + start step.
-    timeout-minutes: 15
+    # RAISED 15 → 25 on 2026-08-19, and the number is derived, not picked:
+    # across 30 measured runs the SUCCESSES ranged 5–14 minutes against a 15
+    # minute cap, i.e. one minute of headroom, and five runs died exactly at 15
+    # — including one on `main`. A ceiling one minute above the observed maximum
+    # is not a timeout, it is a coin toss.
+    #
+    # The cache below is the actual fix and should pull normal runs back to
+    # ~5 min; this raise is what lets a slow run finish rather than being
+    # reported as "cancelled", which reads like a flake and is not one.
+    # ⚠ It also had to be raised for the cache to LAND AT ALL: this PR must pass
+    # the very check it repairs, on a run that has no cache yet to benefit from.
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
@@ -36,8 +47,39 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
 
+      # Cache the browser binary, keyed on the resolved Playwright version.
+      #
+      # WHY: this job's timeout-minutes is 15, and every cancellation observed
+      # on 2026-08-19 was EXACTLY 15m — i.e. the timeout, not a test failure —
+      # with the job dying inside this step. Measured over 30 runs: 22 success
+      # (5–14 min), 5 cancelled at 15m, and one of those was on `main`, so it is
+      # not branch-specific. Successes at 14m are one slow minute from the cap.
+      # The browser download is the variable part; caching removes it rather
+      # than raising the ceiling and waiting for the tail to catch up again.
+      #
+      # The key includes the version so a Playwright bump misses the cache and
+      # re-downloads, instead of silently testing against a stale browser.
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(pnpm --filter @setnayan/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}-chromium
+
+      # A cache hit still needs the OS-level shared libraries, which live
+      # outside ~/.cache and are NOT restored by the cache. `--with-deps` on a
+      # hit installs those without re-downloading the browser.
       - name: Install Playwright Chromium
-        run: pnpm --filter @setnayan/web exec playwright install --with-deps chromium
+        run: |
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+            pnpm --filter @setnayan/web exec playwright install-deps chromium
+          else
+            pnpm --filter @setnayan/web exec playwright install --with-deps chromium
+          fi
 
       - name: Build web app
         run: pnpm --filter @setnayan/web build

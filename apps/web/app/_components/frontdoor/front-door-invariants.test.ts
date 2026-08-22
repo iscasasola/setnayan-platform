@@ -566,10 +566,24 @@ test('every card in the one shelf declares its kind', () => {
     /fd-kindtag[^]*?>\s*Their story\s*</.test(FEED_CODE),
     'the story card must carry the words Their story',
   );
-  // …and the shelf itself must NOT be split back into two headed rows.
+  /* …and the shelf itself must NOT be split back into two headed rows.
+
+     ⚠ FIXED 2026-08-21 — THIS ASSERTION COULD NOT FAIL. It read the RAW
+     `FEED`, and the phrase "one shelf" also appears in an ordinary source
+     COMMENT in that file. Deleting the sentence the VISITOR reads left the
+     comment behind, so the guard stayed green while the rule it exists to
+     keep had stopped being stated at all.
+
+     🔑 The file already ships `code()` for exactly this — its own docblock
+     says "Strip comments so a rule mentioned in prose can never satisfy a
+     check" — and every sibling assertion in this test already uses the
+     stripped source. This one did not, so the stripper's whole purpose was
+     defeated in the single place a prose string was being matched, which is
+     the only place it mattered. Swept the other front-door guards: no second
+     instance. */
   assert.ok(
-    /one shelf/.test(FEED),
-    'the shelf still states the rule it exists to keep',
+    /one shelf/.test(FEED_CODE),
+    'the shelf still states the rule it exists to keep, where a visitor can read it',
   );
 });
 
@@ -711,6 +725,175 @@ test('the story poster is not routed through the image optimizer', () => {
     assert.ok(
       /<img\s[\s\S]*?src=\{s\.thumbUrl\}/.test(src) || usesOptimizer,
       `${label}: the poster must actually be rendered from s.thumbUrl`,
+    );
+  }
+});
+
+/* ── THE STORIES HUB MUST NEVER BE ORPHANED ──────────────────────────────
+   Owner 2026-08-20: *"what we want is the stories menu to be inside this as
+   well"*. The rail's "Stories" destination was retired — it was a second door
+   to the shelf directly below it, reading the SAME three voices from the SAME
+   loaders as `/realstories`, with the chip row already carrying "Their
+   stories".
+
+   🔑 THE HUB ITSELF IS NOT RETIRED, AND THAT IS THE WHOLE RISK. `/realstories`
+   still holds the event-type filter and the search box the chips do not have,
+   and it is where all storyteller SEO equity is deliberately concentrated
+   (chapter detail pages are noindex so the hub keeps it). The front page's
+   ONLY other link to it lives inside the real-weddings written invitation,
+   which renders exclusively while that grid is UNEARNED — so it disappears on
+   the day the second couple publishes. Retiring the rail row without promoting
+   the shelf heading would have left the hub with zero links from the front
+   page at exactly the moment it started to matter: a page nobody can reach,
+   the defect this project has already paid for more than once.
+
+   These two assertions were mutation-checked by occurrence count. */
+test('the front page keeps a permanent door into the stories hub', () => {
+  const links = FEED_CODE.match(/href="\/realstories"/g) ?? [];
+  assert.ok(
+    links.length >= 2,
+    `The feed holds ${links.length} link(s) to /realstories; at least 2 are ` +
+      'required — the shelf HEADING (permanent) and the invitation (conditional). ' +
+      'If the heading link was removed, the hub is orphaned every day the real-' +
+      'weddings grid is earned.',
+  );
+  // …and specifically the PERMANENT one. Counting alone would stay green if
+  // somebody added a second conditional link and deleted the heading.
+  assert.match(
+    FEED_CODE,
+    /<Link href="\/realstories" className="fd-sechead-go">/,
+    'The "Stories" shelf heading is no longer a link into the hub. It replaced ' +
+      'the rail row retired on 2026-08-20 and is the only link here that does ' +
+      'not depend on the real-weddings grid being empty.',
+  );
+});
+
+test('the retired Stories rail row has not quietly returned', () => {
+  const rows = SHELL_CODE.match(/<Link href="\/realstories"/g) ?? [];
+  assert.equal(
+    rows.length,
+    0,
+    'The rail renders a Stories destination again. Stories is a CHIP over the ' +
+      'feed; a row here is a second door to one shelf. If it is genuinely ' +
+      'coming back, declare it to the resolver in `rail-active.ts` in the same ' +
+      'commit — a row that is rendered but not declared can never light.',
+  );
+});
+
+/* ── ONE SEARCH MAKES ONE PROMISE, SIGNED IN OR OUT ──────────────────────
+   The signed-out box and the signed-in palette open the SAME destination, and
+   that destination must answer all three promised nouns. The palette's row
+   once said "Find suppliers for X", so a signed-in person had no reason to
+   press it for a guide and concluded the search could not reach our writing at
+   all. The owner concluded exactly that on 2026-08-20 and proposed deleting
+   two chips because of it.
+
+   ⚠ THE DESTINATION MOVED LATER THAT SAME DAY, from `/explore?q=` to `/?q=`,
+   and this test moved with it rather than being relaxed. /explore leads with
+   its VENDOR verdict: measured live, `?q=doves` printed "No vendors match
+   exactly. Try widening your search" ABOVE the doves guide it had found. The
+   front door now answers in its own body — stories and guides in full, the
+   shops it already publishes, and a permanent row handing the same words to
+   the marketplace. `search-answers-here.test.ts` is what holds THAT page to
+   the three nouns; this test holds the ROW to the same page as the box.
+
+   🔑 DERIVED FROM THE NOUN LIST, NOT TYPED BESIDE IT. `public-search-nouns.ts`
+   exists because a guard comparing two hand-typed strings is not a guard —
+   this repo has paid for that twice. Drop a noun there and this fails until
+   the row's words drop with it. */
+test('the signed-in search row promises what the signed-out box does', async () => {
+  const { PUBLIC_SEARCH_NOUNS } = await import('@/lib/public-search-nouns');
+  const { marketplaceEscapeItem } = await import('./command-escape');
+
+  const row = marketplaceEscapeItem('doves');
+  assert.ok(row, 'the escape row vanished — the palette can no longer reach anything public');
+
+  const words = `${row.label} ${row.sublabel}`.toLowerCase();
+  for (const noun of PUBLIC_SEARCH_NOUNS) {
+    assert.ok(
+      words.includes(noun),
+      `The search row does not mention "${noun}", which the signed-out box ` +
+        'promises. One box that makes two different promises depending on ' +
+        'whether you are logged in is what sent the owner to delete two chips.',
+    );
+  }
+
+  assert.match(
+    row.href,
+    /^\/\?q=/,
+    'the row stopped opening the front door — the page that answers all three ' +
+      'nouns. Sending it to /explore again puts a vendor verdict above the ' +
+      'thing the person was actually looking for.',
+  );
+});
+
+test('an empty query still yields no row — the palette is not an advert', () => {
+  // Untouched by the relabel, and worth keeping pinned: a palette nobody has
+  // typed into must be a list of your own things.
+  return import('./command-escape').then(({ marketplaceEscapeItem }) => {
+    assert.equal(marketplaceEscapeItem('   '), null);
+  });
+});
+
+/* ── AN EMPTY CHIP EXPLAINS ITSELF; IT DOES NOT DEAD-END ─────────────────
+   Two of the four chips are empty for everybody today (prod holds ZERO
+   published stories and ZERO people-connections), so the empty state is not
+   an edge case — it is what most people who press them will meet.
+
+   The generic "Nothing under X yet — try another chip" is right for a filter
+   that happens to be bare. It is WRONG for the two chips that name what this
+   product is for: it reads as a filter that broke rather than a shelf waiting
+   to fill, which is the same defect the front door's own composition module
+   forbids ("an empty shelf reads as BROKEN, not young"). */
+test('the two chips that are empty for everyone say what they are FOR', () => {
+  /*
+    🪤 THE FIRST CUT OF THIS GUARD WAS DECORATION, TWICE OVER, and both
+    mutations reported GREEN:
+
+      1 · It matched the invitation's TEXT anywhere in the file. Renaming the
+          branch condition to `chip === 'NEVER'` made the whole invitation
+          UNREACHABLE while leaving every searched string in place — a guard
+          that matches a string, not the act.
+      2 · It counted `fd-go` links across the WHOLE FILE with a `>= 4`
+          threshold. Deleting the Stories invitation's own link took 7 → 6 and
+          sailed through — a file-level count cannot say WHICH branch lost its
+          way onward.
+
+    Both are fixed by bounding each branch STRUCTURALLY: split on the
+    condition itself, so a segment only exists while its `chip === '<X>'` test
+    does, and judge the heading and the link INSIDE that segment.
+  */
+  const segments = FEED_CODE.split(/chip === '/).slice(1);
+  assert.ok(
+    segments.length >= 2,
+    `Found ${segments.length} chip branches in the feed; expected at least 2. ` +
+      'If the empty states were restructured, re-aim this guard rather than ' +
+      'deleting it.',
+  );
+
+  for (const [chip, heading] of [
+    ['Stories', /The first real stories are still to come/],
+    ['Your people', /Nobody you know has shared a story yet/],
+  ] as const) {
+    const seg = segments.find((x) => x.startsWith(`${chip}'`));
+    assert.ok(
+      seg,
+      `No branch is conditioned on chip === '${chip}'. Its invitation may still ` +
+        'be in the file and simply unreachable — which is how the first ' +
+        'version of this guard passed while the defect was live.',
+    );
+    assert.match(
+      seg,
+      heading,
+      `The "${chip}" branch no longer carries its own written invitation and ` +
+        'falls through to the generic "try another chip" dead end. Prod has ' +
+        'zero of these, so that is what most people pressing it would read.',
+    );
+    assert.match(
+      seg,
+      /className="fd-go"/,
+      `The "${chip}" invitation has no way onward — an apology with no door. ` +
+        'Checked inside this branch, never as a file-level count.',
     );
   }
 });

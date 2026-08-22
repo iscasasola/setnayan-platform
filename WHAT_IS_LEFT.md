@@ -138,16 +138,16 @@ price, a sentence or a ruling. Building around those does not unblock them.
 
 **10 items · 2 need the owner · 8 are engineering**
 
-- **A supplier cannot say which kinds of venue or ceremony they serve** *(medium)*
+- **✅ **SHIPPED as its own card — My Shop → Business Profile → "Weddings you're a fit for". DO NOT REBUILD** (verified 2026-08-19: a dedicated server action writes both `compatible_venue_settings` and `compatible_ceremony_types`). ~~A supplier cannot say which kinds of venue or ceremony they serve** *(medium)*
   - Every business on the site is stuck saying it only serves ballrooms, gardens and heritage houses — a value nobody chose and nobody can change. A couple whose reception is at a beach, a resort, a tent, a city hall, or a restaurant gets an EMPTY list of suppliers. Nothing errors; the page just looks like no supplier exists. Five of the eight venue choices a couple can pick land there.
   - <sub>evidence: The writer sits inside a save function with zero call sites (its own docblock calls it the untouched escape hatch); the live inline editor's field list has 10 entries and excludes it. Five readers depend on it. Prod: both vendors carry the identical column default. No database function writes it.</sub>
-- **Nobody can enter a venue's guest capacity or venue kind** *(medium)*
+- **✅ **BOTH HAVE WRITERS — do not build a second form** (verified 2026-08-19: capacity via the vendor's own My Shop editor under the `venue_size` field key, per the owner's 2026-08-07 ruling; venue kind via the fit card above). 🔑 **An empty column is not a missing mechanism — grep for the WRITER.** ~~Nobody can enter a venue's guest capacity or venue kind** *(medium)*
   - Head count and venue kind never narrow anything. A couple planning for 500 guests is shown venues that seat 80, and a couple who said church is shown anything at all. The matching is written and working — it just has no numbers to work with, because there is no box anywhere for a venue to type them in.
   - <sub>evidence: Two recommendation paths read capacity and venue type; the only writer anywhere is the demo seed script. The admin venues screen writes a different directory table. Prod: all three columns NULL on both vendor rows.</sub>
 - **No avatar maker exists for anyone — guests, couples or suppliers** *(large)*
   - Everyone in the 3D room is a randomly-coloured stranger. A guest, couple or supplier cannot make the little figure look like them, so nobody recognises themselves or anyone else when they walk the venue — which is most of the reason to walk it. The parts were finished weeks ago and are sitting unused; only the screen where a person picks their look is missing.
   - <sub>evidence: The config module calls the maker and its sanitizer future; the avatar column has zero writers. The figure component is imported by nothing outside its own file. Prod: 39 guests, 0 avatars. Six prototypes and a rig spec already exist from 2026-07-19.</sub>
-- **The couple has no control over the photo wall guests see on their phones** *(medium)*
+- **✅ **SHIPPED — PR #4360, merged 2026-08-11. DO NOT REBUILD** (verified 2026-08-19: the couple's Live Wall card writes `live_photo_wall_visibility`, and three guest surfaces gate on the fused `guestWallMirrorActive()`). ~~The couple has no control over the photo wall guests see on their phones** *(medium)*
   - The record says every wedding is set to show only photos of people who were tagged, and the wall on guests' phones ignores that and shows the full screened feed. There is also no way to turn the wall off. A couple who wants the wall quieter, or off, cannot ask for it, and the setting the record says they have is not the one they get.
   - <sub>evidence: The visibility column ships with three options and a comment naming it the guest phone-card toggle; grep of the whole app returns zero occurrences — no reader, no writer. Prod: all 5 events sit at tagged-only while the guest wall renders the projector's screened feed.</sub>
 - **The Live Photo Wall section on the couple's own website can never have photos in it** *(small)*
@@ -210,7 +210,7 @@ price, a sentence or a ruling. Building around those does not unblock them.
 
 *Six features that work correctly and are invisible or half-open to exactly the person they were built for. Nothing here is broken and nothing needs designing from scratch — each is a missing button, a missing link, or a list that quietly leaves someone out. Grouped because they are all last-metre work, all small, and each one currently makes a finished feature look like it was never built.*
 
-**6 items · 1 need the owner · 5 are engineering**
+**8 items · 1 need the owner · 7 are engineering**
 
 - **The couple's own coordinator has no button to message the emcee — only a booked supplier does** *(small)*
   - You defined the coordinator as the couple's own delegate — the person they promote. That person is allowed to send the emcee a note and has nowhere to press. Only a coordinator who is also a paid supplier gets the screen. So on a wedding where the couple's aunt is running the floor, the channel that shipped today is invisible to the one person who needs it.
@@ -227,6 +227,12 @@ price, a sentence or a ruling. Building around those does not unblock them.
 - **On the onboarding screen the AI planner card is a dead end** **[OWNER]** *(small)*
   - A new host reads about the AI planner, sees the price, then gets a sentence telling them to look for it later instead of a button. The only reason is that the event does not exist yet at that moment. Your call whether it should link on to the next screen or stay as a note.
   - <sub>evidence: The card renders a link only when a destination is supplied; nothing anywhere supplies one, so every host sees the fallback sentence.</sub>
+- **A supplier keeps a deleted celebration's booking and cannot see it** *(medium · added 2026-08-22)*
+  - When a couple removes their event, the supplier's booking is deliberately preserved — the record survives, detached, carrying what kind of celebration it was and when, so their completed-events count and their reviews stay whole. **But their client list is built entirely from the event, so a preserved booking has no row and no page to open.** They keep the number and lose the client. The survival is real; the way to look at it is missing.
+  - <sub>evidence: verified 2026-08-22 by reading prod. The BEFORE DELETE trigger detaches the booking and stamps `event_type_at_delete` / `event_date_at_delete`; the completed-events view LEFT JOINs events and COALESCEs those snapshots, so counts survive. The clients surface keys every row and every link on `event_id`, so a detached row is unreachable. Prod: 45 bookings, 0 detached — nobody has hit it yet.</sub>
+- **A supplier's own private notes die with the couple's event, contradicting our own erasure rule** *(small · added 2026-08-22)*
+  - The notes a shop writes about a client — *chase the down-payment on the 15th* — are classified in our erasure module as the **shop's** data: they survive even a full account deletion, with only the staff author's name removed. But they are wired to vanish the moment the couple deletes the event. **The same note survives one deletion and not the other.**
+  - <sub>evidence: `vendor_client_notes.event_id` is NOT NULL ON DELETE CASCADE (read from prod). `lib/erasure/coverage.ts` says of that table: "The note belongs to the vendor business and is read by it; only the staff author's identity goes." ⚠ Fix the row above FIRST — detaching a note with no client page to read it on is a survival nobody can reach. Prod: 0 notes.</sub>
 - **The we-couldn't-load-this fix was built and no screen uses it** *(medium)*
   - When a screen fails to load someone's information, it still tells them there is nothing there. A guest saw an invitation that looked abandoned; a couple saw no requests yet over three real pending requests. The shared fix for that was finished three days ago and is sitting unused.
   - <sub>evidence: The six state components exist on main; the only import of that folder anywhere is its own changelog fragment. Zero screens use it. Three of the worst cases were fixed by hand instead on 2026-08-04.</sub>
@@ -383,6 +389,60 @@ so it is evidence of what SHIPPED, never of what is currently broken.
 
 ---
 
+## 9b. Two facts the auto-loaded `CLAUDE.md` still states that are no longer true
+
+*Checked 2026-08-22 against `origin/main` and the live database. Both sit in the
+ACTIVE block every session reads first, which is the worst place for a stale
+claim — a session acts on it before it reads anything else.*
+
+- **"🔴 THE VENDOR CANNOT ANSWER" is FALSE.** A supplier asked to agree to a
+  deletion now has real Agree and Decline forms on their dashboard's "What's new"
+  feed. <sub>Traced end to end: `vendorAgreeToDeletion` / `vendorDeclineDeletion`
+  → `answerDeletionRequest` → the `vendor_answer_event_deletion` RPC, rendered
+  inside `<form action={…}>` in `overview-sections.tsx`. Not a prop passed and
+  never drawn — an actual form.</sub>
+- **Its production numbers are stale.** It says 5 events · 2 vendors · 0 photos.
+  Measured 2026-08-22: **5 events · 5 story pages (0 published) · 14 Papic photos
+  · 45 supplier bookings · 1 published chapter attached to no event.** Still true:
+  **0 orders ever** and nothing sold.
+
+⚠ **The owner also could not have this written for him automatically** — see the
+access note in group 10: the corpus was unreadable from that session, so
+`CLAUDE.md` there could not be edited.
+
+---
+
+## 10. One story per day — the board pointed at the wrong product
+
+**Opened 2026-08-22.** Contract:
+[`WHATS_NEXT_One_Story_Per_Day_2026-08-22.md`](WHATS_NEXT_One_Story_Per_Day_2026-08-22.md)
+— read it before touching the story, the editorial, or the Storyteller.
+
+The owner read My Events and asked *"isn't that the editorial. the story?"* He
+was right, and it was not a naming clash: **the board was measuring, and opening,
+a different product.** A couple could publish her wedding's story page, see *"Your
+story is live"*, return to the board and find the same wedding under *"Untold —
+no story written yet"* with a button that opened a **blank page** asking her to
+write the day again from memory.
+
+Six PRs shipped (#4687 · #4660 · #4690 · #4696 · #4712 · #4715). What is left is
+mostly **`[OWNER]`**:
+
+- **`[OWNER]`** what the couple's dashboard calls it — "Story" collides **six**
+  ways, and eight sites must move together or a screen names one thing twice.
+- **`[OWNER]`** "Editorial PRO" — a paid SKU's display name, ~24 user-visible
+  occurrences, one decision or none.
+- **`[OWNER]`** does the love story yield the word? If yes, the first one is
+  trivial.
+- **`[OWNER]` 🔴 the free/paid split may be inverted** — the blank page is free,
+  while naming the moments and ordering the sections on the story we already
+  wrote for her are sold as Event Hub PRO.
+- **Engineering:** the plain editor · the three audiences · **three doorway rows
+  that render nowhere, with two guards passing on strings inside them** · gold
+  eyebrows at **3.48:1** on the story page (7 sites — a whole-component call).
+
+---
+
 ## Where to start
 
 **Group 1, "armed to go wrong the first time a real customer arrives."** Seven
@@ -395,3 +455,8 @@ a regulator can both read those sentences today.
 
 **Then one rehearsal livestream end to end.** Nobody has ever streamed anything.
 It settles ten interlocking items at once and cannot be settled any other way.
+
+**Group 10 is different — it is mostly yours, not engineering's.** Four rulings
+sit in front of the story work, and one of them (the free/paid split) may be
+backwards in a way that costs money on the first real customer. Deciding them
+takes an afternoon and unblocks the rest.

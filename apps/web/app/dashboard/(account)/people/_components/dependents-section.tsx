@@ -4,13 +4,8 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
 import {
-  DEPENDENT_RELATIONSHIPS,
   DEPENDENT_RELATIONSHIP_LABELS,
-  DEPENDENT_KINDS,
   DEPENDENT_KIND_LABELS,
-  DEPENDENT_DATE_LABELS,
-  DEPENDENT_SEXES,
-  RELIGIONS,
   fenceBand,
   dependentNextMilestone,
   isClaimEligible,
@@ -18,12 +13,10 @@ import {
   type DependentSex,
   type DependentKind,
 } from '@/lib/dependent-people';
-import { RELIGION_LABELS } from '@/lib/profile-personalization';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { CopyButton } from '@/app/dashboard/[eventId]/studio/papic/crew/_components/copy-button';
 import {
-  addDependent,
   deleteDependent,
   addGodparent,
   deleteGodparent,
@@ -137,13 +130,6 @@ export async function DependentsSection() {
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
           Alaga
         </h2>
-        <p className="mt-1 text-sm text-ink/55">
-          The ones you care for — a person, a pet, a business, something you own, or anything
-          else. Their profile lives inside
-          your account and belongs to you; a child&rsquo;s becomes their own at 18. We store the
-          names, dates, and events that matter — not documents. Milestones and rites apply to a
-          person you plan for (a child or an elder).
-        </p>
       </header>
 
       {dependents.length > 0 ? (
@@ -404,95 +390,11 @@ export async function DependentsSection() {
         </ul>
       ) : null}
 
-      {/* Add form */}
-      <form
-        action={addDependent}
-        className="space-y-4 rounded-xl border border-ink/10 bg-cream p-4"
-      >
-        <p className="text-sm font-medium text-ink">Add an alaga</p>
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-ink" htmlFor="dep_kind">
-            What is this?
-          </label>
-          <select id="dep_kind" name="dependent_kind" defaultValue="person" className="input-field sm:max-w-[14rem]">
-            {DEPENDENT_KINDS.map((k) => (
-              <option key={k} value={k}>
-                {DEPENDENT_KIND_LABELS[k]}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-ink/50">
-            A pet, a business, something you own or “something else” is just a name and, if you
-            like, one date — no other details.
-          </p>
-        </div>
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-ink" htmlFor="dep_name">
-            Name <span className="text-terracotta">*</span>
-          </label>
-          <input id="dep_name" name="name" className="input-field" placeholder="e.g. Amara, or Bantay" required />
-        </div>
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-ink" htmlFor="dep_birth">
-            Birthday, or the date that matters <span className="text-ink/40">(optional)</span>
-          </label>
-          <input id="dep_birth" name="birth_date" type="date" className="input-field sm:max-w-[14rem]" />
-          <p className="text-xs text-ink/50">
-            For a person, a stored birthday is only for a child (under 18) or an elder (over 50) —
-            adults keep their own, so invite them instead. Anything else can have any date, or
-            none:{' '}
-            {DEPENDENT_KINDS.filter((k) => k !== 'person').map((k, i, all) => (
-              <span key={k}>
-                {DEPENDENT_KIND_LABELS[k].toLowerCase()} → {DEPENDENT_DATE_LABELS[k].toLowerCase()}
-                {i < all.length - 1 ? ' · ' : '.'}
-              </span>
-            ))}
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-ink" htmlFor="dep_rel">
-              Relationship
-            </label>
-            <select id="dep_rel" name="relationship" defaultValue="child" className="input-field">
-              {DEPENDENT_RELATIONSHIPS.map((r) => (
-                <option key={r} value={r}>
-                  {DEPENDENT_RELATIONSHIP_LABELS[r]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-ink" htmlFor="dep_sex">
-              For the debut year (optional)
-            </label>
-            <select id="dep_sex" name="sex" defaultValue="" className="input-field">
-              <option value="">Prefer not to say</option>
-              {DEPENDENT_SEXES.map((s) => (
-                <option key={s} value={s}>
-                  {s === 'female' ? '18th (daughter)' : '21st (son)'}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-ink" htmlFor="dep_religion">
-            Religion (optional — unlocks their rites)
-          </label>
-          <select id="dep_religion" name="religion" defaultValue="" className="input-field">
-            <option value="">Prefer not to say</option>
-            {RELIGIONS.map((r) => (
-              <option key={r} value={r}>
-                {RELIGION_LABELS[r]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <SubmitButton className="button-primary" pendingLabel="Adding…">
-          Add
-        </SubmitButton>
-      </form>
+      {/* THE ADD FORM MOVED OUT (owner 2026-08-21: "Add an alaga needs to be a
+          button to generate the wizard"). It now lives in <AddAlagaButton>, at
+          the head of the page, opening the roster's own drawer — the same
+          <AddAlagaFields> component, unchanged, just no longer sitting open on a
+          page whose job is to show you your people. */}
     </section>
   );
 }

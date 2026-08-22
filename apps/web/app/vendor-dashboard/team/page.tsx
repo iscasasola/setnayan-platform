@@ -47,7 +47,6 @@ type Props = {
     error?: string;
     motion?: string;
     voted?: string;
-    bought?: string;
   }>;
 };
 
@@ -158,13 +157,6 @@ export default async function VendorTeamPage({ searchParams }: Props) {
       {search.saved ? (
         <p role="status" className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800">
           Team updated.
-        </p>
-      ) : null}
-      {search.bought ? (
-        <p role="status" className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800">
-          Seat order started. Pay externally with reference{' '}
-          <strong className="font-mono">{decodeURIComponent(search.bought)}</strong> — your extra
-          seat unlocks once our team confirms the payment.
         </p>
       ) : null}
 
@@ -305,13 +297,6 @@ export default async function VendorTeamPage({ searchParams }: Props) {
             ).
           </p>
           <form action={buyExtraSeat} className="flex flex-wrap items-end gap-3">
-            <label htmlFor="seat-channel" className="block space-y-1">
-              <span className="block text-xs font-medium text-ink/70">Pay via</span>
-              <select id="seat-channel" name="channel" defaultValue="bdo" className="input-field cursor-pointer">
-                <option value="bdo">BDO</option>
-                <option value="gcash">GCash</option>
-              </select>
-            </label>
             <SubmitButton className="button-primary" pendingLabel="Starting…">
               <UserPlus className="mr-1.5 h-4 w-4" strokeWidth={1.75} aria-hidden />
               Add a seat (₱{seatFeePhp.toLocaleString('en-PH')})

@@ -154,6 +154,13 @@ const SIMULATED_GUEST_ROW: Readonly<GuestRow> = Object.freeze({
   meal_preference: null,
   dietary_restrictions: null,
   guest_note: null,
+  // Empty, not invented — for the same reason as `qr_token` below. A sample
+  // address or number that LOOKED real would be shown to the host previewing
+  // their own site as a guest, and could be acted on. Empty also means the
+  // reply card's contact block renders UNFOLDED here, which is the honest
+  // preview: this sample person has told us nothing.
+  email: null,
+  mobile: null,
   custom_tags: [],
   // Empty, not invented: a fake token that LOOKED real could be pasted into a
   // scanner. Empty makes every token-gated affordance (seat pass, hub QR) fall

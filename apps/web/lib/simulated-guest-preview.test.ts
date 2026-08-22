@@ -160,6 +160,12 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
     'needsFaceEnroll',
     'pabati',
     'papicGuest',
+    // profileDetails (renamed from `profileDetails` 2026-08-21) — THIS PERSON'S OWN
+    // offered back as the reply card's default. It is per-person data the guest
+    // themselves supplied, never anything about the host or the event, and it is
+    // `null` for a cookie-only guest with no account. Reasoned about, not
+    // absorbed: the key belongs here because it travels WITH the guest.
+    'profileDetails',
     'qrSvg',
     'rsvpFlash',
     'saveFlash',

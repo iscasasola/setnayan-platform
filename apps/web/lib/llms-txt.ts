@@ -136,8 +136,19 @@ const REQUIRED_RETAIL = [
   // hand-written fixture where every code is is_active:true, so nothing in CI
   // ever compares this list against the real catalog.
   'PATIKTOK_COMPILER',
-  'PABATI',
-  'KWENTO',
+  // PABATI removed 2026-08-21 — owner set it FREE alongside Kwento ("all
+  // features of papic will be free like kwento"). Its prose line stayed and now
+  // reads "free": the FEATURE is on for every event (FREE_FOR_ALL_SKUS).
+  // 🪤 The entry AND the price call must go together — see the KWENTO note below.
+  // KWENTO removed 2026-08-21 — owner set it FREE ("kwento is free"), so it no
+  // longer has a price to advertise and its row is deactivated. Its prose line
+  // stayed and now reads "free": the FEATURE is on for every event
+  // (entitlements FREE_FOR_ALL_SKUS), so deleting the line would hide something
+  // every couple can actually use.
+  // 🪤 REMOVING THE ENTRY AND THE PROSE PRICE TOGETHER IS MANDATORY — exactly as
+  // recorded for LIVE_WALL above. Leaving the entry throws RetiredSkuError and
+  // drops the whole file to its stub; leaving the `R('KWENTO')` call throws
+  // MissingSkuError for the same result.
   // ⚠ THREE CODES LEFT THIS LIST ON 2026-08-11 and their prose went with them,
   // which is the ONLY correct way to retire one (see the RetiredSkuError note
   // below — deleting the entry without the line, or the line without the entry,
@@ -361,8 +372,8 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Event Hub PRO** — ${R('COUPLE_WEBSITE_PRO')}. Unlocks every premium touch — the Save-the-Date Cinematic Reveal and Editorial PRO — across the whole site, and removes the Setnayan watermark.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Patiktok** — ${R('PATIKTOK_COMPILER')}. Mimic-station booth; unlimited 9:16 vertical recordings compiled into post-ready reels.
-- **Pabati** — ${R('PABATI')} per day. Guest-recorded greeting videos.
-- **Kwento** — ${R('KWENTO')} (whole event). Guest-contributed stories and messages.
+- **Pabati** — free. Guest-recorded greeting videos.
+- **Kwento** — free. Guest-contributed stories and messages.
 - **Papic** — one shared pot of shots every guest's phone can spend from, and the host can set some aside for one camera's QR that nobody else can touch. 50 shots free on every event, then ${R('PAPIC_GUEST_100')} for 100 · ${R('PAPIC_GUEST')} for 3,000 · ${R('PAPIC_GUEST_10K')} for 10,000 · ${R('PAPIC_GUEST_20K')} for 20,000, added on top and repeatable. Cameras are free and unlimited. A photo spends 1 credit; a video spends 2 to 8 depending on its length (1–2s = 2 · 3s = 3 · 4–6s = 5 · 7–10s = 8). 6-month access window.
 - **Custom QR per Guest** — free. Individual QR codes for guests (RSVP, seating, photo tagging).
 
@@ -407,7 +418,7 @@ Vendor-side: public profile editor · inquiry inbox · calendar with intra-day b
 - **Does Setnayan have a mobile app?** Web-first responsive site, installable as a PWA on iOS Safari and Chrome Android, plus a desktop app for macOS and Windows at /download. Native apps are in preparation ahead of the December 2026 launch.
 - **How are vendors verified?** Business-legitimacy check plus a short video call with a Setnayan admin. Free during launch.
 - **Does Setnayan take a commission?** No. 0% on every booking, every tier. Revenue comes from couple software purchases and vendor subscriptions.
-- **What about my privacy?** RA 10173 compliant. Guest list and event details are never publicly shared without explicit opt-in. Real-wedding editorials publish 30 days post-event with explicit consent. NPC registration in progress. DPO contact: iscasasolaii@gmail.com.
+- **What about my privacy?** RA 10173 compliant. Guest list and event details are never publicly shared without explicit opt-in. Real-wedding stories publish 30 days post-event with explicit consent. NPC registration in progress. DPO contact: iscasasolaii@gmail.com.
 - **How do I contact support?** The contact form at /help.
 
 ## What makes Setnayan structurally different

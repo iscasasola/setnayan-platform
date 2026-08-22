@@ -7,6 +7,7 @@ import {
 import { activateConcierge } from '@/app/dashboard/(account)/profile/concierge/actions';
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
 import { chargeIdFromBookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
+import { purchaseIdFromVendorSubscriptionServiceKey } from '@/lib/vendor-subscription-service-key';
 import { settleBookingFeeCharge } from '@/lib/booking-fee-charge';
 import {
   seatServiceKey,
@@ -83,6 +84,28 @@ import {
 
 export type ActivationContext = {
   admin: SupabaseClient;
+  /**
+   * The approving ADMIN'S OWN session client, when the activation is running
+   * inside their request.
+   *
+   * 🚨 WHY THIS EXISTS — `ctx.admin` CANNOT CALL AN ADMIN-GATED RPC.
+   * `createAdminClient()` carries the service_role key and NO user, so
+   * `auth.uid()` is NULL inside the database. Any function that gates on
+   * `is_console_admin()` / `is_admin()` — which read `auth.uid()` — therefore
+   * RAISES `FORBIDDEN: admin only` for it. Reproduced against production on
+   * 2026-08-21: `approve_vendor_subscription` refused a service_role caller
+   * before touching a single row, and the dispatcher's catch swallowed it, so
+   * the shop's payment was approved and their plan silently stayed off.
+   *
+   * `/admin/subscriptions` already had this right and says so in its own
+   * docblock; the activation dispatcher did not, because until now no hook
+   * needed an admin-gated RPC.
+   *
+   * Optional because not every caller runs inside an admin request. A hook
+   * that needs it must REFUSE when it is missing — never fall back to
+   * `ctx.admin`, which fails in a way nobody sees.
+   */
+  sessionClient?: SupabaseClient;
   orderId: string;
   eventId: string | null;
   serviceKey: string;
@@ -1230,6 +1253,62 @@ const PREFIX_HOOKS: ReadonlyArray<{
   match: (serviceKey: string) => boolean;
   run: ActivationHook;
 }> = Object.freeze([
+  {
+    // 'vendor_subscription__{purchase_id}' → SWITCH THE PLAN ON.
+    //
+    // A plan purchase now mints an `orders` row so the shop has somewhere to
+    // send its screenshot (2026-08-21, the ONE payment page). That gives the
+    // admin two rows describing one payment, and without this hook the one
+    // they approve at /admin/payments would take the money and leave the plan
+    // OFF — the shop would have paid, been thanked, and got nothing.
+    //
+    // `approve_vendor_subscription` is the same RPC /admin/subscriptions calls
+    // and is idempotent (it answers {already:true} on a re-confirm), so
+    // approving in either place, or in both, lands the shop in one state.
+    match: (serviceKey) => purchaseIdFromVendorSubscriptionServiceKey(serviceKey) !== null,
+    run: async (ctx) => {
+      const purchaseId = purchaseIdFromVendorSubscriptionServiceKey(ctx.serviceKey);
+      if (!purchaseId) return;
+      const { data: purchase } = await ctx.admin
+        .from('vendor_subscriptions')
+        .select('vendor_id')
+        .eq('purchase_id', purchaseId)
+        .maybeSingle();
+      // SEC-4b: the paying order must belong to the shop whose plan this is.
+      await assertOrderOwnsVendorTarget(
+        ctx,
+        (purchase as { vendor_id?: string | null } | null)?.vendor_id ?? null,
+      );
+      // ⚠ THE ADMIN'S OWN CLIENT, NEVER ctx.admin — see ActivationContext.
+      // approve_vendor_subscription gates on is_console_admin(), which reads
+      // auth.uid(); the service_role client has none and is refused outright.
+      if (!ctx.sessionClient) {
+        throw new Error(
+          `approve_vendor_subscription needs the approving admin's own session ` +
+            `(purchase ${purchaseId}); refusing rather than calling it as service_role, ` +
+            `which the database rejects with FORBIDDEN.`,
+        );
+      }
+      const { error } = await ctx.sessionClient.rpc('approve_vendor_subscription', {
+        p_purchase_id: purchaseId,
+      });
+      // THROW, don't swallow: the dispatcher's catch leaves the order
+      // recoverable, and a silently unapplied plan is the exact harm this hook
+      // exists to prevent.
+      if (error) {
+        throw new Error(
+          `approve_vendor_subscription failed for ${purchaseId}: ${error.message ?? 'unknown'}`,
+        );
+      }
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'service_activated',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: { service_key: ctx.serviceKey, vendor_subscription_purchase_id: purchaseId },
+      });
+    },
+  },
   {
     // 'vendor_booking_fee__{charge_id}' → SETTLE the booking-fee ledger charge.
     // This is the missing connection: the booking_fee_charges ledger opens

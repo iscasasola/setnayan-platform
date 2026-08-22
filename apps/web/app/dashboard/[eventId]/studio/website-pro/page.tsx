@@ -80,8 +80,8 @@ export default async function WebsiteProBuyPage({ params }: Props) {
 
       <PageMasthead
         titleNode={
-          <span className="flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-700">
+          <span>
+            <span>
               <Globe2 aria-hidden className="h-5 w-5" strokeWidth={1.75} />
             </span>
             Event Hub PRO

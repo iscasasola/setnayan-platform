@@ -107,7 +107,6 @@ export default async function AdminPaxChangesPage() {
     <section className="space-y-6">
       <PageMasthead
         title="Pax-driven cost changes"
-        lede="Every vendor Accept/Decline of a guest-count surcharge. Read-only — for dispute mediation."
       />
 
       {/* Fails toward the caveat: a row that cannot name its supplier must not

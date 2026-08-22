@@ -145,8 +145,6 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="Setnayan AI"
-        back="/dashboard/profile"
-        backLabel="Back to profile"
       />
 
       {/* Event picker (multi-event accounts) */}

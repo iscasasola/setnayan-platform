@@ -89,6 +89,23 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
 
   // ── vendor marketing · real SKU prices in tier copy ────────────────────────
 
+  // ── the ONE payment page · a BANK's fee, not ours ─────────────────────────
+  {
+    file: 'app/pay/[reference]/_components/pay-panel.tsx',
+    literal: '₱10',
+    sku: null,
+    reason:
+      "The InstaPay fee the payer's OWN bank charges to send into BDO (measured " +
+      '2026-07-31: ₱2.17 sent + ₱10 fee). Setnayan neither sets nor receives it; ' +
+      'it is on the page so a wallet payer picks the free GCash rail knowingly.',
+  },
+  {
+    file: 'app/pay/[reference]/_components/pay-panel.tsx',
+    literal: '₱15',
+    sku: null,
+    reason: 'Top of the same bank-side InstaPay fee range. Not a Setnayan charge.',
+  },
+
   // ── non-SKU figures: commission thresholds, free markers, examples ─────────
   {
     file: 'app/vendors/_components/vendor-tier-matrix.tsx',

@@ -197,7 +197,6 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6">
       <PageMasthead
         title="Partnerships"
-        className="mb-8"
       />
 
       {sp.error ? <FormFlash tone="error">{decodeURIComponent(sp.error)}</FormFlash> : null}

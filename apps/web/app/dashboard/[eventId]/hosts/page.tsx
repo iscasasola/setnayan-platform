@@ -20,6 +20,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ConsentGatedInviteForm } from './_components/consent-gated-invite-form';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { eventNoun } from '@/lib/event-noun';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 
 export const metadata = { title: 'Hosts' };
 
@@ -122,7 +124,10 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
     await Promise.all([
       admin
         .from('events')
-        .select('display_name, event_type')
+        // ⚠ the date columns are new here (2026-08-21): the masthead needs to
+        // know whether the celebration has already happened, and this page had
+        // no way to tell.
+        .select('display_name, event_type, event_date, event_end_date, cleared_at, timezone')
         .eq('event_id', eventId)
         .maybeSingle(),
       // All moderator rows (accepted + pending); revoked (removed_at) filtered out.
@@ -162,6 +167,16 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   // empty dropdown; see lib/host-roles.ts.
   const eventType = (eventRow as { event_type: string | null } | null)?.event_type ?? null;
   const roleChoices = hostRolesForEventType(eventType);
+  const eventNounWord = eventNoun(eventType);
+  // ONE resolver, the same one the Overview, the rail and the guest list ask.
+  const eventHasHappened =
+    getMenuLifecyclePhase(
+      (eventRow as { event_date?: string | null } | null)?.event_date ?? null,
+      (eventRow as { cleared_at?: string | null } | null)?.cleared_at ?? null,
+      (eventRow as { timezone?: string | null } | null)?.timezone ?? undefined,
+      undefined,
+      (eventRow as { event_end_date?: string | null } | null)?.event_end_date ?? null,
+    ) === 'after';
 
   const all = (rows ?? []) as ModeratorRow[];
   const accepted = all.filter((r) => r.accepted_at);
@@ -218,13 +233,23 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         Back to {eventName}
       </Link>
 
+      {/*
+        ⚠ IT ASKED A MOVIE NIGHT WHO WAS PLANNING THE WEDDING.
+
+        Two things were wrong in one line: the noun was hardcoded from the days
+        when weddings were the only event type (the page has read `event_type`
+        for other purposes all along), and it is present tense on a celebration
+        that has already happened. `eventNoun` is the shipped resolver —
+        weddings keep "wedding" byte-identical, everything else reads "event".
+      */}
       <PageMasthead
         titleNode={
           <>
-            Who&apos;s planning this wedding with you?
+            {eventHasHappened
+              ? `Who planned this ${eventNounWord} with you?`
+              : `Who’s planning this ${eventNounWord} with you?`}
           </>
         }
-        lede="Add parents, the wedding planner, your maid of honor, ninongs and ninangs — anyone who should see the plan or help make decisions. Each host signs in with their own account; you control what role they have."
       />
 
       {justSent && shareUrl ? (
@@ -380,9 +405,6 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           <p className="sn-eye">
             Current hosts · {accepted.length}
           </p>
-          <p className="text-sm text-ink/65">
-            Everyone who&apos;s accepted their invite + can see this event&apos;s plan.
-          </p>
         </header>
         {accepted.length === 0 ? (
           <p className="sn-row border-dashed p-4 text-sm text-ink/55">
@@ -521,10 +543,6 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
             <p className="sn-eye">
               <ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Delegate activity
-            </p>
-            <p className="text-sm text-ink/65">
-              Everything your hosts changed, most recent first. You&apos;ll always
-              know who did what.
             </p>
           </header>
           <ul className="divide-y divide-ink/10">

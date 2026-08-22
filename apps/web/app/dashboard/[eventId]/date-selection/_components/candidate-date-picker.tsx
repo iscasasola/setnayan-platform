@@ -433,9 +433,6 @@ export function CandidateDatePicker({
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-          Pick your wedding date
-        </p>
         <h1 className="font-display text-3xl italic leading-tight text-ink sm:text-4xl">
           {displayName} — here are your best dates
         </h1>

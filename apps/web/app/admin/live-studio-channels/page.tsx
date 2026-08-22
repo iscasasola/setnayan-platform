@@ -113,7 +113,6 @@ export default async function LiveStudioChannelsPage({
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8">
       <div className="mb-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/45">Live Studio</p>
         <h1 className="mt-1 font-serif text-2xl text-ink">Setnayan channel pool</h1>
         <p className="mt-2 max-w-2xl text-sm text-ink/65">
           Every Live Studio event streams on a Setnayan-owned YouTube channel from this pool. Couples

@@ -177,6 +177,30 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ⚠ REWRITTEN 2026-08-22 — THE TABLE IS GONE, AND THE OLD REASON ENDED IN A
+  // PROMISE THAT WOULD NOW BE FALSE: "the subject can see and reset the link on
+  // My Events at any time, which is the surface that right belongs on." That
+  // surface was deleted with the feed, so the sentence would have become a
+  // compliance document asserting a control the product no longer has — the
+  // exact way these files rot into misstatements. The entry itself must STAY:
+  // `readSchema()` unions every historical CREATE TABLE and never reads DROP
+  // TABLE, so T1 still sees the table and deleting the line would report it as
+  // an unclassified subject table.
+  calendar_feed_tokens:
+    'TABLE DROPPED 2026-08-22 (migration 20271157440480) with the all-events ' +
+    'calendar subscription feed — owner: "block delete." There is nothing left ' +
+    'to export. Prod held exactly one token whose `last_read_at` was NULL, so ' +
+    'no calendar ever fetched the feed. It is listed here rather than deleted ' +
+    'only because the migration parser cannot see a DROP; several already-' +
+    'retired tables sit in this map for the same reason. ' +
+    'FOR THE RECORD, THE ORIGINAL EXCLUSION WAS ALSO CORRECT ON ITS OWN MERITS ' +
+    'and should be re-applied if anything like this is ever rebuilt: the row ' +
+    'was a live CREDENTIAL, not a record about the person — a random token that ' +
+    'served their calendar to ANYONE holding it, with no login — and an RA ' +
+    '10173 export is a file people download and email to themselves, so putting ' +
+    'a live access key in it turns a privacy right into a disclosure risk. The ' +
+    'celebrations the feed described are exported in full from `events` and ' +
+    '`event_members` regardless.',
   // ── added 2026-08-05 with the table itself ──
   event_stage_notes:
     'Not the subject’s data to export. A stage note is an operational instruction about ' +

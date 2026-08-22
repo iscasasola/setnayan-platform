@@ -34,9 +34,22 @@ export const dynamic = 'force-dynamic';
 export default async function PapicGuestPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ papic_buy_error?: string }>;
+  searchParams?: Promise<{ papic_buy_error?: string; from?: string }>;
 }) {
-  const buyError = (await searchParams)?.papic_buy_error ?? null;
+  const sp = await searchParams;
+  const buyError = sp?.papic_buy_error ?? null;
+  /**
+   * The event this camera was opened FROM, so a refusal can hand the visitor
+   * back their invitation instead of ejecting them to the marketing homepage.
+   *
+   * 🔒 VALIDATED AS A SLUG, NEVER USED AS A URL. It arrives in a query string
+   * on a public page, so anything that ends up in an `href` must be built from
+   * a value we have re-checked — `/${slug}` after this test can only ever be a
+   * one-segment internal path. Taking the parameter as a path (or a URL) would
+   * be an open redirect on the most-shared link in the product.
+   */
+  const backSlug =
+    typeof sp?.from === 'string' && /^[a-z0-9][a-z0-9-]{0,79}$/.test(sp.from) ? sp.from : null;
   const session = await readGuestSession();
 
   if (!session) {
@@ -55,10 +68,21 @@ export default async function PapicGuestPage({
         {/* ⚠ THIS PAGE USED TO END HERE — a heading, a sentence, and nothing to
             press. It is reached from the day-of bar by exactly the people who do
             NOT have an invite (the cousin who scanned the poster at the venue),
-            so the browser back button was their only way out on the wedding day. */}
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
+            so the browser back button was their only way out on the wedding day.
+            A link was added — to SETNAYAN'S HOMEPAGE, which still ejects them
+            from the event. One tap of one of five tabs and the celebration is
+            gone, with no route back to it. The camera link now carries the
+            event, so the way out goes back to the invitation they were standing
+            on; `/` remains the fallback for a bare visit that names no event. */}
+        {backSlug ? (
+          <Link href={`/${backSlug}`} className="button-secondary">
+            Back to the invitation
+          </Link>
+        ) : (
+          <Link href="/" className="button-secondary">
+            Back to Setnayan
+          </Link>
+        )}
       </DoorShell>
     );
   }

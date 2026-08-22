@@ -48,17 +48,37 @@ mints an amount-carrying QR inline, takes the screenshot in the same step, and d
 Converting it would invert pay-then-mint into mint-then-pay and leave an unpaid order in the admin
 queue on every abandoned checkout.
 
-### 🧹 AND A MONEY-WRITING ACTION LEFT STRANDED
+### 🧹 A THIRD SURFACE THAT TOLD NOBODY — and a deletion I talked myself out of
 
-`logBookingFeePayment` was the only export in its file and, after the booking fee moved to the
-payment page, **had zero references anywhere.** It took buyer proof, wrote a `payments` row and
-notified nobody. Deleted, along with the dead import the page still carried. A dead money path that
-still reads as wired is how the next person re-wires the wrong one.
+`logBookingFeePayment` takes a bank reference and a screenshot, writes a `payments` row, and
+alerted nobody. It now alerts, before the redirect and **not** on the idempotent-retry branch —
+one payment, one alert.
+
+⚠ **I FIRST DELETED IT, AND THAT WAS THE WRONG CALL.** After the booking fee moved to the payment
+page it has **zero references anywhere**, so removing it looked like finishing #4699's job. CI
+disagreed for a reason worth keeping: **two guard files read that source, one of them dedicated
+entirely to it** — the owner's 2026-08-06 rule that a vendor paying us must give a reference. Six
+assertions went red. Deleting the subject would have deleted the coverage, which is the same
+mistake as a guard going out with its subject, pointed the other way. Restored, and made to comply
+instead.
+
+⏭ **NAMED, NOT SMUGGLED:** the action is still unreachable, and retiring it properly means
+re-pointing that dedicated guard at `/pay`, where the reference rule now lives (`requiresReference`
+is enforced there). That is a real change with its own reasoning and does not belong inside an
+audit fix. The dead import the page still carried IS removed.
+
+🪤 **AND WHILE LOOKING AT THOSE GUARDS I FOUND THE SAME HAND-LIST WEAKNESS AGAIN:**
+`payment-proof-ref-tenancy.test.ts` names three call sites, and **`/pay/[reference]/actions.ts` —
+now the main proof-taking surface in the product — is not one of them.** It does gate correctly
+(`parseClientRef` with `orderPaymentProofPolicy`, verified), so nothing is broken today; it is
+simply unguarded. Recorded here rather than fixed, because widening that guard needs its third
+assertion generalised (it matches one specific variable name) and that is its own change.
 
 🛡 **All four new assertions mutation-tested and MEASURED, each restored from an explicit backup:**
 dropping the new path from the list (1 → 0) turns the derived check RED · removing its redirect
-(1 → 0) turns two checks RED · deleting the notify call (1 → 0) turns both notify checks RED.
-Restored, 16/16 green. An unmeasured mutation proves nothing in either direction.
+(1 → 0) turns two checks RED · deleting the Papic notify (1 → 0) turns both notify checks RED ·
+deleting the booking-fee notify (1 → 0) turns the derived notify check RED. Restored, 40/40 green
+across all four guard files. An unmeasured mutation proves nothing in either direction.
 
 ✅ **Verified against the DEPLOYED build, not the merge:** production reported serving `0deceeb`,
 and all six shop redirects, the shared helper and both guards were read out of **that exact

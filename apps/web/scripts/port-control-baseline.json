@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "a3661b674",
+  "generatedFromRef": "a5a925567",
   "routeCount": 404,
   "destinations": 863,
-  "actions": 582,
-  "blocks": 3855,
+  "actions": 580,
+  "blocks": 3851,
   "routes": {
     "/": {
       "files": [
@@ -5169,12 +5169,9 @@
         "/receipts/[seg]"
       ],
       "actions": [
-        "cancelOrder",
-        "logPayment"
+        "cancelOrder"
       ],
       "blocks": [
-        "CopyButton",
-        "FileUpload",
         "Link",
         "Stat",
         "SubmitButton"
@@ -8743,15 +8740,11 @@
         "vendor-dashboard/booking-fees/[orderId]/page.tsx"
       ],
       "destinations": [],
-      "actions": [
-        "logBookingFeePayment"
-      ],
+      "actions": [],
       "blocks": [
         "CopyButton",
-        "FileUpload",
         "Link",
-        "PageMasthead",
-        "SubmitButton"
+        "PageMasthead"
       ]
     },
     "/vendor-dashboard/bookings": {

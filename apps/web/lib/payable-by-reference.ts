@@ -3,6 +3,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { purchaseIdFromVendorSubscriptionServiceKey } from './vendor-subscription-service-key';
 import { statusOf, type PayableStatus } from './payable-status';
 import { readOnboardingOrderItems } from './onboarding-order-items';
+import { isVatInclusiveServiceKey, orderGrossOwed } from './orders';
+import { chargeIdFromBookingFeeLockServiceKey } from './booking-fee-lock';
+import { getEffectiveVatRatePct } from './platform-settings';
 
 export type { PayableStatus };
 
@@ -57,6 +60,12 @@ export type Payable = {
   ownerUserId: string | null;
   /** Where this buyer came from, so the page is not a dead end. */
   back: { label: string; href: string } | null;
+  /**
+   * True when a bank reference is REQUIRED, not merely useful — the booking-fee
+   * lane (owner 2026-08-06), where a shop owes Setnayan money that an admin
+   * reconciles against a bank message rather than guessing at it.
+   */
+  requiresReference: boolean;
 };
 
 type OrderRow = {
@@ -70,10 +79,20 @@ type OrderRow = {
   status: string;
   event_id: string | null;
   vendor_profile_id: string | null;
+  voucher_discount_centavos: number | string | null;
 };
 
 const SELECT =
-  'order_id,user_id,reference_code,description,service_key,requested_total_php,confirmed_total_php,status,event_id,vendor_profile_id';
+  'order_id,user_id,reference_code,description,service_key,requested_total_php,confirmed_total_php,status,event_id,vendor_profile_id,voucher_discount_centavos';
+
+/** Best-effort VAT rate: an unreadable setting must not inflate a bill. */
+async function effectiveVatRate(supabase: SupabaseClient): Promise<number> {
+  try {
+    return await getEffectiveVatRatePct(supabase);
+  } catch {
+    return 0;
+  }
+}
 
 const peso = (n: number): string =>
   '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2 });
@@ -105,7 +124,31 @@ export async function fetchPayableByReference(
   const isVendorPlan =
     purchaseIdFromVendorSubscriptionServiceKey(order.service_key) !== null;
 
-  const amount = num(order.confirmed_total_php) || num(order.requested_total_php);
+  // ── WHAT THEY ACTUALLY OWE ────────────────────────────────────────────────
+  // 🔑 THE SAME FUNCTION THE SHORTFALL GUARD USES. `orderGrossOwed` is the
+  // product's ONE authority on what an order is owed, and /admin/payments
+  // refuses to promote an order to 'paid' when the money received falls short
+  // of ITS answer. If this page computed the figure any other way, the QR and
+  // that guard could disagree — and they would disagree silently, in a QR the
+  // buyer cannot check.
+  //
+  // 🚨 THAT IS EXACTLY WHAT A SECOND COPY DID. A local helper here subtracted
+  // `voucher_discount_centavos` unconditionally. But the two total columns are
+  // netted DIFFERENTLY: `requested_total_php` is the PRE-voucher price, while
+  // `confirmed_total_php` (set when an admin quotes the order) is already
+  // voucher-adjusted. So the moment an order was quoted, the QR asked for the
+  // discount twice — measured: requested ₱2,500, discount ₱500, confirmed
+  // ₱2,000 → QR ₱1,500 against ₱2,000 owed. The couple pays what the QR says,
+  // the guard refuses the promotion, and what they bought never switches on.
+  // Deleting the copy is the fix; a patched copy could drift again tomorrow.
+  const amount = orderGrossOwed({
+    requestedTotalPhp: num(order.requested_total_php),
+    confirmedTotalPhp:
+      order.confirmed_total_php == null ? null : num(order.confirmed_total_php),
+    voucherDiscountPhp: num(order.voucher_discount_centavos) / 100,
+    vatInclusive: isVatInclusiveServiceKey(order.service_key),
+    vatRatePct: await effectiveVatRate(supabase),
+  });
 
   // ── WHO IT IS FOR, AND WHAT IS IN IT ──────────────────────────────────────
   // Both of these were declared and never filled on the first cut, so the page
@@ -133,7 +176,16 @@ export async function fetchPayableByReference(
     eventId: order.event_id ?? null,
     ownerUserId: order.user_id ?? null,
     back: backFor(order),
+    requiresReference: isBookingFeeOrder(order.service_key),
   };
+}
+
+/**
+ * Is this the booking fee? Derived from the same prefix the fee lane itself
+ * keys on, never a second spelling of it.
+ */
+function isBookingFeeOrder(serviceKey: string | null): boolean {
+  return chargeIdFromBookingFeeLockServiceKey(serviceKey ?? '') !== null;
 }
 
 /** The celebration, or the shop — whichever this order belongs to. */

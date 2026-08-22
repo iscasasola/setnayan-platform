@@ -5,6 +5,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
 import { CopyButton } from '@/app/_components/copy-button';
 import { createClient } from '@/lib/supabase/server';
+import { payPath } from '@/lib/pay-path';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   ORDER_STATUS_LABEL,
@@ -24,7 +25,7 @@ import {
   fetchPlatformSettings,
   hasMerchantPaymentInfo,
 } from '@/lib/platform-settings';
-import { cancelOrder, logPayment } from '../actions';
+import { cancelOrder } from '../actions';
 
 export const metadata = { title: 'Order detail' };
 
@@ -186,8 +187,10 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             </p>
           ) : null}
           <p className="text-xs text-warn-900/85">
-            Use the &ldquo;Log a payment&rdquo; form below to send a corrected screenshot or
-            reference number &mdash; you don&rsquo;t need to create a new order.
+            <Link href={payPath(order.reference_code)} className="underline">
+              Send a clearer screenshot
+            </Link>{' '}
+            &mdash; you don&rsquo;t need to create a new order.
           </p>
           {resubmitRequested.reviewedAt ? (
             <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900/60">
@@ -325,224 +328,31 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
-      <section className="sn-tile space-y-4 p-5">
-        <h2 className="sn-eye">Payment instructions</h2>
+      {/* ── SENDING THE MONEY LIVES ON THE ONE PAYMENT PAGE ───────────────────
+          Owner 2026-08-21: one payment page for every purchase, with the amount
+          already inside the QR. What used to sit here could not do that — the
+          merchant QRs it rendered were the STATIC uploaded images carrying no
+          amount, and the form beside them asked the couple to TYPE the amount,
+          type a free-text channel ("BDO, GCash, Cash, etc.") and type the FULL
+          reference number. /pay asks for the last six and fills the rest in.
 
-        {/* The two values a couple must get exactly right — amount + reference. */}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-3">
-            <div className="min-w-0">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">
-                Amount to send
-              </p>
-              <p className="font-mono text-lg font-semibold text-ink">
-                {formatPhp(totals.headlineTotal)}
-              </p>
-            </div>
-            <CopyButton value={String(totals.headlineTotal)} label="Copy" />
-          </div>
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-terracotta/40 bg-terracotta/[0.06] px-4 py-3">
-            <div className="min-w-0">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta-700">
-                Reference code
-              </p>
-              <p className="truncate font-mono text-lg font-semibold text-ink">
-                {order.reference_code}
-              </p>
-            </div>
-            <CopyButton value={order.reference_code} label="Copy" />
-          </div>
-        </div>
-        <p className="text-xs leading-relaxed text-ink/60">
-          Send the amount via BDO or GCash
-          {hasMerchantPaymentInfo(settings)
-            ? ' to the account below'
-            : ' (details emailed once your order is confirmed)'}
-          , include the{' '}
-          <span className="font-semibold text-ink">reference code</span> in your
-          transfer note so we can match it instantly, then take a screenshot and
-          log it below.
-        </p>
-
-        {hasMerchantPaymentInfo(settings) ? (
-          <>
-            {/*
-              WHY THE ACCOUNT IS IN A PERSON'S NAME, SAID BEFORE THEY WONDER.
-              Setnayan is a sole proprietorship, so its receiving accounts are
-              legally in the proprietor's own name — but a buyer who is told to
-              send money to "Setnayan" and then sees a stranger's personal name
-              on the transfer screen has just been shown the exact shape of a
-              scam. Nothing is wrong; nothing SAYS so, and silence is what costs
-              the trust.
-
-              Rendered only when the displayed account name is not already the
-              business name — the day a business account replaces it, this line
-              disappears by itself rather than explaining away a mismatch that
-              no longer exists.
-            */}
-            {accountNameDiffersFromBusiness ? (
-              <p className="border-t border-ink/10 pt-4 text-sm text-ink/70">
-                The account below is in the name of{' '}
-                <span className="font-medium text-ink">{merchantAccountName}</span>, the
-                registered owner of {settings.business_name || 'Setnayan'}
-                {settings.business_tin ? ` (TIN ${settings.business_tin})` : ''}. That is the
-                correct account — your receipt comes from{' '}
-                {settings.business_name || 'Setnayan'}.
-              </p>
-            ) : null}
-          <div className="grid gap-3 border-t border-ink/10 pt-4 sm:grid-cols-2">
-            {settings.bdo_account_number || settings.bdo_qr_url ? (
-              <div className="sn-row space-y-2 p-4">
-                <p className="sn-eye">BDO bank transfer</p>
-                {settings.bdo_account_name ? (
-                  <p className="text-sm font-medium text-ink">
-                    {settings.bdo_account_name}
-                  </p>
-                ) : null}
-                {settings.bdo_account_number ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="break-all font-mono text-sm text-ink">
-                      {settings.bdo_account_number}
-                    </p>
-                    <CopyButton value={settings.bdo_account_number} label="Copy" />
-                  </div>
-                ) : null}
-                {settings.bdo_qr_url ? (
-                  <div className="mt-1 w-fit rounded-xl border border-ink/10 bg-white p-2.5 shadow-sm">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={settings.bdo_qr_url}
-                      alt="BDO merchant QR"
-                      className="h-40 w-40 rounded-lg object-contain"
-                    />
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {settings.gcash_number || settings.gcash_qr_url ? (
-              <div className="sn-row space-y-2 p-4">
-                <p className="sn-eye">GCash</p>
-                {settings.gcash_account_name ? (
-                  <p className="text-sm font-medium text-ink">
-                    {settings.gcash_account_name}
-                  </p>
-                ) : null}
-                {settings.gcash_number ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="break-all font-mono text-sm text-ink">
-                      {settings.gcash_number}
-                    </p>
-                    <CopyButton value={settings.gcash_number} label="Copy" />
-                  </div>
-                ) : null}
-                {settings.gcash_qr_url ? (
-                  <div className="mt-1 w-fit rounded-xl border border-ink/10 bg-white p-2.5 shadow-sm">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={settings.gcash_qr_url}
-                      alt="GCash QR"
-                      className="h-40 w-40 rounded-lg object-contain"
-                    />
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-          </>
-        ) : null}
-      </section>
-
-      {canLogPayment ? (
+          This page keeps everything that is a RECORD rather than a till: what
+          they were charged, the admin's note when we ask for a better picture,
+          the receipt, cancelling, and the payment log below. */}
+      {totals.remaining > 0 && order.status !== 'cancelled' ? (
         <section className="sn-tile space-y-3 p-5">
-          <h2 className="sn-eye">Log a payment</h2>
-          <form
-            action={logPayment}
-            className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+          <h2 className="sn-eye">Paying for this</h2>
+          <p className="text-sm text-ink/70">
+            {formatPhp(totals.remaining)} still to send. The code on the payment page already has
+            the amount in it, so there is nothing to type.
+          </p>
+          <Link
+            href={payPath(order.reference_code)}
+            className="button-primary inline-flex items-center gap-2"
           >
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="hidden" name="order_id" value={orderId} />
-            {/* Task 8 pilot hardening (2026-06-01): per-render idempotency
-                key. If the customer double-clicks Submit or retries after a
-                503, both submits ship the same UUID and the partial unique
-                index on payments(order_id, client_idempotency_key) makes
-                the second insert a no-op. */}
-            <input
-              type="hidden"
-              name="client_idempotency_key"
-              value={crypto.randomUUID()}
-            />
-            <label className="space-y-1">
-              <span className="block text-xs font-medium text-ink">Amount (PHP)</span>
-              <input
-                name="amount_php"
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step="0.01"
-                required
-                placeholder="0"
-                className="input-field"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="block text-xs font-medium text-ink">Channel</span>
-              <input
-                name="channel"
-                required
-                placeholder="BDO, GCash, Cash, etc."
-                className="input-field"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="block text-xs font-medium text-ink">Reference number</span>
-              <input
-                name="reference_number"
-                placeholder="From the bank confirmation"
-                className="input-field"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="block text-xs font-medium text-ink">Paid on</span>
-              <input
-                name="paid_at"
-                type="date"
-                defaultValue={new Date().toISOString().slice(0, 10)}
-                className="input-field"
-              />
-            </label>
-            <div className="sm:col-span-2">
-              <FileUpload
-                // Privacy-critical: payment proofs are PRIVATE. Route to the
-                // private thread-files bucket (read only via short-lived presigned
-                // GETs) — never the public `media` bucket.
-                bucket="thread-files"
-                pathPrefix={`payments/${orderId}`}
-                name="screenshot_ref"
-                label="Screenshot"
-                help="Optional. PNG / JPEG / WebP / HEIC up to 5 MB. The Setnayan team uses this to match your payment."
-                maxSizeMB={5}
-                acceptedTypes={[
-                  'image/png',
-                  'image/jpeg',
-                  'image/webp',
-                  'image/gif',
-                  'image/heic',
-                  'image/heif',
-                ]}
-                variant="wide"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <SubmitButton
-                className="button-primary inline-flex items-center gap-2"
-                pendingLabel="Logging…"
-              >
-                <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Log payment
-              </SubmitButton>
-            </div>
-          </form>
+            <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Send your payment
+          </Link>
         </section>
       ) : null}
 

@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { payPath } from '@/lib/pay-path';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
@@ -166,9 +167,20 @@ async function resolveGuestBuyer(
  * A REAL account, or null.
  *
  * An anonymous auth session — which every seat claimer has — is NOT an account
- * the buyer can sign back into, so it is reported as null and the order stays
- * account-less. Stamping it would file the order in a dashboard nobody can ever
- * reach, which reads as "we lost it" rather than "you bought as a guest".
+ * the buyer can sign back into, so it is reported as null.
+ *
+ * ⚖ OWNER RULING 2026-08-21: *"guest needs to have an account to buy."* So null
+ * is now a REFUSAL at the mint, not a shape of order. Nothing live changed —
+ * `NEXT_PUBLIC_PAPIC_GUEST_BUY` has never been on — and it is what lets a
+ * buyer reach the ONE payment page at all: an account-less order carries no
+ * `user_id`, `orders_owner_read` has no disjunct that admits it, and `orders`
+ * grants nothing to `anon`, so its own buyer would get a 404 on the order they
+ * just placed.
+ *
+ * ⚠ SETTLING an order that ALREADY EXISTS is untouched — see
+ * `submitPapicGuestPayment`. A rule about NEW purchases must never strand a
+ * debt somebody already owes (the same boundary the 2026-08-21 finished-event
+ * ruling drew).
  */
 async function resolveRealAccountId(): Promise<string | null> {
   try {
@@ -334,6 +346,12 @@ export async function startPapicGuestPurchase(formData: FormData) {
   }));
   if (hasOpenGuestOrder(flattened, rung.serviceCode)) backTo(returnTo, 'already_pending');
 
+  // ── an account, or nothing is minted ────────────────────────────────────
+  // Owner 2026-08-21. Refuse BEFORE the reference code exists, so a buyer who
+  // has to go and sign in never comes back to a half-made order.
+  const accountId = await resolveRealAccountId();
+  if (!accountId) backTo(returnTo, 'needs_account');
+
   // ── mint ────────────────────────────────────────────────────────────────
   const referenceCode = mintPapicReferenceCode();
   const accessToken = mintPapicGuestAccessToken();
@@ -347,7 +365,7 @@ export async function startPapicGuestPurchase(formData: FormData) {
       eventId: buyer!.eventId,
       seatId: buyer!.kind === 'seat' ? buyer!.seatId : null,
       guestId: buyer!.kind === 'guest' ? buyer!.guestId : null,
-      userId: await resolveRealAccountId(),
+      userId: accountId,
     },
     {
       service_key: rung.serviceCode,
@@ -411,7 +429,16 @@ export async function startPapicGuestPurchase(formData: FormData) {
   // stale card is a cosmetic miss, not a lost order.
   revalidatePath(`/dashboard/${buyer!.eventId}/studio/papic`);
 
-  redirect(`/papic/order/${accessToken}`);
+  // THE ONE PAYMENT PAGE (owner 2026-08-21). Now that the buyer must have an
+  // account, `orders_owner_read` admits them on `user_id = auth.uid()` and the
+  // shared page can do what the token page cannot: put the exact amount INSIDE
+  // the QR so nothing is typed.
+  //
+  // ⚠ The token page is NOT retired. It is the only door onto orders minted
+  // before this ruling (account-less, `user_id` NULL), and `submitPapicGuestPayment`
+  // still settles through it. The access token is still minted and still
+  // stored for exactly that reason.
+  redirect(payPath(referenceCode));
 }
 
 /**

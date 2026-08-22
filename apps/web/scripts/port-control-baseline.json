@@ -1,8 +1,8 @@
 {
-  "generatedFromRef": "4e1db0e98",
+  "generatedFromRef": "bea37f2d8",
   "routeCount": 404,
   "destinations": 863,
-  "actions": 580,
+  "actions": 581,
   "blocks": 3851,
   "routes": {
     "/": {
@@ -9853,7 +9853,8 @@
       ],
       "actions": [
         "addRepertoireSong",
-        "removeRepertoireSong"
+        "removeRepertoireSong",
+        "setPerformanceLink"
       ],
       "blocks": [
         "Link",

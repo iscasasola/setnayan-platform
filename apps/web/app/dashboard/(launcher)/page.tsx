@@ -24,8 +24,6 @@ import {
   CalendarClock,
 } from 'lucide-react';
 import { YearMomentsStrip } from './_components/year-moments-strip';
-import { CalendarSubscribe } from './_components/calendar-subscribe';
-import { getOrCreateCalendarToken, resetCalendarToken } from './calendar-actions';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, type EventWithRole } from '@/lib/events';
@@ -331,19 +329,6 @@ export default async function LauncherPage({
   // today's and the ones ahead — never the finished ones: a clash you can no
   // longer do anything about is a reproach, not a warning.
   const clashes = findDateClashes([...happeningNow, ...upcoming]);
-
-  // THE CALENDAR LINK (owner 2026-08-21). Minted the first time this board is
-  // rendered for an account that has celebrations to put in it — offering the
-  // button to somebody with an empty board would subscribe them to nothing and
-  // teach them the feature does not work.
-  //
-  // ⚠ NULL IS A REAL ANSWER AND MEANS "SHOW NO BUTTON". A failed read must not
-  // mint a second link (see calendar-actions), and a button that cannot say
-  // where it points is worse than no button.
-  const calendarToken =
-    happeningNow.length + upcoming.length + finished.length > 0
-      ? await getOrCreateCalendarToken()
-      : null;
 
   // ─── LANDING ────────────────────────────────────────────────────────────
   // Owner 2026-07-04: "keep the auto-jump, HUB REACHABLE." Only the first half
@@ -1214,18 +1199,19 @@ export default async function LauncherPage({
             </div>
           </div>
         ) : null}
-        {calendarToken ? (
-          <div className="mt-4">
-            <CalendarSubscribe
-              /* `webcal:` is what makes "the device picks" true — the OS hands
-                 the scheme to whichever calendar it uses. The https twin is for
-                 pasting into a desktop client by hand. */
-              webcalUrl={`webcal://${siteHost()}/api/calendar/${calendarToken}.ics`}
-              httpUrl={`https://${siteHost()}/api/calendar/${calendarToken}.ics`}
-              onReset={resetCalendarToken}
-            />
-          </div>
-        ) : null}
+        {/* ⚠ THE ALL-EVENTS SUBSCRIPTION BLOCK STOOD HERE AND IS RETIRED
+            (owner 2026-08-22: *"block delete."*). Adding a celebration to a
+            phone calendar is now a PER-EVENT action in each card's "⋯" menu,
+            which is where the owner asked for it — *"adding an event to a
+            calendar is not all events but just per event."*
+
+            🔑 KNOW WHAT WAS TRADED, so nobody re-derives this as a bug. The
+            block handed out one `webcal:` link the phone RE-READ, so moving a
+            date moved it in their calendar too. A per-card .ics is a copy
+            taken once and never checked again. That loss was stated to the
+            owner and accepted; it is a decision, not an oversight. Prod held
+            one token, never once read, so nothing live was broken.
+            Migration 20271157440480. */}
       </section>
 
       {/* WORTH PLANNING — the days that come around for this person (owner
@@ -1587,17 +1573,6 @@ function ClashNotice({ clashes }: { clashes: DateClash[] }) {
   );
 }
 
-/**
- * The public host, with no scheme — `webcal:` needs its own, so a helper that
- * returned a full https URL would have to be string-surgeried at the call site.
- * Falls back to the production host rather than to `localhost`: a link built on
- * a misconfigured preview should point somewhere that works, not somewhere that
- * is guaranteed not to.
- */
-function siteHost(): string {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.setnayan.com';
-  return raw.replace(/^https?:\/\//, '').replace(/\/$/, '');
-}
 
 function SectionLabel({
   children,

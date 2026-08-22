@@ -48,12 +48,19 @@ export function EventCardMenu({
   archived,
   /**
    * THIS one event's own date, for "Add to calendar" — a single all-day
-   * VEVENT, downloaded once. NOT the all-events subscription
-   * (`calendar-subscribe.tsx`), which follows every celebration and keeps
-   * itself up to date. Owner 2026-08-22: *"adding an event to a calendar is
-   * not all events but just per event"* — a person wants ONE wedding on
-   * their phone, not the whole board, and picking it out of the subscribed
-   * feed by name is a worse experience than a button on the card itself.
+   * VEVENT, downloaded once. Owner 2026-08-22: *"adding an event to a
+   * calendar is not all events but just per event"* — a person wants ONE
+   * wedding on their phone, not the whole board.
+   *
+   * ⚠ THIS IS NOW THE ONLY WAY INTO A CALENDAR, AND IT IS A COPY, NOT A
+   * SUBSCRIPTION. An all-events `webcal:` feed used to sit on the board and
+   * kept itself current — move a date and the phone followed. The owner
+   * retired it the same day (*"block delete."*, migration 20271157440480),
+   * knowing the trade: what this hands over is a snapshot, so a date changed
+   * afterwards is silently stale in whatever calendar took it. Do not
+   * "restore parity" by quietly making this re-fetch — there is nothing left
+   * to re-fetch from.
+   *
    * `null` when there is no date yet ⇒ the row is skipped entirely rather
    * than offered and refused.
    */

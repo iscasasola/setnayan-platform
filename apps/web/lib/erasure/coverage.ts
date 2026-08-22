@@ -1212,21 +1212,28 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     column: 'requester_user_id',
     why: 'The subject’s own asks for access to an event, including a free-text note they wrote. Their request, their words — and the grant it may have produced lives in event_moderators, which erasure handles separately. `decided_by_user_id` needs no entry: it is ON DELETE SET NULL, and answering someone else’s request is an action ON their record, not personal data OF the answerer.',
   },
-  {
-    table: 'calendar_feed_tokens',
-    column: 'user_id',
-    why:
-      'THE LINK MUST DIE WITH THE ACCOUNT, AND DELETION IS THE ONLY CORRECT ' +
-      'HANDLING. This row is a live CREDENTIAL: /api/calendar/<token>.ics ' +
-      'serves whoever holds it, with no login, so a row left behind after an ' +
-      'erasure request is a URL that keeps answering with that person’s ' +
-      'celebrations. Revoking would be enough to stop the feed, but the row ' +
-      'itself is still the subject’s (their token, when they made it, when ' +
-      'their phone last read it) and nothing else references it — so it is ' +
-      'deleted outright rather than tombstoned. ⚠ The FK is ON DELETE CASCADE, ' +
-      'which already covers a hard account delete; this entry covers the ' +
-      'erasure path, which purges WITHOUT deleting the auth row.',
-  },
+  /*
+    ⚠ `calendar_feed_tokens` WAS HERE AND IS DELIBERATELY REMOVED — the TABLE
+    itself was dropped 2026-08-22 with the all-events calendar subscription
+    (owner: *"block delete."*, migration 20271157440480).
+
+    🔑 THIS LIST IS EXECUTABLE, WHICH IS WHY THE ENTRY HAD TO GO RATHER THAN BE
+    REWORDED. `erasure/purge.ts` issues a real `.delete().eq(column, userId)`
+    for every row in it. Against a dropped table PostgREST answers with an
+    error, and `step()` does NOT throw — it calls `auditFail`. So a leftover
+    entry would have stamped a permanent, meaningless FAILURE onto the audit
+    trail of every RA 10173 erasure request from now on, while looking to a
+    reader like extra diligence.
+
+    ⚠ AND IT IS THE OPPOSITE CHOICE FROM THE ONE MADE IN THE TWO GUARDRAIL
+    FILES, ON PURPOSE. `coverage-guardrail.test.ts` and
+    `export-coverage-guardrail.test.ts` KEEP an entry for this table, because
+    their schema parsers union every `CREATE TABLE` ever written and never read
+    `DROP TABLE` — so the table is still visible to them and removing the line
+    fails their "every subject-bearing table is classified" gate. Documentation
+    lists keep a retirement note; the executable list drops the row. Same table,
+    two correct answers, for two different reasons.
+  */
   {
     table: 'event_day_requests',
     column: 'author_user_id',

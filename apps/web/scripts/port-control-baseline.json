@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "9ec8a9313",
+  "generatedFromRef": "954588a71",
   "routeCount": 404,
   "destinations": 863,
   "actions": 581,
-  "blocks": 3851,
+  "blocks": 3852,
   "routes": {
     "/": {
       "files": [
@@ -636,6 +636,7 @@
         "BackgroundMusic",
         "Blob",
         "ByTheNumbers",
+        "ChallengeAnswerColumn",
         "Chapter",
         "ChapterWriteUp",
         "ClientEventWords",

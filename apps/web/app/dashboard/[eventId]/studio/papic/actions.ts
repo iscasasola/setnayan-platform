@@ -267,14 +267,16 @@ export async function addLibraryChallengeAction(formData: FormData) {
   }
 
   // ── THE CEILING, ENFORCED HERE AND NOT ONLY ON THE SCREEN ──────────────────
-  // Owner, 2026-08-21: "up to 20 challenges." The picker turns its Add button
+  // Owner, 2026-08-21: "up to 20 challenges", then the same day "we keep the
+  // 600+ challenges but the user only picks 10." The number lives in
+  // BOARD_SIZE and this code never names it. The picker turns its Add button
   // into a disabled "Full" chip at the limit, and that is a courtesy, not a
   // control: this is a POST to a server action, reachable from a stale tab or a
   // double-submit, and `lib/supabase/client.ts` ships a browser client to every
   // visitor by construction.
   //
   // 🔑 A LIMIT THAT ONLY EXISTS IN THE UI IS NOT A LIMIT. Without this, a couple
-  // could push past twenty and the extra rows would exist, be counted on their
+  // could push past the ceiling and the extra rows would exist, be counted on their
   // own list, and NEVER reach a guest — the exact silent-drop this whole change
   // was made to stop, moved one layer down.
   //

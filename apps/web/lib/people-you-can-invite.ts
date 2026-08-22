@@ -153,7 +153,7 @@ export async function getPeopleYouCanInvite(
           would have been null, `titleById` empty, and EVERY row in the picker
           would have said "another event" — a feature that looks finished and
           silently never worked. The event's name is `display_name`, same
-          column `calendar-feed.ts` and `chat-actions.ts` read.
+          column `chat-actions.ts` reads.
         */
         supabase.from('events').select('event_id, display_name').in('event_id', myEventIds),
         supabase

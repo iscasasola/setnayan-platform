@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Archive, MoreVertical, Trash2 } from 'lucide-react';
+import { Archive, CalendarPlus, MoreVertical, Trash2 } from 'lucide-react';
 
 import { setEventArchived } from '../../[eventId]/archive-actions';
 import {
@@ -12,6 +12,7 @@ import {
   getEventDeletionImpact,
   type DeletionImpact,
 } from '../../[eventId]/delete-actions';
+import { buildWeddingIcs, icsDataHref } from '@/lib/calendar-links';
 
 /**
  * event-card-menu.tsx — the per-card "⋯" on My Events.
@@ -45,6 +46,35 @@ export function EventCardMenu({
   eventId,
   eventName,
   archived,
+  /**
+   * THIS one event's own date, for "Add to calendar" — a single all-day
+   * VEVENT, downloaded once. Owner 2026-08-22: *"adding an event to a
+   * calendar is not all events but just per event"* — a person wants ONE
+   * wedding on their phone, not the whole board.
+   *
+   * ⚠ THIS IS NOW THE ONLY WAY INTO A CALENDAR, AND IT IS A COPY, NOT A
+   * SUBSCRIPTION. An all-events `webcal:` feed used to sit on the board and
+   * kept itself current — move a date and the phone followed. The owner
+   * retired it the same day (*"block delete."*, migration 20271157440480),
+   * knowing the trade: what this hands over is a snapshot, so a date changed
+   * afterwards is silently stale in whatever calendar took it. Do not
+   * "restore parity" by quietly making this re-fetch — there is nothing left
+   * to re-fetch from.
+   *
+   * `null` when there is no date yet ⇒ the row is skipped entirely rather
+   * than offered and refused.
+   */
+  eventDateIso = null,
+  venueName = null,
+  venueAddress = null,
+  /**
+   * TRUE on the Untold + Told shelves (the day has already passed). Owner
+   * 2026-08-22, asked directly: *"shouldn't now happening and planning be
+   * the only ones to have this add to calendar?"* — a day that already
+   * happened is not something to add to a phone calendar, so this drops the
+   * row entirely rather than offering a dead-feeling action on a past card.
+   */
+  finished = false,
   /** Dark cards (the mobile hero) need light chrome to stay visible. */
   tone = 'light',
   align = 'right',
@@ -52,6 +82,10 @@ export function EventCardMenu({
   eventId: string;
   eventName: string;
   archived: boolean;
+  eventDateIso?: string | null;
+  venueName?: string | null;
+  venueAddress?: string | null;
+  finished?: boolean;
   tone?: 'light' | 'dark';
   /**
    * Which edge of the CARD the popover hangs from.
@@ -205,6 +239,20 @@ export function EventCardMenu({
 
   const dark = tone === 'dark';
 
+  // Computed once per open menu, not on every render — building a string is
+  // cheap, but there is no reason to redo it on every keystroke elsewhere on
+  // the card (the "type the name to confirm" field re-renders this component).
+  const icsHref = useMemo(() => {
+    if (finished) return null;
+    const ics = buildWeddingIcs({
+      title: eventName,
+      dateIso: eventDateIso,
+      location: venueName ?? venueAddress ?? null,
+      uid: `wedding-${eventId}@setnayan.com`,
+    });
+    return ics ? icsDataHref(ics) : null;
+  }, [finished, eventName, eventDateIso, venueName, venueAddress, eventId]);
+
   return (
     /*
       🪤 A FRAGMENT, NOT A POSITIONED WRAPPER — AND THAT IS THE WHOLE FIX.
@@ -254,6 +302,33 @@ export function EventCardMenu({
           >
             {!confirming ? (
               <>
+                {icsHref ? (
+                  <>
+                    <a
+                      href={icsHref}
+                      download={`${eventName}.ics`}
+                      role="menuitem"
+                      onClick={close}
+                      className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
+                    >
+                      <CalendarPlus
+                        aria-hidden
+                        className="mt-0.5 h-4 w-4 shrink-0 text-ink/60"
+                        strokeWidth={2}
+                      />
+                      <span>
+                        <span className="block font-semibold">
+                          Add to calendar
+                        </span>
+                        <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
+                          Just this celebration, on your phone.
+                        </span>
+                      </span>
+                    </a>
+                    <div className="my-1 h-px bg-ink/10" />
+                  </>
+                ) : null}
+
                 <button
                   type="button"
                   role="menuitem"

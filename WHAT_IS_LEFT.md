@@ -210,7 +210,7 @@ price, a sentence or a ruling. Building around those does not unblock them.
 
 *Six features that work correctly and are invisible or half-open to exactly the person they were built for. Nothing here is broken and nothing needs designing from scratch — each is a missing button, a missing link, or a list that quietly leaves someone out. Grouped because they are all last-metre work, all small, and each one currently makes a finished feature look like it was never built.*
 
-**6 items · 1 need the owner · 5 are engineering**
+**8 items · 1 need the owner · 7 are engineering**
 
 - **The couple's own coordinator has no button to message the emcee — only a booked supplier does** *(small)*
   - You defined the coordinator as the couple's own delegate — the person they promote. That person is allowed to send the emcee a note and has nowhere to press. Only a coordinator who is also a paid supplier gets the screen. So on a wedding where the couple's aunt is running the floor, the channel that shipped today is invisible to the one person who needs it.
@@ -227,6 +227,12 @@ price, a sentence or a ruling. Building around those does not unblock them.
 - **On the onboarding screen the AI planner card is a dead end** **[OWNER]** *(small)*
   - A new host reads about the AI planner, sees the price, then gets a sentence telling them to look for it later instead of a button. The only reason is that the event does not exist yet at that moment. Your call whether it should link on to the next screen or stay as a note.
   - <sub>evidence: The card renders a link only when a destination is supplied; nothing anywhere supplies one, so every host sees the fallback sentence.</sub>
+- **A supplier keeps a deleted celebration's booking and cannot see it** *(medium · added 2026-08-22)*
+  - When a couple removes their event, the supplier's booking is deliberately preserved — the record survives, detached, carrying what kind of celebration it was and when, so their completed-events count and their reviews stay whole. **But their client list is built entirely from the event, so a preserved booking has no row and no page to open.** They keep the number and lose the client. The survival is real; the way to look at it is missing.
+  - <sub>evidence: verified 2026-08-22 by reading prod. The BEFORE DELETE trigger detaches the booking and stamps `event_type_at_delete` / `event_date_at_delete`; the completed-events view LEFT JOINs events and COALESCEs those snapshots, so counts survive. The clients surface keys every row and every link on `event_id`, so a detached row is unreachable. Prod: 45 bookings, 0 detached — nobody has hit it yet.</sub>
+- **A supplier's own private notes die with the couple's event, contradicting our own erasure rule** *(small · added 2026-08-22)*
+  - The notes a shop writes about a client — *chase the down-payment on the 15th* — are classified in our erasure module as the **shop's** data: they survive even a full account deletion, with only the staff author's name removed. But they are wired to vanish the moment the couple deletes the event. **The same note survives one deletion and not the other.**
+  - <sub>evidence: `vendor_client_notes.event_id` is NOT NULL ON DELETE CASCADE (read from prod). `lib/erasure/coverage.ts` says of that table: "The note belongs to the vendor business and is read by it; only the staff author's identity goes." ⚠ Fix the row above FIRST — detaching a note with no client page to read it on is a survival nobody can reach. Prod: 0 notes.</sub>
 - **The we-couldn't-load-this fix was built and no screen uses it** *(medium)*
   - When a screen fails to load someone's information, it still tells them there is nothing there. A guest saw an invitation that looked abandoned; a couple saw no requests yet over three real pending requests. The shared fix for that was finished three days ago and is sitting unused.
   - <sub>evidence: The six state components exist on main; the only import of that folder anywhere is its own changelog fragment. Zero screens use it. Three of the worst cases were fixed by hand instead on 2026-08-04.</sub>
@@ -383,6 +389,60 @@ so it is evidence of what SHIPPED, never of what is currently broken.
 
 ---
 
+## 9b. Two facts the auto-loaded `CLAUDE.md` still states that are no longer true
+
+*Checked 2026-08-22 against `origin/main` and the live database. Both sit in the
+ACTIVE block every session reads first, which is the worst place for a stale
+claim — a session acts on it before it reads anything else.*
+
+- **"🔴 THE VENDOR CANNOT ANSWER" is FALSE.** A supplier asked to agree to a
+  deletion now has real Agree and Decline forms on their dashboard's "What's new"
+  feed. <sub>Traced end to end: `vendorAgreeToDeletion` / `vendorDeclineDeletion`
+  → `answerDeletionRequest` → the `vendor_answer_event_deletion` RPC, rendered
+  inside `<form action={…}>` in `overview-sections.tsx`. Not a prop passed and
+  never drawn — an actual form.</sub>
+- **Its production numbers are stale.** It says 5 events · 2 vendors · 0 photos.
+  Measured 2026-08-22: **5 events · 5 story pages (0 published) · 14 Papic photos
+  · 45 supplier bookings · 1 published chapter attached to no event.** Still true:
+  **0 orders ever** and nothing sold.
+
+⚠ **The owner also could not have this written for him automatically** — see the
+access note in group 10: the corpus was unreadable from that session, so
+`CLAUDE.md` there could not be edited.
+
+---
+
+## 10. One story per day — the board pointed at the wrong product
+
+**Opened 2026-08-22.** Contract:
+[`WHATS_NEXT_One_Story_Per_Day_2026-08-22.md`](WHATS_NEXT_One_Story_Per_Day_2026-08-22.md)
+— read it before touching the story, the editorial, or the Storyteller.
+
+The owner read My Events and asked *"isn't that the editorial. the story?"* He
+was right, and it was not a naming clash: **the board was measuring, and opening,
+a different product.** A couple could publish her wedding's story page, see *"Your
+story is live"*, return to the board and find the same wedding under *"Untold —
+no story written yet"* with a button that opened a **blank page** asking her to
+write the day again from memory.
+
+Six PRs shipped (#4687 · #4660 · #4690 · #4696 · #4712 · #4715). What is left is
+mostly **`[OWNER]`**:
+
+- **`[OWNER]`** what the couple's dashboard calls it — "Story" collides **six**
+  ways, and eight sites must move together or a screen names one thing twice.
+- **`[OWNER]`** "Editorial PRO" — a paid SKU's display name, ~24 user-visible
+  occurrences, one decision or none.
+- **`[OWNER]`** does the love story yield the word? If yes, the first one is
+  trivial.
+- **`[OWNER]` 🔴 the free/paid split may be inverted** — the blank page is free,
+  while naming the moments and ordering the sections on the story we already
+  wrote for her are sold as Event Hub PRO.
+- **Engineering:** the plain editor · the three audiences · **three doorway rows
+  that render nowhere, with two guards passing on strings inside them** · gold
+  eyebrows at **3.48:1** on the story page (7 sites — a whole-component call).
+
+---
+
 ## Where to start
 
 **Group 1, "armed to go wrong the first time a real customer arrives."** Seven
@@ -395,3 +455,8 @@ a regulator can both read those sentences today.
 
 **Then one rehearsal livestream end to end.** Nobody has ever streamed anything.
 It settles ten interlocking items at once and cannot be settled any other way.
+
+**Group 10 is different — it is mostly yours, not engineering's.** Four rulings
+sit in front of the story work, and one of them (the free/paid split) may be
+backwards in a way that costs money on the first real customer. Deciding them
+takes an afternoon and unblocks the rest.

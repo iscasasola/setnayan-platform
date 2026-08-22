@@ -10,6 +10,7 @@
  * stays in `app/_components/frontdoor/rail-data.ts`, which re-exports these.
  */
 import { addOnHref } from './add-ons-catalog';
+import { STUDIO_HUB_ALL_LABEL, studioHubHref } from './studio-hub';
 import { surfaceEnabled, type EventTypeProfile } from './event-type-profile';
 import { STUDIO_APPS } from './studio-apps';
 
@@ -60,7 +61,7 @@ export function railToolsSignedIn(
   studio: { eventId: string | null; count: number; profile: EventTypeProfile | null },
 ): ReadonlyArray<RailTool> {
   const { eventId, count, profile } = studio;
-  return STUDIO_APPS.filter((a) => {
+  const rows: RailTool[] = STUDIO_APPS.filter((a) => {
     // Nothing is gated until we know WHICH event — the surface list is a
     // property of the event type, and without one there is nothing to ask.
     if (!eventId || !profile) return true;
@@ -88,6 +89,35 @@ export function railToolsSignedIn(
       line: null,
     };
   });
+
+  /*
+    ─── AND ONE ROW FOR EVERYTHING ELSE ─────────────────────────────────────
+    Owner, 2026-08-21, looking at the rail before and after opening a wedding:
+    *"we lose the consistency of the concept … what we want is for that Studio
+    to still show on the sidebar, but now it is link to that event."*
+
+    The named products are the Studio group. But a wedding's shelf holds more
+    than the products — the free parts (the seat plan, the mood board, the
+    day-of page), the upgrades, the order history. Those have always lived on
+    the services hub, and the hub is what the event's own menu used to carry.
+
+    🔑 IT IS CALLED "All services", NOT "Studio". Inside an event this row sits
+    directly under a group heading that already says Studio, and the same word
+    twice in one rail reads as two different places — the exact trap the
+    Marketplace row's own note in the shell records. The event menu's Studio
+    row is dropped from the rail for the same reason (see `EventRailContext`);
+    the phone's bottom bar, which carries no Studio group, keeps it untouched.
+
+    🔑 AND ONLY WHEN THERE IS AN EVENT TO OPEN. With none, or with several and
+    no way to know which was meant, there is no single shelf to point at — the
+    rows above already answer that case honestly and this one must not invent
+    a different answer.
+  */
+  if (!eventId) return rows;
+  return [
+    ...rows,
+    { key: '__all__', href: studioHubHref(eventId), name: STUDIO_HUB_ALL_LABEL, line: null },
+  ];
 }
 
 /**

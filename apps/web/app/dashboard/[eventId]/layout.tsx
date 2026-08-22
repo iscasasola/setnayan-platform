@@ -438,6 +438,10 @@ export default async function EventLayout({ children, params }: Props) {
         merely "styled back to the same place".
       */}
       <AppRailShell
+        /* The Studio group stays in the rail inside an event (owner
+           2026-08-21) and its rows open THIS wedding's tools. Verified against
+           the person's own organiser events inside the resolver. */
+        studioEventId={eventId}
         railContext={
           <EventRailContext
             eventId={eventId}

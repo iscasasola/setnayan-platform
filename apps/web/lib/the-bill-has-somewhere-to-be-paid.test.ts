@@ -73,7 +73,17 @@ test('the bill page still shows an amount, a reference and how to send it', () =
   const src = read(BILL);
   assert.match(src, /Total to pay/, 'the bill must state the amount owed');
   assert.match(src, /reference_code/, 'the bill must show the reference code to quote');
-  assert.match(src, /via BDO or GCash/, 'the bill must say where to send the money');
+  // ⚠ RE-POINTED 2026-08-21, NOT WEAKENED. The bill used to carry the rails
+  // itself — an amount-less static QR pair and a form asking the couple to TYPE
+  // the amount, the channel and the full reference. Sending the money now
+  // happens on the ONE payment page, where the figure is inside the QR. What
+  // this test protects is unchanged: from the bill, there must be a way to pay.
+  assert.match(
+    src,
+    /payPath\(order\.reference_code\)/,
+    'the bill must still lead somewhere the money can actually be sent',
+  );
+  assert.match(src, /Send your payment/, 'the way to pay must be named, not implied');
   assert.match(
     src,
     /created\b/,

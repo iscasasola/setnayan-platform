@@ -80,3 +80,40 @@ test('the dead panels those redirects replaced are gone, not left behind', () =>
   // next person editing it, and the strings drift out of true unnoticed.
   assert.doesNotMatch(read('app/vendor-dashboard/team/page.tsx'), /search\.bought/);
 });
+
+test('the couple and the guest reach it too — the last three doors', () => {
+  // Owner 2026-08-21, in his own words: "guest needs to have an account to buy",
+  // "couple can purchase with the custom qr", and yes to the booking fee.
+  const guest = read('app/papic/buy/actions.ts');
+  assert.match(guest, /redirect\(payPath\(referenceCode\)\)/, 'the guest buy must land on /pay');
+  assert.match(
+    guest,
+    /if \(!accountId\) backTo\(returnTo, 'needs_account'\)/,
+    'buying needs an account — without one the buyer 404s on their own order',
+  );
+
+  const bill = read('app/dashboard/[eventId]/orders/[orderId]/page.tsx');
+  assert.match(bill, /payPath\(order\.reference_code\)/, 'the couple’s bill must lead to /pay');
+  // The amount-less static QRs and the type-it-yourself form are gone, not
+  // hidden — two payment surfaces for one order is how the numbers drift.
+  // The form itself AND the sentence that pointed at it — a banner telling a
+  // couple to use a form that no longer exists is worse than no banner.
+  assert.doesNotMatch(bill, /action=\{logPayment\}|name="amount_php"/);
+  assert.doesNotMatch(bill, /&ldquo;Log a payment&rdquo; form below/);
+
+  const fee = read('app/vendor-dashboard/booking-fees/[orderId]/page.tsx');
+  assert.match(fee, /payPath\(order\.reference_code\)/, 'the booking fee must lead to /pay');
+});
+
+test('settling an order that already exists is untouched', () => {
+  // A rule about NEW purchases must never strand a debt somebody already owes —
+  // the same boundary the 2026-08-21 finished-event ruling drew. The token page
+  // is the only door onto orders minted before an account was required.
+  const guest = read('app/papic/buy/actions.ts');
+  assert.match(guest, /submitPapicGuestPayment/, 'the settle path must still exist');
+  assert.match(
+    guest,
+    /\/papic\/order\/\$\{encodeURIComponent\(token\)\}/,
+    'the token page must still receive the settle redirects',
+  );
+});

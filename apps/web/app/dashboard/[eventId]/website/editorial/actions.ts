@@ -13,6 +13,11 @@
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import {
+  storyAudienceOf,
+  storyIsShared,
+  type StoryAudience,
+} from '@/lib/who-can-see-your-story';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { scanEditorial } from '@/lib/editorial-scan';
 import {
@@ -78,7 +83,16 @@ export type EditorialEditorInput = {
   customColumns?: unknown;
   // PRO — the manual "What They Said" guest-wishes list (draft_json.reviews).
   reviews: Review[];
-  publish: boolean;
+  /**
+   * WHO MAY READ IT — 'draft' (only me) · 'event' (the people of this
+   * celebration) · 'published' (everyone).
+   *
+   * ⚠ REPLACED A BOOLEAN `publish`. Two states could not express the middle
+   * answer, and the boolean's `false` meant "only me" while ALSO being what a
+   * couple got by simply pressing Save — so there was no way to say "my guests,
+   * and nobody else". An unrecognised value fails CLOSED to 'draft'.
+   */
+  audience: StoryAudience;
 };
 
 /** Cap the persisted per-moment story so a runaway paste can't bloat draft_json.
@@ -330,14 +344,22 @@ export async function saveEditorial(
   // else: not PRO — leave draft.chapterOverrides / draft.sectionOrder /
   // draft.reviews exactly as they were on `base` (spread into `draft` already).
 
+  // Fails closed: anything this build does not recognise reads as 'only me'.
+  const audience = storyAudienceOf(input.audience);
+  const shared = storyIsShared(audience);
+
   const nowIso = new Date().toISOString();
   const { error } = await admin.from('event_editorial').upsert(
     {
       event_id: eventId,
       draft_json: draft,
-      status: input.publish ? 'published' : 'draft',
+      status: audience,
       edited_by_couple: true,
-      published_at: input.publish ? (existing?.published_at ?? nowIso) : existing?.published_at ?? null,
+      // Stamped the first time it is shared with ANYBODY — the celebration
+      // counts. It is the "when did this stop being private" date, not the
+      // "when did it go public" date, and it is never cleared: a story taken
+      // back to only-me still happened.
+      published_at: shared ? (existing?.published_at ?? nowIso) : existing?.published_at ?? null,
       updated_at: nowIso,
     },
     { onConflict: 'event_id' },

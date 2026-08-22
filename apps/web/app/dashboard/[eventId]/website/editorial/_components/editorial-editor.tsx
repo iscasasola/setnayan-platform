@@ -34,6 +34,13 @@ import {
   type EditorialOrderKey,
 } from '@/app/[slug]/_components/editorial/editorial-order';
 import {
+  STORY_AUDIENCES,
+  STORY_AUDIENCE_LABEL,
+  STORY_AUDIENCE_NOTE,
+  storyIsShared,
+  type StoryAudience,
+} from '@/lib/who-can-see-your-story';
+import {
   customColumnId,
   customColumnKey,
   MAX_CUSTOM_COLUMNS,
@@ -475,7 +482,7 @@ export function EditorialEditor({
         };
       });
 
-  const persist = async (publish: boolean): Promise<boolean> => {
+  const persist = async (next: StoryAudience): Promise<boolean> => {
     setPhase('saving');
     setError(null);
     try {
@@ -487,11 +494,11 @@ export function EditorialEditor({
         // the page renders through, so a half-written one is never published.
         customColumns: columns,
         reviews: buildReviews(),
-        publish,
+        audience: next,
       });
       if (!r.ok) throw new Error(r.error);
-      // Direct setForm (not `set`) so the publish flag doesn't re-mark dirty.
-      setForm((f) => ({ ...f, publish }));
+      // Direct setForm (not `set`) so choosing an audience doesn't re-mark dirty.
+      setForm((f) => ({ ...f, audience: next }));
       setDirty(false);
       setPhase('done');
       return true;
@@ -501,13 +508,23 @@ export function EditorialEditor({
       return false;
     }
   };
-  const onSave = (publish: boolean) => {
-    void persist(publish);
+  const onSave = (next: StoryAudience) => {
+    void persist(next);
   };
   // Save the couple's words as a draft BEFORE navigating into a sub-editor, so
   // nothing typed here is lost. Only navigates if the save succeeds.
   const openPiece = async (href: string) => {
-    const ok = await persist(false);
+    /*
+      🚨 THIS USED TO PASS `false`, WHICH SILENTLY UNPUBLISHED A LIVE STORY.
+      The old call meant "save as a draft", and the save path read that boolean
+      as the status — so a couple whose story was published, clicking through to
+      the living hero or their photos, had it quietly taken off their page. The
+      press said "open the next editor" and did not mention privacy.
+
+      Saving before navigating is right; deciding the audience is not this
+      button's job, so it now carries whatever the couple already chose.
+    */
+    const ok = await persist(form.audience);
     if (ok) router.push(href);
   };
 
@@ -1232,7 +1249,7 @@ export function EditorialEditor({
         <div className="text-sm">
           {phase === 'done' ? (
             <span className="font-medium text-green-700">
-              Saved{form.publish ? ' & published' : ' as a draft'}.
+              Saved · {STORY_AUDIENCE_LABEL[form.audience].toLowerCase()} can read it.
             </span>
           ) : phase === 'error' ? (
             <span className="font-medium text-red-700">{error ?? 'Could not save.'}</span>
@@ -1247,30 +1264,48 @@ export function EditorialEditor({
           ) : null}
         </div>
         <div className="flex gap-3">
-          <button
-            type="button"
-            disabled={phase === 'saving'}
-            onClick={() => onSave(false)}
-            className="inline-flex h-11 items-center justify-center rounded-lg border border-ink/15 bg-white px-5 text-sm font-medium text-ink/75 transition hover:bg-cream disabled:opacity-50"
-          >
-            Save draft
-          </button>
-          <button
-            type="button"
-            disabled={phase === 'saving'}
-            onClick={() => onSave(true)}
-            className="inline-flex h-11 items-center justify-center rounded-lg border border-burgundy/20 bg-burgundy px-5 text-sm font-semibold text-cream transition hover:bg-burgundy/90 disabled:opacity-50"
-          >
-            {phase === 'saving' ? 'Saving…' : 'Publish'}
-          </button>
+          {/*
+            WHO CAN SEE IT — three answers, and SAVING IS THE SAME PRESS.
+            "Save draft / Publish" made privacy a side effect of which button you
+            reached for, and had no way to say "my guests, and nobody else". Each
+            row here saves the whole story AND sets its audience, so a couple can
+            never be left believing they saved when they only changed who reads.
+          */}
+          {STORY_AUDIENCES.map((choice) => {
+            const chosen = form.audience === choice;
+            return (
+              <button
+                key={choice}
+                type="button"
+                disabled={phase === 'saving'}
+                onClick={() => onSave(choice)}
+                aria-pressed={chosen}
+                className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm transition disabled:opacity-50 ${
+                  chosen
+                    ? 'border border-burgundy/20 bg-burgundy font-semibold text-cream hover:bg-burgundy/90'
+                    : 'border border-ink/15 bg-white font-medium text-ink/75 hover:bg-cream'
+                }`}
+              >
+                {chosen && phase === 'saving' ? 'Saving…' : STORY_AUDIENCE_LABEL[choice]}
+              </button>
+            );
+          })}
         </div>
+        {/* WHAT THE CURRENT CHOICE ACTUALLY DOES, said in full. Three buttons
+            tell a couple there are three answers and not one word about what any
+            of them means — and "only me" in particular has to say that it hides
+            the story from their own guests, or somebody picks it to be safe and
+            quietly shows it to nobody. */}
+        <p className="mt-2 text-xs leading-relaxed text-ink/55">
+          {STORY_AUDIENCE_NOTE[form.audience]}
+        </p>
       </div>
 
       {/* Share your story — shown once published. Co-locates sharing + the Real
           Stories opt-in so the couple never has to hunt for them on the privacy
           page. The published page's OG card shows the story, so a shared link
           previews beautifully on Facebook/Messenger/Viber. */}
-      {form.publish ? (
+      {storyIsShared(form.audience) ? (
         <section className={card}>
           <h2 className="font-display text-lg italic text-ink">Share your story</h2>
           <p className="mt-0.5 text-sm text-ink/60">

@@ -633,7 +633,22 @@ export async function SiteBody({
       // answering both "may this visitor browse the new open site?" and "does
       // this visitor get a site at all?". Only the first is what it decides.
       <>
-        <EditorialContent eventId={event.event_id} galleryAnchorId={recapGalleryAnchorId} />
+        <EditorialContent
+          eventId={event.event_id}
+          galleryAnchorId={recapGalleryAnchorId}
+          /*
+            WHO IS ASKING — resolved ONCE here, from the same three facts this
+            page already established for its lock screen and its ribbon, rather
+            than re-derived inside the story where it could disagree with them.
+            "The people of this celebration" is exactly who the page already
+            recognises: a host, a guest with a seat or a redeemed invitation, and
+            a supplier who worked the day.
+          */
+          viewer={{
+            isHost: viewerIsHost,
+            belongsToEvent: identity.kind === 'guest' || vendorCapability !== null,
+          }}
+        />
         {memento}
         <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />
         {normalBody()}

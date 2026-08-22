@@ -57,3 +57,42 @@ column is rejected silently — the only symptom is that no video ever appears),
 and dropping the zero-row check.
 
 SPEC IMPACT: None.
+
+## 2026-08-23 · the exposure freeze asked a human, and this is the human's answer
+
+The only thing failing on this change was `THE FREEZE: the exposure surface has not widened
+against the committed baseline` — one new capability: `public.vendor_songs.performance_url`,
+`anon=SIU authenticated=SIU`.
+
+**This migration grants `UPDATE (performance_url)` to `authenticated` and nothing else.** The
+rest is INHERITED: `public.vendor_songs` carries a TABLE-level grant, so every column on it —
+including a brand-new one — arrives with INSERT, SELECT and UPDATE for both roles.
+**Measured in prod:** the table's three existing columns all read
+`INSERT,REFERENCES,SELECT,UPDATE` for `anon` and `authenticated` alike.
+
+🪤 **A COLUMN-LEVEL `REVOKE` CANNOT CARVE A HOLE IN A TABLE-LEVEL GRANT — and this was proved,
+not assumed.** The first attempt at this was a migration doing
+`REVOKE INSERT (performance_url), UPDATE (performance_url) … FROM anon`. It applied without
+error and **the freeze still reported `anon=SIU`.** In Postgres a table-wide privilege keeps
+applying to every column; only a table-level revoke removes it, and *that* drops the column
+grants the feature depends on — the exact trap this change's own migration comment already
+names in the other direction. **The no-op migration was deleted rather than shipped: a
+migration that protects nothing is worse than none, because it reads to the next person as a
+protection that is in place.**
+
+✅ **SO THE WIDENING IS RECORDED, AND IT IS SAFE — checked at the policy, not assumed from the
+grant.** `vendor_songs` has exactly two policies: `vendor_songs_public_select` (SELECT, roles
+`anon` + `authenticated`, `USING true`) and `vendor_songs_owner_write` (FOR ALL, role
+**`authenticated` only**, scoped to `vendor_profile_id IN current_vendor_ids() OR is_admin()`).
+**There is no write policy admitting `anon` at all**, so anon's INSERT/UPDATE are inert, and
+anon's SELECT is exactly what the public shop page needs. The vendor writes the field through
+their own session, confined to their own shop.
+
+⚠ **SCOPE, STATED RATHER THAN SMUGGLED:** the three pre-existing columns keep their inherited
+anon INSERT/UPDATE. Fixing that means a table-level revoke plus re-granting every column — a
+separate change with a real blast radius, and it is not silently folded in here.
+
+Baseline diff is exactly one line: `col public.vendor_songs.performance_url anon=SIU
+authenticated=SIU`. Port baseline regenerated: 0 routes, 0 destinations, 0 actions lost.
+
+SPEC IMPACT: None — no price, SKU or scope change.

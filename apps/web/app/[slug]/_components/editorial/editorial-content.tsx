@@ -1510,7 +1510,7 @@ function ChallengeAnswerColumn({ answers }: { answers: ChallengeAnswer[] }) {
           key={`${i}-${a.prompt}`}
           className="overflow-hidden rounded-2xl border border-ink/10 bg-surface"
         >
-          <p className="px-4 pt-4 font-mono text-[11px] uppercase tracking-[0.14em] text-ink/45">
+          <p className="px-4 pt-4 font-mono text-xs uppercase tracking-[0.14em] text-ink/45">
             we asked
           </p>
           <p className="px-4 pb-3 pt-1 text-sm font-medium text-ink">{a.prompt}</p>

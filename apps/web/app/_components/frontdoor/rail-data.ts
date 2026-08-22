@@ -109,7 +109,25 @@ export function toRailFolder(f: WeddingFolder): RailFolder {
  * pointing at public pages is a correct one.
  */
 export const resolveRailStudioEvent = cache(
-  async (): Promise<{ eventId: string | null; count: number; profile: EventTypeProfile | null }> => {
+  async (
+    /*
+      ─── THE EVENT YOU ARE STANDING IN WINS ────────────────────────────────
+      Owner, 2026-08-21: *"what we want is for that Studio to still show on the
+      sidebar, but now it is link to that event."*
+
+      Without this the rows can only guess, and the guess is deliberately timid:
+      somebody with two weddings gets sent to the board to pick, even while they
+      are already inside one of them. That was right when nothing knew which
+      event was open. The event layout knows, so it says.
+
+      🔒 IT IS STILL CHECKED, NEVER TRUSTED. The id is matched against the
+      person's OWN organiser events below; an id they do not organise falls
+      through to the count-based answer exactly as before. A rail row is a door,
+      and a door built from an unverified path parameter is a door into somebody
+      else's wedding.
+    */
+    preferEventId?: string | null,
+  ): Promise<{ eventId: string | null; count: number; profile: EventTypeProfile | null }> => {
     const none = { eventId: null, count: 0, profile: null };
     try {
       const supabase = await createClient();
@@ -121,6 +139,25 @@ export const resolveRailStudioEvent = cache(
       // the couple dashboard admits `member_type = 'couple'` and would 404.
       const events = await fetchUserEvents(supabase, user.id, 'couple');
       const live = events.filter((e) => !e.archived);
+
+      /*
+        🔑 THE ARCHIVED LIST IS SEARCHED TOO, and on purpose. A put-away event
+        still opens from the board and its tools still work; refusing to point
+        the rail at the very event whose page is on screen would be a rail that
+        disagrees with the page under it.
+      */
+      const standing = preferEventId
+        ? (live.find((e) => e.event_id === preferEventId) ??
+           events.find((e) => e.event_id === preferEventId))
+        : undefined;
+      if (standing) {
+        return {
+          eventId: standing.event_id,
+          count: Math.max(1, live.length),
+          profile: await resolveProfile(standing.event_type ?? 'wedding'),
+        };
+      }
+
       if (live.length !== 1) return { eventId: null, count: live.length, profile: null };
       const only = live[0];
       // Narrowing, not defence: `length !== 1` already returned above, so this

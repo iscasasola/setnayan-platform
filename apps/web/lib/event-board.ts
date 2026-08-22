@@ -359,14 +359,18 @@ export function splitFinishedByStory(
  * May THIS account write the story of this celebration?
  *
  * Only the organiser. A guest's finished celebration still belongs on their
- * board — it is their memory — but the chapter composer will not offer them a
- * day they did not host or work, so a button that opens a picker their
- * celebration is missing from is a door onto nothing.
+ * board — it is their memory — but the event's story page admits an accepted
+ * host only, so offering a guest that button is a door onto a refusal.
  *
- * ⚠ A booked supplier MAY attach (owner 2026-08-15) and is deliberately not
- * offered here: a supplier's celebrations do not reach this board at all
- * (`STANCE_BY_MEMBER_TYPE` admits couple + guest only), so answering for them
- * from a member_type would be guessing.
+ * ⚠ THE CHIP CHANGED DESTINATION ON 2026-08-22 and this answer did not have to.
+ * It used to open the Storyteller composer, whose picker also excluded a guest;
+ * it now opens the event's own story page, whose editor also excludes a guest.
+ * Same audience, different reason — stated so a future reader does not think
+ * this function is still reasoning about the chapter picker.
+ *
+ * ⚠ A booked supplier MAY write a chapter about a day (owner 2026-08-15) and is
+ * deliberately not offered here: a supplier's celebrations do not reach this
+ * board at all (`STANCE_BY_MEMBER_TYPE` admits couple + guest only).
  */
 export function canWriteStoryFor(event: {
   member_type: EventWithRole['member_type'];

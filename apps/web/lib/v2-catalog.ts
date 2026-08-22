@@ -95,7 +95,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   HIGH_RES_ARCHIVE:    'partial',  // 0009 photo delivery partial
   LIVE_BACKGROUND:     'not_built', // REMOVED 2026-08-11 (owner: "remove wall backdrop"). Was marked 'live' on 2026-07-10 under "all features active" — it never was: the maker saved a draft and nothing rendered the 8K file or posted the USB it promised. Route, save endpoint, templates and both tables deleted (migration 20271132121622). Kept listed so the retirement is legible and any historical order row still resolves a status.
   PABATI:              'live',     // video guestbook end-to-end: gated day-of card + 5s guest recorder + recap section · collector exists · 2026-06-22
-  KWENTO:              'live',     // words-on-a-photo · paid-to-unlock ₱500 · gated at route + moderation · 2026-06-26
+  KWENTO:              'live',     // words-on-a-photo · FREE for every event (owner 2026-08-21 "kwento is free"; row deactivated by 20271156242842, feature kept on via FREE_FOR_ALL_SKUS) · was paid-to-unlock ₱299 from 2026-06-26 · ⚠ the old comment here said ₱500, which the catalog never charged
 
   PAKANTA:               'live',       // custom-song delivery end-to-end: intake + admin upload → auto-plays on the couple's site (PR #2038) · 2026-06-22
   // Activated 2026-07-10 (owner "all our features should now be active" · migration

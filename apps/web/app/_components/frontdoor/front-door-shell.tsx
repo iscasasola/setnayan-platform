@@ -353,6 +353,20 @@ type Props = {
    */
   railContext?: React.ReactNode;
   /**
+   * Whether the person is standing inside one specific event right now —
+   * true only on `/dashboard/[eventId]`. Owner 2026-08-22: *"marketplace is
+   * best shown inside an event, not when they just logged in."* Gates the
+   * Marketplace destination row and its "Browse by category" group, which
+   * therefore no longer follows `railContext` — the admin console and the
+   * vendor dashboard also push a `railContext`, and neither of those is a
+   * reason to show a couple's supplier marketplace.
+   *
+   * Defaults to `false`: the front door, the My Events board, the admin
+   * console and the vendor dashboard all render without it and stay exactly
+   * as they were.
+   */
+  insideEvent?: boolean;
+  /**
    * Admin-resolved labels, `getNavSlotMap()`.
    *
    * ⚠ APPLIED IN THE APP VARIANT ONLY, deliberately. On `/` the events row
@@ -500,6 +514,7 @@ export function FrontDoorShell({
   heading,
   variant = 'front-door',
   railContext,
+  insideEvent = false,
   navLabels,
   topBarSlot,
   search,
@@ -614,13 +629,20 @@ export function FrontDoorShell({
     is prefix-based and `/dashboard` + `/dashboard/library` both answer yes.
 
     🪤 THE MARKETPLACE FOLDER ROWS AND THE STUDIO TOOLS ARE ABSENT ON PURPOSE.
-    They point at `/explore?folder=…` and the eight public doorways — surfaces
-    no route converted in this slice can reach, so they can never be the
-    current page here and are never lit. Telling them apart from each other
-    needs the current QUERY, and reading the query in a client component pulls
-    in a Suspense contract this slice does not need. It arrives with the slice
-    that converts `/explore`; until then a row that cannot be right is better
-    left unlit than guessed. `activeRailKey` already accepts the params.
+    The folder rows point at `/explore?folder=…`, which no route converted in
+    this slice can reach, so they can never be the current page here. Telling
+    them apart needs the current QUERY, and reading the query in a client
+    component pulls in a Suspense contract this slice does not need.
+
+    ⚠ THE STUDIO ROWS ARE A DIFFERENT CASE SINCE 2026-08-21, AND THIS IS NAMED
+    DEBT RATHER THAN AN OVERSIGHT. Inside an event they now point at real
+    in-app routes, so they CAN be the current page. Lighting them here would
+    need ONE resolver spanning this component and `EventRailContext`, which
+    resolves its own rows independently — and run separately the two would
+    double-light: `3D Plan` opens `/seating/lab` while the event menu's own
+    `Seat plan` row prefix-matches `/seating`. Two lit rows read as broken.
+    Leaving them unlit is exactly today's behaviour, so nothing regresses; the
+    fix is one combined match list, and it is a slice of its own.
   */
   const matchRows = railMatchRows({
     signedIn: account.signedIn,
@@ -1088,17 +1110,20 @@ export function FrontDoorShell({
             heading link goes.
           */}
           {account.signedIn ? (
-            <Link href="/explore" {...rowProps('find')}>
-              <RailIcon as={Compass} />
-              <span className="fd-label-text">
-                {/* Fallback MUST equal the registry's label for this slot
-                    (`customer.account.marketplace` = "Marketplace"). They
-                    diverged, and the same row read two different words on two
-                    pages. `front-door-invariants.test` now pins them equal. */}
-                {slotLabel(RAIL_SLOT.find, 'Marketplace')}
-              </span>
-              <span className="fd-icon-caption">Market</span>
-            </Link>
+            insideEvent ? (
+              <Link href="/explore" {...rowProps('find')}>
+                <RailIcon as={Compass} />
+                <span className="fd-label-text">
+                  {/* Fallback MUST equal the registry's label for this slot
+                      (`customer.account.marketplace` = "Marketplace"). They
+                      diverged, and the same row read two different words on
+                      two pages. `front-door-invariants.test` now pins them
+                      equal. */}
+                  {slotLabel(RAIL_SLOT.find, 'Marketplace')}
+                </span>
+                <span className="fd-icon-caption">Market</span>
+              </Link>
+            ) : null
           ) : null}
 
           <div className="fd-rdiv" />
@@ -1223,11 +1248,14 @@ export function FrontDoorShell({
                 untold"*).
                 Its premise was "a thing you HAVE, not a thing you run, so it is
                 never gated" — still true, and now served by the BOARD instead of
-                a rail row. My Events carries both halves: the "Untold" shelf
-                offers *Write the story of <name>* per finished celebration, and
-                "Told" ends with *read them in Your Story*. Both link
-                /dashboard/creator, so the desk keeps two visible doors on the
-                first screen after sign-in and loses only the duplicate.
+                a rail row.
+                ⚠ CORRECTED 2026-08-22 — THOSE TWO LINKS NO LONGER GO HERE. My
+                Events' "Untold" shelf now opens the EVENT'S OWN story page, and
+                "Told" ends with *read them in Memories*. Both used to point at
+                /dashboard/creator, and that is exactly what made the owner ask
+                "isn't that the editorial. the story?" — a chapter is a person's
+                own write-up ABOUT a day, the event's story page is Setnayan's
+                write-up OF it. The account menu still carries "Your Story".
                 🔑 THE ROUTE IS NOT RETIRED, ONLY THE MENU — do not delete
                 /dashboard/creator, and do not re-add this row without changing
                 `lib/the-controls-have-a-home.test.ts`, which now asserts the
@@ -1306,22 +1334,27 @@ export function FrontDoorShell({
             <div className="fd-rgroup">{railContext}</div>
           ) : null}
 
-          {/* 3 · MARKETPLACE — signed-in only.
-              ⚠ MARKETPLACE AND STUDIO ARE FRONT-PAGE FURNITURE and collapse
-              away whenever a context group is present, exactly as the drawing
-              has it. A rail carrying a wedding's own sections AND fifteen
-              supplier categories is a list, not a place. */}
+          {/* 3 · MARKETPLACE — signed-in AND inside an event only (owner
+              2026-08-22: *"marketplace is best shown inside an event, not
+              when they just logged in"*). REVERSES the 2026-08-12 furniture
+              rule below, which this replaces: the group used to show on the
+              front door / My Events board and collapse away the moment a
+              `railContext` pushed in (an event, the admin console, the
+              vendor dashboard). `insideEvent` is narrower than `railContext`
+              on purpose — the admin console and the vendor dashboard also
+              push a context, and neither is a couple's supplier marketplace.
+
+              🔄 STUDIO NO LONGER COLLAPSES WITH IT — see section 4. */}
           {account.signedIn ? (
             /*
-              NESTED, NOT `&& !railContext`, deliberately. The shipped guard
-              pins this gate as the literal `{account.signedIn ?` — it exists
-              because the owner's signed-in-only rule was got wrong here once,
-              and it also rejects an INVERTED gate. Folding a second condition
-              into the same expression would have blinded it while reading as
-              a tidier line. The collapse is a separate question, so it gets a
-              separate branch.
+              NESTED, NOT `&& insideEvent`, deliberately — same reasoning as
+              before the reversal: the shipped guard pins this gate as the
+              literal `{account.signedIn ?`, so folding a second condition
+              into the same expression would blind it while reading as a
+              tidier line. The collapse is a separate question, so it keeps
+              its own branch.
             */
-            railContext ? null : (
+            insideEvent ? (
             <div className="fd-rgroup">
               <div className="fd-rdiv" />
               {/* NOT "Marketplace" — that is the row above, and the same word
@@ -1364,12 +1397,30 @@ export function FrontDoorShell({
                 <span className="fd-icon-caption">More</span>
               </button>
             </div>
-            )
+            ) : null
           ) : null}
 
-          {/* 4 · STUDIO — the things you make. Collapses with Marketplace. */}
-          {railContext ? null : (
-            <div className="fd-rgroup">
+          {/* 4 · STUDIO — the things you make. IT DOES NOT COLLAPSE.
+
+              🔄 REVERSED 2026-08-21. Studio used to disappear the instant you
+              opened a wedding, and the event's own menu carried a single row
+              called Suite in its place. Owner, looking at both: *"this seem
+              wrong since we lose the consistency of the concept. what we want
+              is for that Studio to still show on the sidebar, but now it is
+              link to that event."*
+
+              🔑 THE PRODUCTS ARE THE CONCEPT, AND THEY ARE THE SAME PRODUCTS
+              WHETHER YOU OWN ONE OR NONE. Hiding the group at the exact moment
+              a person finally has somewhere to open it taught them the names
+              only while they were a stranger. The rows still change behaviour
+              — signed out they sell, signed in they open your own tools, and
+              inside an event they open THAT event's — but the group itself is
+              now furniture that never leaves.
+
+              ⚠ THE MARKETPLACE STILL COLLAPSES. Fifteen supplier categories
+              beside a wedding's sections is the list the drawing rejected;
+              seven named products under one heading is not the same thing. */}
+          <div className="fd-rgroup">
               <div className="fd-rdiv" />
               <div className="fd-rlabel">
                 Studio <small>the things you make</small>
@@ -1415,8 +1466,7 @@ export function FrontDoorShell({
                   <span className="fd-icon-caption">{t.name}</span>
                 </Link>
               ))}
-            </div>
-          )}
+          </div>
 
           {/* 5 · SMALL PRINT.
               ⚠ "Contact us" does not exist — there is no /contact route, and a

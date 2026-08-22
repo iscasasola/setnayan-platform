@@ -284,9 +284,12 @@ export const resolveCommandItems = cache(
         // /dashboard/year now redirects there — a palette row pointing at a
         // redirect is a door that lies about where it goes.
         // 'Your Story' IS RETIRED (owner 2026-08-21: *"remove … your story.
-        // we already have your story on untold"*). My Events carries both
-        // doors now — "Write the story of <name>" on Untold, and "read them in
-        // Your Story" on Told. The ROUTE is untouched.
+        // we already have your story on untold"*). The ROUTE is untouched and
+        // the account menu still carries the door.
+        // ⚠ CORRECTED 2026-08-22 — this said My Events carried two doors to it.
+        // It no longer does: Untold opens the EVENT'S OWN story page and Told
+        // points at Memories. Those two links going to the chapter composer is
+        // what made one wedding look like it had two different "stories".
         {
           id: 'action-profile',
           label: 'Profile & account',

@@ -1,0 +1,54 @@
+-- RETIRE THE ALL-EVENTS CALENDAR SUBSCRIPTION FEED (owner 2026-08-22).
+--
+-- Owner, looking at the block on My Events after per-event "Add to calendar"
+-- shipped on each card (#4717 / #4718): *"block delete."*
+--
+-- WHAT IS GOING, AND WHAT REPLACES IT
+-- The subscribe block handed out ONE `webcal:` link covering every celebration
+-- the person belonged to; their phone re-read it on its own schedule, so dates
+-- followed. It is replaced by a per-event "Add to calendar" in each board
+-- card's "⋯" menu — a one-shot .ics for a single celebration.
+--
+-- ⚠ THIS IS A REAL REDUCTION IN BEHAVIOUR, NOT A REFACTOR, AND IT WAS THE
+-- OWNER'S CALL WITH THAT TRADE-OFF STATED. A downloaded .ics is a COPY taken
+-- once: move the date afterwards and the copy in somebody's phone is silently
+-- wrong. The subscription is what made "change a date here and it changes
+-- there" true. Nobody should re-derive this as an oversight later — it was
+-- offered, explained, and decided.
+--
+-- 🔢 SAFE BY ARITHMETIC, MEASURED IN PROD BEFORE WRITING THIS (2026-08-22):
+-- `calendar_feed_tokens` held exactly ONE row (the owner's own, minted by
+-- rendering his board) and its `last_read_at` was NULL — so no calendar
+-- anywhere has EVER fetched this feed. There is no live subscription to break
+-- and nobody's phone loses a celebration it was already showing.
+--
+-- 🔒 DEPENDENCY CHECK, ALSO MEASURED, NOT ASSUMED: zero inbound foreign keys,
+-- zero functions, zero views and zero triggers reference this table. The only
+-- dependent objects are its own three RLS policies, which go with it. `DROP
+-- TABLE` therefore needs no CASCADE, and it is deliberately NOT written with
+-- one: a CASCADE here would silently take anything a later migration had
+-- attached, which is exactly the class of quiet loss this project keeps paying
+-- for. If this ever fails on a dependency, that dependency is news and should
+-- be read, not steamrolled.
+--
+-- ⚠ THE ORIGINAL MIGRATION (20271154583356_one_link_loads_their_calendar.sql)
+-- IS LEFT ON DISK, UNTOUCHED. Applied migrations are never edited or deleted —
+-- a deleted migration file makes `supabase db push` refuse and stops every
+-- deploy. A consequence worth knowing: the repo's schema parsers union every
+-- `CREATE TABLE` ever written and do NOT read `DROP TABLE`, so this table stays
+-- VISIBLE to the RA 10173 coverage guardrails. Both registries therefore keep
+-- an entry for it, rewritten to say it was dropped — see
+-- `lib/erasure/coverage-guardrail.test.ts` and
+-- `lib/export-coverage-guardrail.test.ts`. Removing those entries would fail
+-- the "every subject-bearing table is classified" gates, which is why they read
+-- as retirement notes rather than disappearing.
+--
+-- 🗑 ERASURE: the executable purge rule for this table is REMOVED from
+-- `OWN_ROW_DELETES` in `lib/erasure/coverage.ts` in the same change. That list
+-- is not documentation — `erasure/purge.ts` issues a real DELETE per entry, and
+-- against a dropped table PostgREST returns an error which `step()` records as
+-- an erasure AUDIT FAILURE rather than throwing. Left in place it would have
+-- stamped a permanent, meaningless failure on every RA 10173 erasure request
+-- forever.
+
+DROP TABLE IF EXISTS public.calendar_feed_tokens;

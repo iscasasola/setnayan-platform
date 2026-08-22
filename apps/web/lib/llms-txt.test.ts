@@ -61,10 +61,18 @@ const RETAIL: RetailRow[] = [
   { service_code: 'PATIKTOK_COMPILER', title: 'Patiktok', retail_price_php: 1500, is_active: true },
   { service_code: 'SEATING_3D', title: '3D Plan', retail_price_php: 1500, is_active: true },
   { service_code: 'SETNAYAN_AI', title: 'Setnayan AI', retail_price_php: 1499, is_active: true },
-  { service_code: 'PABATI', title: 'Pabati', retail_price_php: 1299, is_active: true },
+  // PABATI is FREE since 2026-08-21 (owner: "all features of papic will be free
+  // like kwento") — deactivated in prod by migration 20271156692904. Kept listed,
+  // inactive, so the change is legible rather than looking like a deletion.
+  { service_code: 'PABATI', title: 'Pabati', retail_price_php: 1299, is_active: false },
   { service_code: 'PAPIC_GUEST', title: 'Papic Pool — add 3,000 shots', retail_price_php: 1000, is_active: true },
   { service_code: 'ANIMATED_MONOGRAM', title: 'Animated Monogram', retail_price_php: 1000, is_active: true },
-  { service_code: 'KWENTO', title: 'Kwento', retail_price_php: 299, is_active: true },
+  // KWENTO is FREE since 2026-08-21 (owner: "kwento is free") — its row is
+  // deactivated in prod by migration 20271156242842, and this fixture is a
+  // second hand-typed copy of that catalog which CI reads instead of the
+  // database. Kept listed, inactive, so the change is legible here rather than
+  // looking like an accidental deletion — same convention as the rows below.
+  { service_code: 'KWENTO', title: 'Kwento', retail_price_php: 299, is_active: false },
   { service_code: 'PAPIC_ONE_100', title: 'Papic One — 100 shots', retail_price_php: 100, is_active: false },
   { service_code: 'PAPIC_CAMERA_MINI_DAY', title: 'Papic One — 50 shots', retail_price_php: 50, is_active: false },
   { service_code: 'CUSTOM_QR_GUEST', title: 'Custom QR per Guest', retail_price_php: 0, is_active: true },
@@ -171,14 +179,24 @@ test('every link in the rendered body resolves to an allow-listed route', () => 
 });
 
 test('a missing SKU refuses to render, and names EVERY missing code at once', () => {
+  /*
+    ⚠ THIS PAIR HAS NOW MOVED TWICE IN ONE DAY, AND THE REASON IS THE POINT.
+    It was KWENTO + PAKANTA; Kwento went free, so stripping it proved nothing —
+    the assertion would have quietly tested ONE code while claiming two. Swapped
+    to PABATI, which went free hours later, for exactly the same reason.
+
+    🔑 PICK CODES THAT ARE STILL REQUIRED, and check that when you touch this.
+    A vacuous assertion here does not fail; it just stops testing half of what
+    it says it tests.
+  */
   const stripped = RETAIL.filter(
-    (r) => r.service_code !== 'PAKANTA' && r.service_code !== 'KWENTO',
+    (r) => r.service_code !== 'PAKANTA' && r.service_code !== 'PATIKTOK_COMPILER',
   );
   assert.throws(
     () => renderLlmsTxt({ ...INPUT, retail: stripped }),
     (err: unknown) => {
       assert.ok(err instanceof MissingSkuError);
-      assert.deepEqual([...err.codes].sort(), ['KWENTO', 'PAKANTA']);
+      assert.deepEqual([...err.codes].sort(), ['PAKANTA', 'PATIKTOK_COMPILER']);
       return true;
     },
     'a catalog missing a named SKU must throw rather than emit a half-true file',
@@ -235,17 +253,23 @@ test('advertising a SKU that is off sale REFUSES to render', () => {
   // 🔑 THE MUTATION IS THE TEST. Flip a prose-named SKU to inactive and the
   // build must refuse rather than quietly keep selling it. If this ever passes
   // without throwing, the guard is decoration and the drift is back.
+  /*
+    ⚠ WAS PABATI UNTIL 2026-08-21. Pabati went FREE that day — its row is
+    deactivated on purpose and its prose line no longer quotes a price — so
+    flipping it here could no longer throw, and the assertion failed for the
+    right reason. It needs a SKU that is still BOTH prose-priced and on sale.
+  */
   const retired = {
     ...INPUT,
     retail: INPUT.retail.map((r) =>
-      r.service_code === 'PABATI' ? { ...r, is_active: false } : r,
+      r.service_code === 'ANIMATED_MONOGRAM' ? { ...r, is_active: false } : r,
     ),
   };
   assert.throws(
     () => renderLlmsTxt(retired),
     (err: unknown) => {
       assert.ok(err instanceof RetiredSkuError, `expected RetiredSkuError, got ${err}`);
-      assert.match((err as Error).message, /PABATI/);
+      assert.match((err as Error).message, /ANIMATED_MONOGRAM/);
       return true;
     },
     'A SKU named in the prose was taken off sale and llms.txt rendered anyway — ' +

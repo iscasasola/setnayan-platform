@@ -108,7 +108,7 @@ export function EventRailContext({
     header). Passing a client-effect value would buy nothing and would open a
     hydration split for a row that cannot render.
   */
-  const groups = applyRegistry(
+  const groupsWithHub = applyRegistry(
     buildCustomerNavGroups(eventId, {
       hideKeys,
       websiteEnabled,
@@ -119,6 +119,29 @@ export function EventRailContext({
     }),
     navSlots,
   );
+
+  /*
+    ─── THE SERVICES SHELF IS NOT LISTED TWICE ──────────────────────────────
+    Owner, 2026-08-21: the Studio group must stay in the rail inside an event.
+    It now sits a few rows below this one, headed "Studio", carrying the named
+    products and ending in an "All services" row that opens this exact page.
+
+    So this row — labelled "Studio" or "Suite" depending on the flag — would be
+    the same destination under a second name, directly above a heading using
+    the first. The shell's own Marketplace note records why that is forbidden:
+    the same word twice in one rail is two different places in the reader's
+    head, and here the two words are worse than one repeated.
+
+    🔒 THE BUILDER IS NOT TOUCHED, AND THAT IS DELIBERATE. It is the SSOT for
+    the phone's bottom bar too, and the phone carries NO Studio group — take
+    the row out there and a phone loses its only door to the shelf. This drops
+    it from the DESKTOP RAIL, where the group replaces it, and nowhere else.
+    `lib/customer-menu.test.ts` still pins 'studio' in the phone's keys.
+  */
+  const groups = groupsWithHub.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => i.key !== 'studio'),
+  }));
 
   /*
     Every row that can be the current page, declared ONCE and handed to the

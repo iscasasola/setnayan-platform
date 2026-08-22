@@ -43,3 +43,39 @@ outliving its page) for all eight products, not just this one.
 SPEC IMPACT: None on price or scope — Pakanta's SKU, price and delivery flow
 are untouched. This is discoverability: a product we already sell now has a
 public page and a row in the sidebar.
+
+## 2026-08-23 · the address protection was only half done — and the half that decides was missing
+
+⚠ **THE BULLET ABOVE OVERSTATED WHAT SHIPPED.** It says `lib/reserved-slugs.ts` means
+"no shop, wedding or person can claim `pakanta` as their permanent address." That file is
+**GENERATED from the route folders**, so it picked the new page up by itself — and that is
+exactly why it read as done. **The database half was never written**, and the database is
+the half that runs when a shop actually registers.
+
+**Measured in production before fixing it, by querying rather than assuming:**
+`business_slug_is_reserved('pakanta')` returned **NO**. No shop and no event holds the word
+today, so nothing is taken from anybody — but the auto-mint could have handed our own product
+page to a business called "Pakanta", **permanently**, because a shop address is immutable
+once minted. Same trap that nearly cost us `/creators` and `/open-shop` on 2026-08-11, and
+the reason `pay` was reserved on 2026-08-21.
+
+🔑 **A GENERATED LIST AND A HAND-WRITTEN ONE ARE NOT ONE MECHANISM.** The generated half
+updates itself and the authoritative half does not, so the surface that is easiest to check
+is the one that is always already correct. Ask which copy actually *decides*.
+
+🔑 **AND THIS WAS THE ONLY THING FAILING ON THIS CHANGE** — `typecheck + lint` was red on
+`vendor-business-slug-mint.db.test.ts` ("no NEW route word is left uncovered by the database
+mint"), not on anything about Pakanta's page. **A pull request reported as "blocked on
+conflicts" was blocked on a real defect.** Read the failing job before assuming the block is
+mechanical.
+
+Fixed in migration `20271158413546_pakanta_is_our_page_not_a_shops.sql`. The function body is
+reproduced from `pg_get_functiondef` **read out of production**, not from memory and not from
+the newest migration file — they were checked against each other rather than assumed equal,
+because `CREATE OR REPLACE` silently reverts any fix a reader forgot was in there.
+
+🛡 **Mutation-tested and MEASURED**, both directions: with the literal present (occurrences
+1) the suite is 15/15; deleting it (occurrences 1 → 0) turns test 7 RED at 14/1; restoring it
+from an explicit backup returns 15/15. An unmeasured mutation proves nothing either way.
+
+SPEC IMPACT: None — no price, SKU or scope change. One word added to the reserved list.

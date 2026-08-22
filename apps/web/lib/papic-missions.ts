@@ -114,16 +114,44 @@ export function sortGuestMissions(missions: readonly GuestMissionRow[]): GuestMi
 // second selector on a live path — the preview reads materialized board_slot rows.
 // ---------------------------------------------------------------------------
 
-export const BOARD_SIZE = 20;
-export const VENDOR_SLOTS = 5;
+/**
+ * HOW MANY CHALLENGES A GUEST IS GIVEN.
+ *
+ * Owner, 2026-08-21: *"we keep the 600+ challenges but the user only picks 10."*
+ * The LIBRARY is 631 and stays 631 — that is what the couple chooses FROM. This
+ * is what any one guest is handed on the night, and it went 20 → 10.
+ *
+ * 🔑 THE TWO NUMBERS ARE NOT THE SAME THING, AND CONFLATING THEM IS THE ERROR
+ * THIS COMMENT EXISTS TO PREVENT. A big library makes the picking good; a small
+ * board makes the doing good. Twenty asks reads as a chore list, spends twice as
+ * much of the shared shot pool per guest, and — now that answers become part of
+ * the couple's story — produces twice as much for somebody to sit through.
+ */
+export const BOARD_SIZE = 10;
+
+/**
+ * HOW MANY OF THOSE A SUPPLIER MAY HOLD.
+ *
+ * ⚠ DERIVED, NOT RE-CHOSEN. This was a flat 5 while the board was 20 — a
+ * quarter of it. Halving the board and leaving this at 5 would have silently
+ * sold HALF of every guest's challenges: a commercial change nobody made, and
+ * five booth missions out of ten is an advertisement with a party attached.
+ *
+ * `floor(BOARD_SIZE / 4)` reproduces the shipped 5 exactly at 20 and gives 2 at
+ * 10 — the same one-quarter share the board has always had. A proportion that
+ * was already agreed, not a new decision taken quietly while nobody looked.
+ * ⏭ If the owner wants a different share, this is the single line to change.
+ */
+export const VENDOR_SLOTS = Math.floor(BOARD_SIZE / 4);
 
 /**
  * THE COUPLE MAY TAKE THE WHOLE BOARD, MINUS WHATEVER IS ALREADY SOLD.
  *
  * Owner, 2026-08-21: *"the need to have a real screen to pick their challenges
- * UP TO 20 CHALLENGES."* This was a flat `COUPLE_SLOTS = 10`, so a couple who
- * chose twelve got ten and the other two had no board position and no
- * explanation on any screen.
+ * up to 20 challenges"* — then, the same day, *"we keep the 600+ challenges but
+ * the user only picks 10."* The ceiling is therefore the BOARD, whatever the
+ * board currently is, rather than any number typed here: it followed 20 down to
+ * 10 without this function changing at all, which is the point of deriving it.
  *
  * ⚠ IT IS A FUNCTION, NOT A CONSTANT, AND THE VENDOR COUNT COMES FIRST. A booth
  * mission is something a supplier PAID for. A flat 20 makes the Setnayan
@@ -132,8 +160,9 @@ export const VENDOR_SLOTS = 5;
  * a twentieth of their own, silently. Today this returns exactly 20, because
  * production holds zero sponsorships.
  *
- * Mirrors `LEAST(COUNT(*), 20 - v_vendor_used)` in `ensure_papic_board`
- * (migration 20271155952591). The SQL is authoritative; this is the preview.
+ * Mirrors `LEAST(COUNT(*), 10 - v_vendor_used)` in `ensure_papic_board`
+ * (migration 20271155952591, narrowed to 10 by the migration that follows it).
+ * The SQL is authoritative; this is the preview.
  */
 export function coupleSlots(vendorUsed: number): number {
   return Math.max(0, BOARD_SIZE - Math.min(vendorUsed, VENDOR_SLOTS));

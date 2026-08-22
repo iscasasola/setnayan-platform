@@ -233,12 +233,12 @@ function readEvents(v: readonly string[] | null | undefined): string[] | null {
 
 const SHIPPED: PoolRow[] = [
   ...block(1, 'couple_family', { kind: 'photo', events: WEDDING }, [
-    { slug: 'steal-a-dance', title: 'Steal a Dance', prompt: 'Sneak onto the floor and dance with the bride or groom. Now. Go.', kind: 'clip', rank: 1 },
+    { slug: 'steal-a-dance', title: 'Steal a Dance', prompt: 'Sneak onto the floor and dance with the bride or groom. Now. Go.', rank: 1, kind: 'clip' },
     { slug: 'kiss-cam', title: 'Kiss Cam', prompt: 'Catch the newlyweds mid-kiss.', rank: 4 },
     { slug: 'twin-the-couple', title: 'Twin the Couple', prompt: 'Recreate their signature pose. Full commitment.' },
-    { slug: 'blessing-cam', title: 'Blessing Cam', prompt: 'Five seconds to camera: your wish for them.', kind: 'clip', rank: 7 },
-    { slug: 'pabati', title: 'Pabati', prompt: 'Leave the newlyweds a video greeting.', kind: 'pabati', mission: 'video_greeting', rank: 3 },
-    { slug: 'parents-hug', title: "Parents' Hug", prompt: "A photo with one of the couple's parents.", rank: 9 },
+    { slug: 'blessing-cam', title: 'Blessing Cam', prompt: 'Five seconds to camera: your wish for them.', rank: 3, kind: 'clip' },
+    { slug: 'pabati', title: 'Pabati', prompt: 'Leave the newlyweds a video greeting.', kind: 'pabati', mission: 'video_greeting' },
+    { slug: 'parents-hug', title: "Parents' Hug", prompt: "A photo with one of the couple's parents.", rank: 10 },
     { slug: 'entourage-selfie', title: 'Entourage Selfie', prompt: 'Grab a shot with a bridesmaid or groomsman.' },
   ]),
   ...block(8, 'food_drinks', { kind: 'photo', events: WEDDING }, [
@@ -251,16 +251,16 @@ const SHIPPED: PoolRow[] = [
     { slug: 'food-trip', title: 'Food Trip', prompt: 'Snap the best-looking plate of the night.' },
   ]),
   ...block(15, 'band_dance', { kind: 'clip', events: WEDDING }, [
-    { slug: 'tunnel-run', title: 'Tunnel Run', prompt: 'Dance your way through the grand entrance or send-off tunnel.', rank: 5 },
+    { slug: 'tunnel-run', title: 'Tunnel Run', prompt: 'Dance your way through the grand entrance or send-off tunnel.' },
     { slug: 'bust-a-move', title: 'Bust a Move', prompt: 'Your best move, on the floor, no warning.' },
     { slug: 'dance-off', title: 'Dance-Off', prompt: 'Challenge someone to a 10-second dance battle.', mission: 'toast_or_dance' },
-    { slug: 'group-boogie', title: 'Group Boogie', prompt: 'Get 5+ people dancing in one frame.', kind: 'photo', rank: 8 },
+    { slug: 'group-boogie', title: 'Group Boogie', prompt: 'Get 5+ people dancing in one frame.', rank: 7, kind: 'photo' },
     { slug: 'request-a-song', title: 'Request a Song', prompt: 'Shout your request at the band or DJ.' },
     { slug: 'serenade', title: 'Serenade', prompt: "Sing one line of the couple's song. Ten seconds." },
     { slug: 'conga-line', title: 'Conga Line', prompt: 'Start one. Do not stop.' },
   ]),
   ...block(22, 'decor_booth', { kind: 'photo', events: WEDDING }, [
-    { slug: 'photo-booth-run', title: 'Photo Booth Run', prompt: 'Hit the photo booth or photo wall and grab a shot.', rank: 10 },
+    { slug: 'photo-booth-run', title: 'Photo Booth Run', prompt: 'Hit the photo booth or photo wall and grab a shot.', rank: 8 },
     { slug: 'backdrop-star', title: 'Backdrop Star', prompt: 'Pose at the main backdrop or arch.' },
     { slug: 'bloom-check', title: 'Bloom Check', prompt: 'Find the prettiest florals in the room.' },
     { slug: 'under-the-lights', title: 'Under the Lights', prompt: 'Catch the LED wall, fairy lights, or dance-floor glow.', kind: 'clip' },
@@ -282,15 +282,15 @@ const SHIPPED: PoolRow[] = [
   ]),
   ...block(37, 'big_moments', { kind: 'clip', events: WEDDING }, [
     { slug: 'bouquet-catch', title: 'Bouquet / Garter Catch', prompt: 'Catch the toss (or the scramble for it).' },
-    { slug: 'confetti-moment', title: 'Confetti Moment', prompt: 'The petal, bubble, sparkler, or confetti toss.', rank: 6 },
+    { slug: 'confetti-moment', title: 'Confetti Moment', prompt: 'The petal, bubble, sparkler, or confetti toss.' },
     { slug: 'guestbook-signing', title: 'Guestbook Signing', prompt: 'A photo leaving your message at the signing station.', kind: 'photo' },
-    { slug: 'grand-finale', title: 'Grand Finale', prompt: 'The send-off or the last dance.', rank: 2 },
+    { slug: 'grand-finale', title: 'Grand Finale', prompt: 'The send-off or the last dance.', rank: 5 },
   ]),
   ...block(41, 'stories', { kind: 'clip', events: WEDDING }, [
-    { slug: 'story-most-memorable', title: 'Most Memorable', prompt: 'Share a story about your most memorable experience with {who}. Ten seconds.', rank: 11 },
-    { slug: 'story-first-met', title: 'The First Time', prompt: 'Share a story about the first time you met {who}. Ten seconds.', rank: 12 },
-    { slug: 'story-crucial-part', title: 'When It Mattered', prompt: 'Share a story of an experience where {who} played a crucial part in your life. Ten seconds.', rank: 13 },
-    { slug: 'story-always-remember', title: 'Always Remember', prompt: 'Share a story of how you will always remember {who}. Ten seconds.', rank: 14 },
+    { slug: 'story-most-memorable', title: 'Most Memorable', prompt: 'Share a story about your most memorable experience with {who}. Ten seconds.', rank: 2 },
+    { slug: 'story-first-met', title: 'The First Time', prompt: 'Share a story about the first time you met {who}. Ten seconds.', rank: 9 },
+    { slug: 'story-crucial-part', title: 'When It Mattered', prompt: 'Share a story of an experience where {who} played a crucial part in your life. Ten seconds.' },
+    { slug: 'story-always-remember', title: 'Always Remember', prompt: 'Share a story of how you will always remember {who}. Ten seconds.' },
     { slug: 'story-brag', title: 'Brag For Them', prompt: 'Brag about {who} for ten seconds. Go.' },
     { slug: 'story-three-words', title: 'Three Words', prompt: 'Describe {who} in three words, then explain one. Ten seconds.' },
     { slug: 'story-best-at', title: 'The Best At', prompt: 'What is {who} the absolute best at? Ten seconds to say it.' },
@@ -301,8 +301,8 @@ const SHIPPED: PoolRow[] = [
     { slug: 'story-proud', title: 'Proud Of Them', prompt: 'What are you most proud of {who} for? Ten seconds.' },
   ]),
   ...block(53, 'stories_couple', { kind: 'clip', events: WEDDING }, [
-    { slug: 'story-knew-it', title: 'When You Knew', prompt: 'When did you know these two were it? Ten seconds.', rank: 15 },
-    { slug: 'story-together', title: 'Better Together', prompt: 'Your favourite thing about the two of them together. Ten seconds.', rank: 16 },
+    { slug: 'story-knew-it', title: 'When You Knew', prompt: 'When did you know these two were it? Ten seconds.', rank: 6 },
+    { slug: 'story-together', title: 'Better Together', prompt: 'Your favourite thing about the two of them together. Ten seconds.' },
     { slug: 'story-advice', title: 'Advice For The Years', prompt: 'Ten seconds of advice for the years ahead. Serious or not.' },
     { slug: 'story-different', title: 'Different Together', prompt: 'How are they different when they are with each other? Ten seconds.' },
     { slug: 'story-ten-years', title: 'Ten Years From Now', prompt: 'Where will these two be in ten years? Ten seconds to call it.' },
@@ -321,7 +321,7 @@ const SHIPPED: PoolRow[] = [
 // still start playing. Universal by construction — nothing here names a wedding.
 
 const SELFIE: PoolRow[] = block('selfie', 'selfie', { kind: 'photo' }, [
-  { title: 'You Made It', prompt: 'First selfie of the night. Prove you arrived.' },
+  { title: 'You Made It', prompt: 'First selfie of the night. Prove you arrived.', rank: 15 },
   { title: 'At The Door', prompt: 'Selfie at the door, before you even sit down.' },
   { title: 'Best Light In The Room', prompt: 'Find the best light here and take one selfie in it.' },
   { title: 'Golden Hour', prompt: 'A selfie in the warmest light you can find.' },
@@ -455,7 +455,7 @@ const ANYWHERE: PoolRow[] = block('anywhere', 'anywhere', { kind: 'photo' }, [
 // celebrant' a singular one, so no row lets it start a clause.
 
 const GREETING: PoolRow[] = block('greeting', 'greeting', { kind: 'clip', mission: 'video_greeting' }, [
-  { title: 'A Message For Them', prompt: 'Ten seconds to camera: your message for {host}.' },
+  { title: 'A Message For Them', prompt: 'Ten seconds to camera: your message for {host}.', rank: 11 },
   { title: 'Congratulations', prompt: 'Say congratulations to {host} properly. Ten seconds.' },
   { title: 'Thank You', prompt: 'Ten seconds: thank {host} for having you here.' },
   { title: 'One Wish', prompt: 'One wish for {host}, said out loud. Ten seconds.' },
@@ -570,9 +570,9 @@ const STORIES_SIDE: PoolRow[] = block(400, 'stories', { kind: 'clip', events: WE
 ]);
 
 const STORIES_ANY: PoolRow[] = block(450, 'stories', { kind: 'clip' }, [
-  { title: 'How You Know Them', prompt: 'Ten seconds: how you know {host}, and how long it has been.' },
+  { title: 'How You Know Them', prompt: 'Ten seconds: how you know {host}, and how long it has been.', rank: 12 },
   { title: 'First Memory', prompt: 'Your first memory of {host}. Ten seconds.' },
-  { title: 'Best Memory', prompt: 'Your best memory with {host}. Ten seconds.' },
+  { title: 'Best Memory', prompt: 'Your best memory with {host}. Ten seconds.', rank: 20 },
   { title: 'The Story You Always Tell', prompt: 'The story about {host} you tell other people. Ten seconds. Keep it kind.' },
   { title: 'What They Are Great At', prompt: 'Ten seconds: name one thing nobody does better than {host}.' },
   { title: 'What People Get Wrong', prompt: 'What people get wrong about {host}. Ten seconds to set it straight.' },
@@ -680,7 +680,7 @@ const STORIES_COUPLE: PoolRow[] = block('stories_couple', 'stories_couple', { ki
 // celebrant" produces one queue and no photos.
 
 const COUPLE_FAMILY: PoolRow[] = block('couple_family', 'couple_family', { kind: 'photo' }, [
-  { title: 'One With The Host', prompt: 'Get a photo with {host}. However long you have to wait.' },
+  { title: 'One With The Host', prompt: 'Get a photo with {host}. However long you have to wait.', rank: 13 },
   { title: 'Across The Room', prompt: 'Photograph {host} from wherever you are. No interrupting.' },
   { title: 'Caught Laughing', prompt: 'Catch {host} mid-laugh.' },
   { title: 'The Arrival', prompt: 'Photograph the moment {host} walks in.' },
@@ -745,7 +745,7 @@ const COUPLE_FAMILY: PoolRow[] = block('couple_family', 'couple_family', { kind:
 // to one person.
 
 const MEET_ROOM: PoolRow[] = block('meet_room', 'meet_room', { kind: 'photo', mission: 'roster' }, [
-  { title: 'Someone New', prompt: 'Introduce yourself to somebody you have never met. Photo together.' },
+  { title: 'Someone New', prompt: 'Introduce yourself to somebody you have never met. Photo together.', rank: 14 },
   { title: 'Furthest Travelled', prompt: 'Find the guest who came the furthest. Photo with them.' },
   { title: 'Same First Name', prompt: 'Find somebody with your first name. Proof required.' },
   { title: 'Same Birthday Month', prompt: 'Find a guest born in your birth month. One photo.' },
@@ -812,7 +812,7 @@ const MEET_ROOM: PoolRow[] = block('meet_room', 'meet_room', { kind: 'photo', mi
 // made by somebody's tita.
 
 const FASHION: PoolRow[] = block('fashion_candids', 'fashion_candids', { kind: 'photo' }, [
-  { title: 'The Fit', prompt: 'Full length. Show what you wore today.' },
+  { title: 'The Fit', prompt: 'Full length. Show what you wore today.', rank: 16 },
   { title: 'Shoe Game', prompt: 'Photograph your shoes. Then somebody else’s.' },
   { title: 'The Detail You Chose', prompt: 'One close-up of the part of your outfit you are proudest of.' },
   { title: 'Earrings, Watch, Ring', prompt: 'Photograph whatever you put on last before you left the house.' },
@@ -863,7 +863,7 @@ const FASHION: PoolRow[] = block('fashion_candids', 'fashion_candids', { kind: '
 // FOOD_DRINKS — the table. Universal: everybody feeds people.
 // ═══════════════════════════════════════════════════════════════════════════
 const FOOD: PoolRow[] = block('food_drinks', 'food_drinks', { kind: 'photo' }, [
-  { title: 'First Plate', prompt: 'Photograph your first plate before you touch it.' },
+  { title: 'First Plate', prompt: 'Photograph your first plate before you touch it.', rank: 17 },
   { title: 'Second Plate', prompt: 'Now photograph the second one. No judgement.' },
   { title: 'The Best Thing On The Table', prompt: 'The single best thing served tonight. One photo.' },
   { title: 'The Rice', prompt: 'There is always rice. Photograph it.' },
@@ -916,7 +916,7 @@ const FOOD: PoolRow[] = block('food_drinks', 'food_drinks', { kind: 'photo' }, [
 // consent path. Written to be flattering by default.
 const DECOR: PoolRow[] = block('decor_booth', 'decor_booth', { kind: 'photo' }, [
   { title: 'The Entrance', prompt: 'Photograph the way in, before the crowd arrives.' },
-  { title: 'The Backdrop', prompt: 'Pose at the main backdrop, arch, or stage.' },
+  { title: 'The Backdrop', prompt: 'Pose at the main backdrop, arch, or stage.', rank: 18 },
   { title: 'Your Centrepiece', prompt: 'Photograph your table’s centrepiece properly.' },
   { title: 'A Different Table', prompt: 'Photograph somebody else’s centrepiece. They are never identical.' },
   { title: 'The Flowers', prompt: 'Find the best flowers in the building.' },
@@ -961,7 +961,7 @@ const DECOR: PoolRow[] = block('decor_booth', 'decor_booth', { kind: 'photo' }, 
 // BAND_DANCE — noise, movement, the floor.
 // ═══════════════════════════════════════════════════════════════════════════
 const DANCE: PoolRow[] = block('band_dance', 'band_dance', { kind: 'clip' }, [
-  { title: 'First On The Floor', prompt: 'Ten seconds of whoever dances first. Heroes.' },
+  { title: 'First On The Floor', prompt: 'Ten seconds of whoever dances first. Heroes.', rank: 19 },
   { title: 'Your Move', prompt: 'Your single best move. Ten seconds.' },
   { title: 'Teach Somebody', prompt: 'Teach one person a step. Film ten seconds of it.', mission: 'roster' },
   { title: 'Learn Something', prompt: 'Get somebody to teach YOU a step. Ten seconds.', mission: 'roster' },

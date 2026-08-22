@@ -24,6 +24,7 @@ import {
   resolveSectionOrder,
   customColumnId,
   shippedSections,
+  type ChallengeAnswer,
   type EditorialData,
   type EditorialOrderKey,
 } from './data';
@@ -459,6 +460,20 @@ export async function EditorialContent({
                     best wishes, captured on the day
                   </p>
                   <KwentoWall quotes={data.kwentoQuotes} names={data.firstNames} />
+                </div>
+              ) : null,
+            // "What We Asked" — Papic Challenge answers (owner 2026-08-21:
+            // challenge answers "have their own column"). The loader applies
+            // four fail-closed consent gates; by the time a row is here it has
+            // been agreed to. [] hides the section entirely.
+            challengeAnswers:
+              isOn('challengeAnswers') && data.challengeAnswers.length ? (
+                <div key="challengeAnswers">
+                  <SectionRule title="What We Asked" />
+                  <p className="-mt-4 mb-4 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+                    the questions, and what they did about them
+                  </p>
+                  <ChallengeAnswerColumn answers={data.challengeAnswers} />
                 </div>
               ) : null,
             // Letters to the Editor — approved Guest Columns (BUILD ①,
@@ -1469,6 +1484,66 @@ function GuestColumnsWall({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * "WHAT WE ASKED" — the challenge column.
+ *
+ * A newspaper column, not a gallery: the QUESTION is the thing a reader follows,
+ * and the answer sits under it. Rendering these as bare tiles would lose the
+ * only thing that makes them different from every other photo on the page —
+ * somebody was asked something, and this is what they did.
+ *
+ * ⚠ CLIPS DO NOT AUTOPLAY WITH SOUND. A story column that starts talking at
+ * whoever opens the page — often at work, often in a room with other people —
+ * is the kind of surprise that gets a tab closed. `controls`, `preload="none"`,
+ * and the poster as the resting state.
+ */
+function ChallengeAnswerColumn({ answers }: { answers: ChallengeAnswer[] }) {
+  return (
+    <ul className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
+      {answers.map((a, i) => (
+        <li
+          // No stable id crosses the loader boundary — the prompt plus its
+          // position is unique enough for a static list and leaks no capture id.
+          key={`${i}-${a.prompt}`}
+          className="overflow-hidden rounded-2xl border border-ink/10 bg-surface"
+        >
+          <p className="px-4 pt-4 font-mono text-xs uppercase tracking-[0.14em] text-ink/45">
+            we asked
+          </p>
+          <p className="px-4 pb-3 pt-1 text-sm font-medium text-ink">{a.prompt}</p>
+          {a.mediaType === 'clip' ? (
+            <video
+              src={a.url}
+              poster={a.posterUrl ?? undefined}
+              controls
+              playsInline
+              preload="none"
+              className="aspect-[4/5] w-full bg-ink/5 object-cover"
+            />
+          ) : (
+            /* A presigned R2 URL EXPIRES, so next/image would cache a dead
+               transform and bill a transformation on every render — the cost
+               shape flagged 2026-08-08. Plain <img> is deliberate here.
+               ⚠ The disable must sit on the line IMMEDIATELY before the JSX:
+               a three-line comment pushed it out of range and the rule warned
+               anyway, which is a suppression nobody can evaluate. */
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={a.url}
+              alt={`A guest's answer to: ${a.prompt}`}
+              loading="lazy"
+              className="aspect-[4/5] w-full bg-ink/5 object-cover"
+            />
+          )}
+          {a.byline ? (
+            <p className="px-4 py-3 text-xs text-ink/60">&mdash; {a.byline}</p>
+          ) : null}
+        </li>
+      ))}
+    </ul>
   );
 }
 

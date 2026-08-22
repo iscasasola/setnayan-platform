@@ -192,7 +192,7 @@ export async function CoupleChallengesManager({
 
   // A rejected read resolves with `{ error }` and null data — it never throws.
   // `?? []` alone would render "No challenges yet", which is a confident lie
-  // about an event that may have twenty.
+  // about an event that may have a full board.
   const missions = (data ?? []) as MissionRow[];
   const missionsReadable = !missionsErr;
 
@@ -291,7 +291,7 @@ export async function CoupleChallengesManager({
           Little photo missions for your guests. Pick up to {ceiling}.
         </p>
         {/* ⚠ A FAILED READ SAYS SO. `missions.length === 0` on an unreadable
-            list would print "none chosen yet" at a couple who may have twenty —
+            list would print "none chosen yet" at a couple who may have a full board —
             the confident lie this screen was rebuilt to stop telling. */}
         {!missionsReadable ? (
           <p className="mt-3 rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">
@@ -329,7 +329,7 @@ export async function CoupleChallengesManager({
 
       {/* ⚠ THE NUMBER IS THE POINT OF THIS SCREEN, SO IT LEADS.
           Until 2026-08-21 the couple's own lane was capped at TEN while the
-          board showed twenty: a couple who picked twelve got ten, and the two
+          board showed more: a couple who picked twelve got ten, and the two
           that did not fit had no board position and no explanation anywhere.
           Now the ceiling is stated, counted down, and enforced at the Add
           button — a limit somebody can see is a rule; a limit that silently

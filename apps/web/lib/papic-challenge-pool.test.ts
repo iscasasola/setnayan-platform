@@ -18,8 +18,6 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 
 import {
   CHALLENGE_POOL,
@@ -29,7 +27,7 @@ import {
   ID_BLOCKS,
 } from './papic-challenge-pool';
 import { CATEGORY_LABELS, CATEGORY_ORDER } from './papic-challenge-categories';
-import { emitChallengeSeedSql, CHALLENGE_SEED_MIGRATION } from './papic-challenge-sql';
+import { emitChallengeSeedSql } from './papic-challenge-sql';
 
 // ── The owner's number ─────────────────────────────────────────────────────
 
@@ -93,16 +91,57 @@ test('priority_rank is unique and inside 1..20 — a rank is a board POSITION', 
   }
 });
 
-test('the 571 new rows are all above library_id 99 and none is ranked', () => {
-  // 🔒 THIS IS WHAT KEEPS EVERY EXISTING WEDDING BOARD WHERE IT IS. The Setnayan
-  // lane backfills `ORDER BY priority_rank NULLS LAST, library_id`, so as long
-  // as new rows are unranked and numbered above the shipped sixty, the shipped
-  // sixty win every slot they won yesterday. Rank a new row and a couple who
-  // curated their board last week silently gets a different one.
+test('the new rows all sit above library_id 99, and only the any-event ten are ranked', () => {
+  // ⚠ THE SECOND HALF OF THIS ASSERTION WAS "none is ranked", AND IT EXPIRED THE
+  // SAME DAY. It was right while the board was 20 and every rank was a wedding
+  // row: new rows had to stay unranked or a couple mid-planning would silently
+  // get a different board. Then the owner moved the board to 10, and ranks 1-10
+  // — all wedding-scoped — meant a birthday got NO ranked row at all and fell
+  // back to whatever had the lowest ids: ten selfies in a row.
+  //
+  // 🔑 RANKS 11-20 COST NO NEW MECHANISM. A wedding takes 1-10 and never reaches
+  // them. A birthday filters every wedding row out, so 11-20 become its LOWEST
+  // SURVIVING ranks and the existing ORDER BY places them first. One ordering,
+  // two audiences.
   for (const row of CHALLENGE_POOL) {
     if (row.libraryId <= 60) continue;
     assert.ok(row.libraryId >= 100, `${row.slug} sits in the shipped id range`);
-    assert.equal(row.priorityRank, null, `${row.slug} is ranked; that moves live boards`);
+    if (row.priorityRank !== null) {
+      assert.ok(
+        row.priorityRank >= 11,
+        `${row.slug} holds rank ${row.priorityRank} — ranks 1-10 belong to the wedding ten`,
+      );
+      assert.equal(row.eventTypes, null, `${row.slug} is ranked for ANY event but is scoped`);
+    }
+  }
+});
+
+test('a wedding and a birthday each get a full, curated ten', () => {
+  // 🔒 THE GUARD THAT WOULD HAVE CAUGHT THE EMPTY COLUMN. Halving the board
+  // without re-ranking placed zero stories and zero greetings by default, which
+  // would have left the couple's story column permanently empty — the failure
+  // the re-rank exists to prevent, asserted rather than remembered.
+  const forWedding = CHALLENGE_POOL
+    .filter((r) => r.priorityRank !== null && fitsEventType(r, 'wedding'))
+    .sort((a, b) => a.priorityRank! - b.priorityRank!)
+    .slice(0, 10);
+  const forBirthday = CHALLENGE_POOL
+    .filter((r) => r.priorityRank !== null && fitsEventType(r, 'birthday'))
+    .sort((a, b) => a.priorityRank! - b.priorityRank!)
+    .slice(0, 10);
+
+  for (const [type, board] of [['wedding', forWedding], ['birthday', forBirthday]] as const) {
+    assert.equal(board.length, 10, `${type} has no full ranked ten`);
+    const speaking = board.filter(
+      (r) => r.category === 'stories' || r.category === 'stories_couple' || r.category === 'greeting',
+    ).length;
+    assert.ok(
+      speaking >= 2,
+      `${type}'s default ten has ${speaking} challenges anybody SPEAKS into — the story ` +
+        `column is fed by those, and a board without them leaves it empty`,
+    );
+    const doing = board.length - speaking;
+    assert.ok(doing >= 4, `${type}'s default ten is ${doing} doing-challenges; it reads as an interview`);
   }
 });
 
@@ -298,31 +337,37 @@ test('the seven shapes the owner named each have real depth', () => {
 
 // ── The migration and this file cannot drift ───────────────────────────────
 
-test('the migration that seeds the library still matches this pool', () => {
-  // 🔑 A GUARD COMPARING TWO HAND-TYPED THINGS IS NOT A GUARD. `llms.txt`
-  // drifted for three weeks with green CI doing exactly that. Six hundred rows
-  // cannot be kept in step with a hand-written seed by care alone, so the
-  // migration is GENERATED from this array and this test re-generates it with
-  // THE SAME FUNCTION and compares. They can only agree.
+test('the pool module is the only place challenges are authored', () => {
+  // ⚠ THIS USED TO RE-GENERATE THE SEED MIGRATION AND COMPARE IT, AND THAT
+  // PREMISE EXPIRED WITHIN A DAY.
   //
-  // ⚠ IT LIVED AS ITS OWN ci.yml STEP FIRST AND COULD NOT RUN — `tsx` is a
-  // devDependency of `apps/web`, not of the repo root. All three ci.yml edits
-  // were correct; the runtime was not there. A guard that cannot execute is
-  // worse than no guard.
-  // ⚠ AND ITS FIRST HOME HERE BROKE TYPECHECK: importing the untyped `.mjs`
-  // script from TypeScript is TS7016. The generator moved into
-  // `papic-challenge-sql.ts` for that reason — which is also the better shape,
-  // because this test now calls the function the migration was built with
-  // rather than a parallel implementation of it.
+  // The seed migration is a SNAPSHOT of the pool at one moment, and it is
+  // APPLIED IN PRODUCTION — so it can never be edited again. The moment a later
+  // migration changed anything (the re-rank for a board of ten did, hours after
+  // it shipped), the pool legitimately stopped matching that one file and the
+  // guard failed for being right about the wrong question.
+  //
+  // 🔑 THE INVARIANT THAT ACTUALLY MATTERS IS THE END STATE: after every
+  // migration replays, does the database hold exactly what this module declares?
+  // `tests/db/five-hundred-challenges.db.test.ts` asserts precisely that, field
+  // by field including `priority_rank`, against a real replayed database. It is
+  // strictly stronger — it covers rows written by ANY migration, not one — and
+  // it still catches the case this was built for: editing the pool and shipping
+  // no migration at all.
+  //
+  // What survives here is the cheap half: the generator must still be able to
+  // render the pool, so a row that cannot be expressed as SQL fails in
+  // milliseconds rather than in the replay.
   const { sql, count } = emitChallengeSeedSql();
-  const migration = readFileSync(
-    fileURLToPath(new URL(`../../../${CHALLENGE_SEED_MIGRATION}`, import.meta.url)),
-    'utf8',
-  );
   assert.equal(count, CHALLENGE_POOL.length);
+  assert.ok(sql.includes('INSERT INTO public.papic_challenge_library'));
   assert.ok(
-    migration.includes(sql.trim()),
-    'the migration no longer matches the pool. Regenerate it:\n' +
-      '  node --import tsx scripts/emit-papic-challenge-pool.mjs',
+    sql.includes('ON CONFLICT (library_id) DO UPDATE'),
+    'the seed must be an UPSERT — sixty of these rows are already in production',
   );
+  for (const row of CHALLENGE_POOL) {
+    // A quote in a prompt that is not doubled would end the literal early and
+    // turn the rest of the sentence into SQL.
+    assert.ok(sql.includes(row.prompt.replace(/'/g, "''")), `${row.slug} is not in the generated SQL`);
+  }
 });

@@ -10,6 +10,7 @@ import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { appendLedger } from '@/lib/ledger';
+import { payPath } from '@/lib/pay-path';
 import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
 import {
   COMMITTED_BOOKING_STATUSES,
@@ -55,8 +56,6 @@ import {
 export type PhotoChallengeActionState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
-  /** Apply-then-pay order created — pay by reference, activates on admin approval. */
-  | { status: 'ordered'; referenceCode: string; amountPhp: number; message: string }
   /** Granted at ₱0 under "free until your 6th booking" — live immediately. */
   | { status: 'activated'; message: string };
 
@@ -361,10 +360,18 @@ export async function sponsorPhotoChallenge(
   }
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  return {
-    status: 'ordered',
-    referenceCode,
-    amountPhp: pricePhp,
-    message: `Order started. Pay ₱${pricePhp.toLocaleString('en-PH')} with reference ${referenceCode} — Papic Challenges unlocks once our team confirms your payment (within 24 hours).`,
-  };
+
+  // ── THE BUYER GOES WHERE THEY CAN ACTUALLY PAY ─────────────────────────
+  // Owner, 2026-08-21: "this can apply to all purchasable buttons." This path
+  // was missed by the conversion and kept the panel every other buy button
+  // shed: it printed the amount and the reference and told the vendor to "pay
+  // to our BDO or GCash account" — WITHOUT NAMING EITHER ACCOUNT, with no QR
+  // carrying the amount, and with nowhere to send the screenshot. A person
+  // reading it had been charged ₱400 and could not pay it.
+  //
+  // 🔑 IT WAS MISSED BECAUSE THE GUARD'S LIST IS HAND-WRITTEN. This file mints
+  // an order exactly like the seven in PAID_PATHS and was not among them, so
+  // the check that exists to catch precisely this passed. The guard now derives
+  // its list from the mint instead of trusting the list.
+  redirect(payPath(referenceCode));
 }

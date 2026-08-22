@@ -28,7 +28,6 @@ import { bookingFeeErrorCopy,
   isFeeOrderPayable,
   VENDOR_BOOKING_FEES_PATH,
 } from '@/lib/vendor-booking-fees';
-import { logBookingFeePayment } from '../actions';
 
 export const metadata = { title: 'Booking fee · Vendor' };
 

@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { payPath } from '@/lib/pay-path';
+import { notifyAdminsPaymentProofSubmitted } from '@/lib/order-admin-notify';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
@@ -539,6 +540,30 @@ export async function submitPapicGuestPayment(formData: FormData) {
     ),
   );
   if (payErr) back('payment_failed');
+
+  // ── SOMEBODY IS TOLD THAT MONEY MOVED ──────────────────────────────────
+  // 🔑 "The moment money moves must notify somebody" — the rule
+  // `you-are-told-when-you-are-paid.test.ts` was written to enforce, quoted
+  // from its own docblock. It enforced it on the couple's `logPayment` and on
+  // the payment page, and this settle path was never named, so a guest could
+  // upload a bank screenshot for a real Papic order and NOBODY was told.
+  //
+  // ⚠ `revalidatePath('/admin/payments')` below is NOT this. That is the very
+  // thing the guard calls insufficient: "the only trace was a queue somebody
+  // had to already be looking at." The daily digest is the safety net UNDER
+  // the alert, not a substitute — it fires next morning, and for "your
+  // customer has paid" tomorrow is the wrong answer.
+  //
+  // Best-effort by construction: the notify helper swallows its own failures,
+  // so a notification outage can never lose a payment that is already stored.
+  // ⚠ Before the redirect, which THROWS to unwind the request — anything after
+  // it is dead code.
+  await notifyAdminsPaymentProofSubmitted({
+    orderId: String(guestOrder!.order_id),
+    eventId: '',
+    amountPhp,
+    channel,
+  });
 
   revalidatePath('/admin/payments');
   redirect(`/papic/order/${encodeURIComponent(token)}?logged=1`);

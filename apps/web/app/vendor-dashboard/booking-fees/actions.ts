@@ -7,6 +7,7 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { paymentRowFor } from '@/lib/order-mint-identity';
 import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
+import { notifyAdminsPaymentProofSubmitted } from '@/lib/order-admin-notify';
 import {
   isVendorBookingFeeServiceKey,
   requireBookingFeeReference,
@@ -173,6 +174,26 @@ export async function logBookingFeePayment(formData: FormData) {
     });
     throw new Error(error.message);
   }
+
+  // ── SOMEBODY IS TOLD THAT MONEY MOVED ──────────────────────────────────
+  // "The moment money moves must notify somebody" — the rule
+  // `you-are-told-when-you-are-paid.test.ts` enforces. This path took a bank
+  // reference and a screenshot, wrote a `payments` row, and told nobody: the
+  // only trace was `revalidatePath` on a queue, which that guard's own docblock
+  // calls insufficient.
+  //
+  // ⚠ NOT on the 23505 idempotent-retry branch above — that is one payment
+  // submitted twice, and a second alert for one payment trains the reader to
+  // ignore the alert.
+  //
+  // ⚠ Before the redirect, which THROWS to unwind the request; anything after
+  // it is dead code.
+  await notifyAdminsPaymentProofSubmitted({
+    orderId,
+    eventId: '',
+    amountPhp: Math.round(amount * 100) / 100,
+    channel: trimmedChannel,
+  });
 
   revalidatePath(vendorBookingFeePayPath(orderId));
   redirect(`${vendorBookingFeePayPath(orderId)}?logged=1`);

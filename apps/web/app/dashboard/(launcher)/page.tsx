@@ -1303,6 +1303,7 @@ export default async function LauncherPage({
                   key={event.event_id}
                   event={event}
                   align={i % 2 === 0 ? 'left' : 'right'}
+                  finished
                 >
                   <MobileEventChip
                     event={event}
@@ -1319,7 +1320,7 @@ export default async function LauncherPage({
                 "Celebrated". */}
             <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {unwritten.map((event, i) => (
-                <BoardCardWithMenu key={event.event_id} event={event}>
+                <BoardCardWithMenu key={event.event_id} event={event} finished>
                   <GlassEventCard
                     event={event}
                     pct={progressByEvent.get(event.event_id) ?? null}
@@ -1400,6 +1401,7 @@ export default async function LauncherPage({
               key={event.event_id}
               event={event}
               align={i % 2 === 0 ? 'left' : 'right'}
+              finished
             >
               <MobileEventChip
                 event={event}
@@ -1414,7 +1416,7 @@ export default async function LauncherPage({
         </div>
         <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {written.map((event, i) => (
-            <BoardCardWithMenu key={event.event_id} event={event}>
+            <BoardCardWithMenu key={event.event_id} event={event} finished>
               <GlassEventCard
                 event={event}
                 pct={progressByEvent.get(event.event_id) ?? null}
@@ -2302,6 +2304,15 @@ function BoardCardWithMenu({
   event,
   tone = 'light',
   align = 'right',
+  /**
+   * TRUE on the Untold + Told shelves — mirrors the `finished` prop already
+   * passed to the card underneath (`GlassEventCard` / `MobileEventChip`) on
+   * those two shelves only. Owner 2026-08-22, asked directly: *"shouldn't now
+   * happening and planning be the only ones to have this add to calendar?"*
+   * A day that has already passed is not something to add to a phone
+   * calendar, so `EventCardMenu` drops that row entirely when this is true.
+   */
+  finished = false,
   children,
 }: {
   event: EventWithRole;
@@ -2310,6 +2321,7 @@ function BoardCardWithMenu({
    *  The two-up phone chips MUST alternate or the left column's menu renders
    *  partly off the left of the screen, where it cannot be scrolled to. */
   align?: 'left' | 'right';
+  finished?: boolean;
   children: ReactNode;
 }) {
   if (event.member_type !== 'couple') return <>{children}</>;
@@ -2323,6 +2335,7 @@ function BoardCardWithMenu({
         eventDateIso={event.event_date}
         venueName={event.venue_name}
         venueAddress={event.venue_address}
+        finished={finished}
         tone={tone}
         align={align}
       />

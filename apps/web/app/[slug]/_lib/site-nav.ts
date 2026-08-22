@@ -223,6 +223,14 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
           },
     );
   } else if (!isVendor) {
+    // ⚠ THE HOST'S SWITCH IS THE GATE — owner ruling, pinned by
+    // site-nav.test.ts ("for everyone else the HOST'S SWITCH is the gate").
+    // An earlier cut of this fix ALSO required a guest session here, which
+    // reads as the obvious repair for the camera dead-end and quietly repeals
+    // that ruling. The dead end was never the gate: it was the DESTINATION,
+    // whose only way out left the event entirely. Fixed there instead — the
+    // camera link now carries the event so the refusal can send them back to
+    // the invitation rather than to Setnayan's homepage.
     slots.push(
       hostAllowsCamera && dest.camera
         ? { key: 'camera', label: 'Camera', state: 'live', href: dest.camera }

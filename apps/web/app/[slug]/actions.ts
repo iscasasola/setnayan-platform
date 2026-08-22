@@ -8,6 +8,8 @@ import { deletePublicAsset } from '@/lib/storage';
 import { r2Delete } from '@/lib/r2';
 import { parseStoredAsset } from '@/lib/uploads';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { guestListIsClosed } from '@/lib/guest-list-closed';
+import { guestDetailsChanged } from './_lib/guest-details-changed';
 import { createClient } from '@/lib/supabase/server';
 import { VECTOR_MODEL } from '@/lib/face-embed-core';
 import {
@@ -116,26 +118,121 @@ export async function submitRsvp(
   // `notes` from the form and wrote it straight back, so every RSVP erased what
   // the couple had written about that person.
   const guestNote = clean(formData.get('guest_note')) || null;
+  // The guest's OWN contact details. Named `contact_*` on the form so nothing
+  // here can ever collide with the sign-in-link box elsewhere on this page,
+  // which posts `email` to a completely different action.
+  const contactEmail = clean(formData.get('contact_email')) || null;
+  const contactMobile = clean(formData.get('contact_mobile')) || null;
+  const contactName = clean(formData.get('contact_display_name')) || null;
 
-  if (!RSVP_VALUES.includes(status)) {
-    return;
-  }
   if (meal && !MEAL_VALUES.includes(meal)) {
     return;
   }
 
   const admin = createAdminClient();
+
+  // ── ONLY THE ANSWER FREEZES ───────────────────────────────────────────────
+  // Owner, 2026-08-20: the invitation link exists so guests "update their
+  // info", so the host can "see who will go and not go", and so guests can
+  // preview the event hub. Once the guest list is final only the MIDDLE one is
+  // settled. The other two are the reason the link exists at all.
+  //
+  // 🔑 THIS FORM IS NOT A HEADCOUNT. It carries five things and only one is
+  // the count: the answer · the selfie that makes their photos findable ·
+  // their meal · their dietary notes · a note to the host. The list finalizes
+  // about two weeks out — exactly when "nut allergy" matters most. So a closed
+  // list drops the ANSWER from this write and saves everything else.
+  //
+  // 🔑 AND THE DATABASE WILL NOT DRAW THIS LINE FOR US.
+  // `guard_guest_edits_when_locked` draws it correctly — it blocks only
+  // count-affecting writes and lets meal / photo / seating through by design —
+  // but its first branch exempts `auth.role() = 'service_role'`, and this
+  // action writes with the ADMIN client. Its own header names "the guest
+  // self-RSVP portal" as a path it covers; that is the one path it cannot fire
+  // on. Until that is reconciled at the database, this IS the enforcement.
+  const { data: evRsvp } = await admin
+    .from('events')
+    .select('slug, event_date, guest_list_edit_deadline, guest_count_locked_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const replyLocked = guestListIsClosed({
+    lockedAt: evRsvp?.guest_count_locked_at,
+    editDeadline: evRsvp?.guest_list_edit_deadline,
+    eventDate: evRsvp?.event_date,
+  });
+
+  // A locked reply renders NO rsvp_status control, so an ordinary save posts
+  // nothing here — and the old `!RSVP_VALUES.includes(status) → return` would
+  // then drop the guest's meal and allergy on the floor IN SILENCE. The status
+  // check therefore only guards the path that actually writes a status.
+  if (!replyLocked && !RSVP_VALUES.includes(status)) {
+    return;
+  }
+
+  // Did somebody POST a DIFFERENT answer into a closed list — a tab that was
+  // open when the deadline passed, or a crafted request? Then say so. A submit
+  // that quietly ignores half of what was sent is indistinguishable from one
+  // that worked.
+  //
+  // ⚠ It must be a real CHANGE. A stale tab still carries the guest's own
+  // answer pre-checked, so it reposts it unchanged on an ordinary details save
+  // — telling that guest "your reply was refused" would be alarming and false.
+  // The stored values BEFORE this write — the only way to tell a real change
+  // from an idle Save. Every field on the reply card is `defaultValue=`, so a
+  // guest who opens the card and taps Save reposts their own answer, meal,
+  // allergy and note byte-for-byte.
+  // ⚠ A READ, deliberately — never a write. The guard in
+  // only-the-answer-freezes.test.ts locates the answer-freezing statement by
+  // finding the first writing call after the closed-list check, so a write here
+  // would silently retarget it onto the wrong one.
+  // 🪤 And this comment may not SPELL that call: naming it here is enough for
+  // the guard to find the comment instead of the code, which is how an earlier
+  // draft of this very note turned the guard red.
+  const { data: before } = await admin
+    .from('guests')
+    .select('rsvp_status, rsvp_responded_at, meal_preference, dietary_restrictions, guest_note, email, mobile, display_name')
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  let answerRefused = false;
+  if (replyLocked && RSVP_VALUES.includes(status)) {
+    answerRefused = Boolean(before) && before!.rsvp_status !== status;
+  }
+
   const { error } = await admin
     .from('guests')
     .update({
-      rsvp_status: status,
+      // The count is frozen: the stored answer is left exactly as it is.
+      ...(replyLocked
+        ? {}
+        : {
+            rsvp_status: status,
+            // 🔴 ONLY A CHANGED ANSWER MOVES THE DATE. Every field on this card
+            // is `defaultValue=`, so a guest correcting their phone number
+            // reposts the answer they already gave — and this used to restamp
+            // it as though they had just replied. The host's twin of this bug
+            // was fixed the same day; this is the guest-side one.
+            // An unchanged answer keeps its own date, INCLUDING null: stamping
+            // an untouched answer invents one.
+            // ⚖ A failed `before` read stamps, deliberately — a stale date is
+            // wrong, a deleted date is gone.
+            rsvp_responded_at:
+              status === 'attending' || status === 'declined'
+                ? before?.rsvp_status === status
+                  ? ((before?.rsvp_responded_at as string | null) ?? null)
+                  : new Date().toISOString()
+                : null,
+          }),
       meal_preference: meal,
       dietary_restrictions: dietary,
       guest_note: guestNote,
-      rsvp_responded_at:
-        status === 'attending' || status === 'declined'
-          ? new Date().toISOString()
-          : null,
+      // ⚠ OUTSIDE the frozen branch on purpose. Only the ANSWER freezes: a
+      // phone number corrected the week of the event is worth more then than
+      // at any other time.
+      email: contactEmail,
+      mobile: contactMobile,
+      display_name: contactName,
       updated_at: new Date().toISOString(),
     })
     .eq('guest_id', guestId)
@@ -177,7 +274,11 @@ export async function submitRsvp(
   // NON-declined reply (declined is handled DB-side by free_seat_on_decline).
   // Admin client — the guest session has no RLS write on event_seat_assignments.
   // Best-effort; no-op if autoplace is off or they're already seated.
-  if (status !== 'declined') {
+  // ⚠ On a locked save `status` is EMPTY (no control is rendered), and `'' !==
+  // 'declined'` is TRUE — so this would run a seat reconcile on every details
+  // edit for a finalized event. Harmless but pointless work; the answer, and
+  // therefore the seating question, cannot have changed.
+  if (!replyLocked && status !== 'declined') {
     await applyReconcileForEvent(admin, eventId);
   }
 
@@ -328,10 +429,37 @@ export async function submitRsvp(
     .eq('event_id', eventId)
     .maybeSingle();
 
-  // Notify couple-side members that an RSVP came in. emitNotification handles
-  // both the in-app row + the Resend email (when configured). Failures here
-  // never roll back the RSVP — best-effort.
-  if (status === 'attending' || status === 'declined') {
+  // TELL THE COUPLE WHAT MOVED ON THIS GUEST'S CARD — the answer, or the
+  // details only they can act on. emitNotification handles the in-app row and
+  // the email; failures here never roll back the RSVP.
+  //
+  // 🔴 UNTIL 2026-08-21 THIS FIRED ONLY ON `attending` / `declined`, and that
+  // omitted far more than "maybe". Once the guest list is final the answer
+  // control is not rendered AT ALL, so `status` arrives EMPTY — a guest typing
+  // "severe nut allergy" twelve days out reached nobody, in the exact fortnight
+  // a caterer needs it. The action already knew the control was gone; every
+  // other branch was taught to cope and this one was never revisited.
+  //
+  // 🔑 AND IT FIRES ON THE CHANGE, NEVER ON THE WRITE. The update above runs on
+  // every submit and `updated_at` always moves, while every field on the card
+  // is `defaultValue=` — so neither is a change signal. Only the comparison is.
+  //
+  // ⚠ DELIBERATE REMOVAL: reposting an unchanged `attending` used to notify the
+  // couple again. It is now silent. That is the point.
+  const changed = guestDetailsChanged(before, {
+    meal,
+    dietary,
+    guestNote,
+    email: contactEmail,
+    mobile: contactMobile,
+    displayName: contactName,
+  });
+  // Only a change that was actually STORED counts. When the list is locked the
+  // answer is not written at all, so a stale tab posting a different one must
+  // never be reported to the host as a reply that moved.
+  const answerChanged = !replyLocked && before?.rsvp_status !== status;
+
+  if (answerChanged || changed.length > 0) {
     try {
       const { data: guest } = await admin
         .from('guests')
@@ -342,21 +470,77 @@ export async function submitRsvp(
         (guest?.display_name ?? '').trim() ||
         `${guest?.first_name ?? ''} ${guest?.last_name ?? ''}`.trim() ||
         'A guest';
-      const statusLabel = status === 'attending' ? 'attending' : 'not attending';
+      // 🪤 'maybe' can reach here now. It never could before, so the old label
+      // mapped everything-not-attending to "not attending" — which would report
+      // an UNDECIDED guest to the couple as a NO.
+      const statusLabel =
+        status === 'attending'
+          ? 'attending'
+          : status === 'declined'
+            ? 'not attending'
+            : 'undecided';
+      const title = answerChanged
+        ? `${guestName} RSVP'd: ${statusLabel}`
+        : `${guestName} updated their details`;
+      const parts: string[] = [];
+      // ⚠ EVERY MEMBER OF `changed` MUST PRODUCE A SENTENCE, or the couple gets
+      // a heading with nothing under it. Clearing a meal (beef → no preference)
+      // used to yield changed=['meal'] and parts=[] — an email whose entire
+      // content was "Ana updated their details", from a change the couple can
+      // only discover by opening the app. Same missing set/clear branch the
+      // dietary line below always had, on a third field.
+      if (changed.includes('meal')) {
+        parts.push(
+          meal !== 'no_preference'
+            ? `Meal preference: ${meal}.`
+            : 'They cleared their meal preference.',
+        );
+      }
+      // 🔒 THE DIETARY VALUE IS NAMED, NEVER QUOTED. The compliance record
+      // classes dietary notes as data that may reveal health or religious
+      // belief; the deep link keeps the words inside the app rather than in an
+      // inbox.
+      if (changed.includes('dietary')) {
+        parts.push(dietary ? 'Their dietary notes changed.' : 'They cleared their dietary notes.');
+      }
+      // ⚠ The note branch must answer the SAME question the dietary branch above
+      // already answers: set or CLEARED. It said "They left you a note" either
+      // way, so deleting a note sent the couple to open a note that is not
+      // there — a trip made for nothing, and the second time it teaches them to
+      // ignore the notification.
+      if (changed.includes('note')) {
+        parts.push(guestNote ? 'They left you a note.' : 'They removed their note.');
+      }
+      // The three the guest could never give until 2026-08-21. Each says WHICH
+      // detail moved and never the value: a phone number and an email address
+      // in an inbox are contact data leaving the app, and the deep link keeps
+      // them inside it — the same line already drawn on dietary notes.
+      if (changed.includes('email')) {
+        parts.push(contactEmail ? 'They added their email.' : 'They removed their email.');
+      }
+      if (changed.includes('mobile')) {
+        parts.push(contactMobile ? 'They added their mobile number.' : 'They removed their mobile number.');
+      }
+      if (changed.includes('name')) {
+        parts.push(contactName ? 'They told you what to call them.' : 'They cleared what to call them.');
+      }
+
       const { data: coupleMembers } = await admin
         .from('event_members')
         .select('user_id')
         .eq('event_id', eventId)
         .eq('member_type', 'couple');
+      // ⚠ Two rows can carry the same user_id. Without this the couple gets the
+      // same allergy twice.
+      const seen = new Set<string>();
       for (const m of coupleMembers ?? []) {
+        if (!m.user_id || seen.has(m.user_id as string)) continue;
+        seen.add(m.user_id as string);
         await emitNotification({
           userId: m.user_id,
           type: 'rsvp_received',
-          title: `${guestName} RSVP'd: ${statusLabel}`,
-          body:
-            status === 'attending' && meal && meal !== 'no_preference'
-              ? `Meal preference: ${meal}.`
-              : null,
+          title,
+          body: parts.length ? parts.join(' ') : null,
           relatedUrl: `/dashboard/${eventId}/guests/${guestId}`,
         });
       }
@@ -366,7 +550,11 @@ export async function submitRsvp(
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
-  redirect(ev?.slug ? `/${ev.slug}?rsvp=ok` : '/');
+  // `details` = their information was saved and their answer was left alone
+  // (the list is final). `refused` additionally says an attempted CHANGE of
+  // answer did not take — the one outcome a guest would otherwise never learn.
+  const outcome = answerRefused ? 'refused' : replyLocked ? 'details' : 'ok';
+  redirect(ev?.slug ? `/${ev.slug}?rsvp=${outcome}` : '/');
 }
 
 /**

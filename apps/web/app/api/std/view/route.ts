@@ -57,7 +57,10 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: event } = await admin
     .from('events')
-    .select('event_id, event_date, event_type')
+    // `timezone` + `event_end_date`: the phase gate below decides whether a
+    // page view counts as a Save-the-Date view, and it was answering from the
+    // server's UTC clock rather than the venue's.
+    .select('event_id, event_date, event_end_date, event_type, timezone')
     .ilike('slug', slug)
     .maybeSingle();
 
@@ -67,7 +70,14 @@ export async function POST(req: Request) {
   // non-wedding page never counts — byte-identical to the old `!== 'wedding'`.)
   if (!event) return ok;
   if (!surfaceEnabled(await resolveProfile(event.event_type), 'save_the_date')) return ok;
-  if (getLifecyclePhase(event.event_date) !== 'save_the_date') return ok;
+  if (
+    getLifecyclePhase(
+      event.event_date,
+      (event as { timezone?: string | null }).timezone ?? undefined,
+      (event as { event_end_date?: string | null }).event_end_date ?? null,
+    ) !== 'save_the_date'
+  )
+    return ok;
 
   // Exclude the couple's / coordinators' OWN visits. The beacon carries the
   // viewer's cookies, so a signed-in HOST (event_members couple/coordinator or

@@ -3178,9 +3178,21 @@ html.hr-snap {
 }
 
 /* In-card links (Forgot password · Create one, free) follow the same threshold
-   so the panel has ONE action colour rather than two. */
+   so the panel has ONE action colour rather than two.
+
+   ⚠ #B04722, NOT #C24E25 — AND THIS IS NOT TUNING THE LOCKED COLOUR. Measured
+   on this card's own greige (#f2f2f0, not the cream the palette lock is quoted
+   against): #C24E25 is 4.25:1, BELOW the 4.5:1 AA floor for normal text. The
+   locked action colour is untouched where it ACTS — the button fill (white on
+   it is 4.76:1) and the 3px top edge (4.25:1, which clears the 3:1 non-text
+   bar). Only small TEXT moves, to the shade already sanctioned three rules
+   above as this same button's hover: #B04722, measuring 4.97:1.
+
+   🔑 SAME RULE THE GOLD ALREADY HAS — decorative #A9834B, text #8A6B39. A brand
+   colour that carries an action does not automatically survive as body text on
+   a darker surface, and greige is darker than cream. */
 .home-reskin-ov .sn-signin-terra .hr-si-link {
-  color: #c24e25;
+  color: #b04722;
 }
 
 /* "Stay signed in" — the tick is an action too. */
@@ -3188,7 +3200,9 @@ html.hr-snap {
   accent-color: #c24e25;
 }
 
-/* The eyebrow reads as the doorway label rather than more body copy. */
+/* The eyebrow reads as the doorway label rather than more body copy.
+   10.5px is normal text by WCAG (large starts at 18.66px bold / 24px), so it
+   takes the 4.5:1 floor and the same #B04722 as the links — see above. */
 .home-reskin-ov .sn-signin-terra .hr-ov-eyebrow {
-  color: #c24e25;
+  color: #b04722;
 }

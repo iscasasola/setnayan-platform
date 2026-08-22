@@ -45,6 +45,43 @@ const LIVE_WINDOW_START_MS = 12 * HOUR_MS; // T - 12h  (noon the day before)
 const LIVE_WINDOW_END_MS = 36 * HOUR_MS; // T + 36h (noon the day after)
 const POST_WINDOW_END_MS = 60 * HOUR_MS; // T + 60h (a further 24h to look back)
 
+/*
+  ─── WHEN IS IT OVER? 06:00 ON THE DAY AFTER THE LAST DAY ─────────────────
+
+  🚨 THE PRODUCT ALREADY HAD AN ANSWER AND THIS FILE DID NOT USE IT.
+  `lib/event-board.ts` → `isFinishedEvent` has always said an event is finished
+  when **its last day is before today in Manila** (`lastDay < todayISO`), and
+  three surfaces read it: the My Events board's "Finished" shelf, the chapter
+  participation check, and the Studio app's event picker. Meanwhile THIS module
+  said an event was still "day-of" until **T+60h** — two and a half days.
+
+  So on 2026-08-21 the owner's events board filed his Movie Night (2026-08-20)
+  under **Finished**, and the dashboard he reached by clicking that very card
+  greeted him with **"EVENT DAY SOON · Prepare for event day"**. Two answers to
+  one question, one click apart. Owner: *"movie night event is already done…
+  why can i still plan and build and create guest list as if it hasn't ended"*
+  and then *"nothing changed. i can still invite. prepare for event day, etc"*.
+
+  ⏰ **THE SIX HOURS ARE THE ONLY THING THIS ADDS, AND THEY ARE DELIBERATE.**
+  The board flips at midnight. A Filipino reception routinely runs past it, and
+  a couple whose after-party is still going at 2am must not lose the live desk,
+  the photo wall and check-in because the calendar rolled over. So the dashboard
+  holds day-of through the night and lets go at **06:00 the next morning** — by
+  which hour the party is over on any reading. The two definitions therefore
+  agree at every hour a person is realistically looking, and disagree only
+  between midnight and dawn, ON PURPOSE. `a-finished-event-reads-as-finished`
+  pins that relationship in both directions so neither can be "fixed" alone.
+
+  ⚠ **AND THE OLD T+60h RULE WAS REMOVED, NOT KEPT ALONGSIDE.** It is not merely
+  redundant — for a MULTI-DAY celebration it was wrong: `event_date + 60h` lands
+  in the middle of day three, so a five-day festival would have declared itself
+  finished while it was still running. The rule below anchors on the LAST day
+  (`event_end_date` where the type allows a range, else `event_date`) — the same
+  value `isFinishedEvent` reads, and the same one the full-res retention floor
+  reads. One answer to "when did this end", not three.
+*/
+const MORNING_AFTER_MS = 6 * HOUR_MS; // 06:00, i.e. the night is over
+
 export type DayOfPhase = 'pre' | 'live' | 'post' | 'inactive';
 
 /**
@@ -199,15 +236,88 @@ export function getMenuLifecyclePhase(
   clearedAt: string | Date | null | undefined,
   tz?: string,
   nowMs?: number,
+  /** The event's LAST day, for a celebration that spans several
+   *  (`events.event_end_date`). Omitted/null ⇒ `eventDate` is the last day,
+   *  which is every event in production today. Threaded so the "it is over"
+   *  rule anchors on the same value `isFinishedEvent` and the full-res
+   *  retention floor already anchor on. */
+  eventEndDate?: string | Date | null,
 ): MenuLifecyclePhase {
   if (clearedAt) return 'after';
   if (!eventDate) return 'plan';
   const eventMs = eventDateToEpoch(eventDate, tz);
   if (!Number.isFinite(eventMs)) return 'plan';
+
+  /*
+    IT IS OVER once the venue's clock reaches 06:00 on the day after the last
+    day — see MORNING_AFTER_MS above for why six and not zero, and for why the
+    old T+60h rule was deleted rather than kept beside this one.
+
+    ⚠ THE NEXT MIDNIGHT IS COMPUTED AS A CALENDAR DAY, NOT AS "+24h".
+    Adding a fixed 24h across a DST boundary lands an hour either side of
+    midnight. Asia/Manila has no DST, so this is invisible in production today
+    — which is exactly the kind of latent arithmetic this repo has been bitten
+    by before. `eventDateToEpoch` already knows how to anchor a calendar day in
+    a zone; it is asked for the NEXT day rather than told to add a number.
+  */
+  const firstDay = normalizeCalendarDay(eventDate);
+  const lastDay = normalizeCalendarDay(eventEndDate) ?? firstDay;
+  const morningAfterMs = lastDay
+    ? eventDateToEpoch(nextCalendarDay(lastDay), tz) + MORNING_AFTER_MS
+    : NaN;
+  const now = nowMs ?? Date.now();
+  if (Number.isFinite(morningAfterMs) && now >= morningAfterMs) return 'after';
+
   if (isEventDayActive(eventDate, tz, nowMs)) return 'dayof';
-  // Past the day-of window with no explicit close-out → auto-clear to After.
-  if ((nowMs ?? Date.now()) > eventMs + POST_WINDOW_END_MS) return 'after';
+
+  /*
+    THE MIDDLE DAYS OF A CELEBRATION THAT SPANS SEVERAL.
+
+    `isEventDayActive` only ever sees the FIRST day, so on day three of a
+    five-day festival it answers "no" — and before this branch existed the
+    phase fell through to **'plan'**, telling a family in the middle of their
+    own celebration to go and plan it. (Latent: prod holds no ranged event
+    today, which is precisely why it went unnoticed.)
+
+    🔒 STILL DELEGATED — this adds no second copy of the window arithmetic.
+    The only comparison is "has the first day begun", and the far edge is the
+    SAME `morningAfterMs` the over-check above uses. The reason the rest of
+    this function refuses to re-derive the bounds is that the bottom nav once
+    swapped into day-of mode while the surface it pointed at disagreed by 36
+    hours; a lone `now >= eventMs` cannot reproduce that.
+  */
+  if (lastDay && lastDay !== firstDay && now >= eventMs && now < morningAfterMs) {
+    return 'dayof';
+  }
+
   return 'plan';
+}
+
+/** `YYYY-MM-DD`, or null when the value is not a plain calendar day we can
+ *  step forward from (a full timestamp, a Date, an empty string, junk). */
+function normalizeCalendarDay(value: string | Date | null | undefined): string | null {
+  if (!value) return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    // A Date carries an instant, and collapsing one to a calendar day needs a
+    // zone we were not given here. Callers pass the DB's `YYYY-MM-DD` string;
+    // a Date is the legacy shape, so fall back to its UTC day rather than
+    // guessing the venue's.
+    return value.toISOString().slice(0, 10);
+  }
+  return /^\d{4}-\d{2}-\d{2}$/.test(value.slice(0, 10)) ? value.slice(0, 10) : null;
+}
+
+/** The calendar day after `iso` (`YYYY-MM-DD` → `YYYY-MM-DD`), month and year
+ *  rollovers and leap days included, via UTC arithmetic on the DATE PARTS —
+ *  no zone is involved, because a calendar day has no zone until
+ *  `eventDateToEpoch` anchors it in one. */
+function nextCalendarDay(iso: string): string {
+  const parts = iso.split('-').map(Number);
+  const y = parts[0] ?? 0;
+  const m = parts[1] ?? 1;
+  const d = parts[2] ?? 1;
+  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
 }
 
 /**

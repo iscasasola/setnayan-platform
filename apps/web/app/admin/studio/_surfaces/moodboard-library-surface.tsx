@@ -87,9 +87,6 @@ export async function MoodboardLibrarySurface() {
     <div>
       <PageMasthead
         title="Moodboard Library"
-        back="/admin"
-        backLabel="Back to admin overview"
-        className="mb-6"
       />
 
       <LibraryEditor initialAssets={assets} />

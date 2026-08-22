@@ -246,9 +246,6 @@ export default async function LifeFlashPage({
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="Life-Flash"
-        back="/dashboard"
-        backLabel="Back to events"
-        className="mb-6"
       />
 
       {!loadError && !empty ? (

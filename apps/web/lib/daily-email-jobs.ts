@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
+import { runConnectionRequestExpiry } from '@/lib/connection-request-expiry';
 import {
   buildAnniversaryEmail,
   buildAnniversaryHeadsupEmail,
@@ -153,7 +154,11 @@ export async function runAnniversaryHeadsup(): Promise<{ scanned: number; sent: 
       const { subject, text, html } = buildAnniversaryHeadsupEmail({
         coupleName: (c.couple_name ?? '').trim() || (c.display_name ?? '').trim(),
         eventName: (c.display_name ?? '').trim(),
-        ctaHref: `${APP_URL}/dashboard/year`,
+        // The year page is retired into the board's "Worth planning" shelf
+        // (owner 2026-08-21). Pointing at the shelf directly rather than at the
+        // redirect: an email lives for years, and a link that survives one hop
+        // today is a link that 404s the day somebody deletes the redirect.
+        ctaHref: `${APP_URL}/dashboard#worth-planning`,
         weeksAway: HEADSUP_WEEKS,
       });
 
@@ -605,6 +610,16 @@ export async function runDailyEmailJobs(): Promise<void> {
   }
   try {
     if (await claimPeriodicJob('papic-fullres-drop-warning', DAILY_GAP_MS)) await runPapicDropWarning();
+  } catch {
+    /* best-effort */
+  }
+  // Not an email job — a RETENTION job, riding the same traffic-driven runner
+  // because this codebase has no cron. It keeps the sentence `/privacy` prints
+  // about unanswered and declined connection requests; before it existed,
+  // nothing deleted them and the promise was live and unbacked.
+  try {
+    if (await claimPeriodicJob('connection-request-expiry', DAILY_GAP_MS))
+      await runConnectionRequestExpiry();
   } catch {
     /* best-effort */
   }

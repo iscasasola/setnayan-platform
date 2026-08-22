@@ -77,6 +77,12 @@ import { SettleTiles } from '@/app/papic/_papic-motion';
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
 const PAGE_TITLE = 'Papic — Guest Photo Gallery for Weddings · Setnayan';
+/** The document title ONLY. `metadata.title` is rendered through the root
+ *  layout's `template: '%s · Setnayan'`, so a PAGE_TITLE that already ends in
+ *  the brand came out as "… · Setnayan · Setnayan" on 11 live pages. The share
+ *  cards and the structured-data name do NOT go through that template and are
+ *  correct WITH the brand — which is why this strips it here and nowhere else. */
+const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 /*
  * 🔑 THE DESCRIPTION IS NOT AUTHORED HERE ANY MORE — it is read from
  * `lib/studio-apps.ts`, the ONE place the seven Studio products are
@@ -102,7 +108,7 @@ const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 */
 
 export const metadata = {
-  title: PAGE_TITLE,
+  title: DOC_TITLE,
   description: PAGE_DESCRIPTION,
   alternates: { canonical: '/papic' },
   keywords: [
@@ -405,10 +411,10 @@ export default async function PapicLandingPage() {
     <DoorwayPage
       demo={studioApp('papic')?.demo}
       title="Every guest goes home with their own photos."
-      lede="Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each guest gets their own gallery — plus a personal video reel. The candids your photographer can’t be everywhere for, delivered to everyone."
       primary={{ href: '/onboarding/wedding?from=papic', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Papic"
+      studioKey="papic"
       // Step 02 · "Every photo finds its people" keeps the signature tile-settle.
       steps={STEPS.map((s, i) => (i === 1 ? { ...s, figure: <SettleTiles /> } : s))}
       differentiator={{

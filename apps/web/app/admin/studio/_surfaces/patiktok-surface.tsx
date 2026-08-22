@@ -186,11 +186,9 @@ export async function PatiktokSurface() {
   return (
     <section className="space-y-6">
       <PageMasthead
-        back="/admin/pricing"
-        backLabel="Back to pricing"
         titleNode={
-          <span className="inline-flex items-center gap-2">
-            <Clapperboard aria-hidden className="h-6 w-6" strokeWidth={1.75} />
+          <span>
+            <Clapperboard aria-hidden strokeWidth={1.75} />
             Patiktok renders
           </span>
         }

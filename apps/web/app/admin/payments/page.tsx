@@ -27,6 +27,8 @@ import {
 } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { getEffectiveVatRatePct } from '@/lib/platform-settings';
+import { computeVatFromBase } from '@/lib/receipts';
 import { isSameDayInManila } from '@/lib/papic-buy-urgency';
 import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Payments · Admin' };
@@ -126,6 +128,12 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
 
   const admin = createAdminClient();
 
+  // The rate the platform ACTUALLY charges — 0 today, because Setnayan is not
+  // VAT-registered. Read here so the quote card can never re-invent a 12% of
+  // its own; falls back to 0 on a failed read, which is both the legally safe
+  // answer for a non-VAT taxpayer and the honest one.
+  const vatRatePct = await getEffectiveVatRatePct(admin);
+
   // Global subscription expiry sweep (Task #23 — pilot blocker). Admin
   // payments is the safety net: any per-scope sweep miss on couple/vendor
   // dashboards gets caught here. Fire-and-forget — never blocks the queue
@@ -196,8 +204,6 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
       <PageMasthead
         title="Payments & reconciliation"
-        lede="Couples log payments after they transfer. Match each one against the order’s reference code. Submitted orders without a confirmed total need a quote before couples can pay."
-        className="mb-6"
       />
 
       {notice ? (
@@ -237,7 +243,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
       ) : null}
 
       {filter === 'orders_needing_quote' ? (
-        <OrdersNeedingQuote orders={unquotedOrders} />
+        <OrdersNeedingQuote orders={unquotedOrders} vatRatePct={vatRatePct} />
       ) : (
         <PaymentsList
           payments={payments}
@@ -291,7 +297,35 @@ function PlatformChip({
   );
 }
 
-function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
+/**
+ * 🚨 THIS SCREEN TOLD THE OPERATOR THE BUYER OWED 12% MORE THAN THEY DO.
+ *
+ * It printed `requested_total_php * 1.12` as "buyer pays … incl. 12% VAT" and
+ * labelled its input "Buyer pays base × 1.12 incl. VAT". Setnayan is NOT
+ * VAT-registered (sole prop, 8% flat; VAT only at the ₱3M tripwire) and the
+ * configured rate is 0, so on a ₱499 order it displayed ₱559.
+ *
+ * ⚖ THE MONEY WAS NEVER WRONG — ONLY THE SCREEN. Everything that decides what
+ * is actually owed already reads the configured rate. But the operator types
+ * the "Note to couple" from THIS card, so a number that is ₱60 too high is one
+ * copy-paste away from being quoted to a real customer and chased for.
+ *
+ * Owner ruling 2026-08-20: *"just stay with 499. remove the 12% let's keep it
+ * simple and effective for everybody."* So: one number, and no sentence about a
+ * tax nobody charges.
+ *
+ * 🔑 DERIVED, NOT DELETED. The rate comes from settings rather than being
+ * hardcoded to zero — the day the ₱3M threshold is crossed the owner sets one
+ * number and these lines return by themselves, with the right figure.
+ */
+function OrdersNeedingQuote({
+  orders,
+  vatRatePct,
+}: {
+  orders: OrderJoined[];
+  vatRatePct: number;
+}) {
+  const vatApplies = vatRatePct > 0;
   if (orders.length === 0) {
     return (
       <div className="rounded-card border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-[color:var(--sn-ink-400)]">
@@ -323,11 +357,17 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
             {o.description}
           </p>
           <p className="text-xs text-ink/55">
-            Requested (pre-VAT):{' '}
+            {vatApplies ? 'Requested (pre-VAT): ' : 'Buyer pays: '}
             <span className="font-mono">{formatPhp(o.requested_total_php)}</span>
-            {' · '}buyer pays{' '}
-            <span className="font-mono">{formatPhp(Number(o.requested_total_php) * 1.12)}</span>{' '}
-            incl. 12% VAT
+            {vatApplies ? (
+              <>
+                {' · '}buyer pays{' '}
+                <span className="font-mono">
+                  {formatPhp(computeVatFromBase(Number(o.requested_total_php), vatRatePct).gross)}
+                </span>{' '}
+                incl. {vatRatePct}% VAT
+              </>
+            ) : null}
           </p>
           <form
             action={confirmOrderTotal}
@@ -336,7 +376,7 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
             <input type="hidden" name="order_id" value={o.order_id} />
             <label className="space-y-1 sm:col-span-1">
               <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                Confirmed pre-VAT total (PHP)
+                {vatApplies ? 'Confirmed pre-VAT total (PHP)' : 'Confirmed total (PHP)'}
               </span>
               <input
                 name="confirmed_total_php"
@@ -348,7 +388,9 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
                 className="input-field h-9 py-0 text-sm"
               />
               <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-                Buyer pays base &times; 1.12 incl. VAT
+                {vatApplies
+                  ? `Buyer pays this plus ${vatRatePct}% VAT`
+                  : 'This is exactly what the buyer pays'}
               </span>
             </label>
             <label className="space-y-1 sm:col-span-2">

@@ -20,11 +20,14 @@ import {
   MapPin,
   Baby,
   Mail,
+  CalendarClock,
 } from 'lucide-react';
+import { YearMomentsStrip } from './_components/year-moments-strip';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, type EventWithRole } from '@/lib/events';
 import {
+  canWriteStoryFor,
   daysUntilEventDay,
   eventBoardHref,
   eventStance,
@@ -32,6 +35,11 @@ import {
   manilaTodayISO,
   mergeBoardMemberships,
   splitEventBoard,
+  splitPlanningShelves,
+  boardFinished,
+  findDateClashes,
+  type DateClash,
+  splitFinishedByStory,
   stanceLabel,
   type EventStance,
 } from '@/lib/event-board';
@@ -61,20 +69,10 @@ import { EventMonogram } from '@/app/_components/event-monogram';
 import { ShopLogo } from './_components/shop-logo';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
 import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
-import { YearMomentsStrip } from './_components/year-moments-strip';
-import { personLifeStoriesEnabled } from '@/lib/person-life-stories';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
-import { getMyLifeStory } from '../(account)/people/life-stories';
-import {
-  LifeStorySection,
-  type LifeStoryGroup,
-} from '../(account)/_components/life-story-section';
 import { CountUp } from '@/app/_components/count-up';
-import { AlaalaTile, AlaalaTileSkeleton } from './_components/alaala-tile';
-import { AlaalaWall, AlaalaWallSkeleton } from './_components/alaala-wall';
-import { CreatorBenefits } from './_components/creator-benefits';
-import { HomeBoard, buildHomeBoardTiles } from './_components/home-board';
 import { HomePillNav } from './_components/home-pill-nav';
+import { EventCardMenu } from './_components/event-card-menu';
 /*
   ⚠ THE BADGE AND THE TWO LABEL HELPERS NOW COME FROM THE SHARED INDEX, and
   that direction is deliberate. The palette and this board must badge one event
@@ -187,13 +185,23 @@ export default async function LauncherPage({
   // `show` is GONE (2026-08-13): the board no longer has a hidden half, so
   // there is nothing for a query param to reveal. A bookmarked or printed
   // `/dashboard?show=all` still renders the board — an unread param is ignored.
-  searchParams?: Promise<{ hub?: string }>;
+  //
+  // `putaway` is NOT that param coming back. The retired one hid a shelf of
+  // celebrations the person never asked to hide; this one reveals the ones they
+  // put away BY HAND, and the switch prints how many there are, so it can never
+  // read as "something might be missing" — which is the sentence that retired
+  // the old one.
+  searchParams?: Promise<{ hub?: string; putaway?: string }>;
 }) {
   const user = await getCurrentUser();
   // Layout already redirects to /login if no user; this is for type narrowing.
   if (!user) redirect('/login');
   const supabase = await createClient();
   const sp = (await searchParams) ?? {};
+  // Server-rendered switch: a link, not client state. Nothing is stored, so the
+  // reveal lasts exactly as long as the person is looking at it — putting an
+  // event away is the durable choice, seeing it again is not.
+  const putAwayRequested = sp.putaway === '1';
 
   // OAuth-race graceful-degrade shielding (preserved from the prior hub): the
   // users / events rows this page reads are the SAME rows supabase-auth just
@@ -201,7 +209,7 @@ export default async function LauncherPage({
   // JWT/trigger commit for ~1-2s right after a Google / Facebook OAuth callback.
   // Every query graceful-degrades with a safe default so the page renders the
   // launcher instead of flashing the global error boundary.
-  const [organiserEvents, invitedEvents, profileRes, roles, communities] =
+  const [organiserEvents, invitedEvents, roles, communities] =
     await Promise.all([
       fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
         logQueryError(
@@ -232,23 +240,6 @@ export default async function LauncherPage({
         );
         return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
       }),
-      (async () => {
-        try {
-          return await supabase
-            .from('users')
-            .select('display_name')
-            .eq('user_id', user.id)
-            .maybeSingle();
-        } catch (caught) {
-          logQueryError(
-            'Launcher (users.display_name SELECT threw)',
-            caught instanceof Error ? caught : new Error(String(caught)),
-            { user_id: user.id },
-            'graceful_degrade',
-          );
-          return { data: null, error: null } as never;
-        }
-      })(),
       fetchUserRoleSummary(supabase, user.id).catch((err: unknown) => {
         logQueryError(
           'Launcher (fetchUserRoleSummary threw)',
@@ -263,6 +254,10 @@ export default async function LauncherPage({
           hasVendorAccess: false,
           hasAdminAccess: false,
           vendorProfiles: [],
+          // Nothing was measured here — this literal exists BECAUSE the read
+          // failed. False keeps `canOpenShop` closed, so a supplier who has a
+          // shop is not invited to create a second, permanent one.
+          shopsMeasured: false,
           ownedShopCount: 0,
           canOpenShop: false,
         } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
@@ -315,10 +310,24 @@ export default async function LauncherPage({
   // lib/event-board.ts.
   const dateKey = (e: EventWithRole) => e.event_date?.slice(0, 10) ?? '';
   const boardEvents = mergeBoardMemberships(events, invitedEvents);
-  const { comingUp: upcoming, finished } = splitEventBoard(
+  const { comingUp: comingUpAll, finished: finishedAll } = splitEventBoard(
     boardEvents,
     todayISO,
   );
+  // THE BOARD IS FIVE SHELVES (owner 2026-08-21). Put-away rows are lifted out
+  // of all of them here and handed back only behind the switch on Planning —
+  // see `splitPlanningShelves` for why `isFinishedEvent` was not redefined.
+  const {
+    happeningNow,
+    planning: upcoming,
+    putAway,
+  } = splitPlanningShelves(comingUpAll, finishedAll, todayISO);
+  const finished = boardFinished(finishedAll);
+  const showPutAway = putAwayRequested;
+  // "You are expected in two places." Read off the shelves already in memory —
+  // today's and the ones ahead — never the finished ones: a clash you can no
+  // longer do anything about is a reproach, not a warning.
+  const clashes = findDateClashes([...happeningNow, ...upcoming]);
 
   // ─── LANDING ────────────────────────────────────────────────────────────
   // Owner 2026-07-04: "keep the auto-jump, HUB REACHABLE." Only the first half
@@ -360,18 +369,6 @@ export default async function LauncherPage({
   if (active.length === 0 && hasConsole && !wantsHub && boardEvents.length === 0) {
     redirect('/dashboard/create-event');
   }
-  const profile = profileRes.data;
-  const greeting =
-    profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
-  // 🚨 THE GREETING MUST COUNT THE SAME THING THE BOARD SHOWS. This read
-  // `events.length === 0` — the ORGANISER-only set — while the shelves below
-  // render the MERGED set. Before invited events reached the board the two were
-  // the same list and could not contradict each other; afterwards, somebody whose
-  // only events are ones they were invited to got **"Let's set up your first
-  // event"** printed directly above the weddings they had been invited to.
-  // Found by an adversarial pass 2026-08-13.
-  const noEvents = boardEvents.length === 0;
-
   // "% planned" per event — real done/total from the event checklist, fetched in
   // parallel (event count is small). Null when an event has no checklist rows yet
   // → the card shows the countdown without a fabricated percentage. Only the
@@ -452,12 +449,6 @@ export default async function LauncherPage({
     );
   }
 
-  // Person-spine · Phase 2 · Life Stories (STAGED / flag-off / counsel-gated).
-  // Runs ONLY when the flag is on; otherwise `lifeStoryGroups` stays null and the
-  // "Your story" section never renders — zero visible change in production.
-  const lifeStoryGroups = personLifeStoriesEnabled()
-    ? await buildLifeStoryGroups(supabase)
-    : null;
 
   // SPACES — doorways into surfaces with their own dashboards. Marketplace
   // is intentionally excluded (it's an in-event vendor-discovery surface).
@@ -545,22 +536,11 @@ export default async function LauncherPage({
     }
   }
 
-  // Hero "Watch" stat — everything currently waiting on the user across all
-  // active events (pay + approve + message + overdue), straight from the
-  // per-event decision summaries above. Real data only.
-  let needsTotal = 0;
-  for (const summary of decisionByEvent.values()) needsTotal += summary.total;
-
-  // The Watch tile's per-event rows — only events with something waiting,
-  // busiest first. Same real summaries as the hero stat.
-  const watchRows = active
-    .map((e) => ({
-      eventId: e.event_id,
-      name: e.display_name,
-      total: decisionByEvent.get(e.event_id)?.total ?? 0,
-    }))
-    .filter((r) => r.total > 0)
-    .sort((a, b) => b.total - a.total);
+  /* The cross-event rollup (`needsTotal`) and the busiest-first `watchRows`
+     list are GONE, not moved. Both existed to feed The Watch tile and the
+     one-event nudge banner; The Watch went with the strip-to-events change and
+     the banner is retired below, so each was computing a number that nothing
+     rendered. `decisionByEvent` is now read straight by the cards. */
 
   // STORYTELLER doorway signal — does this account already author chapters?
   // Real head-count on the user's own creator_chapters rows (owner-scoped RLS).
@@ -570,12 +550,19 @@ export default async function LauncherPage({
   // exactly ONE entry either way). Graceful-degrade to 0 (promo renders)
   // rather than the error boundary.
   let chapterCount = 0;
+  // Which FINISHED celebrations this account has already turned into a posted
+  // story — the Unpublished / Published split below (owner 2026-08-20).
+  // `null` = NOT MEASURED, which is a different thing from "none", and the
+  // split degrades to a single shelf rather than inviting somebody to write a
+  // story they have already written.
   try {
-    const { count, error } = await supabase
+    const { data, error } = await supabase
       .from('creator_chapters')
-      .select('*', { count: 'exact', head: true })
+      .select('event_id, status')
       .eq('user_id', user.id);
-    if (!error) chapterCount = count ?? 0;
+    if (!error) {
+      chapterCount = ((data ?? []) as unknown[]).length;
+    }
   } catch {
     // ⚠ 0, NOT null — AND THAT DIFFERS FROM ITS THREE NEIGHBOURS ON PURPOSE.
     // adminOpenTotal / alagaCount / connectionCount all degrade to null so the
@@ -587,6 +574,61 @@ export default async function LauncherPage({
     // this pattern to a count that feeds a number or a list.
     chapterCount = 0;
   }
+
+  /*
+    WHICH FINISHED CELEBRATIONS HAVE THEIR STORY WRITTEN.
+
+    🔑 THE STORY OF AN EVENT IS THE EVENT'S OWN STORY PAGE — the one Setnayan
+    drafts from the day's photos and schedule and the couple then corrects. It is
+    NOT a Storyteller chapter.
+
+    This read used to ask `creator_chapters` instead, and that was the whole of
+    the owner's confusion (2026-08-22: *"isn't that the editorial. the story?"*).
+    A chapter is a PERSON's own write-up ABOUT a day, on a blank page, and one day
+    can have several — including one from a supplier who worked it. The event's
+    story page is Setnayan's write-up OF that day, one per celebration, created
+    automatically. They are separate records; nothing copies between them.
+
+    ⚠ THE OLD MEASURE MADE THE SHELF LIE. A couple could compose and publish
+    their whole story page and My Events still filed the celebration under
+    "Untold", still offering *"Write the story of <name>"* — pointing at the OTHER
+    door, where the box opens blank and they are asked to write the same day up a
+    second time from memory. Two buttons in the product read "Write the story" and
+    went to different screens.
+
+    `null` still means NOT MEASURED, which is a different thing from "none": the
+    split degrades to a single shelf rather than inviting somebody to write a
+    story they have already written.
+  */
+  let storyEventIds: Set<string> | null = null;
+  try {
+    const { data, error } = await supabase
+      .from('event_editorial')
+      .select('event_id, status')
+      .eq('status', 'published');
+    if (!error) {
+      storyEventIds = new Set(
+        ((data ?? []) as Array<{ event_id: string | null }>)
+          .filter((r) => r.event_id)
+          .map((r) => r.event_id as string),
+      );
+    }
+    // A REFUSED read leaves it null on purpose — see above. Supabase resolves
+    // with { error } rather than throwing, so the `if (!error)` is the guard
+    // that matters here; the catch below only covers a transport failure.
+  } catch {
+    storyEventIds = null;
+  }
+
+  // FINISHED SPLITS IN TWO (owner 2026-08-20: *"change it to unpublished and
+  // published. They get to choose on the unpublish which they will make a story
+  // of."*). Same shelf, same order, same cards — the question added is whether
+  // the day has been written up yet.
+  const {
+    unpublished: unwritten,
+    published: written,
+    measured: storiesMeasured,
+  } = splitFinishedByStory(finished, storyEventIds);
 
   // PEOPLE · Alaga — the dependants this account holds. Both gates are checked
   // BEFORE the query, so while NEXT_PUBLIC_DEPENDENT_PEOPLE is off (production
@@ -711,7 +753,6 @@ export default async function LauncherPage({
     }
   }
 
-  const lifeOn = lifeStoryEnabled();
   const spaces: SpaceCardProps[] = [];
   // SPACES → the vendor's actual shop(s), by name. One card per shop the
   // user owns or is on the team of (owner: "show what shop we have"), so a
@@ -886,205 +927,517 @@ export default async function LauncherPage({
           shopNeedCount(a.vendor_profile_id),
       )[0]
     : undefined;
-  const boardTiles = buildHomeBoardTiles({
-    // Same rule as the greeting: this tile sits above the shelves, so it counts
-    // what the shelves show — the merged set, minus the finished ones — not the
-    // organiser-only set. It read `active.length` and would have said "0 in
-    // motion" over a board full of invitations.
-    activeCount: upcoming.length,
-    needsTotal,
-    nextEventLabel: soonest ? `Next: ${soonest.display_name}` : null,
-    topWatchName: watchRows[0]?.name ?? null,
-    hasVendorAccess: roles.hasVendorAccess,
-    shopNeedsTotal,
-    shopCount: roles.vendorProfiles.length,
-    topShopName:
-      topShop && shopNeedsTotal > 0 ? topShop.business_name : null,
-    hasAdminAccess: roles.hasAdminAccess,
-    adminOpenTotal,
-    finishedCount: finished.length,
-  });
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-28 pt-5 sm:px-6 sm:pb-10 sm:pt-10 lg:px-8">
-      {/* ONE LINE, IN EVERY STATE (owner 2026-08-18). This was a greeting
-          eyebrow — "Kumusta, {name} · welcome back" — over a title with a grey
-          tail hanging off it. Owner, on a screenshot of exactly this: "we do
-          not need these. it just eats up space… without too much side
-          comments", and on the target: "look at how apple makes everything
-          simple."
+      {/* ONE LINE, ONE CLAIM-FREE TITLE (owner 2026-08-18 · 2026-08-19).
+          No eyebrow, no grey tail — that was the 08-18 ruling and it stands.
 
-          The returning-user tail ("Pick up where you left off.") was
-          decoration and is gone. The first-run copy was the only instruction a
-          brand-new account got up here, so it is not deleted — it BECOMES the
-          title. Either way the header is now a single line, which is what
-          every other page header became in PR #4557.
+          ⚠ AND THE ZERO-STATE HAD TO GO, because this page is now ONLY events.
+          It read "Let's set up your first event." whenever `boardEvents` was
+          empty — but `fetchUserEvents` GRACEFULLY DEGRADES TO `[]` ON EVERY
+          ERROR (lib/events.ts, "collapse to graceful-degrade-always" after a
+          re-throw crashed every dashboard surface twice). So an empty list
+          cannot be told apart from a REFUSED READ.
 
-          The name is not lost: `greeting` still initials the composer
-          directly below this.
+          While four other blocks rendered, that was a bad line in a corner. On
+          an events-only page it is the ENTIRE SCREEN: somebody with six
+          weddings, whose read just failed, is told to set up their first one
+          and shown nothing else.
 
-          `noEvents` counts the MERGED board, not the organiser-only set —
-          somebody whose only events are invitations must never be told to set
-          up their first one directly above them. */}
-      <header className="sn-reveal mb-5 sm:mb-6" style={{ animationDelay: '0.24s' }}>
-        <h1 className="text-[1.375rem] font-extrabold leading-tight tracking-[-0.03em] text-ink sm:text-4xl sm:leading-[1.02]">
-          {noEvents ? 'Let’s set up your first event.' : 'Where to?'}
-        </h1>
-      </header>
+          The FINISHED shelf below already states this rule — "an empty shelf
+          cannot be told apart from a refused read — the line therefore says
+          what this shelf is FOR and never that you have none." The title now
+          obeys the same rule its own page wrote: it NAMES the page and makes no
+          claim about how many events you have, so it is true in both states.
+          The invitation to create one is the top bar's "+ Create event" (and,
+          on phones, the bottom bar's ➕ and the dashed New-event card below). */}
+      {/* ⚠ THE TITLE IS NO LONGER PAINTED (owner 2026-08-20: "Remove Your Events
+          on My Events. we don't need that text.").
 
-      {/* THE COMPOSER — "What's your event?" (owner 2026-08-07, from the
-          Facebook comparison: "instead of what's on your mind? what's your
-          event?"). Creating an event was already reachable three ways — the
-          trailing ghost card, the raised ➕ in the phone pill, and ⌘K — but all
-          three are small and none of them ASKS. This is the same single
-          destination worded as an invitation and given the width Facebook gives
-          its composer: the first full-width thing under the greeting.
-          It is a navigation, not a form — the create screen owns the real
-          question ("Who are we celebrating?") and every guard behind it. */}
-      <EventComposer initial={greeting.charAt(0).toUpperCase()} />
+          It is not DELETED, it is unpainted. The top bar already names this
+          place — the nav entry `customer.account.events` reads "My Events" — so
+          the h1 was the same word twice, one under the other, which is the
+          shape the 2026-08-18 one-line ruling was aimed at in the first place.
 
-      {/* The board — the same aggregates the old one-line stat printed, but each
-          number is now a door with its own context line. Capability-gated: the
-          shop/HQ tiles exist only for a user who has them. */}
-      <HomeBoard tiles={boardTiles} />
+          🔑 BUT A PAGE STILL NEEDS A NAME. Stripping the h1 outright leaves the
+          document with no heading at all: a screen-reader user landing here
+          would be told nothing about where they are, and the heading outline
+          would start at the "Coming up" h2 with no parent. `sr-only` is the
+          honest version of "we don't need that text" — nobody SEES it, the page
+          still says what it is. The <title> metadata already says "Your events"
+          and stays in step with it.
 
+          The anti-regression guards on the greeting eyebrow and the
+          "Pick up where you left off" tail still apply and still pass: what was
+          removed is the visible duplicate, never the page's identity. */}
+      <h1 className="sr-only">Your events</h1>
+
+      {/* THE COMPOSER IS RETIRED (owner 2026-08-20: "we do not need it there
+          because create event is already found on the top nav"). The
+          "What's your event?" row was asked for on 2026-08-07, when creation
+          had only three SMALL doors; the top bar's full "+ Create event"
+          button arrived 2026-08-15 and overtook that premise. It also read as
+          a second search bar one row under the real one — the owner himself
+          misread it — so keeping it cost more than it invited. Creation stays
+          reachable here via the dashed New-event card, the phone pill's ➕,
+          the top bar and ⌘K. */}
+
+
+      {/* ⚠ THE ONE-EVENT NUDGE BANNER IS RETIRED (owner 2026-08-20: "for the
+          9 things need you - Cale & Ice, can't we just place a counter on the
+          event card for that event itself on that page?").
+
+          🔑 HIS INSTINCT IS A REAL DEFECT, NOT A PREFERENCE. The banner rendered
+          `watchRows[0]` — the BUSIEST event and no other. `watchRows` is built
+          from every active event and then sorted, so an account with two events
+          that both need something showed one number and silently swallowed the
+          rest. The count was on the page; the OTHER counts were nowhere, and
+          nothing on the second event's card hinted that anything was waiting.
+
+          ⚖ THIS REVERSES AN OWNER RULING, AND THE PREMISE IT RESTED ON HAS
+          EXPIRED. GlassEventCard's docblock records owner 2026-07-15: attention
+          counts live in ONE home (The Watch tile / the mobile nudge row), never
+          on a card. That was right while a home existed — The Watch listed EVERY
+          event with its own count. Stripping this page to events (2026-08-19)
+          deleted The Watch tile AND the "Needs you" board tile, and what
+          survived was this banner, which is not a home for the numbers: it is a
+          home for ONE of them. "One home for overdue counts" quietly became
+          "one count", and the ruling outlived the thing that made it correct.
+
+          Per-card is now the only place that can carry all of them, so the
+          count travels with the event it belongs to, on every shelf and at
+          every width. */}
       {/* COMING UP — the first of the board's TWO ALWAYS-PRESENT shelves
           (owner 2026-08-13). Glass cards, date descending (newest on top, owner
           2026-07-13 ordering), UNDATED at the tail reading "Date to be set".
           The FINISHED shelf follows as its own section — it is no longer hidden
           behind a "Show all" toggle. */}
+      {/* NOW HAPPENING — the day itself (owner 2026-08-21).
+          ⚠ IT RENDERS EVEN WHEN EMPTY, and that REVERSES the call this block
+          shipped with. The first cut hid the row on every ordinary day, on the
+          reasoning that "a permanent 'nothing today' row would be the loudest
+          thing on the board saying the least". The owner ruled otherwise the
+          same day: *"we show the different rows and leave it blank when no
+          event is there."*
+          🔑 AND HIS CALL IS THE BETTER ONE FOR A BOARD PEOPLE LEARN. Five rows
+          that are always in the same place can be navigated from memory; rows
+          that appear and vanish make the page a different shape every visit, so
+          a person cannot learn where anything lives. The empty line says what
+          the row is FOR — never that they have nothing, because
+          `fetchUserEvents` degrades to `[]` on an RLS denial and an empty read
+          is indistinguishable from an empty life. */}
+      <section
+        id="now"
+        className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
+        style={{ animationDelay: '0.36s' }}
+      >
+        <SectionLabel
+          sub="today"
+          info="Your celebration is running today. It leaves this row on its own tomorrow."
+        >
+          Now happening
+        </SectionLabel>
+        {happeningNow.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
+            On the day itself, your celebration moves up here — and moves on by
+            itself the morning after.
+          </p>
+        ) : null}
+        <div className="space-y-3 sm:hidden">
+          {happeningNow.map((event) => (
+            <BoardCardWithMenu key={event.event_id} event={event} tone="dark">
+              <MobileEventHero
+                event={event}
+                pct={progressByEvent.get(event.event_id) ?? null}
+                todayISO={todayISO}
+                summary={decisionByEvent.get(event.event_id)}
+                hasMenu={event.member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
+          ))}
+        </div>
+        <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          {happeningNow.map((event, i) => (
+            <BoardCardWithMenu key={event.event_id} event={event}>
+              <GlassEventCard
+                event={event}
+                pct={progressByEvent.get(event.event_id) ?? null}
+                heroSrc={heroFor(event.event_type)}
+                ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                index={i}
+                todayISO={todayISO}
+                summary={decisionByEvent.get(event.event_id)}
+                hasMenu={event.member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
+          ))}
+        </div>
+      </section>
+
       <section
         id="events"
         className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
         style={{ animationDelay: '0.4s' }}
       >
-        <SectionLabel sub="ongoing & upcoming">Coming up</SectionLabel>
+        <SectionLabel
+          sub="yours to run"
+          info="Everything you’re organising or were invited to. Put one away and it hides here until you switch it back on."
+          action={
+            putAway.length > 0 ? (
+              <PutAwaySwitch on={showPutAway} count={putAway.length} />
+            ) : null
+          }
+        >
+          Planning
+        </SectionLabel>
+        <ClashNotice clashes={clashes} />
         {/* MOBILE composition (proto .mhero/.mbento/.m-nudge/.mghost): the
             primary event as a full-width dark hero, the rest as compact glass
             chips, the neediest-event nudge row, then the New-event ghost. Same
             real data + hrefs as the desktop cards. */}
         <div className="space-y-3 sm:hidden">
           {upcoming[0] ? (
-            <MobileEventHero
-              event={upcoming[0]}
-              pct={progressByEvent.get(upcoming[0].event_id) ?? null}
-              todayISO={todayISO}
-            />
+            <BoardCardWithMenu event={upcoming[0]} tone="dark">
+              <MobileEventHero
+                event={upcoming[0]}
+                pct={progressByEvent.get(upcoming[0].event_id) ?? null}
+                todayISO={todayISO}
+                summary={decisionByEvent.get(upcoming[0].event_id)}
+                hasMenu={upcoming[0].member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
           ) : null}
           {upcoming.length > 1 ? (
             <div
               className="sn-reveal grid grid-cols-2 gap-2.5"
               style={{ animationDelay: '0.58s' }}
             >
-              {upcoming.slice(1).map((event) => (
-                <MobileEventChip
+              {upcoming.slice(1).map((event, i) => (
+                <BoardCardWithMenu
                   key={event.event_id}
                   event={event}
-                  pct={progressByEvent.get(event.event_id) ?? null}
-                  todayISO={todayISO}
-                />
+                  /* Two-up grid: even index = left column. Its menu hangs from
+                     the card's LEFT edge so a 280px panel stays on screen. */
+                  align={i % 2 === 0 ? 'left' : 'right'}
+                >
+                  <MobileEventChip
+                    event={event}
+                    pct={progressByEvent.get(event.event_id) ?? null}
+                    todayISO={todayISO}
+                    summary={decisionByEvent.get(event.event_id)}
+                    hasMenu={event.member_type === 'couple'}
+                  />
+                </BoardCardWithMenu>
               ))}
             </div>
-          ) : null}
-          {/* The overdue NUDGE row — the mobile stand-in for the desktop Watch
-              tile. Real data only: hidden when nothing is waiting. */}
-          {watchRows[0] ? (
-            <Link
-              href={`/dashboard/${watchRows[0].eventId}`}
-              className="sn-reveal sn-press flex items-center gap-2.5 rounded-xl bg-[color:var(--sn-warning-soft)] px-3 py-3"
-              style={{ animationDelay: '0.66s' }}
-            >
-              <AlertCircle
-                aria-hidden
-                className="h-[18px] w-[18px] shrink-0 text-[color:var(--sn-warning)]"
-              />
-              <span className="flex-1 truncate text-[13px] font-bold text-[color:var(--sn-warning)]">
-                {watchRows[0].total}{' '}
-                {watchRows[0].total === 1 ? 'thing needs' : 'things need'} you —{' '}
-                {watchRows[0].name}
-              </span>
-              <ArrowUpRight
-                aria-hidden
-                className="h-4 w-4 shrink-0 text-[color:var(--sn-warning)]"
-              />
-            </Link>
           ) : null}
           <NewEventCard delay={0.74} />
         </div>
         {/* DESKTOP grid (proto .evrow — 4 columns on the wide canvas). */}
         <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {upcoming.map((event, i) => (
-            <GlassEventCard
-              key={event.event_id}
-              event={event}
-              pct={progressByEvent.get(event.event_id) ?? null}
-              heroSrc={heroFor(event.event_type)}
-              ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
-              index={i}
-              todayISO={todayISO}
-            />
+            <BoardCardWithMenu key={event.event_id} event={event}>
+              <GlassEventCard
+                event={event}
+                pct={progressByEvent.get(event.event_id) ?? null}
+                heroSrc={heroFor(event.event_type)}
+                ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                index={i}
+                todayISO={todayISO}
+                summary={decisionByEvent.get(event.event_id)}
+                hasMenu={event.member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
           ))}
           <NewEventCard delay={0.5 + upcoming.length * 0.08} />
         </div>
+        {/* THE ONES THEY PUT AWAY — only when asked for. Muted, and each still
+            carries its own ⋯ menu, because the one thing a person wants here is
+            "bring it back", which is exactly what that menu already offers on an
+            archived row. */}
+        {showPutAway && putAway.length > 0 ? (
+          <div className="mt-4 border-t border-dashed border-ink/12 pt-4">
+            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--sn-ink-400)]">
+              Put away
+            </p>
+            <div className="grid grid-cols-2 gap-2.5 sm:hidden">
+              {putAway.map((event, i) => (
+                <BoardCardWithMenu
+                  key={event.event_id}
+                  event={event}
+                  align={i % 2 === 0 ? 'left' : 'right'}
+                >
+                  <MobileEventChip
+                    event={event}
+                    pct={progressByEvent.get(event.event_id) ?? null}
+                    finished
+                    todayISO={todayISO}
+                    summary={decisionByEvent.get(event.event_id)}
+                    hasMenu={event.member_type === 'couple'}
+                  />
+                </BoardCardWithMenu>
+              ))}
+            </div>
+            <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {putAway.map((event, i) => (
+                <BoardCardWithMenu key={event.event_id} event={event}>
+                  <GlassEventCard
+                    event={event}
+                    pct={progressByEvent.get(event.event_id) ?? null}
+                    heroSrc={heroFor(event.event_type)}
+                    ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                    finished
+                    index={upcoming.length + i}
+                    todayISO={todayISO}
+                    summary={decisionByEvent.get(event.event_id)}
+                    hasMenu={event.member_type === 'couple'}
+                  />
+                </BoardCardWithMenu>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {/* ⚠ THE ALL-EVENTS SUBSCRIPTION BLOCK STOOD HERE AND IS RETIRED
+            (owner 2026-08-22: *"block delete."*). Adding a celebration to a
+            phone calendar is now a PER-EVENT action in each card's "⋯" menu,
+            which is where the owner asked for it — *"adding an event to a
+            calendar is not all events but just per event."*
+
+            🔑 KNOW WHAT WAS TRADED, so nobody re-derives this as a bug. The
+            block handed out one `webcal:` link the phone RE-READ, so moving a
+            date moved it in their calendar too. A per-card .ics is a copy
+            taken once and never checked again. That loss was stated to the
+            owner and accepted; it is a decision, not an oversight. Prod held
+            one token, never once read, so nothing live was broken.
+            Migration 20271157440480. */}
       </section>
 
-      {/* FINISHED — the second shelf, and it is ALWAYS HERE (owner 2026-08-13).
+      {/* WORTH PLANNING — the days that come around for this person (owner
+          2026-08-21: the Your Year menu is retired and its contents live on the
+          board).
+          🔑 NOTHING HERE IS AN EVENT YET, and that is the whole reason it is a
+          separate shelf rather than more cards on Planning: Planning holds
+          celebrations that EXIST, this holds days that do not. Merging them
+          would have a person looking for their wedding among suggestions. */}
+      <section
+        id="worth-planning"
+        className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
+        style={{ animationDelay: '0.44s' }}
+      >
+        <SectionLabel
+          sub="not events yet"
+          info="Days that come around for you — birthdays, anniversaries, the seasons that book out early. Nothing here is an event yet."
+        >
+          Worth planning
+        </SectionLabel>
+        <YearMomentsStrip userId={user.id} heading={null} />
+      </section>
+
+      {/* FINISHED, IN TWO SHELVES (owner 2026-08-13, split 2026-08-20).
           It used to be the hidden half of the Events block, revealed by a
           "Show all" link: **a thing you have to switch on reads as a thing that
-          might not be there**, and what was behind it is somebody's memories —
-          prod's one finished wedding sat there. Now it is a named place on the
-          board whether or not anything has reached it yet.
+          might not be there**, and what was behind it is somebody's memories.
+          Then the owner asked for Your Story to live here: *"we have a place
+          there for finished. change it to unpublished and published. They get
+          to choose on the unpublish which they will make a story of."*
+
+          🔑 THE TWO WORDS ARE ABOUT THE STORY, NOT THE CELEBRATION. Every day
+          on both shelves is finished and kept; what is unpublished is the
+          chapter about it. Each shelf therefore says so in a sentence, and
+          neither ever calls a wedding "unpublished" on its own.
+
+          🪤 AND THE SPLIT ONLY HAPPENS WHEN THE STORIES WERE MEASURED. A
+          refused read of somebody's own chapters is indistinguishable from
+          having written none, and acting on that would put a "Write the story"
+          button beside a story they already wrote. Unmeasured ⇒ one shelf, the
+          board exactly as it was.
 
           🔑 THE EMPTY STATE MAKES NO ZERO-CLAIM. `fetchUserEvents`
           graceful-degrades to `[]` on every error including an RLS denial, so an
           empty shelf cannot be told apart from a refused read — the line
-          therefore says what this shelf is FOR ("celebrations move here on their
-          own once the day has passed") and never that you have none. Same rule
-          the Alaala wall learned on 2026-08-12: "no photos yet" printed over a
-          failed read is a lie told about somebody's memories. */}
+          therefore says what this shelf is FOR and never that you have none. */}
       <section
         id="finished"
         className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
         style={{ animationDelay: '0.46s' }}
       >
-        <SectionLabel sub="kept for good">Finished</SectionLabel>
-        {finished.length === 0 ? (
+        <SectionLabel
+          sub={storiesMeasured ? 'no story written yet' : 'kept for good'}
+          info={
+            storiesMeasured
+              ? 'The day has passed and its story isn’t written. Pick the ones worth telling.'
+              : 'Celebrations move here on their own once the day has passed.'
+          }
+        >
+          {storiesMeasured ? 'Untold' : 'Ended'}
+        </SectionLabel>
+        {unwritten.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
-            Celebrations move here on their own once the day has passed. Nothing
-            you keep is ever taken away.
+            {storiesMeasured
+              ? 'Celebrations move here on their own once the day has passed — this is where you pick the ones to tell. Nothing you keep is ever taken away.'
+              : 'Celebrations move here on their own once the day has passed. Nothing you keep is ever taken away.'}
           </p>
         ) : (
           <>
+            {/* THE CARD IS THE CHOICE (owner 2026-08-22). This shelf used to pair
+                a plain card — opening the event dashboard — with a SEPARATE
+                chip below reading "Write the story of X". Two controls for one
+                celebration, and the chip was the one that actually mattered.
+                Pressing the card itself now opens the story page directly, for
+                exactly the same events and under exactly the same rule the chip
+                used to gate on: the story has been measured, and this account
+                organises the celebration. Guests, and any board where the read
+                was refused, keep the ordinary card → event-dashboard behaviour
+                — sending either into a stranger's editor, or into an editor a
+                refused read cannot vouch for, is not this shelf's call to make. */}
             {/* MOBILE — compact chips, muted (the same treatment the hidden
                 half used to get once revealed). */}
             <div className="grid grid-cols-2 gap-2.5 sm:hidden">
-              {finished.map((event) => (
-                <MobileEventChip
+              {unwritten.map((event, i) => (
+                <BoardCardWithMenu
                   key={event.event_id}
                   event={event}
-                  pct={progressByEvent.get(event.event_id) ?? null}
+                  align={i % 2 === 0 ? 'left' : 'right'}
                   finished
-                  todayISO={todayISO}
-                />
+                >
+                  <MobileEventChip
+                    event={event}
+                    pct={progressByEvent.get(event.event_id) ?? null}
+                    finished
+                    todayISO={todayISO}
+                    summary={decisionByEvent.get(event.event_id)}
+                    hasMenu={event.member_type === 'couple'}
+                    storyHref={
+                      storiesMeasured && canWriteStoryFor(event)
+                        ? `/dashboard/${event.event_id}/website/editorial`
+                        : undefined
+                    }
+                  />
+                </BoardCardWithMenu>
               ))}
             </div>
             {/* DESKTOP — the same glass cards, muted scene, reading
                 "Celebrated". */}
             <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-              {finished.map((event, i) => (
-                <GlassEventCard
-                  key={event.event_id}
-                  event={event}
-                  pct={progressByEvent.get(event.event_id) ?? null}
-                  heroSrc={heroFor(event.event_type)}
-                  ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
-                  finished
-                  index={upcoming.length + i}
-                  todayISO={todayISO}
-                />
+              {unwritten.map((event, i) => (
+                <BoardCardWithMenu key={event.event_id} event={event} finished>
+                  <GlassEventCard
+                    event={event}
+                    pct={progressByEvent.get(event.event_id) ?? null}
+                    heroSrc={heroFor(event.event_type)}
+                    ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                    finished
+                    index={upcoming.length + i}
+                    todayISO={todayISO}
+                    summary={decisionByEvent.get(event.event_id)}
+                    hasMenu={event.member_type === 'couple'}
+                    storyHref={
+                      storiesMeasured && canWriteStoryFor(event)
+                        ? `/dashboard/${event.event_id}/website/editorial`
+                        : undefined
+                    }
+                  />
+                </BoardCardWithMenu>
               ))}
             </div>
           </>
+        )}
+      </section>
+
+      {/* TOLD — the celebrations that are now chapters.
+          ⚠ IT RENDERS EVEN WHEN EMPTY (owner 2026-08-21: *"we show the different
+          rows and leave it blank when no event is there"*). It used to vanish
+          unless there was something on it, which made the board a different
+          shape for every account.
+          🔑 BUT THE EMPTY LINE MUST NOT CLAIM "YOU HAVE NONE", AND THERE ARE TWO
+          DIFFERENT REASONS IT CAN BE EMPTY. When the stories were MEASURED, the
+          shelf is honestly empty and the line can invite them to write one. When
+          the read was REFUSED, `unwritten` holds everything and `written` holds
+          nothing — telling that person they have told no stories would be
+          asserting a fact from a read that never completed, beside a shelf that
+          is silently claiming their published celebrations are unpublished. So
+          the unmeasured line says what the row is FOR and nothing about them. */}
+      <section
+        id="published"
+        className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
+        style={{ animationDelay: '0.48s' }}
+      >
+        <SectionLabel
+          sub="in your story"
+          info="These days are chapters in your story now."
+        >
+          Told
+        </SectionLabel>
+        {written.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
+            {storiesMeasured
+              ? 'The celebrations you write up land here, as chapters of your story.'
+              : 'This is where the celebrations you have written up live.'}
+          </p>
+        ) : null}
+        <div className="grid grid-cols-2 gap-2.5 sm:hidden">
+          {written.map((event, i) => (
+            <BoardCardWithMenu
+              key={event.event_id}
+              event={event}
+              align={i % 2 === 0 ? 'left' : 'right'}
+              finished
+            >
+              <MobileEventChip
+                event={event}
+                pct={progressByEvent.get(event.event_id) ?? null}
+                finished
+                todayISO={todayISO}
+                summary={decisionByEvent.get(event.event_id)}
+                hasMenu={event.member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
+          ))}
+        </div>
+        <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          {written.map((event, i) => (
+            <BoardCardWithMenu key={event.event_id} event={event} finished>
+              <GlassEventCard
+                event={event}
+                pct={progressByEvent.get(event.event_id) ?? null}
+                heroSrc={heroFor(event.event_type)}
+                ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                finished
+                index={upcoming.length + unwritten.length + i}
+                todayISO={todayISO}
+                summary={decisionByEvent.get(event.event_id)}
+                hasMenu={event.member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
+          ))}
+        </div>
+        {/* ⚠ ONLY WHEN THERE IS SOMETHING TO READ. "These days are told"
+            beside an empty shelf names days that are not there.
+            🔑 THIS LINE USED TO SAY "chapters" AND POINT AT THE STORYTELLER.
+            Both shelves are about the event's OWN story page now, so pointing
+            at the composer for a different kind of writing was the confusion
+            itself. Memories is where a told day is read back: its Editorials
+            shelf opens each celebration's story directly.
+            ⚠ THE STORYTELLER IS NOT STRANDED — the account menu carries "Your
+            Story". But see the note on `chapterCount`: the board's own
+            /dashboard/creator link now lives ONLY in a component nothing
+            renders, so the guard asserting the board has that door is
+            currently satisfied by dead code. Flagged, not fixed here. */}
+        {written.length > 0 ? (
+          <p className="mt-3 text-[12px] text-[color:var(--sn-ink-500)]">
+            These days are told —{' '}
+            <Link href="/dashboard/library" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
+              read them in Memories
+            </Link>
+            .
+          </p>
+        ) : (
+          <p className="mt-3 text-[12px] text-[color:var(--sn-ink-500)]">
+            <Link href="/dashboard/library" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
+              Open Memories
+            </Link>
+          </p>
         )}
       </section>
 
@@ -1097,311 +1450,6 @@ export default async function LauncherPage({
         </div>
       ) : null}
 
-      {/* ALAALA + THE WATCH + SPACES — the prototype's BENTO (owner-approved
-          final design 2026-07-15): the obsidian Alaala·Life-Flash tile with the
-          five lenses on the left; the Setnayan AI "Watch" aggregate and the
-          Spaces doorways stacked on the right. "This year" + Memories Hub
-          continue full-width beneath — all still ONE Alaala surface. */}
-      <section className="mb-7 sm:mb-6">
-        <div className="grid gap-3 sm:gap-4 lg:grid-cols-[1.3fr_1fr] lg:items-start">
-          <div className="space-y-3 sm:space-y-4">
-            <Suspense fallback={<AlaalaTileSkeleton />}>
-              <AlaalaTile userId={user.id} lifeOn={lifeOn} />
-            </Suspense>
-
-            {/* Person-spine "Your story" (flag-gated, counsel-gated) — the
-                "With me" lens made concrete once the flag turns on. */}
-            {lifeStoryGroups && lifeStoryGroups.length > 0 ? (
-              <div>
-                <h3 className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/40">
-                  Your story
-                </h3>
-                <LifeStorySection groups={lifeStoryGroups} />
-              </div>
-            ) : null}
-          </div>
-
-          <div className="space-y-3 sm:space-y-4">
-            {/* YOUR CREATOR BENEFITS — the storyteller who already holds active
-                vendor collabs (owner req #6, plan 2026-07-16). Self-fetching +
-                null-returning: renders ONLY once this user has ≥1 accepted
-                collab, so it's invisible for everyone else (the "Become a
-                Storyteller" promo below covers non-creators). Deterministic —
-                active offers + the same /u reach numbers, no LLM, and worded as
-                "offers/benefits", never earnings. */}
-            <Suspense fallback={null}>
-              <CreatorBenefits userId={user.id} />
-            </Suspense>
-
-            {/* SETNAYAN AI · THE WATCH — the deterministic aggregate of
-                everything waiting on the user (pay · approve · message ·
-                overdue), per event. Sums, not an LLM (Rule 1). Desktop-only
-                (proto): on mobile the Events-block nudge row carries this
-                signal, so Alaala follows Events immediately. */}
-            <div
-              className="sn-tile-glass sn-lift-3 sn-reveal hidden rounded-2xl p-4 sm:p-[18px] lg:block"
-              style={{ animationDelay: '0.78s' }}
-            >
-              <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
-                <Wand2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Setnayan AI · The Watch
-              </p>
-              {needsTotal > 0 ? (
-                <>
-                  <p className="mt-2.5">
-                    <span className="font-mono text-[26px] font-bold tracking-[-0.01em] text-ink">
-                      <CountUp value={needsTotal} delayMs={850} />
-                    </span>{' '}
-                    <span className="text-[13px] font-semibold text-[color:var(--sn-ink-500)]">
-                      {needsTotal === 1 ? 'thing needs' : 'things need'} you
-                    </span>
-                  </p>
-                  <ul className="mt-3 space-y-[11px]">
-                    {watchRows.map((row, i) => (
-                      <li
-                        key={row.eventId}
-                        className="flex items-center gap-[9px] text-[12.5px] text-ink"
-                      >
-                        <span
-                          aria-hidden
-                          className="h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--sn-warning)]"
-                        />
-                        <span className="min-w-0 truncate">{row.name}</span>
-                        <span className="ml-auto shrink-0 font-mono text-xs font-bold text-[color:var(--sn-warning)]">
-                          <CountUp value={row.total} delayMs={1050 + 150 * i} />
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-[13px] flex items-center gap-2 border-t border-ink/[0.08] pt-3 text-[11.5px] text-[color:var(--sn-ink-400)]">
-                    <span
-                      aria-hidden
-                      className="h-[7px] w-[7px] shrink-0 rounded-full bg-[color:var(--sn-success)]"
-                      style={{ animation: 'sn-pulse 1.9s infinite' }}
-                    />
-                    Everything else — quiet
-                  </p>
-                </>
-              ) : (
-                <p className="mt-3 flex items-center gap-2 text-sm text-ink/55">
-                  <span
-                    aria-hidden
-                    className="h-[7px] w-[7px] shrink-0 rounded-full bg-[color:var(--sn-success)]"
-                    style={{ animation: 'sn-pulse 1.9s infinite' }}
-                  />
-                  Everything — quiet. Nothing needs you right now.
-                </p>
-              )}
-            </div>
-
-            {/* SPACES → "YOURS TO RUN" (owner 2026-07-30 "split it in two").
-                The stances this account OPERATES, as labelled groups: the
-                vendor shop(s) + Admin HQ rows, "Vendors you saved", and the
-                Creator's Lab. Shop + HQ rows are capability-gated (absent for a
-                plain couple); the Creator row always renders, so the heading is
-                never empty. The other half of the split is the PEOPLE tile
-                below — Samahan moved out of here entirely. These still NAVIGATE
-                — their own dashboards are allowed jumps. */}
-            <div
-              className="sn-tile-glass sn-lift-3 sn-reveal rounded-2xl p-4 sm:p-[18px]"
-              style={{ animationDelay: '0.9s' }}
-            >
-              <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
-                <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Yours to run
-              </p>
-              {/* CREATE YOUR SHOP — the create-door for an account with no shop
-                  (found 2026-08-10: a customer had no way to open one).
-                  Owner 2026-08-10: "place a button on the user home where the
-                  shop button will be … but instead of entering a shop. Create
-                  your shop."
-
-                  So it renders IN the shop-row slot — first inside the same
-                  divided list, ABOVE the HQ row, which is exactly where a real
-                  shop row is pushed (shops are appended before HQ). It is not a
-                  separate block below the list: an admin with no shop would
-                  otherwise read it AFTER HQ, which is not where the shop button
-                  goes. Same idiom as CreateSamahanRow / BecomeStorytellerRow,
-                  both already in this file for the same reason.
-
-                  Gated on `canOpenShop` — shops they OWN measured against the
-                  cap — NOT on `!hasVendorAccess`. `hasVendorAccess` is also
-                  true for a TEAM MEMBER of someone else's shop who owns
-                  nothing, so gating on it hid this door from exactly the people
-                  most likely to want their own (a second shooter, an
-                  assistant). Someone who already owns a shop reads
-                  `canOpenShop === false` and gets their real shop row instead,
-                  so the create-door and a real shop row still never both
-                  render. The container condition keeps an account with neither
-                  (a team member at the cap) from rendering an empty div. */}
-              {spaces.length > 0 || roles.canOpenShop ? (
-                <div className="mt-2 divide-y divide-ink/[0.07]">
-                  {roles.canOpenShop ? <OpenShopRow /> : null}
-                  {spaces.map((space) => (
-                    <SpaceRow
-                      key={space.id ?? space.href + space.title}
-                      {...space}
-                    />
-                  ))}
-                </div>
-              ) : null}
-              {/* SAVED VENDORS — owner 2026-07-31: "saved vendors can be with
-                  the group of your shop, hq, and creators lab, and favorite
-                  vendors." They were previously only advertised (never shown)
-                  under Memories Hub, whose panel has no vendor code at all.
-                  Here they sit with the other business doorways, and the link
-                  goes to the tab that actually renders them.
-
-                  NOTE for the 2026-07-30 "split it in two" decision: this stays
-                  a LABELLED GROUP inside "Yours to run" rather than a second
-                  tile, because the owner's 2026-07-31 line above is the later
-                  word and puts saved vendors *with* shop/HQ/Creator's Lab. The
-                  split the owner asked for is still visible — it is the group
-                  headings, and Samahan left this tile entirely for PEOPLE. */}
-              <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
-                Vendors you saved
-              </p>
-              <Link
-                href="/dashboard/library?tab=vendors"
-                className="group -mx-1 flex items-center gap-2 rounded-lg px-1 py-1.5 text-sm text-ink/70 hover:text-ink"
-              >
-                <Heart aria-hidden className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-gold-700)]" strokeWidth={1.75} />
-                <span className="flex-1 truncate">Your shortlist</span>
-                <ArrowUpRight
-                  aria-hidden
-                  className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-ink-400)] transition-[transform,color] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-mulberry"
-                />
-              </Link>
-
-              {/* CREATOR'S LAB — the ONE doorway to /dashboard/creator
-                  (readiness verdict 2026-07-16 B4: the funnel had no entry
-                  anywhere; the wayfinding rule — a page ships with its
-                  doorway). Zero chapters → the "Become a Storyteller" promo row
-                  (owner requirement) sells it in a line and IS the doorway; ≥1
-                  chapter → it collapses to a plain "Your Story" row. Honest
-                  copy only — nothing unbuilt, no earnings, no tiers. */}
-              <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
-                Creator&rsquo;s Lab
-              </p>
-              <div className="mt-1">
-                {chapterCount > 0 ? (
-                  <SpaceRow
-                    href="/dashboard/creator"
-                    icon={Clapperboard}
-                    title="Your Story"
-                    subtitle={`${chapterCount} ${chapterCount === 1 ? 'chapter' : 'chapters'} · your public page`}
-                    tone="default"
-                  />
-                ) : (
-                  <BecomeStorytellerRow />
-                )}
-              </div>
-            </div>
-
-            {/* PEOPLE — the first rendered People doorway on the home. Only
-                sources that are REAL for this account appear (see the file
-                header): Samahan always, Alaga and Connections only behind their
-                flags AND with real rows. */}
-            <div
-              className="sn-tile-glass sn-lift-3 sn-reveal rounded-2xl p-4 sm:p-[18px]"
-              style={{ animationDelay: '1.06s' }}
-            >
-              <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
-                <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                People
-              </p>
-              {/* Alaga + Connections — flag-gated AND row-gated, so neither can
-                  render an empty facet. Both are OFF in production today. */}
-              {alagaCount != null && alagaCount > 0 ? (
-                <div className="mt-2">
-                  <SpaceRow
-                    id="people-alaga"
-                    href="/dashboard/people"
-                    icon={Baby}
-                    title="Alaga"
-                    subtitle={`${alagaCount} ${alagaCount === 1 ? 'person' : 'people'} you care for`}
-                    tone="default"
-                  />
-                </div>
-              ) : null}
-              {connectionCount != null && connectionCount > 0 ? (
-                <div className="mt-1">
-                  <SpaceRow
-                    id="people-connections"
-                    href="/dashboard/people"
-                    icon={HeartHandshake}
-                    title="Connections"
-                    subtitle={`${connectionCount} confirmed ${connectionCount === 1 ? 'connection' : 'connections'}`}
-                    tone="default"
-                  />
-                </div>
-              ) : null}
-              {/* Samahan — communities are LIVE (owner 2026-07-15 composable-
-                  event model): real rows + a create door for everyone. Moved
-                  here from Spaces: a samahan is who you gather with, not a
-                  console you operate. */}
-              <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
-                Samahan · Communities
-              </p>
-              {communities.length === 0 ? (
-                <p className="mb-1 mt-1 text-xs text-ink/45">
-                  A shared space for your barkada, parish, or clan.
-                </p>
-              ) : null}
-              <div className="mt-1 divide-y divide-ink/[0.07]">
-                {samahanRows.map((space) => (
-                  <SpaceRow
-                    key={space.id ?? space.href + space.title}
-                    {...space}
-                  />
-                ))}
-                <CreateSamahanRow />
-              </div>
-              {/* The /dashboard/people door opens ONLY when that page has
-                  something to render. With both person flags off it
-                  short-circuits to a non-interactive "coming soon" preview, and
-                  a link to a preview is a door to nothing. */}
-              {peoplePageIsLive ? (
-                <Link
-                  href="/dashboard/people"
-                  className="mt-[13px] inline-flex items-center gap-1 text-xs font-bold text-[color:var(--sn-gold-700)] transition-colors hover:text-[color:var(--sn-gold-600)]"
-                >
-                  Everyone you gather
-                  <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
-                </Link>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-3 space-y-3 sm:mt-4 sm:space-y-4">
-          {/* ── THE MEMORY WALL — the five lenses over PHOTOGRAPHS ──────────
-              Alaala is for KEEPING; the board above is for DOING. This row
-              used to be a collapsed "Photos & videos" panel rendering
-              PhotosTab — ONE CARD PER EVENT WITH A PHOTO COUNT — so Alaala
-              was a second list of events, and the lenses in the tile above it
-              answered with sentences about events too. Frames now, not
-              occasions. "With me" is every photo of you across six years and
-              belongs to no single event, which is exactly why it lives here at
-              the account level and not inside one.
-
-              The per-event albums (and Download all) did not go away — they
-              are one tap deeper, in Alaala opened full, where a whole-event
-              download is the job. */}
-          <Suspense fallback={<AlaalaWallSkeleton />}>
-            <AlaalaWall userId={user.id} />
-          </Suspense>
-
-          {/* Date-anchor model — the next few derived moments (own birthday ·
-              anniversaries · wedding countdowns). Self-fetching, and it ALWAYS
-              renders: with nothing to list it shows a written invitation, because
-              the list it draws carries the only in-app link to /dashboard/year
-              and returning null used to take that door down with it. */}
-          <Suspense fallback={null}>
-            <YearMomentsStrip userId={user.id} />
-          </Suspense>
-        </div>
-      </section>
 
       {/* Phone-only thumb nav. Every target is a link this page already renders. */}
       <HomePillNav
@@ -1412,58 +1460,6 @@ export default async function LauncherPage({
   );
 }
 
-/**
- * Assemble the signed-in person's life story into per-event groups for the
- * flag-gated "Your story" section. Reads the flag-guarded `getMyLifeStory`
- * (returns [] while the flag is off / no person node), then resolves each
- * event's display_name in ONE lookup and groups items by event (newest-first).
- * Only ever called when the flag is on.
- */
-async function buildLifeStoryGroups(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-): Promise<LifeStoryGroup[]> {
-  const items = await getMyLifeStory({ includeHidden: true });
-  if (items.length === 0) return [];
-
-  const eventIds = [...new Set(items.map((i) => i.eventId))];
-  const nameById = new Map<string, string | null>();
-  const { data: eventRows, error: eventRowsError } = await supabase
-    .from('events')
-    .select('event_id, display_name')
-    .in('event_id', eventIds);
-  // ⚠ 🚨 EVERY EVENT THIS PERSON HAS. Refused, the launcher — the first screen after
-  // ⚠ signing in — reads as though they have no celebrations at all. There is no
-  // ⚠ louder way to tell somebody their work is gone than an empty home screen.
-  if (eventRowsError) {
-    logQueryError('LauncherPage.eventRows', eventRowsError, {}, 'graceful_degrade');
-  }
-  for (const row of (eventRows ?? []) as Array<{
-    event_id: string;
-    display_name: string | null;
-  }>) {
-    nameById.set(row.event_id, row.display_name);
-  }
-
-  // Group by event, keeping the newest-first ordering getMyLifeStory returns.
-  const byEvent = new Map<string, LifeStoryGroup>();
-  for (const item of items) {
-    let group = byEvent.get(item.eventId);
-    if (!group) {
-      group = {
-        eventId: item.eventId,
-        eventName: nameById.get(item.eventId) ?? null,
-        items: [],
-      };
-      byEvent.set(item.eventId, group);
-    }
-    group.items.push({
-      storyItemId: item.storyItemId,
-      itemKind: item.itemKind,
-      hiddenAt: item.hiddenAt,
-    });
-  }
-  return [...byEvent.values()];
-}
 
 /**
  * Section header (proto .sec-h): sentence-case bold title with an optional
@@ -1471,14 +1467,130 @@ async function buildLifeStoryGroups(
  * a trailing hairline rule filling the line (proto .mtitle). Optional
  * right-aligned action either way.
  */
+/**
+ * The (i) beside a shelf name. `<details>` — no client component, no state, no
+ * hydration: it opens on the server-rendered page and works with JavaScript
+ * off, which matters because this board is the first thing a person sees on a
+ * venue's bad signal.
+ *
+ * 🔑 IT IS NEVER A LONE CIRCLE. `SectionLabel` renders it only when a sentence
+ * was passed, so the failure the owner retired the old one for — a circle that
+ * opens onto nothing — cannot occur here by construction rather than by care.
+ */
+function ShelfInfo({ children }: { children: string }) {
+  return (
+    <details className="group relative shrink-0">
+      <summary
+        className="flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full border border-ink/20 text-[10px] font-bold italic leading-none text-[color:var(--sn-ink-500)] transition hover:border-ink/40 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sn-mulberry-600)] [&::-webkit-details-marker]:hidden"
+        aria-label="What is this row?"
+      >
+        i
+      </summary>
+      <p className="absolute left-0 top-7 z-20 w-[min(17rem,72vw)] whitespace-normal rounded-xl border border-ink/12 bg-white p-3 text-[12.5px] font-normal leading-relaxed text-ink/75 shadow-lg">
+        {children}
+      </p>
+    </details>
+  );
+}
+
+/**
+ * The switch that reveals put-away celebrations, and the count beside it.
+ *
+ * 🔑 THE COUNT IS THE POINT, not decoration. The board's previous hidden half
+ * was retired in 2026-08-13 because *"a thing you have to switch on reads as a
+ * thing that might not be there"*. Printing the number answers that before it
+ * is asked: nothing is missing, two are put away, here is the switch.
+ *
+ * A link rather than a control: the shelf is server-rendered, so flipping it is
+ * a navigation. Nothing is written down — putting an event away is the choice
+ * that persists; looking at it again is not.
+ */
+function PutAwaySwitch({ on, count }: { on: boolean; count: number }) {
+  return (
+    <Link
+      href={on ? '/dashboard#events' : '/dashboard?putaway=1#events'}
+      aria-pressed={on}
+      className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[11.5px] font-semibold transition ${
+        on
+          ? 'border-[color:var(--sn-mulberry-600)] text-ink'
+          : 'border-ink/15 text-[color:var(--sn-ink-500)] hover:border-ink/30 hover:text-ink'
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`relative h-[15px] w-[26px] rounded-full transition ${
+          on ? 'bg-[color:var(--sn-mulberry-600)]' : 'bg-ink/15'
+        }`}
+      >
+        <span
+          className={`absolute top-[2px] h-[11px] w-[11px] rounded-full bg-white shadow transition-all ${
+            on ? 'left-[13px]' : 'left-[2px]'
+          }`}
+        />
+      </span>
+      {on ? 'Hide the ones I put away' : `Show the ${count} I put away`}
+    </Link>
+  );
+}
+
+/**
+ * "You are expected in two places on this day."
+ *
+ * ⚠ IT NAMES THE DAY AND BOTH CELEBRATIONS, and stops there. It does not say
+ * which to move, does not offer to move one, and is not styled as an error —
+ * two celebrations on one day is a thing people genuinely do (a morning
+ * christening and an evening reception), so this is information, not a fault.
+ * The one thing it must never do is stay silent and let somebody find out on
+ * the day.
+ */
+function ClashNotice({ clashes }: { clashes: DateClash[] }) {
+  if (clashes.length === 0) return null;
+  return (
+    <ul className="mb-3 space-y-1.5">
+      {clashes.map((c) => (
+        <li
+          key={c.dayISO}
+          className="flex items-start gap-2 rounded-xl border border-[color:var(--sn-gold-700)]/25 bg-[color:var(--sn-gold-700)]/[0.06] px-3 py-2 text-[12.5px] leading-relaxed text-ink/80"
+        >
+          <CalendarClock
+            aria-hidden
+            className="mt-[2px] h-3.5 w-3.5 shrink-0 text-[color:var(--sn-gold-700)]"
+            strokeWidth={1.9}
+          />
+          <span>
+            <b className="font-semibold">{shortDate(c.dayISO)}</b> holds{' '}
+            {c.names.length === 2
+              ? `${c.names[0]} and ${c.names[1]}`
+              : `${c.names.slice(0, -1).join(', ')} and ${c.names[c.names.length - 1]}`}
+            .
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+
 function SectionLabel({
   children,
   sub,
+  info,
   action,
 }: {
   children: ReactNode;
-  /** Soft caption beside the title (desktop only), e.g. "ongoing & upcoming". */
+  /** Soft caption beside the title (desktop only), e.g. "yours to run". */
   sub?: string;
+  /**
+   * One full sentence saying what this shelf is, revealed by the (i).
+   *
+   * ⚠ THE OWNER RETIRED THE PAGE-HEADER (i) ON 2026-08-21 — *"a lone circle
+   * explains nothing"* — and re-asked for one HERE the same day, per shelf.
+   * It is not a reversal: that one sat beside a page name a person had already
+   * read, and opened onto nothing. These five shelf names are new vocabulary,
+   * and this circle only ever exists where a real sentence is passed. There is
+   * deliberately no empty state: omit `info` and no circle renders at all.
+   */
+  info?: string;
   action?: ReactNode;
 }) {
   return (
@@ -1487,6 +1599,7 @@ function SectionLabel({
         <h2 className="flex flex-1 items-center gap-2.5 whitespace-nowrap text-sm font-extrabold tracking-tight text-ink after:h-px after:flex-1 after:bg-ink/10 sm:flex-none sm:text-base sm:tracking-[-0.015em] sm:after:hidden">
           {children}
         </h2>
+        {info ? <ShelfInfo>{info}</ShelfInfo> : null}
         {sub ? (
           <span className="hidden shrink-0 text-xs text-[color:var(--sn-ink-400)] sm:inline">
             {sub}
@@ -1576,6 +1689,10 @@ function CardShell({
   style,
   children,
 }: {
+  /** `null` renders an inert card (see the block above) — used ONLY when the
+   *  destination genuinely does not exist yet (an invited guest whose host
+   *  hasn't opened a public address). Never pass null to mean "use the
+   *  default" — callers that want the default simply don't override it. */
   href: string | null;
   className: string;
   style?: CSSProperties;
@@ -1610,6 +1727,10 @@ function CardShell({
  * monogram · place/date · gold progress ring · countdown · attention line.
  * The card jumps into the event dashboard — an allowed navigation.
  *
+ * ⚠ EXCEPT ON THE UNTOLD SHELF (owner 2026-08-22), where `storyHref` sends it
+ * straight to the celebration's own story page instead. See the prop's own
+ * doc — the caller decides when, this component only ever obeys.
+ *
  * Attention/overdue signals deliberately live ONLY in The Watch (desktop tile)
  * / the mobile nudge row now (owner 2026-07-15: one home for overdue counts) —
  * this card carries identity/type/date/progress, never a decision pill.
@@ -1622,9 +1743,14 @@ function GlassEventCard({
   finished,
   index = 0,
   todayISO,
+  summary,
+  hasMenu = false,
+  storyHref,
 }: {
   event: EventWithRole;
   pct: number | null;
+  /** This event's own decision summary. `undefined` ⇒ no pill — never a 0. */
+  summary?: EventDecisionSummary;
   /** The board's PH-local day — the countdown and the shelf must share it. */
   todayISO: string;
   /** Resolved event-type hero (admin upload → repo asset) for the scene band.
@@ -1637,14 +1763,30 @@ function GlassEventCard({
   /** Position in the grid — drives the entrance-cascade + ring/count-up
    *  stagger delays (computed, never hardcoded per card). */
   index?: number;
+  /** Reserve the scene band's top-right corner for the card menu. */
+  hasMenu?: boolean;
+  /**
+   * THE UNTOLD SHELF'S OWN DESTINATION (owner 2026-08-22: "we want that gone
+   * and directly jumps to the story maker upon pressing each untold event").
+   * When set, the card opens the event's story page instead of its dashboard —
+   * the separate "Write the story of X" chip that used to sit below the grid
+   * is retired in favour of the card itself doing that job.
+   *
+   * The caller computes this (`storiesMeasured && canWriteStoryFor(event)`),
+   * never this component: whether a guest, or an unmeasured board, gets sent
+   * into somebody's story editor is a decision that belongs where the shelf's
+   * other rules already live, not duplicated here.
+   */
+  storyHref?: string;
 }) {
   const { badge, dateLabel, place, status, plannedLabel, stance, href, closedReason } =
     deriveEventView(event, pct, finished, todayISO);
+  const resolvedHref = storyHref ?? href;
 
   return (
     <CardShell
-      href={href}
-      className={`sn-tile-glass sn-lift-4 sn-press sn-reveal group flex min-h-[196px] flex-col overflow-hidden rounded-2xl hover:border-mulberry/30 ${
+      href={resolvedHref}
+      className={`sn-tile-glass sn-lift-4 sn-press sn-reveal group flex h-full min-h-[196px] flex-col overflow-hidden rounded-2xl hover:border-mulberry/30 ${
         finished ? 'opacity-75 hover:opacity-100' : ''
       }`}
       style={{ animationDelay: `${0.5 + index * 0.08}s` }}
@@ -1668,7 +1810,11 @@ function GlassEventCard({
         />
         {/* Type badge + STANCE, one row: what kind of event this is, and which
             side of it you are on. */}
-        <div className="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-1.5">
+        <div
+          className={`absolute left-3 top-3 flex flex-wrap items-center gap-1.5 ${
+            hasMenu ? 'max-w-[calc(100%-3.75rem)]' : 'max-w-[calc(100%-1.5rem)]'
+          }`}
+        >
           <span className="inline-flex rounded-full bg-white/85 px-2 py-1 font-mono text-[9px] font-normal uppercase tracking-[0.12em] text-[color:var(--sn-gold-700)] shadow-[0_2px_8px_rgba(30,26,18,0.08)]">
             {badge}
           </span>
@@ -1715,6 +1861,10 @@ function GlassEventCard({
         <p className="truncate text-[12.5px] text-[color:var(--sn-ink-500)]">
           {dateLabel ?? 'Date to be set'}
         </p>
+        {/* THE COUNTER (owner 2026-08-20). Above the progress row so it is the
+            first thing read after the date — what is waiting outranks how far
+            along the plan is. Absent entirely when nothing waits. */}
+        <EventAttention summary={summary} stance={stance} />
         <div className="mt-auto flex items-center gap-2.5 pt-1">
           {pct != null ? (
             <ProgressRing
@@ -1849,16 +1999,25 @@ function MobileEventHero({
   event,
   pct,
   todayISO,
+  summary,
+  hasMenu = false,
 }: {
   event: EventWithRole;
   pct: number | null;
   /** The board's PH-local day — the countdown and the shelf must share it. */
   todayISO: string;
+  /** This event's own decision summary. `undefined` ⇒ no pill — never a 0. */
+  summary?: EventDecisionSummary;
+  /** Reserve the top-right corner for the card menu. */
+  hasMenu?: boolean;
 }) {
   const { badge, dateLabel, countdown, plannedLabel, status, stance, href, closedReason } =
     deriveEventView(event, pct, undefined, todayISO);
-  // Attention/overdue lives ONLY in the mobile nudge row now (owner 2026-07-15:
-  // one home for overdue counts). The hero keeps identity/date/progress facts.
+  // ⚠ The comment here used to read "attention/overdue lives ONLY in the mobile
+  // nudge row now (owner 2026-07-15: one home for overdue counts)". That nudge
+  // row IS the banner retired above, and it only ever carried the busiest
+  // event — so on a phone this hero could be the neediest card on screen and
+  // say nothing. The counter now rides the card (owner 2026-08-20).
   // An INVITED hero shows its status line instead of a plan percentage it has no
   // business quoting — `plannedLabel` is already null for it.
   const facts = [
@@ -1870,7 +2029,9 @@ function MobileEventHero({
   return (
     <CardShell
       href={href}
-      className="sn-press sn-reveal block w-full rounded-2xl bg-ink p-4 text-cream shadow-[0_20px_44px_-26px_rgba(23,22,15,0.7)]"
+      className={`sn-press sn-reveal block w-full rounded-2xl bg-ink p-4 text-cream shadow-[0_20px_44px_-26px_rgba(23,22,15,0.7)] ${
+        hasMenu ? 'pr-12' : ''
+      }`}
       style={{ animationDelay: '0.5s' }}
     >
       <p className="flex flex-wrap items-center gap-x-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-gold-300)]">
@@ -1899,6 +2060,11 @@ function MobileEventHero({
             </span>
           ))}
         </p>
+      ) : null}
+      {summary && stance !== 'invited' && summary.total > 0 ? (
+        <span className="mt-2 flex">
+          <EventAttention summary={summary} stance={stance} />
+        </span>
       ) : null}
       {pct != null ? (
         <span className="sn-bar mt-2.5 block h-1.5 overflow-hidden rounded-full bg-white/15">
@@ -1929,12 +2095,21 @@ function MobileEventChip({
   pct,
   finished,
   todayISO,
+  summary,
+  hasMenu = false,
+  storyHref,
 }: {
   event: EventWithRole;
   pct: number | null;
   finished?: boolean;
   /** The board's PH-local day — the countdown and the shelf must share it. */
   todayISO: string;
+  /** This event's own decision summary. `undefined` ⇒ no pill — never a 0. */
+  summary?: EventDecisionSummary;
+  /** Reserve the top-right corner for the card menu. */
+  hasMenu?: boolean;
+  /** See the matching prop on `GlassEventCard` — same override, same rule. */
+  storyHref?: string;
 }) {
   const { badge, dateLabel, status, stance, href, closedReason } = deriveEventView(
     event,
@@ -1942,12 +2117,13 @@ function MobileEventChip({
     finished,
     todayISO,
   );
+  const resolvedHref = storyHref ?? href;
   return (
     <CardShell
-      href={href}
-      className={`sn-press block rounded-2xl border border-ink/15 bg-white/60 p-3 text-left ${
+      href={resolvedHref}
+      className={`sn-press block h-full rounded-2xl border border-ink/15 bg-white/60 p-3 text-left ${
         finished ? 'opacity-75' : ''
-      }`}
+      } ${hasMenu ? 'pr-9' : ''}`}
     >
       <p className="truncate font-mono text-[9px] uppercase text-mulberry">
         {badge}
@@ -1966,6 +2142,17 @@ function MobileEventChip({
       {closedReason ? (
         <p className="text-[10.5px] leading-snug text-ink/45">{closedReason}</p>
       ) : null}
+      {/* AT CHIP DENSITY THE COUNT IS THE WHOLE MESSAGE. These sit two-up on a
+          phone, so the named action ("3 payments to settle") cannot fit beside
+          a name and a status without truncating to noise. The number and
+          "need you" fit, and the named line is one tap away on the event
+          itself — which is where pressing this chip goes. */}
+      {summary && summary.total > 0 && stance !== 'invited' ? (
+        <p className="mt-1.5 flex items-center gap-1 text-[10.5px] font-bold text-[color:var(--sn-warning)]">
+          <AlertCircle aria-hidden className="h-3 w-3 shrink-0" />
+          <span className="font-mono">{summary.total}</span> need you
+        </p>
+      ) : null}
     </CardShell>
   );
 }
@@ -1974,15 +2161,58 @@ function MobileEventChip({
  * The "needs a decision now" line — a gold pill naming the top pending
  * action (+ "· N more" when other kinds are also waiting). Named, not a bare
  * count badge, so the couple knows WHAT before they click (owner 2026-07-10).
- * Reused on the vendor shop + admin HQ cards.
+ * Reused on the vendor shop + admin HQ cards, and on every event card.
+ *
+ * ─── `count` — THE TOTAL, LEADING (owner 2026-08-20) ────────────────────────
+ * The owner asked for "a counter on the event card", having watched a banner
+ * say "9 things need you" for one event while the rest said nothing. So the
+ * event cards pass `count` and the pill leads with that whole number.
+ *
+ * 🔑 IT LEADS WITH THE NUMBER AND STILL NAMES THE ACTION, because BOTH owner
+ * rulings are live and neither cancels the other: 2026-07-10 asked for a named
+ * line rather than a bare badge ("so the couple knows WHAT before they click"),
+ * and 2026-08-20 asked for the count to be visible per event. A bare "9" would
+ * satisfy the new instruction by breaking the old one. The number is first so
+ * that it survives truncation on the narrowest card — the label is what gives
+ * way when there is no room, never the count.
  */
-function AttentionPill({ label, more = 0 }: { label: string; more?: number }) {
+function AttentionPill({
+  label,
+  more = 0,
+  count,
+}: {
+  label: string;
+  more?: number;
+  /** Total waiting on this surface. Omitted → the original label-only pill. */
+  count?: number;
+}) {
   return (
     <span className="flex items-center gap-1.5 rounded-lg bg-[color:var(--sn-warning-soft)] px-[9px] py-[5px] text-[color:var(--sn-warning)]">
       <AlertCircle aria-hidden className="h-[13px] w-[13px] shrink-0" />
+      {count != null ? (
+        /*
+          🚨 THE TOTAL NEEDS ITS OWN NOUN, AND THE FIRST CUT DID NOT GIVE IT ONE.
+          `summarizeEventDecisions` returns a label that is ALREADY COUNT-LED —
+          "3 payments to settle" — so printing the total straight before it
+          rendered "9 3 payments to settle", and "3 3 payments to settle"
+          whenever one kind was the only kind waiting. Two numbers in a row with
+          nothing between them, on the pill the owner asked for by name.
+
+          "need you" is what makes the first number a TOTAL and the second one a
+          BREAKDOWN. It is also the banner's own word, so the count reads as the
+          same fact that used to sit at the top of the page.
+        */
+        <span className="shrink-0 font-mono text-[12px] font-bold leading-none">
+          {count} need you
+        </span>
+      ) : null}
       <span className="truncate text-[11px] font-bold">
+        {count != null ? <span className="opacity-60">· </span> : null}
         {label}
-        {more > 0 ? (
+        {/* `· N more` is SUPPRESSED once the total is shown: the total already
+            counts the remainder (9 = 3 + 6), so keeping both prints the same
+            arithmetic twice and invites the reader to add them again. */}
+        {more > 0 && count == null ? (
           <span className="font-mono font-normal opacity-70"> · {more} more</span>
         ) : null}
       </span>
@@ -1991,44 +2221,122 @@ function AttentionPill({ label, more = 0 }: { label: string; more?: number }) {
 }
 
 /**
- * EventComposer — the full-width "What's your event?" row under the greeting.
+ * The event-card counter — `AttentionPill` fed from a card's own decision
+ * summary, or nothing at all.
  *
- * Deliberately NOT an input. A text box would promise that typing a sentence
- * creates something, and the create flow needs a type, a subject and a date
- * before it can do anything real — so a half-answer here would be thrown away
- * on the very next screen. It looks like a composer and behaves like the door
- * it already was.
+ * ─── THE TWO WAYS THIS MUST STAY SILENT ────────────────────────────────────
+ * 1. NO SUMMARY, NO PILL. `decisionByEvent` is keyed on the organiser's ACTIVE
+ *    events. An invited card, an archived card and a card whose decision read
+ *    graceful-degraded all arrive here as `undefined` — and none of the three
+ *    may render "0 need you". An absence is not a zero; the pill is simply not
+ *    there, exactly as the home board's tiles were never rendered as
+ *    zero-with-a-flourish.
+ * 2. NEVER ON AN INVITED CARD, even if a summary somehow exists for it. A
+ *    guest has no payments to settle and no quotes to approve — those are the
+ *    host's decisions, and quoting them at somebody who cannot act on them is
+ *    the same error as printing "% planned" on a card for somebody else's
+ *    plan, which `deriveEventView` already refuses to do.
  */
-function EventComposer({ initial }: { initial: string }) {
+function EventAttention({
+  summary,
+  stance,
+}: {
+  summary: EventDecisionSummary | undefined;
+  stance: EventStance | null;
+}) {
+  if (!summary || summary.total <= 0 || !summary.top) return null;
+  if (stance === 'invited') return null;
+  /*
+    🔴 THE TOTAL IS ONLY SHOWN WHEN IT SAYS SOMETHING THE LABEL DOES NOT.
+
+    Owner, looking at his own home screen: the card read
+    **"9 need you · 9 tasks overdue"** — nine, twice.
+
+    This is the second costume of the bug fixed the day before. That one was
+    "9 3 payments to settle", where the two numbers DIFFERED and ran together
+    with nothing between them. The noun ("need you") fixed the collision but not
+    the REPETITION: when everything waiting is a single kind, the total and the
+    top action's count are the same number, and the pill states it twice.
+
+    `summarizeEventDecisions` always returns a count-led label, so when
+    `total === top.count` the label alone is the whole truth — "9 tasks overdue"
+    says how many AND what. The total earns its place only when it is larger,
+    i.e. when other kinds are waiting that the label cannot name.
+
+    🔑 A SUMMARY THAT REPEATS ITSELF READS AS A BUG EVEN WHEN THE NUMBER IS
+    RIGHT. The owner did not have to check anything to see it was wrong.
+  */
+  const otherKinds = Math.max(0, summary.total - summary.top.count);
   return (
-    <Link
-      href="/dashboard/create-event"
-      className="sn-press sn-reveal group mb-5 flex items-center gap-3 rounded-full border border-ink/12 bg-white/70 py-2 pl-2 pr-2.5 transition-[border-color,background-color] duration-200 hover:border-terracotta hover:bg-white sm:mb-6 sm:py-2.5 sm:pl-2.5"
-      style={{ animationDelay: '0.3s' }}
-    >
-      <span
-        aria-hidden
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--sn-gold-100)] text-[13px] font-extrabold text-[color:var(--sn-gold-700)] sm:h-10 sm:w-10 sm:text-sm"
-      >
-        {initial}
-      </span>
-      <span className="flex-1 truncate text-[13.5px] font-semibold text-[color:var(--sn-ink-400)] sm:text-[15px]">
-        What’s your event?
-      </span>
-      <span
-        aria-hidden
-        /* CTA slot, so `bg-mulberry` (#C24E25) — NOT `bg-terracotta`, which
-           the 2026-08-01 palette lock remapped to the GOLD accent #A9834B.
-           The lock's whole point is structural: terracotta ACTS, gold
-           HIGHLIGHTS, and "gold is never a button" is the rule this circle
-           was breaking. Label is `text-cream`, the pairing the contrast
-           guard actually measures (4.61:1 AA); `text-white` is a different,
-           unmeasured pairing. */
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-mulberry text-cream transition-[transform,background-color] duration-200 group-hover:bg-mulberry-600 group-hover:scale-105 sm:h-9 sm:w-9"
-      >
-        <Plus className="h-[18px] w-[18px]" strokeWidth={2.4} />
-      </span>
-    </Link>
+    <AttentionPill
+      count={otherKinds > 0 ? summary.total : undefined}
+      label={summary.top.label}
+      more={0}
+    />
+  );
+}
+
+/**
+ * A board card plus its "⋯" menu — put away / remove for good.
+ *
+ * ─── WHY IT WRAPS RATHER THAN NESTS ────────────────────────────────────────
+ * 🪤 Every board card is a `<Link>` (see CardShell). A `<button>` inside an
+ * `<a>` is invalid HTML and behaves like it: the press activates both, so
+ * opening the menu would navigate into the event underneath. The menu is
+ * therefore a SIBLING of the card inside a `relative` wrapper, and each card
+ * takes `hasMenu` so it can reserve the corner the button will occupy — a
+ * button laid over a truncating line of text is the same bug one layer up.
+ *
+ * ─── WHO GETS ONE ──────────────────────────────────────────────────────────
+ * `member_type === 'couple'` ONLY. This board carries exactly two kinds of card
+ * (couple → organiser, guest → invited; `splitEventBoard` drops the rest), and
+ * a guest must not be offered controls over somebody else's celebration. It
+ * matches the server gate exactly — `deleteOwnEvent` admits couple members and
+ * nobody else — so the menu is never a door to a refusal.
+ *
+ * `h-full` on the wrapper keeps the card filling its grid cell: the card, not
+ * this div, used to be the grid item.
+ */
+function BoardCardWithMenu({
+  event,
+  tone = 'light',
+  align = 'right',
+  /**
+   * TRUE on the Untold + Told shelves — mirrors the `finished` prop already
+   * passed to the card underneath (`GlassEventCard` / `MobileEventChip`) on
+   * those two shelves only. Owner 2026-08-22, asked directly: *"shouldn't now
+   * happening and planning be the only ones to have this add to calendar?"*
+   * A day that has already passed is not something to add to a phone
+   * calendar, so `EventCardMenu` drops that row entirely when this is true.
+   */
+  finished = false,
+  children,
+}: {
+  event: EventWithRole;
+  tone?: 'light' | 'dark';
+  /** Which card edge the popover hangs from — see EventCardMenu's `align`.
+   *  The two-up phone chips MUST alternate or the left column's menu renders
+   *  partly off the left of the screen, where it cannot be scrolled to. */
+  align?: 'left' | 'right';
+  finished?: boolean;
+  children: ReactNode;
+}) {
+  if (event.member_type !== 'couple') return <>{children}</>;
+  return (
+    <div className="relative h-full">
+      {children}
+      <EventCardMenu
+        eventId={event.event_id}
+        eventName={event.display_name}
+        archived={!!event.archived}
+        eventDateIso={event.event_date}
+        venueName={event.venue_name}
+        venueAddress={event.venue_address}
+        finished={finished}
+        tone={tone}
+        align={align}
+      />
+    </div>
   );
 }
 

@@ -16,10 +16,13 @@
  */
 import Link from 'next/link';
 import { DoorShell } from '@/app/_components/door/door-shell';
+import { joinDoorMeta } from '@/lib/join-door-meta';
 
 export type JoinShellEvent = {
   display_name: string;
   event_date: string | null;
+  /** Required, never optional — see lib/join-door-meta.ts for why. */
+  event_date_precision: string | null;
   venue_name: string | null;
 } | null;
 
@@ -35,11 +38,7 @@ export function JoinShell({
     <DoorShell
       eyebrow="You're invited"
       title={event?.display_name || 'Event invite'}
-      meta={
-        event
-          ? [event.event_date, event.venue_name].filter(Boolean).join(' · ') || undefined
-          : undefined
-      }
+      meta={event ? joinDoorMeta(event) : undefined}
     >
       {children}
     </DoorShell>

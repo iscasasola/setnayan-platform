@@ -58,9 +58,6 @@ export default async function AdminDemandPage({
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
           <Radar aria-hidden className="h-5 w-5" strokeWidth={1.75} />
         </span>
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Setnayan HQ · Demand Radar
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Demand Radar
         </h1>

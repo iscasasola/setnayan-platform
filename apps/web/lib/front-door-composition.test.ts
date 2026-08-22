@@ -146,10 +146,13 @@ const STORIES: S[] = [
   { href: '/s/written', hasVideo: false },
 ];
 
-test('ANCHOR — the shelf has exactly the four owner-named chips, in order', () => {
+test('ANCHOR — the shelf has exactly the owner-named chips, in order', () => {
   assert.deepEqual(
     [...FRONT_DOOR_CHIPS],
-    ['All', 'Articles', 'Their stories', 'With video'],
+    ['All', 'Your people', 'Stories', 'Articles'],
+    'The chip set and its ORDER are the owner\u2019s. "Your people" sits second ' +
+      'because it is the one chip about the viewer rather than about a kind ' +
+      'of piece (owner 2026-08-20).',
   );
   assert.equal(isChip('All'), true);
   assert.equal(isChip('Journal'), false, 'there is no Journal chip — one shelf');
@@ -169,8 +172,8 @@ test('Articles — our writing only, and no story leaks in', () => {
   assert.equal(r.stories.length, 0, 'a story under the Articles chip is mislabelled');
 });
 
-test('Their stories — theirs only, INCLUDING the ones with no video', () => {
-  const r = selectShelf('Their stories', ARTICLES, STORIES);
+test('Stories — theirs only, INCLUDING the ones with no video', () => {
+  const r = selectShelf('Stories', ARTICLES, STORIES);
   assert.equal(r.articles.length, 0);
   assert.equal(r.stories.length, 3);
   assert.ok(
@@ -180,19 +183,44 @@ test('Their stories — theirs only, INCLUDING the ones with no video', () => {
   );
 });
 
-test('With video — every story that HAS a video, whoever hosts it', () => {
-  const r = selectShelf('With video', ARTICLES, STORIES);
-  assert.equal(r.articles.length, 0, 'articles carry no video of their own');
-  assert.deepEqual(
-    r.stories.map((s) => s.href).sort(),
-    ['/s/tiktok', '/s/youtube'],
-    'a chapter whose video is not on YouTube must still appear here',
+test('RETIRED — "With video" is not a chip, and Marketplace never was', () => {
+  /*
+    ⛔ BOTH REFUSALS ARE PINNED HERE so neither is quietly re-added.
+
+    "With video" was a MODIFIER on a story, not a KIND on the shelf — the one
+    chip that was not parallel with its neighbours. Nothing was lost: every
+    card still carries its own "▶ with video" badge, so a person can still SEE
+    which have video; they simply cannot filter to them, on a shelf where zero
+    do today.
+
+    "Marketplace" is a different ROOM, not a kind of reading. It already has
+    three doors — the shops rail below this shelf, the rail destination, and
+    the search box's row — and it would be the only chip that NAVIGATES rather
+    than FILTERS, which breaks this row's contract outright.
+  */
+  assert.equal(isChip('With video'), false, '"With video" came back as a chip');
+  assert.equal(isChip('Marketplace'), false, '"Marketplace" was added as a chip');
+  assert.equal(isChip('Their stories'), false, 'the old possessive label came back');
+
+  /*
+    🔑 AND THE SHELF MUST NOT ANSWER FOR THEM EITHER. A retired chip that still
+    selects content is a URL that works with no way to reach it — a
+    half-retirement, and exactly the kind that survives review because the
+    visible half looks done.
+  */
+  const r = selectShelf('With video' as never, ARTICLES, STORIES);
+  assert.equal(
+    r.articles.length + r.stories.length,
+    0,
+    'A retired chip still selects content. Anything not in FRONT_DOOR_CHIPS ' +
+      'must fall through to an empty shelf.',
   );
+  assert.equal(r.empty, true);
 });
 
 test('a chip with nothing under it reports empty, so the page can say so', () => {
   // Today: 0 published chapters reach the public shelf.
-  const r = selectShelf('With video', ARTICLES, []);
+  const r = selectShelf('Stories', ARTICLES, []);
   assert.equal(r.empty, true);
   // …but the writing is never empty, so All never is either.
   assert.equal(selectShelf('All', ARTICLES, []).empty, false);
@@ -200,7 +228,7 @@ test('a chip with nothing under it reports empty, so the page can say so', () =>
 
 test('selecting never mutates what it was given', () => {
   const stories = [...STORIES];
-  selectShelf('With video', ARTICLES, stories);
+  selectShelf('Stories', ARTICLES, stories);
   assert.equal(stories.length, 3, 'the caller\'s array must survive a filter');
 });
 
@@ -276,4 +304,84 @@ test('the lead grid never exceeds four across, whatever it is fed', () => {
 test('an empty shelf splits into empty rows rather than throwing', () => {
   const r = splitShelfRows([], []);
   assert.deepEqual(r, { leadStories: [], leadArticles: [], trailingArticles: [] });
+});
+
+/* ── "YOUR PEOPLE" — A NARROWING, AND IT MUST FAIL CLOSED ────────────────
+   Owner 2026-08-20, having rejected his own word for it: *"your people - yes"*.
+
+   The chip filters pieces the caller has ALREADY loaded and that every
+   stranger can already see, down to the ones whose author the viewer already
+   knows. Nothing here loads a story, which is the property that makes it safe
+   — see `lib/your-people.ts`, which carries the same rule at the other end.
+
+   The direction of failure is the whole design: this is a claim about who a
+   person knows, so an unknown must read as "not yours", never as "yours". */
+const PEOPLE_STORIES: Array<{
+  href: string;
+  hasVideo: boolean;
+  fromYourPeople?: boolean;
+}> = [
+  { href: '/s/friend-video', hasVideo: true, fromYourPeople: true },
+  { href: '/s/friend-written', hasVideo: false, fromYourPeople: true },
+  { href: '/s/stranger', hasVideo: true, fromYourPeople: false },
+  // The field absent entirely — a caller that has not computed it, or whose
+  // read failed. Must be treated as NOT yours.
+  { href: '/s/unknown', hasVideo: true },
+];
+
+test('Your people — only theirs, and written chapters count too', () => {
+  const r = selectShelf('Your people', ARTICLES, PEOPLE_STORIES);
+  assert.equal(
+    r.articles.length,
+    0,
+    'Articles are OURS. A Setnayan guide has no author the viewer could know, ' +
+      'so one appearing under this chip is mislabelled as a friend’s work.',
+  );
+  assert.deepEqual(
+    r.stories.map((s) => s.href).sort(),
+    ['/s/friend-video', '/s/friend-written'],
+    'a friend’s chapter told purely in writing is still a friend’s chapter',
+  );
+});
+
+test('Your people — an UNKNOWN author is not your friend (fails closed)', () => {
+  const r = selectShelf('Your people', ARTICLES, [
+    { href: '/s/unknown', hasVideo: true },
+  ]);
+  assert.equal(
+    r.stories.length,
+    0,
+    'A story with no `fromYourPeople` was admitted. A missing flag means the ' +
+      'caller has not computed it or its read FAILED — and inventing `true` ' +
+      'tells a person that a stranger is somebody they know.',
+  );
+  assert.equal(r.empty, true, 'and the page must then show its written invitation');
+});
+
+test('Your people NARROWS the shelf — it can never add a story', () => {
+  const all = selectShelf('All', ARTICLES, PEOPLE_STORIES);
+  const mine = selectShelf('Your people', ARTICLES, PEOPLE_STORIES);
+  const allHrefs = new Set(all.stories.map((s) => s.href));
+  for (const s of mine.stories) {
+    assert.ok(
+      allHrefs.has(s.href),
+      `${s.href} appears under "Your people" but not under "All" — this chip ` +
+        'is a FILTER over the public shelf. If it can add a piece, it can add ' +
+        'a private one, and the safety argument for the whole feature is gone.',
+    );
+  }
+  assert.ok(mine.stories.length <= all.stories.length);
+});
+
+test('Your people — nobody yet is EMPTY, not a fallback to everyone', () => {
+  const r = selectShelf('Your people', ARTICLES, [
+    { href: '/s/stranger', hasVideo: true, fromYourPeople: false },
+  ]);
+  assert.equal(
+    r.stories.length,
+    0,
+    'An empty result must stay empty. Falling back to the full shelf would ' +
+      'label strangers as the viewer’s people — worse than showing nothing.',
+  );
+  assert.equal(r.empty, true);
 });

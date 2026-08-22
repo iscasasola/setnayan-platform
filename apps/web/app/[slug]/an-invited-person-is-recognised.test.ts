@@ -266,23 +266,41 @@ test('the emailed sign-in link no longer lands a guest on the organiser dashboar
 
 // ── 4 · THE GREETING COUNTS WHAT THE BOARD SHOWS ────────────────────────────
 
-test('"set up your first event" cannot print above events you were invited to', () => {
-  // Found by the same adversarial pass: `noEvents` read the ORGANISER-only set
-  // while the shelves below render the MERGED set. Before invited events reached
-  // the board the two were one list and could not contradict each other.
+test('the account home makes no zero-claim about events at all', () => {
+  // ── WHAT THIS USED TO ASSERT, AND WHY IT CHANGED (2026-08-19) ─────────────
+  // It pinned two expressions: `const noEvents = boardEvents.length === 0` (so
+  // the greeting counted the MERGED board) and `activeCount: upcoming.length`
+  // (so the "in motion" tile did not read 0 over a board full of invitations).
+  //
+  // Both subjects are GONE. The owner made this page only his events, which
+  // deleted the status board — and the greeting's zero-state went with it, for
+  // a reason that makes the old rule redundant and the new one stronger:
+  //
+  // `fetchUserEvents` GRACEFULLY DEGRADES TO `[]` ON EVERY ERROR (lib/events.ts,
+  // "collapse to graceful-degrade-always"). So an empty list cannot be told
+  // apart from a refused read. The old copy said "Let's set up your first
+  // event." — which, on a page that is now nothing but events, would be the
+  // ENTIRE SCREEN shown to somebody with six weddings whose read just failed.
+  //
+  // Counting the merged set fixed WHICH events were counted. Making no claim at
+  // all removes the failure mode entirely, and is what the FINISHED shelf on the
+  // same page already does: "the line therefore says what this shelf is FOR and
+  // never that you have none."
+  //
+  // ⚠ So this no longer asserts a variable. It asserts the ABSENCE of the copy,
+  // which is the thing the original defect actually harmed somebody with.
   const src = read(LAUNCHER);
-  assert.match(
+  assert.doesNotMatch(
     src,
-    /const noEvents = boardEvents\.length === 0;/,
-    'The greeting counts the organiser-only set again, so somebody whose only ' +
-      'events are invitations is told to set up their first one — directly above ' +
-      'them.',
+    /set up your first event/i,
+    'A zero-claim is back on the account home. It cannot tell "you have no ' +
+      'events" from "your events could not be loaded", and this page has ' +
+      'nothing else on it to soften that.',
   );
-  assert.match(
+  assert.doesNotMatch(
     src,
-    /activeCount: upcoming\.length,/,
-    'The "in motion" tile counts the organiser-only set again, so it reads 0 over ' +
-      'a board full of invitations.',
+    /Pick up where you left off/i,
+    'The 2026-08-18 one-line ruling still stands: no tail hanging off the title.',
   );
 });
 

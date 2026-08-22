@@ -43,6 +43,7 @@ import {
   eventBoardHref,
   eventStance,
   isFinishedEvent,
+  splitFinishedByStory,
   mergeBoardMemberships,
   splitEventBoard,
   stanceLabel,
@@ -294,23 +295,52 @@ test('holding both memberships on one event resolves to the organiser', () => {
 
 // ── 3 · THE CALLER — the launcher actually renders all of it ────────────────
 
-test('the launcher renders BOTH shelves, always', () => {
+test('the launcher renders EVERY shelf, always', () => {
   const src = launcher();
+  // FIVE SHELVES SINCE 2026-08-21 (owner). The two this test was written for
+  // are still here under the names he chose: "Coming up" → "Planning", and the
+  // finished pair → "Untold"/"Told". Renaming a shelf is a copy decision; a
+  // shelf DISAPPEARING is the regression, and that is what these still catch.
   assert.match(
     src,
-    /<SectionLabel[^>]*>\s*Coming up\s*<\/SectionLabel>/,
-    'The "Coming up" shelf heading is gone.',
+    /<SectionLabel[\s\S]{0,400}?>\s*Planning\s*<\/SectionLabel>/,
+    'The "Planning" shelf heading is gone.',
   );
   assert.match(
     src,
-    /<SectionLabel[^>]*>\s*Finished\s*<\/SectionLabel>/,
-    'The "Finished" shelf heading is gone — the second shelf must be a NAMED place, ' +
-      'not an unlabelled tail of the first.',
+    /<SectionLabel[\s\S]{0,400}?>\s*Worth planning\s*<\/SectionLabel>/,
+    'The "Worth planning" shelf is gone — the days that come around for this ' +
+      'person have no other home now that the Your Year menu is retired.',
+  );
+  assert.match(
+    src,
+    /<SectionLabel[\s\S]{0,500}?>\s*Now happening\s*<\/SectionLabel>/,
+    'The "Now happening" row is gone.',
+  );
+  // The finished shelf is a NAMED place. Its name depends on whether this
+  // account's stories could be read: "Untold" when they were (owner
+  // 2026-08-21), "Ended" when they were not. Either way it is named, and either
+  // way every finished celebration is on it.
+  assert.match(
+    src,
+    /storiesMeasured\s*\n?\s*\? 'The day has passed/,
+    'The Untold shelf lost the sentence its (i) reveals.',
+  );
+  assert.match(
+    src,
+    /\{storiesMeasured \? 'Untold' : 'Ended'\}/,
+    'The finished shelf heading is gone — the second shelf must be a NAMED ' +
+      'place, not an unlabelled tail of the first.',
   );
   assert.match(
     src,
     /id="finished"/,
     'The Finished section lost its own anchor, so nothing can link to it.',
+  );
+  assert.match(
+    src,
+    /id="published"/,
+    'The Published shelf lost its own anchor.',
   );
 });
 
@@ -337,7 +367,7 @@ test('NOTHING gates the finished shelf behind a query param', () => {
   );
   // …and the finished cards must actually be rendered from the shelf.
   assert.ok(
-    count(src, /finished\.map\(/) >= 2,
+    count(src, /unwritten\.map\(/) >= 2,
     'The finished shelf renders no cards on one of the two compositions (phone / ' +
       'desktop). Both must list them.',
   );
@@ -350,22 +380,121 @@ test('the finished cards are gated by NOTHING except emptiness', () => {
   // gate passed; and the `finished.map(` count was satisfied inside an arbitrary
   // condition. **A guard can match a string instead of the act.**
   //
-  // This asserts the ACT: inside the Finished section, the ONLY condition
-  // standing between a person and their memories is whether there are any.
+  // This asserts the ACT: inside the shelf, the ONLY conditions are whether
+  // there are any cards, and — since the 2026-08-20 split — whether the stories
+  // could be read at all. The second one is allowed ONLY in front of the
+  // write-the-story chips, never in front of a card, which the position checks
+  // below prove rather than trust.
   const section = sectionBody(launcher(), 'finished');
   const conditions = [...section.matchAll(/\{([^{}]+?)\s*\?\s*\(/g)].map((m) =>
     m[1]!.trim(),
   );
+  // ⚠ TIGHTENED 2026-08-22. This used to allow a second condition,
+  // `storiesMeasured`, because a stand-alone "Write the story of X" chip was
+  // rendered behind it below the cards. The owner retired that chip — the CARD
+  // now carries the story destination itself — so the branch is gone and the
+  // only condition left in this shelf is whether it is empty. Accepting the old
+  // pair would let the gate creep back in front of a card.
   assert.deepEqual(
     conditions,
-    ['finished.length === 0'],
-    'The Finished shelf has a condition other than "is it empty" standing in ' +
-      `front of it: ${JSON.stringify(conditions)}. Whatever it is named, that is ` +
-      'a switch in front of somebody\'s memories.',
+    ['unwritten.length === 0'],
+    'The finished shelf has a condition other than "is it empty" standing in ' +
+      `front of it: ${JSON.stringify(conditions)}. Whatever it is named, that ` +
+      'is a switch in front of somebody\'s memories.',
   );
   assert.ok(
-    count(section, /finished\.map\(/) >= 2,
-    'The Finished section renders no cards on one of the two compositions.',
+    count(section, /unwritten\.map\(/) >= 2,
+    'The finished section renders no cards on one of the two compositions.',
+  );
+  // AND NO CARD MAY BE PUT BEHIND THE MEASURED GATE. `storiesMeasured` still
+  // decides the shelf's NAME and the story override's destination, but it must
+  // never wrap a card again: a refused read would empty somebody's memories.
+  assert.doesNotMatch(
+    section,
+    /storiesMeasured \?\s*\(/,
+    'A `storiesMeasured ? (…)` branch is back inside the finished shelf. Whatever ' +
+      'it wraps, a failed read of the stories would make it vanish.',
+  );
+  for (const marker of ['MobileEventChip', 'GlassEventCard']) {
+    assert.ok(
+      section.indexOf(marker) > 0,
+      `The finished shelf no longer renders ${marker}.`,
+    );
+  }
+});
+
+test('every finished celebration is on exactly one shelf', () => {
+  // The split is only safe because it is EXHAUSTIVE: unmeasured puts everything
+  // on the first shelf, measured puts each event on exactly one of the two.
+  // Proven on the function, not on the markup.
+  const finished = [
+    { event_id: 'a', member_type: 'couple' },
+    { event_id: 'b', member_type: 'couple' },
+  ] as never as Parameters<typeof splitFinishedByStory>[0];
+  for (const ids of [null, new Set<string>(), new Set(['a']), new Set(['a', 'b'])]) {
+    const { unpublished, published } = splitFinishedByStory(finished, ids);
+    assert.deepEqual(
+      [...unpublished, ...published].map((e) => e.event_id).sort(),
+      ['a', 'b'],
+      'A finished celebration fell off the board entirely.',
+    );
+  }
+});
+
+test('the Untold card itself opens THAT EVENT\'S OWN story page — no separate chip', () => {
+  // ⚠ THE MECHANISM CHANGED AGAIN ON 2026-08-22, SAME DAY. The previous
+  // version of this test pinned a stand-alone "Write the story of X" chip
+  // rendered BELOW the card grid. The owner then asked for the chip gone
+  // entirely and the CARD itself to jump straight to the story page — two
+  // controls for one celebration collapsed into the one a person actually
+  // presses. A `<Link>` still does the navigating and still writes nothing;
+  // what moved is which element carries the href.
+  const src = launcher();
+  assert.doesNotMatch(
+    src,
+    /Write the story of/,
+    'The stand-alone chip is back. The card itself is meant to be the control now.',
+  );
+  assert.match(
+    src,
+    /storyHref=\{\s*storiesMeasured && canWriteStoryFor\(event\)\s*\?\s*`\/dashboard\/\$\{event\.event_id\}\/website\/editorial`\s*:\s*undefined\s*\}/,
+    "The Untold shelf's cards no longer override their href to that event's own story page.",
+  );
+  // Both the mobile chip grid and the desktop card grid must carry the
+  // override — a fix wired into only one of them opens correctly on a
+  // laptop and wrongly on the phone that showed it to the owner.
+  const overrideCount = (
+    src.match(
+      /storyHref=\{\s*storiesMeasured && canWriteStoryFor\(event\)\s*\?\s*`\/dashboard\/\$\{event\.event_id\}\/website\/editorial`\s*:\s*undefined\s*\}/g,
+    ) ?? []
+  ).length;
+  assert.equal(
+    overrideCount,
+    2,
+    'The story-page override is wired into only one of the two Untold card ' +
+      'renderings (mobile chips vs. the desktop grid) — the other still opens ' +
+      "the ordinary event dashboard.",
+  );
+  assert.doesNotMatch(
+    src,
+    /href=\{`\/dashboard\/creator\?event=/,
+    'A card points at the Storyteller composer again. That is a different ' +
+      'kind of writing — a blank page, one day can have several, a supplier can ' +
+      'write one too.',
+  );
+});
+
+test('the story-page override never reaches a guest or an unmeasured board', () => {
+  // The override is gated on the SAME two conditions the retired chip used:
+  // `storiesMeasured` (a refused read must not be treated as "nothing written")
+  // and `canWriteStoryFor` (only the organiser may open that editor). Losing
+  // either guard sends a guest, or a board whose read failed, straight into a
+  // celebration's private story editor.
+  const src = launcher();
+  assert.match(
+    src,
+    /storyHref=\{\s*storiesMeasured && canWriteStoryFor\(event\)/,
+    'The story-page override no longer checks storiesMeasured && canWriteStoryFor together.',
   );
 });
 
@@ -373,13 +502,13 @@ test('the empty Finished shelf explains the shelf and claims no zero', () => {
   const src = launcher();
   assert.match(
     src,
-    /finished\.length === 0/,
-    'The empty state for the Finished shelf is gone.',
+    /unwritten\.length === 0/,
+    'The empty state for the finished shelf is gone.',
   );
   assert.match(
     src,
     /Celebrations move here on their own/,
-    'The empty Finished shelf lost the line that says what it is FOR.',
+    'The empty finished shelf lost the line that says what it is FOR.',
   );
   // 🔑 fetchUserEvents graceful-degrades to [] on EVERY error including an RLS
   // denial, so an empty shelf cannot be told apart from a refused read. The old
@@ -412,12 +541,32 @@ test('no card on the board hardcodes the organiser dashboard path', () => {
     'deriveEventView stopped deriving the destination, so the card and its ' +
       'status line can drift apart again.',
   );
+  // ⚠ 2026-08-22: two of these now render `href={resolvedHref}`, where
+  // `resolvedHref = storyHref ?? href` — the Untold shelf sends its cards to the
+  // celebration's own story page. The derivation is UNCHANGED and is still the
+  // fallback, which the second assertion below pins: an override that stopped
+  // falling back to `href` would strand an invited guest on a 404 again, which
+  // is the exact bug this whole test exists for.
   for (const component of [
     'GlassEventCard',
     'MobileEventHero',
     'MobileEventChip',
   ]) {
     const body = fnBody(src, component);
+    if (/const resolvedHref =/.test(body)) {
+      assert.match(
+        body,
+        /const resolvedHref = storyHref \?\? href;/,
+        `${component}'s href override no longer falls back to the shared ` +
+          'derivation — an invited guest with no public page gets a dead link.',
+      );
+      assert.match(
+        body,
+        /href=\{resolvedHref\}/,
+        `${component} computes resolvedHref and then does not use it.`,
+      );
+      continue;
+    }
     assert.match(
       body,
       /href=\{href\}/,
@@ -795,7 +944,8 @@ test('home has no greeting eyebrow and no tail hanging off the title', () => {
     src,
     /Kumusta,\s*\{greeting\}/,
     'The greeting eyebrow is back above the title. It is the shape the owner ' +
-      'pointed at, and the name already appears on the composer right below it.',
+      'pointed at on 2026-08-18 (and the composer that once repeated the name ' +
+      'below it is itself retired, 2026-08-20).',
   );
   assert.doesNotMatch(
     src,
@@ -804,11 +954,31 @@ test('home has no greeting eyebrow and no tail hanging off the title', () => {
       'the state the owner actually screenshotted.',
   );
   // NOT a "no <span> in the h1" rule: the point is ONE line, not a ban on markup.
+  // ⚠ UPDATED 2026-08-19. This pinned the per-state title
+  // `{noEvents ? '…first event.' : 'Where to?'}`. The page is now ONLY events,
+  // and the zero-state had to go with the rest: `fetchUserEvents` degrades to
+  // `[]` on any error, so "Let's set up your first event." was a claim the page
+  // could not stand behind — and on an events-only page it would be the whole
+  // screen shown to somebody with six weddings whose read just failed.
+  // ⚠ UPDATED 2026-08-20 — the title is UNPAINTED, not deleted (owner:
+  // "Remove Your Events on My Events. we don't need that text."). The top bar
+  // already names this place, so the visible h1 was the same word twice.
+  //
+  // The rule this now holds is the one that survived: the page still HAS a
+  // name — stripping the h1 outright would leave the document with no heading
+  // at all and start the outline at "Coming up" with no parent — and that name
+  // still claims nothing about how many events you have, so it stays true when
+  // the read fails.
   assert.match(
     src,
-    /\{noEvents \? '.*first event\.' : 'Where to\?'\}/,
-    'The home title stopped being a single line per state. A brand-new account ' +
-      'has no events to look at, so the instruction IS its title; everyone else ' +
-      'gets "Where to?" and nothing else.',
+    /<h1 className="sr-only">\s*Your events\s*<\/h1>/,
+    'The home title must still exist for a screen reader and must still claim ' +
+      'nothing about how many events you have.',
+  );
+  assert.doesNotMatch(
+    src,
+    /<h1 className="text-\[1\.375rem\]/,
+    'The visible page title is back. The owner removed it on 2026-08-20 as a ' +
+      'duplicate of the "My Events" nav entry directly above it.',
   );
 });

@@ -124,6 +124,28 @@ export type SiteBodyPlan = {
   greetingShouldRender: boolean;
   qrCardShouldRender: boolean;
   rsvpShouldRender: boolean;
+  /**
+   * The guest list is finalized — the invitation is closed (owner 2026-08-20:
+   * the invitation "will only show while the guest list is not yet
+   * finalized").
+   *
+   * 🔑 IT GATES NOTHING ON ITS OWN — it is handed to the reply card, which
+   * freezes the going-or-not ANSWER and leaves the rest of itself open.
+   *
+   * The obvious implementation (AND it into `rsvpShouldRender`, or hide the
+   * form) was built first and was WRONG, twice over. That flag gates the whole
+   * RSVP SECTION, which is also where a guest who already replied finds their
+   * keepsake ticket and seat. And the form itself is not a headcount: it also
+   * carries the selfie that makes their photos findable, their meal, their
+   * dietary notes and a note to the host. The list finalizes about two weeks
+   * out — exactly when "nut allergy" matters most — so hiding it takes the
+   * allergy box away from a caterer's last fortnight.
+   *
+   * The database drew this line correctly all along: its post-lock guard
+   * blocks only count-affecting writes and lets meal / photo / seating
+   * through. Only the ANSWER freezes.
+   */
+  guestListClosed: boolean;
   /** Guest-tree hideable widgets in display order — old InvitationSite:
    *  `visibleHideableWidgets(widgets).filter(w => !phasesEnabled ||
    *   widgetInPhase(w.widget_type, lifecyclePhase))`. */
@@ -199,6 +221,16 @@ export function resolveSiteBodyPlan(input: {
    */
   openBrowse?: boolean;
   /**
+   * `guestListIsClosed(...)` for this event — the guest-list edit deadline has
+   * passed (or the finalize stamp is already written), so the count is frozen
+   * and `guard_guest_edits_when_locked` refuses changes.
+   *
+   * Optional and defaulting to FALSE so every existing caller and golden test
+   * stays byte-identical while absent — the same posture `weddingOnlyParts`
+   * took. Only the guest tree passes it.
+   */
+  guestListClosed?: boolean;
+  /**
    * Per-widget content presence for the shared `hasContent` predicate
    * (open-browse only). A widget the couple kept visible but that has no
    * content this event (e.g. `schedule` with zero public blocks) is dropped
@@ -221,6 +253,7 @@ export function resolveSiteBodyPlan(input: {
     widgets,
     weddingOnlyParts,
     openBrowse = false,
+    guestListClosed = false,
     content = {},
   } = input;
 
@@ -338,6 +371,7 @@ export function resolveSiteBodyPlan(input: {
     greetingShouldRender,
     qrCardShouldRender,
     rsvpShouldRender,
+    guestListClosed,
     hideableInOrder,
     publicSafeWidgets,
     // Guests always see live media; an anonymous viewer only when the couple

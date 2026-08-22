@@ -167,8 +167,6 @@ export default async function HostManpowerPage({
 
         <PageMasthead
           title="Manpower"
-          lede="Post a day-of crew gig. A Setnayan-platform vendor near you accepts, and you pay them direct on the day — cash, GCash, or bank transfer. Setnayan never touches the money."
-          className="mt-6"
         />
 
         {sp.posted ? (

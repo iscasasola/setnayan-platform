@@ -22,6 +22,7 @@ import { resolveRenamedPath } from '@/lib/slug-forwarding';
 import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
 import { readGuestSession } from '@/lib/guest-session';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
+import { loadChaptersOnThisDay } from '@/lib/chapters-on-this-day';
 import { canViewSlugEvent, isInvitedAccount } from '@/lib/slug-access';
 import type { DoorwayFacts } from './_lib/site-nav';
 import {
@@ -239,7 +240,30 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     //
     // Only reached on the MISS path — a word that matched no live event — so it
     // adds no query to any page that renders.
-    const renamedTo = await resolveRenamedPath(admin, slug);
+    /*
+      🔴 A COURTESY LOOKUP MUST NOT BE ABLE TO TURN "NOT FOUND" INTO A CRASH.
+      This is the ONLY use of `admin` on the miss path, and it exists to be kind
+      to whoever printed an old link. If it throws — a transient read failure, a
+      client that could not be built — the honest answer for a word matching no
+      event is still "we can't find that", not a 500.
+
+      Measured on 2026-08-21: every unknown top-level address was returning a
+      server error with an empty body earlier that day, and a correct 404 by
+      evening, with nothing in between that touched this route. Whatever went
+      wrong was transient; this makes the 404 not depend on it. Google reads a
+      5xx as "the site is broken, come back later" and keeps the URL — it reads
+      a 404 as "that page is gone".
+
+      ⚠ NARROW ON PURPOSE. `redirect()` throws BY DESIGN in Next, so it stays
+      OUTSIDE the try — catching it here would swallow every forward and silently
+      strand the printed QR this block exists to rescue.
+    */
+    let renamedTo: string | null = null;
+    try {
+      renamedTo = await resolveRenamedPath(admin, slug);
+    } catch {
+      // fall through to the vendor check, which notFound()s — a real 404.
+    }
     if (renamedTo) redirect(renamedTo);
     // Not a renamed event → try a vendor at this slug. renderVendorBySlug
     // notFound()s itself if there's no vendor either.
@@ -614,6 +638,17 @@ async function InvitationBody({
     }
   }
 
+  /*
+    🚨 TWO LINES APART, TWO CLOCKS — until 2026-08-21.
+
+    `getDayOfPhase` below was already told the venue's timezone; the
+    `getLifecyclePhase` call fifteen lines under it was not, so it asked a
+    Vercel server in UTC what time it was at a wedding in Manila. Eight hours
+    apart, deciding which page a guest opens. The zone is now resolved ONCE,
+    here, and both are handed the same answer.
+  */
+  const venueTz = eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude);
+
   // Task #13 — day-of phase (drives the live badge + pinned schedule). Real,
   // unless the demo override forces a phase (event→live so the day-of UI shows).
   const dayOfPhase: DayOfPhase = phaseOverride
@@ -623,12 +658,18 @@ async function InvitationBody({
         ? 'post'
         : 'pre'
     : event.event_date
-      ? getDayOfPhase(event.event_date, eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude))
+      ? getDayOfPhase(event.event_date, venueTz)
       : 'inactive';
 
   // `lifecyclePhase` is only consumed when `phasesEnabled`; threads into
   // SiteBody like heroPhotoUrl.
-  const lifecyclePhase: LifecyclePhase = phaseOverride ?? getLifecyclePhase(event.event_date);
+  const lifecyclePhase: LifecyclePhase =
+    phaseOverride ??
+    getLifecyclePhase(
+      event.event_date,
+      venueTz,
+      (event as { event_end_date?: string | null }).event_end_date ?? null,
+    );
 
   // PR4 P1 — flag-gate the auto-playing Save-the-Date "film". The bare film is
   // the free base (the static STD view is the fallback); the cinematic openings
@@ -697,6 +738,30 @@ async function InvitationBody({
     viewerUserId: viewerAccount?.id ?? null,
     checkVendorBooking: (userId) => loadVendorBooking(admin, event.event_id, userId),
   });
+  // ── THE PEOPLE OF THIS CELEBRATION ───────────────────────────────────────
+  //
+  // Owner 2026-08-20: a chapter can be shared with "all in that event only".
+  // This is the question that answer depends on, and it is NOT "did they open
+  // the page": two of six production events are public, so a passer-by opens
+  // this page as an ordinary visitor. Anyone who is genuinely OF this day is
+  // one of four things, and three of them are already resolved above:
+  //
+  //   • the host                     → ownerCapability
+  //   • a booked supplier            → vendorCapability
+  //   • a guest carrying their pass  → the guest session below
+  //   • a signed-in guest holding a seat WITHOUT a current pass
+  //
+  // 🪤 THE FOURTH IS THE ONE THAT WOULD HAVE BEEN MISSED, and it is the most
+  // ordinary person in the list. The guest pass is a cookie with a hard 60-day
+  // life carrying ONE event, while save-the-dates go out 6–12 months ahead — so
+  // the invited cousin is very often a signed-in account with a seat and no
+  // cookie. The seat lookup already exists; it just only ran inside the
+  // private-event gate, which never runs on a public event at all.
+  const viewerHoldsASeat =
+    viewerAccount?.id && !ownerCapability
+      ? (await findGuestSeatForUser(event.event_id, viewerAccount.id)) !== null
+      : false;
+
   // ── THE TWO DOORS, BEFORE THE DAY. ───────────────────────────────────────
   //
   // The 3D walk-through of the reception and the money-gift page already have
@@ -779,6 +844,14 @@ async function InvitationBody({
     // are null for everyone else, so nothing renders for a stranger.
     ownerCapability,
     vendorCapability,
+    // The stories written about this day, for the people of this day. Loaded
+    // ONLY for a viewer the event recognises — a passer-by on a public event
+    // page is not one of them — so a chapter shared with "the people of this
+    // celebration" cannot reach the internet through this route.
+    chaptersOnThisDay:
+      ownerCapability || vendorCapability || viewerHoldsASeat || session?.event_id === event.event_id
+        ? await loadChaptersOnThisDay(event.event_id)
+        : [],
   };
   const renderAnonymous = (reason: AnonymousReason) => (
     <SiteBody
@@ -904,6 +977,44 @@ async function InvitationBody({
   // on the form; a failure left the form showing whatever was there before,
   // which for a first-time reply is an empty form — indistinguishable from
   // never having tapped Save.
+  /**
+   * The answers this person has already given Setnayan once (owner 2026-08-21:
+   * *"we can just grab those answers"*). Read ONLY for a signed-in viewer —
+   * a cookie-only guest has no account to read from — and used ONLY as a
+   * default where this event's own answer is blank.
+   * Best-effort: a failed read must cost a convenience, never the page.
+   */
+  // ⚠ RENAMED from `profileFood` 2026-08-21. It now carries a phone number and
+  // an email address, and a value whose NAME misleads is a defect this project
+  // has already paid for twice (`sponsored_included`, `tagged_only`). A comment
+  // does not travel with a value into a log line or a query result; the name does.
+  let profileDetails: {
+    mealPreference: string | null;
+    dietaryRestrictions: string | null;
+    email: string | null;
+    phone: string | null;
+    displayName: string | null;
+  } | null = null;
+  if (viewerAccount?.id) {
+    const { data: me } = await admin
+      .from('users')
+      .select('meal_preference, dietary_restrictions, email, phone, display_name')
+      .eq('user_id', viewerAccount.id)
+      .maybeSingle();
+    if (
+      me &&
+      (me.meal_preference || me.dietary_restrictions || me.email || me.phone || me.display_name)
+    ) {
+      profileDetails = {
+        mealPreference: (me.meal_preference as string | null) ?? null,
+        dietaryRestrictions: (me.dietary_restrictions as string | null) ?? null,
+        email: (me.email as string | null) ?? null,
+        phone: (me.phone as string | null) ?? null,
+        displayName: (me.display_name as string | null) ?? null,
+      };
+    }
+  }
+
   const rsvpFlash =
     search.rsvp === 'ok'
       ? { tone: 'ok' as const, text: 'Your reply is in — thank you.' }
@@ -912,7 +1023,22 @@ async function InvitationBody({
             tone: 'error' as const,
             text: 'We could not save your reply just now. Please try again — it has not been recorded yet.',
           }
-        : null;
+        : // The guest list is final, so the going-or-not answer is frozen. Their
+          // DETAILS still saved — say which, or a guest reads a warning and
+          // assumes their allergy note went nowhere.
+          search.rsvp === 'details'
+          ? {
+              tone: 'ok' as const,
+              text: 'Your details are saved. The guest list is final, so your reply itself can no longer change.',
+            }
+          : // They posted a DIFFERENT answer into a closed list (a tab left open
+            // when the deadline passed). The details saved; the answer did not.
+            search.rsvp === 'refused'
+            ? {
+                tone: 'error' as const,
+                text: 'Your details are saved, but your reply was not changed — the guest list is already final. Please tell the host directly.',
+              }
+            : null;
 
   const saveFlash =
     search.save === 'ok'
@@ -947,6 +1073,7 @@ async function InvitationBody({
           saveFlash,
           rsvpFlash,
           faceMode: rsvpFaceMode,
+          profileDetails,
         })}
       />
       {/* Guest event-page hub bar (owner 2026-06-26) — fixed bottom control bar

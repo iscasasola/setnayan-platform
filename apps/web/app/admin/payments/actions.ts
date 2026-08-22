@@ -13,6 +13,7 @@ import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import { qualifyReferralOnFirstPaidOrder } from '@/lib/referrals';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { classifyDuplicate, normalizeReference, MONEY_STATUSES } from '@/lib/payment-reference-match';
 import { emitNotification } from '@/lib/notification-emit';
 import {
@@ -330,7 +331,7 @@ export async function approvePaymentCore(args: {
   if (promoteOrder) {
     // SHORTFALL GUARD (2026-06-25): an order must not be marked fully 'paid'
     // (which issues a receipt + fires vendor payouts) unless the MATCHED payments
-    // cover the gross owed — pre-VAT base + 12% VAT, net of any voucher. The
+    // cover the gross owed — base + the CONFIGURED rate (0 today), net of any voucher. The
     // payment above is matched either way; a short/partial transfer simply must
     // NOT promote the order. The admin leaves "promote to paid" off to record it
     // as partial, or re-runs once the balance is matched. Closes the audit's
@@ -375,7 +376,10 @@ export async function approvePaymentCore(args: {
         // short-paid order, and the order was never promoted.
         const notice =
           `Payment matched, but the order was NOT marked paid: ` +
-          `${formatPhp(matchedTotal)} received vs ${formatPhp(owed)} owed (incl. 12% VAT) — ` +
+          // `owed` already IS the amount owed at the configured rate (0 today),
+          // so naming a 12% VAT inside it was describing a tax that is not in
+          // the figure. Owner 2026-08-20: remove the 12%.
+          `${formatPhp(matchedTotal)} received vs ${formatPhp(owed)} owed — ` +
           `${formatPhp(owed - matchedTotal)} short. Leave “Also mark order as paid” unchecked to ` +
           `record it as partial, or promote once the balance is paid.`;
         return { ok: false, shortfall: true, message: notice };
@@ -517,6 +521,13 @@ export async function approvePaymentCore(args: {
   if (order && shouldProvisionOnApproval({ promoteOrder, reconciledToPaid })) {
     const activationCtx = {
       admin,
+      // The approving admin's OWN session — required by any hook whose RPC
+      // gates on is_console_admin()/is_admin(), because the service_role
+      // client has no auth.uid() and is refused by the database. Built here
+      // rather than inside the hook so the dependency is visible at the call
+      // site. `createClient()` reads this request's cookies, so it is the
+      // admin who just clicked Approve.
+      sessionClient: await createClient(),
       orderId: payment.order_id,
       eventId: order.event_id ?? null,
       serviceKey: order.service_key ?? '',
@@ -738,7 +749,7 @@ async function schedulePayoutsForOrder(args: {
   const basePhp = Number(row.confirmed_total_php ?? row.requested_total_php ?? 0);
   if (basePhp <= 0) return;
 
-  // Gross = pre-VAT base + 12% VAT (the customer pays gross).
+  // Gross = base + the CONFIGURED rate (0 today), never a hardcoded 12%.
   const { gross } = computeVatFromBase(basePhp, await getEffectiveVatRatePct(admin));
   const grossCentavos = phpToCentavos(gross);
 
@@ -865,9 +876,26 @@ async function issueReceiptForOrder(args: {
   // VAT-inclusive vendor orders: back the VAT OUT of the gross so the receipt's
   // pre_vat + vat sum to the ₱999 actually paid (not ₱999 + ₱119.88). Customer
   // orders: build VAT UP from the pre-VAT base, unchanged.
+  // ONE rate, resolved once, used by BOTH branches and WRITTEN DOWN.
+  //
+  // 🚨 THE RECEIPT USED TO DECLARE A TAX SETNAYAN DOES NOT CHARGE, TWO WAYS.
+  // (a) The insert below never passed `vat_rate_pct`, so it fell to the column
+  //     DEFAULT of 12.00 — on a customer receipt whose VAT amount was correctly
+  //     ₱0.00. The printed document read "VAT @ 12%  ₱0.00": it contradicted
+  //     itself in front of the buyer.
+  // (b) The vendor branch called `computeVatFromGross` with no rate at all, and
+  //     that argument defaulted to 12 — so a ₱999 receipt actually stated ~₱107
+  //     of VAT, a tax this business is not registered to collect, on a document
+  //     the vendor hands to their accountant.
+  // Nobody had met either one only because no receipt has ever been generated.
+  //
+  // 🔑 AND NOTHING WOULD HAVE COMPLAINED. The table's CHECK constraint only
+  // asserts pre_vat + vat ≈ gross; it never cross-checks the RATE against the
+  // amount. So the row inserts cleanly and is wrong — accepted, not rejected.
+  const vatRatePct = await getEffectiveVatRatePct(admin);
   const { preVat, vat, gross } = isVatInclusiveServiceKey(order.service_key)
-    ? computeVatFromGross(storedTotal)
-    : computeVatFromBase(storedTotal, await getEffectiveVatRatePct(admin));
+    ? computeVatFromGross(storedTotal, vatRatePct)
+    : computeVatFromBase(storedTotal, vatRatePct);
 
   // or_serial defaults from public.or_serial_seq (atomic) — don't pass it.
   // The display "Transaction No." is composed at read-time via formatReceiptNumber().
@@ -877,6 +905,7 @@ async function issueReceiptForOrder(args: {
     issued_to_email: buyer?.email ?? 'unknown@setnayan.com',
     issued_to_name: buyer?.display_name ?? guestReceiptFallback,
     pre_vat_php: preVat,
+    vat_rate_pct: vatRatePct,
     vat_amount_php: vat,
     gross_total_php: gross,
   });

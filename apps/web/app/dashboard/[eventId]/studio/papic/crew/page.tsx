@@ -259,7 +259,7 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
       <PageMasthead
         titleNode={
           <>
-            <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
+            <Camera aria-hidden strokeWidth={1.75} />
             Your photo crew
           </>
         }

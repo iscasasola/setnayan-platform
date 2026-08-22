@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { User, VideoOff } from 'lucide-react';
 import { joinCall, type CallHandle, type CallState } from '@/lib/call-webrtc';
 import { getCallIceServers } from '@/app/_actions/thread-call-actions';
 import { endThreadCall } from '@/app/_actions/thread-call-actions';
@@ -194,7 +195,12 @@ export function ThreadCallRoom({
               className="h-full w-full -scale-x-100 object-cover"
               style={{ display: camOn ? 'block' : 'none' }}
             />
-            {!camOn ? <Avatar label="Camera off" /> : null}
+            {!camOn ? (
+              <Avatar
+                label="Camera off"
+                icon={<VideoOff aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+              />
+            ) : null}
           </Tile>
           <Tile label={counterpartyLabel}>
             <video
@@ -204,7 +210,12 @@ export function ThreadCallRoom({
               className="h-full w-full object-cover"
               style={{ display: hasRemote ? 'block' : 'none' }}
             />
-            {!hasRemote ? <Avatar label="Waiting…" /> : null}
+            {!hasRemote ? (
+              <Avatar
+                label="Waiting…"
+                icon={<User aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+              />
+            ) : null}
           </Tile>
         </div>
       ) : (
@@ -212,7 +223,12 @@ export function ThreadCallRoom({
           {/* Voice mode = audio only, no video tiles. Hidden element keeps the
               remote audio track playing. */}
           <VoiceAvatar label="You" active={micOn} />
-          <VoiceAvatar label={counterpartyLabel} active={hasRemote} />
+          <VoiceAvatar
+            label={counterpartyLabel}
+            active={hasRemote}
+            /* A name — the one label here that IS one, so it keeps its initial. */
+            initial={counterpartyLabel.slice(0, 1).toUpperCase()}
+          />
           <video ref={remoteVideoRef} autoPlay playsInline className="hidden" />
         </div>
       )}
@@ -256,18 +272,39 @@ function Tile({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-function Avatar({ label }: { label: string }) {
+/**
+ * A STATUS is not a name. This slot only ever carries one — "Camera off",
+ * "Waiting…" — and it used to slice the first character off whatever string it
+ * was handed, so a person who muted their own camera watched a circle appear
+ * containing the letter "C", and one waiting for their supplier got "W". Both
+ * read as a broken monogram, because that is exactly the shape a monogram has.
+ * The caption already says the words; the circle takes an icon.
+ */
+function Avatar({ label, icon }: { label: string; icon: React.ReactNode }) {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/70">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-base">
-        {label.slice(0, 1).toUpperCase()}
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15">
+        {icon}
       </div>
       <span className="text-[10px]">{label}</span>
     </div>
   );
 }
 
-function VoiceAvatar({ label, active }: { label: string; active: boolean }) {
+/**
+ * `initial` is passed ONLY when the label is a person's name — the supplier on
+ * the other end. Your own tile is captioned "You", which is not a name, so
+ * slicing it produced a circle reading "Y". No initial means a person glyph.
+ */
+function VoiceAvatar({
+  label,
+  active,
+  initial,
+}: {
+  label: string;
+  active: boolean;
+  initial?: string | null;
+}) {
   return (
     <div className="flex flex-col items-center gap-2">
       <div
@@ -275,7 +312,7 @@ function VoiceAvatar({ label, active }: { label: string; active: boolean }) {
           active ? 'bg-mulberry text-cream' : 'bg-ink/15 text-ink/60'
         }`}
       >
-        {label.slice(0, 1).toUpperCase()}
+        {initial ? initial : <User aria-hidden className="h-6 w-6" strokeWidth={1.75} />}
       </div>
       <span className="text-[11px] text-ink/60">{label}</span>
     </div>

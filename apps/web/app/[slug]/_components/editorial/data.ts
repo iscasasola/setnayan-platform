@@ -17,6 +17,8 @@
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isSampleEditorialId, type SampleEditorialId } from './sample-ids';
+import { readCustomColumns, type CustomColumn } from './custom-columns';
+import { storyAudienceOf, type StoryAudience } from '@/lib/who-can-see-your-story';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
@@ -35,6 +37,8 @@ import {
   fetchEventRecommendations,
   type EventRecommendation,
 } from '@/lib/vendor-recommendations';
+import { scheduleWindows, labelForCapture } from '@/lib/moments-from-the-schedule';
+import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 
 // ── Tunable constants (admin-tunable later · §6.8 + §6.4 M3) ────────────────
 
@@ -267,8 +271,21 @@ export {
   EDITORIAL_ORDERABLE_KEYS,
   EDITORIAL_LOCKED_CLOSE_KEYS,
   resolveSectionOrder,
+  shippedSections,
   type EditorialOrderKey,
+  type RenderOrderKey,
+  type CustomColumnKey,
 } from './editorial-order';
+export {
+  customColumnKey,
+  customColumnId,
+  MAX_CUSTOM_COLUMNS,
+  CUSTOM_COLUMN_TITLE_MAX,
+  CUSTOM_COLUMN_BODY_MAX,
+  sectionOrderToPersist,
+} from './custom-columns';
+export type { CustomColumn };
+export { readCustomColumns };
 
 // "From your vendors" — day-of media the couple's RECOMMENDED vendor
 // (event_vendors.selection_match_rank = 1) submitted for this event. Clips are
@@ -375,6 +392,13 @@ export type EditorialData = {
   // love_story prose to render.
   loveStoryParagraphs: string[];
   published: boolean;
+  /**
+   * WHO THE COUPLE SAID MAY READ THIS — only me · the people of this
+   * celebration · everyone. Carried on the data so a caller can gate on it
+   * without a second query that could disagree with this one.
+   * Samples set 'published': they exist to be read.
+   */
+  audience?: StoryAudience;
   heroPhotoUrl: string | null;
   // Crawler-durable hero for OG / social cards — the stable streaming media-route
   // URL (absolute) when the hero resolved from a Papic ref, else null (OG falls
@@ -476,6 +500,10 @@ export type EditorialData = {
   // order (older editorials + the samples). The locked-close sections
   // (fromTheCouple + song) are pinned separately and are never in this list.
   sectionOrder?: string[] | null;
+  // The couple's OWN columns (draft_json.customColumns) — a title and a body
+  // each, placed in the run above via a `custom:<id>` key. Absent/[] for every
+  // editorial that has none, which today is all of them.
+  customColumns?: CustomColumn[];
 };
 
 export type Review = {
@@ -761,6 +789,9 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   const draftJson = asObject(editorial?.draft_json);
   const frozen = asObject(editorial?.impact_metrics);
   const published = asString(editorial?.status) === 'published';
+  // ⚠ FAILS CLOSED. An absent row, or a value this build does not recognise,
+  // reads as 'draft' — show nobody — never as 'everyone'. See the module.
+  const audience = storyAudienceOf(asString(editorial?.status));
 
   // 3. Guest counts (best-effort).
   let guests = 0;
@@ -1737,6 +1768,25 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // Presign ONLY the media the plans actually chose (≤3/chapter). One R2 key can
   // appear once; de-dup the resolve set. Reuse the already-presigned gallery URLs
   // where a timeline photo overlaps the recent slice, to save a presign.
+  // The couple's own run-of-show, used to NAME the chapters below. Loaded only
+  // when there are chapters to name.
+  //
+  // 🔒 `is_public` IS PART OF THE QUERY, NOT A NICETY. A block the couple marked
+  // private is one they deliberately kept off the guest schedule — "Ninang's
+  // envelope handover", "family photos without Tita". Painting its label across
+  // a chapter of a PUBLIC story page publishes the thing they hid. The private
+  // block still exists; the photos in it simply keep no name, which is the
+  // behaviour this page had for everybody until now.
+  let dayWindows: ReturnType<typeof scheduleWindows> = [];
+  if (plans.length > 0) {
+    const { data: blockRows } = await admin
+      .from('event_schedule_blocks')
+      .select('label, start_at, end_at')
+      .eq('event_id', eventId)
+      .eq('is_public', true);
+    if (blockRows?.length) dayWindows = scheduleWindows(blockRows, DEFAULT_EVENT_TZ);
+  }
+
   if (plans.length > 0) {
     const resolveKey = new Map<string, string | null>(); // key → presigned url
     const posterByKey = new Map<string, string | null>(); // clip key → poster url
@@ -1783,7 +1833,10 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         .filter((m): m is ChapterMedia => Boolean(m));
       autoChapters.push({
         time: formatClockKicker(p.lead.tsRaw),
-        title: null,
+        // The couple named this moment months ago. A chapter whose lead photo
+        // falls inside "Ceremony" is called Ceremony, not "Moment 3". A photo in
+        // the gaps keeps `null`, exactly as every chapter did before.
+        title: labelForCapture(p.lead.tsRaw, dayWindows),
         writeUp: null,
         leadId: p.lead.photoId,
         media: [leadMedia, ...supporting],
@@ -2224,6 +2277,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     },
     loveStoryParagraphs: loveStoryFallbackParagraphs(loveStory),
     published,
+    audience,
     heroPhotoUrl,
     heroStableUrl,
     heroVideoUrl,
@@ -2247,6 +2301,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     watchFilmEmbedUrl,
     sections: readSections(draftJson),
     sectionOrder: readSectionOrder(draftJson),
+    customColumns: readCustomColumns(draftJson),
   };
 }
 
@@ -2264,6 +2319,13 @@ export type ChapterCard = {
   /** Lead thumbnail: a presigned still (photo) or clip poster. Null → film glyph. */
   thumbUrl: string | null;
   isClip: boolean;
+  /**
+   * What the public page calls this moment when the couple hasn't named it —
+   * taken from their own run-of-show. The editor shows it as the placeholder, so
+   * the box a couple sees empty matches the words a visitor actually reads.
+   * Null when the photo falls in no scheduled block.
+   */
+  suggestedTitle: string | null;
 };
 
 export type EditorialChaptersForEditor = {
@@ -2417,6 +2479,20 @@ export async function loadEditorialChaptersForEditor(
     }
   }
 
+  // The same run-of-show the public page names its chapters from, so the
+  // editor's placeholder and the visitor's page cannot say different things.
+  // `is_public` filtered for the same reason as there: a private block's words
+  // must not become public words.
+  let editorWindows: ReturnType<typeof scheduleWindows> = [];
+  if (leads.length > 0) {
+    const { data: blockRows } = await admin
+      .from('event_schedule_blocks')
+      .select('label, start_at, end_at')
+      .eq('event_id', eventId)
+      .eq('is_public', true);
+    if (blockRows?.length) editorWindows = scheduleWindows(blockRows, DEFAULT_EVENT_TZ);
+  }
+
   // Resolve ONLY the lead thumbnails (photo still or clip poster).
   const cards: ChapterCard[] = [];
   await Promise.all(
@@ -2428,6 +2504,7 @@ export async function loadEditorialChaptersForEditor(
         time: formatClockKicker(lead.capturedAt),
         thumbUrl: thumbUrl ?? null,
         isClip: lead.kind === 'clip',
+        suggestedTitle: labelForCapture(lead.capturedAt, editorWindows),
       });
     }),
   );
@@ -3252,7 +3329,7 @@ function sofiaReyes(): EditorialData {
       headline: 'Sofia Turns Eighteen',
       deck:
         'Chandeliers, eighteen roses, and eighteen candles — a Makati debut that turned one family’s love into a room of ceremony.',
-      byline: 'Setnayan Editorial',
+      byline: 'By the Setnayan Desk',
       pullQuote: 'I wanted the people who shaped me in the same room on the same night.',
       leadParagraphs: [
         'The ballroom doors opened on the first chord and Sofia came down the staircase in a rose-gold gown her lola had quietly helped choose. Two hundred people stood without being asked to. It was, by design, a homecoming: every person who had a hand in raising her, gathered under one set of chandeliers to watch her step into adulthood.',

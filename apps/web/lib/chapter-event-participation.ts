@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isFinishedEvent, manilaTodayISO } from '@/lib/event-board';
 
 /**
  * Who may attach a chapter to a celebration, and what that gets them.
@@ -29,6 +30,8 @@ export type LinkableEvent = {
   event_id: string;
   label: string;
   tie: EventTie;
+  /** The celebration's day (`YYYY-MM-DD`), or null while the date is unset. */
+  day: string | null;
 };
 
 /**
@@ -43,13 +46,20 @@ export type LinkableEvent = {
  * ACTION re-checks the tie before storing, so a lost list can never become a
  * wrong link.
  */
-export async function loadLinkableEvents(userId: string): Promise<LinkableEvent[]> {
+export async function loadLinkableEvents(
+  userId: string,
+  options: { keepEventIds?: ReadonlyArray<string | null>; todayISO?: string } = {},
+): Promise<LinkableEvent[]> {
   const admin = createAdminClient();
-  const out = new Map<string, LinkableEvent>();
+  const out = new Map<string, Candidate>();
+  const todayISO = options.todayISO ?? manilaTodayISO();
+  const keep = new Set((options.keepEventIds ?? []).filter((id): id is string => !!id));
 
   const { data: hosted, error: hostedErr } = await admin
     .from('event_members')
-    .select('event_id, member_type, events:event_id ( display_name, event_date, event_type )')
+    .select(
+      'event_id, member_type, events:event_id ( display_name, event_date, event_end_date, archived, event_type )',
+    )
     .eq('user_id', userId)
     .eq('member_type', 'couple');
   if (!hostedErr) {
@@ -71,7 +81,9 @@ export async function loadLinkableEvents(userId: string): Promise<LinkableEvent[
     const shopIds = shops.map((s) => (s as { vendor_profile_id: string }).vendor_profile_id);
     const { data: booked, error: bookedErr } = await admin
       .from('event_vendors')
-      .select('event_id, events:event_id ( display_name, event_date, event_type )')
+      .select(
+        'event_id, events:event_id ( display_name, event_date, event_end_date, archived, event_type )',
+      )
       .in('linked_vendor_profile_id', shopIds);
     if (!bookedErr) {
       for (const row of booked ?? []) {
@@ -84,22 +96,77 @@ export async function loadLinkableEvents(userId: string): Promise<LinkableEvent[
     }
   }
 
-  return [...out.values()].sort((a, b) => a.label.localeCompare(b.label));
+  // ⏳ ONLY CELEBRATIONS THAT HAVE CONCLUDED (owner 2026-08-20: *"on your story,
+  // all events that concluded can be picked here"*). A chapter is the editorial
+  // OF a day; offering a day that has not happened invites somebody to write it
+  // in advance and file it in the chronicle ahead of the celebration it is
+  // about.
+  //
+  // 🔑 FILTER WHAT IS OFFERED, NEVER WHAT IS ALREADY ATTACHED. A host can move
+  // their own date forward, and this list is also what the SAVE path re-checks
+  // — so a plain filter would silently detach a written chapter from its day the
+  // next time its author fixed a typo, taking the host's inclusion decision with
+  // it (the DB trigger clears it on any event change). `keepEventId` keeps the
+  // chapter's current celebration in the list whatever its date now says — the
+  // caller passes the days its own chapters are already attached to.
+  return [...out.values()]
+    .filter((e) => keep.has(e.event_id) || hasConcluded(e, todayISO))
+    .map(({ event_id, label, tie, day }): LinkableEvent => ({ event_id, label, tie, day }))
+    .sort((a, b) => {
+      // Newest celebration first — the one they most likely came to write.
+      // Undated at the tail, in name order, same rule as the events board.
+      if (a.day && b.day && a.day !== b.day) return a.day < b.day ? 1 : -1;
+      if (a.day && !b.day) return -1;
+      if (!a.day && b.day) return 1;
+      return a.label.localeCompare(b.label);
+    });
 }
 
-function entry(row: unknown, tie: EventTie): [string, LinkableEvent] {
+/**
+ * What the loader carries internally: the public shape plus the two fields the
+ * concluded test needs. They are stripped on the way out — a picker entry has
+ * no business teaching a caller how "finished" is decided.
+ */
+type Candidate = LinkableEvent & { endDay: string | null; archived: boolean };
+
+/** Concluded = the same question the events board's Finished shelf asks. */
+function hasConcluded(e: Candidate, todayISO: string): boolean {
+  return isFinishedEvent(
+    { event_date: e.day, event_end_date: e.endDay, archived: e.archived },
+    todayISO,
+  );
+}
+
+function entry(row: unknown, tie: EventTie): [string, Candidate] {
   const r = row as { event_id: string; events?: unknown };
   const embedded = r.events;
   const ev = (Array.isArray(embedded) ? embedded[0] : embedded) as
-    | { display_name?: string | null; event_date?: string | null; event_type?: string | null }
+    | {
+        display_name?: string | null;
+        event_date?: string | null;
+        event_end_date?: string | null;
+        archived?: boolean | null;
+        event_type?: string | null;
+      }
     | undefined;
   const name = ev?.display_name?.trim();
   // The date is printed as a plain day string, never parsed into a Date — that
   // is how a 12 Dec wedding once read as 11 Dec west of Greenwich.
-  const day = ev?.event_date ? ` · ${ev.event_date.slice(0, 10)}` : '';
+  const day = ev?.event_date ? ev.event_date.slice(0, 10) : null;
+  const dayLabel = day ? ` · ${day}` : '';
   const kind = ev?.event_type ? ev.event_type.replace(/_/g, ' ') : 'celebration';
   const suffix = tie === 'vendor' ? ' — you worked this day' : '';
-  return [r.event_id, { event_id: r.event_id, label: `${name || `Your ${kind}`}${day}${suffix}`, tie }];
+  return [
+    r.event_id,
+    {
+      event_id: r.event_id,
+      label: `${name || `Your ${kind}`}${dayLabel}${suffix}`,
+      tie,
+      day,
+      endDay: ev?.event_end_date ? ev.event_end_date.slice(0, 10) : null,
+      archived: ev?.archived === true,
+    },
+  ];
 }
 
 /**
@@ -113,6 +180,11 @@ export async function resolveEventTie(
   userId: string,
   eventId: string,
 ): Promise<EventTie | null> {
-  const events = await loadLinkableEvents(userId);
+  // 🔑 THE TIE, NOT THE CALENDAR. `keepEventId` puts the submitted celebration
+  // back in the list whatever its date says, so this answers the only question
+  // it is asked — *is this day yours to attach* — and never turns "the host
+  // moved the date" into "you may not save your own chapter". Whether a
+  // not-yet-concluded day is OFFERED is a different question, answered above.
+  const events = await loadLinkableEvents(userId, { keepEventIds: [eventId] });
   return events.find((e) => e.event_id === eventId)?.tie ?? null;
 }

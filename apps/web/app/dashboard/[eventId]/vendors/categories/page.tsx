@@ -98,9 +98,6 @@ export default async function UnlockCategoriesPage({ params }: Props) {
       </Link>
 
       <header className="mb-6 mt-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-          Add categories
-        </p>
         <h1 className="mt-1.5 font-serif text-3xl text-ink">
           Bring more categories on-stage
         </h1>

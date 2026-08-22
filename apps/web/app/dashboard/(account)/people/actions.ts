@@ -2,15 +2,22 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
+import { sendEmail } from '@/lib/email';
+import { renderBrandedEmail } from '@/lib/email-template';
+import { emitNotification } from '@/lib/notification-emit';
 import {
   layerForRelation,
   peopleConnectionsEnabled,
   type ConnectionRelation,
   DECLARABLE_RELATIONS,
 } from '@/lib/people-connections';
+import { getSpouseContext } from '@/lib/people-spouse-context';
+import { searchPeopleByName, type PersonHit } from '@/lib/people-search';
+import { firstNameOf, normalizeEmail, spouseIsOfferable } from '@/lib/people-add';
 
 /**
  * Person-spine · Phase 2 · connection flow server actions (STAGED).
@@ -40,49 +47,327 @@ async function myPersonId(supabase: SupabaseServer, userId: string): Promise<str
   return (data as { person_id: string } | null)?.person_id ?? null;
 }
 
-/** Declare a first-degree connection to someone by email; sends a pending request. */
-export async function proposeConnection(input: {
-  relation: ConnectionRelation;
+/** The absolute origin of the running app, for links that leave it. */
+async function appOrigin(): Promise<string> {
+  const h = await headers();
+  const host = h.get('host') ?? 'www.setnayan.com';
+  const proto = h.get('x-forwarded-proto') ?? 'https';
+  return `${proto}://${host}`;
+}
+
+/**
+ * The invitation, in ONE place, because it is sent from three call sites and a
+ * second copy would drift.
+ *
+ * 🔒 WHAT IT MAY AND MAY NOT SAY. It names the SENDER's first name — they typed
+ * this address themselves, exactly as they do for a samahan link — and it never
+ * names the RELATION. "Ana added you" is an invitation; "Ana says you are her
+ * wife" is a claim about somebody delivered to an address that might be a typo.
+ * The claim itself lives behind sign-in, where only the person it is about can
+ * read it.
+ *
+ * The CTA is `/login?next=/dashboard/people`: the sign-in card threads `next`
+ * through to its signup link, so one URL serves both the person who already has
+ * an account and the person who does not.
+ */
+async function sendPeopleInvitation(
+  to: string,
+  fromFirstName: string | null,
+): Promise<boolean> {
+  const origin = await appOrigin();
+  const url = `${origin}/login?next=${encodeURIComponent('/dashboard/people')}`;
+  const who = fromFirstName ?? 'Someone you know';
+  const heading = `${who} added you to their people`;
+  const lines = [
+    `${who} keeps their celebrations on Setnayan — birthdays, weddings, the photos afterwards — and added you to the people in their life.`,
+    'Open your people to see who it is and decide. Nothing connects until you confirm it yourself.',
+  ];
+  const sent = await sendEmail({
+    to,
+    subject: `${who} added you on Setnayan`,
+    text: `${lines.join('\n\n')}\n\nSee who added you: ${url}`,
+    html: renderBrandedEmail({
+      heading,
+      paragraphs: lines,
+      ctaLabel: 'See who added me',
+      ctaHref: url,
+      footnote:
+        'If you weren’t expecting this, you can ignore this email — nothing is shared and nothing connects without your confirmation.',
+    }),
+  });
+  return sent.ok;
+}
+
+/**
+ * ADD SOMEONE — the one door, and the one that now actually reaches them.
+ *
+ * ⚠ WHAT THIS REPLACES. `proposeConnection` wrote a row and stopped: no email,
+ * no notification, and the home page counts confirmed connections only, so a
+ * request landed somewhere nobody would meet it. It also called the
+ * find-or-create resolver FIRST, which minted a person node holding a stranger's
+ * email — and only then hit `kin_pilot_mutual_accounts`, which refuses a
+ * connection to an unclaimed person. So the one thing that survived a request
+ * to a non-user was the record of them that the pilot boundary exists to
+ * prevent, and the adder was told "Couldn't send the request."
+ *
+ * THE ORDER IS NOW: look up (never create) → they have an account? store the
+ * claim and tell them : store NOTHING and invite them to join.
+ *
+ * 🔒 BOTH BRANCHES RETURN THE SAME SHAPE. `{ ok, delivered }` and one sentence
+ * of copy — see the oracle note in `lib/people-add.ts`. A caller cannot learn
+ * from this action whether an address has a Setnayan account.
+ */
+export async function addPersonConnection(input: {
+  /** The label, and it is OPTIONAL now — owner 2026-08-21: "just add them first.
+   *  Then you can set a label." NULL lands them on the roster unlabelled. */
+  relation?: ConnectionRelation | null;
+  name: string;
   email: string;
-}): Promise<ActionResult> {
+}): Promise<{ ok: true; delivered: boolean } | { ok: false; error: string }> {
   if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
-  if (!DECLARABLE_RELATIONS.includes(input.relation)) {
+  const relation = input.relation ?? null;
+  if (relation !== null && !DECLARABLE_RELATIONS.includes(relation)) {
     return { ok: false, error: 'Pick a relationship.' };
   }
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
-  const email = input.email.trim().toLowerCase();
-  if (!email || !email.includes('@')) return { ok: false, error: 'Enter a valid email.' };
+  const name = (input.name ?? '').trim().slice(0, 120);
+  if (!name) return { ok: false, error: 'Add their name.' };
+  const email = normalizeEmail(input.email);
+  if (!email) return { ok: false, error: 'Enter their email so we can reach them.' };
 
   const supabase = await createClient();
+
+  // THE SPOUSE RULE IS ENFORCED HERE, NOT BY THE HIDDEN CHIP. A chip the
+  // browser never drew is still a value a hand-made request can post.
+  if (relation === 'spouse') {
+    const ctx = await getSpouseContext(user.id);
+    if (!spouseIsOfferable(ctx)) {
+      return {
+        ok: false,
+        error:
+          'Set “Married” on your profile — or hold until your wedding day has passed — before adding a spouse.',
+      };
+    }
+  }
+
   const fromPerson = await myPersonId(supabase, user.id);
   if (!fromPerson) return { ok: false, error: 'Your profile isn’t ready yet — try again in a moment.' };
 
-  // Find-or-create the target person by email (unclaimed if new), created by me.
-  const { data: toPerson, error: rpcErr } = await supabase.rpc('resolve_or_claim_person', {
-    p_email: email,
-    p_creator: user.id,
-  });
-  if (rpcErr || !toPerson) return { ok: false, error: 'Couldn’t find or add that person.' };
+  const me = await supabase
+    .from('people')
+    .select('display_name')
+    .eq('person_id', fromPerson)
+    .maybeSingle();
+  const myFirstName = firstNameOf((me.data as { display_name: string | null } | null)?.display_name);
+
+  // LOOK UP, NEVER CREATE. An address with no account leaves no trace here —
+  // that is the pilot boundary honoured rather than tripped over. The admin
+  // client is used because another person's row is invisible under
+  // `people_owner_all`, and NOTHING about the lookup is returned to the caller.
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from('people')
+    .select('person_id, claimed_by_user_id')
+    .eq('email', email)
+    .is('deleted_at', null)
+    .not('claimed_by_user_id', 'is', null)
+    .maybeSingle();
+  const toPerson = (existing as { person_id: string } | null)?.person_id ?? null;
+
+  if (!toPerson) {
+    // No account behind that address: invite them, store nothing about them.
+    const delivered = await sendPeopleInvitation(email, myFirstName);
+    return { ok: true, delivered };
+  }
   if (toPerson === fromPerson) return { ok: false, error: 'That’s you.' };
 
-  const { error } = await supabase.from('person_connections').insert({
-    from_person_id: fromPerson,
-    to_person_id: toPerson,
-    relation: input.relation,
-    layer: layerForRelation(input.relation),
-    status: 'pending',
-    created_by_user_id: user.id,
-  });
+  // ONE ROW PER PERSON. The roster shows a person once, so a second add of the
+  // same person is not a second row — it re-sends the note. Checked here rather
+  // than left to a unique violation, because the edge index is per RELATION and
+  // "Maria unlabelled" plus "Maria, sister" are two different keys.
+  const { data: already } = await supabase
+    .from('person_connections')
+    .select('connection_id')
+    .eq('from_person_id', fromPerson)
+    .eq('to_person_id', toPerson)
+    .is('deleted_at', null)
+    .limit(1);
+  const alreadyThere = ((already ?? []) as Array<{ connection_id: string }>).length > 0;
+
+  if (!alreadyThere) {
+    const { error } = await supabase.from('person_connections').insert({
+      from_person_id: fromPerson,
+      to_person_id: toPerson,
+      relation,
+      layer: relation ? layerForRelation(relation) : null,
+      declared_name: name,
+      status: 'pending',
+      created_by_user_id: user.id,
+    });
+    if (error && error.code !== '23505') {
+      return { ok: false, error: 'Couldn’t send the request.' };
+    }
+  }
+
+  // THE TRAY IS WHERE THEY MEET IT. Home counts only CONFIRMED connections, so
+  // before this a request lived on /dashboard/people and nowhere else — findable
+  // only by somebody who already knew to look. The email reaches their inbox;
+  // this reaches them the next time they open Setnayan.
+  //
+  // Non-fatal by construction: `emitNotification` swallows its own failures, and
+  // the claim is already stored either way.
+  const theirUserId = (existing as { claimed_by_user_id: string | null } | null)?.claimed_by_user_id;
+  if (theirUserId) {
+    await emitNotification({
+      userId: theirUserId,
+      type: 'connection_request',
+      title: `${myFirstName ?? 'Someone'} added you to their people`,
+      body: 'Open your people to see who it is and decide. Nothing connects until you confirm.',
+      relatedUrl: '/dashboard/people',
+    });
+  }
+
+  const delivered = await sendPeopleInvitation(email, myFirstName);
+  revalidatePath('/dashboard/people');
+  return { ok: true, delivered };
+}
+
+/**
+ * SET (or CLEAR) THE LABEL on somebody already on your list.
+ *
+ * Owner, 2026-08-21: *"just add them first. Then you can set a label."* This is
+ * that second step, and it is the same shape as a chip edit on a guest row.
+ *
+ * ⚖ ONLY THE DECLARER LABELS. `relation` means "what to_person IS to
+ * from_person", so the label is the adder's statement about their own life. The
+ * other side answers the CLAIM (confirm / decline); they do not get to rewrite
+ * what it says. RLS would allow the recipient to update the row — the
+ * `from_person_id = my person` filter below is what actually holds the line.
+ *
+ * 🔒 The spouse rule applies here too. Labelling somebody "Spouse" after the
+ * fact is the same claim as adding them as one, and a chip the browser never
+ * drew is still a value a hand-made request can post.
+ */
+export async function setConnectionLabel(
+  connectionId: string,
+  relation: ConnectionRelation | null,
+): Promise<ActionResult> {
+  if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
+  if (relation !== null && !DECLARABLE_RELATIONS.includes(relation)) {
+    return { ok: false, error: 'That isn’t a label.' };
+  }
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+
+  if (relation === 'spouse') {
+    const ctx = await getSpouseContext(user.id);
+    if (!spouseIsOfferable(ctx)) {
+      return {
+        ok: false,
+        error:
+          'Set “Married” on your profile — or hold until your wedding day has passed — before naming a spouse.',
+      };
+    }
+  }
+
+  const supabase = await createClient();
+  const myPerson = await myPersonId(supabase, user.id);
+  if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
+
+  const { error } = await supabase
+    .from('person_connections')
+    .update({
+      relation,
+      // The layer travels with the label — the database refuses the half-state
+      // (person_connections_label_pair_chk), which is the point of that check.
+      layer: relation ? layerForRelation(relation) : null,
+    })
+    .eq('connection_id', connectionId)
+    .eq('from_person_id', myPerson)
+    .is('deleted_at', null);
   if (error) {
-    // 23505 = unique_violation on the (from, to, relation) edge index.
     return {
       ok: false,
-      error: error.code === '23505' ? 'You’ve already added them.' : 'Couldn’t send the request.',
+      error:
+        error.code === '23505'
+          ? 'You’ve already used that label for them.'
+          : 'Couldn’t save that label.',
     };
   }
   revalidatePath('/dashboard/people');
   return { ok: true };
+}
+
+/**
+ * WITHDRAW a request I sent. A forward primitive with no inverse is how a
+ * couple ends up unable to un-ask (the `cancel_vendor_lock_request` lesson,
+ * 2026-08-16) — so the ask ships with its own undo.
+ *
+ * Soft-delete, not DELETE: every read in the product already filters
+ * `deleted_at`, and the row is evidence of what was asked. Only the DECLARER's
+ * side is touched; a confirmed connection is a mutual fact and comes down the
+ * same way, from whichever side asks.
+ */
+export async function withdrawConnection(connectionId: string): Promise<ActionResult> {
+  if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+  const supabase = await createClient();
+  const myPerson = await myPersonId(supabase, user.id);
+  if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
+
+  const { error } = await supabase
+    .from('person_connections')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('connection_id', connectionId)
+    .eq('from_person_id', myPerson)
+    .is('deleted_at', null);
+  if (error) return { ok: false, error: 'Couldn’t remove that.' };
+  revalidatePath('/dashboard/people');
+  return { ok: true };
+}
+
+/**
+ * SEND THE NOTE AGAIN for a request already waiting. The address is read
+ * server-side from the person node and never returned — the caller learns only
+ * whether the send left the building.
+ */
+export async function resendConnectionInvitation(
+  connectionId: string,
+): Promise<{ ok: true; delivered: boolean } | { ok: false; error: string }> {
+  if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+  const supabase = await createClient();
+  const myPerson = await myPersonId(supabase, user.id);
+  if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
+
+  const { data: row } = await supabase
+    .from('person_connections')
+    .select('to_person_id, status')
+    .eq('connection_id', connectionId)
+    .eq('from_person_id', myPerson)
+    .is('deleted_at', null)
+    .maybeSingle();
+  const target = row as { to_person_id: string; status: string } | null;
+  if (!target || target.status !== 'pending') {
+    return { ok: false, error: 'That request isn’t waiting any more.' };
+  }
+
+  const admin = createAdminClient();
+  const [{ data: them }, { data: me }] = await Promise.all([
+    admin.from('people').select('email').eq('person_id', target.to_person_id).maybeSingle(),
+    admin.from('people').select('display_name').eq('person_id', myPerson).maybeSingle(),
+  ]);
+  const email = normalizeEmail((them as { email: string | null } | null)?.email);
+  if (!email) return { ok: false, error: 'We don’t have an email for them.' };
+
+  const delivered = await sendPeopleInvitation(
+    email,
+    firstNameOf((me as { display_name: string | null } | null)?.display_name),
+  );
+  return { ok: true, delivered };
 }
 
 /** The TO-person accepts a pending request (mutual confirmation). */
@@ -95,13 +380,47 @@ export async function confirmConnection(connectionId: string): Promise<ActionRes
   if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
 
   // Only the recipient may confirm: to_person = me AND still pending.
-  const { error } = await supabase
+  // `.select()` so the answer can be carried back to whoever asked — an UPDATE
+  // that matched nothing returns an empty array, which is how a stale click on
+  // an already-answered row is told apart from a real confirmation. RLS denial
+  // and "no such pending row" are the same value here, and both mean: say
+  // nothing to anybody.
+  const { data, error } = await supabase
     .from('person_connections')
     .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
     .eq('connection_id', connectionId)
     .eq('to_person_id', myPerson)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .select('from_person_id');
   if (error) return { ok: false, error: 'Couldn’t confirm.' };
+  const rows = (data ?? []) as Array<{ from_person_id: string }>;
+
+  // THE ANSWER TRAVELS BACK. Without this the person who asked learns nothing —
+  // their row just quietly changes state the next time they load the page.
+  if (rows.length > 0) {
+    const admin = createAdminClient();
+    const [{ data: asker }, { data: me }] = await Promise.all([
+      admin
+        .from('people')
+        .select('claimed_by_user_id')
+        .eq('person_id', rows[0]!.from_person_id)
+        .maybeSingle(),
+      admin.from('people').select('display_name').eq('person_id', myPerson).maybeSingle(),
+    ]);
+    const askerUserId = (asker as { claimed_by_user_id: string | null } | null)?.claimed_by_user_id;
+    if (askerUserId) {
+      const myName =
+        firstNameOf((me as { display_name: string | null } | null)?.display_name) ?? 'They';
+      await emitNotification({
+        userId: askerUserId,
+        type: 'connection_confirmed',
+        title: `${myName} confirmed your connection`,
+        body: 'They’re on your people now — set what they are to you whenever you like.',
+        relatedUrl: '/dashboard/people',
+      });
+    }
+  }
+
   revalidatePath('/dashboard/people');
   return { ok: true };
 }
@@ -253,4 +572,260 @@ export async function proposeSamahanConnection(formData: FormData): Promise<void
 
   revalidatePath('/dashboard/people');
   redirect('/dashboard/people?saved=1');
+}
+
+/**
+ * ASK somebody on your list into a samahan — the second half of the owner's
+ * sentence: *"Then you can set a label. or a samahan, just like the guest list."*
+ *
+ * ⚖ **IT SENDS AN INVITATION; IT DOES NOT ADD THEM, AND THAT IS NOT MY RULE.**
+ * `community_members` has exactly one INSERT policy — `community_member_admin_insert`,
+ * `WITH CHECK (is_admin())` — so through the API nobody but a Setnayan admin can
+ * put a person in a samahan. The only other way in is redeeming the standing
+ * link. The product's consent model is therefore already decided: **you are
+ * asked into a samahan, never placed in one.** A chip that silently inserted a
+ * membership would have had to route around that policy with the service key,
+ * which is the shape of every "the app layer is not the control" defect this
+ * codebase has already paid for.
+ *
+ * So the INTERACTION matches the guest list (a chip on the row, one tap) and the
+ * MECHANISM matches samahan's own: their invitation lands in their inbox, and
+ * the chip appears on the roster when they actually join.
+ *
+ * Organiser-only, because `invite_tokens_organizer_all` is organiser-only: the
+ * token read below runs under the caller's own session, so RLS is the gate and a
+ * refusal reads as "no live link", never as a leak.
+ */
+export async function invitePersonToSamahan(input: {
+  connectionId: string;
+  communityId: string;
+}): Promise<{ ok: true; delivered: boolean; samahan: string } | { ok: false; error: string }> {
+  if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+  if (!input.connectionId || !input.communityId) return { ok: false, error: 'Pick a samahan.' };
+
+  const supabase = await createClient();
+  const myPerson = await myPersonId(supabase, user.id);
+  if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
+
+  // CONFIRMED only. Asking somebody into your group before they have agreed to
+  // be connected to you at all is a second ask stacked on an unanswered one.
+  const { data: edge } = await supabase
+    .from('person_connections')
+    .select('from_person_id, to_person_id, status')
+    .eq('connection_id', input.connectionId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  const row = edge as { from_person_id: string; to_person_id: string; status: string } | null;
+  if (!row || row.status !== 'confirmed') {
+    return { ok: false, error: 'You can invite them once you’re connected.' };
+  }
+  const otherPerson = row.from_person_id === myPerson ? row.to_person_id : row.from_person_id;
+  if (otherPerson === myPerson) return { ok: false, error: 'That’s you.' };
+
+  // The standing link, read under MY session — organiser-only by policy.
+  const { data: tokenRow } = await supabase
+    .from('community_invite_tokens')
+    .select('token, expires_at, revoked_at')
+    .eq('community_id', input.communityId)
+    .maybeSingle();
+  const live = tokenRow as { token: string; expires_at: string | null; revoked_at: string | null } | null;
+  const usable =
+    !!live &&
+    !live.revoked_at &&
+    (!live.expires_at || new Date(live.expires_at) > new Date());
+  if (!usable) {
+    return {
+      ok: false,
+      error: 'That samahan has no live invite link — open it and make one first.',
+    };
+  }
+
+  const { data: community } = await supabase
+    .from('communities')
+    .select('name')
+    .eq('community_id', input.communityId)
+    .maybeSingle();
+  const samahanName = ((community as { name: string } | null)?.name ?? 'your samahan').trim();
+
+  // Their address + whether they are already in it. Server-side only; neither
+  // value is returned to the caller.
+  const admin = createAdminClient();
+  const [{ data: them }, { data: me }] = await Promise.all([
+    admin.from('people').select('email, claimed_by_user_id').eq('person_id', otherPerson).maybeSingle(),
+    admin.from('people').select('display_name').eq('person_id', myPerson).maybeSingle(),
+  ]);
+  const themRow = them as { email: string | null; claimed_by_user_id: string | null } | null;
+  const email = normalizeEmail(themRow?.email);
+  if (!email) return { ok: false, error: 'We don’t have an email for them.' };
+
+  if (themRow?.claimed_by_user_id) {
+    const { data: member } = await admin
+      .from('community_members')
+      .select('id')
+      .eq('community_id', input.communityId)
+      .eq('user_id', themRow.claimed_by_user_id)
+      .maybeSingle();
+    if (member) return { ok: false, error: 'They’re already in it.' };
+  }
+
+  const origin = await appOrigin();
+  const url = `${origin}/samahan/join/${live!.token}`;
+  const who = firstNameOf((me as { display_name: string | null } | null)?.display_name) ?? 'Someone you know';
+  const lines = [
+    `${who} would like you in ${samahanName} on Setnayan — the group they keep their celebrations with.`,
+    'Opening the link puts you in; nothing happens until you do.',
+  ];
+  const delivered = await sendEmail({
+    to: email,
+    subject: `${who} invited you to ${samahanName}`,
+    text: `${lines.join('\n\n')}\n\nJoin ${samahanName}: ${url}`,
+    html: renderBrandedEmail({
+      heading: `You're invited to ${samahanName}`,
+      paragraphs: lines,
+      ctaLabel: `Join ${samahanName}`,
+      ctaHref: url,
+      footnote:
+        'If you weren’t expecting this, you can ignore this email — you are not in the group unless you open the link.',
+    }),
+  });
+
+  revalidatePath('/dashboard/people');
+  return { ok: true, delivered: delivered.ok, samahan: samahanName };
+}
+
+/**
+ * FIND SOMEBODY BY NAME (owner 2026-08-21, *"just like facebook"*).
+ *
+ * A thin, guarded wrapper: the flag, the signed-in caller, and nothing else —
+ * every refusal and every "what a result may carry" rule lives in
+ * `lib/people-search.ts`, which is where a reader will look for them.
+ *
+ * 🔒 It cannot be used to test whether an account exists: an opted-out person,
+ * a name nobody has, and a name only anonymous drafts carry all return `[]`.
+ */
+export async function findPeopleByName(query: string): Promise<PersonHit[]> {
+  if (!peopleConnectionsEnabled()) return [];
+  const user = await getCurrentUser();
+  if (!user) return [];
+  return searchPeopleByName(query, user.id);
+}
+
+/**
+ * ADD SOMEBODY YOU PICKED OUT OF THE SEARCH — the owner's *"pick the person they
+ * want to add"*, and the reason this exists separately from
+ * `addPersonConnection`: there is no email to type, because we already know
+ * exactly which account it is.
+ *
+ * ⚠ THE HANDLE IS A PUBLIC ID, NEVER A user_id. The browser is given
+ * `users.public_id` and hands it straight back; a raw `user_id` in a client
+ * payload is an internal key travelling through an untrusted place for no gain.
+ *
+ * Everything else is the ordinary add: a PENDING claim, unlabelled unless the
+ * caller says otherwise, their tray gets the ask, and their inbox gets the same
+ * invitation. Only they can confirm it.
+ */
+export async function addPersonByPublicId(input: {
+  publicId: string;
+  relation?: ConnectionRelation | null;
+}): Promise<ActionResult> {
+  if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+  const publicId = (input.publicId ?? '').trim();
+  if (!publicId) return { ok: false, error: 'Pick somebody first.' };
+  const relation = input.relation ?? null;
+  if (relation !== null && !DECLARABLE_RELATIONS.includes(relation)) {
+    return { ok: false, error: 'That isn’t a label.' };
+  }
+  if (relation === 'spouse') {
+    const ctx = await getSpouseContext(user.id);
+    if (!spouseIsOfferable(ctx)) {
+      return {
+        ok: false,
+        error:
+          'Set “Married” on your profile — or hold until your wedding day has passed — before adding a spouse.',
+      };
+    }
+  }
+
+  const supabase = await createClient();
+  const fromPerson = await myPersonId(supabase, user.id);
+  if (!fromPerson) return { ok: false, error: 'Your profile isn’t ready yet — try again in a moment.' };
+
+  // Resolve the pick server-side. The discoverability switch is re-checked HERE
+  // and not trusted from the search that produced the row: a public id lives as
+  // long as the account does, and somebody who turned themselves off between the
+  // search and the tap has turned themselves off.
+  const admin = createAdminClient();
+  const { data: target } = await admin
+    .from('users')
+    .select('user_id, display_name, email, discoverable_by_name')
+    .eq('public_id', publicId)
+    .maybeSingle();
+  const them = target as {
+    user_id: string;
+    display_name: string | null;
+    email: string | null;
+    discoverable_by_name: boolean | null;
+  } | null;
+  if (!them || them.discoverable_by_name === false) {
+    return { ok: false, error: 'We couldn’t find that person any more.' };
+  }
+  if (them.user_id === user.id) return { ok: false, error: 'That’s you.' };
+
+  const { data: theirPerson } = await admin
+    .from('people')
+    .select('person_id')
+    .eq('claimed_by_user_id', them.user_id)
+    .is('deleted_at', null)
+    .maybeSingle();
+  const toPerson = (theirPerson as { person_id: string } | null)?.person_id ?? null;
+  if (!toPerson) return { ok: false, error: 'Their profile isn’t ready yet.' };
+
+  const { data: already } = await supabase
+    .from('person_connections')
+    .select('connection_id')
+    .eq('from_person_id', fromPerson)
+    .eq('to_person_id', toPerson)
+    .is('deleted_at', null)
+    .limit(1);
+  if (((already ?? []) as unknown[]).length > 0) {
+    return { ok: false, error: 'They’re already on your list.' };
+  }
+
+  const theirName = (them.display_name ?? '').trim().slice(0, 120) || 'Someone';
+  const { error } = await supabase.from('person_connections').insert({
+    from_person_id: fromPerson,
+    to_person_id: toPerson,
+    relation,
+    layer: relation ? layerForRelation(relation) : null,
+    declared_name: theirName,
+    status: 'pending',
+    created_by_user_id: user.id,
+  });
+  if (error && error.code !== '23505') {
+    return { ok: false, error: 'Couldn’t send the request.' };
+  }
+
+  const me = await supabase
+    .from('people')
+    .select('display_name')
+    .eq('person_id', fromPerson)
+    .maybeSingle();
+  const myFirstName = firstNameOf((me.data as { display_name: string | null } | null)?.display_name);
+
+  await emitNotification({
+    userId: them.user_id,
+    type: 'connection_request',
+    title: `${myFirstName ?? 'Someone'} added you to their people`,
+    body: 'Open your people to see who it is and decide. Nothing connects until you confirm.',
+    relatedUrl: '/dashboard/people',
+  });
+  const email = normalizeEmail(them.email);
+  if (email) await sendPeopleInvitation(email, myFirstName);
+
+  revalidatePath('/dashboard/people');
+  return { ok: true };
 }

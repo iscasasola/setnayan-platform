@@ -361,3 +361,65 @@ test('hidden hideable rows are excluded from both widget lists', () => {
   assert.ok(!plan.hideableInOrder.some((w) => w.widget_type === 'schedule'));
   assert.ok(!plan.publicSafeWidgets.some((w) => w.widget_type === 'our_photos'));
 });
+
+// ---------------------------------------------------------------------------
+// ONLY THE ANSWER FREEZES (owner 2026-08-20).
+//
+// 🔑 Both load-bearing assertions here are NEGATIVE. `guestListClosed` must
+// gate NOTHING in this plan: not the RSVP section (which also holds the
+// keepsake ticket and seat), and not any other widget. It is carried through
+// to the reply card, which freezes the going-or-not answer and leaves the
+// selfie, meal, dietary notes and host note open — the database's post-lock
+// guard draws exactly that line, and the list finalizes ~2 weeks out, when
+// "nut allergy" matters most.
+// ---------------------------------------------------------------------------
+
+test('guest list open (the default) leaves the plan byte-identical', () => {
+  for (const identity of IDENTITIES) {
+    for (const phase of PHASES) {
+      const absent = planFor(identity, phase);
+      const explicitlyOpen = planFor(identity, phase, { guestListClosed: false });
+      assert.deepEqual(
+        explicitlyOpen,
+        absent,
+        `omitting guestListClosed must equal passing false (${identity}/${phase})`,
+      );
+      assert.equal(absent.guestListClosed, false);
+    }
+  }
+});
+
+test('a final guest list changes NOTHING the plan gates', () => {
+  for (const identity of IDENTITIES) {
+    for (const phase of PHASES) {
+      const open = planFor(identity, phase);
+      const closed = planFor(identity, phase, { guestListClosed: true });
+      assert.equal(closed.guestListClosed, true);
+
+      // THE REGRESSION GUARD, and it is the whole point of this block: the
+      // first build of this feature hid the form, which took the guest's meal
+      // and allergy box with it. Nothing in the plan may gate on the closure.
+      assert.deepEqual(
+        { ...closed, guestListClosed: false },
+        open,
+        `closing the list gated something (${identity}/${phase}) — the reply card freezes the ANSWER, the plan closes nothing`,
+      );
+    }
+  }
+});
+
+test('the same holds under open-browse', () => {
+  // The other branch of the gate computation. `website_open_browse` is
+  // per-event, so both are live shapes and a fix in one is not a fix.
+  for (const phase of PHASES) {
+    const open = planFor('guest', phase, { openBrowse: true });
+    const closed = planFor('guest', phase, {
+      openBrowse: true,
+      guestListClosed: true,
+    });
+    assert.deepEqual({ ...closed, guestListClosed: false }, open, `open-browse ${phase}`);
+  }
+  // Vacuity check: the RSVP section really does render somewhere here, so the
+  // deepEqual above is not passing over a pair of all-false plans.
+  assert.equal(planFor('guest', 'rsvp', { openBrowse: true }).rsvpShouldRender, true);
+});

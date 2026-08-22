@@ -66,11 +66,10 @@ export default async function PapicPoolPage() {
   return (
     <main className="min-h-screen bg-cream px-4 py-8 text-ink">
       <div className="mx-auto w-full max-w-2xl">
-        <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-mulberry">
-          <Images aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Everyone&rsquo;s photos
-        </p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+        {/* The eyebrow said "Everyone's photos" directly above a title ending
+            "— the whole gallery". One of the two was the other one, and this is
+            a page a guest meets once, on a phone, at a party. */}
+        <h1 className="text-2xl font-semibold tracking-tight">
           {(ev.display_name as string | null) ?? 'The event'} — the whole gallery
         </h1>
         <p className="mt-2 text-sm text-ink/65">

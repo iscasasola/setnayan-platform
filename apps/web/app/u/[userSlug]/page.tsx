@@ -13,12 +13,20 @@ import { ProfileShareButton } from '@/app/_components/profile-share-button';
 import { CreatorBadge } from '@/app/_components/creator-badge';
 import { CreatorTierChip } from '@/app/_components/creator-tier-chip';
 import {
+  chapterExcerpt,
   CHAPTER_KIND_LABEL,
   EMBED_PROVIDER_LABEL,
-  rankChaptersByPublishedAt,
   youtubeThumbFromEmbedUrl,
 } from '@/lib/creator-chapters';
-import { fetchPublishedChaptersResult, type PublicChapter } from '@/lib/creator-public';
+import {
+  fetchPublishedChaptersResult,
+  loadChapterEventDays,
+  type PublicChapter,
+} from '@/lib/creator-public';
+import { chronicleDay, groupChronicleByYear } from '@/lib/creator-chronicle';
+import { ScaledTileList } from '@/app/_components/scaled-tile';
+import { loadChapterPictures, type ChapterPicture } from '@/lib/chapter-picture';
+import { loadWhoWasThere, type WhoWasThere } from '@/lib/who-was-there';
 import {
   fetchCreatorInfluence,
   type CreatorInfluenceVendor,
@@ -168,6 +176,26 @@ export default async function AccountProfilePage({ params }: Props) {
   const chaptersRead = await fetchPublishedChaptersResult(user.user_id);
   const chapters: PublicChapter[] = chaptersRead.items;
   const hasChapters = chapters.length > 0;
+  // The chronicle is ordered by the day each celebration HAPPENED, so the
+  // timeline needs those days. Only read when there is something to place, and
+  // only for chapters that name a celebration.
+  const [chapterEventDays, chapterPictures, whoWasThere] = hasChapters
+    ? await Promise.all([
+        loadChapterEventDays(chapters.map((c) => c.event_id)),
+        // The photographs. One snapshot per celebration, not per chapter — see
+        // lib/chapter-picture.ts for why that distinction is the whole cost.
+        loadChapterPictures(chapters),
+        // 🔒 The entourage — ACCEPTED roles only. See lib/who-was-there.ts:
+        // being on a guest list is not agreeing to be named in public.
+        loadWhoWasThere(
+          chapters.map((c) => c.event_id).filter((id): id is string => !!id),
+        ),
+      ])
+    : [
+        new Map<string, string>(),
+        new Map<string, ChapterPicture>(),
+        [] as WhoWasThere[],
+      ];
 
   // Creator "influence" — accepted vendor partnerships (aggregate, public). Only
   // relevant for a creator profile; never exposes the offer terms or the graph,
@@ -383,7 +411,15 @@ export default async function AccountProfilePage({ params }: Props) {
         />
 
         {hasChapters ? (
-          <ChapterTimeline chapters={chapters} slug={canonicalSlug} />
+          <>
+            <WhoWasThereBand people={whoWasThere} />
+            <ChapterTimeline
+              chapters={chapters}
+              eventDays={chapterEventDays}
+              pictures={chapterPictures}
+              slug={canonicalSlug}
+            />
+          </>
         ) : null}
 
         {influenceVendors.length > 0 ? (
@@ -421,15 +457,20 @@ export default async function AccountProfilePage({ params }: Props) {
   );
 }
 
+/**
+ * The chapter's day, long form.
+ *
+ * 🪤 `new Date('2026-12-18')` IS MIDNIGHT UTC — the 17th anywhere west of
+ * Greenwich — and this function used to do exactly that. It only ever received
+ * a publish TIMESTAMP, where the hour absorbed the shift; it now also receives
+ * the celebration's DATE, which is a bare calendar day and would have drifted
+ * on the phone of every relative reading from abroad. `formatEventDate` builds
+ * the date from its parts for precisely this reason (2026-08-04 sweep, 41 call
+ * sites), so this delegates rather than repeating the mistake a third time.
+ */
 function formatChapterDate(iso: string | null): string | null {
   if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('en-PH', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  return formatEventDate(iso.slice(0, 10), 'en-PH') || null;
 }
 
 // CP-3 — the published-chapter TIMELINE (reverse-chronological, a spine of
@@ -437,102 +478,128 @@ function formatChapterDate(iso: string | null): string | null {
 // view at /u/[slug]/c/[public_id]. The embed itself is NOT mounted here — the
 // timeline is lightweight cards; the sandboxed ChapterEmbedFrame lives on the
 // detail page.
+/**
+ * WHO WAS THERE — the band the whole field is missing.
+ *
+ * 🔒 It renders ONLY people who ACCEPTED a named role (lib/who-was-there.ts).
+ * An empty list renders nothing at all: a heading over no names would announce
+ * an entourage that either does not exist or did not consent, and both are
+ * worse than silence.
+ *
+ * ⚠ NO GUEST COUNT HERE, deliberately. "+ 42 guests" was in the drawing, and a
+ * count is harmless — but it can only be measured from `guests`, and a failed
+ * read of that table is indistinguishable from a wedding of nine people. A
+ * number nobody can trust does not belong next to names that are true.
+ */
+function WhoWasThereBand({ people }: { people: WhoWasThere[] }) {
+  if (people.length === 0) return null;
+  return (
+    <section className="uprof-who" aria-label="Who was there">
+      <p className="uprof-who-h">Who was there</p>
+      <ul className="uprof-who-l">
+        {people.map((p) => (
+          <li key={`${p.role}-${p.name}`} className="uprof-who-i">
+            <span className="uprof-who-n">{p.name}</span>
+            <span className="uprof-who-r">{p.role}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function ChapterTimeline({
   chapters,
+  eventDays,
+  pictures,
   slug,
 }: {
   chapters: PublicChapter[];
+  /** event_id → the day it happened, for the chapters that name a celebration. */
+  eventDays: Map<string, string>;
+  /** chapter_id → its public-safe photograph. Absent = no picture, which is a
+   *  smaller chapter rather than a broken one. */
+  pictures: Map<string, ChapterPicture>;
   slug: string;
 }) {
-  // E5 numbering + the latest-chapter poster. Derived from published_at, NEVER
-  // from array position — see rankChaptersByPublishedAt for why index 0 is the
-  // wrong answer (Postgres DESC is NULLS FIRST). Undated rows get no number and
-  // can never be "latest"; "· Latest" is suppressed in a set of one, where the
-  // poster still renders.
-  const { numberByIndex, newestIndex, showLatest } = rankChaptersByPublishedAt(
-    chapters.map((c) => c.published_at),
+  // THE CHRONICLE — the year is the season, the chapter is the episode, and the
+  // number restarts inside each year (owner 2026-08-20). The day comes from the
+  // author's own answer, then the celebration it is attached to, then — last
+  // resort — the publish date.
+  //
+  // Derived from PARSED DAYS, never from array position: the query orders
+  // published_at DESC and Postgres DESC is NULLS FIRST, so `chapters[0]` can be
+  // an undated row. Undated rows get no number and can never be "latest".
+  const days = chapters.map((c) =>
+    chronicleDay({
+      happenedOn: c.happened_on,
+      eventDate: c.event_id ? eventDays.get(c.event_id) ?? null : null,
+      publishedAt: c.published_at,
+    }),
   );
+  const blocks = groupChronicleByYear(chapters, (_c, i) => days[i] ?? null);
+  // The poster + "Latest" belong to the newest DATED chapter in the whole
+  // timeline, which is the first entry of the first block that has a year.
+  const newestIndex = blocks.find((b) => b.year !== null)?.entries[0]?.index ?? -1;
+  const datedCount = days.filter((d) => d !== null).length;
+  const showLatest = datedCount > 1;
 
   return (
     <section className="uprof-tl" aria-label="Chapters">
-      <h2 className="m-serif uprof-tl-head">Chapters</h2>
-      <ol className="uprof-tl-list">
-        {chapters.map((c, i) => {
-          const date = formatChapterDate(c.published_at);
-          const n = numberByIndex.get(i) ?? null;
-          const isLatest = i === newestIndex && showLatest;
-          // Poster: the newest DATED chapter only, and only when the stored
-          // embed is the canonical YouTube shape. An Instagram / TikTok chapter
-          // derives null and falls back to the shipped compact text card —
-          // never a grey frame with a play button over nothing.
-          const poster =
-            i === newestIndex ? youtubeThumbFromEmbedUrl(c.embed_url) : null;
-          return (
-            <li key={c.chapter_id} className="uprof-tl-item">
-              <span aria-hidden className="uprof-tl-dot" />
-              <Link href={`/u/${slug}/c/${c.public_id}`} className="uprof-tl-card">
-                {poster ? (
-                  <span className="uprof-tl-poster">
-                    {/* A dead thumb (deleted / private / age-gated video) cannot
-                        be detected server-side without a network fetch, so the
-                        frame carries its own ivory background and the img an
-                        empty alt: it degrades to a neutral panel, not a broken
-                        glyph. The card still links to the chapter page, where
-                        the sandboxed embed shows the real reason. */}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={poster}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      referrerPolicy="no-referrer"
-                      className="uprof-tl-poster-img"
-                    />
-                    <span aria-hidden className="uprof-tl-play">
-                      <Play
-                        className="uprof-tl-play-icon"
-                        fill="currentColor"
-                        strokeWidth={0}
-                      />
-                    </span>
-                    {c.embed_provider ? (
-                      <span className="uprof-tl-on">
-                        on {EMBED_PROVIDER_LABEL[c.embed_provider]}
-                      </span>
-                    ) : null}
-                  </span>
-                ) : null}
-                <span className="uprof-tl-card-body">
-                  <span className="uprof-tl-kicker">
-                    {n !== null ? (
-                      <span className="uprof-tl-num">
-                        Chapter {n}
-                        {isLatest ? ' · Latest' : ''}
-                      </span>
-                    ) : null}
-                    <span className="uprof-tl-kind">{CHAPTER_KIND_LABEL[c.kind]}</span>
-                    {date ? <span className="uprof-tl-date">{date}</span> : null}
-                    <span className="uprof-tl-views">
-                      {formatAudienceCount(c.view_count)}{' '}
-                      {c.view_count === 1 ? 'view' : 'views'}
-                    </span>
-                  </span>
-                  <span className="m-serif uprof-tl-title">{c.title}</span>
-                  <span className="uprof-tl-cue">
-                    {/* "Watch" was hardcoded, so a story told in WRITING was
-                        advertised to every visitor as a video they could
-                        watch. The cue follows what the chapter actually is. */}
-                    {c.embed_url ? 'Watch the chapter' : 'Read the chapter'}
-                    <span aria-hidden className="uprof-tl-chev">
-                      &rsaquo;
-                    </span>
-                  </span>
+      {blocks.map((block) => {
+        // 🔑 THE SIZE IS DERIVED, NEVER CHOSEN — and it now lives in the shared
+        // tile (app/_components/scaled-tile.tsx) so every other surface can use
+        // the same rule. This page was where it was born and was the only place
+        // that could reach it.
+        return (
+          <div key={block.year ?? 'unplaced'} className="uprof-yr">
+            {/* THE YEAR IS THE SEASON, and it is written as its own name.
+                ⛔ NEVER as the words "Your year" — that is a DIFFERENT page one
+                click away in the same menu, which looks FORWARD at what is
+                coming; this looks back at what happened. Same words on two
+                things is the failure the Event Hub vocabulary lock exists to
+                prevent. */}
+            {block.year ? (
+              <p className="uprof-yr-mark">
+                <span className="uprof-yr-n">{block.year}</span>
+                <span aria-hidden className="uprof-yr-rule" />
+                <span className="uprof-yr-c">
+                  {block.entries.length === 1 ? '1 chapter' : `${block.entries.length} chapters`}
                 </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ol>
+              </p>
+            ) : null}
+            <ScaledTileList
+              className="uprof-list"
+              items={block.entries.map(({ item: c, index: i, number: n }) => {
+                // The day the chapter is ABOUT — the celebration's when it has one.
+                const date = formatChapterDate(days[i] ?? c.published_at);
+                const pic = pictures.get(c.chapter_id) ?? null;
+                return {
+                  id: c.chapter_id,
+                  href: `/u/${slug}/c/${c.public_id}`,
+                  title: c.title,
+                  kicker: [
+                    n !== null ? `Chapter ${n}` : null,
+                    CHAPTER_KIND_LABEL[c.kind],
+                    date,
+                    i === newestIndex && showLatest ? 'Latest' : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · '),
+                  // ONE SENTENCE, never an essay — the slot is built for
+                  // somebody with two sentences and four hundred photographs.
+                  excerpt: chapterExcerpt(c.body, 190),
+                  imageUrl: pic?.url ?? null,
+                  imageNote: pic && pic.count > 1 ? `${pic.count} photos` : null,
+                  hasVideo: !!c.embed_url,
+                  meta: date,
+                  cue: c.embed_url ? 'Watch the chapter' : 'Read the chapter',
+                };
+              })}
+            />
+          </div>
+        );
+      })}
     </section>
   );
 }
@@ -596,7 +663,7 @@ const UPROF_CSS = `
     gap: 0.9rem;
     padding: 0.95rem 1.1rem;
     border: 1px solid color-mix(in srgb, var(--m-ink, #1B1A17) 12%, transparent);
-    /* The same token as .uprof-card and .uprof-tl-card — a shared day is a card
+    /* The same token as .uprof-card — a shared day is a card
        in the same stack, so it must not round differently from its neighbours. */
     border-radius: var(--m-r-lg, 22px);
     background: color-mix(in srgb, #FFFFFF 60%, transparent);
@@ -760,7 +827,8 @@ const UPROF_CSS = `
      line inside the wrapping .uprof-audience row, so it never reads as a fourth
      stat chip.
      CONTRAST, measured not assumed: --m-slate-2 (#6E6A62) on --m-paper
-     (#FDFBF7) = 5.22:1, clears AA. The spec's own 11.5px #A09A8E is 2.71:1 and
+     (#FFFFFF, white since 2026-08-20) = 5.39:1, clears AA. The spec's own 11.5px
+     #A09A8E is 2.79:1 and
      was NOT used; --m-slate-3 (#8A857B) is 3.55:1 and also fails. Note that
      lint-label-on-fill-contrast.mjs CANNOT catch a miss here — it reads Tailwind
      class pairs and inline style objects, never this template literal. */
@@ -869,162 +937,83 @@ const UPROF_CSS = `
   .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink, #1B1A17); }
   .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2, #6A6E76); }
 
+  /* ── WHO WAS THERE ────────────────────────────────────────────────────
+     The warm band, and the one thing measured nowhere else in the category:
+     every competitor's couple page names exactly two people. Clay ground so the
+     page is not one long stretch of cream — the research bride read the
+     all-cream draft as a memorial page. */
+  .uprof-who {
+    background: #A8421C; color: #FCEFE3;
+    margin: clamp(1.6rem, 5vw, 2.4rem) 0 0;
+    padding: 1.05rem clamp(1rem, 4vw, 1.6rem) 1.15rem;
+    border-radius: var(--m-r-md);
+  }
+  .uprof-who-h {
+    margin: 0 0 0.75rem; font-size: 0.66rem; font-weight: 600;
+    letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.92;
+  }
+  .uprof-who-l {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-wrap: wrap; gap: 0.5rem 1.6rem;
+  }
+  .uprof-who-i { min-width: 0; }
+  .uprof-who-n {
+    display: block; font-family: var(--font-editorial-display), Georgia, serif;
+    font-size: 1.02rem; line-height: 1.2;
+  }
+  .uprof-who-r {
+    display: block; font-size: 0.62rem; letter-spacing: 0.14em;
+    text-transform: uppercase; opacity: 0.7; margin-top: 0.1rem;
+  }
+
+  /* ── THE CHRONICLE, AT THREE SIZES ────────────────────────────────────
+     Scale carries meaning: the chapter with a photograph AND writing takes the
+     width, the one with either takes a strip, the one with neither takes a
+     line. Derived in lib/chapter-weight.ts, never art-directed — the two
+     publications measured with the least per-item authoring both abandoned
+     variation entirely rather than decide it by hand.
+     Measured against the field: Zola ships 1,618 designs and two layouts;
+     Appy Couple's "Stories" is six identical polaroids. Nobody varies. */
+  .uprof-yr { max-width: 660px; margin: 0 auto; }
+  .uprof-yr-mark {
+    display: flex; align-items: center; gap: 12px;
+    margin: clamp(1.9rem, 5vw, 2.6rem) 0 1.05rem;
+  }
+  .uprof-yr-n {
+    font-family: var(--font-sans, system-ui), sans-serif;
+    font-size: 0.82rem; font-weight: 700; letter-spacing: 0.17em;
+    text-transform: uppercase; color: #C24E25;
+  }
+  .uprof-yr-rule { height: 2px; border-radius: var(--m-r-xs); flex: 1; background: var(--m-line, #E2DED4); }
+  .uprof-yr-c {
+    font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--m-slate-2, #6A6E76);
+  }
+  .uprof-list { list-style: none; margin: 0; padding: 0; }
+
+
+  /* THE LEAD */
+
+  /* MEDIUM */
+
+  /* A LINE */
+
+  /* ⛔ THE OLD SPINE IS RETIRED. It gave every chapter the same dot, the same
+     card and the same width — the listing shape the owner rejected. Its rules
+     are deleted rather than left to rot, so nothing can quietly fall back to
+     them. */
+
   /* CP-3 chapter timeline — a spine of dated cards (not a feed). */
   .uprof-tl { margin-top: clamp(2.5rem, 6vw, 3.75rem); }
-  .uprof-tl-head {
-    font-size: clamp(1.4rem, 4vw, 1.9rem);
-    text-align: center;
-    margin: 0 0 clamp(1.5rem, 4vw, 2.25rem);
-    color: var(--m-ink, #1B1A17);
-  }
-  .uprof-tl-list {
-    list-style: none;
-    margin: 0 auto;
-    padding: 0;
-    max-width: 620px;
-    position: relative;
-  }
-  .uprof-tl-list::before {
-    content: '';
-    position: absolute;
-    left: 5px;
-    top: 6px;
-    bottom: 6px;
-    width: 1px;
-    background: linear-gradient(var(--m-line, #E2DED4), transparent);
-  }
-  .uprof-tl-item {
-    position: relative;
-    padding-left: 1.9rem;
-  }
-  .uprof-tl-item + .uprof-tl-item { margin-top: 0.9rem; }
-  .uprof-tl-dot {
-    position: absolute;
-    left: 0;
-    top: 1.35rem;
-    width: 11px;
-    height: 11px;
-    border-radius: var(--m-r-full, 999px);
-    background: var(--m-paper, #FBFBFA);
-    border: 2px solid var(--m-orange, #A9834B);
-  }
-  /* E5 — padding + gap moved to .uprof-tl-card-body so the latest chapter's
+  /* THE YEAR — the season heading. It sits ON the spine, so a reader scrolling
+     back through a life passes a year the way they pass a chapter break in a
+     book. Deliberately quiet: it is furniture, not a title. */
+  /* E5 — padding + gap moved to the card body so the latest chapter's
      poster can run full-bleed to the card's rounded edge. EVERY card now wraps
      its text in the body span (poster or not), so the two must never be edited
      apart. overflow:hidden is what clips the poster to the radius. */
-  .uprof-tl-card {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    background: #fff;
-    border: 1px solid var(--m-line, #E2DED4);
-    border-radius: var(--m-r-lg, 22px);
-    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
-    text-decoration: none;
-    color: inherit;
-    transition: transform .18s cubic-bezier(.2,.7,.2,1), border-color .18s, box-shadow .18s;
-  }
-  .uprof-tl-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--m-orange, #A9834B);
-    box-shadow: 0 10px 30px -12px rgba(30,26,18,.18);
-  }
-  .uprof-tl-card-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    padding: 1.1rem 1.25rem;
-  }
-  .uprof-tl-poster {
-    position: relative;
-    display: block;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    background: var(--m-ivory, #EDEAE0);
-    overflow: hidden;
-  }
-  .uprof-tl-poster-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .uprof-tl-play {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 52px;
-    height: 52px;
-    border-radius: var(--m-r-full, 999px);
-    background: rgba(253,251,247,.92);
-    color: rgb(var(--color-mulberry, 194 78 37));
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 10px rgba(30,26,18,.18);
-  }
-  .uprof-tl-play-icon { width: 20px; height: 20px; margin-left: 2px; }
   /* Scrim pill. Cream on rgba(44,42,41,.75) composited over the WORST case (a
      pure-white thumbnail) measures 6.20:1 — clears AA with room. */
-  .uprof-tl-on {
-    position: absolute;
-    right: 0.6rem;
-    bottom: 0.6rem;
-    padding: 0.2rem 0.55rem;
-    border-radius: var(--m-r-full, 999px);
-    background: rgba(44,42,41,.75);
-    color: var(--m-paper, #FDFBF7);
-    font-family: var(--font-mono-marketing), ui-monospace, monospace;
-    font-size: 0.62rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  .uprof-tl-num {
-    font-family: var(--font-mono-marketing), 'JetBrains Mono', ui-monospace, monospace;
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--m-orange-2, #8A6B39);
-  }
-  .uprof-tl-kicker {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem 0.75rem;
-  }
-  .uprof-tl-kind {
-    font-family: var(--font-mono-marketing), 'JetBrains Mono', ui-monospace, monospace;
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--m-orange-2, #8A6B39);
-  }
-  .uprof-tl-date {
-    font-size: 0.78rem;
-    color: var(--m-slate-2, #6A6E76);
-  }
-  .uprof-tl-views {
-    font-size: 0.72rem;
-    color: var(--m-slate-2, #6A6E76);
-    opacity: 0.85;
-  }
-  .uprof-tl-title {
-    font-size: clamp(1.15rem, 3vw, 1.4rem);
-    line-height: 1.2;
-    color: var(--m-ink, #1B1A17);
-  }
-  .uprof-tl-cue {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.82rem;
-    color: var(--m-slate, #4F535B);
-  }
-  .uprof-tl-chev {
-    font-size: 1.15rem;
-    line-height: 1;
-    color: var(--m-orange, #A9834B);
-    transition: transform .18s cubic-bezier(.2,.7,.2,1);
-  }
-  .uprof-tl-card:hover .uprof-tl-chev { transform: translateX(3px); }
 
   .uprof-actions {
     display: flex;

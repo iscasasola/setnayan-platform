@@ -142,7 +142,6 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <PageMasthead
         title="Vendor payouts"
-        className="mb-6"
       />
 
       <FlashBanner flash={search.flash} error={search.error} />

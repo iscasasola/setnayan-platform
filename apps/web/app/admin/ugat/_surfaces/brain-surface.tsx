@@ -181,11 +181,10 @@ export async function BrainSurface() {
     <div>
       <PageMasthead
         titleNode={
-          <span className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <span>
             Today&apos;s Focus brain
           </span>
         }
-        className="mb-6"
       />
 
       {/*

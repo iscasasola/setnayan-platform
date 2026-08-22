@@ -101,20 +101,39 @@ test('the admin signal is decided by THE canonical predicate, and fails closed',
   }
 });
 
-test('the rail offers Your Story, and does NOT gate it', () => {
+test('Your Story is retired from the rail, and is NOT gated where it moved', () => {
+  // 🔁 REVERSED 2026-08-21 (owner): *"remove … your story. we already have your
+  // story on untold."* The rail row is gone; the board carries both doors.
   const src = code(readFileSync(SHELL, 'utf8'));
-  assert.match(
-    src,
-    /href="\/dashboard\/creator"/,
-    'The rail has no row into Your Story. The owner asked for storytelling, ' +
-      'events, shop and admin to be reachable here.',
-  );
   assert.doesNotMatch(
     src,
-    /account\.(isStoryteller|hasStory|storyChapterCount)\s*(\?|&&)[\s\S]{0,200}?dashboard\/creator/,
-    'Your Story is capability-gated. It must not be: writing is open to every ' +
-      'signed-in person ("creator = user", owner-locked 2026-07-16), so gating ' +
-      'it hides a desk the person is entitled to sit at.',
+    /href="\/dashboard\/creator"/,
+    'The Your Story rail row is back. It was retired into the board — if it is ' +
+      'genuinely wanted again, change this test deliberately.',
+  );
+
+  // 🔑 THE HALF THAT STILL MATTERS, AND IT SURVIVES THE MOVE. Writing is open to
+  // every signed-in person ("creator = user", owner-locked 2026-07-16), so the
+  // doors that replaced this row must not be capability-gated either. Gating
+  // them would hide a desk the person is entitled to sit at — the exact defect
+  // this test was written for, relocated rather than deleted.
+  const board = code(
+    readFileSync(
+      join(HERE, '../../dashboard/(launcher)/page.tsx'),
+      'utf8',
+    ),
+  );
+  assert.match(
+    board,
+    /href="\/dashboard\/creator"/,
+    'the board has no door into Your Story, and the rail row that used to be ' +
+      'one was retired on the promise that it does.',
+  );
+  assert.doesNotMatch(
+    board,
+    /(isStoryteller|hasStory|chapterCount)\s*(\?|&&)[\s\S]{0,200}?dashboard\/creator/,
+    'Your Story became capability-gated on the board. Writing is open to every ' +
+      'signed-in person; gating it hides a desk they are entitled to.',
   );
 });
 

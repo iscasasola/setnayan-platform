@@ -177,7 +177,26 @@ export async function connectEventForUser(
         member_type: 'guest',
         guest_id: guest.guest_id as string,
         role: (guest.role as string) ?? 'guest',
-        joined_via: 'email_link',
+        // 🔴 WAS `'email_link'` — A VALUE THE DATABASE DOES NOT HAVE.
+        // `join_method` is an enum of exactly six labels (qr_scan · invited ·
+        // created_event · admin_added · invite_claim · guest_signup) and
+        // `email_link` is not one of them, so Postgres REJECTED this insert
+        // every single time. The rejection lands in `error`, `connected: !error`
+        // returns false, and the outer try/catch would have swallowed a throw
+        // too — so a guest who signed in from a NEW PHONE was never attached to
+        // the celebration, saw no error, and landed on an empty home page.
+        //
+        // 🔑 Same disease as the phantom column, the phantom RPC argument and
+        // the payments duplicate-guard that queried a status enum value that did
+        // not exist: THE QUERY IS REJECTED, NOT THROWN, and the only symptom is
+        // an absence.
+        //
+        // `guest_signup` is the correct label, not a nearest-fit: it is what the
+        // SAME act writes on the same device (lib/link-guest-account.ts, a guest
+        // who scans then makes an account). This path is that person without the
+        // cookie, so recording it as a different kind of joining would split one
+        // behaviour across two labels.
+        joined_via: 'guest_signup',
       },
       { onConflict: 'event_id,user_id', ignoreDuplicates: true },
     );

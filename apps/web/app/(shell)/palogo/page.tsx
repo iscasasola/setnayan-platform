@@ -1,5 +1,5 @@
 /**
- * /palogo — public marketing landing page for Palogo, the animated monogram
+ * /palogo — public marketing landing page for Logo Maker, the animated monogram
  * (the Animated Monogram) carried across the whole wedding
  * (www.setnayan.com/palogo).
  *
@@ -24,7 +24,13 @@ import { studioDescription } from '@/lib/studio-apps';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PAGE_TITLE = 'Palogo — Your Animated Wedding Monogram · Setnayan';
+const PAGE_TITLE = 'Logo Maker — Your Animated Wedding Monogram · Setnayan';
+/** The document title ONLY. `metadata.title` is rendered through the root
+ *  layout's `template: '%s · Setnayan'`, so a PAGE_TITLE that already ends in
+ *  the brand came out as "… · Setnayan · Setnayan" on 11 live pages. The share
+ *  cards and the structured-data name do NOT go through that template and are
+ *  correct WITH the brand — which is why this strips it here and nowhere else. */
+const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 /*
  * 🔑 THE DESCRIPTION IS NOT AUTHORED HERE ANY MORE — it is read from
  * `lib/studio-apps.ts`, the ONE place the seven Studio products are
@@ -50,7 +56,7 @@ const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 */
 
 export const metadata = {
-  title: PAGE_TITLE,
+  title: DOC_TITLE,
   description: PAGE_DESCRIPTION,
   alternates: { canonical: '/palogo' },
   keywords: [
@@ -60,7 +66,7 @@ export const metadata = {
     'wedding initials design',
     'monogram for wedding website',
     'animated monogram',
-    'Palogo',
+    'Logo Maker',
     'Setnayan',
   ],
   openGraph: {
@@ -68,7 +74,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/palogo',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Palogo — your animated wedding monogram' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Logo Maker — your animated wedding monogram' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -83,7 +89,7 @@ export const metadata = {
 const APP_LD = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Palogo — Animated Wedding Monogram',
+  name: 'Logo Maker — Animated Wedding Monogram',
   url: `${SITE_URL}/palogo`,
   applicationCategory: 'DesignApplication',
   operatingSystem: 'Any (web browser)',
@@ -156,19 +162,18 @@ const VS = [
 
 ] as const;
 
-export default function PalogoLandingPage() {
+export default function LogoMakerLandingPage() {
   return (
     <DoorwayPage
-      kicker="In your wedding · animated monogram"
       title={'One mark, alive across your whole wedding.'}
-      lede={'Palogo gives your wedding a signature of its own — your initials, drawn into a monogram that comes alive. It opens your save-the-date, signs your Event Hub, glows at the reception, and closes every video.'}
       primary={{ href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
       secondary={{ href: '/monogram', label: 'Preview yours · free' }}
-      productName="Palogo"
+      productName="Logo Maker"
+      studioKey="palogo"
       steps={STEPS}
-      differentiator={{ heading: 'Not a clip-art logo', lede: 'A template looks like everyone else’s. Palogo looks like you — and it moves.', rows: VS }}
+      differentiator={{ heading: 'Not a clip-art logo', lede: 'A template looks like everyone else’s. Logo Maker looks like you — and it moves.', rows: VS }}
       faq={FAQ}
-      closing={{ heading: 'Give your wedding its signature', body: 'Palogo lives inside your free Setnayan wedding — alongside your save-the-date, website, and videos. Start planning free, and add your animated monogram when you’re ready.', href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
+      closing={{ heading: 'Give your wedding its signature', body: 'Logo Maker lives inside your free Setnayan wedding — alongside your save-the-date, website, and videos. Start planning free, and add your animated monogram when you’re ready.', href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
       structuredData={[APP_LD, FAQ_LD]}
     />
   );

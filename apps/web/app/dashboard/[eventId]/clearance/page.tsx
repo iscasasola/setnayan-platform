@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { closeOutTheDay } from './actions';
+import { eventNoun } from '@/lib/event-noun';
 
 export const metadata = { title: 'Close out the day' };
 
@@ -36,9 +37,17 @@ export default async function ClearancePage({ params }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('cleared_at')
+    .select('cleared_at, event_type')
     .eq('event_id', eventId)
     .maybeSingle();
+  /*
+    ⚠ THIS SCREEN TOLD A MOVIE NIGHT THAT ITS WEDDING WAS WRAPPED.
+    The copy was written when weddings were the only event type; every other
+    type now reaches it. `eventNoun` is the shipped resolver for exactly this
+    (weddings keep "wedding" byte-identical, everything else reads "event") —
+    a second hand-written conditional here would drift from it.
+  */
+  const noun = eventNoun((event as { event_type?: string | null } | null)?.event_type ?? null);
   const cleared = Boolean((event as { cleared_at?: string | null } | null)?.cleared_at);
 
   const base = `/dashboard/${eventId}`;
@@ -50,8 +59,8 @@ export default async function ClearancePage({ params }: Props) {
           <CheckCircle2 aria-hidden className="mx-auto h-8 w-8 text-success-600" strokeWidth={1.75} />
           <h1 className="mt-3 text-lg font-semibold text-ink">The day is closed out</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-ink/60">
-            Your wedding day is wrapped. The app has moved into After mode — your recap, galleries,
-            and vendor reviews live there now.
+            Your {noun} is wrapped. Your dashboard now leads with the summary — guests, suppliers,
+            your Suite, your photos, and the editorial maker where you write the story.
           </p>
           <Link
             href={base}
@@ -73,7 +82,7 @@ export default async function ClearancePage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
-      <PageMasthead title="Close out the day" back={base} backLabel="Back to your dashboard" lede="When the celebration winds down, wrap up the live services and close out — the app moves into After mode (recap, galleries, and vendor reviews)." />
+      <PageMasthead title="Close out the day" />
 
       <ul className="mt-6 space-y-2">
         {steps.map((s) => {

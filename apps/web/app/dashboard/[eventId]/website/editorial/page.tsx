@@ -1,10 +1,14 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { storyGate } from '@/lib/story-opens-when-untold';
+import { storyAudienceOf } from '@/lib/who-can-see-your-story';
+import { formatEventDate } from '@/lib/events';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   EDITORIAL_SECTION_KEYS,
+  readCustomColumns,
   loadEditorialChaptersForEditor,
   loadEditorialData,
   type EditorialSections,
@@ -19,7 +23,6 @@ import { EditorialEditor } from './_components/editorial-editor';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import type { EditorialEditorInput } from './actions';
 import { eventNoun } from '@/lib/event-noun';
-import { WebsiteProLock } from '../_components/website-pro-lock';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 type LandingVisibility = 'public' | 'unlisted' | 'private';
@@ -49,10 +52,72 @@ export default async function EditorialEditorPage({
 
   const { data: event, error } = await supabase
     .from('events')
-    .select('event_id, display_name, slug, landing_page_visibility, event_type')
+    .select(
+      'event_id, display_name, slug, landing_page_visibility, event_type, event_date, event_end_date, archived',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
   if (error || !event) notFound();
+
+  /*
+    ── THE STORY OPENS WHEN THE CELEBRATION IS UNTOLD ────────────────────────
+    Owner 2026-08-21: "editorial will unlock only after the event." A story is
+    written about a day that happened — before it, there are no photos, no
+    moments and nobody to hear from, so the editor would be a set of empty boxes
+    asking a couple to invent their own wedding.
+
+    🔑 THE GATE IS THE SHELF. `storyGate` delegates to `isFinishedEvent`, the
+    same test that moves a card from "Coming up" to Untold on My Events, so the
+    board and the story can never disagree. A second date comparison here would
+    be a second answer to one question.
+
+    This is a WAIT, not a refusal, so it does not use the refusal register: no
+    danger colour, no "you can't". It says when it opens and what will be here.
+  */
+  const gate = storyGate({
+    event_date: (event.event_date as string | null) ?? null,
+    event_end_date: (event.event_end_date as string | null) ?? null,
+    archived: (event.archived as boolean | null) ?? false,
+  });
+  if (!gate.open) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-ink/12 bg-white/60 p-6 sm:p-8">
+          {/*
+            NO EYEBROW. A "Not yet" kicker above this headline only repeats the
+            headline, and page eyebrows are owner-retired (2026-08-xx: a page
+            header is ONE LINE — 24px of layout for 10.5px of type that says what
+            the sentence under it already says). `lint-page-masthead` enforces it.
+          */}
+          <h1 className="text-2xl font-extrabold tracking-[-0.02em] text-ink">
+            Your story opens the day after {event.display_name as string}
+          </h1>
+          <p className="mt-3 max-w-prose text-sm leading-relaxed text-ink/70">
+            There is nothing to tell until the day has happened — no photos, no
+            moments, nobody to hear from.{' '}
+            {gate.opensAfter ? (
+              <>
+                Yours is{' '}
+                <strong className="font-semibold text-ink">
+                  {formatEventDate(gate.opensAfter)}
+                </strong>
+                .{' '}
+              </>
+            ) : null}
+            The morning after, we write the first draft from your own schedule and
+            the day&rsquo;s photos, and email you. Everything in it will be yours to
+            change.
+          </p>
+          <Link
+            href={`/dashboard/${eventId}/website`}
+            className="sn-press mt-5 inline-flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-bold text-ink transition-colors hover:border-terracotta"
+          >
+            Back to your page
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Showcase props — so the couple can publish AND opt into Real Stories from
   // here (the consent flag is per-user; the visibility gates hub eligibility).
@@ -134,6 +199,11 @@ export default async function EditorialEditorPage({
     ? (draft.sectionOrder as unknown[]).filter((v): v is string => typeof v === 'string')
     : null;
 
+  // The couple's own columns. Read through the SAME validator the public page
+  // renders through, so the editor can never show a column the page would drop —
+  // a couple editing something invisible is worse than not offering it.
+  const savedCustomColumns = readCustomColumns(draft);
+
   // PRO guest-wishes (draft_json.reviews). Read the saved rows so the editor can
   // list them for editing; each row is coerced to the Review shape (blank-safe).
   const savedReviews: Review[] = Array.isArray(draft.reviews)
@@ -160,29 +230,25 @@ export default async function EditorialEditorPage({
     isPro = false;
   }
 
-  // ── Event Hub PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
-  // Editorial editing is now a Event Hub PRO perk (isEditorialProActive = the
-  // à-la-carte EDITORIAL_PRO OR the Couple Website PRO umbrella). The gate =
-  // (NOT PRO) AND (no editorial content authored yet). A couple that already
-  // saved editorial content (draft_json is non-empty OR it's published) keeps
-  // the editor — grandfathered — and the published guest-site editorial always
-  // renders regardless (only the EDITOR gates). Fail-open: a non-empty draft
-  // from any source resolves to "has content" → editing allowed.
-  const hasEditorialContent = Object.keys(draft).length > 0 || status === 'published';
-  if (!isPro && !hasEditorialContent) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-        <WebsiteProLock
-          eventId={eventId}
-          backHref={`/dashboard/${eventId}/website`}
-          featureName="Author your front-page story"
-          description={`Write and design your ${eventNoun(
-            event.event_type,
-          )}'s editorial — your own words, photos, and layout. It's part of Event Hub PRO.`}
-        />
-      </div>
-    );
-  }
+  /*
+    ⚠ THE EVENT HUB PRO WALL IS RETIRED (owner 2026-08-21):
+    "make this feature part of free and not part of the event hub pro."
+
+    A non-PRO couple with no saved editorial used to meet a WebsiteProLock here
+    reading "Author your front-page story … It's part of Event Hub PRO" — so the
+    story Setnayan had already written ABOUT THEM was visible to them only as a
+    price.
+
+    🔑 THE OWNER'S REASON, WORTH KEEPING: we auto-craft this story for them. An
+    auto-written story its own subject cannot correct reads worse than no story
+    at all, and the first name a generator gets wrong is the couple's own.
+    Charging to fix our sentence about their wedding is the wrong side of the
+    line. PRO still sells the premium touches below (chapter curation, section
+    order, manual guest wishes) — `isPro` above is unchanged and still gates
+    those.
+
+    ⛔ Do NOT reinstate this wall as a "cheap upsell". It was ruled on directly.
+  */
 
   // Compose the couple's CURRENT editorial copy — their own draft_json overrides
   // ON TOP of the onboarding-derived defaults (names → headline, archetype →
@@ -233,7 +299,10 @@ export default async function EditorialEditorPage({
     // below; these `initial` values are only the save-shape defaults.
     sectionOrder: savedSectionOrder,
     reviews: savedReviews,
-    publish: status === 'published',
+    // WHO MAY READ IT. Was a boolean `publish`; a boolean cannot express the
+    // middle answer, and its `false` meant BOTH "only me" and "I have simply
+    // pressed Save", so a couple had no way to say "my guests, and nobody else".
+    audience: storyAudienceOf(status),
   };
 
   // Canonical share URL (posted to Facebook + cached by OG crawlers) — nested
@@ -255,14 +324,6 @@ export default async function EditorialEditorPage({
 
       <PageMasthead
         title="Editorial"
-        lede={
-          <>
-            Your {eventNoun(event.event_type)}&rsquo;s front-page story — published after the day. It starts written from your
-            {' '}{eventNoun(event.event_type)} details; edit the words, choose your photos and hero, and pick which features show.
-            Clear any field and we&rsquo;ll rewrite it for you, so it always reads beautifully.
-          </>
-        }
-        className="mb-8"
       />
 
       <EditorialEditor
@@ -274,6 +335,7 @@ export default async function EditorialEditorPage({
         chapterCards={chapterCards.cards}
         chapterOverrides={chapterCards.overrides}
         savedSectionOrder={savedSectionOrder}
+        savedCustomColumns={savedCustomColumns}
         savedReviews={savedReviews}
         guestColumnsOn={await guestColumnsActive()}
         shareUrl={shareUrl}

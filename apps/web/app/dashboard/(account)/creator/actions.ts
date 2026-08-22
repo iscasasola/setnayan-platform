@@ -5,7 +5,9 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import {
+  canShareWithEvent,
   isChapterKind,
+  isChapterStatus,
   normalizeChapterBody,
   normalizeEmbed,
   type ChapterKind,
@@ -20,6 +22,24 @@ const SURFACE = '/dashboard/creator';
 
 function fail(message: string): never {
   redirect(`${SURFACE}?error=${encodeURIComponent(message)}`);
+}
+
+/**
+ * Turn a database refusal into a sentence a person can act on.
+ *
+ * `chapter_event_not_yours` is raised by the `set_chapter_host_inclusion`
+ * trigger when a write names a celebration the account has no tie to. The
+ * composer already checks that before writing, so in practice this fires only
+ * for a request that did not come from our own form — but a raw
+ * `chapter_event_not_yours` on screen would be the product speaking SQL to
+ * somebody, and a legitimate race (the tie ending between the page load and the
+ * save) lands here too.
+ */
+function failWithDbMessage(message: string): never {
+  if (message.includes('chapter_event_not_yours')) {
+    fail('You can only attach a celebration you host or worked on.');
+  }
+  fail(message);
 }
 
 /**
@@ -85,6 +105,37 @@ function readEmbed(
 function readBody(formData: FormData): string | undefined {
   if (!formData.has('body')) return undefined;
   return normalizeChapterBody(formData.get('body'));
+}
+
+/**
+ * WHEN DID THIS HAPPEN? — the author's own answer, and the first thing the
+ * chronicle asks (lib/creator-chronicle.chronicleDay).
+ *
+ * Returns `undefined` when the form did not carry the field (leave the column
+ * alone), `null` when it was submitted empty (an explicit clear — the day then
+ * falls back to the attached celebration, or to the publish date).
+ *
+ * 🔑 A DAY, NOT AN INSTANT. `<input type="date">` posts `YYYY-MM-DD` and it is
+ * stored exactly as typed. Parsing it into a Date to "validate" it is how a
+ * 12 December memory becomes the 11th for a reader west of Greenwich — the
+ * 2026-08-04 sweep found that on 41 screens.
+ */
+function readHappenedOn(formData: FormData): string | null | undefined {
+  if (!formData.has('happened_on')) return undefined;
+  const raw = formData.get('happened_on');
+  const day = typeof raw === 'string' ? raw.trim() : '';
+  if (day.length === 0) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    fail('Give the day as a date, or leave it blank.');
+  }
+  // Tomorrow in Manila is the ceiling, matching the database CHECK: the servers
+  // run in UTC and the person writing is eight hours ahead, so "today" here has
+  // to mean their today, not Greenwich's.
+  const manilaToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  if (day > manilaToday) {
+    fail('A chapter is something that already happened — pick a day up to today.');
+  }
+  return day;
 }
 
 /**
@@ -186,6 +237,8 @@ export async function createChapter(formData: FormData) {
     insert.embed_provider = embed.embed_provider;
   }
   if (body !== undefined) insert.body = body;
+  const happenedOn = readHappenedOn(formData);
+  if (happenedOn !== undefined) insert.happened_on = happenedOn;
   // 🔴 THE WRITER THIS COLUMN NEVER HAD. `creator_chapters.event_id` was
   // selected, joined and commented about in three files, and set by NOTHING —
   // so the cross-links between a couple's own chapter and Setnayan's editorial
@@ -195,7 +248,7 @@ export async function createChapter(formData: FormData) {
   if (substrate) insert.substrate = substrate;
 
   const { error } = await supabase.from('creator_chapters').insert(insert);
-  if (error) fail(error.message);
+  if (error) failWithDbMessage(error.message);
 
   revalidatePath(SURFACE);
   redirect(`${SURFACE}?created=1`);
@@ -218,6 +271,9 @@ export async function updateChapter(formData: FormData) {
   }
   const body = readBody(formData);
   if (body !== undefined) update.body = body;
+  // Clearing the day is a real answer, so `null` must be written, not skipped.
+  const happenedOn = readHappenedOn(formData);
+  if (happenedOn !== undefined) update.happened_on = happenedOn;
   const eventId = await readEventLink(formData, supabase, userId);
   // Unlinking is a real answer, so `null` must be written, not skipped —
   // `undefined` (field absent) is the only case that leaves the column alone.
@@ -230,81 +286,119 @@ export async function updateChapter(formData: FormData) {
     .update(update)
     .eq('chapter_id', chapterId)
     .eq('user_id', userId);
-  if (error) fail(error.message);
+  if (error) failWithDbMessage(error.message);
 
   revalidatePath(SURFACE);
   redirect(`${SURFACE}?saved=1`);
 }
 
-export async function publishChapter(formData: FormData) {
+/**
+ * WHO READS THIS CHAPTER — one action for all three answers (owner 2026-08-20:
+ * *"they also get to choose whether it is only me, private (all in that event
+ * only), public"*).
+ *
+ * 🔑 ONE ACTION, NOT THREE. `publishChapter` + `unpublishChapter` were two
+ * doors onto one decision, and a third would have made three places to forget a
+ * check. The rules that differ between the answers are stated once, here:
+ *
+ *   only me   → no conditions at all. A draft is where an unfinished story lives.
+ *   the day   → needs a story, and needs a celebration to share it with.
+ *   everyone  → needs a story, a public address, and the public page switched on.
+ *
+ * ⚖ ONLY "EVERYONE" TOUCHES THE PUBLIC PAGE. Sharing with the people of a
+ * celebration must never flip somebody's profile public as a side effect — that
+ * is the opposite of what they just asked for.
+ */
+export async function setChapterAudience(formData: FormData) {
   const { supabase, userId } = await requireUser();
   const chapterId = formData.get('chapter_id');
   if (typeof chapterId !== 'string' || !chapterId) fail('Missing chapter.');
+  const audience = formData.get('audience');
+  if (!isChapterStatus(audience)) fail('Pick who can read this chapter.');
 
-  // A chapter's core is the WRITING (owner 2026-08-12) — never publish an empty
-  // one. Also read status + identity so we only fan out to followers on a
-  // genuine draft→published transition (re-publishing an already-live chapter
-  // must not re-notify).
-  const { data: row } = await supabase
+  // Read the chapter's own state first: the conditions below are about THIS
+  // chapter, and `status` also decides whether this is a first share (which
+  // notifies followers) or a re-share (which must not).
+  const { data: row, error: rowError } = await supabase
     .from('creator_chapters')
-    .select('body, embed_url, status, public_id, title')
+    .select('body, embed_url, status, event_id, public_id, title')
     .eq('chapter_id', chapterId)
     .eq('user_id', userId)
     .maybeSingle();
+  // Fail CLOSED on a read error — deciding who may read somebody's story from
+  // an unknown state is the one outcome worse than refusing.
+  if (rowError) fail('We could not open that chapter just now. Please try again in a moment.');
   if (!row) fail('Chapter not found.');
 
-  // THE GATE, REPLACED. It used to be `if (!row.embed_url)` — "Add the embedded
-  // edit before publishing" — which made an external video account a
-  // precondition for telling your own story, and was the measured reason prod
-  // held 0 chapters. A video is now optional; the story is not.
-  if (typeof row.body !== 'string' || row.body.trim().length === 0) {
-    fail('Write your story before publishing — a title and the story itself. The video is optional.');
+  if (audience !== 'draft') {
+    // THE GATE, AND IT IS THE WRITING. It used to be `if (!row.embed_url)` —
+    // "Add the embedded edit before publishing" — which made an external video
+    // account a precondition for telling your own story, and was the measured
+    // reason prod held 0 chapters. A video is optional; the story is not.
+    if (typeof row.body !== 'string' || row.body.trim().length === 0) {
+      fail(
+        'Write your story before you share it — a title and the story itself. The video is optional.',
+      );
+    }
   }
 
-  // Only fan out to followers on a genuine draft→published transition;
-  // re-publishing an already-live chapter must not re-notify.
-  const wasDraft = row.status !== 'published';
+  if (audience === 'event' && !canShareWithEvent(row.event_id as string | null)) {
+    fail(
+      'Pick which celebration this chapter is about first — that is who you would be sharing it with.',
+    );
+  }
 
-  // ⚠ PUBLISHING IS NOT ENOUGH ON ITS OWN, AND SILENCE HERE WOULD BE THE WHOLE
-  // BUG AGAIN. A published chapter is only reachable when the author also has
-  // (a) a public web address and (b) their public page switched on. Both are
-  // OFF/absent by default and 8 of 9 prod accounts had no address at all
-  // (measured 2026-08-12) — so a publish that ignored them would report success
-  // and put the story precisely nowhere. Same family as every other
-  // rejected-not-thrown defect in this repo: the only symptom is an absence.
-  const { data: profile, error: profileError } = await supabase
-    .from('users')
-    .select('slug, public_profile_enabled')
-    .eq('user_id', userId)
-    .maybeSingle();
-  // Fail CLOSED on a read error: publishing into an unknown profile state is
-  // exactly the silent-nowhere outcome this block exists to prevent.
-  if (profileError || !profile) {
-    fail('We could not check your public page just now. Please try again in a moment.');
+  let profile: { slug: string | null; public_profile_enabled: boolean } | null = null;
+  if (audience === 'published') {
+    // ⚠ PUBLISHING IS NOT ENOUGH ON ITS OWN, AND SILENCE HERE WOULD BE THE WHOLE
+    // BUG AGAIN. A published chapter is only reachable when the author also has
+    // (a) a public web address and (b) their public page switched on. Both are
+    // OFF/absent by default and 8 of 9 prod accounts had no address at all
+    // (measured 2026-08-12) — so a publish that ignored them would report
+    // success and put the story precisely nowhere.
+    const { data, error: profileError } = await supabase
+      .from('users')
+      .select('slug, public_profile_enabled')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (profileError || !data) {
+      fail('We could not check your public page just now. Please try again in a moment.');
+    }
+    profile = data as { slug: string | null; public_profile_enabled: boolean };
+    if (!profile.slug) {
+      // Deliberately NOT auto-minted. A person's handle is their permanent
+      // public address — the forwarding ledger exists because renames break
+      // links people have already printed — so it is chosen, never assigned by
+      // a side effect.
+      fail(
+        'Pick your web address first (Profile → Your address), then share this with everyone. That address is where people will read your story.',
+      );
+    }
   }
-  if (!profile.slug) {
-    // Deliberately NOT auto-minted. A person's handle is their permanent public
-    // address — the forwarding ledger exists because renames break links people
-    // already printed — so it is chosen, never assigned by a side effect.
-    fail('Pick your web address first (Profile → Your address), then publish. That address is where people will read your story.');
-  }
+
+  const wasPrivate = row.status === 'draft';
+  const update: Record<string, unknown> = {
+    status: audience,
+    updated_at: new Date().toISOString(),
+  };
+  // `published_at` is the day it first went out, and it is the LAST fallback the
+  // chronicle uses to place a chapter in a year. Stamp it when a chapter is
+  // shared with anybody and it has none; never re-stamp, because re-stamping is
+  // what moved a re-published chapter to the end of somebody's story.
+  if (audience !== 'draft') update.published_at = new Date().toISOString();
 
   const { error } = await supabase
     .from('creator_chapters')
-    .update({
-      status: 'published',
-      published_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    .update(update)
     .eq('chapter_id', chapterId)
     .eq('user_id', userId);
-  if (error) fail(error.message);
+  if (error) failWithDbMessage(error.message);
 
-  // ONE PRESS. Publishing IS the decision to be read, so it also opens the
-  // public page rather than leaving the story stranded behind a switch the
-  // author never knew about. The button's copy states this before the press
-  // (see the creator surface) — a privacy-relevant change is never silent.
-  if (profile.public_profile_enabled !== true) {
+  if (audience === 'published' && profile && profile.public_profile_enabled !== true) {
+    // ONE PRESS. Choosing "Everyone" IS the decision to be read, so it also
+    // opens the public page rather than leaving the story stranded behind a
+    // switch the author never knew about. The composer states this before the
+    // press — a privacy-relevant change is never silent.
     const { error: openError } = await supabase
       .from('users')
       .update({ public_profile_enabled: true, updated_at: new Date().toISOString() })
@@ -313,9 +407,10 @@ export async function publishChapter(formData: FormData) {
     revalidatePath('/u', 'layout');
   }
 
-  // Notify followers — only on the first publish, fire-and-forget (never blocks
-  // the redirect). No-op when the author has no followers or a hidden profile.
-  if (wasDraft) {
+  // Notify followers only when a chapter first becomes PUBLIC. Sharing with the
+  // people of one celebration is not an announcement to an audience, and a
+  // re-share must not re-notify.
+  if (audience === 'published' && wasPrivate) {
     after(() =>
       notifyFollowersOfNewChapter({
         authorUserId: userId,
@@ -326,23 +421,7 @@ export async function publishChapter(formData: FormData) {
   }
 
   revalidatePath(SURFACE);
-  redirect(`${SURFACE}?published=1`);
-}
-
-export async function unpublishChapter(formData: FormData) {
-  const { supabase, userId } = await requireUser();
-  const chapterId = formData.get('chapter_id');
-  if (typeof chapterId !== 'string' || !chapterId) fail('Missing chapter.');
-
-  const { error } = await supabase
-    .from('creator_chapters')
-    .update({ status: 'draft', updated_at: new Date().toISOString() })
-    .eq('chapter_id', chapterId)
-    .eq('user_id', userId);
-  if (error) fail(error.message);
-
-  revalidatePath(SURFACE);
-  redirect(`${SURFACE}?unpublished=1`);
+  redirect(`${SURFACE}?audience=${audience}`);
 }
 
 // ---------------------------------------------------------------------------

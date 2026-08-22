@@ -267,12 +267,36 @@ function ShopCard({ s }: { s: FrontDoorData['shops'][number] }) {
 export function FrontDoorFeed({
   data,
   chip,
+  signedIn = false,
 }: {
   data: FrontDoorData;
   chip: ChipKey;
+  /**
+   * ⚠ THE "YOUR PEOPLE" CHIP IS SIGNED-IN ONLY, and this is the gate. A
+   * stranger has no people, so showing them the button is a door onto a room
+   * that can never fill — the same reasoning that keeps Marketplace out of the
+   * signed-out rail. Defaults to `false` so a caller that forgets to pass it
+   * hides the chip rather than showing a broken one.
+   */
+  signedIn?: boolean;
 }) {
-  const { articles, articleTotal, stories, storyCount, shops, liveShopCount, realWeddingCount } =
-    data;
+  const {
+    articles,
+    articleTotal,
+    stories,
+    storyCount,
+    shops,
+    liveShopCount,
+    realWeddingCount,
+    yourPeopleOk,
+  } = data;
+
+  /*
+    A hand-typed `?c=Your%20people` while signed out selects an empty shelf and
+    lands on the invitation below, which tells them to sign in. The chip is
+    hidden, never the behaviour — a URL a person can type must always answer.
+  */
+  const visibleChips = CHIPS.filter((c) => c !== 'Your people' || signedIn);
 
   // The chip decides which KINDS are in the shelf. It never changes the page's
   // structure — only what the one shelf contains. The rule itself lives in the
@@ -317,7 +341,7 @@ export function FrontDoorFeed({
     <>
       <div className="fd-chipbar">
         <div className="fd-chips">
-          {CHIPS.map((c) => (
+          {visibleChips.map((c) => (
             <Link
               key={c}
               href={c === 'All' ? '/' : `/?c=${encodeURIComponent(c)}`}
@@ -333,14 +357,100 @@ export function FrontDoorFeed({
 
       {nothingUnderChip ? (
         <div className="fd-invite fd-invite-full">
-          <h2>Nothing under &ldquo;{chip}&rdquo; yet.</h2>
-          <p>
-            There are <CountText value={articleTotal} /> pieces and growing
-            most weeks — try another chip, or clear the filter.
-          </p>
-          <Link href="/" className="fd-go">
-            Show everything &rarr;
-          </Link>
+          {/*
+            🔑 AN EMPTY SHELF UNDER "YOUR PEOPLE" IS THE NORMAL ANSWER TODAY,
+            NOT A FAULT — and it needs its own words. Measured in production on
+            2026-08-20: 9 accounts, 9 events holding exactly ONE person each,
+            zero samahans, zero connections. So this is the state every account
+            lands in, and the generic "try another chip" would read as a
+            filter that broke rather than as a shelf that has not filled.
+
+            ⚠ THREE STATES, THREE SENTENCES. Signed out: sign in. Read failed:
+            say so — never "you have nobody", which is the one thing a broken
+            read must not claim about somebody's friends. Genuinely empty: say
+            what the chip is FOR, which is the front door's own rule that a
+            written invitation is not a zero.
+          */}
+          {chip === 'Your people' ? (
+            !signedIn ? (
+              <>
+                <h2>Sign in to see your people.</h2>
+                <p>
+                  This shows the stories written by the people you already share
+                  an event or a group with — so it only means something once we
+                  know who you are.
+                </p>
+                <Link href="/" className="fd-go">
+                  Show everything &rarr;
+                </Link>
+              </>
+            ) : !yourPeopleOk ? (
+              <>
+                <h2>We couldn&rsquo;t check who you know just now.</h2>
+                <p>
+                  This is us, not you — nothing has changed about your people.
+                  Everything else on this page is still here.
+                </p>
+                <Link href="/" className="fd-go">
+                  Show everything &rarr;
+                </Link>
+              </>
+            ) : (
+              <>
+                <h2>Nobody you know has shared a story yet.</h2>
+                <p>
+                  When someone you share an event or a group with publishes
+                  theirs, it appears here — their photos, their suppliers, their
+                  day, in their own words. Nothing shows up without them saying
+                  yes first.
+                </p>
+                <Link href="/" className="fd-go">
+                  Show everything &rarr;
+                </Link>
+              </>
+            )
+          ) : chip === 'Stories' ? (
+            /*
+              🔑 THE CHIP CARRYING THE PRODUCT'S THESIS MUST NOT SAY "TRY
+              ANOTHER CHIP". Verified live 2026-08-20, the day the row shipped:
+              `?c=Stories` rendered the generic *"Nothing under 'Stories' yet
+              — try another chip, or clear the filter"*, which reads as a
+              filter that broke rather than as a shelf waiting to fill.
+
+              Stories is the one thing this product exists to hold, and the
+              page already knew how to say so — the real-weddings rail below
+              carries exactly this invitation. This is that voice, on the chip
+              that now sends people looking for it. Same rule the "Your
+              people" branch above follows: an empty shelf gets a sentence
+              about what it is FOR, never a dead end.
+
+              ⚠ It will keep rendering until the first chapter or editorial
+              publishes (prod holds ZERO today), so it is the state most
+              people who press this chip will actually meet.
+            */
+            <>
+              <h2>The first real stories are still to come.</h2>
+              <p>
+                When someone decides to share their celebration it lands right
+                here — their photos, their suppliers, their day, in their own
+                words. Nothing appears without them saying yes first.
+              </p>
+              <Link href="/realstories" className="fd-go">
+                See how sharing works &rarr;
+              </Link>
+            </>
+          ) : (
+            <>
+              <h2>Nothing under &ldquo;{chip}&rdquo; yet.</h2>
+              <p>
+                There are <CountText value={articleTotal} /> pieces and growing
+                most weeks — try another chip, or clear the filter.
+              </p>
+              <Link href="/" className="fd-go">
+                Show everything &rarr;
+              </Link>
+            </>
+          )}
         </div>
       ) : (
         <>
@@ -360,7 +470,21 @@ export function FrontDoorFeed({
             <span className="fd-badge" aria-hidden="true">
               ◎
             </span>
-            <span>Stories</span>
+            {/*
+              THE HEADING IS THE DOOR TO THE HUB. The rail's "Stories" row was
+              retired on 2026-08-20 (it was a second door to this very shelf),
+              and this link is what replaces it — the only PERMANENT link from
+              the front page to `/realstories`, which keeps the event-type
+              filter and the search box that the chips above do not have.
+              ⚠ The other link on this page lives inside the real-weddings
+              invitation and renders ONLY while that grid is unearned, so it
+              vanishes the day the second couple publishes. Pinned by
+              `front-door-invariants.test.ts`; do not turn this back into a
+              plain <span>.
+            */}
+            <Link href="/realstories" className="fd-sechead-go">
+              Stories
+            </Link>
             <span className="fd-meta">
               {/* THE ARCHIVE's size, and a story count that can say it does
                   not know — not the length of what this page happens to

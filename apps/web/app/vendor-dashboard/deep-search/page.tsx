@@ -141,9 +141,6 @@ export default async function VendorDeepSearchPage() {
     <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
       <PageMasthead
         title="Learn what the web knows about your business."
-        back="/vendor-dashboard/subscription"
-        backLabel="Plan"
-        lede="We research your business across your website, public social pages, directories, and review sites, then hand you a “what we learned” review — your services, the prices you have out there, and where you show up — to copy into your Shop profile."
       />
 
       <section className="sn-tile mt-6 p-6">

@@ -242,6 +242,19 @@ function PoolPicker({
 }) {
   const step = poolStepOf(type, selection);
   const last = poolStepCount(type) - 1;
+  // What the NEXT press actually buys — the DELTA in shots and the price of the
+  // rung it lands on.
+  //
+  // 🔴 WITHOUT THIS LINE THE CARD HAS NO PRICE ON IT UNTIL YOU PRESS SOMETHING.
+  // The owner reported "no way to add shots for papic" (2026-08-20) on a card
+  // whose control was present and working: at rest it read "50 shots · Yours
+  // already", "Included — Free", "Papic — Free", and every other word said the
+  // thing was already his. The only purchase affordance was a bare `+` whose
+  // sole "add shots" wording was its aria-label, which a sighted person never
+  // sees. Reading that as "there is no way to buy here" was CORRECT — the
+  // control was not hidden, it was contradicted.
+  const nextShots = step < last ? poolShotsAt(type, step + 1) - poolShotsAt(type, step) : 0;
+  const nextPrice = step < last ? poolPriceAt(type, step + 1) : 0;
   return (
     <div className="mx-3 mb-3">
       <p className="mb-2 text-sm font-medium text-ink">
@@ -258,12 +271,18 @@ function PoolPicker({
         onInc={() => onChange(stepPool(type, selection, +1))}
       />
       <PriceLine pricePhp={poolPriceAt(type, step)} />
-      {step === last && last > 0 ? (
-        <p className="mt-2 text-center text-xs text-ink/45">
-          That&rsquo;s the biggest pool we sell in one go — add more any time from your
-          Papic studio.
+      {step < last ? (
+        <p className="mt-2 text-center text-xs text-ink/60">
+          Press <span className="font-semibold text-ink">+</span> to add{' '}
+          <span className="font-semibold text-ink">{pts(nextShots)}</span> more for{' '}
+          <span className="font-semibold text-ink">{peso(nextPrice)}</span>.
         </p>
-      ) : null}
+      ) : (
+        <p className="mt-2 text-center text-xs text-ink/45">
+          That&rsquo;s the biggest pool we sell in one go — you can add more later from
+          your Papic studio.
+        </p>
+      )}
     </div>
   );
 }
@@ -481,8 +500,8 @@ export function ServicesStep({
           however long it is.
         </p>
         <p className="mt-2 text-xs leading-relaxed text-ink/45">
-          Guests shoot with any phone — nothing to install. Top up any time from your
-          Papic studio.
+          Guests shoot with any phone — nothing to install. Add shots here now, or top
+          up later from your Papic studio.
         </p>
       </article>
 

@@ -40,6 +40,12 @@ import { studioDescription } from '@/lib/studio-apps';
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
 const PAGE_TITLE = 'Setnayan AI — the planner that watches your wedding for you · Setnayan';
+/** The document title ONLY. `metadata.title` is rendered through the root
+ *  layout's `template: '%s · Setnayan'`, so a PAGE_TITLE that already ends in
+ *  the brand came out as "… · Setnayan · Setnayan" on 11 live pages. The share
+ *  cards and the structured-data name do NOT go through that template and are
+ *  correct WITH the brand — which is why this strips it here and nowhere else. */
+const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 /*
  * 🔑 THE DESCRIPTION IS NOT AUTHORED HERE ANY MORE — it is read from
  * `lib/studio-apps.ts`, the ONE place the seven Studio products are
@@ -65,7 +71,7 @@ const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 */
 
 export const metadata = {
-  title: PAGE_TITLE,
+  title: DOC_TITLE,
   description: PAGE_DESCRIPTION,
   alternates: { canonical: '/setnayan-ai' },
   keywords: [
@@ -178,10 +184,10 @@ export default function SetnayanAiLandingPage() {
   return (
     <DoorwayPage
       title="It doesn’t chat. It watches your wedding for you."
-      lede="Every other wedding AI waits for you to ask a question. Setnayan AI keeps an eye on your vendors — the ones you’re eyeing and the ones you’ve booked — and taps you only when something needs you: a deposit due, a price that moved, a date about to clash. Every planning tool stays free; Setnayan AI is the paid brain on top."
       primary={{ href: '/onboarding/wedding?from=setnayan-ai', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Setnayan AI"
+      studioKey="setnayan-ai"
       steps={STEPS}
       differentiator={{
         heading: 'A chatbot waits. Setnayan AI watches.',

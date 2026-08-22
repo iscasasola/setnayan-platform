@@ -61,7 +61,6 @@ export async function OnboardingSurface({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-3xl">
       <PageMasthead
         title="Onboarding"
-        className="mb-6"
       />
 
       {sp.saved ? (

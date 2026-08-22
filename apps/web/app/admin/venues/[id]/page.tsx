@@ -49,13 +49,10 @@ export default async function EditVenuePage({ params }: Props) {
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         titleNode={
-          <span className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <span>
             {row.name}
           </span>
         }
-        back="/admin/venues"
-        backLabel="Back to venues"
-        className="mb-6"
       />
 
       <VenueForm

@@ -138,9 +138,6 @@ export function DatePicker({
       </a>
 
       <div className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-          Setnayan · Pick a date
-        </p>
         <h1 className="font-display text-3xl italic leading-tight text-ink sm:text-4xl">
           What date are you thinking of?
         </h1>

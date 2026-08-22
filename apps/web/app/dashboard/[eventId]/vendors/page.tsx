@@ -830,11 +830,23 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       const admin = createAdminClient();
       const { data: holds, error: holdsError } = await admin
         .from('event_vendors')
-        .select('marketplace_vendor_id, event_id, events!inner(event_date)')
+        .select(
+          /*
+            ⚠ THE FOREIGN KEY IS NAMED ON PURPOSE — same ambiguity as the
+            ripe-review sweep at the bottom of this file, and as lib/ghosting.ts.
+            A bare `events!inner` is refused with PGRST201.
+
+            🚨 The comment directly below already described the harm exactly:
+            "An absence that deletes a warning is invisible by construction."
+            It was not hypothetical — this query has been returning PGRST201,
+            so the caution has never once been shown to anybody.
+          */
+          'marketplace_vendor_id, event_id, event:events!event_vendors_event_id_fkey!inner(event_date)',
+        )
         .in('marketplace_vendor_id', marketplaceIds)
         .in('status', ['considering', 'contracted'])
         .neq('event_id', eventId)
-        .eq('events.event_date', eventDate);
+        .eq('event.event_date', eventDate);
       // ⚠ A THIRD SHAPE: absence here does not show a false state, it REMOVES A
       // WARNING. These rows are what tell a couple that another couple is holding
       // this supplier on their date. `?? []` on a refused read silently drops that
@@ -2203,10 +2215,31 @@ async function sweepRipeReviewRequests(
     const cutoffIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: ripe, error: ripeError } = await admin
       .from('event_vendors')
-      .select('vendor_id, vendor_name, events!inner(event_date)')
+      .select(
+        /*
+          ⚠ THE FOREIGN KEY IS NAMED ON PURPOSE — lib/ghosting.ts already
+          carries this exact fix, and the warning that came with it. A bare
+          `events!inner` is AMBIGUOUS: PostgREST finds TWO ways to reach
+          `events` from `event_vendors` — the direct
+          `event_vendors_event_id_fkey` and a many-to-many through
+          `event_build_picks` — and refuses the WHOLE query with PGRST201
+          rather than guessing.
+
+          🚨 MEASURED IN PRODUCTION 2026-08-21: this returned PGRST201 on
+          every single load, so `ripe` was null, `?? []` made it an empty
+          list, and THE REVIEW FLOW'S TRIGGER HAS NEVER FIRED. No supplier
+          was ever flipped to `delivered` 24h after the event, and not one
+          `review_request` notification has ever been sent. The couple-facing
+          symptom is an absence: a review prompt that simply never arrives.
+
+          The alias mirrors ghosting.ts so the FILTER below names `event.`,
+          the shape already proven in this codebase.
+        */
+        'vendor_id, vendor_name, event:events!event_vendors_event_id_fkey!inner(event_date)',
+      )
       .eq('event_id', eventId)
       .in('status', ['contracted', 'deposit_paid'])
-      .lt('events.event_date', cutoffIso);
+      .lt('event.event_date', cutoffIso);
     // ⚠ suppliers whose date has passed, for the review prompt. Refused, nobody is
     // ⚠ prompted — a silent loss of a nudge, not a false statement.
     if (ripeError) {

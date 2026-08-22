@@ -55,9 +55,6 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
   return (
     <section className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6">
       <header className="space-y-2">
-        <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/55">
-          Admin · Identity documents
-        </p>
         <h1 className="text-2xl font-semibold text-ink">Vendor verification documents</h1>
         <p className="max-w-2xl text-sm leading-relaxed text-ink/70">
           What vendors uploaded to prove who they are — government IDs, permits, bank proofs.

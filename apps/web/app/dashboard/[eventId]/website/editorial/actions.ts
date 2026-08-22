@@ -13,10 +13,18 @@
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import {
+  storyAudienceOf,
+  storyIsShared,
+  type StoryAudience,
+} from '@/lib/who-can-see-your-story';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { scanEditorial } from '@/lib/editorial-scan';
 import {
   EDITORIAL_ORDERABLE_KEYS,
+  readCustomColumns,
+  sectionOrderToPersist,
+  type CustomColumn,
   EDITORIAL_SECTION_KEYS,
   type ChapterOverride,
   type EditorialSections,
@@ -71,9 +79,20 @@ export type EditorialEditorInput = {
   // PRO — the couple's chosen order of the reorderable content sections (a
   // string[] of EditorialOrderKey values). `null`/empty → default order.
   sectionOrder: string[] | null;
+  /** The couple's own columns — title + body each. Re-validated server-side. */
+  customColumns?: unknown;
   // PRO — the manual "What They Said" guest-wishes list (draft_json.reviews).
   reviews: Review[];
-  publish: boolean;
+  /**
+   * WHO MAY READ IT — 'draft' (only me) · 'event' (the people of this
+   * celebration) · 'published' (everyone).
+   *
+   * ⚠ REPLACED A BOOLEAN `publish`. Two states could not express the middle
+   * answer, and the boolean's `false` meant "only me" while ALSO being what a
+   * couple got by simply pressing Save — so there was no way to say "my guests,
+   * and nobody else". An unrecognised value fails CLOSED to 'draft'.
+   */
+  audience: StoryAudience;
 };
 
 /** Cap the persisted per-moment story so a runaway paste can't bloat draft_json.
@@ -161,23 +180,28 @@ const REVIEW_ROLE_MAX = 40;
  * order identical-after-clean to the canonical default → `null` (delete the key,
  * revert to default). Never trusts the client.
  */
-function sanitizeSectionOrder(input: string[] | null): string[] | null {
-  if (!Array.isArray(input)) return null;
-  const known = new Set<string>(EDITORIAL_ORDERABLE_KEYS);
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const raw of input) {
-    if (typeof raw !== 'string') continue;
-    if (!known.has(raw) || seen.has(raw)) continue; // drops unknown + locked-close + dupes
-    seen.add(raw);
-    out.push(raw);
-  }
-  if (out.length === 0) return null;
-  // If the cleaned order (once missing keys append in canonical order) matches the
-  // canonical default exactly, persist nothing — keeps default editorials clean.
-  const full = [...out, ...EDITORIAL_ORDERABLE_KEYS.filter((k) => !seen.has(k))];
-  const isDefault = full.every((k, i) => k === EDITORIAL_ORDERABLE_KEYS[i]);
-  return isDefault ? null : out;
+/**
+ * Validate the couple's own columns before they are stored.
+ *
+ * Delegates to the SAME reader the render path uses, by handing it the shape it
+ * expects. One definition of "what is a legal column", not two — a second copy
+ * here would be a second answer, and the two would drift the first time a limit
+ * moved.
+ */
+function sanitizeCustomColumns(input: unknown): CustomColumn[] {
+  return readCustomColumns({ customColumns: input });
+}
+
+/**
+ * The order to persist. Delegates to the pure `sectionOrderToPersist` so the
+ * rule lives in ONE place and can be tested — a `'use server'` module exports
+ * only async functions, so a copy here would be untestable by construction.
+ */
+function sanitizeSectionOrder(
+  input: string[] | null,
+  customIds: readonly string[] = [],
+): string[] | null {
+  return sectionOrderToPersist(input, EDITORIAL_ORDERABLE_KEYS, customIds);
 }
 
 /**
@@ -226,18 +250,27 @@ export async function saveEditorial(
       ? (existing.draft_json as Record<string, unknown>)
       : {};
 
-  // ── Event Hub PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
-  // Editorial editing is a Event Hub PRO perk. Defense-in-depth mirror of the page
-  // gate: a NOT-PRO couple with NO authored editorial (empty draft_json AND never
-  // published) can't create one via a crafted request. A couple that already
-  // authored editorial (grandfathered) OR owns PRO saves freely — and we never
-  // touch what they already saved. isPro is computed once here and reused below.
+  /*
+    ⚠ THE EVENT HUB PRO GATE IS RETIRED HERE (owner 2026-08-21):
+    "make this feature part of free and not part of the event hub pro."
+
+    It used to refuse a save from a non-PRO couple who had never authored an
+    editorial, with "Editing your editorial is part of Event Hub PRO."
+
+    🔑 THE REASON THE OWNER GAVE IS WORTH KEEPING: Setnayan auto-crafts this
+    story for them. An auto-written story its own subject cannot correct reads
+    worse than no story at all — and the first name a generator gets wrong is
+    the couple's own. Charging to fix our sentence about their wedding is the
+    wrong side of the line. PRO sells premium touches, not the right to correct
+    yourself.
+
+    ⛔ Do NOT reinstate this as a "cheap upsell". It was ruled on directly.
+  */
+  // Still resolved: the genuinely-premium EXTRAS below (chapter curation,
+  // section order, manual guest wishes) remain PRO. What is now free is the
+  // couple's own WORDS — starting an editorial, and correcting it.
   const isPro = await isEditorialProActive(admin, eventId);
-  const hasExistingEditorial =
-    Object.keys(base).length > 0 || existing?.published_at != null;
-  if (!isPro && !hasExistingEditorial) {
-    return { ok: false, error: 'Editing your editorial is part of Event Hub PRO.' };
-  }
+
 
   const t = (s: string) => s.trim();
   const draft: Record<string, unknown> = { ...base };
@@ -293,7 +326,13 @@ export async function saveEditorial(
     else delete draft.chapterOverrides;
 
     // Section order (PRO reorder). null → delete (revert to default order).
-    const sectionOrder = sanitizeSectionOrder(input.sectionOrder);
+    const customColumns = sanitizeCustomColumns(input.customColumns);
+    if (customColumns.length) draft.customColumns = customColumns;
+    else delete draft.customColumns;
+    const sectionOrder = sanitizeSectionOrder(
+      input.sectionOrder,
+      customColumns.map((c) => c.id),
+    );
     if (sectionOrder) draft.sectionOrder = sectionOrder;
     else delete draft.sectionOrder;
 
@@ -305,14 +344,22 @@ export async function saveEditorial(
   // else: not PRO — leave draft.chapterOverrides / draft.sectionOrder /
   // draft.reviews exactly as they were on `base` (spread into `draft` already).
 
+  // Fails closed: anything this build does not recognise reads as 'only me'.
+  const audience = storyAudienceOf(input.audience);
+  const shared = storyIsShared(audience);
+
   const nowIso = new Date().toISOString();
   const { error } = await admin.from('event_editorial').upsert(
     {
       event_id: eventId,
       draft_json: draft,
-      status: input.publish ? 'published' : 'draft',
+      status: audience,
       edited_by_couple: true,
-      published_at: input.publish ? (existing?.published_at ?? nowIso) : existing?.published_at ?? null,
+      // Stamped the first time it is shared with ANYBODY — the celebration
+      // counts. It is the "when did this stop being private" date, not the
+      // "when did it go public" date, and it is never cleared: a story taken
+      // back to only-me still happened.
+      published_at: shared ? (existing?.published_at ?? nowIso) : existing?.published_at ?? null,
       updated_at: nowIso,
     },
     { onConflict: 'event_id' },

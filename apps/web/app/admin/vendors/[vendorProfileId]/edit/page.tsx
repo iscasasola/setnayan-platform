@@ -90,9 +90,6 @@ export default async function AdminEditUnclaimedVendorPage({
       </Link>
 
       <header className="mb-6 space-y-2">
-        <span className="rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900">
-          Unclaimed
-        </span>
         <h1 className="text-2xl font-semibold tracking-tight">
           Edit unclaimed vendor
         </h1>

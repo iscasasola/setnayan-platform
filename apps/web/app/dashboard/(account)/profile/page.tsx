@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { MEAL_LABELS, MEAL_PREFERENCES } from '@/lib/guests';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Download, AlertTriangle, Compass, KeyRound, Gem, MonitorSmartphone } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -32,6 +33,7 @@ import {
   updatePersonalInfo,
   updatePlannerMode,
   updatePublicProfileEnabled,
+  updateDiscoverableByName,
   updateRemindersEnabled,
   updateUserSlug,
 } from './actions';
@@ -101,7 +103,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, reminders_enabled, slug, public_profile_enabled, created_at',
+      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -153,6 +155,9 @@ export default async function ProfilePage({ searchParams }: Props) {
   // the preview matches production (falls back to the canonical apex).
   const currentSlug = (profile?.slug ?? null) as string | null;
   const publicProfileOn = (profile?.public_profile_enabled ?? false) as boolean;
+  // Findable by name is ON unless they said otherwise (owner 2026-08-21). A row
+  // that predates the column reads NULL, which must mean the default, not off.
+  const findableByName = (profile?.discoverable_by_name ?? true) as boolean;
   const publicHost = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
     .replace(/\/+$/, '')
     .replace(/^https?:\/\//, '');
@@ -202,6 +207,10 @@ export default async function ProfilePage({ searchParams }: Props) {
     });
   // ⚠ the CONSENTS this person has given. Refused, the page shows none — so somebody
   // ⚠ reviewing what they agreed to is told they agreed to nothing.
+  // These rows are CONSENTS the person granted. Saying "Nothing here" when the
+  // read failed tells them they have granted none — and this block is where they
+  // come to REVOKE one, so the false absence removes the control too.
+  const shareConsentsMeasured = !shareConsentRowsProbeError;
   if (shareConsentRowsProbeError) {
     logQueryError('AccountProfilePage.shareConsentRows', shareConsentRowsProbeError, {}, 'graceful_degrade');
   }
@@ -338,13 +347,18 @@ export default async function ProfilePage({ searchParams }: Props) {
         <FormFlash tone="success">Public profile setting saved.</FormFlash>
       ) : null}
 
-      {/* Personal info */}
+      {/* PERSONAL INFO — deliberately UNLABELLED (owner 2026-08-19).
+          It carried an <h2>Personal info</h2>. As the FIRST section it sat flush
+          under "Profile & settings" with nothing above it, so it read as a
+          subtitle rather than a group label — the exact shape the owner has been
+          removing all week, and he spotted it here.
+
+          The five sections BELOW keep their headings, and should: "Change
+          password", "Sessions", "Planner mode", "Planning reminders" each follow
+          other content and you need to know which one you are in. The first group
+          follows only the page title, which already names it — and its fields say
+          the rest out loud: Display name · Phone · Profile photo · Birthday. */}
       <section className="mb-10 space-y-4">
-        <div className="space-y-1">
-          <h2 className="sn-sec">
-            Personal info
-          </h2>
-        </div>
         <form action={updatePersonalInfo} className="space-y-4">
           <Field label="Display name" htmlFor="display_name">
             <input
@@ -476,6 +490,57 @@ export default async function ProfilePage({ searchParams }: Props) {
               </select>
             </Field>
           </fieldset>
+
+          {/* ── AT THE TABLE (owner 2026-08-21) ────────────────────────────
+              *"if they create an account to sync, these information will be
+              saved on their account automatically."* A guest answers these on
+              every invitation they accept, and today the answer dies with that
+              one event. Kept here, the reply card offers them back — so
+              somebody invited to their fourth wedding types "nut allergy"
+              once, not four times, and never gets it wrong on the fourth.
+              Whatever they answer for a specific event still wins there. */}
+          <fieldset className="space-y-4">
+            <legend className="text-sm font-semibold text-ink">At the table</legend>
+            <p className="-mt-1 text-xs text-ink/55">
+              Optional. We fill these in for you when you reply to an invitation — you
+              can always change them for a particular event.
+            </p>
+            <Field
+              label="Meal preference"
+              htmlFor="meal_preference"
+              help="Used as your default when you RSVP"
+            >
+              <select
+                id="meal_preference"
+                name="meal_preference"
+                defaultValue={profile?.meal_preference ?? ''}
+                className="input-field"
+              >
+                <option value="">No default</option>
+                {MEAL_PREFERENCES.map((m) => (
+                  <option key={m} value={m}>
+                    {MEAL_LABELS[m]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              label="Dietary needs"
+              htmlFor="dietary_restrictions"
+              help="Allergies or restrictions your hosts should know — shared only with an event you join"
+            >
+              <input
+                id="dietary_restrictions"
+                name="dietary_restrictions"
+                type="text"
+                maxLength={300}
+                defaultValue={profile?.dietary_restrictions ?? ''}
+                placeholder="halal · nut allergy · …"
+                className="input-field"
+              />
+            </Field>
+          </fieldset>
+
           <label className="flex cursor-pointer items-start gap-3 rounded-md border border-ink/10 bg-cream p-3 text-sm">
             <input
               type="checkbox"
@@ -813,6 +878,65 @@ export default async function ProfilePage({ searchParams }: Props) {
               );
             })}
           </div>
+          {/* FINDABLE BY NAME — the way out of the people search (owner
+              2026-08-21, "just like facebook"). It sits under the public-profile
+              block because both answer "who can find me", and deliberately NOT
+              inside it: a public profile is a page you publish, this is whether
+              a signed-in person who knows your name can ask to connect. */}
+          <div className="space-y-3 border-t border-ink/10 pt-6">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-ink">Can people find you by name?</h3>
+              <p className="text-sm text-ink/60">
+                When this is on, somebody signed in to Setnayan who types your name can find you
+                and ask to connect. They see your name and photo — never your email, your phone,
+                or your celebrations — and nothing connects until you confirm it. Turn it off and
+                you can only be added by someone who already knows your email address.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {(
+                [
+                  {
+                    key: 'true' as const,
+                    label: 'On',
+                    tagline: 'People who know your name can ask to connect',
+                  },
+                  {
+                    key: 'false' as const,
+                    label: 'Off',
+                    tagline: 'Only somebody with your email address can add you',
+                  },
+                ]
+              ).map((opt) => {
+                const isActive = (opt.key === 'true') === findableByName;
+                return (
+                  <form key={opt.key} action={updateDiscoverableByName}>
+                    <input type="hidden" name="discoverable_by_name" value={opt.key} />
+                    <button
+                      type="submit"
+                      disabled={isActive}
+                      className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
+                        isActive
+                          ? 'border-terracotta bg-terracotta/5'
+                          : 'border-ink/10 bg-cream hover:border-terracotta/50'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-ink">{opt.label}</span>
+                        {isActive ? (
+                          <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+                            Active
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="text-xs text-ink/55">{opt.tagline}</span>
+                    </button>
+                  </form>
+                );
+              })}
+            </div>
+          </div>
+
           {publicProfileOn && currentSlug ? (
             <div className="flex flex-wrap items-center gap-3">
               <Link
@@ -1132,7 +1256,12 @@ export default async function ProfilePage({ searchParams }: Props) {
               before.
             </p>
           </div>
-          {shareConsents.length === 0 ? (
+          {!shareConsentsMeasured ? (
+            <p role="status" className="text-xs text-ink/70">
+              We couldn’t load these just now, so anything you’ve allowed isn’t
+              shown. Nothing has changed — refresh to try again.
+            </p>
+          ) : shareConsents.length === 0 ? (
             <p className="text-xs text-ink/45">
               Nothing here — when you allow a creation to be featured, it shows up
               here and can be revoked any time.

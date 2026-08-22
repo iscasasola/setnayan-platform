@@ -33,16 +33,23 @@ export async function GuestColumnCard({
   eventId,
   guestId,
   eventDate,
+  eventTz,
+  eventEndDate,
 }: {
   eventId: string;
   guestId: string;
   eventDate: string | null;
+  /** The VENUE's zone. Without it the close-state below was resolved from a
+   *  Vercel server in UTC, so a guest could be told the column had closed
+   *  hours before it did at the wedding — or the reverse. */
+  eventTz?: string;
+  eventEndDate?: string | null;
 }) {
   if (!(await guestColumnsActive())) return null;
 
   const w = await eventWordsForEvent(eventId);
 
-  const closed = getLifecyclePhase(eventDate) === 'editorial';
+  const closed = getLifecyclePhase(eventDate, eventTz, eventEndDate ?? null) === 'editorial';
   const admin = createAdminClient();
 
   // The guest's own column (any status — drives the form state). A withdrawn

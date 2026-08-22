@@ -25,6 +25,7 @@ export type JoinFlowEvent = {
   public_id: string | null;
   display_name: string | null;
   event_date: string | null;
+  event_date_precision: string | null;
   venue_name: string | null;
   slug: string | null;
 };
@@ -54,6 +55,7 @@ export async function JoinFlow({
   const shellEvent = {
     display_name: event.display_name ?? '',
     event_date: event.event_date,
+    event_date_precision: event.event_date_precision,
     venue_name: event.venue_name,
   };
   const roleSet = await resolveRoleSetForEvent(eventId);

@@ -1,12 +1,36 @@
 # Setnayan — Project Status
 
-> Living checkpoint. Refreshed 2026-07-16 (Atelier-Glass rollout COMPLETE · seat-plan program · inspector columns · flat rails).
-> Anchor doc — if you're opening this repo cold in a new Claude session, start here.
+> Living checkpoint. **Refreshed 2026-08-19.**
+> Anchor doc — if you're opening this repo cold in a new Claude session, start here, then read
+> the newest handoff named at the top of `CLAUDE.md`.
 > **Snapshot, not a log.** Full per-PR detail lives in `CHANGELOG.md` + git history — this file is the current-state picture only.
+>
+> ⚠ **This file sat 34 days stale and told cold sessions to start here.** While stale it stated
+> that the vendor **token** economy was "live in prod" — tokens were **RETIRED 2026-08-07**, and
+> the repo carries `apps/web/lib/token-economy-is-retired.test.ts` to keep them retired. A cold
+> session could have built against a currency that no longer exists. **The date on a snapshot is
+> part of its content: if you cannot refresh it, say what is unverified rather than leaving a
+> confident sentence in place.**
 
 **Owner deadline anchor:** December 2026 wedding
 
 ---
+
+## Verified production state — 2026-08-19
+
+Measured against the live database and the live site, not remembered.
+
+**8 events · 39 guests** (largest roster 32) · **2 shops** · **0 orders, ever** · **14 Papic
+photos** (13 stills + 1 clip, one event, none hidden).
+⚠ This line said **"0 photos"** when first written *today*, in the section headed "measured, not
+remembered". It was not measured. **Do not treat the gallery as empty** when reasoning about
+retention, the compression sweep, face-matching or the photo wall.
+Nothing has been bought and almost nothing has been exercised — **which is why defects here are
+found by reading code rather than by anyone complaining.** Every one fixed on 2026-08-19 had been
+live for weeks: the upload stall since 5 July, the call-room initials since 11 July.
+
+🔑 **The highest-value action is not on this list: somebody using the product end to end on a
+phone.** An hour of that surfaces more than a day of sweeping, and no session can do it.
 
 ## Where we are right now
 
@@ -26,22 +50,52 @@ V1 web surface is **functionally complete** and live at `setnayan.com`. The buil
 - **Connective positioning** — combine-that-stays-combined welds (pairwise exemption + cross-family rect↔serpentine), serpentine end-to-end joins, connective snap positioning with **rigid-group linking deferred** (#3305/#3307).
 - **2D/3D sync coordinate contract v2** — one coordinate contract, 2D/3D/List **provably synced** behind a **14-test parity proof suite** + render-crash guards and a **route-level error boundary** around the editor (#3330).
 
-**Vendor economy — identity is what the token buys.** Inquiries are now **anonymized until accept** — a vendor sees an anonymized lead and unlocks identity by spending a token (#3266). The vendor token catalog is repriced to a **flat ₱200/token (₱1,000 = 5)** and a **flat 1-token burn** per lead — both **live in prod** — with admin token-band copy reconciled to match (#3138/#3255). Off-platform settlement keeps commission at 0%.
+**Vendor economy — ⚠ THE TOKEN CURRENCY IS RETIRED (2026-08-07). ~~identity is what the token buys~~.** The paragraph that stood here described a **flat ₱200/token** catalog and a **1-token burn per lead** as "live in prod". **Both are gone**: the vendor token currency was retired entirely — no packs, no bundles, no grant surface, nothing that spends one, and prod never saw one bought or spent. `apps/web/lib/token-economy-is-retired.test.ts` exists to keep it that way. Anonymized-until-accept inquiries (#3266) still ship; answering is **free on every tier**. Off-platform settlement keeps **commission at 0%** — but there **is** a **booking fee** charged to the VENDOR (5% first ₱100k · 1% above · floor ₱50 · sourced clients only · first 5 free), currently **flag-dark**. Never call it commission.
 
 **Spaces — Samahan community door live.** The minimal Samahan cut shipped end-to-end: schema (#3243) → routes + lib layer (#3245) → community-event creation context (#3246) → the **Spaces home tile goes live** (PR-4, #3250).
 
 **Housekeeping — dependabot 14 → 4.** Security alerts triaged down: web js-yaml/esbuild (#3286) + 8 mobile transitive bumps tar/minimatch (#3297), leaving 4 open.
 
-### What's next
+### What's next (2026-08-19)
+
+⚠ **The four bullets that stood here were the 2026-07-16 seat-plan follow-ups.** They may still
+be worth doing, but they were NOT verified against shipped code at this refresh — treat them as
+unverified, not as a plan. They are preserved at the bottom of this section.
+
+**The current stream: a failed read must not be rendered as a fact.** Nine confirmed instances
+remain, each with file:line, in the corpus doc
+`WHATS_NEXT_Silent_Failures_2026-08-19.md` §2. **None of the nine is money — the two money ones
+are done** (#4587 · #4588).
+
+**The pattern to copy — it already exists in this repo, do not invent a new one:**
+
+| shape | file |
+|---|---|
+| the original (supplier side) | `apps/web/app/vendor-dashboard/reads-are-honest.test.ts` |
+| a list + its counts | `apps/web/lib/guests.ts` · `apps/web/lib/guests-read-is-honest.test.ts` |
+| money | `apps/web/lib/budget.ts` · `apps/web/lib/money-that-was-never-measured.test.ts` |
+| a `try/catch` that can never fire | `apps/web/app/dashboard/[eventId]/_components/the-dashboard-counts-what-it-read.test.ts` |
+
+Its three rules: bind the error on every `data` destructure; **gate any stated absence on a
+measured flag AND show a "we couldn't load" line** (a log line never changed a pixel); never
+render a refused read as a money figure or a headcount of zero. `actions.ts` files are out of
+scope — there an absence DENIES, and failing closed is correct.
+
+**Then stop hunting and switch to the launch checklist** — the owner rulings and sign-offs in the
+corpus `WHAT_IS_LEFT_2026-08-17.md` §6, which no amount of engineering moves.
+
+<details><summary>The unverified 2026-07-16 seat-plan follow-ups</summary>
 
 - **Rigid-group linking rebuild** — connective snap positioning shipped, but the Keynote-style "linked tables move/rotate as one rigid unit" was deferred; rebuild it on top of the oracle/weld model.
-- **Seat-plan polish list** — the follow-ups the program logged (collision-avoidance for many simultaneous 3D walkers, free-board fit-framing for spread layouts, RSVP→seat auto-rules in the canonical engine, etc.).
+- **Seat-plan polish list** — collision-avoidance for many simultaneous 3D walkers, free-board fit-framing for spread layouts, RSVP→seat auto-rules in the canonical engine.
 - **Sentry 9 → 10 migration** — bump the SDK off v9.
-- **R6 radius-token rename sweep** — finish routing the last ad-hoc corner radii through the `--m-r-*` scale (radius-token guard).
+- **R6 radius-token rename sweep** — route the last ad-hoc corner radii through the `--m-r-*` scale.
+
+</details>
 
 ### Owner-side actions
 
-Flag-gated features await owner env-flip / provisioning, not code. The canonical, always-current list is **`OWNER_ACTIONS.md`**; the standing items include the PayMongo one-time gateway (open PR #3146, Phase 0/1 seam) and any remaining counsel-gated flags. Auto-merge is armed automatically on every non-draft PR (see the workflow note under Locked decisions).
+Flag-gated features await owner env-flip / provisioning, not code. The canonical, always-current list is **`OWNER_ACTIONS.md`**; the standing items include any remaining counsel-gated flags. ⚠ **The PayMongo one-time gateway is NOT one of them: PR #3146 was CLOSED unmerged on 2026-07-30** (verified 2026-08-19). Do not report it to the owner as code-complete-and-waiting — there is no payment gateway sitting one flip away. Auto-merge is armed automatically on every non-draft PR (see the workflow note under Locked decisions).
 
 ---
 
@@ -75,7 +129,8 @@ Applies to: 0011 Live Studio (Panood), 0012 Papic, future time-budgeted SKUs. **
 - **Hosting:** Vercel — auto-deploys from `main` (`deploy-prod.yml` + Vercel's native git webhook)
 - **Domain:** `setnayan.com` (+ `setnayan.ph`), Vercel-managed SSL
 - **DB:** Supabase (Singapore region) — migrations via `supabase db push`; `migration-drift-monitor.yml` + a "migration timestamp guard" required check keep prod and disk in sync
-- **Storage:** Cloudflare R2 — 4 PH/APAC-region buckets (`setnayan-media`, `-thread-files`, `-vendor-contracts`, `-samples`)
+- **Storage:** Cloudflare R2 — **FIVE** buckets in **Asia-Pacific (APAC)**: `setnayan-media`, `-thread-files`, `-vendor-contracts`, `-samples`, **`-vendor-verification`** (this one holds vendor government IDs). `R2_BUCKETS` in `apps/web/lib/r2.ts` is canonical.
+  ⚠ **NOT "PH-region".** R2 has no Philippines region, and saying so implies a data residency we do not have — the same wording reached the live `/privacy` page once. Nothing is hosted in the Philippines: the database is Supabase **Singapore**.
 - **Email:** Resend — domain `setnayan.com` verified, `noreply@setnayan.com` from-address (email-only; no SMS in V1)
 - **Observability:** Sentry (errors) + PostHog (product analytics) + Better Stack (uptime/status) — iteration 0035
 - **Native:** Tauri 2 desktop wrapper (`.dmg` + `.msi` via `build-desktop.yml`) + Capacitor/PWA mobile shells (`build-android.yml`); true-native iOS/Android Papic is Phase 2

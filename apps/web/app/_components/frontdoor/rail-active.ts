@@ -90,7 +90,15 @@ export function railMatchRows(who: {
 }): RailMatchRow[] {
   return [
     { key: 'home', href: '/' },
-    { key: 'stories', href: '/realstories' },
+    /*
+      🔑 NO 'stories' ROW — THE RAIL NO LONGER HAS ONE (owner 2026-08-20).
+      Stories folded into the chips over the feed, so `/realstories` is reached
+      from the shelf HEADING, not from a destination. It therefore lights
+      nothing, which is the documented correct answer: `activeRailKey` returns
+      null and null renders as "no row lit". Do NOT map it onto 'home' to fill
+      the gap — that is the exact defect this file already records, a row lit
+      on a URL that is not its own.
+    */
     ...(who.signedIn ? [{ key: 'find', href: '/explore' }] : []),
     ...(who.signedIn
       ? [
@@ -98,8 +106,11 @@ export function railMatchRows(who: {
           // match here lights "your events" while you read your settings.
           { key: 'events', href: '/dashboard', exact: true },
           { key: 'alaala', href: '/dashboard/library' },
+          // Longest-prefix wins, so this beats the exact-only '/dashboard' row.
+          // 'year' is GONE with the rail row it lit up (owner 2026-08-21) — a
+          // match row for a link nothing renders can only ever be dead weight.
           { key: 'people', href: '/dashboard/people' },
-          { key: 'story', href: '/dashboard/creator' },
+          // 'story' is GONE with the rail row it lit up (owner 2026-08-21).
         ]
       : []),
     ...(who.hasShop ? [{ key: 'shop', href: '/vendor-dashboard' }] : []),

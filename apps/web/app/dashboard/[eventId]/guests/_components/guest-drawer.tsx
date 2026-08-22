@@ -105,8 +105,13 @@ export function QuickViewButton({
 export function GuestDrawerHost({
   eventId,
   brandedQrActive = false,
+  photoDisplayUrls = {},
 }: {
   eventId: string;
+  /** Stored photo ref → display URL, resolved by the page's loader. The sheet
+   *  opens from a client store that carries only the row, so the map has to
+   *  arrive here rather than in the payload. */
+  photoDisplayUrls?: Record<string, string>;
   /** Paid CUSTOM_QR_GUEST upgrade admin-approved → offer the branded PNG
    *  download directly (else the sheet routes to the Invitation page). */
   brandedQrActive?: boolean;
@@ -137,6 +142,7 @@ export function GuestDrawerHost({
         eventId={eventId}
         brandedQrActive={brandedQrActive}
         headingId={TITLE_ID}
+        photoDisplayUrl={photoDisplayUrls[guest.photo_url ?? ''] ?? null}
       />
     </Drawer>
   );

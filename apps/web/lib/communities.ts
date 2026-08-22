@@ -39,6 +39,13 @@ export type CommunityRow = {
 export type CommunityWithRole = CommunityRow & {
   role: CommunityRole;
   member_count: number;
+  /**
+   * False when the member COUNT was refused — `member_count` is then 0 and
+   * means nothing. Optional so the other builders of this type (the list
+   * loaders, which count differently) are unaffected; a surface that STATES
+   * the figure should check it.
+   */
+  member_count_measured?: boolean;
 };
 
 /**
@@ -189,15 +196,27 @@ export async function fetchCommunity(
   }
   if (!community || !selfRow) return null;
 
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from('community_members')
     .select('id', { count: 'exact', head: true })
     .eq('community_id', communityId);
+  if (countError) {
+    logQueryError('fetchCommunity.memberCount', countError, { community_id: communityId }, 'graceful_degrade');
+  }
 
   return {
     ...(community as CommunityRow),
     role: (selfRow as { role: CommunityRole }).role,
     member_count: count ?? 0,
+    // ADDITIVE, on purpose. `member_count` is a plain number read by nine
+    // surfaces; widening it to `number | null` would ripple through all of them
+    // for one headline. This flag rides alongside so the ONE page that states
+    // the figure can decline to state it.
+    //
+    // 🔑 `count ?? 0` cannot tell "no members" from "we could not count" — and
+    // the person reading this page is BY DEFINITION a member of it, so "0
+    // members" is a number they can personally disprove.
+    member_count_measured: !countError,
   };
 }
 

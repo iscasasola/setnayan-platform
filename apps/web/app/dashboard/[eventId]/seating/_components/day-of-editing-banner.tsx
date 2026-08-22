@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Radio } from 'lucide-react';
-import { isEventDayActive } from '@/lib/day-of-mode';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 
 /**
  * Day-of "you're editing live" banner (seat-finding PR 5).
@@ -24,7 +24,18 @@ export function DayOfEditingBanner({ eventDate }: { eventDate: string | Date | n
 
   useEffect(() => {
     if (!eventDate) return;
-    const tick = () => setLive(isEventDayActive(eventDate));
+    /*
+      ⚠ IT SAID "Live — guests are seeing this now" THE MORNING AFTER.
+
+      `isEventDayActive` spans T-12h .. T+60h — two and a half days — so a red
+      pulsing "guests are watching" banner sat on the seat plan of an event that
+      finished the night before. That window is right for the surfaces guests
+      actually use, and wrong for a message ABOUT them.
+
+      🔑 It now asks the same resolver every other surface asks, so it lets go
+      at 06:00 the morning after, with the rest of the product.
+    */
+    const tick = () => setLive(getMenuLifecyclePhase(eventDate, null) === 'dayof');
     tick();
     const id = setInterval(tick, 60_000);
     const onVisible = () => {

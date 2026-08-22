@@ -100,7 +100,6 @@ export async function SpotlightAwardsSurface({
     <div>
       <PageMasthead
         title="Spotlight Awards"
-        className="mb-6"
       />
 
       {ok ? (

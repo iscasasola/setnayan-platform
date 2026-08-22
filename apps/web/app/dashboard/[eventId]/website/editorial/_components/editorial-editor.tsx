@@ -30,8 +30,24 @@ import {
 import {
   EDITORIAL_ORDERABLE_KEYS,
   resolveSectionOrder,
+  type RenderOrderKey,
   type EditorialOrderKey,
 } from '@/app/[slug]/_components/editorial/editorial-order';
+import {
+  STORY_AUDIENCES,
+  STORY_AUDIENCE_LABEL,
+  STORY_AUDIENCE_NOTE,
+  storyIsShared,
+  type StoryAudience,
+} from '@/lib/who-can-see-your-story';
+import {
+  customColumnId,
+  customColumnKey,
+  MAX_CUSTOM_COLUMNS,
+  CUSTOM_COLUMN_TITLE_MAX,
+  CUSTOM_COLUMN_BODY_MAX,
+  type CustomColumn,
+} from '@/app/[slug]/_components/editorial/custom-columns';
 import type {
   ChapterCard,
   ChapterOverride,
@@ -210,6 +226,7 @@ export function EditorialEditor({
   chapterCards = [],
   chapterOverrides = [],
   savedSectionOrder = null,
+  savedCustomColumns = [],
   savedReviews = [],
   shareUrl = null,
   showcaseOptedIn = false,
@@ -231,6 +248,8 @@ export function EditorialEditor({
   chapterCards?: ChapterCard[];
   /** The couple's current per-chapter overrides (draft_json.chapterOverrides). */
   chapterOverrides?: ChapterOverride[];
+  /** The couple's own columns (draft_json.customColumns). */
+  savedCustomColumns?: CustomColumn[];
   /** The couple's saved section order (draft_json.sectionOrder) or null. */
   savedSectionOrder?: string[] | null;
   /** The couple's saved manual guest wishes (draft_json.reviews). */
@@ -288,12 +307,44 @@ export function EditorialEditor({
   // ── PRO: section order ────────────────────────────────────────────────────
   // Working order of the reorderable content sections. Resolved once from the
   // saved order (default order when none saved), reordered by up/down buttons.
-  const [sectionOrder, setSectionOrder] = useState<EditorialOrderKey[]>(() =>
+  // ── The couple's OWN columns ──────────────────────────────────────────────
+  const [columns, setColumns] = useState<CustomColumn[]>(() => savedCustomColumns ?? []);
+
+  const [sectionOrder, setSectionOrder] = useState<RenderOrderKey[]>(() =>
     // Flag-dark keys are stripped from the WORKING order (never shown, never
     // reordered); the server's sanitize + the renderer's resolveSectionOrder
     // both re-append missing keys, so a save while the flag is off is safe.
-    resolveSectionOrder(savedSectionOrder).filter((k) => guestColumnsOn || k !== 'guestColumns'),
+    resolveSectionOrder(
+      savedSectionOrder,
+      (savedCustomColumns ?? []).map((c) => c.id),
+    ).filter((k) => guestColumnsOn || k !== 'guestColumns'),
   );
+
+  /*
+    Add / remove keep the two lists in step, because they are one fact recorded
+    twice: `columns` is WHICH columns exist, `sectionOrder` is WHERE they go.
+    Removing from only one leaves either an orphaned position (the resolver
+    drops it, silently losing the couple's arrangement) or an unplaced column
+    (it jumps to the end). Neither is what they pressed the button for.
+  */
+  const addColumn = () => {
+    if (columns.length >= MAX_CUSTOM_COLUMNS) return;
+    // Ids only need to be unique within one event and legal for a key. Derived
+    // from a counter plus the existing set, never from the title — a title is
+    // renamed, and an id that follows it would strand the saved position.
+    let n = columns.length + 1;
+    const taken = new Set(columns.map((c) => c.id));
+    let id = `col${n}`;
+    while (taken.has(id)) id = `col${(n += 1)}`;
+    setColumns((prev) => [...prev, { id, title: '', body: '' }]);
+    setSectionOrder((prev) => [...prev, customColumnKey(id) as RenderOrderKey]);
+  };
+  const removeColumn = (id: string) => {
+    setColumns((prev) => prev.filter((c) => c.id !== id));
+    setSectionOrder((prev) => prev.filter((k) => k !== customColumnKey(id)));
+  };
+  const patchColumn = (id: string, patch: Partial<CustomColumn>) =>
+    setColumns((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
 
   // ── PRO: manual guest wishes ("What They Said") ───────────────────────────
   const [wishes, setWishes] = useState<WishRow[]>(() =>
@@ -409,6 +460,9 @@ export function EditorialEditor({
   // default (else null, so a default editorial stays clean). The server sanitizes
   // again and strips it entirely when the couple isn't PRO.
   const buildSectionOrder = (): string[] | null => {
+    // A column's position exists nowhere else, so an order carrying one is never
+    // the canonical default and must always be persisted.
+    if (sectionOrder.some((k) => customColumnId(k))) return sectionOrder.slice();
     const isDefault = sectionOrder.every((k, i) => k === EDITORIAL_ORDERABLE_KEYS[i]);
     return isDefault ? null : sectionOrder.slice();
   };
@@ -428,7 +482,7 @@ export function EditorialEditor({
         };
       });
 
-  const persist = async (publish: boolean): Promise<boolean> => {
+  const persist = async (next: StoryAudience): Promise<boolean> => {
     setPhase('saving');
     setError(null);
     try {
@@ -436,12 +490,15 @@ export function EditorialEditor({
         ...form,
         chapterOverrides: buildChapterOverrides(),
         sectionOrder: buildSectionOrder(),
+        // Untitled or empty columns are dropped server-side by the same reader
+        // the page renders through, so a half-written one is never published.
+        customColumns: columns,
         reviews: buildReviews(),
-        publish,
+        audience: next,
       });
       if (!r.ok) throw new Error(r.error);
-      // Direct setForm (not `set`) so the publish flag doesn't re-mark dirty.
-      setForm((f) => ({ ...f, publish }));
+      // Direct setForm (not `set`) so choosing an audience doesn't re-mark dirty.
+      setForm((f) => ({ ...f, audience: next }));
       setDirty(false);
       setPhase('done');
       return true;
@@ -451,13 +508,23 @@ export function EditorialEditor({
       return false;
     }
   };
-  const onSave = (publish: boolean) => {
-    void persist(publish);
+  const onSave = (next: StoryAudience) => {
+    void persist(next);
   };
   // Save the couple's words as a draft BEFORE navigating into a sub-editor, so
   // nothing typed here is lost. Only navigates if the save succeeds.
   const openPiece = async (href: string) => {
-    const ok = await persist(false);
+    /*
+      🚨 THIS USED TO PASS `false`, WHICH SILENTLY UNPUBLISHED A LIVE STORY.
+      The old call meant "save as a draft", and the save path read that boolean
+      as the status — so a couple whose story was published, clicking through to
+      the living hero or their photos, had it quietly taken off their page. The
+      press said "open the next editor" and did not mention privacy.
+
+      Saving before navigating is right; deciding the audience is not this
+      button's job, so it now carries whatever the couple already chose.
+    */
+    const ok = await persist(form.audience);
     if (ok) router.push(href);
   };
 
@@ -544,15 +611,26 @@ export function EditorialEditor({
           These are written from your wedding details. Edit anything — or clear a field to let us
           rewrite it for you.
         </p>
+        {/*
+          TWO BOXES FIRST, THE MAGAZINE FURNITURE BEHIND A FOLD (owner: the story
+          maker should be "very easy to handle").
+
+          🔑 THE SPLIT IS BY WHO THE FIELD BELONGS TO, not by how often it is
+          used. The headline and the story itself are the couple's own account of
+          their day — the two things a person opens this page intending to write.
+          The eyebrow, the sub-headline, the pull quote and the byline are
+          MAGAZINE FURNITURE: typographic slots our composer already fills, whose
+          names ("eyebrow", "deck", "byline") are a newsroom's words, not a
+          couple's. Six equal boxes made the page read as a form to complete
+          rather than a story to correct.
+
+          ⚠ NOTHING IS REMOVED AND NOTHING IS GATED. Every field keeps its exact
+          state, its exact handler and its exact placeholder — a couple who has
+          already written a pull quote still has it, and `<details>` keeps its
+          contents in the DOM, so an unsaved edit inside the fold survives being
+          collapsed and still submits.
+        */}
         <div className="mt-4 space-y-4">
-          <Field label="Eyebrow" help="The small line above the headline.">
-            <input
-              className={inputCls}
-              value={form.superKicker}
-              onChange={(e) => set('superKicker', e.target.value)}
-              placeholder="A big-hearted celebration"
-            />
-          </Field>
           <Field label="Headline">
             <input
               className={inputCls}
@@ -561,39 +639,64 @@ export function EditorialEditor({
               placeholder="Maria & Juan Are Married"
             />
           </Field>
-          <Field label="Sub-headline" help="The italic line under the headline.">
-            <input
-              className={inputCls}
-              value={form.deck}
-              onChange={(e) => set('deck', e.target.value)}
-              placeholder="After seven years together, married at last…"
-            />
-          </Field>
           <Field label="Your story" help="Your front-page write-up. Leave blank to keep it photo-led.">
             <textarea
-              className={`${inputCls} min-h-[120px] resize-y`}
+              className={`${inputCls} min-h-[160px] resize-y`}
               value={form.leadParagraphs}
               onChange={(e) => set('leadParagraphs', e.target.value)}
               placeholder="Write in a few short paragraphs — leave a blank line between each."
             />
           </Field>
-          <Field label="Pull quote" help="One line, set large in the story.">
-            <input
-              className={inputCls}
-              value={form.pullQuote}
-              onChange={(e) => set('pullQuote', e.target.value)}
-              placeholder="And on the day, everything was just set."
-            />
-          </Field>
-          <Field label="Byline">
-            <input
-              className={inputCls}
-              value={form.byline}
-              onChange={(e) => set('byline', e.target.value)}
-              placeholder="By the Setnayan Desk"
-            />
-          </Field>
         </div>
+        <details className="group mt-4 border-t border-ink/10 pt-4">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-ink/70 transition hover:text-ink">
+            <ChevronDown
+              aria-hidden
+              className="h-4 w-4 transition-transform group-open:rotate-180"
+              strokeWidth={2}
+            />
+            The smaller lines
+          </summary>
+          <p className="mt-1 text-xs text-ink/55">
+            The little line above the headline, the italic one under it, the quote
+            set large, and who it&rsquo;s signed by. We write all four for you —
+            open this only if you want to change them.
+          </p>
+          <div className="mt-4 space-y-4">
+            <Field label="Eyebrow" help="The small line above the headline.">
+              <input
+                className={inputCls}
+                value={form.superKicker}
+                onChange={(e) => set('superKicker', e.target.value)}
+                placeholder="A big-hearted celebration"
+              />
+            </Field>
+            <Field label="Sub-headline" help="The italic line under the headline.">
+              <input
+                className={inputCls}
+                value={form.deck}
+                onChange={(e) => set('deck', e.target.value)}
+                placeholder="After seven years together, married at last…"
+              />
+            </Field>
+            <Field label="Pull quote" help="One line, set large in the story.">
+              <input
+                className={inputCls}
+                value={form.pullQuote}
+                onChange={(e) => set('pullQuote', e.target.value)}
+                placeholder="And on the day, everything was just set."
+              />
+            </Field>
+            <Field label="Byline">
+              <input
+                className={inputCls}
+                value={form.byline}
+                onChange={(e) => set('byline', e.target.value)}
+                placeholder="By the Setnayan Desk"
+              />
+            </Field>
+          </div>
+        </details>
       </section>
 
       {/* Your photos — FREE couple-uploaded imagery. Gives a no-Papic editorial a
@@ -760,7 +863,16 @@ export function EditorialEditor({
                         list="editorial-canonical-moments"
                         onChange={(e) => patchRow(leadId, { title: e.target.value })}
                         disabled={!isPro}
-                        placeholder={isPro ? 'Name this moment (e.g. First Kiss)' : 'Name this moment with Editorial PRO'}
+                        placeholder={
+                          // The public page already calls this moment by the name
+                          // on their own run-of-show. Showing anything else here
+                          // means the empty box and the live page disagree.
+                          r.card.suggestedTitle
+                            ? r.card.suggestedTitle
+                            : isPro
+                              ? 'Name this moment (e.g. First Kiss)'
+                              : 'Name this moment with Editorial PRO'
+                        }
                         aria-label="Moment name"
                       />
 
@@ -809,7 +921,17 @@ export function EditorialEditor({
 
         <ol className="mt-4 space-y-1.5">
           {sectionOrder.map((k, i) => {
-            const on = form.sections[ORDERABLE_SECTION_TOGGLE[k]] !== false;
+            const ownId = customColumnId(k);
+            const own = ownId ? columns.find((c) => c.id === ownId) : undefined;
+            // A column with no title yet still needs a name in this list, or the
+            // row a couple just added reads as an empty box they cannot place.
+            // When it is not one of theirs it is a shipped key, and only then
+            // may it index the shipped label/toggle records.
+            const shipped = ownId ? null : (k as EditorialOrderKey);
+            const label = own
+              ? own.title.trim() || 'Untitled column'
+              : ORDERABLE_SECTION_LABELS[shipped!];
+            const on = shipped ? form.sections[ORDERABLE_SECTION_TOGGLE[shipped]] !== false : true;
             return (
               <li
                 key={k}
@@ -817,10 +939,10 @@ export function EditorialEditor({
               >
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium text-ink">
-                    {ORDERABLE_SECTION_LABELS[k]}
+                    {label}
                   </span>
                   <span className={`block text-xs ${on ? 'text-ink/45' : 'text-burgundy/70'}`}>
-                    {on ? 'Showing' : 'Turned off'}
+                    {own ? 'Your own column' : on ? 'Showing' : 'Turned off'}
                   </span>
                 </span>
                 <span className="flex flex-none items-center gap-1">
@@ -828,7 +950,7 @@ export function EditorialEditor({
                     type="button"
                     onClick={() => moveSection(i, -1)}
                     disabled={!isPro || i === 0}
-                    aria-label={`Move ${ORDERABLE_SECTION_LABELS[k]} up`}
+                    aria-label={`Move ${label} up`}
                     className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
                   >
                     <ChevronUp aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -837,7 +959,7 @@ export function EditorialEditor({
                     type="button"
                     onClick={() => moveSection(i, 1)}
                     disabled={!isPro || i === sectionOrder.length - 1}
-                    aria-label={`Move ${ORDERABLE_SECTION_LABELS[k]} down`}
+                    aria-label={`Move ${label} down`}
                     className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
                   >
                     <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -860,6 +982,101 @@ export function EditorialEditor({
             </li>
           ))}
         </ol>
+      </section>
+
+      {/* Your own columns — a section the couple writes themselves. The story
+          ships thirteen sections and none of them is "The Groom's Dog, A
+          Retrospective"; this is where that goes. It appears in the order list
+          above like any other section, so placing it needs nothing new to learn. */}
+      <section className={card}>
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="font-display text-lg italic text-ink">Your own columns</h2>
+        </div>
+        <p className="mt-0.5 text-sm text-ink/60">
+          Write a section of your own — anything the rest of the page has no room
+          for.{' '}
+          {isPro
+            ? 'Give it a name and put it wherever you like in the running order.'
+            : 'It goes at the end of your story.'}
+        </p>
+        {/*
+          ⚖ WRITING A COLUMN IS FREE; MOVING IT IS THE PRO PERK THAT ALREADY
+          EXISTS. Putting a wall in front of the writing itself would be a
+          PRICING decision, and a pricing decision must never be a side effect of
+          a build — so this panel is ungated and the sentence above tells a free
+          couple exactly where their column lands instead of leaving them to
+          wonder why the arrows are dim.
+        */}
+        {!isPro ? (
+          <ProUpsellLine eventId={eventId}>
+            Move your column anywhere in the story with Editorial PRO.
+          </ProUpsellLine>
+        ) : null}
+
+        {columns.length === 0 ? (
+          <p className="mt-3 text-sm text-ink/55">You haven&rsquo;t written one yet.</p>
+        ) : (
+          <ul className="mt-4 space-y-3">
+            {columns.map((c) => (
+              <li key={c.id} className="rounded-xl border border-ink/10 bg-white p-4">
+                <div className="flex items-start gap-3">
+                  <input
+                    className={`${inputCls} flex-1`}
+                    value={c.title}
+                    maxLength={CUSTOM_COLUMN_TITLE_MAX}
+                    onChange={(e) => patchColumn(c.id, { title: e.target.value })}
+                    placeholder="What is this column called?"
+                    aria-label="Column name"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeColumn(c.id)}
+                    aria-label={`Remove ${c.title.trim() || 'this column'}`}
+                    className="sn-press flex-none rounded-lg border border-ink/15 bg-cream px-3 py-2 text-sm font-medium text-ink/70 transition hover:border-burgundy/40 hover:text-burgundy"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <textarea
+                  className={`${inputCls} mt-2 min-h-[120px] resize-y`}
+                  value={c.body}
+                  maxLength={CUSTOM_COLUMN_BODY_MAX}
+                  onChange={(e) => patchColumn(c.id, { body: e.target.value })}
+                  placeholder="Write it here. Leave a blank line between paragraphs."
+                  aria-label="Column"
+                />
+                {/*
+                  A column with no name or nothing written is not published —
+                  said here, before they save, rather than leaving them to
+                  notice the section missing from their own page afterwards.
+                */}
+                {!c.title.trim() || !c.body.trim() ? (
+                  <p className="mt-1 text-xs text-ink/55">
+                    Needs a name and something written before it shows on your page.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-ink/45">
+                    {c.body.length} of {CUSTOM_COLUMN_BODY_MAX} characters
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {columns.length < MAX_CUSTOM_COLUMNS ? (
+          <button
+            type="button"
+            onClick={addColumn}
+            className="sn-press mt-4 inline-flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-bold text-ink transition-colors hover:border-mulberry"
+          >
+            Write a column
+          </button>
+        ) : (
+          <p className="mt-4 text-xs text-ink/55">
+            That&rsquo;s all {MAX_CUSTOM_COLUMNS} of them. Remove one to write another.
+          </p>
+        )}
       </section>
 
       {/* What They Said — the manual guest-wishes editor (Editorial PRO). Free
@@ -1032,7 +1249,7 @@ export function EditorialEditor({
         <div className="text-sm">
           {phase === 'done' ? (
             <span className="font-medium text-green-700">
-              Saved{form.publish ? ' & published' : ' as a draft'}.
+              Saved · {STORY_AUDIENCE_LABEL[form.audience].toLowerCase()} can read it.
             </span>
           ) : phase === 'error' ? (
             <span className="font-medium text-red-700">{error ?? 'Could not save.'}</span>
@@ -1047,30 +1264,48 @@ export function EditorialEditor({
           ) : null}
         </div>
         <div className="flex gap-3">
-          <button
-            type="button"
-            disabled={phase === 'saving'}
-            onClick={() => onSave(false)}
-            className="inline-flex h-11 items-center justify-center rounded-lg border border-ink/15 bg-white px-5 text-sm font-medium text-ink/75 transition hover:bg-cream disabled:opacity-50"
-          >
-            Save draft
-          </button>
-          <button
-            type="button"
-            disabled={phase === 'saving'}
-            onClick={() => onSave(true)}
-            className="inline-flex h-11 items-center justify-center rounded-lg border border-burgundy/20 bg-burgundy px-5 text-sm font-semibold text-cream transition hover:bg-burgundy/90 disabled:opacity-50"
-          >
-            {phase === 'saving' ? 'Saving…' : 'Publish'}
-          </button>
+          {/*
+            WHO CAN SEE IT — three answers, and SAVING IS THE SAME PRESS.
+            "Save draft / Publish" made privacy a side effect of which button you
+            reached for, and had no way to say "my guests, and nobody else". Each
+            row here saves the whole story AND sets its audience, so a couple can
+            never be left believing they saved when they only changed who reads.
+          */}
+          {STORY_AUDIENCES.map((choice) => {
+            const chosen = form.audience === choice;
+            return (
+              <button
+                key={choice}
+                type="button"
+                disabled={phase === 'saving'}
+                onClick={() => onSave(choice)}
+                aria-pressed={chosen}
+                className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm transition disabled:opacity-50 ${
+                  chosen
+                    ? 'border border-burgundy/20 bg-burgundy font-semibold text-cream hover:bg-burgundy/90'
+                    : 'border border-ink/15 bg-white font-medium text-ink/75 hover:bg-cream'
+                }`}
+              >
+                {chosen && phase === 'saving' ? 'Saving…' : STORY_AUDIENCE_LABEL[choice]}
+              </button>
+            );
+          })}
         </div>
+        {/* WHAT THE CURRENT CHOICE ACTUALLY DOES, said in full. Three buttons
+            tell a couple there are three answers and not one word about what any
+            of them means — and "only me" in particular has to say that it hides
+            the story from their own guests, or somebody picks it to be safe and
+            quietly shows it to nobody. */}
+        <p className="mt-2 text-xs leading-relaxed text-ink/55">
+          {STORY_AUDIENCE_NOTE[form.audience]}
+        </p>
       </div>
 
       {/* Share your story — shown once published. Co-locates sharing + the Real
           Stories opt-in so the couple never has to hunt for them on the privacy
           page. The published page's OG card shows the story, so a shared link
           previews beautifully on Facebook/Messenger/Viber. */}
-      {form.publish ? (
+      {storyIsShared(form.audience) ? (
         <section className={card}>
           <h2 className="font-display text-lg italic text-ink">Share your story</h2>
           <p className="mt-0.5 text-sm text-ink/60">

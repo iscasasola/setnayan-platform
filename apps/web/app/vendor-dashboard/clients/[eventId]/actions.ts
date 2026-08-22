@@ -1035,3 +1035,114 @@ export async function vendorDeclineLock(formData: FormData) {
   const flag = error ? 'error' : (env.status ?? 'ok');
   redirect(`/vendor-dashboard?lock_decline=${flag}`);
 }
+
+/**
+ * The supplier answers a deletion ask — agree, or decline with an optional
+ * reason. Owner 2026-08-21: a celebration a supplier was PAID for cannot be
+ * removed until they say so.
+ *
+ * ⚠ THE EVENT IS READ OFF THE ROW, NEVER FROM THE FORM. The RPC returns
+ * `{ok, state}` and no event id, and the browser must not name which event this
+ * answer belongs to — that is the couple's side of the fence. The row is fetched
+ * by the `vendor_id` the RPC has already authorised.
+ *
+ * 🔑 `no_pending_request` DOES NOT MEAN "WITHDRAWN". The RPC returns it for
+ * cancelled, agreed, declined AND never-asked alike. Mapping all four to "they
+ * withdrew it" tells a supplier who double-tapped a lie, so the state is read
+ * back and the four cases are told apart.
+ */
+async function answerDeletionRequest(formData: FormData, agree: boolean) {
+  const eventVendorId = formData.get('vendor_id');
+  if (typeof eventVendorId !== 'string') throw new Error('Invalid input');
+  const reasonRaw = formData.get('reason');
+  const reason =
+    typeof reasonRaw === 'string' && reasonRaw.trim().length > 0
+      ? reasonRaw.trim().slice(0, 240)
+      : null;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('vendor_answer_event_deletion', {
+    p_event_vendor_id: eventVendorId,
+    p_agree: agree,
+    p_reason: reason,
+  });
+
+  if (error) {
+    console.error('[deletion-answer] rpc failed', error);
+    redirect('/vendor-dashboard?deletion=failed');
+  }
+
+  const env = (data ?? {}) as { ok?: boolean; reason?: string };
+  if (env.ok !== true) {
+    // Tell the four apart rather than guessing. The admin read is scoped to the
+    // row the RPC already authorised this caller for.
+    const admin = createAdminClient();
+    const { data: row } = await admin
+      .from('event_vendors')
+      .select('delete_request_state, event_id')
+      .eq('vendor_id', eventVendorId)
+      .maybeSingle();
+    const state = (row?.delete_request_state as string | null) ?? null;
+    const outcome =
+      state === 'cancelled'
+        ? 'withdrawn'
+        : state === 'agreed' || state === 'declined'
+          ? 'already'
+          : 'failed';
+    redirect(`/vendor-dashboard?deletion=${outcome}`);
+  }
+
+  /*
+    Tell the COUPLE. Best-effort by contract: the answer is already recorded and
+    a notification hiccup must never roll it back. The event id comes from the
+    row, not the form.
+  */
+  const admin = createAdminClient();
+  const { data: row } = await admin
+    .from('event_vendors')
+    .select('event_id, vendor_name')
+    .eq('vendor_id', eventVendorId)
+    .maybeSingle();
+  const eventId = (row?.event_id as string | null) ?? null;
+  if (eventId) {
+    try {
+      const { data: couple } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      const name = (row?.vendor_name as string | null) ?? 'A supplier';
+      for (const m of couple ?? []) {
+        await emitNotification({
+          userId: m.user_id as string,
+          type: agree ? 'deletion_request_agreed' : 'deletion_request_declined',
+          title: agree
+            ? `${name} agreed to the removal`
+            : `${name} would rather keep it for now`,
+          body: agree
+            ? 'You can remove this celebration now.'
+            : reason ?? 'They did not give a reason.',
+          relatedUrl: '/dashboard',
+        });
+      }
+    } catch (err) {
+      console.error('[deletion-answer] notify failed', err);
+    }
+  }
+
+  revalidatePath('/vendor-dashboard');
+  redirect(`/vendor-dashboard?deletion=${agree ? 'agreed' : 'declined'}`);
+}
+
+export async function vendorAgreeToDeletion(formData: FormData) {
+  return answerDeletionRequest(formData, true);
+}
+
+export async function vendorDeclineDeletion(formData: FormData) {
+  return answerDeletionRequest(formData, false);
+}

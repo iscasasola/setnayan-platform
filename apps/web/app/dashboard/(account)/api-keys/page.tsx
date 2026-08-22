@@ -61,19 +61,6 @@ export default async function ApiKeysPage({ searchParams }: Props) {
 
       <PageMasthead
         title="API keys"
-        lede={
-          <>
-            Personal access tokens for the Setnayan API. Each key authenticates as you and is
-            scoped to a subset of resources. Browse the live endpoints at{' '}
-            <Link
-              href="/api/v1"
-              className="underline decoration-ink/40 underline-offset-2 hover:decoration-ink"
-            >
-              /api/v1
-            </Link>
-            .
-          </>
-        }
       />
 
       {search.error ? (

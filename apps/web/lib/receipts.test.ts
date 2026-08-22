@@ -51,12 +51,12 @@ test('honours an explicit non-default rate', () => {
 // computeVatFromGross — VAT-INCLUSIVE back-out for all-in vendor charm prices.
 test('vendor ₱999 all-in decomposes to base+VAT summing to exactly ₱999', () => {
   // vat = 999 × 12/112 = 107.036 → 107.04; preVat = 999 − 107.04 = 891.96.
-  assert.deepEqual(computeVatFromGross(999), { preVat: 891.96, vat: 107.04, gross: 999, rate: 12 });
+  assert.deepEqual(computeVatFromGross(999, 12), { preVat: 891.96, vat: 107.04, gross: 999, rate: 12 });
 });
 
 test('gross back-out invariant: preVat + vat === gross (2dp), any all-in price', () => {
   for (const gross of [999, 2499, 7499, 100, 1, 12345.67]) {
-    const { preVat, vat } = computeVatFromGross(gross);
+    const { preVat, vat } = computeVatFromGross(gross, 12);
     assert.equal(Math.round((preVat + vat) * 100) / 100, gross);
   }
 });
@@ -64,7 +64,7 @@ test('gross back-out invariant: preVat + vat === gross (2dp), any all-in price',
 test('gross back-out never charges more than the quoted all-in price', () => {
   // Unlike building UP from base (which would inflate ₱999 → ₱1,118.88), the
   // gross stays the all-in figure the vendor actually sees + pays.
-  assert.equal(computeVatFromGross(999).gross, 999);
+  assert.equal(computeVatFromGross(999, 12).gross, 999);
 });
 
 test('the rate is a required argument — there is no implicit tax', () => {
@@ -73,4 +73,18 @@ test('the rate is a required argument — there is no implicit tax', () => {
   // over its advertised price. The rate must always come from the caller.
   assert.deepEqual(computeVatFromBase(2500, 0), { preVat: 2500, vat: 0, gross: 2500, rate: 0 });
   assert.deepEqual(computeVatFromBase(2500, 12), { preVat: 2500, vat: 300, gross: 2800, rate: 12 });
+});
+
+test('the GROSS back-out has no implicit tax either — the twin fix, one layer on', () => {
+  // `computeVatFromBase` was made rate-required; its mirror kept defaulting to 12 for months
+  // afterwards, and the vendor branch of the receipt writer called it with no rate at all. A
+  // ₱999 receipt therefore declared ~₱107 of VAT that Setnayan is not registered to collect,
+  // on a document the vendor hands to their accountant.
+  //
+  // At the configured rate of 0 an all-in price is ENTIRELY sales, and no VAT is assessed.
+  assert.deepEqual(computeVatFromGross(999, 0), { preVat: 999, vat: 0, gross: 999, rate: 0 });
+  // The buyer is never charged more than the quoted all-in price, at any rate.
+  for (const rate of [0, 12]) {
+    assert.equal(computeVatFromGross(999, rate).gross, 999);
+  }
 });

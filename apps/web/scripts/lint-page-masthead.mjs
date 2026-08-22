@@ -41,9 +41,29 @@ const BASELINE_PATH = 'scripts/page-masthead-baseline.json';
 
 const ROOTS = ['app/dashboard', 'app/vendor-dashboard', 'app/admin'];
 
-/** Surfaces with a dated directive behind their current, denser shape. */
+/**
+ * Surfaces with a dated directive behind their current, denser shape.
+ *
+ * The 2026-08-19 entries are the label-above-an-h1 shape KEPT ON PURPOSE, each
+ * because the small line is not a restatement of the title. Reviewed one by one
+ * when the h1-anchored half of this guard was added; do not "tidy" them.
+ */
 const ALLOWED = [
   'studio/panood/broadcast', // 44px status strip — PR #3451
+  // Error pages: the small line is the wordmark, and the paragraph IS the page.
+  'error.tsx',
+  // 敬茶 names the rite; "Your serving order" alone does not say tea ceremony.
+  'guests/tea-ceremony',
+  // A printed poster a guest reads off a wall, not a page header.
+  'studio/papic/crew/poster',
+  // "Review blocked" is a red refusal badge with an icon — a state, not a label.
+  'vendors/[vendorId]/review',
+  // The service's CATEGORY above the service's NAME — classification, not an echo.
+  'vendors/[vendorId]/workspace',
+  // "Vendor package" above the package's own name — same: it says what kind.
+  'vendors/packages/[bookingId]',
+  // A contract document header: the line carries the counterparty and the date.
+  'vendor-dashboard/contracts',
 ];
 
 function walk(dir, out = []) {
@@ -73,6 +93,29 @@ for (const root of ROOTS) {
         offenders.push(`${relative(process.cwd(), file)}:${line}`);
         break;
       }
+    }
+
+    // ⚠ THE ABOVE KNEW ONE SPELLING AND CALLED ITSELF CLEAN OVER 22 PAGES.
+    // The eyebrow has TWO spellings in this codebase — the shared `.sn-eye`
+    // class, and a hand-rolled `uppercase tracking-[…]` label — and it does not
+    // always sit inside a <header>. The whole 109-file ratchet was built from
+    // the first shape only, so the second was never debt and never reported:
+    // "My Shop → Packages" over "Your packages", "Add categories" over "Bring
+    // more categories on-stage", "Demand Radar" over "Demand Radar".
+    //
+    // This half is anchored on the H1 instead of the container, so it catches
+    // the page header wherever it is written. A `.sn-eye` on a TILE or a
+    // SECTION is still correct and still untouched — the h1 is what makes it a
+    // page masthead.
+    const EYE = String.raw`(?:className="[^"]*sn-eye[^"]*"|className="[^"]*uppercase tracking-\[[^"]*")`;
+    const HEADER_SHAPE = new RegExp(
+      String.raw`<(p|span|h2)\b[^>]*?${EYE}[^>]*>[\s\S]{0,220}?</\1>\s*(?:\{/\*[\s\S]*?\*/\}\s*)?<h1\b`,
+    );
+    const m2 = HEADER_SHAPE.exec(src);
+    if (m2) {
+      const line = src.slice(0, m2.index).split('\n').length;
+      const key = `${relative(process.cwd(), file)}:${line}`;
+      if (!offenders.some((o) => o.split(':')[0] === key.split(':')[0])) offenders.push(key);
     }
   }
 }

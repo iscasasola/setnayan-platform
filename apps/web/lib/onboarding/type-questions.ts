@@ -64,7 +64,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
         { key: 'kids', title: 'A kids’ party', desc: 'Games, fun, and a playful program.', adds: ['arcade_games'] },
         { key: 'milestone', title: 'A milestone (18 / 21)', desc: 'A styled, photo-worthy celebration.', adds: ['photo_video', 'stylist_decorator'] },
         { key: 'adult', title: 'An adult birthday', desc: 'Drinks, music, good company.', adds: ['mobile_bar'] },
-        { key: 'golden', title: 'A golden one (50+)', desc: 'Elegant, warm, and full of family.', adds: ['live_band', 'florist'] },
+        { key: 'golden', title: 'A golden one (60+)', desc: 'Elegant, warm, and full of family.', adds: ['live_band', 'florist'] },
       ],
     },
     {

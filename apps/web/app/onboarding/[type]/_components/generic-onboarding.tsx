@@ -1,5 +1,10 @@
 'use client';
 
+import {
+  DateCalendar,
+  type DateCalendarValue,
+} from '@/app/onboarding/_shared/date-calendar';
+
 /**
  * The GENERIC (non-wedding) onboarding flow — a lean, brand-consistent shell
  * (NOT a fork of the 4,700-line wedding wizard). Screens: welcome → name → date
@@ -25,6 +30,10 @@ import {
   ordinal,
 } from '@/lib/anchor-celebration-dates';
 import { takeHonoree } from '@/lib/onboarding/honoree-handoff';
+import { takeMoment } from '@/lib/onboarding/moment-handoff';
+import { birthdayWhoFromAge } from '@/lib/onboarding/birthday-who-from-age';
+import { effortLimit } from '@/lib/onboarding/generic-plan';
+import type { Sex } from '@/lib/event-anchor';
 import { resolvePersona, type ExpAxis } from '@/app/onboarding/wedding/_data/experience-personas';
 import { PH_REGIONS } from '@/lib/regions';
 import { commitOnboardingEvent } from '@/app/onboarding/_shared/commit-event';
@@ -88,6 +97,10 @@ type Props = {
    * / flag-off) makes the flow byte-identical.
    */
   prefill?: OnboardingPrefill;
+  /** The signed-in person's own next-birthday age, when this is a birthday. */
+  selfBirthdayAge?: number | null;
+  /** Their sex, when on file — it decides which debut age is the adult line. */
+  selfSex?: Sex;
   /**
    * The services step's server-resolved view-model (Papic + Setnayan AI).
    * NULL = the NEXT_PUBLIC_ONBOARDING_SERVICES_STEP flag is off ⇒ the screen is
@@ -119,6 +132,12 @@ type Draft = {
   anchorOrigin: string;
   recurs: boolean;
   dateValue: string;
+  /** The calendar's answer. Optional so a draft saved before this existed
+   *  (v is still 1) still parses and simply resumes with an empty calendar. */
+  dateMode?: 'specific' | 'window';
+  dateCandidates?: string[];
+  windowStart?: string | null;
+  windowEnd?: string | null;
   pax: string;
   region: string;
   axes: Record<string, string>;
@@ -146,6 +165,8 @@ export function GenericOnboarding(props: Props) {
     resume,
     nextPath = null,
     prefill = EMPTY_PREFILL,
+  selfBirthdayAge = null,
+  selfSex = null,
     servicesStepView = null,
     servicesStepAiValue = null,
     todayISO,
@@ -170,12 +191,54 @@ export function GenericOnboarding(props: Props) {
   // how a link ends up on the wrong person. A resumed draft keeps the name and
   // falls back to label-keyed capping, which is the shipped behaviour.
   const [honoreeDependentId, setHonoreeDependentId] = useState<string | null>(null);
+  // Arrived from the reader's OWN moment on /dashboard/year (their birthday off
+  // their own profile). Blank honoree has always meant "the account holder", so
+  // there is nothing to prefill — only a question to stop asking as if we did
+  // not know. Set during hydration from the single-read carry.
+  const [momentForSelf, setMomentForSelf] = useState(false);
+  /**
+   * The age a carried BIRTHDAY moment turns — already printed on the row that
+   * was tapped ("Your birthday — turning 40"). Null when nothing was carried.
+   */
+  const [momentDayISO, setMomentDayISO] = useState<string | null>(null);
+  const [momentAge, setMomentAge] = useState<number | null>(null);
+  /**
+   * "Actually, it's for someone else" — the celebrant field is folded away when
+   * we already know the answer, and this opens it.
+   *
+   * 🔑 HIDING IS A DEFAULT, NEVER A WALL (the project rule, and the shipped
+   * `For <name> · Change` chip on the create picker is its precedent). The
+   * answer stays on screen and stays reversible in one tap; nothing is removed.
+   */
+  const [honoreeRevealed, setHonoreeRevealed] = useState(false);
+  /**
+   * The age-bracket answer we filled in for them, if any. A ref, not state: it
+   * is written inside the hydrate effect, and feeding it back into `screens`
+   * would put a value that effect SETS into the same effect's dependency list.
+   */
+  /** The age a tapped Year row handed over, if any. */
+  const [carriedAge, setCarriedAge] = useState<number | null>(null);
   const gatedLifeType = isGatedLifeType(eventType);
   // The date this event COMMEMORATES, and why — asked only for anniversary,
   // whose whole nature is "the day we're marking". Never asked for
   // birthday/debut/christening: their anchor IS a person's birthdate, which
   // events do not store (counsel gate, also enforced in event-insert.ts).
   const [anchorDate, setAnchorDate] = useState('');
+  /**
+   * The celebration date, the platform's way (owner 2026-08-21: *"we used to
+   * allow multiple single dates and a 30 days range date"*).
+   *
+   * 🔑 THIS WAS NEVER A MISSING FEATURE — IT WAS A MISSING WIRE. The commit
+   * payload below has carried `dateMode` / `dateCandidates` / `windowStart` /
+   * `windowEnd` since this flow was written; it hard-coded them to one
+   * candidate and a null window while the calendar that fills them sat inside
+   * the wedding shell. `dateValue` (the single day chip pick) is KEPT as the
+   * first candidate so the day chips above still work exactly as they did.
+   */
+  const [dateMode, setDateMode] = useState<'specific' | 'window'>('specific');
+  const [dateCandidates, setDateCandidates] = useState<string[]>([]);
+  const [windowStart, setWindowStart] = useState<string | null>(null);
+  const [windowEnd, setWindowEnd] = useState<string | null>(null);
   const [anchorOrigin, setAnchorOrigin] = useState<string>('wedding');
   const isAnniversary = eventType === 'anniversary';
   // "Make it a yearly thing?" — the owner-locked toggle types. Anniversary and
@@ -270,6 +333,10 @@ export function GenericOnboarding(props: Props) {
           setDisplayName(d.displayName ?? '');
           setHonoree(d.honoree ?? '');
           setAnchorDate(d.anchorDate ?? '');
+          setDateMode(d.dateMode ?? 'specific');
+          setDateCandidates(d.dateCandidates ?? []);
+          setWindowStart(d.windowStart ?? null);
+          setWindowEnd(d.windowEnd ?? null);
           setAnchorOrigin(d.anchorOrigin ?? 'wedding');
           setRecurs(d.recurs === true);
           setDateValue(d.dateValue ?? '');
@@ -300,6 +367,36 @@ export function GenericOnboarding(props: Props) {
         setHonoreeDependentId(carried.dependentId);
       }
     }
+    // Started from a row on /dashboard/year: that row was DERIVED from facts
+    // this account already holds, so the day it falls on and "this one is mine"
+    // are answers, not questions (owner 2026-08-20). Same single-read
+    // sessionStorage hop as the honoree carry, and for the same reason — a
+    // birthday is personal data and never goes in a URL.
+    //
+    // It seeds, it does not decide: the date screen still renders with the day
+    // in it, changeable, and the celebrant line still has its field. Nothing is
+    // removed from the sequence — dropping a screen here would shift every
+    // later index, and `?resume=1` navigates BY index (just above).
+    const moment = takeMoment();
+    if (moment) {
+      // The draft wins: a day the person actually chose on an earlier visit is
+      // never overwritten by the suggestion that brought them here.
+      if (moment.celebrationISO) setDateValue((v) => v || moment.celebrationISO!);
+      if (moment.forSelf) setMomentForSelf(true);
+      // The day the moment is ABOUT — kept apart from `anchorDate` on purpose;
+      // see the knownDayISO note below for why pouring it in there would print
+      // a sentence about a wedding that does not exist.
+      if (moment.celebrationISO) setMomentDayISO(moment.celebrationISO);
+      if (moment.age != null) setMomentAge(moment.age);
+      if (moment.age != null) setCarriedAge(moment.age);
+      // ── ANSWER THE AGE-BRACKET QUESTION FROM THE AGE WE WERE HANDED ───────
+      // The Year row printed "turning 40" and the wizard then asked which
+      // bracket the birthday was in. Seeded ONLY when the draft has no answer
+      // of its own: a bracket the person actually chose on an earlier visit
+      // always wins over one derived for them.
+      // The age itself is what crosses; the answer is derived below, in one
+      // place, so the carry and the profile cannot disagree about the mapping.
+    }
     setDetails(seededDetails);
     setSpecialtyValues(seededSpecialty);
     setHydrated(true);
@@ -309,12 +406,12 @@ export function GenericOnboarding(props: Props) {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, pax, region, axes, details, specialtyValues };
+      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, pax, region, axes, details, specialtyValues };
       localStorage.setItem(draftKey, JSON.stringify(d));
     } catch {
       /* quota / private mode — non-fatal */
     }
-  }, [hydrated, draftKey, displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, pax, region, axes, details, specialtyValues]);
+  }, [hydrated, draftKey, displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, pax, region, axes, details, specialtyValues]);
 
   // ── ANCHOR ≠ CELEBRATION ────────────────────────────────────────────────────
   // `anchor_date` is what the event commemorates; `event_date` is when it is
@@ -323,16 +420,56 @@ export function GenericOnboarding(props: Props) {
   // and still ASK for the party day, with the two days people actually choose
   // between as quick picks. No anchor (every type but anniversary today, or an
   // anniversary whose anchor was skipped) → the date step is exactly as it was.
+  /**
+   * Do we already know who this is for?
+   *
+   * Blank `honoree` has always MEANT "the account holder", so there is nothing
+   * to prefill — only a question to stop asking. Three things reopen the field,
+   * and the third is the one that matters:
+   *   • they typed a name (it is no longer theirs),
+   *   • they tapped Change,
+   *   • `blockedBy` — they already have one of these in planning, and the
+   *     refusal below tells them to put a name in. Showing a folded-away field
+   *     next to "put their name above" would be a dead end, which is the exact
+   *     defect that screen exists to fix.
+   */
+  const knowsCelebrant = momentForSelf && !honoree && !honoreeRevealed && !blockedBy;
+
+  /**
+   * The day this event is ABOUT, from either source: an anchor the person typed
+   * (anniversary only, today) or the day carried in from the Year row they
+   * tapped. Either way the "when is it?" question is already answered, and the
+   * real question is which day they will actually hold it.
+   *
+   * 🪤 THE CARRIED DAY IS DELIBERATELY NOT POURED INTO `anchorDate`, which is
+   * the obvious-looking fix and is wrong twice over:
+   *   1. an anchor is what the event COMMEMORATES; the carried day is the next
+   *      time it comes round — different columns, different meanings, and only
+   *      the anchor is persisted as one;
+   *   2. `anchorOrigin` defaults to the literal string 'wedding' and is never
+   *      derived from the event type, so a birthday would render
+   *      "Our wedding falls on Wed 16 Dec 2026" — naming a wedding that does
+   *      not exist, on a birthday screen.
+   */
+  const knownDayISO = anchorDate || momentDayISO;
+
   const anchorOptions = useMemo(
-    () => celebrationOptionsFor(anchorDate, today),
-    [anchorDate, today],
+    () => celebrationOptionsFor(knownDayISO, today),
+    [knownDayISO, today],
   );
   const anchorReturn = useMemo(
     () => (isAnniversary && anchorDate ? nextAnniversary(anchorDate, today) : null),
     [isAnniversary, anchorDate, today],
   );
   const activePick = activeCelebrationPick(anchorOptions, dateValue);
-  const dateInputRef = useRef<HTMLInputElement | null>(null);
+  /**
+   * ⚠ THIS USED TO POINT AT A NATIVE `<input type="date">` AND CALL
+   * `showPicker()`. That input is gone — the shared calendar replaced it — so
+   * leaving the ref as it was would have made "Another day" a chip that sets a
+   * value and appears to do nothing. It now points at the calendar and brings
+   * it into view, which is the same promise kept by the control that exists.
+   */
+  const dateCalendarRef = useRef<HTMLDivElement | null>(null);
   // Seed the date field with the anchor's own day the first time an anchor
   // appears. A blank <input type="date"> opens the calendar on TODAY — the one
   // month this event has nothing to do with. Seeding is also what makes "Another
@@ -354,15 +491,11 @@ export function GenericOnboarding(props: Props) {
   function pickCelebrationDay(iso: string, openPicker = false) {
     setDateValue(iso);
     if (!openPicker) return;
-    const el = dateInputRef.current;
+    const el = dateCalendarRef.current;
     if (!el) return;
-    el.focus();
-    // showPicker is Chromium/Safari-only and throws if the input isn't visible.
-    try {
-      el.showPicker?.();
-    } catch {
-      /* the field is focused and seeded either way */
-    }
+    // Bring the calendar to them rather than opening a picker they did not ask
+    // for. `smooth` is respected by the browser's reduced-motion setting.
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   const screen = screens[step]!;
@@ -403,8 +536,30 @@ export function GenericOnboarding(props: Props) {
     const picks: string[] = [];
     const labels: string[] = [];
     const seen = new Set<string>();
-    for (const id of [...plan.picks, ...extraPicks]) {
+    // ── "KEEP IT SIMPLE" NOW KEEPS IT SIMPLE (owner 2026-08-20) ─────────────
+    //
+    // The effort answer — Keep it simple · A balanced plan · Go all out — caps
+    // the persona plan at 4 / 6 / 9. It did NOT cap this list: the answers to
+    // the per-type questions were appended afterwards with no limit, so somebody
+    // who asked for simple could finish with nine categories — exactly what
+    // "Go all out" would have given them. Measured before the fix: cap 4 plus
+    // five appended = 9. Owner, asked directly: "yes keep it simple keeps it
+    // simple."
+    //
+    // 🔑 EXPLICIT ANSWERS TAKE THE SLOTS FIRST, and that ordering is the whole
+    // design. Capping the concatenation as it stood would have dropped the
+    // photo booth somebody deliberately asked for while keeping a category the
+    // persona quiz GUESSED — taking away a stated choice to honour a preference
+    // is the wrong way round. So what they said wins, and the guesses give way.
+    //
+    // ⚖ And when the stated choices alone exceed the cap, they ALL stand. The
+    // cap exists to stop us piling on; it must never delete an answer. A person
+    // who picks five things has asked for five things.
+    const limit = effortLimit(axes.effort);
+    for (const id of [...extraPicks, ...plan.picks]) {
       if (seen.has(id) || !labelById.has(id)) continue;
+      // Stated choices are never cut; derived ones stop at the limit.
+      if (picks.length >= limit && !extraPicks.includes(id)) continue;
       seen.add(id);
       picks.push(id);
       labels.push(labelById.get(id)!);
@@ -418,12 +573,80 @@ export function GenericOnboarding(props: Props) {
     return true; // welcome / date / pax / region / reveal are skippable
   })();
 
+  /**
+   * Screens whose only question we already answered for the person, so walking
+   * onto them would be asking something they can see we know.
+   *
+   * ⛔ SKIPPED IN TRANSIT, NEVER REMOVED. Taking a screen out of `screens` at
+   * runtime shifts every later index, and `screens[step]` is read with a
+   * non-null assertion whose very next line calls a string method on it — an
+   * out-of-range step is a render-time THROW, not a soft landing. Removal would
+   * also break the "you already have one of these" walk-back, which resolves
+   * its destination with `screens.indexOf('honoree')`.
+   *
+   * The one measurable cost of skipping instead is that the progress bar counts
+   * a screen nobody sees, so one tap moves it two notches. It still reaches
+   * 100%, and nothing else in the file reads `screens.length`.
+   */
+  /**
+   * The age of whoever this birthday is FOR, when we know it.
+   *
+   * Blank `honoree` has always meant "the account holder", so a birthday with no
+   * name typed on it is theirs — and their age is a date already on their own
+   * profile. The Year hop's carry is preferred when present (it is the row the
+   * person actually tapped); the profile answers every other door into the same
+   * flow, which is the half that was still asking.
+   */
+  const knownBirthdayAge =
+    eventType === 'birthday' && !honoree.trim() ? (carriedAge ?? selfBirthdayAge ?? null) : null;
+
+  /**
+   * The party-type answer we can derive rather than ask for. Owner, 2026-08-20:
+   * "since we already know it is for his birthday, then it is not a question of
+   * what type of party."
+   */
+  const derivedWho = birthdayWhoFromAge(knownBirthdayAge, selfSex);
+
+  const skippedScreens = useMemo(() => {
+    const set = new Set<string>();
+    // Skip only when what is on file MATCHES what we would derive. If a draft
+    // holds a different answer — one this person chose on an earlier visit,
+    // before we could work it out — the screen stays, because hiding a screen
+    // that holds somebody's own answer is a wall, not a default, and they would
+    // have no way back to it.
+    const stored = details.who;
+    if (derivedWho && (stored === undefined || stored === derivedWho)) set.add('tq_who');
+    return set;
+  }, [derivedWho, details.who]);
+
+  /**
+   * Fill the answer in, so the starter plan still gets the vendor categories
+   * that answer contributes (`extraPicksFrom` reads `details`). Never overwrites
+   * an answer already there.
+   */
+  useEffect(() => {
+    if (!hydrated || !derivedWho) return;
+    setDetails((d) => (d.who ? d : { ...d, who: derivedWho }));
+  }, [hydrated, derivedWho]);
+
   const go = useCallback(
     (delta: number) => {
       setError(null);
-      setStep((s) => Math.max(0, Math.min(screens.length - 1, s + delta)));
+      setStep((s) => {
+        const clamp = (n: number) => Math.max(0, Math.min(screens.length - 1, n));
+        const dir = delta >= 0 ? 1 : -1;
+        let next = clamp(s + delta);
+        // Keep moving in the SAME direction across anything auto-answered, so
+        // Back from the screen after it lands before it rather than bouncing.
+        // Never step off either end: the first and last screens are real
+        // destinations, and a skip that ran past them would strand the wizard.
+        while (next > 0 && next < screens.length - 1 && skippedScreens.has(screens[next]!)) {
+          next += dir;
+        }
+        return clamp(next);
+      });
     },
-    [screens.length],
+    [screens, skippedScreens],
   );
 
   const pickAxis = (axisId: string, key: string) => {
@@ -455,10 +678,20 @@ export function GenericOnboarding(props: Props) {
       pax: pax ? Number(pax) : null,
       budgetBand: null,
       budgetAmountCentavos: null,
-      dateMode: 'specific',
-      dateCandidates: dateValue ? [dateValue] : [],
-      windowStart: null,
-      windowEnd: null,
+      // The calendar's own answer. `dateValue` (the day-chip pick) still counts
+      // as a candidate, so a person who only tapped a chip commits exactly what
+      // they did before this calendar existed.
+      dateMode,
+      dateCandidates:
+        dateMode === 'specific'
+          ? dateCandidates.length > 0
+            ? dateCandidates
+            : dateValue
+              ? [dateValue]
+              : []
+          : [],
+      windowStart: dateMode === 'window' ? windowStart : null,
+      windowEnd: dateMode === 'window' ? windowEnd : null,
       moodFeelKey: feel,
       experiencePersona: personaKey,
       experienceForWhom:
@@ -522,12 +755,23 @@ export function GenericOnboarding(props: Props) {
       // (/vendor-invite/[slug]) to finish shortlisting; else land on the
       // event dashboard. Mirrors the wedding flow's post-commit goToDashboard.
       //
-      // `paymentPath` (owner 2026-08-11) only appears when they actually bought
-      // shots or cameras on the services step, and it yields to `nextPath`: a
-      // couple who came from a vendor invite is mid-errand, and the payment
-      // banner is waiting for them in the studio either way. Absent ⇒ nothing
-      // was bought, or the order could not be minted ⇒ ordinary landing.
-        router.replace(nextPath ?? res.paymentPath ?? `/dashboard/${res.eventId}`);
+      // `paymentPath` appears only when they actually bought something on the
+      // services step, and it is now the BILL — the order's own page, with the
+      // amount, the reference and the BDO/GCash instructions on it.
+      //
+      // 🔴 IT USED TO YIELD TO `nextPath` AND NO LONGER DOES. The old reasoning
+      // was that a couple arriving mid-errand from a vendor invite asked to go
+      // somewhere, and "the payment banner is waiting for them in the studio
+      // either way". Both halves were wrong: the banner named no amount, and
+      // the errand's `next` is a vendor's ordinary public page — permanently
+      // reachable, no token, no expiry — while a bill is time-sensitive and was
+      // promised to them one screen earlier ("We'll show you where to send it
+      // right after this"). Money first; the errand is one tap from the
+      // shortlist.
+      //
+      // Absent ⇒ nothing was bought, or the order could not be minted ⇒ the
+      // errand, then the ordinary landing.
+        router.replace(res.paymentPath ?? nextPath ?? `/dashboard/${res.eventId}`);
         return;
       }
       setCommitting(false);
@@ -620,26 +864,83 @@ export function GenericOnboarding(props: Props) {
       return (
         <div>
           <Eyebrow>The basics</Eyebrow>
-          <Title>Who are we celebrating?</Title>
-          <p className="mt-2 text-ink/55">
-            Their first name is enough. It keeps each {label.toLowerCase()} on its
-            own plan, so you can have one for each person.
-          </p>
-          <input
-            autoFocus
-            value={honoree}
-            onChange={(e) => {
-              setHonoree(e.target.value);
-              // Typing here means "this one is for someone else" — so the alaga
-              // carried in from the who step no longer describes it. Drop the
-              // link rather than file the event under the previous person; the
-              // typed name still keys the cap, exactly as it did before.
-              setHonoreeDependentId(null);
-              if (blockedBy) setBlockedBy(null);
-            }}
-            placeholder="e.g. Nina"
-            className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
-          />
+          {/* Started from your own row on the Year page, we already know the
+              answer, so the screen SAYS it rather than asking again — while
+              leaving the field there, because "actually it's for someone else"
+              has to stay one tap away. `honoree` blank IS the "it's yours"
+              answer; there is nothing to prefill into the box. */}
+          {/*
+            🔴 SAYING "THIS ONE'S YOURS" OVER AN EMPTY BOX IS STILL ASKING.
+            Owner, 2026-08-20, having tapped his own birthday on the Year page:
+            "i tried the birthday. it asked if its mine." The heading and the
+            sub-copy had already been changed to state the answer, and the
+            autofocus was already suppressed — but the text field rendered
+            unconditionally underneath, and a box with a cursor in it IS a
+            question whatever the words above it say.
+
+            🔑 SO THE ANSWER IS SHOWN THE WAY THIS APP ALREADY SHOWS A SETTLED
+            ANSWER: the create picker's `For <name> · Change` chip
+            (dashboard/(account)/create-event/_components/event-type-picker.tsx).
+            Reproduced, not redrawn.
+
+            ⛔ AND THE SCREEN IS NOT DROPPED. Removing it would shift every later
+            index — `screens[step]` is read with a non-null assertion and calls a
+            string method on the next line, so out of range is a render-time
+            THROW — and it would disarm the "you already have one of these"
+            walk-back below for exactly the people it targets: a self-birthday
+            submits a blank celebrant, which is the case that collides.
+          */}
+          {knowsCelebrant ? (
+            <>
+              <Title>This one’s yours</Title>
+              <p className="mt-2 text-ink/55">
+                We’ll keep this {label.toLowerCase()} under your name.
+              </p>
+              <div className="mt-6 flex max-w-lg items-center gap-3 rounded-[var(--m-r-md)] border border-ink/10 bg-ink/[0.02] px-4 py-3">
+                <span className="min-w-0 text-sm text-ink/70">
+                  For <span className="font-medium text-ink">you</span>
+                  {momentAge != null ? (
+                    <span className="block truncate text-xs text-ink/50">
+                      Turning {momentAge}
+                    </span>
+                  ) : null}
+                </span>
+                <button
+                  className="ml-auto shrink-0 text-xs font-medium text-ink/60 underline transition-colors hover:text-ink"
+                  onClick={() => setHonoreeRevealed(true)}
+                  type="button"
+                >
+                  Change
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Title>Who are we celebrating?</Title>
+              <p className="mt-2 text-ink/55">
+                {momentForSelf
+                  ? `Put their first name below — leave it empty and this ${label.toLowerCase()} stays under your name.`
+                  : `Their first name is enough. It keeps each ${label.toLowerCase()} on its own plan, so you can have one for each person.`}
+              </p>
+              <input
+                // Focus the field only when it was OPENED on purpose or was
+                // always the question — never when it merely happens to render.
+                autoFocus={!momentForSelf || honoreeRevealed}
+                value={honoree}
+                onChange={(e) => {
+                  setHonoree(e.target.value);
+                  // Typing here means "this one is for someone else" — so the alaga
+                  // carried in from the who step no longer describes it. Drop the
+                  // link rather than file the event under the previous person; the
+                  // typed name still keys the cap, exactly as it did before.
+                  setHonoreeDependentId(null);
+                  if (blockedBy) setBlockedBy(null);
+                }}
+                placeholder="e.g. Nina"
+                className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
+              />
+            </>
+          )}
           {/* The refusal lands HERE, next to the field that resolves it — the
               whole reason the old generic error was a dead end is that the user
               was told "try again" on a screen with nothing to change. */}
@@ -733,15 +1034,35 @@ export function GenericOnboarding(props: Props) {
       // What the anchor IS, in the user's own words: their typed origin, plus
       // the ordinal when we can count it ("your 12th"). n < 1 means the anchor
       // year hasn't come round yet — no ordinal rather than a wrong one.
-      const anchorWhat =
-        anchorReturn && anchorReturn.n >= 1
-          ? `Your ${ordinal(anchorReturn.n)} ${
-              anchorOrigin === 'wedding' || anchorOrigin === 'relationship'
-                ? 'anniversary'
-                : 'year'
-            }`
-          : ANCHOR_ORIGIN_LABELS[anchorOrigin as keyof typeof ANCHOR_ORIGIN_LABELS] ??
-            'The day you’re marking';
+      const anchorWhat = (() => {
+        if (anchorReturn && anchorReturn.n >= 1) {
+          return `Your ${ordinal(anchorReturn.n)} ${
+            anchorOrigin === 'wedding' || anchorOrigin === 'relationship'
+              ? 'anniversary'
+              : 'year'
+          }`;
+        }
+        // 🔴 THE DAY CAME FROM THE YEAR ROW, NOT FROM A TYPED ANCHOR — so it
+        // must be described by what it IS, never by `anchorOrigin`. That value
+        // is a plain useState defaulting to the literal 'wedding' and is never
+        // derived from the event type, so falling through to the label map
+        // below would print "Our wedding falls on Wed 16 Dec 2026" on a
+        // BIRTHDAY screen, naming a wedding that does not exist.
+        //
+        // The ordinal is the number the Year row was already showing
+        // ("Your birthday — turning 40"), carried across rather than re-derived.
+        if (!anchorDate && momentDayISO) {
+          const noun = label.toLowerCase();
+          if (momentForSelf) {
+            return momentAge != null ? `Your ${ordinal(momentAge)} ${noun}` : `Your ${noun}`;
+          }
+          return `The ${noun}`;
+        }
+        return (
+          ANCHOR_ORIGIN_LABELS[anchorOrigin as keyof typeof ANCHOR_ORIGIN_LABELS] ??
+          'The day you’re marking'
+        );
+      })();
       const chip = (on: boolean) =>
         [
           'min-h-[44px] rounded-[var(--m-r-md)] border px-3 text-sm font-semibold',
@@ -797,13 +1118,36 @@ export function GenericOnboarding(props: Props) {
               </button>
             </div>
           ) : null}
-          <input
-            ref={dateInputRef}
-            type="date"
-            value={dateValue}
-            onChange={(e) => setDateValue(e.target.value)}
-            className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
-          />
+          {/* THE CALENDAR — the same one the wedding has had since 2026-06-09:
+              up to 4 candidate days, a range capped at 30, and the hot-date
+              tint with a legend that says what it means. It renders BELOW the
+              day chips, not instead of them: the chips answer "which day of
+              the occasion", the calendar answers "which dates are you
+              considering", and a birthday needs both. */}
+          <div className="mt-6" ref={dateCalendarRef}>
+            <DateCalendar
+              chrome="bare"
+              mode={dateMode}
+              candidates={
+                dateCandidates.length > 0 ? dateCandidates : dateValue ? [dateValue] : []
+              }
+              windowStart={windowStart}
+              windowEnd={windowEnd}
+              onChange={(patch: DateCalendarValue) => {
+                if (patch.dateMode !== undefined) setDateMode(patch.dateMode);
+                if (patch.dateCandidates !== undefined) {
+                  setDateCandidates(patch.dateCandidates);
+                  // Keep the single-date field in step: the day chips, the
+                  // draft and every downstream read still speak `dateValue`,
+                  // and a calendar pick that left it stale would commit the
+                  // day the person had already changed their mind about.
+                  setDateValue(patch.dateCandidates[0] ?? '');
+                }
+                if (patch.windowStart !== undefined) setWindowStart(patch.windowStart);
+                if (patch.windowEnd !== undefined) setWindowEnd(patch.windowEnd);
+              }}
+            />
+          </div>
         </div>
       );
     }

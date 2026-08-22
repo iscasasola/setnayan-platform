@@ -144,7 +144,6 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
 
       <PageMasthead
         title="Your wedding monogram"
-        lede="Design your mark from scratch in the Vector Studio. It shows on your Event Hub, your QR codes, and across your dashboard."
       />
 
       {/* ── Carry-through: restore a mark designed on the free public studio (pre-signup) ── */}

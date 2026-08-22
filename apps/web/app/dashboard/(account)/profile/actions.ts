@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { MEAL_PREFERENCES, type MealPreference } from '@/lib/guests';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -114,6 +115,25 @@ export async function updatePersonalInfo(formData: FormData) {
   const civil_status = normalizeCivilStatus(formData.get('civil_status'));
   const sex = normalizeSex(formData.get('sex'));
 
+  /**
+   * FOOD — the answer a guest gives on every invitation, kept once (owner
+   * 2026-08-21). `meal_preference` is the SAME enum the guest row uses, so an
+   * unrecognised value is dropped rather than written; dietary needs are
+   * bounded to the 300 the column's CHECK allows so a long paste is refused by
+   * this form, not by the database.
+   *
+   * ⚠ Dietary text is HEALTH DATA under RA 10173 — it carries a per-field
+   * consent stamp, exactly like religion beside it.
+   */
+  const mealRaw = formData.get('meal_preference');
+  const meal_preference =
+    typeof mealRaw === 'string' && MEAL_PREFERENCES.includes(mealRaw as MealPreference)
+      ? (mealRaw as MealPreference)
+      : null;
+  const dietaryRaw = formData.get('dietary_restrictions');
+  const dietary_restrictions =
+    typeof dietaryRaw === 'string' ? dietaryRaw.trim().slice(0, 300) || null : null;
+
   // RA 10173 durable proof-of-consent (migration 20270705000000). Read the
   // current opt-in state so we only STAMP marketing_consent_at on an actual
   // transition — opting in sets now(), opting out clears it to NULL, and an
@@ -121,7 +141,7 @@ export async function updatePersonalInfo(formData: FormData) {
   // timestamp untouched (unlike updated_at, which every save overwrites).
   const { data: existing } = await supabase
     .from('users')
-    .select('marketing_opt_in, religion, civil_status, sex')
+    .select('marketing_opt_in, religion, civil_status, sex, dietary_restrictions')
     .eq('user_id', user.id)
     .maybeSingle();
   const wasOptedIn = existing?.marketing_opt_in === true;
@@ -139,6 +159,11 @@ export async function updatePersonalInfo(formData: FormData) {
   const religionConsent = consentPatch(religion, existing?.religion ?? null, nowIso);
   const civilConsent = consentPatch(civil_status, existing?.civil_status ?? null, nowIso);
   const sexConsent = consentPatch(sex, existing?.sex ?? null, nowIso);
+  const dietaryConsent = consentPatch(
+    dietary_restrictions,
+    existing?.dietary_restrictions ?? null,
+    nowIso,
+  );
 
   const { error } = await supabase
     .from('users')
@@ -161,6 +186,11 @@ export async function updatePersonalInfo(formData: FormData) {
       sex,
       ...(sexConsent.consent_at !== undefined
         ? { sex_consent_at: sexConsent.consent_at }
+        : {}),
+      meal_preference,
+      dietary_restrictions,
+      ...(dietaryConsent.consent_at !== undefined
+        ? { dietary_restrictions_consent_at: dietaryConsent.consent_at }
         : {}),
       updated_at: nowIso,
     })
@@ -542,4 +572,42 @@ export async function updateRemindersEnabled(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath('/dashboard', 'layout');
+}
+
+/**
+ * "Let people find me by name" — the way OUT of the people search (owner
+ * 2026-08-21, *"just like facebook"*).
+ *
+ * Default TRUE, as the owner asked and as the product he named behaves. What
+ * matters is that the switch exists and that `lib/people-search.ts` honours it:
+ * a directory with no way out is the version of this an NPC reviewer would
+ * object to. Turned off, the account cannot be found by typing its name, and
+ * can only be added by somebody who already knows their email address.
+ *
+ * ⚠ It does NOT hide an existing connection, an event, or a public profile —
+ * those have their own switches, and quietly changing them from here would be
+ * a control doing more than it says.
+ */
+export async function updateDiscoverableByName(formData: FormData) {
+  const raw = formData.get('discoverable_by_name');
+  if (raw !== 'true' && raw !== 'false') {
+    throw new Error('Invalid discoverability preference');
+  }
+  const enabled = raw === 'true';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('users')
+    .update({ discoverable_by_name: enabled, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/dashboard', 'layout');
+  redirect('/dashboard/profile?discoverable_saved=1#privacy');
 }

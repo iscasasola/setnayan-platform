@@ -161,7 +161,7 @@ export default async function GalleriesHubPage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-      <PageMasthead title="Galleries" lede="Everything you collected, in one place. Deliveries land over the days after the wedding — galleries fill in as they arrive." />
+      <PageMasthead title="Galleries" />
 
       <RevealList as="div" className="mt-6 space-y-3">
         {sources.map((s) => {

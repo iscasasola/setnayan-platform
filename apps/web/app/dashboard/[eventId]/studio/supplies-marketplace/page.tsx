@@ -118,14 +118,6 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
 
       <PageMasthead
         title="Setnayan-curated supplies, delivered."
-        lede={
-          <>
-            Print, rentals, decor, NFC keepsakes, specialty merch — sourced by
-            Setnayan from nearby vetted suppliers in your delivery area. You buy
-            from Setnayan at one transparent retail price; we coordinate
-            fulfillment with the supplier behind the scenes.
-          </>
-        }
         actions={
           <>
           {/* Was "Web V1 · launching", which reads as open-for-business on a page

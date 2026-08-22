@@ -142,26 +142,12 @@ export default async function PakantaPage({ params }: Props) {
 
       <PageMasthead
         titleNode={
-          <span className="flex items-center gap-3">
+          <span>
             <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-mulberry/10 text-mulberry">
               <Music aria-hidden className="h-5 w-5" strokeWidth={1.75} />
             </span>
             Pakanta
           </span>
-        }
-        lede={
-          owned ? (
-            <>
-              Your original wedding song. Add or refine the music notes below — we write the
-              lyrics from the story you already told us.
-            </>
-          ) : (
-            <>
-              An original song written for your wedding — yours, forever. We write it from{' '}
-              <span className="font-medium">the story you already told us</span>, so you only need to
-              add a few music notes.
-            </>
-          )
         }
       />
 

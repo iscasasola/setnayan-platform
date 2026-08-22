@@ -27,7 +27,7 @@ import { GENERIC_PROFILE, WEDDING_PROFILE } from './event-type-profile';
  *    is real and this is what refuses it.
  * 3. A SIGNED-IN ROW NEVER OPENS ONTO A REFUSAL. `monogram` is wedding-only and
  *    its page `redirect()`s away with no message, so a birthday organiser
- *    pressing "Palogo" would be silently dumped on their event page.
+ *    pressing "Logo Maker" would be silently dumped on their event page.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -245,7 +245,7 @@ test('a row whose surface the event type does not enable is DROPPED', () => {
   /*
     🔴 THE DEAD-CONTROL GUARD. `monogram` and `website` are wedding-only.
     `/dashboard/[id]/monogram` redirects away with NO message, so a birthday
-    organiser pressing "Palogo" lands back on their event page having been told
+    organiser pressing "Logo Maker" lands back on their event page having been told
     nothing — strictly worse than the marketing page it replaced.
   */
   const wedding = railToolsSignedIn({
@@ -262,7 +262,7 @@ test('a row whose surface the event type does not enable is DROPPED', () => {
   assert.ok(wedding.includes('palogo'), 'a wedding lost its monogram row');
   assert.ok(
     !generic.includes('palogo'),
-    'Palogo survives on an event type with no monogram surface. That row ' +
+    'Logo Maker survives on an event type with no monogram surface. That row ' +
       'redirects away with no message — a dead control.',
   );
   assert.ok(

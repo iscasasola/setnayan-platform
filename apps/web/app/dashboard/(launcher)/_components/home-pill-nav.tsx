@@ -59,7 +59,7 @@ export function HomePillNav({
         </Link>
         <Link href="/dashboard/library" className={item}>
           <Sparkles aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
-          Alaala
+          Memories
         </Link>
         <Link
           href="/dashboard/create-event"

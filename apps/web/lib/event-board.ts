@@ -192,11 +192,20 @@ export function manilaTodayISO(now: Date = new Date()): string {
  * a guess must not move somebody's celebration onto the Finished shelf.
  */
 export function isFinishedEvent(
-  event: Pick<EventWithRole, 'event_date' | 'archived'>,
+  event: Pick<EventWithRole, 'event_date' | 'archived'> & {
+    event_end_date?: string | null;
+  },
   todayISO: string,
 ): boolean {
   if (event.archived) return true;
-  return !!event.event_date && event.event_date.slice(0, 10) < todayISO;
+  // A celebration that spans several days is not finished on its first day.
+  // `event_end_date` is the last day when the type allows a range (see
+  // event-type-profile.ts) — the SAME value the full-res retention floor reads,
+  // so "when did this end" has one answer in the product, not two. Prod holds
+  // no ranged event today, so this is provably behaviour-neutral right now and
+  // correct the first time somebody sets one.
+  const lastDay = event.event_end_date?.slice(0, 10) || event.event_date?.slice(0, 10);
+  return !!lastDay && lastDay < todayISO;
 }
 
 /**
@@ -311,4 +320,207 @@ export function mergeBoardMemberships(
   for (const e of invited) byId.set(e.event_id, e);
   for (const e of organiser) byId.set(e.event_id, e); // organiser overwrites
   return [...byId.values()];
+}
+
+/**
+ * The FINISHED shelf, split by whether this account has turned the celebration
+ * into a story yet (owner 2026-08-20: *"your story should be also integrated in
+ * my events since we have a place there for finished. change it to unpublished
+ * and published. They get to choose on the unpublish which they will make a
+ * story of."*).
+ *
+ * 🔑 THE TWO WORDS DESCRIBE THE STORY, NOT THE CELEBRATION. A finished day is
+ * finished either way; what is unpublished is the chapter about it. That is why
+ * the shelves say what they are for in a sentence and never call a wedding
+ * "unpublished" on its own.
+ *
+ * `storyEventIds` is the set of event ids this account has a POSTED chapter
+ * for. It must be read with an error check by the caller: an unmeasured read
+ * looks exactly like "no stories yet" and would move every finished celebration
+ * onto the unpublished shelf with a Write-the-story button beside a story that
+ * already exists. When the read fails, callers pass `null` and get ONE shelf
+ * back — the state the board has today — rather than a confident wrong split.
+ */
+export function splitFinishedByStory(
+  finished: readonly EventWithRole[],
+  storyEventIds: ReadonlySet<string> | null,
+): { unpublished: EventWithRole[]; published: EventWithRole[]; measured: boolean } {
+  if (!storyEventIds) {
+    return { unpublished: [...finished], published: [], measured: false };
+  }
+  return {
+    unpublished: finished.filter((e) => !storyEventIds.has(e.event_id)),
+    published: finished.filter((e) => storyEventIds.has(e.event_id)),
+    measured: true,
+  };
+}
+
+/**
+ * May THIS account write the story of this celebration?
+ *
+ * Only the organiser. A guest's finished celebration still belongs on their
+ * board — it is their memory — but the event's story page admits an accepted
+ * host only, so offering a guest that button is a door onto a refusal.
+ *
+ * ⚠ THE CHIP CHANGED DESTINATION ON 2026-08-22 and this answer did not have to.
+ * It used to open the Storyteller composer, whose picker also excluded a guest;
+ * it now opens the event's own story page, whose editor also excludes a guest.
+ * Same audience, different reason — stated so a future reader does not think
+ * this function is still reasoning about the chapter picker.
+ *
+ * ⚠ A booked supplier MAY write a chapter about a day (owner 2026-08-15) and is
+ * deliberately not offered here: a supplier's celebrations do not reach this
+ * board at all (`STANCE_BY_MEMBER_TYPE` admits couple + guest only).
+ */
+export function canWriteStoryFor(event: {
+  member_type: EventWithRole['member_type'];
+}): boolean {
+  return eventStance(event.member_type) === 'organiser';
+}
+
+/**
+ * Is this celebration happening RIGHT NOW — today, in the venue's calendar day?
+ *
+ * 🔑 THE THREE SHELVES ARE ONE TIMELINE, SO THEY MUST SHARE ONE READING OF
+ * "TODAY". `isFinishedEvent` already answers "is it behind us" from the LAST
+ * day; this answers "are we inside it" from the same pair of values, so a
+ * ranged celebration is `happening` on every one of its days rather than only
+ * its first. Deriving the two independently is how a wedding ends up on two
+ * shelves at once, or on none.
+ *
+ * A put-away celebration is never `happening`: the person has said they do not
+ * want to see it, and the loudest row on the board is not where that gets
+ * overruled. `splitPlanningShelves` is what surfaces those, behind a switch.
+ */
+export function isHappeningNow(
+  event: Pick<EventWithRole, 'event_date' | 'archived'> & {
+    event_end_date?: string | null;
+  },
+  todayISO: string,
+): boolean {
+  if (event.archived) return false;
+  const firstDay = event.event_date?.slice(0, 10);
+  if (!firstDay) return false; // "Date to be set" is not today.
+  const lastDay = event.event_end_date?.slice(0, 10) || firstDay;
+  return firstDay <= todayISO && lastDay >= todayISO;
+}
+
+export type PlanningShelves = {
+  /** Running today. Absent from the board entirely when empty. */
+  happeningNow: EventWithRole[];
+  /** Ahead of them and not put away — the shelf they actually work in. */
+  planning: EventWithRole[];
+  /**
+   * Put away, of any date. Rendered ONLY when the person asks for them.
+   * Kept as its own list rather than merged into `planning` so the count can be
+   * printed beside the switch: a hidden thing whose number is unknown reads as
+   * a thing that might be gone.
+   */
+  putAway: EventWithRole[];
+};
+
+/**
+ * Split what used to be the single "Coming up" shelf into the three the owner
+ * asked for (2026-08-21).
+ *
+ * ⚠ `isFinishedEvent` IS DELIBERATELY NOT TOUCHED, and that is load-bearing.
+ * It answers "is this behind us" for the landing rule, the album href and the
+ * story split as well as for this board, and it treats `archived` as finished.
+ * Putting an event away therefore drops it onto the Untold shelf today —
+ * visible, which is the opposite of what "put away" means to the person who
+ * pressed it. Rather than redefine a resolver four other features read, this
+ * lifts put-away rows OUT of every shelf here, at the board, and hands them
+ * back only when the switch is on. The answer to "when is an event over" is
+ * unchanged; the answer to "what am I shown" is what moved.
+ *
+ * @param comingUp the not-yet-finished half of `splitEventBoard`
+ * @param finished the finished half — read ONLY to recover put-away rows, which
+ *   `isFinishedEvent` files here regardless of their date
+ */
+export function splitPlanningShelves(
+  comingUp: readonly EventWithRole[],
+  finished: readonly EventWithRole[],
+  todayISO: string,
+): PlanningShelves {
+  const putAway = [...comingUp, ...finished].filter((e) => !!e.archived);
+  const live = comingUp.filter((e) => !e.archived);
+  return {
+    happeningNow: live.filter((e) => isHappeningNow(e, todayISO)),
+    planning: live.filter((e) => !isHappeningNow(e, todayISO)),
+    putAway,
+  };
+}
+
+/**
+ * The finished shelves, with put-away rows removed.
+ *
+ * Same reason as above: a person who put a celebration away should not meet it
+ * on Untold either. It is one rule — "put away means hidden from the board" —
+ * and it is applied in one place so a sixth shelf cannot forget it.
+ */
+export function boardFinished(
+  finished: readonly EventWithRole[],
+): EventWithRole[] {
+  return finished.filter((e) => !e.archived);
+}
+
+export type DateClash = {
+  /** The day they collide on, ISO. */
+  dayISO: string;
+  /** Display names, board order, at least two. */
+  names: string[];
+};
+
+/**
+ * Two celebrations this person is on that fall on the SAME DAY.
+ *
+ * 🔑 IT ANSWERS FROM WHAT IS ALREADY ON THE BOARD — no extra read. Every row
+ * here was fetched to be rendered anyway, so the warning costs one pass over an
+ * array, and it can never disagree with the cards beside it.
+ *
+ * ⚠ IT IS ABOUT THE PERSON, NOT THE VENUE OR THE SUPPLIER. A clash here means
+ * "you are expected in two places", which is true whether they organise both,
+ * were invited to both, or one of each — so stance is deliberately ignored.
+ * Supplier double-booking is a different question with its own answer already
+ * (the vendor calendar's day states); do not fold the two together.
+ *
+ * A ranged celebration collides on EVERY day it covers, so a three-day reunion
+ * that swallows a birthday is caught. Undated rows never collide: "Date to be
+ * set" is a real state, and warning about a day nobody has chosen would be
+ * inventing the conflict.
+ */
+export function findDateClashes(
+  events: readonly EventWithRole[],
+): DateClash[] {
+  const byDay = new Map<string, string[]>();
+  for (const e of events) {
+    const first = e.event_date?.slice(0, 10);
+    if (!first) continue;
+    const last = e.event_end_date?.slice(0, 10) || first;
+    // Walk the range, capped so a mistyped year cannot spin here. 400 days is
+    // longer than any celebration and shorter than a runaway.
+    for (let d = first, guard = 0; d <= last && guard < 400; guard++) {
+      const seen = byDay.get(d);
+      if (seen) {
+        if (!seen.includes(e.display_name)) seen.push(e.display_name);
+      } else {
+        byDay.set(d, [e.display_name]);
+      }
+      d = nextDayISO(d);
+      if (!d) break;
+    }
+  }
+  return [...byDay.entries()]
+    .filter(([, names]) => names.length > 1)
+    .map(([dayISO, names]) => ({ dayISO, names }))
+    .sort((a, b) => (a.dayISO < b.dayISO ? -1 : a.dayISO > b.dayISO ? 1 : 0));
+}
+
+/** The calendar day after `iso`, or '' if it is unreadable. Pure string date
+ *  arithmetic through UTC so no ambient timezone can shift the day. */
+function nextDayISO(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return '';
+  const t = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) + 86_400_000;
+  return new Date(t).toISOString().slice(0, 10);
 }

@@ -13,7 +13,7 @@ import {
   computePaxProgress,
   fetchGroupMembershipsByEvent,
   fetchGuestGroupsByEvent,
-  fetchGuestsByEvent,
+  fetchGuestsByEventMeasured,
   guestDisplayName,
   GROUP_CATEGORY_LABELS,
   ROLE_LABELS,
@@ -37,11 +37,16 @@ import { SIDE_DOT } from '@/lib/side-colors';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
 import { suggestTableFor } from '@/lib/seat-suggest';
 import { ensureFinalized } from '@/lib/pax';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
 import { CaptureBar } from './_components/capture-bar';
+import {
+  AddFromPeopleSheet,
+  OpenAddFromPeopleButton,
+} from './_components/add-from-people-sheet';
 import { GroupsSidebar } from './_components/groups-sidebar';
 import { GuestsSearch } from './_components/guests-search';
 import { MobileGuestCarousel } from './_components/mobile-guest-carousel';
@@ -191,12 +196,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // which used to run as a 5th *sequential* round-trip after this block (owner
   // perf pass 2026-06-03). Folding it in drops one Singapore RTT off every
   // visit to the Guests tab.
-  const [guests, eventRow, groups, membershipsMap, joinUrl, pendingClaims, unsentInvites, assignments, tables, arrived, floorPlan, brandedQrActive] =
+  const [guestsRead, eventRow, groups, membershipsMap, joinUrl, pendingClaims, assignments, tables, arrived, floorPlan, brandedQrActive] =
     await Promise.all([
-      fetchGuestsByEvent(supabase, eventId),
+      fetchGuestsByEventMeasured(supabase, eventId),
       supabase
         .from('events')
-        .select('role_palette, estimated_pax')
+        // ⚠ THIS PAGE DID NOT READ THE EVENT'S DATE AT ALL. Owner, the morning
+        // after his Movie Night: *"i can still invite"*. It could not have known
+        // otherwise — nothing here asked when the celebration was, so every
+        // affordance on it addressed a party that had not happened yet.
+        .select('role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone')
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchGuestGroupsByEvent(supabase, eventId),
@@ -215,17 +224,20 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         .eq('event_id', eventId)
         .eq('entry_source', 'self_added_unlisted')
         .is('deleted_at', null),
-      // Lifecycle-ribbon live progress (Phase 3) — three more head+count reads
-      // in the same batch (no extra RTT cost beyond the parallel fan-out).
-      // invitation_sent_at isn't part of GUEST_FIELDS, so unsent is counted
-      // here rather than widening the shared GuestRow contract.
-      supabase
-        .from('guests')
-        .select('guest_id', { count: 'exact', head: true })
-        .eq('event_id', eventId)
-        .is('deleted_at', null)
-        .is('invitation_sent_at', null)
-        .neq('rsvp_status', 'declined'),
+      // 🚨 THE "N TO SEND" READ USED TO SIT HERE AND IT COULD NEVER FALL.
+      // It counted guests with `invitation_sent_at IS NULL` — a column with
+      // ZERO writers anywhere: not in this repo, not in a migration, and not in
+      // any function in the production schema (checked all three; 0 of 35 live
+      // guests are stamped). There is no per-guest send in this product to
+      // stamp it: the Invite stage hands out ONE link for everybody. So the pill
+      // read "32 to send" and would have read "32 to send" forever, next to
+      // three siblings whose numbers move.
+      //
+      // 🔑 The column was not written because the feature was never built — the
+      // save-the-date fan-out has its own `std_email_sent_at`, and its migration
+      // says this one is for "the later formal RSVP invitation". Stamping it
+      // would have been a lie in the other direction. The step now reports the
+      // one thing that stage genuinely has: whether the link can be handed out.
       // Living Roster P3 — the per-guest seat READ. `fetchAssignments` returns the
       // live seat rows (its length also gives the aggregate seatedCount the mobile
       // carousel wants), and `fetchTables` gives each assignment's table_label +
@@ -271,17 +283,56 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         () => false,
       ),
     ]);
+
+  // `measured: false` means the guest read was REFUSED — the rows are unknown,
+  // NOT empty. Every count, meter and zero-state below is computed from
+  // `guests`, so without this flag each of them states a fact about somebody's
+  // wedding that nobody actually measured.
+  const guests = guestsRead.rows;
+  const guestsMeasured = guestsRead.measured;
   // Self-join reconcile queue — the ids feed the inline blush roster rows; the
   // count still drives the /guests/claims banner + the mobile carousel badge.
   const selfJoinIds = ((pendingClaims.data ?? []) as { guest_id: string }[]).map(
     (r) => r.guest_id,
   );
   const pendingClaimsCount = pendingClaims.count ?? selfJoinIds.length;
-  const unsentCount = unsentInvites.count ?? 0;
   // Seated count now derives from the seat rows we already fetched (P3) rather
   // than a separate head+count round-trip — one fewer Singapore RTT.
   const seatedCount = assignments.length;
   const arrivedCount = arrived.count ?? 0;
+  /*
+    ─── HAS THIS CELEBRATION ALREADY HAPPENED? ──────────────────────────────
+
+    Owner, 2026-08-21, the morning after his Movie Night: *"nothing changed.
+    i can still invite."* He was right, and the reason is one line up in the
+    query above: this page never read the event's date, so it could not have
+    known. Every affordance on it — the name box, "Invite guests", "+ Add your
+    first guest", "Arrange the room" — addressed a party still to come.
+
+    🔒 NOTHING IS DISABLED BY THIS. A host adding the cousin who turned up
+    unannounced, or recording who actually came, must still be able to. What
+    changes is what the page LEADS with; the add paths recede one line down,
+    exactly as the day-of takeover already recedes the planning stack.
+
+    🔑 ONE RESOLVER. The boundary is `getMenuLifecyclePhase` — the same call
+    the Overview, the rail and the bottom bar make — passed the venue's own
+    clock and the event's LAST day. A second "is it past?" comparison here is
+    how the guest list and the dashboard would come to disagree about whether
+    the wedding happened.
+  */
+  const finished =
+    getMenuLifecyclePhase(
+      (eventRow.data as { event_date?: string | null } | null)?.event_date ?? null,
+      (eventRow.data as { cleared_at?: string | null } | null)?.cleared_at ?? null,
+      (eventRow.data as { timezone?: string | null } | null)?.timezone ?? undefined,
+      undefined,
+      (eventRow.data as { event_end_date?: string | null } | null)?.event_end_date ?? null,
+    ) === 'after';
+  // ⚠ `arrived.count` is null when the read was REFUSED, and `arrivedCount`
+  // above collapses that to 0. Fine for a meter; NOT fine for a sentence that
+  // tells somebody how many people came to their wedding. This keeps the
+  // distinction so the wrap strip can stay silent rather than say "0 came".
+  const arrivedMeasured = !arrived.error;
   // Log silent palette-read errors so a future ADD COLUMN regression
   // would surface in Sentry instead of falling through to an empty
   // palette. sanitizeRolePalette already handles null input cleanly, so
@@ -448,6 +499,17 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // rail. The body is the SAME <GuestDetailBody> the mobile sheet renders — one
   // body, two frames — so the desktop column can't diverge from the sheet.
   const inspectId = typeof search.inspect === 'string' ? search.inspect : null;
+  // ⚠ RESOLVED BEFORE THE INSPECTOR, not after: the inspector body reads
+  // this map, and it used to be declared below it.
+  // Resolve each guest's stored photo ref → a display URL once on the server:
+  // a 24h presigned GET for r2:// refs, or the raw Google avatar URL passed
+  // through verbatim (oauth_google). Keyed by the stored value so the client
+  // grid looks each card up — the same `initialDisplayUrls` contract
+  // <FileUpload> uses. Resolved over the FULL guest list (not `visible`) so
+  // re-filtering/sorting never re-signs; signing runs in parallel per the
+  // displayUrlForStoredAsset doc guidance.
+  const photoDisplayUrls = await guestPhotoDisplayUrls(guests);
+
   const inspectedGuest = inspectId
     ? (guests.find((g) => g.guest_id === inspectId) ?? null)
     : null;
@@ -472,6 +534,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         eventId={eventId}
         brandedQrActive={brandedQrActive}
         showFullDetailsLink={false}
+        photoDisplayUrl={photoDisplayUrls[inspectedGuest.photo_url ?? ''] ?? null}
       />
     </InspectorColumn>
   ) : null;
@@ -511,25 +574,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     '|',
   );
 
-  // Resolve each guest's stored photo ref → a display URL once on the server:
-  // a 24h presigned GET for r2:// refs, or the raw Google avatar URL passed
-  // through verbatim (oauth_google). Keyed by the stored value so the client
-  // grid looks each card up — the same `initialDisplayUrls` contract
-  // <FileUpload> uses. Resolved over the FULL guest list (not `visible`) so
-  // re-filtering/sorting never re-signs; signing runs in parallel per the
-  // displayUrlForStoredAsset doc guidance.
-  const photoDisplayUrls: Record<string, string> = Object.fromEntries(
-    (
-      await Promise.all(
-        guests
-          .filter((g) => g.photo_url)
-          .map(
-            async (g) =>
-              [g.photo_url!, await displayUrlForStoredAsset(g.photo_url)] as const,
-          ),
-      )
-    ).filter((e): e is [string, string] => e[1] !== null),
-  );
 
   // Team Bride / Team Groom counts — "both" counts to both sides on
   // purpose (a guest invited by both shows in either team view).
@@ -554,65 +598,144 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   }));
 
   const master = (
-    /* Owner directive 2026-06-01: top nav removed on Guests (mobile-first),
-       matching the Vendors tab treatment. .shell-topbar{display:none} is
-       scoped to this page via the injected <style> tag — the nav returns
-       the moment the host navigates away. -mt-6 cancels the <main py-6>
-       top-padding so the page content sits flush under the bottom-nav. */
-    <section className="sn-col -mt-6 space-y-6 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:pt-0">
-      <style>{`.shell-topbar{display:none}`}</style>
+    /* 🔴 THE SHELL'S TOP NAV COMES BACK ON GUESTS (owner 2026-08-21, two
+       screenshots: *"the top nav disappeared also … we still want to have the
+       same top nav of the shell"*).
+
+       This page injected `.shell-topbar{display:none}` under a 2026-06-01
+       directive — written when that class was `SidebarShell`'s own event-tree
+       chrome, so hiding it cost the page a duplicated event header and nothing
+       else. The one-shell move (2026-08-14/15) handed the SAME class the
+       product's ONLY top bar: identity, the ⌘K palette, the bell and the
+       account switcher — the surface's only route to sign-out and profile.
+       From that day the rule stopped meaning "no event chrome on Guests" and
+       started meaning "no way out of Guests", at EVERY width, because the
+       injected rule carries no media query. A directive is scoped to the thing
+       it was written about; this one outlived it.
+
+       The `-mt-6` and the safe-area top padding existed only to fill the hole
+       the hidden bar left, so they go with it — leaving them would push the
+       page up UNDER the bar that is now there.
+
+       ⚠ Vendors keeps its own `.shell-topbar` hide. That one is a full-screen
+       takeover and it is scoped `@media (max-width:1023px)`; it is not this. */
+    <section className="sn-col space-y-6">
 
       {/* The floating focus-mode "back X" (top-left) was REMOVED 2026-06-15
           (nav-surfaces follow-up to #1470): the global journey bottom nav is now
           ALWAYS present on this surface — the Guests sub-views moved to top-of-
           page `.sn-seg` tabs (MobileGuestCarousel) rather than a second bottom
-          bar — so a dedicated "back to home" affordance is vestigial. The safe-
-          area top padding is kept (the top bar is still hidden on mobile via the
-          <style> above) but no longer reserves the extra 3.25rem the X needed. */}
+          bar — so a dedicated "back to home" affordance is vestigial.
+          ⚠ THE SENTENCE THAT USED TO FOLLOW HERE OUTLIVED BOTH ITS REFERENTS:
+          it said the safe-area top padding was kept "because the top bar is
+          still hidden on mobile via the <style> above". The <style> is gone
+          (owner 2026-08-21) and so is the padding — the shared bar owns that
+          space now. Prose that names a deleted mechanism is how the next reader
+          gets it wrong. */}
       {/* Header is DESKTOP-ONLY (owner directive 2026-06-03 — "remove GUEST
           LIST / N guests since we already have Summary below"). On mobile the
           carousel's Summary panel carries the count; the top is just the list. */}
       <PageMasthead
         titleNode={
-          <>
-            <span className="font-mono">{stats.total}</span>{' '}
-            <span className="sn-h1-tail">
-              {stats.total === 1 ? 'guest' : 'guests'}
-            </span>
-          </>
+          guestsMeasured ? (
+            <>
+              <span className="font-mono">{stats.total}</span>{' '}
+              <span className="sn-h1-tail">
+                {stats.total === 1 ? 'guest' : 'guests'}
+              </span>
+            </>
+          ) : (
+            // A refused read must never render as a headcount of zero.
+            <span className="sn-h1-tail">Guests</span>
+          )
         }
         actions={
           <div className="hidden flex-col gap-2 self-start lg:flex lg:flex-row lg:items-center lg:self-auto">
+            {/* AFTER THE CELEBRATION the two doors change meaning. "Invite
+                guests" and "Arrange the room" are both about a party still to
+                come; the door that matters now is the record of who actually
+                walked in. Neither of the other two is orphaned — the add paths
+                sit one line below in the roster, and the seat plan keeps its
+                own rail row under "Also in this event". */}
+            {finished ? (
+              <Link
+                href={`/dashboard/${eventId}/guests/checkin`}
+                className="button-secondary inline-flex items-center gap-2"
+              >
+                <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Who came
+              </Link>
+            ) : null}
             {/* Invite doorway (2026-07-15) — the Invite journey stage (/guests/invite:
                 the one join link + QR) was orphaned when the Living Roster reskin
                 dropped the lifecycle ribbon; this restores its desktop entry point.
                 Same button-secondary weight as the Share affordance beside it —
                 discoverable, not shouty. Share stays; the add paths (primary add,
                 CSV import, quick-add list, full form) live in the capture bar. */}
-            <Link
-              href={`/dashboard/${eventId}/guests/invite`}
-              className="button-secondary inline-flex items-center gap-2"
-            >
-              <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Invite guests
-            </Link>
+            {finished ? null : (
+              <Link
+                href={`/dashboard/${eventId}/guests/invite`}
+                className="button-secondary inline-flex items-center gap-2"
+              >
+                <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Invite guests
+              </Link>
+            )}
             {/* Seat-plan doorway (2026-07-15) — the Seat journey stage
                 (/seating: the "Arrange the room" editor, authoring truth for the
                 3D plan) was reachable ONLY from the mobile carousel's journey pill;
                 the desktop Guests page had no door to it. Same disease the Invite
                 door (beside) just cured. Same button-secondary weight — the proto's
                 `.gseat` glass pill. */}
-            <Link
-              href={`/dashboard/${eventId}/seating`}
-              className="button-secondary inline-flex items-center gap-2"
-            >
-              <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Arrange the room
-            </Link>
+            {finished ? null : (
+              <Link
+                href={`/dashboard/${eventId}/seating`}
+                className="button-secondary inline-flex items-center gap-2"
+              >
+                <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Arrange the room
+              </Link>
+            )}
             {joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
           </div>
         }
       />
+
+      {/* ─── THE CELEBRATION HAPPENED: LEAD WITH THE RECORD, NOT THE PLAN ───
+           One line, because the page header is one line (owner-locked) and this
+           is the same idea one level down. It states the fact first, then hands
+           over the two things that are still worth doing with a guest list
+           afterwards: the arrivals record and the story.
+
+           ⚠ THE ARRIVALS FIGURE IS OMITTED WHEN IT WAS NOT MEASURED, not
+           printed as 0. Telling somebody nobody came to their wedding because
+           a query was refused is the worst version of this whole page. */}
+      {finished ? (
+        <div className="flex flex-col gap-2 rounded-xl border border-terracotta/25 bg-terracotta/[0.04] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-ink/75">
+            <span className="font-semibold text-ink">That&rsquo;s a wrap.</span>{' '}
+            {arrivedMeasured && arrivedCount > 0
+              ? `${arrivedCount} ${arrivedCount === 1 ? 'person' : 'people'} checked in on the day.`
+              : guestsMeasured && stats.total === 0
+                ? 'Nobody was added to this one.'
+                : 'This is the list as it stood.'}
+          </p>
+          <span className="flex flex-wrap items-center gap-3">
+            <Link
+              href={`/dashboard/${eventId}/guests/checkin`}
+              className="text-sm font-medium text-mulberry underline underline-offset-2"
+            >
+              Who came
+            </Link>
+            <Link
+              href={`/dashboard/${eventId}/website/editorial`}
+              className="text-sm font-medium text-mulberry underline underline-offset-2"
+            >
+              Write the story
+            </Link>
+          </span>
+        </div>
+      ) : null}
 
       {flash ? (
         <p
@@ -655,10 +778,29 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           passed; the binding count is frozen so late changes no longer move
           vendor costs. Shown on desktop + mobile. */}
       {finalize.locked ? (
+        /*
+          ⚠ IT SAID "2 GUESTS LOCKED IN" ON A LIST WITH NOBODY ON IT.
+
+          The frozen figure is `max(estimated_pax, headcount)` — for an event
+          where nobody was ever added it is simply the head count the couple
+          typed at sign-up. Calling that "guests locked in" put a number that
+          contradicts the list, in bold, at the top of the list. The owner's own
+          screen read "0 guests" and "2 guests locked in" and "0 of 2 pax" at
+          once.
+
+          🔑 SAY WHAT THE NUMBER IS FOR. It is the head count suppliers price
+          against, and that sentence is true whether the list has nobody on it
+          or three hundred — so it is ONE wording, not a conditional that has to
+          decide which case it is in.
+        */
         <p className="rounded-xl border border-ink/15 bg-ink/[0.03] px-4 py-3 text-sm text-ink/70">
           <span className="font-semibold text-ink">Guest list finalized</span>
-          {finalize.finalPax ? ` · ${finalize.finalPax} guests locked in` : ''}. Changes
-          after your guest‑list deadline no longer change vendor costs.
+          {finalize.finalPax
+            ? ` · your suppliers price for ${finalize.finalPax} ${finalize.finalPax === 1 ? 'head' : 'heads'}`
+            : ''}
+          . Changes after your guest‑list deadline no longer change what your
+          suppliers charge, and your guests can no longer reply on your event
+          page.
         </p>
       ) : null}
 
@@ -679,10 +821,30 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             it inline. A new guest inherits the active Side lens. FIND lives in
             the SummaryFacetBar query row now (search consolidation 2026-07-13),
             not behind a mode toggle here. */}
-        <CaptureBar
-          eventId={eventId}
-          defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
-        />
+        {/* ⚠ THE NAME BOX IS THE THING THE OWNER POINTED AT. It invites you to
+            type a guest into a celebration that is over. It is RECEDED, not
+            removed — somebody who turned up unannounced still belongs on the
+            list, and a host writing thank-yous needs them there. Same
+            disclosure the day-of takeover uses for the planning stack, so
+            "receded" means one thing in this product and not two. */}
+        {finished ? (
+          <details className="rounded-xl border border-ink/12 bg-white/50 px-4 py-3">
+            <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70">
+              Still adding someone? — the list is open
+            </summary>
+            <div className="mt-3">
+              <CaptureBar
+                eventId={eventId}
+                defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
+              />
+            </div>
+          </details>
+        ) : (
+          <CaptureBar
+            eventId={eventId}
+            defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
+          />
+        )}
 
         {/* The single facet instrument. Search + Sort + List/Mind-map fold into
             its query row (they were a separate Toolbar block pre-2026-07-13);
@@ -690,6 +852,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             uses the carousel's own compose-row + Journey switch. */}
         <SummaryFacetBar
           stats={stats}
+          measured={guestsMeasured}
           eventId={eventId}
           search={search}
           q={q}
@@ -716,7 +879,15 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           (pl-11 left-pad dropped 2026-06-15 — the fixed back-X it cleared is
           gone, so the strip uses symmetric padding.) */}
       {hasAnyFilter ? (
-        <div className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-40 -mt-2 flex gap-2 overflow-x-auto rounded-xl border border-ink/15 bg-white/55 px-3 py-2 backdrop-blur-xl lg:hidden">
+        /* ⚠ THE OFFSET CLEARS THE SHARED TOP BAR, WHICH THIS PAGE USED TO
+            HIDE. It was `env(safe-area-inset-top)+0.5rem` — correct only while
+            the injected `.shell-topbar{display:none}` meant nothing was above
+            it. With the bar restored (owner 2026-08-21) that offset parks this
+            strip UNDERNEATH it on a phone. `--fd-bar` is the shell's own
+            measured bar height (61px in the app variant), read from the
+            ancestor it is declared on, so the two can never drift; the `0px`
+            fallback is what any surface outside that shell gets. */
+        <div className="sticky top-[calc(var(--fd-bar,0px)+0.5rem)] z-40 -mt-2 flex gap-2 overflow-x-auto rounded-xl border border-ink/15 bg-white/55 px-3 py-2 backdrop-blur-xl lg:hidden">
           <ActiveFilters
             eventId={eventId}
             search={search}
@@ -749,6 +920,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           tags={allTags}
           activeTag={tagFilter}
           allVisibleIds={visible.map((g) => g.guest_id)}
+          measured={guestsMeasured}
           total={stats.total}
           attending={stats.attending}
           pending={stats.pending}
@@ -756,7 +928,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           paxProgress={paxProgress}
           teamFilter={teamFilter}
           pendingClaims={pendingClaimsCount}
-          unsent={unsentCount}
+          inviteLinkReady={Boolean(joinUrl)}
           unseated={Math.max(0, stats.attending - seatedCount)}
           arrived={arrivedCount}
           roleSetKey={guestRoleSetKey}
@@ -793,7 +965,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
          the bar on first load (frozen under prefers-reduced-motion). */
       <div key={rosterLensKey} className="gl-settle-delayed sn-lens-swap min-w-0 space-y-4">
           {visible.length === 0 ? (
-            <EmptyState hasGuests={stats.total > 0} eventId={eventId} />
+            <EmptyState
+              finished={finished}
+              hasGuests={stats.total > 0}
+              eventId={eventId}
+              measured={guestsMeasured}
+            />
           ) : (
             <GuestListMultiselect
               eventId={eventId}
@@ -833,12 +1010,26 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         roleSetKey={guestRoleSetKey}
       />
 
+      {/* The second add doorway (owner 2026-08-21): pick from the people
+          Setnayan already knows for you rather than retyping them. Mounted
+          beside QuickAddSheet and idle until a trigger fires — it reads its
+          candidates ON OPEN, so a guest list nobody opens this on costs
+          nothing. Its own header carries the privacy reasoning. */}
+      <AddFromPeopleSheet
+        eventId={eventId}
+        defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
+      />
+
       {/* Living Roster P1 · in-page overlay hosts. UndoToastHost is the single
           bottom snackbar for optimistic deletes; GuestDrawerHost is the right
           slide-in quick-view a roster row opens. Both are portal-rendered
           client islands that sit idle until acted on. */}
       <UndoToastHost />
-      <GuestDrawerHost eventId={eventId} brandedQrActive={brandedQrActive} />
+      <GuestDrawerHost
+        eventId={eventId}
+        brandedQrActive={brandedQrActive}
+        photoDisplayUrls={photoDisplayUrls}
+      />
     </section>
   );
 
@@ -1107,6 +1298,7 @@ const SUMMARY_FILTER_KEYS = [
 
 function SummaryFacetBar({
   stats,
+  measured,
   eventId,
   search,
   q,
@@ -1125,6 +1317,8 @@ function SummaryFacetBar({
   tags,
 }: {
   stats: GuestStats;
+  /** False when the guest read was refused — every figure here is then unknown. */
+  measured: boolean;
   eventId: string;
   search: Record<string, string | undefined>;
   q: string;
@@ -1197,23 +1391,20 @@ function SummaryFacetBar({
   ];
 
   return (
-    <div
-      className="gl-settle rounded-tile border"
-      style={{
-        background: 'var(--sn-glass-bg)',
-        borderColor: 'var(--sn-glass-line)',
-        backdropFilter: 'var(--sn-glass-blur)',
-        WebkitBackdropFilter: 'var(--sn-glass-blur)',
-        boxShadow: 'var(--sn-sh-tile)',
-      }}
-    >
-      {/* Root has NO overflow-hidden: the inline group pills' rename/delete kebab
-          opens downward and would otherwise be clipped past the bar's bottom edge.
-          Glass panel (§1.2 .sn-tile recipe, inline so the sectioned px-4/py-3
-          layout keeps its own padding). ONE blurred panel — within the §1.6 budget.
-          Meters — the pax target + confirmations progress that headlined the old
-          stat strip, kept verbatim (data-display only). */}
-      <div className="border-b border-ink/[0.07] px-4 py-3">
+    /* NO FRAME (owner 2026-08-21: *"we want to remove the framings so it moves
+       cleanly"*). This was a glass panel wrapping four stacked sections that
+       ALREADY separate themselves with hairlines — so the outer edge was a
+       fifth line saying nothing the four inside were not, and it inset every
+       row 16px from the page measure while the roster below sat flush. The
+       sections and their dividers are untouched; the box around them is gone,
+       which is what lets the eye run straight down the page.
+
+       Root still has NO overflow-hidden: the inline group pills' rename/delete
+       kebab opens downward and would otherwise be clipped past the last row.
+       Meters — the pax target + confirmations progress that headlined the old
+       stat strip, kept verbatim (data-display only). */
+    <div className="gl-settle">
+      <div className="border-b border-ink/[0.07] py-3">
         {paxProgress ? (
           <div className="mb-2.5">
             <div className="flex items-baseline justify-between gap-2 text-xs">
@@ -1263,13 +1454,25 @@ function SummaryFacetBar({
         <div className="flex items-baseline justify-between text-xs text-ink/55">
           <span className="font-mono uppercase tracking-[0.15em]">Confirmations</span>
           <span className="font-mono tabular-nums">
-            {responded} of {stats.total} responded · {pct}%
-            {stats.plus_ones > 0 ? ` · ${stats.plus_ones} plus-ones` : ''}
+            {measured ? (
+              <>
+                {responded} of {stats.total} responded · {pct}%
+                {stats.plus_ones > 0 ? ` · ${stats.plus_ones} plus-ones` : ''}
+              </>
+            ) : (
+              // "0 of 0 responded · 0%" is the most confident sentence on this
+              // page, and on a refused read it is pure invention.
+              'not loaded'
+            )}
           </span>
         </div>
         <div
           role="img"
-          aria-label={`${responded} of ${stats.total} guests have responded (${stats.attending} attending, ${stats.maybe} maybe, ${stats.declined} declined, ${stats.pending} pending)`}
+          aria-label={
+            measured
+              ? `${responded} of ${stats.total} guests have responded (${stats.attending} attending, ${stats.maybe} maybe, ${stats.declined} declined, ${stats.pending} pending)`
+              : 'Responses could not be loaded'
+          }
           className="mt-1.5 flex h-2 overflow-hidden rounded-full bg-ink/10"
         >
           <div className="h-full bg-success-400" style={{ width: `${seg(stats.attending)}%` }} />
@@ -1283,7 +1486,7 @@ function SummaryFacetBar({
           Toolbar so search is never behind a toggle). Search + Sort are
           Suspense-wrapped client islands (they read useSearchParams); the facet
           bar itself stays a Server Component. */}
-      <div className="flex items-center gap-2 border-b border-ink/[0.07] px-4 py-3">
+      <div className="flex items-center gap-2 border-b border-ink/[0.07] py-3">
         <Suspense fallback={null}>
           <GuestsSearch initialValue={q} />
         </Suspense>
@@ -1296,14 +1499,18 @@ function SummaryFacetBar({
       </div>
 
       {/* Facet lens rows — the counts ride the filter pills. */}
-      <div className="flex flex-col gap-2.5 px-4 py-3">
+      <div className="flex flex-col gap-2.5 py-3">
         <FacetRow label="Side">
           {sideOptions.map((s) => (
             <LensPill
               key={s.key}
               href={buildHref({ team: s.key === 'all' ? null : s.key })}
               active={teamActive === s.key}
-              count={s.count}
+              // Seven confident zeros beside one small "not loaded" line reads
+              // as "we could not measure it, and it is zero" — the hedge loses.
+              // LensPill hides the badge entirely when the count is undefined,
+              // so the filter still works and only the invented number goes.
+              count={measured ? s.count : undefined}
               dot={s.dot}
             >
               {s.label}
@@ -1319,7 +1526,7 @@ function SummaryFacetBar({
                 key={r.key}
                 href={buildHref({ rsvp: isActive ? null : r.key })}
                 active={isActive}
-                count={r.count}
+                count={measured ? r.count : undefined}
                 title={isActive ? `Clear ${r.label} filter` : `Show only ${r.label}`}
               >
                 {r.label}
@@ -1457,10 +1664,56 @@ function ShareDropdown({ joinUrl }: { joinUrl: string }) {
   );
 }
 
-function EmptyState({ hasGuests, eventId }: { hasGuests: boolean; eventId: string }) {
+function EmptyState({
+  hasGuests,
+  eventId,
+  measured,
+  finished = false,
+}: {
+  hasGuests: boolean;
+  eventId: string;
+  /** False when the guest read was refused — see fetchGuestsByEventMeasured. */
+  measured: boolean;
+  /** The celebration has already happened. "Start by adding the couple's first
+   *  invite" is then a sentence about a party that is over — it is the copy the
+   *  owner was reading the morning after his Movie Night. The add paths STAY
+   *  (a late name still belongs on the list); only the framing changes. */
+  finished?: boolean;
+}) {
+  // THE READ WAS REFUSED. "No guests yet" here is not a neutral default, it is
+  // a statement about their wedding built on a query that never came back —
+  // and it renders BYTE-IDENTICAL for a couple with 180 names. Three beats,
+  // the shape ErrorState uses elsewhere: what broke, what SURVIVED, what to do.
+  // Survived leads, because an error that only says what broke reads as loss.
+  if (!measured) {
+    return (
+      <div
+        role="status"
+        className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-6 text-center"
+      >
+        <p className="text-base font-extrabold tracking-tight text-ink">
+          We couldn&rsquo;t load your guest list.
+        </p>
+        <p className="mt-2 text-sm text-ink/70">
+          Nothing has been lost &mdash; everyone you have added is still there.
+          We just couldn&rsquo;t reach it this time.
+        </p>
+        {/* A plain anchor, not a Link: this needs a real round trip to the
+            server, which a client-side navigation to the same URL may not do. */}
+        <a
+          href={`/dashboard/${eventId}/guests`}
+          className="button-secondary mt-4 inline-flex items-center"
+        >
+          Try again
+        </a>
+      </div>
+    );
+  }
   if (hasGuests) {
     return (
-      <div className="rounded-lg border border-dashed border-ink/15 bg-cream p-6 text-center text-ink/60">
+      /* Unframed (owner 2026-08-21) — a dashed rectangle around one sentence
+         reads as a drop zone, which this has never been. */
+      <div className="p-6 text-center text-ink/60">
         No guests match your filters.
         <div className="mt-3">
           <Link href={`/dashboard/${eventId}/guests`} className="button-secondary">
@@ -1471,23 +1724,38 @@ function EmptyState({ hasGuests, eventId }: { hasGuests: boolean; eventId: strin
     );
   }
   return (
-    <div className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center">
+    /* Unframed (owner 2026-08-21). The dashed box made the emptiest state on
+       the page the most heavily drawn thing on it. The sentence and the two
+       doors carry it; the error state above KEEPS its edge, deliberately —
+       that one is a refusal and has to stop the eye. */
+    <div className="p-8 text-center">
       <p className="text-base text-ink/70">
-        No guests yet. Start by adding the couple&rsquo;s first invite.
+        {finished
+          ? 'No guests were added to this one. You can still add anybody who came.'
+          : 'No guests yet. Start by adding the couple’s first invite.'}
       </p>
       {/* Lead with the one-tap quick-add sheet (name + side, done) — the heavy
           detailed form stays one click away for power users. Inviting is THE
           zero-state action, so the Invite doorway (2026-07-15) sits right here
           beside adding names — share one link and let guests self-add. */}
       <div className="mt-4 flex flex-col items-center gap-2">
-        <OpenQuickAddButton label="+ Add your first guest" />
-        <Link
-          href={`/dashboard/${eventId}/guests/invite`}
-          className="button-secondary inline-flex items-center gap-2"
-        >
-          <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Invite guests
-        </Link>
+        <OpenQuickAddButton label={finished ? '+ Add someone who came' : '+ Add your first guest'} />
+        {/* THE EMPTY STATE IS EXACTLY WHERE THIS DOOR EARNS ITS PLACE. A first
+            guest list is the moment somebody is most likely to be retyping
+            people they have already given us — and the sheet says so honestly
+            when it has nobody to offer yet. */}
+        <OpenAddFromPeopleButton />
+        {/* Inviting people to a celebration that already happened is the one
+            door that stops making sense. Everything else here stays. */}
+        {finished ? null : (
+          <Link
+            href={`/dashboard/${eventId}/guests/invite`}
+            className="button-secondary inline-flex items-center gap-2"
+          >
+            <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Invite guests
+          </Link>
+        )}
         <Link
           href={`/dashboard/${eventId}/guests/new`}
           className="text-xs text-ink/55 underline underline-offset-2 hover:text-ink"

@@ -486,3 +486,114 @@ test('the front door welcomes a signed-in visitor back rather than listing', () 
     'A signed-in person on the public site is a visitor here, not an ex-member (FRONT_DOOR_AND_SEAM_FINAL §3.6).',
   );
 });
+
+/* ── THE SIGN-IN CARD'S OWN COLOURS CLEAR AA ─────────────────────────────────
+   Added 2026-08-21, when /login was finally given the terracotta card the seam
+   panel has worn since 2026-08-13 ("switch it on").
+
+   🚨 SWITCHING IT ON WOULD HAVE PROPAGATED A SUB-AA COLOUR TO A SECOND SURFACE.
+   The locked action colour #C24E25 measures 4.25:1 on THIS card's greige
+   (#f2f2f0) — under the 4.5:1 floor for normal text. It had been shipping on
+   the seam panel's links and eyebrow for over a week.
+
+   🔑 AND NEITHER EXISTING CONTRAST GUARD COULD SEE IT — neither was broken.
+   `doorway-palette.test.ts` reads `globals.css` and the `(shell)` doorways;
+   this card lives in `home-reskin.css`. `lint-label-on-fill-contrast.mjs`
+   judges a LABEL sitting on a FILL declared with it, and a link colour over a
+   card background is not that shape — it passes 1368 pairings and never
+   examined this one. The defect lived in the seam between two correct guards,
+   exactly as that lesson is already written down.
+
+   ⚠ EVERY VALUE BELOW IS PARSED OUT OF THE STYLESHEET, never re-typed here. A
+   guard comparing two hand-typed things is not a guard: change the CSS and this
+   follows it, which is the only way it can still be true next month. */
+test('the terracotta sign-in card clears AA on its own greige', () => {
+  const css = readFileSync(
+    join(APP, '_components/home/home-reskin.css'),
+    'utf8',
+  );
+
+  // The card background, read from the token rather than assumed.
+  const bg = css.match(/--hr-bg:\s*(#[0-9a-f]{6})/i)?.[1];
+  if (!bg) throw new Error('--hr-bg must be readable — the whole check hangs off it');
+
+  const start = css.indexOf('.home-reskin-ov .hr-ov-card.sn-signin-terra');
+  assert.ok(start > -1, 'the terracotta block must exist');
+  // Stop before the next top-level block that is not part of this card.
+  const block = css.slice(start).split('\n.home-reskin-ov .hr-si-')[0] ?? '';
+  assert.ok(block.length > 0, 'the terracotta block must not be empty');
+
+  const lin = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  const lum = (hex: string) => {
+    const h = hex.replace('#', '');
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)) as [
+      number,
+      number,
+      number,
+    ];
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  };
+  const ratio = (a: string, b: string) => {
+    const x = lum(a);
+    const y = lum(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  };
+
+  /* Pull each declaration by the PROPERTY that decides which bar it takes.
+     `color:` is text (4.5). `border-top`/`accent-color` are non-text UI (3.0).
+     The button is white ON its own fill, so it is checked against that fill,
+     not against the card. */
+  const textColours = [...block.matchAll(/\n\s*color:\s*(#[0-9a-f]{6})/gi)]
+    .map((m) => m[1])
+    .filter((c): c is string => typeof c === 'string');
+  assert.ok(
+    textColours.length >= 2,
+    `expected the link + eyebrow text colours, found ${textColours.length} — ` +
+      'if the block was restructured this guard is reading the wrong thing',
+  );
+  for (const c of textColours) {
+    const r = ratio(c, bg);
+    assert.ok(
+      r >= 4.5,
+      `${c} on the card's ${bg} is ${r.toFixed(2)}:1 — below the 4.5:1 AA ` +
+        'floor for normal text. The locked #C24E25 measures 4.25:1 here; the ' +
+        'text shade is #B04722 (4.97:1), which is this same button\'s hover.',
+    );
+  }
+
+  const fill = block.match(/hr-si-submit\s*\{[^}]*background:\s*(#[0-9a-f]{6})/i)?.[1];
+  if (!fill) throw new Error('the submit fill must be readable');
+  const onFill = ratio('#ffffff', fill);
+  assert.ok(
+    onFill >= 4.5,
+    `the button's white label on ${fill} is ${onFill.toFixed(2)}:1, below 4.5:1`,
+  );
+
+  const edge = block.match(/border-top:\s*3px solid\s*(#[0-9a-f]{6})/i)?.[1];
+  if (!edge) throw new Error('the top edge must be readable');
+  const onEdge = ratio(edge, bg);
+  assert.ok(
+    onEdge >= 3,
+    `the 3px top edge ${edge} is ${onEdge.toFixed(2)}:1 on ${bg}, below the ` +
+      '3:1 bar for non-text',
+  );
+});
+
+test('/login wears the same card as the rest of the public site', () => {
+  /* "One login everywhere" is owner-locked (2026-07-18). It was true of the
+     FORM — both surfaces render the same <SignInCard> — and false of the
+     SHELL: the seam panel wore the terracotta card and /login wore the plain
+     greige one, so a person redirected or deep-linked to /login met a
+     different-looking door from the one the site shows everywhere else.
+
+     🔑 A SHARED INNER COMPONENT IS NOT A SHARED LOOK. Pin the wrapper too. */
+  const modal = code(read('login', '_components', 'sign-in-card-modal.tsx'));
+  assert.match(
+    modal,
+    /className="hr-ov-card sn-signin-terra"/,
+    '/login must wear the same terracotta card as the seam panel',
+  );
+});

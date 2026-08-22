@@ -157,6 +157,7 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'our-story',
   'pa3d',
   'pabati',
+  'pakanta',
   'palogo',
   'panood',
   'papic',

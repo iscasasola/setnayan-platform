@@ -27,7 +27,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
@@ -127,4 +127,53 @@ test('the shared page does NOT re-alert on a duplicate submit', () => {
   assert.match(fn, /duplicateRetry/, 'the idempotent-retry branch must still exist');
   // One payment, one alert.
   assert.match(fn, /if \(!error\) \{[\s\S]{0,200}notifyAdminsPaymentProofSubmitted/);
+});
+
+// ── the settle path, which was never named here and never told anybody ─────
+test('a guest settling a Papic order tells them too', () => {
+  // 🚨 FOUND 2026-08-23, BY FINISHING AN AUDIT THAT HAD NOT FINISHED. A guest
+  // uploads a bank screenshot and a reference against a real Papic order, a
+  // `payments` row is written — and the only trace was `revalidatePath` on a
+  // queue. That is precisely what this file's own docblock calls insufficient:
+  // "the only trace was a queue somebody had to already be looking at."
+  //
+  // It survived because this file names its subjects one at a time, and this
+  // subject was never named. The derived check below is the answer to that.
+  const src = read('app/papic/buy/actions.ts');
+  const fn = src.slice(src.indexOf('export async function submitPapicGuestPayment'));
+  assert.match(fn, /await notifyAdminsPaymentProofSubmitted\(/, 'the moment money moves must notify somebody');
+
+  const notifyAt = fn.indexOf('notifyAdminsPaymentProofSubmitted');
+  const finalRedirect = fn.lastIndexOf('redirect(');
+  assert.ok(notifyAt > -1 && notifyAt < finalRedirect, 'notify must precede the success redirect');
+});
+
+test('EVERY surface that takes a buyer’s proof alerts somebody — derived, not listed', () => {
+  // 🔑 THREE OF THE TESTS ABOVE NAME ONE FILE EACH. That is how the Papic
+  // settle path went years without an alert: it was not on anybody's list.
+  // This asks the question of the CODE instead — if a file reads payment proof
+  // out of a form AND writes a `payments` row, somebody must be told.
+  const obliged: string[] = [];
+  const walk = (rel: string) => {
+    for (const e of readdirSync(join(WEB, rel), { withFileTypes: true })) {
+      const child = rel + '/' + e.name;
+      if (e.isDirectory()) walk(child);
+      else if (e.name.endsWith('.ts') && !e.name.includes('.test.')) {
+        const raw = readFileSync(join(WEB, child), 'utf8');
+        const takesProof = /formData\.get\('reference_number'\)|formData\.get\('screenshot'\)/.test(raw);
+        if (takesProof && /from\('payments'\)/.test(raw)) obliged.push(child);
+      }
+    }
+  };
+  walk('app');
+
+  // A sweep that finds nothing passes silently — floor it.
+  assert.ok(obliged.length >= 3, `expected to find the proof surfaces, saw ${obliged.length}`);
+
+  const silent = obliged.filter((rel) => !/notifyAdmins\w+\(/.test(read(rel)));
+  assert.deepEqual(
+    silent,
+    [],
+    'these take a customer’s payment proof and tell nobody — the queue is not an alert',
+  );
 });

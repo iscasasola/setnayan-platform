@@ -73,17 +73,6 @@ export function PhotoChallengeBuy({
         </p>
       ) : null}
 
-      {state.status === 'ordered' ? (
-        <div className="rounded-lg border border-mulberry/20 bg-mulberry/[0.05] px-3 py-2.5 text-xs text-ink/75">
-          <p className="font-mono text-sm font-bold text-ink">{peso(state.amountPhp)}</p>
-          <p className="mt-1">
-            Pay to our BDO or GCash account and put{' '}
-            <span className="font-mono font-semibold">{state.referenceCode}</span> in the
-            transfer note. Papic Challenges unlocks for this event once our team confirms
-            your payment (within 24 hours).
-          </p>
-        </div>
-      ) : null}
     </form>
   );
 }

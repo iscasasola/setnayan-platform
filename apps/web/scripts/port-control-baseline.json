@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "a5a925567",
+  "generatedFromRef": "0deceeb95",
   "routeCount": 404,
   "destinations": 863,
   "actions": 580,
@@ -8722,7 +8722,6 @@
     },
     "/vendor-dashboard/booking-fees": {
       "files": [
-        "vendor-dashboard/booking-fees/actions.ts",
         "vendor-dashboard/booking-fees/page.tsx"
       ],
       "destinations": [

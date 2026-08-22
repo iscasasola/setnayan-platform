@@ -22,7 +22,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const WEB = process.cwd();
@@ -37,7 +37,73 @@ const PAID_PATHS = [
   'app/vendor-dashboard/subscription/booth-addon-actions.ts', // 3D Booth
   'app/vendor-dashboard/deep-search/actions.ts', // one Deep Search
   'app/vendor-dashboard/subscription/custom/actions.ts', // negotiated plan
+  // ⬇ ADDED 2026-08-23. A vendor sponsoring Papic Challenges for a client's
+  // event pays ₱400 (free only for their first 5 bookings). It was NOT in this
+  // list, so it kept the exact panel every other button here shed: the amount
+  // and the reference, and "pay to our BDO or GCash account" — naming NEITHER
+  // account, with no QR carrying the amount and nowhere to send a screenshot.
+  'app/vendor-dashboard/clients/[eventId]/photo-challenge-actions.ts',
 ] as const;
+
+/**
+ * 🔑 THE LIST ABOVE IS HAND-WRITTEN, AND THAT IS EXACTLY HOW ONE WAS MISSED.
+ *
+ * A hand-enumerated guard list is a list of the doors somebody thought of. The
+ * Papic Challenges purchase minted an order through the same shared helper as
+ * the other seven, went to no payment page, and this file passed — because it
+ * was never named here.
+ *
+ * So the completeness question is now asked of the CODE instead: every file
+ * that calls the paid mint `orderRowFor(` must either land on the payment page
+ * or appear below WITH A REASON. Adding a row here is a decision that somebody
+ * pays without the one screen that can take their money, so it costs a
+ * sentence.
+ */
+const DELIBERATELY_NOT_REDIRECTED: Record<string, string> = {
+  'app/dashboard/[eventId]/checkout/actions.ts':
+    "the couple's inline checkout drawer. It already mints an amount-carrying " +
+    'QR inline and takes the screenshot in the same step, and it alerts the ' +
+    'team through notifyAdminsOrderAwaitingReconciliation. Moving it means ' +
+    'inverting pay-then-mint into mint-then-pay, which leaves an unpaid order ' +
+    'in the admin queue on every abandoned checkout.',
+};
+
+/** Every file under app/ that mints a PAID order. Derived, never typed out. */
+function paidMinters(): string[] {
+  const out: string[] = [];
+  const walk = (rel: string) => {
+    for (const e of readdirSync(join(WEB, rel), { withFileTypes: true })) {
+      const child = rel + '/' + e.name;
+      if (e.isDirectory()) walk(child);
+      else if (e.name.endsWith('.ts') && !e.name.includes('.test.')) {
+        if (readFileSync(join(WEB, child), 'utf8').includes('orderRowFor(')) out.push(child);
+      }
+    }
+  };
+  walk('app');
+  return out.sort();
+}
+
+test('the set of paid buy paths is DERIVED from the mint, not trusted from a list', () => {
+  const minters = paidMinters();
+  // A guard that finds nothing passes silently — the failure mode this whole
+  // file exists to prevent. Floor it against the eight we know are real.
+  assert.ok(minters.length >= 8, `expected to find the paid minters, saw ${minters.length}`);
+
+  const uncovered = minters.filter(
+    (rel) => !PAID_PATHS.includes(rel as (typeof PAID_PATHS)[number]) && !DELIBERATELY_NOT_REDIRECTED[rel],
+  );
+  assert.deepEqual(
+    uncovered,
+    [],
+    'these mint a paid order and are neither sent to the payment page nor excused with a reason',
+  );
+
+  // And the excuse list may not outlive its subject: a file that stopped
+  // minting must lose its row, or the next reader inherits a stale exemption.
+  const stale = Object.keys(DELIBERATELY_NOT_REDIRECTED).filter((rel) => !minters.includes(rel));
+  assert.deepEqual(stale, [], 'these are excused from a rule they are no longer subject to');
+});
 
 test('every shop purchase ends on the payment page', () => {
   const missing = PAID_PATHS.filter((rel) => {

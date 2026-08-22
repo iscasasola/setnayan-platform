@@ -106,6 +106,7 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/palogo',
   '/pawebsite',
   '/patiktok',
+  '/pakanta',
   '/monogram',
   '/alaala',
   '/weddings',

@@ -9,7 +9,7 @@ import { railToolsSignedIn, railToolsSignedOut } from '@/lib/studio-rail';
 import { GENERIC_PROFILE, WEDDING_PROFILE } from './event-type-profile';
 
 /**
- * THE SEVEN STUDIO ROWS — one source, two behaviours.
+ * THE STUDIO ROWS — one source, two behaviours.
  *
  * Owner, 2026-08-14: *"the side menu when signed out, it will be able to show
  * demo. when logged in, it will be different view."* and *"that is where we can
@@ -21,7 +21,7 @@ import { GENERIC_PROFILE, WEDDING_PROFILE } from './event-type-profile';
  *    OpenGraph card and its JSON-LD. The rail now reads the SAME record. A
  *    second hand-typed copy is not a mechanism, it is a future drift — the
  *    shape `llms.txt` already paid for with three weeks of green CI.
- * 2. A ROW NEVER OFFERS A DEMO THAT DOES NOT EXIST. Only three of the seven
+ * 2. A ROW NEVER OFFERS A DEMO THAT DOES NOT EXIST. Only three of them
  *    have one. `/setnayan-ai` in particular has NONE — its homepage pop-up is a
  *    savings comparator — and the owner named it, so the temptation to wire one
  *    is real and this is what refuses it.
@@ -33,7 +33,7 @@ import { GENERIC_PROFILE, WEDDING_PROFILE } from './event-type-profile';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, '..', 'app');
 /*
-  🔑 The seven Studio product pages live in the `app/(shell)/` route group
+  🔑 The Studio product pages live in the `app/(shell)/` route group
   (2026-08-15) so the shared shell is mounted once, in a layout, and survives
   navigation. Invisible in the URL, present in the path — resolve through here.
 */
@@ -43,8 +43,14 @@ function pageSource(key: string): string {
   return readFileSync(join(SHELLED, key, 'page.tsx'), 'utf8');
 }
 
-test('the anchor: there are seven Studio apps and each names a page', () => {
-  assert.equal(STUDIO_APPS.length, 7, 'the Studio group is seven rows');
+test('the anchor: there are eight Studio apps and each names a page', () => {
+  /*
+    🔄 SEVEN → EIGHT, 2026-08-21. Owner: *"pakanta is paid. so add this to the
+    studio."* The count is deliberately still pinned rather than derived: a
+    product appearing in this list is a decision to put a row in front of every
+    stranger, and it must be made on purpose, not by an import.
+  */
+  assert.equal(STUDIO_APPS.length, 8, 'the Studio group is eight rows');
   for (const a of STUDIO_APPS) {
     assert.ok(a.href.startsWith('/'), `${a.key}: href is not a path`);
     assert.ok(a.description.length > 80, `${a.key}: description is a stub`);

@@ -207,6 +207,7 @@ export default async function PayPage({ params, searchParams }: Props) {
       <PayPanel
         proofSent={proofSent || (search.sent === '1' && !needsBetterProof)}
         resubmitNotice={resubmitNotice}
+        requiresReference={payable.requiresReference}
         amountPhp={payable.amountPhp}
         reference={payable.reference}
         orderId={payable.orderId}

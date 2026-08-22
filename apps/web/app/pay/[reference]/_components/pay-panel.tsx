@@ -33,6 +33,7 @@ export type ChannelInfo = {
 export function PayPanel({
   proofSent,
   resubmitNotice,
+  requiresReference,
   amountPhp,
   reference,
   orderId,
@@ -43,6 +44,8 @@ export function PayPanel({
   proofSent: boolean;
   /** What the admin asked for, when they sent the payer back for better proof. */
   resubmitNotice: string | null;
+  /** The booking-fee lane, where the reference is required (owner 2026-08-06). */
+  requiresReference: boolean;
   amountPhp: number;
   reference: string;
   orderId: string;
@@ -124,6 +127,7 @@ export function PayPanel({
             reference={reference}
             amountPhp={amountPhp}
             channel={channel}
+            requiresReference={requiresReference}
           />
         )}
       </section>
@@ -283,11 +287,13 @@ function ProofForm({
   reference,
   amountPhp,
   channel,
+  requiresReference,
 }: {
   orderId: string;
   reference: string;
   amountPhp: number;
   channel: Channel;
+  requiresReference: boolean;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [big, setBig] = useState(false);
@@ -357,6 +363,7 @@ function ProofForm({
       <label className="block">
         <span className="mb-1.5 block text-sm font-semibold text-ink">
           Last 6 digits of your reference number
+          {requiresReference && <span className="font-normal text-ink/55"> · required</span>}
         </span>
         <input
           name="reference_last6"
@@ -365,10 +372,12 @@ function ProofForm({
           maxLength={6}
           pattern="[A-Za-z0-9]{4,6}"
           placeholder="••••••"
+          required={requiresReference}
           className="input-field font-mono tracking-[0.2em]"
         />
         <span className="mt-1.5 block text-xs text-ink/55">
-          On your receipt it looks like 0043457367694 &mdash; we only need the last six.
+          On your receipt it looks like 0043457367694 &mdash; the last six is enough, and you can
+          paste the whole thing if it is easier.
         </span>
       </label>
 

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { payPath } from '@/lib/pay-path';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Send } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -261,88 +262,27 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
         </section>
       ) : null}
 
+      {/* ── SENDING THE MONEY LIVES ON THE ONE PAYMENT PAGE (owner 2026-08-21) ──
+          What sat here asked the shop to type the amount and pick a rail with
+          no code to scan. /pay puts the exact figure inside the QR.
+          ⚖ The owner's 2026-08-06 rule — a reference is REQUIRED on this lane,
+          because an admin reconciles this against a bank message rather than
+          guessing — travels with it: `requiresReference` makes the field
+          mandatory there and nowhere else. */}
       {payable ? (
         <section className="sn-tile space-y-3 p-5">
-          <h2 className="sn-eye">Log your payment</h2>
-          <p className="text-xs text-ink/55">
-            We need the reference number from your GCash or BDO confirmation so
-            our team can match your payment — a screenshot helps but is optional.
-            Logging does not mark the fee paid; our team confirms it.
+          <h2 className="sn-eye">Paying this fee</h2>
+          <p className="text-sm text-ink/70">
+            The code on the payment page already has the amount in it. Have your GCash or BDO
+            confirmation to hand — we need its reference number to match your payment.
           </p>
-          <form action={logBookingFeePayment} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <input type="hidden" name="order_id" value={orderId} />
-            <input type="hidden" name="client_idempotency_key" value={crypto.randomUUID()} />
-            <label className="space-y-1">
-              <span className="block text-xs font-medium text-ink">Amount (PHP)</span>
-              <input
-                name="amount_php"
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step="0.01"
-                required
-                defaultValue={totals.headlineTotal}
-                className="input-field"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="block text-xs font-medium text-ink">Channel</span>
-              <input name="channel" required placeholder="BDO, GCash, etc." className="input-field" />
-            </label>
-            <label className="space-y-1">
-              <span className="block text-xs font-medium text-ink">
-                Reference number <span aria-hidden="true">*</span>
-                <span className="sr-only">(required)</span>
-              </span>
-              {/* `required` is a convenience only — the browser accepts a single
-                  space, and a server action can be posted without this page at
-                  all. The rule lives in the action. */}
-              <input
-                name="reference_number"
-                required
-                aria-required="true"
-                placeholder="From the bank confirmation"
-                className="input-field"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="block text-xs font-medium text-ink">Paid on</span>
-              <input
-                name="paid_at"
-                type="date"
-                defaultValue={new Date().toISOString().slice(0, 10)}
-                className="input-field"
-              />
-            </label>
-            <div className="sm:col-span-2">
-              <FileUpload
-                bucket="thread-files"
-                pathPrefix={`payments/${orderId}`}
-                name="screenshot_ref"
-                label="Screenshot"
-                help="Optional. PNG / JPEG / WebP / HEIC up to 5 MB."
-                maxSizeMB={5}
-                acceptedTypes={[
-                  'image/png',
-                  'image/jpeg',
-                  'image/webp',
-                  'image/gif',
-                  'image/heic',
-                  'image/heif',
-                ]}
-                variant="wide"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <SubmitButton
-                className="button-primary inline-flex items-center gap-2"
-                pendingLabel="Logging…"
-              >
-                <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Log payment
-              </SubmitButton>
-            </div>
-          </form>
+          <Link
+            href={payPath(order.reference_code)}
+            className="button-primary inline-flex items-center gap-2"
+          >
+            <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Send your payment
+          </Link>
         </section>
       ) : null}
 

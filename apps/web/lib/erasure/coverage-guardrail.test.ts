@@ -227,6 +227,17 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // prune them all at once and is deliberately NOT bundled into this change.
   homepage_hero_config:
     'Table DROPPED 2026-08-06 — the retired sign-in hero config; nothing left to erase.',
+  // ⚠ TABLE DROPPED 2026-08-22 (migration 20271157440480) with the all-events
+  // calendar subscription — owner: "block delete." Its executable purge rule
+  // was REMOVED from OWN_ROW_DELETES in coverage.ts at the same time (a DELETE
+  // against a dropped table is recorded by purge.ts as an erasure audit
+  // FAILURE, not thrown — so leaving it would have failed every erasure
+  // request forever). This entry exists only because the migration parser
+  // unions every historical CREATE TABLE and does not read DROP TABLE, so G3
+  // still sees the table and would call it unclassified. Same reason as
+  // homepage_hero_config directly above.
+  calendar_feed_tokens:
+    'Table DROPPED 2026-08-22 — the retired all-events calendar subscription feed; prod held one token, never once read. Nothing left to erase.',
   user_ai_subscription: 'Table DROPPED 2026-08-01 — no rows ever existed; nothing to erase.',
   vendor_subscriptions: 'Subscription billing record.',
   vendor_ad_subscriptions: 'Subscription billing record.',

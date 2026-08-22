@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b79cf736b",
+  "generatedFromRef": "a3661b674",
   "routeCount": 404,
   "destinations": 863,
   "actions": 582,
-  "blocks": 3856,
+  "blocks": 3855,
   "routes": {
     "/": {
       "files": [
@@ -3895,7 +3895,6 @@
         "dashboard/(launcher)/_components/alaala-lenses.tsx",
         "dashboard/(launcher)/_components/alaala-tile.tsx",
         "dashboard/(launcher)/_components/alaala-wall.tsx",
-        "dashboard/(launcher)/_components/calendar-subscribe.tsx",
         "dashboard/(launcher)/_components/creator-benefits.tsx",
         "dashboard/(launcher)/_components/event-card-menu.tsx",
         "dashboard/(launcher)/_components/event-scene.tsx",
@@ -3907,7 +3906,6 @@
         "dashboard/(launcher)/_components/start-planning-link.tsx",
         "dashboard/(launcher)/_components/year-moments-list.tsx",
         "dashboard/(launcher)/_components/year-moments-strip.tsx",
-        "dashboard/(launcher)/calendar-actions.ts",
         "dashboard/(launcher)/layout.tsx",
         "dashboard/(launcher)/page.tsx"
       ],
@@ -3939,7 +3937,6 @@
         "AttentionPill",
         "AutoSurfacedEvents",
         "BoardCardWithMenu",
-        "CalendarSubscribe",
         "CardShell",
         "ClashNotice",
         "CollabRow",

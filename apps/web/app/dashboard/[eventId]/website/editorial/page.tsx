@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { storyGate } from '@/lib/story-opens-when-untold';
+import { storyAudienceOf } from '@/lib/who-can-see-your-story';
 import { formatEventDate } from '@/lib/events';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -298,7 +299,10 @@ export default async function EditorialEditorPage({
     // below; these `initial` values are only the save-shape defaults.
     sectionOrder: savedSectionOrder,
     reviews: savedReviews,
-    publish: status === 'published',
+    // WHO MAY READ IT. Was a boolean `publish`; a boolean cannot express the
+    // middle answer, and its `false` meant BOTH "only me" and "I have simply
+    // pressed Save", so a couple had no way to say "my guests, and nobody else".
+    audience: storyAudienceOf(status),
   };
 
   // Canonical share URL (posted to Facebook + cached by OG crawlers) — nested

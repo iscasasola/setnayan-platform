@@ -18,6 +18,7 @@ import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isSampleEditorialId, type SampleEditorialId } from './sample-ids';
 import { readCustomColumns, type CustomColumn } from './custom-columns';
+import { storyAudienceOf, type StoryAudience } from '@/lib/who-can-see-your-story';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
@@ -391,6 +392,13 @@ export type EditorialData = {
   // love_story prose to render.
   loveStoryParagraphs: string[];
   published: boolean;
+  /**
+   * WHO THE COUPLE SAID MAY READ THIS — only me · the people of this
+   * celebration · everyone. Carried on the data so a caller can gate on it
+   * without a second query that could disagree with this one.
+   * Samples set 'published': they exist to be read.
+   */
+  audience?: StoryAudience;
   heroPhotoUrl: string | null;
   // Crawler-durable hero for OG / social cards — the stable streaming media-route
   // URL (absolute) when the hero resolved from a Papic ref, else null (OG falls
@@ -781,6 +789,9 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   const draftJson = asObject(editorial?.draft_json);
   const frozen = asObject(editorial?.impact_metrics);
   const published = asString(editorial?.status) === 'published';
+  // ⚠ FAILS CLOSED. An absent row, or a value this build does not recognise,
+  // reads as 'draft' — show nobody — never as 'everyone'. See the module.
+  const audience = storyAudienceOf(asString(editorial?.status));
 
   // 3. Guest counts (best-effort).
   let guests = 0;
@@ -2266,6 +2277,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     },
     loveStoryParagraphs: loveStoryFallbackParagraphs(loveStory),
     published,
+    audience,
     heroPhotoUrl,
     heroStableUrl,
     heroVideoUrl,

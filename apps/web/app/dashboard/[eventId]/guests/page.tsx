@@ -625,9 +625,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           (nav-surfaces follow-up to #1470): the global journey bottom nav is now
           ALWAYS present on this surface — the Guests sub-views moved to top-of-
           page `.sn-seg` tabs (MobileGuestCarousel) rather than a second bottom
-          bar — so a dedicated "back to home" affordance is vestigial. The safe-
-          area top padding is kept (the top bar is still hidden on mobile via the
-          <style> above) but no longer reserves the extra 3.25rem the X needed. */}
+          bar — so a dedicated "back to home" affordance is vestigial.
+          ⚠ THE SENTENCE THAT USED TO FOLLOW HERE OUTLIVED BOTH ITS REFERENTS:
+          it said the safe-area top padding was kept "because the top bar is
+          still hidden on mobile via the <style> above". The <style> is gone
+          (owner 2026-08-21) and so is the padding — the shared bar owns that
+          space now. Prose that names a deleted mechanism is how the next reader
+          gets it wrong. */}
       {/* Header is DESKTOP-ONLY (owner directive 2026-06-03 — "remove GUEST
           LIST / N guests since we already have Summary below"). On mobile the
           carousel's Summary panel carries the count; the top is just the list. */}

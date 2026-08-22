@@ -22,6 +22,8 @@ import { Printer } from 'lucide-react';
 import {
   loadEditorialData,
   resolveSectionOrder,
+  customColumnId,
+  shippedSections,
   type ChallengeAnswer,
   type EditorialData,
   type EditorialOrderKey,
@@ -39,6 +41,11 @@ import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  storyAudienceAdmits,
+  STRANGER,
+  type StoryViewer,
+} from '@/lib/who-can-see-your-story';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { eventWordsForEvent, type EventWords } from '../../_lib/event-words';
 import { byVoiceWeight, voiceOf, roleLabel } from './voices';
@@ -68,6 +75,7 @@ export async function EditorialContent({
   eventId,
   share,
   galleryAnchorId = null,
+  viewer = STRANGER,
 }: {
   eventId: string;
   /** Share target for the editorial's own "Share this story" element. Omit for a
@@ -81,6 +89,16 @@ export async function EditorialContent({
    * have no bar and leave it null, so their markup is unchanged.
    */
   galleryAnchorId?: string | null;
+  /**
+   * WHO IS ASKING — decides whether this story may be shown at all.
+   *
+   * ⚠ OMITTING IT MEANS "A STRANGER", AND THAT IS THE POINT. Every caller that
+   * does not think about the audience gets the safest answer, so a surface added
+   * later cannot leak a couple's private story by forgetting a prop. The event
+   * site passes the viewer it already resolved for its own lock screen; the
+   * couple's own editor preview passes the host.
+   */
+  viewer?: StoryViewer;
 }): Promise<ReactElement> {
   // The event's own words. This page is the STORY AFTER the event and was the
   // densest pocket of wedding language left — eleven sentences, including two
@@ -96,6 +114,27 @@ export async function EditorialContent({
   }
 
   if (!data) {
+    return <GracefulFallback words={w} />;
+  }
+
+  /*
+    THE ONE GATE (owner 2026-08-22). Three surfaces render this component and
+    two more read the same loader; each asking its own version of "may they see
+    it?" is three chances to forget, and the next surface makes four. That is
+    exactly how the Live Photo Wall ended up mirrored onto every guest's phone.
+
+    🚨 AND IT CLOSES THE DATA, NOT A BLOCK. Until this landed, the public page
+    decided to draw the story from the LIFECYCLE alone and never read the
+    couple's status at all — while a row is created automatically for every
+    event — so after the day an UNPUBLISHED story was already readable by
+    anybody who could open the page. Hiding the block would have left the same
+    words one fetch away; returning before the composed copy is built is what
+    actually withholds them.
+
+    A sample fixture carries no audience and must always render — it exists to
+    be read, and `storyAudienceOf` would otherwise fail it closed to 'draft'.
+  */
+  if (data.audience && !storyAudienceAdmits(data.audience, viewer)) {
     return <GracefulFallback words={w} />;
   }
 
@@ -168,9 +207,17 @@ export async function EditorialContent({
     photoWallActive: data.photoWallActive,
     photoWallPhotos: data.photoWallPhotos.length,
   });
-  const sectionOrder = resolveSectionOrder(data.sectionOrder);
+  // The couple's own columns take part in the ordered run. Passing their ids is
+  // what ADMITS a `custom:` key at all — the resolver drops one with no column
+  // behind it, so a deleted column can never leave an empty block behind.
+  const customColumns = data.customColumns ?? [];
+  const sectionOrder = resolveSectionOrder(
+    data.sectionOrder,
+    customColumns.map((c) => c.id),
+  );
   const galleryAnchorOn: EditorialPhotoKey | null = galleryAnchorId
-    ? editorialGalleryAnchorKey(photo, sectionOrder)
+    ? // the anchor lives on a SHIPPED block; a couple's own column is not one
+      editorialGalleryAnchorKey(photo, shippedSections(sectionOrder))
     : null;
   /**
    * The anchor id + its scroll margin, on the ONE block that carries it. Every
@@ -507,7 +554,23 @@ export async function EditorialContent({
                 </div>
               ) : null,
           };
-          return sectionOrder.map((k) => nodes[k]);
+          // A key is either one of the shipped sections above, or one of the
+          // couple's own. `customColumnId` is the ONLY way to tell — it
+          // re-validates the id rather than trusting the prefix, so a key like
+          // `custom:` or `custom:a:b` falls through to the shipped lookup and
+          // renders nothing, exactly as an unknown key always has.
+          const byId = new Map(customColumns.map((c) => [c.id, c] as const));
+          return sectionOrder.map((k) => {
+            const id = customColumnId(k);
+            const col = id ? byId.get(id) : undefined;
+            if (!col) return nodes[k as EditorialOrderKey];
+            return (
+              <div key={k}>
+                <SectionRule title={col.title} />
+                <CustomColumnBody body={col.body} />
+              </div>
+            );
+          });
         })()}
 
         {/* LOCKED CLOSE — always the last two content sections, in this order
@@ -548,7 +611,7 @@ function GracefulFallback({ words: w }: { words: EventWords }): ReactElement {
     <div className="flex min-h-[60vh] items-center justify-center bg-cream px-4 py-16 text-ink">
       <div className="mx-auto max-w-md space-y-3 rounded-2xl border border-ink/10 bg-cream/60 p-8 text-center">
         <p className="font-mono text-xs uppercase tracking-[0.3em] text-terracotta">
-          The Editorial
+          The Story
         </p>
         <h2 className="font-display text-2xl italic tracking-tight">
           This {w.eventWord}&rsquo;s story isn&rsquo;t available yet.
@@ -609,7 +672,7 @@ function PhaseRibbon({ slug, words: w }: { slug: string | null; words: EventWord
           </a>
         </>
       ) : null}
-      <span className="border-b border-mulberry pb-0.5 text-mulberry">The Editorial — Today</span>
+      <span className="border-b border-mulberry pb-0.5 text-mulberry">The Story — Today</span>
     </nav>
   );
 }
@@ -691,6 +754,40 @@ function HeroPhoto({
         {names}, from the celebration — captured on the day.
       </figcaption>
     </figure>
+  );
+}
+
+/**
+ * The body of a column the couple wrote themselves.
+ *
+ * Reuses the article register the page already uses for the couple's own lead
+ * paragraphs — two columns of justified serif — so their column reads as part of
+ * the magazine rather than a note pasted into it. No drop cap: that is the
+ * opening flourish of the article, and a page with six of them has none.
+ *
+ * 🔒 THE BODY IS TEXT, AND STAYS TEXT. It is rendered as React children, never
+ * through `dangerouslySetInnerHTML`. A couple typing `<script>` into their own
+ * column would only publish it to their own guests, but `draft_json` is a column
+ * their browser can write directly, and a stored value that becomes markup on a
+ * public page is how the harmless case turns into the other one.
+ */
+function CustomColumnBody({ body }: { body: string }): ReactElement | null {
+  // A blank line starts a new paragraph; single newlines stay inside one, which
+  // is how people actually type. `readCustomColumns` has already refused an
+  // empty body, so this cannot render an empty block.
+  const paragraphs = body
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (!paragraphs.length) return null;
+  return (
+    <div className="mt-4 columns-1 gap-7 text-justify font-serif text-[15.5px] leading-relaxed sm:columns-2 [&>p]:mb-3">
+      {paragraphs.map((p, i) => (
+        <p key={i} className="whitespace-pre-line">
+          {p}
+        </p>
+      ))}
+    </div>
   );
 }
 

@@ -310,7 +310,15 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     // every shipped link points at that URL. Only the default LABEL changes,
     // matching home-pill-nav.tsx and home-board.tsx, which already say "Alaala".
     // ⚠ An explicit admin rename in `nav_slot_overrides` still wins over this.
-    label: "Alaala",
+    //
+    // 🔁 RENAMED BACK TO "Memories" (owner 2026-08-21: *"My Memories (formerly
+    // Ala ala)"*, then *"Events / Memories / People will be the ones
+    // remaining"*). This REVERSES the 2026-07-31 rename recorded above — it is
+    // not an oversight of it, and the reversal is left visible rather than
+    // tidied away so nobody re-applies the older decision from the comment.
+    // The slot KEY and the ROUTE are unchanged, so every admin override and
+    // every shipped link still resolves.
+    label: "Memories",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Sparkles",

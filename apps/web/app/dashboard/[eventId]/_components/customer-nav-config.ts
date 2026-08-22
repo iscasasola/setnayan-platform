@@ -82,7 +82,7 @@ import type { LucideIcon } from 'lucide-react';
 import type { NavGroup, NavItem } from '@/app/_components/nav/types';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import { customerGuestsBadge } from '@/lib/nav-badges';
-import { envFlagEnabled } from '@/lib/env-flag';
+import { SUITE_NAV_ON, studioHubHref } from '@/lib/studio-hub';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 
 /**
@@ -97,7 +97,11 @@ import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
  * value on server + client (no hydration split). Mirror: lib/customer-menu.ts
  * (mobile SSOT) + lib/nav-registry-defaults.ts (registry label default).
  */
-const SUITE_NAV_ON = envFlagEnabled(process.env.NEXT_PUBLIC_SUITE);
+/* 🔑 THE BRANCH ITSELF NOW LIVES IN `lib/studio-hub.ts`, read by this builder
+   AND by the rail's Studio group, which needs the same answer for its "All
+   services" row. Two hand-typed `flag ? '/suite' : '/studio'` is not a
+   mechanism — it is the drift this repo has already paid for. Re-exported so
+   the existing name keeps reading here. */
 
 /**
  * Builds the canonical customer NavGroup[] for the given eventId — one
@@ -249,9 +253,9 @@ export function buildCustomerNavGroups(
           // array in lib/customer-menu.ts).
           key: 'studio',
           label: SUITE_NAV_ON ? 'Suite' : 'Studio',
-          href: SUITE_NAV_ON ? `${base}/suite` : `${base}/studio`,
+          href: studioHubHref(eventId),
           icon: Sparkles,
-          matchPrefix: SUITE_NAV_ON ? `${base}/suite` : `${base}/studio`,
+          matchPrefix: studioHubHref(eventId),
         },
         // (Launch moved OUT of the Plan items into its own "Go live" section —
         // see `launchItem` above + the two-group composition below.)

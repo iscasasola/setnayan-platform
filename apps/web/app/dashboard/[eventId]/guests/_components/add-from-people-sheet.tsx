@@ -104,6 +104,30 @@ export function AddFromPeopleSheet({
       setQuery('');
       setPicked({});
       setSide(defaultSide);
+      /*
+        🔴 EVERY OPENING RE-READS. The fetch below is guarded on `rows === null`,
+        and this component is mounted once for the life of the page with no
+        `key`, so without these four lines the guard means "already fetched
+        EVER" instead of "already fetched for THIS opening". Two things broke:
+
+         · A FAILED READ LATCHED FOREVER. The catch writes `rows = []`, which is
+           not null — so the panel said *"close this and try again"* on every
+           reopen for the life of the page, instructing the one action that
+           could not work. Only a full navigation recovered, which the sentence
+           never mentioned.
+
+         · "ALREADY HERE" WENT STALE. A successful add closes the sheet; reopen
+           and the people just added still rendered with a live checkbox. Tick
+           one and the server — which rebuilds the list honestly — refuses it,
+           so the screen offered a row and then told you off for taking it.
+
+        Resetting where every open passes fixes both with one act, and is why
+        the success branch does not need its own ad-hoc reset.
+      */
+      setRows(null);
+      setReadFailed(false);
+      setPartial(false);
+      setLastNames({});
     };
     window.addEventListener(OPEN_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
@@ -173,6 +197,9 @@ export function AddFromPeopleSheet({
           `Added ${res.added}. ${res.failed} didn’t go on — ${res.firstError}`,
         );
         setPicked({});
+        // The sheet STAYS OPEN on a partial, so this one is not redundant with
+        // the reset in `onOpen` — nothing re-opens it. It is what makes the
+        // rows that DID land show as "already here" without closing the panel.
         setRows(null);
         router.refresh();
         return;

@@ -1,12 +1,14 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { storyGate } from '@/lib/story-opens-when-untold';
+import { storyAudienceOf } from '@/lib/who-can-see-your-story';
 import { formatEventDate } from '@/lib/events';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   EDITORIAL_SECTION_KEYS,
+  readCustomColumns,
   loadEditorialChaptersForEditor,
   loadEditorialData,
   type EditorialSections,
@@ -197,6 +199,11 @@ export default async function EditorialEditorPage({
     ? (draft.sectionOrder as unknown[]).filter((v): v is string => typeof v === 'string')
     : null;
 
+  // The couple's own columns. Read through the SAME validator the public page
+  // renders through, so the editor can never show a column the page would drop —
+  // a couple editing something invisible is worse than not offering it.
+  const savedCustomColumns = readCustomColumns(draft);
+
   // PRO guest-wishes (draft_json.reviews). Read the saved rows so the editor can
   // list them for editing; each row is coerced to the Review shape (blank-safe).
   const savedReviews: Review[] = Array.isArray(draft.reviews)
@@ -292,7 +299,10 @@ export default async function EditorialEditorPage({
     // below; these `initial` values are only the save-shape defaults.
     sectionOrder: savedSectionOrder,
     reviews: savedReviews,
-    publish: status === 'published',
+    // WHO MAY READ IT. Was a boolean `publish`; a boolean cannot express the
+    // middle answer, and its `false` meant BOTH "only me" and "I have simply
+    // pressed Save", so a couple had no way to say "my guests, and nobody else".
+    audience: storyAudienceOf(status),
   };
 
   // Canonical share URL (posted to Facebook + cached by OG crawlers) — nested
@@ -325,6 +335,7 @@ export default async function EditorialEditorPage({
         chapterCards={chapterCards.cards}
         chapterOverrides={chapterCards.overrides}
         savedSectionOrder={savedSectionOrder}
+        savedCustomColumns={savedCustomColumns}
         savedReviews={savedReviews}
         guestColumnsOn={await guestColumnsActive()}
         shareUrl={shareUrl}

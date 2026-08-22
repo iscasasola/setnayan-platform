@@ -99,7 +99,12 @@ test('each URL lights the row a person would point at', () => {
     ['/explore', 'find'],
     ['/dashboard', 'events'],
     ['/dashboard/library', 'alaala'],
-    ['/dashboard/creator', 'story'],
+    // 🔁 `/dashboard/creator` LIGHTS NOTHING SINCE 2026-08-21. The owner retired
+    // the "Your Story" rail row (*"we already have your story on untold"*), and
+    // the rule the case above states is the one that applies: a page the rail
+    // does not list lights NOTHING, never a fallback. The DESK is still
+    // reachable — the board's Untold and Told shelves carry both doors.
+    ['/dashboard/creator', null],
     ['/vendor-dashboard', 'shop'],
     ['/vendor-dashboard/services', 'shop'],
     ['/admin', 'hq'],
@@ -119,7 +124,13 @@ test('the deeper row wins — /dashboard never steals its own spokes', () => {
     their events while they read their own profile.
   */
   assert.equal(activeRailKey(ROWS, '/dashboard/library'), 'alaala');
-  assert.equal(activeRailKey(ROWS, '/dashboard/creator'), 'story');
+  assert.equal(
+    activeRailKey(ROWS, '/dashboard/creator'),
+    null,
+    'the Your Story row is retired (owner 2026-08-21), so its route must light ' +
+      'nothing rather than falling back to "your events" — telling a person ' +
+      'they are looking at their events while they read their chapters.',
+  );
   assert.equal(
     activeRailKey(ROWS, '/dashboard/library/photos'),
     'alaala',
@@ -237,7 +248,7 @@ test('every rail row that can be a page is declared to the resolver', () => {
   // exactly like a rail that simply does not highlight that page.
   const declared = new Set(ROWS.map((r) => r.href));
   for (const href of ['/', '/explore', '/dashboard', '/dashboard/library',
-    '/dashboard/creator', '/vendor-dashboard', '/admin']) {
+    '/vendor-dashboard', '/admin']) {
     assert.ok(declared.has(href), `${href} is rendered as a row but never declared to the resolver`);
   }
   // AND THE INVERSE, which is the half a hand-written list always forgets: a
@@ -249,6 +260,23 @@ test('every rail row that can be a page is declared to the resolver', () => {
     'the resolver still declares /realstories, but the rail renders no such ' +
       'row — one half of the retirement was reverted without the other.',
   );
+  // 🔁 THE SAME BOTH-SIDES RULE FOR THE TWO ROWS RETIRED ON 2026-08-21 — "Your
+  // year" (its contents are the board's "Worth planning" shelf) and "Your Story"
+  // (Untold and Told carry its doors). Half a retirement is the failure this
+  // assertion exists to catch, in either direction.
+  for (const href of ['/dashboard/year', '/dashboard/creator']) {
+    assert.ok(
+      !declared.has(href),
+      `the resolver still declares ${href}, but the rail renders no such row — ` +
+        'one half of the retirement was reverted without the other.',
+    );
+    assert.ok(
+      !new RegExp(`<Link href="${href.replace(/\//g, '\\/')}"`).test(SHELL),
+      `the rail rendered a row for ${href} again. Both were retired by the ` +
+        'owner on 2026-08-21; if one is genuinely coming back, declare it to ' +
+        'the resolver in the same commit.',
+    );
+  }
   assert.ok(
     !/<Link href="\/realstories"/.test(SHELL),
     'the rail rendered a Stories destination again. Stories is a CHIP over ' +

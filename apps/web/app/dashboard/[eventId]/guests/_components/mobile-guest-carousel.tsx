@@ -32,6 +32,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowUpDown, Check, ChevronLeft, ChevronRight, CircleCheck, Clock, LayoutGrid, List, PencilLine, QrCode, Send, Share2, SlidersHorizontal, UserPlus, X } from 'lucide-react';
+import { OpenAddFromPeopleButton } from './add-from-people-sheet';
 import {
   ROLE_LABELS,
   SIDE_LABELS,
@@ -225,8 +226,25 @@ export function MobileGuestCarousel({
           `gl-settle` eases the surface in once on mount (frozen under
           prefers-reduced-motion by the global freeze block). */}
       <div className="gl-settle space-y-3 lg:hidden">
-        {/* Sticky masthead — title, Invite + Needs-you, pax meter, ribbon. */}
-        <div className="sticky top-[calc(env(safe-area-inset-top)+0.25rem)] z-30 -mx-1 space-y-2.5 rounded-b-2xl bg-cream/85 px-1 pb-2.5 pt-1 backdrop-blur">
+        {/* Sticky masthead — title, Invite + Needs-you, pax meter, ribbon.
+
+            ⚠ THE OFFSET CLEARS THE SHARED TOP BAR. It was
+            `env(safe-area-inset-top)+0.25rem`, which was right only while the
+            Guests page injected `.shell-topbar{display:none}` and nothing sat
+            above this. That injection is gone (owner 2026-08-21), and the shell
+            bar renders on a PHONE — the sub-1024 block hides only the rail.
+            `env(safe-area-inset-top)` is **0** in every mobile browser tab, on
+            Android, on iPad and on any non-notched install, so this pinned 4px
+            inside the bar's 0–61px band and 57px of it overlapped: the title,
+            Invite and the red Needs-you on one side; the wordmark, the search,
+            the bell and the account switcher — this surface's only route to
+            sign-out — on the other.
+
+            `--fd-bar` is the shell's own MEASURED height, read from the
+            ancestor that declares it, so the two cannot drift; `0px` is what
+            any surface outside that shell gets. Same fix as the ActiveFilters
+            strip in `page.tsx` and the same idiom `.fd-chipbar` already uses. */}
+        <div className="sticky top-[calc(var(--fd-bar,0px)+0.25rem)] z-30 -mx-1 space-y-2.5 rounded-b-2xl bg-cream/85 px-1 pb-2.5 pt-1 backdrop-blur">
           <div className="flex items-end justify-between gap-2">
             <div className="min-w-0">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
@@ -375,8 +393,24 @@ export function MobileGuestCarousel({
           </div>
 
           {addOpen ? (
-            <div className="rounded-xl border border-ink/10 bg-cream/60 p-3">
+            <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-3">
               <QuickAddInlineForm eventId={eventId} />
+              {/* 🔴 THE PHONE'S ONLY DOOR TO THE PICKER, AND WITHOUT IT THERE IS
+                  NONE. "Add from your people" (owner 2026-08-21) shipped with
+                  two mounts: the capture bar's overflow — which lives inside
+                  `hidden … lg:block`, so it does not exist below 1024 — and the
+                  zero state, which stops rendering the moment the event has one
+                  guest. So on a phone the new door DISAPPEARED THE FIRST TIME
+                  IT WAS USED, and the sheet sat mounted and listening with
+                  nothing able to open it. Retyping a name we already hold is
+                  exactly what this feature exists to stop, and a phone is where
+                  typing costs the most.
+
+                  ⚠ IMPORT THE OPENER, never re-dispatch its event name by hand:
+                  the name is a private constant in the sheet's own file, and a
+                  hand-typed copy keeps compiling and quietly stops opening
+                  anything the first time it moves. */}
+              <OpenAddFromPeopleButton className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm text-ink/75 hover:border-ink/30 hover:text-ink" />
             </div>
           ) : null}
 

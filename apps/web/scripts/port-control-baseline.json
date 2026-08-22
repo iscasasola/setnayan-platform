@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "18fd0e466",
-  "routeCount": 403,
-  "destinations": 864,
-  "actions": 581,
-  "blocks": 3846,
+  "generatedFromRef": "c28ff4cca",
+  "routeCount": 404,
+  "destinations": 863,
+  "actions": 582,
+  "blocks": 3856,
   "routes": {
     "/": {
       "files": [
@@ -517,6 +517,7 @@
         "[slug]/_components/editor-bridge.tsx",
         "[slug]/_components/editorial/compose.ts",
         "[slug]/_components/editorial/consent-veto.ts",
+        "[slug]/_components/editorial/custom-columns.ts",
         "[slug]/_components/editorial/data.ts",
         "[slug]/_components/editorial/editorial-content.tsx",
         "[slug]/_components/editorial/editorial-order.ts",
@@ -635,6 +636,7 @@
         "BackgroundMusic",
         "Blob",
         "ByTheNumbers",
+        "ChallengeAnswerColumn",
         "Chapter",
         "ChapterWriteUp",
         "ClientEventWords",
@@ -643,6 +645,7 @@
         "ConsentVeto",
         "CountdownWidget",
         "CssFallback",
+        "CustomColumnBody",
         "Date",
         "DayOfAnnouncement",
         "DayOfBanner",
@@ -3780,6 +3783,7 @@
         "revokeShareConsent",
         "setAccountFaceProfileConsent",
         "signOutOtherDevices",
+        "updateDiscoverableByName",
         "updateLocalePreference",
         "updatePersonalInfo",
         "updatePlannerMode",
@@ -3880,20 +3884,11 @@
     },
     "/dashboard/(account)/year": {
       "files": [
-        "dashboard/(account)/year/_components/start-planning-link.tsx",
         "dashboard/(account)/year/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/profile"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "Link",
-        "MomentCard",
-        "MomentIcon",
-        "PageMasthead",
-        "StartPlanningLink"
-      ]
+      "blocks": []
     },
     "/dashboard/(launcher)": {
       "files": [
@@ -3909,6 +3904,7 @@
         "dashboard/(launcher)/_components/home-command-bar.tsx",
         "dashboard/(launcher)/_components/home-pill-nav.tsx",
         "dashboard/(launcher)/_components/shop-logo.tsx",
+        "dashboard/(launcher)/_components/start-planning-link.tsx",
         "dashboard/(launcher)/_components/year-moments-list.tsx",
         "dashboard/(launcher)/_components/year-moments-strip.tsx",
         "dashboard/(launcher)/layout.tsx",
@@ -3920,7 +3916,6 @@
         "/dashboard/[seg]",
         "/dashboard/create-event",
         "/dashboard/creator",
-        "/dashboard/creator?event=[seg]",
         "/dashboard/library",
         "/dashboard/life-flash",
         "/dashboard/notifications",
@@ -3929,7 +3924,6 @@
         "/dashboard/samahan",
         "/dashboard/samahan/[seg]",
         "/dashboard/samahan/new",
-        "/dashboard/year",
         "/open-shop",
         "/v/[seg]",
         "/vendor-dashboard"
@@ -3945,6 +3939,7 @@
         "AutoSurfacedEvents",
         "BoardCardWithMenu",
         "CardShell",
+        "ClashNotice",
         "CollabRow",
         "ComingSoonNote",
         "CountUp",
@@ -3968,12 +3963,16 @@
         "MomentRow",
         "NewEventCard",
         "ProgressRing",
+        "PutAwaySwitch",
         "SectionLabel",
+        "ShelfInfo",
         "ShopLogo",
         "StanceChip",
+        "StartPlanningLink",
         "Tile",
         "UnreadBellBadge",
-        "YearMomentsList"
+        "YearMomentsList",
+        "YearMomentsStrip"
       ]
     },
     "/dashboard/[eventId]": {
@@ -4571,6 +4570,7 @@
     "/dashboard/[eventId]/guests": {
       "files": [
         "dashboard/[eventId]/guests/_components/active-filters.tsx",
+        "dashboard/[eventId]/guests/_components/add-from-people-sheet.tsx",
         "dashboard/[eventId]/guests/_components/capture-bar.tsx",
         "dashboard/[eventId]/guests/_components/chip-editors.tsx",
         "dashboard/[eventId]/guests/_components/groups-sidebar.tsx",
@@ -4596,6 +4596,7 @@
         "dashboard/[eventId]/guests/loading.tsx",
         "dashboard/[eventId]/guests/map-actions.ts",
         "dashboard/[eventId]/guests/page.tsx",
+        "dashboard/[eventId]/guests/people-add-actions.ts",
         "dashboard/[eventId]/guests/quick-add-actions.ts"
       ],
       "destinations": [
@@ -4617,6 +4618,8 @@
       "blocks": [
         "ActiveFilters",
         "AddButton",
+        "AddFromPeopleResult",
+        "AddFromPeopleSheet",
         "AddToGroupControl",
         "AssignSheet",
         "BulkApplyForm",
@@ -4676,6 +4679,7 @@
         "ModeSeg",
         "NewGroupForm",
         "NewGroupInlineForm",
+        "OpenAddFromPeopleButton",
         "OpenQuickAddButton",
         "OptimisticDeleteButton",
         "OptionRow",
@@ -6007,6 +6011,7 @@
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/studio",
         "/dashboard/[seg]/studio/papic",
+        "/dashboard/[seg]/studio/papic/challenges",
         "/dashboard/[seg]/studio/papic/crew",
         "/dashboard/[seg]/studio/papic/crew/print",
         "/dashboard/[seg]/studio/papic/gallery-zip",
@@ -6050,6 +6055,7 @@
         "DslrBridgeSection",
         "ExtraCamerasPicker",
         "FaceTaggingChoice",
+        "FilterChip",
         "FilterId",
         "Fragment",
         "GalleryPhoto",
@@ -6074,6 +6080,7 @@
         "PapicPoolCard",
         "PapicWindowPicker",
         "PaymentUnderReview",
+        "PickerFilters",
         "PoolGalleryCard",
         "PoolGalleryToggle",
         "PreservationMeterLine",
@@ -6095,6 +6102,19 @@
         "VendorChallengesApproval",
         "VendorMediaControls",
         "WallTileLayout"
+      ]
+    },
+    "/dashboard/[eventId]/studio/papic/challenges": {
+      "files": [
+        "dashboard/[eventId]/studio/papic/challenges/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio/papic"
+      ],
+      "actions": [],
+      "blocks": [
+        "CoupleChallengesManager",
+        "Link"
       ]
     },
     "/dashboard/[eventId]/studio/papic/crew": {
@@ -6146,7 +6166,6 @@
       ],
       "actions": [],
       "blocks": [
-        "InlineCheckoutDrawer",
         "KwentoActionResult",
         "KwentoQueue",
         "KwentoQueueControls",
@@ -6976,6 +6995,7 @@
       ],
       "actions": [],
       "blocks": [
+        "CustomColumn",
         "EditorialEditor",
         "EditorialEditorInput",
         "Field",
@@ -8056,6 +8076,7 @@
         "ChannelTab",
         "CopyButton",
         "FileUpload",
+        "Link",
         "PayPanel",
         "ProofForm",
         "QrTile",

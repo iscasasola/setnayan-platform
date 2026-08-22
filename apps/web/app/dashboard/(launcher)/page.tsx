@@ -20,12 +20,9 @@ import {
   MapPin,
   Baby,
   Mail,
-  PenLine,
   CalendarClock,
 } from 'lucide-react';
 import { YearMomentsStrip } from './_components/year-moments-strip';
-import { CalendarSubscribe } from './_components/calendar-subscribe';
-import { getOrCreateCalendarToken, resetCalendarToken } from './calendar-actions';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, type EventWithRole } from '@/lib/events';
@@ -332,19 +329,6 @@ export default async function LauncherPage({
   // longer do anything about is a reproach, not a warning.
   const clashes = findDateClashes([...happeningNow, ...upcoming]);
 
-  // THE CALENDAR LINK (owner 2026-08-21). Minted the first time this board is
-  // rendered for an account that has celebrations to put in it — offering the
-  // button to somebody with an empty board would subscribe them to nothing and
-  // teach them the feature does not work.
-  //
-  // ⚠ NULL IS A REAL ANSWER AND MEANS "SHOW NO BUTTON". A failed read must not
-  // mint a second link (see calendar-actions), and a button that cannot say
-  // where it points is worse than no button.
-  const calendarToken =
-    happeningNow.length + upcoming.length + finished.length > 0
-      ? await getOrCreateCalendarToken()
-      : null;
-
   // ─── LANDING ────────────────────────────────────────────────────────────
   // Owner 2026-07-04: "keep the auto-jump, HUB REACHABLE." Only the first half
   // ever shipped. The jump fired for every single-event non-console user, and
@@ -571,20 +555,13 @@ export default async function LauncherPage({
   // `null` = NOT MEASURED, which is a different thing from "none", and the
   // split degrades to a single shelf rather than inviting somebody to write a
   // story they have already written.
-  let storyEventIds: Set<string> | null = null;
   try {
     const { data, error } = await supabase
       .from('creator_chapters')
       .select('event_id, status')
       .eq('user_id', user.id);
     if (!error) {
-      const rows = (data ?? []) as Array<{ event_id: string | null; status: string }>;
-      chapterCount = rows.length;
-      storyEventIds = new Set(
-        rows
-          .filter((r) => r.status === 'published' && r.event_id)
-          .map((r) => r.event_id as string),
-      );
+      chapterCount = ((data ?? []) as unknown[]).length;
     }
   } catch {
     // ⚠ 0, NOT null — AND THAT DIFFERS FROM ITS THREE NEIGHBOURS ON PURPOSE.
@@ -596,6 +573,51 @@ export default async function LauncherPage({
     // to start, and loses the link to their own page. Accepted — but do NOT copy
     // this pattern to a count that feeds a number or a list.
     chapterCount = 0;
+  }
+
+  /*
+    WHICH FINISHED CELEBRATIONS HAVE THEIR STORY WRITTEN.
+
+    🔑 THE STORY OF AN EVENT IS THE EVENT'S OWN STORY PAGE — the one Setnayan
+    drafts from the day's photos and schedule and the couple then corrects. It is
+    NOT a Storyteller chapter.
+
+    This read used to ask `creator_chapters` instead, and that was the whole of
+    the owner's confusion (2026-08-22: *"isn't that the editorial. the story?"*).
+    A chapter is a PERSON's own write-up ABOUT a day, on a blank page, and one day
+    can have several — including one from a supplier who worked it. The event's
+    story page is Setnayan's write-up OF that day, one per celebration, created
+    automatically. They are separate records; nothing copies between them.
+
+    ⚠ THE OLD MEASURE MADE THE SHELF LIE. A couple could compose and publish
+    their whole story page and My Events still filed the celebration under
+    "Untold", still offering *"Write the story of <name>"* — pointing at the OTHER
+    door, where the box opens blank and they are asked to write the same day up a
+    second time from memory. Two buttons in the product read "Write the story" and
+    went to different screens.
+
+    `null` still means NOT MEASURED, which is a different thing from "none": the
+    split degrades to a single shelf rather than inviting somebody to write a
+    story they have already written.
+  */
+  let storyEventIds: Set<string> | null = null;
+  try {
+    const { data, error } = await supabase
+      .from('event_editorial')
+      .select('event_id, status')
+      .eq('status', 'published');
+    if (!error) {
+      storyEventIds = new Set(
+        ((data ?? []) as Array<{ event_id: string | null }>)
+          .filter((r) => r.event_id)
+          .map((r) => r.event_id as string),
+      );
+    }
+    // A REFUSED read leaves it null on purpose — see above. Supabase resolves
+    // with { error } rather than throwing, so the `if (!error)` is the guard
+    // that matters here; the catch below only covers a transport failure.
+  } catch {
+    storyEventIds = null;
   }
 
   // FINISHED SPLITS IN TWO (owner 2026-08-20: *"change it to unpublished and
@@ -992,54 +1014,66 @@ export default async function LauncherPage({
           The FINISHED shelf follows as its own section — it is no longer hidden
           behind a "Show all" toggle. */}
       {/* NOW HAPPENING — the day itself (owner 2026-08-21).
-          🔑 IT IS ABSENT, NOT EMPTY, WHEN NOBODY IS CELEBRATING. Most days that
-          is everybody, and a permanent "nothing today" row would be the loudest
-          thing on the board saying the least. It appears on the morning of the
-          day and leaves on its own the morning after — no state, no switch, and
-          nothing to clean up. */}
-      {happeningNow.length > 0 ? (
-        <section
-          id="now"
-          className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
-          style={{ animationDelay: '0.36s' }}
+          ⚠ IT RENDERS EVEN WHEN EMPTY, and that REVERSES the call this block
+          shipped with. The first cut hid the row on every ordinary day, on the
+          reasoning that "a permanent 'nothing today' row would be the loudest
+          thing on the board saying the least". The owner ruled otherwise the
+          same day: *"we show the different rows and leave it blank when no
+          event is there."*
+          🔑 AND HIS CALL IS THE BETTER ONE FOR A BOARD PEOPLE LEARN. Five rows
+          that are always in the same place can be navigated from memory; rows
+          that appear and vanish make the page a different shape every visit, so
+          a person cannot learn where anything lives. The empty line says what
+          the row is FOR — never that they have nothing, because
+          `fetchUserEvents` degrades to `[]` on an RLS denial and an empty read
+          is indistinguishable from an empty life. */}
+      <section
+        id="now"
+        className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
+        style={{ animationDelay: '0.36s' }}
+      >
+        <SectionLabel
+          sub="today"
+          info="Your celebration is running today. It leaves this row on its own tomorrow."
         >
-          <SectionLabel
-            sub="today"
-            info="Your celebration is running today. It leaves this row on its own tomorrow."
-          >
-            Now happening
-          </SectionLabel>
-          <div className="space-y-3 sm:hidden">
-            {happeningNow.map((event) => (
-              <BoardCardWithMenu key={event.event_id} event={event} tone="dark">
-                <MobileEventHero
-                  event={event}
-                  pct={progressByEvent.get(event.event_id) ?? null}
-                  todayISO={todayISO}
-                  summary={decisionByEvent.get(event.event_id)}
-                  hasMenu={event.member_type === 'couple'}
-                />
-              </BoardCardWithMenu>
-            ))}
-          </div>
-          <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-            {happeningNow.map((event, i) => (
-              <BoardCardWithMenu key={event.event_id} event={event}>
-                <GlassEventCard
-                  event={event}
-                  pct={progressByEvent.get(event.event_id) ?? null}
-                  heroSrc={heroFor(event.event_type)}
-                  ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
-                  index={i}
-                  todayISO={todayISO}
-                  summary={decisionByEvent.get(event.event_id)}
-                  hasMenu={event.member_type === 'couple'}
-                />
-              </BoardCardWithMenu>
-            ))}
-          </div>
-        </section>
-      ) : null}
+          Now happening
+        </SectionLabel>
+        {happeningNow.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
+            On the day itself, your celebration moves up here — and moves on by
+            itself the morning after.
+          </p>
+        ) : null}
+        <div className="space-y-3 sm:hidden">
+          {happeningNow.map((event) => (
+            <BoardCardWithMenu key={event.event_id} event={event} tone="dark">
+              <MobileEventHero
+                event={event}
+                pct={progressByEvent.get(event.event_id) ?? null}
+                todayISO={todayISO}
+                summary={decisionByEvent.get(event.event_id)}
+                hasMenu={event.member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
+          ))}
+        </div>
+        <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          {happeningNow.map((event, i) => (
+            <BoardCardWithMenu key={event.event_id} event={event}>
+              <GlassEventCard
+                event={event}
+                pct={progressByEvent.get(event.event_id) ?? null}
+                heroSrc={heroFor(event.event_type)}
+                ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                index={i}
+                todayISO={todayISO}
+                summary={decisionByEvent.get(event.event_id)}
+                hasMenu={event.member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
+          ))}
+        </div>
+      </section>
 
       <section
         id="events"
@@ -1164,18 +1198,19 @@ export default async function LauncherPage({
             </div>
           </div>
         ) : null}
-        {calendarToken ? (
-          <div className="mt-4">
-            <CalendarSubscribe
-              /* `webcal:` is what makes "the device picks" true — the OS hands
-                 the scheme to whichever calendar it uses. The https twin is for
-                 pasting into a desktop client by hand. */
-              webcalUrl={`webcal://${siteHost()}/api/calendar/${calendarToken}.ics`}
-              httpUrl={`https://${siteHost()}/api/calendar/${calendarToken}.ics`}
-              onReset={resetCalendarToken}
-            />
-          </div>
-        ) : null}
+        {/* ⚠ THE ALL-EVENTS SUBSCRIPTION BLOCK STOOD HERE AND IS RETIRED
+            (owner 2026-08-22: *"block delete."*). Adding a celebration to a
+            phone calendar is now a PER-EVENT action in each card's "⋯" menu,
+            which is where the owner asked for it — *"adding an event to a
+            calendar is not all events but just per event."*
+
+            🔑 KNOW WHAT WAS TRADED, so nobody re-derives this as a bug. The
+            block handed out one `webcal:` link the phone RE-READ, so moving a
+            date moved it in their calendar too. A per-card .ics is a copy
+            taken once and never checked again. That loss was stated to the
+            owner and accepted; it is a decision, not an oversight. Prod held
+            one token, never once read, so nothing live was broken.
+            Migration 20271157440480. */}
       </section>
 
       {/* WORTH PLANNING — the days that come around for this person (owner
@@ -1245,6 +1280,17 @@ export default async function LauncherPage({
           </p>
         ) : (
           <>
+            {/* THE CARD IS THE CHOICE (owner 2026-08-22). This shelf used to pair
+                a plain card — opening the event dashboard — with a SEPARATE
+                chip below reading "Write the story of X". Two controls for one
+                celebration, and the chip was the one that actually mattered.
+                Pressing the card itself now opens the story page directly, for
+                exactly the same events and under exactly the same rule the chip
+                used to gate on: the story has been measured, and this account
+                organises the celebration. Guests, and any board where the read
+                was refused, keep the ordinary card → event-dashboard behaviour
+                — sending either into a stranger's editor, or into an editor a
+                refused read cannot vouch for, is not this shelf's call to make. */}
             {/* MOBILE — compact chips, muted (the same treatment the hidden
                 half used to get once revealed). */}
             <div className="grid grid-cols-2 gap-2.5 sm:hidden">
@@ -1253,6 +1299,7 @@ export default async function LauncherPage({
                   key={event.event_id}
                   event={event}
                   align={i % 2 === 0 ? 'left' : 'right'}
+                  finished
                 >
                   <MobileEventChip
                     event={event}
@@ -1261,6 +1308,11 @@ export default async function LauncherPage({
                     todayISO={todayISO}
                     summary={decisionByEvent.get(event.event_id)}
                     hasMenu={event.member_type === 'couple'}
+                    storyHref={
+                      storiesMeasured && canWriteStoryFor(event)
+                        ? `/dashboard/${event.event_id}/website/editorial`
+                        : undefined
+                    }
                   />
                 </BoardCardWithMenu>
               ))}
@@ -1269,7 +1321,7 @@ export default async function LauncherPage({
                 "Celebrated". */}
             <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {unwritten.map((event, i) => (
-                <BoardCardWithMenu key={event.event_id} event={event}>
+                <BoardCardWithMenu key={event.event_id} event={event} finished>
                   <GlassEventCard
                     event={event}
                     pct={progressByEvent.get(event.event_id) ?? null}
@@ -1280,93 +1332,114 @@ export default async function LauncherPage({
                     todayISO={todayISO}
                     summary={decisionByEvent.get(event.event_id)}
                     hasMenu={event.member_type === 'couple'}
+                    storyHref={
+                      storiesMeasured && canWriteStoryFor(event)
+                        ? `/dashboard/${event.event_id}/website/editorial`
+                        : undefined
+                    }
                   />
                 </BoardCardWithMenu>
               ))}
             </div>
-            {/* THE CHOICE, and it is a LINK, never a form: pressing it opens
-                the composer with this celebration already picked. Nothing is
-                written, nothing is posted, and nothing happens when the card
-                merely scrolls past — a `<Link>` prefetches, so a side effect
-                behind one fires by itself. */}
-            {storiesMeasured ? (
-              <ul className="mt-3 flex flex-wrap gap-2">
-                {unwritten.filter(canWriteStoryFor).map((event) => (
-                  <li key={event.event_id}>
-                    <Link
-                      href={`/dashboard/creator?event=${encodeURIComponent(event.event_id)}`}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/75 hover:bg-ink/5 hover:text-ink"
-                    >
-                      <PenLine aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      Write the story of {event.display_name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
           </>
         )}
       </section>
 
-      {/* PUBLISHED — the celebrations that are now chapters. Only ever rendered
-          when the stories were actually measured; an unmeasured read leaves one
-          shelf above and none here. */}
-      {storiesMeasured && written.length > 0 ? (
-        <section
-          id="published"
-          className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
-          style={{ animationDelay: '0.48s' }}
+      {/* TOLD — the celebrations that are now chapters.
+          ⚠ IT RENDERS EVEN WHEN EMPTY (owner 2026-08-21: *"we show the different
+          rows and leave it blank when no event is there"*). It used to vanish
+          unless there was something on it, which made the board a different
+          shape for every account.
+          🔑 BUT THE EMPTY LINE MUST NOT CLAIM "YOU HAVE NONE", AND THERE ARE TWO
+          DIFFERENT REASONS IT CAN BE EMPTY. When the stories were MEASURED, the
+          shelf is honestly empty and the line can invite them to write one. When
+          the read was REFUSED, `unwritten` holds everything and `written` holds
+          nothing — telling that person they have told no stories would be
+          asserting a fact from a read that never completed, beside a shelf that
+          is silently claiming their published celebrations are unpublished. So
+          the unmeasured line says what the row is FOR and nothing about them. */}
+      <section
+        id="published"
+        className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
+        style={{ animationDelay: '0.48s' }}
+      >
+        <SectionLabel
+          sub="in your story"
+          info="These days are chapters in your story now."
         >
-          <SectionLabel
-            sub="in your story"
-            info="These days are chapters in your story now."
-          >
-            Told
-          </SectionLabel>
-          <div className="grid grid-cols-2 gap-2.5 sm:hidden">
-            {written.map((event, i) => (
-              <BoardCardWithMenu
-                key={event.event_id}
+          Told
+        </SectionLabel>
+        {written.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
+            {storiesMeasured
+              ? 'The celebrations you write up land here, as chapters of your story.'
+              : 'This is where the celebrations you have written up live.'}
+          </p>
+        ) : null}
+        <div className="grid grid-cols-2 gap-2.5 sm:hidden">
+          {written.map((event, i) => (
+            <BoardCardWithMenu
+              key={event.event_id}
+              event={event}
+              align={i % 2 === 0 ? 'left' : 'right'}
+              finished
+            >
+              <MobileEventChip
                 event={event}
-                align={i % 2 === 0 ? 'left' : 'right'}
-              >
-                <MobileEventChip
-                  event={event}
-                  pct={progressByEvent.get(event.event_id) ?? null}
-                  finished
-                  todayISO={todayISO}
-                  summary={decisionByEvent.get(event.event_id)}
-                  hasMenu={event.member_type === 'couple'}
-                />
-              </BoardCardWithMenu>
-            ))}
-          </div>
-          <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-            {written.map((event, i) => (
-              <BoardCardWithMenu key={event.event_id} event={event}>
-                <GlassEventCard
-                  event={event}
-                  pct={progressByEvent.get(event.event_id) ?? null}
-                  heroSrc={heroFor(event.event_type)}
-                  ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
-                  finished
-                  index={upcoming.length + unwritten.length + i}
-                  todayISO={todayISO}
-                  summary={decisionByEvent.get(event.event_id)}
-                  hasMenu={event.member_type === 'couple'}
-                />
-              </BoardCardWithMenu>
-            ))}
-          </div>
+                pct={progressByEvent.get(event.event_id) ?? null}
+                finished
+                todayISO={todayISO}
+                summary={decisionByEvent.get(event.event_id)}
+                hasMenu={event.member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
+          ))}
+        </div>
+        <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          {written.map((event, i) => (
+            <BoardCardWithMenu key={event.event_id} event={event} finished>
+              <GlassEventCard
+                event={event}
+                pct={progressByEvent.get(event.event_id) ?? null}
+                heroSrc={heroFor(event.event_type)}
+                ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                finished
+                index={upcoming.length + unwritten.length + i}
+                todayISO={todayISO}
+                summary={decisionByEvent.get(event.event_id)}
+                hasMenu={event.member_type === 'couple'}
+              />
+            </BoardCardWithMenu>
+          ))}
+        </div>
+        {/* ⚠ ONLY WHEN THERE IS SOMETHING TO READ. "These days are told"
+            beside an empty shelf names days that are not there.
+            🔑 THIS LINE USED TO SAY "chapters" AND POINT AT THE STORYTELLER.
+            Both shelves are about the event's OWN story page now, so pointing
+            at the composer for a different kind of writing was the confusion
+            itself. Memories is where a told day is read back: its Editorials
+            shelf opens each celebration's story directly.
+            ⚠ THE STORYTELLER IS NOT STRANDED — the account menu carries "Your
+            Story". But see the note on `chapterCount`: the board's own
+            /dashboard/creator link now lives ONLY in a component nothing
+            renders, so the guard asserting the board has that door is
+            currently satisfied by dead code. Flagged, not fixed here. */}
+        {written.length > 0 ? (
           <p className="mt-3 text-[12px] text-[color:var(--sn-ink-500)]">
-            These days are chapters now —{' '}
-            <Link href="/dashboard/creator" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
-              read them in Your Story
+            These days are told —{' '}
+            <Link href="/dashboard/library" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
+              read them in Memories
             </Link>
             .
           </p>
-        </section>
-      ) : null}
+        ) : (
+          <p className="mt-3 text-[12px] text-[color:var(--sn-ink-500)]">
+            <Link href="/dashboard/library" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
+              Open Memories
+            </Link>
+          </p>
+        )}
+      </section>
 
       {/* #7b (gap G5): events auto-surfaced to this account + a one-tap Leave.
           Flag-gated so there is ZERO extra query while FEATURE_ACCOUNT_AUTOSURFACE
@@ -1497,17 +1570,6 @@ function ClashNotice({ clashes }: { clashes: DateClash[] }) {
   );
 }
 
-/**
- * The public host, with no scheme — `webcal:` needs its own, so a helper that
- * returned a full https URL would have to be string-surgeried at the call site.
- * Falls back to the production host rather than to `localhost`: a link built on
- * a misconfigured preview should point somewhere that works, not somewhere that
- * is guaranteed not to.
- */
-function siteHost(): string {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.setnayan.com';
-  return raw.replace(/^https?:\/\//, '').replace(/\/$/, '');
-}
 
 function SectionLabel({
   children,
@@ -1627,6 +1689,10 @@ function CardShell({
   style,
   children,
 }: {
+  /** `null` renders an inert card (see the block above) — used ONLY when the
+   *  destination genuinely does not exist yet (an invited guest whose host
+   *  hasn't opened a public address). Never pass null to mean "use the
+   *  default" — callers that want the default simply don't override it. */
   href: string | null;
   className: string;
   style?: CSSProperties;
@@ -1661,6 +1727,10 @@ function CardShell({
  * monogram · place/date · gold progress ring · countdown · attention line.
  * The card jumps into the event dashboard — an allowed navigation.
  *
+ * ⚠ EXCEPT ON THE UNTOLD SHELF (owner 2026-08-22), where `storyHref` sends it
+ * straight to the celebration's own story page instead. See the prop's own
+ * doc — the caller decides when, this component only ever obeys.
+ *
  * Attention/overdue signals deliberately live ONLY in The Watch (desktop tile)
  * / the mobile nudge row now (owner 2026-07-15: one home for overdue counts) —
  * this card carries identity/type/date/progress, never a decision pill.
@@ -1675,6 +1745,7 @@ function GlassEventCard({
   todayISO,
   summary,
   hasMenu = false,
+  storyHref,
 }: {
   event: EventWithRole;
   pct: number | null;
@@ -1694,13 +1765,27 @@ function GlassEventCard({
   index?: number;
   /** Reserve the scene band's top-right corner for the card menu. */
   hasMenu?: boolean;
+  /**
+   * THE UNTOLD SHELF'S OWN DESTINATION (owner 2026-08-22: "we want that gone
+   * and directly jumps to the story maker upon pressing each untold event").
+   * When set, the card opens the event's story page instead of its dashboard —
+   * the separate "Write the story of X" chip that used to sit below the grid
+   * is retired in favour of the card itself doing that job.
+   *
+   * The caller computes this (`storiesMeasured && canWriteStoryFor(event)`),
+   * never this component: whether a guest, or an unmeasured board, gets sent
+   * into somebody's story editor is a decision that belongs where the shelf's
+   * other rules already live, not duplicated here.
+   */
+  storyHref?: string;
 }) {
   const { badge, dateLabel, place, status, plannedLabel, stance, href, closedReason } =
     deriveEventView(event, pct, finished, todayISO);
+  const resolvedHref = storyHref ?? href;
 
   return (
     <CardShell
-      href={href}
+      href={resolvedHref}
       className={`sn-tile-glass sn-lift-4 sn-press sn-reveal group flex h-full min-h-[196px] flex-col overflow-hidden rounded-2xl hover:border-mulberry/30 ${
         finished ? 'opacity-75 hover:opacity-100' : ''
       }`}
@@ -2012,6 +2097,7 @@ function MobileEventChip({
   todayISO,
   summary,
   hasMenu = false,
+  storyHref,
 }: {
   event: EventWithRole;
   pct: number | null;
@@ -2022,6 +2108,8 @@ function MobileEventChip({
   summary?: EventDecisionSummary;
   /** Reserve the top-right corner for the card menu. */
   hasMenu?: boolean;
+  /** See the matching prop on `GlassEventCard` — same override, same rule. */
+  storyHref?: string;
 }) {
   const { badge, dateLabel, status, stance, href, closedReason } = deriveEventView(
     event,
@@ -2029,9 +2117,10 @@ function MobileEventChip({
     finished,
     todayISO,
   );
+  const resolvedHref = storyHref ?? href;
   return (
     <CardShell
-      href={href}
+      href={resolvedHref}
       className={`sn-press block h-full rounded-2xl border border-ink/15 bg-white/60 p-3 text-left ${
         finished ? 'opacity-75' : ''
       } ${hasMenu ? 'pr-9' : ''}`}
@@ -2212,6 +2301,15 @@ function BoardCardWithMenu({
   event,
   tone = 'light',
   align = 'right',
+  /**
+   * TRUE on the Untold + Told shelves — mirrors the `finished` prop already
+   * passed to the card underneath (`GlassEventCard` / `MobileEventChip`) on
+   * those two shelves only. Owner 2026-08-22, asked directly: *"shouldn't now
+   * happening and planning be the only ones to have this add to calendar?"*
+   * A day that has already passed is not something to add to a phone
+   * calendar, so `EventCardMenu` drops that row entirely when this is true.
+   */
+  finished = false,
   children,
 }: {
   event: EventWithRole;
@@ -2220,6 +2318,7 @@ function BoardCardWithMenu({
    *  The two-up phone chips MUST alternate or the left column's menu renders
    *  partly off the left of the screen, where it cannot be scrolled to. */
   align?: 'left' | 'right';
+  finished?: boolean;
   children: ReactNode;
 }) {
   if (event.member_type !== 'couple') return <>{children}</>;
@@ -2230,6 +2329,10 @@ function BoardCardWithMenu({
         eventId={event.event_id}
         eventName={event.display_name}
         archived={!!event.archived}
+        eventDateIso={event.event_date}
+        venueName={event.venue_name}
+        venueAddress={event.venue_address}
+        finished={finished}
         tone={tone}
         align={align}
       />

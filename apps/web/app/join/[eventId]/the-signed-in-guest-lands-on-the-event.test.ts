@@ -122,3 +122,65 @@ test('the "you weren’t on the list" sentence survives', () => {
   );
   assert.match(ACTIONS, /unlisted=1/, 'the unlisted ending stopped reaching its own notice');
 });
+
+// ── ONE WRITER FOR THE GUEST'S EMAIL ────────────────────────────────────────
+//
+// 🔴 THIS GUARD EXISTS BECAUSE I ADDED A SECOND WRITER AND SHIPPED IT.
+//
+// The invite door asks for "Email (optional)". I followed that value as far as
+// the CALL to sendEventAccountMagicLink, saw the word "magic link", concluded
+// the address was used for mail and thrown away, and wrote a second copy into
+// the insert — with tests locking the duplicate in place.
+//
+// Opening the callee would have taken ten seconds. `lib/event-account-link.ts`
+// step 1 stamps the address onto the guest row BEFORE it generates any mail,
+// with the identical fill-a-blank rule, and all three join endings call it.
+// The feature already worked. **I read the call site and never opened the
+// callee** — the exact failure this repo writes down as "a sentence is not a
+// mechanism; grep the WRITER".
+//
+// It was not harmless. A second writer means two places to keep in step, and
+// mine wrote at INSERT time while the real one writes on UPDATE — and prod
+// carries a trigger firing `BEFORE INSERT OR UPDATE OF email` that binds the
+// guest to a person identity, so the duplicate quietly moved WHEN that binding
+// happens. A redundant write is not a no-op when something is listening.
+
+test('🔴 exactly ONE place writes a guest email from the join door', () => {
+  const writes = (ACTIONS.match(/\.update\(\{\s*email/g) ?? []).length;
+  assert.equal(
+    writes,
+    0,
+    'the join door writes the guest email directly again — sendEventAccountMagicLink already does it, with the same fill-a-blank rule',
+  );
+  const inserts = ACTIONS.slice(ACTIONS.indexOf('export async function selfJoinAction'));
+  const at = inserts.indexOf("entry_source: 'self_added_unlisted'");
+  assert.ok(at > -1, 'the self-join insert moved — re-point this guard');
+  const insert = inserts.slice(at, inserts.indexOf('.select(', at));
+  assert.doesNotMatch(
+    insert,
+    /(^|[^_a-zA-Z])email\s*:/,
+    'the self-join insert carries an email again — that is the SECOND writer, and it fires the person-binding trigger at a different moment than the real one',
+  );
+});
+
+test('…and the one that does it is reached from every ending that asks for an email', () => {
+  // Three endings ask: the returning device, the matched seat, and the new row.
+  // If one stopped calling it, that guest's address would be the one the host
+  // never gets — and nothing else would notice.
+  assert.equal(
+    (ACTIONS.match(/sendEventAccountMagicLink\(/g) ?? []).length,
+    3,
+    'an ending stopped sending the address to the one writer',
+  );
+  const lib = readFileSync(
+    join(__dirname, '..', '..', '..', 'lib', 'event-account-link.ts'),
+    'utf8',
+  );
+  const step = lib.slice(lib.indexOf('async function sendEventAccountMagicLink'));
+  assert.match(step, /\.update\(\{ email/, 'the one writer stopped writing');
+  assert.match(
+    step,
+    /\.is\('email', null\)/,
+    "the fill-a-blank rule is gone — a stranger scanning a poster could overwrite an address the host recorded",
+  );
+});

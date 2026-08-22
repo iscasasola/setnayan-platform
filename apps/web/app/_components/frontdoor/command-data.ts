@@ -278,36 +278,18 @@ export const resolveCommandItems = cache(
           kind: 'action',
           icon: 'users',
         },
-        {
-          // 🚨 ADDED 2026-08-15 BECAUSE IT WAS THE ONLY ACCOUNT SPOKE WITH NO
-          // DOOR. `(account)/layout.tsx` lists `year` among the spokes it owns,
-          // and every other one on that list is reachable from this palette —
-          // this route was not, from here or from any rail, bottom nav, account
-          // menu or home tile. Its single in-app link lived inside the "This
-          // year" home strip, which used to return null when the derived list
-          // was empty, so the page sealed itself shut for exactly the people
-          // with nothing on it yet. The strip's empty branch now holds that
-          // door open too; this row is the one that does not depend on it.
-          id: 'action-year',
-          label: 'Your year',
-          sublabel: 'Birthdays · anniversaries · the dates that come back',
-          href: '/dashboard/year',
-          kind: 'action',
-          icon: 'calendar',
-        },
-        {
-          id: 'action-your-story',
-          label: 'Your Story',
-          sublabel:
-            chapterCount === null
-              ? 'Your chapters'
-              : chapterCount > 0
-                ? `${chapterCount} ${chapterCount === 1 ? 'chapter' : 'chapters'} · Storyteller`
-                : 'Become a Storyteller — publish your events as chapters',
-          href: '/dashboard/creator',
-          kind: 'action',
-          icon: 'clapperboard',
-        },
+        // 'Your year' IS RETIRED (owner 2026-08-21: *"remove the your year…
+        // we already have the your year inside my events"*). Its contents are
+        // the "Worth planning" shelf on My Events, holidays included, and
+        // /dashboard/year now redirects there — a palette row pointing at a
+        // redirect is a door that lies about where it goes.
+        // 'Your Story' IS RETIRED (owner 2026-08-21: *"remove … your story.
+        // we already have your story on untold"*). The ROUTE is untouched and
+        // the account menu still carries the door.
+        // ⚠ CORRECTED 2026-08-22 — this said My Events carried two doors to it.
+        // It no longer does: Untold opens the EVENT'S OWN story page and Told
+        // points at Memories. Those two links going to the chapter composer is
+        // what made one wedding look like it had two different "stories".
         {
           id: 'action-profile',
           label: 'Profile & account',

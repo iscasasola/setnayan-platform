@@ -110,7 +110,7 @@ export function railMatchRows(who: {
           // 'year' is GONE with the rail row it lit up (owner 2026-08-21) — a
           // match row for a link nothing renders can only ever be dead weight.
           { key: 'people', href: '/dashboard/people' },
-          { key: 'story', href: '/dashboard/creator' },
+          // 'story' is GONE with the rail row it lit up (owner 2026-08-21).
         ]
       : []),
     ...(who.hasShop ? [{ key: 'shop', href: '/vendor-dashboard' }] : []),

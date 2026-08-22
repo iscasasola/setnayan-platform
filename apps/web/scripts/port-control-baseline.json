@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8a8a38095",
-  "routeCount": 403,
-  "destinations": 862,
+  "generatedFromRef": "b79cf736b",
+  "routeCount": 404,
+  "destinations": 863,
   "actions": 582,
-  "blocks": 3849,
+  "blocks": 3856,
   "routes": {
     "/": {
       "files": [
@@ -517,6 +517,7 @@
         "[slug]/_components/editor-bridge.tsx",
         "[slug]/_components/editorial/compose.ts",
         "[slug]/_components/editorial/consent-veto.ts",
+        "[slug]/_components/editorial/custom-columns.ts",
         "[slug]/_components/editorial/data.ts",
         "[slug]/_components/editorial/editorial-content.tsx",
         "[slug]/_components/editorial/editorial-order.ts",
@@ -643,6 +644,7 @@
         "ConsentVeto",
         "CountdownWidget",
         "CssFallback",
+        "CustomColumnBody",
         "Date",
         "DayOfAnnouncement",
         "DayOfBanner",
@@ -3913,7 +3915,6 @@
         "/admin",
         "/dashboard",
         "/dashboard/[seg]",
-        "/dashboard/[seg]/website/editorial",
         "/dashboard/create-event",
         "/dashboard/creator",
         "/dashboard/library",
@@ -6012,6 +6013,7 @@
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/studio",
         "/dashboard/[seg]/studio/papic",
+        "/dashboard/[seg]/studio/papic/challenges",
         "/dashboard/[seg]/studio/papic/crew",
         "/dashboard/[seg]/studio/papic/crew/print",
         "/dashboard/[seg]/studio/papic/gallery-zip",
@@ -6055,6 +6057,7 @@
         "DslrBridgeSection",
         "ExtraCamerasPicker",
         "FaceTaggingChoice",
+        "FilterChip",
         "FilterId",
         "Fragment",
         "GalleryPhoto",
@@ -6079,6 +6082,7 @@
         "PapicPoolCard",
         "PapicWindowPicker",
         "PaymentUnderReview",
+        "PickerFilters",
         "PoolGalleryCard",
         "PoolGalleryToggle",
         "PreservationMeterLine",
@@ -6100,6 +6104,19 @@
         "VendorChallengesApproval",
         "VendorMediaControls",
         "WallTileLayout"
+      ]
+    },
+    "/dashboard/[eventId]/studio/papic/challenges": {
+      "files": [
+        "dashboard/[eventId]/studio/papic/challenges/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio/papic"
+      ],
+      "actions": [],
+      "blocks": [
+        "CoupleChallengesManager",
+        "Link"
       ]
     },
     "/dashboard/[eventId]/studio/papic/crew": {
@@ -6980,6 +6997,7 @@
       ],
       "actions": [],
       "blocks": [
+        "CustomColumn",
         "EditorialEditor",
         "EditorialEditorInput",
         "Field",
@@ -8060,6 +8078,7 @@
         "ChannelTab",
         "CopyButton",
         "FileUpload",
+        "Link",
         "PayPanel",
         "ProofForm",
         "QrTile",

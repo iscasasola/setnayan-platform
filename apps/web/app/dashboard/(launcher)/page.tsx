@@ -20,7 +20,6 @@ import {
   MapPin,
   Baby,
   Mail,
-  PenLine,
   CalendarClock,
 } from 'lucide-react';
 import { YearMomentsStrip } from './_components/year-moments-strip';
@@ -1295,6 +1294,17 @@ export default async function LauncherPage({
           </p>
         ) : (
           <>
+            {/* THE CARD IS THE CHOICE (owner 2026-08-22). This shelf used to pair
+                a plain card — opening the event dashboard — with a SEPARATE
+                chip below reading "Write the story of X". Two controls for one
+                celebration, and the chip was the one that actually mattered.
+                Pressing the card itself now opens the story page directly, for
+                exactly the same events and under exactly the same rule the chip
+                used to gate on: the story has been measured, and this account
+                organises the celebration. Guests, and any board where the read
+                was refused, keep the ordinary card → event-dashboard behaviour
+                — sending either into a stranger's editor, or into an editor a
+                refused read cannot vouch for, is not this shelf's call to make. */}
             {/* MOBILE — compact chips, muted (the same treatment the hidden
                 half used to get once revealed). */}
             <div className="grid grid-cols-2 gap-2.5 sm:hidden">
@@ -1311,6 +1321,11 @@ export default async function LauncherPage({
                     todayISO={todayISO}
                     summary={decisionByEvent.get(event.event_id)}
                     hasMenu={event.member_type === 'couple'}
+                    storyHref={
+                      storiesMeasured && canWriteStoryFor(event)
+                        ? `/dashboard/${event.event_id}/website/editorial`
+                        : undefined
+                    }
                   />
                 </BoardCardWithMenu>
               ))}
@@ -1330,35 +1345,15 @@ export default async function LauncherPage({
                     todayISO={todayISO}
                     summary={decisionByEvent.get(event.event_id)}
                     hasMenu={event.member_type === 'couple'}
+                    storyHref={
+                      storiesMeasured && canWriteStoryFor(event)
+                        ? `/dashboard/${event.event_id}/website/editorial`
+                        : undefined
+                    }
                   />
                 </BoardCardWithMenu>
               ))}
             </div>
-            {/* THE CHOICE, and it is a LINK, never a form: pressing it opens
-                the composer with this celebration already picked. Nothing is
-                written, nothing is posted, and nothing happens when the card
-                merely scrolls past — a `<Link>` prefetches, so a side effect
-                behind one fires by itself. */}
-            {storiesMeasured ? (
-              <ul className="mt-3 flex flex-wrap gap-2">
-                {unwritten.filter(canWriteStoryFor).map((event) => (
-                  <li key={event.event_id}>
-                    <Link
-                      /* THE EVENT'S OWN STORY PAGE, not the Storyteller
-                         composer. It opens already written — Setnayan drafts it
-                         from the day's schedule and photos and the couple
-                         corrects it — which is the whole difference from the
-                         blank page this chip used to open. */
-                      href={`/dashboard/${event.event_id}/website/editorial`}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/75 hover:bg-ink/5 hover:text-ink"
-                    >
-                      <PenLine aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      Write the story of {event.display_name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
           </>
         )}
       </section>
@@ -1717,6 +1712,10 @@ function CardShell({
   style,
   children,
 }: {
+  /** `null` renders an inert card (see the block above) — used ONLY when the
+   *  destination genuinely does not exist yet (an invited guest whose host
+   *  hasn't opened a public address). Never pass null to mean "use the
+   *  default" — callers that want the default simply don't override it. */
   href: string | null;
   className: string;
   style?: CSSProperties;
@@ -1751,6 +1750,10 @@ function CardShell({
  * monogram · place/date · gold progress ring · countdown · attention line.
  * The card jumps into the event dashboard — an allowed navigation.
  *
+ * ⚠ EXCEPT ON THE UNTOLD SHELF (owner 2026-08-22), where `storyHref` sends it
+ * straight to the celebration's own story page instead. See the prop's own
+ * doc — the caller decides when, this component only ever obeys.
+ *
  * Attention/overdue signals deliberately live ONLY in The Watch (desktop tile)
  * / the mobile nudge row now (owner 2026-07-15: one home for overdue counts) —
  * this card carries identity/type/date/progress, never a decision pill.
@@ -1765,6 +1768,7 @@ function GlassEventCard({
   todayISO,
   summary,
   hasMenu = false,
+  storyHref,
 }: {
   event: EventWithRole;
   pct: number | null;
@@ -1784,13 +1788,27 @@ function GlassEventCard({
   index?: number;
   /** Reserve the scene band's top-right corner for the card menu. */
   hasMenu?: boolean;
+  /**
+   * THE UNTOLD SHELF'S OWN DESTINATION (owner 2026-08-22: "we want that gone
+   * and directly jumps to the story maker upon pressing each untold event").
+   * When set, the card opens the event's story page instead of its dashboard —
+   * the separate "Write the story of X" chip that used to sit below the grid
+   * is retired in favour of the card itself doing that job.
+   *
+   * The caller computes this (`storiesMeasured && canWriteStoryFor(event)`),
+   * never this component: whether a guest, or an unmeasured board, gets sent
+   * into somebody's story editor is a decision that belongs where the shelf's
+   * other rules already live, not duplicated here.
+   */
+  storyHref?: string;
 }) {
   const { badge, dateLabel, place, status, plannedLabel, stance, href, closedReason } =
     deriveEventView(event, pct, finished, todayISO);
+  const resolvedHref = storyHref ?? href;
 
   return (
     <CardShell
-      href={href}
+      href={resolvedHref}
       className={`sn-tile-glass sn-lift-4 sn-press sn-reveal group flex h-full min-h-[196px] flex-col overflow-hidden rounded-2xl hover:border-mulberry/30 ${
         finished ? 'opacity-75 hover:opacity-100' : ''
       }`}
@@ -2102,6 +2120,7 @@ function MobileEventChip({
   todayISO,
   summary,
   hasMenu = false,
+  storyHref,
 }: {
   event: EventWithRole;
   pct: number | null;
@@ -2112,6 +2131,8 @@ function MobileEventChip({
   summary?: EventDecisionSummary;
   /** Reserve the top-right corner for the card menu. */
   hasMenu?: boolean;
+  /** See the matching prop on `GlassEventCard` — same override, same rule. */
+  storyHref?: string;
 }) {
   const { badge, dateLabel, status, stance, href, closedReason } = deriveEventView(
     event,
@@ -2119,9 +2140,10 @@ function MobileEventChip({
     finished,
     todayISO,
   );
+  const resolvedHref = storyHref ?? href;
   return (
     <CardShell
-      href={href}
+      href={resolvedHref}
       className={`sn-press block h-full rounded-2xl border border-ink/15 bg-white/60 p-3 text-left ${
         finished ? 'opacity-75' : ''
       } ${hasMenu ? 'pr-9' : ''}`}

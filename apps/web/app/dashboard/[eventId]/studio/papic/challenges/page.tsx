@@ -2,7 +2,12 @@
  * PICK YOUR GUESTS' CHALLENGES — a screen of its own.
  *
  * Owner, 2026-08-21: *"the need to have a real screen to pick their challenges
- * up to 20 challenges."*
+ * up to 20 challenges."* Then, the same day: *"we keep the 600+ challenges but
+ * the user only picks 10."*
+ *
+ * 🔑 TWO NUMBERS, AND ONLY ONE OF THEM MOVED. The LIBRARY is 631 — that is what
+ * this screen searches and filters. The BOARD is what a guest is handed, and it
+ * went 20 → 10. This page names neither: both come from BOARD_SIZE.
  *
  * ── WHY IT LEFT THE PAPIC SETUP PAGE ────────────────────────────────────────
  * The picker started as a block near the bottom of `/studio/papic`, under the

@@ -31,14 +31,20 @@ import assert from 'node:assert/strict';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { CHALLENGE_POOL, CHALLENGE_POOL_FLOOR } from '../../lib/papic-challenge-pool';
+import { BOARD_SIZE } from '../../lib/papic-missions';
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];
 
-/** The exact board a wedding got BEFORE this change, read out of production
- *  (event 044f7e64…, 2026-08-21). Slots 1–16 are the ranked heroes and stories;
- *  17–20 are the unranked backfill in library order. */
-const WEDDING_BOARD_BEFORE = [1, 40, 5, 2, 15, 38, 4, 18, 6, 22, 41, 42, 43, 44, 53, 54, 3, 7, 8, 9];
+/**
+ * ⚠ THE OLD BOARD, KEPT ONLY AS HISTORY. Read out of production on 2026-08-21:
+ * twenty slots, ranks 1–16 then unranked backfill. The owner then said *"we keep
+ * the 600+ challenges but the user only picks 10"*, so a wedding's board is
+ * DELIBERATELY different now and pinning this would be pinning a decision that
+ * was reversed. What replaced it is the test below, which asserts the SHAPE the
+ * new ten has to have rather than a list of ids.
+ */
+const WEDDING_BOARD_BEFORE_2026_08_21 = [1, 40, 5, 2, 15, 38, 4, 18, 6, 22, 41, 42, 43, 44, 53, 54, 3, 7, 8, 9];
 
 before(async () => {
   replay = await createReplayedDb();
@@ -153,7 +159,7 @@ test('a date is never asked about newlyweds — the movie-night defect', async (
   const eventId = await newEvent('Movie Night', 'date');
   const board = await boardOf(eventId);
 
-  assert.equal(board.length, 20, 'a date still gets a full board — 475 rows fit any event');
+  assert.equal(board.length, BOARD_SIZE, 'a date still gets a full board — 475 rows fit any event');
 
   const scoped = await db.query<{ slug: string; event_types: string[] | null }>(
     `SELECT l.slug, l.event_types
@@ -178,7 +184,7 @@ test('a graduation, a birthday and a christening each get a full, in-scope board
   for (const type of ['graduation', 'birthday', 'christening', 'corporate', 'reunion']) {
     const eventId = await newEvent(`A ${type}`, type);
     const board = await boardOf(eventId);
-    assert.equal(board.length, 20, `${type} got ${board.length} slots`);
+    assert.equal(board.length, BOARD_SIZE, `${type} got ${board.length} slots`);
     const bad = await db.query<{ slug: string }>(
       `SELECT l.slug FROM public.papic_missions m
          JOIN public.papic_challenge_library l ON l.library_id = m.library_id
@@ -190,33 +196,64 @@ test('a graduation, a birthday and a christening each get a full, in-scope board
   }
 });
 
-test('a wedding board is unchanged — 571 rows added, not one slot moved', async () => {
-  // ⚠ PABATI ON. The production board this array was read from belongs to an
-  // event that owns the Pabati SKU, and `ensure_papic_board` drops the Pabati
-  // row when it does not. Comparing a pabati-OFF board against a pabati-ON
-  // measurement fails for a reason that has nothing to do with this change —
-  // and it did, on the first run, which is the only reason this note exists.
+test('a wedding board is a curated ten that asks somebody to speak', async () => {
+  // 🚨 THE ASSERTION THIS REPLACES WOULD HAVE PASSED WHILE THE FEATURE BROKE.
+  // It pinned the exact twenty ids a wedding used to get. Halving the board
+  // makes that list wrong by definition, so re-pinning the first ten of it would
+  // have "gone green" on a board of ten photo errands — and the couple's story
+  // column, which is built from spoken answers, would have been empty forever.
+  //
+  // So this asserts the SHAPE the ten must have, which is the thing that
+  // actually has to stay true: a full board, in rank order, carrying challenges
+  // somebody talks into.
   const eventId = await newEvent('Cale & Ice', 'wedding');
   const board = await boardOf(eventId, true);
-  assert.deepEqual(board, WEDDING_BOARD_BEFORE,
-    'a wedding board moved. New rows must stay unranked and above library_id 99, ' +
-    'or every couple already planning gets a different board than the one they curated.');
+
+  assert.equal(board.length, BOARD_SIZE, 'a wedding must still get a full board');
+  assert.notDeepEqual(
+    board,
+    WEDDING_BOARD_BEFORE_2026_08_21.slice(0, BOARD_SIZE),
+    'this should be the rebalanced ten, not the first ten of the old twenty',
+  );
+
+  const rows = await db.query<{ category: string; capture_kind: string; priority_rank: number | null }>(
+    `SELECT l.category, l.capture_kind, l.priority_rank
+       FROM public.papic_missions m
+       JOIN public.papic_challenge_library l ON l.library_id = m.library_id
+      WHERE m.event_id = $1 AND m.board_slot IS NOT NULL
+      ORDER BY m.board_slot`,
+    [eventId],
+  );
+
+  const speaking = rows.rows.filter((r) =>
+    ['stories', 'stories_couple', 'greeting'].includes(r.category),
+  ).length;
+  assert.ok(
+    speaking >= 2,
+    `only ${speaking} of a wedding's ${BOARD_SIZE} challenges are spoken — the story column is fed ` +
+      `by those answers, and a board without them leaves it permanently empty`,
+  );
+  assert.ok(
+    rows.rows.length - speaking >= 4,
+    'a board that is mostly interview questions is not a party',
+  );
+
+  // Rank order, ranked-first: the running order is a decision, not an accident.
+  const ranks = rows.rows.map((r) => (r.priority_rank === null ? 999 : Number(r.priority_rank)));
+  assert.deepEqual([...ranks].sort((a, b) => a - b), ranks, 'the board must be in rank order');
 });
 
-test('without the Pabati SKU a wedding board is the same list, minus Pabati', async () => {
-  // The one row that is allowed to differ, and the proof that nothing ELSE
-  // shifted: drop id 5, and the 20th slot is filled by the next shipped row in
-  // library order — never by one of the 571 new ones.
+test('without the Pabati SKU the board is still full, and Pabati is absent', async () => {
   const eventId = await newEvent('No Pabati', 'wedding');
   const board = await boardOf(eventId, false);
-  assert.equal(board.length, 20);
-  assert.ok(!board.includes(5), 'Pabati must not board without its SKU');
-  assert.deepEqual(
-    board.slice(0, 19),
-    WEDDING_BOARD_BEFORE.filter((id) => id !== 5),
-    'removing Pabati must shift the list up, not reshuffle it',
+  assert.equal(board.length, BOARD_SIZE);
+  const pabati = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.papic_missions m
+       JOIN public.papic_challenge_library l ON l.library_id = m.library_id
+      WHERE m.event_id = $1 AND m.board_slot IS NOT NULL AND l.capture_kind = 'pabati'`,
+    [eventId],
   );
-  assert.ok(board[19]! <= 60, `slot 20 went to a new row (${board[19]}), not the next shipped one`);
+  assert.equal(Number(pabati.rows[0]!.n), 0, 'Pabati must not board without its SKU');
 });
 
 // ── 3 · THE TOKENS RESOLVE, PER EVENT, AT READ TIME ────────────────────────
@@ -320,7 +357,7 @@ test('a date that ALREADY has a wedding board gets it taken away — the real mo
        FROM public.papic_challenge_library l
       WHERE l.library_id <= 60 AND l.capture_kind <> 'pabati'
       ORDER BY l.priority_rank NULLS LAST, l.library_id
-      LIMIT 20`,
+      LIMIT ${BOARD_SIZE}`,
     [eventId],
   );
   const before = await db.query<{ n: number }>(
@@ -328,7 +365,7 @@ test('a date that ALREADY has a wedding board gets it taken away — the real mo
       WHERE event_id = $1 AND board_slot IS NOT NULL AND library_id <= 60`,
     [eventId],
   );
-  assert.equal(Number(before.rows[0]!.n), 20, 'the broken state must actually be set up');
+  assert.equal(Number(before.rows[0]!.n), BOARD_SIZE, 'the broken state must actually be set up');
 
   const board = await boardOf(eventId);
 
@@ -339,7 +376,7 @@ test('a date that ALREADY has a wedding board gets it taken away — the real mo
   );
   assert.equal(Number(after.rows[0]!.n), 0,
     'the wedding challenges kept their slots — the scope is not being applied when the board is REBUILT');
-  assert.equal(board.length, 20, 'and the date must still end up with a full board');
+  assert.equal(board.length, BOARD_SIZE, 'and the date must still end up with a full board');
 
   // ⚠ NOTHING IS DELETED. The rows stay in the table with board_slot NULL, so a
   // completion (there are none in production, but still) is never un-finished
@@ -348,17 +385,17 @@ test('a date that ALREADY has a wedding board gets it taken away — the real mo
     `SELECT count(*)::int AS n FROM public.papic_missions WHERE event_id = $1 AND library_id <= 60`,
     [eventId],
   );
-  assert.equal(Number(kept.rows[0]!.n), 20, 'the old rows must be de-slotted, never deleted');
+  assert.equal(Number(kept.rows[0]!.n), BOARD_SIZE, 'the old rows must be de-slotted, never deleted');
 });
 
 // ── The couple may take the whole board (owner, 2026-08-21) ────────────────
 
-test('a couple who picks twelve gets twelve — the ten-cap is gone', async () => {
+test('a couple who fills the board gets the board — no silent cap', async () => {
   // ⚠ THE DEFECT THIS REPLACES: the couple lane was capped at TEN while the
   // board showed twenty. A couple who chose twelve got ten, and the two that
   // did not fit had no board position and no explanation on any screen.
-  const eventId = await newEvent('Twelve Picks', 'wedding');
-  for (let i = 1; i <= 12; i++) {
+  const eventId = await newEvent('Fills The Board', 'wedding');
+  for (let i = 1; i <= BOARD_SIZE; i++) {
     await db.query(
       `INSERT INTO public.papic_missions (event_id, mission_type, source, prompt, approved, is_active)
        VALUES ($1, 'prompt', 'couple', $2, true, true)`,
@@ -371,12 +408,12 @@ test('a couple who picks twelve gets twelve — the ten-cap is gone', async () =
       WHERE event_id = $1 AND source = 'couple' AND board_slot IS NOT NULL`,
     [eventId],
   );
-  assert.equal(Number(r.rows[0]!.n), 12, 'the couple lane still caps below what they chose');
+  assert.equal(Number(r.rows[0]!.n), BOARD_SIZE, 'the couple lane still caps below what they chose');
 });
 
-test('a couple can take all twenty, and Setnayan then fills nothing', async () => {
-  const eventId = await newEvent('All Twenty', 'wedding');
-  for (let i = 1; i <= 20; i++) {
+test('a couple can take the whole board, and Setnayan then fills nothing', async () => {
+  const eventId = await newEvent('All Theirs', 'wedding');
+  for (let i = 1; i <= BOARD_SIZE; i++) {
     await db.query(
       `INSERT INTO public.papic_missions (event_id, mission_type, source, prompt, approved, is_active)
        VALUES ($1, 'prompt', 'couple', $2, true, true)`,
@@ -384,13 +421,13 @@ test('a couple can take all twenty, and Setnayan then fills nothing', async () =
     );
   }
   const board = await boardOf(eventId);
-  assert.equal(board.length, 20, 'the board is still exactly twenty');
+  assert.equal(board.length, BOARD_SIZE, 'the board is still exactly the board size');
   const mine = await db.query<{ n: number }>(
     `SELECT count(*)::int AS n FROM public.papic_missions
       WHERE event_id = $1 AND source = 'couple' AND board_slot IS NOT NULL`,
     [eventId],
   );
-  assert.equal(Number(mine.rows[0]!.n), 20, 'all twenty are theirs');
+  assert.equal(Number(mine.rows[0]!.n), BOARD_SIZE, 'every slot is theirs');
   const ours = await db.query<{ n: number }>(
     `SELECT count(*)::int AS n FROM public.papic_missions
       WHERE event_id = $1 AND source = 'setnayan' AND board_slot IS NOT NULL`,
@@ -405,7 +442,7 @@ test('the board never overflows, however many the couple writes', async () => {
   // the slot allocator would then try to place 25 rows in 20 seats. Thirty picks
   // is the blunt version of the same question.
   const eventId = await newEvent('Thirty Picks', 'wedding');
-  for (let i = 1; i <= 30; i++) {
+  for (let i = 1; i <= BOARD_SIZE * 3; i++) {
     await db.query(
       `INSERT INTO public.papic_missions (event_id, mission_type, source, prompt, approved, is_active)
        VALUES ($1, 'prompt', 'couple', $2, true, true)`,
@@ -413,7 +450,7 @@ test('the board never overflows, however many the couple writes', async () => {
     );
   }
   const board = await boardOf(eventId);
-  assert.equal(board.length, 20);
+  assert.equal(board.length, BOARD_SIZE);
   const slots = await db.query<{ board_slot: number }>(
     `SELECT board_slot FROM public.papic_missions
       WHERE event_id = $1 AND board_slot IS NOT NULL ORDER BY board_slot`,
@@ -421,7 +458,7 @@ test('the board never overflows, however many the couple writes', async () => {
   );
   assert.deepEqual(
     slots.rows.map((r) => Number(r.board_slot)),
-    Array.from({ length: 20 }, (_, i) => i + 1),
-    'slots must be 1..20 with no gaps and no duplicates',
+    Array.from({ length: BOARD_SIZE }, (_, i) => i + 1),
+    `slots must be 1..${BOARD_SIZE} with no gaps and no duplicates`,
   );
 });

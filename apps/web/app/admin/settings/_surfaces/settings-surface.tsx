@@ -266,7 +266,7 @@ export async function SettingsSurface({ searchParams }: Props) {
                 <h3 className="text-sm font-semibold text-ink">Onboarding</h3>
                 <ArrowRight
                   aria-hidden
-                  className="h-4 w-4 text-ink/40 transition group-hover:translate-x-0.5 group-hover:text-terracotta"
+                  className="h-4 w-4 text-ink/40 transition group-hover:translate-x-0.5 group-hover:text-mulberry"
                   strokeWidth={1.75}
                 />
               </div>
@@ -294,7 +294,7 @@ export async function SettingsSurface({ searchParams }: Props) {
                 <h3 className="text-sm font-semibold text-ink">Payment methods</h3>
                 <ArrowRight
                   aria-hidden
-                  className="h-4 w-4 text-ink/40 transition group-hover:translate-x-0.5 group-hover:text-terracotta"
+                  className="h-4 w-4 text-ink/40 transition group-hover:translate-x-0.5 group-hover:text-mulberry"
                   strokeWidth={1.75}
                 />
               </div>
@@ -333,7 +333,7 @@ export async function SettingsSurface({ searchParams }: Props) {
               type="checkbox"
               name="admin_digest_enabled"
               defaultChecked={settings.admin_digest_enabled}
-              className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+              className="mt-0.5 h-4 w-4 rounded border-ink/30 text-mulberry focus:ring-mulberry"
             />
             <span className="flex flex-col gap-0.5">
               <span className="text-sm font-semibold text-ink">

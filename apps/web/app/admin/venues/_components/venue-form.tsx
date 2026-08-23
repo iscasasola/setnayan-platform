@@ -217,7 +217,7 @@ export function VenueForm({
                 type="checkbox"
                 name={`compatible_${ct}`}
                 defaultChecked={initial?.compatible_ceremony_types?.includes(ct) ?? false}
-                className="h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+                className="h-4 w-4 rounded border-ink/25 text-mulberry focus:ring-mulberry/40"
               />
               {CEREMONY_TYPE_LABEL[ct]}
             </label>

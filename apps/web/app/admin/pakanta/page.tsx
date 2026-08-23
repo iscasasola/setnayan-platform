@@ -358,7 +358,7 @@ export default async function AdminPakantaPage() {
                 )}
 
                 <details className="mt-2">
-                  <summary className="cursor-pointer text-xs font-medium text-terracotta">
+                  <summary className="cursor-pointer text-xs font-medium text-mulberry">
                     Copy-paste brief for Suno
                   </summary>
                   <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-ink/5 p-3 text-xs leading-relaxed text-ink/80">

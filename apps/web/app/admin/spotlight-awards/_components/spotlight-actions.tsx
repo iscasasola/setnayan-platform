@@ -104,7 +104,7 @@ export function SpotlightAwardRowActions({
             });
           });
         }}
-        className="inline-flex items-center justify-center rounded-lg border border-ink/15 bg-white p-2 text-ink/55 transition-colors hover:border-terracotta/40 hover:text-terracotta disabled:opacity-60"
+        className="inline-flex items-center justify-center rounded-lg border border-ink/15 bg-white p-2 text-ink/55 transition-colors hover:border-terracotta/40 hover:text-mulberry disabled:opacity-60"
         aria-label="Remove award"
         title="Remove award"
       >

@@ -278,7 +278,7 @@ export function LibraryEditor({ initialAssets }: Props) {
         {/* Random Higgsfield prompt generator (owner directive 2026-05-21:
            "we can just click generate and it will make one everytime") */}
         <section className="rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
-          <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-mulberry">
             Random Higgsfield prompt
           </p>
           <p className="mb-3 text-xs text-ink/65">

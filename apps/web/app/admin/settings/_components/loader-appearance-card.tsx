@@ -159,7 +159,7 @@ export function LoaderAppearanceCard({
               name="loader_pop_enabled"
               checked={pop}
               onChange={(e) => setPop(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+              className="mt-0.5 h-4 w-4 rounded border-ink/30 text-mulberry focus:ring-mulberry"
             />
             <span className="flex flex-col gap-0.5">
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">

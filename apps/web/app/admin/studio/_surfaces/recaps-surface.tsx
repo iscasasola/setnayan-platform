@@ -111,7 +111,7 @@ export async function RecapsSurface({
                     <Link
                       href={`/${slug}/recap`}
                       target="_blank"
-                      className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+                      className="inline-flex items-center gap-1 text-sm font-medium text-mulberry underline-offset-4 hover:underline"
                     >
                       View
                       <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

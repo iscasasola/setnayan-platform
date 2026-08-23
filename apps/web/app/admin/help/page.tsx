@@ -123,7 +123,7 @@ export default async function AdminHelpPage({ searchParams }: Props) {
                     From{' '}
                     <a
                       href={`mailto:${m.sender_email}?subject=Re:%20${encodeURIComponent(m.subject)}`}
-                      className="text-terracotta hover:underline"
+                      className="text-mulberry hover:underline"
                     >
                       {m.sender_email}
                     </a>

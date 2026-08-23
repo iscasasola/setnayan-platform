@@ -40,7 +40,7 @@ const describe = (s: SongLabel) => `#${s.song_id} â€” ${s.title}${s.artist ? ` Â
 export function DeleteSongButton({ song }: { song: SongLabel }) {
   return (
     <SubmitButton
-      className="inline-flex items-center justify-center rounded-full p-1.5 text-ink/40 hover:bg-terracotta/10 hover:text-terracotta"
+      className="inline-flex items-center justify-center rounded-full p-1.5 text-ink/40 hover:bg-terracotta/10 hover:text-mulberry"
       aria-label={`Delete ${song.title}`}
       onClick={(e) => {
         const ok = window.confirm(

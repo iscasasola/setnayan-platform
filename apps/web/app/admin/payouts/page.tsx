@@ -190,7 +190,7 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
           <p className="text-sm font-medium text-ink">No payouts match this filter.</p>
           <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
             Payouts land here the moment an admin reconciles a couple&rsquo;s
-            payment in <Link className="text-terracotta hover:underline" href="/admin/payments">Payments</Link>.
+            payment in <Link className="text-mulberry hover:underline" href="/admin/payments">Payments</Link>.
           </p>
         </div>
       ) : (

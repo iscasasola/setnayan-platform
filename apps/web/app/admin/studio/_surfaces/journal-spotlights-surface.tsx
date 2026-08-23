@@ -128,7 +128,7 @@ export async function JournalSpotlightsSurface({
         </div>
       ) : null}
       {error ? (
-        <div className="mb-5 rounded-xl border border-terracotta/40 bg-terracotta/[0.06] px-4 py-3 text-sm text-terracotta">
+        <div className="mb-5 rounded-xl border border-terracotta/40 bg-terracotta/[0.06] px-4 py-3 text-sm text-mulberry">
           {error}
         </div>
       ) : null}

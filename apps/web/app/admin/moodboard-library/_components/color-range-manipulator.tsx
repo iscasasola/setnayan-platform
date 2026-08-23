@@ -364,7 +364,7 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
                       e.stopPropagation();
                       loadSlot(slotId);
                     }}
-                    className="text-[10px] uppercase tracking-[0.15em] text-terracotta hover:underline"
+                    className="text-[10px] uppercase tracking-[0.15em] text-mulberry hover:underline"
                   >
                     Load
                   </button>

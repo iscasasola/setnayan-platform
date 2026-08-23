@@ -71,6 +71,7 @@ import { resolveMonogram } from '@/lib/monogram';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { ScheduleWidget } from '../_components/schedule-widget';
 import { DayOfFaceEnroll } from '../_components/day-of-face-enroll';
+import { GuestCodeKeepers } from '../_components/guest-code-keepers';
 import { resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { WhatsHappeningCard } from '@/app/dashboard/[eventId]/_components/day-of-mode/whats-happening-card';
 import { LiveWallBlock, type LiveWallCaption } from '../_components/live-wall-block';
@@ -864,6 +865,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         <p className="mx-auto mt-4 break-all font-mono text-[0.65rem] tracking-[0.05em] text-ink/45">
           {invitationUrl}
         </p>
+        <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4" />
         {guest.rsvp_status === 'attending' ? (
           <p className="mt-4 inline-flex items-center gap-1.5 text-xs text-ink/70">
             <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

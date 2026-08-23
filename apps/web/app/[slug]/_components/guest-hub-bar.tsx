@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { rotateMyGuestQr } from '../rotate-qr-actions';
+import { GuestCodeKeepers } from './guest-code-keepers';
 
 // Guest event-page hub bar (owner 2026-06-26). When a guest scans their
 // personal QR they land on their own InvitationSite view; this turns that page
@@ -301,6 +302,7 @@ export function GuestHubBar({
             <p className="mt-4 break-all font-mono text-[0.65rem] tracking-[0.05em] text-ink/50">
               {invitationUrl}
             </p>
+            <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4" />
 
             {/* Guest QR self-rotation (build ④ · owner-signed: guests hold
                 rotation authority). Flag-gated server-side — the section only

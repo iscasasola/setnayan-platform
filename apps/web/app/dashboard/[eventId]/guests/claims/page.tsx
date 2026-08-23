@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { keepGuestAction, removeGuestAction, linkGuestAction } from './actions';
 
 export const metadata = { title: 'Unlisted guests' };
@@ -41,7 +42,14 @@ export default async function UnlistedGuestsPage({ params }: Props) {
   // Invite/Join v2 (0000 ADDENDUM 2026-06-25): people who joined via the invite
   // link but whose name didn't match the list. They're already added — this is
   // where the couple keeps or removes them.
-  const { data: rowsRaw } = await supabase
+  //
+  // ⚠ THE SENTENCE BELOW THIS READ IS "Nobody to review right now." Supabase
+  // ⚠ RESOLVES with { error } rather than throwing, so a refused read arrives as
+  // ⚠ `data: null`, `?? []` turns it into an empty list, and that sentence is
+  // ⚠ printed to a couple who has people waiting — who then never get kept or
+  // ⚠ removed, because the couple was told there was nobody. Bind the error and
+  // ⚠ gate the claim on whether the read actually happened.
+  const { data: rowsRaw, error: rowsError } = await supabase
     .from('guests')
     .select('guest_id, first_name, last_name, display_name, email, role, created_at')
     .eq('event_id', eventId)
@@ -49,6 +57,15 @@ export default async function UnlistedGuestsPage({ params }: Props) {
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
+  if (rowsError) {
+    logQueryError(
+      'UnlistedGuestsPage.unlisted',
+      rowsError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+  const unlistedMeasured = !rowsError && rowsRaw !== null;
   const rows = (rowsRaw ?? []) as UnlistedRow[];
 
   // Existing list members the couple can merge an unlisted joiner INTO (the
@@ -56,8 +73,13 @@ export default async function UnlistedGuestsPage({ params }: Props) {
   // non-deleted, name-ordered. Only fetched when there's something to reconcile.
   type Candidate = { guest_id: string; first_name: string; last_name: string; display_name: string | null };
   let candidates: Candidate[] = [];
+  // A refused read here hides the "Same as <someone already on your list>"
+  // merge form entirely, which reads as "there is nobody to merge them into" —
+  // so the couple keeps a duplicate instead of linking it. Measured separately
+  // from the list above: one can be refused while the other is not.
+  let candidatesMeasured = true;
   if (rows.length > 0) {
-    const { data: candRaw } = await supabase
+    const { data: candRaw, error: candError } = await supabase
       .from('guests')
       .select('guest_id, first_name, last_name, display_name')
       .eq('event_id', eventId)
@@ -65,6 +87,15 @@ export default async function UnlistedGuestsPage({ params }: Props) {
       .is('deleted_at', null)
       .order('last_name', { ascending: true })
       .limit(500);
+    if (candError) {
+      logQueryError(
+        'UnlistedGuestsPage.mergeCandidates',
+        candError,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    candidatesMeasured = !candError && candRaw !== null;
     candidates = (candRaw ?? []) as Candidate[];
   }
 
@@ -88,7 +119,18 @@ export default async function UnlistedGuestsPage({ params }: Props) {
         </p>
       </header>
 
-      {rows.length === 0 ? (
+      {!unlistedMeasured ? (
+        <p
+          role="alert"
+          className="mt-10 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">
+            We couldn&rsquo;t load who joined through your link.
+          </strong>{' '}
+          This does not mean nobody did. Nobody has been added or removed &mdash;
+          reload in a moment and they will be here.
+        </p>
+      ) : rows.length === 0 ? (
         <div className="mt-10 rounded-xl border border-ink/10 bg-ink/[0.02] p-8 text-center">
           <p className="text-sm text-ink/60">Nobody to review right now.</p>
         </div>
@@ -159,6 +201,12 @@ export default async function UnlistedGuestsPage({ params }: Props) {
                       Link
                     </SubmitButton>
                   </form>
+                ) : !candidatesMeasured ? (
+                  <p className="mt-3 border-t border-ink/5 pt-3 text-sm text-ink/55">
+                    We couldn&rsquo;t load your guest list just now, so we
+                    can&rsquo;t offer to link this person to someone already on
+                    it. Reload in a moment.
+                  </p>
                 ) : null}
               </li>
             );

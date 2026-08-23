@@ -180,14 +180,30 @@ export default async function EventChecklistPage({ params }: Props) {
   }
 
   // Vendor-category progress — the couple's shortlisted/booked vendors resolved
-  // to live states ("comparing options", "confirmed"). Defensive: a read error
-  // leaves the list empty and the card hidden.
+  // to live states ("comparing options", "confirmed"). A read error leaves the
+  // list empty and the card hidden.
+  //
+  // ⚠ THE try/catch BELOW COULD NOT SEE THE COMMON FAILURE. Supabase RESOLVES
+  // ⚠ with { error } rather than throwing, so a refused read — a phantom
+  // ⚠ column, a missing grant — walked straight past the catch, `?? []` emptied
+  // ⚠ the list, and the card vanished with nothing written anywhere. The catch
+  // ⚠ stays for a genuine throw; the bound error is what actually fires.
+  // ⚖ The card is HIDDEN rather than mis-stated, so this stays a silent
+  // ⚖ degrade — but a silent degrade nobody can see is how it ran for months.
   let vendorProgress: VendorCategoryProgress[] = [];
   try {
-    const { data: vendorRows } = await supabase
+    const { data: vendorRows, error: vendorRowsError } = await supabase
       .from('event_vendors')
       .select('category, status')
       .eq('event_id', eventId);
+    if (vendorRowsError) {
+      logQueryError(
+        'EventChecklistPage.vendorProgress',
+        vendorRowsError,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
     vendorProgress = resolveVendorCategoryProgress(
       (vendorRows ?? []) as { category: string | null; status: string }[],
     );

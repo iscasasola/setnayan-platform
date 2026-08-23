@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { ArrowLeft, Check, Eye, Sparkles, Stamp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import {
   sealColorFromPalette,
@@ -232,15 +233,32 @@ export default async function SaveTheDatePage({ params }: Props) {
   // Save-the-Date view counter (iteration 0024) — the couple's own readout.
   // Reads the daily rollup via the couple session (RLS: member of this event);
   // counts are unique-per-day and exclude the couple's own visits.
+  //
+  // ⚠ A REFUSED READ USED TO PRINT "0 total · 0 last 7 days · 0 today".
+  // ⚠ Supabase RESOLVES with { error } rather than throwing, `?? []` summed an
+  // ⚠ empty list to three zeroes, and the couple read that nobody had opened
+  // ⚠ the save-the-date they had just sent out. A zero here is a claim about
+  // ⚠ other people's behaviour; an unread count is not zero.
   const stdViewsToday = manilaToday();
-  const { data: stdViewRows } = await supabase
+  const { data: stdViewRows, error: stdViewsError } = await supabase
     .from('event_std_views')
     .select('view_date, views')
     .eq('event_id', eventId);
-  const stdViews = summarizeStdViews(
-    (stdViewRows ?? []) as Array<{ view_date: string; views: number }>,
-    stdViewsToday,
-  );
+  if (stdViewsError) {
+    logQueryError(
+      'SaveTheDatePage.views',
+      stdViewsError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+  const stdViewsMeasured = !stdViewsError && stdViewRows !== null;
+  const stdViews = stdViewsMeasured
+    ? summarizeStdViews(
+        stdViewRows as Array<{ view_date: string; views: number }>,
+        stdViewsToday,
+      )
+    : null;
   const stdCeremonyName: string | null = event?.std_film_ceremony_name ?? null;
   const stdStory: string | null = event?.std_film_story ?? null;
 
@@ -345,19 +363,27 @@ export default async function SaveTheDatePage({ params }: Props) {
           </span>
         </div>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-semibold tabular-nums">{stdViews.total.toLocaleString()}</span>
+          <span className="text-2xl font-semibold tabular-nums">
+            {stdViews ? stdViews.total.toLocaleString() : '—'}
+          </span>
           <span className="text-xs text-ink/55">total</span>
         </div>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-lg font-semibold tabular-nums">{stdViews.last7.toLocaleString()}</span>
+          <span className="text-lg font-semibold tabular-nums">
+            {stdViews ? stdViews.last7.toLocaleString() : '—'}
+          </span>
           <span className="text-xs text-ink/55">last 7 days</span>
         </div>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-lg font-semibold tabular-nums">{stdViews.today.toLocaleString()}</span>
+          <span className="text-lg font-semibold tabular-nums">
+            {stdViews ? stdViews.today.toLocaleString() : '—'}
+          </span>
           <span className="text-xs text-ink/55">today</span>
         </div>
         <p className="w-full text-[11px] text-ink/45">
-          Counted once per visitor per day · your own visits aren&rsquo;t counted.
+          {stdViews
+            ? 'Counted once per visitor per day · your own visits aren’t counted.'
+            : 'We couldn’t read your view count just now — this does not mean nobody has opened it. Reload in a moment.'}
         </p>
       </section>
 

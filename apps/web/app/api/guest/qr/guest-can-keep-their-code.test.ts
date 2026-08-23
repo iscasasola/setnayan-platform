@@ -43,12 +43,47 @@ test('no session is refused — nobody anonymous gets a code', () => {
   assert.equal(v.allow === false && v.status, 401);
 });
 
-test('a ROTATED code cannot fetch its replacement', () => {
-  // The leaked session still names a real guest of a real event. Only the token
-  // moved on. This is the case rotation exists for.
-  const v = decideGuestQrAccess(SESSION, { event_id: 'e-1', qr_token: 'tok-rotated' }, false);
-  assert.equal(v.allow, false);
-  assert.equal(v.allow === false && v.status, 401);
+test('a guest whose host RE-ISSUED their code can still save it', () => {
+  // 🚨 THE REGRESSION THIS PINS, and it shipped live. The first cut compared the
+  // session's token to the row's and refused on a mismatch. But a host pressing
+  // "Re-issue" does not touch the guest's 60-day cookie, and the invitation page
+  // loads the row by guest_id alone — so the guest was shown the NEW code and
+  // the NEW url, pressed Save, and was told "This code has been replaced. Open
+  // your current invitation link." while looking at it.
+  //
+  // 🔑 The check protected nothing: the page had already handed that same
+  // session the new QR. Revocation belongs to readGuestSession() behind
+  // GUEST_SESSION_TOKEN_CHECK — one chokepoint, all consumers — not to a private
+  // always-on copy in this one endpoint.
+  const afterHostReissue = { event_id: 'e-1', qr_token: 'tok-freshly-issued' };
+  assert.deepEqual(decideGuestQrAccess(SESSION, afterHostReissue, false), { allow: true });
+});
+
+test('the refusal never tells a guest to open the link they already have open', () => {
+  // The old message read "This code has been replaced. Open your current
+  // invitation link." — nonsense to someone reading it ON that link. Whatever
+  // this route refuses with, it must not send a person somewhere they already are.
+  for (const v of [
+    decideGuestQrAccess(null, ROW, false),
+    decideGuestQrAccess(SESSION, null, false),
+    decideGuestQrAccess(SESSION, { event_id: 'e-OTHER', qr_token: 'tok-current' }, false),
+    decideGuestQrAccess(SESSION, null, true),
+  ]) {
+    assert.equal(v.allow, false);
+    const msg = v.allow === false ? v.message : '';
+    assert.ok(!/has been replaced/i.test(msg), `stale replacement wording: ${msg}`);
+  }
+});
+
+test('the token is NOT compared — a private revocation policy must not live here', () => {
+  // Guards the fix itself. Revocation is readGuestSession()'s job, behind
+  // GUEST_SESSION_TOKEN_CHECK; a copy here made this route disagree with the
+  // page rendering the very image it refused.
+  const src = stripComments(readFileSync(resolve(HERE, 'route.ts'), 'utf8'));
+  assert.ok(
+    !/qr_token\s*!==\s*session\.qr_token/.test(src),
+    'the possession check is back — read the header before adding one',
+  );
 });
 
 test('a session naming a different event is refused', () => {

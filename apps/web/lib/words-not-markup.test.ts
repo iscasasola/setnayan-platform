@@ -61,8 +61,8 @@ import ts from 'typescript';
 const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib', 'components'];
 
-const ENTITY = /&(?:[a-zA-Z][a-zA-Z0-9]{1,9}|#\d{1,6});/;
-const IS_ONLY_AN_ENTITY = /^&(?:[a-zA-Z][a-zA-Z0-9]{1,9}|#\d{1,6});$/;
+const ENTITY = /&(?:[a-zA-Z][a-zA-Z0-9]{1,9}|#\d{1,6}|#[xX][0-9a-fA-F]{1,5});/;
+const IS_ONLY_AN_ENTITY = /^&(?:[a-zA-Z][a-zA-Z0-9]{1,9}|#\d{1,6}|#[xX][0-9a-fA-F]{1,5});$/;
 const CONTAINS_A_TAG = /<\/?[a-zA-Z][a-zA-Z0-9]*[\s/>]/;
 
 /** A module whose JOB is emitting HTML — entities are its output format. */
@@ -121,23 +121,52 @@ function walk(dir: string, out: string[] = []): string[] {
  * dataflow), we give up on that FILE and exempt it — a false negative is a
  * missed apostrophe, a false positive is a guard nobody trusts.
  */
-function htmlContract(sf: ts.SourceFile): { props: Set<string>; opaque: boolean } {
-  const props = new Set<string>();
-  let opaque = false;
+function htmlContract(sf: ts.SourceFile): { names: Set<string> } {
+  const names = new Set<string>();
   const visit = (n: ts.Node): void => {
     if (ts.isPropertyAssignment(n) && ts.isIdentifier(n.name) && n.name.text === '__html') {
       let e: ts.Expression = n.initializer;
       while (ts.isCallExpression(e) || ts.isNonNullExpression(e) || ts.isAsExpression(e)) {
         e = ts.isCallExpression(e) ? (e.arguments[0] ?? e.expression) : e.expression;
       }
-      if (ts.isPropertyAccessExpression(e)) props.add(e.name.text);
-      else if (ts.isElementAccessExpression(e) || ts.isIdentifier(e)) opaque = true;
-      else opaque = true;
+      // `{ __html: opt.hint }` -> "hint";  `{ __html: bodyHtml }` -> "bodyHtml".
+      // Either way we learn ONE NAME, not "give up on this file".
+      if (ts.isPropertyAccessExpression(e)) names.add(e.name.text);
+      else if (ts.isIdentifier(e)) names.add(e.text);
+      else if (ts.isConditionalExpression(e)) {
+        for (const b of [e.whenTrue, e.whenFalse]) {
+          if (ts.isPropertyAccessExpression(b)) names.add(b.name.text);
+          else if (ts.isIdentifier(b)) names.add(b.text);
+        }
+      }
     }
     ts.forEachChild(n, visit);
   };
   visit(sf);
-  return { props, opaque };
+  return { names };
+}
+
+/**
+ * The name this string is stored under, whether it sits in an object property,
+ * a variable, or inside a template literal. Walking UP is what lets a template
+ * part be judged by the same rule as a plain string — the part's parent is a
+ * TemplateSpan, not the property.
+ */
+function bindingName(node: ts.Node): { name: string | null; jsxAttribute: boolean } {
+  let n: ts.Node | undefined = node;
+  for (let hops = 0; n && hops < 8; hops += 1, n = n.parent) {
+    if (ts.isJsxAttribute(n)) return { name: null, jsxAttribute: true };
+    if (ts.isPropertyAssignment(n) && (ts.isIdentifier(n.name) || ts.isStringLiteral(n.name))) {
+      return { name: n.name.text, jsxAttribute: false };
+    }
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name)) {
+      return { name: n.name.text, jsxAttribute: false };
+    }
+    if (ts.isPropertyDeclaration(n) && ts.isIdentifier(n.name)) {
+      return { name: n.name.text, jsxAttribute: false };
+    }
+  }
+  return { name: null, jsxAttribute: false };
 }
 
 type Hit = { file: string; line: number; text: string };
@@ -161,35 +190,39 @@ function scan(): { bugs: Hit[]; scanned: number; classified: number } {
         true,
         file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
       );
-      const { props: htmlProps, opaque } = htmlContract(sf);
+      const { names: htmlNames } = htmlContract(sf);
       const emitsHtml = ESCAPES_HTML.test(src);
 
       const visit = (node: ts.Node): void => {
-        if (
-          (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
-          ENTITY.test(node.text)
-        ) {
+        // Template PARTS are visited too — a template literal with a `${}` in it
+        // is a TemplateExpression, and its text lives in the head/middle/tail
+        // pieces. Looking only at StringLiteral made every interpolated string
+        // invisible, which is the commonest shape after a plain one.
+        const isTextNode =
+          ts.isStringLiteral(node) ||
+          ts.isNoSubstitutionTemplateLiteral(node) ||
+          ts.isTemplateHead(node) ||
+          ts.isTemplateMiddle(node) ||
+          ts.isTemplateTail(node);
+
+        if (isTextNode && ENTITY.test((node as ts.LiteralLikeNode).text)) {
+          const text = (node as ts.LiteralLikeNode).text;
           classified += 1;
-          const p = node.parent;
-          const propName =
-            ts.isPropertyAssignment(p) && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name))
-              ? p.name.text
-              : null;
+          const { name, jsxAttribute } = bindingName(node);
 
           const safe =
-            ts.isJsxAttribute(p) ||
-            IS_ONLY_AN_ENTITY.test(node.text.trim()) ||
-            CONTAINS_A_TAG.test(node.text) ||
-            (propName !== null && htmlProps.has(propName)) ||
-            (propName !== null && HTML_BY_LIBRARY_CONTRACT.has(propName)) ||
-            opaque ||
+            jsxAttribute ||
+            IS_ONLY_AN_ENTITY.test(text.trim()) ||
+            CONTAINS_A_TAG.test(text) ||
+            (name !== null && htmlNames.has(name)) ||
+            (name !== null && HTML_BY_LIBRARY_CONTRACT.has(name)) ||
             emitsHtml;
 
           if (!safe) {
             bugs.push({
               file: relative(WEB, file),
               line: sf.getLineAndCharacterOfPosition(node.getStart()).line + 1,
-              text: node.text.slice(0, 70),
+              text: text.slice(0, 70),
             });
           }
         }

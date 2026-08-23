@@ -246,11 +246,19 @@ export async function runFaceDataRetention(
       }
 
       // 2. The avatar pointing at it — cleared ONLY when it is that same object.
-      const { error: avatarErr } = await admin
+      //
+      // ⚠ `.select()` is not decoration: without it a matched-nothing update and
+      // a matched-one update are the same value, and this counter feeds a log
+      // that is a compliance artefact. Counting attempts instead of rows would
+      // report avatars cleared that never existed — a guest whose photo came
+      // from a couple upload or Google has a different object here and must not
+      // be counted, or touched.
+      const { data: clearedRows, error: avatarErr } = await admin
         .from('guests')
         .update({ photo_url: null, photo_source: null })
         .eq('guest_id', row.guest_id)
-        .eq('photo_url', ref);
+        .eq('photo_url', ref)
+        .select('guest_id');
       if (avatarErr) {
         summary.failed += 1;
         console.warn('[face-data-retention] avatar clear failed', {
@@ -258,7 +266,7 @@ export async function runFaceDataRetention(
           error: avatarErr.message,
         });
       } else {
-        summary.avatarsCleared += 1;
+        summary.avatarsCleared += Array.isArray(clearedRows) ? clearedRows.length : 0;
       }
     }
 

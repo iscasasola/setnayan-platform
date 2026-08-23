@@ -45,7 +45,12 @@ test('the block is RENDERED, with its own denominator', () => {
   assert.match(section, /of the last\{' '\}/, 'and each line must carry its denominator');
 });
 
-test('ONE gate decides whether the section shows, not four copies', () => {
+test('the SHARED gate decides whether the section shows, not a copy per file', () => {
+  // There are TWO shared predicates now, and the difference is deliberate:
+  // `…ToTheShop` additionally opens on the documented-celebrations count, which
+  // is a SHOP fact and so must not grow a "record" on a couple's view of a card
+  // that has itself done nothing. Either is fine here; a hand-written
+  // `bookedCount > 0` is not, and that is what this test exists to refuse.
   for (const f of [
     'app/_components/card-record-section.tsx',
     'app/vendor-dashboard/services/_components/services-manager.tsx',
@@ -54,12 +59,12 @@ test('ONE gate decides whether the section shows, not four copies', () => {
     const src = code(f);
     assert.match(
       src,
-      /cardRecordHasSomethingToSay\(/,
-      `${f} must ask the shared predicate`,
+      /cardRecordHasSomethingToSay(ToTheShop)?\(/,
+      `${f} must ask one of the shared predicates`,
     );
     assert.doesNotMatch(
       src,
-      /record\.bookedCount <= 0|cardRecord\.bookedCount > 0|rec\.bookedCount <= 0/,
+      /record\.bookedCount <= 0|cardRecord\.bookedCount > 0|rec\.bookedCount <= 0|rec\.documentedEvents > 0/,
       `${f} still carries its own copy of the gate — a card whose only record is its picks would be hidden`,
     );
   }
@@ -74,5 +79,28 @@ test('the headline claim is not printed when the count is zero', () => {
     section,
     /\{bookedCount > 0 \? \(/,
     'the booked line must be conditional on a real count',
+  );
+});
+
+test('the documented count is rendered, and labelled as a SHOP fact', () => {
+  const section = code('app/_components/card-record-section.tsx');
+  assert.equal(
+    [...section.matchAll(/\{documentedEvents\}/g)].length,
+    1,
+    'the count must actually render',
+  );
+  // Captures are keyed on the vendor profile, so every card of a shop shows the
+  // same number. Without the label a brand-new card reads as having documented
+  // celebrations itself.
+  assert.match(
+    section,
+    /documented · this shop/,
+    'the count must say it is the shop’s, not this card’s',
+  );
+  // …and it opens the section only on the shop's own view.
+  assert.match(
+    section,
+    /variant === 'vendor'\s*\?\s*cardRecordHasSomethingToSayToTheShop\(record\)\s*:\s*cardRecordHasSomethingToSay\(record\)/,
+    'a shop fact must not open the record on a couple’s card',
   );
 });

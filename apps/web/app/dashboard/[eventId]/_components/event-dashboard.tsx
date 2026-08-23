@@ -1219,9 +1219,29 @@ export async function EventDashboard({
    *  before the first reply, a roster nobody has invited must not be nagged. */
   const rsvpRepliesStarted = stats.attending + stats.declined + stats.maybe > 0;
 
-  // The focal's "% planned" gold bar = vendor-categories-locked share (the same
-  // real aggregate the cockpit briefing reports). Clamped for the bar width.
-  const plannedPct = Math.max(0, Math.min(100, cockpitModel.briefing.lockedPct));
+  /*
+    THE GOLD BAR COUNTS VENDOR CATEGORIES LOCKED — AND NOW SAYS SO.
+
+    🚨 IT USED TO BE CAPTIONED "% planned", and so is the figure on the account
+    home. They are two different measures wearing one word: home reports the
+    event CHECKLIST's real done/total, this one reports the locked share of
+    vendor categories. Neither is broken. Both are right about their own
+    question. Side by side they simply contradicted each other, and a person
+    reading two numbers under one label concludes the product is confused about
+    their wedding.
+
+    🔑 THE HONEST CAPTION ALREADY SHIPS TWICE for this exact value —
+    `setnayan-ai-value.tsx` and `lib/setnayan-ai-activity.ts` both say
+    "% locked in". Reusing their words rather than inventing a third phrase for
+    a number the product already knows how to name. Home is untouched: once the
+    two stop sharing a word they cannot contradict each other.
+
+    ⛔ AND IT IS DELIBERATELY *NOT* "compute it once and show it everywhere".
+    That requires deciding WHICH measure is the real answer to "how planned is
+    this wedding" — a product ruling, and making it inside a caption fix is
+    exactly how this project acquires a lock nobody remembers agreeing to.
+  */
+  const lockedInPct = Math.max(0, Math.min(100, cockpitModel.briefing.lockedPct));
   // One obsidian per view (§ 1.3): the "Big Day" focal is dark EXCEPT on the day
   // itself, where the DayOfModeGrid's "happening now" card owns the obsidian and
   // this focal steps down to a glass tile.
@@ -1700,7 +1720,7 @@ export async function EventDashboard({
               >
                 <i
                   className="relative block h-full overflow-hidden rounded-full"
-                  style={{ width: `${plannedPct}%`, background: 'var(--sn-gold-300)' }}
+                  style={{ width: `${lockedInPct}%`, background: 'var(--sn-gold-300)' }}
                 >
                   <span
                     aria-hidden
@@ -1718,9 +1738,9 @@ export async function EventDashboard({
                 style={{ color: focalDark ? 'rgba(243,236,223,.55)' : 'var(--sn-ink-500)' }}
               >
                 <b style={{ color: focalDark ? 'var(--sn-gold-300)' : 'var(--sn-gold-700)' }}>
-                  {Math.round(plannedPct)}%
+                  {Math.round(lockedInPct)}%
                 </b>{' '}
-                planned
+                locked in
               </p>
                 </>
               )}

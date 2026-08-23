@@ -1,9 +1,16 @@
 import Link from 'next/link';
+import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
+import {
+  bracketsToDrafts,
+  discountsToDrafts,
+  inclusionsToDrafts,
+} from '@/lib/vendor-service-drafts';
 import { Fragment } from 'react';
 import { redirect } from 'next/navigation';
 import {
   ChevronDown,
   Clock,
+  Copy,
   Eye,
   EyeOff,
   Gift,
@@ -161,6 +168,10 @@ export async function VendorServicesManager({
   if (!profile) redirect('/vendor-dashboard');
 
   const services = await fetchVendorServices(supabase, profile.vendor_profile_id);
+
+  // Only the canvas maker can open pre-filled, so "start a new card from this
+  // one" is gated on the same flag that decides which maker the route renders.
+  const canvasMaker = canvasMakerEnabled();
 
   const serviceIdList = services.map((s) => s.vendor_service_id);
 
@@ -839,6 +850,25 @@ export async function VendorServicesManager({
                         expiresAt={svcDiscount.expires_at}
                         extraCount={svcDiscountList.length - 1}
                       />
+                    ) : null}
+                    {/* ── START A NEW CARD FROM THIS ONE (owner 2026-07-28) ──
+                        A doorway, not a page: it opens the maker pre-filled from
+                        this card. Gated on the SAME flag the maker is, because
+                        only the canvas can be seeded — with the flag off the
+                        route renders the 6-step wizard, which takes no defaults,
+                        and this link would silently do nothing. A link that
+                        looks like a feature and is not one is worse than no
+                        link. */}
+                    {canvasMaker ? (
+                      <Link
+                        href={`/vendor-dashboard/services/new/${svc.category}?from=${svc.vendor_service_id}`}
+                        aria-label={`Start a new card from ${svc.title?.trim() || displayServiceLabel(svc.category)}`}
+                        title="Start a new card from this one"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg"
+                        style={{ background: 'var(--m-paper-2)', color: 'var(--m-slate-2)' }}
+                      >
+                        <Copy className="h-4 w-4" strokeWidth={1.75} />
+                      </Link>
                     ) : null}
                     {/* on/off toggle (is_active) */}
                     <form action={toggleVendorServiceActive}>
@@ -1611,38 +1641,6 @@ const DISCOUNT_TYPE_LABELS: Record<string, string> = {
 // ── Child-list DB rows → editor drafts (Phase 3b) ────────────────────────────
 // The fetched rows carry ISO/number values; the editors take string-typed draft
 // rows. These map one to the other (dates → YYYY-MM-DD for <input type="date">).
-function discountsToDrafts(
-  rows: import('@/lib/vendor-services').VendorServiceDiscount[],
-): DiscountDraft[] {
-  return rows.map((d) => ({
-    discount_type: d.discount_type,
-    rate: String(d.rate),
-    unit: d.unit,
-    // Early-booking ladder rung (migration 20271017996549) — round-trips so a
-    // re-edit doesn't silently erase the tier the vendor already authored.
-    min_lead_months: d.min_lead_months != null ? String(d.min_lead_months) : '',
-    expires_at: d.expires_at ? d.expires_at.slice(0, 10) : '',
-    conditions_md: d.conditions_md ?? '',
-  }));
-}
-function inclusionsToDrafts(
-  rows: import('@/lib/vendor-services').VendorServiceInclusion[],
-): InclusionDraft[] {
-  return rows.map((n) => ({
-    label: n.label,
-    worth: n.worth_php != null ? String(n.worth_php) : '',
-  }));
-}
-function bracketsToDrafts(
-  rows: import('@/lib/vendor-services').VendorServicePriceBracket[],
-): BracketDraft[] {
-  return rows.map((b) => ({
-    min_pax: b.min_pax != null ? String(b.min_pax) : '',
-    max_pax: b.max_pax != null ? String(b.max_pax) : '',
-    price: String(b.price_php),
-  }));
-}
-
 /** "Setnayan Exclusive" perk field. Required to publish; optional for drafts. */
 function ExclusivePerkField({
   idPrefix,

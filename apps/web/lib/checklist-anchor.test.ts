@@ -230,9 +230,12 @@ test('the checklist page resolves the anchor through the same helper', () => {
     /const isWeddingLike =/,
     'the wedding gate belongs to checklistAnchorDateFor now, not to the page',
   );
+  // Multiline-tolerant since the call gained a sixth argument (the "has this
+  // already happened" answer, 2026-08-23) and no longer fits one line. What
+  // this pins is unchanged: the RESOLVED anchor is argument two.
   assert.match(
     src,
-    /groupChecklistByPhase\(rows, eventDate, now, eventType, eventCreatedAt\)/,
+    /groupChecklistByPhase\(\s*rows,\s*eventDate,\s*now,\s*eventType,\s*eventCreatedAt,/,
     'the page must render from the resolved anchor',
   );
 });

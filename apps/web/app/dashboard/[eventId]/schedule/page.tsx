@@ -171,13 +171,19 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // their own (separate) spine and are untouched. Only pays the seed cost on the
   // first open — once any block exists this branch is skipped, so steady-state
   // schedule loads are unchanged.
+  //
+  // 🚨 AND THE SEED HANDS THE BLOCKS BACK — DO NOT RE-READ THEM HERE.
+  // This used to call `fetchScheduleBlocks` a second time after seeding, and
+  // the first open still rendered an empty schedule: Next memoises identical
+  // GET requests for one render, so the re-read was served the answer from
+  // BEFORE the insert. The host saw "0 blocks" and a plain reload showed five.
+  // See the docblock in `lib/schedule-seed.server.ts`.
   let scheduleBlocks = blocks;
   if (
     scheduleBlocks.length === 0 &&
     (eventRow?.event_type ?? 'wedding') !== 'wedding'
   ) {
-    const seeded = await seedNonWeddingRunOfShow(eventId);
-    if (seeded > 0) scheduleBlocks = await fetchScheduleBlocks(supabase, eventId);
+    scheduleBlocks = await seedNonWeddingRunOfShow(eventId);
   }
   // Iteration 0053 P4 Unit 1: only marriage-profile events get PH statutory
   // milestones in the agenda. Wedding → 'ph_marriage' → statutory true (byte-

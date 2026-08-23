@@ -34,6 +34,8 @@ type Props = {
   eventDate: string | null;
   /** Event-type-aware display copy (title/heading/intro/phase wording). */
   chrome: ChecklistChrome;
+  /** The celebration has already happened — the list stops being a countdown. */
+  eventIsOver?: boolean;
   /** Live budget health-check — null when no budget is set (card hidden). */
   budgetHealth?: ChecklistBudgetHealth | null;
   /** Relevance-gated "you might also want" service suggestions (may be empty). */
@@ -181,7 +183,7 @@ function BudgetHealthCard({ eventId, health }: { eventId: string; health: Checkl
 }
 
 /** Format a computed due date + soft urgency tint for the meta line. */
-function dueLabel(item: ChecklistItemView): { label: string; tint: string } {
+function dueLabel(item: ChecklistItemView, eventIsOver = false): { label: string; tint: string } {
   if (!item.dueDate) return { label: 'No date yet', tint: 'text-ink/40' };
   const d = item.daysUntilDue;
   const pretty = new Date(`${item.dueDate}T12:00:00`).toLocaleDateString('en-US', {
@@ -189,6 +191,15 @@ function dueLabel(item: ChecklistItemView): { label: string; tint: string } {
     day: 'numeric',
     year: 'numeric',
   });
+  /*
+    AFTER THE DAY, A DEADLINE IS JUST A DATE.
+
+    Every row on a finished celebration is "overdue" by definition, so the red
+    said nothing except that time had passed — and it said it about a party
+    that already went ahead. The date stays (it is the only thing placing the
+    task in the story); the word "Due" and the alarm colours go.
+  */
+  if (eventIsOver) return { label: pretty, tint: 'text-ink/45' };
   let tint = 'text-ink/55';
   if (d != null) {
     if (d < 0) tint = 'text-danger-700';
@@ -197,12 +208,20 @@ function dueLabel(item: ChecklistItemView): { label: string; tint: string } {
   return { label: `Due ${pretty}`, tint };
 }
 
-function PhaseRows({ eventId, items }: { eventId: string; items: ReadonlyArray<ChecklistItemView> }) {
+function PhaseRows({
+  eventId,
+  items,
+  eventIsOver = false,
+}: {
+  eventId: string;
+  items: ReadonlyArray<ChecklistItemView>;
+  eventIsOver?: boolean;
+}) {
   return (
     <ul className="space-y-2">
       {items.map((item) => {
         const done = item.status === 'done';
-        const tag = dueLabel(item);
+        const tag = dueLabel(item, eventIsOver);
         const href = checklistItemHref(eventId, item.template_key, item.category);
         const desired = done ? 'pending' : 'done';
         return (
@@ -259,7 +278,7 @@ function PhaseRows({ eventId, items }: { eventId: string; items: ReadonlyArray<C
   );
 }
 
-export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDate, chrome, budgetHealth, leafSuggestions, vendorProgress }: Props) {
+export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDate, chrome, eventIsOver = false, budgetHealth, leafSuggestions, vendorProgress }: Props) {
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
@@ -276,15 +295,29 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
               <div className="space-y-1.5">
                 <div className="flex items-baseline justify-between">
                   <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-                    {doneCount} of {totalCount} done
+                    {doneCount} of {totalCount} ticked
                   </span>
-                  <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
-                    {pct}%
-                  </span>
+                  {eventIsOver ? null : (
+                    <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
+                      {pct}%
+                    </span>
+                  )}
                 </div>
-                <div className="sn-bar h-2 w-full overflow-hidden rounded-full bg-ink/10">
-                  <i className="bg-success-500" style={{ width: `${pct}%` }} />
-                </div>
+                {/* THE BAR IS A COUNTDOWN, AND THE COUNTDOWN IS OVER.
+                    A finished celebration read "0%" over a green progress bar
+                    stuck at nothing — a score for a day that already went
+                    ahead, and by far the least true thing on the page. What is
+                    true is the count, which stays. */}
+                {eventIsOver ? (
+                  <p className="text-xs text-ink/55">
+                    Your {chrome.eventNoun} has happened — this is the list as you left it,
+                    kept as a record. Nothing here is still owed.
+                  </p>
+                ) : (
+                  <div className="sn-bar h-2 w-full overflow-hidden rounded-full bg-ink/10">
+                    <i className="bg-success-500" style={{ width: `${pct}%` }} />
+                  </div>
+                )}
               </div>
             ) : null}
 
@@ -330,7 +363,7 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
                     <p className="text-xs text-ink/55">{phase.blurb}</p>
                   ) : null}
                 </div>
-                <PhaseRows eventId={eventId} items={items} />
+                <PhaseRows eventId={eventId} items={items} eventIsOver={eventIsOver} />
               </section>
             );
           })}

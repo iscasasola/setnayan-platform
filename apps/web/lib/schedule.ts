@@ -81,8 +81,50 @@ export type ScheduleBlockRow = {
   actual_end_at: string | null;
 };
 
+/*
+  ⚠ PRIVATE ON PURPOSE — DO NOT EXPORT THIS, AND DO NOT RENAME IT `*_SELECT`.
+
+  `scripts/lint-dup-rule.ts` treats every EXPORTED `*_SELECT` / `*_COLUMNS`
+  constant as the CANONICAL column list for its table, and then reports any
+  hand-typed narrower select on that table as dropping a column. Exporting this
+  one produced **108 findings in a single CI run**, none of them defects: those
+  call sites fetch fewer columns deliberately. A guard that cries wolf 108 times
+  teaches its reader to skim past the one time it is right.
+
+  A caller that needs these columns calls a function in this module instead —
+  see `insertScheduleBlocks` — so there is still exactly one copy of the list.
+*/
 const SELECT =
   'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at';
+
+/**
+ * The SAME ordering `fetchScheduleBlocks` asks PostgREST for — `start_at`
+ * ascending, then `sort_order` ascending — expressed as a comparator so a
+ * caller holding rows it just WROTE can present them without re-reading them.
+ *
+ * 🔑 WHY THAT MATTERS HERE. The first open of a non-wedding schedule seeds its
+ * run-of-show mid-render and then wanted the rows back. Reading them a second
+ * time cannot work: Next memoises identical GETs within one render (see
+ * `dedupe-fetch`), so the second read is served the FIRST one's answer — the
+ * empty list from before the seed. The page rendered "0 blocks" and a plain
+ * reload showed five. The cure is not to ask twice.
+ *
+ * ⚠ IF YOU CHANGE THE `.order()` CALLS BELOW, CHANGE THIS TOO. `sortScheduleBlocks`
+ * exists to agree with them; a pinned test asserts both name the same columns.
+ * PostgREST puts NULLs LAST on an ascending order, so this does the same.
+ */
+export function sortScheduleBlocks<T extends { start_at: string | null; sort_order: number }>(
+  rows: ReadonlyArray<T>,
+): T[] {
+  return [...rows].sort((a, b) => {
+    if (a.start_at !== b.start_at) {
+      if (a.start_at == null) return 1;
+      if (b.start_at == null) return -1;
+      return a.start_at < b.start_at ? -1 : 1;
+    }
+    return a.sort_order - b.sort_order;
+  });
+}
 
 export async function fetchScheduleBlocks(
   supabase: SupabaseClient,
@@ -96,6 +138,33 @@ export async function fetchScheduleBlocks(
     .order('sort_order', { ascending: true });
   if (error) throw new Error(`fetchScheduleBlocks failed: ${error.message}`);
   return (data ?? []) as ScheduleBlockRow[];
+}
+
+/**
+ * Insert blocks and hand back the rows as written — `INSERT … RETURNING`.
+ *
+ * 🔑 IT LIVES HERE BECAUSE THE COLUMN LIST DOES. The first-open run-of-show seed
+ * needs its new rows in the shape `fetchScheduleBlocks` returns, and the only
+ * two ways to get that are to re-read them or to name the columns twice. The
+ * re-read is the bug this replaces: Next memoises identical GETs within one
+ * render, so a read issued after an insert in the same render is served the
+ * answer from before it. Naming the columns twice is what `lint-dup-rule`
+ * exists to stop. Asking this module — which already owns the list and the
+ * ordering — is neither.
+ *
+ * Ordered by `sortScheduleBlocks`, so what a caller renders is what a
+ * subsequent `fetchScheduleBlocks` would return.
+ */
+export async function insertScheduleBlocks(
+  supabase: SupabaseClient,
+  rows: ReadonlyArray<Record<string, unknown>>,
+): Promise<{ blocks: ScheduleBlockRow[]; error: { message: string } | null }> {
+  const { data, error } = await supabase
+    .from('event_schedule_blocks')
+    .insert(rows as never)
+    .select(SELECT);
+  if (error) return { blocks: [], error };
+  return { blocks: sortScheduleBlocks((data ?? []) as ScheduleBlockRow[]), error: null };
 }
 
 export async function fetchPublicScheduleBlocks(

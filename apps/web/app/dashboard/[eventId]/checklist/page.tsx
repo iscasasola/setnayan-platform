@@ -8,6 +8,7 @@ import {
   checklistAnchorDateFor,
 } from '@/lib/checklist';
 import { computeBudgetHealth, type ChecklistBudgetHealth } from '@/lib/checklist-budget';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { suggestLeafCategories, type LeafSuggestion } from '@/lib/leaf-suggestions';
 import {
   resolveVendorCategoryProgress,
@@ -75,7 +76,9 @@ export default async function EventChecklistPage({ params }: Props) {
 
   const { data: eventRow } = await supabase
     .from('events')
-    .select('event_date, event_type, date_candidates, date_window_start, created_at')
+    .select(
+      'event_date, event_end_date, cleared_at, timezone, event_type, date_candidates, date_window_start, created_at',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
   const eventType = (eventRow?.event_type as string | null) ?? null;
@@ -108,7 +111,36 @@ export default async function EventChecklistPage({ params }: Props) {
   // NOT NULL on `events`, but null-guard anyway — a null simply means "no
   // compression", i.e. the exact behaviour that shipped before.
   const eventCreatedAt = (eventRow?.created_at as string | null) ?? null;
-  const groups = groupChecklistByPhase(rows, eventDate, now, eventType, eventCreatedAt);
+  /*
+    HAS THIS CELEBRATION ALREADY HAPPENED?
+
+    Through the ONE resolver every other surface uses (`getMenuLifecyclePhase`
+    — over at 06:00 in the venue's clock on the day after the LAST day), read
+    off the row this page already loads. The checklist was the last planning
+    surface with no idea the day had passed: it captioned a column of dates in
+    the past "This week", painted every one of them red for overdue, and
+    reported the whole thing at 0%. Deadlines are not deadlines afterwards.
+
+    ⚠ Anchored on `events.event_date`, NOT on the tentative candidate date
+    `eventDate` above — that one may be a guess the couple never locked, and
+    "did this happen" must not be answered by a guess.
+  */
+  const eventIsOver =
+    getMenuLifecyclePhase(
+      (eventRow?.event_date as string | null) ?? null,
+      (eventRow?.cleared_at as string | null) ?? null,
+      (eventRow?.timezone as string | null) ?? undefined,
+      undefined,
+      (eventRow?.event_end_date as string | null) ?? null,
+    ) === 'after';
+  const groups = groupChecklistByPhase(
+    rows,
+    eventDate,
+    now,
+    eventType,
+    eventCreatedAt,
+    eventIsOver,
+  );
   const doneCount = rows.filter((r) => r.status === 'done').length;
 
   // Live budget health-check — null when the couple hasn't set a budget yet, or
@@ -176,6 +208,7 @@ export default async function EventChecklistPage({ params }: Props) {
       doneCount={doneCount}
       eventDate={eventDate}
       chrome={chrome}
+      eventIsOver={eventIsOver}
       budgetHealth={budgetHealth}
       leafSuggestions={leafSuggestions}
       vendorProgress={vendorProgress}

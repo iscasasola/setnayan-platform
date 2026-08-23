@@ -138,7 +138,10 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
         </Card>
 
         <Card
-          href={`${base}/vendors`}
+          // With suppliers, land on "Your team" (the shipped ?tab=build deep
+          // link) — the names who worked the day, each with its review chip.
+          // With none, the plain bench is the honest destination.
+          href={summary.suppliers === 0 ? `${base}/vendors` : `${base}/vendors?tab=build`}
           Icon={Compass}
           title="Marketplace"
           cta={summary.suppliers === 0 ? 'Open the marketplace' : 'Open your suppliers'}
@@ -153,9 +156,17 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
               the review page and RLS both enforce). A prompt to do something the
               product would then refuse is worse than no prompt.
 
-              The supplier list on /vendors already shows "Leave a review" beside
-              exactly the ones whose window is open. One place decides; this card
-              points at it. */}
+              One place decides whose window is open, and this card points at it.
+
+              ⚠ CORRECTED 2026-08-23. This paragraph used to state that the
+              supplier list "already shows Leave a review beside exactly the ones
+              whose window is open". It did not. That chip lived only on
+              `plan-budget-accordion.tsx`, which renders solely when
+              BUDGET_BUILD_ENABLED=false — the kill switch, never thrown in
+              production. So this card sent the couple to a list of plain rows
+              with nothing to press. The chip now ships on "Your team"
+              (`build-locked.tsx`), which is the surface that actually renders,
+              and this link lands on it. A sentence is not a mechanism. */}
           <span className="mt-0.5 block text-[12.5px] text-ink/55">
             {summary.suppliers === 0
               ? 'You booked nobody through Setnayan for this one.'

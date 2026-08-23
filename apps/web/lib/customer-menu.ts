@@ -174,7 +174,11 @@ export function buildCustomerMenuTree(
       // after-phase branch; the plan-phase menu + the registry default are
       // 'Overview'). Key + route + exact-match unchanged.
       { key: 'home',      label: 'Overview', icon: Home,      href: base,                              activeMatch: base,                              activeMatchExact: true },
-      { key: 'review',    label: 'Review',    icon: Star,      href: `${base}/vendors`,                 activeMatch: `${base}/vendors`                                         },
+      // ?tab=build — the SHIPPED deep link (2026-06-12) onto "Your team", the
+      // section listing the suppliers who actually worked the day, each with
+      // its review chip. Plain /vendors landed on the browsing bench: a word
+      // meaning "tell us how they did" opening a shop directory.
+      { key: 'review',    label: 'Review',    icon: Star,      href: `${base}/vendors?tab=build`,       activeMatch: `${base}/vendors`                                         },
       { key: 'editorial', label: 'Editorial', icon: Newspaper, href: `${base}/website/editorial`,       activeMatch: `${base}/website/editorial`                               },
       { key: 'galleries', label: 'Galleries', icon: Images,    href: `${base}/galleries`,               activeMatch: `${base}/galleries`                                       },
     ];

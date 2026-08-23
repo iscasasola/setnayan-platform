@@ -243,30 +243,64 @@ test('every read that STATES an absence binds the error it may be refused with',
  * away; logging never changed a single pixel. These are the surfaces where the
  * empty state is a CLAIM about the couple's own event, so each must gate that
  * claim on whether the read actually happened AND say so to the person reading.
+ *
+ * 🪤 THE FIRST DRAFT OF THIS TEST WAS DECORATIVE AND THE MUTATION RUN CAUGHT IT.
+ * It asked only whether the word "Measured" appeared ANYWHERE in the file. The
+ * unlisted-guests screen has TWO measured flags, so renaming one left the other
+ * matching and the guard stayed GREEN with the claim ungated (measured: 2 → 1
+ * occurrences, still passing). A COUNT OVER A FILE CANNOT SAY WHICH CLAIM IS
+ * STILL GUARDED. Every gate is now named individually, exactly as it is written
+ * at the point where the sentence is decided.
  */
-const MUST_GATE: Array<[file: string, why: string]> = [
-  ['[eventId]/guests/claims/page.tsx', '"Nobody to review right now."'],
-  ['[eventId]/vendors/categories/page.tsx', 'offers categories they already have'],
-  ['[eventId]/website/widgets/page.tsx', '"Your optional sections will appear here."'],
-  ['[eventId]/vendors/packages/[bookingId]/page.tsx', 'a receipt with no lines'],
-  ['[eventId]/studio/save-the-date/page.tsx', '"0 total · 0 last 7 days · 0 today"'],
-  ['[eventId]/studio/page.tsx', 'a suggestion that never arrives'],
+const MUST_GATE: Array<{ file: string; why: string; gates: RegExp[] }> = [
+  {
+    file: '[eventId]/guests/claims/page.tsx',
+    why: '"Nobody to review right now."',
+    gates: [/\{!unlistedMeasured \? \(/, /\) : !candidatesMeasured \? \(/],
+  },
+  {
+    file: '[eventId]/vendors/categories/page.tsx',
+    why: 'offers categories they already have — and Add sends a supplier an inquiry',
+    gates: [/\{picksMeasured \? \(/],
+  },
+  {
+    file: '[eventId]/website/widgets/page.tsx',
+    why: '"Your optional sections will appear here."',
+    gates: [/\{!widgetsMeasured \? \(/, /widgetsMeasured\s*\n?\s*\? 'Your optional sections/],
+  },
+  {
+    file: '[eventId]/vendors/packages/[bookingId]/page.tsx',
+    why: 'a receipt with a price and no lines',
+    gates: [/\{!itemsMeasured \? \(/],
+  },
+  {
+    file: '[eventId]/studio/save-the-date/page.tsx',
+    why: '"0 total · 0 last 7 days · 0 today"',
+    gates: [/const stdViewsMeasured = !stdViewsError && stdViewRows !== null;/],
+  },
+  {
+    file: '[eventId]/studio/page.tsx',
+    why: 'a suggestion that never arrives, and a coordinator told to send it again',
+    gates: [/\{!recsMeasured \|\| !vendorRecsMeasured \? \(/, /if \(!recsMeasured\) \{/],
+  },
 ];
 
-test('the screens that state an absence carry a measured flag AND say so on screen', () => {
+test('the screens that state an absence carry a measured gate AND say so on screen', () => {
   const missing: string[] = [];
-  for (const [rel, why] of MUST_GATE) {
-    const src = stripComments(readFileSync(join(HERE, rel), 'utf8'));
-    const gated = /Measured\b/.test(src);
-    const spoken = /We couldn/.test(src) || /couldn’t|couldn&rsquo;t/.test(src);
-    if (!gated || !spoken) missing.push(`${rel} (${why}) — ${gated ? '' : 'no measured flag; '}${spoken ? '' : 'nothing said on screen'}`);
+  for (const { file, why, gates } of MUST_GATE) {
+    const src = stripComments(readFileSync(join(HERE, file), 'utf8'));
+    for (const gate of gates) {
+      if (!gate.test(src)) missing.push(`${file} (${why}) — gate gone: ${gate}`);
+    }
+    // The flag alone changes nothing a person can see.
+    if (!/We couldn|couldn’t/.test(src)) missing.push(`${file} (${why}) — nothing said on screen`);
   }
   assert.deepEqual(
     missing,
     [],
-    'Each of these states an absence somewhere. That claim must be gated on a ' +
-      'measured flag AND the refusal must be visible to the person reading it. ' +
-      `Missing: ${missing.join(' · ')}`,
+    'Each of these states an absence somewhere. That claim must be gated on the ' +
+      'read having happened AND the refusal must be visible to the person ' +
+      `reading it. Missing: ${missing.join(' · ')}`,
   );
 });
 

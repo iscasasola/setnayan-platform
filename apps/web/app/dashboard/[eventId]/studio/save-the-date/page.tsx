@@ -44,7 +44,8 @@ import { StdBuilderClient } from './_components/StdBuilderClient';
 import { LaunchStdButton } from './_components/launch-std-button';
 import { FeatureUsCard } from '@/app/dashboard/[eventId]/_components/feature-us-card';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
-import { PageMasthead } from '@/app/_components/page-masthead';
+import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
+import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 
 // 2026-06-19 — builder redesign: the 5-step builder (1 Background [+ theme:
 // fonts/colours] · 2 Content · 3 Video/Gallery · 4 Music · 5 Opening/reveal) +
@@ -54,6 +55,11 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 // still resolves the initial data + presigned media URLs.
 
 export const metadata = { title: 'Save the Date' };
+
+/* Name + promise from the one record every Studio row already reads, so a buy
+   page can never give a couple a second account of one product. It throws on an
+   unknown key rather than rendering a hero with no product name on it. */
+const STD_HERO = addOnHeroCopy('save-the-date');
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -318,9 +324,17 @@ export default async function SaveTheDatePage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <PageMasthead
-        title="Save the Date"
-      />
+      {/*
+        ⚖ NAME AND PROMISE, BUT NO PRICE — AND THE ABSENCE IS THE DECISION.
+        The brief asked every buy page to open with "product name, one-line
+        promise, price". Measured, this page does not have *a* price: the film itself is FREE and only the
+        cinematic opening is paid, so a price at the top would put a charge on
+        the thing that costs nothing.
+        Hoisting one of them above the fold would say the page costs that, which
+        is the opposite of honest. So the figures stay beside the exact thing
+        each one buys, and the hero does the half it can do truthfully.
+      */}
+      <StudioBuyHero productName={STD_HERO.label} promise={STD_HERO.blurb} />
 
       {/* Save-the-Date views — unique per day, the couple's own visits excluded. */}
       <section className="sn-tile flex flex-wrap items-center gap-x-7 gap-y-2 px-5 py-4">

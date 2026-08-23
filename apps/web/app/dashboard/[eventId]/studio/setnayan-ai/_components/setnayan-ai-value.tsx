@@ -78,6 +78,18 @@ function Figure({ text }: { text: string }) {
   );
 }
 
+/**
+ * Column count by how many cards a group actually has. A LOOKUP, not a
+ * template string: Tailwind scans source text, so `sm:grid-cols-${n}` compiles
+ * to a class that exists in no stylesheet and silently does nothing — the
+ * quietest kind of styling bug, and one nothing in CI would catch.
+ */
+const CAP_GRID: Record<number, string> = {
+  1: 'sm:grid-cols-1',
+  2: 'sm:grid-cols-2',
+  3: 'sm:grid-cols-3',
+};
+
 export function SetnayanAiValue({
   mode,
   activity = null,
@@ -127,7 +139,23 @@ export function SetnayanAiValue({
             <h2 className="text-sm font-semibold text-ink">{group.heading}</h2>
             <p className="text-sm text-ink/55">{group.blurb}</p>
           </div>
-          <ul className="grid gap-3 sm:grid-cols-3">
+          {/*
+            THE GRID FITS ITS OWN CONTENTS — it used to claim three columns
+            whatever it held.
+
+            ⚠ MEASURED, AND THE SHAPE IS NOT WHAT THE BRIEF SAID. The complaint
+            was "eight cards in a 3-column grid, so the last row is one card and
+            a hole". There are NINE caps and they are in THREE groups of 1, 2
+            and 6 — so the holes are in the first two groups, where a lone card
+            sat in a third of a row with two thirds of nothing beside it, and
+            the six-card group was already tidy. Fixing the brief's version
+            would have left both real holes exactly where they were.
+
+            A one-item group is now one full-width card and a two-item group is
+            two halves. Nothing is reordered, resized by hand or removed; the
+            row simply stops declaring room it has nothing to put in.
+          */}
+          <ul className={`grid gap-3 ${CAP_GRID[Math.min(group.caps.length, 3)] ?? CAP_GRID[3]}`}>
             {group.caps.map(({ id, title, body }) => {
               const Icon = CAP_ICON[id];
               const liveFn = CAP_FIGURE[id];

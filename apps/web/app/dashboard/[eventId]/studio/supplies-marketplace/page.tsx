@@ -5,9 +5,16 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOrdersForEvent } from '@/lib/orders';
 import { SuppliesMarketplaceBrowser } from './_components/cart-drawer';
 import { SUPPLY_PRODUCTS, type SupplyProduct } from './_data/products';
-import { PageMasthead } from '@/app/_components/page-masthead';
+import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
+import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 
 export const metadata = { title: 'Setnayan Supplies' };
+
+/* The product's name, from the one record every Studio row reads. ⚠ It is
+   "Paprint" there and this page's metadata title says "Setnayan Supplies" —
+   the catalog is the name a couple meets everywhere else, so the catalog wins
+   on screen. Flagged rather than reconciled: renaming a product is the owner's. */
+const SUPPLIES_HERO = addOnHeroCopy('supplies-marketplace');
 
 type Props = { params: Promise<{ eventId: string }> };
 
@@ -116,21 +123,44 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <PageMasthead
-        title="Setnayan-curated supplies, delivered."
-        actions={
-          <>
-          {/* Was "Web V1 · launching", which reads as open-for-business on a page
-              whose checkout is deliberately disabled and whose products are
-              placeholders. A couple could pick items, price a wedding off them
-              and find no way to order. */}
-          <span className="inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full bg-warn-100 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-warn-900">
-            <ShoppingBag aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Not open yet
-          </span>
-          </>
-        }
+      {/*
+        ⛔ NAME AND PROMISE ONLY — NO PRICE AND NO WAY IN, AND THAT IS THE FIX
+        RATHER THAN A GAP IN IT.
+
+        This page was on the brief's list of nine "pages that take money". It
+        does not: it renders no checkout control at all, its own cart says
+        checkout is "intentionally NOT built", and the products below are
+        examples. A hero with a price and a buy button here would be a fake
+        door on the one page in this set that already knows it cannot sell —
+        strictly worse than the invisible headline it replaces.
+
+        So it gets the half that is honest: the name of the thing and the line
+        that says what it will be. The "Not open yet" badge stays exactly where
+        it was, in the actions row, doing the other half.
+      */}
+      <StudioBuyHero
+        productName={SUPPLIES_HERO.label}
+        promise="Setnayan-curated supplies, delivered."
       />
+
+      {/*
+        ⚠ THE BADGE NO LONGER GOES THROUGH `PageMasthead`, AND IT HAD TO MOVE.
+        That component ALWAYS renders an h1 — `sr-only`, but present — so a
+        masthead kept here purely for its actions would have put a SECOND h1 on
+        the page beside the hero's, and an EMPTY one, since it would carry no
+        title. Two h1s is an accessibility defect that renders identically to
+        one; nothing on screen would have shown it.
+      */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Was "Web V1 · launching", which reads as open-for-business on a page
+            whose checkout is deliberately disabled and whose products are
+            placeholders. A couple could pick items, price a wedding off them
+            and find no way to order. */}
+        <span className="inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full bg-warn-100 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-warn-900">
+          <ShoppingBag aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Not open yet
+        </span>
+      </div>
 
       <section className="space-y-3 rounded-2xl border border-warn-200/60 bg-warn-50/60 p-4 sm:p-5">
         {/* 🚨 THIS BLOCK TOLD THE COUPLE TO DO SOMETHING IMPOSSIBLE. Step 2 read

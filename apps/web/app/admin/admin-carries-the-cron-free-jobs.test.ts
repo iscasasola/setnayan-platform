@@ -57,6 +57,14 @@ const JOBS = [
   { fn: 'runSeoPeriodicJobs', what: 'the SEO health audit and the Search Console pull' },
   { fn: 'maybeRunRetentionSweep', what: 'the RA 10173 chat-retention purge' },
   { fn: 'maybeRunVendorDossierRetention', what: 'the 180-day Deep Search dossier purge' },
+  // The two adopted retention periods (owner as DPO, 2026-08-17). If either
+  // stops riding on admin traffic, the NPC pack goes back to declaring a
+  // deletion period that nothing enforces — which is the defect they closed.
+  { fn: 'maybeRunFaceDataRetention', what: 'face data deleted 3 months after the event ends' },
+  {
+    fn: 'maybeRunVendorIdentityRetention',
+    what: "a supplier's raw identity uploads deleted 90 days after the decision",
+  },
   { fn: 'maybeRunPapicFullResDrop', what: 'the Papic full-resolution compression sweep' },
   { fn: 'maybeRunPapicNsfwRescreen', what: 'the NSFW re-screen heal for dropped screens' },
   { fn: 'maybeRunDriveCopyRetry', what: 'the Google Drive copy retry' },

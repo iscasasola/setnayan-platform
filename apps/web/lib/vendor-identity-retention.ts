@@ -111,7 +111,7 @@ type AppRow = {
 };
 
 type VerificationRow = {
-  id: string;
+  verification_id: string;
   approved_at: string | null;
   rejected_at: string | null;
   government_id_r2_key: string | null;
@@ -194,7 +194,7 @@ async function sweepVerifications(
 ): Promise<void> {
   const { data, error } = await admin
     .from('vendor_verifications')
-    .select('id, approved_at, rejected_at, government_id_r2_key, bank_account_proof_r2_key')
+    .select('verification_id, approved_at, rejected_at, government_id_r2_key, bank_account_proof_r2_key')
     .or('approved_at.not.is.null,rejected_at.not.is.null')
     .limit(limit);
   if (error) {
@@ -230,7 +230,7 @@ async function sweepVerifications(
       } catch (err) {
         summary.assetsFailed += 1;
         console.warn('[vendor-identity-retention] object delete failed (continuing)', {
-          verificationId: row.id,
+          verificationId: row.verification_id,
           error: err instanceof Error ? err.message : String(err),
         });
       }
@@ -241,11 +241,11 @@ async function sweepVerifications(
     const { error: upErr } = await admin
       .from('vendor_verifications')
       .update(patch)
-      .eq('id', row.id);
+      .eq('verification_id', row.verification_id);
     if (upErr) {
       summary.failed += 1;
       console.warn('[vendor-identity-retention] key clear failed', {
-        verificationId: row.id,
+        verificationId: row.verification_id,
         error: upErr.message,
       });
       continue;

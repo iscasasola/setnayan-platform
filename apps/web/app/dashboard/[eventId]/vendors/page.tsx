@@ -1953,6 +1953,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           // (spec §3 item 6). Both were already resolved for `compareSlot` below.
           currentPlan={currentPlan}
           savedBuilds={savedBuilds}
+          // Already resolved above for the fallback accordion — which only ever
+          // renders with the kill switch thrown. Passing it here is what puts
+          // "Leave a review" on the surface a couple actually sees.
+          reviewStatusByVendorId={reviewStatusByVendorId}
         />
         {/* Reusable Locked Bookings — dark behind NEXT_PUBLIC_REUSABLE_BOOKINGS_ENABLED;
             renders null when off (owner 2026-07-24). */}

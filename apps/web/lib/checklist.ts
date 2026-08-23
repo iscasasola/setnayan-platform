@@ -314,11 +314,28 @@ export function checklistPhasesFor(
  * The last phase is the only wedding-WORDED one ("Wedding day & after" /
  * "Be present — then wrap up"). Every other label is a neutral time window, so
  * one substitution de-weds the whole ladder rather than forking it.
+ *
+ * ─── AND ONE LABEL IS THE ONLY ONE THAT CAN GO STALE ─────────────────────
+ *
+ * Every caption on both ladders describes a window relative to THE EVENT —
+ * "9–6 months before", "The day itself" — and stays true forever, including
+ * long after the day. Exactly one is relative to the READER's calendar:
+ * `s1 · "This week"`. On a celebration that has already happened it is simply
+ * false, and it was the heading standing over a column of dates in the past.
+ *
+ * So a finished event re-words that one caption, in the same one-substitution
+ * shape as the de-wedding above. Nothing else on either ladder moves, because
+ * nothing else on either ladder was wrong.
  */
 export function checklistPhaseLabel(
   phase: ChecklistPhase,
   eventType: string | null | undefined,
+  /** The celebration is over (`getMenuLifecyclePhase` === 'after'). */
+  isOver = false,
 ): { label: string; blurb: string } {
+  if (isOver && phase.id === 's1') {
+    return { label: 'The week before', blurb: 'What was settled first' };
+  }
   if (phase.id === 'p9' && eventType && eventType !== 'wedding') {
     return { label: 'The day & after', blurb: 'Be present — then wrap up' };
   }
@@ -834,6 +851,8 @@ export function groupChecklistByPhase(
   now: Date = new Date(),
   eventType?: string | null,
   eventCreatedAt?: string | null,
+  /** The celebration has already happened — see `checklistPhaseLabel`. */
+  isOver = false,
 ): ChecklistPhaseGroup[] {
   const runway = checklistRunwayFor(rows, eventDate, eventCreatedAt);
   const views = rows.map((r) => toChecklistView(r, eventDate, now, runway));
@@ -873,7 +892,7 @@ export function groupChecklistByPhase(
     .filter((p) => buckets.has(p.id))
     .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
     .map((phase) => {
-      const { label, blurb } = checklistPhaseLabel(phase, eventType);
+      const { label, blurb } = checklistPhaseLabel(phase, eventType, isOver);
       return {
         phase: { ...phase, label, blurb },
         items: buckets.get(phase.id)!.sort(sortWithin),

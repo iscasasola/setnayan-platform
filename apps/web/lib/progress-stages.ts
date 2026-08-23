@@ -294,11 +294,25 @@ export function buildProgressStages(
 
   // ---- After ----------------------------------------------------------------
   const afterDone: ProgressStageItem[] = [];
+  /*
+    ⚠ "7-DAY REVIEW WINDOW" WAS A PROMISE WITH NO MECHANISM BEHIND IT.
+
+    Grepped for it: nothing anywhere counts seven days over a gallery. The only
+    seven-day clock in the product is the force-majeure auto-resolution window,
+    which is a different feature entirely. What IS true — and is the part worth
+    keeping — is that the couple releases the gallery themselves: Photo Delivery
+    defaults to `manual_release` (migration 20260521020000), so nothing reaches
+    guests until they say so. The invented deadline is deleted rather than built
+    to; a number nobody enforces is worse than no number.
+  */
   const afterTodo: ProgressStageItem[] = [
-    { label: 'Gallery review & unlock', detail: '7-day review window' },
+    { label: 'Gallery review & unlock', detail: 'you release it when you are ready' },
     { label: 'Thank your vendors' },
   ];
-  const afterPct = 0;
+  // Derived like every other stage rather than hardcoded to 0. Same value
+  // today (nothing here is tickable yet) — but a stub that IGNORES its own
+  // items reads as a measurement and is not one.
+  const afterPct = itemPct(afterDone, afterTodo);
 
   const stages: ProgressStage[] = [
     {
@@ -368,7 +382,7 @@ export function buildProgressStages(
       done: afterDone,
       todo: afterTodo,
       aiNote:
-        'Your gallery opens to guests only after your 7-day review — nothing goes public without you.',
+        'Your gallery opens to guests only when you release it — nothing goes public without you.',
     },
   ];
 

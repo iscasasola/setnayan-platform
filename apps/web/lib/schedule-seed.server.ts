@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { buildRunOfShowSeed } from '@/lib/schedule-run-of-show';
+import { insertScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule';
 
 /**
  * schedule-seed.server.ts — the first-open Run-of-Show seed for NON-WEDDING
@@ -39,15 +40,36 @@ import { buildRunOfShowSeed } from '@/lib/schedule-run-of-show';
  * error, which during render is another 500 — a seeding hiccup taking down a
  * page whose actual job is showing a schedule. A failure now leaves the
  * schedule empty (the host can still add blocks by hand) and logs loudly.
+ *
+ * ─── AND IT RETURNS THE BLOCKS, NOT A COUNT (2026-08-23) ─────────────────
+ *
+ * 🚨 THE FIRST OPEN STILL SHOWED AN EMPTY SCHEDULE. The rows landed; the page
+ * printed nothing; a reload printed five. The caller used to ask the database
+ * for them a SECOND time, and that second question is never asked: Next
+ * memoises identical GET requests for the length of one render, so the re-read
+ * was handed the FIRST read's answer — the empty list from before the seed.
+ *
+ * Measured in the dependencies rather than guessed. `postgrest-js` issues a
+ * plain `fetch(url, { method: 'GET', headers, body: undefined, signal:
+ * undefined })`; Next's `dedupe-fetch` skips deduping only for a non-GET, a
+ * `keepalive`, or a caller-supplied `signal` — none of which apply — and keys
+ * the entry on the URL plus the headers, which are identical between the two
+ * calls. Both reads therefore resolve from one response.
+ *
+ * 🔑 SO THE SEED HANDS BACK WHAT IT WROTE. `INSERT … RETURNING` costs no extra
+ * round trip and cannot disagree with itself. This is also right if the
+ * memoisation is ever removed — one question always beats two.
  */
-export async function seedNonWeddingRunOfShow(eventId: string): Promise<number> {
-  if (!eventId) return 0;
+export async function seedNonWeddingRunOfShow(
+  eventId: string,
+): Promise<ScheduleBlockRow[]> {
+  if (!eventId) return [];
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return 0; // page owns auth; the seed is best-effort
+  if (!user) return []; // page owns auth; the seed is best-effort
 
   // Access check through the RLS-gated read, exactly as before.
   const { data: existing, error: existingErr } = await supabase
@@ -57,9 +79,9 @@ export async function seedNonWeddingRunOfShow(eventId: string): Promise<number> 
     .limit(1);
   if (existingErr) {
     logQueryError('seedNonWeddingRunOfShow (existing blocks)', existingErr, { event_id: eventId }, 'graceful_degrade');
-    return 0;
+    return [];
   }
-  if (existing && existing.length > 0) return 0; // already has a schedule · skip
+  if (existing && existing.length > 0) return []; // already has a schedule · skip
 
   // events_host, not events — signature_details is SELECT-denied to
   // `authenticated` on the base table by 20271025120000, and this seed reads it
@@ -73,17 +95,17 @@ export async function seedNonWeddingRunOfShow(eventId: string): Promise<number> 
     .maybeSingle();
   if (evErr) {
     logQueryError('seedNonWeddingRunOfShow (event row)', evErr, { event_id: eventId }, 'graceful_degrade');
-    return 0;
+    return [];
   }
   const eventType = (ev?.event_type as string | null | undefined) ?? 'wedding';
-  if (eventType === 'wedding') return 0; // weddings use their own seed
+  if (eventType === 'wedding') return []; // weddings use their own seed
 
   const blocks = buildRunOfShowSeed(
     eventType,
     (ev?.signature_details as Record<string, unknown> | null | undefined) ?? null,
     (ev?.event_date as string | null | undefined) ?? null,
   );
-  if (blocks.length === 0) return 0;
+  if (blocks.length === 0) return [];
 
   const admin = createAdminClient();
   const rows = blocks.map((b) => ({
@@ -98,16 +120,21 @@ export async function seedNonWeddingRunOfShow(eventId: string): Promise<number> 
     notes: b.notes,
   }));
 
-  const { error } = await admin.from('event_schedule_blocks').insert(rows);
+  // RETURNING the inserted rows — see the docblock. Asking for them again is
+  // the bug this replaces, not a safety net. The write goes through
+  // `lib/schedule.ts` so the column list and the ordering stay in the one
+  // module that owns them; this file never names a column.
+  const { blocks: inserted, error } = await insertScheduleBlocks(admin, rows);
   if (error) {
     logQueryError('seedNonWeddingRunOfShow (insert)', error, { event_id: eventId }, 'graceful_degrade');
-    return 0;
+    return [];
   }
 
   /*
     🔒 NO `revalidatePath` HERE, AND THAT IS THE WHOLE POINT OF THIS FILE.
-    This runs DURING a render. The caller re-reads the blocks on the next line,
-    so there is nothing to revalidate and nothing to gain — only the throw.
+    This runs DURING a render, and the render already has the rows — they are
+    the return value below. There is nothing to revalidate and nothing to gain
+    from trying — only the throw.
   */
-  return rows.length;
+  return inserted;
 }

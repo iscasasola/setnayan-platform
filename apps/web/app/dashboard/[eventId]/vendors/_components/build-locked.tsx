@@ -26,6 +26,7 @@
  * Every decision above that can be made without a DOM lives in `lib/your-team.ts`
  * and is unit-tested; this file only renders.
  */
+import Link from 'next/link';
 import { Lock as LockIcon, CheckCircle2 } from 'lucide-react';
 import type { PlanBudgetModel } from '@/lib/vendors-plan-budget';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
@@ -73,6 +74,7 @@ export function BuildLocked({
   quoteFillable,
   currentPlan,
   savedBuilds,
+  reviewStatusByVendorId,
 }: {
   model: PlanBudgetModel;
   eventId: string;
@@ -85,6 +87,22 @@ export function BuildLocked({
    * the section lists nothing (the flag-OFF path never reads it).
    */
   planPicks?: ReadonlyArray<PlansRowPick>;
+  /**
+   * Per-supplier review state, resolved ONCE on the page through the same
+   * `reviewState()` gate the review form and RLS enforce. 'open' → the couple
+   * may write one now; 'submitted' → they already have; absent → the window is
+   * not open and nothing is offered.
+   *
+   * 🚨 WHY IT IS HERE AT ALL. "Leave a review" shipped only on
+   * `plan-budget-accordion.tsx` — the KILL-SWITCH fallback, which renders only
+   * when `BUDGET_BUILD_ENABLED=false`. Nobody has ever seen it. Meanwhile the
+   * After-phase menu and the finished-event summary card both offer "Review",
+   * and the summary card's own comment asserted the list "already shows Leave a
+   * review beside exactly the ones whose window is open". A sentence is not a
+   * mechanism: on the live path the locked list was eight plain rows with
+   * nothing to press. The couple was invited to review and handed a wall.
+   */
+  reviewStatusByVendorId?: ReadonlyMap<string, 'open' | 'submitted'>;
   /** Categories the quote-fill row can offer. Empty (or absent) → no row. */
   quoteFillable?: ReadonlyArray<FillableCategory>;
   /** For the relocated "Save current as a plan" (§3 item 6). Flag-ON only. */
@@ -101,6 +119,9 @@ export function BuildLocked({
         .map((p) => ({
           folder: f.label,
           group: c.label,
+          // The id the review form is keyed on — the SAME `event_vendors.vendor_id`
+          // the page's review-status map and `/vendors/<id>/review` already use.
+          vendorId: p.vendor_id,
           name: p.vendor_name ?? 'Vendor',
           cost: p.rolled_cost_php,
         })),
@@ -325,11 +346,40 @@ export function BuildLocked({
                     </span>
                   </span>
                 </span>
-                {pesoFromPhp(r.cost) && (
-                  <span className="shrink-0 text-sm font-medium tabular-nums text-ink/75">
-                    {pesoFromPhp(r.cost)}
-                  </span>
-                )}
+                <span className="flex shrink-0 items-center gap-2.5">
+                  {pesoFromPhp(r.cost) && (
+                    <span className="text-sm font-medium tabular-nums text-ink/75">
+                      {pesoFromPhp(r.cost)}
+                    </span>
+                  )}
+                  {/* The word the After-phase menu promises, finally attached to
+                      the supplier it is about. Offered ONLY where the window is
+                      genuinely open — a prompt the product would then refuse is
+                      worse than no prompt. */}
+                  {reviewStatusByVendorId?.get(r.vendorId) === 'open' ? (
+                    <Link
+                      href={`/dashboard/${eventId}/vendors/${r.vendorId}/review`}
+                      /* 🪤 THE QUIET VERSION OF THIS CHIP FAILED AA AND BOTH
+                         CONTRAST GUARDS WAVED IT THROUGH. `text-mulberry` on a
+                         `bg-mulberry/10` tint MEASURES 4.16:1 on the white page
+                         (3.62:1 on hover) — mulberry has only 0.26 of headroom
+                         over the 4.5 floor, so any tint under it spends the lot.
+                         The guards missed it because one checks token
+                         DEFINITIONS and the other only judges pairings where
+                         both sides are opaque; an alpha fill is neither.
+                         The solid action is the canonical treatment and
+                         measures 4.76:1 light / 6.20:1 dark. */
+                      className="rounded-full bg-mulberry px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-cream transition hover:opacity-90"
+                    >
+                      Leave a review
+                    </Link>
+                  ) : null}
+                  {reviewStatusByVendorId?.get(r.vendorId) === 'submitted' ? (
+                    <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-success-700">
+                      Reviewed
+                    </span>
+                  ) : null}
+                </span>
               </li>
             ))}
           </ul>

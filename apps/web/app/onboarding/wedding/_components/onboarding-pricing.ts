@@ -103,7 +103,6 @@ export const INAPP_TO_SERVICE_CODE: Record<string, string> = {
   // indoor_blueprint RETIRED (owner 2026-06-08) — dropped from the catalog + the offered set.
   // live_background RETIRED as an onboarding pick (owner 2026-07-22): Live
   // Background is bundle-only, folded into Monogram PRO (animated_monogram).
-  pabati: 'PABATI',
   guest_stories: 'PAPIC_ADDON_STORIES',
   thank_you: 'PAPIC_ADDON_THANK_YOU',
   live_photowall: 'LIVE_WALL',
@@ -143,7 +142,6 @@ export const INAPP_TO_SERVICE_CODE: Record<string, string> = {
 export const OUT_ANCHORS: Record<string, number> = {
   advanced_website: 25000,
   guest_stories: 8000,
-  pabati: 12000,
   animated_monogram: 15500,
   thank_you: 60000,
   pakanta: 12500,
@@ -198,7 +196,11 @@ export const BUNDLE_MEMBERS: { essentials: string[]; complete: string[] } = {
     // bundles are themselves deactivated (2026-06-29), so bundleVM returns null.
     'PAPIC_SEATS',
     'CAMERA_BRIDGE',
-    'PABATI',
+    // PABATI is GONE, not merely retired — the Pabati video guestbook was
+    // removed from the product 2026-08-21 (owner: "we do not need pabati.
+    // retire it because it is part of papic"). Same treatment LIVE_BACKGROUND
+    // gets below: a bundle cannot include a thing that no longer exists, and
+    // the membership guard requires this list to match the code + SQL mirrors.
     'PAPIC_ADDON_THANK_YOU', // Thank You
     'LIVE_WALL', // PhotoWall
     // LIVE_BACKGROUND is GONE, not merely retired — the LED wall backdrop was

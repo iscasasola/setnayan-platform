@@ -139,14 +139,14 @@ const ADDON_GROUPS: CatalogGroup[] = [
       { code: 'PAPIC_POOL' }, // Papic Pool — the shared shot pool, additive top-ups
       { code: 'PAPIC_CAMERAS' }, // Papic One — a dedicated camera, its own QR + shots
       { code: 'CAMERA_BRIDGE', withPapic: true },
-      // PABATI is FREE for every event since 2026-08-21 (owner: "all features of
-      // papic will be free like kwento") — is_active=false, so it drops out of
-      // resolvedGroups automatically and no longer appears among the paid rows,
-      // which is correct: this page lists what you PAY for. The feature is still
-      // on for everyone (entitlements FREE_FOR_ALL_SKUS) and llms.txt describes
-      // it as free. Code kept listed — same convention as KWENTO below — so the
-      // change is legible rather than looking like an accidental deletion.
-      { code: 'PABATI', withPapic: true }, // FREE 2026-08-21 — no longer a paid row
+      // PABATI was RETIRED on 2026-08-21 (owner: "we do not need pabati. retire
+      // it because it is part of papic"), superseding the free ruling made
+      // hours earlier the same day. It is GONE, not merely off sale — the
+      // surface, the API, the table and the RPCs are deleted — so unlike KWENTO
+      // below its code is NOT kept listed here: this list drives what a couple
+      // can be shown, and a row for a product that no longer exists is a fake
+      // door. The lineage lives in lib/v2-catalog.ts, the same place the LED
+      // wall backdrop's does.
       // KWENTO is FREE for every event since 2026-08-21 (owner: "kwento is
       // free") — is_active=false, so it drops out of resolvedGroups
       // automatically and no longer appears among the paid rows, which is
@@ -462,10 +462,10 @@ export default async function PricingPage() {
     Number(customerSkus.find((s) => s.service_code === code)?.retail_price_php ?? fb);
   const estimatorAddonDefs: Array<{ key: string; code: string; label: string; fb: number }> = [
     { key: 'cb', code: 'CAMERA_BRIDGE', label: 'Camera Bridge · DSLR', fb: 500 }, // owner 2026-07-11 (was 499)
-    // Kwento + Pabati owner-locked FREE 2026-07-08 → deactivating the catalog row
-    // drops them from the estimator (filter below); fb 0 guards a lingering
-    // null-priced row from showing a stale paid figure.
-    { key: 'pabati', code: 'PABATI', label: 'Pabati', fb: 0 },
+    // Kwento owner-locked FREE 2026-07-08 → deactivating the catalog row drops
+    // it from the estimator (filter below); fb 0 guards a lingering
+    // null-priced row from showing a stale paid figure. Pabati sat beside it
+    // until 2026-08-21, when it was retired out of the product entirely.
     { key: 'kwento', code: 'KWENTO', label: 'Kwento', fb: 0 },
     // Pakanta (custom wedding song, 0036) is NOT a Papic add-on — deliberately
     // excluded from the per-camera Papic estimator (owner 2026-07-10).

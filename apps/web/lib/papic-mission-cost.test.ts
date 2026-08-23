@@ -33,9 +33,11 @@ const codeOnly = (s: string) =>
 test('a photo costs what a photo costs, a video what a clip costs', () => {
   assert.equal(papicMissionCost('photo'), papicCaptureCost('photo'));
   assert.equal(papicMissionCost('clip'), papicCaptureCost('clip'));
-  // A video greeting is recorded on camera — it is a clip's worth, not a photo's.
-  assert.equal(papicMissionCost('pabati'), papicCaptureCost('clip'));
-  assert.notEqual(papicMissionCost('pabati'), papicCaptureCost('photo'));
+  // A video greeting is recorded on camera — it is a clip's worth, not a
+  // photo's. It used to arrive as its own kind, 'pabati'; that SKU was retired
+  // on 2026-08-21 and its library row now says 'clip', so the greeting is
+  // priced by the line above rather than by a third case.
+  assert.notEqual(papicCaptureCost('clip'), papicCaptureCost('photo'));
 });
 
 test('a mission with no kind recorded costs a photo, never nothing', () => {

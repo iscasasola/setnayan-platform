@@ -22,7 +22,9 @@ export { type DriveProvider, isDriveQuotaExceededError };
 //           2026-06-03 "Storage & Drive-copy architecture LOCKED".
 //
 // R2 is the system of record; Google Drive is the couple's PERMANENT COPY of
-// six artifacts — Papic · Patiktok · Pabati · Pakanta · Monogram · QR codes.
+// five artifacts — Papic · Patiktok · Pakanta · Monogram · QR codes. (A sixth,
+// Pabati, went with the Pabati SKU when it was retired 2026-08-21; the DB CHECK
+// was narrowed in the same migration, and prod held zero rows of that type.)
 // Every feeder, after finalizing its R2 object, calls pushToDriveCopy() and
 // the bytes are copied into the couple's Drive: one event folder, one
 // subfolder per artifact type. (Panood is NOT here — YouTube only.)
@@ -43,7 +45,6 @@ export { type DriveProvider, isDriveQuotaExceededError };
 export const DRIVE_COPY_ARTIFACT_TYPES = [
   'papic',
   'patiktok',
-  'pabati',
   'pakanta',
   'monogram',
   'qr_codes',
@@ -56,7 +57,6 @@ export type DriveCopyArtifactType = (typeof DRIVE_COPY_ARTIFACT_TYPES)[number];
 export const ARTIFACT_SUBFOLDER_NAME: Record<DriveCopyArtifactType, string> = {
   papic: 'Papic',
   patiktok: 'Patiktok',
-  pabati: 'Pabati',
   pakanta: 'Pakanta',
   monogram: 'Monogram',
   qr_codes: 'QR Codes',

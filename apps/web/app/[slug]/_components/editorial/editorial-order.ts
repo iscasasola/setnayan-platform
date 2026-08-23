@@ -25,7 +25,6 @@ export type EditorialOrderKey =
   | 'gallery' // "From the Day" photo gallery (gated by the `gallery` toggle)
   | 'fromVendors' // "From Your Vendors"
   | 'liveWall' // "Live Photo Wall"
-  | 'videoGuestbook' // "Video Guestbook"
   | 'watchFilm' // "Watch the Film"
   | 'reviews' // "What They Said"
   | 'poweredBy' // "Powered by Setnayan"
@@ -64,7 +63,6 @@ export const EDITORIAL_ORDERABLE_KEYS: ReadonlyArray<EditorialOrderKey> = [
   'gallery',
   'fromVendors',
   'liveWall',
-  'videoGuestbook',
   'watchFilm',
   'reviews',
   'poweredBy',

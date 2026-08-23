@@ -32,20 +32,21 @@ export async function ensureAutoMissions(
 // Idempotently materialize + rank the §9 20-slot board (couple ≤10 + vendor ≤5 +
 // Setnayan backfill). Supersedes ensureAutoMissions on the guest path —
 // ensure_papic_board calls ensure_papic_auto_missions internally, then fills the
-// Setnayan lane and assigns board_slot. pabatiActive is computed SERVER-SIDE by
-// the caller (eventPabatiActive) and passed in: the resolver is trusted-role-only
-// (never anon), so this value is never client-spoofable, and it defaults fail-closed
-// (false → Pabati #5 is skipped + backfilled). Returns the number of live slots.
+// Setnayan lane and assigns board_slot. Returns the number of live slots.
 // No-op (0) when the flag is off.
+//
+// ⚠ ONE ARGUMENT, AND IT USED TO TAKE TWO. The retired Pabati SKU gated library
+// row #5; the same migration that retired it re-created this function with a
+// single parameter. PostgREST resolves an RPC by its EXACT set of named
+// arguments, so passing the old `p_pabati_active` here matches nothing and the
+// call is REFUSED, not thrown — the board would silently never materialize.
 export async function ensurePapicBoard(
   supabase: SupabaseClient,
   eventId: string,
-  pabatiActive: boolean,
 ): Promise<number> {
   if (!papicGamesEnabled()) return 0;
   const { data, error } = await supabase.rpc('ensure_papic_board' as never, {
     p_event_id: eventId,
-    p_pabati_active: pabatiActive,
   } as never);
   if (error) return 0; // fail-soft: a board hiccup must never break the capture surface
   return typeof data === 'number' ? data : 0;

@@ -73,7 +73,6 @@ const GUEST_ONLY_FIELDS = [
   'guestHubData',
   'seatMap',
   'papicGuest',
-  'pabati',
   'showClaimAccountCta',
   'accountlessPhotosClosed',
   'eventVendorCredits',
@@ -150,7 +149,6 @@ function guestInput(
     guestHubData: { firstName: 'Maria' },
     seatMap: null,
     papicGuest: null,
-    pabati: null,
     showClaimAccountCta: false,
     accountlessPhotosClosed: false,
     eventVendorCredits: [],
@@ -201,7 +199,6 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     'invitationUrl',
     'kind',
     'needsFaceEnroll',
-    'pabati',
     'papicGuest',
     // profileDetails (renamed from `profileDetails` 2026-08-21) — THIS PERSON'S OWN
     // offered back as the reply card's default. It is per-person data the guest

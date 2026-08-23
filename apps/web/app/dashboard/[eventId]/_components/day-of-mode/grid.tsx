@@ -7,7 +7,6 @@ import { DayOfModeBanner } from './banner';
 import { WhatsHappeningCard } from './whats-happening-card';
 import { YourTableCard } from './your-table-card';
 import { LivePhotoWallCard } from './live-photo-wall-card';
-import { VideoGuestbookCard, type PabatiClipThumb } from './video-guestbook-card';
 import { LiveScheduleCard } from './live-schedule-card';
 import { CoordinatorBroadcastCard } from './coordinator-broadcast-card';
 import type { BroadcastCardData } from '@/lib/coordinator-broadcasts';
@@ -28,11 +27,6 @@ type Props = {
   headTable: EventTableRow | null;
   nearbyTables: EventTableRow[];
   sameDayVendors?: SameDayVendor[];
-  /** PABATI video guestbook — resolved server-side. When false the card hides. */
-  pabatiActive?: boolean;
-  pabatiClips?: PabatiClipThumb[];
-  pabatiUsed?: number;
-  pabatiTotal?: number;
   /** LIVE_WALL ownership — resolved server-side (eventSkuActive), same predicate
    *  /wall/[eventId] gates on. When false the card hides. Defaults false so a
    *  caller that forgets it shows nothing rather than a dead advertisement. */
@@ -49,10 +43,6 @@ export function DayOfModeGrid({
   headTable,
   nearbyTables,
   sameDayVendors = [],
-  pabatiActive = false,
-  pabatiClips = [],
-  pabatiUsed = 0,
-  pabatiTotal = 0,
   liveWallActive = false,
   broadcast,
 }: Props) {
@@ -98,18 +88,6 @@ export function DayOfModeGrid({
           nearbyTables={nearbyTables}
         />
         {liveWallActive ? <LivePhotoWallCard eventId={eventId} /> : null}
-        {pabatiActive ? (
-          <VideoGuestbookCard
-            pabatiActive
-            eventId={eventId}
-            clips={pabatiClips}
-            used={pabatiUsed}
-            total={pabatiTotal}
-            shareUrl={`/pabati/${eventId}`}
-          />
-        ) : (
-          <VideoGuestbookCard pabatiActive={false} />
-        )}
         <LiveScheduleCard eventId={eventId} blocks={blocks} />
         <CoordinatorBroadcastCard eventId={eventId} broadcast={broadcast} />
         <GetHelpCard sameDayVendors={sameDayVendors} />

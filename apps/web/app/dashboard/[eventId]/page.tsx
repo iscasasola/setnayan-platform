@@ -31,7 +31,6 @@ import {
 } from '@/lib/coordinator-broadcasts-server';
 import { isEmailConfigured } from '@/lib/email';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
-import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { findSameDayVendors, type SameDayVendor } from '@/lib/same-day-vendors';
 import {
@@ -41,7 +40,6 @@ import {
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
-import type { PabatiClipThumb } from './_components/day-of-mode/video-guestbook-card';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
 import { NikahEssentialsCard } from './_components/nikah-essentials-card';
@@ -196,7 +194,7 @@ export default async function EventHomePage({
     : ([] as Awaited<ReturnType<typeof fetchGuestsByEvent>>);
 
   // Day-of mode (iteration 0031): inside the day-of window, load the schedule
-  // + seating + same-day + Pabati data for the live grid that takes over above
+  // + seating + same-day data for the live grid that takes over above
   // the dashboard. Outside the window we render nothing extra and skip every
   // query.
   //
@@ -256,10 +254,6 @@ export default async function EventHomePage({
   let dayOfHeadTable: EventTableRow | null = null;
   let dayOfNearbyTables: EventTableRow[] = [];
   let dayOfSameDayVendors: SameDayVendor[] = [];
-  let dayOfPabatiActive = false;
-  let dayOfPabatiClips: PabatiClipThumb[] = [];
-  let dayOfPabatiUsed = 0;
-  let dayOfPabatiTotal = 0;
   // LIVE_WALL ownership for the day-of grid's photo-wall card. Same predicate
   // /wall/[eventId] gates on, so the card and the destination can never disagree.
   // Fails closed: any read error leaves this false and the card simply hides.
@@ -287,52 +281,12 @@ export default async function EventHomePage({
     dayOfHeadTable = tables.find((t) => t.table_type.startsWith('family_head_')) ?? null;
     dayOfNearbyTables = tables.filter((t) => t.table_id !== dayOfHeadTable?.table_id).slice(0, 6);
 
-    // LIVE_WALL — same shape as PABATI below: resolve ownership server-side so
-    // the client grid can hide the card. Best-effort; a throw leaves it false.
+    // LIVE_WALL — resolve ownership server-side so the client grid can hide the
+    // card. Best-effort; a throw leaves it false.
     try {
       dayOfLiveWallActive = await eventSkuActive(adminClient, eventId, 'LIVE_WALL');
     } catch {
       dayOfLiveWallActive = false;
-    }
-
-    // PABATI — gate first; only fetch clips + quota when the pack is active so a
-    // non-owner pays no query cost. Best-effort: any read error leaves the card
-    // hidden / empty rather than crashing the day-of grid.
-    try {
-      dayOfPabatiActive = await eventPabatiActive(adminClient, eventId);
-      if (dayOfPabatiActive) {
-        const [quota, clipsRes] = await Promise.all([
-          fetchPabatiQuota(adminClient, eventId),
-          // Latest clean, non-hidden greetings for the thumbnail strip. Excludes
-          // nsfw_blocked + unscreened (fail-closed, same as every guest surface)
-          // and couple-hidden rows.
-          adminClient
-            .from('pabati_clips')
-            .select('clip_id, r2_object_key')
-            .eq('event_id', eventId)
-            .eq('moderation_state', 'clean')
-            .is('hidden_at', null)
-            .order('captured_at', { ascending: false })
-            .limit(6),
-        ]);
-        dayOfPabatiUsed = quota.used;
-        dayOfPabatiTotal = quota.total;
-        const clipRows = (clipsRes.data ?? []) as Array<{
-          clip_id: string;
-          r2_object_key: string | null;
-        }>;
-        dayOfPabatiClips = await Promise.all(
-          clipRows.map(async (r) => ({
-            id: r.clip_id,
-            url: r.r2_object_key
-              ? await displayUrlForStoredAsset(r.r2_object_key).catch(() => null)
-              : null,
-          })),
-        );
-      }
-    } catch {
-      dayOfPabatiActive = false;
-      dayOfPabatiClips = [];
     }
 
     // Coordinator P3 (flag-gated, default OFF): the broadcast card's data —
@@ -606,10 +560,6 @@ export default async function EventHomePage({
           headTable={dayOfHeadTable}
           nearbyTables={dayOfNearbyTables}
           sameDayVendors={dayOfSameDayVendors}
-          pabatiActive={dayOfPabatiActive}
-          pabatiClips={dayOfPabatiClips}
-          pabatiUsed={dayOfPabatiUsed}
-          pabatiTotal={dayOfPabatiTotal}
           liveWallActive={dayOfLiveWallActive}
           broadcast={dayOfBroadcast}
         />

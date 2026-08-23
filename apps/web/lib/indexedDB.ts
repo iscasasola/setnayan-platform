@@ -27,7 +27,6 @@ export const STORE_SYNC_LOG = 'sync_log';
 
 export type MediaServiceCode =
   | 'PAPIC'
-  | 'PABATI'
   | 'PANOOD'
   | 'PATIKTOK'
   | 'CAMERA_BRIDGE'

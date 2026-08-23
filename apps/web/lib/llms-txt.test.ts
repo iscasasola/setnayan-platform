@@ -61,10 +61,11 @@ const RETAIL: RetailRow[] = [
   { service_code: 'PATIKTOK_COMPILER', title: 'Patiktok', retail_price_php: 1500, is_active: true },
   { service_code: 'SEATING_3D', title: '3D Plan', retail_price_php: 1500, is_active: true },
   { service_code: 'SETNAYAN_AI', title: 'Setnayan AI', retail_price_php: 1499, is_active: true },
-  // PABATI is FREE since 2026-08-21 (owner: "all features of papic will be free
-  // like kwento") — deactivated in prod by migration 20271156692904. Kept listed,
-  // inactive, so the change is legible rather than looking like a deletion.
-  { service_code: 'PABATI', title: 'Pabati', retail_price_php: 1299, is_active: false },
+  // PABATI is GONE from this fixture on purpose. It went FREE on 2026-08-21 and
+  // was RETIRED the same day ("we do not need pabati. retire it because it is
+  // part of papic"), so it is no longer in REQUIRED_RETAIL and no longer named
+  // in the prose. A fixture row for it would assert a catalog entry the
+  // document must never read.
   { service_code: 'PAPIC_GUEST', title: 'Papic Pool — add 3,000 shots', retail_price_php: 1000, is_active: true },
   { service_code: 'ANIMATED_MONOGRAM', title: 'Animated Monogram', retail_price_php: 1000, is_active: true },
   // KWENTO is FREE since 2026-08-21 (owner: "kwento is free") — its row is
@@ -180,10 +181,11 @@ test('every link in the rendered body resolves to an allow-listed route', () => 
 
 test('a missing SKU refuses to render, and names EVERY missing code at once', () => {
   /*
-    ⚠ THIS PAIR HAS NOW MOVED TWICE IN ONE DAY, AND THE REASON IS THE POINT.
+    ⚠ THIS PAIR HAS MOVED THREE TIMES, AND THE REASON IS THE POINT.
     It was KWENTO + PAKANTA; Kwento went free, so stripping it proved nothing —
     the assertion would have quietly tested ONE code while claiming two. Swapped
-    to PABATI, which went free hours later, for exactly the same reason.
+    to PABATI, which went free hours later for the same reason and was retired
+    out of the product the same day. It is PAKANTA + PATIKTOK_COMPILER now.
 
     🔑 PICK CODES THAT ARE STILL REQUIRED, and check that when you touch this.
     A vacuous assertion here does not fail; it just stops testing half of what
@@ -254,10 +256,11 @@ test('advertising a SKU that is off sale REFUSES to render', () => {
   // build must refuse rather than quietly keep selling it. If this ever passes
   // without throwing, the guard is decoration and the drift is back.
   /*
-    ⚠ WAS PABATI UNTIL 2026-08-21. Pabati went FREE that day — its row is
-    deactivated on purpose and its prose line no longer quotes a price — so
-    flipping it here could no longer throw, and the assertion failed for the
-    right reason. It needs a SKU that is still BOTH prose-priced and on sale.
+    ⚠ WAS PABATI UNTIL 2026-08-21, when Pabati went FREE and was then retired
+    out of the product entirely — its row is deactivated and it has no prose
+    line at all — so flipping it here could no longer throw, and the assertion
+    failed for the right reason. It needs a SKU that is still BOTH prose-priced
+    and on sale.
   */
   const retired = {
     ...INPUT,

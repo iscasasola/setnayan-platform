@@ -277,9 +277,6 @@ export type GuestPapicCamera = {
   faceMode: PapicFaceMode;
 };
 
-/** Pabati video-guestbook quota display data. */
-export type GuestPabatiQuota = { initialRemaining: number; total: number };
-
 /** "Your seat" inline wayfinding map (free 2D seat plan). */
 export type GuestSeatMap = {
   tables: EventTableRow[];
@@ -308,7 +305,6 @@ export type GuestContext =
       guestLiveGallery: GuestLiveGallery | null;
       needsFaceEnroll: boolean;
       papicGuest: GuestPapicCamera | null;
-      pabati: GuestPabatiQuota | null;
       guestHubData: GuestHubData;
       seatMap: GuestSeatMap | null;
       rsvpFaceMode: PapicFaceMode;

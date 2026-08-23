@@ -37,7 +37,6 @@ const BODY = read('site-body.tsx');
 /** Every client surface that reads the noun from context. */
 const CONSUMERS = [
   'countdown.tsx',
-  'pabati-prompt.tsx',
   'selfie-capture.tsx',
   'guest-column-form.tsx',
   'day-of-face-enroll.tsx',

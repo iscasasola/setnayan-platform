@@ -34,7 +34,7 @@ export type PickerRow = {
   category: ChallengeCategory;
   title: string;
   prompt: string;
-  capture_kind: 'photo' | 'clip' | 'pabati';
+  capture_kind: 'photo' | 'clip';
   /** How many other events carry this one. 0 until couples start picking. */
   picks: number;
 };
@@ -44,7 +44,7 @@ export type PickerFilters = {
   q: string;
   /** A category key, or null for "everything". */
   category: ChallengeCategory | null;
-  /** 'photo' | 'clip' | null. Video covers `clip` and `pabati`. */
+  /** 'photo' | 'clip' | null. */
   kind: 'photo' | 'clip' | null;
 };
 
@@ -180,9 +180,7 @@ export async function fetchPickerRows(
 
   if (filters.category) query = query.eq('category', filters.category);
   if (filters.kind === 'photo') query = query.eq('capture_kind', 'photo');
-  // "Video" is both moving-picture kinds. A Pabati greeting is a video to a
-  // person, whatever the SKU calls it.
-  if (filters.kind === 'clip') query = query.in('capture_kind', ['clip', 'pabati']);
+  if (filters.kind === 'clip') query = query.eq('capture_kind', 'clip');
   if (filters.q) query = query.or(`title.ilike.%${filters.q}%,prompt.ilike.%${filters.q}%`);
 
   // Over-fetch, because `taken` is subtracted in memory: asking for exactly 20

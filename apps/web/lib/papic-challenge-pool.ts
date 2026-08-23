@@ -237,7 +237,12 @@ const SHIPPED: PoolRow[] = [
     { slug: 'kiss-cam', title: 'Kiss Cam', prompt: 'Catch the newlyweds mid-kiss.', rank: 4 },
     { slug: 'twin-the-couple', title: 'Twin the Couple', prompt: 'Recreate their signature pose. Full commitment.' },
     { slug: 'blessing-cam', title: 'Blessing Cam', prompt: 'Five seconds to camera: your wish for them.', rank: 3, kind: 'clip' },
-    { slug: 'pabati', title: 'Pabati', prompt: 'Leave the newlyweds a video greeting.', kind: 'pabati', mission: 'video_greeting' },
+    // Was kind: 'pabati' until 2026-08-21, when the Pabati SKU was retired into
+    // Papic (owner: "we do not need pabati. retire it because it is part of
+    // papic"). 🔑 THE CAPABILITY DOES NOT DIE WITH THE PRODUCT — the guest is
+    // still asked to leave a greeting, recorded the way they record everything
+    // else. `pabati` is Tagalog for a greeting; the word outlives the SKU.
+    { slug: 'pabati', title: 'Pabati', prompt: 'Leave the newlyweds a video greeting.', kind: 'clip', mission: 'video_greeting' },
     { slug: 'parents-hug', title: "Parents' Hug", prompt: "A photo with one of the couple's parents.", rank: 10 },
     { slug: 'entourage-selfie', title: 'Entourage Selfie', prompt: 'Grab a shot with a bridesmaid or groomsman.' },
   ]),
@@ -444,9 +449,9 @@ const ANYWHERE: PoolRow[] = block('anywhere', 'anywhere', { kind: 'photo' }, [
 // GREETING — "a special message for the couple" (owner, 2026-08-21). NEW.
 // ═══════════════════════════════════════════════════════════════════════════
 // Straight to camera, for whoever this day belongs to. The shipped library had
-// exactly ONE of these (`pabati`, and it needs the Pabati SKU); this block is
-// the free version, and it is the half of the owner's ask that a guest can do
-// without knowing anybody at the party.
+// exactly ONE of these (`pabati`, which needed the since-retired Pabati SKU);
+// this block is the free version, and it is the half of the owner's ask that a
+// guest can do without knowing anybody at the party.
 //
 // 🔑 EVERY ROW NAMES THE TEN SECONDS. A greeting is the prompt most likely to
 // run long — somebody is being sincere — and a clip is cut at 10 000 ms while

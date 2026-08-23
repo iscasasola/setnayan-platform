@@ -345,7 +345,9 @@ test('eventOwnsSku: no order and no comp → not owned', async () => {
 
 test('BUNDLE_CHILD_SKUS: media children are in MEDIA_PACK; both bundles share Essentials members', () => {
   // The crew-delivered media children the dead DB fan-out used to grant.
-  for (const child of ['LIVE_WALL', 'PANOOD_SYSTEM', 'PAPIC_SEATS', 'CAMERA_BRIDGE', 'PABATI', 'PAKANTA']) {
+  // ⚠ PABATI was in this list until 2026-08-21, when the product was retired
+  // and the same PR re-seeded bundle_components without it.
+  for (const child of ['LIVE_WALL', 'PANOOD_SYSTEM', 'PAPIC_SEATS', 'CAMERA_BRIDGE', 'PAKANTA']) {
     assert.ok(
       BUNDLE_CHILD_SKUS.MEDIA_PACK.includes(child),
       `MEDIA_PACK should include ${child}`,

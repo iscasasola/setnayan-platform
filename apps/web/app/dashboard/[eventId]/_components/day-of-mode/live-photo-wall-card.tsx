@@ -14,9 +14,8 @@ import { Camera, ArrowRight } from 'lucide-react';
  *
  * Rendering is now gated by the caller on real LIVE_WALL ownership (resolved
  * server-side in the dashboard page via eventSkuActive, the same predicate the
- * wall page itself gates on) — matching how `pabatiActive` gates the video
- * guestbook card. A couple who does not own the wall sees nothing here rather
- * than an advertisement disguised as a broken feature.
+ * wall page itself gates on). A couple who does not own the wall sees nothing
+ * here rather than an advertisement disguised as a broken feature.
  */
 export function LivePhotoWallCard({ eventId }: { eventId: string }) {
   return (

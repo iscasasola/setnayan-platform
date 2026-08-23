@@ -15,7 +15,7 @@ export type PapicMissionType =
 // existing three — the DB `source` CHECK was widened to a superset (never-rename lock).
 export type PapicMissionSource = 'auto' | 'couple' | 'vendor' | 'setnayan';
 
-export type CaptureKind = 'photo' | 'clip' | 'pabati';
+export type CaptureKind = 'photo' | 'clip';
 
 export type PapicMissionRow = {
   mission_id: string;
@@ -46,7 +46,7 @@ export type GuestMissionRow = {
   completed: boolean;
   consent_shared: boolean;
   // §9 board fields (from the papic_guest_missions v4 reader). source/capture_kind
-  // drive the lane badge + the Pabati branch; board_slot is the materialized order
+  // drive the lane badge; board_slot is the materialized order
   // (null = off-board completed archive, or pre-board fail-soft).
   source: PapicMissionSource;
   capture_kind: CaptureKind | null;
@@ -190,7 +190,6 @@ export type BoardResolverInput = {
   vendorMissions: readonly VendorLaneMission[];
   library: readonly ChallengeLibraryItem[];
   vetoedLibraryIds?: readonly number[]; // couple-hidden Setnayan tombstones (veto wins → backfill).
-  pabatiActive?: boolean; // server-computed; default false = fail-closed (skip Pabati, backfill).
 };
 
 export type BoardEntry =
@@ -203,7 +202,6 @@ function rankKey(r: number | null): number {
 }
 
 export function resolveChallengeBoard(input: BoardResolverInput): BoardEntry[] {
-  const pabatiActive = input.pabatiActive ?? false;
   const vetoed = new Set(input.vetoedLibraryIds ?? []);
 
   // 1) Vendor lane is SIZED FIRST now, because the couple's ceiling depends on
@@ -229,7 +227,7 @@ export function resolveChallengeBoard(input: BoardResolverInput): BoardEntry[] {
   const vendorUsedList = [...paid, ...booth].slice(0, VENDOR_SLOTS);
 
   // 3) Setnayan lane — backfill the remainder to BOARD_SIZE by priority_rank then
-  // library order, skipping taken/vetoed/inactive, Pabati only when active.
+  // library order, skipping taken/vetoed/inactive.
   const target = BOARD_SIZE - coupleUsedList.length - vendorUsedList.length;
   const setnayanUsedList =
     target > 0
@@ -238,7 +236,6 @@ export function resolveChallengeBoard(input: BoardResolverInput): BoardEntry[] {
             (l) =>
               l.isActive &&
               l.missionType !== 'face_verified' &&
-              (l.captureKind !== 'pabati' || pabatiActive) &&
               !taken.has(l.libraryId) &&
               !vetoed.has(l.libraryId),
           )

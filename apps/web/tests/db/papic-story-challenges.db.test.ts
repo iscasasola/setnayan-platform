@@ -400,7 +400,7 @@ test('a fresh board fills every slot, contiguously, in rank order', async () => 
   );
   const eventId = ev.rows[0]!.event_id;
 
-  await db.query(`SELECT public.ensure_papic_board($1, false)`, [eventId]);
+  await db.query(`SELECT public.ensure_papic_board($1)`, [eventId]);
 
   const slots = await db.query<{ board_slot: number; priority_rank: number | null; library_id: number }>(
     `SELECT m.board_slot, l.priority_rank, m.library_id
@@ -434,7 +434,7 @@ test('past the board size, the overflow really does sit off-board — "Not showi
      VALUES ('Overflow Event', 'wedding', 'civil', 'banquet_hall') RETURNING event_id`,
   );
   const eventId = ev.rows[0]!.event_id;
-  await db.query(`SELECT public.ensure_papic_board($1, false)`, [eventId]);
+  await db.query(`SELECT public.ensure_papic_board($1)`, [eventId]);
 
   // The couple adds five of their own on top of a full board.
   for (let i = 1; i <= 5; i++) {
@@ -444,7 +444,7 @@ test('past the board size, the overflow really does sit off-board — "Not showi
       [eventId, `Our own challenge number ${i}. Ten seconds.`],
     );
   }
-  await db.query(`SELECT public.ensure_papic_board($1, false)`, [eventId]);
+  await db.query(`SELECT public.ensure_papic_board($1)`, [eventId]);
 
   const counts = await db.query<{ on_board: number | string; off_board: number | string }>(
     `SELECT count(*) FILTER (WHERE board_slot IS NOT NULL) AS on_board,
@@ -478,7 +478,7 @@ test('hiding a challenge frees its slot for the one that was waiting', async () 
      VALUES ('Make Room Event', 'wedding', 'civil', 'banquet_hall') RETURNING event_id`,
   );
   const eventId = ev.rows[0]!.event_id;
-  await db.query(`SELECT public.ensure_papic_board($1, false)`, [eventId]);
+  await db.query(`SELECT public.ensure_papic_board($1)`, [eventId]);
 
   const waitingBefore = await db.query<{ mission_id: string }>(
     `SELECT mission_id FROM public.papic_missions
@@ -492,7 +492,7 @@ test('hiding a challenge frees its slot for the one that was waiting', async () 
        VALUES ($1, 'prompt', 'couple', 'One more. Ten seconds.', true, true)`,
       [eventId],
     );
-    await db.query(`SELECT public.ensure_papic_board($1, false)`, [eventId]);
+    await db.query(`SELECT public.ensure_papic_board($1)`, [eventId]);
   }
 
   const before = await db.query<{ n: number | string }>(
@@ -510,7 +510,7 @@ test('hiding a challenge frees its slot for the one that was waiting', async () 
                              AND source = 'setnayan' LIMIT 1)`,
     [eventId],
   );
-  await db.query(`SELECT public.ensure_papic_board($1, false)`, [eventId]);
+  await db.query(`SELECT public.ensure_papic_board($1)`, [eventId]);
 
   const after = await db.query<{ n: number | string }>(
     `SELECT count(*) AS n FROM public.papic_missions
@@ -546,7 +546,7 @@ test('the SERVER can build a board with no session — the guest path', async ()
 
   // auth.uid() is NULL here — exactly what the service-role admin client presents.
   const built = await db.query<{ n: number }>(
-    `SELECT public.ensure_papic_board($1, false) AS n`,
+    `SELECT public.ensure_papic_board($1) AS n`,
     [eventId],
   );
   assert.equal(built.rows[0]!.n, BOARD_SIZE, 'the server must be able to build the board');

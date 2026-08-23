@@ -29,7 +29,7 @@ export type ChallengeCategory =
   | 'greeting';       // a message to camera for the host
 
 /** What the guest's next capture has to be. Mirrors the table's CHECK. */
-export type CaptureKindKey = 'photo' | 'clip' | 'pabati';
+export type CaptureKindKey = 'photo' | 'clip';
 
 /** Mirrors the table's CHECK. `face_verified` rows are never boarded. */
 export type MissionTypeKey =

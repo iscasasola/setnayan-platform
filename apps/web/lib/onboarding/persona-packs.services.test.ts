@@ -13,7 +13,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PERSONA_PACKS, VALID_SERVICE_KEYS, derivePackServices } from './persona-packs';
+import {
+  PERSONA_PACKS,
+  VALID_SERVICE_KEYS,
+  derivePackServices,
+  derivePackServicesFrom,
+} from './persona-packs';
 
 const PERSONA_KEYS = [
   'keepsake',
@@ -71,14 +76,41 @@ test('the registry itself is non-trivial (guards against an empty import)', () =
   }
 });
 
+/*
+  ⚠ THE `allout` HALF OF THIS TEST NO LONGER HAS AN AUTHORED LIST LONG ENOUGH
+  TO REACH ITS OWN LIMIT, AND THAT IS WHY IT IS BUILT A SECOND WAY.
+
+  It used to read the cap off `debut/big_celebration`, which had exactly five
+  services. Retiring Pabati on 2026-08-21 took one entry out of twenty-six
+  authored lists, and the longest is four now. Left as it was, the assertion
+  would have been rewritten to expect four — and the 5 in "simple=2/balanced=3/
+  allout=5" would have stopped being tested by anything at all, while the test
+  name went on claiming it.
+
+  🔑 A CAP NO FIXTURE CAN REACH IS AN UNTESTED CAP. So the sizing rule is
+  asserted against the authored data where the data can still prove it, and the
+  limit itself against a pack built to exceed it.
+*/
 test('effort scales the service count: simple=2, balanced=3, allout=5', () => {
-  // birthday/big_celebration has 4 services; allout caps at the list length (4 < 5).
+  // birthday/big_celebration has 3 services — enough to prove both short limits.
   assert.equal(derivePackServices('birthday', 'big_celebration', 'simple').length, 2);
   assert.equal(derivePackServices('birthday', 'big_celebration', 'balanced').length, 3);
-  // celebration/big_celebration has 4 too — allout returns all 4 (limit 5 not reached).
-  assert.equal(derivePackServices('celebration', 'big_celebration', 'allout').length, 4);
-  // debut/big_celebration has 5 → allout returns the full 5.
-  assert.equal(derivePackServices('debut', 'big_celebration', 'allout').length, 5);
+  // debut/big_celebration has 4 — allout returns all 4, the limit not reached.
+  assert.equal(derivePackServices('debut', 'big_celebration', 'allout').length, 4);
+
+  // The limit itself, proved on a pack longer than it. Six valid keys in, five
+  // out — and the six are taken from the real registry, so this cannot pass by
+  // silently dropping ids the intersect refuses.
+  const six = [...VALID_SERVICE_KEYS].slice(0, 6);
+  assert.equal(six.length, 6, 'the registry must offer six valid keys, or this proves nothing');
+  const long = {
+    essentials: [],
+    byPersona: { big_celebration: [] },
+    servicesByPersona: { big_celebration: six },
+  } as unknown as Parameters<typeof derivePackServicesFrom>[0];
+  assert.equal(derivePackServicesFrom(long, 'big_celebration', 'allout').length, 5);
+  assert.equal(derivePackServicesFrom(long, 'big_celebration', 'balanced').length, 3);
+  assert.equal(derivePackServicesFrom(long, 'big_celebration', 'simple').length, 2);
 });
 
 test('default (no/unknown effort) sizes to 3', () => {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FREE_FOR_ALL_SKUS } from './entitlements';
@@ -31,15 +31,18 @@ test('Kwento is free for every event', () => {
   assert.ok(FREE_FOR_ALL_SKUS.has('KWENTO'), 'the switch that keeps the feature ON');
   // The precedents it copies must not be lost in the process.
   assert.ok(FREE_FOR_ALL_SKUS.has('LIVE_WALL'), 'LIVE_WALL stays free');
-  assert.ok(FREE_FOR_ALL_SKUS.has('PABATI'), 'Pabati went free the same day');
+  // ⛔ PABATI IS DELIBERATELY NOT ASSERTED FREE HERE. It joined this set on
+  // 2026-08-21 and left it the same day, when the owner went further than free:
+  // "we do not need pabati. retire it because it is part of papic." The
+  // retirement is asserted below, in its own test, in the opposite direction.
 });
 
 /*
   ⛔ THE LINE THE OWNER DREW, ASSERTED.
 
   Owner 2026-08-21: "all features of papic will be free like kwento" — then,
-  asked to place the boundary exactly: **Pabati free, the Thank-You film stays
-  paid.** Papic FEATURES are free; Papic SHOTS are the product.
+  asked to place the boundary exactly: the Thank-You film stays paid. Papic
+  FEATURES are free; Papic SHOTS are the product.
 
   This is the assertion that stops a future "make Papic free" sweep from taking
   the revenue with it.
@@ -63,7 +66,6 @@ test('the shot ladder and the produced film are NOT free', () => {
 */
 test('the catalog row is deactivated in the same change', () => {
   const dir = join(WEB, '..', '..', 'supabase', 'migrations');
-  // Pabati's twin migration is asserted the same way, below.
   const file = readdirSync(dir).find((f) => f.endsWith('_kwento_is_free.sql'));
   assert.ok(file, 'the migration must exist alongside the code half');
   const raw = readFileSync(join(dir, file), 'utf8');
@@ -161,22 +163,44 @@ test('the entitlement check is still asked, everywhere it was', () => {
 
 
 /*
-  PABATI — the same two halves, asserted the same way. Owner 2026-08-21, on the
-  line: **Pabati free, the Thank-You film stays paid.**
+  PABATI — RETIRED, AND A RETIREMENT ALSO TAKES BOTH HALVES OR IT DOES THE
+  OPPOSITE. Owner 2026-08-21, hours after making it free: "we do not need
+  pabati. retire it because it is part of papic."
+
+  🔑 FREE AND RETIRED ARE THE SAME CATALOG ROW AND OPPOSITE PRODUCTS. Off sale
+  alone means nobody owns it, therefore nobody can use it — which is what you
+  want when the product is gone and exactly what you must NOT do when it is
+  free. So this asserts the mirror image of the Kwento test above: the row is
+  deactivated AND the free-for-all entry is gone AND nothing advertises it.
+
+  ⚠ THE llms.txt HALF IS THE ONE THAT BITES. A code left in REQUIRED_RETAIL
+  after its row goes inactive throws RetiredSkuError and drops the whole AI/GEO
+  document to its 603-byte stub — that has happened in production once already,
+  with PAPIC_ADDON_STORIES.
 */
-test('Pabati ships both halves too', () => {
+test('Pabati is retired — every half, or it does the opposite', () => {
+  // Half 1 — it is NOT free-for-all. A free entry for a SKU nothing implements
+  // would switch on a feature whose surface, API and table are deleted.
+  assert.ok(!FREE_FOR_ALL_SKUS.has('PABATI'), 'a retired SKU must not be free-for-all');
+
+  // Half 2 — the catalog row is off sale, so nothing quotes a price.
   const dir = join(WEB, '..', '..', 'supabase', 'migrations');
-  const file = readdirSync(dir).find((f) => f.endsWith('_pabati_is_free.sql'));
+  const file = readdirSync(dir).find((f) => f.endsWith('_retire_pabati.sql'));
   assert.ok(file, 'the migration must exist alongside the code half');
-  const sql = readFileSync(join(dir, file), 'utf8').replace(/^\s*--.*$/gm, '');
+  const sql = readFileSync(join(dir, file!), 'utf8').replace(/^\s*--.*$/gm, '');
   assert.match(sql, /SET is_active\s*=\s*false/i);
   assert.match(sql, /service_code = 'PABATI'/);
-  assert.equal(
-    (sql.match(/IS DISTINCT FROM false/gi) || []).length,
-    1,
-    'exactly one guard, in the statement — not one in the prose',
-  );
-  const src = readFileSync(join(WEB, 'lib/llms-txt.ts'), 'utf8');
-  assert.ok(!/R\('PABATI'\)/.test(code('lib/llms-txt.ts')), 'no price printed');
-  assert.match(src, /\*\*Pabati\*\* — free\./, 'the line stays, describing a free feature');
+
+  // Half 3 — the AI/GEO document neither requires it nor describes it. Both
+  // checks run on comment-STRIPPED source: this change quotes the very tokens
+  // it removed, and a raw-source assertion would report the defect it fixed.
+  const llms = code('lib/llms-txt.ts');
+  assert.ok(!/^\s*'PABATI',/m.test(llms), 'a retired code in REQUIRED_RETAIL stubs the document');
+  assert.ok(!/R\('PABATI'\)/.test(llms), 'no price printed');
+  assert.ok(!/\*\*Pabati\*\*/.test(llms), 'nothing describes a product that no longer exists');
+
+  // Half 4 — the surface really is gone, not merely unlinked.
+  for (const gone of ['app/pabati', 'app/api/pabati', 'lib/pabati.ts']) {
+    assert.ok(!existsSync(join(WEB, gone)), `${gone} must be deleted, not orphaned`);
+  }
 });

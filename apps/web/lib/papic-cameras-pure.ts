@@ -160,14 +160,14 @@ export const PAPIC_PRESERVATION_UNITS_PER_CLIP = PAPIC_CLIP_COST_MAX;
  * 🔑 DERIVED FROM papicCaptureCost, NEVER RE-TYPED. A second hand-written 8 is
  * how the screen and the till come to disagree.
  *
- * `pabati` is a video greeting — recorded on camera, so it costs what a clip
- * costs. Spelled out rather than defaulted, because a kind added later must be a
- * deliberate decision about money, not whatever the fallback happened to be.
+ * A third kind, `pabati`, was priced here as a clip until the Pabati SKU was
+ * retired on 2026-08-21 and its one library row became an ordinary clip. Any
+ * kind added later must be a deliberate decision about money, spelled out here
+ * rather than left to whatever the fallback happened to be.
  */
-export function papicMissionCost(kind: 'photo' | 'clip' | 'pabati' | null | undefined): number {
+export function papicMissionCost(kind: 'photo' | 'clip' | null | undefined): number {
   switch (kind) {
     case 'clip':
-    case 'pabati':
       return papicCaptureCost('clip');
     case 'photo':
       return papicCaptureCost('photo');

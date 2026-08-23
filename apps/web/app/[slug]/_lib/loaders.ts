@@ -29,7 +29,6 @@ import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { buildCustomSiteColorVars } from '@/lib/site-palette';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
-import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode, resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { resolveGuestCamera } from '@/lib/papic-limited';
@@ -1211,18 +1210,6 @@ export const loadGuestContext = cache(
       }
     }
 
-    // Pabati video guestbook (PABATI) — auto-show the in-context guest recorder on
-    // this guest's own landing page when the couple owns the active (admin-
-    // approved, bundle-aware) pack. Gated on eventPabatiActive; the per-EVENT
-    // 300-clip quota drives the "N greetings left" display (the RPC is the real
-    // gate). Admin read, graceful so the anonymous public path is never touched.
-    const pabatiActive = await eventPabatiActive(admin, event.event_id);
-    let pabati: { initialRemaining: number; total: number } | null = null;
-    if (pabatiActive) {
-      const quota = await fetchPabatiQuota(admin, event.event_id);
-      pabati = { initialRemaining: quota.remaining, total: quota.total };
-    }
-
     // Guest Hub Card — seat assignment for THIS guest only (one targeted query;
     // the hub card needs the table label without loading the full floor plan).
     // Graceful-degrade: if the join fails or no assignment exists, tableLabel
@@ -1402,7 +1389,6 @@ export const loadGuestContext = cache(
       guestLiveGallery,
       needsFaceEnroll,
       papicGuest,
-      pabati,
       guestHubData,
       seatMap,
       rsvpFaceMode,

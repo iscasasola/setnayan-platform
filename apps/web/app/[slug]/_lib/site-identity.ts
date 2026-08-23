@@ -33,7 +33,6 @@
 import type {
   GuestRow,
   GuestPapicCamera,
-  GuestPabatiQuota,
   GuestSeatMap,
 } from './types';
 import type { GuestLiveGallery } from '@/lib/guest-live-gallery';
@@ -85,9 +84,6 @@ export type GuestSiteIdentity = {
   /** Inline Papic guest camera (PAPIC_GUEST) — non-null only when the event
    *  owns the active (admin-approved) pack and this guest isn't blocked. */
   papicGuest: GuestPapicCamera | null;
-  /** Inline Pabati video-greeting recorder (PABATI) — non-null only when the
-   *  event owns the active (admin-approved) pack. */
-  pabati: GuestPabatiQuota | null;
   /** Invite/Join v2: show the accountless guest a "claim your account by
    *  email" prompt (never Save the Date). True only when there's no signed-in
    *  account for this viewer. */
@@ -399,7 +395,6 @@ export function guestIdentity(
     guestHubData: input.guestHubData,
     seatMap: input.seatMap,
     papicGuest: input.papicGuest,
-    pabati: input.pabati,
     showClaimAccountCta: input.showClaimAccountCta,
     accountlessPhotosClosed: input.accountlessPhotosClosed,
     eventVendorCredits: input.eventVendorCredits,

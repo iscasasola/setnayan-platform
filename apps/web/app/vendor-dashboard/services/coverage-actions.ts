@@ -10,6 +10,7 @@ import { getEventTypeVocab } from '@/lib/event-types-db';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getActiveFaithKeys } from '@/lib/faith-vocab-db';
+import { coverageServesKey } from '@/lib/coverage-serves-key';
 
 /** Validate a faiths[] submission against the ACTIVE `faith_vocab` keys (the
  *  DB is the vocab authority per the vendor_coverages.faiths column comment;
@@ -145,18 +146,48 @@ export async function createCoverage(formData: FormData): Promise<void> {
   back(base, 'saved');
 }
 
-export async function updateCoverageServes(formData: FormData): Promise<void> {
+/**
+ * The result of writing "who it’s for", for a caller that must NOT navigate.
+ * `ok:false` always carries a sentence a vendor can act on.
+ */
+export type CoverageServesResult = {
+  ok: boolean;
+  message: string | null;
+  /**
+   * WHAT WAS ACTUALLY STORED, as `coverageId|sorted event types|sorted faiths`.
+   *
+   * The caller compares this against what is on screen to decide whether it may
+   * still say "Saved". It is built from the SERVER's narrowed values, not the
+   * browser's submission, so a chip the server dropped cannot be reported back
+   * as saved — the note simply stops claiming it. `null` on any failure.
+   */
+  savedKey: string | null;
+};
+
+/**
+ * THE WRITE ITSELF — one body, two doors.
+ *
+ * Extracted so the audience save can happen with or without a redirect. Both
+ * exported actions below call THIS, so there is exactly one place that decides
+ * what a vendor’s coverage says, and no second copy to drift.
+ *
+ * It never redirects on an outcome of its own — only `requireVendor()` may
+ * redirect, and only for the two cases where there is no vendor to write for
+ * (signed out → /login, no profile → /vendor-dashboard). Those are the same
+ * on both doors, because in neither case is there a card worth preserving.
+ */
+async function writeCoverageServes(formData: FormData): Promise<CoverageServesResult> {
   const { supabase, profile } = await requireVendor();
-  const base = await servicesReturnBase();
   const coverageId = Number(formData.get('coverage_id'));
-  if (!Number.isFinite(coverageId)) back(base, 'error', 'Missing coverage.');
+  if (!Number.isFinite(coverageId))
+    return { ok: false, message: 'Missing coverage.', savedKey: null };
   const { data: cov } = await supabase
     .from('vendor_coverages')
     .select('canonical_service')
     .eq('id', coverageId)
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
-  if (!cov) back(base, 'error', 'Coverage not found.');
+  if (!cov) return { ok: false, message: 'Coverage not found.', savedKey: null };
   const leaf = await findLeaf((cov as { canonical_service: string }).canonical_service);
   const eventTypes = await parseEventTypes(
     formData.getAll('event_types').map(String),
@@ -168,11 +199,49 @@ export async function updateCoverageServes(formData: FormData): Promise<void> {
     .update({ event_types: eventTypes, faiths, updated_at: new Date().toISOString() })
     .eq('id', coverageId)
     .eq('vendor_profile_id', profile.vendor_profile_id);
-  if (error) back(base, 'error', error.message);
+  if (error) return { ok: false, message: error.message, savedKey: null };
   await syncProfileFromCoverages(supabase, profile.vendor_profile_id);
   revalidatePath(BASE);
   revalidatePath('/vendor-dashboard/shop');
-  back(base, 'saved');
+  return {
+    ok: true,
+    message: null,
+    savedKey: coverageServesKey(coverageId, eventTypes, faiths),
+  };
+}
+
+/**
+ * The SHIPPED door, byte-for-byte in behaviour: write, then land back on
+ * Services with `?saved=1` or `?error=`. The coverage panel on the Services
+ * page uses this and is unchanged — it is already ON that page, so returning
+ * to it costs the vendor nothing.
+ */
+export async function updateCoverageServes(formData: FormData): Promise<void> {
+  const base = await servicesReturnBase();
+  const res = await writeCoverageServes(formData);
+  back(base, res.ok ? 'saved' : 'error', res.message ?? undefined);
+}
+
+/**
+ * THE SECOND DOOR — save and STAY.
+ *
+ * 🔑 A REDIRECT IS A DESTRUCTIVE ACT WHEN THE PAGE HOLDS UNSAVED WORK. In the
+ * zero-step maker the card IS the form, and it is not saved until the vendor
+ * presses Publish. "Who it’s for" lives on `vendor_coverages`, not on the card,
+ * so it is a SIBLING form — and the shipped action ended in `redirect(...)`,
+ * which threw away every unposted thing the vendor had typed: title, price,
+ * inclusions, the customization draft, the photos they had just uploaded. The
+ * sheet warned them about it, which is not a fix: a warning tells somebody the
+ * product is about to lose their work and then loses it.
+ *
+ * Same write, same validation, same revalidation — only the ending changes.
+ * `useActionState` on the caller renders the outcome in place.
+ */
+export async function updateCoverageServesInPlace(
+  _prev: CoverageServesResult,
+  formData: FormData,
+): Promise<CoverageServesResult> {
+  return writeCoverageServes(formData);
 }
 
 export async function deleteCoverage(formData: FormData): Promise<void> {

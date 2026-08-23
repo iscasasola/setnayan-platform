@@ -1,6 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useActionState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   AlertCircle,
   Check,
@@ -32,6 +40,8 @@ import {
   type CanvasFormSnapshot,
 } from '@/lib/canvas-form-snapshot';
 import { audienceGroups, type AudienceOption } from '@/lib/canvas-audience-groups';
+import { clipPillLabel } from '@/lib/clip-duration-label';
+import { coverageServesKey } from '@/lib/coverage-serves-key';
 
 export type { AudienceOption };
 
@@ -44,7 +54,10 @@ import {
 import { ShowcaseMediaFields } from './showcase-media-fields';
 import { CustomizationStep } from './customization-step';
 import { commitVendorService } from '../actions';
-import { updateCoverageServes } from '../coverage-actions';
+import {
+  updateCoverageServesInPlace,
+  type CoverageServesResult,
+} from '../coverage-actions';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -158,6 +171,19 @@ export function CanvasMaker({
   const [title, setTitle] = useState('');
   const [perk, setPerk] = useState('');
   const [snap, setSnap] = useState<CanvasFormSnapshot>(EMPTY_CANVAS_SNAPSHOT);
+  /**
+   * How long the picked clip is, in seconds — `null` while unknown.
+   *
+   * NOT part of the form snapshot, because it is not a form field: it is a
+   * measurement of a LOCAL file, taken by the picker's own validator, and the
+   * server has no use for it (see ShowcaseMediaFields.onClipDurationSeconds).
+   * Keeping it out of the wire also keeps the canvas's input-name set identical
+   * to the wizard's, which lib/canvas-field-parity.test.ts pins.
+   */
+  const [clipSeconds, setClipSeconds] = useState<number | null>(null);
+  // Stable identity: the picker memoises its validator on this callback, and a
+  // fresh function every render would rebuild the validator every render.
+  const onClipDurationSeconds = useCallback((s: number | null) => setClipSeconds(s), []);
 
   // Which coverage this card sits in. The PICKER lives in the audience sheet
   // (it decides who finds the card), but the FIELD stays on the main form as a
@@ -205,6 +231,30 @@ export function CanvasMaker({
     const m = new Map(eventTypeOptions.map((e) => [e.key, e.label]));
     return (k: string) => m.get(k) ?? k;
   }, [eventTypeOptions]);
+
+  /**
+   * SAVING "WHO IT’S FOR" MUST NOT COST THE VENDOR THE CARD.
+   *
+   * The audience write lands on `vendor_coverages`, so it is a sibling form —
+   * and until now it used the action that ends in `redirect('/vendor-dashboard/
+   * services')`. Pressing Save mid-build therefore threw away everything not yet
+   * posted: the title, the price, the inclusions, the customization draft, the
+   * photos already uploaded. The sheet WARNED about it, which is not a fix.
+   * `useActionState` keeps the vendor on their card and reports the outcome
+   * here, beside the button that caused it.
+   */
+  const [audienceState, saveAudience] = useActionState<CoverageServesResult, FormData>(
+    updateCoverageServesInPlace,
+    { ok: false, message: null, savedKey: null },
+  );
+  // "Saved" is a claim about a SELECTION, not about a moment. The sheet stays
+  // open afterwards, so the note must go the instant the vendor touches another
+  // chip — otherwise it sits there confirming an answer nobody saved. The
+  // server returns the key of what it STORED; this is the key of what is on
+  // screen; the note shows only while they match.
+  const audienceSaved =
+    audienceState.savedKey !== null &&
+    audienceState.savedKey === coverageServesKey(coverageId, events, faiths);
 
   // ★ Customization ships flag-dark behind the SAME flag the wizard uses, so a
   // canvas and a wizard save carry identical payloads on both settings.
@@ -397,12 +447,15 @@ export function CanvasMaker({
                     className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 font-mono text-[10px]"
                     style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
                   >
-                    ▶ clip
+                    {/* The real length when the browser could read it, the word
+                        when it could not. Never a fabricated 0:00 — see
+                        lib/clip-duration-label.ts. */}
+                    ▶ {clipPillLabel(clipSeconds)}
                   </span>
                 ) : null}
                 <span className="sr-only">
                   {snap.photoCount} showcase photo{snap.photoCount === 1 ? '' : 's'}
-                  {snap.hasClip ? ' and a clip' : ''}
+                  {snap.hasClip ? ` and a ${clipPillLabel(clipSeconds)} clip` : ''}
                 </span>
               </span>
             ) : null}
@@ -569,7 +622,10 @@ export function CanvasMaker({
               qrGuard
             />
           </Field>
-          <ShowcaseMediaFields vendorProfileId={vendorProfileId} />
+          <ShowcaseMediaFields
+            vendorProfileId={vendorProfileId}
+            onClipDurationSeconds={onClipDurationSeconds}
+          />
         </CanvasSheet>
 
         <CanvasSheet
@@ -699,9 +755,16 @@ export function CanvasMaker({
           welcomed" rule are lifted from coverage-panel.tsx — the only thing new
           is the Life-events / Events split, which is presentation over ONE array.
 
-          `updateCoverageServes` redirects back to Services on success (shipped
-          behaviour, unchanged), so the button says so plainly rather than
-          quietly costing the vendor an unsaved card.
+          🔑 IT SAVES AND STAYS. The shipped `updateCoverageServes` ends in a
+          redirect to Services, which — pressed from HERE, mid-build — threw away
+          every unposted thing on the card: title, price, inclusions, the
+          customization draft, the photos already uploaded. The sheet used to
+          WARN about that, and a warning that precedes losing the vendor's work
+          is not a fix. This form posts `updateCoverageServesInPlace` instead:
+          the same write, the same validation, the same revalidation, reported
+          here beside the button. The Services page's own coverage panel still
+          uses the redirecting action — it is already on that page, so landing
+          back on it costs nothing.
           ═══════════════════════════════════════════════════════════════════ */}
       <CanvasSheet
         id="canvas-audience"
@@ -716,7 +779,7 @@ export function CanvasMaker({
             coverage from your Shop first — then come back and choose who it serves.
           </p>
         ) : (
-          <form action={updateCoverageServes} className="space-y-4">
+          <form action={saveAudience} className="space-y-4">
             <input type="hidden" name="coverage_id" value={coverageId} />
             <label className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
@@ -783,8 +846,8 @@ export function CanvasMaker({
             />
 
             <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-              Who-it&rsquo;s-for is saved on your coverage, not on this card — saving it
-              returns you to Services. Publish or save this card as a draft first.
+              Who-it&rsquo;s-for is saved on your coverage, not on this card — it saves on
+              its own and your card stays exactly as you left it.
             </p>
             <SubmitButton
               className="button-primary min-h-[44px] disabled:opacity-50"
@@ -793,6 +856,24 @@ export function CanvasMaker({
             >
               Save who it&rsquo;s for
             </SubmitButton>
+            {/* The outcome lands HERE, beside the button that caused it. A
+                refusal must never be silent: the shipped action showed one by
+                putting `?error=` on the URL it redirected to, and this form no
+                longer goes anywhere. */}
+            {audienceState.message ? (
+              <p
+                role="alert"
+                className="text-xs"
+                style={{ color: 'var(--m-blush-deep)' }}
+              >
+                {audienceState.message}
+              </p>
+            ) : null}
+            {audienceSaved ? (
+              <p role="status" className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                Saved — couples looking for these events will find this card.
+              </p>
+            ) : null}
           </form>
         )}
       </CanvasSheet>

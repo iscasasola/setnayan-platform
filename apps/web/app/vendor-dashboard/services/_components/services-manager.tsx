@@ -17,6 +17,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CardRecordSection } from '@/app/_components/card-record-section';
+import { cardRecordHasSomethingToSay } from '@/lib/service-card-record';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
 import {
   fetchServiceCardRecords,
@@ -1166,11 +1167,12 @@ export async function VendorServicesManager({
 
                   {/* Card record — outside <details> on purpose: the whole point
                       is that the vendor SEES what the card has compiled without
-                      opening the editor. Renders only once the card has been
-                      booked at least once; a brand-new card stays clean. */}
+                      opening the editor. Renders only once the card has
+                      something true to say — a booking, or enough picks to
+                      clear the disclosure floor; a brand-new card stays clean. */}
                   {(() => {
                     const rec = cardRecordByService.get(svc.vendor_service_id);
-                    if (!rec || rec.bookedCount <= 0) return null;
+                    if (!cardRecordHasSomethingToSay(rec)) return null;
                     return (
                       <div
                         className="border-t px-4 pb-4 pt-3"

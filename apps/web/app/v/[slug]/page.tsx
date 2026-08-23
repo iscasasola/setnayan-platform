@@ -116,6 +116,7 @@ import { VendorLocationMap } from '@/app/_components/vendor-location-map';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
 import {
+  cardRecordHasSomethingToSay,
   fetchServiceCardRecords,
   type CompiledCardRecord,
 } from '@/lib/service-card-record';
@@ -3395,8 +3396,8 @@ function toServiceCard(
     // A card with no history shows NOTHING new — the record only exists once
     // this card has actually been booked (owner: a zero-history card must not
     // advertise its emptiness).
-    record: cardRecord && cardRecord.bookedCount > 0 ? cardRecord : null,
-    recordRating: cardRecord && cardRecord.bookedCount > 0 ? cardRecordRating : null,
+    record: cardRecordHasSomethingToSay(cardRecord) ? cardRecord : null,
+    recordRating: cardRecordHasSomethingToSay(cardRecord) ? cardRecordRating : null,
   };
 }
 

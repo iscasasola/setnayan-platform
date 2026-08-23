@@ -41,7 +41,10 @@
  */
 
 import { Trophy, Medal, Star } from 'lucide-react';
-import type { CompiledCardRecord } from '@/lib/service-card-record';
+import {
+  cardRecordHasSomethingToSay,
+  type CompiledCardRecord,
+} from '@/lib/service-card-record';
 
 /** Vendor-level trusted rating, when the shop has one. */
 export type CardRecordRating = {
@@ -73,11 +76,14 @@ export function CardRecordSection({
   variant: 'couple' | 'vendor';
   rating?: CardRecordRating | null;
 }) {
-  // A card with no history shows NOTHING new. Enforced here as well as at both
-  // mount sites, so the section can never render an empty frame.
-  if (record.bookedCount <= 0) return null;
+  // A card with no history shows NOTHING new. Enforced here as well as at every
+  // mount site, so the section can never render an empty frame — through the
+  // ONE shared predicate rather than a fourth hand-written copy of the same
+  // comparison (see cardRecordHasSomethingToSay for what the copies were about
+  // to get wrong).
+  if (!cardRecordHasSomethingToSay(record)) return null;
 
-  const { bookedCount, mix, ledger, milestones } = record;
+  const { bookedCount, mix, ledger, milestones, optionSampleN, optionPicks } = record;
   const topMedal = milestones.earned.length
     ? milestones.earned[milestones.earned.length - 1]!
     : null;
@@ -87,7 +93,14 @@ export function CardRecordSection({
     <section className="mt-auto border-t border-ink/10 pt-3">
       <h4 className="sr-only">Card record</h4>
 
-      {/* ── The booked bar — the headline claim ────────────────────────────── */}
+      {/* ── The booked bar — the headline claim ──────────────────────────────
+          Rendered only when the count is REAL. `bookedCount` cannot see a
+          booking made through this card's own package (those rows carry no
+          service_id), so a card can have picks to show and a zero here — and
+          "Booked 0× on Setnayan" printed beside "4 of the last 6 couples chose"
+          is the product contradicting itself. Show less, never something
+          untrue. */}
+      {bookedCount > 0 ? (
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <p className="inline-flex items-center gap-1.5 text-[12px] text-ink/70">
           <Trophy className="h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={2} aria-hidden />
@@ -107,6 +120,7 @@ export function CardRecordSection({
           </span>
         ) : null}
       </div>
+      ) : null}
 
       {/* ── Shop rating — vendor-level, and labelled as such ───────────────── */}
       {showRating ? (
@@ -168,6 +182,39 @@ export function CardRecordSection({
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {/* ── What couples picked ─────────────────────────────────────────────
+          The sample and every line have ALREADY cleared the minimum-N floor in
+          SQL — a line that reaches this component is one at least three couples
+          chose, out of at least three bookings. There is nothing to suppress
+          here and nothing to compute; adding a "not enough data yet" note would
+          undo the floor's whole purpose, which is that a suppressed card looks
+          exactly like a quiet one.
+
+          The pair is the point — "4 of the last 6" — so there is no percentage
+          and no bar. A percentage of six reads as a statistic about a market
+          instead of a fact about six couples. */}
+      {optionPicks.length > 0 && optionSampleN > 0 ? (
+        <div className="mt-2.5">
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink/45">
+            What couples add
+          </p>
+          <ul className="mt-1 space-y-1">
+            {optionPicks.map((pick) => (
+              <li
+                key={pick.label}
+                className="flex items-center justify-between gap-3 text-[11px]"
+              >
+                <span className="truncate text-ink/70">{pick.label}</span>
+                <span className="shrink-0 text-ink/45">
+                  <span className="font-mono text-ink/75">{pick.n}</span> of the last{' '}
+                  <span className="font-mono text-ink/75">{optionSampleN}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       {/* ── Vendor-only: the medal case + the distance to the next one ─────── */}

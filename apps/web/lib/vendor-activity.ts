@@ -375,6 +375,13 @@ export async function recomputeVendorActivityStats(vendorProfileId: string): Pro
     })
     .sort((a, b) => a - b);
 
+  // THE SAMPLE THAT MEDIAN CAME FROM. Written alongside it because a median
+  // without its N cannot be judged by any caller — the public marketplace badge
+  // read this number for months with no way to tell one reply from fifty, and
+  // said "Usually responds in 12m" off a sample of one. See
+  // lib/vendor-reply-time.ts and migration 20271160094275.
+  const repliedThreadCount = replyDeltas.length;
+
   let avgResponseMinutes = 0;
   if (replyDeltas.length > 0) {
     const mid = Math.floor(replyDeltas.length / 2);
@@ -457,6 +464,7 @@ export async function recomputeVendorActivityStats(vendorProfileId: string): Pro
       {
         vendor_profile_id: vendorProfileId,
         avg_response_minutes: avgResponseMinutes,
+        replied_thread_count: repliedThreadCount,
         response_rate_pct: responseRatePct,
         booking_completion_rate_pct: bookingCompletionRatePct,
         vendor_cancellation_count: vendorCancellationCount,

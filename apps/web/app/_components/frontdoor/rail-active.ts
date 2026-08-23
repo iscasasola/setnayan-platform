@@ -59,11 +59,38 @@ export type RailMatchRow = {
   exact?: boolean;
 };
 
-/** Split an href into its pathname and the count of params it declares. */
-function specificityOf(href: string): [pathLength: number, declaredParams: number] {
+/**
+ * How strongly a row claims a URL. Higher wins, compared left to right.
+ *
+ * ─── WHY "EXACT" IS THE FIRST KEY (2026-08-23) ───────────────────────────
+ * It used to be href length alone, which was enough while the rail resolved
+ * one component's rows. It is not enough now that the Studio group and the
+ * event menu are resolved together, because two rows can legitimately claim
+ * one family from opposite ends:
+ *
+ *   Event Hub  href /dashboard/<id>/website          — exact on /website
+ *   Launch     href /dashboard/<id>/website/editor
+ *              matchPrefix /dashboard/<id>/website   — prefix on /website
+ *
+ * On `/website` the person is standing on Event Hub's OWN destination and
+ * Launch is merely claiming the family around it, yet Launch's href is longer,
+ * so length alone lit Launch — a row dark on the page it opens. On
+ * `/website/editor` the roles swap and Launch is the exact one, which is the
+ * answer both rules agree on.
+ *
+ * 🔑 "MOST SPECIFIC" MEANS THIS PAGE BEFORE THIS FAMILY. Length is still the
+ * tie-break beneath it, and it is what settles `/seating/lab` (3D Plan, longer)
+ * against `/seating` (Seat plan) — two prefix claims where neither is exact.
+ */
+function specificityOf(
+  href: string,
+  pathname: string,
+): [exact: number, pathLength: number, declaredParams: number] {
   const q = href.indexOf('?');
-  if (q === -1) return [href.length, 0];
-  return [q, new URLSearchParams(href.slice(q + 1)).size];
+  const path = q === -1 ? href : href.slice(0, q);
+  const exact = path === pathname ? 1 : 0;
+  if (q === -1) return [exact, href.length, 0];
+  return [exact, q, new URLSearchParams(href.slice(q + 1)).size];
 }
 
 /**
@@ -137,15 +164,24 @@ export function activeRailKey(
   currentParams?: ParamGetter | null,
 ): string | null {
   let bestKey: string | null = null;
-  let bestScore: [number, number] = [-1, -1];
+  let bestScore: [number, number, number] = [-1, -1, -1];
 
   for (const row of rows) {
     const matched = row.exact
       ? pathname === row.href.split('?')[0]
       : matchesPath(row, pathname, currentParams);
     if (!matched) continue;
-    const score = specificityOf(row.href);
-    if (score[0] > bestScore[0] || (score[0] === bestScore[0] && score[1] > bestScore[1])) {
+    const score = specificityOf(row.href, pathname);
+    // Strictly greater, key by key, left to right — so an equal score keeps the
+    // FIRST row, and row order stays a stable tie-break rather than an accident
+    // of iteration.
+    const better =
+      score[0] !== bestScore[0]
+        ? score[0] > bestScore[0]
+        : score[1] !== bestScore[1]
+          ? score[1] > bestScore[1]
+          : score[2] > bestScore[2];
+    if (better) {
       bestScore = score;
       bestKey = row.key;
     }

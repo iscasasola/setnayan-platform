@@ -63,6 +63,8 @@ import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { LogoMark } from '@/app/_components/brand-marks';
 import type { DemoOverlayId } from '@/lib/demo-overlay-bus';
 import { activeRailKey, railMatchRows } from './rail-active';
+import type { RailMatchRow } from './rail-active';
+import { RailActiveKeyProvider } from './rail-active-key';
 import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
 /*
   ─── THE RAIL'S OWN ROWS DRAW LUCIDE, LIKE EVERY OTHER ROW IN IT ──────────
@@ -353,6 +355,23 @@ type Props = {
    */
   railContext?: React.ReactNode;
   /**
+   * The `railContext` child's rows, as MATCH DATA — the other half of the one
+   * list this component resolves.
+   *
+   * 🔑 IT ARRIVES AS DATA BECAUSE `railContext` ARRIVES AS A NODE. A rendered
+   * child is opaque to its parent, so the shell cannot see which URLs the event
+   * menu claims — and resolving without them is what forced the Studio rows to
+   * stay unlit: on `/dashboard/<id>/seating/lab` this component would light
+   * "3D Plan" while the child lit "Seat plan", and two lit rows tell the reader
+   * they are in two places at once.
+   *
+   * The layout that builds the node builds this from the SAME inputs, so the
+   * two cannot describe different menus. Absent ⇒ the union is just this
+   * component's own rows, which is the correct reading for a rail with no
+   * context pushed in.
+   */
+  contextMatchRows?: ReadonlyArray<RailMatchRow>;
+  /**
    * Whether the person is standing inside one specific event right now —
    * true only on `/dashboard/[eventId]`. Owner 2026-08-22: *"marketplace is
    * best shown inside an event, not when they just logged in."* Gates the
@@ -514,6 +533,7 @@ export function FrontDoorShell({
   heading,
   variant = 'front-door',
   railContext,
+  contextMatchRows,
   insideEvent = false,
   navLabels,
   topBarSlot,
@@ -634,21 +654,45 @@ export function FrontDoorShell({
     them apart needs the current QUERY, and reading the query in a client
     component pulls in a Suspense contract this slice does not need.
 
-    ⚠ THE STUDIO ROWS ARE A DIFFERENT CASE SINCE 2026-08-21, AND THIS IS NAMED
-    DEBT RATHER THAN AN OVERSIGHT. Inside an event they now point at real
-    in-app routes, so they CAN be the current page. Lighting them here would
-    need ONE resolver spanning this component and `EventRailContext`, which
-    resolves its own rows independently — and run separately the two would
-    double-light: `3D Plan` opens `/seating/lab` while the event menu's own
-    `Seat plan` row prefix-matches `/seating`. Two lit rows read as broken.
-    Leaving them unlit is exactly today's behaviour, so nothing regresses; the
-    fix is one combined match list, and it is a slice of its own.
+    ✅ THE STUDIO ROWS ARE NOW IN — that debt is paid (2026-08-23). Inside an
+    event they point at real in-app routes, so they CAN be the current page,
+    and lighting them needed ONE resolver spanning this component and
+    `EventRailContext`, which used to resolve its own rows independently. It
+    does not any more: the event menu's rows arrive here as `contextMatchRows`,
+    this call resolves the union, and the winner is published through
+    `RailActiveKeyProvider` for the child to read. There is exactly one match
+    list and exactly one resolver in the rail now.
   */
-  const matchRows = railMatchRows({
-    signedIn: account.signedIn,
-    hasShop: !!account.shopName,
-    isAdmin: account.isAdmin,
-  });
+  const matchRows = [
+    ...railMatchRows({
+      signedIn: account.signedIn,
+      hasShop: !!account.shopName,
+      isAdmin: account.isAdmin,
+    }),
+    /*
+      ─── THE STUDIO ROWS, LIT AT LAST (2026-08-23) ────────────────────────
+      They were named debt above from 2026-08-21, when they started pointing
+      at real in-app routes: lighting them here alone DOUBLE-LIGHTS against
+      the event menu, which resolves in a component this one cannot see.
+      `contextMatchRows` closes that — the two halves are now one list and one
+      resolver, and the shipped specificity rule settles every overlap by
+      itself. Measured, the whole overlap set is three URLs:
+        /dashboard/<id>/seating/lab      3D Plan wins (its href is longer)
+        /dashboard/<id>/website          Launch wins (it claims the family)
+        /dashboard/<id>/website/editor   Launch wins (exact)
+
+      🪤 A ROW POINTING AT THE PICKER IS NOT A DESTINATION. With two or more
+      organiser events every Studio href collapses to `/dashboard` — the board
+      that IS the picker — so eight rows would all match the events page and
+      tie with the "Your events" row. They are dropped rather than ranked: a
+      row that cannot be right is better left unlit than guessed, which is the
+      rule this file already states for the marketplace folders.
+    */
+    ...tools
+      .filter((t) => t.href !== '/dashboard')
+      .map((t) => ({ key: t.key, href: t.href })),
+    ...(contextMatchRows ?? []),
+  ];
   const activeKey = activeRailKey(matchRows, pathname);
   /**
    * Everything that makes one row read as "you are here".
@@ -1331,7 +1375,13 @@ export function FrontDoorShell({
               a fragment of siblings; without one element to hang it on there is
               nothing for the arrival to animate. */}
           {railContext ? (
-            <div className="fd-rgroup">{railContext}</div>
+            /* The provider carries the ONE resolved key down to whatever the
+               context group draws, so the child never resolves a second
+               answer. See `rail-active-key.tsx` for why there is deliberately
+               no fallback resolver on the other end. */
+            <RailActiveKeyProvider activeKey={activeKey}>
+              <div className="fd-rgroup">{railContext}</div>
+            </RailActiveKeyProvider>
           ) : null}
 
           {/* 3 · MARKETPLACE — signed-in AND inside an event only (owner
@@ -1448,6 +1498,12 @@ export function FrontDoorShell({
                 <Link
                   key={t.key}
                   href={t.href}
+                  /* `data-on` is the style hook the stylesheet already reads and
+                     `aria-current` is the half a screen reader gets — a rail
+                     that only LOOKS right is only half right. Both come from
+                     the one resolver, so they can never disagree. The
+                     two-line variant keeps its own class. */
+                  {...rowProps(t.key)}
                   className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
                 >
                   <span className="fd-dot" aria-hidden="true" />

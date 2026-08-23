@@ -240,8 +240,29 @@ test('the desktop sidebars still get their counts — this was additive', () => 
       /threadsBadge=\{threadsUnread\}/.test(desktop),
     'The vendor DESKTOP MENU lost a count while the phone gained one.',
   );
-  assert.ok(
-    /guestCount=\{guestCount\}/.test(jsxElement(read(CUSTOMER_LAYOUT), 'EventRailContext')),
-    'The couple DESKTOP MENU lost its guest count.',
+  /*
+    ⚠ RETARGETED AGAIN 2026-08-23 — FOLLOW THE VALUE, DO NOT RELAX THE RULE.
+    The couple's rail props moved into one `eventRailInputs` object, spread into
+    `<EventRailContext>` and reused to build the shell's match rows, so that the
+    rail resolves "which row is lit" ONCE over both halves. A literal
+    `guestCount={guestCount}` on that element is therefore no longer there —
+    and this assertion went silently blind, which is exactly the failure this
+    file exists to catch, arriving through the door marked refactor.
+
+    So it now follows the value to where it lives: the object must carry the
+    count, and the object must reach the element. Both halves, or a future
+    change can drop the count from the object and spread an empty promise.
+  */
+  const customerLayout = code(read(CUSTOMER_LAYOUT));
+  assert.match(
+    customerLayout,
+    /const eventRailInputs: EventRailInputs = \{[^}]*guestCount,/,
+    'The couple DESKTOP MENU lost its guest count — it is no longer in eventRailInputs.',
+  );
+  assert.match(
+    jsxElement(read(CUSTOMER_LAYOUT), 'EventRailContext'),
+    /\{\.\.\.eventRailInputs\}/,
+    'The couple DESKTOP MENU no longer receives eventRailInputs, so its guest count ' +
+      'cannot reach it however well the object is built.',
   );
 });

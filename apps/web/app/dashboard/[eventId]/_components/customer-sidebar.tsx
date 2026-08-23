@@ -65,6 +65,7 @@ import type { NavSlotLite } from '@/lib/nav-registry-types';
 // (required for the usePathname-driven active-state highlight below).
 // See customer-nav-config.ts header for the full WHY block.
 import { buildCustomerNavGroups } from './customer-nav-config';
+import { SIDEBAR_SLOT_KEYS, CHILD_SLOT_KEYS } from './customer-nav-slot-keys';
 
 // Re-export so existing consumers (this file's CustomerSidebar render +
 // any other client-side caller) keep their existing import paths. New
@@ -79,50 +80,6 @@ export { buildCustomerNavGroups };
  * sub-pages). Wraps with a Wordmark brand header so the customer doorway
  * reads as its own context vs the vendor + admin doorways.
  */
-/**
- * Maps the five top-level tab item keys → their admin nav-registry slot keys.
- * Matches the unified 5-tab structure in customer-nav-config.ts.
- */
-const SIDEBAR_SLOT_KEYS: Record<string, string> = {
-  home: 'customer.sidebar.home',
-  guests: 'customer.sidebar.guests',
-  explore: 'customer.sidebar.explore',
-  studio: 'customer.sidebar.studio',
-  launch: 'customer.sidebar.launch',
-  // (No 'budget' — the top-level Budget item was removed 2026-07-10; its
-  // customer.sidebar.budget registry slot was already retired.)
-};
-
-/**
- * Maps all child item keys → their registry slot keys. Covers the five
- * guest-journey stages plus every other sub-page nested under a top-level tab.
- * Items absent here (e.g. "Checklist") have no registry slot and pass through
- * with their hardcoded label/icon.
- */
-const CHILD_SLOT_KEYS: Record<string, string> = {
-  // (Overview's old schedule/messages/contracts children were flattened #3004;
-  // their CHILD_SLOT_KEYS entries were dead and were removed 2026-07-10.)
-  // Guests children — five journey stages
-  build: 'customer.sidebar.guests-build',
-  invite: 'customer.sidebar.guests-invite',
-  confirm: 'customer.sidebar.guests-confirm',
-  seat: 'customer.sidebar.seating',
-  dayof: 'customer.sidebar.guests-dayof',
-  'event-qr': 'customer.sidebar.event-qr',
-  // Studio children
-  'event-page': 'customer.sidebar.event-page',
-  website: 'customer.sidebar.website',
-  'mood-board': 'customer.sidebar.mood-board',
-  monogram: 'customer.sidebar.monogram',
-  live: 'customer.sidebar.live',
-  // Budget children — retained even though the top-level Budget item was removed
-  // 2026-07-10: the customer.sidebar.activity/disputes registry slots are kept
-  // (routes still valid), so these mappings stay so a re-surfaced Activity /
-  // Disputes link renders its admin-editable label + icon.
-  activity: 'customer.sidebar.activity',
-  disputes: 'customer.sidebar.disputes',
-};
-
 /**
  * Overlays admin registry label + icon onto each item and its children
  * (fallback = the item's hardcoded default). A slot marked hidden drops the

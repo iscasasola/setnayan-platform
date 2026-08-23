@@ -713,6 +713,7 @@ type VendorCardRow = {
   finalized_booking_count?: number | null;
   last_active_at?: string | null;
   avg_response_minutes?: number | null;
+  replied_thread_count?: number | null;
   /**
    * PR #6 — partnership badge resolved from vendor_partnerships.
    * NULL = no mutually-accepted partnership to a shortlisted couple vendor.
@@ -2336,12 +2337,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         finalized_booking_count: number | null;
         last_active_at: string | null;
         avg_response_minutes: number | null;
+        replied_thread_count: number | null;
       }>> => {
         if (visibleVendorIds.length === 0) return new Map();
         const { data, error } = await admin
           .from('vendor_activity_stats')
           .select(
-            'vendor_profile_id, quality_score, finalized_booking_count, last_active_at, avg_response_minutes',
+            'vendor_profile_id, quality_score, finalized_booking_count, last_active_at, avg_response_minutes, replied_thread_count',
           )
           .in('vendor_profile_id', visibleVendorIds);
         if (error) {
@@ -2353,6 +2355,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           finalized_booking_count: number | null;
           last_active_at: string | null;
           avg_response_minutes: number | null;
+          replied_thread_count: number | null;
         }>();
         for (const row of data ?? []) {
           const r = row as {
@@ -2361,12 +2364,14 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             finalized_booking_count: number | null;
             last_active_at: string | null;
             avg_response_minutes: number | null;
+            replied_thread_count: number | null;
           };
           out.set(r.vendor_profile_id, {
             quality_score: r.quality_score ?? null,
             finalized_booking_count: r.finalized_booking_count ?? null,
             last_active_at: r.last_active_at ?? null,
             avg_response_minutes: r.avg_response_minutes ?? null,
+            replied_thread_count: r.replied_thread_count ?? null,
           });
         }
         return out;
@@ -2582,6 +2587,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     v.finalized_booking_count = bookingCounts.get(v.vendor_profile_id) ?? 0;
     v.last_active_at = activity?.last_active_at ?? null;
     v.avg_response_minutes = activity?.avg_response_minutes ?? null;
+    // The SAMPLE the median came from. Without it the card cannot tell one
+    // reply from fifty, and "usually" is a claim about a habit.
+    v.replied_thread_count = activity?.replied_thread_count ?? null;
     // PR #6 — partnership badge (null = no relevant partnership on this page).
     v.partnership_badge = partnershipBadgeByVendorId.get(v.vendor_profile_id) ?? null;
   }

@@ -58,6 +58,7 @@ import Link from 'next/link';
 import { MapPin, Navigation, Sparkles, Star, ExternalLink, Zap, Clock, AlertCircle, Snowflake } from 'lucide-react';
 
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { replyTimeBadgeLabel } from '@/lib/vendor-reply-time';
 import { displayServiceLabel, formatPhp, resolveVendorDisplayName, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { experienceTier } from '@/lib/vendor-experience';
@@ -172,12 +173,16 @@ export type VendorCardData = {
    * finalized_booking_count  drives the experience-tier badge.
    * last_active_at       ISO timestamp of last login — drives the
    *                      "Low recent activity" badge (> 60 days).
-   * avg_response_minutes drives the "Usually responds in Xh" badge (< 4h).
+   * avg_response_minutes drives the "Usually responds in Xh" badge, together
+   *                      with replied_thread_count — the median alone cannot
+   *                      say whether it came from one reply or fifty, and this
+   *                      badge is a claim about a habit.
    */
   quality_score?: number | null;
   finalized_booking_count?: number | null;
   last_active_at?: string | null;
   avg_response_minutes?: number | null;
+  replied_thread_count?: number | null;
   /**
    * PR #6 — partnership badge from vendor_partnerships (admin-verified only).
    * Null = no relevant partnership for this couple's shortlisted vendors.
@@ -436,6 +441,7 @@ export async function VendorCard({
           renders placeholder text when data is absent. */}
       <ActivityBadges
         avgResponseMinutes={vendor.avg_response_minutes ?? null}
+        repliedThreadCount={vendor.replied_thread_count ?? null}
         lastActiveAt={vendor.last_active_at ?? null}
         finalizedBookingCount={vendor.finalized_booking_count ?? null}
       />
@@ -623,12 +629,15 @@ function PartnershipBadge({
 
 /** 60 days in milliseconds — threshold for the "low recent activity" warning. */
 const LOW_ACTIVITY_THRESHOLD_MS = 60 * 24 * 60 * 60 * 1000;
-/** 4 hours in minutes — threshold for "usually responds in Xh" badge. */
-const FAST_REPLY_THRESHOLD_MIN = 240;
 
 /**
  * PR #6 — Activity / quality signal chips. Shows at most two badges:
- *   1. Responsiveness — "Usually responds in Xh" when median < 4h + last login ≤ 7d.
+ *   1. Responsiveness — "Usually responds in Xh". The rule lives in
+ *      lib/vendor-reply-time.ts, NOT here: it needs a minimum sample of real
+ *      replies, and it has to know that this column's 0 means "no data yet"
+ *      rather than "instant". Both were decided in this file before, and both
+ *      were wrong — one reply earned the word "usually", and a shop that had
+ *      never answered anybody was advertised as responding in 0m.
  *   2. Experience tier — from finalized_booking_count:
  *        0       → New to Setnayan (suppressed — "new" already covered by VendorBadgeRow)
  *        1–10    → Established
@@ -642,23 +651,27 @@ const FAST_REPLY_THRESHOLD_MIN = 240;
  */
 function ActivityBadges({
   avgResponseMinutes,
+  repliedThreadCount,
   lastActiveAt,
   finalizedBookingCount,
 }: {
   avgResponseMinutes: number | null;
+  /** How many replies that median came from. Below the floor, no badge. */
+  repliedThreadCount: number | null;
   lastActiveAt: string | null;
   finalizedBookingCount: number | null;
 }) {
   const now = Date.now();
 
-  // Responsiveness badge — fast reply rate + recently online.
-  const isRecentlyActive =
-    lastActiveAt !== null &&
-    now - Date.parse(lastActiveAt) <= 7 * 24 * 60 * 60 * 1000;
-  const showResponsive =
-    avgResponseMinutes !== null &&
-    avgResponseMinutes < FAST_REPLY_THRESHOLD_MIN &&
-    isRecentlyActive;
+  // Responsiveness badge — decided ONCE, in the pure module, which owns the
+  // sample floor, the no-data sentinel and the recency window together.
+  const responsiveLabel = replyTimeBadgeLabel({
+    avgResponseMinutes,
+    repliedThreadCount,
+    lastActiveAt,
+    now,
+  });
+  const showResponsive = responsiveLabel !== null;
 
   // Low-activity warning — skip when we're already surfacing responsiveness.
   const isInactive =
@@ -676,15 +689,13 @@ function ActivityBadges({
 
   return (
     <ul className="flex flex-wrap gap-1.5">
-      {showResponsive && avgResponseMinutes !== null ? (
+      {responsiveLabel !== null ? (
         <li
           className="inline-flex items-center gap-1 rounded-full border border-success-300/50 bg-success-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-success-900"
-          title="This vendor has a fast median response time and was active recently."
+          title="This vendor has a fast median response time across several replies, and was active recently."
         >
           <Clock className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
-          {avgResponseMinutes < 60
-            ? `Usually responds in ${avgResponseMinutes}m`
-            : `Usually responds in ${Math.round(avgResponseMinutes / 60)}h`}
+          {responsiveLabel}
         </li>
       ) : isInactive ? (
         <li

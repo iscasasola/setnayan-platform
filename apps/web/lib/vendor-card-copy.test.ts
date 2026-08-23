@@ -58,8 +58,9 @@ test('the source card is read owner-scoped, on EVERY read', () => {
 test('a copy carries what was AUTHORED and nothing the card EARNED', () => {
   const src = code(COPY);
   const select = src.match(/\.select\(\s*'([^']+)'/);
-  assert.ok(select, 'expected a single-quoted column list on the card read');
-  const cols = select[1].split(',').map((c) => c.trim());
+  const columnList = select?.[1];
+  assert.ok(columnList, 'expected a single-quoted column list on the card read');
+  const cols = columnList.split(',').map((c) => c.trim());
 
   // The card's identity and its history are not authored content. `public_id`
   // is the card's permanent address; `is_active` is whether the ORIGINAL is

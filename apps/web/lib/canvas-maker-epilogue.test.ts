@@ -1,5 +1,8 @@
 /**
- * THE CLIP PILL SAYS THE LENGTH — and the measurement has a path to it.
+ * THE TWO MAKER EPILOGUE FIXES, GUARDED AT THE WIRING.
+ *
+ * (1) THE CLIP PILL SAYS THE LENGTH — and the measurement has a path to it.
+ * (2) SAVING "WHO IT'S FOR" DOES NOT NAVIGATE — and a refusal is visible.
  *
  * `formatClipDuration` is proved by its own unit tests. What those cannot see is
  * whether anything CALLS it, or whether the picker still hands the number over.
@@ -71,5 +74,41 @@ test('the picker actually hands the measurement over', () => {
     picker,
     /name="showcase_video_duration/,
     'the measurement is a callback, not a wire field',
+  );
+});
+
+test('saving "who it’s for" reports its outcome instead of navigating away', () => {
+  const raw = stripComments(readFileSync(CANVAS, 'utf8'));
+
+  // A refusal must be VISIBLE. The redirecting action showed one by putting
+  // `?error=` on the URL it landed on; this form lands nowhere, so a refusal
+  // that is not rendered here is a refusal nobody ever sees — indistinguishable
+  // from a save that worked.
+  assert.equal(
+    [...raw.matchAll(/\{audienceState\.message\}/g)].length,
+    1,
+    'the audience sheet must render the action’s refusal message',
+  );
+  assert.match(raw, /role="alert"/, 'the refusal must be announced, not just drawn');
+
+  // "Saved" is a claim about a SELECTION. The sheet stays open, so the note has
+  // to be bound to what was stored — otherwise it sits there confirming an
+  // answer the vendor has since changed.
+  assert.match(
+    raw,
+    /audienceState\.savedKey === coverageServesKey\(coverageId, events, faiths\)/,
+    'the Saved note must be bound to the stored selection, not to a bare ok flag',
+  );
+  assert.doesNotMatch(
+    raw,
+    /audienceSaved =\s*audienceState\.ok;/,
+    'a bare ok flag leaves "Saved" standing under a selection nobody saved',
+  );
+
+  // The copy that promised a redirect is the copy the redirect justified.
+  assert.doesNotMatch(
+    raw,
+    /returns you to Services/,
+    'the sheet must stop warning about a navigation that no longer happens',
   );
 });

@@ -27,7 +27,8 @@ export function OverviewDecisionInspector({
   groupSub: string;
   label: string;
   sub: string;
-  chip: string;
+  /** null = the row already says it — the "pick" decisions carry no chip. */
+  chip: string | null;
   chipStyle: ChipStyle;
   ctaLabel: string;
   href: string;
@@ -41,12 +42,14 @@ export function OverviewDecisionInspector({
     >
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <span
-            className="whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold"
-            style={chipStyle}
-          >
-            {chip}
-          </span>
+          {chip ? (
+            <span
+              className="whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold"
+              style={chipStyle}
+            >
+              {chip}
+            </span>
+          ) : null}
           <span className="rounded-full border border-ink/10 px-2.5 py-0.5 text-[11px] font-medium text-ink/55">
             {groupSub}
           </span>

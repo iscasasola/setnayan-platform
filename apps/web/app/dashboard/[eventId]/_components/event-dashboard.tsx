@@ -184,7 +184,8 @@ type DecisionItemView = {
   id: string;
   label: string;
   sub: string;
-  chip: string;
+  /** null = the row already says it — see the "pick" case in `byKind`. */
+  chip: string | null;
   chipTone: 'hot' | 'warm' | 'calm';
   ctaLabel: string;
   href: string;
@@ -936,9 +937,22 @@ export async function EventDashboard({
         id: d.id,
         label: d.label,
         sub: d.detail,
+        /*
+          D-5 · NO CHIP ON A "PICK" ROW — IT SAID THE SAME THING FOUR TIMES.
+
+          The group heading is "Pick an option", the row's own label is "Pick
+          your caterer", its sub-line is "3 options saved · none locked yet",
+          and the chip then said "pick one". Three rows in that group put the
+          same two words on screen three more times. The chip column is for a
+          fact the row does not already carry; here there was none, and a chip
+          that repeats its heading trains the eye to stop reading chips.
+
+          The other two kinds keep theirs, because "not booked yet" and
+          "awaiting confirmations" each say something the row does not.
+        */
         chip:
           kind === 'pick'
-            ? 'pick one'
+            ? null
             : kind === 'start'
               ? 'not booked yet'
               : 'awaiting confirmations',
@@ -1482,14 +1496,22 @@ export async function EventDashboard({
         </span>
         <span className="mt-2.5 block space-y-1.5">
           {schedulePreview.display.slice(0, 2).map((block) => (
-            <span key={block.block_id} className="flex items-center gap-2 text-[12px]">
+            /* D-3 · THE NAME IS THE POINT OF THE ROW, SO IT WRAPS RATHER
+               THAN TRUNCATES. These tiles sit two-up on a phone: with the date
+               pill taking its fixed width there is room for about eleven
+               characters, so "Hair & makeup" arrived as "Hair & mak…" — an
+               appointment the couple cannot identify at a glance, on the tile
+               whose whole job is telling them what is next. Two lines, then
+               the ellipsis; `items-start` so the pill sits with the first
+               line rather than centring against a two-line name. */
+            <span key={block.block_id} className="flex items-start gap-2 text-[12px]">
               <span
-                className="flex-none rounded-md px-1.5 py-0.5 font-mono text-[9.5px] font-bold"
+                className="mt-px flex-none rounded-md px-1.5 py-0.5 font-mono text-[9.5px] font-bold"
                 style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
               >
                 {shortDate.format(new Date(block.start_at))}
               </span>
-              <span className="min-w-0 flex-1 truncate font-semibold text-ink">
+              <span className="min-w-0 flex-1 line-clamp-2 font-semibold leading-snug text-ink">
                 {block.label}
               </span>
             </span>
@@ -1661,7 +1683,11 @@ export async function EventDashboard({
                 </h2>
                 {/* Locked line + numeral both derive from `hasFirmDate` — they
                  *  can no longer disagree ("locked" vs "no firm date yet"). */}
-                <p className="mt-1 truncate font-mono text-xs" style={{ color: focalSubColor }}>
+                {/* D-8 · MONO IS FOR DIGITS. This line is prose — a venue
+                    name, or "The date is locked" — and Space Mono makes a
+                    sentence read like a serial number. The mono lines that
+                    remain on this card all carry a figure. */}
+                <p className="mt-1 truncate text-xs" style={{ color: focalSubColor }}>
                   {focalVenue
                     ? focalVenue
                     : hasFirmDate
@@ -1773,12 +1799,14 @@ export async function EventDashboard({
                         {daysOut === 0 ? 'Today is the day' : `${daysOut} days to go`}
                       </span>
                     ) : null}
-                    <span
-                      className="rounded-full px-3 py-1 text-xs font-semibold"
-                      style={focalChipStyle}
-                    >
-                      {lockedVendorCount} of {totalLockableCategories} categories locked
-                    </span>
+                    {/* D-6 · THE FRACTION IS GONE — IT WAS THE BAR'S NUMBER
+                        IN ANOTHER COSTUME. The gold bar directly above already
+                        reports the locked share, and the briefing sentence
+                        beside it opens with the same figure in words. A third
+                        rendering of one fact reads as three facts and makes the
+                        card feel busier than the wedding is. The chips that
+                        remain each say something nothing else on the card
+                        says: how long is left, and what is most urgent. */}
                     {topPriorityTask ? (
                       <span
                         className="rounded-full px-3 py-1 text-xs font-semibold"
@@ -1997,13 +2025,15 @@ export async function EventDashboard({
                               </span>
                             ) : null}
                           </span>
-                          <span
-                            className={`flex-none whitespace-nowrap text-[13.5px] font-bold text-ink ${
-                              item.chip.includes('₱') ? 'font-mono' : ''
-                            }`}
-                          >
-                            {item.chip}
-                          </span>
+                          {item.chip ? (
+                            <span
+                              className={`flex-none whitespace-nowrap text-[13.5px] font-bold text-ink ${
+                                item.chip.includes('₱') ? 'font-mono' : ''
+                              }`}
+                            >
+                              {item.chip}
+                            </span>
+                          ) : null}
                         </Link>
                       ))}
                       {/* EXTEND (§ 2.2) — unanswered RSVPs. Not a cockpit decision, so
@@ -2102,8 +2132,19 @@ export async function EventDashboard({
             </div>
             <Link
               href={topPriorityTask.ctaHref}
+              /* D-4 · THE ONE FILLED ACTION ON THIS SCREEN, AND IT IS THE
+                 ACTION COLOUR. Gold is the atelier's decorative slot; the CTA
+                 terracotta lives in the `mulberry` token (#C24E25 — the slot
+                 names are inherited and backwards, which is exactly why this
+                 is spelled out). White on it measures 4.76:1, over the AA
+                 floor. Every other call to action on the page steps down to
+                 an outline, so "do this now" means one thing here.
+                 ⚠ There is no rule making solid gold a premium signature —
+                 that was checked in the decision log before changing it. The
+                 only premium signature on record is the six monogram effects
+                 (2026-07-17), which say nothing about buttons. */
               className="inline-flex flex-none items-center rounded-full px-4 py-2 text-[13px] font-bold transition-transform hover:-translate-y-0.5"
-              style={{ background: 'var(--sn-gold-700)', color: '#FFFFFF' }}
+              style={{ background: 'rgb(var(--color-mulberry))', color: '#FFFFFF' }}
             >
               {topPriorityTask.ctaLabel}
             </Link>
@@ -2208,21 +2249,31 @@ export async function EventDashboard({
                               <b className="min-w-0 truncate text-sm font-semibold text-ink">
                                 {item.label}
                               </b>
+                              {item.chip ? (
                               <span
                                 className="ml-auto whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold"
                                 style={chipToneStyle[item.chipTone]}
                               >
                                 {item.chip}
                               </span>
+                              ) : null}
                             </div>
                             <p className="mt-0.5 text-[12.5px] text-ink/55">{item.sub}</p>
                             <span
                               className="mt-2 inline-block rounded-full px-3.5 py-1.5 text-[12.5px] font-bold"
-                              style={
-                                ii === 0
-                                  ? { background: 'var(--sn-gold-700)', color: '#FFFFFF' }
-                                  : { border: '1px solid var(--sn-gold-500)', color: 'var(--sn-gold-700)' }
-                              }
+                              /* D-4 · EVERY DECISION CTA IS AN OUTLINE NOW.
+                                 The first row of EVERY group used to be filled,
+                                 so a couple with three open groups met three
+                                 identical "most important" buttons plus the
+                                 top-priority one above them — four things
+                                 shouting at once, which is the same as none.
+                                 The page's single filled action is the
+                                 top-priority task; these are the queue behind
+                                 it. */
+                              style={{
+                                border: '1px solid var(--sn-gold-500)',
+                                color: 'var(--sn-gold-700)',
+                              }}
                             >
                               {item.ctaLabel}
                             </span>

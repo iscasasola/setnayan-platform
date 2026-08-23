@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { parseClientRef, guestSelfiePolicy } from '@/lib/r2-client-ref';
 import { revalidatePath } from 'next/cache';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
@@ -719,6 +720,82 @@ export async function withdrawFaceConsent(
     .maybeSingle();
   revalidatePath(`/dashboard/${eventId}/guests`);
   redirect(ev?.slug ? `/${ev.slug}?face_removed=1` : '/');
+}
+
+/**
+ * THE GUEST'S OWN FACEBLOCK SWITCH — "blur me on the screens at the venue".
+ *
+ * Owner ruling 3 of 2026-08-17: *"Either side toggles it, freely — guest or
+ * couple, on or off."* (He was told the couple can therefore undo a guest's own
+ * choice, and chose it anyway. Ruling 4 is the counterweight: the guest is told
+ * when that happens.)
+ *
+ * ─── WHY THIS EXISTS ──────────────────────────────────────────────────────
+ * The live `/privacy` notice has always said: *"A guest who does not want to
+ * appear on an event's live photo wall can turn on FaceBlock… You can opt out of
+ * the live wall this way at any time."* The only writer of `faceblock_enabled`
+ * was the COUPLE'S per-guest screen, so a guest had to ask the couple to keep
+ * themselves off a wall. We promised a control and shipped somebody else's.
+ *
+ * ⚖ NARROWER THAN `withdrawFaceConsent`, AND THAT IS THE POINT. Withdrawing
+ * consent deletes the face data and pulls every auto-tag — it is "forget me".
+ * This is "keep finding my photos, just blur my face on the projection", which
+ * is what most people actually want and what the notice describes. Neither
+ * replaces the other, and this one is reversible by design.
+ *
+ * 🔒 Same trust model as `withdrawFaceConsent` and `submitRsvp`: the guest
+ * session cookie must match BOTH the event and the guest. A guest can only ever
+ * move their own switch.
+ */
+export async function setGuestFaceBlock(
+  eventId: string,
+  guestId: string,
+  enabled: boolean,
+): Promise<void> {
+  const session = await readGuestSession();
+  if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
+    return;
+  }
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from('guests')
+    .update({ faceblock_enabled: enabled })
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId);
+  if (error) {
+    console.warn('[setGuestFaceBlock] update failed', { eventId, error: error.message });
+    return;
+  }
+
+  if (enabled) {
+    // Mirror the couple-side path exactly (dashboard/[eventId]/guests/[guestId]):
+    // hide this guest as the PUBLIC author of their messages, then re-bake the
+    // newest wall tiles so the wall does not go dark. Both best-effort — the
+    // read path is already fail-closed the instant the flag flips, so a failed
+    // re-bake costs tiles, never a face.
+    after(async () => {
+      try {
+        await admin.rpc('set_guest_messages_hidden_by_faceblock', { p_guest_id: guestId });
+      } catch {
+        /* message-hide is best-effort; the re-bake below is the priority */
+      }
+      try {
+        const { rebakeWallForEvent } = await import('@/lib/face-blur');
+        await rebakeWallForEvent(eventId);
+      } catch {
+        /* un-baked tiles stay withheld — fail-closed, never exposed */
+      }
+    });
+  }
+
+  const { data: ev } = await admin
+    .from('events')
+    .select('slug')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  if (ev?.slug) redirect(`/${ev.slug}?faceblock=${enabled ? 'on' : 'off'}`);
 }
 
 /**

@@ -114,11 +114,24 @@ test("🔴 the date survives a save that did not touch the ANSWER", () => {
   assert.match(derive, /answerChanged/, 'the new value does not depend on whether the answer changed');
   assert.match(derive, /prevGuest\?\.rsvp_responded_at/, 'an unchanged answer no longer keeps its own date');
   // …and the prior value must actually be READ, or the line above reads undefined.
-  assert.match(
-    src,
-    /\.select\('role, group_category, rsvp_status, rsvp_responded_at'\)/,
-    'the prior answer and date are not selected — the comparison reads undefined and stamps every time',
-  );
+  //
+  // ⚠ RE-ANCHORED 2026-08-24, NOT RELAXED. This pinned the select STRING
+  // character-for-character, so adding an unrelated column to the same read —
+  // `faceblock_enabled` for the blur-switched-off notice — failed a guard about
+  // the reply DATE, which is a guard crying wolf about something it does not
+  // protect. What it actually protects is that these four columns are read, and
+  // that is now what it asserts: dropping any one of them still fails, and a
+  // fifth column no longer does. Membership, not spelling.
+  const prevAt = src.indexOf('const { data: prevGuest }');
+  assert.ok(prevAt > -1, 'the prevGuest read is gone — re-point this guard');
+  const selAt = src.indexOf('.select(', prevAt);
+  const prevSelect = src.slice(selAt, src.indexOf(')', src.indexOf("'", src.indexOf("'", selAt) + 1)));
+  for (const col of ['role', 'group_category', 'rsvp_status', 'rsvp_responded_at']) {
+    assert.ok(
+      new RegExp(`\\b${col}\\b`).test(prevSelect),
+      `${col} is not selected on the prevGuest read — the comparison reads undefined and stamps every time`,
+    );
+  }
 });
 
 test("🔴 the COUPLE'S OWN row never shows an answer date", () => {

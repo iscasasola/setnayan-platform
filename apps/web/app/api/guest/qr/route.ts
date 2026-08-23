@@ -27,14 +27,38 @@ import { resolveEventOwnerSlug } from '@/lib/public-event-url';
  *     carries it.
  *
  * This mirrors app/[slug]/rotate-qr-actions.ts, which authenticates the same
- * actor the same way, including the POSSESSION CHECK below.
+ * actor the same way.
  *
- * ── POSSESSION CHECK ────────────────────────────────────────────────────────
- * The session's embedded qr_token must still equal the guest row's CURRENT
- * qr_token. A session minted from a rotated (possibly leaked) code can
- * therefore not download the replacement — which is the whole point of
- * rotation, and would be quietly undone if this route trusted the cookie's
- * guest_id alone. Always on, independent of GUEST_SESSION_TOKEN_CHECK.
+ * ── 🚨 WHY THERE IS NO POSSESSION CHECK HERE — READ BEFORE ADDING ONE ───────
+ * The first cut of this route required the session's embedded qr_token to equal
+ * the row's CURRENT qr_token, reasoning that a session minted from a rotated
+ * (possibly leaked) code must not fetch the replacement. That shipped, and it
+ * was wrong in a way that only shows up from the guest's chair:
+ *
+ *   A host presses "Re-issue" on /dashboard/[eventId]/invitation. The guest's
+ *   60-day cookie is untouched. The guest opens their invitation and the PAGE
+ *   loads their row by guest_id alone (app/[slug]/_lib/loaders.ts) and renders
+ *   the NEW code, with the NEW url in plain text underneath. They press Save
+ *   and are told "This code has been replaced. Open your current invitation
+ *   link." — while looking at it.
+ *
+ * 🔑 THE CHECK PROTECTED NOTHING. The page had already handed that same session
+ * the new QR and the new url; a stricter rule on the download could not put
+ * that back. It only refused the honest guest — the one the host had just
+ * re-issued a code FOR.
+ *
+ * 🔑 AND REVOCATION IS NOT THIS ROUTE'S JOB. Whether a session survives a
+ * rotation is decided in ONE place — readGuestSession(), behind
+ * GUEST_SESSION_TOKEN_CHECK, a chokepoint deliberately covering all of its
+ * consumers so none can be missed. Re-implementing a private, always-on version
+ * of that policy in one endpoint made this route disagree with every other
+ * surface, including the page rendering the very image it refuses.
+ * ⚖ When that flag is turned on, the page and this route stop honouring a
+ * rotated session TOGETHER, which is the behaviour anyone would expect.
+ *
+ * ⛔ So: do not reintroduce a token comparison here. Change readGuestSession()
+ * or the flag instead — and if the page should stop showing the new code to an
+ * old session, that is a change to the PAGE, not to the download button.
  *
  * ── NOT GATED ON A PURCHASE, ON PURPOSE ─────────────────────────────────────
  * This serves the plain ink-on-cream code the guest is ALREADY being shown for
@@ -72,18 +96,19 @@ export function decideGuestQrAccess(
   if (readFailed) {
     return { allow: false, status: 503, message: 'Could not reach your invitation. Try again.' };
   }
-  // Possession check — the session must have been minted from the code the row
-  // carries NOW. A session made from a rotated (possibly leaked) code cannot
-  // fetch the replacement, which is the entire point of rotation.
-  if (
-    !guest ||
-    guest.event_id !== session.event_id ||
-    guest.qr_token !== session.qr_token
-  ) {
+  // No row means the seat is gone (deleted guest), so there is nothing of
+  // theirs to hand back. The event check is a consistency assertion, not a
+  // policy: a cookie naming a different event than the row is a session that
+  // could only come from tampering or a bug.
+  //
+  // ⛔ There is deliberately NO `guest.qr_token !== session.qr_token` here.
+  // See the header: it refused the honest guest whose host had just re-issued
+  // their code, while the page beside it showed them that very code.
+  if (!guest || guest.event_id !== session.event_id) {
     return {
       allow: false,
       status: 401,
-      message: 'This code has been replaced. Open your current invitation link.',
+      message: 'Open your invitation link first.',
     };
   }
   return { allow: true };

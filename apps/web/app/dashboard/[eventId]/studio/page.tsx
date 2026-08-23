@@ -26,6 +26,7 @@ import {
   recommendFeature,
 } from './recommend-actions';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { papicGuestPassAccess } from '@/lib/papic-event-access';
@@ -254,10 +255,26 @@ export default async function StudioPage({ params, searchParams }: Props) {
     }
   }
 
-  const { data: recRows } = await supabase
+  // ⚠ TWO PEOPLE READ THIS ONE QUERY AND A REFUSAL LIES TO BOTH. Supabase
+  // ⚠ RESOLVES with { error } rather than throwing, so `?? []` empties the map:
+  // ⚠ the COUPLE loses the "Your coordinator suggests" strip entirely — a
+  // ⚠ suggestion made for them simply never arrives — and the COORDINATOR is
+  // ⚠ shown a "Recommend" button on something they already suggested, which
+  // ⚠ breaks this file's own promise that a dismissed suggestion is never
+  // ⚠ re-sent "so the coordinator can't nag".
+  const { data: recRows, error: recRowsError } = await supabase
     .from('coordinator_feature_recommendations')
     .select('addon_key, status, note')
     .eq('event_id', eventId);
+  if (recRowsError) {
+    logQueryError(
+      'StudioHubPage.coordinatorRecommendations',
+      recRowsError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+  const recsMeasured = !recRowsError && recRows !== null;
   const recByKey = new Map<string, { status: string; note: string | null }>();
   for (const r of recRows ?? []) {
     recByKey.set(r.addon_key as string, {
@@ -274,11 +291,20 @@ export default async function StudioPage({ params, searchParams }: Props) {
   // coordinator viewing the hub isn't a couple member, so RLS returns no rows for
   // them — the strip is couple-only without an extra role check. We resolve the
   // recommending vendor's business_name to attribute each suggestion.
-  const { data: vendorRecRows } = await supabase
+  const { data: vendorRecRows, error: vendorRecsError } = await supabase
     .from('vendor_feature_recommendations')
     .select('addon_key, note, vendor_profile_id')
     .eq('event_id', eventId)
     .eq('status', 'pending');
+  if (vendorRecsError) {
+    logQueryError(
+      'StudioHubPage.vendorRecommendations',
+      vendorRecsError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+  const vendorRecsMeasured = !vendorRecsError && vendorRecRows !== null;
   const vendorRecs = (vendorRecRows ?? []) as {
     addon_key: string;
     note: string | null;
@@ -288,10 +314,21 @@ export default async function StudioPage({ params, searchParams }: Props) {
   const vendorNameById = new Map<string, string>();
   if (vendorRecs.length > 0) {
     const vendorIds = Array.from(new Set(vendorRecs.map((r) => r.vendor_profile_id)));
-    const { data: vendorRows } = await supabase
+    // Names only. A refusal here degrades to the "Your vendor" fallback already
+    // written below — the suggestion still reaches the couple, unattributed —
+    // so this one logs and does not gate anything.
+    const { data: vendorRows, error: vendorNamesError } = await supabase
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name')
       .in('vendor_profile_id', vendorIds);
+    if (vendorNamesError) {
+      logQueryError(
+        'StudioHubPage.vendorNames',
+        vendorNamesError,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
     for (const v of (vendorRows ?? []) as {
       vendor_profile_id: string;
       business_name: string | null;
@@ -370,6 +407,16 @@ export default async function StudioPage({ params, searchParams }: Props) {
   // couple and for non-recommendable features.
   function coordinatorControl(entry: AddOnEntry) {
     if (!isCoordinator || !isRecommendable(entry)) return null;
+    // Offering "Recommend" after a refused read asserts "you have not suggested
+    // this yet" without having looked — and pressing it can re-send something
+    // the couple already passed on. Say so instead.
+    if (!recsMeasured) {
+      return (
+        <span className="text-xs font-medium text-ink/40">
+          Can&rsquo;t check what you&rsquo;ve suggested
+        </span>
+      );
+    }
     const rec = recByKey.get(entry.key);
     if (rec?.status === 'pending') {
       return (
@@ -536,6 +583,20 @@ export default async function StudioPage({ params, searchParams }: Props) {
       <PageMasthead
         title="Your Studio"
       />
+
+      {!recsMeasured || !vendorRecsMeasured ? (
+        <p
+          role="alert"
+          className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">
+            We couldn&rsquo;t load what your coordinator and suppliers have
+            suggested for you.
+          </strong>{' '}
+          If somebody suggested something, it hasn&rsquo;t gone away &mdash;
+          reload in a moment.
+        </p>
+      ) : null}
 
       {coupleSuggestions.length > 0 ? (
         <div className="sn-tile sn-reveal p-5 sm:p-6">

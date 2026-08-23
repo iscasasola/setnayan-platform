@@ -15,6 +15,7 @@ import { ArrowLeft } from 'lucide-react';
 
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
   WEDDING_FOLDER_ORDER,
@@ -46,11 +47,28 @@ export default async function UnlockCategoriesPage({ params }: Props) {
   if (!ev) notFound();
 
   // Active categories = the canonical service of every non-archived pick.
-  const { data: pickRows } = await supabase
+  //
+  // ⚠ THIS IS THE ONE READ THE WHOLE PAGE SUBTRACTS FROM. Supabase RESOLVES
+  // ⚠ with { error } rather than throwing, so a refusal arrives as `data: null`,
+  // ⚠ `?? []` empties the set, EVERY group then looks inactive, and the page
+  // ⚠ offers the couple categories they already have. Tapping Add here is not
+  // ⚠ a display choice — `unlockCategoryWithInquiry` PICKS a vendor and SENDS
+  // ⚠ THEM AN INQUIRY. A refused read must therefore not produce a longer list;
+  // ⚠ it must produce a caveat.
+  const { data: pickRows, error: pickError } = await supabase
     .from('event_vendors')
     .select('category')
     .eq('event_id', eventId)
     .is('archived_at', null);
+  if (pickError) {
+    logQueryError(
+      'UnlockCategoriesPage.picks',
+      pickError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+  const picksMeasured = !pickError && pickRows !== null;
   const activeCategories = new Set<string>(
     (pickRows ?? [])
       .map((r) => (r as { category: string | null }).category)
@@ -108,7 +126,21 @@ export default async function UnlockCategoriesPage({ params }: Props) {
         </p>
       </header>
 
-      <UnlockCategoriesList eventId={eventId} folders={folders} />
+      {picksMeasured ? (
+        <UnlockCategoriesList eventId={eventId} folders={folders} />
+      ) : (
+        <p
+          role="alert"
+          className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">
+            We couldn&rsquo;t check which categories you already have.
+          </strong>{' '}
+          Rather than offer you one twice &mdash; adding a category also sends a
+          first inquiry to a supplier &mdash; we&rsquo;ve held the list back.
+          Reload in a moment.
+        </p>
+      )}
     </div>
   );
 }

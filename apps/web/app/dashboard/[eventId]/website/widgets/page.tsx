@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowDown, ArrowUp, Check, ExternalLink, Eye, EyeOff, GripVertical, Lock, Pencil, Sparkles, Wand2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { eventNoun } from '@/lib/event-noun';
 import {
@@ -97,12 +98,28 @@ export default async function WidgetsEditorPage({
   // either an accepted moderator or a legacy couple — the migration
   // backfill ensures even pre-2026-06-07 events have all 12 rows after
   // the migration applies.
-  const { data: widgetsRaw } = await supabase
+  //
+  // ⚠ EVERY EVENT HAS TWELVE OF THESE ROWS — the migration backfill guarantees
+  // ⚠ it. So an EMPTY result here is never the truth; it is a refusal. Supabase
+  // ⚠ RESOLVES with { error } instead of throwing, `?? []` empties both lists,
+  // ⚠ and the editor tells a couple their invitation has no sections at all
+  // ⚠ ("Your optional sections will appear here") — about a page that is live
+  // ⚠ and complete. Bind the error and say we could not read it.
+  const { data: widgetsRaw, error: widgetsError } = await supabase
     .from('invitation_widgets')
     .select(
       'widget_id, event_id, widget_type, display_order, is_visible, is_always_on, tier, config_json, created_at, updated_at, mode, audience',
     )
     .eq('event_id', eventId);
+  if (widgetsError) {
+    logQueryError(
+      'WebsiteWidgetsPage.widgets',
+      widgetsError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+  const widgetsMeasured = !widgetsError && widgetsRaw !== null;
 
   // Defensive filter: a widget_type column value that ISN'T in our
   // canonical enum would crash the editor render. The CHECK constraint
@@ -274,6 +291,20 @@ export default async function WidgetsEditorPage({
         </div>
       ) : null}
 
+      {!widgetsMeasured ? (
+        <p
+          role="alert"
+          className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">
+            We couldn&rsquo;t load your page&rsquo;s sections.
+          </strong>{' '}
+          This does not mean your {eventNoun(event.event_type)} page has none, and
+          nothing has been hidden or removed &mdash; guests still see it exactly
+          as you left it. Reload in a moment before changing anything.
+        </p>
+      ) : null}
+
       {/* Always-on section */}
       <section className="space-y-3">
         <header>
@@ -314,7 +345,9 @@ export default async function WidgetsEditorPage({
         </header>
         {hideableRows.length === 0 ? (
           <p className="sn-row border-dashed p-6 text-sm italic text-ink/55">
-            Your optional sections will appear here.
+            {widgetsMeasured
+              ? 'Your optional sections will appear here.'
+              : 'We couldn’t read your sections just now — they have not gone anywhere.'}
           </p>
         ) : (
           <ul className="space-y-2">

@@ -10,6 +10,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   formatCentavosPhp,
   resolveVendorCategory,
@@ -65,7 +66,13 @@ export default async function PackageBookingPage({ params }: Props) {
     .maybeSingle();
   if (!pkgRow) notFound();
 
-  const { data: itemsRows } = await supabase
+  // ⚠ THIS IS A MONEY DOCUMENT AND THESE ARE ITS LINES. Supabase RESOLVES with
+  // ⚠ { error } rather than throwing, so a refused read arrives as `data: null`,
+  // ⚠ `?? []` empties it, and every section below — Included, Not included,
+  // ⚠ Removed — disappears at once: a booking that still shows a price and no
+  // ⚠ longer shows a single thing the couple is paying for, with the "Removed"
+  // ⚠ list (what they dropped, and why the total moved) gone too. Bind it.
+  const { data: itemsRows, error: itemsError } = await supabase
     .from('vendor_package_items')
     .select(
       // The canonical list, not a hand-typed copy of it. `is_required` is the
@@ -81,6 +88,15 @@ export default async function PackageBookingPage({ params }: Props) {
     )
     .eq('package_id', typedBooking.package_id)
     .order('display_order', { ascending: true });
+  if (itemsError) {
+    logQueryError(
+      'CouplePackageBookingPage.items',
+      itemsError,
+      { event_id: eventId, package_id: typedBooking.package_id },
+      'graceful_degrade',
+    );
+  }
+  const itemsMeasured = !itemsError && itemsRows !== null;
 
   const pkg: VendorPackageWithItems = {
     ...(pkgRow as VendorPackageRow),
@@ -280,6 +296,20 @@ export default async function PackageBookingPage({ params }: Props) {
             </p>
           ) : null}
         </section>
+      ) : null}
+
+      {!itemsMeasured ? (
+        <p
+          role="alert"
+          className="mt-6 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">
+            We couldn&rsquo;t load what&rsquo;s in this package.
+          </strong>{' '}
+          Nothing has changed about your booking and nothing has been removed
+          &mdash; we simply can&rsquo;t list the items right now. Reload in a
+          moment before you go by this page.
+        </p>
       ) : null}
 
       {/* Included items */}

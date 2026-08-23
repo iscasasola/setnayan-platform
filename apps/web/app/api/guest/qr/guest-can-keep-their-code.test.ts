@@ -109,6 +109,30 @@ test('a read failure outranks a token mismatch — an unread row is not a wrong 
   assert.equal(v.allow === false && v.status, 503);
 });
 
+test('EVERY read in the route distinguishes a failure from an absence', () => {
+  // Both Supabase reads resolve with `{ data: null, error }` rather than
+  // throwing, so a discarded `error` becomes a confident wrong answer. The
+  // guests read got this right from the start; the events read did not, and
+  // told a guest whose event is fine "Event not found." during a blip.
+  const src = stripComments(readFileSync(resolve(HERE, 'route.ts'), 'utf8'));
+  // Anchored on `.from(`, not on `= await admin` — one of the two reads is
+  // wrapped in a ternary, so the naive form matched ONE of them and the count
+  // assertion below is the only reason that did not pass as a clean sweep.
+  const reads = [...src.matchAll(/\.from\('(\w+)'\)/g)];
+  assert.ok(reads.length >= 2, `expected 2+ table reads, found ${reads.length}`);
+  for (const m of reads) {
+    const destructure = src.slice(Math.max(0, m.index - 220), m.index);
+    const decl = destructure.lastIndexOf('const {');
+    assert.ok(decl !== -1, `could not find the destructuring for .from('${m[1]}')`);
+    assert.ok(
+      /error/.test(destructure.slice(decl)),
+      `the ${m[1]} read ignores its error — a blip will read as an absence`,
+    );
+  }
+  // And the failure must be a retryable 503, never a permanent-sounding 404.
+  assert.equal((src.match(/status: 503/g) || []).length, 2, 'both reads need the 503 branch');
+});
+
 // ── The filename goes into a header ─────────────────────────────────────────
 
 test('a quote in a name cannot break out of the Content-Disposition filename', () => {

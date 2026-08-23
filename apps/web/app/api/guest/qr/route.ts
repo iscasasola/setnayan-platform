@@ -137,11 +137,19 @@ export async function GET() {
     return new NextResponse('Open your invitation link first.', { status: 401 });
   }
 
-  const { data: event } = await admin
+  // A FAILED READ IS NOT A MISSING EVENT — the same distinction the guests read
+  // above already makes, and this line did not. Supabase resolves with
+  // `{ data: null, error }` rather than throwing, so discarding `error` turned a
+  // transient database blip into "Event not found." for a guest whose event is
+  // perfectly fine — a permanent-sounding refusal for a temporary condition.
+  const { data: event, error: eventErr } = await admin
     .from('events')
     .select('event_id, slug')
     .eq('event_id', guest.event_id)
     .maybeSingle();
+  if (eventErr) {
+    return new NextResponse('Could not reach your invitation. Try again.', { status: 503 });
+  }
   if (!event?.slug) {
     return new NextResponse('Event not found.', { status: 404 });
   }

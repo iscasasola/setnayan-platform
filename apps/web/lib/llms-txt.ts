@@ -374,7 +374,8 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Live Photo Wall** — free. Live photo collage with live attendance count, shown on a screen at the venue and mirrored on every guest's own phone during the celebration.
 - **Animated Monogram** — ${R('ANIMATED_MONOGRAM')}. Bespoke monogram with animation, generated from the couple's inputs.
 - **Event Hub** — free. The 4-in-1 couple website (Save the Date, RSVP, on-the-day, Editorial) with unlimited RSVP.
-- **Event Hub PRO** — ${R('COUPLE_WEBSITE_PRO')}. Unlocks every premium touch — the Save-the-Date Cinematic Reveal and Editorial PRO — across the whole site, and removes the Setnayan watermark.
+- **Event Hub PRO** — ${R('COUPLE_WEBSITE_PRO')}. Unlocks the Save-the-Date Cinematic Reveal across the whole site, and removes the Setnayan watermark.
+- **Editorial authoring** — free. Arrange your own story: the order of the day, the moments worth naming, the wishes worth showing.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Patiktok** — ${R('PATIKTOK_COMPILER')}. Mimic-station booth; unlimited 9:16 vertical recordings compiled into post-ready reels.
 - **Kwento** — free. Guest-contributed stories and messages.

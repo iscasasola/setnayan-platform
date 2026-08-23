@@ -351,7 +351,7 @@ function Chapter({
             the "photo dominant, write-up beside it" newspaper spread. */}
         <div className={`lg:col-span-4 ${flip ? 'lg:order-1 lg:pr-2' : 'lg:order-2 lg:pl-2'}`}>
           {chapter.time ? (
-            <p className="m-0 font-mono text-xs uppercase tracking-[0.24em] text-terracotta">
+            <p className="m-0 font-mono text-xs uppercase tracking-[0.24em] text-terracotta-700">
               {chapter.time}
             </p>
           ) : null}

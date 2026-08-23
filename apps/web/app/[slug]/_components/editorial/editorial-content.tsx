@@ -13,7 +13,9 @@
 //
 // Visual language matches the [slug] invitation site: warm-alabaster ground,
 // Cormorant Garamond serif (font-serif/font-display), DM Mono eyebrows
-// (font-mono uppercase tracked), champagne-gold accent (text-terracotta),
+// (font-mono uppercase tracked), champagne-gold accent (text-terracotta-700 —
+// the DEEPER gold; the default slot measures 3.48:1 on the page ground and
+// cannot carry 12px type. See the eyebrow note above the first one),
 // mulberry CTAs, hairline rules in ink/10..ink/80.
 // ============================================================================
 
@@ -314,7 +316,32 @@ export async function EditorialContent({
           ) : (
             <Monogram text={data.monogramText} color={data.monogramColor} />
           )}
-          <p className="mt-3 font-mono text-xs uppercase tracking-[0.34em] text-terracotta">
+          {/*
+            ─── THE GOLD EYEBROWS, DEEPENED (2026-08-23) ──────────────────────
+            Every one of these read `text-terracotta`. ⚠ IN THIS REPO THAT SLOT
+            IS THE ATELIER GOLD #A9834B, not the action colour — the names are
+            inherited and backwards, which is the single most common colour
+            mistake made here. Measured on the page ground: **3.48:1**, under
+            the 4.5:1 floor for 12px type, on seven text sites across this
+            component plus one in `living-moments`.
+
+            🔑 A WHOLE-COMPONENT CALL, NOT A RIDER. This file's own docblock
+            names champagne-gold as a deliberate editorial accent, so fixing one
+            eyebrow would have made it the odd one out. And the fix KEEPS the
+            gold rather than trading it for the action colour: `terracotta-700`
+            is the same family one step deeper, and switching to mulberry or the
+            link slate would have changed this page's accent — a design reversal
+            wearing a contrast fix's clothes.
+
+            ✅ MEASURED IN BOTH THEMES, because a light-only check waves through
+            a token that flips on dark: #8C6932 on the light ground is 5.02:1,
+            and the dark value #A88340 on the candlelight ground is 5.17:1.
+
+            ⛔ TWO USES ARE DELIBERATELY LEFT ON THE LIGHTER GOLD, both
+            `aria-hidden` decorative glyphs. They carry no text, so the 3:1
+            non-text bar applies and 3.48:1 clears it. Do not sweep them in.
+          */}
+          <p className="mt-3 font-mono text-xs uppercase tracking-[0.34em] text-terracotta-700">
             Set na &rsquo;yan &middot; Commemorative Edition
           </p>
           <h1 className="mt-2 font-display text-4xl font-semibold leading-[0.96] tracking-tight sm:text-6xl">
@@ -602,7 +629,7 @@ function GracefulFallback({ words: w }: { words: EventWords }): ReactElement {
   return (
     <div className="flex min-h-[60vh] items-center justify-center bg-cream px-4 py-16 text-ink">
       <div className="mx-auto max-w-md space-y-3 rounded-2xl border border-ink/10 bg-cream/60 p-8 text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.3em] text-terracotta">
+        <p className="font-mono text-xs uppercase tracking-[0.3em] text-terracotta-700">
           The Story
         </p>
         <h2 className="font-display text-2xl italic tracking-tight">
@@ -868,7 +895,7 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
         </span>
       ) : null}
       {v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom' ? (
-        <span className="shrink-0 rounded-full border border-terracotta/40 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-terracotta">
+        <span className="shrink-0 rounded-full border border-terracotta/40 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-terracotta-700">
           {v.tier}
         </span>
       ) : null}
@@ -900,7 +927,7 @@ function TeamBehindTheDay({
       </ul>
       {collapsed.length ? (
         <details className="mt-2">
-          <summary className="cursor-pointer list-none font-mono text-xs uppercase tracking-[0.16em] text-terracotta hover:text-terracotta-700">
+          <summary className="cursor-pointer list-none font-mono text-xs uppercase tracking-[0.16em] text-terracotta-700 hover:text-ink">
             + {collapsed.length} more {collapsed.length === 1 ? 'vendor' : 'vendors'}
           </summary>
           <ul className="m-0 mt-1 list-none p-0">
@@ -978,7 +1005,7 @@ function ByTheNumbers({ data, words: w }: { data: EditorialData; words: EventWor
       <div className="bg-ink px-2 py-2 text-center font-display text-xl font-bold text-cream">
         By the Numbers
       </div>
-      <p className="px-2 pb-0.5 pt-2 text-center font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+      <p className="px-2 pb-0.5 pt-2 text-center font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700">
         Setnayan&rsquo;s hand in the day
       </p>
 
@@ -1056,7 +1083,7 @@ function Stat({
     <div className="border-b border-ink/15 px-3 py-3 text-center">
       <div className="font-display text-4xl font-bold leading-none text-ink">
         {big}
-        {unit ? <span className="text-terracotta"> {unit}</span> : null}
+        {unit ? <span className="text-terracotta-700"> {unit}</span> : null}
       </div>
       <div className="mt-1 font-serif text-[13.5px] leading-tight text-ink/70">{label}</div>
       {note ? (
@@ -1715,7 +1742,7 @@ function Colophon({
       {slug ? (
         <a
           href={`/${slug}/print`}
-          className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-ink/55 no-underline hover:text-terracotta print:hidden"
+          className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-ink/55 no-underline hover:text-terracotta-700 print:hidden"
         >
           <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Print the keepsake

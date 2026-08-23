@@ -1703,15 +1703,16 @@ export async function commitVendorService(formData: FormData) {
   // validator, the missing-price check — already ran above, while a bounce was
   // still free; `savePackage` re-runs the validator itself as the backstop.
   //
-  // ⚠ HOW A SERVICE RESOLVES TO ITS PACKAGE ROW: it does not. `vendor_packages`
-  // has no service column (migration 20260604110000) — only
-  // `vendor_profile_id` + `primary_canonical_service`. So this CREATES a
-  // package anchored to the service's category. That is sound because the
-  // wizard is CREATE-ONLY (`/services/new/[category]` is its single mount), so
-  // one run mints one package and no path here can fork a second. Re-opening a
-  // service to EDIT its customization needs the link column proposed in
-  // lib/service-customization-draft.ts (one nullable
-  // `vendor_packages.vendor_service_id`); this slice adds no migration.
+  // ✅ HOW A SERVICE RESOLVES TO ITS PACKAGE ROW: through
+  // `vendor_packages.vendor_service_id`, added 2026-08-24 (migration
+  // 20271159436100) — the nullable link this comment used to say was missing.
+  // It is stamped below so the card can compile which of its own options
+  // couples chose; the database refuses a card owned by a different vendor.
+  //
+  // ⚠ STILL CREATE-ONLY. `/services/new/[category]` is this path's single
+  // mount, so one run mints one package and nothing here can fork a second.
+  // Re-opening a service to EDIT its customization is now UNBLOCKED by the link
+  // but is not built — that is its own change, not a side effect of this one.
   //
   // A failure here does NOT bounce through `back()`: the service is already
   // saved, and on the claim path `back()` re-renders the wizard, which would
@@ -1724,6 +1725,10 @@ export async function commitVendorService(formData: FormData) {
         totalPriceCentavos: customizationPriceCentavos,
       }),
       primary_canonical_service: canonicalServiceForVendorCategory(category),
+      // The link. `savedId` is the row `save_vendor_service` just returned, so
+      // it is this session's own card by construction — and the database
+      // re-checks that anyway rather than believing an argument.
+      vendorServiceId: typeof savedId === 'string' && savedId.length > 0 ? savedId : null,
     });
     if (res.status !== 'ok') {
       customizationError =

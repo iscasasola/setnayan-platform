@@ -125,6 +125,8 @@ export type ServiceCardRecordRow = {
   booked_count?: unknown;
   type_mix?: unknown;
   ledger?: unknown;
+  option_sample_n?: unknown;
+  option_mix?: unknown;
 };
 
 /** One slice of the event-type mix, ready to render. */
@@ -147,12 +149,36 @@ export type CompiledLedgerRow = {
   pax: string | null;
 };
 
+/**
+ * One line of "what couples actually picked", ready to render.
+ *
+ * There is no `pct` and no bar. The number that matters is the pair — 4 of 6 —
+ * and a percentage of a sample of six reads as a statistic about a market
+ * rather than a fact about six couples.
+ */
+export type CompiledOptionPick = {
+  label: string;
+  /** Couples (EVENTS, never rows) who chose it. Never below the SQL floor. */
+  n: number;
+};
+
 /** The compiled record — everything the section component needs, pre-formatted. */
 export type CompiledCardRecord = {
   bookedCount: number;
   mix: CompiledMixSlice[];
   ledger: CompiledLedgerRow[];
   milestones: { earned: number[]; next: number | null };
+  /**
+   * WHAT COUPLES PICKED, and out of how many.
+   *
+   * ⚠ BOTH FLOORS LIVE IN SQL, NOT HERE. `optionSampleN` is 0 and `optionPicks`
+   * is empty whenever the reader withheld them — this module must never
+   * reconstruct, round or bucket a suppressed number, because a floor applied
+   * in a component has already shipped the raw number to the browser. The only
+   * job here is to refuse anything malformed.
+   */
+  optionSampleN: number;
+  optionPicks: CompiledOptionPick[];
 };
 
 /** The zero record — a card that has served nothing shows nothing. */
@@ -161,6 +187,8 @@ export const EMPTY_CARD_RECORD: CompiledCardRecord = {
   mix: [],
   ledger: [],
   milestones: { earned: [], next: MILESTONE_THRESHOLDS[0] },
+  optionSampleN: 0,
+  optionPicks: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -269,7 +297,63 @@ export function compileCardRecord(raw: unknown): CompiledCardRecord {
     pax: paxBandLabel(r.paxBand),
   }));
 
-  return { bookedCount, mix, ledger, milestones: milestonesFor(bookedCount) };
+  // ── WHAT COUPLES PICKED ───────────────────────────────────────────────────
+  // The reader has already applied both floors. A line that arrives here is
+  // one at least K couples chose, out of a sample of at least K bookings — so
+  // there is nothing to suppress and nothing to compute, only shapes to refuse.
+  const optionSampleN = toCount(raw.option_sample_n);
+  const optionPicks: CompiledOptionPick[] = [];
+  for (const el of toArray(raw.option_mix)) {
+    if (!isRecordObject(el)) continue; // a junk element costs only itself
+    const label = toText(el.label);
+    const n = toCount(el.n);
+    if (label.length === 0 || n <= 0) continue;
+    optionPicks.push({ label, n });
+  }
+  optionPicks.sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+
+  return {
+    bookedCount,
+    mix,
+    ledger,
+    milestones: milestonesFor(bookedCount),
+    optionSampleN,
+    // A line can never claim more couples than the sample it came from. If the
+    // two ever disagree the payload is not trustworthy, so the whole block is
+    // dropped rather than half-shown — an impossible number on a public card is
+    // worse than no number.
+    optionPicks: optionPicks.every((p) => p.n <= optionSampleN) ? optionPicks : [],
+  };
+}
+
+/**
+ * DOES THIS CARD HAVE ANYTHING TO SAY?
+ *
+ * ONE predicate, because there were THREE — the vendor's services manager, the
+ * public gallery and the details sheet each asked `bookedCount > 0` on their
+ * own, and the section component asked a fourth time. Checking a condition in
+ * four places is four chances to forget, and the next surface makes five; this
+ * project has already paid for that shape once, on a feature where forgetting
+ * meant leaving a photo wall open.
+ *
+ * 🔑 AND THE FOUR COPIES WERE ABOUT TO BECOME WRONG. `bookedCount` counts
+ * `event_vendors` rows carrying this card's `service_id` — and a PACKAGE lock
+ * cascades rows that carry NO `service_id` at all. So a card booked only
+ * through its own ★ Customization package scores zero there while having a real
+ * record of picks, and every one of those four gates would have hidden it.
+ *
+ * ⚠ THAT UNDERCOUNT IS NAMED, NOT FIXED HERE. Making `booked_count` see package
+ * bookings would move a public trust number ("Booked N× on Setnayan") on a live
+ * card, which is a decision of its own and not a side effect of showing picks.
+ * What this file does instead is refuse to print a headline that is not true:
+ * the booked line renders only when the count is real, and the picks carry
+ * their own denominator.
+ */
+export function cardRecordHasSomethingToSay(
+  record: CompiledCardRecord | null | undefined,
+): record is CompiledCardRecord {
+  if (!record) return false;
+  return record.bookedCount > 0 || record.optionSampleN > 0;
 }
 
 // ---------------------------------------------------------------------------

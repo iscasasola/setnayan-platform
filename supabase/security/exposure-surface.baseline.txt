@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6210
+# facts: 6193
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     598
-#   col       4543
-#   policy    841
+#   tpriv     596
+#   col       4533
+#   policy    839
 #   view      8
-#   func      216
+#   func      213
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -299,8 +299,6 @@ tpriv	public.order_refunds|authenticated	SIUD
 tpriv	public.orders|authenticated	SU
 tpriv	public.owner_alerts|anon	SIUD
 tpriv	public.owner_alerts|authenticated	SIUD
-tpriv	public.pabati_clips|anon	SIUD
-tpriv	public.pabati_clips|authenticated	SIUD
 tpriv	public.pakanta_intake_drafts|anon	SIUD
 tpriv	public.pakanta_intake_drafts|authenticated	SIUD
 tpriv	public.panood_broadcasts|authenticated	SIUD
@@ -2724,17 +2722,6 @@ col	public.owner_alerts.milestone_value	anon=SIU authenticated=SIU
 col	public.owner_alerts.payload	anon=SIU authenticated=SIU
 col	public.owner_alerts.signal_name	anon=SIU authenticated=SIU
 col	public.owner_alerts.suppressed_until	anon=SIU authenticated=SIU
-col	public.pabati_clips.captured_at	anon=SIU authenticated=SIU
-col	public.pabati_clips.clip_id	anon=SIU authenticated=SIU
-col	public.pabati_clips.created_at	anon=SIU authenticated=SIU
-col	public.pabati_clips.duration_ms	anon=SIU authenticated=SIU
-col	public.pabati_clips.event_id	anon=SIU authenticated=SIU
-col	public.pabati_clips.guest_id	anon=SIU authenticated=SIU
-col	public.pabati_clips.guest_label	anon=SIU authenticated=SIU
-col	public.pabati_clips.hidden_at	anon=SIU authenticated=SIU
-col	public.pabati_clips.id	anon=SIU authenticated=SIU
-col	public.pabati_clips.moderation_state	anon=SIU authenticated=SIU
-col	public.pabati_clips.r2_object_key	anon=SIU authenticated=SIU
 col	public.pakanta_intake_drafts.created_at	anon=SIU authenticated=SIU
 col	public.pakanta_intake_drafts.draft_id	anon=SIU authenticated=SIU
 col	public.pakanta_intake_drafts.event_id	anon=SIU authenticated=SIU
@@ -4407,6 +4394,7 @@ col	public.vendor_packages.total_price_centavos	anon=SIU authenticated=SIU
 col	public.vendor_packages.unspent_credit_policy	anon=SIU authenticated=SIU
 col	public.vendor_packages.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_packages.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_packages.vendor_service_id	anon=SIU authenticated=SIU
 col	public.vendor_papic_capture_grants.clip_cap	anon=SIU authenticated=SIU
 col	public.vendor_papic_capture_grants.created_at	anon=SIU authenticated=SIU
 col	public.vendor_papic_capture_grants.event_id	anon=SIU authenticated=SIU
@@ -5585,8 +5573,6 @@ policy	public.orders|orders_owner_write	mode=PERMISSIVE cmd=ALL roles=authentica
 policy	public.orders|orders_update_status_guard	mode=RESTRICTIVE cmd=UPDATE roles=authenticated using=(user_id = auth.uid()) check=((auth.role() = 'service_role'::text) OR is_admin() OR (status = ANY (ARRAY['draft'::order_status, 'submitted'::order_status, 'awaiting_payment'::order_status, 'cancelled'::order_status])))
 policy	public.owner_alerts|owner_alerts_owner_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND ((users.is_internal = true) OR (users.account_type = 'admin'::account_type))))) check=NULL
 policy	public.owner_alerts|owner_alerts_owner_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND ((users.is_internal = true) OR (users.account_type = 'admin'::account_type))))) check=NULL
-policy	public.pabati_clips|pabati_clips_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
-policy	public.pabati_clips|pabati_clips_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = pabati_clips.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=NULL
 policy	public.pakanta_intake_drafts|pakanta_intake_drafts_admin_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = auth.uid()) AND (users.account_type = 'admin'::account_type)))) check=NULL
 policy	public.pakanta_intake_drafts|pakanta_intake_drafts_insert_host	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=(event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))
 policy	public.pakanta_intake_drafts|pakanta_intake_drafts_select_host	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))) check=NULL
@@ -6072,7 +6058,6 @@ func	public.demand_radar_admin()	secdef=yes exec=anon,authenticated search_path=
 func	public.demand_radar_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.detect_self_review_signal(p_vendor_profile_id uuid, p_reviewer_user_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.ensure_papic_auto_missions(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
-func	public.ensure_papic_board(p_event_id uuid, p_pabati_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.evaluate_earned_token_expiry(p_vendor_id uuid)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.event_comp_active_skus(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.event_has_comp_for_sku(p_event_id uuid, p_service_key text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
@@ -6112,8 +6097,6 @@ func	public.min_n_ok(p_count integer, p_floor integer)	secdef=no exec=anon,authe
 func	public.moderator_area_level(p_event_id uuid, p_area text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.moderator_can_see_row(p_event_id uuid, p_user_id uuid, p_private_to_role text[], p_hidden_from_role text[], p_surprise_for_role text)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.offer_creator_reach_hold(p_vendor_profile_id uuid, p_creator_user_id uuid, p_creator_rate_terms text, p_audience_rate_terms text, p_reach_tokens integer, p_expires_at timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
-func	public.pabati_event_owns_pabati(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.pabati_record_clip(p_event_id uuid, p_guest_id uuid, p_r2_object_key text, p_duration_ms integer, p_guest_label text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.panood_camera_heartbeat(p_token text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.panood_claim_camera(p_token text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.panood_rtc_can_access(p_topic text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp

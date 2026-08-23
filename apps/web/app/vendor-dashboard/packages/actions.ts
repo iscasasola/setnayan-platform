@@ -76,7 +76,25 @@ async function ensureProfile() {
  * gets here.
  */
 export async function savePackage(
-  input: DraftPackage & { packageId?: string; primary_canonical_service?: string },
+  input: DraftPackage & {
+    packageId?: string;
+    primary_canonical_service?: string;
+    /**
+     * The service CARD this package is being minted for, when it is the maker's
+     * ★ Customization step calling. Standalone packages authored in the
+     * packages editor pass nothing and stay unlinked, which is the normal case.
+     *
+     * 🔒 NOT A PERMISSION. The database refuses a card belonging to a different
+     * vendor (trg_vendor_package_service_same_owner) — the FK proves the card
+     * EXISTS, never that it is YOURS, and `vendor_packages` is writable by its
+     * owning vendor through PostgREST.
+     *
+     * CREATE ONLY. An update never re-points an existing package at a different
+     * card: a package a couple may already have locked must not silently change
+     * which card's record it feeds.
+     */
+    vendorServiceId?: string | null;
+  },
 ): Promise<SavePackageResult> {
   if (!packageAuthoringEnabled()) return { status: 'disabled' };
 
@@ -207,6 +225,9 @@ export async function savePackage(
       is_consumable_flexible: input.is_consumable_flexible,
       primary_canonical_service:
         input.primary_canonical_service ?? input.items[0]?.canonical_service ?? null,
+      // The card this package was minted for, or NULL for a standalone one.
+      // Ownership is enforced in the database, not here.
+      vendor_service_id: input.vendorServiceId ?? null,
       // A new package starts UNLISTED. The vendor publishes it deliberately —
       // a half-built package must never appear on a live card mid-edit.
       is_active: false,

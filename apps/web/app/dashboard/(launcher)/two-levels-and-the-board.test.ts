@@ -366,10 +366,17 @@ test('NOTHING gates the finished shelf behind a query param', () => {
     'The launcher reads a `show` search param again.',
   );
   // …and the finished cards must actually be rendered from the shelf.
-  assert.ok(
-    count(src, /unwritten\.map\(/) >= 2,
-    'The finished shelf renders no cards on one of the two compositions (phone / ' +
-      'desktop). Both must list them.',
+  /*
+    ⚠ ONE COMPOSITION SINCE 2026-08-23 (owner ruling — `DECISION_LOG.md`). The
+    board used to render every shelf twice, phone and desktop, so these counts
+    read `>= 2`. They are EXACT now rather than relaxed: a second mapping means
+    a second card composition came back, which is the thing the ruling removed.
+  */
+  assert.equal(
+    count(src, /unwritten\.map\(/),
+    1,
+    'The finished shelf either renders no cards, or renders a second ' +
+      'composition of them. One card, every width.',
   );
 });
 
@@ -402,9 +409,11 @@ test('the finished cards are gated by NOTHING except emptiness', () => {
       `front of it: ${JSON.stringify(conditions)}. Whatever it is named, that ` +
       'is a switch in front of somebody\'s memories.',
   );
-  assert.ok(
-    count(section, /unwritten\.map\(/) >= 2,
-    'The finished section renders no cards on one of the two compositions.',
+  assert.equal(
+    count(section, /unwritten\.map\(/),
+    1,
+    'The finished section either renders no cards, or renders a second ' +
+      'composition of them.',
   );
   // AND NO CARD MAY BE PUT BEHIND THE MEASURED GATE. `storiesMeasured` still
   // decides the shelf's NAME and the story override's destination, but it must
@@ -415,12 +424,10 @@ test('the finished cards are gated by NOTHING except emptiness', () => {
     'A `storiesMeasured ? (…)` branch is back inside the finished shelf. Whatever ' +
       'it wraps, a failed read of the stories would make it vanish.',
   );
-  for (const marker of ['MobileEventChip', 'GlassEventCard']) {
-    assert.ok(
-      section.indexOf(marker) > 0,
-      `The finished shelf no longer renders ${marker}.`,
-    );
-  }
+  assert.ok(
+    section.indexOf('GlassEventCard') > 0,
+    'The finished shelf no longer renders the event card.',
+  );
 });
 
 test('every finished celebration is on exactly one shelf', () => {
@@ -460,9 +467,17 @@ test('the Untold card itself opens THAT EVENT\'S OWN story page — no separate 
     /storyHref=\{\s*storiesMeasured && canWriteStoryFor\(event\)\s*\?\s*`\/dashboard\/\$\{event\.event_id\}\/website\/editorial`\s*:\s*undefined\s*\}/,
     "The Untold shelf's cards no longer override their href to that event's own story page.",
   );
-  // Both the mobile chip grid and the desktop card grid must carry the
-  // override — a fix wired into only one of them opens correctly on a
-  // laptop and wrongly on the phone that showed it to the owner.
+  /*
+    ⚠ THERE USED TO BE TWO CARD GRIDS ON THIS SHELF — a phone chip grid and a
+    desktop card grid — and this counted the override to 2 because wiring it
+    into only one opened correctly on a laptop and wrongly on the phone that
+    showed it to the owner. Since 2026-08-23 one card renders at every width
+    (owner ruling — `DECISION_LOG.md`), so the correct count is 1.
+
+    🔑 THE PROPERTY IS UNCHANGED AND THE CHECK IS NOT WEAKER: it is still EXACT,
+    so a second grid appearing without the override — the original defect — still
+    fails here, and so does the override going missing altogether.
+  */
   const overrideCount = (
     src.match(
       /storyHref=\{\s*storiesMeasured && canWriteStoryFor\(event\)\s*\?\s*`\/dashboard\/\$\{event\.event_id\}\/website\/editorial`\s*:\s*undefined\s*\}/g,
@@ -470,8 +485,8 @@ test('the Untold card itself opens THAT EVENT\'S OWN story page — no separate 
   ).length;
   assert.equal(
     overrideCount,
-    2,
-    'The story-page override is wired into only one of the two Untold card ' +
+    1,
+    'The story-page override is wired into a number of Untold card ' +
       'renderings (mobile chips vs. the desktop grid) — the other still opens ' +
       "the ordinary event dashboard.",
   );
@@ -547,11 +562,7 @@ test('no card on the board hardcodes the organiser dashboard path', () => {
   // fallback, which the second assertion below pins: an override that stopped
   // falling back to `href` would strand an invited guest on a 404 again, which
   // is the exact bug this whole test exists for.
-  for (const component of [
-    'GlassEventCard',
-    'MobileEventHero',
-    'MobileEventChip',
-  ]) {
+  for (const component of ['GlassEventCard']) {
     const body = fnBody(src, component);
     if (/const resolvedHref =/.test(body)) {
       assert.match(
@@ -594,15 +605,18 @@ test('a card with nowhere to go SAYS SO, on every shelf', () => {
     'The reason a card cannot be opened is derived from something other than "it ' +
       'has no destination". Anything else can be true on one shelf and not another.',
   );
-  assert.ok(
-    count(src, /\{closedReason\}/) >= 2,
-    'A card composition stopped rendering the reason. A dead card that explains ' +
-      'nothing reads as the app being broken, or as the couple pulling their page.',
+  assert.equal(
+    count(src, /\{closedReason\}/),
+    1,
+    'The card stopped rendering the reason — a dead card that explains nothing ' +
+      'reads as the app being broken, or as the couple pulling their page. More ' +
+      'than one means a second composition returned.',
   );
   assert.match(
-    fnBody(src, 'MobileEventHero'),
-    /closedReason,/,
-    'The phone hero dropped the reason from its facts line.',
+    fnBody(src, 'GlassEventCard'),
+    /\{closedReason\}/,
+    'The reason must be rendered by the card itself, not by a wrapper that ' +
+      'some shelf might forget.',
   );
 });
 
@@ -663,14 +677,13 @@ test('every card names the stance — checked per component, not per file', () =
     /<StanceChip stance=\{stance\}/,
     'The desktop card stopped rendering the stance badge.',
   );
-  for (const component of ['MobileEventHero', 'MobileEventChip']) {
-    assert.match(
-      fnBody(src, component),
-      /\{stanceLabel\(stance\)\}/,
-      `${component} stopped printing the stance. A difference between two cards ` +
-        'that is never named is worse than a label on both.',
-    );
-  }
+  /*
+    The two phone-only compositions that used to print `stanceLabel(stance)`
+    directly are gone; the one card wears the badge, asserted above. The
+    per-component slicing is KEPT rather than collapsed to a file-level match —
+    `StanceChip`'s own body uses the helper, so a file-level count is satisfied
+    by the helper defining itself and cannot see a card going quiet.
+  */
 });
 
 test('the launcher asks for the invited memberships at all', () => {

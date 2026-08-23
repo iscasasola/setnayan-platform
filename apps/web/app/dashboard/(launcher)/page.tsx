@@ -1044,20 +1044,7 @@ export default async function LauncherPage({
             itself the morning after.
           </p>
         ) : null}
-        <div className="space-y-3 sm:hidden">
-          {happeningNow.map((event) => (
-            <BoardCardWithMenu key={event.event_id} event={event} tone="dark">
-              <MobileEventHero
-                event={event}
-                pct={progressByEvent.get(event.event_id) ?? null}
-                todayISO={todayISO}
-                summary={decisionByEvent.get(event.event_id)}
-                hasMenu={event.member_type === 'couple'}
-              />
-            </BoardCardWithMenu>
-          ))}
-        </div>
-        <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {happeningNow.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event}>
               <GlassEventCard
@@ -1092,50 +1079,8 @@ export default async function LauncherPage({
           Planning
         </SectionLabel>
         <ClashNotice clashes={clashes} />
-        {/* MOBILE composition (proto .mhero/.mbento/.m-nudge/.mghost): the
-            primary event as a full-width dark hero, the rest as compact glass
-            chips, the neediest-event nudge row, then the New-event ghost. Same
-            real data + hrefs as the desktop cards. */}
-        <div className="space-y-3 sm:hidden">
-          {upcoming[0] ? (
-            <BoardCardWithMenu event={upcoming[0]} tone="dark">
-              <MobileEventHero
-                event={upcoming[0]}
-                pct={progressByEvent.get(upcoming[0].event_id) ?? null}
-                todayISO={todayISO}
-                summary={decisionByEvent.get(upcoming[0].event_id)}
-                hasMenu={upcoming[0].member_type === 'couple'}
-              />
-            </BoardCardWithMenu>
-          ) : null}
-          {upcoming.length > 1 ? (
-            <div
-              className="sn-reveal grid grid-cols-2 gap-2.5"
-              style={{ animationDelay: '0.58s' }}
-            >
-              {upcoming.slice(1).map((event, i) => (
-                <BoardCardWithMenu
-                  key={event.event_id}
-                  event={event}
-                  /* Two-up grid: even index = left column. Its menu hangs from
-                     the card's LEFT edge so a 280px panel stays on screen. */
-                  align={i % 2 === 0 ? 'left' : 'right'}
-                >
-                  <MobileEventChip
-                    event={event}
-                    pct={progressByEvent.get(event.event_id) ?? null}
-                    todayISO={todayISO}
-                    summary={decisionByEvent.get(event.event_id)}
-                    hasMenu={event.member_type === 'couple'}
-                  />
-                </BoardCardWithMenu>
-              ))}
-            </div>
-          ) : null}
-          <NewEventCard delay={0.74} />
-        </div>
         {/* DESKTOP grid (proto .evrow — 4 columns on the wide canvas). */}
-        <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {upcoming.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event}>
               <GlassEventCard
@@ -1161,25 +1106,7 @@ export default async function LauncherPage({
             <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--sn-ink-400)]">
               Put away
             </p>
-            <div className="grid grid-cols-2 gap-2.5 sm:hidden">
-              {putAway.map((event, i) => (
-                <BoardCardWithMenu
-                  key={event.event_id}
-                  event={event}
-                  align={i % 2 === 0 ? 'left' : 'right'}
-                >
-                  <MobileEventChip
-                    event={event}
-                    pct={progressByEvent.get(event.event_id) ?? null}
-                    finished
-                    todayISO={todayISO}
-                    summary={decisionByEvent.get(event.event_id)}
-                    hasMenu={event.member_type === 'couple'}
-                  />
-                </BoardCardWithMenu>
-              ))}
-            </div>
-            <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {putAway.map((event, i) => (
                 <BoardCardWithMenu key={event.event_id} event={event}>
                   <GlassEventCard
@@ -1291,35 +1218,9 @@ export default async function LauncherPage({
                 was refused, keep the ordinary card → event-dashboard behaviour
                 — sending either into a stranger's editor, or into an editor a
                 refused read cannot vouch for, is not this shelf's call to make. */}
-            {/* MOBILE — compact chips, muted (the same treatment the hidden
-                half used to get once revealed). */}
-            <div className="grid grid-cols-2 gap-2.5 sm:hidden">
-              {unwritten.map((event, i) => (
-                <BoardCardWithMenu
-                  key={event.event_id}
-                  event={event}
-                  align={i % 2 === 0 ? 'left' : 'right'}
-                  finished
-                >
-                  <MobileEventChip
-                    event={event}
-                    pct={progressByEvent.get(event.event_id) ?? null}
-                    finished
-                    todayISO={todayISO}
-                    summary={decisionByEvent.get(event.event_id)}
-                    hasMenu={event.member_type === 'couple'}
-                    storyHref={
-                      storiesMeasured && canWriteStoryFor(event)
-                        ? `/dashboard/${event.event_id}/website/editorial`
-                        : undefined
-                    }
-                  />
-                </BoardCardWithMenu>
-              ))}
-            </div>
             {/* DESKTOP — the same glass cards, muted scene, reading
                 "Celebrated". */}
-            <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {unwritten.map((event, i) => (
                 <BoardCardWithMenu key={event.event_id} event={event} finished>
                   <GlassEventCard
@@ -1376,26 +1277,7 @@ export default async function LauncherPage({
               : 'This is where the celebrations you have written up live.'}
           </p>
         ) : null}
-        <div className="grid grid-cols-2 gap-2.5 sm:hidden">
-          {written.map((event, i) => (
-            <BoardCardWithMenu
-              key={event.event_id}
-              event={event}
-              align={i % 2 === 0 ? 'left' : 'right'}
-              finished
-            >
-              <MobileEventChip
-                event={event}
-                pct={progressByEvent.get(event.event_id) ?? null}
-                finished
-                todayISO={todayISO}
-                summary={decisionByEvent.get(event.event_id)}
-                hasMenu={event.member_type === 'couple'}
-              />
-            </BoardCardWithMenu>
-          ))}
-        </div>
-        <div className="hidden gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {written.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event} finished>
               <GlassEventCard
@@ -1989,173 +1871,32 @@ function deriveEventView(
   };
 }
 
-/**
- * MOBILE events hero (proto .mhero) — the first (primary) upcoming event as a
- * full-width dark card: gold eyebrow, name, mono facts line, slim gold progress
- * bar with the library shimmer. Real data only — facts and the bar render only
- * from what actually exists.
+/*
+ * ─── ONE EVENT CARD, PHONE AND LAPTOP (owner 2026-08-23) ─────────────────
+ *
+ * `MobileEventHero` and `MobileEventChip` LIVED HERE and are deleted. The
+ * board used to render every shelf twice — a phone composition under
+ * `sm:hidden` (a full-width dark hero for the first event, compact two-up
+ * chips for the rest) and a glass-card grid under `hidden sm:grid`. One card
+ * now renders at every width: one column on a phone, two from `sm`, three
+ * from `lg`, four from `xl`.
+ *
+ * ⚖ THIS REPLACES TWO OWNER-APPROVED COMPOSITIONS, AND IT IS AN OWNER
+ * DECISION, NOT AN ENGINEERING ONE. `GlassEventCard`'s docblock records
+ * "owner-approved final design 2026-07-15" and the phone pair cited the
+ * prototype it came from by name. A session was asked to unify them, opened
+ * these files, found both signed off, and put the question up rather than
+ * reversing two approvals on its own authority. The owner answered yes.
+ * `DECISION_LOG.md` 2026-08-23 carries the row.
+ *
+ * 🔑 NOTHING WAS LOST IN THE COLLAPSE, and that was checked rather than
+ * assumed: the glass card already carried every signal the phone pair did —
+ * the photograph, the monogram, the name and place, the date, the counter,
+ * the progress and the stance — and it carries the story-page override
+ * (`storyHref`) the Untold shelf depends on. The `align` alternation the
+ * two-up chips needed is gone with them: at one column a card is full width,
+ * so its menu hangs from the right edge with room to open.
  */
-function MobileEventHero({
-  event,
-  pct,
-  todayISO,
-  summary,
-  hasMenu = false,
-}: {
-  event: EventWithRole;
-  pct: number | null;
-  /** The board's PH-local day — the countdown and the shelf must share it. */
-  todayISO: string;
-  /** This event's own decision summary. `undefined` ⇒ no pill — never a 0. */
-  summary?: EventDecisionSummary;
-  /** Reserve the top-right corner for the card menu. */
-  hasMenu?: boolean;
-}) {
-  const { badge, dateLabel, countdown, plannedLabel, status, stance, href, closedReason } =
-    deriveEventView(event, pct, undefined, todayISO);
-  // ⚠ The comment here used to read "attention/overdue lives ONLY in the mobile
-  // nudge row now (owner 2026-07-15: one home for overdue counts)". That nudge
-  // row IS the banner retired above, and it only ever carried the busiest
-  // event — so on a phone this hero could be the neediest card on screen and
-  // say nothing. The counter now rides the card (owner 2026-08-20).
-  // An INVITED hero shows its status line instead of a plan percentage it has no
-  // business quoting — `plannedLabel` is already null for it.
-  const facts = [
-    plannedLabel,
-    stance === 'invited' ? status : null,
-    closedReason,
-    dateLabel,
-  ].filter(Boolean) as string[];
-  return (
-    <CardShell
-      href={href}
-      className={`sn-press sn-reveal block w-full rounded-2xl bg-ink p-4 text-cream shadow-[0_20px_44px_-26px_rgba(23,22,15,0.7)] ${
-        hasMenu ? 'pr-12' : ''
-      }`}
-      style={{ animationDelay: '0.5s' }}
-    >
-      <p className="flex flex-wrap items-center gap-x-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-gold-300)]">
-        <span>
-          {badge} · {countdown ?? dateLabel ?? 'Date to be set'}
-        </span>
-        {stance ? (
-          <span className="normal-case tracking-normal text-cream/55">
-            · {stanceLabel(stance)}
-          </span>
-        ) : null}
-      </p>
-      <p className="mt-1 flex items-center gap-1.5 text-lg font-bold">
-        {event.is_primary ? (
-          <span aria-hidden className="shrink-0 text-xs text-[color:var(--sn-terra)]">
-            ★
-          </span>
-        ) : null}
-        <span className="truncate">{event.display_name}</span>
-      </p>
-      {facts.length > 0 ? (
-        <p className="mt-1 flex gap-3 font-mono text-[11px] text-cream/60">
-          {facts.map((f) => (
-            <span key={f} className="truncate">
-              {f}
-            </span>
-          ))}
-        </p>
-      ) : null}
-      {summary && stance !== 'invited' && summary.total > 0 ? (
-        <span className="mt-2 flex">
-          <EventAttention summary={summary} stance={stance} />
-        </span>
-      ) : null}
-      {pct != null ? (
-        <span className="sn-bar mt-2.5 block h-1.5 overflow-hidden rounded-full bg-white/15">
-          <i
-            className="relative overflow-hidden bg-terracotta"
-            style={{ width: `${pct}%` }}
-          >
-            {/* Infinite capiz shim inside the gold fill (library sn-shimmer;
-                the global reduced-motion freeze caps it to one instant run). */}
-            <span
-              aria-hidden
-              className="absolute inset-y-0 left-0 w-1/3 rounded-full bg-white/25"
-              style={{ animation: 'sn-shimmer 2.8s ease-in-out 1.8s infinite' }}
-            />
-          </i>
-        </span>
-      ) : null}
-    </CardShell>
-  );
-}
-
-/**
- * MOBILE compact event chip (proto .mbento cell) — eyebrow (badge · date),
- * name, status line, stance. No ring/texture/monogram at this density.
- */
-function MobileEventChip({
-  event,
-  pct,
-  finished,
-  todayISO,
-  summary,
-  hasMenu = false,
-  storyHref,
-}: {
-  event: EventWithRole;
-  pct: number | null;
-  finished?: boolean;
-  /** The board's PH-local day — the countdown and the shelf must share it. */
-  todayISO: string;
-  /** This event's own decision summary. `undefined` ⇒ no pill — never a 0. */
-  summary?: EventDecisionSummary;
-  /** Reserve the top-right corner for the card menu. */
-  hasMenu?: boolean;
-  /** See the matching prop on `GlassEventCard` — same override, same rule. */
-  storyHref?: string;
-}) {
-  const { badge, dateLabel, status, stance, href, closedReason } = deriveEventView(
-    event,
-    pct,
-    finished,
-    todayISO,
-  );
-  const resolvedHref = storyHref ?? href;
-  return (
-    <CardShell
-      href={resolvedHref}
-      className={`sn-press block h-full rounded-2xl border border-ink/15 bg-white/60 p-3 text-left ${
-        finished ? 'opacity-75' : ''
-      } ${hasMenu ? 'pr-9' : ''}`}
-    >
-      <p className="truncate font-mono text-[9px] uppercase text-mulberry">
-        {badge}
-        {dateLabel ? ` · ${dateLabel}` : ''}
-      </p>
-      <p className="truncate text-sm font-bold text-ink">{event.display_name}</p>
-      <p className="truncate text-[11px] text-ink/55">{status}</p>
-      {/* The stance, at chip density: a plain line rather than the badge, so a
-          two-up grid stays readable. Never omitted — the whole point is that
-          two cards side by side say which is which. */}
-      {stance ? (
-        <p className="truncate text-[10.5px] font-semibold text-ink/45">
-          {stanceLabel(stance)}
-        </p>
-      ) : null}
-      {closedReason ? (
-        <p className="text-[10.5px] leading-snug text-ink/45">{closedReason}</p>
-      ) : null}
-      {/* AT CHIP DENSITY THE COUNT IS THE WHOLE MESSAGE. These sit two-up on a
-          phone, so the named action ("3 payments to settle") cannot fit beside
-          a name and a status without truncating to noise. The number and
-          "need you" fit, and the named line is one tap away on the event
-          itself — which is where pressing this chip goes. */}
-      {summary && summary.total > 0 && stance !== 'invited' ? (
-        <p className="mt-1.5 flex items-center gap-1 text-[10.5px] font-bold text-[color:var(--sn-warning)]">
-          <AlertCircle aria-hidden className="h-3 w-3 shrink-0" />
-          <span className="font-mono">{summary.total}</span> need you
-        </p>
-      ) : null}
-    </CardShell>
-  );
-}
 
 /**
  * The "needs a decision now" line — a gold pill naming the top pending
@@ -2303,7 +2044,7 @@ function BoardCardWithMenu({
   align = 'right',
   /**
    * TRUE on the Untold + Told shelves — mirrors the `finished` prop already
-   * passed to the card underneath (`GlassEventCard` / `MobileEventChip`) on
+   * passed to the card underneath (`GlassEventCard`) on
    * those two shelves only. Owner 2026-08-22, asked directly: *"shouldn't now
    * happening and planning be the only ones to have this add to calendar?"*
    * A day that has already passed is not something to add to a phone

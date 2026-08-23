@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e995308fd",
+  "generatedFromRef": "e8da08eeb",
   "routeCount": 404,
   "destinations": 864,
   "actions": 581,
-  "blocks": 3851,
+  "blocks": 3849,
   "routes": {
     "/": {
       "files": [
@@ -3967,8 +3967,6 @@
         "Image",
         "ImpactLines",
         "Link",
-        "MobileEventChip",
-        "MobileEventHero",
         "MomentRow",
         "NewEventCard",
         "ProgressRing",
@@ -3994,6 +3992,7 @@
         "dashboard/[eventId]/_components/customer-bottom-nav.tsx",
         "dashboard/[eventId]/_components/customer-nav-config.ts",
         "dashboard/[eventId]/_components/customer-nav-fab.tsx",
+        "dashboard/[eventId]/_components/customer-nav-slot-keys.ts",
         "dashboard/[eventId]/_components/customer-section-subnav.tsx",
         "dashboard/[eventId]/_components/customer-sidebar.tsx",
         "dashboard/[eventId]/_components/day-of-mode/banner.tsx",
@@ -4007,6 +4006,7 @@
         "dashboard/[eventId]/_components/device-frame.tsx",
         "dashboard/[eventId]/_components/event-dashboard.tsx",
         "dashboard/[eventId]/_components/event-rail-context.tsx",
+        "dashboard/[eventId]/_components/event-rail-match-rows.ts",
         "dashboard/[eventId]/_components/expand-card.tsx",
         "dashboard/[eventId]/_components/feature-us-card.tsx",
         "dashboard/[eventId]/_components/inline-checkout-drawer.tsx",

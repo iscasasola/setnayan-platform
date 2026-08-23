@@ -1,5 +1,6 @@
 import { CalendarPlus, Check, Clock, Mic } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   offeredCatalogue,
   totalMinutes,
@@ -29,6 +30,22 @@ import { applyActivityPicks, toggleActivityPick } from '../activity-picks-action
 /** The host/MC canonical tile — the same key the specialization gate uses. */
 const HOST_TILE = 'host_mc';
 
+/** Said once, in both places a refused read used to remove the block silently. */
+function EmceePicksUnread() {
+  return (
+    <p
+      role="alert"
+      className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+    >
+      <strong className="text-ink">
+        We couldn&rsquo;t check what your host has planned.
+      </strong>{' '}
+      If they have suggested anything, it hasn&rsquo;t gone away. Reload in a
+      moment.
+    </p>
+  );
+}
+
 export async function EmceePicks({
   supabase,
   eventId,
@@ -38,21 +55,33 @@ export async function EmceePicks({
 }) {
   // Which booked vendor on this event is the host/MC? `event_vendors` links a
   // booking to a marketplace profile; the tile lives on the profile.
-  const { data: booked } = await supabase
+  // ⚠ BOTH READS BELOW END IN `return null`, so a refusal and "you have no
+  // ⚠ host/MC" are the same silence. Supabase RESOLVES with { error } rather
+  // ⚠ than throwing, so neither was ever noticed. A refused read now says so
+  // ⚠ instead of quietly removing the block from the couple's schedule.
+  const { data: booked, error: bookedError } = await supabase
     .from('event_vendors')
     .select('marketplace_vendor_id')
     .eq('event_id', eventId)
     .not('marketplace_vendor_id', 'is', null);
+  if (bookedError) {
+    logQueryError('EmceePicks.booked', bookedError, { event_id: eventId }, 'graceful_degrade');
+    return <EmceePicksUnread />;
+  }
 
   const vendorIds = ((booked ?? []) as { marketplace_vendor_id: string | null }[])
     .map((r) => r.marketplace_vendor_id)
     .filter((v): v is string => Boolean(v));
   if (vendorIds.length === 0) return null;
 
-  const { data: profiles } = await supabase
+  const { data: profiles, error: profilesError } = await supabase
     .from('vendor_profiles')
     .select('vendor_profile_id, business_name, services')
     .in('vendor_profile_id', vendorIds);
+  if (profilesError) {
+    logQueryError('EmceePicks.profiles', profilesError, { event_id: eventId }, 'graceful_degrade');
+    return <EmceePicksUnread />;
+  }
 
   const host = ((profiles ?? []) as {
     vendor_profile_id: string;

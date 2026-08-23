@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import sharp from 'sharp';
 import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -36,13 +37,21 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     .maybeSingle();
   if (!event) return new NextResponse('Event not found', { status: 404 });
 
-  const { data: inspoRows } = await supabase
+  const { data: inspoRows, error: inspoRowsError } = await supabase
     .from('event_inspiration_assets')
     .select('image_url, slot_position')
     .eq('event_id', eventId)
     .is('removed_at', null)
     .order('slot_position', { ascending: true })
     .limit(40);
+  if (inspoRowsError) {
+    logQueryError(
+      'MoodBoardConceptPdf.inspiration',
+      inspoRowsError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
 
   // ---- palette + role colors (mirror the Mood Board page) -----------------
   const palette = sanitizeRolePalette(event.role_palette ?? {});

@@ -2,6 +2,7 @@ import { Camera, EyeOff } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { setVendorCapturesHidden } from '../vendor-visibility-actions';
 
 /**
@@ -34,10 +35,24 @@ export async function VendorMediaControls({ eventId }: { eventId: string }) {
   if (error || !vendorRows || vendorRows.length === 0) return null;
 
   // Which of them actually have captures? One read, ids only.
-  const { data: captureRows } = await supabase
+  //
+  // ⚠ THE READ ABOVE GOT THIS RIGHT AND THIS ONE WAS THE MISSED HALF. A refusal
+  // ⚠ here empties `shooters`, the filter below drops every supplier, and the
+  // ⚠ whole block returns null — the same "no supplier has taken photos" claim
+  // ⚠ the comment above refuses to make, arriving one read later.
+  const { data: captureRows, error: capturesError } = await supabase
     .from('vendor_papic_captures')
     .select('vendor_profile_id')
     .eq('event_id', eventId);
+  if (capturesError) {
+    logQueryError(
+      'VendorMediaControls.captures',
+      capturesError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+    return null;
+  }
 
   const shooters = new Set(
     (captureRows ?? [])

@@ -147,7 +147,7 @@ export default async function WidgetsEditorPage({
   // We pick the first guest by created_at order — any guest with a
   // qr_token is a valid preview subject. When no guests exist yet, the
   // button is disabled with a tooltip pointing at the guest list.
-  const { data: previewGuest } = await supabase
+  const { data: previewGuest, error: previewGuestError } = await supabase
     .from('guests')
     .select('guest_id, first_name, last_name, display_name, qr_token')
     .eq('event_id', eventId)
@@ -156,6 +156,14 @@ export default async function WidgetsEditorPage({
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
+  if (previewGuestError) {
+    logQueryError(
+      'WebsiteWidgetsPage.previewGuest',
+      previewGuestError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
 
   const previewGuestName = previewGuest
     ? (previewGuest.display_name?.trim() ||

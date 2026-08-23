@@ -88,13 +88,21 @@ export default async function SaveTheDatePage({ params }: Props) {
   const profile = await resolveProfileByEvent(eventId);
   if (!surfaceEnabled(profile, 'save_the_date')) redirect(`/dashboard/${eventId}`);
 
-  const { data: event } = await supabase
+  const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
       'public_id, slug, display_name, event_date, venue_name, venue_address, ceremony_type, secondary_ceremony_type, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode, landing_page_visibility, std_launched_at, scheduled_launch_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
+  if (eventError) {
+    logQueryError(
+      'SaveTheDatePage.event',
+      eventError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
 
   // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
   const markSvg = resolveEventMonogramSvg(event);

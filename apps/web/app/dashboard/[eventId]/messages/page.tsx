@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { MessageSquare, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchCoupleThreads, formatChatTimestamp } from '@/lib/chat';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -63,13 +64,21 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
     // revealed business_name the rest of the marketplace + microsite
     // surfaces show. Resolution via `resolveVendorDisplayName` keeps the
     // gate copy in lock-step with VendorCard + /v/[slug].
-    const { data: vendor } = await supabase
+    const { data: vendor, error: vendorError } = await supabase
       .from('vendor_profiles')
       .select(
         'business_name, contact_email, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
       )
       .eq('vendor_profile_id', search.vendor_profile_id)
       .maybeSingle();
+    if (vendorError) {
+      logQueryError(
+        'CoupleMessagesPage.followGateVendor',
+        vendorError,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
     if (vendor) {
       let alreadyFollowing = false;
       try {

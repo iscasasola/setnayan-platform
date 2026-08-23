@@ -6,6 +6,7 @@ import { formatEventDate } from '@/lib/events';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   EDITORIAL_SECTION_KEYS,
   readCustomColumns,
@@ -130,32 +131,58 @@ export default async function EditorialEditorPage({
     } = await supabase.auth.getUser();
     if (user) {
       const admin = createAdminClient();
-      const { data: me } = await admin
+      const { data: me, error: meError } = await admin
         .from('users')
         .select('public_summary_consent_at')
         .eq('user_id', user.id)
         .maybeSingle();
+      if (meError) {
+        // Fails closed: an unread consent is not a consent.
+        logQueryError(
+          'EditorialPage.showcaseConsent',
+          meError,
+          { event_id: eventId },
+          'graceful_degrade',
+        );
+      }
       showcaseOptedIn = Boolean(me?.public_summary_consent_at);
     }
   } catch {
     showcaseOptedIn = false;
   }
 
+  // 🚨 THIS IS THE COUPLE'S WHOLE WRITTEN STORY — headline, deck, byline, pull
+  // 🚨 quote, section order, their uploads. Supabase RESOLVES with { error }
+  // 🚨 rather than throwing, so the try/catch below never saw a refusal: the
+  // 🚨 draft fell back to `{}`, the editor opened BLANK, and saving from there
+  // 🚨 writes the blank over what they wrote. An unread draft is not an empty
+  // 🚨 draft, and they must be told before they start typing.
   let draft: Record<string, unknown> = {};
   let status = 'draft';
+  let draftMeasured = true;
   try {
     const admin = createAdminClient();
-    const { data: ed } = await admin
+    const { data: ed, error: edError } = await admin
       .from('event_editorial')
       .select('draft_json, status')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (edError) {
+      logQueryError(
+        'EditorialPage.draft',
+        edError,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    draftMeasured = !edError;
     if (ed?.draft_json && typeof ed.draft_json === 'object') {
       draft = ed.draft_json as Record<string, unknown>;
     }
     if (typeof ed?.status === 'string') status = ed.status;
   } catch {
-    // best-effort — fall back to empty defaults (engine auto-writes everything).
+    // A genuine throw — a network failure, not a refusal. Same conclusion.
+    draftMeasured = false;
   }
 
   const sectionsRaw =
@@ -325,6 +352,19 @@ export default async function EditorialEditorPage({
       <PageMasthead
         title="Editorial"
       />
+
+      {!draftMeasured ? (
+        <p
+          role="alert"
+          className="mb-6 rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">
+            We couldn&rsquo;t load the story you saved.
+          </strong>{' '}
+          What you see below is blank because of that, not because your words are
+          gone. Reload before writing again &mdash; saving now would replace them.
+        </p>
+      ) : null}
 
       <EditorialEditor
         eventId={eventId}

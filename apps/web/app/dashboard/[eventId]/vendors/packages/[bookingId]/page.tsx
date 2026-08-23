@@ -130,11 +130,19 @@ export default async function PackageBookingPage({ params }: Props) {
   const chargeTotalCentavos = snapshotChargeTotalCentavos(pricingSnapshot);
 
   // Vendor info for the header
-  const { data: vendor } = await supabase
+  const { data: vendor, error: vendorError } = await supabase
     .from('vendor_profiles')
     .select('vendor_profile_id, business_name, business_slug, logo_url, location_city')
     .eq('vendor_profile_id', pkg.vendor_profile_id)
     .maybeSingle();
+  if (vendorError) {
+    logQueryError(
+      'CouplePackageBookingPage.vendor',
+      vendorError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
 
   const vendorPublicHref =
     vendor?.business_slug ? `/v/${vendor.business_slug}` : null;

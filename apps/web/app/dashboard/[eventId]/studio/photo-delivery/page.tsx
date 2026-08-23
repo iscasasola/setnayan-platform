@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Radio, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getPhotoDeliveryOAuthConfig } from '@/lib/photo-delivery-drive';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -53,7 +54,7 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: event } = await supabase
+  const { data: event, error: eventError } = await supabase
     // SEC-2b: public.events_host, not public.events — this select names a column
     // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
     // on the base table by 20271008731642. The view is the couple/moderator-scoped
@@ -64,18 +65,40 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
     )
     .eq('event_id', eventId)
     .maybeSingle();
+  if (eventError) {
+    logQueryError(
+      'PhotoDeliveryPage.event',
+      eventError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
 
   // Connection health for the reconnect banner. Photo Delivery + Papic share
   // ONE per-event grant (provider='drive'); 'needs_reauth' is set by the lazy
   // token refreshers when Google rejects the stored refresh_token. RLS scopes
   // this read to the couple (same pattern the Papic add-on page uses).
-  const { data: driveGrant } = await supabase
+  //
+  // ⚖ A REFUSAL HERE STAYS SILENT ON PURPOSE — but it must not stay INVISIBLE.
+  // ⚖ `needsReauth` false is the safe direction (a false "reconnect your
+  // ⚖ Google" banner would send a couple to fix something that is not broken),
+  // ⚖ so the banner is unchanged; what was missing is any trace at all, which
+  // ⚖ is how a connection that genuinely needs re-authorising could sit unread.
+  const { data: driveGrant, error: driveGrantError } = await supabase
     .from('oauth_grants')
     .select('connection_health')
     .eq('event_id', eventId)
     .eq('provider', 'drive')
     .is('revoked_at', null)
     .maybeSingle();
+  if (driveGrantError) {
+    logQueryError(
+      'PhotoDeliveryPage.driveGrant',
+      driveGrantError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   const needsReauth = driveGrant?.connection_health === 'needs_reauth';
 
   const syncMode: SyncMode =
@@ -92,13 +115,21 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
   // Read the latest job rollup via the admin client (RLS on photo_delivery_jobs
   // restricts to service role). The status route uses the same pattern.
   const adminForJobs = createAdminClient();
-  const { data: latestJob } = await adminForJobs
+  const { data: latestJob, error: latestJobError } = await adminForJobs
     .from('photo_delivery_jobs')
     .select('total_files, uploaded_files, total_bytes, uploaded_bytes')
     .eq('event_id', eventId)
     .order('started_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (latestJobError) {
+    logQueryError(
+      'PhotoDeliveryPage.latestJob',
+      latestJobError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
 
   const releaseStartedFlash = search.release_started === '1';
   const alreadyCompleteFlash = search.already_complete === '1';

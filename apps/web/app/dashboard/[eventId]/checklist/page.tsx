@@ -24,11 +24,15 @@ export async function generateMetadata({ params }: Props) {
   try {
     const { eventId } = await params;
     const supabase = await createClient();
-    const { data } = await supabase
+    // Costs a browser-tab title only; the fallback below is already correct.
+    const { data, error: titleError } = await supabase
       .from('events')
       .select('event_type')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (titleError) {
+      logQueryError('EventChecklistMetadata.title', titleError, { event_id: eventId }, 'graceful_degrade');
+    }
     /*
       ⚠ THE TAB READ "Date checklist · Setnayan · Setnayan".
 
@@ -74,13 +78,21 @@ export default async function EventChecklistPage({ params }: Props) {
     );
   }
 
-  const { data: eventRow } = await supabase
+  const { data: eventRow, error: eventRowError } = await supabase
     .from('events')
     .select(
       'event_date, event_end_date, cleared_at, timezone, event_type, date_candidates, date_window_start, created_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
+  if (eventRowError) {
+    logQueryError(
+      'EventChecklistPage.event',
+      eventRowError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   const eventType = (eventRow?.event_type as string | null) ?? null;
   // Deadline anchor. Non-wedding events keep event_date NULL until locked
   // (date-as-output), but they now seed candidate/window dates at creation —

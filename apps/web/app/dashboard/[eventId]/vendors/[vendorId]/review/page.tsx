@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ShieldCheck, ShieldOff } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { StarRatingInput } from '@/app/_components/star-rating-input';
@@ -64,7 +65,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: ev } = await supabase
+  const { data: ev, error: evError } = await supabase
     .from('event_vendors')
     .select(
       'vendor_id, event_id, vendor_name, category, contact_email, marketplace_vendor_id, status, completion_status, service_marked_complete_at, customer_confirmed_received_at',
@@ -72,6 +73,14 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
+  if (evError) {
+    logQueryError(
+      'VendorReviewPage.booking',
+      evError,
+      { event_id: eventId, vendor_id: vendorId },
+      'graceful_degrade',
+    );
+  }
   const eventVendor = ev as EventVendorLookup | null;
   if (!eventVendor) notFound();
 
@@ -79,11 +88,19 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
   // after the vendor marks the service complete AND the couple confirms (or the
   // M=7d/N=30d/legacy paths). Mirrors the review-gate RLS (migration
   // 20270101000000) so the page and the DB agree.
-  const { data: evtRow } = await supabase
+  const { data: evtRow, error: evtRowError } = await supabase
     .from('events')
     .select('event_date')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (evtRowError) {
+    logQueryError(
+      'VendorReviewPage.event',
+      evtRowError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   const eventDate = (evtRow as { event_date?: string | null } | null)?.event_date ?? null;
   const completion: CompletionFields = {
     status: eventVendor.status,
@@ -129,19 +146,40 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
   const admin = createAdminClient();
   let vendorProfile: VendorProfileLookup | null = null;
   if (eventVendor.marketplace_vendor_id) {
-    const { data: vp } = await admin
+    const { data: vp, error: vpError } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name, business_slug')
       .eq('vendor_profile_id', eventVendor.marketplace_vendor_id)
       .maybeSingle();
+    if (vpError) {
+      logQueryError(
+        'VendorReviewPage.profileByLink',
+        vpError,
+        { event_id: eventId, vendor_id: vendorId },
+        'graceful_degrade',
+      );
+    }
     vendorProfile = (vp ?? null) as VendorProfileLookup | null;
   }
   if (!vendorProfile && eventVendor.contact_email) {
-    const { data: vp } = await admin
+    // ⚠ IF BOTH LOOKUPS ARE REFUSED the page renders NoLinkedProfileState —
+    // "this supplier isn't on Setnayan" — about a shop that is. The couple is
+    // then told there is nobody to review. Both are bound so the refusal is at
+    // least visible; the state itself is unchanged, because the fallback for an
+    // unlinked supplier is genuinely the same screen.
+    const { data: vp, error: vpEmailError } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name, business_slug')
       .ilike('contact_email', eventVendor.contact_email)
       .maybeSingle();
+    if (vpEmailError) {
+      logQueryError(
+        'VendorReviewPage.profileByEmail',
+        vpEmailError,
+        { event_id: eventId, vendor_id: vendorId },
+        'graceful_degrade',
+      );
+    }
     vendorProfile = (vp ?? null) as VendorProfileLookup | null;
   }
 
@@ -160,13 +198,21 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
   // recommendation needs — so the card is built once and shown in both the
   // review-form state and the already-reviewed state. The RLS insert re-enforces
   // the completion gate, so this is a display-time read, not the security check.
-  const { data: recRow } = await supabase
+  const { data: recRow, error: recRowError } = await supabase
     .from('vendor_recommendations')
     .select('endorsement')
     .eq('event_id', eventId)
     .eq('vendor_profile_id', vendorProfile.vendor_profile_id)
     .eq('recommended_by_user_id', user.id)
     .maybeSingle();
+  if (recRowError) {
+    logQueryError(
+      'VendorReviewPage.recommendation',
+      recRowError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   const recommendCard = (
     <RecommendVendorCard
       eventId={eventId}

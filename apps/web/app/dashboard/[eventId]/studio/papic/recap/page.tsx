@@ -11,6 +11,7 @@ import {
   Megaphone,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { loadRecapCoupleSummary } from '@/lib/auto-recap';
@@ -68,15 +69,32 @@ export default async function CoupleRecapPage({
   // grant (provider='drive') that also covers Photo Delivery + Papic storage.
   const recapHasContent =
     summary.privatePhotos > 0 || summary.approvedKwentos > 0;
-  const { data: recapDriveGrant } = await supabase
+  //
+  // ⚠ THE NUDGE IS DRIVEN BY AN ABSENCE, WHICH IS THE ONE THING A REFUSED READ
+  // ⚠ ALSO LOOKS LIKE. Supabase RESOLVES with { error } rather than throwing,
+  // ⚠ so a refusal made `!recapDriveGrant` true and told a couple who HAD
+  // ⚠ connected their Drive to go and connect it. Nag only on a measured no.
+  const { data: recapDriveGrant, error: recapDriveGrantError } = await supabase
     .from('oauth_grants')
     .select('grant_id')
     .eq('event_id', eventId)
     .eq('provider', 'drive')
     .is('revoked_at', null)
     .maybeSingle();
+  if (recapDriveGrantError) {
+    logQueryError(
+      'PapicRecapPage.driveGrant',
+      recapDriveGrantError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+  const driveGrantMeasured = !recapDriveGrantError;
   const showDriveNudge =
-    recapHasContent && !recapDriveGrant && (await getDriveOAuthConfig()).ready;
+    recapHasContent &&
+    driveGrantMeasured &&
+    !recapDriveGrant &&
+    (await getDriveOAuthConfig()).ready;
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6 px-4 py-8 sm:px-6">

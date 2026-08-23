@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Check, Globe, Lock, EyeOff, Heart, CalendarClock, Rocket, Radio, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -102,11 +103,19 @@ export default async function PrivacyEditorPage({
   let showcaseOptedIn = false;
   try {
     const admin = createAdminClient();
-    const { data: me } = await admin
+    const { data: me, error: meError } = await admin
       .from('users')
       .select('public_summary_consent_at')
       .eq('user_id', user.id)
       .maybeSingle();
+    if (meError) {
+      logQueryError(
+        'WebsitePrivacyPage.membership',
+        meError,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
     showcaseOptedIn = Boolean(me?.public_summary_consent_at);
   } catch {
     showcaseOptedIn = false;

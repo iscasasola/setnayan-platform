@@ -77,11 +77,17 @@ export async function generateMetadata({
   try {
     const { eventId } = await params;
     const supabase = await createClient();
-    const { data } = await supabase
+    // A refusal costs a browser-tab title and nothing else — the fallback
+    // below is the site default, which is the right answer either way. Bound
+    // and logged so it cannot hide a whole-table refusal that matters elsewhere.
+    const { data, error: titleError } = await supabase
       .from('events')
       .select('display_name')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (titleError) {
+      logQueryError('EventHomeMetadata.title', titleError, { event_id: eventId }, 'graceful_degrade');
+    }
     const name = ((data as { display_name?: string | null } | null)?.display_name ?? '').trim();
     return name ? { title: name } : {};
   } catch {
@@ -402,13 +408,24 @@ export default async function EventHomePage({
   //
   // Resolved ONCE here and threaded into <EventDashboard> for the tile, so the
   // whole feature costs one indexed query rather than two.
-  const { data: papicViewerMembership } = await supabase
+  // ⚖ Fails closed: an unread membership hides the photo counts rather than
+  // ⚖ showing a coordinator numbers they may not be entitled to. Logged, so a
+  // ⚖ couple who cannot see their own photo tile leaves a trace.
+  const { data: papicViewerMembership, error: papicViewerMembershipError } = await supabase
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .in('member_type', ['couple', 'coordinator'])
     .maybeSingle();
+  if (papicViewerMembershipError) {
+    logQueryError(
+      'EventHomePage.papicViewerMembership',
+      papicViewerMembershipError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   const canViewPapicCounts = Boolean(papicViewerMembership);
 
   // Papic nudge gate (PR-G option B). Asked ONLY when the nudge could actually

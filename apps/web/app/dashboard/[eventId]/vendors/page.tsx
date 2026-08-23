@@ -1471,11 +1471,25 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     const out: Record<string, string> = {};
     if (!isExploreReplanEnabled()) return out;
     try {
-      const { data } = await supabase
+      // ⚖ THE FAIL-OPEN HERE IS A DECISION, NOT A DEFECT — it is argued out in
+      // ⚖ the comment above and it can only ever show MORE, never hide a
+      // ⚖ category. It is left exactly as it is. What was missing is any trace:
+      // ⚖ Supabase RESOLVES with { error } rather than throwing, so the catch
+      // ⚖ below could not see a refusal and the couple's "Covered" ticks could
+      // ⚖ vanish for weeks with nothing written anywhere.
+      const { data, error: coveredError } = await supabase
         .from('event_category_decisions')
         .select('plan_group_id')
         .eq('event_id', eventId)
         .eq('decision', 'complete');
+      if (coveredError) {
+        logQueryError(
+          'CoupleVendorsPage.coveredTiles',
+          coveredError,
+          { event_id: eventId },
+          'graceful_degrade',
+        );
+      }
       const completed = new Set<string>(
         (data ?? []).map((r: { plan_group_id: string }) => r.plan_group_id),
       );
@@ -1500,12 +1514,20 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const excludedTiles: string[] = await (async () => {
     if (!isExploreReplanEnabled()) return [];
     try {
-      const { data } = await supabase
+      const { data, error: excludedError } = await supabase
         .from('event_category_decisions')
         .select('tile')
         .eq('event_id', eventId)
         .eq('decision', 'excluded')
         .not('tile', 'is', null);
+      if (excludedError) {
+        logQueryError(
+          'CoupleVendorsPage.excludedTiles',
+          excludedError,
+          { event_id: eventId },
+          'graceful_degrade',
+        );
+      }
       return (data ?? [])
         .map((r: { tile: string | null }) => r.tile)
         .filter((t): t is string => typeof t === 'string' && t.length > 0);
@@ -1821,11 +1843,19 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       const out = new Set<string>();
       if (!isExploreReplanEnabled()) return out;
       try {
-        const { data } = await supabase
+        const { data, error: decidedError } = await supabase
           .from('event_category_decisions')
           .select('plan_group_id, tile')
           .eq('event_id', eventId)
           .in('decision', ['excluded', 'complete']);
+        if (decidedError) {
+          logQueryError(
+            'CoupleVendorsPage.decidedGroups',
+            decidedError,
+            { event_id: eventId },
+            'graceful_degrade',
+          );
+        }
         const groupByTile = new Map<string, string>();
         for (const g of PLAN_GROUPS) {
           if (g.catalogTile) groupByTile.set(g.catalogTile, g.id);

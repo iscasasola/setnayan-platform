@@ -1,5 +1,6 @@
 import { MessageCircleHeart } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef } from '@/lib/papic-display-ref';
 import { KwentoQueueControls, type KwentoRow } from './kwento-queue-controls';
@@ -14,7 +15,12 @@ import { KwentoQueueControls, type KwentoRow } from './kwento-queue-controls';
 export async function KwentoQueue({ eventId }: { eventId: string }) {
   const admin = createAdminClient();
 
-  const { data: messages } = await admin
+  // ⚠ THIS QUEUE IS THE ONLY PLACE GUEST MESSAGES ARE READ AND APPROVED.
+  // ⚠ Supabase RESOLVES with { error } rather than throwing, so a refusal
+  // ⚠ arrives as `data: null`, `?? []` empties it, the block returns null, and
+  // ⚠ the couple sees an event where nobody wrote anything — while messages
+  // ⚠ sit unreviewed and never reach the wall.
+  const { data: messages, error: messagesError } = await admin
     .from('photo_messages')
     .select(
       'message_id, source_table, source_id, guest_id, body_text, status, moderation_state, moderation_labels, wall_eligible, hide_from_wall, submitted_at, edited_at',
@@ -25,15 +31,44 @@ export async function KwentoQueue({ eventId }: { eventId: string }) {
     .order('submitted_at', { ascending: false })
     .limit(60);
 
+  if (messagesError) {
+    logQueryError(
+      'KwentoQueue.messages',
+      messagesError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+    return (
+      <p
+        role="alert"
+        className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+      >
+        <strong className="text-ink">
+          We couldn&rsquo;t load your guests&rsquo; messages.
+        </strong>{' '}
+        This does not mean nobody has written one, and nothing has been shown on
+        the wall without you. Reload in a moment.
+      </p>
+    );
+  }
   const rows = messages ?? [];
   if (rows.length === 0) return null;
 
-  // Author names.
+  // Author names. A refusal here costs a name, not a message — every row still
+  // renders, under the "A guest" fallback already written below.
   const guestIds = [...new Set(rows.map((r) => r.guest_id as string))];
-  const { data: guests } = await admin
+  const { data: guests, error: guestsError } = await admin
     .from('guests')
     .select('guest_id, first_name, last_name, display_name')
     .in('guest_id', guestIds);
+  if (guestsError) {
+    logQueryError(
+      'KwentoQueue.authorNames',
+      guestsError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   const nameOf = new Map(
     (guests ?? []).map((g) => [
       g.guest_id as string,

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { Camera, Radio, Image as ImageIcon, ArrowRight, Images } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { countEventGuestCaptures } from '@/lib/papic-guest';
@@ -52,12 +53,20 @@ export default async function GalleriesHubPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const { data: membership } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle();
+  if (membershipError) {
+    logQueryError(
+      'GalleriesPage.membership',
+      membershipError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   if (!membership || !['couple', 'coordinator'].includes(membership.member_type as string)) {
     redirect(`/dashboard/${eventId}`);
   }

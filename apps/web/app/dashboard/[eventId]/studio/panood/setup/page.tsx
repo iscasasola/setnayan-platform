@@ -17,6 +17,7 @@ import {
   Unlink2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   liveStudioPoolOnly,
@@ -147,7 +148,12 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // --- OAuth grant lookup ---
   // RLS scopes oauth_grants by event_id IN current_event_ids(), so the
   // regular anon client is fine here — no service role needed for the read.
-  const { data: grantRaw } = await supabase
+  //
+  // ⚠ "NOT CONNECTED" AND "WE COULD NOT CHECK" ARRIVED AS THE SAME VALUE.
+  // ⚠ Supabase RESOLVES with { error } rather than throwing, so a refusal read
+  // ⚠ as `null`, and a family who had already linked their channel was shown
+  // ⚠ Connect again — one click from re-authorising a channel that was fine.
+  const { data: grantRaw, error: grantError } = await supabase
     .from('oauth_grants')
     .select(
       'grant_id, external_account_id, external_account_display, granted_at, metadata',
@@ -156,6 +162,15 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
     .eq('provider', 'youtube')
     .is('revoked_at', null)
     .maybeSingle();
+  if (grantError) {
+    logQueryError(
+      'PanoodSetupPage.youtubeGrant',
+      grantError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+  const grantMeasured = !grantError;
   const youtubeGrant = (grantRaw ?? null) as YoutubeGrant | null;
 
   // --- Graceful-fallback flag ---
@@ -317,6 +332,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         eventId={eventId}
         oauthReady={oauthReady}
         youtubeGrant={youtubeGrant}
+        grantMeasured={grantMeasured}
       />
 
       <GoLiveCard
@@ -375,19 +391,24 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
 // -----------------------------------------------------------------------------
 // Section 1 — Connect YouTube
 // -----------------------------------------------------------------------------
-// The OAuth entry point. Three states:
+// The OAuth entry point. FOUR states — the fourth was missing, and it is the
+// one that mattered: "we could not check" used to arrive as "not connected".
 //   1. oauthReady=false → "coming soon — admin setup pending" placeholder.
-//   2. oauthReady=true + no grant → "Connect" CTA pointing at /api/oauth/youtube/start.
-//   3. oauthReady=true + grant → "Connected to <channel>" + disconnect form.
+//   2. oauthReady=true + grant → "Connected to <channel>" + disconnect form.
+//   3. oauthReady=true + the read was REFUSED → say so; do NOT invite a second
+//      authorisation of a channel that is probably already linked.
+//   4. oauthReady=true + a measured no grant → "Connect" CTA.
 
 function YoutubeConnect({
   eventId,
   oauthReady,
   youtubeGrant,
+  grantMeasured,
 }: {
   eventId: string;
   oauthReady: boolean;
   youtubeGrant: YoutubeGrant | null;
+  grantMeasured: boolean;
 }) {
   return (
     <section
@@ -419,6 +440,17 @@ function YoutubeConnect({
         <ComingSoonPlaceholder />
       ) : youtubeGrant ? (
         <ConnectedPanel eventId={eventId} grant={youtubeGrant} />
+      ) : !grantMeasured ? (
+        <p
+          role="alert"
+          className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">
+            We couldn&rsquo;t check whether your channel is connected.
+          </strong>{' '}
+          If you connected one already it is still connected &mdash; reload in a
+          moment rather than linking it again.
+        </p>
       ) : (
         <ConnectCTA eventId={eventId} />
       )}

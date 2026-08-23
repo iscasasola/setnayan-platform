@@ -35,9 +35,31 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
+/**
+ * ⚠ THE TWO TEXT FIELDS HAVE DIFFERENT CONTRACTS, AND THAT IS THE TRAP.
+ *
+ * `guided-tour.tsx` renders `title` as ordinary React text and `body` through
+ * `dangerouslySetInnerHTML`. So in `body` an HTML entity resolves and a tag
+ * works; in `title` **both come out as literal characters**.
+ *
+ * That is not theoretical: `guest_welcome_v1`'s first slide shipped as
+ * `"You&rsquo;re invited"` and every guest opening their invitation was
+ * greeted with the raw `&rsquo;` — while the body directly beneath it, written
+ * the same way by the same hand, read correctly. One object, one style of
+ * authoring, two outcomes, no signpost.
+ *
+ * ✅ TITLE — plain text. Type the real character: ’ “ ” — …  **never an entity.**
+ * ✅ BODY  — HTML. Entities resolve, and two admin slides genuinely need tags
+ *    (`<code>is_internal</code>`, `<code>admin_audit_log</code>`), which is why
+ *    the dangerous render stays rather than being tidied away.
+ *
+ * `lib/tour-titles-are-text.test.ts` fails on any entity in a title.
+ */
 export type TourSlide = {
   Icon: LucideIcon;
+  /** PLAIN TEXT — rendered as `{title}`. An HTML entity here shows literally. */
   title: string;
+  /** HTML — rendered via dangerouslySetInnerHTML. Entities and tags both work. */
   body: string;
 };
 
@@ -148,12 +170,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     slides: [
       {
         Icon: Mailbox,
-        title: "You&rsquo;re invited",
+        title: "You’re invited",
         body: "This is your personal Setnayan invitation page. Bookmark this URL — it&rsquo;s your one place for everything about the event (RSVP, schedule, venue, your seat).",
       },
       {
         Icon: CheckCircle2,
-        title: 'RSVP whenever you&rsquo;re ready',
+        title: 'RSVP whenever you’re ready',
         body: 'Tap the RSVP button to say Yes, No, or Maybe. If your invite allows a plus-one, you can name them. You can change your answer up to the couple&rsquo;s cutoff.',
       },
       {

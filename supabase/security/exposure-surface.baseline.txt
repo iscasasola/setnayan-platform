@@ -3892,6 +3892,7 @@ col	public.vendor_activity_stats.last_active_at	anon=SIU authenticated=SIU
 col	public.vendor_activity_stats.platform_health_score	anon=SIU authenticated=SIU
 col	public.vendor_activity_stats.profile_completeness_pct	anon=SIU authenticated=SIU
 col	public.vendor_activity_stats.quality_score	anon=SIU authenticated=SIU
+col	public.vendor_activity_stats.replied_thread_count	anon=SIU authenticated=SIU
 col	public.vendor_activity_stats.response_rate_pct	anon=SIU authenticated=SIU
 col	public.vendor_activity_stats.review_avg_bayesian	anon=SIU authenticated=SIU
 col	public.vendor_activity_stats.review_avg_raw	anon=SIU authenticated=SIU

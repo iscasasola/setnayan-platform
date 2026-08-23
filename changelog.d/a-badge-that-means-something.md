@@ -39,3 +39,21 @@ fixing a badge. Named, not changed.
 
 SPEC IMPACT: None. Prod holds 0 chat threads and 0 activity rows, so no badge exists to change
 today.
+
+---
+
+### ⛔ The other half of § 3c — "celebrations this supplier documented" — is NOT built, and the reason is a gate, not effort
+
+The only honest source is `vendor_papic_captures`, the vendor's own capture lane. Its migration
+(`20270811377742`) is headed **"COUNSEL-GATED — DO NOT `supabase db push` UNTIL THE DPO/NPC
+RULING"**, and its own note says why: a supplier collecting guest photos for its own use makes
+that supplier a **third-party controller of guest personal information the guest never
+consented to**, widening a LIVE NPC filing. The app surface is additionally flag-gated
+(`VENDOR_PAPIC_CAPTURE_ENABLED`, default OFF). Publishing a public count derived from it would
+be a NEW disclosure built on exactly the data whose lawful basis is unresolved.
+
+The tempting alternative — count `papic_photos` at events where the supplier was booked — is
+worse, not easier: those are photos **guests** took. Crediting a supplier with them is a number
+that reads as a claim they never made, which is the one rule this whole stream is built on.
+
+Prod holds **0** vendor captures, so nothing is lost by waiting. This is an OWNER/DPO gate.

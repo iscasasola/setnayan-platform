@@ -214,7 +214,7 @@ export function PapicGuestCapture({
     styleRef.current = eventStyle;
   }, [eventStyle]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Clip recorder (Option A) — mirrors pabati-prompt.tsx.
+  // Clip recorder (Option A).
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef<number>(0);
@@ -582,7 +582,7 @@ export function PapicGuestCapture({
     };
   }, []);
 
-  // ---- clip recording (Option A · mirrors pabati-prompt.tsx) ----------------
+  // ---- clip recording (Option A) --------------------------------------------
 
   // After a capture saves (photo OR clip), wire up the Kwento + scan-to-tag
   // affordances anchored on the new capture id. Shared so both paths behave the

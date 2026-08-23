@@ -61,8 +61,8 @@ const SCENARIOS = [
   'refund',
   // S6 (Task #23 — pilot blocker). Exercises sweepLapsedSubscriptions
   // against Pro Weekly + Panood Annual backdated orders, plus confirms
-  // the sweep correctly IGNORES Pabati (which is not a subscription —
-  // it's a multi-purchase order).
+  // the sweep correctly IGNORES a one-off SKU (not a subscription).
+  // ⚠ That control used to be Pabati, retired out of the product 2026-08-21.
   'sweep_lapsed',
 ] as const;
 type Scenario = (typeof SCENARIOS)[number];
@@ -667,14 +667,15 @@ async function insertPaidOrder(
 
 // ---------------------------------------------------------------------------
 // Scenario 6: sweepLapsedSubscriptions — Pro Weekly + Panood Annual lapse +
-// Pabati MUST NOT lapse (Task #23)
+// a one-off order MUST NOT lapse (Task #23)
 // ---------------------------------------------------------------------------
 //
 // Verifies the production lib/subscriptions.ts:sweepLapsedSubscriptions
 // function correctly transitions only `subscription:true` SKUs from
-// 'paid' → 'lapsed' when their expires_at has passed. Pabati is
-// `subscription:false` in sku-catalog.ts (a one-off multi-purchase order)
-// — the sweep must IGNORE it.
+// 'paid' → 'lapsed' when their expires_at has passed. The Thank-You video is
+// `subscription:false` in sku-catalog.ts (a one-off purchase) — the sweep must
+// IGNORE it. ⚠ This control was Pabati until that SKU was retired 2026-08-21;
+// a control order for a SKU that no longer exists proves nothing.
 //
 // Idempotency: a second sweep call within ~100ms returns swept_count=0
 // because the first call has already advanced status away from 'paid'.
@@ -696,10 +697,11 @@ async function runSweepLapsedIteration(
   const past = new Date(now.getTime() - 60_000).toISOString();
 
   // Insert 3 paid orders: Pro Weekly + Panood Annual (both subscription:true
-  // → should lapse) and Pabati (subscription:false → must NOT lapse).
+  // → should lapse) and the Thank-You video (subscription:false → must NOT
+  // lapse).
   const proId = await insertPaidOrder(admin, ctx, 'vendor_pro_weekly', 499, i);
   const panoodId = await insertPaidOrder(admin, ctx, 'panood_annual_streaming', 19999, i);
-  const pabatiId = await insertPaidOrder(admin, ctx, 'pabati', 999, i);
+  const oneOffId = await insertPaidOrder(admin, ctx, 'papic_addon_thank_you', 2499, i);
 
   // Backdate expires_at to the past — mirror the production activate
   // helper (lib/subscriptions.ts:computeSubscriptionExpiry) but with
@@ -712,10 +714,10 @@ async function runSweepLapsedIteration(
     .from('orders')
     .update({ expires_at: past, updated_at: oneYearOneDayAgo })
     .eq('order_id', panoodId);
-  // Pabati order: expires_at intentionally NULL (matches sku-catalog.ts
+  // One-off order: expires_at intentionally NULL (matches sku-catalog.ts
   // subscription:false; production wouldn't set this column at all for
   // non-subscription SKUs).
-  await admin.from('orders').update({ updated_at: oneYearOneDayAgo }).eq('order_id', pabatiId);
+  await admin.from('orders').update({ updated_at: oneYearOneDayAgo }).eq('order_id', oneOffId);
 
   // Run the production sweep query inline. Duplicated from
   // lib/subscriptions.ts so the script stays import-free (matches
@@ -780,15 +782,15 @@ async function runSweepLapsedIteration(
     throw new Error(`panood_annual did not lapse (status: ${String(panoodRow?.status)})`);
   }
 
-  // Verify Pabati did NOT lapse (it's not a subscription).
-  const { data: pabatiRow } = await admin
+  // Verify the one-off order did NOT lapse (it's not a subscription).
+  const { data: oneOffRow } = await admin
     .from('orders')
     .select('status')
-    .eq('order_id', pabatiId)
+    .eq('order_id', oneOffId)
     .maybeSingle();
-  if (pabatiRow?.status !== 'paid') {
+  if (oneOffRow?.status !== 'paid') {
     throw new Error(
-      `pabati lapsed but shouldn't have (status: ${String(pabatiRow?.status)})`,
+      `the one-off order lapsed but shouldn't have (status: ${String(oneOffRow?.status)})`,
     );
   }
 

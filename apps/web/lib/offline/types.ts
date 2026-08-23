@@ -20,7 +20,7 @@
  * IndexedDB object store + a stub handler under ./service-handlers/.
  *
  * The ordering follows the canonical service catalog in CLAUDE.md
- * 2026-05-28 third row (Papic → Panood → Patiktok → Pabati →
+ * 2026-05-28 third row (Papic → Panood → Patiktok →
  * Camera Bridge → Live Wall). Keep the union literal in the same
  * order so grep over the codebase reads in the same sequence the
  * brief uses.
@@ -29,7 +29,6 @@ export type ServiceCode =
   | 'papic'
   | 'panood'
   | 'patiktok'
-  | 'pabati'
   | 'camera_bridge'
   | 'live_wall';
 
@@ -46,7 +45,6 @@ export const SERVICE_CODES: readonly ServiceCode[] = [
   'papic',
   'panood',
   'patiktok',
-  'pabati',
   'camera_bridge',
   'live_wall',
 ] as const;
@@ -62,7 +60,6 @@ export const SERVICE_LABELS: Record<ServiceCode, string> = {
   papic: 'Papic — photo capture',
   panood: 'Live Studio — livestream cache',
   patiktok: 'Patiktok — booth video',
-  pabati: 'Pabati — guest clips',
   camera_bridge: 'Camera Bridge — DSLR transit',
   live_wall: 'Live Wall — gallery cache',
 };

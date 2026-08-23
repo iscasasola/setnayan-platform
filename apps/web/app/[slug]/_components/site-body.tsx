@@ -9,7 +9,6 @@ import { PLATE } from '../_lib/measures';
 import { ROLE_LABELS } from '@/lib/guests';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
-import { PabatiPrompt } from './pabati-prompt';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramMotionKey } from '@/lib/monogram-motion';
@@ -1062,7 +1061,6 @@ export async function SiteBody({
       guestHubData,
       seatMap,
       papicGuest,
-      pabati,
       showClaimAccountCta,
       accountlessPhotosClosed,
       profileDetails,
@@ -1367,21 +1365,6 @@ export async function SiteBody({
                   guestUnlimited={papicGuest.guestUnlimited}
                   eventStyle={papicGuest.eventStyle}
                   faceMode={papicGuest.faceMode}
-                />
-              ) : null}
-
-              {/* Inline Pabati recorder — auto-shown in-context when the couple owns
-                  the active (admin-approved) PABATI pack, so this guest can leave a
-                  5-second video greeting without leaving their landing page. Same
-                  collector as the standalone /pabati/[eventId] share-link entry. The
-                  per-EVENT 300-clip quota drives the "N left" display; the RPC is the
-                  real gate. pabati is non-null only behind the active gate. */}
-              {pabati ? (
-                <PabatiPrompt
-                  guestName={guest.first_name}
-                  eventName={event.display_name}
-                  initialRemaining={pabati.initialRemaining}
-                  total={pabati.total}
                 />
               ) : null}
 

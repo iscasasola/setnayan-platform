@@ -158,7 +158,6 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
     'invitationUrl',
     'kind',
     'needsFaceEnroll',
-    'pabati',
     'papicGuest',
     // profileDetails (renamed from `profileDetails` 2026-08-21) — THIS PERSON'S OWN
     // offered back as the reply card's default. It is per-person data the guest
@@ -204,7 +203,6 @@ test('no real-guest-derived value can appear on the simulated identity', () => {
   assert.equal(identity.guestLiveGallery, null);
   assert.equal(identity.seatMap, null);
   assert.equal(identity.papicGuest, null);
-  assert.equal(identity.pabati, null);
   assert.equal(identity.saveFlash, null);
   assert.deepEqual(identity.eventVendorCredits, []);
   assert.deepEqual(identity.guest.custom_tags, []);

@@ -107,6 +107,23 @@ export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // breaks its drift test. Mirrored by migration 20271147550834.
   'live',
 
+  // --- ⬇ ADDED 2026-08-23 -------------------------------------------------
+  // Pabati was a real top-level page until the product was retired (owner:
+  // "we do not need pabati. retire it because it is part of papic"). Its route
+  // folder is deleted, so it left the GENERATED half below — and a retired word
+  // that stops being reserved is claimable.
+  //
+  // 🔒 A SHOP ADDRESS IS IMMUTABLE ONCE MINTED. A business called "Pabati"
+  // would hold setnayan.com/pabati forever, and the word is still ours in two
+  // live places: it is a Setnayan taxonomy leaf a shop can advertise
+  // (lib/taxonomy.ts), and SetnaProd advertises it in production today. It is
+  // also still the slug of the greeting challenge in the Papic library.
+  //
+  // ⚠ It belongs in THIS half for the same reason `live` above does: the other
+  // half is GENERATED from the route folders on disk, so a word with no folder
+  // breaks its drift test. Already reserved in the database mint.
+  'pabati',
+
   // --- Next.js internals / special files (defense-in-depth; can't be slugs
   //     anyway per the ^[a-z0-9-]{3,32}$ format, but reserved for safety) -----
   '_next',
@@ -156,7 +173,6 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'open-shop',
   'our-story',
   'pa3d',
-  'pabati',
   'pakanta',
   'palogo',
   'panood',

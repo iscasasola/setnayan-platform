@@ -133,7 +133,7 @@ const PAPIC_INCLUSIVE_SKUS = ['PAPIC_UNLOCK', 'PAPIC_SEATS', 'PAPIC_GUEST'] as c
 
 /**
  * Is "Papic active" for this event — the prerequisite every Papic ADD-ON
- * (Kwento · Photo Wall · Thank You · Stories · Pabati · Camera Bridge) gates on
+ * (Kwento · Photo Wall · Thank You · Stories · Camera Bridge) gates on
  * (owner 2026-06-26). TRUE when EITHER:
  *   1. the event has any active (non-revoked) paparazzi_seats row — a paid camera
  *      ("Papic is going"); or

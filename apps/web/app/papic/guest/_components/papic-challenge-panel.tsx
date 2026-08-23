@@ -295,11 +295,9 @@ function ChallengePanelInner({
                         {label}
                         {m.capture_kind === 'clip'
                           ? ' · Video'
-                          : m.capture_kind === 'pabati'
-                            ? ' · Greeting'
-                            : m.capture_kind === 'photo'
-                              ? ' · Photo'
-                              : ''}
+                          : m.capture_kind === 'photo'
+                            ? ' · Photo'
+                            : ''}
                       </p>
                       <p className="mt-0.5 text-sm text-cream/90">{m.prompt}</p>
                     </div>

@@ -207,7 +207,6 @@ export function buildSimulatedGuestIdentity(input: { slug: string }): GuestSiteI
     },
     seatMap: null,
     papicGuest: null,
-    pabati: null,
     // The host already has an account (that is how they hold the capability),
     // so the claim-account prompt would be nonsense here.
     showClaimAccountCta: false,

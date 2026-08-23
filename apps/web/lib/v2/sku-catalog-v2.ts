@@ -40,7 +40,6 @@ export const V2_SKU_CODES = [
   'CALL_TIME_ESCALATOR',
   'HIGH_RES_ARCHIVE',
   'PAKULAY',
-  'PABATI',
   'PAPIC_ADDON_STORIES',
   // Save-the-Date premium openings — the ₱799 cinematic-openings "template
   // unlock" (0024 PR4 P5; owner-set price, admin-editable at /admin/pricing).

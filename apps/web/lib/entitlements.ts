@@ -399,7 +399,12 @@ export const BUNDLE_CHILD_SKUS = Object.freeze({
     'PAPIC_ADDON_STORIES',
     'PAPIC_SEATS',
     'CAMERA_BRIDGE',
-    'PABATI',
+    // The Pabati video guestbook was dropped here 2026-08-21 with the product
+    // itself (owner: "we do not need pabati. retire it because it is part of
+    // papic"); the same PR's migration re-seeded bundle_components without it.
+    // Its name is deliberately NOT quoted in this comment — a quoted token
+    // inside this array literal is counted as a member by
+    // lint-entitlement-gates.
     'PAPIC_ADDON_THANK_YOU',
     'LIVE_WALL',
     // The LED wall backdrop SKU was dropped here 2026-08-11 with the product
@@ -430,12 +435,11 @@ export const BUNDLE_CHILD_SKUS = Object.freeze({
     'LIVE_WALL',
     'PAPIC_ADDON_THANK_YOU',
     'PAPIC_ADDON_STORIES',
-    'PABATI',
     'CAMERA_BRIDGE',
     'PAPIC_GUEST',
   ]),
   // PAPIC_UNLOCK_LTD (owner 2026-07-11) — the Ltd-tier twin at ₱9,000. Grants the
-  // two still-paid Papic add-ons (Kwento/Pabati/Stories are free, Thank-You/Guest
+  // two still-paid Papic add-ons (Kwento/Stories are free, Thank-You/Guest
   // retired). The Ltd capture-free itself is a separate gate (eventLtdFreeViaUnlock
   // in papic-cameras.ts), not a child SKU. DB source: bundle_components table.
   PAPIC_UNLOCK_LTD: Object.freeze(['LIVE_WALL', 'CAMERA_BRIDGE']),
@@ -625,13 +629,15 @@ async function basketGrantsSku(
  * accepts the message, the guest's prompt, and the couple's review queue all
  * ask `eventSkuActive('KWENTO')`.
  *
- * PABATI — owner 2026-08-21: "we already agreed all features of papic will be
- * free like kwento", then, asked to draw the line: Pabati free, the Thank-You
- * film stays paid. The guest-recorded greeting video, ₱1,299 per day, never
- * bought by anyone. 🔑 It is a PAPIC CHALLENGE ("pabati is part of papic
- * challenge") — the challenge library already carries a `greeting` category,
- * "a message to camera for the host", so pricing one challenge inside a free
- * library was a contradiction rather than a price.
+ * ⛔ PABATI IS NOT HERE, AND ITS ABSENCE IS THE DECISION — DO NOT ADD IT BACK.
+ * It was added to this set on 2026-08-21 when the owner made it free, and
+ * removed hours later the same day when he went further: "we do not need
+ * pabati. retire it because it is part of papic." Free and retired are the
+ * same catalog row and opposite products, so the retirement had to take BOTH
+ * halves — the row stays deactivated AND this entry is gone. Its surface, API,
+ * table and RPCs are deleted; a free entry for a SKU nothing implements would
+ * switch on a feature that no longer exists. The capability survives as an
+ * ordinary Papic clip challenge.
  *
  * ⛔ THE SHOT LADDER IS NOT IN THIS SET AND MUST NOT JOIN IT. Papic FEATURES are
  * free; Papic SHOTS are the product — 50 free, then ₱50 / ₱1,000 / ₱3,000 /
@@ -639,7 +645,7 @@ async function basketGrantsSku(
  * the thing that gets monetised.
  */
 export const FREE_FOR_ALL_SKUS: ReadonlySet<string> = Object.freeze(
-  new Set(['LIVE_WALL', 'KWENTO', 'PABATI']),
+  new Set(['LIVE_WALL', 'KWENTO']),
 ) as ReadonlySet<string>;
 
 export async function eventOwnsSku(

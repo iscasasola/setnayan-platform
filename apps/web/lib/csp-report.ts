@@ -99,7 +99,7 @@ const STATIC_ROUTE_ROOTS = new Set([
   'claim', 'cookies', 'creators', 'dashboard', 'demo-capture', 'dev', 'download',
   'explore', 'features', 'forgot-password', 'health', 'help', 'host',
   'how-it-works', 'join', 'login', 'monogram', 'onboarding', 'open-shop', 'pa3d',
-  'pabati', 'palogo', 'panood', 'papic', 'patiktok', 'pawebsite', 'pricing',
+  'palogo', 'panood', 'papic', 'patiktok', 'pawebsite', 'pricing',
   'privacy', 'proposals', 'prototype', 'realstories', 'receipts', 'refunds',
   'reset-password', 'samahan', 'setnayan-ai', 'signup', 'site-editor', 'terms',
   'tl', 'tour', 'u', 'v', 'vendor', 'vendor-dashboard', 'vendor-invite',

@@ -171,7 +171,7 @@ export const EXP_PERSONAS: ExpPersona[] = [
     ideal: { for_whom: ['guests'], feel: ['grand', 'midsize'], energy: ['lively'], roots: ['modern', 'blend'], effort: ['allout', 'balanced'] },
     feel: 'glam',
     extras: ['host_mc', 'dj', 'live_band', 'photo_booth', 'mobile_bar', 'lights_sound'],
-    services: ['panood', 'papic_seats', 'live_photowall', 'pabati', 'papic_guest'],
+    services: ['panood', 'papic_seats', 'live_photowall', 'papic_guest'],
     refinementSeeds: { catering: ['cuisine_filipino'], photo_video: ['pv_photojournalistic'], dj: ['Pop'] },
   },
   {

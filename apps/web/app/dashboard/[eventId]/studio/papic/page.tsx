@@ -690,7 +690,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
               </h2>
               <p className="max-w-prose text-sm text-ink/70">
                 Unlimited cameras for the whole {papicEventWord} + every add-on (Kwento,
-                Photo Wall, Thank You, Stories, Pabati, Camera Bridge).
+                Photo Wall, Thank You, Stories, Camera Bridge).
               </p>
             </div>
             {papicPlatformSettings ? (

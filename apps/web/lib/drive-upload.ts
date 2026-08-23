@@ -13,7 +13,7 @@ import { getR2Client, R2_BUCKETS } from '@/lib/r2';
 //
 // Context: the 2026-06-03 storage lock makes Cloudflare R2 the system of
 // record and Google Drive the couple's permanent copy of six artifacts
-// (Papic · Patiktok · Pabati · Pakanta · Monogram · QR codes). Every copy,
+// (Papic · Patiktok · Pakanta · Monogram · QR codes). Every copy,
 // whoever the feeder, reads bytes from R2 and PUTs them into the couple's
 // Drive folder via these primitives. Spec: Storage_and_Drive_Copy_Architecture_2026-06-03.md.
 //

@@ -99,9 +99,10 @@ const DOORS = [
   'papic/guest/page.tsx',
   'papic/decorate/page.tsx',
   '3d_plan/demo/[token]/page.tsx',
-  // ⚠ pool + pabati are NOT here: they keep a <main> for their live gallery /
-  // recorder, which rule 2 would (correctly) refuse. Their gold was fixed in
-  // the same pass; the colour rule simply does not cover them.
+  // ⚠ pool is NOT here: it keeps a <main> for its live gallery, which rule 2
+  // would (correctly) refuse. Its gold was fixed in the same pass; the colour
+  // rule simply does not cover it. (`pabati` stood beside it until the Pabati
+  // product was retired on 2026-08-21 and its page deleted.)
   'vendor/claim/[token]/page.tsx',
   'vendor/claim/[token]/finalize/page.tsx',
   'join/[eventId]/page.tsx',
@@ -228,14 +229,15 @@ const DOOR_CARD_FRAME =
 /**
  * THE BILL, NAMED.
  *
- * Nine more pages carry that identical card (`w-full max-w-md rounded-2xl
+ * Eight more pages carry that identical card (`w-full max-w-md rounded-2xl
  * border … bg-surface p-7`) — Papic capture surfaces, the Live Studio and 3D
- * demos, Pabati. They are NOT all doors: several use the card only for a gate
+ * demos. (There were nine until the Pabati page was deleted with its product on
+ * 2026-08-21.) They are NOT all doors: several use the card only for a gate
  * or error state on a surface whose main job is a camera. Porting them changes
  * what those screens look like, which is a design call and not this PR's.
  *
  * ⚖ SO THEY ARE LISTED, NOT SILENCED — and the assertion pins the set EXACTLY.
- * A tenth page adopting the shape fails. Porting one of these nine also fails,
+ * A new page adopting the shape fails. Porting one of these also fails,
  * telling you to delete its line. A baseline is a bill, and this one is visible
  * and can only shrink.
  */

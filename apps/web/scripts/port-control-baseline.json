@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0b3b3251e",
-  "routeCount": 405,
-  "destinations": 865,
+  "generatedFromRef": "09697145d",
+  "routeCount": 404,
+  "destinations": 864,
   "actions": 581,
-  "blocks": 3853,
+  "blocks": 3847,
   "routes": {
     "/": {
       "files": [
@@ -558,7 +558,6 @@
         "[slug]/_components/our-photos-widget.tsx",
         "[slug]/_components/our-story.tsx",
         "[slug]/_components/owner-ribbon.tsx",
-        "[slug]/_components/pabati-prompt.tsx",
         "[slug]/_components/pahina-keepsake.tsx",
         "[slug]/_components/pahina-masthead.tsx",
         "[slug]/_components/pahina-motion.tsx",
@@ -733,7 +732,6 @@
         "LockedAnswer",
         "Logo",
         "LoveStoryInput",
-        "MediaRecorder",
         "MediaStream",
         "MomentsEssay",
         "Monogram",
@@ -743,7 +741,6 @@
         "OurStory",
         "OwnerCapability",
         "OwnerRibbon",
-        "PabatiPrompt",
         "PahinaCoverParallax",
         "PahinaKeepsake",
         "PahinaMasthead",
@@ -823,7 +820,6 @@
         "VendorRow",
         "VendorsWeLoved",
         "VenueWidget",
-        "VideoGuestbookWall",
         "WatchLiveBlock",
         "WatchTheFilm",
         "WaxSeal",
@@ -4006,7 +4002,6 @@
         "dashboard/[eventId]/_components/day-of-mode/grid.tsx",
         "dashboard/[eventId]/_components/day-of-mode/live-photo-wall-card.tsx",
         "dashboard/[eventId]/_components/day-of-mode/live-schedule-card.tsx",
-        "dashboard/[eventId]/_components/day-of-mode/video-guestbook-card.tsx",
         "dashboard/[eventId]/_components/day-of-mode/whats-happening-card.tsx",
         "dashboard/[eventId]/_components/day-of-mode/your-table-card.tsx",
         "dashboard/[eventId]/_components/device-frame.tsx",
@@ -4046,7 +4041,6 @@
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/clearance",
         "/dashboard/[seg]/date-selection",
-        "/dashboard/[seg]/galleries",
         "/dashboard/[seg]/guests/new",
         "/dashboard/[seg]/guests/tea-ceremony",
         "/dashboard/[seg]/invitation",
@@ -4212,7 +4206,6 @@
         "VendorDirectPay",
         "VendorLogo",
         "VendorProgress",
-        "VideoGuestbookCard",
         "VoucherBlock",
         "Watermark",
         "WhatsHappeningCard",
@@ -7711,17 +7704,6 @@
         "HTMLParagraphElement",
         "Link",
         "OurStoryManifesto"
-      ]
-    },
-    "/pabati/[eventId]": {
-      "files": [
-        "pabati/[eventId]/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "DoorShell",
-        "PabatiPrompt"
       ]
     },
     "/panood/cam/[token]": {

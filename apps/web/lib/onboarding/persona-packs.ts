@@ -80,11 +80,11 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
     },
     servicesByPersona: {
       keepsake: ['papic_seats', 'animated_monogram', 'advanced_website'],
-      big_celebration: ['papic_seats', 'live_photowall', 'papic_guest', 'pabati'],
-      best_of_both: ['papic_seats', 'advanced_website', 'pabati'],
+      big_celebration: ['papic_seats', 'live_photowall', 'papic_guest'],
+      best_of_both: ['papic_seats', 'advanced_website'],
       intimate_romance: ['advanced_website', 'animated_monogram'],
       modern_statement: ['animated_monogram', 'advanced_website'],
-      rooted_tradition: ['papic_seats', 'pabati', 'live_photowall'],
+      rooted_tradition: ['papic_seats', 'live_photowall'],
     },
   },
   debut: {
@@ -99,11 +99,11 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
     },
     servicesByPersona: {
       keepsake: ['animated_monogram', 'advanced_website', 'papic_seats'],
-      big_celebration: ['papic_seats', 'live_photowall', 'panood', 'papic_guest', 'pabati'],
+      big_celebration: ['papic_seats', 'live_photowall', 'panood', 'papic_guest'],
       best_of_both: ['papic_seats', 'advanced_website', 'panood'],
       intimate_romance: ['advanced_website', 'animated_monogram'],
       modern_statement: ['animated_monogram', 'advanced_website'],
-      rooted_tradition: ['panood', 'papic_seats', 'pabati'],
+      rooted_tradition: ['panood', 'papic_seats'],
     },
   },
   gender_reveal: {
@@ -118,11 +118,11 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
     },
     servicesByPersona: {
       keepsake: ['papic_seats', 'advanced_website'],
-      big_celebration: ['papic_seats', 'live_photowall', 'pabati'],
+      big_celebration: ['papic_seats', 'live_photowall'],
       best_of_both: ['papic_seats', 'advanced_website'],
-      intimate_romance: ['advanced_website', 'pabati'],
+      intimate_romance: ['advanced_website'],
       modern_statement: ['animated_monogram'],
-      rooted_tradition: ['papic_seats', 'pabati', 'advanced_website'],
+      rooted_tradition: ['papic_seats', 'advanced_website'],
     },
   },
   christening: {
@@ -137,11 +137,11 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
     },
     servicesByPersona: {
       keepsake: ['papic_seats', 'advanced_website'],
-      big_celebration: ['papic_seats', 'panood', 'pabati'],
+      big_celebration: ['papic_seats', 'panood'],
       best_of_both: ['papic_seats', 'advanced_website'],
-      intimate_romance: ['advanced_website', 'pabati'],
+      intimate_romance: ['advanced_website'],
       modern_statement: ['advanced_website', 'animated_monogram'],
-      rooted_tradition: ['panood', 'papic_seats', 'pabati'],
+      rooted_tradition: ['panood', 'papic_seats'],
     },
   },
   corporate: {
@@ -158,7 +158,7 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
     // services skew to broadcast (panood), website + live wall.
     servicesByPersona: {
       keepsake: ['advanced_website', 'papic_seats'],
-      big_celebration: ['panood', 'live_photowall', 'papic_seats', 'pabati'],
+      big_celebration: ['panood', 'live_photowall', 'papic_seats'],
       best_of_both: ['panood', 'papic_seats', 'advanced_website'],
       intimate_romance: ['advanced_website', 'papic_seats'],
       modern_statement: ['animated_monogram', 'panood', 'advanced_website'],
@@ -179,7 +179,7 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
     // live scoreboard/photo wall, capture seats. No couple-only SKUs.
     servicesByPersona: {
       keepsake: ['advanced_website', 'papic_seats'],
-      big_celebration: ['panood', 'live_photowall', 'papic_seats', 'pabati'],
+      big_celebration: ['panood', 'live_photowall', 'papic_seats'],
       best_of_both: ['panood', 'papic_seats', 'advanced_website'],
       intimate_romance: ['papic_seats', 'advanced_website'],
       modern_statement: ['animated_monogram', 'panood', 'advanced_website'],
@@ -197,14 +197,13 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
       rooted_tradition: ['souvenir_giveaways', 'food_cart'],
     },
     // Travel/destination: the trip website + candid capture + recap film are the
-    // hero services; greetings (pabati) bring along guests who couldn't fly out.
     servicesByPersona: {
       keepsake: ['advanced_website', 'papic_seats'],
-      big_celebration: ['papic_seats', 'advanced_website', 'pabati'],
+      big_celebration: ['papic_seats', 'advanced_website'],
       best_of_both: ['papic_seats', 'advanced_website'],
-      intimate_romance: ['advanced_website', 'pabati'],
+      intimate_romance: ['advanced_website'],
       modern_statement: ['advanced_website', 'animated_monogram'],
-      rooted_tradition: ['papic_seats', 'pabati', 'advanced_website'],
+      rooted_tradition: ['papic_seats', 'advanced_website'],
     },
   },
   celebration: {
@@ -219,11 +218,11 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
     },
     servicesByPersona: {
       keepsake: ['papic_seats', 'advanced_website', 'animated_monogram'],
-      big_celebration: ['papic_seats', 'live_photowall', 'papic_guest', 'pabati'],
-      best_of_both: ['papic_seats', 'advanced_website', 'pabati'],
+      big_celebration: ['papic_seats', 'live_photowall', 'papic_guest'],
+      best_of_both: ['papic_seats', 'advanced_website'],
       intimate_romance: ['advanced_website', 'animated_monogram'],
       modern_statement: ['animated_monogram', 'advanced_website'],
-      rooted_tradition: ['papic_seats', 'pabati', 'live_photowall'],
+      rooted_tradition: ['papic_seats', 'live_photowall'],
     },
   },
   anniversary: {
@@ -238,11 +237,11 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
     },
     servicesByPersona: {
       keepsake: ['animated_monogram', 'advanced_website', 'papic_seats'],
-      big_celebration: ['papic_seats', 'live_photowall', 'panood', 'pabati'],
+      big_celebration: ['papic_seats', 'live_photowall', 'panood'],
       best_of_both: ['papic_seats', 'advanced_website', 'panood'],
       intimate_romance: ['advanced_website', 'animated_monogram'],
       modern_statement: ['animated_monogram', 'advanced_website'],
-      rooted_tradition: ['panood', 'papic_seats', 'pabati'],
+      rooted_tradition: ['panood', 'papic_seats'],
     },
   },
   graduation: {
@@ -257,11 +256,11 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
     },
     servicesByPersona: {
       keepsake: ['papic_seats', 'advanced_website', 'animated_monogram'],
-      big_celebration: ['papic_seats', 'live_photowall', 'papic_guest', 'pabati'],
-      best_of_both: ['papic_seats', 'advanced_website', 'pabati'],
+      big_celebration: ['papic_seats', 'live_photowall', 'papic_guest'],
+      best_of_both: ['papic_seats', 'advanced_website'],
       intimate_romance: ['advanced_website', 'animated_monogram'],
       modern_statement: ['animated_monogram', 'advanced_website'],
-      rooted_tradition: ['papic_seats', 'pabati', 'live_photowall'],
+      rooted_tradition: ['papic_seats', 'live_photowall'],
     },
   },
   reunion: {
@@ -276,11 +275,11 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
     },
     servicesByPersona: {
       keepsake: ['papic_seats', 'advanced_website', 'papic_guest'],
-      big_celebration: ['papic_seats', 'live_photowall', 'panood', 'pabati'],
+      big_celebration: ['papic_seats', 'live_photowall', 'panood'],
       best_of_both: ['papic_seats', 'live_photowall', 'advanced_website'],
       intimate_romance: ['advanced_website', 'papic_seats'],
       modern_statement: ['animated_monogram', 'live_photowall', 'advanced_website'],
-      rooted_tradition: ['papic_seats', 'pabati', 'live_photowall'],
+      rooted_tradition: ['papic_seats', 'live_photowall'],
     },
   },
 };

@@ -13,7 +13,6 @@ import { papicMissionCost } from '@/lib/papic-cameras';
 import { fetchEventPoolStatus } from '@/lib/papic-event-pool';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { eventPabatiActive } from '@/lib/pabati';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { ensurePapicBoard } from '@/lib/papic-games';
 import {
@@ -64,7 +63,6 @@ type MissionRow = {
 const KIND_LABEL: Record<CaptureKind, string> = {
   photo: 'Photo',
   clip: 'On camera',
-  pabati: 'Video greeting',
 };
 
 const SOURCE_BADGE: Record<PapicMissionSource, { label: string; cls: string }> = {
@@ -169,12 +167,9 @@ export async function CoupleChallengesManager({
   // the caller it was written for. It is idempotent, advisory-locked per event,
   // and MATERIALIZE-ONCE/NEVER-DELETE — a de-selection is board_slot = NULL, not
   // a row delete — so calling it on a page render neither duplicates nor
-  // destroys anything. `pabatiActive` is computed server-side here, exactly as
-  // the guest route does it; a wrong value would show Pabati on a board that
-  // will not carry it. Fail-soft on error (the wrapper returns 0), and the list
+  // destroys anything. Fail-soft on error (the wrapper returns 0), and the list
   // below still renders — just without positions.
-  const pabatiActive = await eventPabatiActive(supabase, eventId);
-  await ensurePapicBoard(supabase, eventId, pabatiActive);
+  await ensurePapicBoard(supabase, eventId);
 
   // Approved missions only — live or hidden. Pending vendor challenges
   // (approved=false) belong to the approval panel, not the curation list.

@@ -72,8 +72,8 @@ async function newEvent(name: string, eventType: string): Promise<string> {
   return r.rows[0]!.event_id;
 }
 
-async function boardOf(eventId: string, pabatiActive = false): Promise<number[]> {
-  await db.query(`SELECT public.ensure_papic_board($1, $2)`, [eventId, pabatiActive]);
+async function boardOf(eventId: string): Promise<number[]> {
+  await db.query(`SELECT public.ensure_papic_board($1)`, [eventId]);
   const r = await db.query<{ library_id: number }>(
     `SELECT m.library_id FROM public.papic_missions m
       WHERE m.event_id = $1 AND m.board_slot IS NOT NULL
@@ -207,7 +207,7 @@ test('a wedding board is a curated ten that asks somebody to speak', async () =>
   // actually has to stay true: a full board, in rank order, carrying challenges
   // somebody talks into.
   const eventId = await newEvent('Cale & Ice', 'wedding');
-  const board = await boardOf(eventId, true);
+  const board = await boardOf(eventId);
 
   assert.equal(board.length, BOARD_SIZE, 'a wedding must still get a full board');
   assert.notDeepEqual(
@@ -243,17 +243,41 @@ test('a wedding board is a curated ten that asks somebody to speak', async () =>
   assert.deepEqual([...ranks].sort((a, b) => a - b), ranks, 'the board must be in rank order');
 });
 
-test('without the Pabati SKU the board is still full, and Pabati is absent', async () => {
-  const eventId = await newEvent('No Pabati', 'wedding');
-  const board = await boardOf(eventId, false);
-  assert.equal(board.length, BOARD_SIZE);
-  const pabati = await db.query<{ n: number }>(
-    `SELECT count(*)::int AS n FROM public.papic_missions m
-       JOIN public.papic_challenge_library l ON l.library_id = m.library_id
-      WHERE m.event_id = $1 AND m.board_slot IS NOT NULL AND l.capture_kind = 'pabati'`,
-    [eventId],
+/*
+  ⚠ THIS TEST USED TO READ "without the Pabati SKU the board is still full, and
+  Pabati is absent". The Pabati SKU was retired on 2026-08-21 (owner: "we do not
+  need pabati. retire it because it is part of papic") and the same migration
+  converted its one library row to an ordinary clip, so there is no longer a
+  kind to be absent — asking for one would search for a value the CHECK
+  constraint no longer permits, which is a search that cannot match rather than
+  a negative result.
+
+  What is worth asserting instead is the retirement itself, at the level a
+  guest feels it: nothing in the library is gated on a SKU any more, and the
+  greeting that was gated is still in there being asked for.
+*/
+test('the retired greeting survives as an ordinary clip, gated by nothing', async () => {
+  const row = await db.query<{ capture_kind: string; mission_type: string; is_active: boolean }>(
+    `SELECT capture_kind, mission_type, is_active
+       FROM public.papic_challenge_library WHERE slug = 'pabati'`,
   );
-  assert.equal(Number(pabati.rows[0]!.n), 0, 'Pabati must not board without its SKU');
+  assert.equal(row.rows.length, 1, 'the greeting row must still exist — the capability outlives the SKU');
+  assert.equal(row.rows[0]!.capture_kind, 'clip', 'it is recorded the way everything else is');
+  assert.equal(row.rows[0]!.mission_type, 'video_greeting');
+  assert.ok(row.rows[0]!.is_active, 'and it is still asked for');
+
+  // And the kind itself is gone from the table, not merely unused — a value the
+  // CHECK still permitted would let a later seed reintroduce a gated row.
+  const kinds = await db.query<{ def: string }>(
+    `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint
+      WHERE conrelid = 'public.papic_challenge_library'::regclass
+        AND conname = 'papic_challenge_library_capture_kind_check'`,
+  );
+  assert.equal(kinds.rows.length, 1, 'the capture_kind CHECK must still exist');
+  assert.ok(!/pabati/i.test(kinds.rows[0]!.def), `the CHECK still admits a retired kind: ${kinds.rows[0]!.def}`);
+
+  const board = await boardOf(await newEvent('Retired greeting', 'wedding'));
+  assert.equal(board.length, BOARD_SIZE, 'and the board is still full');
 });
 
 // ── 3 · THE TOKENS RESOLVE, PER EVENT, AT READ TIME ────────────────────────
@@ -355,7 +379,7 @@ test('a date that ALREADY has a wedding board gets it taken away — the real mo
      SELECT $1, l.mission_type, 'setnayan', l.prompt, l.library_id, l.capture_kind, true, true,
             row_number() OVER (ORDER BY l.priority_rank NULLS LAST, l.library_id)
        FROM public.papic_challenge_library l
-      WHERE l.library_id <= 60 AND l.capture_kind <> 'pabati'
+      WHERE l.library_id <= 60
       ORDER BY l.priority_rank NULLS LAST, l.library_id
       LIMIT ${BOARD_SIZE}`,
     [eventId],

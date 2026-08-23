@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ensurePapicBoard, fetchGuestMissions } from '@/lib/papic-games';
-import { eventPabatiActive } from '@/lib/pabati';
 
 // GET /api/papic/guest-missions
 //
@@ -54,12 +53,7 @@ export async function GET() {
   // could never have caught this, so a db test now calls this exact path with a
   // NULL session and asserts a board comes back.
   //
-  // Pabati (#5) availability is computed SERVER-SIDE here and passed in — the
-  // resolver never trusts a client-supplied flag, and eventSkuActive (a 6-source
-  // entitlement engine) stays out of SQL. Fail-closed: an error → false → Pabati
-  // is skipped + backfilled.
-  const pabatiActive = await eventPabatiActive(admin, session.event_id).catch(() => false);
-  await ensurePapicBoard(admin, session.event_id, pabatiActive).catch(() => 0);
+  await ensurePapicBoard(admin, session.event_id).catch(() => 0);
 
   const missions = await fetchGuestMissions(admin, session.guest_id).catch(() => []);
   return NextResponse.json({ missions });

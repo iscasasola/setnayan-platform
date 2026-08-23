@@ -510,14 +510,6 @@ export async function EditorialContent({
                 <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
               </div>
             ) : null,
-            // Video guestbook (PABATI SKU) — fails closed.
-            videoGuestbook:
-              isOn('videoGuestbook') && data.pabatiActive && data.pabatiClips.length ? (
-                <div key="videoGuestbook">
-                  <SectionRule title="Video Guestbook" />
-                  <VideoGuestbookWall clips={data.pabatiClips} />
-                </div>
-              ) : null,
             // Watch the Film — Live Studio (Panood) replay, gated in data.ts.
             // The `id` is what the colophon's "Watch the Film" link finally aims
             // at. That link has been `href="#"` for as long as this section has
@@ -1366,37 +1358,6 @@ function LivePhotoWall({
   );
 }
 
-/**
- * "Video Guestbook" — the PABATI add-on, surfaced on the recap as a grid of the
- * day's 5-second video greetings (pabati_clips). Each clip is a controlled
- * <video> the reader plays inline. Clean, non-hidden clips only (the data layer
- * fails closed). Presigned URLs → raw <video> (the optimizer can't proxy video).
- */
-function VideoGuestbookWall({ clips }: { clips: string[] }): ReactElement {
-  return (
-    <div className="mt-4">
-      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
-        {clips.length.toLocaleString('en-PH')} video {clips.length === 1 ? 'greeting' : 'greetings'} from the day
-      </p>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-        {clips.slice(0, 24).map((url, i) => (
-          <figure
-            key={`${i}-${url.slice(0, 24)}`}
-            className="overflow-hidden rounded-sm bg-ink/10"
-          >
-            <video
-              src={url}
-              controls
-              playsInline
-              preload="metadata"
-              className="aspect-[3/4] w-full bg-ink object-cover"
-            />
-          </figure>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /**
  * "What They Whispered" — approved Kwento guest wishes (photo_messages). Owner

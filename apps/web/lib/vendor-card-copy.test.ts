@@ -91,8 +91,21 @@ test('media is REFERENCED, never moved, copied or deleted', () => {
   for (const verb of ['deleteObject', 'copyObject', 'putObject', 'uploadTo', 'DeleteObject']) {
     assert.ok(!src.includes(verb), `the copy path must not ${verb} — it only references keys`);
   }
-  // A stored ref is not a URL: an `r2://` value in an <img> fails SILENTLY.
-  assert.match(src, /displayUrlForStoredAsset/, 'refs must be resolved for display');
+  // A stored ref is not a URL: an `r2://` value in an <img> fails SILENTLY, and
+  // the thumbnails on a copied card are the first R2 images this screen ever
+  // asks for. Anchored to the CALL and to what lands in the map — an earlier
+  // cut of this assertion matched the IMPORT line, so gutting the resolution
+  // left it green. A guard that protects nothing is worse than no guard.
+  assert.match(
+    src,
+    /const url = await displayUrlForStoredAsset\(ref\)\.catch\(\(\) => null\);/,
+    'each ref must be resolved through displayUrlForStoredAsset, failing soft',
+  );
+  assert.match(
+    src,
+    /if \(url\) displayUrls\[ref\] = url;/,
+    'only a RESOLVED url may enter the display map — never the raw ref',
+  );
 });
 
 test('the maker can only INSERT — the original cannot be edited through it', () => {

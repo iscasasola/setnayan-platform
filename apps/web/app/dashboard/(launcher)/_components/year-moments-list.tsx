@@ -95,8 +95,32 @@ export function YearMomentsList({
 
 function MomentRow({ moment: m }: { moment: YearMomentView }) {
   const Icon = m.isWedding ? Sparkles : CalendarHeart;
+  /*
+    ─── THE NAME WAS CUT TO "Y…" ON A PHONE (owner, seen on his own screen) ──
+
+    MEASURED IN THE LIVE PAGE at 375px, not estimated. The row is 309px wide.
+    Its icon (36) + gaps (42) + countdown (69) + "Start planning" (111) are ALL
+    `shrink-0`, and the name column was `min-w-0` — so the only thing able to
+    give way was the name, and it gave way to **17 pixels**. "Your birthday —
+    turning 40" rendered as `Y…`, with its date beneath as `D…`.
+
+    ⚠ AND IT WAS NOT ONLY THE START ROWS. Every one of the five rows on that
+    screen was truncating; the two event rows merely had 142px instead of 17,
+    so they read "Cale & Ice — your w…" and looked like a normal ellipsis
+    rather than a defect.
+
+    THE ROW WRAPS ON A PHONE. Nothing is hidden and nothing is shortened: the
+    name takes the first line, the countdown and the marker drop to the second.
+    Measured after the change: all five names fit completely.
+
+    🔑 `min-w-[9rem]` IS WHAT MAKES IT WRAP AT ALL. `min-w-0` lets a flex item
+    shrink to nothing, which is exactly what it did — a flex row shrinks before
+    it wraps. Giving the column a floor means "there is no room" becomes true,
+    and wrapping is what happens then. `sm:min-w-0` restores the shrink above
+    the breakpoint so the one-line desktop design truncates as it always did.
+  */
   const shell = [
-    'flex items-center gap-3.5 rounded-xl border px-4 py-3',
+    'flex flex-wrap items-center gap-3.5 rounded-xl border px-4 py-3 sm:flex-nowrap',
     m.isMilestone
       ? 'border-gold/40 bg-gold/[0.06]'
       : 'border-ink/10 bg-ink/[0.015]',
@@ -111,7 +135,7 @@ function MomentRow({ moment: m }: { moment: YearMomentView }) {
       >
         <Icon aria-hidden className="h-4.5 w-4.5" />
       </span>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[9rem] flex-1 sm:min-w-0">
         <p className="truncate text-sm font-medium text-ink">{m.label}</p>
         <p className="truncate text-xs text-ink/50">{m.dateLabel}</p>
       </div>
@@ -130,7 +154,15 @@ function MomentRow({ moment: m }: { moment: YearMomentView }) {
           the link; nesting a <button> in an <a> is invalid and would split one
           tap target into two. */}
       {m.eventId ? (
-        <span className="hidden shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-ink/15 bg-white/70 px-2.5 py-1 text-xs font-medium text-ink/70 sm:inline-flex">
+        /*
+          ⚠ IT USED TO BE `hidden … sm:inline-flex`, WHICH MADE THE COMMENT
+          ABOVE FALSE ON EVERY PHONE. "Both branches always render" was the
+          rule, and on a phone this branch rendered nothing — so an event the
+          reader already has looked exactly like a date they had not started.
+          It was hidden because the row had no room for it; now that the row
+          wraps, it has room, and the stated rule is true at every width.
+        */
+        <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-ink/15 bg-white/70 px-2.5 py-1 text-xs font-medium text-ink/70">
           <Check aria-hidden className="h-3 w-3" />
           Open plan
         </span>

@@ -3,7 +3,7 @@
   "routeCount": 404,
   "destinations": 862,
   "actions": 581,
-  "blocks": 3851,
+  "blocks": 3849,
   "routes": {
     "/": {
       "files": [
@@ -3965,8 +3965,6 @@
         "Image",
         "ImpactLines",
         "Link",
-        "MobileEventChip",
-        "MobileEventHero",
         "MomentRow",
         "NewEventCard",
         "ProgressRing",

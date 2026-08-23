@@ -6,9 +6,14 @@
  * 1 · EVERY composition carries the count. The retired banner rendered
  *     `watchRows[0]` — the busiest event and no other — so a second event with
  *     something waiting said nothing at all, on a page whose entire job is to
- *     show you your events. Three compositions render a card (desktop glass,
- *     mobile hero, mobile chip); a count on two of them is the same defect one
- *     size smaller.
+ *     show you your events.
+ *     ⚠ THERE USED TO BE THREE COMPOSITIONS (desktop glass · mobile hero ·
+ *     mobile chip) and this file argued that a count on two of them was the
+ *     same defect one size smaller. Since 2026-08-23 there is ONE card at every
+ *     width (owner ruling — `DECISION_LOG.md`), so "every composition" is one
+ *     composition. The assertions below are re-anchored to that, NOT relaxed:
+ *     each still checks the same property, and the derived counts still fail if
+ *     a shelf mounts a card the guard does not reach.
  *
  * 2 · A COUNT IS NEVER INVENTED. `decisionByEvent` only holds the organiser's
  *     active events, so an invited card, an archived card and a degraded read
@@ -49,8 +54,7 @@ const read = (p: string) => readFileSync(p, 'utf8');
  * a fact; a count typed into a test is a claim with an expiry date.**
  */
 function cardMounts(src: string): number {
-  return (src.match(/<(MobileEventHero|MobileEventChip|GlassEventCard)\s/g) ?? [])
-    .length;
+  return (src.match(/<GlassEventCard\s/g) ?? []).length;
 }
 
 test('EVERY card composition receives its own event’s summary', () => {
@@ -67,26 +71,24 @@ test('EVERY card composition receives its own event’s summary', () => {
   );
 });
 
-test('the desktop card and the mobile hero render the named counter', () => {
+test('the one card renders the NAMED counter, at every width', () => {
   const src = stripComments(read(LAUNCHER));
   const mounts = src.match(/<EventAttention\s/g) ?? [];
-  assert.ok(
-    mounts.length >= 2,
-    `EventAttention is mounted ${mounts.length} time(s); the desktop card and ` +
-      'the mobile hero must both render it.',
+  assert.equal(
+    mounts.length,
+    1,
+    `EventAttention is mounted ${mounts.length} time(s). There is one card ` +
+      'composition; more than one mount means a second card came back without ' +
+      'this guard noticing, and none means the count is gone from the board.',
   );
-});
-
-test('the mobile chip renders its own count', () => {
-  const src = stripComments(read(LAUNCHER));
-  // At chip density the named label cannot fit, so the chip renders the total
-  // directly. Anchored to the rendered total, not to the word "need".
-  assert.match(
-    src,
-    /\{summary\.total\}<\/span>\s*need you/,
-    'The mobile chip no longer shows its count. Two chips sit side by side on a ' +
-      'phone and neither would say anything is waiting.',
-  );
+  /*
+    ⚠ THE PHONE GAINED SOMETHING HERE, IT DID NOT LOSE IT. The two-up chip that
+    used to serve phones could not fit a named label, so it printed a bare
+    total ("3 need you"). The card that replaced it renders the same
+    `EventAttention` the wide layout always had — the count AND what it is
+    about. The retired assertion on the chip's bare total is not restated
+    anywhere, because there is no longer anything that renders one.
+  */
 });
 
 test('the counter never renders for an invited card', () => {
@@ -100,11 +102,11 @@ test('the counter never renders for an invited card', () => {
     'EventAttention lost its invited-card refusal — it would quote somebody ' +
       'else’s decisions at a guest who cannot act on them.',
   );
-  assert.match(
-    src,
-    /summary\.total > 0 && stance !== 'invited'/,
-    'The mobile chip lost its invited-card refusal.',
-  );
+  /*
+    The chip's own parallel refusal (`summary.total > 0 && stance !== 'invited'`)
+    went with the chip. One component now decides this, which is why the refusal
+    above is the whole rule rather than one of two copies that could drift.
+  */
 });
 
 test('an absent summary renders nothing — never a zero', () => {
@@ -157,11 +159,11 @@ test('only a couple member is offered the menu, matching the server gate', () =>
 
 test('every card that shows a menu also reserves room for it', () => {
   const src = stripComments(read(LAUNCHER));
+  // The `upcoming[0]` variant went with the phone hero — the board no longer
+  // singles out a first event, so every reservation is written the same way.
   const reserved = src.match(/hasMenu=\{event\.member_type === 'couple'\}/g) ?? [];
-  const heroReserved =
-    src.match(/hasMenu=\{upcoming\[0\]\.member_type === 'couple'\}/g) ?? [];
   assert.equal(
-    reserved.length + heroReserved.length,
+    reserved.length,
     cardMounts(src),
     'Every board card must tell its card whether a menu will be laid over it. ' +
       'Without the reservation the button sits on top of a line of truncating ' +
@@ -228,26 +230,18 @@ test('the card menu is actually MOUNTED on every card, not merely defined', () =
   );
 });
 
-test('every two-up chip grid alternates the popover anchor', () => {
-  const src = stripComments(read(LAUNCHER));
-  // The popover is a fixed 280px and a phone chip is ~160px. Hung from the
-  // right edge of a LEFT-column chip it lands ~97px off the left of the
-  // viewport, which an LTR page cannot scroll to — permanently unreachable.
-  //
-  // DERIVED from the chip count: MobileEventChip is only ever rendered inside a
-  // `grid-cols-2`, so a NEW chip shelf that forgets to alternate fails here.
-  // That is not hypothetical — the PUBLISHED shelf landed mid-branch with a
-  // third chip grid and no anchor, and this is what caught it.
-  const chips = (src.match(/<MobileEventChip\s/g) ?? []).length;
-  const alternating = (src.match(/align=\{i % 2 === 0 \? 'left' : 'right'\}/g) ?? []).length;
-  assert.equal(
-    alternating,
-    chips,
-    `${chips} two-up chip grids but ${alternating} alternate the popover ` +
-      'anchor. The left column of any grid that does not will open its menu ' +
-      'off the side of the screen, where it cannot be scrolled to.',
-  );
-});
+/*
+  ⛔ DELETED 2026-08-23 — "every two-up chip grid alternates the popover anchor".
+
+  It derived its subject list from `<MobileEventChip` mounts, and there are now
+  none: one card renders at every width, one column on a phone, so no card sits
+  in a left column with a 280px popover to hang off the side of the screen.
+
+  🪤 IT IS DELETED RATHER THAN LEFT PASSING. With zero chips it compared 0 to 0
+  and went green — a vacuous assertion that reads exactly like a guard doing its
+  job. If two-up chips ever return, this check must return with them; leaving a
+  hollow version standing would make it look like they were already covered.
+*/
 
 test('the pill never prints its total straight into a count-led label', () => {
   const src = stripComments(read(LAUNCHER));

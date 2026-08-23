@@ -205,10 +205,19 @@ test('the parity fence hides only the sibling coverage form', () => {
   assert.ok(blocks.length > 0, 'expected at least one parity:ignore block');
 
   const fenced = blocks.join('\n');
+  // The canvas posts the NON-REDIRECTING door (`updateCoverageServesInPlace`).
+  // Pinned by name because the redirecting one, pressed from the maker, throws
+  // away the unsaved card — the vendor's title, price, inclusions, customization
+  // draft and uploaded photos. Reintroducing it here is that defect returning.
   assert.equal(
-    [...fenced.matchAll(/action=\{updateCoverageServes\}/g)].length,
+    [...fenced.matchAll(/action=\{saveAudience\}/g)].length,
     1,
     'exactly one fenced block must be the coverage form',
+  );
+  assert.doesNotMatch(
+    fenced,
+    /action=\{updateCoverageServes\}/,
+    'the maker must NEVER post the redirecting coverage action — it discards the unsaved card',
   );
   for (const block of blocks) {
     assert.doesNotMatch(
@@ -262,11 +271,24 @@ test('the canvas has exactly one card form, and it is a SIBLING of the coverage 
   // are invalid HTML and, worse, make a no-JS submit of the outer form dispatch
   // the inner action (see scripts/lint-nested-forms.mjs).
   const cardFormEnd = raw.indexOf('</form>');
-  const coverageForm = raw.indexOf('action={updateCoverageServes}');
+  const coverageForm = raw.indexOf('action={saveAudience}');
   assert.ok(cardFormEnd > -1 && coverageForm > -1);
   assert.ok(
     cardFormEnd < coverageForm,
     'the coverage form opens before the card form closes — that is a nested form',
+  );
+
+  // …and `saveAudience` is the NON-REDIRECTING door, not a rename of the old
+  // one. Asserted on the wiring, because the name alone proves nothing.
+  assert.match(
+    raw,
+    /useActionState<CoverageServesResult, FormData>\(\s*updateCoverageServesInPlace,/,
+    'saveAudience must be bound to updateCoverageServesInPlace — the door that does not navigate',
+  );
+  assert.doesNotMatch(
+    raw,
+    /\bupdateCoverageServes\b(?!InPlace)/,
+    'the maker must not reference the redirecting action at all — it discards the unsaved card',
   );
 });
 

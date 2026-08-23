@@ -3273,7 +3273,24 @@ html.dark {
   .sn-eye-on-dark { color: var(--sn-gold-300); }
 
   /* Page hero — Hanken w800; m-serif is retired from dashboards. Optional soft
-   * tail via a child `.sn-h1-tail`. */
+   * tail via a child `.sn-h1-tail`.
+   *
+   * D-2 · "today." STOPPED BEING STRANDED ON ITS OWN LINE. At 36px on a phone
+   * the greeting "Your wedding is taking shape. Here's today." wrapped so the
+   * last word sat alone on a third line — a one-word line under a two-line
+   * sentence reads as a mistake, and it is the first thing on the page.
+   *   · `text-wrap: balance` lets the browser even the lines out instead of
+   *     filling greedily. Ignored where unsupported, so nothing regresses.
+   *   · `.sn-h1-tail` never breaks INSIDE itself. Every tail in the app is
+   *     short — "Here's today.", "guests", "Guests" — so it either fits its
+   *     line or moves whole, and "Here's / today." cannot happen.
+   *
+   * ⚠ THE TAIL IS INK, NOT TERRACOTTA, and that was checked rather than
+   * assumed: a review reported seeing terracotta here. The only colour this
+   * rule has ever set is `--sn-ink-400` (#8A857B — 3.67:1 on the white page,
+   * which clears the 3:1 large-text bar at 36px/700). The warm thing directly
+   * above it is the gold `.sn-eye` eyebrow, which is what a screenshot most
+   * likely showed. Do not "restore" a terracotta that was never here. */
   .sn-h1 {
     font-family: var(--sn-font);
     font-weight: 800;
@@ -3281,8 +3298,9 @@ html.dark {
     letter-spacing: -0.03em;
     line-height: 1.02;
     color: var(--sn-ink-900);
+    text-wrap: balance;
   }
-  .sn-h1-tail { color: var(--sn-ink-400); font-weight: 700; }
+  .sn-h1-tail { color: var(--sn-ink-400); font-weight: 700; white-space: nowrap; }
 
   /* Section head — replaces mono ALL-CAPS labels with sentence-case ink;
    * optional 12px sub via a sibling `.sn-sec-sub`. */

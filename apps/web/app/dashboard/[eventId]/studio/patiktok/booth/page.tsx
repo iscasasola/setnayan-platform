@@ -88,12 +88,24 @@ export default async function PatiktokBoothDashboard({
   // per-booth per-day; here we use "submissions enqueued in the last 24 h"
   // as the proxy until the real booth-session tracking lands.
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { count: submissionsCount } = await supabase
+  // ⚠ THIS COUNT IS A CAP, AND A REFUSED COUNT LIFTED IT. Supabase RESOLVES
+  // ⚠ with { error } rather than throwing, so a refusal arrived as
+  // ⚠ `count: null`, `?? 0` read as "nothing rendered today", and the daily
+  // ⚠ soft cap could never fire. A cap that fails open is not a cap.
+  const { count: submissionsCount, error: submissionsCountError } = await supabase
     .from('patiktok_render_jobs')
     .select('job_id', { count: 'exact', head: true })
     .eq('event_id', eventId)
     .gte('enqueued_at', since);
-
+  if (submissionsCountError) {
+    logQueryError(
+      'PatiktokBoothPage.submissionsToday',
+      submissionsCountError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+  const submissionsMeasured = !submissionsCountError && submissionsCount !== null;
   const submissions = submissionsCount ?? 0;
   const remaining = Math.max(0, PATIKTOK_VIDEO_SOFT_CAP - submissions);
   const overCap = submissions >= PATIKTOK_VIDEO_SOFT_CAP;
@@ -134,13 +146,24 @@ export default async function PatiktokBoothDashboard({
   // Does this event have consented face enrollments (Papic on)? Gates the
   // booth's one-shot face pre-fill so we never load the face model for an
   // event that has nothing to match against.
-  const { count: faceEnrollCount } = await supabase
+  // ⚖ Fails closed on purpose: no face model is loaded when we cannot tell
+  // ⚖ whether anybody consented to being matched. Logged so the pre-fill going
+  // ⚖ quiet leaves a trace instead of looking like "nobody consented".
+  const { count: faceEnrollCount, error: faceEnrollCountError } = await supabase
     .from('guest_face_enrollments')
     .select('guest_id', { count: 'exact', head: true })
     .eq('event_id', eventId)
     .is('revoked_at', null)
     .not('face_vector', 'is', null);
-  const faceEnabled = (faceEnrollCount ?? 0) > 0;
+  if (faceEnrollCountError) {
+    logQueryError(
+      'PatiktokBoothPage.faceEnrollments',
+      faceEnrollCountError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+  const faceEnabled = !faceEnrollCountError && (faceEnrollCount ?? 0) > 0;
 
   // PATIKTOK_TEMPLATES is statically seeded with at least two entries in
   // apps/web/lib/patiktok.ts, so the indexed fallbacks are non-null by

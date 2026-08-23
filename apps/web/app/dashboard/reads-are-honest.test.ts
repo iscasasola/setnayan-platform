@@ -101,6 +101,45 @@ const deniesOutright = (after: string, name: string): boolean => {
 
 type Offender = { file: string; line: number; name: string };
 
+/**
+ * 🔑 A GUARD IS ONLY AS WIDE AS THE SHAPES IT MATCHES, and the first cut of this
+ * one knew exactly one: `const { data … }`. A COUNT is the same defect in a
+ * different destructure — `const { count } = await …select(…, { count: 'exact',
+ * head: true })` — and `count ?? 0` is the purest form of it, because the zero
+ * it invents is indistinguishable from a real one. Found this way, after the
+ * data sweep was already green: "0 cameras ready" on the Papic page, and a
+ * daily render cap that could never fire because an unread count read as
+ * "nothing rendered yet". A cap that fails open is not a cap.
+ */
+/**
+ * ONE source for the count shape, used by BOTH the rule and its floor.
+ * 🪤 THE FIRST DRAFT HAD TWO, AND THE MUTATION RUN CAUGHT IT: breaking the
+ * scanner's regex left the floor's own copy still matching, so the sweep went
+ * blind and the test stayed GREEN (measured: the sabotage landed, 0 failures).
+ * A floor that measures a different thing from the rule it floors is not a
+ * floor. Fresh RegExp per use — a /g literal carries lastIndex between calls.
+ */
+const COUNT_DESTRUCTURE = String.raw`const\s*\{([^}]*\bcount\b[^}]*)\}\s*=\s*await`;
+const countMatches = (src: string) => [...src.matchAll(new RegExp(COUNT_DESTRUCTURE, 'g'))];
+
+function unboundCounts(): Offender[] {
+  const found: Offender[] = [];
+  for (const file of renderFiles(HERE)) {
+    const src = stripComments(readFileSync(join(WEB_ROOT, file), 'utf8'));
+    for (const m of countMatches(src)) {
+      if (/\berror\b/.test(m[0])) continue;
+      const named = /count\s*:\s*([A-Za-z0-9_$]+)/.exec(m[1] ?? '');
+      const at = m.index ?? 0;
+      found.push({
+        file,
+        line: src.slice(0, at).split('\n').length,
+        name: named?.[1] ?? 'count',
+      });
+    }
+  }
+  return found;
+}
+
 function unboundReads(): Offender[] {
   const found: Offender[] = [];
   for (const file of renderFiles(HERE)) {
@@ -186,6 +225,50 @@ test('every read that STATES an absence binds the error it may be refused with',
     [],
     `Fixed — now delete (or lower) these lines in KNOWN_UNBOUND: ${stale.join(' · ')}`,
   );
+});
+
+/** The same bill, for counts. Same rules: shrink it, never grow it. */
+const KNOWN_UNBOUND_COUNTS: Record<string, number> = {};
+
+test('a count that could not be read never renders as a zero', () => {
+  // FLOOR. An empty sweep looks exactly like a clean result — and this rule is
+  // the one most likely to silently stop matching, because it depends on the
+  // `{ count }` destructure staying the shape Supabase hands back. Measured
+  // 2026-08-24: 10 count destructures in this tree's render files, all bound.
+  const everyCount = renderFiles(HERE).reduce(
+    (n, file) => n + countMatches(stripComments(readFileSync(join(WEB_ROOT, file), 'utf8'))).length,
+    0,
+  );
+  assert.ok(
+    everyCount >= 8,
+    `Only ${everyCount} count reads seen in the whole tree. The scan has stopped ` +
+      'matching — that is not the same as the tree being clean.',
+  );
+
+  const counts = new Map<string, number>();
+  const where = new Map<string, string[]>();
+  for (const o of unboundCounts()) {
+    const key = `${o.file}::${o.name}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+    where.set(key, [...(where.get(key) ?? []), `${o.file}:${o.line}`]);
+  }
+  const fresh: string[] = [];
+  for (const [key, n] of counts) {
+    const allowed = KNOWN_UNBOUND_COUNTS[key] ?? 0;
+    if (n > allowed) fresh.push(`${key} → ${n} unbound (${where.get(key)?.join(', ')})`);
+  }
+  assert.deepEqual(
+    fresh,
+    [],
+    'A refused count arrives as `count: null`, and `?? 0` turns it into a zero ' +
+      'nobody measured — the one wrong answer that looks exactly like a right ' +
+      `one. Bind the error. New: ${fresh.join(' · ')}`,
+  );
+  const stale: string[] = [];
+  for (const [key, allowed] of Object.entries(KNOWN_UNBOUND_COUNTS)) {
+    if ((counts.get(key) ?? 0) < allowed) stale.push(key);
+  }
+  assert.deepEqual(stale, [], `Fixed — delete these from KNOWN_UNBOUND_COUNTS: ${stale.join(' · ')}`);
 });
 
 /**
@@ -322,6 +405,39 @@ test('a refused read never renders as a count of zero or an emptied money docume
     /if \(capturesError\) \{[\s\S]*?return null;/,
     'A refused captures read must not be filtered down into "no supplier has ' +
       'taken photos" — the read above it already refuses to make that claim.',
+  );
+
+  // A COUNT THAT IS ALSO A CAP. An unread count of today's renders used to read
+  // as "nothing rendered yet", so the daily soft cap could never fire.
+  const booth = stripComments(
+    readFileSync(join(HERE, '[eventId]/studio/patiktok/booth/page.tsx'), 'utf8'),
+  );
+  assert.match(
+    booth,
+    /const submissionsMeasured = !submissionsCountError && submissionsCount !== null;/,
+    'The booth must know whether it counted today’s renders at all — a cap that ' +
+      'fails open is not a cap.',
+  );
+  assert.match(
+    booth,
+    /const faceEnabled = !faceEnrollCountError &&/,
+    'An unread consent count must not read as "nobody consented"; the face ' +
+      'pre-fill fails closed, but knowingly.',
+  );
+
+  const papic = stripComments(
+    readFileSync(join(HERE, '[eventId]/studio/papic/page.tsx'), 'utf8'),
+  );
+  assert.match(
+    papic,
+    /guestCameraCount = guestCameraCountError \? null : count \?\? 0;/,
+    '"0 cameras ready" to a couple whose guests all hold one. An unread count ' +
+      'is not zero.',
+  );
+  assert.match(
+    papic,
+    /if \(guestCameraCount !== null && guestCameraCount !== expected\)/,
+    'A write triggered by a read that failed is a write nobody asked for.',
   );
 
   const cats = stripComments(

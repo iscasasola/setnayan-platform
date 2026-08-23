@@ -460,21 +460,37 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const limitedGuestCount = await countLimitedGuests(supabase, eventId);
   const limitedSnapshot = await fetchActiveLimitedSnapshot(supabase, eventId);
   let limitedStatus: LimitedSnapshotStatus | null = limitedSnapshot?.status ?? null;
-  let guestCameraCount = 0;
+  // ⚠ A COUNT IS THE SAME DEFECT WEARING A DIFFERENT DESTRUCTURE. Supabase
+  // ⚠ RESOLVES with { error } rather than throwing, so a refused count arrives
+  // ⚠ as `count: null`, `?? 0` makes it a zero, and the tile below tells a
+  // ⚠ couple whose guests all hold a camera that "0 cameras" are ready.
+  let guestCameraCount: number | null = 0;
   {
-    const { count } = await supabase
+    const { count, error: guestCameraCountError } = await supabase
       .from('paparazzi_seats')
       .select('seat_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .not('guest_id', 'is', null)
       .is('revoked_at', null);
-    guestCameraCount = count ?? 0;
+    if (guestCameraCountError) {
+      logQueryError(
+        'PapicPage.guestCameraCount',
+        guestCameraCountError,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    guestCameraCount = guestCameraCountError ? null : count ?? 0;
   }
   if (limitedSnapshot) {
     // Lazy reconcile pending→active, then self-heal cameras if the list moved.
     limitedStatus = await reconcileLimitedSnapshot(unlockAdmin, limitedSnapshot);
     const expected = Math.min(limitedGuestCount, limitedSnapshot.camera_cap);
-    if (guestCameraCount !== expected) {
+    // An unread count is not a count of zero, and "0 !== expected" would send
+    // this into a self-heal it has no reason to run. (syncGuestCameras re-reads
+    // the seats itself, so nothing was duplicated — but a write triggered by a
+    // read that failed is a write nobody asked for.)
+    if (guestCameraCount !== null && guestCameraCount !== expected) {
       try {
         const r = await syncGuestCameras(unlockAdmin, eventId, {
           ...limitedSnapshot,
@@ -503,15 +519,23 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const limitedTier = (limitedSnapshot?.tier ?? null) as 'roll' | 'unlimited' | null;
 
   // Anonymous Unlimited extras (off-list shooters → claim links in /crew).
-  let extraCameraCount = 0;
+  let extraCameraCount: number | null = 0;
   {
-    const { count } = await supabase
+    const { count, error: extraCameraCountError } = await supabase
       .from('paparazzi_seats')
       .select('seat_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .eq('tier', 'unlimited')
       .is('revoked_at', null);
-    extraCameraCount = count ?? 0;
+    if (extraCameraCountError) {
+      logQueryError(
+        'PapicPage.extraCameraCount',
+        extraCameraCountError,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    extraCameraCount = extraCameraCountError ? null : count ?? 0;
   }
 
   // Claim-link cameras — every seat that carries its own QR (the free pool
@@ -803,7 +827,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
                 </p>
                 <p className="text-xs text-ink/60">
                   A videographer friend, a hired second shooter — pick their tier.
-                  {extraCameraCount > 0 ? ` ${extraCameraCount} active.` : ''}
+                  {extraCameraCount !== null && extraCameraCount > 0
+                    ? ` ${extraCameraCount} active.`
+                    : ''}
                 </p>
               </div>
               <Link
@@ -1047,7 +1073,7 @@ function LimitedCard({
 }: {
   eventId: string;
   guestCount: number;
-  guestCameraCount: number;
+  guestCameraCount: number | null;
   status: LimitedSnapshotStatus | null;
   currentTier: 'roll' | 'unlimited' | null;
   limitedQuote: ReturnType<typeof computeLimitedQuote>;
@@ -1113,8 +1139,18 @@ function LimitedCard({
 
       {live ? (
         <p className="mt-2 text-sm text-ink/70">
-          {guestCameraCount} camera{guestCameraCount === 1 ? '' : 's'} ready. New
-          &ldquo;yes&rdquo; RSVPs are added automatically — no extra charge.
+          {guestCameraCount === null ? (
+            <>
+              We couldn&rsquo;t count your guests&rsquo; cameras just now &mdash;
+              this does not mean there are none, and nobody has lost one.
+            </>
+          ) : (
+            <>
+              {guestCameraCount} camera{guestCameraCount === 1 ? '' : 's'} ready.
+              New &ldquo;yes&rdquo; RSVPs are added automatically &mdash; no
+              extra charge.
+            </>
+          )}
         </p>
       ) : null}
 

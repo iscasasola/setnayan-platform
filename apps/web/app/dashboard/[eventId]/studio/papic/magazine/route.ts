@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef } from '@/lib/papic-display-ref';
@@ -201,11 +202,25 @@ export async function GET(
     );
   }
 
-  const { count: guestCount } = await supabase
+  // ✅ THIS ONE WAS ALREADY HONEST AND IS LEFT ALONE. The number is printed into
+  // a keepsake, and `guestCount ?? null` below already passes a refusal through
+  // as null — the builder's `...(totals.guests ? [...] : [])` then OMITS the
+  // line rather than printing "0 guests" into a wedding album. All that was
+  // missing is the trace: Supabase RESOLVES with { error }, so a refusal left
+  // nothing anywhere and the line simply disappeared from the PDF.
+  const { count: guestCount, error: guestCountError } = await supabase
     .from('guests')
     .select('guest_id', { count: 'exact', head: true })
     .eq('event_id', eventId)
     .is('deleted_at', null);
+  if (guestCountError) {
+    logQueryError(
+      'PapicMagazineRoute.guestCount',
+      guestCountError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
 
   const displayName = editorial?.displayName ?? 'The Wedding';
   const pdf = await buildKwentoMagazine({

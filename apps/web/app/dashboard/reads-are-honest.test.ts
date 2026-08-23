@@ -111,11 +111,22 @@ type Offender = { file: string; line: number; name: string };
  * daily render cap that could never fire because an unread count read as
  * "nothing rendered yet". A cap that fails open is not a cap.
  */
+/**
+ * ONE source for the count shape, used by BOTH the rule and its floor.
+ * 🪤 THE FIRST DRAFT HAD TWO, AND THE MUTATION RUN CAUGHT IT: breaking the
+ * scanner's regex left the floor's own copy still matching, so the sweep went
+ * blind and the test stayed GREEN (measured: the sabotage landed, 0 failures).
+ * A floor that measures a different thing from the rule it floors is not a
+ * floor. Fresh RegExp per use — a /g literal carries lastIndex between calls.
+ */
+const COUNT_DESTRUCTURE = String.raw`const\s*\{([^}]*\bcount\b[^}]*)\}\s*=\s*await`;
+const countMatches = (src: string) => [...src.matchAll(new RegExp(COUNT_DESTRUCTURE, 'g'))];
+
 function unboundCounts(): Offender[] {
   const found: Offender[] = [];
   for (const file of renderFiles(HERE)) {
     const src = stripComments(readFileSync(join(WEB_ROOT, file), 'utf8'));
-    for (const m of src.matchAll(/const\s*\{([^}]*\bcount\b[^}]*)\}\s*=\s*await/g)) {
+    for (const m of countMatches(src)) {
       if (/\berror\b/.test(m[0])) continue;
       const named = /count\s*:\s*([A-Za-z0-9_$]+)/.exec(m[1] ?? '');
       const at = m.index ?? 0;
@@ -224,10 +235,10 @@ test('a count that could not be read never renders as a zero', () => {
   // the one most likely to silently stop matching, because it depends on the
   // `{ count }` destructure staying the shape Supabase hands back. Measured
   // 2026-08-24: 10 count destructures in this tree's render files, all bound.
-  const everyCount = renderFiles(HERE).reduce((n, file) => {
-    const src = stripComments(readFileSync(join(WEB_ROOT, file), 'utf8'));
-    return n + [...src.matchAll(/const\s*\{[^}]*\bcount\b[^}]*\}\s*=\s*await/g)].length;
-  }, 0);
+  const everyCount = renderFiles(HERE).reduce(
+    (n, file) => n + countMatches(stripComments(readFileSync(join(WEB_ROOT, file), 'utf8'))).length,
+    0,
+  );
   assert.ok(
     everyCount >= 8,
     `Only ${everyCount} count reads seen in the whole tree. The scan has stopped ` +

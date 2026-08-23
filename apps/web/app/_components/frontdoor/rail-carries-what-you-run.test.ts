@@ -117,23 +117,41 @@ test('Your Story is retired from the rail, and is NOT gated where it moved', () 
   // doors that replaced this row must not be capability-gated either. Gating
   // them would hide a desk the person is entitled to sit at — the exact defect
   // this test was written for, relocated rather than deleted.
-  const board = code(
+  /*
+    ⚠ RE-ANCHORED 2026-08-23 — THIS HALF WAS PASSING ON DEAD CODE.
+
+    It read the LAUNCHER PAGE for `/dashboard/creator`, and the only such string
+    in that file lived inside `BecomeStorytellerRow`: a component with ZERO call
+    sites anywhere in the app. So the assertion held while nothing rendered the
+    link — a string in an unmounted component is not a door, and this guard was
+    the last of three making that mistake. Its sibling
+    (`lib/the-controls-have-a-home.test.ts`) was corrected the same way on
+    2026-08-19 and records the identical lesson; the dead components were
+    deleted on 2026-08-23, which is what finally turned this red.
+
+    The real, MOUNTED door is the account switcher in the shared top bar, on
+    every signed-in surface at every width. The property being held is unchanged
+    and is still the one that matters: writing is open to every signed-in person
+    ("creator = user", owner-locked 2026-07-16), so the door that replaced the
+    retired rail row must not be capability-gated.
+  */
+  const switcher = code(
     readFileSync(
-      join(HERE, '../../dashboard/(launcher)/page.tsx'),
+      join(HERE, '../account-switcher/account-switcher.tsx'),
       'utf8',
     ),
   );
   assert.match(
-    board,
+    switcher,
     /href="\/dashboard\/creator"/,
-    'the board has no door into Your Story, and the rail row that used to be ' +
-      'one was retired on the promise that it does.',
+    'nothing anywhere opens Your Story, and the rail row that used to be one ' +
+      'was retired on the promise that something does.',
   );
   assert.doesNotMatch(
-    board,
-    /(isStoryteller|hasStory|chapterCount)\s*(\?|&&)[\s\S]{0,200}?dashboard\/creator/,
-    'Your Story became capability-gated on the board. Writing is open to every ' +
-      'signed-in person; gating it hides a desk they are entitled to.',
+    switcher,
+    /(isStoryteller|hasStory|chapterCount|hasVendor|isAdmin)\s*(\?|&&)[\s\S]{0,200}?dashboard\/creator/,
+    'Your Story became capability-gated. Writing is open to every signed-in ' +
+      'person; gating it hides a desk they are entitled to.',
   );
 });
 

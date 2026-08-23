@@ -71,7 +71,6 @@ import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
 import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { CountUp } from '@/app/_components/count-up';
-import { HomePillNav } from './_components/home-pill-nav';
 import { EventCardMenu } from './_components/event-card-menu';
 /*
   ⚠ THE BADGE AND THE TWO LABEL HELPERS NOW COME FROM THE SHARED INDEX, and
@@ -1451,11 +1450,10 @@ export default async function LauncherPage({
       ) : null}
 
 
-      {/* Phone-only thumb nav. Every target is a link this page already renders. */}
-      <HomePillNav
-        hasSpaces={hasConsole}
-        spacesHref={roles.hasVendorAccess ? '/vendor-dashboard' : '/admin'}
-      />
+      {/* The phone thumb nav MOVED to `(launcher)/layout.tsx` + `(account)/layout.tsx`
+          on 2026-08-23. Rendered from here it existed on exactly one route, so it
+          disappeared the moment anyone used it. The page keeps its `pb-28` — the
+          bar is still fixed over this content. */}
     </div>
   );
 }
@@ -2375,169 +2373,30 @@ type SpaceCardProps = {
   attention?: string;
 };
 
-/** One SPACES doorway row — the prototype tile's compact row (icon chip ·
- *  name · role · attention · jump arrow). Still a real navigation. */
-function SpaceRow({
-  href,
-  icon: Icon,
-  logoUrl,
-  title,
-  subtitle,
-  tone,
-  attention,
-}: SpaceCardProps) {
-  const admin = tone === 'admin';
-  return (
-    <Link
-      href={href}
-      className="sn-press group -mx-2 flex items-center gap-[11px] rounded-xl px-2 py-2.5 transition-[background-color,transform] hover:translate-x-0.5 hover:bg-white/70"
-    >
-      <span
-        className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md ${
-          /* HQ = slate (--sn-info) per the prototype — violet retired by the
-             2026-07-12 atelier reskin. */
-          admin
-            ? 'bg-[color:var(--sn-info-soft)] text-[color:var(--sn-info)]'
-            : 'bg-[color:var(--sn-gold-100)] text-[color:var(--sn-gold-700)]'
-        }`}
-      >
-        {logoUrl ? (
-          <ShopLogo
-            src={logoUrl}
-            fallback={<Icon className="h-[18px] w-[18px]" />}
-          />
-        ) : (
-          <Icon className="h-[18px] w-[18px]" />
-        )}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold text-ink">{title}</span>
-        <span className="block truncate text-xs text-ink/55">{subtitle}</span>
-        {attention ? (
-          <span className="mt-1 block">
-            <AttentionPill label={attention} />
-          </span>
-        ) : null}
-      </span>
-      <ArrowUpRight
-        aria-hidden
-        className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-ink-400)] transition-[transform,color] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-mulberry"
-      />
-    </Link>
-  );
-}
-
-/**
- * The "+ Create a Samahan" doorway — the SpaceRow layout with a MUTED dashed
- * Plus chip (the "New event" / samahan-index create-row idiom). Always present
- * in the Spaces tile so a plain couple, or a member with no samahans yet, still
- * has the real create door.
+/*
+ * ─── FOUR COMPONENTS DELETED HERE (2026-08-23) ───────────────────────────
+ *
+ * `SpaceRow` · `CreateSamahanRow` · `OpenShopRow` · `BecomeStorytellerRow`.
+ * All four were the remains of the "Yours to run" Spaces tile, which the
+ * owner removed on 2026-08-19 when he made the account home only his events.
+ * Measured before deleting: ZERO call sites app-wide for every one of them.
+ *
+ * 🪤 AND A NAIVE `grep -rn '<OpenShopRow' app` RETURNS ONE HIT, which is why
+ * this is written down. That hit is inside `open-shop/has-a-doorway.test.ts`'s
+ * OWN regex — the guard's assertion contains the component name it is looking
+ * for. Exclude the test files before you count, or you read "it is rendered
+ * once" off the guard that says it is not.
+ *
+ * ✅ NO DOOR IS LOST, and that was checked rather than assumed. Every
+ * destination these rows carried is on the account switcher in the top bar,
+ * on every width: /open-shop (behind `canOpenShop`), /dashboard/creator, and
+ * the Samahan surfaces. Both guards that used to assert these strings were
+ * already repointed at the switcher on 2026-08-19, each recording the same
+ * lesson: a string in an unmounted component is not a door.
+ *
+ * ⏭ NAMED DEBT, NOT FIXED HERE: `spaces` and `samahanRows` (above, ~:755 and
+ * ~:873) are still BUILT and never read — the same tile's data half. Left
+ * alone deliberately: unpicking them reaches back into the reads that feed
+ * them, and a design study is reading this file right now.
  */
-function CreateSamahanRow() {
-  return (
-    <Link
-      href="/dashboard/samahan/new"
-      className="sn-press group -mx-2 flex items-center gap-[11px] rounded-xl px-2 py-2.5 transition-[background-color,transform] hover:translate-x-0.5 hover:bg-white/70"
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-ink/20 text-[color:var(--sn-ink-400)]">
-        <Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
-      </span>
-      <span className="min-w-0 flex-1 truncate text-sm font-bold text-[color:var(--sn-ink-500)] group-hover:text-ink">
-        Create a Samahan
-      </span>
-      <ArrowUpRight
-        aria-hidden
-        className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-ink-400)] transition-[transform,color] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-mulberry"
-      />
-    </Link>
-  );
-}
-
-/**
- * The "Create your shop" doorway — /open-shop for an account that has no shop.
- *
- * ⚠ THE LABEL IS AN OWNER INSTRUCTION (2026-08-10), not a style choice. It read
- * "Open your shop" for one release and the owner corrected it: in a list where
- * every other row takes you INTO something, "Open your shop" reads as "go to my
- * shop" — the one thing this row does not do. "Create" says it is not there yet.
- * The route stays /open-shop; that is a URL, not copy.
- *
- * ── WHY THIS EXISTS (2026-08-10) ───────────────────────────────────────────
- * /open-shop is a FINISHED wizard that handles exactly this case ("logged in,
- * no shop → the onboarding wizard"). Its only doorways in the whole app were
- * the PUBLIC /vendors marketing page and /vendor-dashboard/shop — a page you
- * can only reach if you already have a shop. So a signed-in customer could not
- * get there at all, and this tile is headed "Yours to run" under a Store glyph:
- * the shop is the thing it most implies and the one thing it did not offer.
- *
- * The same wayfinding defect, twice before, in this same file — Creator's Lab
- * (verdict 2026-07-16 B4) and Samahan. A page ships with its doorway.
- *
- * COPY IS HONEST. "For free" is the shipped promise on /vendors ("List your
- * business for free"). The review line is NOT a hedge — a new shop is created
- * hidden + unverified and only an admin can publish it (owner 2026-07-27,
- * confirmed against prod 2026-08-08), so promising couples would see them
- * straight away would be the overstated-copy mistake this repo keeps paying
- * for. It matches what My Shop already tells the vendor.
- */
-function OpenShopRow() {
-  return (
-    <Link
-      href="/open-shop"
-      className="sn-press group -mx-2 flex items-center gap-[11px] rounded-xl px-2 py-2.5 transition-[background-color,transform] hover:translate-x-0.5 hover:bg-white/70"
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-ink/20 text-[color:var(--sn-ink-400)]">
-        <Store aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold text-ink">Create your shop</span>
-        <span className="block text-xs leading-snug text-ink/55">
-          List your business for free. Setnayan reviews new shops before they go
-          live to couples.
-        </span>
-      </span>
-      <ArrowUpRight
-        aria-hidden
-        className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-ink-400)] transition-[transform,color] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-mulberry"
-      />
-    </Link>
-  );
-}
-
-/**
- * The "Become a Storyteller" promo row — the owner-required home promo that IS
- * the /dashboard/creator doorway while the user has zero chapters (it collapses
- * to a plain "Your Story" SpaceRow once they author one). SpaceRow layout, but
- * the selling line WRAPS instead of truncating — it has to carry the pitch.
- * HONEST scope only (readiness verdict 2026-07-16): everything named here is
- * live today — public chapters on /u, followers + views, shoppable vendor
- * credits, vendor exclusive-rate offers. No viewer promo, no earnings, no
- * tier names.
- */
-function BecomeStorytellerRow() {
-  return (
-    <Link
-      href="/dashboard/creator"
-      className="sn-press group -mx-2 flex items-center gap-[11px] rounded-xl px-2 py-2.5 transition-[background-color,transform] hover:translate-x-0.5 hover:bg-white/70"
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[color:var(--sn-gold-100)] text-[color:var(--sn-gold-700)]">
-        <Clapperboard aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold text-ink">
-          Become a Storyteller
-        </span>
-        <span className="block text-xs leading-snug text-ink/55">
-          Publish your events as public chapters on your own page — gather
-          followers, feature your vendors, and vendors can offer you exclusive
-          rates.
-        </span>
-      </span>
-      <ArrowUpRight
-        aria-hidden
-        className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-ink-400)] transition-[transform,color] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-mulberry"
-      />
-    </Link>
-  );
-}
 

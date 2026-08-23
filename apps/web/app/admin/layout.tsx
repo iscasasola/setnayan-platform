@@ -9,6 +9,8 @@ import { maybeRunFraudClusterSweep } from '@/lib/fraud-cluster-sweep';
 import { runSeoPeriodicJobs } from '@/lib/seo/seo-cron-jobs';
 import { maybeRunRetentionSweep } from '@/lib/retention-sweep';
 import { maybeRunVendorDossierRetention } from '@/lib/vendor-dossier-retention';
+import { maybeRunFaceDataRetention } from '@/lib/face-data-retention';
+import { maybeRunVendorIdentityRetention } from '@/lib/vendor-identity-retention';
 import { maybeRunPapicFullResDrop } from '@/lib/papic-fullres-drop';
 import { maybeRunPapicNsfwRescreen } from '@/lib/papic-nsfw-rescreen-sweep';
 import { maybeRunDriveCopyRetry } from '@/lib/papic-drive-copy-retry';
@@ -173,6 +175,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Deep Search dossier TTL (RA 10173 storage-limitation) — CRON-FREE: admin
   // traffic + a WEEKLY DB claim. Purges web-research dossiers past 180 days.
   after(() => maybeRunVendorDossierRetention().catch(() => {}));
+  // Guest face data (RA 10173 · SPI) — CRON-FREE: admin traffic + a WEEKLY DB
+  // claim. Deletes the vector, the enrollment row and the source selfie three
+  // months after the event ENDS, the period the NPC pack declares and nothing
+  // enforced. Fails closed on any unreadable date; switching it off makes it a
+  // DRY RUN, not a no-op.
+  after(() => maybeRunFaceDataRetention().catch(() => {}));
+  // A supplier's raw identity uploads (RA 10173) — CRON-FREE: admin traffic + a
+  // WEEKLY DB claim. Deletes government ID / selfie / bank proof / portfolio 90
+  // days after the approve-reject decision. DTI, BIR 2303 and the Mayor's Permit
+  // are retained SEVEN YEARS and are deliberately untouched, as is the decision
+  // record itself.
+  after(() => maybeRunVendorIdentityRetention().catch(() => {}));
   after(() => maybeRunPapicFullResDrop().catch(() => {}));
   // Papic NSFW re-screen heal — CRON-FREE: admin traffic + a ~20-min DB claim.
   // screenCapture() is fail-open + fire-and-forget, and its per-event healer only

@@ -904,12 +904,22 @@ export default function PrivacyPage() {
             ⚠ FACE DATA — the media correction silently broke the row beneath
             it. Both the schedule and this notice said face vectors are "purged
             with the media"; media is now retained indefinitely, so that
-            promised a purge that will never happen. Nothing in the codebase
-            deletes a face vector on a schedule — only erasure-on-request does
-            (lib/erasure/purge.ts). The bullet now says exactly that and claims
-            no automatic end date. Whether one is REQUIRED under the RA 10173
-            storage-limitation principle is a DPO question, flagged to the
-            owner, deliberately NOT answered in code. */}
+            promised a purge that will never happen.
+
+            ✅ ANSWERED 2026-08-24, and the bullet is corrected again. The DPO
+            question flagged here — whether an automatic end date is REQUIRED
+            under storage limitation — was answered by the owner as DPO on
+            2026-08-17: face data is deleted 3 MONTHS AFTER THE EVENT ENDS, the
+            same clock as the full-resolution photo floor. That ruling reached
+            the NPC pack and reached nothing else; the pack's own row admitted
+            "ENFORCEMENT NOT YET BUILT". lib/face-data-retention.ts is the sweep,
+            and this bullet now states the period it actually enforces.
+
+            The previous wording ("no automatic end date") is exactly the
+            quieter breach the media paragraph above warns about: a notice that
+            is out of step with the code is false whichever way it points. It is
+            corrected in the SAME change as the sweep, because a correction at
+            one site is not a correction. */}
         <Section title="How long we keep things">
           <p>
             Different kinds of data have different lifespans, and two of them are
@@ -930,9 +940,12 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Face-recognition data</strong> — for the one event only,
-              and deleted the moment you withdraw your consent or ask us to
-              remove it. We do not currently put an automatic end date on it
-              beyond that.
+              and deleted <strong>3 months after the event ends</strong>. That
+              covers the face vector, the enrolment record and the selfie you
+              uploaded for it. You can end it sooner at any time: withdrawing
+              your consent or asking us to remove it deletes it immediately.
+              Deleting it takes away <em>no photo and no tag</em> — the pictures
+              already delivered to you stay yours.
             </li>
             <li>
               <strong>Messages between a couple and a vendor</strong> —{' '}

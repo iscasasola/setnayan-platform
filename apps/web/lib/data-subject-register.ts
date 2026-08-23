@@ -102,7 +102,7 @@ export const DATA_SUBJECT_REGISTER: Record<DataSubjectCategoryKey, DataSubjectCa
     purpose:
       'Let a supplier run a public profile, be verified, talk to couples, and be billed for their plan.',
     retention:
-      'No automatic clock. Verification documents and profile fields are scrubbed on an erasure request (lib/erasure/coverage.ts · VENDOR_VERIFICATION_DOC_SCRUB, VENDOR_PROFILE_PII_SCRUB). Billing records sit under the same 10-year BIR floor as any other payment.',
+      'No automatic clock on the account itself. The raw identity uploads DO have one: government ID, live selfie, bank proof and portfolio samples are deleted 90 days after the approve/reject decision (lib/vendor-identity-retention.ts). DTI / BIR 2303 / Mayor’s Permit and the decision record are retained 7 years (BIR 235 + AMLC). Whatever remains — profile fields and any document still held — is scrubbed on an erasure request (lib/erasure/coverage.ts · VENDOR_VERIFICATION_DOC_SCRUB, VENDOR_PROFILE_PII_SCRUB). Billing records sit under the same 10-year BIR floor as any other payment.',
     disposalDateSettled: false,
   },
 
@@ -120,7 +120,7 @@ export const DATA_SUBJECT_REGISTER: Record<DataSubjectCategoryKey, DataSubjectCa
     purpose:
       'Deliver the invitation, the seating, the day-of experience, and the photos that belong to them.',
     retention:
-      'No automatic clock on the guest record — it is deleted with the event or on request. Media follows the same 6-month full-resolution / never-deleted-photo rule as the customer (lib/papic-fullres-drop.ts). Face vectors have NO automatic end date; only a revocation or erasure request removes one.',
+      'No automatic clock on the guest record — it is deleted with the event or on request. Media follows the same 6-month full-resolution / never-deleted-photo rule as the customer (lib/papic-fullres-drop.ts). Face data DOES have a clock: the vector, the enrollment and the source selfie behind it are deleted 3 months after the day the event ends (lib/face-data-retention.ts), and sooner on a revocation or erasure request. Deleting it removes no photo and no tag.',
     disposalDateSettled: false,
   },
 

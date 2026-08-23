@@ -21,6 +21,8 @@ import {
 } from '@/lib/couple-website-pro';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
+import { formatPhp } from '@/lib/orders';
 
 export const metadata = { title: 'Editorial PRO' };
 
@@ -99,16 +101,28 @@ export default async function EditorialProBuyPage({ params }: Props) {
         <ArrowLeft aria-hidden className="h-4 w-4" /> Back to services
       </Link>
 
-      <PageMasthead
-        titleNode={
-          <span>
-            <span>
-              <Newspaper aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            Editorial PRO
-          </span>
-        }
-      />
+      {/*
+        The state that SELLS opens with the product's name, its promise and its
+        price; every other state keeps the quiet masthead. `PageMasthead` draws
+        its title `sr-only`, which is right for a page you already live in and
+        wrong for the one where nothing has been decided.
+
+        ⚠ ONE h1 PER PAGE — either/or, never both.
+        ⚠ AND THE PROMISE IS THIS PAGE'S OWN, not the catalog's. `add-ons-catalog`
+        has no `editorial-pro` key: `editorial` is the FREE story page and
+        `website-pro` is the umbrella that includes this. Reaching for either
+        would open a paid upgrade with somebody else's sentence.
+      */}
+      {editorialProSellable && !ownsUmbrella && !active && !owned ? (
+        <StudioBuyHero
+          productName="Editorial PRO"
+          promise="Your story, arranged the way you would arrange it — the order of the day, the moments worth naming, the wishes worth showing."
+          price={pricePhp != null ? formatPhp(pricePhp) : undefined}
+          priceNote={pricePhp != null ? 'One upgrade, for this celebration' : undefined}
+        />
+      ) : (
+        <PageMasthead title="Editorial PRO" />
+      )}
 
       {/* What it does — benefit language, no implementation names. */}
       <ul className="sn-tile space-y-2 p-5">

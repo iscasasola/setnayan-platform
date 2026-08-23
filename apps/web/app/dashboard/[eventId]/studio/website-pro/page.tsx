@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import {
   eventOwnsCoupleWebsitePro,
@@ -12,8 +13,15 @@ import {
 } from '@/lib/couple-website-pro';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
+import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 
 export const metadata = { title: 'Event Hub PRO' };
+
+/* Name + promise from the one record every Studio row reads — never a second
+   sentence written into this page. Throws rather than rendering a nameless
+   hero if the catalog key is ever renamed. */
+const HERO = addOnHeroCopy('website-pro');
 
 const SKU_CODE = 'COUPLE_WEBSITE_PRO';
 
@@ -78,16 +86,22 @@ export default async function WebsiteProBuyPage({ params }: Props) {
         <ArrowLeft aria-hidden className="h-4 w-4" /> Back to services
       </Link>
 
-      <PageMasthead
-        titleNode={
-          <span>
-            <span>
-              <Globe2 aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            Event Hub PRO
-          </span>
-        }
-      />
+      {/*
+        The buy state opens with the product's name, its promise and its price;
+        every other state keeps the quiet masthead. `PageMasthead` renders its
+        title `sr-only` — right for a page you live in, wrong for the one state
+        where nothing has been decided yet. ⚠ One h1 per page: either/or.
+      */}
+      {active || owned ? (
+        <PageMasthead title={HERO.label} />
+      ) : (
+        <StudioBuyHero
+          productName={HERO.label}
+          promise={HERO.blurb}
+          price={pricePhp != null ? formatPhp(pricePhp) : undefined}
+          priceNote={pricePhp != null ? 'One upgrade, for the whole Event Hub' : undefined}
+        />
+      )}
 
       {/* What it covers — benefit language, no implementation names. */}
       <ul className="sn-tile space-y-2 p-5">

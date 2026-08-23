@@ -97,7 +97,8 @@ import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
 import { GuestCamerasChoice } from './_components/guest-cameras-choice';
 import { resolvePapicRoom, PAPIC_ROOM_TABS } from './_lib/rooms';
-import { PageMasthead } from '@/app/_components/page-masthead';
+import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
+import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { groupIntoChapters } from '@/lib/alaala-chapters';
 import { fetchScheduleBlocks, DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import { LifeFlashCard } from './_components/life-flash-card';
@@ -123,6 +124,11 @@ import { LifeFlashCard } from './_components/life-flash-card';
 // DSLR pairing are still TODO(0012) — see the seam notes at the bottom.
 
 export const metadata = { title: 'Papic' };
+
+/* Name + promise from the one record every Studio row already reads, so a buy
+   page can never give a couple a second account of one product. It throws on an
+   unknown key rather than rendering a hero with no product name on it. */
+const PAPIC_HERO = addOnHeroCopy('papic');
 export const dynamic = 'force-dynamic';
 
 type Props = {
@@ -541,14 +547,16 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       </Link>
 
       {/* Header — short. */}
-      <PageMasthead
-        titleNode={
-          <span>
-            <Camera aria-hidden strokeWidth={1.75} />
-            {papicEventWord === 'wedding' ? 'Wedding' : 'Event'} photo capture
-          </span>
-        }
-      />
+      {/*
+        ⚖ NAME AND PROMISE, BUT NO PRICE — AND THE ABSENCE IS THE DECISION.
+        The brief asked every buy page to open with "product name, one-line
+        promise, price". Measured, this page does not have *a* price: it sells a shot ladder, a Keep Full-Res
+        subscription and an unlock-everything bundle, side by side.
+        Hoisting one of them above the fold would say the page costs that, which
+        is the opposite of honest. So the figures stay beside the exact thing
+        each one buys, and the hero does the half it can do truthfully.
+      */}
+      <StudioBuyHero productName={PAPIC_HERO.label} promise={PAPIC_HERO.blurb} />
 
       {/* ⚠ THE STRIP SITS BELOW StatusBanners ON PURPOSE. A confirmation must be
           visible whichever room resolves — if the outcome→room map ever misses a

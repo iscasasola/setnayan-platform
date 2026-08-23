@@ -48,7 +48,8 @@ import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inli
 import { getTiktokOAuthConfig } from '@/lib/patiktok-tiktok';
 import { disconnectPatiktokTiktok } from './actions';
 import { ReelRenderer } from './_components/reel-renderer';
-import { PageMasthead } from '@/app/_components/page-masthead';
+import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
+import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 
 type RenderJobRow = {
   job_id: string;
@@ -78,6 +79,11 @@ type PaymentSettings = {
 };
 
 export const metadata = { title: 'Patiktok' };
+
+/* Name + promise from the one record every Studio row already reads, so a buy
+   page can never give a couple a second account of one product. It throws on an
+   unknown key rather than rendering a hero with no product name on it. */
+const PATIKTOK_HERO = addOnHeroCopy('patiktok');
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -228,9 +234,16 @@ export default async function PatiktokGallery({
         </Link>
       </div>
 
-      <PageMasthead
-        title="Pick the reel templates for your booth"
-      />
+      {/*
+        ⚖ NAME AND PROMISE, BUT NO PRICE — AND THE ABSENCE IS THE DECISION.
+        The brief asked every buy page to open with "product name, one-line
+        promise, price". Measured, this page does not have *a* price: the booth pass is one offer on a page whose
+        main job is choosing templates, and its price sits with it.
+        Hoisting one of them above the fold would say the page costs that, which
+        is the opposite of honest. So the figures stay beside the exact thing
+        each one buys, and the hero does the half it can do truthfully.
+      */}
+      <StudioBuyHero productName={PATIKTOK_HERO.label} promise="Pick the reel templates for your booth" />
       <div className="mt-3 space-y-3">
         <p className="sn-eye">
           Record · render · download — right in your browser

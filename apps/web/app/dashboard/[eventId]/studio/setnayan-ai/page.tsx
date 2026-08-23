@@ -19,6 +19,7 @@ import type { AiValueTerms } from './_components/setnayan-ai-value-copy';
 import { setPlanningMode } from '@/app/dashboard/[eventId]/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 
 export const metadata = { title: 'Setnayan AI' };
 
@@ -255,41 +256,53 @@ export default async function SetnayanAiPage({ params }: Props) {
         </>
       ) : (
         <>
-          {/* BUY — the only state that sells. Non-owner, paywall on. */}
-          <PageMasthead
-        title="Stop guessing who to hire"
-      />
+          {/*
+            BUY — the only state that sells, and the state the owner was looking
+            at when he said it did not look appealing.
+
+            🔑 THE WORDS WERE ALREADY WRITTEN AND WERE INVISIBLE. "Stop guessing
+            who to hire" was passed to `PageMasthead`, which renders its title
+            `sr-only` — correct for a page you live in, wrong for a page asking
+            for money. It is the same sentence, on screen, above the fold, with
+            the name of the product and the price beside it.
+
+            ⚠ THE MASTHEAD IS GONE FROM THIS BRANCH RATHER THAN KEPT ALONGSIDE.
+            It renders an h1; so does the hero. Two would be two h1s on one page.
+          */}
+          <StudioBuyHero
+            productName="Setnayan AI"
+            promise="Stop guessing who to hire"
+            /* No price typed here and none defaulted: `pricePhp` is the live
+               catalog figure this page's own checkout charges, so the hero and
+               the till cannot quote different numbers. Absent ⇒ the hero simply
+               carries no figure, which is what the tile below already does. */
+            price={pricePhp != null ? priceLabel : undefined}
+            priceNote={
+              pricePhp != null
+                ? 'One-time purchase · yours for the whole wedding'
+                : undefined
+            }
+            action={
+              pricePhp != null && settings ? (
+                <InlineCheckoutDrawer
+                  eventId={eventId}
+                  serviceKey={SKU_CODE}
+                  displayName={`Setnayan AI${event.display_name ? ` · ${event.display_name}` : ''}`}
+                  originalPriceCentavos={String(Math.round(pricePhp * 100))}
+                  settings={settings}
+                  triggerLabel="Unlock Setnayan AI"
+                  triggerClassName="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90 disabled:opacity-70"
+                />
+              ) : (
+                <p className="inline-flex items-center gap-2 text-sm text-ink/65">
+                  <Sparkles aria-hidden className="h-4 w-4 text-ink/40" />
+                  Pricing loads from your catalog &mdash; please refresh in a moment.
+                </p>
+              )
+            }
+          />
 
           <SetnayanAiValue mode="preview" terms={aiValueTerms} />
-
-          <div className="sn-tile p-5">
-            {pricePhp != null && settings ? (
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-ink/65">
-                  One-time purchase · yours for the whole wedding ·{' '}
-                  <span className="font-mono text-base text-ink">
-                    {priceLabel ?? `₱${Math.round(pricePhp).toLocaleString('en-PH')}`}
-                  </span>
-                </p>
-                <div className="sm:w-auto">
-                  <InlineCheckoutDrawer
-                    eventId={eventId}
-                    serviceKey={SKU_CODE}
-                    displayName={`Setnayan AI${event.display_name ? ` · ${event.display_name}` : ''}`}
-                    originalPriceCentavos={String(Math.round(pricePhp * 100))}
-                    settings={settings}
-                    triggerLabel="Unlock Setnayan AI"
-                    triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
-                  />
-                </div>
-              </div>
-            ) : (
-              <p className="inline-flex items-center gap-2 text-sm text-ink/65">
-                <Sparkles aria-hidden className="h-4 w-4 text-ink/40" />
-                Pricing loads from your catalog &mdash; please refresh in a moment.
-              </p>
-            )}
-          </div>
         </>
       )}
     </section>

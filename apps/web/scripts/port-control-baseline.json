@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "09697145d",
+  "generatedFromRef": "e995308fd",
   "routeCount": 404,
   "destinations": 864,
   "actions": 581,
-  "blocks": 3847,
+  "blocks": 3851,
   "routes": {
     "/": {
       "files": [
@@ -5589,6 +5589,7 @@
         "dashboard/[eventId]/studio/_components/service-poster.tsx",
         "dashboard/[eventId]/studio/_components/service-tags.tsx",
         "dashboard/[eventId]/studio/_components/studio-app-row.tsx",
+        "dashboard/[eventId]/studio/_components/studio-buy-hero.tsx",
         "dashboard/[eventId]/studio/_components/studio-featured-card.tsx",
         "dashboard/[eventId]/studio/_components/studio-section-tabs.tsx",
         "dashboard/[eventId]/studio/loading.tsx",
@@ -5678,6 +5679,7 @@
         "OwnedView",
         "PageMasthead",
         "PaymentUnderReview",
+        "StudioBuyHero",
         "UnownedView"
       ]
     },
@@ -5705,7 +5707,8 @@
       "blocks": [
         "InlineCheckoutDrawer",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "StudioBuyHero"
       ]
     },
     "/dashboard/[eventId]/studio/guest-columns": {
@@ -6077,7 +6080,6 @@
         "LiveWallControls",
         "MagazineCard",
         "MiniTour",
-        "PageMasthead",
         "PapicCamerasCard",
         "PapicGalleryGrid",
         "PapicPoolCard",
@@ -6099,6 +6101,7 @@
         "StorageChoiceCard",
         "StorageOptionDrive",
         "StorageOptionR2",
+        "StudioBuyHero",
         "StylePicker",
         "SubmitButton",
         "TierOption",
@@ -6240,12 +6243,12 @@
         "MediaRecorder",
         "MediaStream",
         "MusicTrackOption",
-        "PageMasthead",
         "Phase",
         "Preview",
         "ReelRenderer",
         "RenderJobRow",
         "RenderStatusPill",
+        "StudioBuyHero",
         "SubmitButton",
         "TagSheet",
         "TemplateCard",
@@ -6383,7 +6386,6 @@
         "InlineCheckoutDrawer",
         "LaunchStdButton",
         "Link",
-        "PageMasthead",
         "PreviewDevice",
         "RevealChoice",
         "RevealEffects",
@@ -6398,7 +6400,8 @@
         "StdFilmContent",
         "StdMedia",
         "StdMediaPicker",
-        "StdThemeId"
+        "StdThemeId",
+        "StudioBuyHero"
       ]
     },
     "/dashboard/[eventId]/studio/save-the-date/stamp": {
@@ -6447,6 +6450,7 @@
         "Link",
         "PageMasthead",
         "SetnayanAiValue",
+        "StudioBuyHero",
         "SubmitButton"
       ]
     },
@@ -6466,8 +6470,8 @@
         "CategoryChip",
         "HTMLDivElement",
         "Link",
-        "PageMasthead",
         "ProductCard",
+        "StudioBuyHero",
         "SuppliesMarketplaceBrowser",
         "SupplyCategoryKey"
       ]
@@ -6500,7 +6504,8 @@
       "blocks": [
         "InlineCheckoutDrawer",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "StudioBuyHero"
       ]
     },
     "/dashboard/[eventId]/suite": {

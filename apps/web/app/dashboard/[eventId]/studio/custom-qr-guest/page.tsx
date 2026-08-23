@@ -21,8 +21,15 @@ import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { PaymentUnderReview } from '@/app/dashboard/[eventId]/_components/payment-under-review';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
+import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 
 export const metadata = { title: 'Custom QR per guest' };
+
+/* The product's NAME, from the one record every Studio row already reads. It
+   throws rather than falling back: a hero whose product silently lost its name
+   because a key was renamed is worse than a build that stops. */
+const HERO = addOnHeroCopy('custom-qr-guest');
 
 /**
  * /dashboard/[eventId]/studio/custom-qr-guest — closes the partial
@@ -137,9 +144,24 @@ export default async function CustomQrGuestPage({ params }: Props) {
           ("One scan… / This upgrade dresses each one…") is gated to the
           not-owned state; the learn-more page (/studio/about/<key>)
           carries the marketing for non-owners (Tier 4 surface-hygiene). */}
-      <PageMasthead
-        title={owns ? 'Your branded guest QRs' : 'One scan, and your guest finds everything'}
-      />
+      {/*
+        A BUY PAGE OPENS BY SAYING WHAT IT IS AND WHAT IT COSTS; a page you
+        already own does not sell to you. `PageMasthead` draws its title
+        `sr-only` — correct for the ~380 pages a person lives in, and wrong for
+        the one state where nothing has been decided yet.
+
+        ⚠ ONE h1 PER PAGE, so this is an either/or and never both.
+      */}
+      {owns ? (
+        <PageMasthead title="Your branded guest QRs" />
+      ) : (
+        <StudioBuyHero
+          productName={HERO.label}
+          promise="One scan, and your guest finds everything"
+          price={pricePhp != null ? formatPhp(pricePhp) : undefined}
+          priceNote={pricePhp != null ? 'One price for your whole guest list' : undefined}
+        />
+      )}
 
       {active ? (
         <OwnedView

@@ -1024,3 +1024,31 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = liveStudioRoamEnabled()
 // nowhere (the Studio hub renders the four free planning tools via the couple
 // sidebar / free-tools strip, not this factory). The free core tools (Guests /
 // Seating / Budget / Schedule) remain first-class sidebar surfaces.
+
+/**
+ * The words a buy page opens with: the product's NAME and the one promise, from
+ * the same record every App Store row in the Studio hub already reads.
+ *
+ * 🔑 IT EXISTS SO A SELLING PAGE CANNOT INVENT ITS OWN SENTENCE. Nine in-app
+ * pages take money and rendered no visible headline at all; giving each one a
+ * hero is the fix, and writing a fresh promise into each of them would have
+ * been nine second answers to "what is this product for" — the exact drift the
+ * Pakanta page's own note warns about ("a second set would give a couple two
+ * different accounts of one product").
+ *
+ * ⚠ IT THROWS ON AN UNKNOWN KEY, DELIBERATELY. Returning a fallback would let a
+ * renamed key ship a hero with no product name on it — the page would still
+ * render, still take money, and simply stop saying what it sells. That is the
+ * quiet kind of failure this repo keeps paying for; a build that stops is the
+ * cheaper outcome. `studio-buy-hero.test.ts` pins every key a buy page names,
+ * so the stop happens in CI rather than in front of a couple.
+ */
+export function addOnHeroCopy(key: string): { label: string; blurb: string } {
+  const entry = ADD_ONS.find((a) => a.key === key);
+  if (!entry) {
+    throw new Error(
+      `add-ons-catalog has no entry for "${key}", and a buy page opens with its words.`,
+    );
+  }
+  return { label: entry.label, blurb: entry.blurb };
+}

@@ -19,6 +19,7 @@ import {
   saveAttendedVendorAction,
 } from '../actions';
 import { DayOfFaceEnroll } from './day-of-face-enroll';
+import { GuestCodeKeepers } from './guest-code-keepers';
 import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
 import { isChineseWedding } from '@/lib/chinese-wedding';
@@ -1600,6 +1601,11 @@ export async function SiteBody({
                   <p className="mt-4 break-all font-mono text-xs tracking-[0.05em] text-ink/55">
                     {invitationUrl}
                   </p>
+                  {/* "Save this to your phone" above was a promise this card had
+                      no way to keep — the code is drawn as an inline SVG, so a
+                      long-press offers nothing and a screenshot was the only
+                      answer. These are the two ways to take it away. */}
+                  <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4" />
                   {/* Indoor Blueprint entry point — pure navigation (no DB query on
                       this always-rendered landing). The /find-my-table route does its
                       own SKU gating: it shows a friendly "ask the couple" prompt when

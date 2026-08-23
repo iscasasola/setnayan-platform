@@ -39,7 +39,10 @@ export async function renderInvitationQrSvg(params: {
    *  `/u/{ownerSlug}/{slug}`; absent / cutover-OFF encodes the bare `/{slug}`. */
   ownerSlug?: string | null;
 }): Promise<string> {
-  const url = `${params.appUrl}${publicEventPath(params.slug, params.ownerSlug)}?invite=${params.qrToken}`;
+  // Built by buildInvitationUrl, never re-typed here — the SVG a guest looks at
+  // and the PNG they save must encode the SAME url, and the only way to
+  // guarantee that is to leave one place that knows how to spell it.
+  const url = buildInvitationUrl(params);
   const svg = await QRCode.toString(url, { ...QR_OPTIONS, type: 'svg', width: 256 });
   if (params.monogram) {
     return compositeMonogram(svg, params.monogram);
@@ -54,6 +57,42 @@ export function buildInvitationUrl(params: {
   ownerSlug?: string | null;
 }): string {
   return `${params.appUrl}${publicEventPath(params.slug, params.ownerSlug)}?invite=${params.qrToken}`;
+}
+
+/**
+ * Render a guest's OWN invitation QR as a keepsake PNG — the file behind
+ * "Save the code" on the guest's three QR surfaces (the invitation QR card,
+ * the My QR modal, the day-of hub's Me panel).
+ *
+ * Deliberately the SAME url + the SAME QR_OPTIONS as renderInvitationQrSvg, so
+ * the picture a guest saves is the picture they were shown. Only two things
+ * differ, both on purpose:
+ *
+ *   - NO MONOGRAM. The composited badge is an SVG-only operation
+ *     (compositeMonogram rewrites raw SVG), and the same reasoning the branded
+ *     PNG route already recorded applies here: the on-screen card carries the
+ *     monogram, the saved file is the bulletproof scannable one.
+ *   - BIGGER. 1024px survives being printed, re-shared through a messaging app
+ *     that recompresses, or held up on a cracked phone at a venue door.
+ *
+ * ⚠ NOT the branded PNG. /api/website/qr/guest/[guestId] tints the modules with
+ * the couple's Mood Board palette and is gated on the paid CUSTOM_QR_GUEST
+ * upgrade. This one is the plain ink-on-cream code the guest can already see
+ * for free, and is gated on nothing but being that guest.
+ */
+export async function renderInvitationQrPng(params: {
+  appUrl: string;
+  slug: string;
+  qrToken: string;
+  ownerSlug?: string | null;
+  width?: number;
+}): Promise<Buffer> {
+  const url = buildInvitationUrl(params);
+  return QRCode.toBuffer(url, {
+    ...QR_OPTIONS,
+    type: 'png',
+    width: params.width ?? 1024,
+  });
 }
 
 /**

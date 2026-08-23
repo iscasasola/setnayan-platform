@@ -50,6 +50,7 @@ import {
 
 import './front-door.css';
 import { FrontDoorShell, type RailNavLabels } from './front-door-shell';
+import type { RailMatchRow } from './rail-active';
 import {
   railToolsSignedIn,
   railToolsSignedOut,
@@ -64,6 +65,7 @@ import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-comm
 export async function AppRailShell({
   children,
   railContext,
+  contextMatchRows,
   studioEventId,
   topBarSlot,
   variant = 'app',
@@ -76,6 +78,9 @@ export async function AppRailShell({
    * nothing; slice 1 mounts "In this event — {name}" here.
    */
   railContext?: React.ReactNode;
+  /** The `railContext` child's rows, as match data — see the shell's own
+   *  prop note. Pure pass-through; the shell resolves the union. */
+  contextMatchRows?: ReadonlyArray<RailMatchRow>;
   /**
    * WHICH EVENT THE STUDIO ROWS OPEN, when the surface knows (owner 2026-08-21:
    * *"now it is link to that event"*). Only the event tree passes it. Without
@@ -194,6 +199,7 @@ export async function AppRailShell({
         account.signedIn ? railToolsSignedIn(studioEvent) : railToolsSignedOut()
       }
       railContext={railContext}
+      contextMatchRows={contextMatchRows}
       /*
         Only the event tree passes `studioEventId` — the admin console and
         the vendor dashboard also push a `railContext`, but neither is a

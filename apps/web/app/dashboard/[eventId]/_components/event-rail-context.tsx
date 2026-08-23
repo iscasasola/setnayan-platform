@@ -38,16 +38,16 @@
  * under "Also in this event" as a quiet flat link — which is where it already
  * lives in the shipped rail — never promoted back into Plan.
  *
- * ─── WHICH ROW IS LIT ────────────────────────────────────────────────────
- * `activeRailKey` — THE shipped resolver, the same one the account rows above
- * use, which itself calls the shipped `matchesPath`. Rows are not asked "are
- * you active?" one at a time: that double-lights, because the matcher is
- * prefix-based and `/dashboard/x` is a prefix of every other event route.
- * Overview's `__home__` sentinel prefix (from the SSOT) makes its prefix branch
- * unmatchable, so only its exact branch lights it — unchanged from the sidebar.
+ * ─── WHICH ROW IS LIT — DECIDED ABOVE, READ HERE (2026-08-23) ────────────
+ * This component no longer resolves anything. The shell draws the Studio group
+ * over the very URLs this menu claims, so a resolver per component double-lit
+ * exactly as a boolean per row would: two lit rows tell the reader they are in
+ * two places at once. The layout hands the same rows to the shell, the shell
+ * resolves the union once with the shipped `activeRailKey`, and this reads the
+ * answer through `useRailActiveKey`.
  *
- * 🪤 A SECOND MATCHER HERE WOULD DRIFT WITHIN A WEEK. There is one, it is
- * imported, and the tests call the real list rather than a copy of it.
+ * 🪤 A SECOND MATCHER HERE WOULD DRIFT WITHIN A WEEK — and a second RESOLVER
+ * drifted within two days. There is one of each now.
  *
  * ─── THE GUEST COUNT VANISHES ON THE 72px STRIP, AND THAT IS DECIDED ─────
  * Between 1024 and 1279 the shared rail collapses to a 72px icon strip and
@@ -58,9 +58,7 @@
  */
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { activeRailKey } from '@/app/_components/frontdoor/rail-active';
-import type { RailMatchRow } from '@/app/_components/frontdoor/rail-active';
+import { useRailActiveKey } from '@/app/_components/frontdoor/rail-active-key';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { buildCustomerNavGroups } from './customer-nav-config';
@@ -92,8 +90,6 @@ export function EventRailContext({
    *  Galleries rows — see `buildCustomerNavGroups`. Omitted ⇒ 'plan'. */
   phase?: MenuLifecyclePhase;
 }) {
-  const pathname = usePathname() ?? `/dashboard/${eventId}`;
-
   /*
     THE SAME BUILDER AND THE SAME REGISTRY OVERLAY THE SIDEBAR USES.
 
@@ -144,17 +140,23 @@ export function EventRailContext({
   }));
 
   /*
-    Every row that can be the current page, declared ONCE and handed to the
-    shipped resolver, which picks the single most specific match.
+    ─── WHICH ROW IS LIT IS NOT DECIDED HERE ANY MORE (2026-08-23) ──────────
+    This component used to call `activeRailKey` over its OWN rows. That is one
+    resolver per COMPONENT, which is the same mistake as one boolean per ROW,
+    one level up: the shell draws the Studio group over the same URLs this menu
+    claims, so on `/dashboard/<id>/seating/lab` it would light "3D Plan" while
+    this lit "Seat plan", and two lit rows tell the reader they are in two
+    places at once.
+
+    The layout now hands the SAME rows to the shell as `contextMatchRows`; the
+    shell resolves the union once and publishes the winner. Reading it is the
+    whole of this component's part in it.
+
+    🔑 `null` IS A REAL ANSWER and renders as "no row lit". There is no local
+    fallback resolver on purpose — one would silently restore the second answer
+    this removes, and it would look like a safety net while doing it.
   */
-  const matchRows: RailMatchRow[] = groups.flatMap((group) =>
-    group.items.map((item) => ({
-      key: item.key,
-      href: item.href,
-      ...(item.matchPrefix ? { matchPrefix: item.matchPrefix } : {}),
-    })),
-  );
-  const activeKey = activeRailKey(matchRows, pathname);
+  const activeKey = useRailActiveKey();
 
   return (
     <>

@@ -17,6 +17,10 @@ import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { EventRailContext } from './_components/event-rail-context';
+import {
+  eventRailMatchRows,
+  type EventRailInputs,
+} from './_components/event-rail-match-rows';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { CustomerNavFab } from './_components/customer-nav-fab';
 import { CustomerSectionSubnav } from './_components/customer-section-subnav';
@@ -418,6 +422,22 @@ export default async function EventLayout({ children, params }: Props) {
   // hand the slot map to the (client) bottom nav. Cached via NAV_REGISTRY_TAG.
   const navSlots = await getNavSlotMap();
 
+  /*
+    Everything the event menu is built from, in ONE place. See the
+    `contextMatchRows` note below for why this is an object rather than two
+    parallel argument lists.
+  */
+  const eventRailInputs: EventRailInputs = {
+    eventId,
+    navSlots,
+    hideKeys: navHideKeys,
+    websiteEnabled,
+    monogramEnabled,
+    slug: (event.slug as string | null) ?? null,
+    guestCount,
+    phase,
+  };
+
   return (
     <>
       {/*
@@ -442,19 +462,23 @@ export default async function EventLayout({ children, params }: Props) {
            2026-08-21) and its rows open THIS wedding's tools. Verified against
            the person's own organiser events inside the resolver. */
         studioEventId={eventId}
+        /*
+          ─── ONE LIST, TWO CONSUMERS (2026-08-23) ──────────────────────────
+          `eventRailInputs` is spread into the rendered menu AND turned into the
+          match rows the shell resolves. It is ONE object on purpose: the shell
+          could not see inside a rendered child, so it resolved without the
+          event menu and the Studio rows had to stay unlit to avoid lighting
+          two rows at once. Building the rows from a second, separately-typed
+          argument list would put that gap straight back — the shell would be
+          arbitrating against a menu that is not quite the one on screen.
+        */
+        contextMatchRows={eventRailMatchRows(eventRailInputs)}
         railContext={
           <EventRailContext
-            eventId={eventId}
+            {...eventRailInputs}
             /* Never blank — `plaqueName` falls back to the event type for an
                unnamed draft (council acceptance criterion 2026-07-16). */
             eventName={plaqueName}
-            navSlots={navSlots}
-            hideKeys={navHideKeys}
-            websiteEnabled={websiteEnabled}
-            monogramEnabled={monogramEnabled}
-            slug={(event.slug as string | null) ?? null}
-            guestCount={guestCount}
-            phase={phase}
           />
         }
         topBarSlot={topBar}

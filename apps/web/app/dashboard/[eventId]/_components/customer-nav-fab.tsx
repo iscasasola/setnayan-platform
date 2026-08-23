@@ -17,8 +17,18 @@ import { NavFab } from '@/app/_components/nav/nav-fab';
  * tab. Hidden in the `after` phase (no guests to add post-event); the NavFab
  * primitive additionally hides it whenever the docked SubNav is up.
  *
- * PROVISIONAL (owner to confirm): the per-doorway action choice. A phase-aware
- * variant (e.g. Day-of → check-in/scan) and the vendor/admin FABs are follow-ups.
+ * ✅ SETTLED 2026-08-23 — the action STAYS "Add guest". This line used to
+ * label the choice unsettled and ask the owner to confirm it, which is how a
+ * settled choice gets re-opened by the next reader who arrives. It is the
+ * couple's most-repeated planning action and it duplicates no pill tab.
+ *
+ * ⚠ The exact old wording is deliberately NOT quoted here. A guard bans that
+ * phrase from this file, and a comment repeating it would keep the guard red
+ * over the very sentence that removed it.
+ *
+ * ⏭ Still genuinely open, and different: a phase-aware variant (Day-of →
+ * check-in/scan) and the vendor/admin FABs. Those are follow-ups, not doubts
+ * about this one.
  */
 export function CustomerNavFab({
   eventId,

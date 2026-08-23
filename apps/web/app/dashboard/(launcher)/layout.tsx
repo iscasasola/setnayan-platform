@@ -8,6 +8,7 @@ import {
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
+import { HomePillNav } from './_components/home-pill-nav';
 
 /**
  * Full-screen LAUNCHER chrome — route group `(launcher)`, covering only the
@@ -117,6 +118,13 @@ export default async function LauncherLayout({
         }
       >
         <main>{children}</main>
+        {/* Phone-only thumb nav — rendered by the LAYOUT, not by a page, so it
+            survives the tap that uses it. Its capability-gated fifth slot reads
+            the switcher context this layout already loaded; no new query. */}
+        <HomePillNav
+          hasSpaces={switcherData.context.hasVendor || switcherData.context.isAdmin}
+          spacesHref={switcherData.context.hasVendor ? '/vendor-dashboard' : '/admin'}
+        />
       </AppRailShell>
     </div>
   );

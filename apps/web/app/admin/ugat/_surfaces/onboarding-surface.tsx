@@ -125,7 +125,7 @@ export async function OnboardingSurface({ searchParams }: Props) {
                 type="checkbox"
                 name="onboarding_bg_music_enabled"
                 defaultChecked={musicEnabled}
-                className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+                className="h-4 w-4 rounded border-ink/30 text-mulberry focus:ring-mulberry"
               />
               Play background music during onboarding
             </label>
@@ -196,7 +196,7 @@ function RelatedLink({
           {label}
           <ArrowRight
             aria-hidden
-            className="h-3.5 w-3.5 text-ink/35 transition group-hover:translate-x-0.5 group-hover:text-terracotta"
+            className="h-3.5 w-3.5 text-ink/35 transition group-hover:translate-x-0.5 group-hover:text-mulberry"
             strokeWidth={1.75}
           />
         </span>

@@ -169,7 +169,7 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
           type="button"
           onClick={() => setPickerOpen((o) => !o)}
           title="Change icon"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-white text-ink hover:border-terracotta/40 hover:text-terracotta"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-white text-ink hover:border-terracotta/40 hover:text-mulberry"
         >
           {slot.icon.kind === 'none' ? (
             <span className="text-[9px] uppercase tracking-wide text-ink/35">none</span>
@@ -303,8 +303,8 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
                   type="button"
                   title={name}
                   onClick={() => pickIcon(name)}
-                  className={`flex h-8 w-8 items-center justify-center rounded-md border text-ink hover:border-terracotta/40 hover:text-terracotta ${
-                    isCurrent ? 'border-terracotta bg-terracotta/10 text-terracotta' : 'border-transparent'
+                  className={`flex h-8 w-8 items-center justify-center rounded-md border text-ink hover:border-terracotta/40 hover:text-mulberry ${
+                    isCurrent ? 'border-terracotta bg-terracotta/10 text-mulberry' : 'border-transparent'
                   }`}
                 >
                   <DynamicIcon

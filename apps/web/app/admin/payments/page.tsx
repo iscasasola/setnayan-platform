@@ -641,7 +641,7 @@ function PaymentsList({
                   href={screenshotUrlMap[p.payment_id]}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-terracotta hover:underline"
+                  className="inline-flex items-center gap-1 text-xs text-mulberry hover:underline"
                 >
                   Open full size
                   <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />

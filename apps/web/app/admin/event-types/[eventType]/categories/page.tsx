@@ -38,7 +38,7 @@ const PILL_ON =
 const PILL_OFF =
   'rounded-full border border-ink/20 bg-white px-3 py-1 text-xs font-medium text-ink/55 hover:border-ink/40';
 const BULK_BTN =
-  'rounded-md border border-ink/15 bg-white px-2.5 py-1 text-[11px] font-medium text-ink hover:border-terracotta/50 hover:text-terracotta';
+  'rounded-md border border-ink/15 bg-white px-2.5 py-1 text-[11px] font-medium text-ink hover:border-terracotta/50 hover:text-mulberry';
 
 export default async function ScopeCategoriesPage({
   params,
@@ -84,7 +84,7 @@ export default async function ScopeCategoriesPage({
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link href="/admin/taxonomy?view=vocab-event" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50 hover:text-terracotta">
+      <Link href="/admin/taxonomy?view=vocab-event" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50 hover:text-mulberry">
         ← Event types
       </Link>
 

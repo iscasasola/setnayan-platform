@@ -500,7 +500,7 @@ export async function SocialQueueSurface({
                       href={c.post_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center text-xs text-terracotta hover:underline"
+                      className="inline-flex items-center text-xs text-mulberry hover:underline"
                     >
                       Open the live post ↗
                     </a>
@@ -637,7 +637,7 @@ export async function SocialQueueSurface({
                       href={fb.post_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-terracotta hover:underline"
+                      className="text-mulberry hover:underline"
                     >
                       FB ↗
                     </a>
@@ -647,7 +647,7 @@ export async function SocialQueueSurface({
                       href={ig.post_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-terracotta hover:underline"
+                      className="text-mulberry hover:underline"
                     >
                       IG ↗
                     </a>

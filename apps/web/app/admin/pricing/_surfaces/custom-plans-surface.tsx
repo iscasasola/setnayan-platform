@@ -31,7 +31,7 @@ const REQUEST_STATUS_META: Record<
 > = {
   pending_payment: {
     label: 'Requested · awaiting payment',
-    className: 'bg-terracotta/10 text-terracotta',
+    className: 'bg-terracotta/10 text-mulberry',
   },
   quoted: { label: 'Quote sent', className: 'bg-ink/8 text-ink/70' },
 };
@@ -206,7 +206,7 @@ export async function CustomPlansSurface({ searchParams }: Props) {
           <h2 id="custom-requests-heading" className="text-sm font-semibold text-ink">
             Custom plan requests
             {requests.length > 0 && (
-              <span className="ml-2 rounded-full bg-terracotta/10 px-2 py-0.5 text-xs font-medium text-terracotta">
+              <span className="ml-2 rounded-full bg-terracotta/10 px-2 py-0.5 text-xs font-medium text-mulberry">
                 {requests.length}
               </span>
             )}

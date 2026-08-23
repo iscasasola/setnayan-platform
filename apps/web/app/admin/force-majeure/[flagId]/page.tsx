@@ -149,7 +149,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <Link
         href="/admin/force-majeure"
-        className="mb-4 inline-flex items-center gap-1 text-sm text-terracotta hover:underline"
+        className="mb-4 inline-flex items-center gap-1 text-sm text-mulberry hover:underline"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Back to queue
@@ -217,7 +217,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
             couple ? (
               <a
                 href={`mailto:${couple.email ?? ''}`}
-                className="text-terracotta hover:underline"
+                className="text-mulberry hover:underline"
               >
                 {couple.display_name ?? couple.email ?? '—'}
               </a>
@@ -233,7 +233,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
               <span className="inline-flex items-center gap-1 font-medium text-ink">
                 <ShieldCheck
                   aria-hidden
-                  className="h-3.5 w-3.5 text-terracotta"
+                  className="h-3.5 w-3.5 text-mulberry"
                   strokeWidth={2}
                 />
                 {handler.display_name ?? handler.email ?? '—'}
@@ -270,7 +270,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                         href={vendor.deposit_proof_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-terracotta hover:underline"
+                        className="text-mulberry hover:underline"
                       >
                         View deposit proof
                       </a>

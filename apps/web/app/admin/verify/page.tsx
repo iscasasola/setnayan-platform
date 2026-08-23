@@ -1110,7 +1110,7 @@ function DeepSearchBlock({
                           href={p.source_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-terracotta underline"
+                          className="text-mulberry underline"
                         >
                           source
                         </a>
@@ -1133,7 +1133,7 @@ function DeepSearchBlock({
                         href={w.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-terracotta underline"
+                        className="text-mulberry underline"
                       >
                         {w.platform}
                       </a>
@@ -1165,7 +1165,7 @@ function DeepSearchBlock({
               href={l.href}
               target="_blank"
               rel="noreferrer"
-              className="text-terracotta underline"
+              className="text-mulberry underline"
             >
               {l.label}
             </a>

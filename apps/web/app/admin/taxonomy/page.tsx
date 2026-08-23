@@ -659,7 +659,7 @@ export default async function AdminTaxonomyPage({
                       </select>
                       <span className="text-xs text-ink/50">before</span>
                       <SubmitButton
-                        className="rounded-md border border-ink/15 bg-white px-3 py-1 text-sm font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-terracotta"
+                        className="rounded-md border border-ink/15 bg-white px-3 py-1 text-sm font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-mulberry"
                         pendingLabel="Saving…"
                       >
                         Save
@@ -714,7 +714,7 @@ export default async function AdminTaxonomyPage({
                     />
                     <span className="text-xs text-ink/50">mo before</span>
                     <SubmitButton
-                      className="rounded-md border border-ink/15 bg-white px-3 py-1 text-sm font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-terracotta"
+                      className="rounded-md border border-ink/15 bg-white px-3 py-1 text-sm font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-mulberry"
                       pendingLabel="Saving…"
                     >
                       Save

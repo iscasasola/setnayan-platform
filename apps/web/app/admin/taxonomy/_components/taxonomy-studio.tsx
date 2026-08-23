@@ -751,8 +751,8 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
                 onDrop={onGridDrop(visibleTiles.length)}
                 className={`flex min-h-[132px] flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed text-sm transition ${
                   dropTileIdx === visibleTiles.length && dragTileId
-                    ? 'border-terracotta bg-terracotta/10 text-terracotta'
-                    : 'border-ink/20 bg-cream/40 text-ink/50 hover:border-terracotta/50 hover:text-terracotta'
+                    ? 'border-terracotta bg-terracotta/10 text-mulberry'
+                    : 'border-ink/20 bg-cream/40 text-ink/50 hover:border-terracotta/50 hover:text-mulberry'
                 }`}
               >
                 <Plus className="h-5 w-5" aria-hidden />
@@ -900,7 +900,7 @@ function TileCard({
       <div className="mt-auto flex flex-wrap gap-1">
         <Badge tone="bg-ink/5 text-ink/60">{tile.serviceCount} svc</Badge>
         {tile.hidden ? (
-          <Badge tone="bg-terracotta/15 text-terracotta">Hidden</Badge>
+          <Badge tone="bg-terracotta/15 text-mulberry">Hidden</Badge>
         ) : null}
         {tile.refinementCount > 0 ? (
           <button
@@ -1102,8 +1102,8 @@ function Inspector({
                         type="submit"
                         title={name}
                         onClick={() => setIconDraft(name)}
-                        className={`flex h-8 w-8 items-center justify-center rounded-md border text-ink hover:border-terracotta/40 hover:text-terracotta ${
-                          isCurrent ? 'border-terracotta bg-terracotta/10 text-terracotta' : 'border-transparent'
+                        className={`flex h-8 w-8 items-center justify-center rounded-md border text-ink hover:border-terracotta/40 hover:text-mulberry ${
+                          isCurrent ? 'border-terracotta bg-terracotta/10 text-mulberry' : 'border-transparent'
                         }`}
                       >
                         <LucideByName name={name} className="h-4 w-4" />
@@ -1189,7 +1189,7 @@ function Inspector({
               <input type="hidden" name="hidden" value={tile.hidden ? '0' : '1'} />
               <SubmitButton
                 className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-medium ${
-                  tile.hidden ? 'bg-terracotta/15 text-terracotta' : 'bg-ink/5 text-ink/60'
+                  tile.hidden ? 'bg-terracotta/15 text-mulberry' : 'bg-ink/5 text-ink/60'
                 }`}
                 pendingLabel="Saving…"
               >
@@ -1356,7 +1356,7 @@ function ServicesTab({
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <Badge tone={PHASE_TONE_BASE}>{s.phase}</Badge>
-                {s.setnayan ? <Badge tone="bg-terracotta/10 text-terracotta">Setnayan</Badge> : null}
+                {s.setnayan ? <Badge tone="bg-terracotta/10 text-mulberry">Setnayan</Badge> : null}
                 {s.ph ? <Badge tone="bg-sky-50 text-sky-700">PH</Badge> : null}
                 {s.rental ? <Badge tone="bg-ink/5 text-ink/70">Rental</Badge> : null}
                 {s.hidden ? <Badge tone="bg-danger-50 text-danger-700">hidden</Badge> : null}
@@ -1409,7 +1409,7 @@ function ServicesTab({
                     ))}
                   </select>
                   <SubmitButton
-                    className="rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[10px] font-medium text-ink/70 hover:border-terracotta/50 hover:text-terracotta"
+                    className="rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[10px] font-medium text-ink/70 hover:border-terracotta/50 hover:text-mulberry"
                     pendingLabel="…"
                   >
                     <MoveRight className="h-3 w-3" aria-hidden />
@@ -1671,7 +1671,7 @@ function ServiceFlagsPanel({
                   <SubmitButton
                     className={
                       on
-                        ? 'inline-flex items-center gap-1 rounded-full border border-terracotta/40 bg-terracotta/10 px-2 py-0.5 text-[10px] font-medium text-terracotta hover:bg-terracotta/15'
+                        ? 'inline-flex items-center gap-1 rounded-full border border-terracotta/40 bg-terracotta/10 px-2 py-0.5 text-[10px] font-medium text-mulberry hover:bg-terracotta/15'
                         : 'inline-flex items-center gap-1 rounded-full border border-ink/12 bg-white px-2 py-0.5 text-[10px] font-medium text-ink/50 hover:border-ink/30 hover:text-ink/70'
                     }
                     pendingLabel="…"
@@ -1719,7 +1719,7 @@ function ServiceFlagsPanel({
               ))}
             </div>
             <SubmitButton
-              className="rounded-md border border-ink/15 bg-white px-2.5 py-1 text-[10px] font-medium text-ink/70 hover:border-terracotta/50 hover:text-terracotta"
+              className="rounded-md border border-ink/15 bg-white px-2.5 py-1 text-[10px] font-medium text-ink/70 hover:border-terracotta/50 hover:text-mulberry"
               pendingLabel="Saving…"
             >
               Save cross-listing
@@ -1768,7 +1768,7 @@ function LeafFieldCard({
                   aria-label={`Rename ${field.key}`}
                 />
                 <SubmitButton
-                  className="rounded border border-ink/15 bg-white px-1.5 py-0.5 text-[10px] font-medium text-ink/70 hover:border-terracotta/50 hover:text-terracotta"
+                  className="rounded border border-ink/15 bg-white px-1.5 py-0.5 text-[10px] font-medium text-ink/70 hover:border-terracotta/50 hover:text-mulberry"
                   pendingLabel="…"
                 >
                   Save
@@ -1896,7 +1896,7 @@ function LeafFieldCard({
               <button
                 type="button"
                 onClick={() => setAddingOption(true)}
-                className="inline-flex items-center gap-1 rounded-full border border-dashed border-ink/25 bg-white px-2 py-0.5 text-[10px] text-ink/55 hover:border-terracotta/50 hover:text-terracotta"
+                className="inline-flex items-center gap-1 rounded-full border border-dashed border-ink/25 bg-white px-2 py-0.5 text-[10px] text-ink/55 hover:border-terracotta/50 hover:text-mulberry"
               >
                 <Plus className="h-2.5 w-2.5" aria-hidden /> Option
               </button>
@@ -2189,7 +2189,7 @@ function LeafBlock({
               <Badge tone="bg-ink/10 text-ink/50">retired</Badge>
             ) : null}
             {leaf.dynamic ? (
-              <Badge tone="bg-terracotta/10 text-terracotta">faith-adaptive</Badge>
+              <Badge tone="bg-terracotta/10 text-mulberry">faith-adaptive</Badge>
             ) : null}
             {leaf.isProjectable ? <Badge tone="bg-sky-50 text-sky-700">matched</Badge> : null}
           </span>
@@ -2678,7 +2678,7 @@ function ReorderButtons({
   view: string;
 }) {
   const btn =
-    'rounded border border-ink/12 bg-cream p-0.5 text-ink/50 hover:border-terracotta/40 hover:text-terracotta disabled:opacity-40';
+    'rounded border border-ink/12 bg-cream p-0.5 text-ink/50 hover:border-terracotta/40 hover:text-mulberry disabled:opacity-40';
   return (
     <>
       <form action={action}>
@@ -2704,7 +2704,7 @@ function ReorderButtons({
 const VOCAB_INPUT =
   'rounded-md border border-ink/15 bg-white px-2 py-1 text-xs text-ink';
 const VOCAB_BTN =
-  'rounded-md border border-ink/15 bg-white px-2 py-1 text-[10px] font-medium text-ink/70 hover:border-terracotta/50 hover:text-terracotta';
+  'rounded-md border border-ink/15 bg-white px-2 py-1 text-[10px] font-medium text-ink/70 hover:border-terracotta/50 hover:text-mulberry';
 
 /** A labeled cluster inside an event-type row — makes the two grains
  *  (Category scoping vs Couple launch) visually distinct per the fold spec. */
@@ -2899,7 +2899,7 @@ function EventTypeVocabPanel({
                     <Badge tone="bg-ink/10 text-ink/55">Inactive</Badge>
                   )}
                   {retired ? null : r.enabled ? (
-                    <Badge tone="bg-terracotta/10 text-terracotta">In picker</Badge>
+                    <Badge tone="bg-terracotta/10 text-mulberry">In picker</Badge>
                   ) : (
                     <Badge tone="bg-warn-50 text-warn-800">Hidden from picker</Badge>
                   )}
@@ -2991,7 +2991,7 @@ function EventTypeVocabPanel({
                     <SubmitButton
                       className={
                         r.enabled
-                          ? 'inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-[10px] font-medium text-ink/60 hover:border-terracotta/50 hover:text-terracotta'
+                          ? 'inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-[10px] font-medium text-ink/60 hover:border-terracotta/50 hover:text-mulberry'
                           : 'inline-flex items-center gap-1 rounded-md border border-terracotta/40 bg-terracotta px-2 py-1 text-[10px] font-medium text-cream hover:bg-terracotta/90'
                       }
                       pendingLabel="…"
@@ -3062,7 +3062,7 @@ function EventTypeVocabPanel({
               {/* Presentation editor (picker-card fields) */}
               {!retired ? (
                 <details className="w-full">
-                  <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.14em] text-ink/50 hover:text-terracotta">
+                  <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.14em] text-ink/50 hover:text-mulberry">
                     Edit picker card
                   </summary>
                   <form
@@ -3389,7 +3389,7 @@ function FaithLaunchButton({
     tone === 'live'
       ? 'bg-success-700 text-cream hover:bg-success-800'
       : tone === 'hold'
-        ? 'border border-ink/15 bg-cream text-ink hover:border-terracotta/40 hover:text-terracotta'
+        ? 'border border-ink/15 bg-cream text-ink hover:border-terracotta/40 hover:text-mulberry'
         : 'border border-ink/15 bg-cream text-ink/60 hover:border-danger-300 hover:text-danger-700';
   return (
     <form action={setFaithLaunchStatus}>
@@ -3459,7 +3459,7 @@ function UnfiledTray({ unfiled, data }: { unfiled: StudioService[]; data: Studio
                   ))}
                 </select>
                 <SubmitButton
-                  className="rounded-md border border-ink/15 bg-white px-2 py-1 text-[11px] font-medium text-ink hover:border-terracotta/50 hover:text-terracotta"
+                  className="rounded-md border border-ink/15 bg-white px-2 py-1 text-[11px] font-medium text-ink hover:border-terracotta/50 hover:text-mulberry"
                   pendingLabel="Filing…"
                 >
                   File

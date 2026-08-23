@@ -96,7 +96,7 @@ function InfoToggle({ open, onClick }: { open: boolean; onClick: () => void }) {
       aria-expanded={open}
       className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition ${
         open
-          ? 'border-terracotta/40 bg-terracotta/10 text-terracotta'
+          ? 'border-terracotta/40 bg-terracotta/10 text-mulberry'
           : 'border-ink/15 text-ink/45 hover:border-ink/30 hover:text-ink/70'
       }`}
     >

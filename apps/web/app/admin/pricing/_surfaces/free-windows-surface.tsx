@@ -252,7 +252,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
                     type="checkbox"
                     name="service_keys"
                     value={s.service_code}
-                    className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+                    className="h-4 w-4 rounded border-ink/30 text-mulberry focus:ring-mulberry"
                   />
                   <span className="min-w-0 flex-1 truncate text-ink">
                     {s.title}
@@ -271,7 +271,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
             type="checkbox"
             name="show_banner"
             defaultChecked
-            className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+            className="h-4 w-4 rounded border-ink/30 text-mulberry focus:ring-mulberry"
           />
           Show the announcement banner to couples while it&rsquo;s live
         </label>
@@ -349,7 +349,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
             type="checkbox"
             name="show_banner"
             defaultChecked
-            className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+            className="h-4 w-4 rounded border-ink/30 text-mulberry focus:ring-mulberry"
           />
           Show the announcement banner to vendors while it&rsquo;s live
         </label>

@@ -234,7 +234,7 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
               href={`/${row.publicId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[11px] font-medium text-[var(--m-slate,#6a6e76)] hover:text-terracotta"
+              className="text-[11px] font-medium text-[var(--m-slate,#6a6e76)] hover:text-mulberry"
             >
               Open couple page ↗
             </a>

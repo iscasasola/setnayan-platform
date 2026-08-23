@@ -67,7 +67,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
       <header className="space-y-1 sn-tile p-4">
         <Link
           href="/admin/demo-vendors/inquiries"
-          className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
+          className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50 hover:text-mulberry"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
           Demo inquiries

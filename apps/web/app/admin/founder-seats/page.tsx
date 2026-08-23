@@ -120,7 +120,7 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-ink">
                       {seat.label || seat.users?.email || seat.user_id}
-                      <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+                      <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-mulberry">
                         Setnayan Founder
                       </span>
                     </p>

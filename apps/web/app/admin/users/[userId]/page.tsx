@@ -520,7 +520,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                 </h2>
                 <Link
                   href="/admin/payments"
-                  className="text-xs font-medium text-terracotta underline hover:text-ink"
+                  className="text-xs font-medium text-mulberry underline hover:text-ink"
                 >
                   Reconcile in Payments
                 </Link>
@@ -834,7 +834,7 @@ function SupportSection({
           {title}
           <span className="font-normal text-ink/40">({count})</span>
         </h2>
-        <Link href={href} className="text-xs font-medium text-terracotta underline hover:text-ink">
+        <Link href={href} className="text-xs font-medium text-mulberry underline hover:text-ink">
           {hrefLabel}
         </Link>
       </div>

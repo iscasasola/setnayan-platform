@@ -200,6 +200,31 @@ export async function submitRsvp(
     answerRefused = Boolean(before) && before!.rsvp_status !== status;
   }
 
+  /**
+   * 🔒 OWNER RULED 2026-08-23 — "No for email, yes for the rest."
+   *
+   * A guest MAY CHANGE the address to their own: the couple typed it from a
+   * chat thread and getting it wrong is ordinary. A guest may NOT EMPTY it,
+   * because it is the key back in — the cross-device sign-in match runs on this
+   * column. Every box on this card is `defaultValue=`, so a blank one is far
+   * likelier to be a browser that did not prefill than a decision to erase.
+   *
+   * ⚠ THE TEST IS LOCK-OUT, NOT OWNERSHIP — do not generalise it. `mobile` and
+   * `display_name` stay freely clearable a few lines below, deliberately:
+   * clearing either costs the guest nothing they cannot undo.
+   *
+   * ⛔ AND THIS IS NOT `.is('email', null)`. That is the JOIN DOOR's rule
+   * (lib/event-account-link.ts:47 — "only fills a NULL email so we never
+   * clobber a different address"), which refuses to CHANGE an existing value —
+   * exactly the thing the owner permitted. Same column, opposite question.
+   * Copying that shape here would implement a rule nobody asked for.
+   *
+   * Omitting the key — rather than writing back `before.email` — also keeps this
+   * safe when the `before` read fails: no value, no write, nothing lost.
+   */
+  /** What the row will actually hold afterwards — the change report must agree. */
+  const storedEmail = contactEmail ?? ((before?.email as string | null) ?? null);
+
   const { error } = await admin
     .from('guests')
     .update({
@@ -230,7 +255,14 @@ export async function submitRsvp(
       // ⚠ OUTSIDE the frozen branch on purpose. Only the ANSWER freezes: a
       // phone number corrected the week of the event is worth more then than
       // at any other time.
-      email: contactEmail,
+      // 🔒 An empty box leaves the stored address alone — see the block above.
+      // ⚠ INLINE, NOT HOISTED TO A CONST. `only-the-answer-freezes.test.ts`
+      // slices this payload and requires the literal `email:` inside it and
+      // outside the frozen branch. A hoisted `...emailPatch` moves the literal
+      // out of the slice and turns that shipped guard RED — measured. Keeping
+      // it inline means no existing guard has to be re-pointed to fit this
+      // change, which is the safer of the two legal options.
+      ...(contactEmail ? { email: contactEmail } : {}),
       mobile: contactMobile,
       display_name: contactName,
       updated_at: new Date().toISOString(),
@@ -450,7 +482,10 @@ export async function submitRsvp(
     meal,
     dietary,
     guestNote,
-    email: contactEmail,
+    // What was STORED, not what was posted. A blank box no longer changes the
+    // email, so reporting it from `contactEmail` would tell the host a detail
+    // moved when the row is untouched.
+    email: storedEmail,
     mobile: contactMobile,
     displayName: contactName,
   });
@@ -516,7 +551,15 @@ export async function submitRsvp(
       // in an inbox are contact data leaving the app, and the deep link keeps
       // them inside it — the same line already drawn on dietary notes.
       if (changed.includes('email')) {
-        parts.push(contactEmail ? 'They added their email.' : 'They removed their email.');
+        // ⛔ NO REMOVAL BRANCH, AND ITS ABSENCE IS THE POINT. Since the owner's
+        // 2026-08-23 ruling an empty box leaves the stored address alone, so a
+        // change here can only be an address arriving or being replaced. A
+        // "They removed their email." line would narrate a state the data can
+        // no longer reach — the data changing while the words stay put is the
+        // half-done shape this project keeps paying for.
+        parts.push(
+          before?.email ? 'They updated their email.' : 'They added their email.',
+        );
       }
       if (changed.includes('mobile')) {
         parts.push(contactMobile ? 'They added their mobile number.' : 'They removed their mobile number.');

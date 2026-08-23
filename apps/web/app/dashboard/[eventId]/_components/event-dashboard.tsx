@@ -1,5 +1,10 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { EventScene } from '@/app/dashboard/(launcher)/_components/event-scene';
+import { getEventTypeVocab } from '@/lib/event-types-db';
+import { eventTypePhotoSrc } from '@/app/dashboard/(account)/create-event/_components/event-types';
+import { renderableImageSrc } from '@/lib/event-card-art';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   Sparkles,
   CalendarClock,
@@ -643,6 +648,51 @@ export async function EventDashboard({
 
   const base = `/dashboard/${eventId}`;
   const eventType = (event.event_type as string | null) ?? 'wedding';
+
+  /*
+    ─── THE FOCAL CARD CARRIES A PHOTOGRAPH ─────────────────────────────────
+
+    The account home has shown a picture of each celebration since 2026-07-30
+    (owner: *"we want a better card for events… let them get to imagine what the
+    events are"*). Opening the celebration itself then dropped to a card of pure
+    text — the one screen a couple lives in was the one with nothing of theirs
+    on it.
+
+    🔑 NOTHING IS DRAWN HERE. `EventScene` already ships and already owns the
+    whole precedence: the couple's OWN hero photo untouched → the per-type stock
+    photo under a per-event treatment → a deterministic branded gradient. It is
+    reused, not reimplemented, so this card and the home card can never disagree
+    about which picture an event has.
+
+    🔒 AND "ONE OBSIDIAN PER VIEW" STILL HOLDS. The band sits INSIDE the
+    existing dark card rather than becoming a second dark surface, and it does
+    not touch `.sn-tile-dark` — which has seven consumers across the app.
+
+    ⚠ FAIL-SOFT, BOTH LAYERS. A vocab read that throws leaves the repo asset
+    path; an unsigned or non-image `landing_page_hero_image_url` is narrowed
+    away by `renderableImageSrc` before it can reach an `<img src>` (the column
+    is host-writable straight through PostgREST). Either way the scene still
+    renders — worst case the branded gradient.
+  */
+  const typeHeroSrc = await (async () => {
+    try {
+      const vocab = await getEventTypeVocab();
+      const match = vocab.find((t) => t.key === eventType);
+      if (match) return eventTypePhotoSrc(match);
+    } catch {
+      // Graceful-degrade to the repo asset, exactly as the home board does.
+    }
+    return `/event-types/${eventType}.webp`;
+  })();
+  const ownHeroSrc = await (async () => {
+    const stored = (event.landing_page_hero_image_url as string | null) ?? null;
+    if (!stored) return null;
+    try {
+      return renderableImageSrc(await displayUrlForStoredAsset(stored));
+    } catch {
+      return null;
+    }
+  })();
   const eventWord = eventType === 'wedding' ? 'wedding' : 'event';
 
   // ── VENDOR-FREE EVENT TYPES (0053 · `marketplace_enabled`) ─────────────────
@@ -1670,6 +1720,28 @@ export async function EventDashboard({
                 focalDark ? 'sn-tile-dark' : 'sn-tile'
               }`}
             >
+              {/* Full-bleed inside the card's 18px padding. Decorative only —
+                  every fact below is real text, so nothing depends on it. */}
+              <div className="relative -mx-[18px] -mt-[18px] mb-4 h-28 overflow-hidden">
+                <EventScene
+                  eventId={eventId}
+                  eventType={eventType}
+                  photoSrc={typeHeroSrc}
+                  ownPhotoSrc={ownHeroSrc}
+                  muted={eventHasHappened}
+                />
+                {/* The card's own ink, brought up over the foot of the photo so
+                    the eyebrow underneath never sits against a bright frame. */}
+                <span
+                  aria-hidden
+                  className="absolute inset-x-0 bottom-0 h-14"
+                  style={{
+                    background: focalDark
+                      ? 'linear-gradient(to top, var(--m-ink), transparent)'
+                      : 'linear-gradient(to top, var(--m-paper), transparent)',
+                  }}
+                />
+              </div>
               <p className="sn-eye">
                 <CalendarClock aria-hidden strokeWidth={1.75} />
                 The {eventWord} day

@@ -17,6 +17,7 @@ import {
   resolveCoverageLabels,
 } from '@/lib/vendor-coverages';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
+import { buildCanvasInitialFromCard } from '@/lib/vendor-card-copy';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 
@@ -36,10 +37,10 @@ export default async function NewServicePage({
   searchParams,
 }: {
   params: Promise<{ category: string }>;
-  searchParams: Promise<{ claim?: string }>;
+  searchParams: Promise<{ claim?: string; from?: string }>;
 }) {
   const { category } = await params;
-  const { claim } = await searchParams;
+  const { claim, from } = await searchParams;
   if (!CATEGORY_SET.has(category)) notFound();
   const cat = category as VendorCategory;
 
@@ -105,6 +106,20 @@ export default async function NewServicePage({
   // today, down to the queries this page makes. The audience vocab is only
   // fetched for the canvas, which is the only surface that shows it.
   const canvas = canvasMakerEnabled();
+
+  // ── "Start from one of your cards" (?from=<vendor_service_id>) ────────────
+  // Owner-asked 2026-07-28. Only the canvas can be seeded — the 6-step wizard
+  // takes no defaults — so with the flag OFF the parameter is IGNORED rather
+  // than half-honoured, and the doorway that produces it is gated on the same
+  // flag. A link that silently does nothing is worse than no link.
+  //
+  // The id is hostile input: the builder scopes the read to THIS profile and
+  // returns null for a foreign, deleted or malformed one, so a bad `?from=`
+  // opens an ordinary blank maker instead of an error.
+  const initial =
+    canvas && typeof from === 'string' && from.length > 0
+      ? await buildCanvasInitialFromCard(supabase, profile.vendor_profile_id, from, category)
+      : null;
   const eventTypeOptions = canvas
     ? (await getEventTypeVocab().catch(() => [])).map((e) => ({
         key: e.key,
@@ -146,7 +161,9 @@ export default async function NewServicePage({
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Services
       </Link>
-      <h1 className="text-2xl font-semibold tracking-tight">Add a service</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">
+        {initial ? 'Start from one of your cards' : 'Add a service'}
+      </h1>
       <p className="mb-6 mt-1 text-sm text-ink/60">
         {canvas
           ? 'This is your card — the one couples will see. Tap any part of it to edit. Everything saves together.'
@@ -182,6 +199,7 @@ export default async function NewServicePage({
           faithOptions={faithOptions}
           coverageAudience={coverageAudience}
           coverageAllowed={coverageAllowed}
+          initial={initial}
         />
       ) : (
         <ServiceWizard

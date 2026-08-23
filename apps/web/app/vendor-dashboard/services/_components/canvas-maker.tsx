@@ -40,6 +40,7 @@ import {
   type CanvasFormSnapshot,
 } from '@/lib/canvas-form-snapshot';
 import { audienceGroups, type AudienceOption } from '@/lib/canvas-audience-groups';
+import type { CanvasInitial } from '@/lib/canvas-initial';
 import { clipPillLabel } from '@/lib/clip-duration-label';
 import { coverageServesKey } from '@/lib/coverage-serves-key';
 
@@ -141,6 +142,7 @@ export function CanvasMaker({
   faithOptions = [],
   coverageAudience = {},
   coverageAllowed = {},
+  initial = null,
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -162,14 +164,26 @@ export function CanvasMaker({
    * (or a failed taxonomy read upstream) = null = full vocab, the fail-soft.
    */
   coverageAllowed?: Record<number, string[] | null>;
+  /**
+   * "Start from one of your cards" — everything the vendor already AUTHORED on
+   * an existing card, read server-side (lib/vendor-card-copy.ts). `null` is a
+   * blank maker, which is every other entry into this screen.
+   *
+   * 🔑 A SEED IS NOT A LINK. Nothing here ties the new card to the old one: the
+   * form posts the identical field set either way, so `commitVendorService`
+   * cannot tell a copy from a first draft and the source card keeps ALL of its
+   * history — bookings, record, event assignments (owner 2026-07-28, "events
+   * created for that card stay on that card").
+   */
+  initial?: CanvasInitial | null;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
   const [sheet, setSheet] = useState<SheetKey | null>(null);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [perk, setPerk] = useState('');
+  const [title, setTitle] = useState(initial?.title ?? '');
+  const [perk, setPerk] = useState(initial?.exclusivePerkText ?? '');
   const [snap, setSnap] = useState<CanvasFormSnapshot>(EMPTY_CANVAS_SNAPSHOT);
   /**
    * How long the picked clip is, in seconds — `null` while unknown.
@@ -188,7 +202,7 @@ export function CanvasMaker({
   // Which coverage this card sits in. The PICKER lives in the audience sheet
   // (it decides who finds the card), but the FIELD stays on the main form as a
   // hidden input under its shipped name — same value, same server contract.
-  const [coverageId, setCoverageId] = useState<string>('');
+  const [coverageId, setCoverageId] = useState<string>(initial?.coverageId ?? '');
   const selectedCoverage = coverageId ? Number(coverageId) : null;
 
   const [events, setEvents] = useState<string[]>([]);
@@ -375,6 +389,42 @@ export function CanvasMaker({
 
   return (
     <div className="sn-canvas space-y-4">
+      {/* ── STARTED FROM ANOTHER CARD ────────────────────────────────────────
+          Two facts the vendor needs BEFORE they press anything, and the second
+          is the one that would otherwise bite them silently.
+
+          (1) This is a NEW card. The one they copied is untouched — it keeps
+              its bookings, its record and its address. Nothing here posts an id.
+          (2) The ★ Customization options did NOT come across. They are stored
+              against a one-service package that has no link back to the card it
+              was minted for, so there is no honest way to find them — and
+              guessing by category would attach a DIFFERENT card's options to
+              this one. Saying so is the whole point: a copy that quietly loses
+              a card's choices is a card published missing what it sells. */}
+      {initial ? (
+        <div
+          className="rounded-xl border p-3 text-sm"
+          style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}
+        >
+          <p style={{ color: 'var(--m-ink)' }}>
+            Started from{' '}
+            <span className="font-semibold">
+              {initial.sourceTitle ?? 'one of your cards'}
+            </span>
+            . This is a brand-new card — the one you copied keeps its bookings and
+            everything it has done.
+          </p>
+          {initial.sourceWasOtherCategory ? (
+            <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-2)' }}>
+              You copied it into a different category, so it sits under this one now.
+            </p>
+          ) : null}
+          <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-2)' }}>
+            Your options and choices under “What couples get” don’t come across yet —
+            add them here.
+          </p>
+        </div>
+      ) : null}
       <form ref={formRef} action={commitVendorService} className="space-y-4">
         <input type="hidden" name="category" value={categoryValue} />
         {claimToken ? <input type="hidden" name="claim_token" value={claimToken} /> : null}
@@ -538,7 +588,13 @@ export function CanvasMaker({
                     className="flex min-h-[38px] items-center gap-2 rounded-lg border px-3 py-2 text-sm"
                     style={{ borderColor: line, color: 'var(--m-slate)' }}
                   >
-                    <input type="checkbox" name="linked" value={c.value} className="h-4 w-4 accent-terracotta" />
+                    <input
+                      type="checkbox"
+                      name="linked"
+                      value={c.value}
+                      defaultChecked={initial?.linkedCategories.includes(c.value) ?? false}
+                      className="h-4 w-4 accent-terracotta"
+                    />
                     {c.label}
                   </label>
                 ))}
@@ -620,11 +676,16 @@ export function CanvasMaker({
               compressImage
               variant="square"
               qrGuard
+              currentValue={initial?.coverPhotoR2Key ?? null}
+              initialDisplayUrls={initial?.mediaDisplayUrls}
             />
           </Field>
           <ShowcaseMediaFields
             vendorProfileId={vendorProfileId}
             onClipDurationSeconds={onClipDurationSeconds}
+            videoCurrent={initial?.showcaseVideoR2Key ?? null}
+            photosCurrent={initial?.showcasePhotoR2Keys}
+            displayUrls={initial?.mediaDisplayUrls}
           />
         </CanvasSheet>
 
@@ -637,32 +698,40 @@ export function CanvasMaker({
           <PricingBasisEditor
             idPrefix="canvas"
             category={categoryValue}
-            defaults={{
-              pricing_basis: 'fixed',
-              starting_price_php: null,
-              base_pax: null,
-              added_pax_price_php: null,
-              per_pax_price_php: null,
-              min_pax: null,
-              hour_base_php: null,
-              min_hours: null,
-              extra_hour_php: null,
-            }}
-            fixedExtra={<PriceBracketsEditor initial={[]} />}
+            defaults={
+              initial?.pricing ?? {
+                pricing_basis: 'fixed',
+                starting_price_php: null,
+                base_pax: null,
+                added_pax_price_php: null,
+                per_pax_price_php: null,
+                min_pax: null,
+                hour_base_php: null,
+                min_hours: null,
+                extra_hour_php: null,
+              }
+            }
+            fixedExtra={<PriceBracketsEditor initial={initial?.brackets ?? []} />}
           />
           <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
             Per head sets the minimum pax you can serve · per hour covers a first block
             then bills each extra hour · per event is flat, whatever the hours or pax.
             Either way the real number is quoted in each couple&rsquo;s inquiry.
           </p>
-          <DiscountsEditor initial={[]} />
+          <DiscountsEditor initial={initial?.discounts ?? []} />
           <Field label="Crew size (optional)" htmlFor="crew_size">
-            <input id="crew_size" name="crew_size" type="number" min={0} step={1} className="input-field" />
+            <input id="crew_size" name="crew_size" type="number" min={0} step={1} defaultValue={initial?.crewSize ?? ''} className="input-field" />
           </Field>
           <IncludedFlags
             idPrefix="canvas"
             category={categoryValue}
-            defaults={{ crew_meal_included: false, transport_included: false, transport_flat_fee_php: null }}
+            defaults={
+              initial?.included ?? {
+                crew_meal_included: false,
+                transport_included: false,
+                transport_flat_fee_php: null,
+              }
+            }
           />
           <details className="rounded-lg border p-3" style={{ borderColor: line }}>
             <summary className="cursor-pointer text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
@@ -674,13 +743,13 @@ export function CanvasMaker({
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Field label="Recommended lead (months)" htmlFor="recommended_lead_time_months">
-                  <input id="recommended_lead_time_months" name="recommended_lead_time_months" type="number" min={0} step="0.5" className="input-field" />
+                  <input id="recommended_lead_time_months" name="recommended_lead_time_months" type="number" min={0} step="0.5" defaultValue={initial?.recommendedLeadTimeMonths ?? ''} className="input-field" />
                 </Field>
                 <Field label="Last-minute ends (months)" htmlFor="last_minute_end_months">
-                  <input id="last_minute_end_months" name="last_minute_end_months" type="number" min={0} step={1} className="input-field" />
+                  <input id="last_minute_end_months" name="last_minute_end_months" type="number" min={0} step={1} defaultValue={initial?.lastMinuteEndMonths ?? ''} className="input-field" />
                 </Field>
                 <Field label="Last-minute surcharge (%)" htmlFor="last_minute_surcharge_pct">
-                  <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} className="input-field" />
+                  <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} defaultValue={initial?.lastMinuteSurchargePct ?? ''} className="input-field" />
                 </Field>
               </div>
             </div>
@@ -730,7 +799,7 @@ export function CanvasMaker({
           open={sheet === 'custom'}
           onClose={() => setSheet(null)}
         >
-          <InclusionsEditor initial={[]} />
+          <InclusionsEditor initial={initial?.inclusions ?? []} />
           {/* The #3846 merged customization editor, mounted whole. Flag-dark on
               the SAME flag as the wizard: off ⇒ unmounted ⇒ contributes no
               field, exactly as the wizard behaves. */}

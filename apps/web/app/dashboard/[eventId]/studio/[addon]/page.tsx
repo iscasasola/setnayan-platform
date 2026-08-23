@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { IterationPlaceholder } from '../../_components/placeholder';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 const ADD_ON_META: Record<
   string,
@@ -78,11 +79,21 @@ async function isInternalAdmin(): Promise<boolean> {
   } = await supabase.auth.getUser();
   if (!user) return false;
 
-  const { data: me } = await supabase
+  const { data: me, error: meError } = await supabase
     .from('users')
     .select('is_internal, is_team_member')
     .eq('user_id', user.id)
     .maybeSingle();
+  if (meError) {
+    // Fails closed: an unread flag is not an internal account. Logged so an
+    // internal viewer being shown the ordinary page leaves a trace.
+    logQueryError(
+      'StudioAddonPage.isInternalAdmin',
+      meError,
+      { user_id: user.id },
+      'graceful_degrade',
+    );
+  }
   return Boolean(me?.is_internal || me?.is_team_member);
 }
 

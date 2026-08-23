@@ -137,56 +137,6 @@ const KNOWN_UNBOUND: Record<string, number> = {
   'app/dashboard/(account)/profile/page.tsx::faceProfile': 1,
   'app/dashboard/(account)/profile/page.tsx::shareConsentRows': 1,
   'app/dashboard/(launcher)/_components/creator-benefits.tsx::data': 1,
-  'app/dashboard/[eventId]/checklist/page.tsx::data': 1,
-  'app/dashboard/[eventId]/checklist/page.tsx::eventRow': 1,
-  'app/dashboard/[eventId]/clearance/page.tsx::event': 1,
-  'app/dashboard/[eventId]/clearance/page.tsx::membership': 1,
-  'app/dashboard/[eventId]/galleries/page.tsx::membership': 1,
-  'app/dashboard/[eventId]/launch/page.tsx::membership': 1,
-  'app/dashboard/[eventId]/live/page.tsx::membership': 1,
-  'app/dashboard/[eventId]/messages/[threadId]/page.tsx::eventRow': 1,
-  'app/dashboard/[eventId]/messages/[threadId]/page.tsx::vendor': 1,
-  'app/dashboard/[eventId]/messages/page.tsx::vendor': 1,
-  'app/dashboard/[eventId]/pabuya/page.tsx::eventRow': 1,
-  'app/dashboard/[eventId]/page.tsx::data': 1,
-  'app/dashboard/[eventId]/page.tsx::papicViewerMembership': 1,
-  'app/dashboard/[eventId]/schedule/_components/emcee-picks.tsx::booked': 1,
-  'app/dashboard/[eventId]/schedule/_components/emcee-picks.tsx::profiles': 1,
-  'app/dashboard/[eventId]/seating/lab/_components/couple-3d-plan-unlock-notice.tsx::vendor': 1,
-  'app/dashboard/[eventId]/sponsors/page.tsx::legacy': 1,
-  'app/dashboard/[eventId]/sponsors/page.tsx::modCheck': 1,
-  'app/dashboard/[eventId]/studio/[addon]/page.tsx::me': 1,
-  'app/dashboard/[eventId]/studio/mood-board/concept-pdf/route.ts::inspoRows': 1,
-  'app/dashboard/[eventId]/studio/page.tsx::membership': 1,
-  'app/dashboard/[eventId]/studio/page.tsx::moderator': 1,
-  'app/dashboard/[eventId]/studio/pakanta/page.tsx::draft': 1,
-  'app/dashboard/[eventId]/studio/panood/setup/page.tsx::grantRaw': 1,
-  'app/dashboard/[eventId]/studio/papic/_components/vendor-media-controls.tsx::captureRows': 1,
-  'app/dashboard/[eventId]/studio/papic/crew/poster/page.tsx::event': 1,
-  'app/dashboard/[eventId]/studio/papic/crew/poster/page.tsx::joinTokenRow': 1,
-  'app/dashboard/[eventId]/studio/papic/moderation/_components/kwento-queue.tsx::guests': 1,
-  'app/dashboard/[eventId]/studio/papic/moderation/_components/kwento-queue.tsx::messages': 1,
-  'app/dashboard/[eventId]/studio/papic/recap/page.tsx::recapDriveGrant': 1,
-  'app/dashboard/[eventId]/studio/papic/vendor-challenges-approval.tsx::data': 1,
-  'app/dashboard/[eventId]/studio/patiktok/[templateId]/page.tsx::event': 1,
-  'app/dashboard/[eventId]/studio/patiktok/[templateId]/page.tsx::tracksRaw': 1,
-  'app/dashboard/[eventId]/studio/patiktok/booth/page.tsx::event': 1,
-  'app/dashboard/[eventId]/studio/patiktok/booth/page.tsx::tableRows': 1,
-  'app/dashboard/[eventId]/studio/photo-delivery/page.tsx::driveGrant': 1,
-  'app/dashboard/[eventId]/studio/photo-delivery/page.tsx::event': 1,
-  'app/dashboard/[eventId]/studio/photo-delivery/page.tsx::latestJob': 1,
-  'app/dashboard/[eventId]/studio/save-the-date/page.tsx::event': 1,
-  'app/dashboard/[eventId]/studio/save-the-date/stamp/page.tsx::event': 1,
-  'app/dashboard/[eventId]/vendors/[vendorId]/review/page.tsx::ev': 1,
-  'app/dashboard/[eventId]/vendors/[vendorId]/review/page.tsx::evtRow': 1,
-  'app/dashboard/[eventId]/vendors/[vendorId]/review/page.tsx::recRow': 1,
-  'app/dashboard/[eventId]/vendors/[vendorId]/review/page.tsx::vp': 2,
-  'app/dashboard/[eventId]/vendors/packages/[bookingId]/page.tsx::vendor': 1,
-  'app/dashboard/[eventId]/vendors/page.tsx::data': 3,
-  'app/dashboard/[eventId]/website/editorial/page.tsx::ed': 1,
-  'app/dashboard/[eventId]/website/editorial/page.tsx::me': 1,
-  'app/dashboard/[eventId]/website/privacy/page.tsx::me': 1,
-  'app/dashboard/[eventId]/website/widgets/page.tsx::previewGuest': 1,
 };
 
 test('the couple tree is big enough that an empty sweep cannot pass', () => {
@@ -283,6 +233,36 @@ const MUST_GATE: Array<{ file: string; why: string; gates: RegExp[] }> = [
     why: 'a suggestion that never arrives, and a coordinator told to send it again',
     gates: [/\{!recsMeasured \|\| !vendorRecsMeasured \? \(/, /if \(!recsMeasured\) \{/],
   },
+  {
+    file: '[eventId]/studio/pakanta/page.tsx',
+    why: 'a blank form that overwrites the answers they already saved',
+    gates: [/const draftMeasured = !draftError;/, /\{!draftMeasured \? \(/],
+  },
+  {
+    file: '[eventId]/website/editorial/page.tsx',
+    why: 'their whole written story, blank — and saving replaces it',
+    gates: [/draftMeasured = !edError;/, /\{!draftMeasured \? \(/],
+  },
+  {
+    file: '[eventId]/studio/panood/setup/page.tsx',
+    why: '"not connected" about a channel that is connected',
+    gates: [/const grantMeasured = !grantError;/, /\) : !grantMeasured \? \(/],
+  },
+  {
+    file: '[eventId]/studio/papic/moderation/_components/kwento-queue.tsx',
+    why: 'an event where nobody wrote anything, while messages sit unreviewed',
+    gates: [/if \(messagesError\) \{/],
+  },
+  {
+    file: '[eventId]/studio/papic/vendor-challenges-approval.tsx',
+    why: 'a supplier waiting on an okay that is never asked for',
+    gates: [/if \(error\) \{/],
+  },
+  {
+    file: '[eventId]/schedule/_components/emcee-picks.tsx',
+    why: 'the host block removed from the schedule without a word',
+    gates: [/if \(bookedError\) \{/, /if \(profilesError\) \{/, /function EmceePicksUnread\(\)/],
+  },
 ];
 
 test('the screens that state an absence carry a measured gate AND say so on screen', () => {
@@ -329,6 +309,19 @@ test('a refused read never renders as a count of zero or an emptied money docume
     pkg,
     /itemsMeasured\s*=\s*!itemsError\s*&&\s*itemsRows\s*!==\s*null/,
     'The booking receipt must know whether its lines were read at all.',
+  );
+
+  // THE MISSED HALF. `vendorRows` above it was already handled, and the comment
+  // there refuses to claim "no supplier has taken photos" — the claim arrived
+  // one read later anyway, through `captureRows`.
+  const media = stripComments(
+    readFileSync(join(HERE, '[eventId]/studio/papic/_components/vendor-media-controls.tsx'), 'utf8'),
+  );
+  assert.match(
+    media,
+    /if \(capturesError\) \{[\s\S]*?return null;/,
+    'A refused captures read must not be filtered down into "no supplier has ' +
+      'taken photos" — the read above it already refuses to make that claim.',
   );
 
   const cats = stripComments(

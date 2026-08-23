@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Music, Heart, Sparkles, CheckCircle2, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
@@ -105,11 +106,27 @@ export default async function PakantaPage({ params }: Props) {
       : null;
   const adopted = event.pakanta_song_adopted_as_site_music === true;
 
-  const { data: draft } = await supabase
+  //
+  // 🚨 A REFUSED READ HERE COSTS THE COUPLE THEIR OWN WORDS. Supabase RESOLVES
+  // 🚨 with { error } rather than throwing, so a refusal arrives as `null`, the
+  // 🚨 form below renders BLANK — and saving it upserts on `event_id`, so the
+  // 🚨 answers they wrote before are overwritten by the empty ones they were
+  // 🚨 just shown. An unread draft is not an absent draft; say so before they
+  // 🚨 type over it.
+  const { data: draft, error: draftError } = await supabase
     .from('pakanta_intake_drafts')
     .select('responses')
     .eq('event_id', eventId)
     .maybeSingle<{ responses: PakantaResponses }>();
+  if (draftError) {
+    logQueryError(
+      'PakantaPage.draft',
+      draftError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+  const draftMeasured = !draftError;
   const responses = draft?.responses ?? null;
 
   // Iteration 0053: frame the song brief by the event type ('couple' for a
@@ -150,6 +167,20 @@ export default async function PakantaPage({ params }: Props) {
           </span>
         }
       />
+
+      {!draftMeasured ? (
+        <p
+          role="alert"
+          className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+        >
+          <strong className="text-ink">
+            We couldn&rsquo;t load the answers you saved before.
+          </strong>{' '}
+          The form below is showing empty because of that, not because your
+          answers are gone. Reload before filling it in again &mdash; saving now
+          would replace what you wrote.
+        </p>
+      ) : null}
 
       {/* The story we already have — pulled from onboarding, read-only. */}
       <div className="sn-tile p-5">

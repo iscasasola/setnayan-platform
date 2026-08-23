@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchMessages, fetchThreadById } from '@/lib/chat';
 import { sendChatMessage, markThreadRead } from '@/lib/chat-actions';
 import { getThreadBlockState } from '@/lib/chat-block';
@@ -36,11 +37,19 @@ export default async function CoupleThreadPage({ params }: Props) {
   if (!thread || thread.event_id !== eventId) notFound();
 
   // Event date bounds the meeting-request picker (today → day before the event).
-  const { data: eventRow } = await supabase
+  const { data: eventRow, error: eventRowError } = await supabase
     .from('events')
     .select('event_date')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (eventRowError) {
+    logQueryError(
+      'CoupleThreadPage.event',
+      eventRowError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   const eventDate = (eventRow as { event_date?: string | null } | null)?.event_date ?? null;
 
   // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
@@ -64,13 +73,21 @@ export default async function CoupleThreadPage({ params }: Props) {
   // vendors surface as business_name. Single resolver call drives both
   // surfaces so the header pill and the in-thread sender attribution stay
   // in lock-step.
-  const { data: vendor } = await supabase
+  const { data: vendor, error: vendorError } = await supabase
     .from('vendor_profiles')
     .select(
       'business_name, logo_url, contact_email, tagline, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
     )
     .eq('vendor_profile_id', thread.vendor_profile_id)
     .maybeSingle();
+  if (vendorError) {
+    logQueryError(
+      'CoupleThreadPage.vendor',
+      vendorError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
 
   // Server-render the first batch so the page is useful on first paint and
   // remains SEO-friendly. The <ChatMessageStream> client component takes

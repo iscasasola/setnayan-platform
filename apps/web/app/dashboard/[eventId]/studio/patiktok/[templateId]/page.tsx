@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Music, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   findPatiktokTemplate,
   type PatiktokTemplate,
@@ -32,18 +33,34 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: event } = await supabase
+  const { data: event, error: eventError } = await supabase
     .from('events')
     .select('display_name')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (eventError) {
+    logQueryError(
+      'PatiktokTemplatePage.event',
+      eventError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
 
-  const { data: tracksRaw } = await supabase
+  const { data: tracksRaw, error: tracksRawError } = await supabase
     .from('reel_music_tracks')
     .select('track_slug, category, display_name, bpm, duration_sec')
     .eq('is_active', true)
     .order('category', { ascending: true })
     .order('display_name', { ascending: true });
+  if (tracksRawError) {
+    logQueryError(
+      'PatiktokTemplatePage.musicTracks',
+      tracksRawError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   const musicTracks = (tracksRaw ?? []) as MusicTrackOption[];
 
   return (

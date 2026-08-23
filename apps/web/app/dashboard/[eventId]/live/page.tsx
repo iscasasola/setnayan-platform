@@ -54,12 +54,20 @@ export default async function LiveWallConsolePage({
   if (!user) redirect('/login');
 
   const supabase = await createClient();
-  const { data: membership } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle();
+  if (membershipError) {
+    logQueryError(
+      'LivePage.membership',
+      membershipError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   if (!membership || !['couple', 'coordinator'].includes(membership.member_type as string)) {
     redirect(`/dashboard/${eventId}`);
   }

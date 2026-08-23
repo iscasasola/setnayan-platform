@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
 
@@ -40,11 +41,19 @@ export default async function PapicPoolPosterPage({ params }: Props) {
     redirect(`/dashboard/${eventId}`);
   }
 
-  const { data: event } = await supabase
+  const { data: event, error: eventError } = await supabase
     .from('events')
     .select('display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (eventError) {
+    logQueryError(
+      'PapicCrewPoster.event',
+      eventError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
 
   // ⚠ NEVER PRINT A DEAD QR. This is the worst place the 2026-08-10 bug landed:
   // a poster goes on a table at a real party, and a private event's join link
@@ -52,11 +61,19 @@ export default async function PapicPoolPosterPage({ params }: Props) {
   // correct a printed sheet. If the link cannot work, bounce back to /crew,
   // which now says WHY and links to the screen that fixes it — one explanation,
   // not a second copy of it on a print stylesheet.
-  const { data: joinTokenRow } = await supabase
+  const { data: joinTokenRow, error: joinTokenRowError } = await supabase
     .from('event_join_tokens')
     .select('token, revoked_at, expires_at')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (joinTokenRowError) {
+    logQueryError(
+      'PapicCrewPoster.joinToken',
+      joinTokenRowError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   const posterLink = sharedJoinLinkState({
     event: (event ?? {}) as Parameters<typeof sharedJoinLinkState>[0]['event'],
     tokenValid:

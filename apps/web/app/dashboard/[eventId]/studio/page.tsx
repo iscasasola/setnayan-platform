@@ -236,14 +236,22 @@ export default async function StudioPage({ params, searchParams }: Props) {
   } = await supabase.auth.getUser();
   let isCoordinator = false;
   if (user) {
-    const { data: membership } = await supabase
+    const { data: membership, error: membershipError } = await supabase
       .from('event_members')
       .select('member_type')
       .eq('event_id', eventId)
       .eq('user_id', user.id)
       .maybeSingle();
+    if (membershipError) {
+      logQueryError(
+        'StudioHubPage.membership',
+        membershipError,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
     if (!membership || membership.member_type !== 'couple') {
-      const { data: moderator } = await supabase
+      const { data: moderator, error: moderatorError } = await supabase
         .from('event_moderators')
         .select('moderator_id')
         .eq('event_id', eventId)
@@ -251,6 +259,14 @@ export default async function StudioPage({ params, searchParams }: Props) {
         .not('accepted_at', 'is', null)
         .is('removed_at', null)
         .maybeSingle();
+      if (moderatorError) {
+        logQueryError(
+          'StudioHubPage.moderator',
+          moderatorError,
+          { event_id: eventId },
+          'graceful_degrade',
+        );
+      }
       isCoordinator = Boolean(moderator);
     }
   }

@@ -9,6 +9,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   PRINCIPAL_PAIR_DEFAULT,
@@ -92,7 +93,7 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
 
   // Gate access — must be a current host on this event (via either
   // event_moderators or the legacy event_members couple row).
-  const { data: modCheck } = await supabase
+  const { data: modCheck, error: modCheckError } = await supabase
     .from('event_moderators')
     .select('moderator_id')
     .eq('event_id', eventId)
@@ -100,14 +101,30 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
     .not('accepted_at', 'is', null)
     .is('removed_at', null)
     .maybeSingle();
+  if (modCheckError) {
+    logQueryError(
+      'SponsorsPage.moderator',
+      modCheckError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   let isHost = !!modCheck;
   if (!isHost) {
-    const { data: legacy } = await supabase
+    const { data: legacy, error: legacyError } = await supabase
       .from('event_members')
       .select('member_type')
       .eq('event_id', eventId)
       .eq('user_id', user.id)
       .maybeSingle();
+    if (legacyError) {
+      logQueryError(
+        'SponsorsPage.legacyMembership',
+        legacyError,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
     isHost = (legacy as { member_type: string } | null)?.member_type === 'couple';
   }
   if (!isHost) redirect('/dashboard');

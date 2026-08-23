@@ -7,6 +7,7 @@
 
 import { Trophy, Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { displayChallengePrompt } from '@/lib/papic-missions';
@@ -18,7 +19,11 @@ export async function VendorChallengesApproval({ eventId }: { eventId: string })
   if (!papicGamesEnabled()) return null;
 
   const supabase = await createClient();
-  const { data } = await supabase
+  // ⚠ A REFUSED READ USED TO LOOK EXACTLY LIKE "no vendor has written one".
+  // ⚠ Supabase RESOLVES with { error } rather than throwing, `?? []` empties
+  // ⚠ the list, the block returns null — and a booked supplier's challenge
+  // ⚠ waits for an okay that is never asked for, with nothing on any screen.
+  const { data, error } = await supabase
     .from('papic_missions')
     .select('mission_id,prompt')
     .eq('event_id', eventId)
@@ -27,6 +32,25 @@ export async function VendorChallengesApproval({ eventId }: { eventId: string })
     .eq('is_active', true)
     .order('created_at', { ascending: true });
 
+  if (error) {
+    logQueryError(
+      'VendorChallengesApproval.pending',
+      error,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+    return (
+      <p
+        role="alert"
+        className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+      >
+        <strong className="text-ink">
+          We couldn&rsquo;t check whether a supplier is waiting on your okay.
+        </strong>{' '}
+        Nothing has gone live without you. Reload in a moment.
+      </p>
+    );
+  }
   const pending = (data ?? []) as PendingRow[];
   if (pending.length === 0) return null; // nothing to review → no empty shell
 

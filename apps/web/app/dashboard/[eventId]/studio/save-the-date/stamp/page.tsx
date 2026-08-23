@@ -3,6 +3,7 @@ import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile'
 import { redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { paletteSwatches, sealColorFromPalette } from '@/lib/site-palette';
 import { fallbackSeedFromPublicId, sanitizeWaxSealConfig } from '@/lib/wax-seal/types';
@@ -44,13 +45,21 @@ export default async function StampMakerPage({ params }: Props) {
   const profile = await resolveProfileByEvent(eventId);
   if (!surfaceEnabled(profile, 'save_the_date')) redirect(`/dashboard/${eventId}`);
 
-  const { data: event } = await supabase
+  const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
       'public_id, display_name, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config',
     )
     .eq('event_id', eventId)
     .maybeSingle();
+  if (eventError) {
+    logQueryError(
+      'SaveTheDateStampPage.event',
+      eventError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
 
   // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
   const markSvg = resolveEventMonogramSvg(event);

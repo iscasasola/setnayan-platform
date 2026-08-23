@@ -7,6 +7,7 @@
 
 import { Boxes } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   fetchEventVendor3dPlanUnlock,
   VENDOR_3D_PLAN_UNLOCK_PRICE_PHP,
@@ -28,11 +29,19 @@ export async function Couple3dPlanUnlockNotice({ eventId }: { eventId: string })
   const unlock = await fetchEventVendor3dPlanUnlock(admin, eventId);
   if (!unlock) return null;
 
-  const { data: vendor } = await admin
+  const { data: vendor, error: vendorError } = await admin
     .from('vendor_profiles')
     .select('business_name')
     .eq('vendor_profile_id', unlock.vendorProfileId)
     .maybeSingle();
+  if (vendorError) {
+    logQueryError(
+      'Couple3dPlanUnlockNotice.vendor',
+      vendorError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   const vendorName =
     (vendor as { business_name?: string | null } | null)?.business_name?.trim() ||
     'your vendor';

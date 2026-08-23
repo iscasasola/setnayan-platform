@@ -1,6 +1,7 @@
 import { Gift } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { PabuyaManager } from './_components/pabuya-manager';
 
@@ -27,11 +28,19 @@ export default async function PabuyaDashboardPage({ params }: Props) {
 
   // Event chrome (name + publish state). The layout already resolved the
   // membership gate; this read is RLS-safe for the couple.
-  const { data: eventRow } = await supabase
+  const { data: eventRow, error: eventRowError } = await supabase
     .from('events')
     .select('display_name, slug, landing_page_visibility')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (eventRowError) {
+    logQueryError(
+      'PabuyaPage.event',
+      eventRowError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   const event = (eventRow ?? null) as {
     display_name: string | null;
     slug: string | null;

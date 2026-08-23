@@ -8,6 +8,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
 import type { BoothGuest, BoothTable } from '../_components/tag-sheet';
 import {
@@ -63,11 +64,19 @@ export default async function PatiktokBoothDashboard({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: event } = await supabase
+  const { data: event, error: eventError } = await supabase
     .from('events')
     .select('display_name, event_date, papic_face_mode, event_type')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (eventError) {
+    logQueryError(
+      'PatiktokBoothPage.event',
+      eventError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   // Face-tag mode gate (One-Pool spec §3.4). Fail-closed to mode_b; forced to
   // mode_b for christening/debut. Gates the booth pre-fill embedder below.
   const faceMode = resolveFaceMode(
@@ -102,11 +111,19 @@ export default async function PatiktokBoothDashboard({
     qrToken: g.qr_token,
     photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
   }));
-  const { data: tableRows } = await supabase
+  const { data: tableRows, error: tableRowsError } = await supabase
     .from('event_tables')
     .select('table_id, public_id, table_label, qr_token')
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true });
+  if (tableRowsError) {
+    logQueryError(
+      'PatiktokBoothPage.tables',
+      tableRowsError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   const tables: BoothTable[] = (tableRows ?? []).map((t) => ({
     tableId: t.table_id as string,
     label: t.table_label as string,

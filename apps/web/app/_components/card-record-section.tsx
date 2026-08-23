@@ -40,9 +40,10 @@
  * never implies the stars were earned by this card alone.
  */
 
-import { Trophy, Medal, Star } from 'lucide-react';
+import { Trophy, Medal, Star, Camera } from 'lucide-react';
 import {
   cardRecordHasSomethingToSay,
+  cardRecordHasSomethingToSayToTheShop,
   type CompiledCardRecord,
 } from '@/lib/service-card-record';
 
@@ -81,9 +82,27 @@ export function CardRecordSection({
   // ONE shared predicate rather than a fourth hand-written copy of the same
   // comparison (see cardRecordHasSomethingToSay for what the copies were about
   // to get wrong).
-  if (!cardRecordHasSomethingToSay(record)) return null;
+  // On the SHOP's own card the documented-celebrations count is enough on its
+  // own — that is where the owner's nudge to record everything has to be
+  // visible, including before the card's first booking. On a couple's card it
+  // rides along instead of opening the section, the same restraint the shop
+  // rating already shows: a card that has done nothing itself should not grow a
+  // "record" out of a fact about its shop.
+  const open =
+    variant === 'vendor'
+      ? cardRecordHasSomethingToSayToTheShop(record)
+      : cardRecordHasSomethingToSay(record);
+  if (!open) return null;
 
-  const { bookedCount, mix, ledger, milestones, optionSampleN, optionPicks } = record;
+  const {
+    bookedCount,
+    mix,
+    ledger,
+    milestones,
+    optionSampleN,
+    optionPicks,
+    documentedEvents,
+  } = record;
   const topMedal = milestones.earned.length
     ? milestones.earned[milestones.earned.length - 1]!
     : null;
@@ -182,6 +201,26 @@ export function CardRecordSection({
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {/* ── Celebrations documented ──────────────────────────────────────────
+          Owner ruling 2026-08-24: *"we only count events that they had photos
+          with … no photo, no proof the event took place."* The unit is the
+          CELEBRATION, never the photo.
+
+          Labelled "this shop" because captures are keyed on the vendor profile,
+          not on this card — the same reason the rating beside it says "shop
+          rating". Unlike the picks below there is no floor: this is the shop's
+          own work, so one reads as one, and the number is meant to move from
+          the first celebration. */}
+      {documentedEvents > 0 ? (
+        <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-ink/55">
+          <Camera className="h-3 w-3 shrink-0 text-terracotta" strokeWidth={2} aria-hidden />
+          <span className="font-mono text-ink/80">{documentedEvents}</span>
+          <span>
+            celebration{documentedEvents === 1 ? '' : 's'} documented · this shop
+          </span>
+        </p>
       ) : null}
 
       {/* ── What couples picked ─────────────────────────────────────────────

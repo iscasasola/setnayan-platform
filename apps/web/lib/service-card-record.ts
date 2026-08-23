@@ -127,6 +127,7 @@ export type ServiceCardRecordRow = {
   ledger?: unknown;
   option_sample_n?: unknown;
   option_mix?: unknown;
+  documented_events?: unknown;
 };
 
 /** One slice of the event-type mix, ready to render. */
@@ -179,6 +180,20 @@ export type CompiledCardRecord = {
    */
   optionSampleN: number;
   optionPicks: CompiledOptionPick[];
+  /**
+   * CELEBRATIONS THIS SHOP DOCUMENTED — events it has visible, screened photos
+   * from (owner ruling 2026-08-24: *"no photo, no proof the event took place"*).
+   *
+   * ⚠ A SHOP FACT, NOT A CARD FACT. Captures are keyed on the vendor profile, so
+   * every card of a shop carries the same number and the UI must label it that
+   * way — exactly like the shop rating rendered beside it.
+   *
+   * ⚠ UNFLOORED ON PURPOSE. Unlike `optionPicks`, this counts the shop's OWN
+   * work, so "1" discloses nothing about WHICH celebration — and the owner
+   * asked for a number that moves from the first one, as a nudge to record
+   * everything.
+   */
+  documentedEvents: number;
 };
 
 /** The zero record — a card that has served nothing shows nothing. */
@@ -189,6 +204,7 @@ export const EMPTY_CARD_RECORD: CompiledCardRecord = {
   milestones: { earned: [], next: MILESTONE_THRESHOLDS[0] },
   optionSampleN: 0,
   optionPicks: [],
+  documentedEvents: 0,
 };
 
 // ---------------------------------------------------------------------------
@@ -301,6 +317,7 @@ export function compileCardRecord(raw: unknown): CompiledCardRecord {
   // The reader has already applied both floors. A line that arrives here is
   // one at least K couples chose, out of a sample of at least K bookings — so
   // there is nothing to suppress and nothing to compute, only shapes to refuse.
+  const documentedEvents = toCount(raw.documented_events);
   const optionSampleN = toCount(raw.option_sample_n);
   const optionPicks: CompiledOptionPick[] = [];
   for (const el of toArray(raw.option_mix)) {
@@ -317,6 +334,7 @@ export function compileCardRecord(raw: unknown): CompiledCardRecord {
     mix,
     ledger,
     milestones: milestonesFor(bookedCount),
+    documentedEvents,
     optionSampleN,
     // A line can never claim more couples than the sample it came from. If the
     // two ever disagree the payload is not trustworthy, so the whole block is
@@ -354,6 +372,29 @@ export function cardRecordHasSomethingToSay(
 ): record is CompiledCardRecord {
   if (!record) return false;
   return record.bookedCount > 0 || record.optionSampleN > 0;
+}
+
+/**
+ * Does the SHOP have a record worth opening the section for on the shop's OWN
+ * card view?
+ *
+ * The documented-celebrations count is a SHOP fact, so it is true of a card
+ * that has itself done nothing — which is why it does not open the section on a
+ * couple's card, the same restraint the shop rating already shows. On the
+ * vendor's own manager it DOES open it, because that is where the owner's nudge
+ * lives: *"to make sure that they record everything"* only works if the shop can
+ * see the number before its first booking.
+ */
+export function cardRecordHasSomethingToSayToTheShop(
+  record: CompiledCardRecord | null | undefined,
+): record is CompiledCardRecord {
+  if (!record) return false;
+  // NOT short-circuited through cardRecordHasSomethingToSay: its `record is`
+  // predicate narrows the FALSE branch to `never`, so the second half could not
+  // read a field. Both conditions are spelled out instead.
+  return (
+    record.bookedCount > 0 || record.optionSampleN > 0 || record.documentedEvents > 0
+  );
 }
 
 // ---------------------------------------------------------------------------

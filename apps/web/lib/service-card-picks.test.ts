@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 
 import {
   cardRecordHasSomethingToSay,
+  cardRecordHasSomethingToSayToTheShop,
   compileCardRecord,
   EMPTY_CARD_RECORD,
 } from './service-card-record';
@@ -109,4 +110,25 @@ test('the one gate: a card whose ONLY record is its picks is not hidden', () => 
   assert.equal(cardRecordHasSomethingToSay(nothing), false);
   assert.equal(cardRecordHasSomethingToSay(null), false);
   assert.equal(cardRecordHasSomethingToSay(undefined), false);
+});
+
+test('the documented count parses, and is NOT floored', () => {
+  // Deliberately unlike the option mix: this counts the shop's OWN work, so one
+  // reads as one — and the owner asked for a number that moves from the first
+  // celebration, as a nudge to record everything.
+  const one = compileCardRecord({ booked_count: 0, documented_events: 1 });
+  assert.equal(one.documentedEvents, 1);
+  assert.equal(cardRecordHasSomethingToSay(one), false, 'a shop fact is not a card record');
+  assert.equal(
+    cardRecordHasSomethingToSayToTheShop(one),
+    true,
+    'but the shop must see it on its own card',
+  );
+});
+
+test('a malformed documented count is 0, never negative or NaN', () => {
+  for (const v of [null, undefined, 'x', -4, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.equal(compileCardRecord({ documented_events: v }).documentedEvents, 0);
+  }
+  assert.equal(EMPTY_CARD_RECORD.documentedEvents, 0);
 });

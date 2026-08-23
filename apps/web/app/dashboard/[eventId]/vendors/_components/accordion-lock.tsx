@@ -806,7 +806,7 @@ function DownpaymentModal({
                   Locking…
                 </>
               ) : (
-                'Lock &amp; submit downpayment'
+                'Lock & submit downpayment'
               )}
             </button>
             <button

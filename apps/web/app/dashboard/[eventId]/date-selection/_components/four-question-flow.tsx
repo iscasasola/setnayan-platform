@@ -98,7 +98,7 @@ const CEREMONY_CHOICES: Record<
   aglipayan: { label: 'Aglipayan (IFI)', hint: 'Aglipayan rite at an IFI parish' },
   lds: { label: 'LDS (Latter-day Saints)', hint: 'Latter-day Saint chapel ceremony' },
   sda: { label: 'Seventh-day Adventist', hint: 'Adventist ceremony with a pastor' },
-  jw: { label: 'Jehovah&apos;s Witnesses', hint: 'Kingdom Hall ceremony' },
+  jw: { label: 'Jehovah’s Witnesses', hint: 'Kingdom Hall ceremony' },
   hindu: { label: 'Hindu', hint: 'Pandit, mandap, and pheras' },
   sikh: { label: 'Sikh', hint: 'Anand Karaj at the gurdwara' },
   buddhist: { label: 'Buddhist', hint: 'Blessing ceremony with monks' },
@@ -106,7 +106,7 @@ const CEREMONY_CHOICES: Record<
   born_again: { label: 'Born Again', hint: 'Born-again Christian church, praise and worship led' },
   jewish: { label: 'Jewish', hint: 'Ketubah, chuppah, and the seven blessings' },
   mixed: { label: 'Mixed', hint: 'Two traditions woven together' },
-  undecided: { label: 'Skip for now', hint: 'We&apos;ll show you broad suggestions' },
+  undecided: { label: 'Skip for now', hint: 'We’ll show you broad suggestions' },
 };
 
 /** Ordered for display; `undecided` always last. */
@@ -128,14 +128,14 @@ const INDOOR_OUTDOOR_OPTIONS: Array<{ value: IndoorOutdoor; label: string; hint:
   { value: 'indoor', label: 'Indoor', hint: 'Hotel ballroom, hacienda, church-only' },
   { value: 'outdoor', label: 'Outdoor', hint: 'Garden, beach, tent — weather plays a role' },
   { value: 'mixed', label: 'Mix of both', hint: 'Indoor ceremony + outdoor reception, or vice versa' },
-  { value: 'undecided', label: 'Not decided yet', hint: 'That&apos;s okay — we&apos;ll suggest broadly' },
+  { value: 'undecided', label: 'Not decided yet', hint: 'That’s okay — we’ll suggest broadly' },
 ];
 
 const KIND_LABEL: Record<MeaningfulDateKind, string> = {
-  honor: 'We&apos;d love to be near this date',
+  honor: 'We’d love to be near this date',
   anniversary: 'Family anniversary',
   birthday: 'Birthday of someone meaningful',
-  avoid: 'We&apos;d prefer not this date',
+  avoid: 'We’d prefer not this date',
   other: 'Other',
 };
 
@@ -143,22 +143,22 @@ const SUKOB_OPTIONS = [
   {
     value: 'no_siblings_marrying',
     label: 'No siblings getting married soon',
-    hint: 'Sukob isn&apos;t a concern',
+    hint: 'Sukob isn’t a concern',
   },
   {
     value: 'compound_joy',
-    label: 'Yes — and we&apos;re compounding the joy',
+    label: 'Yes — and we’re compounding the joy',
     hint: 'Some families celebrate both weddings in the same year',
   },
   {
     value: 'spacing_out',
-    label: 'Yes — we&apos;re spacing them out',
+    label: 'Yes — we’re spacing them out',
     hint: 'Other families prefer different years for separate celebrations',
   },
   {
     value: 'undecided',
     label: 'Skip for now',
-    hint: 'We&apos;ll let your meaningful dates guide the suggestions',
+    hint: 'We’ll let your meaningful dates guide the suggestions',
   },
 ];
 
@@ -403,7 +403,7 @@ export function FourQuestionFlow({
                     {(Object.keys(KIND_LABEL) as MeaningfulDateKind[]).map((k) => (
                       <option key={k} value={k}>
                         {/* Strip HTML entities for option labels — they don't decode inside <option> */}
-                        {KIND_LABEL[k].replace(/&apos;/g, "'")}
+                        {KIND_LABEL[k]}
                       </option>
                     ))}
                   </select>
@@ -628,11 +628,7 @@ function RadioGroup<T extends string>({
               />
               <div className="space-y-0.5">
                 <span className="block text-sm font-medium text-ink">{opt.label}</span>
-                {/* Escape sequences in source render literally in option hints */}
-                <span
-                  className="block text-xs text-ink/55"
-                  dangerouslySetInnerHTML={{ __html: opt.hint }}
-                />
+                <span className="block text-xs text-ink/55">{opt.hint}</span>
               </div>
             </label>
           );

@@ -49,7 +49,6 @@ const BENEFITS = [
   'A cinematic reveal on your Save the Date.',
   'The premium RSVP page your guests answer on.',
   'Your live, on-the-day page for the celebration.',
-  'Editorial PRO — author your wedding as a front-page story.',
   'The Setnayan watermark removed across your whole website.',
 ];
 

@@ -639,13 +639,42 @@ async function basketGrantsSku(
  * switch on a feature that no longer exists. The capability survives as an
  * ordinary Papic clip challenge.
  *
+ * EDITORIAL_PRO — owner 2026-08-23, asked what it would cost us to leave the
+ * couple's own story editable: *"keep it free if this costs us nothing."*
+ *
+ * 🔑 IT COSTS NOTHING, MEASURED. Every perk behind the PRO chip on that editor
+ * is a PRESENTATION CONTROL over data the couple already owns — reordering
+ * their rows and sections, naming their own moments, choosing which of their
+ * guests' wishes to feature. They are `disabled` attributes on buttons: no
+ * render, no storage, no external call, zero marginal cost. By his own rule
+ * they go free.
+ *
+ * ⚠ AND THE HALF-SPRUNG TRAP WAS ALREADY IN PLACE. The à-la-carte row has been
+ * `is_active = false` in production with ZERO orders ever, and nothing switched
+ * the feature on — so the perks were DARK for everyone who had not bought the
+ * ₱3,500 umbrella. That is precisely "free and retired are the same row and
+ * opposite products", caught one step in. This entry is the other half.
+ *
+ * 🔒 SCOPE, AND IT IS NARROW BY CONSTRUCTION. This key has exactly THREE
+ * readers — the buy surface, the editor's `isPro`, and `saveEditorial`'s
+ * server-side re-check — all through `isEditorialProActive`. Every OTHER Event
+ * Hub PRO perk, the no-watermark included, gates on `eventCoupleWebsiteProActive`
+ * reading COUPLE_WEBSITE_PRO, which is untouched and still sells at ₱3,500.
+ * ⛔ Do not "tidy" the two helpers into one: that would hand the watermark away.
+ *
+ * ⏭ AND ONE QUESTION IS DELIBERATELY LEFT OPEN, NOT ANSWERED HERE. Event Hub
+ * PRO still advertises Editorial PRO authoring as one of the things it buys.
+ * Whether that upgrade should now say something different is a pricing call and
+ * the owner's alone; the sentences that would otherwise have become FALSE are
+ * corrected, and nothing about the umbrella's price or scope is changed.
+ *
  * ⛔ THE SHOT LADDER IS NOT IN THIS SET AND MUST NOT JOIN IT. Papic FEATURES are
  * free; Papic SHOTS are the product — 50 free, then ₱50 / ₱1,000 / ₱3,000 /
  * ₱5,000, owner-locked. Same for PAPIC_ADDON_THANK_YOU: the produced video is
  * the thing that gets monetised.
  */
 export const FREE_FOR_ALL_SKUS: ReadonlySet<string> = Object.freeze(
-  new Set(['LIVE_WALL', 'KWENTO']),
+  new Set(['LIVE_WALL', 'KWENTO', 'EDITORIAL_PRO']),
 ) as ReadonlySet<string>;
 
 export async function eventOwnsSku(

@@ -626,8 +626,24 @@ test('umbrella: an ACTIVE (paid) COUPLE_WEBSITE_PRO order activates both aliased
 
 test('umbrella: a SUBMITTED COUPLE_WEBSITE_PRO order does NOT activate the aliased SKUs (handshake)', async () => {
   const supabase = makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']), 'submitted');
-  assert.equal(await eventSkuActive(supabase, 'evt_1', 'EDITORIAL_PRO'), false);
+  /*
+    ⚠ THE SUBJECT MOVED, THE RULE DID NOT (2026-08-23). This asserted the same
+    thing about EDITORIAL_PRO until that became free for everyone, at which
+    point `eventSkuActive` returns true for it before any order is read — so the
+    assertion would have had to be flipped to `true` and would then have been
+    testing the FREE set rather than the handshake, while its name went on
+    claiming otherwise.
+
+    🔑 PICK A CODE THAT IS STILL GATED. STD_PREMIUM_OPENINGS is the other alias
+    and is still paid, so the rule keeps a real subject. Its free sibling is
+    asserted below, in the direction that is now true.
+  */
   assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
+  assert.equal(
+    await eventSkuActive(supabase, 'evt_1', 'EDITORIAL_PRO'),
+    true,
+    'Editorial authoring is free for everyone — it does not wait on a payment (owner 2026-08-23).',
+  );
 });
 
 test('umbrella: the standalone SKUs still confer only themselves (no reverse grant)', async () => {
@@ -680,8 +696,15 @@ test('eventActiveSkus: a pending COUPLE_WEBSITE_PRO order marks both aliased can
   // the next time one is added. Assert the actual rule instead: a SUBMITTED order
   // activates NOTHING, and anything that is active got there by being free.
   assert.equal(active.has('COUPLE_WEBSITE_PRO'), false);
-  assert.equal(active.has('EDITORIAL_PRO'), false);
   assert.equal(active.has('STD_PREMIUM_OPENINGS'), false);
+  /*
+    ⚠ EDITORIAL_PRO MOVED OUT OF THIS LINE ON 2026-08-23 and into the loop
+    below, which is where it now belongs: it IS active, and the loop proves the
+    only reason it is active is that it is free — not that a submitted order
+    let it through. Leaving it asserted `false` would have been a red test for a
+    correct product; deleting it would have stopped checking it at all.
+  */
+  assert.equal(active.has('EDITORIAL_PRO'), true);
   for (const key of active) {
     assert.ok(FREE_FOR_ALL_SKUS.has(key), `a pending order must activate nothing, but ${key} is active`);
   }

@@ -163,6 +163,82 @@ test('the entitlement check is still asked, everywhere it was', () => {
 
 
 /*
+  EDITORIAL PRO — THE SAME TWO HALVES, AND THE TRAP WAS ALREADY HALF-SPRUNG.
+
+  Owner 2026-08-23, asked what it would cost us to leave the couple's own story
+  editable: **"keep it free if this costs us nothing."** It costs nothing —
+  every perk behind that editor's PRO chip is a presentation control over data
+  the couple already owns, shipped as `disabled` attributes on buttons.
+
+  ⚠ THE CATALOG ROW WAS ALREADY OFF SALE AND NOTHING HAD SWITCHED THE FEATURE
+  ON, so the perks were DARK for anyone who had not bought the ₱3,500 umbrella.
+  That is "free and retired are the same row and opposite products", caught one
+  step in. This asserts the half that was missing.
+
+  🔒 AND IT ASSERTS THE BOUNDARY IN BOTH DIRECTIONS. The no-watermark and every
+  other Event Hub PRO perk gate on a DIFFERENT helper reading COUPLE_WEBSITE_PRO.
+  Collapsing the two helpers into one would hand the watermark away for free
+  with nothing thrown — so the separation is pinned here, not just described.
+*/
+test('Editorial authoring is free, and it does not take the watermark with it', () => {
+  assert.ok(
+    FREE_FOR_ALL_SKUS.has('EDITORIAL_PRO'),
+    'the switch that keeps the couple\'s own story editable',
+  );
+
+  // ⛔ THE UMBRELLA IS STILL SOLD. It carries the cinematic reveal and the
+  // no-watermark, and it is not this change's to give away.
+  assert.ok(
+    !FREE_FOR_ALL_SKUS.has('COUPLE_WEBSITE_PRO'),
+    'Event Hub PRO must not become free as a side effect.',
+  );
+  assert.ok(
+    !FREE_FOR_ALL_SKUS.has('STD_PREMIUM_OPENINGS'),
+    'the cinematic reveal is paid and is not part of this ruling.',
+  );
+
+  // The two gates stay two. `isEditorialProActive` reads EDITORIAL_PRO;
+  // `eventCoupleWebsiteProActive` reads COUPLE_WEBSITE_PRO. One helper reading
+  // both would make the free key unlock the paid perks.
+  const gates = code('lib/couple-website-pro.ts');
+  assert.match(
+    gates,
+    /export async function eventCoupleWebsiteProActive[\s\S]*?COUPLE_WEBSITE_PRO_SERVICE_KEY/,
+    'the watermark gate must still read the UMBRELLA key.',
+  );
+  /*
+    🪤 SLICED TO THE FUNCTION BODY, NOT A CHARACTER WINDOW. The first version of
+    this looked 400 characters past the signature and went RED on correct code:
+    the `EDITORIAL_PRO_SERVICE_KEY` CONSTANT is declared a few lines below the
+    watermark gate, so the window swallowed a neighbour's declaration. A guard
+    that cries wolf teaches you to skim past the one time it is right.
+  */
+  const gateStart = gates.indexOf('export async function eventCoupleWebsiteProActive');
+  assert.ok(gateStart >= 0, 'the watermark gate is gone — read this guard before deleting it.');
+  const gateBody = gates.slice(gateStart, gates.indexOf('\n}', gateStart));
+  assert.ok(
+    !gateBody.includes('EDITORIAL_PRO'),
+    'the watermark gate now reads the free key — it hands the watermark away.',
+  );
+
+  /*
+    And nothing may still SELL what everyone has. A sentence promising that a
+    ₱3,500 upgrade unlocks this is not a matter of taste once it is free; it is
+    a false claim, and the AI/GEO document is where a false claim gets quoted
+    back to us.
+  */
+  const llms = code('lib/llms-txt.ts');
+  assert.ok(
+    !/Event Hub PRO\*\* —[^\n]*Editorial PRO/.test(llms),
+    'llms.txt still says Event Hub PRO unlocks Editorial PRO, which is now free.',
+  );
+  assert.ok(
+    !/Editorial PRO — author your wedding/.test(code('app/dashboard/[eventId]/studio/website-pro/page.tsx')),
+    'the Event Hub PRO buy page still lists Editorial PRO as something it buys.',
+  );
+});
+
+/*
   PABATI — RETIRED, AND A RETIREMENT ALSO TAKES BOTH HALVES OR IT DOES THE
   OPPOSITE. Owner 2026-08-21, hours after making it free: "we do not need
   pabati. retire it because it is part of papic."

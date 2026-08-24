@@ -66,6 +66,30 @@ export default async function EventChecklistPage({ params }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Membership gate, matching the check-in desk / souvenirs / galleries / live
+  // siblings. This page used to have NONE and lean on RLS alone — and an RLS
+  // denial is 200 + zero rows + null error, so a signed-in non-member (the live
+  // case: an accepted external planner before the 2026-08-24 ruling gave
+  // delegates membership) read an EMPTY checklist on an event with 94 items.
+  // A locked door beats a blank page that looks like an unplanned wedding.
+  // Since migration 20271161203067 every accepted delegate IS a member, so for
+  // them this gate is a belt — it exists for the next role that is not.
+  const { data: checklistMembership, error: checklistMembershipError } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (checklistMembershipError) {
+    logQueryError(
+      'EventChecklistPage.membership',
+      checklistMembershipError,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+  if (!checklistMembership) redirect(`/dashboard/${eventId}`);
+
   // Top-up missing template tasks on open (idempotent · ceremony-tailored).
   try {
     await ensureChecklistSeeded(eventId);

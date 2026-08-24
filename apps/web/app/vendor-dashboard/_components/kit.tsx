@@ -91,29 +91,13 @@ export function ShopCard({
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
- * ShopStat — label-over-number stat tile content.
- * Recipe from the reviews StatsOverview / earnings tiles: mono uppercase
- * label at ink/55 (ink/45 measured 2.62:1 on white — an AA fail the states
- * kit already corrected once; do not dim it back), large ink number, small
- * hint.
+ * There is deliberately NO stat-tile component here. The tree's stat blocks
+ * (reviews StatsOverview, earnings tiles, the home's energy stats) differ in
+ * structure, not just spelling — converging them is a redesign, not an
+ * extraction, and a kit export with zero consumers is a gate with no handle
+ * (this repo has shipped five). Add one only together with its first two
+ * real consumers.
  * ────────────────────────────────────────────────────────────────────────── */
-export function ShopStat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: ReactNode;
-  hint?: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">{label}</p>
-      <div className="text-3xl font-semibold tracking-tight text-ink">{value}</div>
-      {hint ? <p className="text-xs text-ink/60">{hint}</p> : null}
-    </div>
-  );
-}
 
 /* ──────────────────────────────────────────────────────────────────────────
  * ShopPill — the status pill, with the tone argument settled once.
@@ -166,15 +150,18 @@ const NOTICE_TONE: Record<Exclude<ShopPillTone, 'ink' | 'action'>, string> = {
 
 export function ShopNotice({
   tone,
+  role,
   className = '',
   children,
 }: {
   tone: Exclude<ShopPillTone, 'ink' | 'action'>;
+  /** `status` for confirmations, `alert` for refusals — the shipped sites carry these. */
+  role?: 'status' | 'alert';
   className?: string;
   children: ReactNode;
 }) {
   return (
-    <div className={`rounded-md border px-4 py-3 text-sm ${NOTICE_TONE[tone]} ${className}`}>
+    <div role={role} className={`rounded-md border px-4 py-3 text-sm ${NOTICE_TONE[tone]} ${className}`}>
       {children}
     </div>
   );

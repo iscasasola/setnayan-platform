@@ -12,6 +12,7 @@ import {
   type Song,
 } from '@/lib/songs';
 import { addRepertoireSong, removeRepertoireSong, setPerformanceLink } from './actions';
+import { ShopNotice } from '../_components/kit';
 
 export const metadata = { title: 'Your repertoire · Vendor' };
 
@@ -81,20 +82,14 @@ export default async function RepertoirePage({ searchParams }: Props) {
       </header>
 
       {sp.error ? (
-        <p
-          role="alert"
-          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <ShopNotice tone="gold" role="alert">
           {decodeURIComponent(sp.error)}
-        </p>
+        </ShopNotice>
       ) : null}
       {sp.saved ? (
-        <p
-          role="status"
-          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
-        >
+        <ShopNotice tone="success" role="status">
           Repertoire updated.
-        </p>
+        </ShopNotice>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">

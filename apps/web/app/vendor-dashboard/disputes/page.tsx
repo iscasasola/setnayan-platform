@@ -5,7 +5,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { relativeTime } from '@/lib/activity';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitDisputeContest } from './actions';
-import { ShopEmpty } from '../_components/kit';
+import { ShopEmpty, ShopNotice } from '../_components/kit';
 
 export const metadata = { title: 'Disputes · Vendor' };
 
@@ -126,12 +126,9 @@ export default async function VendorDisputesPage() {
       </header>
 
       {error ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <ShopNotice tone="gold" role="alert" className="mb-4">
           Your disputes couldn&apos;t load right now. Refresh in a moment.
-        </p>
+        </ShopNotice>
       ) : null}
 
       {rows.length === 0 && !error ? (

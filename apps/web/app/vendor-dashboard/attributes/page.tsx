@@ -14,6 +14,7 @@ import { visibleLeafAttributesForPayload } from '@/lib/leaf-attribute-schema';
 import { saveVendorServiceAttribute, removeVendorServiceAttribute } from './actions';
 import { AttributeFieldRenderer } from './_components/attribute-field-renderer';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ShopNotice } from '../_components/kit';
 
 export const metadata = { title: 'Service attributes · Vendor' };
 
@@ -186,15 +187,15 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
       </header>
 
       {error ? (
-        <div role="alert" className="mb-5 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
+        <ShopNotice tone="gold" role="alert" className="mb-5">
           <span className="font-medium">Couldn&rsquo;t save: </span>
           {error}
-        </div>
+        </ShopNotice>
       ) : null}
       {savedService && missingFields.length === 0 ? (
-        <div role="status" className="mb-5 rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800">
+        <ShopNotice tone="success" role="status" className="mb-5">
           Saved attributes for <span className="font-medium">{savedService}</span>.
-        </div>
+        </ShopNotice>
       ) : null}
       {savedService && missingFields.length > 0 ? (
         <div role="status" className="mb-5 rounded-md border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900">
@@ -210,11 +211,11 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
         </div>
       ) : null}
       {unknownAddService ? (
-        <div role="alert" className="mb-5 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
+        <ShopNotice tone="gold" role="alert" className="mb-5">
           <span className="font-medium">Unknown service: </span>
           <span className="font-mono">{requestedAdd}</span> isn&rsquo;t in the catalog.
           Pick a different one from the dropdown above.
-        </div>
+        </ShopNotice>
       ) : null}
 
       <section className="mb-8">

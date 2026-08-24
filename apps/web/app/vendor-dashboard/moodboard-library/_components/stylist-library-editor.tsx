@@ -24,6 +24,7 @@ import {
   saveStylistColorRanges,
   uploadStylistAsset,
 } from '../actions';
+import { ShopNotice } from '../../_components/kit';
 
 export type StylistAsset = {
   asset_id: string;
@@ -156,10 +157,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
     <>
       {dialog}
       {actionError ? (
-        <div
-          role="alert"
-          className="mb-4 flex items-start justify-between gap-3 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <ShopNotice tone="gold" role="alert" className="mb-4 flex items-start justify-between gap-3">
           <span>{actionError}</span>
           <button
             type="button"
@@ -169,7 +167,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
           >
             Dismiss
           </button>
-        </div>
+        </ShopNotice>
       ) : null}
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
       {/* LEFT: upload + own-asset grid */}

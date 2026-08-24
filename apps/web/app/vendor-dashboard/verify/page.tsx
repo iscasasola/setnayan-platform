@@ -35,6 +35,7 @@ import {
   updateDocUpload,
   withdrawApplication,
 } from './actions';
+import { ShopNotice } from '../_components/kit';
 
 export const metadata = {
   title: 'Verification · Vendor',
@@ -162,28 +163,19 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
           the moment a fee is set). */}
 
       {search.error ? (
-        <p
-          role="alert"
-          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <ShopNotice tone="gold" role="alert">
           {decodeURIComponent(search.error)}
-        </p>
+        </ShopNotice>
       ) : null}
       {search.slot_saved ? (
-        <p
-          role="status"
-          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
-        >
+        <ShopNotice tone="success" role="status">
           Saved. {completeCount} of {totalSlots} items complete.
-        </p>
+        </ShopNotice>
       ) : null}
       {search.submitted ? (
-        <p
-          role="status"
-          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
-        >
+        <ShopNotice tone="success" role="status">
           Application submitted. Setnayan will review within 3–5 business days.
-        </p>
+        </ShopNotice>
       ) : null}
       {search.withdrawn ? (
         <p

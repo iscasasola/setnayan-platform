@@ -89,7 +89,7 @@ export function InvitedToChips({
       {INVITED_TO_BLOCKS.map((block) => (
         <label
           key={block}
-          className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-sm has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700-700"
+          className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-sm has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700"
         >
           <input
             type="checkbox"

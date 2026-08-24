@@ -77,14 +77,14 @@ export default async function QuickAddGuestsPage({ params, searchParams }: Props
         Need more control? Use{' '}
         <Link
           href={`/dashboard/${eventId}/guests/new`}
-          className="text-terracotta underline-offset-4 hover:underline"
+          className="text-terracotta-700 underline-offset-4 hover:underline"
         >
           Add full guest
         </Link>{' '}
         to set role, side, RSVP, meal, plus-one, and notes at create time. Or{' '}
         <Link
           href={`/dashboard/${eventId}/guests/import`}
-          className="text-terracotta underline-offset-4 hover:underline"
+          className="text-terracotta-700 underline-offset-4 hover:underline"
         >
           import a CSV
         </Link>{' '}

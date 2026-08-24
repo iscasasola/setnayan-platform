@@ -247,7 +247,7 @@ export function MobileGuestCarousel({
         <div className="sticky top-[calc(var(--fd-bar,0px)+0.25rem)] z-30 -mx-1 space-y-2.5 rounded-b-2xl bg-cream/85 px-1 pb-2.5 pt-1 backdrop-blur">
           <div className="flex items-end justify-between gap-2">
             <div className="min-w-0">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-700">
                 Guest list
               </p>
               <h2 className="text-2xl font-semibold leading-tight tracking-tight text-ink">
@@ -281,7 +281,7 @@ export function MobileGuestCarousel({
           {paxProgress ? (
             <div>
               <div className="flex items-baseline justify-between gap-2 text-[11px]">
-                <span className="font-mono uppercase tracking-[0.12em] text-terracotta">
+                <span className="font-mono uppercase tracking-[0.12em] text-terracotta-700">
                   {paxProgress.exceeded ? 'Now planning for' : 'Guest target'}
                 </span>
                 <span className="tabular-nums text-ink/70">

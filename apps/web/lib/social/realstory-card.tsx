@@ -499,7 +499,21 @@ function monogramCardTree(input: CoupleMonogramCardInput): VNode {
       fontFamily: 'Cardo',
     },
     [
-      // Header — mirrors the page chrome.
+      // Header — says what the card IS, not who made it.
+      //
+      // 📣 2026-08-24 (H-3) — THIS CARD NAMED US THREE TIMES ON SOMEBODY ELSE'S
+      // INVITATION. Measured: 'SETNAYAN · INVITATION' here, the `wordmark()`
+      // in the footer, and 'www.setnayan.com' under it — all three
+      // unconditional, on the ONE card every real invitation actually shows
+      // (production holds 5 editorials, 0 published, so the photo and branded
+      // Real-Story variants are unreachable and this is what a share renders).
+      // It is the couple's invitation, not our billboard: the name survives
+      // ONCE, in the footer, and this slot keeps the useful half of the label.
+      //
+      // ⚠ AND THE PLATFORM ALREADY PRINTS IT. `generateMetadata` sends
+      // `siteName: 'Setnayan'`, so Facebook and iMessage render our name beside
+      // the card regardless — three more times inside the image was never
+      // buying reach, only crowding out the couple.
       el(
         'div',
         {
@@ -509,7 +523,7 @@ function monogramCardTree(input: CoupleMonogramCardInput): VNode {
           letterSpacing: '5px',
           color: INK_FAINT,
         },
-        'SETNAYAN · INVITATION',
+        'INVITATION',
       ),
       // Center — monogram mark + gold rule + names + date.
       el(
@@ -562,7 +576,10 @@ function monogramCardTree(input: CoupleMonogramCardInput): VNode {
             : el('div', { display: 'flex' }),
         ],
       ),
-      // Footer — wordmark + url.
+      // Footer — the wordmark, ONCE. The url line under it was the third
+      // mention and the least useful of the three: a share card always travels
+      // WITH the link it previews, so printing the address on the image told a
+      // reader something the post already gave them.
       el(
         'div',
         {
@@ -571,19 +588,7 @@ function monogramCardTree(input: CoupleMonogramCardInput): VNode {
           alignItems: 'center',
           gap: '8px',
         },
-        [
-          wordmark(),
-          el(
-            'div',
-            {
-              fontFamily: 'Poppins',
-              fontSize: '15px',
-              letterSpacing: '1px',
-              color: INK_FAINT,
-            },
-            'www.setnayan.com',
-          ),
-        ],
+        [wordmark()],
       ),
     ],
   );

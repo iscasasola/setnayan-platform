@@ -52,14 +52,19 @@ COMMENT ON TABLE public.samahan_stories IS
 COMMENT ON COLUMN public.samahan_stories.expires_at IS
   '24 hours from posting. The read policy hides the row past this instant; the sweep deletes the R2 objects and then the row.';
 COMMENT ON COLUMN public.samahan_stories.hour_bucket IS
-  'date_trunc(''hour'', NOW()) stamped at insert — the one-story-per-hour rule is the UNIQUE index on (community_id, user_id, hour_bucket).';
+  'date_trunc(''hour'', NOW()) stamped at insert — the one-story-per-hour rule is the UNIQUE constraint samahan_stories_one_per_hour on (community_id, user_id, hour_bucket).';
 
 CREATE INDEX IF NOT EXISTS samahan_stories_community_fresh_idx
   ON public.samahan_stories (community_id, expires_at);
 CREATE INDEX IF NOT EXISTS samahan_stories_expired_idx
   ON public.samahan_stories (expires_at);
-CREATE UNIQUE INDEX IF NOT EXISTS samahan_stories_one_per_hour_idx
-  ON public.samahan_stories (community_id, user_id, hour_bucket);
+-- A CONSTRAINT rather than a bare unique index: the rule is part of the
+-- table's contract (and the Ugat claim checker reads constraints).
+DO $$ BEGIN
+  ALTER TABLE public.samahan_stories
+    ADD CONSTRAINT samahan_stories_one_per_hour
+    UNIQUE (community_id, user_id, hour_bucket);
+EXCEPTION WHEN duplicate_table OR duplicate_object THEN NULL; END $$;
 
 ALTER TABLE public.samahan_stories ENABLE ROW LEVEL SECURITY;
 

@@ -114,8 +114,8 @@ test('one story per member per clock hour — the DB refuses the second', async 
   }
   assert.match(
     refused,
-    /samahan_stories_one_per_hour_idx|duplicate key/i,
-    'the second story in the same hour must hit the unique index',
+    /samahan_stories_one_per_hour|duplicate key/i,
+    'the second story in the same hour must hit the unique constraint',
   );
 
   // The NEXT hour is allowed — the rule is a rhythm, not a lifetime cap.

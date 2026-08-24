@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6210
+# facts: 6224
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     596
-#   col       4550
-#   policy    839
+#   tpriv     597
+#   col       4562
+#   policy    840
 #   view      8
 #   func      213
 #
@@ -387,6 +387,7 @@ tpriv	public.render_jobs|authenticated	SIUD
 tpriv	public.renewal_reminder_log|authenticated	SIUD
 tpriv	public.reveal_studio_config|anon	SIUD
 tpriv	public.reveal_studio_config|authenticated	SIUD
+tpriv	public.samahan_stories|authenticated	S
 tpriv	public.scan_events|anon	SIUD
 tpriv	public.scan_events|authenticated	SIUD
 tpriv	public.seating_editor_locks|authenticated	SIUD
@@ -3466,6 +3467,18 @@ col	public.reveal_studio_config.created_at	anon=SIU authenticated=SIU
 col	public.reveal_studio_config.id	anon=SIU authenticated=SIU
 col	public.reveal_studio_config.updated_at	anon=SIU authenticated=SIU
 col	public.reveal_studio_config.updated_by_admin_id	anon=SIU authenticated=SIU
+col	public.samahan_stories.clip_bytes	anon=- authenticated=S
+col	public.samahan_stories.community_id	anon=- authenticated=S
+col	public.samahan_stories.created_at	anon=- authenticated=S
+col	public.samahan_stories.duration_ms	anon=- authenticated=S
+col	public.samahan_stories.expires_at	anon=- authenticated=S
+col	public.samahan_stories.hour_bucket	anon=- authenticated=S
+col	public.samahan_stories.id	anon=- authenticated=S
+col	public.samahan_stories.poster_r2_key	anon=- authenticated=S
+col	public.samahan_stories.r2_object_key	anon=- authenticated=S
+col	public.samahan_stories.screened_at	anon=- authenticated=S
+col	public.samahan_stories.story_id	anon=- authenticated=S
+col	public.samahan_stories.user_id	anon=- authenticated=S
 col	public.scan_events.context	anon=SIU authenticated=SIU
 col	public.scan_events.event_id	anon=SIU authenticated=SIU
 col	public.scan_events.guest_id	anon=SIU authenticated=SIU
@@ -5688,6 +5701,7 @@ policy	public.render_jobs|couple_inserts_render_jobs	mode=PERMISSIVE cmd=INSERT 
 policy	public.render_jobs|event_member_reads_render_jobs	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_event_ids() AS current_event_ids)) check=NULL
 policy	public.renewal_reminder_log|renewal_reminder_log_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.reveal_studio_config|reveal_studio_config_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.samahan_stories|samahan_story_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(((community_id IN ( SELECT current_community_ids() AS current_community_ids)) AND (expires_at > now())) OR is_admin()) check=NULL
 policy	public.scan_events|admin_writes_scan_events	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=is_admin()
 policy	public.scan_events|couple_reads_scan_events	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=NULL
 policy	public.scan_events|guest_reads_own_scans	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((guest_id IN ( SELECT current_user_guest_ids() AS current_user_guest_ids)) OR is_admin()) check=NULL

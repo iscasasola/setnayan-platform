@@ -441,7 +441,7 @@ export function sameResolvedObject(a: string, b: string): boolean {
 
 /** One drop candidate as the sweep materialises it from a DB row. */
 export type PapicDropItem = DropCandidate & {
-  table: 'papic_photos' | 'papic_guest_captures';
+  table: 'papic_photos' | 'papic_guest_captures' | 'vendor_papic_captures';
   idCol: 'photo_id' | 'capture_id';
   id: string;
   event_id: string;
@@ -515,6 +515,45 @@ export function seatPhotoItem(r: Row): PapicDropItem {
 export function guestPhotoItem(r: Row): PapicDropItem {
   return {
     table: 'papic_guest_captures',
+    idCol: 'capture_id',
+    id: r.capture_id as string,
+    event_id: r.event_id as string,
+    kind: 'photo',
+    photo_type: null,
+    media_type: null,
+    r2_object_key: r.r2_object_key as string,
+    display_r2_key: asStr(r.display_r2_key),
+    poster_r2_key: null,
+    clip_web_r2_key: null,
+    clip_web_bytes: null,
+    captured_at: r.captured_at as string,
+    full_res_dropped_at: asStr(r.full_res_dropped_at),
+    orig_bytes: asNum(r.orig_bytes),
+    preserved_at: asStr(r.preserved_at),
+  };
+}
+
+/**
+ * vendor_papic_captures PHOTO row → Item.
+ *
+ * A SUPPLIER'S OWN CAPTURE at a celebration they were booked for. It lands in
+ * the couple's gallery, so it obeys the couple's retention model: the full-res
+ * original is replaced by the AVIF web copy once the window passes (owner
+ * 2026-08-24, *"compress it as well"*).
+ *
+ * ⛔ PHOTOS ONLY — there is deliberately no vendor CLIP mapper. A clip is
+ * dropped only once a transcoded VIDEO web copy exists, and on the couple's side
+ * that file is produced by the GUEST'S OWN BROWSER because Vercel has no ffmpeg.
+ * The supplier path has no such transcode, so a vendor clip has nothing to be
+ * replaced BY and must keep its original. Adding a mapper would build a
+ * candidate that `clipEligibleForDrop` refuses on every pass — work that looks
+ * like coverage and is not. The clip's STILL does compress (its poster becomes
+ * display_r2_key), so the gallery side is covered either way, and a vendor clip
+ * is capped at 10 seconds — measured, smaller than one phone photo.
+ */
+export function vendorPhotoItem(r: Row): PapicDropItem {
+  return {
+    table: 'vendor_papic_captures',
     idCol: 'capture_id',
     id: r.capture_id as string,
     event_id: r.event_id as string,

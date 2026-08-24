@@ -70,7 +70,18 @@ const TILE_QUALITY = 55;
 const THUMB_LONG_EDGE = 320;
 const THUMB_QUALITY = 50;
 
-type PapicDerivativeTable = 'papic_photos' | 'papic_guest_captures';
+/**
+ * The tables this pipeline may write derivative refs onto.
+ *
+ * `vendor_papic_captures` joined on 2026-08-24 (owner: *"compress it as well"*).
+ * A supplier's photographs had no web copy at all, which put them outside the
+ * retention model everything else obeys — and silently, because the drop sweep
+ * only ever considers rows that already HAVE one.
+ */
+type PapicDerivativeTable =
+  | 'papic_photos'
+  | 'papic_guest_captures'
+  | 'vendor_papic_captures';
 
 type DerivativeKeys = {
   displayKey: string | null;

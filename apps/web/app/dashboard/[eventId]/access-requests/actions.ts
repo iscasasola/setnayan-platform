@@ -17,6 +17,7 @@ import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
 import { grantLevelFor, type AreaVerdict } from '@/lib/floor-command';
+import { materializeAreas, withArea } from '@/lib/delegate-areas';
 import {
   DELEGATE_AREAS,
   PERMISSION_TEMPLATES,
@@ -103,12 +104,15 @@ export async function answerAccessRequest(
       // host said yes to, and nothing else.
       PERMISSION_TEMPLATES.viewer;
 
-    const merged: ModeratorPermissions = {
-      ...base,
-      areas: { ...(base.areas ?? {}) },
-    };
+    // ⚠ MATERIALISED, not spread. On an EXISTING row that carries no `areas`
+    // map — every host the couple invited through their own door — spreading
+    // `base.areas ?? {}` would write a map naming only the lines just granted,
+    // and since 2026-08-25 an area a map does not name resolves to nothing. The
+    // host would have answered "yes, share the schedule" and taken away five
+    // other things they never mentioned.
+    let merged: ModeratorPermissions = { ...base, areas: materializeAreas(base) };
     for (const area of granting) {
-      merged.areas![area] = grantLevelFor(area);
+      merged = withArea(merged, area, grantLevelFor(area));
     }
 
     const { error: modErr } = await supabase.from('event_moderators').upsert(
@@ -170,12 +174,13 @@ export async function revokeArea(
   if (!existing) return { ok: false, error: 'Nothing to take back.' };
 
   const perms = (existing as { permissions_json: ModeratorPermissions }).permissions_json;
-  const merged: ModeratorPermissions = { ...perms, areas: { ...(perms.areas ?? {}) } };
+  // Materialised for the same reason the grant path is: taking ONE area back
+  // must not quietly take the others with it.
+  const merged: ModeratorPermissions = withArea(perms, area, null);
   // Explicit null, not delete — and it stays explicit now that an unnamed area
   // on an `areas`-carrying row already resolves to nothing. A written null is
   // the RECORD that the host took this back, which an absent key cannot be:
   // "never granted" and "granted then withdrawn" must not look identical.
-  merged.areas![area] = null;
 
   const { error } = await supabase
     .from('event_moderators')

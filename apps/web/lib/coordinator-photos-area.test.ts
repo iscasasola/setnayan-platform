@@ -92,11 +92,26 @@ test('the couple has a CONTROL that grants it — a permission needs a handle', 
     'Nothing can grant the photos area. The policies exist, the default refuses, ' +
       'and the couple has no way to say yes.',
   );
+  // ⚠ THIS ASSERTION MOVED ON 2026-08-25 AND ITS RULE DID NOT. It used to pin
+  // the literal `areas.photos = grant === 'view' ? 'view' : null`. That exact
+  // spread was found to be a cliff — on a host row with no `areas` map it wrote
+  // a map naming ONE area, and every unnamed area now resolves to nothing — so
+  // the four sites that did it were moved onto `withArea`, which materialises
+  // the whole map first. The RULE being guarded is unchanged and is still the
+  // only thing that matters: withdrawal writes an explicit `null`, never a
+  // deleted key, because absence falls through to a tail that FAILS OPEN for a
+  // delegate with edit_all. Pinning the spelling instead of the rule is what
+  // made this go red on a change that preserved it exactly.
   assert.ok(
-    /areas\.photos = grant === 'view' \? 'view' : null/.test(actions),
+    /withArea\(perms, 'photos', grant === 'view' \? 'view' : null\)/.test(actions),
     'The grant no longer writes an explicit null on withdrawal. Deleting the key ' +
       'instead would fall through to the resolver tail, which FAILS OPEN for a ' +
       'delegate with edit_all — withdrawal must be written down, not implied.',
+  );
+  assert.ok(
+    !/areas\.photos\s*=/.test(actions),
+    'The photos grant is back to editing the areas map directly — that is the ' +
+      'shape that silently withdrew five other areas. Use withArea().',
   );
   assert.ok(
     /requireCoupleMembership/.test(actions.slice(actions.indexOf('setDelegatePhotos'), actions.indexOf('setDelegatePhotos') + 900)),

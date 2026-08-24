@@ -90,6 +90,39 @@ export default async function VendorClientsPage({ searchParams }: Props) {
   ]);
   const notice = search.notice ? NOTICES[search.notice] : undefined;
 
+  /*
+    KEPT NOTES — the supplier's own CRM notes whose celebration was deleted.
+
+    Owner 2026-08-24: "the supplier keeps the note, but it stops being filed
+    under that person's name. They keep their working history."
+
+    ⚠ WITHOUT THIS READ THE KEEPING IS A FICTION. The only other reader is
+    `/vendor-dashboard/clients/[eventId]`, which filters `.eq('event_id', …)` —
+    so a severed note would be preserved and permanently invisible, which is the
+    "gate with no handle" shape this repo has found five times.
+
+    🔑 A FAILED READ IS NOT AN EMPTY ONE. Supabase RESOLVES with an error rather
+    than throwing, so the error is checked and the section is HIDDEN on failure
+    rather than rendering "nothing kept" — telling a supplier they wrote no notes
+    when the read was refused is the false-empty this codebase keeps paying for.
+  */
+  const { data: keptNoteRows, error: keptNotesError } = await supabase
+    .from('vendor_client_notes')
+    .select('note_id, body, created_at')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .is('event_id', null)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (keptNotesError) {
+    console.warn('[clients] kept notes read failed', keptNotesError.message);
+  }
+  const keptNotesMeasured = !keptNotesError;
+  const keptNotes = (keptNoteRows ?? []) as Array<{
+    note_id: string;
+    body: string;
+    created_at: string;
+  }>;
+
   const poolLabel = new Map(pools.map((p) => [p.poolId, p.label]));
 
   // Booked — group live reservations by event.
@@ -390,6 +423,28 @@ export default async function VendorClientsPage({ searchParams }: Props) {
           </details>
         ) : null}
       </div>
+
+      {/* KEPT NOTES — history without a name attached to it.
+          Rendered ONLY when there is something to show AND the read succeeded:
+          an empty section here would either be noise on a normal account or a
+          false "you wrote none" after a refused read. */}
+      {keptNotesMeasured && keptNotes.length > 0 ? (
+        <div className="sn-tile p-4 sm:p-6">
+          <h2 className="text-lg font-semibold">Kept notes</h2>
+          <p className="mt-1 text-sm text-ink/55">
+            Notes you wrote about work whose celebration has since been removed.
+            You keep what you wrote; it is no longer filed under anyone&rsquo;s name.
+          </p>
+          <ul className="mt-3 divide-y divide-ink/10">
+            {keptNotes.map((n) => (
+              <li key={n.note_id} className="py-3">
+                <p className="whitespace-pre-wrap text-sm text-ink/80">{n.body}</p>
+                <p className="mt-1 text-xs text-ink/45">Written {fmtDate(n.created_at)}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }

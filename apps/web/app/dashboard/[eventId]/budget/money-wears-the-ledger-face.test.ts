@@ -46,7 +46,16 @@
  * exactly the file a hand-written list of "the budget screen" omits. The file
  * set follows the budget tree's imports into `_components/`.
  *
- * 🛡 Mutation-checked by printed occurrence count, before → after.
+ * ── And it must not cry wolf ──────────────────────────────────────────────
+ * Rule A used to find a cell's enclosing element with "the nearest `<` before
+ * the match". Put an icon or a tooltip between the `<dd>` and the figure and
+ * that returns the ICON — a className with no `font-mono` — so the guard failed
+ * a change it does not govern, with a message that was untrue. Both rules now
+ * share one real JSX scan. A guard that is loud on harmless edits teaches you
+ * to skim past the one time it is right.
+ *
+ * 🛡 Mutation-checked by printed occurrence count, before → after — in BOTH
+ * directions: the defect must go red, and a legitimate edit must stay green.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -157,19 +166,26 @@ function ledgerCells(): Cell[] {
       const next = src.indexOf('\nfunction ', start);
       const body = src.slice(start, next > 0 ? next : src.length);
       for (const slot of ['label', 'value'] as const) {
-        const at = body.indexOf(`{${slot}}`);
+        // ⚠ NOT "the nearest `<` before the match" — rev 1 did that, and an
+        // ordinary edit breaks it: put an icon or a tooltip between the <dd>
+        // and the figure and the "enclosing element" becomes the ICON, whose
+        // className has no `font-mono`, so the guard fails a change it does
+        // not govern with a message that is untrue. A guard that cries wolf
+        // teaches you to skim past the one time it is right. The same JSX scan
+        // rule B uses answers this correctly, so both rules share it.
+        const rendered = scanFor(body, `{${slot}}`).filter((o) => o.kind === 'content');
         assert.ok(
-          at >= 0,
+          rendered.length > 0,
           `${relative(EVENT_ROOT, file)}::${m[1]} takes \`${slot}\` and never renders {${slot}} — the shape moved; teach this guard the new one rather than deleting it.`,
         );
-        const before = body.slice(0, at);
-        const openTag = before.slice(before.lastIndexOf('<'));
-        cells.push({
-          file: relative(EVENT_ROOT, file),
-          component: m[1] ?? '(anonymous)',
-          slot,
-          mono: openTag.includes('font-mono'),
-        });
+        for (const occurrence of rendered) {
+          cells.push({
+            file: relative(EVENT_ROOT, file),
+            component: m[1] ?? '(anonymous)',
+            slot,
+            mono: occurrence.className.includes('font-mono'),
+          });
+        }
       }
     }
   }
@@ -197,8 +213,10 @@ type Figure = { file: string; line: number; tag: string; mono: boolean };
  * is counted as in-attribute here and is covered by rule A instead, where the
  * component actually renders it.
  */
-function moneyFigures(src: string): Array<{ index: number; kind: 'attribute' | 'content'; tag: string; className: string }> {
-  const out: Array<{ index: number; kind: 'attribute' | 'content'; tag: string; className: string }> = [];
+type Occurrence = { index: number; kind: 'attribute' | 'content'; tag: string; className: string };
+
+function scanFor(src: string, token: string): Occurrence[] {
+  const out: Occurrence[] = [];
   const stack: Array<{ name: string; className: string }> = [];
   const tagStart = /<(\/?)([A-Za-z][A-Za-z0-9._]*)?/y;
   let i = 0;
@@ -228,7 +246,7 @@ function moneyFigures(src: string): Array<{ index: number; kind: 'attribute' | '
         } else if (ch === '>' && depth === 0) {
           break;
         }
-        if (src.startsWith('formatPhp(', j)) {
+        if (src.startsWith(token, j)) {
           out.push({ index: j, kind: 'attribute', tag: name, className: '' });
         }
         j += 1;
@@ -249,7 +267,7 @@ function moneyFigures(src: string): Array<{ index: number; kind: 'attribute' | '
       i = j + 1;
       continue;
     }
-    if (src.startsWith('formatPhp(', i)) {
+    if (src.startsWith(token, i)) {
       const top = stack[stack.length - 1];
       out.push({
         index: i,
@@ -257,7 +275,7 @@ function moneyFigures(src: string): Array<{ index: number; kind: 'attribute' | '
         tag: top?.name ?? '(none)',
         className: top?.className ?? '',
       });
-      i += 'formatPhp('.length;
+      i += token.length;
       continue;
     }
     i += 1;
@@ -270,7 +288,7 @@ function census(): { mono: Figure[]; body: Figure[] } {
   const body: Figure[] = [];
   for (const file of filesUnderGuard()) {
     const src = stripComments(readFileSync(file, 'utf8'));
-    for (const f of moneyFigures(src)) {
+    for (const f of scanFor(src, 'formatPhp(')) {
       if (f.kind === 'attribute') continue;
       const entry: Figure = {
         file: relative(EVENT_ROOT, file),

@@ -713,7 +713,33 @@ export function SaveTheDateFilm({
             {content.dateLabel}
           </p>
         ) : null}
-        {content.icsHref || content.gcalUrl ? (
+        {/* ⌨️ BOTH CONTROLS IN THIS BEAT WAIT FOR THIS BEAT — see the rule below.
+            `idx === closeIdx` is a real mount condition, not a style: every beat
+            node is mounted for the whole film behind `pointer-events-none` +
+            `aria-hidden`, and NEITHER removes an element from the tab order. A
+            control merely *rendered inside* this beat is Tab-reachable from
+            frame one — under the veil, before the music, the clip or the gallery
+            have played.
+
+            🔴 THAT RULE WAS WRITTEN FOR THE WAY OUT AND NOT APPLIED TO ITS
+            NEIGHBOUR. This anchor was gated on the LINK EXISTING and nothing
+            else, so it was reachable from frame one while the "See our page"
+            button eight lines below it — under a comment stating this exact
+            hazard — was correctly gated. MEASURED ON THE LIVE PRODUCTION BUILD
+            2026-08-24, before any veil lift: inside an `aria-hidden` beat,
+            non-zero size, `tabIndex >= 0`. Keyboard-reachable.
+
+            🔑 THE COMMENT SAT BETWEEN THE TWO BLOCKS, ATTACHED TO THE ONE THAT
+            OBEYED IT — so a reader met the unprotected control first and the
+            rule second. It is moved ABOVE both, because the rule is about the
+            BEAT, not about either button.
+
+            ⚠ The persistent "Add to calendar" chip in the film's chrome is a
+            DIFFERENT control and is deliberately NOT gated this way: it is
+            gated on `started`, so a guest who leaves early can still take the
+            date. This one is the finale, and a finale that is reachable before
+            the film has played is not a finale. */}
+        {(content.icsHref || content.gcalUrl) && idx === closeIdx ? (
           <div className="mt-1" onClick={(e) => e.stopPropagation()}>
             <a
               href={content.icsHref ?? content.gcalUrl ?? '#'}
@@ -727,15 +753,8 @@ export function SaveTheDateFilm({
             </a>
           </div>
         ) : null}
-        {/* THE WAY OUT — open browse only, and ONLY once this beat is ACTIVE.
-            `idx === closeIdx` is a real mount condition, not a style: every beat
-            node is mounted for the whole film behind `pointer-events-none` +
-            `aria-hidden`, and NEITHER removes an element from the tab order. A
-            button merely *rendered inside* this beat would be Tab-reachable from
-            frame one — under the veil, before the music, the clip or the gallery
-            have played. Two keystrokes would skip everything the couple paid
-            for. Mounting it here means it does not exist until the film is
-            genuinely over. */}
+        {/* THE WAY OUT — open browse only, and ONLY once this beat is ACTIVE,
+            for the reason stated above. */}
         {canExit && idx === closeIdx ? (
           <div className="mt-5" onClick={(e) => e.stopPropagation()}>
             <button

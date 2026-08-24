@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { fetchBookedVenueRoomSize, shouldSuggestVenueSize } from '@/lib/venue-room-size';
 import { createClient } from '@/lib/supabase/server';
+import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
+import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
 import {
@@ -40,6 +42,15 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
+
+  // A delegate the host never shared the guest list with reads ZERO guest rows
+  // — an RLS refusal and an empty event are the same value — so without this
+  // the page would tell a coordinator the couple has invited nobody. Say what
+  // is true instead. The couple never reach this branch.
+  const viewer = await fetchEventViewer(supabase, eventId, user.id);
+  if (isDelegateWithoutArea(viewer, 'guest_list')) {
+    return <NotSharedWithYou title="Seating chart" thing="guest list" />;
+  }
 
   const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors, venueRoomSize] =
     await Promise.all([

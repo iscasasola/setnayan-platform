@@ -84,28 +84,16 @@ export async function acceptHostInvite(formData: FormData) {
     );
   }
 
-  // Feature-access program Phase 2 (2026-06-12): accepted hosts also get an
-  // event_members 'coordinator' row so the event shows in their picker and
-  // the existing couple+coordinator surfaces (check-in desk, /live console,
-  // host-checked actions) recognize them. ON CONFLICT keeps an existing
-  // membership (e.g. the host is also a guest) untouched — the moderator row
-  // alone still admits them to the dashboard. Data access is enforced
-  // per-area by the moderator RLS policies (migration 20261129000000).
-  const { error: memberError } = await admin
-    .from('event_members')
-    .upsert(
-      {
-        event_id: invite.event_id,
-        user_id: user.id,
-        member_type: 'coordinator',
-      },
-      { onConflict: 'event_id,user_id', ignoreDuplicates: true },
-    );
-  if (memberError) {
-    // Non-fatal — the moderator row is the source of truth; log via redirect
-    // is overkill. The picker gap self-heals on a future accept.
-    console.error('[acceptHostInvite] event_members upsert failed', memberError.message);
-  }
+  // The coordinator event_members row is minted by the DATABASE now —
+  // trigger `sync_delegate_membership` (migration 20271161203067), owner
+  // ruling 2026-08-24 ("an accepted delegate is a member"). It used to be
+  // upserted HERE, which is why the access-request approval door — a second
+  // writer of accepted_at that never had this block — shipped a live planner
+  // who read an EMPTY checklist on an event with 94 items. One write body,
+  // two doors: the body lives on the table so every door present and future
+  // (including a straight SQL seed, which is how that row actually arrived)
+  // mints the same membership. tests/db/an-accepted-delegate-is-a-member
+  // proves THIS door still mints via the UPDATE above.
 
   revalidatePath(`/dashboard/${invite.event_id}`);
   revalidatePath(`/dashboard/${invite.event_id}/hosts`);

@@ -1,5 +1,6 @@
 import { Lock, NotebookPen, Trash2, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   WORKING_NOTE_BODY_MAX,
@@ -56,7 +57,7 @@ export async function WorkingFolderNotes({
 
   // Who is looking? Couple (event_members) vs coordinator (accepted, live
   // event_moderators row). Anyone else gets no folder at all.
-  const [{ data: member }, { data: moderator }] = await Promise.all([
+  const [{ data: member, error: memberError }, { data: moderator, error: moderatorError }] = await Promise.all([
     supabase
       .from('event_members')
       .select('member_type')
@@ -73,6 +74,12 @@ export async function WorkingFolderNotes({
       .is('removed_at', null)
       .maybeSingle(),
   ]);
+  if (memberError) {
+    logQueryError('WorkingFolderNotes.member', memberError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (moderatorError) {
+    logQueryError('WorkingFolderNotes.moderator', moderatorError, { event_id: eventId }, 'graceful_degrade');
+  }
   const viewer: WorkingNoteViewer = {
     isCouple: Boolean(member),
     isCoordinator: Boolean(moderator),

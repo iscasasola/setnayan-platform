@@ -1,5 +1,6 @@
 import { BookHeart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Kwento Magazine — Variant A card (0012 § Kwento Magazine): the FREE,
@@ -9,7 +10,7 @@ import { createClient } from '@/lib/supabase/server';
  */
 export async function MagazineCard({ eventId }: { eventId: string }) {
   const supabase = await createClient();
-  const [{ count: seat }, { count: guest }, { count: kwentos }] = await Promise.all([
+  const [{ count: seat, error: seatError }, { count: guest, error: guestError }, { count: kwentos, error: kwentosError }] = await Promise.all([
     supabase
       .from('papic_photos')
       .select('photo_id', { count: 'exact', head: true })
@@ -33,6 +34,15 @@ export async function MagazineCard({ eventId }: { eventId: string }) {
       .eq('event_id', eventId)
       .eq('status', 'approved'),
   ]);
+  if (seatError) {
+    logQueryError('MagazineCard.seat', seatError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (guestError) {
+    logQueryError('MagazineCard.guest', guestError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (kwentosError) {
+    logQueryError('MagazineCard.kwentos', kwentosError, { event_id: eventId }, 'graceful_degrade');
+  }
   const photos = (seat ?? 0) + (guest ?? 0);
   if (photos === 0) return null;
 

@@ -121,9 +121,9 @@ export default async function StudioPage({ params, searchParams }: Props) {
   );
   const [
     { active: ownedActive, pending: ownedPending },
-    { data: priceRows },
+    { data: priceRows, error: priceRowsError },
     roadmapState,
-    { data: eventRow },
+    { data: eventRow, error: eventRowError },
   ] = await Promise.all([
       eventActiveSkus(createAdminClient(), eventId),
       supabase
@@ -146,6 +146,12 @@ export default async function StudioPage({ params, searchParams }: Props) {
       // round trip.
       supabase.from('events').select('community_id').eq('event_id', eventId).maybeSingle(),
     ]);
+  if (priceRowsError) {
+    logQueryError('StudioHubPage.priceRows', priceRowsError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (eventRowError) {
+    logQueryError('StudioHubPage.eventRow', eventRowError, { event_id: eventId }, 'graceful_degrade');
+  }
 
   // Event-type gate for the Studio grid. TWO layers, and the second is not
   // derivable from the first:

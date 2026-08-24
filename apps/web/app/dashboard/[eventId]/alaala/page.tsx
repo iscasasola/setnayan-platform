@@ -112,7 +112,7 @@ export default async function AlaalaPage({ params }: Props) {
   // Fetch density map and recent approved stories in parallel.
   // If either fails (Papic not active, no data), we silently hide the sections.
   const admin = createAdminClient();
-  const [densityRows, { data: recentStories }] = await Promise.all([
+  const [densityRows, { data: recentStories, error: recentStoriesError }] = await Promise.all([
     getKwentoDensity(eventId, 5).catch(() => []),
     admin
       .from('photo_messages')
@@ -121,8 +121,11 @@ export default async function AlaalaPage({ params }: Props) {
       .eq('status', 'approved')
       .order('updated_at', { ascending: false })
       .limit(3)
-      .then((r) => r, () => ({ data: null })),
+      .then((r) => r, () => ({ data: null, error: null })),
   ]);
+  if (recentStoriesError) {
+    logQueryError('AlaalaPage.recentStories', recentStoriesError, { event_id: eventId }, 'graceful_degrade');
+  }
 
   // Resolve thumbnail URLs for the top density photos.
   type DensityCard = {

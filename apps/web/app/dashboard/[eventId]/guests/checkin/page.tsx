@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Gift, QrCode } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { guestDisplayName, type GuestRole, type GuestSide } from '@/lib/guests';
 import { CheckinDesk, type DeskGuest, type DeskCheckin } from './_components/checkin-desk';
@@ -43,11 +45,11 @@ export default async function CheckinDeskPage({ params }: Props) {
   if (!membership) redirect(`/dashboard/${eventId}`);
 
   const [
-    { data: guestsRaw },
-    { data: assignmentsRaw },
-    { data: tablesRaw },
-    { data: checkinsRaw },
-    { data: eventRow },
+    { data: guestsRaw, error: guestsRawError },
+    { data: assignmentsRaw, error: assignmentsRawError },
+    { data: tablesRaw, error: tablesRawError },
+    { data: checkinsRaw, error: checkinsRawError },
+    { data: eventRow, error: eventRowError },
   ] = await Promise.all([
     supabase
       .from('guests')
@@ -71,6 +73,22 @@ export default async function CheckinDeskPage({ params }: Props) {
       .eq('event_id', eventId),
     supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
   ]);
+  if (guestsRawError) {
+    logQueryError('GuestCheckinPage.guestsRaw', guestsRawError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (assignmentsRawError) {
+    logQueryError('GuestCheckinPage.assignmentsRaw', assignmentsRawError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (tablesRawError) {
+    logQueryError('GuestCheckinPage.tablesRaw', tablesRawError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (checkinsRawError) {
+    logQueryError('GuestCheckinPage.checkinsRaw', checkinsRawError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (eventRowError) {
+    logQueryError('GuestCheckinPage.eventRow', eventRowError, { event_id: eventId }, 'graceful_degrade');
+  }
+  const somethingRefused = Boolean(guestsRawError) || Boolean(assignmentsRawError) || Boolean(tablesRawError) || Boolean(checkinsRawError);
 
   // Linked tables (#1266) display as the unit's name when one is set.
   const tableLabelById = new Map<string, string>();
@@ -119,6 +137,14 @@ export default async function CheckinDeskPage({ params }: Props) {
       >
         <ArrowLeft className="h-4 w-4" /> Back to guest list
       </Link>
+
+      {somethingRefused ? (
+        <ReadRefusedNotice
+          className="mt-3"
+          partial
+          what="everything this desk needs — a guest, their table, or who has already arrived"
+        />
+      ) : null}
 
       <header className="mt-3 space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">

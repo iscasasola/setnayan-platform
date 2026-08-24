@@ -1,5 +1,6 @@
 import { Camera } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { setCameraShots } from '../actions';
 
 /**
@@ -194,7 +195,7 @@ async function listEventCameras(
 
     const seatIds = seats.map((s) => String((s as { seat_id?: unknown }).seat_id ?? ''));
 
-    const [{ data: grants }, { data: allocs }, { data: usage }] = await Promise.all([
+    const [{ data: grants, error: grantsError }, { data: allocs, error: allocsError }, { data: usage, error: usageError }] = await Promise.all([
       admin
         .from('papic_event_point_grants')
         .select('seat_id, points')
@@ -203,6 +204,15 @@ async function listEventCameras(
       admin.from('papic_seat_allocations').select('seat_id, points').eq('event_id', eventId),
       admin.from('papic_seat_point_usage').select('seat_id, points_used').in('seat_id', seatIds),
     ]);
+    if (grantsError) {
+      logQueryError('PapicCamerasCard.grants', grantsError, { event_id: eventId }, 'graceful_degrade');
+    }
+    if (allocsError) {
+      logQueryError('PapicCamerasCard.allocs', allocsError, { event_id: eventId }, 'graceful_degrade');
+    }
+    if (usageError) {
+      logQueryError('PapicCamerasCard.usage', usageError, { event_id: eventId }, 'graceful_degrade');
+    }
 
     const dedicated = new Map<string, number>();
     const add = (id: string, n: number) => {

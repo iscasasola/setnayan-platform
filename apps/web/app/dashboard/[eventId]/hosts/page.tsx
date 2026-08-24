@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { siteOrigin } from '@/lib/site-origin';
 import { redirect } from 'next/navigation';
@@ -120,7 +121,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   // other — one parallel batch instead of two serial reads (owner perf pass
   // 2026-06-03). The accepted-host user lookup below stays sequential (it needs
   // the userIds derived from these rows).
-  const [{ data: eventRow }, { data: rows }, { data: logRows }, { data: coordRows }] =
+  const [{ data: eventRow, error: eventRowError }, { data: rows, error: rowsError }, { data: logRows, error: logRowsError }, { data: coordRows, error: coordRowsError }] =
     await Promise.all([
       admin
         .from('events')
@@ -160,6 +161,23 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         .eq('category', 'planner_coordinator')
         .in('status', ['contracted', 'deposit_paid', 'delivered', 'complete']),
     ]);
+  if (eventRowError) {
+    logQueryError('HostsPage.eventRow', eventRowError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (rowsError) {
+    logQueryError('HostsPage.rows', rowsError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (logRowsError) {
+    logQueryError('HostsPage.logRows', logRowsError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (coordRowsError) {
+    logQueryError('HostsPage.coordRows', coordRowsError, { event_id: eventId }, 'graceful_degrade');
+  }
+  // A refused read here shortens the list of people who run this event, and the
+  // page has no way to look incomplete on its own — somebody's co-host simply
+  // is not there, and removing them is one tap away.
+  const hostsPartlyRefused =
+    Boolean(rowsError) || Boolean(logRowsError) || Boolean(coordRowsError);
   const eventName = (eventRow as { display_name: string | null } | null)?.display_name ?? 'Your event';
   // Phase 5 — the role picker offers this event type's OWN roles. It used to
   // iterate all 13, so a birthday host chose between "Maid of honor" and "Best
@@ -232,6 +250,10 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Back to {eventName}
       </Link>
+
+      {hostsPartlyRefused ? (
+        <ReadRefusedNotice partial what="everyone who helps run this event" />
+      ) : null}
 
       {/*
         ⚠ IT ASKED A MOVIE NIGHT WHO WAS PLANNING THE WEDDING.

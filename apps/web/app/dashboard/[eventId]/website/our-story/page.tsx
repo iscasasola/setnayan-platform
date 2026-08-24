@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { updateOurStory } from './actions';
 import { StoryFields, type LoveStoryBlob } from './_components/story-fields';
@@ -35,7 +36,7 @@ export default async function OurStoryEditorPage({
   if (!user) redirect('/login');
 
   const supabase = await createClient();
-  const [{ data: membership }, { data: event }] = await Promise.all([
+  const [{ data: membership, error: membershipError }, { data: event, error: eventError }] = await Promise.all([
     supabase
       .from('event_members')
       .select('member_type')
@@ -48,6 +49,12 @@ export default async function OurStoryEditorPage({
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
+  if (membershipError) {
+    logQueryError('OurStoryPage.membership', membershipError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (eventError) {
+    logQueryError('OurStoryPage.event', eventError, { event_id: eventId }, 'graceful_degrade');
+  }
 
   if (!event) redirect(`/dashboard/${eventId}`);
   // Couple-only, like the website hub (moderators are read-only on events —

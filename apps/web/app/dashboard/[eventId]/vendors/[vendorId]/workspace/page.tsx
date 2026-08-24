@@ -786,7 +786,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     } | null;
 
     if (booking && booking.status === 'locked' && booking.package_id) {
-      const [{ data: pkgRowRaw }, { data: itemsRaw }] = await Promise.all([
+      const [{ data: pkgRowRaw, error: pkgRowRawError }, { data: itemsRaw, error: itemsRawError }] = await Promise.all([
         supabase
           .from('vendor_packages')
           // The canonical constant, not a hand-typed subset — the row is handed
@@ -810,6 +810,12 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           .eq('package_id', booking.package_id)
           .order('display_order', { ascending: true }),
       ]);
+      if (pkgRowRawError) {
+        logQueryError('VendorWorkspacePage.pkgRowRaw', pkgRowRawError, { event_id: eventId }, 'graceful_degrade');
+      }
+      if (itemsRawError) {
+        logQueryError('VendorWorkspacePage.itemsRaw', itemsRawError, { event_id: eventId }, 'graceful_degrade');
+      }
 
       const pkg = pkgRowRaw as VendorPackageRow | null;
 
@@ -1020,7 +1026,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   let appointmentViews: AppointmentView[] = [];
   if (ev.marketplace_vendor_id) {
     const apptCats = appointmentCategoriesFor([ev.category]);
-    const [{ data: catalogRows }, { data: apptRows }] = await Promise.all([
+    const [{ data: catalogRows, error: catalogRowsError }, { data: apptRows, error: apptRowsError }] = await Promise.all([
       supabase
         .from('appointment_type_catalog')
         .select('category, type, label, default_mode, default_duration_min, sort_order')
@@ -1035,6 +1041,12 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         .eq('vendor_profile_id', ev.marketplace_vendor_id)
         .order('created_at', { ascending: false }),
     ]);
+    if (catalogRowsError) {
+      logQueryError('VendorWorkspacePage.catalogRows', catalogRowsError, { event_id: eventId }, 'graceful_degrade');
+    }
+    if (apptRowsError) {
+      logQueryError('VendorWorkspacePage.apptRows', apptRowsError, { event_id: eventId }, 'graceful_degrade');
+    }
     const catalog = (catalogRows ?? []) as Array<{
       category: string;
       type: string;
@@ -2142,7 +2154,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // path adds zero queries. RLS session client (couple's own booking + event).
   let coupleHandshake: ReviewState | null = null;
   if (ev.marketplace_vendor_id) {
-    const [{ data: complRow }, { data: evtRow }] = await Promise.all([
+    const [{ data: complRow, error: complRowError }, { data: evtRow, error: evtRowError }] = await Promise.all([
       supabase
         .from('event_vendors')
         .select(
@@ -2153,6 +2165,12 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         .maybeSingle(),
       supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
     ]);
+    if (complRowError) {
+      logQueryError('VendorWorkspacePage.complRow', complRowError, { event_id: eventId }, 'graceful_degrade');
+    }
+    if (evtRowError) {
+      logQueryError('VendorWorkspacePage.evtRow', evtRowError, { event_id: eventId }, 'graceful_degrade');
+    }
     const compl = complRow as {
       completion_status: string | null;
       service_marked_complete_at: string | null;

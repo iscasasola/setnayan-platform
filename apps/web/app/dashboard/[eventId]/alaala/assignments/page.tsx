@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { KWENTO_MOMENTS, type KwentoMomentKey } from '@/lib/kwento-moments';
 import { GuestPicker, AssignmentRow } from './_components/assignment-controls';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -14,7 +15,7 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
   const { eventId } = await params;
   const admin = createAdminClient();
 
-  const [{ data: assignments }, { data: guests }] = await Promise.all([
+  const [{ data: assignments, error: assignmentsError }, { data: guests, error: guestsError }] = await Promise.all([
     admin
       .from('kwento_assignments')
       .select('assignment_id, moment_key, assigned_guest_id, nudge_count')
@@ -26,6 +27,12 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
       .eq('rsvp_status', 'confirmed')
       .order('first_name', { ascending: true }),
   ]);
+  if (assignmentsError) {
+    logQueryError('AlaalaAssignmentsPage.assignments', assignmentsError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (guestsError) {
+    logQueryError('AlaalaAssignmentsPage.guests', guestsError, { event_id: eventId }, 'graceful_degrade');
+  }
 
   // Build a lookup: moment_key → assignment rows
   type AssignmentRow = {

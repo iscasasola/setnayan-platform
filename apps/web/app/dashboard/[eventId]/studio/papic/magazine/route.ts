@@ -72,7 +72,7 @@ export async function GET(
   const copy = editorial ? composeCopy(editorial) : null;
 
   // The SPINE — both capture streams, photos only, not hidden.
-  const [{ data: seatRows }, { data: guestRows }, { data: msgRows }] = await Promise.all([
+  const [{ data: seatRows, error: seatRowsError }, { data: guestRows, error: guestRowsError }, { data: msgRows, error: msgRowsError }] = await Promise.all([
     supabase
       .from('papic_photos')
       // Derivative columns + full_res_dropped_at so the still resolves to the
@@ -107,6 +107,15 @@ export async function GET(
       .is('hard_deleted_at', null)
       .limit(200),
   ]);
+  if (seatRowsError) {
+    logQueryError('PapicMagazineRoute.seatRows', seatRowsError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (guestRowsError) {
+    logQueryError('PapicMagazineRoute.guestRows', guestRowsError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (msgRowsError) {
+    logQueryError('PapicMagazineRoute.msgRows', msgRowsError, { event_id: eventId }, 'graceful_degrade');
+  }
 
   const refByKey = new Map<string, string>();
   const captures: MagazineCapture[] = [];

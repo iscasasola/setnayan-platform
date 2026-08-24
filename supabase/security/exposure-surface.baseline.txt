@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6208
+# facts: 6209
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     571
-#   col       4569
+#   col       4570
 #   policy    843
 #   view      8
 #   func      213
@@ -895,6 +895,7 @@ col	public.communities.created_by	anon=- authenticated=SIU
 col	public.communities.description	anon=- authenticated=SIU
 col	public.communities.id	anon=- authenticated=SIU
 col	public.communities.name	anon=- authenticated=SIU
+col	public.communities.photo_url	anon=- authenticated=SIU
 col	public.communities.public_id	anon=- authenticated=SIU
 col	public.communities.updated_at	anon=- authenticated=SIU
 col	public.community_invite_tokens.community_id	anon=- authenticated=SIU
@@ -5228,7 +5229,7 @@ policy	public.chat_threads|chat_threads_member_read	mode=PERMISSIVE cmd=SELECT r
 policy	public.chat_threads|chat_threads_member_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ((vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) AND (event_id IN ( SELECT agent_customer_event_ids() AS agent_customer_event_ids)))) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ((vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) AND (event_id IN ( SELECT agent_customer_event_ids() AS agent_customer_event_ids))))
 policy	public.communities|authenticated_can_create_community	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(created_by = auth.uid())
 policy	public.communities|community_member_can_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((community_id IN ( SELECT current_community_ids() AS current_community_ids)) OR is_admin()) check=NULL
-policy	public.communities|organizer_can_update_community	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((community_id IN ( SELECT current_organizer_community_ids() AS current_organizer_community_ids)) OR is_admin()) check=((community_id IN ( SELECT current_organizer_community_ids() AS current_organizer_community_ids)) OR is_admin())
+policy	public.communities|member_can_update_community	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((community_id IN ( SELECT current_community_ids() AS current_community_ids)) OR is_admin()) check=((community_id IN ( SELECT current_community_ids() AS current_community_ids)) OR is_admin())
 policy	public.community_invite_tokens|invite_tokens_organizer_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((community_id IN ( SELECT current_organizer_community_ids() AS current_organizer_community_ids)) OR is_admin()) check=((community_id IN ( SELECT current_organizer_community_ids() AS current_organizer_community_ids)) OR is_admin())
 policy	public.community_members|community_member_admin_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=is_admin()
 policy	public.community_members|community_member_leave_or_remove	mode=PERMISSIVE cmd=DELETE roles=authenticated using=((user_id = auth.uid()) OR (community_id IN ( SELECT current_organizer_community_ids() AS current_organizer_community_ids)) OR is_admin()) check=NULL

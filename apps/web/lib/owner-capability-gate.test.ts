@@ -77,7 +77,7 @@ test('owner gate: the edit fact is asked ONLY of a confirmed host, and only abou
     },
   });
   assert.equal(denied, null);
-  assert.deepEqual(asked, [], 'the edit probe ran for somebody who is not a host at all');
+  assert.equal(asked.length, 0, 'the edit probe ran for somebody who is not a host at all');
 
   const host = await resolveOwnerCapability({
     eventId: EVENT_ID,

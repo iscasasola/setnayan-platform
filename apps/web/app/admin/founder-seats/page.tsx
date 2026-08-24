@@ -1,3 +1,4 @@
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { FOUNDER_SEAT_CAP } from '@/lib/founder-seats';
@@ -60,15 +61,20 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Founder seats</h1>
-        <p className="mt-1 text-sm text-ink/70">
+      {/* The page starts at its content.
+          ⚖ The sentence survives: granting one of these gives an account every
+          paid feature for good, and the last line — vendors are still paid
+          directly, like by any client — is the part that stops somebody
+          thinking a seat is Setnayan covering a supplier's fee. */}
+      <PageMasthead title="Founder seats" />
+      <div className="mb-6">
+        <p className="text-sm text-ink/70">
           Up to {FOUNDER_SEAT_CAP} owner-granted founder accounts. A seat means every
           in-app feature is already paid for, vendor inquiries are token-free for the
           vendor, and vendors see the server-asserted “Setnayan Founder” badge.
           Vendors are still paid directly, like by any client.
         </p>
-      </header>
+      </div>
 
       {errorMsg ? <FormFlash tone="error">{errorMsg}</FormFlash> : null}
       {savedMsg ? <FormFlash tone="success">{savedMsg}</FormFlash> : null}

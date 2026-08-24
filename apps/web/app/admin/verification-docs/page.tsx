@@ -1,5 +1,6 @@
 import { FileWarning, ShieldCheck, HelpCircle } from 'lucide-react';
 
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { buildVerificationDocsReport } from '@/lib/verification-docs-server';
@@ -54,14 +55,15 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
 
   return (
     <section className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold text-ink">Vendor verification documents</h1>
-        <p className="max-w-2xl text-sm leading-relaxed text-ink/70">
-          What vendors uploaded to prove who they are — government IDs, permits, bank proofs.
-          Each file is checked against every vendor record: if nothing points at it any more,
-          it is left over and you can remove it. Deleting is permanent and there is no undo.
-        </p>
-      </header>
+      {/* The page starts at its content.
+          ⚖ The sentence survives whole. These are strangers&apos; government
+          IDs and the only control is a permanent delete with no undo. */}
+      <PageMasthead title="Vendor verification documents" />
+      <p className="max-w-2xl text-sm leading-relaxed text-ink/70">
+        What vendors uploaded to prove who they are — government IDs, permits, bank proofs.
+        Each file is checked against every vendor record: if nothing points at it any more,
+        it is left over and you can remove it. Deleting is permanent and there is no undo.
+      </p>
 
       {deleted ? (
         <p className="rounded-lg border border-success-700/20 bg-success-100 px-4 py-3 text-sm text-success-900">

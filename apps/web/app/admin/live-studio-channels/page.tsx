@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { AlertCircle, Radio } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
@@ -112,9 +113,15 @@ export default async function LiveStudioChannelsPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8">
+      {/* The page starts at its content.
+          ⚖ The sentence survives: it is the reason this pool exists at all —
+          couples never connect a Google account, which is what lets our
+          consent screen stay Internal and skip Google app verification.
+          Somebody about to "simplify" this by asking couples to connect their
+          own channel needs to meet that sentence first. */}
+      <PageMasthead title="Setnayan channel pool" />
       <div className="mb-6">
-        <h1 className="mt-1 font-serif text-2xl text-ink">Setnayan channel pool</h1>
-        <p className="mt-2 max-w-2xl text-sm text-ink/65">
+        <p className="max-w-2xl text-sm text-ink/70">
           Every Live Studio event streams on a Setnayan-owned YouTube channel from this pool. Couples
           never connect a Google account — which is why our consent screen can stay{' '}
           <strong className="font-semibold text-ink/80">Internal</strong> and needs no Google app

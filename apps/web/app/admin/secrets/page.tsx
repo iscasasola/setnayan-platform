@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, Rocket, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Rocket, ShieldAlert } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { encryptionKeyStatus } from '@/lib/encryption';
@@ -172,17 +173,17 @@ export default async function AdminSecretsPage({
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Back to admin
       </Link>
 
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <ShieldCheck aria-hidden className="h-6 w-6" strokeWidth={1.75} /> Secrets &amp;
-          Rotation
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          Every key Setnayan holds — where it lives, how old it is, and how to
-          replace it. Values are write-only: you can set a new one here, but
-          nothing on this page can ever show you the current one.
-        </p>
-      </header>
+      {/* The page starts at its content — the Back to admin link above is
+          untouched.
+          ⚖ The sentence survives: values here are WRITE-ONLY. Somebody
+          hunting for a key they already hold needs to be told this screen can
+          never show it to them, rather than concluding the page is broken. */}
+      <PageMasthead title="Secrets & Rotation" />
+      <p className="text-sm text-ink/70">
+        Every key Setnayan holds — where it lives, how old it is, and how to
+        replace it. Values are write-only: you can set a new one here, but
+        nothing on this page can ever show you the current one.
+      </p>
 
       {/* ── Alarm banner ─────────────────────────────────────────────────── */}
       {alarming.length > 0 ? (

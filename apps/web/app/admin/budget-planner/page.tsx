@@ -1,3 +1,4 @@
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formatPhp } from '@/lib/budget';
@@ -121,14 +122,16 @@ export default async function AdminBudgetPlannerPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-8 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Budget Planner</h1>
-        <p className="text-sm text-ink/60">
-          Seed the fallback benchmark prices, tune the allocation engine, and
-          review de-identified couple insights. Prices are admin-set and never
-          invented — leave a field blank to clear it.
-        </p>
-      </header>
+      {/* The page starts at its content.
+          ⚖ The sentence survives for its last clause — leave a field BLANK to
+          clear it. Nothing else on the screen says that, and it is the one
+          gesture an operator would otherwise guess wrong. */}
+      <PageMasthead title="Budget Planner" />
+      <p className="mb-8 text-sm text-ink/70">
+        Seed the fallback benchmark prices, tune the allocation engine, and
+        review de-identified couple insights. Prices are admin-set and never
+        invented — leave a field blank to clear it.
+      </p>
 
       {/* ── 0. Budget bands (onboarding) ─────────────────────────────────── */}
       <section className="mb-12">

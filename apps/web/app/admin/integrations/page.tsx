@@ -3,11 +3,11 @@ import { notFound, redirect } from 'next/navigation';
 import {
   ArrowLeft,
   CheckCircle2,
-  KeyRound,
   Mail,
   ShieldAlert,
   Sparkles,
 } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { saveResendConfig, clearResendKey, setAiPaywall } from './actions';
@@ -124,17 +124,18 @@ export default async function AdminIntegrationsPage({
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Back to admin
       </Link>
 
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <KeyRound aria-hidden className="h-6 w-6" strokeWidth={1.75} /> Integrations
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          Turn integrations on without a redeploy. Keys are stored encrypted; the
-          app reads them DB-first and falls back to the Vercel env. Live now:
-          email (Resend), the Setnayan&nbsp;AI paywall, and OpenAI moderation;
-          more integrations follow.
-        </p>
-      </header>
+      {/* The page starts at its content — the Back to admin link above is
+          untouched, because on a phone it is the only way up a level.
+          ⚖ The sentence survives: keys are read DB-FIRST and fall back to the
+          Vercel env, so a value typed here silently outranks the deploy
+          config. That is the single most surprising thing about this screen. */}
+      <PageMasthead title="Integrations" />
+      <p className="text-sm text-ink/70">
+        Turn integrations on without a redeploy. Keys are stored encrypted; the
+        app reads them DB-first and falls back to the Vercel env. Live now:
+        email (Resend), the Setnayan&nbsp;AI paywall, and OpenAI moderation;
+        more integrations follow.
+      </p>
 
       {saved ? (
         <p

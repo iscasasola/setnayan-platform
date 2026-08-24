@@ -1,5 +1,6 @@
 import { after } from 'next/server';
-import { Radar, RefreshCw, ShieldCheck } from 'lucide-react';
+import { RefreshCw, ShieldCheck } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import {
   getAdminDemandRadar,
@@ -54,20 +55,18 @@ export default async function AdminDemandPage({
 
   return (
     <section className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <header className="space-y-3">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-          <Radar aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-        </span>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Demand Radar
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          De-identified demand across every market — by month, region, event
-          type, and capture look. This is the operator view of the same rollup
-          vendors see, scoped to their own region. Counts only; no couple is ever
-          identifiable.
-        </p>
-      </header>
+      {/* The page starts at its content — this one answered at 36px, the
+          exact size the owner pointed at.
+          ⚖ The sentence survives for its last clause: counts only, no couple
+          is ever identifiable. That is a privacy claim about a screen full of
+          other people&apos;s plans, and it should not be somewhere else. */}
+      <PageMasthead title="Demand Radar" />
+      <p className="max-w-prose text-sm text-ink/70">
+        De-identified demand across every market — by month, region, event
+        type, and capture look. This is the operator view of the same rollup
+        vendors see, scoped to their own region. Counts only; no couple is ever
+        identifiable.
+      </p>
 
       {sp.ok ? (
         <p

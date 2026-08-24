@@ -150,6 +150,11 @@ const SIMULATED_GUEST_ROW: Readonly<GuestRow> = Object.freeze({
   group_category: 'Sample',
   plus_one_of_guest_id: null,
   plus_one_mode: null,
+  // The host's preview shows the card WITHOUT the bring-someone block: a
+  // simulated guest has no host who allowed them one, and inventing a +1 in a
+  // preview would show the couple a control their real guests may not have.
+  plus_one_allowed: false,
+  plus_one_name: null,
   rsvp_status: 'attending',
   meal_preference: null,
   dietary_restrictions: null,

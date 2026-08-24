@@ -75,7 +75,7 @@ export function PendingLockProposals({
     <section className="space-y-2 rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-4">
       <header className="flex items-center gap-1.5">
         <UserCheck aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-700">
           Your coordinator proposed locking
         </p>
       </header>

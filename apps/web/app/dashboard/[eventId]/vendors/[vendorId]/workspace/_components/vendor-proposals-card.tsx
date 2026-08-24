@@ -93,7 +93,7 @@ export async function VendorProposalsCard({
             <div className="min-w-0 flex-1">
               <Link
                 href={`/proposals/${p.public_id}`}
-                className="block truncate text-sm font-medium text-ink hover:text-terracotta"
+                className="block truncate text-sm font-medium text-ink hover:text-terracotta-700"
               >
                 {p.title}
               </Link>

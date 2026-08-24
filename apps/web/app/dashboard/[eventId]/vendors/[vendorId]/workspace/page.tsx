@@ -1688,7 +1688,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                         href={fileHref}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block truncate text-sm font-medium text-ink hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                        className="block truncate text-sm font-medium text-ink hover:text-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
                       >
                         {c.title}
                       </a>
@@ -2378,7 +2378,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                 <input type="hidden" name="thread_id" value={thread.thread_id} />
                 <SubmitButton
                   pendingLabel="Withdrawing…"
-                  className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline"
+                  className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta-700 hover:underline"
                 >
                   Withdraw inquiry
                 </SubmitButton>

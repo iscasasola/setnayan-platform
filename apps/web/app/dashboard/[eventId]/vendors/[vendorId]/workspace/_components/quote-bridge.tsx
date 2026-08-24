@@ -253,7 +253,7 @@ export function QuoteBridge({
           <div className="w-full max-w-md rounded-xl bg-cream p-6 shadow-xl ring-1 ring-ink/10">
             <header className="flex items-start justify-between gap-3">
               <div className="space-y-1">
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
                   {sourceLabel || 'Log this quote'}
                 </p>
                 <h2

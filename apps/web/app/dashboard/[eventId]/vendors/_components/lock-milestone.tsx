@@ -163,7 +163,7 @@ export function LockMilestoneToast({
               <Link
                 href={milestone.finalizeReady.href}
                 onClick={onDismiss}
-                className="group mt-1 inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
+                className="group mt-1 inline-flex items-center gap-1 text-sm font-medium text-terracotta-700 hover:underline"
               >
                 Finalize your {milestone.finalizeReady.featureLabel}
                 <ArrowRight
@@ -190,7 +190,7 @@ export function LockMilestoneToast({
                 <button
                   type="button"
                   onClick={onAddAnother}
-                  className="flex-1 rounded-lg border border-terracotta px-3 py-1.5 text-xs font-semibold text-terracotta hover:bg-terracotta/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                  className="flex-1 rounded-lg border border-terracotta px-3 py-1.5 text-xs font-semibold text-terracotta-700 hover:bg-terracotta/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
                 >
                   ＋ Add another
                 </button>
@@ -203,7 +203,7 @@ export function LockMilestoneToast({
               <button
                 type="button"
                 onClick={onUndo}
-                className="font-medium text-terracotta underline underline-offset-2 hover:text-terracotta/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                className="font-medium text-terracotta-700 underline underline-offset-2 hover:text-terracotta-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
               >
                 Undo · revert to considering
               </button>

@@ -86,7 +86,7 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
   if (!snapshot) {
     return (
       <div className="sn-tile p-5 text-sm text-ink/65">
-        Your budget lives here. <Link href={budgetHref} className="font-medium text-terracotta hover:underline">Open budget &amp; payments</Link> to set a target and track costs.
+        Your budget lives here. <Link href={budgetHref} className="font-medium text-terracotta-700 hover:underline">Open budget &amp; payments</Link> to set a target and track costs.
       </div>
     );
   }

@@ -274,7 +274,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
       <header className="space-y-2">
         <Link
           href={`/dashboard/${eventId}/vendors`}
-          className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta"
+          className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta-700"
         >
           <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
           Back to vendors
@@ -369,7 +369,7 @@ function NotEligibleState({
     <section className="space-y-4">
       <Link
         href={`/dashboard/${eventId}/vendors`}
-        className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta"
+        className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
         Back to vendors
@@ -403,7 +403,7 @@ function ConfirmReceiptState({
     <section className="space-y-4">
       <Link
         href={`/dashboard/${eventId}/vendors`}
-        className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta"
+        className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
         Back to vendors
@@ -444,7 +444,7 @@ function DisputedState({ eventId, vendorName }: { eventId: string; vendorName: s
     <section className="space-y-4">
       <Link
         href={`/dashboard/${eventId}/vendors`}
-        className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta"
+        className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
         Back to vendors
@@ -472,7 +472,7 @@ function NoLinkedProfileState({
     <section className="space-y-4">
       <Link
         href={`/dashboard/${eventId}/vendors`}
-        className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta"
+        className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
         Back to vendors
@@ -509,7 +509,7 @@ function SelfReviewBlockedState({
     <section className="space-y-4">
       <Link
         href={`/dashboard/${eventId}/vendors`}
-        className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta"
+        className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
         Back to vendors
@@ -667,7 +667,7 @@ function AlreadyReviewedState({
     <section className="space-y-4">
       <Link
         href={`/dashboard/${eventId}/vendors`}
-        className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta"
+        className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
         Back to vendors

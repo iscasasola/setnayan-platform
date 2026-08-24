@@ -176,7 +176,7 @@ export default async function PackageBookingPage({ params }: Props) {
     <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
       <Link
         href={eventHomeHref}
-        className="inline-flex items-center gap-1.5 text-xs text-ink/60 transition-colors hover:text-terracotta"
+        className="inline-flex items-center gap-1.5 text-xs text-ink/60 transition-colors hover:text-terracotta-700"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Back to event home

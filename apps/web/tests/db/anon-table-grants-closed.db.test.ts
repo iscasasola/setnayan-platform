@@ -287,6 +287,46 @@ const CLOSED_IN_BATCH_6 = [
   'vendor_review_appeals',
 ] as const;
 
+/**
+ * Batch 7 (20271162239362) — the dashboards' fifteen, and the first batch where
+ * the CONSTANT-INDIRECTION shape had to be swept explicitly: a `from('name')`
+ * grep reports event_vendor_3d_plan_unlocks as "queried by nothing", and the
+ * truth is that it is queried through the exported VENDOR_3D_PLAN_UNLOCK_TABLE
+ * constant — every caller passing the ADMIN client. Grep the REF, not just the
+ * literal.
+ *
+ * Every gate re-run in prod 2026-08-24: anon held the grant on all 15 · no
+ * policy admits anon · none is a base of the three security_invoker views · no
+ * anon-executable SECURITY INVOKER function names them (scan proved able to
+ * match) · every query site runs on the admin client or inside the login-gated
+ * trees whose actions establish the caller first (requireHostMembershipOrThrow,
+ * auth.getUser, vendor-profile resolution — each hit file read, not pattern-
+ * matched: the first grep for auth guards missed the host-gate helper and
+ * reported the widgets actions unguarded; the FILE was right and the CHECK was
+ * too narrow). The public wall routes state the invariant this batch enforces:
+ * "P0 security invariant: no anon read path to wall_feed."
+ *
+ * Dry-run against production in an explicitly ROLLED-BACK transaction: all 15
+ * moved SELECT true → false.
+ */
+const CLOSED_IN_BATCH_7 = [
+  'event_blocked_users',
+  'event_meaningful_dates',
+  'event_recaps',
+  'event_vendor_3d_plan_unlocks',
+  'guest_columns',
+  'invitation_widgets',
+  'photo_messages',
+  'reel_music_tracks',
+  'vendor_calendar_day_states',
+  'vendor_creator_offers',
+  'vendor_disputes',
+  'vendor_schedule_pool_categories',
+  'vendor_schedule_pools',
+  'wall_display_sessions',
+  'wall_feed',
+] as const;
+
 const CLOSED = [
   ...CLOSED_IN_BATCH_1,
   ...CLOSED_IN_BATCH_2,
@@ -294,6 +334,7 @@ const CLOSED = [
   ...CLOSED_IN_BATCH_4,
   ...CLOSED_IN_BATCH_5,
   ...CLOSED_IN_BATCH_6,
+  ...CLOSED_IN_BATCH_7,
 ];
 
 /** Every verb PostgREST can reach, plus the one RLS does not cover. */
@@ -339,7 +380,11 @@ test('META · the replay has the anon role and these tables, so a pass means som
     `batch 6's list has shrunk to ${CLOSED_IN_BATCH_6.length} — did someone trim it to go green?`,
   );
   assert.ok(
-    CLOSED.length >= 80,
+    CLOSED_IN_BATCH_7.length >= 15,
+    `batch 7's list has shrunk to ${CLOSED_IN_BATCH_7.length} — did someone trim it to go green?`,
+  );
+  assert.ok(
+    CLOSED.length >= 95,
     `the combined closed list has shrunk to ${CLOSED.length} — did someone trim it to go green?`,
   );
 
@@ -357,7 +402,7 @@ test('META · the replay has the anon role and these tables, so a pass means som
   );
 });
 
-test('anon holds NOTHING on any table closed so far (batches 1-6)', async () => {
+test('anon holds NOTHING on any table closed so far (batches 1-7)', async () => {
   const open: string[] = [];
   for (const table of CLOSED) {
     for (const verb of VERBS) {
@@ -371,7 +416,7 @@ test('anon holds NOTHING on any table closed so far (batches 1-6)', async () => 
   assert.deepEqual(
     open,
     [],
-    'anon has regained privileges that migration 20271145190664, 20271145286482, 20271147692197, 20271148681647, 20271148202591 or 20271161191013 revoked:\n  ' +
+    'anon has regained privileges that migration 20271145190664, 20271145286482, 20271147692197, 20271148681647, 20271148202591, 20271161191013 or 20271162239362 revoked:\n  ' +
       open.join('\n  ') +
       '\n\nThis is almost never deliberate. The usual cause is a later migration ' +
       "re-creating the table or running a broad GRANT, which re-applies the schema's " +

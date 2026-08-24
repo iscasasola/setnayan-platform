@@ -68,7 +68,7 @@ tpriv	public.chat_threads|anon	SIUD
 tpriv	public.chat_threads|authenticated	SIUD
 tpriv	public.communities|authenticated	SIU
 tpriv	public.community_invite_tokens|authenticated	SIU
-tpriv	public.community_members|authenticated	SIU
+tpriv	public.community_members|authenticated	SIUD
 tpriv	public.comp_grants|anon	SIUD
 tpriv	public.comp_grants|authenticated	SIUD
 tpriv	public.concierge_abuse_flags|anon	SIUD

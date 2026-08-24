@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "3e9e5fa5d",
+  "generatedFromRef": "2dd996518",
   "routeCount": 404,
-  "destinations": 865,
-  "actions": 584,
-  "blocks": 3894,
+  "destinations": 866,
+  "actions": 586,
+  "blocks": 3934,
   "routes": {
     "/": {
       "files": [
@@ -1437,6 +1437,7 @@
       "blocks": [
         "BackgroundVideosManager",
         "HTMLInputElement",
+        "PageMasthead",
         "Phase",
         "Result",
         "SlotCard"
@@ -1476,6 +1477,7 @@
         "BenchmarkRowForm",
         "BudgetBandRowForm",
         "ConsoleTable",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -1492,6 +1494,7 @@
       ],
       "blocks": [
         "FormFlash",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -1569,6 +1572,7 @@
         "Link",
         "MatchedAccounts",
         "Metric",
+        "PageMasthead",
         "QueueTab",
         "SignalsTable",
         "SimilarityBar",
@@ -1687,7 +1691,8 @@
         "runDemandRadarRefresh"
       ],
       "blocks": [
-        "DemandRadarCard"
+        "DemandRadarCard",
+        "PageMasthead"
       ]
     },
     "/admin/demo-vendors": {
@@ -1841,7 +1846,8 @@
       "actions": [],
       "blocks": [
         "EditorialRow",
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/admin/editorial-review/[editorialId]": {
@@ -1854,6 +1860,7 @@
       "blocks": [
         "EditForm",
         "FlagCard",
+        "PageMasthead",
         "StatusBadge",
         "SubmitButton"
       ]
@@ -1881,6 +1888,7 @@
       ],
       "blocks": [
         "Link",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -1904,6 +1912,7 @@
         "Link",
         "OnboardingEditor",
         "OnboardingOverrideRow",
+        "PageMasthead",
         "SubmitButton",
         "TypeQuestion"
       ]
@@ -1920,6 +1929,7 @@
       ],
       "blocks": [
         "Link",
+        "PageMasthead",
         "ProfileRow",
         "SubmitButton"
       ]
@@ -1947,7 +1957,8 @@
       "blocks": [
         "ConsoleTable",
         "Link",
-        "MiniTour"
+        "MiniTour",
+        "PageMasthead"
       ]
     },
     "/admin/force-majeure/[flagId]": {
@@ -1966,6 +1977,7 @@
         "Field",
         "Image",
         "Link",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -1981,6 +1993,7 @@
       ],
       "blocks": [
         "FormFlash",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -2037,6 +2050,7 @@
       ],
       "blocks": [
         "FilterChip",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -2079,6 +2093,7 @@
         "Link",
         "MayaCard",
         "OAuthCard",
+        "PageMasthead",
         "SecretCard",
         "SubmitButton",
         "TestResendButton"
@@ -2104,6 +2119,7 @@
       "blocks": [
         "FormFlash",
         "Link",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -2143,6 +2159,7 @@
       ],
       "blocks": [
         "FormFlash",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -2281,6 +2298,7 @@
       "blocks": [
         "EventLite",
         "FileUpload",
+        "PageMasthead",
         "PakantaDeliver",
         "Result"
       ]
@@ -2463,6 +2481,7 @@
         "InfoToggle",
         "Link",
         "MoneyInput",
+        "PageMasthead",
         "PriceBandsSurface",
         "PricingSurface",
         "RetailRowEditor",
@@ -2524,7 +2543,8 @@
       "blocks": [
         "ConsoleTable",
         "KpiStatCard",
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/admin/referrals": {
@@ -2561,6 +2581,7 @@
       ],
       "blocks": [
         "FormFlash",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -2608,6 +2629,7 @@
         "Cell",
         "FilterChip",
         "Link",
+        "PageMasthead",
         "SubmitButton",
         "VendorFakeFlagCard"
       ]
@@ -2636,6 +2658,7 @@
         "EncryptionKeyCard",
         "HTMLInputElement",
         "Link",
+        "PageMasthead",
         "ReencryptCounts",
         "ReencryptPanel",
         "SecretRow",
@@ -2705,6 +2728,7 @@
         "LoaderAppearanceCard",
         "LoaderVariant",
         "NotificationsSurface",
+        "PageMasthead",
         "PreviewSwatch",
         "ProcessStatus",
         "SDLoader",
@@ -2741,6 +2765,7 @@
         "ConsoleTable",
         "Field",
         "FormFlash",
+        "PageMasthead",
         "QrUploadBlock",
         "QrUploadForm",
         "SubmitButton"
@@ -2913,6 +2938,7 @@
       ],
       "blocks": [
         "Link",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -3092,6 +3118,7 @@
       ],
       "blocks": [
         "FormFlash",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -3124,6 +3151,7 @@
         "ActivityTimeline",
         "LifecycleStrip",
         "Link",
+        "PageMasthead",
         "SupportSection"
       ]
     },
@@ -3164,6 +3192,7 @@
         "Banner",
         "ConfirmForm",
         "FeedbackCard",
+        "PageMasthead",
         "RecommendationRow",
         "Stat",
         "SubmitButton"
@@ -3194,6 +3223,7 @@
       "blocks": [
         "Field",
         "Link",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -3210,6 +3240,7 @@
       ],
       "blocks": [
         "Link",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -3223,7 +3254,8 @@
       ],
       "actions": [],
       "blocks": [
-        "Link"
+        "Link",
+        "PageMasthead"
       ]
     },
     "/admin/venues": {
@@ -3292,6 +3324,7 @@
       "blocks": [
         "ConfirmForm",
         "Group",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -3378,6 +3411,7 @@
         "ClearFolderButton",
         "ConsoleTable",
         "MediaTable",
+        "PageMasthead",
         "Result",
         "Stat"
       ]
@@ -3852,6 +3886,7 @@
       ],
       "destinations": [
         "/dashboard/samahan/[seg]",
+        "/dashboard/samahan/[seg]?tab=usapan",
         "/dashboard/samahan/new"
       ],
       "actions": [],
@@ -3863,6 +3898,7 @@
     },
     "/dashboard/(account)/samahan/[communityId]": {
       "files": [
+        "dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx",
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
@@ -3870,24 +3906,32 @@
         "/dashboard/samahan"
       ],
       "actions": [
-        "archiveCommunity",
+        "deleteSamahanMessage",
         "demoteMember",
         "leaveCommunity",
+        "postSamahanMessage",
         "promoteMember",
         "removeMember",
-        "rotateInviteToken"
+        "rotateInviteToken",
+        "updateCommunityIdentity"
       ],
       "blocks": [
         "Blob",
         "CopyButton",
         "EventsTab",
+        "HTMLFormElement",
         "HTMLInputElement",
+        "HTMLVideoElement",
         "Link",
+        "MediaRecorder",
+        "MediaStream",
         "MembersTab",
         "OverviewTab",
+        "SamahanIdentityHeader",
         "SamahanStories",
         "SamahanStory",
-        "SubmitButton"
+        "SubmitButton",
+        "UsapanTab"
       ]
     },
     "/dashboard/(account)/samahan/new": {

@@ -114,7 +114,11 @@ test('the widening did NOT hand a member the archive switch', async () => {
     `UPDATE public.communities SET archived = TRUE WHERE community_id = $1`,
     [community],
   );
-  assert.match(r.error, /only an organizer/i, 'the trigger must refuse, loudly');
+  // ⚖ SUPERSEDED REASON, same refusal. This used to read /only an organizer/;
+  // the owner's 2026-08-24 ruling ("for as long as there is one, the group
+  // lives") means NOBODY may close a samahan that still holds people, so the
+  // trigger now refuses on the ROSTER rather than on the role.
+  assert.match(r.error, /lives while anyone is still in it/i, 'the trigger must refuse, loudly');
   const still = await db.query<{ archived: boolean }>(
     `SELECT archived FROM public.communities WHERE community_id = $1`,
     [community],
@@ -136,16 +140,23 @@ test('identity is immutable for EVERYONE below the service role — organizer in
   }
 });
 
-test('an ORGANIZER can still archive — the guard scopes members, not organizers', async () => {
+test('⚖ NOR AN ORGANIZER — owner 2026-08-24 supersedes this test’s original claim', async () => {
+  // 🛑 This test used to assert the OPPOSITE: "an ORGANIZER can still archive
+  // — the guard scopes members, not organizers." That was true for exactly
+  // one day. The owner then ruled: "the only way to close a group/samahan is
+  // when all members leave the samahan. but for as long as there is one, the
+  // group lives." Closing is not an act performed on other people, whatever
+  // the role. Rewritten rather than deleted, so the reversal is visible to
+  // whoever reads this next.
   const r = await tryUpdate(
     organiser,
     `UPDATE public.communities SET archived = TRUE WHERE community_id = $1`,
     [community],
   );
-  assert.equal(r.error, '', `the organizer archive must survive the widening: ${r.error}`);
-  assert.equal(r.rows, 1);
-  // Put it back for any later test.
-  await db.query(`UPDATE public.communities SET archived = FALSE WHERE community_id = $1`, [
-    community,
-  ]);
+  assert.match(r.error, /lives while anyone is still in it/i, 'an organizer is refused too');
+  const still = await db.query<{ archived: boolean }>(
+    `SELECT archived FROM public.communities WHERE community_id = $1`,
+    [community],
+  );
+  assert.equal(still.rows[0]!.archived, false, 'the samahan stays open');
 });

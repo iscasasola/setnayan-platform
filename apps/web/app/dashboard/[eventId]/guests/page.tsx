@@ -768,7 +768,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           </span>
           <ArrowRight
             aria-hidden
-            className="h-4 w-4 shrink-0 text-terracotta/60 transition-transform group-hover:translate-x-0.5"
+            /* terracotta-700, not terracotta/60: gold at 60% over this row's own
+               gold/5 tint measures 1.94:1 — under even the 3:1 non-text bar the
+               bill invoked to sanction it. The arrow is the only thing marking
+               this "N guests waiting for you" row as somewhere to go. */
+            className="h-4 w-4 shrink-0 text-terracotta-700 transition-transform group-hover:translate-x-0.5"
             strokeWidth={1.75}
           />
         </Link>

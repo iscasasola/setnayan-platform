@@ -323,7 +323,7 @@ html.dark .slcat .bench-search{background:#2A2E36}
 .slcat .vc .fits{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
 .slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
 .slcat .vc .fit.ok{color:#2e7d4f;background:rgba(46,125,79,.1)}
-.slcat .vc .fit.warn{color:#9a6a12;background:rgba(169,131,75,.16)}
+.slcat .vc .fit.warn{color:#6F5A2E;background:rgba(169,131,75,.16)}
 html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
 html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
@@ -434,7 +434,11 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 .slcat .rmv{appearance:none;-webkit-appearance:none;border:0;background:none;padding:4px 0;cursor:pointer;font:inherit;font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);transition:color .18s var(--ease)}
 .slcat .rmv:hover{color:var(--mulberry);text-decoration:underline}
 .slcat .rmv[disabled]{opacity:.5;cursor:default;text-decoration:none}
-.slcat .plan-err{font-family:var(--sans);font-size:12px;line-height:1.45;color:#9a6a12;text-align:right;flex:1 1 200px}
+/* An error is a refusal, not an accent. This was gold #9a6a12 — the SECOND
+   gold error message on these screens; the first (quote-fill) was fixed in
+   #4780 and this one survived because it is written as a hex, which a
+   class-name sweep cannot see. danger-700, like every other error here. */
+.slcat .plan-err{font-family:var(--sans);font-size:12px;line-height:1.45;color:#974930;text-align:right;flex:1 1 200px}
 .slcat .addpool{margin:10px 14px 2px 34px;padding-top:10px;border-top:1px dashed var(--line)}
 .slcat .addpool .ap-t{margin:0 0 8px;font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
 .slcat .addpool .ap-chips{display:flex;flex-wrap:wrap;gap:7px}

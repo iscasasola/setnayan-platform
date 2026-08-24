@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Link2, ArrowRight, Send, LayoutGrid } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
+import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
@@ -191,6 +193,15 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
+
+  // A delegate the host never shared the guest list with reads ZERO guest rows
+  // — an RLS refusal and an empty event are the same value — so without this
+  // the page would tell a coordinator the couple has invited nobody. Say what
+  // is true instead. The couple never reach this branch.
+  const viewer = await fetchEventViewer(supabase, eventId, user.id);
+  if (isDelegateWithoutArea(viewer, 'guest_list')) {
+    return <NotSharedWithYou title="Guests" thing="guest list" />;
+  }
 
   // All reads fire in ONE parallel batch — including the share-invite token,
   // which used to run as a 5th *sequential* round-trip after this block (owner

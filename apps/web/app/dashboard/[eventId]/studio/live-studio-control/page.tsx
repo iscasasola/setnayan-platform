@@ -11,6 +11,7 @@ import {
   Unlink2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatPhp } from '@/lib/orders';
 import { AppStoreLayout, type PlanRow, type StatTile } from '@/app/_components/app-store/layout';
 import { AddOnStateCta, statusPillForState } from '@/app/_components/app-store/state-cta';
@@ -106,7 +107,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
   // So it lives here now: the surface the SURVIVING Live Studio tile opens, which
   // cannot be retired without retiring the product. RLS scopes oauth_grants by
   // event_id IN current_event_ids(), so the user-session client is the right reader.
-  const [oauthConfig, { data: grantRaw }] = await Promise.all([
+  const [oauthConfig, { data: grantRaw, error: grantRawError }] = await Promise.all([
     getYoutubeOAuthConfig(),
     supabase
       .from('oauth_grants')
@@ -116,6 +117,9 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
       .is('revoked_at', null)
       .maybeSingle(),
   ]);
+  if (grantRawError) {
+    logQueryError('LiveStudioControlPage.grantRaw', grantRawError, { event_id: eventId }, 'graceful_degrade');
+  }
   const oauthReady = oauthConfig.ready;
   const youtubeGrant = (grantRaw ?? null) as YoutubeGrant | null;
 

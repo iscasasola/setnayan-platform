@@ -106,7 +106,7 @@ export async function KwentoQueue({ eventId }: { eventId: string }) {
     photo_type: string | null;
     full_res_dropped_at: string | null;
   };
-  const [{ data: caps }, { data: seats }] = await Promise.all([
+  const [{ data: caps, error: capsError }, { data: seats, error: seatsError }] = await Promise.all([
     guestCapIds.length
       ? admin
           .from('papic_guest_captures')
@@ -114,7 +114,7 @@ export async function KwentoQueue({ eventId }: { eventId: string }) {
             'capture_id, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, media_type, full_res_dropped_at',
           )
           .in('capture_id', guestCapIds)
-      : Promise.resolve({ data: [] as GuestCapAnchor[] }),
+      : Promise.resolve({ data: [] as GuestCapAnchor[], error: null }),
     seatIds.length
       ? admin
           .from('papic_photos')
@@ -122,8 +122,14 @@ export async function KwentoQueue({ eventId }: { eventId: string }) {
             'photo_id, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, photo_type, full_res_dropped_at',
           )
           .in('photo_id', seatIds)
-      : Promise.resolve({ data: [] as SeatAnchor[] }),
+      : Promise.resolve({ data: [] as SeatAnchor[], error: null }),
   ]);
+  if (capsError) {
+    logQueryError('KwentoQueue.caps', capsError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (seatsError) {
+    logQueryError('KwentoQueue.seats', seatsError, { event_id: eventId }, 'graceful_degrade');
+  }
   const refOf = new Map<string, string | null>([
     ...((caps ?? []) as GuestCapAnchor[]).map(
       (c) =>

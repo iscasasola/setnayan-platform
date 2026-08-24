@@ -133,7 +133,7 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
 
   // Event meta + sponsor rows both key off eventId and are independent — one
   // parallel batch instead of two serial reads (owner perf pass 2026-06-03).
-  const [{ data: eventRow }, { data: sponsorRows }] = await Promise.all([
+  const [{ data: eventRow, error: eventRowError }, { data: sponsorRows, error: sponsorRowsError }] = await Promise.all([
     // Event meta — used for the invitation template + page header.
     admin
       .from('events')
@@ -150,6 +150,12 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
       .order('pair_index', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true }),
   ]);
+  if (eventRowError) {
+    logQueryError('SponsorsPage.eventRow', eventRowError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (sponsorRowsError) {
+    logQueryError('SponsorsPage.sponsorRows', sponsorRowsError, { event_id: eventId }, 'graceful_degrade');
+  }
   const event = (eventRow as EventMini | null) ?? {
     display_name: null,
     event_date: null,

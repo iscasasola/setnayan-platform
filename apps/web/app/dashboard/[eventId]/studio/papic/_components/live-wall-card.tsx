@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { MonitorPlay, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { PaymentUnderReview } from '@/app/dashboard/[eventId]/_components/payment-under-review';
@@ -83,7 +84,7 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
     );
   }
 
-  const [{ data: sessions }, { data: feed }, { data: cfg }] = await Promise.all([
+  const [{ data: sessions, error: sessionsError }, { data: feed, error: feedError }, { data: cfg, error: cfgError }] = await Promise.all([
     supabase
       .from('wall_display_sessions')
       .select('session_id, display_code, claimed_at, revoked_at, expires_at, created_at')
@@ -103,6 +104,15 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
+  if (sessionsError) {
+    logQueryError('LiveWallCard.sessions', sessionsError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (feedError) {
+    logQueryError('LiveWallCard.feed', feedError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (cfgError) {
+    logQueryError('LiveWallCard.cfg', cfgError, { event_id: eventId }, 'graceful_degrade');
+  }
 
   const tiles: WallTileRow[] = await Promise.all(
     (feed ?? []).map(async (row) => ({

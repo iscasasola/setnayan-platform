@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
 import {
@@ -313,7 +314,7 @@ export default async function SeatingLabPage({ params }: Props) {
   let ghostBooths: GhostBooth3D[] = [];
   let ghostBoothsEnabled = true;
   if (PLAN3D_BOOTH_ADS_ENABLED) {
-    const [{ data: vendorRows }, { data: gbPrefs }] = await Promise.all([
+    const [{ data: vendorRows, error: vendorRowsError }, { data: gbPrefs, error: gbPrefsError }] = await Promise.all([
       supabase.from('event_vendors').select('category').eq('event_id', eventId),
       supabase
         .from('event_floor_plan')
@@ -321,6 +322,12 @@ export default async function SeatingLabPage({ params }: Props) {
         .eq('event_id', eventId)
         .maybeSingle(),
     ]);
+    if (vendorRowsError) {
+      logQueryError('SeatingLabPage.vendorRows', vendorRowsError, { event_id: eventId }, 'graceful_degrade');
+    }
+    if (gbPrefsError) {
+      logQueryError('SeatingLabPage.gbPrefs', gbPrefsError, { event_id: eventId }, 'graceful_degrade');
+    }
     ghostBoothsEnabled = (gbPrefs?.ghost_booths_enabled as boolean | null) ?? true;
     ghostBooths = placedGhostBooths({
       bookedCategories: ((vendorRows ?? []) as { category: VendorCategory | null }[])

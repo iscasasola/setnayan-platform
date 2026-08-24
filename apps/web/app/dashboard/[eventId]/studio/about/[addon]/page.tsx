@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventSkuActive } from '@/lib/entitlements';
 import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
 import { addOnOfferedForEvent } from '@/lib/add-on-event-scope';
@@ -61,7 +62,7 @@ export default async function AddOnDetailPage({ params }: Props) {
   // them to the Suite grid would imply the thing exists somewhere in it.
   let eventHasHappened = false;
   if (entry) {
-    const [profile, { data: eventRow }] = await Promise.all([
+    const [profile, { data: eventRow, error: eventRowError }] = await Promise.all([
       resolveProfileByEvent(eventId),
       createAdminClient()
         .from('events')
@@ -71,6 +72,9 @@ export default async function AddOnDetailPage({ params }: Props) {
         .eq('event_id', eventId)
         .maybeSingle(),
     ]);
+    if (eventRowError) {
+      logQueryError('StudioAboutAddonPage.eventRow', eventRowError, { event_id: eventId }, 'graceful_degrade');
+    }
     const communityId =
       (eventRow as { community_id?: string | null } | null)?.community_id ?? null;
     if (!addOnOfferedForEvent(entry, profile, communityId)) notFound();

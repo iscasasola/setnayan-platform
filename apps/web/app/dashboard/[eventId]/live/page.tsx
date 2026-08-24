@@ -108,11 +108,11 @@ export default async function LiveWallConsolePage({
   const admin = createAdminClient();
   const [
     { data: event, error: eventError },
-    { data: sessions },
-    { data: feed },
-    { count: visibleCount },
-    { count: hiddenCount },
-    { count: faceblockGuests },
+    { data: sessions, error: sessionsError },
+    { data: feed, error: feedError },
+    { count: visibleCount, error: visibleCountError },
+    { count: hiddenCount, error: hiddenCountError },
+    { count: faceblockGuests, error: faceblockGuestsError },
   ] = await Promise.all([
     // ⚠ `kwento_flash_auto_wall` did not exist in the database until migration
     // 20271011120000 — the coordinator toggle and this read shipped without it.
@@ -157,6 +157,21 @@ export default async function LiveWallConsolePage({
       .eq('faceblock_enabled', true)
       .is('deleted_at', null),
   ]);
+  if (sessionsError) {
+    logQueryError('EventLivePage.sessions', sessionsError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (feedError) {
+    logQueryError('EventLivePage.feed', feedError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (visibleCountError) {
+    logQueryError('EventLivePage.visibleCount', visibleCountError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (hiddenCountError) {
+    logQueryError('EventLivePage.hiddenCount', hiddenCountError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (faceblockGuestsError) {
+    logQueryError('EventLivePage.faceblockGuests', faceblockGuestsError, { event_id: eventId }, 'graceful_degrade');
+  }
 
   // A failed read and a brand-new event must not look identical: every default
   // below (`?? null`, `?? true`, `?? ''`) is a plausible-looking value that a
@@ -183,22 +198,28 @@ export default async function LiveWallConsolePage({
     const capIds = (feed ?? [])
       .filter((r) => r.source_table === 'papic_guest_captures')
       .map((r) => r.source_id as string);
-    const [{ count: bakedPhotos }, { count: bakedCaps }] = await Promise.all([
+    const [{ count: bakedPhotos, error: bakedPhotosError }, { count: bakedCaps, error: bakedCapsError }] = await Promise.all([
       photoIds.length
         ? admin
             .from('papic_photos')
             .select('photo_id', { count: 'exact', head: true })
             .in('photo_id', photoIds)
             .not('faceblock_baked_at', 'is', null)
-        : Promise.resolve({ count: 0 }),
+        : Promise.resolve({ count: 0, error: null }),
       capIds.length
         ? admin
             .from('papic_guest_captures')
             .select('capture_id', { count: 'exact', head: true })
             .in('capture_id', capIds)
             .not('faceblock_baked_at', 'is', null)
-        : Promise.resolve({ count: 0 }),
+        : Promise.resolve({ count: 0, error: null }),
     ]);
+    if (bakedPhotosError) {
+      logQueryError('EventLivePage.bakedPhotos', bakedPhotosError, { event_id: eventId }, 'graceful_degrade');
+    }
+    if (bakedCapsError) {
+      logQueryError('EventLivePage.bakedCaps', bakedCapsError, { event_id: eventId }, 'graceful_degrade');
+    }
     bakedCount = (bakedPhotos ?? 0) + (bakedCaps ?? 0);
   }
 

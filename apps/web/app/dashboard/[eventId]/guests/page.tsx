@@ -1151,7 +1151,7 @@ async function fetchJoinUrl(
   supabase: Awaited<ReturnType<typeof createClient>>,
   eventId: string,
 ): Promise<string | null> {
-  const [{ data, error }, { data: ev }] = await Promise.all([
+  const [{ data, error }, { data: ev, error: evError }] = await Promise.all([
     supabase
       .from('event_join_tokens')
       .select('token, revoked_at, expires_at')
@@ -1163,6 +1163,9 @@ async function fetchJoinUrl(
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
+  if (evError) {
+    logQueryError('GuestListPage.ev', evError, { event_id: eventId }, 'graceful_degrade');
+  }
   // Surface silent errors so a future event_join_tokens column rename
   // / RLS regression doesn't quietly hide the share-invite affordance
   // from every host until someone notices. The null fallback keeps the

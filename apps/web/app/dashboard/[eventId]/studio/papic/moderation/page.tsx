@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
@@ -99,12 +100,12 @@ export default async function PapicModerationPage({
   // NSFW-screened (auto-filtered) captures from BOTH capture tables — one
   // parallel batch.
   const [
-    { data: captures },
-    { data: blocks },
-    { data: reports },
-    { data: screenedGuest },
-    { data: screenedSeat },
-    { data: seatPhotos },
+    { data: captures, error: capturesError },
+    { data: blocks, error: blocksError },
+    { data: reports, error: reportsError },
+    { data: screenedGuest, error: screenedGuestError },
+    { data: screenedSeat, error: screenedSeatError },
+    { data: seatPhotos, error: seatPhotosError },
   ] = await Promise.all([
     admin
       .from('papic_guest_captures')
@@ -147,6 +148,36 @@ export default async function PapicModerationPage({
       .order('captured_at', { ascending: false })
       .limit(200),
   ]);
+  if (capturesError) {
+    logQueryError('PapicModerationPage.captures', capturesError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (blocksError) {
+    logQueryError('PapicModerationPage.blocks', blocksError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (reportsError) {
+    logQueryError('PapicModerationPage.reports', reportsError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (screenedGuestError) {
+    logQueryError('PapicModerationPage.screenedGuest', screenedGuestError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (screenedSeatError) {
+    logQueryError('PapicModerationPage.screenedSeat', screenedSeatError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (seatPhotosError) {
+    logQueryError('PapicModerationPage.seatPhotos', seatPhotosError, { event_id: eventId }, 'graceful_degrade');
+  }
+
+  // ⚠ SIX READS BUILD THIS QUEUE AND A REFUSAL SHORTENS IT SILENTLY. A photo
+  // ⚠ that is not listed cannot be hidden, and the screen gives the host no way
+  // ⚠ to tell a quiet night from a refused read — which is the difference
+  // ⚠ between "nothing needs your attention" and "we could not look".
+  const moderationPartlyRefused =
+    Boolean(capturesError) ||
+    Boolean(blocksError) ||
+    Boolean(reportsError) ||
+    Boolean(screenedGuestError) ||
+    Boolean(screenedSeatError) ||
+    Boolean(seatPhotosError);
 
   const captureRows = captures ?? [];
   const blockRows = blocks ?? [];
@@ -266,6 +297,10 @@ export default async function PapicModerationPage({
           </span>
         }
       />
+
+      {moderationPartlyRefused ? (
+        <ReadRefusedNotice partial what="some of the photos taken at your event" />
+      ) : null}
 
       {notice && (
         <p className="inline-flex items-center gap-2 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-sm text-success-800">

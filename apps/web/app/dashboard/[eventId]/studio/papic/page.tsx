@@ -392,11 +392,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // Unlock-all umbrella (admin-managed price; owning it frees Unli).
   const unlockAdmin = createAdminClient();
   const [
-    { data: unlockPkg },
+    { data: unlockPkg, error: unlockPkgError },
     ownsPapicUnlock,
     ownsPapicUnlockLtd,
     papicPlatformSettings,
-    { data: keepFullResRow },
+    { data: keepFullResRow, error: keepFullResRowError },
     ownsKeepFullRes,
   ] = await Promise.all([
     unlockAdmin
@@ -418,6 +418,12 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       .maybeSingle(),
     eventSkuActive(unlockAdmin, eventId, 'HIGH_RES_ARCHIVE'),
   ]);
+  if (unlockPkgError) {
+    logQueryError('PapicPage.unlockPkg', unlockPkgError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (keepFullResRowError) {
+    logQueryError('PapicPage.keepFullResRow', keepFullResRowError, { event_id: eventId }, 'graceful_degrade');
+  }
   const papicUnlockPricePhp = unlockPkg?.is_active
     ? Number(unlockPkg.retail_price_php)
     : null;

@@ -19,6 +19,7 @@ import { SuiteServiceCard } from './_components/suite-service-card';
 import { SuiteVignetteCard, type VignettePersona } from './_components/suite-vignette-card';
 import { SuiteSearch, type SuiteSearchItem } from './_components/suite-search';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   resolveProfileByEvent,
@@ -234,10 +235,10 @@ export default async function SuitePage({ params }: Props) {
   );
   const [
     { active: ownedActive, pending: ownedPending },
-    { data: priceRows },
+    { data: priceRows, error: priceRowsError },
     roadmapState,
-    { data: eventRow },
-    { data: savedVendorRows },
+    { data: eventRow, error: eventRowError },
+    { data: savedVendorRows, error: savedVendorRowsError },
   ] = await Promise.all([
     eventActiveSkus(createAdminClient(), eventId),
     supabase
@@ -285,6 +286,15 @@ export default async function SuitePage({ params }: Props) {
       .is('archived_at', null)
       .order('vendor_id', { ascending: true }),
   ]);
+  if (priceRowsError) {
+    logQueryError('SuitePage.priceRows', priceRowsError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (eventRowError) {
+    logQueryError('SuitePage.eventRow', eventRowError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (savedVendorRowsError) {
+    logQueryError('SuitePage.savedVendorRows', savedVendorRowsError, { event_id: eventId }, 'graceful_degrade');
+  }
 
   // ── The add-on gate. TWO layers, and the second is NOT derivable from the
   // first (this is the Studio hub's contract, restored here).

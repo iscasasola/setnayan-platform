@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Video } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { canManageWalkthrough } from './actions';
@@ -41,7 +43,7 @@ export default async function WalkthroughPage({ params }: Props) {
   if (!(await canManageWalkthrough(eventId))) redirect(`/dashboard/${eventId}/seating`);
 
   const supabase = await createClient();
-  const [{ data: zonesRaw }, { data: tablesRaw }] = await Promise.all([
+  const [{ data: zonesRaw, error: zonesRawError }, { data: tablesRaw, error: tablesRawError }] = await Promise.all([
     supabase
       .from('event_walkthrough_zones')
       .select('zone_id, label, sort_order, video_r2_key, video_mime_type, published_at')
@@ -54,6 +56,14 @@ export default async function WalkthroughPage({ params }: Props) {
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true }),
   ]);
+  if (zonesRawError) {
+    logQueryError('SeatingWalkthroughPage.zonesRaw', zonesRawError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (tablesRawError) {
+    logQueryError('SeatingWalkthroughPage.tablesRaw', tablesRawError, { event_id: eventId }, 'graceful_degrade');
+  }
+
+  const walkthroughPartlyRefused = Boolean(zonesRawError) || Boolean(tablesRawError);
 
   const tableRows = (tablesRaw ?? []) as TableRow[];
   const tables: TableVM[] = tableRows.map((t) => ({
@@ -83,6 +93,10 @@ export default async function WalkthroughPage({ params }: Props) {
       >
         <ArrowLeft className="h-4 w-4" /> Back to seating
       </Link>
+
+      {walkthroughPartlyRefused ? (
+        <ReadRefusedNotice partial what="your zones or your tables" />
+      ) : null}
 
       <PageMasthead
         titleNode={

@@ -227,6 +227,116 @@ test('every read that STATES an absence binds the error it may be refused with',
   );
 });
 
+/**
+ * 🔑 THE THIRD COSTUME, AND THE ONE THAT PROVES THE RULE. This guard shipped
+ * knowing `const { data … }`, then grew to know `const { count … }` — and was
+ * still blind to the shape that carries the MOST reads in this tree:
+ *
+ *   const [{ data: a }, { data: b }] = await Promise.all([ … ]);
+ *
+ * Seventy-two unbound reads in the couple tree sat inside one of these while
+ * two passes of this file reported the tree clean. **A GUARD IS ONLY AS WIDE AS
+ * THE SHAPES IT MATCHES**, and a parallel read is exactly where the PARTIAL
+ * case lives: several sources composed into one screen, one refused, the
+ * heading still claiming completeness.
+ *
+ * Fresh RegExp per use — a /g literal carries lastIndex between calls.
+ */
+const PARALLEL_DESTRUCTURE = String.raw`const\s*\[([\s\S]{0,900}?)\]\s*=\s*await`;
+const parallelMatches = (src: string) => [
+  ...src.matchAll(new RegExp(PARALLEL_DESTRUCTURE, 'g')),
+];
+
+/** Each `{ … }` element of a parallel read that names data/count. */
+function parallelElements(src: string): Array<{ body: string; at: number }> {
+  const out: Array<{ body: string; at: number }> = [];
+  for (const m of parallelMatches(src)) {
+    const head = m.index ?? 0;
+    for (const el of (m[1] ?? '').matchAll(/\{([^}]*)\}/g)) {
+      const body = el[1] ?? '';
+      if (!/\bdata\b|\bcount\b/.test(body)) continue;
+      if (/data:\s*\{\s*user\s*\}/.test(body)) continue;
+      out.push({ body, at: head });
+    }
+  }
+  return out;
+}
+
+/** The same bill, for parallel reads. */
+const KNOWN_UNBOUND_PARALLEL: Record<string, number> = {
+  // Outside the couple's event tree, like the sixteen on the bill above.
+  'app/dashboard/(account)/profile/concierge/page.tsx::profile': 1,
+};
+
+test('a read inside a parallel batch binds its error too', () => {
+  // FLOOR — this rule is worth nothing if the shape stops matching.
+  // Measured 2026-08-24: 100+ such elements across this tree.
+  const everyElement = renderFiles(HERE).reduce(
+    (n, file) =>
+      n + parallelElements(stripComments(readFileSync(join(WEB_ROOT, file), 'utf8'))).length,
+    0,
+  );
+  assert.ok(
+    everyElement >= 60,
+    `Only ${everyElement} parallel-read elements seen. The scan has stopped ` +
+      'matching — that is not the same as the tree being clean.',
+  );
+
+  const counts = new Map<string, number>();
+  for (const file of renderFiles(HERE)) {
+    const src = stripComments(readFileSync(join(WEB_ROOT, file), 'utf8'));
+    for (const { body } of parallelElements(src)) {
+      if (/\berror\b/.test(body)) continue;
+      const named = /(?:data|count)\s*:\s*([A-Za-z0-9_$]+)/.exec(body);
+      const key = `${file}::${named?.[1] ?? 'data'}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  const fresh: string[] = [];
+  for (const [key, n] of counts) {
+    if (n > (KNOWN_UNBOUND_PARALLEL[key] ?? 0)) fresh.push(`${key} → ${n} unbound`);
+  }
+  assert.deepEqual(
+    fresh,
+    [],
+    'A read run in parallel with others is still a read that can be refused — ' +
+      'and it is the one that produces a HALF-BUILT screen that looks whole. ' +
+      `Bind it. New: ${fresh.join(' · ')}`,
+  );
+  const stale = Object.entries(KNOWN_UNBOUND_PARALLEL)
+    .filter(([k, allowed]) => (counts.get(k) ?? 0) < allowed)
+    .map(([k]) => k);
+  assert.deepEqual(stale, [], `Fixed — delete from KNOWN_UNBOUND_PARALLEL: ${stale.join(' · ')}`);
+});
+
+/**
+ * The screens composed from several reads at once, where a refusal removes part
+ * of what is shown WITHOUT the screen looking incomplete. The brief's own
+ * example: a coordinator once read only the vendor documentation shots under a
+ * card headed "Your gallery".
+ */
+const MUST_SAY_PARTIAL = [
+  '[eventId]/guests/checkin/page.tsx',
+  '[eventId]/guests/souvenirs/page.tsx',
+  '[eventId]/hosts/page.tsx',
+  '[eventId]/seating/walkthrough/page.tsx',
+  '[eventId]/studio/papic/moderation/page.tsx',
+];
+
+test('a partially-refused screen says so instead of presenting itself as complete', () => {
+  const missing = MUST_SAY_PARTIAL.filter((rel) => {
+    const src = stripComments(readFileSync(join(HERE, rel), 'utf8'));
+    return !/<ReadRefusedNotice[\s\S]{0,200}?partial/.test(src);
+  });
+  assert.deepEqual(
+    missing,
+    [],
+    'These screens are built from several reads at once. When one is refused ' +
+      'the page still renders and still looks whole, so it has to say that part ' +
+      `of it is missing. Missing: ${missing.join(', ')}`,
+  );
+});
+
 /** The same bill, for counts. Same rules: shrink it, never grow it. */
 const KNOWN_UNBOUND_COUNTS: Record<string, number> = {};
 

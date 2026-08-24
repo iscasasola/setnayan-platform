@@ -4,6 +4,7 @@ import { Readable } from 'node:stream';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import archiver from 'archiver';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { getR2Client } from '@/lib/r2';
 import { parseStoredAsset } from '@/lib/uploads';
 import { stripPhotoMetadata } from '@/lib/papic-derivatives';
@@ -44,7 +45,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
   if (!client) return NextResponse.json({ error: 'storage_unavailable' }, { status: 503 });
 
   // The couple's captures — photos + clip videos, not hidden, not NSFW-blocked.
-  const [{ data: seatRows }, { data: guestRows }] = await Promise.all([
+  const [{ data: seatRows, error: seatRowsError }, { data: guestRows, error: guestRowsError }] = await Promise.all([
     supabase
       .from('papic_photos')
       .select('photo_id, r2_object_key, clip_web_r2_key, display_r2_key, full_res_dropped_at, photo_type, captured_at')
@@ -62,6 +63,12 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
       .order('captured_at', { ascending: true })
       .limit(MAX_ITEMS),
   ]);
+  if (seatRowsError) {
+    logQueryError('PapicGalleryZip.seatRows', seatRowsError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (guestRowsError) {
+    logQueryError('PapicGalleryZip.guestRows', guestRowsError, { event_id: eventId }, 'graceful_degrade');
+  }
 
   type Item = {
     id: string;

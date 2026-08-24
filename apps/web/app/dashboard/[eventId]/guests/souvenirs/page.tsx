@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Gift } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { guestDisplayName, type GuestRole, type GuestSide } from '@/lib/guests';
 import { SouvenirDesk, type DeskGuest, type DeskClaim } from './_components/souvenir-desk';
@@ -43,11 +45,11 @@ export default async function SouvenirTablePage({ params }: Props) {
   if (!membership) redirect(`/dashboard/${eventId}`);
 
   const [
-    { data: guestsRaw },
-    { data: assignmentsRaw },
-    { data: tablesRaw },
-    { data: claimsRaw },
-    { data: eventRow },
+    { data: guestsRaw, error: guestsRawError },
+    { data: assignmentsRaw, error: assignmentsRawError },
+    { data: tablesRaw, error: tablesRawError },
+    { data: claimsRaw, error: claimsRawError },
+    { data: eventRow, error: eventRowError },
   ] = await Promise.all([
     supabase
       .from('guests')
@@ -71,6 +73,22 @@ export default async function SouvenirTablePage({ params }: Props) {
       .eq('event_id', eventId),
     supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
   ]);
+  if (guestsRawError) {
+    logQueryError('GuestSouvenirsPage.guestsRaw', guestsRawError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (assignmentsRawError) {
+    logQueryError('GuestSouvenirsPage.assignmentsRaw', assignmentsRawError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (tablesRawError) {
+    logQueryError('GuestSouvenirsPage.tablesRaw', tablesRawError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (claimsRawError) {
+    logQueryError('GuestSouvenirsPage.claimsRaw', claimsRawError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (eventRowError) {
+    logQueryError('GuestSouvenirsPage.eventRow', eventRowError, { event_id: eventId }, 'graceful_degrade');
+  }
+  const somethingRefused = Boolean(guestsRawError) || Boolean(assignmentsRawError) || Boolean(tablesRawError) || Boolean(claimsRawError);
 
   const tableLabelById = new Map<string, string>();
   for (const t of tablesRaw ?? []) {
@@ -113,6 +131,14 @@ export default async function SouvenirTablePage({ params }: Props) {
       >
         <ArrowLeft className="h-4 w-4" /> Back to guest list
       </Link>
+
+      {somethingRefused ? (
+        <ReadRefusedNotice
+          className="mt-3"
+          partial
+          what="a guest, their table, or who has already collected"
+        />
+      ) : null}
 
       <header className="mt-3 space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">

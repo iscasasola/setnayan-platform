@@ -398,14 +398,14 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         <div className="min-w-0 space-y-0.5">
           <Link
             href="/vendor-dashboard/messages"
-            className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
+            className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta-700"
           >
             ‹ Messages
           </Link>
           <p className="truncate text-base font-semibold text-ink">
             {headerLabel}
             {founderInquiry ? (
-              <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+              <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
                 {FOUNDER_BADGE_LABEL}
               </span>
             ) : null}
@@ -418,7 +418,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               {sourceChipLabel}
             </span>
             {thread.is_returning ? (
-              <span className="inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+              <span className="inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
                 {RETURNING_CUSTOMER_LABEL}
               </span>
             ) : null}
@@ -431,7 +431,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           {/* Live pax — recomputed fresh on view (Phase 5); the count the couple
               is planning for, and the count at first inquiry once it grows. */}
           {headerPax ? (
-            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta">
+            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta-700">
               Planning for ~{headerPax} guests
               {thread.pax_at_inquiry && thread.pax_at_inquiry < headerPax
                 ? ` · was ${thread.pax_at_inquiry} at inquiry`
@@ -668,25 +668,25 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           {inquiryBasics ? (
             <div className="flex flex-wrap gap-1.5">
               {inquiryBasics.event_date ? (
-                <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta">
+                <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
                   {inquiryBasics.event_date}
                 </span>
               ) : null}
               {(() => {
                 const pax = thread.pax_at_inquiry ?? thread.pax_current;
                 return pax ? (
-                  <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta">
+                  <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
                     {pax} pax
                   </span>
                 ) : null;
               })()}
               {inquiryBasics.event_type ? (
-                <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta">
+                <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
                   {eventTypeLabel(inquiryBasics.event_type)}
                 </span>
               ) : null}
               {regionLabel(inquiryBasics.region) ? (
-                <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta">
+                <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta-700">
                   {regionLabel(inquiryBasics.region)}
                 </span>
               ) : null}
@@ -699,7 +699,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           ) : null}
           {returning ? (
             <p className="text-sm text-ink">
-              <span className="mr-1.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+              <span className="mr-1.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
                 Returning client
               </span>
               Booked you for{' '}
@@ -723,7 +723,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               and accepting costs the vendor nothing. */}
           {founderInquiry ? (
             <p className="text-sm text-ink">
-              <span className="mr-1.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+              <span className="mr-1.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
                 {FOUNDER_BADGE_LABEL}
               </span>
               {FOUNDER_INQUIRY_NOTE}

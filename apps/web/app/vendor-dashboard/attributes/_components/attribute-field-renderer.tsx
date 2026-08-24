@@ -49,7 +49,7 @@ export function AttributeFieldRenderer({
   const hint = (
     <span className="ml-2 inline-flex items-center gap-1">
       {def.required ? (
-        <span className="font-mono text-[9px] uppercase tracking-wider text-terracotta">required</span>
+        <span className="font-mono text-[9px] uppercase tracking-wider text-terracotta-700">required</span>
       ) : null}
       {isFacet ? (
         <span className="font-mono text-[9px] uppercase tracking-wider text-ink/50">filter</span>
@@ -219,7 +219,7 @@ export function AttributeFieldRenderer({
     <div className="space-y-1">
       <label className="block text-sm font-medium text-ink/55">
         {label}
-        <span className="ml-2 font-mono text-[10px] text-terracotta">unsupported field type: {def.type}</span>
+        <span className="ml-2 font-mono text-[10px] text-terracotta-700">unsupported field type: {def.type}</span>
       </label>
       <pre className="overflow-auto rounded-md border border-ink/15 bg-ink/[0.04] p-2 text-[11px] text-ink/65">
         {JSON.stringify(initial ?? null)}
@@ -281,7 +281,7 @@ function MultiSelectOpen({
               type="button"
               onClick={() => setTags((prev) => prev.filter((t) => t !== tag))}
               aria-label={`Remove ${tag}`}
-              className="text-terracotta hover:text-terracotta-800"
+              className="text-terracotta-700 hover:text-terracotta-800"
             >
               ×
             </button>

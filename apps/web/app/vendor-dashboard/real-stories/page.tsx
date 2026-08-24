@@ -60,7 +60,7 @@ export default async function VendorRealStoriesPage() {
         </h1>
         <p className="max-w-prose text-base text-ink/65">
           When a couple you worked with publishes their wedding to{' '}
-          <Link href="/realstories" className="font-medium text-terracotta underline">
+          <Link href="/realstories" className="font-medium text-mulberry underline">
             Stories
           </Link>
           , it shows up here — with your profile credited in the story. Share it
@@ -72,7 +72,7 @@ export default async function VendorRealStoriesPage() {
 
       {stories.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-ink/20 p-8 text-center sm:p-10">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta-700">
             Coming soon
           </p>
           <p className="mx-auto mt-3 max-w-md text-base font-medium text-ink">
@@ -96,7 +96,7 @@ export default async function VendorRealStoriesPage() {
                 className="sn-row flex flex-col gap-3 p-5"
               >
                 <div>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-700">
                     Featured in Stories
                   </p>
                   <h2 className="mt-1.5 text-lg font-semibold leading-snug text-ink">
@@ -108,7 +108,7 @@ export default async function VendorRealStoriesPage() {
                   <Link
                     href={`/${s.slug}`}
                     target="_blank"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-mulberry underline-offset-4 hover:underline"
                   >
                     View the story
                     <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

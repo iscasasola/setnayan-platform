@@ -200,7 +200,7 @@ function SignalTile({
   return (
     <ShopCard pad="tight">
       <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/55">
-        <span className="text-terracotta">{icon}</span>
+        <span className="text-terracotta-700">{icon}</span>
         {label}
       </span>
       <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">{value}</p>

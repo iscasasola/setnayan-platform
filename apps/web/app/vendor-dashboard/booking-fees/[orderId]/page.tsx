@@ -315,7 +315,7 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
                       href={paymentScreenshotMap[p.payment_id]}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-terracotta hover:underline"
+                      className="inline-flex items-center gap-1 text-xs text-mulberry hover:underline"
                     >
                       Screenshot
                     </a>

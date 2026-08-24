@@ -89,7 +89,7 @@ export function VideoLinksEditor({
                   : `${parsed.label} — opens in a new tab`}
               </p>
             ) : invalid ? (
-              <p className="pl-1 text-xs text-terracotta">
+              <p className="pl-1 text-xs text-terracotta-700">
                 That doesn&rsquo;t look like a video link. Paste a full https:// URL.
               </p>
             ) : null}
@@ -100,7 +100,7 @@ export function VideoLinksEditor({
         <button
           type="button"
           onClick={add}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-ink/25 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-terracotta/40 hover:text-terracotta"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-ink/25 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-terracotta/40 hover:text-terracotta-700"
         >
           <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Add another video

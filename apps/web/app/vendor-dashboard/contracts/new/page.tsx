@@ -73,7 +73,7 @@ export default async function NewVendorContractPage({ searchParams }: Props) {
         <form action={uploadVendorContract} className="space-y-5">
           <div className="space-y-1.5">
             <label htmlFor="event_id" className="block text-sm font-medium text-ink">
-              For which event? <span className="text-terracotta">*</span>
+              For which event? <span className="text-terracotta-700">*</span>
             </label>
             <select
               id="event_id"
@@ -95,7 +95,7 @@ export default async function NewVendorContractPage({ searchParams }: Props) {
 
           <div className="space-y-1.5">
             <label htmlFor="title" className="block text-sm font-medium text-ink">
-              Contract title <span className="text-terracotta">*</span>
+              Contract title <span className="text-terracotta-700">*</span>
             </label>
             <input
               id="title"
@@ -124,7 +124,7 @@ export default async function NewVendorContractPage({ searchParams }: Props) {
 
           <div className="space-y-1.5">
             <label htmlFor="file" className="block text-sm font-medium text-ink">
-              Contract PDF <span className="text-terracotta">*</span>
+              Contract PDF <span className="text-terracotta-700">*</span>
             </label>
             <input
               id="file"

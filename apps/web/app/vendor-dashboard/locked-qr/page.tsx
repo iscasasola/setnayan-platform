@@ -106,7 +106,7 @@ export default async function VendorLockedQrListPage() {
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
       <Link
         href="/vendor-dashboard/shop"
-        className="inline-flex items-center gap-1 font-mono text-xs uppercase tracking-[0.18em] text-ink/50 hover:text-terracotta"
+        className="inline-flex items-center gap-1 font-mono text-xs uppercase tracking-[0.18em] text-ink/50 hover:text-terracotta-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} /> My Shop
       </Link>

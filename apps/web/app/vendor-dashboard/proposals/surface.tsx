@@ -224,7 +224,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
                 <div className="min-w-0">
                   <Link
                     href={`/proposals/${p.public_id}`}
-                    className="block truncate text-sm font-medium hover:text-terracotta"
+                    className="block truncate text-sm font-medium hover:text-terracotta-700"
                   >
                     {p.title}
                   </Link>

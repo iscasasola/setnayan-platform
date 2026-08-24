@@ -840,7 +840,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       ? { label: 'They asked you', cls: 'bg-warn-100 text-warn-900' }
       : isQuoted
         ? { label: 'Quote sent', cls: 'bg-warn-100 text-warn-900' }
-        : { label: 'In conversation', cls: 'bg-terracotta/10 text-terracotta' };
+        : { label: 'In conversation', cls: 'bg-terracotta/10 text-terracotta-700' };
 
   const eventName = brief.event.display_name ?? 'This couple';
   const metaBits = [
@@ -1013,7 +1013,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
               isImported
                 ? 'bg-ink/5 text-ink/60'
-                : 'bg-terracotta/10 text-terracotta'
+                : 'bg-terracotta/10 text-terracotta-700'
             }`}
           >
             {isImported ? (
@@ -1875,7 +1875,7 @@ function OverviewTab(props: {
           </div>
           <Link
             href="/vendor-dashboard/clients"
-            className="shrink-0 text-sm font-semibold text-terracotta hover:underline"
+            className="shrink-0 text-sm font-semibold text-mulberry hover:underline"
           >
             Invite →
           </Link>
@@ -1989,7 +1989,7 @@ function OverviewTab(props: {
             ) : null}
             <Link
               href={`/vendor-dashboard/clients/${eventId}/production-sheet`}
-              className="mt-3 inline-block text-sm font-medium text-terracotta underline"
+              className="mt-3 inline-block text-sm font-medium text-mulberry underline"
             >
               Open the production sheet
             </Link>
@@ -2062,7 +2062,7 @@ function OverviewTab(props: {
           )}
           <Link
             href={`/vendor-dashboard/clients/${eventId}/mood-board`}
-            className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
+            className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-mulberry hover:underline"
           >
             Open mood board →
           </Link>
@@ -2120,7 +2120,7 @@ function OverviewTab(props: {
           {brief.seat_plan.published ? (
             <Link
               href={`/vendor-dashboard/clients/${eventId}/seat-plan`}
-              className="mt-2 inline-block text-sm font-medium text-terracotta underline"
+              className="mt-2 inline-block text-sm font-medium text-mulberry underline"
             >
               View the floor plan
             </Link>
@@ -2155,7 +2155,7 @@ function OverviewTab(props: {
               your work, credited to you on their front-page story.
             </span>
           </span>
-          <span className="shrink-0 text-sm font-semibold text-terracotta">Open →</span>
+          <span className="shrink-0 text-sm font-semibold text-mulberry">Open →</span>
         </Link>
       ) : editorialEligibility.isRecommendedPick ? (
         <ShopCard className="flex items-start gap-3">
@@ -2207,7 +2207,7 @@ function OverviewTab(props: {
                       href={completion.deposit_proof_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-terracotta underline-offset-2 hover:underline"
+                      className="inline-flex items-center gap-1 text-mulberry underline-offset-2 hover:underline"
                     >
                       <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> View proof
                     </a>
@@ -2227,7 +2227,7 @@ function OverviewTab(props: {
                       href={completion.deposit_proof_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-terracotta underline-offset-2 hover:underline"
+                      className="inline-flex items-center gap-1 text-mulberry underline-offset-2 hover:underline"
                     >
                       <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> View proof
                     </a>
@@ -2297,7 +2297,7 @@ function OverviewTab(props: {
           </p>
           <Link
             href={`/vendor-dashboard/clients/${eventId}/cocktail`}
-            className="mt-3 inline-block text-sm font-medium text-terracotta underline"
+            className="mt-3 inline-block text-sm font-medium text-mulberry underline"
           >
             Arrange the cocktail area
           </Link>
@@ -2381,7 +2381,7 @@ function QuoteTab(props: {
                 </span>
                 <Link
                   href={`/proposals/${p.public_id}`}
-                  className="shrink-0 text-xs font-medium text-terracotta hover:underline"
+                  className="shrink-0 text-xs font-medium text-mulberry hover:underline"
                 >
                   View →
                 </Link>
@@ -2549,7 +2549,7 @@ function FilesTab(props: {
           {threadId ? (
             <Link
               href={`/vendor-dashboard/messages/${threadId}`}
-              className="mt-2 inline-block text-sm font-medium text-terracotta hover:underline"
+              className="mt-2 inline-block text-sm font-medium text-mulberry hover:underline"
             >
               Share files in chat →
             </Link>
@@ -2578,7 +2578,7 @@ function FilesTab(props: {
                   href={c.file_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="shrink-0 text-xs font-medium text-terracotta hover:underline"
+                  className="shrink-0 text-xs font-medium text-mulberry hover:underline"
                 >
                   Open →
                 </a>
@@ -2610,7 +2610,7 @@ function FilesTab(props: {
                   href={h.payload}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="shrink-0 text-xs font-medium text-terracotta hover:underline"
+                  className="shrink-0 text-xs font-medium text-mulberry hover:underline"
                 >
                   Open →
                 </a>
@@ -2623,7 +2623,7 @@ function FilesTab(props: {
       {hasAny && threadId ? (
         <Link
           href={`/vendor-dashboard/messages/${threadId}`}
-          className="inline-block text-sm font-medium text-terracotta hover:underline"
+          className="inline-block text-sm font-medium text-mulberry hover:underline"
         >
           Share more files in chat →
         </Link>
@@ -2737,7 +2737,7 @@ function ScheduleTab(props: {
             {allBlocks.length > 0 ? (
               <a
                 href={`/vendor-dashboard/clients/${eventId}/calendar.ics${mineOnly ? '?mine=1' : ''}`}
-                className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline"
+                className="inline-flex items-center gap-1 text-sm font-medium text-mulberry underline"
               >
                 <CalendarPlus aria-hidden className="h-4 w-4" /> Add to calendar
               </a>
@@ -2807,7 +2807,7 @@ function ScheduleTab(props: {
             No blocks match your booked categories yet —{' '}
             <Link
               href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-              className="text-terracotta underline"
+              className="text-mulberry underline"
             >
               see the full timeline
             </Link>
@@ -2833,7 +2833,7 @@ function ScheduleTab(props: {
                   </span>
                   <span className="text-sm font-medium">{b.label}</span>
                   {relevance.get(b.block_id) === 'primary' ? (
-                    <span className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-terracotta">
+                    <span className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-terracotta-700">
                       Your slot
                     </span>
                   ) : null}
@@ -3040,7 +3040,7 @@ function ScheduleTab(props: {
                       {h.label ? ` — ${h.label}` : ''}
                     </span>
                     {h.kind === 'gallery_link' && h.payload ? (
-                      <a href={h.payload} target="_blank" rel="noreferrer" className="text-terracotta underline">
+                      <a href={h.payload} target="_blank" rel="noreferrer" className="text-mulberry underline">
                         open link
                       </a>
                     ) : null}
@@ -3077,7 +3077,7 @@ function ScheduleTab(props: {
           </p>
 
           <details className="mb-4 sn-row p-3">
-            <summary className="cursor-pointer text-sm font-medium text-terracotta">
+            <summary className="cursor-pointer text-sm font-medium text-terracotta-700">
               Propose a change
             </summary>
             <form action={vendorRaiseChangeOrder} className="mt-3 space-y-3">

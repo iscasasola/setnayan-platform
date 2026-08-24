@@ -432,7 +432,7 @@ function DocsStep({
       ) : failed ? (
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
           Couldn&rsquo;t load your documents.{' '}
-          <button type="button" onClick={reload} className="font-medium text-terracotta hover:underline">
+          <button type="button" onClick={reload} className="font-medium text-mulberry hover:underline">
             Try again
           </button>
           .
@@ -514,7 +514,7 @@ function ContactsStep({
           <button
             type="button"
             onClick={copy}
-            className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-terracotta hover:bg-white/60"
+            className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-terracotta-700 hover:bg-white/60"
           >
             {copied ? <Check className="h-3.5 w-3.5" strokeWidth={2} aria-hidden /> : <Copy className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />}
             {copied ? 'Copied' : 'Copy'}

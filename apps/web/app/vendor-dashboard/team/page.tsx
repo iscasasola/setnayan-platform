@@ -219,7 +219,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
                     <form action={cancelAdminMotion} className="ml-auto">
                       <input type="hidden" name="motion_id" value={m.motion_id} />
                       <SubmitButton
-                        className="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-ink/55 hover:text-terracotta"
+                        className="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-ink/55 hover:text-terracotta-700"
                         pendingLabel="…"
                       >
                         Cancel vote

@@ -65,7 +65,7 @@ export async function Vendor3dPlanUnlockSection({
         <Boxes aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
         3D Plan unlock
         {unlocked ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 text-[11px] font-semibold text-terracotta">
+          <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 text-[11px] font-semibold text-terracotta-700">
             <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
             Unlocked
           </span>

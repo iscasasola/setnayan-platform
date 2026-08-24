@@ -123,14 +123,14 @@ export default async function VendorMessagesPage() {
                   </span>
                 ) : null}
                 {t.is_returning && !returning ? (
-                  <span className="ml-1 mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+                  <span className="ml-1 mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
                     {RETURNING_CUSTOMER_LABEL}
                   </span>
                 ) : null}
                 {returning ? (
                   <>
                     <span
-                      className="ml-1 mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta"
+                      className="ml-1 mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700"
                       title="A client you previously locked"
                     >
                       Returning client
@@ -179,7 +179,7 @@ export default async function VendorMessagesPage() {
           <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
             Couples start threads from their dashboard using your contact email. Make
             sure your{' '}
-            <Link href="/vendor-dashboard" className="text-terracotta hover:underline">
+            <Link href="/vendor-dashboard" className="text-mulberry hover:underline">
               vendor profile
             </Link>{' '}
             is filled in and your contact email is right — that&rsquo;s the field

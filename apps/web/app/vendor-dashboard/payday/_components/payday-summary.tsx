@@ -14,7 +14,7 @@ export function PaydaySummary({ totals }: { totals: PaydayTotals }) {
       label: 'Expected (all installments)',
       value: formatPhp(totals.expectedPhp),
       icon: Wallet,
-      tone: 'text-terracotta',
+      tone: 'text-terracotta-700',
       bg: 'bg-terracotta/10',
     },
     {

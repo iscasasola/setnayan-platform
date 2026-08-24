@@ -129,7 +129,7 @@ export function ScriptComposer({
             {state.message}
           </span>
         ) : state.status === 'error' ? (
-          <span className="text-xs text-terracotta">{state.message}</span>
+          <span className="text-xs text-terracotta-700">{state.message}</span>
         ) : (
           <span className="ml-auto text-[11px] text-ink/40">
             Saves to this moment — moves if they move it

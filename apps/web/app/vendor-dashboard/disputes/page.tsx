@@ -221,7 +221,7 @@ function DisputeCard({ row }: { row: DisputeRow }) {
       {/* Contest form — only while the dispute is open */}
       {isOpen ? (
         <details className="mt-4">
-          <summary className="cursor-pointer select-none text-sm font-medium text-terracotta">
+          <summary className="cursor-pointer select-none text-sm font-medium text-terracotta-700">
             {row.vendor_contest ? 'Edit your response' : 'Contest this dispute'}
           </summary>
           <form action={submitDisputeContest} className="mt-3 space-y-2">

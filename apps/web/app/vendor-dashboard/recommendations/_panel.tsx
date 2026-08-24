@@ -423,7 +423,7 @@ function SuggestToCoupleControl({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta-700 hover:text-terracotta-700"
       >
         <Send className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
         Suggest to a couple

@@ -322,7 +322,7 @@ function ServiceForm({
         </div>
         <div className="flex items-center gap-2">
           {isNew ? (
-            <span className="rounded-full bg-terracotta/15 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+            <span className="rounded-full bg-terracotta/15 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
               new
             </span>
           ) : (
@@ -392,7 +392,7 @@ function RemoveServiceButton({ canonicalService }: { canonicalService: string })
       <input type="hidden" name="canonical_service" value={canonicalService} />
       <SubmitButton
         pendingLabel="Removing…"
-        className="text-xs font-medium text-terracotta hover:underline"
+        className="text-xs font-medium text-mulberry hover:underline"
       >
         Remove this service&rsquo;s payload
       </SubmitButton>

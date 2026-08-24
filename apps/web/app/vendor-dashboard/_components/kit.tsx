@@ -29,7 +29,7 @@
  * In this repo the Tailwind slot named `terracotta` is the decorative GOLD
  * (#A9834B, 3.37:1 on white — FAILS AA for text) and the action colour lives
  * in the slot named `mulberry`. So:
- *   · no tone below ever emits bare `text-terracotta`;
+ *   · no tone below ever emits the bare gold text utility;
  *   · gold-toned TEXT uses `text-terracotta-700`, the dark text-gold;
  *   · the action tone uses `mulberry`.
  * Centralising the tone map means the contrast argument is made once, here,
@@ -118,7 +118,7 @@ export function ShopStat({
 /* ──────────────────────────────────────────────────────────────────────────
  * ShopPill — the status pill, with the tone argument settled once.
  * `gold` deliberately emits text-terracotta-700 (the dark text-gold), never
- * bare text-terracotta — see the colour rules in the header.
+ * the bare gold utility — see the colour rules in the header.
  * ────────────────────────────────────────────────────────────────────────── */
 export type ShopPillTone = 'ink' | 'action' | 'gold' | 'success' | 'warn' | 'danger';
 

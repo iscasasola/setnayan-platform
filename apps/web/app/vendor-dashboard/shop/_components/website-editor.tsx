@@ -250,7 +250,7 @@ export function WebsiteEditor({
             href={publicPath}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
+            className="inline-flex items-center gap-1 text-sm font-medium text-mulberry hover:underline"
           >
             View page
             <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
@@ -278,7 +278,7 @@ export function WebsiteEditor({
                 href={publicPath}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs font-medium text-terracotta hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-medium text-mulberry hover:underline"
               >
                 <Globe className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                 Open live
@@ -305,7 +305,7 @@ export function WebsiteEditor({
           entry, not a link). */}
       <Link
         href="/vendor-dashboard/website"
-        className="inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
+        className="inline-flex items-center gap-1 text-sm font-medium text-mulberry hover:underline"
       >
         Open full website settings
         <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
@@ -829,7 +829,7 @@ function SoloUpsell() {
       </p>
       <Link
         href="/vendor-dashboard/subscription"
-        className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
+        className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-mulberry hover:underline"
       >
         See plans
         <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />

@@ -187,7 +187,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
             downpayment is recorded. New leads are waiting in{' '}
             <Link
               href="/vendor-dashboard/bookings"
-              className="font-medium text-terracotta underline"
+              className="font-medium text-mulberry underline"
             >
               Bookings
             </Link>
@@ -214,14 +214,14 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                 <div className="flex items-center gap-4">
                   <Link
                     href={`/vendor-dashboard/clients/${eventId}`}
-                    className="text-sm font-medium text-terracotta underline"
+                    className="text-sm font-medium text-mulberry underline"
                   >
                     Customer card
                   </Link>
                   {group.threadId ? (
                     <Link
                       href={`/vendor-dashboard/messages/${group.threadId}`}
-                      className="text-sm font-medium text-terracotta underline"
+                      className="text-sm font-medium text-mulberry underline"
                     >
                       Open chat
                     </Link>
@@ -238,7 +238,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
         <h2 className="text-lg font-semibold">In conversation</h2>
         <p className="mt-1 text-sm text-ink/65">
           Accepted inquiries that haven&rsquo;t booked yet. The full inbox lives in{' '}
-          <Link href="/vendor-dashboard/bookings" className="font-medium text-terracotta underline">
+          <Link href="/vendor-dashboard/bookings" className="font-medium text-mulberry underline">
             Bookings
           </Link>
           .
@@ -270,7 +270,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                         </span>
                       ) : null}
                       {t.is_returning ? (
-                        <span className="inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+                        <span className="inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
                           {RETURNING_CUSTOMER_LABEL}
                         </span>
                       ) : null}
@@ -282,13 +282,13 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                   <div className="flex items-center gap-4">
                     <Link
                       href={`/vendor-dashboard/clients/${t.event_id}`}
-                      className="text-sm font-medium text-terracotta underline"
+                      className="text-sm font-medium text-mulberry underline"
                     >
                       Customer card
                     </Link>
                     <Link
                       href={`/vendor-dashboard/messages/${t.thread_id}`}
-                      className="text-sm font-medium text-terracotta underline"
+                      className="text-sm font-medium text-mulberry underline"
                     >
                       Open chat
                     </Link>
@@ -306,7 +306,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
           <h2 className="text-lg font-semibold">Outside clients</h2>
           <Link
             href="/vendor-dashboard/calendar"
-            className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline"
+            className="inline-flex items-center gap-1 text-sm font-medium text-mulberry underline"
           >
             <CalendarDays aria-hidden className="h-4 w-4" /> View on calendar
           </Link>
@@ -317,7 +317,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
             (or check your{' '}
             <Link
               href="/vendor-dashboard/calendar"
-              className="font-medium text-terracotta underline"
+              className="font-medium text-mulberry underline"
             >
               calendar
             </Link>

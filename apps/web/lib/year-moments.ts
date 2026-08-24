@@ -372,6 +372,47 @@ export function buildYearMoments(
 }
 
 /**
+ * Does this moment name an EXISTING event's own (next) day — the wedding's
+ * date itself, a recurring event's next occurrence — rather than a day derived
+ * FROM an event (its anniversary, a monthsary) or one that has no event at all
+ * (a holiday, the reader's own birthday off their profile)?
+ *
+ * WHY IT EXISTS (owner ruling, DECISION_LOG 2026-08-21 / PR #4678): the board's
+ * "Worth planning" shelf holds days that do NOT exist as events — that is the
+ * whole reason it was renamed from "Upcoming" and kept separate from Planning,
+ * which holds celebrations that DO. A wedding-countdown row ("Cale & Ice — your
+ * wedding · Open plan") on that shelf is the shelf listing an event that sits
+ * two shelves up, observed live 2026-08-24. The tell is in the buttons: "Start
+ * planning" belongs to a day that does not exist; a row whose honest action is
+ * "Open plan" is an event, and events live on the board's own shelves.
+ *
+ * These moment kinds were CORRECT on the surface they were built for — the
+ * retired /dashboard/year page listed everything about your year, existing
+ * events included — and the rows came along unchanged when that page folded
+ * into the board (owner 2026-08-21). The kinds stay in `buildYearMoments`
+ * (the builder describes the year truthfully); the SHELF is what filters,
+ * through `worthPlanningMoments` below.
+ *
+ * ⚠ Derived-day rows (anniversary · monthsary) are deliberately NOT excluded:
+ * a 3rd wedding anniversary is a day that comes around and is not an event, and
+ * dropping them would quietly delete the owner-directed newlywed-monthsary and
+ * anniversary reminder lines (2026-07-13) from their only remaining surface.
+ */
+export function momentIsEventOwnDay(m: YearMoment): boolean {
+  return m.eventId != null && (m.kind === 'wedding' || m.kind === 'recurring');
+}
+
+/**
+ * The rows allowed to reach the board's "Worth planning" shelf: everything the
+ * year holds EXCEPT existing events' own days (see `momentIsEventOwnDay`).
+ * Lives beside the builder so the membership rule has one definition and its
+ * test exercises the same function the shelf calls.
+ */
+export function worthPlanningMoments(moments: YearMoment[]): YearMoment[] {
+  return moments.filter((m) => !momentIsEventOwnDay(m));
+}
+
+/**
  * Merge the account's own-birthday moment into the event-derived ones, dropping
  * it when an event already occupies that calendar day.
  *

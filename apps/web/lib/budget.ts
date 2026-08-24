@@ -622,6 +622,45 @@ export async function fetchVendorBudgetSummary(
   };
 }
 
+/**
+ * What the third cell of a supplier's money strip should SAY.
+ *
+ * 🚨 THE CELL USED TO SAY "Remaining ₱0.00" IN SUCCESS GREEN TO A COUPLE WHO
+ * HAD OVERPAID. `remaining` is `Math.max(0, itemizedTotal - paidTotal)`, so
+ * paying ₱450,000 against a ₱400,000 supplier clamps to zero and renders
+ * exactly what a settled account renders — the couple has no signal at all that
+ * ₱50,000 went out beyond the agreed figure. The summary strip at the top of
+ * the same screen already handles its own version of this ("Over target", in
+ * the warning tone); the row below it did not.
+ *
+ * ⚠ CLAIMING "OVERPAID" NEEDS BOTH READS. `paidTotal` is 0 when the payments
+ * read was refused, and `itemizedTotal` silently falls back to the headline
+ * figure when the line-items read was refused — either one alone can invent an
+ * overpayment or hide one. So the claim is only made when both are measured;
+ * otherwise this returns the unknown state and the caller renders an em dash.
+ * A wrong number about money is the worst version of a failed read rendered as
+ * a fact.
+ */
+export type SupplierBalance =
+  | { state: 'unknown' }
+  | { state: 'settled'; amountPhp: 0 }
+  | { state: 'owing'; amountPhp: number }
+  | { state: 'overpaid'; amountPhp: number };
+
+export function describeSupplierBalance(input: {
+  itemizedTotal: number;
+  paidTotal: number;
+  paymentsMeasured: boolean;
+  lineItemsMeasured: boolean;
+}): SupplierBalance {
+  const { itemizedTotal, paidTotal, paymentsMeasured, lineItemsMeasured } = input;
+  if (!paymentsMeasured || !lineItemsMeasured) return { state: 'unknown' };
+  const delta = itemizedTotal - paidTotal;
+  if (delta > 0) return { state: 'owing', amountPhp: delta };
+  if (delta < 0) return { state: 'overpaid', amountPhp: -delta };
+  return { state: 'settled', amountPhp: 0 };
+}
+
 export async function fetchBudgetSnapshot(
   supabase: SupabaseClient,
   eventId: string,

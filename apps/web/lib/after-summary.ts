@@ -89,8 +89,14 @@ export async function loadAfterSummary(
         🔑 THE SHIPPED HEAD-COUNT, NOT A SECOND ONE.
 
         `countGuestsByEvent` excludes soft-deleted guests (`deleted_at IS NULL`)
-        exactly as `fetchGuestsByEvent` does, and already returns `null` for a
-        refused read — the same contract this module is built on. The first cut
+        exactly as `fetchGuestsByEvent` does.
+
+        ⚠ AND IT DOES NOT RETURN `null` FOR A REFUSED READ — this said it did,
+        and that was wrong. RLS refusal arrives as `count: 0, error: null`, so a
+        delegate the couple never shared the guest list with reads this summary
+        as a wedding that had nobody at it. The `null` contract covers a query
+        that FAILED, which is a different thing. Telling the two apart needs the
+        viewer, not the count. The first cut
         of this file wrote its own count WITHOUT that filter, so a couple who
         had removed a guest would have read one number on this summary and a
         smaller one on the guest list itself, hours after both shipped.

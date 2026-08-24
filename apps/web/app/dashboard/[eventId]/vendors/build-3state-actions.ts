@@ -135,7 +135,8 @@ export async function proposeBuildFromQuotes(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
 
-  // RLS scopes every read to the couple's own event. The AI-gate fields
+  // ⚠ RLS SCOPES THIS TO A MEMBER OF THE EVENT, NOT TO THE COUPLE —
+  // `events_moderator_read` admits every accepted delegate. The AI-gate fields
   // (planning_mode / setnayan_ai_active) + reception coords are read alongside
   // the budget so the Auto rank mode can switch to compat when Setnayan AI is on.
   const [evRes, vendorsRes, stateRes, pickRes, decisionRes] = await Promise.all([

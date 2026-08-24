@@ -499,6 +499,11 @@ export async function countGuestsByEvent(
       );
       return null;
     }
+    // ⚠ AN RLS REFUSAL ARRIVES HERE AS `count: 0, error: null` AND CANNOT BE
+    // TOLD APART FROM AN EMPTY EVENT AT THIS LAYER. The `null` above is for a
+    // query that FAILED, not for one that was refused. Anything that needs the
+    // difference has to ask who is looking — `isDelegateWithoutArea(viewer,
+    // 'guest_list')` — before trusting a zero.
     return count ?? 0;
   } catch {
     return null;

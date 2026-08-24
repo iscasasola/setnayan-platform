@@ -94,7 +94,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
 
   const admin = createAdminClient();
 
-  const { data: event } = await admin
+  const { data: event, error: eventErr } = await admin
     .from('events')
     .select(
       'event_id, display_name, slug, event_date, venue_name, event_type, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key',
@@ -102,6 +102,10 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     .ilike('slug', slug)
     .maybeSingle();
 
+  // 🔴 A FAILED READ IS NOT A CELEBRATION THAT DOES NOT EXIST. `notFound()` here
+  // told a guest holding a printed QR that their wedding is not a real page.
+  // Throwing surfaces a real error instead of a confident lie about the event.
+  if (eventErr) throw new Error('seat pass: could not read the event');
   if (!event) notFound();
   // 🔴 THIS USED TO BE `event.event_type !== 'wedding'`, WHICH 404'd A PAID
   // FEATURE. Nothing on the couple's side gates the seat plan by event type: a
@@ -146,7 +150,8 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   // ── Shape A: a token is in the URL (a freshly scanned QR) ──────────────────
   if (t) {
     // Dual token lookup, both scoped to this event.
-    const [{ data: guestRow }, { data: tableRow }] = await Promise.all([
+    const [{ data: guestRow, error: tokenGuestErr }, { data: tableRow, error: tokenTableErr }] =
+      await Promise.all([
       admin
         .from('guests')
         .select('guest_id, event_id')
@@ -161,6 +166,15 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
         .eq('qr_token', t)
         .maybeSingle(),
     ]);
+
+    // 🔴 A FAILED LOOKUP IS NOT A DEAD TOKEN. Both reads resolve `data: null` on
+    // error — the same value as "no such token" — so a database blip told a
+    // guest holding a perfectly good QR that their code had been REPLACED, and
+    // invited them to go and get another. Of every absence on this page that is
+    // the most alarming and the least true.
+    if (tokenGuestErr || tokenTableErr) {
+      return <SeatCouldNotLoad event={event} slug={slug} roomLinks={roomLinks} />;
+    }
 
     // Dead token — fail CLOSED with a helpful landing instead of a bare 404.
     // The most likely cause is a rotated QR (build ④): the old code died the
@@ -185,8 +199,9 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     }
 
     // Table hit → stateless public table view (publication-gated below).
-    const tables = await fetchTables(admin, event.event_id);
+    const { rows: tables, failed: tablesFailed } = await fetchTables(admin, event.event_id);
     const entrance = await fetchEntrance(admin, event.event_id);
+    if (tablesFailed) return <SeatCouldNotLoad event={event} slug={slug} roomLinks={roomLinks} />;
     const published = await eventSeatingPublished(admin, event.event_id);
 
     if (!published) {
@@ -225,13 +240,19 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     );
   }
 
-  const { data: guestRow } = await admin
+  const { data: guestRow, error: guestErr } = await admin
     .from('guests')
     .select('guest_id, first_name, last_name, event_id')
     .eq('event_id', event.event_id)
     .eq('guest_id', session.guest_id)
     .is('deleted_at', null)
     .maybeSingle();
+
+  // 🔴 THE SHARPEST ONE. A discarded error made a failed read look like "you
+  // are not a guest here", so the page told somebody who had just scanned their
+  // own invitation to go and open their invitation. Blaming the person holding
+  // the correct ticket is worse than admitting the read failed.
+  if (guestErr) return <SeatCouldNotLoad event={event} slug={slug} roomLinks={roomLinks} />;
 
   if (!guestRow) {
     return (
@@ -244,7 +265,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     );
   }
 
-  const tables = await fetchTables(admin, event.event_id);
+  const { rows: tables, failed: tablesFailed } = await fetchTables(admin, event.event_id);
   const entrance = await fetchEntrance(admin, event.event_id);
 
   return (
@@ -259,19 +280,58 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   );
 }
 
+/**
+ * The honest answer when a read FAILED, as against a thing that is not there.
+ *
+ * ⚖ It blames nobody. The three absences this page renders — "open this from
+ * your invitation", "your seat is being arranged", "the floor plan is on its
+ * way" — each accuse somebody of not having done something: the guest, or the
+ * couple. Every one of them was reachable by a database blip, and none of them
+ * is recoverable by the person reading it. "Try again" is the only one of the
+ * four that is both true and actionable.
+ */
+function SeatCouldNotLoad({
+  event,
+  slug,
+  roomLinks,
+}: {
+  event: { display_name: string; event_date: string | null };
+  slug: string;
+  roomLinks: React.ComponentProps<typeof SeatPassShell>['roomLinks'];
+}) {
+  return (
+    <SeatPassShell
+      roomLinks={roomLinks}
+      displayName={event.display_name}
+      slug={slug}
+      eventDate={event.event_date}
+    >
+      <PromptCard
+        title="We couldn't load your seat pass"
+        body="Something went wrong on our side — your seat is fine. Refresh the page, or open it again in a moment."
+      />
+    </SeatPassShell>
+  );
+}
+
 // Shared seating fetch. Admin client; constrained to event_id. Same select
 // string find-my-table uses.
 async function fetchTables(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,
-): Promise<EventTableRow[]> {
-  const { data } = await admin
+): Promise<{ rows: EventTableRow[]; failed: boolean }> {
+  // 🔴 `return (data ?? [])` threw the error away, and an empty list is exactly
+  // what this page renders as "the floor plan is on its way" — i.e. a failed
+  // read was shown to the guest as the COUPLE not having done their seating.
+  // supabase-js resolves with `data: null` on failure, which is the same value
+  // as "no tables yet"; only the error tells them apart.
+  const { data, error } = await admin
     .from('event_tables')
     .select(TABLES_SELECT)
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
-  return (data ?? []) as EventTableRow[];
+  return { rows: (data ?? []) as EventTableRow[], failed: Boolean(error) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -340,12 +400,17 @@ async function PersonalPass({
   }
 
   // This guest's seat assignment (table + seat number).
-  const { data: assignment } = await admin
+  // A failed read here silently drops the guest's table number from a pass that
+  // otherwise renders perfectly — they read it as "no seat assigned to me yet".
+  const { data: assignment, error: assignmentErr } = await admin
     .from('event_seat_assignments')
     .select('table_id, seat_number')
     .eq('event_id', event.event_id)
     .eq('guest_id', guest.guest_id)
     .maybeSingle();
+  if (assignmentErr) {
+    return <SeatCouldNotLoad event={event} slug={slug} roomLinks={roomLinks} />;
+  }
 
   // Arrival signal — guest_checkins (RLS = couple/coordinator/admin) read via
   // the admin client. checked_in_at non-null ⇒ "arrived" copy in the bloom.

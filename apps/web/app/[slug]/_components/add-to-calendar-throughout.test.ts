@@ -78,6 +78,71 @@ test('it offers nothing when there is nothing to add', () => {
   );
 });
 
+test('🔴 the FINALE waits for the finale — it is not Tab-reachable under the veil', () => {
+  const src = code();
+  // WHAT THIS CAUGHT, MEASURED ON THE LIVE PRODUCTION BUILD 2026-08-24 before
+  // any veil lift: the terminal beat's accent "Add to calendar" anchor was
+  // gated on the LINK EXISTING and nothing else, so it sat inside an
+  // `aria-hidden` beat with non-zero size and `tabIndex >= 0` — keyboard
+  // reachable from frame one, under the veil, before the music or the clip had
+  // played.
+  //
+  // 🔑 AND THE FILE ALREADY KNEW. The rule is written out in full eight lines
+  // below, for the "See our page" button, which WAS gated correctly. The
+  // comment sat BETWEEN the two blocks, attached to the one that obeyed it, so
+  // a reader met the unprotected control first and the rule second.
+  assert.match(
+    src,
+    /\{\(content\.icsHref \|\| content\.gcalUrl\) && idx === closeIdx \?/,
+    'the terminal beat’s accent Add-to-calendar anchor is no longer gated on ' +
+      '`idx === closeIdx`. aria-hidden and pointer-events-none do NOT remove an ' +
+      'element from the tab order, so it becomes keyboard-reachable from frame ' +
+      'one — under the veil, before the film has played.',
+  );
+});
+
+test('every control inside the closing beat waits for it — none is left ungated', () => {
+  const src = code();
+  // Derived, not hand-listed: take the closing beat's OWN node and require that
+  // every interactive element in it sits behind an `idx === closeIdx`
+  // conditional. A hand-enumerated list is a list of the controls you thought
+  // of, and this defect existed precisely because the second control was not on
+  // anybody's list.
+  //
+  // 🪤 THE FIRST CUT OF THIS SCAN WAS LOOSE IN TWO WAYS, AND PRINTING WHAT IT
+  // COUNTED IS WHAT SHOWED IT:
+  //   1. Its beat boundary fell through to an arbitrary 4000-character window,
+  //      so what counted as "the beat" drifted with the file.
+  //   2. It counted every `idx === closeIdx`, including `active={idx ===
+  //      closeIdx}` on the monogram — a prop, not a gate. It read 3 gates for 2
+  //      controls and would still have passed with one control ungated.
+  // It is now bounded by the beat's real terminator and counts only the
+  // CONDITIONAL form, so controls and gates are 1:1.
+  const start = src.indexOf('const closeIdx = slides.length;');
+  assert.notEqual(start, -1, 'the closing beat is gone from the film');
+  const rest = src.slice(start);
+  const end = rest.search(/\n {2}\}\);/);
+  assert.notEqual(end, -1, 'could not find the end of the closing beat — the scan is unbounded');
+  const beat = rest.slice(0, end);
+
+  const controls = beat.match(/<(?:a|button)\b/g) ?? [];
+  const gates = beat.match(/idx === closeIdx \? \(/g) ?? [];
+  assert.ok(
+    controls.length >= 2,
+    `only ${controls.length} control(s) found in the closing beat — the scan ` +
+      `stopped matching and is no longer measuring anything`,
+  );
+  assert.equal(
+    gates.length,
+    controls.length,
+    `the closing beat renders ${controls.length} interactive control(s) but ` +
+      `carries ${gates.length} \`idx === closeIdx\` gate(s). Every control mounted ` +
+      `in this beat is Tab-reachable from frame one unless it waits for the beat ` +
+      `— aria-hidden and pointer-events-none do not remove anything from the tab ` +
+      `order.`,
+  );
+});
+
 test('the closing beat keeps its full button — the chip does not replace the finale', () => {
   const src = code();
   // The terminal beat's accent button is the finale the couple paid for. The

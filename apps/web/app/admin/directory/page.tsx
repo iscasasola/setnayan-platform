@@ -22,7 +22,6 @@ export default function AdminDirectoryLanding() {
   return (
     <MobileLandingGrid
       title="Accounts"
-      subtitle="People and places on the platform. Search users, vendors, events, and venues."
       items={items}
     />
   );

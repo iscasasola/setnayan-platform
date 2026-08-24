@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react';
 
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/client';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 
@@ -211,16 +212,17 @@ export function ConnectionLogsClient({
 
   return (
     <div className="space-y-6">
-      <header className="space-y-2">
-        <p className="m-eyebrow text-[#8A6B39]">Observability · real-time</p>
-        <h1 className="m-display-tight text-3xl text-[#1B1A17]">Connection Logs</h1>
-        <p className="max-w-2xl text-sm leading-relaxed text-[#5B5B5B]">
-          Front-end faults captured across the app — broken buttons, failed
-          Supabase saves, and blank fallbacks — stream in here the moment they
-          happen. Resolve them as you fix them; the Active tab stays a true
-          picture of what&apos;s still broken.
-        </p>
-      </header>
+      {/* The tab strip on /admin/app-performance already names this surface,
+          so the row underneath it was saying it twice — with an eyebrow and a
+          lede on top. All three rungs are retired (owner 2026-07-21 · 08-18 ·
+          08-21); the name stays in the document at zero pixels.
+          ⚖ ONE SENTENCE OF THAT LEDE WAS NOT ORIENTATION — "resolve them as
+          you fix them, and Active stays a true picture" is the convention this
+          screen runs on, and an operator cannot use the tabs correctly without
+          it. It moved DOWN to sit beside the tabs it governs, which is what
+          rung four asks for: a sentence a page needs goes in the page, next to
+          the thing it is about. */}
+      <PageMasthead title="Connection Logs" />
 
       {/* Stats + live indicator */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -245,6 +247,11 @@ export function ConnectionLogsClient({
       </div>
 
       {/* Tabs + bulk action */}
+      <p className="max-w-2xl text-sm leading-relaxed text-ink/70">
+        Resolve a fault as you fix it — that is what keeps{' '}
+        <span className="font-medium">Active issues</span> a true picture of
+        what is still broken.
+      </p>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex rounded-full border border-[#A9834B]/30 bg-white p-1">
           <TabButton active={tab === 'active'} onClick={() => setTab('active')}>

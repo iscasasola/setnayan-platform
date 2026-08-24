@@ -34,9 +34,12 @@ export async function MoodboardLibrarySurface() {
     logQueryError('AdminMoodboardLibraryPage (moodboard_library_assets)', error);
     return (
       <div>
-        <header className="mb-6">
-          <h1 className="text-3xl font-semibold tracking-tight">Moodboard Library</h1>
-        </header>
+        {/* 🔑 THE APP-WIDE HEADER SWEEP PORTED WHAT IT COULD SEE RENDERING.
+            The success branch below was converted months ago; THIS branch —
+            the one an operator only reaches when the read has already failed —
+            kept the old row, so the page drew a different heading depending on
+            which way the query went. Same masthead on both branches now. */}
+        <PageMasthead title="Moodboard Library" />
         <p className="rounded-lg border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-700">
           The moodboard library couldn&apos;t load right now. We&apos;ve logged the issue —
           refresh in a moment or check Sentry for the full detail.

@@ -51,6 +51,29 @@
  * fails, and so does a fixed one whose line was left behind. The list only ever
  * gets shorter. Do not add to it to make this test pass.
  *
+ * ── ⛔ WHAT THIS GUARD CANNOT CATCH — the third state, written down on purpose ─
+ * The brief asks for three states to be told apart: **empty · could not be read ·
+ * refused by permission.** The first two are here. The third is NOT, and it is
+ * not an oversight — it is unreachable from this layer.
+ *
+ * A row withheld by RLS is not an error. PostgREST returns **200 with zero
+ * rows**, `error` is null, and `count` is 0. A coordinator reading a
+ * couple-scoped table and a couple with genuinely nothing get the SAME VALUE,
+ * and no amount of error-binding can separate them. It has already cost this
+ * product once: `4ba5ced17` — *"the home tile told coordinators '0 cameras out'
+ * mid-shoot — an RLS silent-zero."*
+ *
+ * 🔑 So the only defence is at the CALL SITE, and it is a design question, not a
+ * lint: **does this screen admit a role the read is not scoped to?** If yes, the
+ * empty state must be phrased for that role, or the read must be widened, or the
+ * screen must not offer the section at all. `studio/page.tsx` is the worked
+ * example in the honest direction — its comment records that RLS returns no rows
+ * to a coordinator and that this is what makes the strip couple-only.
+ *
+ * Do not add a rule here that guesses at policies. It would cry wolf on every
+ * correct deliberate use of RLS-as-filter, and a guard that cries wolf teaches
+ * you to skim past the one time it is right.
+ *
  * 🛡 Mutation-checked by occurrence count, before → after, each rule proved RED.
  */
 import test from 'node:test';

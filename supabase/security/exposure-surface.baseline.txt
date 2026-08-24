@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6200
+# facts: 6210
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     596
-#   col       4540
+#   col       4550
 #   policy    839
 #   view      8
 #   func      213
@@ -4417,12 +4417,22 @@ col	public.vendor_papic_captures.clip_duration_ms	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.consent_basis	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.created_at	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.device_model	anon=SIU authenticated=SIU
+col	public.vendor_papic_captures.display_bytes	anon=SIU authenticated=SIU
+col	public.vendor_papic_captures.display_r2_key	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.event_id	anon=SIU authenticated=SIU
+col	public.vendor_papic_captures.full_res_drop_deferred_at	anon=SIU authenticated=SIU
+col	public.vendor_papic_captures.full_res_dropped_at	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.hidden_at	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.media_type	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.nsfw_checked	anon=SIU authenticated=SIU
+col	public.vendor_papic_captures.orig_bytes	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.poster_r2_key	anon=SIU authenticated=SIU
+col	public.vendor_papic_captures.preserved_at	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.r2_object_key	anon=SIU authenticated=SIU
+col	public.vendor_papic_captures.thumb_bytes	anon=SIU authenticated=SIU
+col	public.vendor_papic_captures.thumb_r2_key	anon=SIU authenticated=SIU
+col	public.vendor_papic_captures.tile_bytes	anon=SIU authenticated=SIU
+col	public.vendor_papic_captures.tile_r2_key	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.accepted_at	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.additional_fee_centavos	anon=SIU authenticated=SIU

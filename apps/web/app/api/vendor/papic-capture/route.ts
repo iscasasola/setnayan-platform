@@ -240,6 +240,100 @@ export async function POST(req: Request) {
     }
   });
 
+  // ── THE COUPLE'S COPY GOES OUT BEFORE THE ORIGINAL CAN GO AWAY ────────────
+  //
+  // 🔑 THE INVERSE COMES FIRST. Compression is destructive: after the retention
+  // window the full-res original is deleted and the web copy becomes the
+  // photograph. Drive is the ONLY way a couple keeps originals, so the sweep
+  // refuses to drop anything whose key is not confirmed in the couple's Drive
+  // copy (`isDriveDeferred`) — and NOTHING was enqueueing a supplier's captures.
+  //
+  // Without this, wiring the sweep would have been inert on precisely the events
+  // where it matters: on a Drive-connected celebration a supplier's photograph
+  // would defer forever, never dropped, the bill never falling. On an
+  // unconnected one it would drop with no copy anywhere. Both wrong, in opposite
+  // directions.
+  //
+  // A supplier's captures land in the COUPLE'S gallery, so they belong in the
+  // couple's hand-off like any other photograph in it. Same helper, same
+  // artifact type, same per-key dedup — no second copy path.
+  //
+  // Best-effort: a hand-off that fails leaves the key unconfirmed, which makes
+  // the sweep DEFER rather than drop. The failure mode is a kept original.
+  try {
+    const { enqueueDriveCopy, runDriveCopyBatch } = await import('@/lib/drive-copy');
+    await enqueueDriveCopy({
+      eventId,
+      artifactType: 'papic',
+      files: [
+        {
+          r2ObjectKey: key,
+          fileName: key.split('/').pop() || (isClip ? 'capture.webm' : 'capture.jpg'),
+          mimeType: isClip ? 'video/webm' : 'image/jpeg',
+          sourceTable: 'vendor_papic_captures',
+          sourceRef: captureId,
+        },
+      ],
+    });
+    after(() => runDriveCopyBatch({ eventId }).catch(() => {}));
+  } catch {
+    // best-effort — an unconfirmed key makes the sweep defer, never drop.
+  }
+
+  // ── THE COMPRESSED WEB COPY (owner 2026-08-24: "compress it as well") ──────
+  //
+  // A supplier's photographs now get the SAME three AVIF sizes every other
+  // photograph on the platform gets, from the SAME shared generator — a second
+  // compression pipeline is the last thing this needs. The 1280px `display`
+  // copy is what REPLACES the full-res original once the retention window
+  // passes, so without it a supplier's originals sat at full size forever,
+  // outside the model the public privacy notice describes.
+  //
+  // 🔑 WHY IT IS A SEPARATE after() HOOK AND NOT FOLDED INTO THE ONE ABOVE:
+  // that one returns early on a posterless clip (`if (!proxyBytes) return`)
+  // because there is nothing to SCREEN. A photo always has bytes, and folding
+  // these together would tie compression to a screening precondition it does
+  // not share. Two hooks, two reasons, neither able to skip the other.
+  //
+  // Best-effort by contract, like both existing call sites: the generator wraps
+  // every path and returns nulls rather than throwing. A failure leaves
+  // `display_r2_key` NULL, the row is then never a drop candidate, and the
+  // original is simply kept. The failure mode is a bigger bill, never a lost
+  // photograph.
+  //
+  // ⛔ A CLIP'S VIDEO IS NOT TRANSCODED HERE, and cannot be: Vercel has no
+  // ffmpeg, and the couple-side web copy is made by the GUEST'S OWN BROWSER and
+  // uploaded as a finished file. What DOES happen for a clip is the still —
+  // `generateClipThumb` derives tile + thumb from the poster and points
+  // `display_r2_key` at the poster itself, so the gallery side compresses even
+  // though the video keeps its original.
+  after(async () => {
+    try {
+      const { generatePhotoDerivatives, generateClipThumb } = await import(
+        '@/lib/papic-derivatives'
+      );
+      if (isClip) {
+        if (posterRef) {
+          await generateClipThumb(
+            posterRef,
+            'vendor_papic_captures',
+            'capture_id',
+            captureId,
+          );
+        }
+      } else {
+        await generatePhotoDerivatives(
+          r2Ref,
+          'vendor_papic_captures',
+          'capture_id',
+          captureId,
+        );
+      }
+    } catch {
+      // Best-effort: no web copy means the original is kept, never dropped.
+    }
+  });
+
   return NextResponse.json({
     status: 'ok',
     captureId,

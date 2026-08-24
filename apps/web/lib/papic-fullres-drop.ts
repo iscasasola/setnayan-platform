@@ -19,6 +19,7 @@ import {
   sameResolvedObject,
   seatClipItem,
   seatPhotoItem,
+  vendorPhotoItem,
   type ClipDropCandidate,
   type DriveArtifactRow,
   type DriveCopyState,
@@ -353,7 +354,15 @@ export async function runFullResDropSweep(
   }
 
   // PHOTOS. Guest media_type NULL = photo (include null + 'photo', drop 'clip').
-  const [seat, guest] = await Promise.all([
+  //
+  // THREE TABLES, not two (owner 2026-08-24, "compress it as well"). A
+  // SUPPLIER'S own captures land in the couple's gallery and had been outside
+  // this sweep entirely — no web copy, so nothing to replace an original with,
+  // so full resolution in storage forever. Photos only: a vendor clip has no
+  // transcoded video copy to be replaced by (no ffmpeg on Vercel; the couple's
+  // side is transcoded in the guest's browser), so it keeps its original and is
+  // deliberately not a candidate. See vendorPhotoItem.
+  const [seat, guest, vendorOwn] = await Promise.all([
     admin
       .from('papic_photos')
       .select('photo_id, event_id, r2_object_key, display_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserved_at')
@@ -379,6 +388,22 @@ export async function runFullResDropSweep(
       // = never deferred → sorts first), THEN oldest capture. A Drive-deferred row
       // is re-stamped each pass (below) so it rotates to the back of the window
       // instead of permanently occupying the oldest-N head and blocking newer drops.
+      .order('full_res_drop_deferred_at', { ascending: true, nullsFirst: true })
+      .order('captured_at', { ascending: true })
+      .limit(limit),
+    admin
+      .from('vendor_papic_captures')
+      .select('capture_id, event_id, r2_object_key, display_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserved_at')
+      .eq('media_type', 'photo')
+      .is('full_res_dropped_at', null)
+      // The web copy MUST already exist. This is the whole safety property: a
+      // capture whose compression has not landed is not a candidate, so a failed
+      // derivative pass costs storage and can never cost a photograph.
+      .not('display_r2_key', 'is', null)
+      // A capture the supplier or an admin hid is still the couple's photograph
+      // and still obeys retention — hidden is not deleted.
+      .in('event_id', expiredEventIds)
+      // Same anti-starvation cursor as the two above.
       .order('full_res_drop_deferred_at', { ascending: true, nullsFirst: true })
       .order('captured_at', { ascending: true })
       .limit(limit),
@@ -430,6 +455,7 @@ export async function runFullResDropSweep(
   const items: Item[] = [
     ...((seat.data ?? []) as Record<string, unknown>[]).map(seatPhotoItem),
     ...((guest.data ?? []) as Record<string, unknown>[]).map(guestPhotoItem),
+    ...((vendorOwn.data ?? []) as Record<string, unknown>[]).map(vendorPhotoItem),
     ...((seatClips.data ?? []) as Record<string, unknown>[]).map(seatClipItem),
     ...((guestClips.data ?? []) as Record<string, unknown>[]).map(guestClipItem),
   ];

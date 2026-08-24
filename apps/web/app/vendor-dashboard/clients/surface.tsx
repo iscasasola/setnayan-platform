@@ -13,6 +13,7 @@ import {
 import { importExternalClient, removeBlock } from '../calendar/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { shopInputClass } from '../_components/kit';
 import {
   THREAD_STAGE_LABEL,
   THREAD_STAGE_TONE,
@@ -367,20 +368,20 @@ export default async function VendorClientsPage({ searchParams }: Props) {
             </summary>
             <form action={importExternalClient} className="mt-3 grid max-w-md gap-2">
               <input type="hidden" name="return_to" value="clients" />
-              <select name="pool_id" required defaultValue={pools[0]?.poolId} className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm">
+              <select name="pool_id" required defaultValue={pools[0]?.poolId} className={shopInputClass}>
                 {pools.map((p) => (
                   <option key={p.poolId} value={p.poolId}>
                     {p.label}
                   </option>
                 ))}
               </select>
-              <input type="text" name="client_name" required placeholder="Client name" maxLength={120} className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
-              <input type="text" name="client_contact" placeholder="Contact (optional)" maxLength={160} className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
-              <input type="text" name="client_note" placeholder="Note (optional)" maxLength={500} className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+              <input type="text" name="client_name" required placeholder="Client name" maxLength={120} className={shopInputClass} />
+              <input type="text" name="client_contact" placeholder="Contact (optional)" maxLength={160} className={shopInputClass} />
+              <input type="text" name="client_note" placeholder="Note (optional)" maxLength={500} className={shopInputClass} />
               <div className="flex flex-wrap items-center gap-2">
-                <input type="date" name="start_date" required className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                <input type="date" name="start_date" required className={shopInputClass} />
                 <span className="text-sm text-ink/50">to</span>
-                <input type="date" name="end_date" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                <input type="date" name="end_date" className={shopInputClass} />
               </div>
               <SubmitButton pendingLabel="Importing…" className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream">
                 Import · free

@@ -214,7 +214,16 @@ export function buildCustomerMenuTree(
       // from within Guests and stays in activeMatch). Mirrors the Overview menu
       // above (plain, childless). The FULL activeMatch is kept so /seating,
       // /event-qr, and /hosts still light the Guests item.
-      activeMatch: [`${base}/guests`, `${base}/seating`, `${base}/event-qr`, `${base}/hosts`],
+      // `/people` — the roster ABOVE the five people routes — lights Guests
+      // too. It is not a sixth menu: it is the view onto the ones that exist,
+      // and giving it its own tab would imply a surface that competes with them.
+      activeMatch: [
+        `${base}/guests`,
+        `${base}/seating`,
+        `${base}/event-qr`,
+        `${base}/hosts`,
+        `${base}/people`,
+      ],
     },
     {
       key: 'explore',

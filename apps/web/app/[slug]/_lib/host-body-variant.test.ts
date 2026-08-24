@@ -45,6 +45,7 @@ const hostOf = (eventId: string): OwnerCapability => ({
   capability: 'owner',
   ownerUserId: 'user-1',
   ownerEventId: eventId,
+  maySiteEdit: true,
 });
 
 // ── 1 · WHO IS ADDRESSED AS THE HOST ───────────────────────────────────────

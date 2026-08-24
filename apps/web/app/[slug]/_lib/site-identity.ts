@@ -157,6 +157,22 @@ export type OwnerCapability = {
   /** The event that membership was verified AGAINST. A capability resolved
    *  for event A must never be honoured on event B. */
   ownerEventId: string;
+  /**
+   * May this host actually EDIT the site, or only look at it?
+   *
+   * 🔴 WHY THIS KEY EXISTS. The ribbon offered "Edit this site" to everyone the
+   * capability admitted, and the capability admits a `coordinator` member and
+   * every accepted delegate — while `website/editor/page.tsx` redirects anybody
+   * whose `event_members.member_type` is not `couple`. So a coordinator pressed
+   * a button and was bounced with no explanation. A control that refuses the
+   * person it is shown to reads as a broken product.
+   *
+   * ⚖ NARROWER THAN THE CAPABILITY, NEVER WIDER. It is a second, STRICTER fact
+   * about a host the database has already confirmed — it can only ever take the
+   * edit doorway away, never hand one to somebody the capability refused. The
+   * editor's own gate is untouched and remains the boundary.
+   */
+  maySiteEdit: boolean;
 };
 
 /**
@@ -306,6 +322,7 @@ export const OWNER_CAPABILITY_KEYS = [
   'capability',
   'ownerUserId',
   'ownerEventId',
+  'maySiteEdit',
 ] as const satisfies readonly (keyof OwnerCapability)[];
 
 /**
@@ -339,14 +356,27 @@ export async function resolveOwnerCapability(input: {
    *  reads never happen inside cached loaders. */
   viewerUserId: string | null;
   checkHostMembership: HostMembershipCheck;
+  /**
+   * Is this host one of the couple — the only member type the site editor
+   * admits? Asked ONLY after `checkHostMembership` has already said yes, so it
+   * can never widen the capability. Optional so every existing caller and test
+   * keeps compiling; absent means "we did not ask", which resolves to false —
+   * the safe direction, since being wrong here shows a doorway that works
+   * (the planning desk) instead of one that refuses.
+   */
+  checkSiteEditing?: HostMembershipCheck;
 }): Promise<OwnerCapability | null> {
   if (!input.viewerUserId) return null;
   const isHost = await input.checkHostMembership(input.viewerUserId);
   if (!isHost) return null;
+  const maySiteEdit = input.checkSiteEditing
+    ? await input.checkSiteEditing(input.viewerUserId)
+    : false;
   return {
     capability: 'owner',
     ownerUserId: input.viewerUserId,
     ownerEventId: input.eventId,
+    maySiteEdit,
   };
 }
 

@@ -167,6 +167,36 @@ export type EventShellRow = NonNullable<Awaited<ReturnType<typeof loadEventShell
  * `host-scope.ts` for the full note and the shared definition.
  */
 
+/**
+ * Is this viewer one of the COUPLE on this event?
+ *
+ * The narrow twin of `loadHostMembership`, and deliberately the exact question
+ * `app/dashboard/[eventId]/website/editor/page.tsx` asks before it redirects:
+ * `event_members.member_type = 'couple'`. Two copies of a rule is how the
+ * ribbon and the editor came to disagree about the same person in the first
+ * place, so this reads the same column with the same value rather than
+ * inventing a second notion of "can edit".
+ *
+ * ⚖ It grants NOTHING. It is only ever consulted after host membership has
+ * already been confirmed, and its answer can only remove the edit doorway from
+ * the ribbon. The editor's own gate stays the boundary.
+ *
+ * Cached per (event, user) like its sibling, so a host who triggers both pays
+ * one extra query for the whole render.
+ */
+export const loadCoupleMembership = cache(
+  async (admin: AdminClient, eventId: string, userId: string): Promise<boolean> => {
+    const { data } = await admin
+      .from('event_members')
+      .select('member_type')
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+      .eq('member_type', 'couple')
+      .maybeSingle();
+    return Boolean(data);
+  },
+);
+
 export const loadHostMembership = cache(
   async (admin: AdminClient, eventId: string, userId: string): Promise<boolean> => {
     const [{ data: memberRow }, { data: moderatorRow }] = await Promise.all([

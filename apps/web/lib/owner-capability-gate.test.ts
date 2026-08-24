@@ -52,10 +52,44 @@ test('owner gate resolves a capability for a verified host', async () => {
     capability: 'owner',
     ownerUserId: HOST_USER_ID,
     ownerEventId: EVENT_ID,
+    // Not asked ⇒ false. A caller that does not supply `checkSiteEditing` gets
+    // the safe answer, which sends the host to their planning desk rather than
+    // to an editor that may redirect them. It can never hand out an edit
+    // doorway nobody confirmed.
+    maySiteEdit: false,
   });
   // It asked the database about the VIEWER's own id — not an id taken from
   // anything the request could have supplied.
   assert.deepEqual(probe.asked, [HOST_USER_ID]);
+});
+
+test('owner gate: the edit fact is asked ONLY of a confirmed host, and only about them', async () => {
+  // It must never widen the capability — a person the membership probe refuses
+  // gets no capability at all, so the second probe is not even consulted.
+  const asked: string[] = [];
+  const denied = await resolveOwnerCapability({
+    eventId: EVENT_ID,
+    viewerUserId: 'somebody-else',
+    checkHostMembership: async () => false,
+    checkSiteEditing: async (id) => {
+      asked.push(id);
+      return true;
+    },
+  });
+  assert.equal(denied, null);
+  assert.equal(asked.length, 0, 'the edit probe ran for somebody who is not a host at all');
+
+  const host = await resolveOwnerCapability({
+    eventId: EVENT_ID,
+    viewerUserId: HOST_USER_ID,
+    checkHostMembership: async () => true,
+    checkSiteEditing: async (id) => {
+      asked.push(id);
+      return true;
+    },
+  });
+  assert.equal(host?.maySiteEdit, true);
+  assert.deepEqual(asked, [HOST_USER_ID], 'the edit probe asked about somebody else');
 });
 
 test('owner gate denies an anonymous visitor (no signed-in account)', async () => {

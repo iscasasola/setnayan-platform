@@ -68,8 +68,20 @@ export type OwnerRibbonPhaseLink = {
 export type OwnerRibbonModel = {
   /** Back to the planning surface. `/dashboard/[eventId]` stays the place where
    *  editing happens; the ribbon is the doorway to it (repo wayfinding rule:
-   *  a page ships with its doorway). */
+   *  a page ships with its doorway).
+   *
+   *  🔴 IT IS NOT ALWAYS THE EDITOR. This link went to `website/editor`
+   *  unconditionally, and that route redirects anybody whose
+   *  `event_members.member_type` is not `couple` — so a coordinator pressed
+   *  "Edit this site" and was silently bounced. The doorway now goes where the
+   *  viewer can actually go: the editor for the couple, their planning desk for
+   *  every other host. A control that refuses the person it is shown to reads
+   *  as a broken product, and REMOVING the only way out of the guest site would
+   *  have been a second defect, not a fix. */
   editorHref: string;
+  /** What the doorway says. Lives in the model, not the component, because
+   *  which door it opens is a decision and every decision here is tested. */
+  editorLabel: string;
   /**
    * The four phase-preview links, or an EMPTY array when the lifecycle engine
    * is off for this event (`phasesEnabled === false`). Empty rather than
@@ -114,8 +126,15 @@ export function buildOwnerRibbon(input: {
   if (!slug) return null;
 
   const base = `/${encodeURIComponent(slug)}`;
+  const dash = `/dashboard/${encodeURIComponent(eventId)}`;
+  // Read off the capability the DATABASE minted, never off anything the request
+  // carries. `maySiteEdit` is a stricter fact about a host already confirmed,
+  // so an absent or false value can only ever send somebody to the planning
+  // desk — a page the event layout already admits every host to.
+  const maySiteEdit = ownerCapability?.maySiteEdit === true;
   return {
-    editorHref: `/dashboard/${encodeURIComponent(eventId)}/website/editor`,
+    editorHref: maySiteEdit ? `${dash}/website/editor` : dash,
+    editorLabel: maySiteEdit ? 'Edit this site' : 'Open the planning desk',
     phaseLinks: phasesEnabled
       ? OWNER_RIBBON_PHASES.map((phase) => ({
           phase,

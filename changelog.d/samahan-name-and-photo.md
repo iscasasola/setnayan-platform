@@ -32,3 +32,18 @@ change contributes exactly 2 new facts: `communities.photo_url` and the
 `member_can_update_community` policy.
 
 SPEC IMPACT: DECISION_LOG.md row 2026-08-24 (samahan rename + group photo).
+
+### Amended same day — edited in place, not in a card
+
+Owner, looking at the live header: *"click on this image to upload photo? …
+taps the text to rename as well? or an edit button for the text"*. Both
+questions answered rather than split: **the photo chip is the button** (with
+a camera badge on its corner, because an invisible control is the complaint
+that produced this), and **the title is the button too, with a pencil beside
+it** — tap-anywhere alone is undiscoverable, a lone pencil is a small target
+on a phone, so the whole title is the target and the pencil is what tells
+you. The separate "Name & photo" card is **removed**: two places to rename
+would drift, and a pinned test now fails if the page grows its own copy.
+
+5 shape pins, 4 measured mutations (chip unwired · pencil deleted · failed
+upload keeping a phantom preview · a second form on the page), all red.

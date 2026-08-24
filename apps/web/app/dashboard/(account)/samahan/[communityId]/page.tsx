@@ -42,10 +42,9 @@ import {
   promoteMember,
   removeMember,
   rotateInviteToken,
-  updateCommunityIdentity,
 } from '../actions';
-import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { SamahanIdentityHeader } from './_components/samahan-identity-header';
 
 export const metadata = {
   title: 'Samahan',
@@ -158,43 +157,30 @@ export default async function SamahanSpacePage({
         Back to Samahan
       </Link>
 
-      {/* Header band — glass panel: initial chip w/ gold RING (jewelry, not
-          paint), serif name + public_id in mono, member/event
-          metaline. */}
-      <div className="mb-6 rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
-        <div className="flex items-center gap-4">
-          {photoDisplayUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- short-lived presigned URL; the optimizer would re-transform per render
-            <img
-              src={photoDisplayUrl}
-              alt=""
-              className="h-14 w-14 shrink-0 rounded-2xl object-cover ring-1 ring-terracotta-500"
-            />
-          ) : (
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-mulberry/10 text-xl font-semibold text-mulberry ring-1 ring-terracotta-500">
-              {initial}
-            </span>
-          )}
-          <div className="min-w-0">
-            <h1 className="truncate font-sans text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-              {community.name}
-            </h1>
-            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] uppercase tracking-[0.18em]">
-              <span className="text-ink/45">{community.public_id}</span>
-            </p>
-          </div>
-        </div>
-        <p className="mt-3 font-mono text-xs text-ink/55">
-          {/* The reader is BY DEFINITION a member of this Samahan, so "0
-              members" is a number they can personally disprove. When the count
-              was refused, say nothing rather than a figure. */}
-          {community.member_count_measured === false
-            ? 'Members not loaded'
-            : `${community.member_count} ${community.member_count === 1 ? 'member' : 'members'}`}{' '}
-          · {events.length}{' '}
-          {events.length === 1 ? 'event' : 'events'}
-        </p>
-      </div>
+      {/* Header band — the samahan's face, edited WHERE IT IS (owner
+          2026-08-24: "click on this image to upload photo? … taps the text to
+          rename as well?"). Client component: the chip is the photo button,
+          the title is the rename button. */}
+      <SamahanIdentityHeader
+        communityId={community.community_id}
+        name={community.name}
+        publicId={community.public_id}
+        photoUrl={community.photo_url}
+        photoDisplayUrl={photoDisplayUrl}
+        initial={initial}
+        metaLine={
+          <p className="mt-3 font-mono text-xs text-ink/55">
+            {/* The reader is BY DEFINITION a member of this Samahan, so "0
+                members" is a number they can personally disprove. When the
+                count was refused, say nothing rather than a figure. */}
+            {community.member_count_measured === false
+              ? 'Members not loaded'
+              : `${community.member_count} ${community.member_count === 1 ? 'member' : 'members'}`}{' '}
+            · {events.length}{' '}
+            {events.length === 1 ? 'event' : 'events'}
+          </p>
+        }
+      />
 
       {successMessage ? (
         <p
@@ -250,9 +236,6 @@ export default async function SamahanSpacePage({
           inviteToken={inviteToken}
           isOrganizer={isOrganizer}
           memberCount={community.member_count}
-          name={community.name}
-          photoUrl={community.photo_url}
-          photoDisplayUrl={photoDisplayUrl}
           stories={stories}
         />
       ) : tab === 'members' ? (
@@ -282,9 +265,6 @@ function OverviewTab({
   inviteToken,
   isOrganizer,
   memberCount,
-  name,
-  photoUrl,
-  photoDisplayUrl,
   stories,
 }: {
   base: string;
@@ -295,9 +275,6 @@ function OverviewTab({
   inviteToken: string | null;
   isOrganizer: boolean;
   memberCount: number;
-  name: string;
-  photoUrl: string | null;
-  photoDisplayUrl: string | null;
   stories: SamahanStory[];
 }) {
   // One resolver (lib/site-origin.ts). This chain omitted NEXT_PUBLIC_APP_URL,
@@ -310,51 +287,6 @@ function OverviewTab({
       <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
         <SamahanStories communityId={communityId} stories={stories} />
       </div>
-      {/* Name & photo — EVERY member may change these (owner 2026-08-24:
-          "anyone can rename"); the DB trigger keeps archived/kind/identity
-          organizer-side, so this form needs no role gate. */}
-      <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/45">
-          Name &amp; photo
-        </p>
-        <form action={updateCommunityIdentity} className="mt-3 space-y-3">
-          <input type="hidden" name="community_id" value={communityId} />
-          <label className="block text-xs text-ink/60">
-            What this samahan is called — anyone here can change it.
-            <input
-              type="text"
-              name="name"
-              defaultValue={name}
-              minLength={2}
-              maxLength={80}
-              className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
-            />
-          </label>
-          <div className="text-xs text-ink/60">
-            Group photo
-            <div className="mt-1">
-              <FileUpload
-                bucket="media"
-                pathPrefix={`samahan/${communityId}/photo`}
-                acceptedTypes={['image/jpeg', 'image/png', 'image/webp']}
-                maxSizeMB={5}
-                name="photo_url"
-                currentValue={photoUrl}
-                initialDisplayUrls={
-                  photoUrl && photoDisplayUrl ? { [photoUrl]: photoDisplayUrl } : undefined
-                }
-              />
-            </div>
-          </div>
-          <SubmitButton
-            className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-3.5 py-2 text-xs font-semibold text-white"
-            pendingLabel="Saving…"
-          >
-            Save
-          </SubmitButton>
-        </form>
-      </div>
-
       <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
         {description ? (
           <p className="text-sm leading-relaxed text-ink/75">{description}</p>

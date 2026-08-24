@@ -15,6 +15,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createProposal, deleteTemplate, saveTemplate } from './actions';
 import { VendorReuseInbox } from './_components/reuse-inbox';
+import { shopInputClass } from '../_components/kit';
 
 export const metadata = { title: 'Proposals · Vendor' };
 
@@ -162,7 +163,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
         ) : (
           <form action={createProposal} className="mt-3 grid gap-2">
             <div className="grid gap-2 sm:grid-cols-2">
-              <select name="event_id" required className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" defaultValue="">
+              <select name="event_id" required className={shopInputClass} defaultValue="">
                 <option value="" disabled>
                   Booked client…
                 </option>
@@ -172,7 +173,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
                   </option>
                 ))}
               </select>
-              <select name="template_id" required className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" defaultValue="">
+              <select name="template_id" required className={shopInputClass} defaultValue="">
                 <option value="" disabled>
                   Template…
                 </option>
@@ -184,7 +185,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
               </select>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
-              <select name="package_id" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" defaultValue="">
+              <select name="package_id" className={shopInputClass} defaultValue="">
                 <option value="">Attach a package (optional)</option>
                 {packages.map((p) => (
                   <option key={p.package_id} value={p.package_id}>
@@ -192,7 +193,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
                   </option>
                 ))}
               </select>
-              <input type="text" name="title" maxLength={160} placeholder="Title (optional — auto-filled)" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+              <input type="text" name="title" maxLength={160} placeholder="Title (optional — auto-filled)" className={shopInputClass} />
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-ink/70">
               <label className="inline-flex items-center gap-1.5">
@@ -281,7 +282,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
             <Plus aria-hidden className="h-4 w-4" /> New template
           </summary>
           <form action={saveTemplate} className="mt-3 grid gap-2">
-            <input type="text" name="template_name" required maxLength={120} placeholder="Template name, e.g. Full wedding catering" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+            <input type="text" name="template_name" required maxLength={120} placeholder="Template name, e.g. Full wedding catering" className={shopInputClass} />
             <textarea
               name="body"
               rows={6}
@@ -291,7 +292,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
             />
             <textarea name="terms" rows={3} maxLength={20000} placeholder="Terms — payment schedule, inclusions, cancellation policy…" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 font-mono text-xs" />
             {packages.length > 0 ? (
-              <select name="default_package_id" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" defaultValue="">
+              <select name="default_package_id" className={shopInputClass} defaultValue="">
                 <option value="">Default package (optional)</option>
                 {packages.map((p) => (
                   <option key={p.package_id} value={p.package_id}>

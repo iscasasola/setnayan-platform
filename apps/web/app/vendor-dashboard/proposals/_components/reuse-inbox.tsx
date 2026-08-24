@@ -6,6 +6,7 @@
  */
 import { RefreshCw } from 'lucide-react';
 import { listVendorReuseRequests, vendorQuoteReuseForm, vendorDeclineReuseForm } from '../reuse-actions';
+import { shopInputClass } from '../../_components/kit';
 
 export async function VendorReuseInbox() {
   const { enabled, rows } = await listVendorReuseRequests();
@@ -49,7 +50,7 @@ export async function VendorReuseInbox() {
                   required
                   placeholder="New price (₱)"
                   defaultValue={r.quotedTotalPhp ?? ''}
-                  className="w-36 rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                  className={`w-36 ${shopInputClass}`}
                 />
                 <button
                   type="submit"

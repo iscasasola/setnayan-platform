@@ -17,6 +17,7 @@ import {
 import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
 import { setCalendarDayState, notifyWaitlistSlot } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { shopInputClass } from '../../_components/kit';
 
 export const metadata = { title: 'Day · Calendar · Vendor' };
 
@@ -219,7 +220,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
                     <select
                       name="day_state"
                       defaultValue={d.locked ? 'locked' : d.whitelist ? 'whitelist' : 'open'}
-                      className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                      className={shopInputClass}
                     >
                       <option value="open">Open (bookable)</option>
                       <option value="locked">Locked (hard hold)</option>
@@ -231,7 +232,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
                     name="note"
                     placeholder="Note (only you see this)"
                     maxLength={300}
-                    className="min-w-40 flex-1 rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                    className={`min-w-40 flex-1 ${shopInputClass}`}
                   />
                   <SubmitButton
                     pendingLabel="Saving…"
@@ -258,7 +259,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
                 <select
                   name="day_state"
                   defaultValue="open"
-                  className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                  className={shopInputClass}
                 >
                   <option value="open">Open (bookable)</option>
                   <option value="locked">Locked (hard hold)</option>
@@ -270,7 +271,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
                 name="note"
                 placeholder="Note (only you see this)"
                 maxLength={300}
-                className="min-w-40 flex-1 rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                className={`min-w-40 flex-1 ${shopInputClass}`}
               />
               <SubmitButton
                 pendingLabel="Saving…"

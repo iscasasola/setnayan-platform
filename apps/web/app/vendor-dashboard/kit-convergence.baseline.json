@@ -5,12 +5,6 @@
   "_components/feature-accordion.tsx": {
     "card": 1
   },
-  "calendar/[date]/page.tsx": {
-    "input": 4
-  },
-  "calendar/surface.tsx": {
-    "input": 15
-  },
   "clients/[eventId]/_components/script-tab.tsx": {
     "card": 1
   },
@@ -26,9 +20,6 @@
   "clients/[eventId]/page.tsx": {
     "card": 6
   },
-  "clients/[eventId]/production-sheet/page.tsx": {
-    "input": 3
-  },
   "demand/_components/demand-radar-card.tsx": {
     "card": 5
   },
@@ -43,12 +34,6 @@
   },
   "payday/_components/payday-summary.tsx": {
     "card": 1
-  },
-  "proposals/_components/reuse-inbox.tsx": {
-    "input": 1
-  },
-  "proposals/surface.tsx": {
-    "input": 6
   },
   "theft-watch/page.tsx": {
     "card": 1

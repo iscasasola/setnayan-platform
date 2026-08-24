@@ -34,6 +34,7 @@ import { BellRing } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import type { ReactNode } from 'react';
+import { shopInputClass } from '../_components/kit';
 
 export const metadata = { title: 'Calendar · Vendor' };
 
@@ -394,7 +395,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
           required
           maxLength={80}
           placeholder="Calendar name (e.g. Main Team)"
-          className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+          className={shopInputClass}
         />
         <label className="flex items-center gap-2 text-sm text-ink/75">
           Bookings per day
@@ -404,7 +405,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
             min={1}
             max={50}
             defaultValue={1}
-            className="w-24 rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+            className={`w-24 ${shopInputClass}`}
           />
         </label>
         {servicePicker(new Set())}
@@ -907,7 +908,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
                       required
                       maxLength={80}
                       defaultValue={activePool.calendarName ?? activePool.label}
-                      className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                      className={shopInputClass}
                     />
                     <label className="flex items-center gap-2 text-sm text-ink/75">
                       Bookings per day
@@ -917,7 +918,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
                         min={1}
                         max={50}
                         defaultValue={activePool.capacity}
-                        className="w-24 rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                        className={`w-24 ${shopInputClass}`}
                       />
                     </label>
                     {servicePicker(new Set(activePool.serviceIds))}
@@ -945,7 +946,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
                       min={1}
                       max={50}
                       defaultValue={activePool.capacity}
-                      className="w-24 rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                      className={`w-24 ${shopInputClass}`}
                     />
                     <SubmitButton
                       pendingLabel="Saving…"
@@ -976,17 +977,17 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
                   name="label"
                   placeholder="Label (only you see this)"
                   maxLength={120}
-                  className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                  className={shopInputClass}
                 />
                 <div className="flex flex-wrap items-center gap-2">
-                  <input type="date" name="start_date" required className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                  <input type="date" name="start_date" required className={shopInputClass} />
                   <span className="text-sm text-ink/50">to</span>
-                  <input type="date" name="end_date" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                  <input type="date" name="end_date" className={shopInputClass} />
                 </div>
                 <select
                   name="scope"
                   defaultValue={isAllView ? 'org' : activePool?.poolId}
-                  className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                  className={shopInputClass}
                 >
                   <option value="org">Business-wide (every schedule)</option>
                   {pools.map((p) => (
@@ -1014,7 +1015,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
               <form action={importExternalClient} className="mt-3 grid gap-2">
                 {returnFields}
                 {isAllView ? (
-                  <select name="pool_id" required defaultValue={pools[0]?.poolId} className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm">
+                  <select name="pool_id" required defaultValue={pools[0]?.poolId} className={shopInputClass}>
                     {pools.map((p) => (
                       <option key={p.poolId} value={p.poolId}>
                         {p.label}
@@ -1024,13 +1025,13 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
                 ) : (
                   <input type="hidden" name="pool_id" value={activePool?.poolId ?? ''} />
                 )}
-                <input type="text" name="client_name" required placeholder="Client name" maxLength={120} className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
-                <input type="text" name="client_contact" placeholder="Contact (optional)" maxLength={160} className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
-                <input type="text" name="client_note" placeholder="Note (optional)" maxLength={500} className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                <input type="text" name="client_name" required placeholder="Client name" maxLength={120} className={shopInputClass} />
+                <input type="text" name="client_contact" placeholder="Contact (optional)" maxLength={160} className={shopInputClass} />
+                <input type="text" name="client_note" placeholder="Note (optional)" maxLength={500} className={shopInputClass} />
                 <div className="flex flex-wrap items-center gap-2">
-                  <input type="date" name="start_date" required className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                  <input type="date" name="start_date" required className={shopInputClass} />
                   <span className="text-sm text-ink/50">to</span>
-                  <input type="date" name="end_date" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                  <input type="date" name="end_date" className={shopInputClass} />
                 </div>
                 <SubmitButton pendingLabel="Importing…" className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream">
                   Import · free

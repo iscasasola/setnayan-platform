@@ -7,6 +7,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { PrintButton } from '@/components/print-button';
 import { addPortionRule, deletePortionRule } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { shopInputClass } from '../../../_components/kit';
 
 export const metadata = { title: 'Production Sheet · Vendor' };
 
@@ -351,9 +352,9 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
           <form action={addPortionRule} className="mt-3 grid gap-2">
             <input type="hidden" name="event_id" value={eventId} />
             <div className="grid gap-2 sm:grid-cols-3">
-              <input type="text" name="label" required maxLength={120} placeholder="Item, e.g. Rice" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
-              <input type="number" name="qty_per_guest" required min="0.001" step="any" placeholder="Qty per guest" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
-              <input type="text" name="unit" required maxLength={30} placeholder="Unit, e.g. kg" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+              <input type="text" name="label" required maxLength={120} placeholder="Item, e.g. Rice" className={shopInputClass} />
+              <input type="number" name="qty_per_guest" required min="0.001" step="any" placeholder="Qty per guest" className={shopInputClass} />
+              <input type="text" name="unit" required maxLength={30} placeholder="Unit, e.g. kg" className={shopInputClass} />
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink/70">
               <span className="font-medium">Only these meals:</span>

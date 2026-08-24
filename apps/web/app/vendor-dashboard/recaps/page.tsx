@@ -11,6 +11,7 @@ import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-c
 import { canUseSoloBusinessTools } from '@/lib/vendor-tier-caps';
 import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { VendorTierGate } from '../_components/tier-gate';
+import { ShopEmpty } from '../_components/kit';
 
 export const metadata = { title: 'Recaps · Vendor' };
 
@@ -65,7 +66,7 @@ export default async function VendorRecapsPage() {
       </header>
 
       {recaps.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/20 p-8 text-center sm:p-10">
+        <ShopEmpty>
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta-700">
             Coming soon
           </p>
@@ -76,7 +77,7 @@ export default async function VendorRecapsPage() {
             Once a couple you helped publishes their wedding recap, you&rsquo;ll find it here — ready
             to share to your Page.
           </p>
-        </div>
+        </ShopEmpty>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2">
           {recaps.map((r) => {

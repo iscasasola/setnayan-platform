@@ -20,6 +20,7 @@ import {
 } from '@/lib/boomerang-encoder';
 import { submitVendorEditorialMedia, deleteVendorEditorialMedia } from '../actions';
 import { MAX_PER_TYPE, type SubmitMediaItem } from '@/lib/editorial-vendor-media';
+import { ShopPill } from '../../../../_components/kit';
 
 export type ExistingMedia = {
   mediaId: string;
@@ -86,18 +87,14 @@ function getVideoDuration(file: File): Promise<number> {
 }
 
 function StatusBadge({ m }: { m: ExistingMedia }) {
-  const [label, cls] = m.hiddenByCouple
-    ? ['Hidden by couple', 'bg-ink/5 text-ink/55']
+  const [label, tone] = m.hiddenByCouple
+    ? (['Hidden by couple', 'ink'] as const)
     : m.moderationState === 'clean'
-      ? ['Live on editorial', 'bg-success-100 text-success-900']
+      ? (['Live on editorial', 'success'] as const)
       : m.moderationState === 'unscreened'
-        ? ['Checking…', 'bg-warn-100 text-warn-900']
-        : ['Removed', 'bg-red-100 text-red-900'];
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cls}`}>
-      {label}
-    </span>
-  );
+        ? (['Checking…', 'warn'] as const)
+        : (['Removed', 'danger'] as const);
+  return <ShopPill tone={tone}>{label}</ShopPill>;
 }
 
 export function EditorialMediaStudio({

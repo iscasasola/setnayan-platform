@@ -5,6 +5,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { relativeTime } from '@/lib/activity';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitDisputeContest } from './actions';
+import { ShopEmpty } from '../_components/kit';
 
 export const metadata = { title: 'Disputes · Vendor' };
 
@@ -134,14 +135,14 @@ export default async function VendorDisputesPage() {
       ) : null}
 
       {rows.length === 0 && !error ? (
-        <div className="rounded-xl border border-dashed border-ink/15 p-8 text-center">
+        <ShopEmpty>
           <CheckCircle2 aria-hidden className="mx-auto h-8 w-8 text-success-600" strokeWidth={1.75} />
           <p className="mt-3 text-sm font-medium text-ink">No disputes — nice work.</p>
           <p className="mt-1 text-sm text-ink/60">
             Nothing has been raised against your shop. If a couple ever does, it
             shows up here and the team reviews it before it touches your standing.
           </p>
-        </div>
+        </ShopEmpty>
       ) : (
         <>
           {openCount > 0 ? (

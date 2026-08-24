@@ -130,7 +130,7 @@ import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { logQueryError } from '@/lib/supabase/error-detect';
 // The tree kit (W4-B): `Card` here IS ShopCard — the local definition this
 // file used to carry was byte-identical to the kit's dominant card recipe.
-import { ShopCard, ShopCard as Card, shopInputClass } from '../../_components/kit';
+import { ShopCard, ShopCard as Card, ShopEmpty, shopInputClass } from '../../_components/kit';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -2540,7 +2540,7 @@ function FilesTab(props: {
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Shared files</p>
 
       {!hasAny ? (
-        <div className="rounded-xl border border-dashed border-ink/15 bg-white px-4 py-6 text-center">
+        <ShopEmpty>
           <FolderOpen aria-hidden className="mx-auto h-6 w-6 text-ink/30" strokeWidth={1.5} />
           <p className="mt-2 text-sm text-ink/55">
             No files here yet. Contracts you upload for this couple show up here; share other files
@@ -2554,7 +2554,7 @@ function FilesTab(props: {
               Share files in chat →
             </Link>
           ) : null}
-        </div>
+        </ShopEmpty>
       ) : (
         <ul className="space-y-2">
           {contracts.map((c) => (

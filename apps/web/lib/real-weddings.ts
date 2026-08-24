@@ -1231,6 +1231,71 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     setnayanNote:
       'Small, repeating and easy to lose track of — which is exactly why it is on Setnayan: whose turn it is, who is coming, and every photo from seven years of Thursdays in one place.',
   },
+
+  // ── Funeral ──────────────────────────────────────────────────────────────────
+  // The one SOLEMN sample. Written in the register the funeral type ships with:
+  // nothing here celebrates, counts down, or pitches — it is a family holding a
+  // good wake, told the way Filipino families actually tell it afterwards.
+  {
+    slug: 'andres-villanueva-lipa-paalam',
+    coupleNames: 'Andres Villanueva',
+    isSample: true,
+    publishedAt: '2026-08-24',
+    eventDateLabel: 'May 2026',
+    city: 'Lipa',
+    eventType: 'Funeral',
+    ceremonyType: 'Catholic funeral mass',
+    venueSetting: 'Family home & parish',
+    venueName: 'The Villanueva home, then San Sebastian Parish, Lipa',
+    theme: 'White flowers, open door',
+    palette: ['#F5F2EC', '#8A9B84', '#D9D2C4', '#3D4038'],
+    guestCount: 'Five nights of visitors',
+    excerpt:
+      'Five nights of lamay in the family sala in Lipa, a funeral mass, and a son in Dubai who kept vigil on a screen — the Villanuevas said goodbye to Lolo Andres the way he asked: at home.',
+    heroQuote: 'He asked to be home. So we brought everyone home to him.',
+    witnessQuote:
+      'I came on the second night and stayed until the fourth. That is what he was to this street.',
+    witnessAttribution: 'Mang Ben, neighbor of forty years',
+    services: ['Papic', 'Live Studio'],
+    editionNumber: 21,
+    story: [
+      {
+        type: 'p',
+        text: 'The wake for Andres Villanueva — Lolo Andres to four generations — was held at home, in the sala where he had taken his coffee every morning for forty years. Five nights, the door open, the way he had asked.',
+      },
+      {
+        type: 'p',
+        text: 'His granddaughter Bea kept the schedule: which night the cousins from Batangas City would come, who was bringing food on Wednesday, what time the prayers began. Nobody had to ring the family to ask — the page said where, and when, and how to send an abuloy for those who could not come in person.',
+      },
+      { type: 'h2', text: 'The nights' },
+      {
+        type: 'p',
+        text: 'Neighbors came after dinner and stayed late over coffee. The photographs the visitors took those evenings — hands held, old friends arriving, the room full at eleven at night — went quietly into one gallery, where the family found pictures of people they had not seen in years.',
+      },
+      { type: 'h2', text: 'From Dubai' },
+      {
+        type: 'p',
+        text: 'His eldest son, Ramon, could not fly home in time. He kept vigil on a screen — the funeral mass and the interment streamed live from the parish — and the family propped the phone where Lolo would have wanted him to stand.',
+      },
+      { type: 'h2', text: 'What they said' },
+      {
+        type: 'ul',
+        items: [
+          '“He asked to be home. So we brought everyone home to him.” — Bea, granddaughter',
+          '“I watched the mass from Dubai with my own children beside me. We were there.” — Ramon, son',
+          '“That is what he was to this street.” — Mang Ben, neighbor',
+        ],
+      },
+    ],
+    team: [
+      { role: 'Catering', href: '/explore' },
+      { role: 'Flowers', href: '/explore' },
+      { role: 'Photo & Video', href: '/explore' },
+      { role: 'Transport', href: '/explore' },
+    ],
+    setnayanNote:
+      'The Villanueva family used one page to tell everyone where and when — the vigil nights, the mass, the interment — collected every photograph in one gallery, and kept the door open for family abroad through the live stream. The abuloy went straight to the family’s own account.',
+  },
 ];
 
 // ───────────────────────────────────────────────────────────────────────────

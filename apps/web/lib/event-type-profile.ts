@@ -40,6 +40,28 @@ export type ProfileTerminology = {
   seatWord: string; // 'table' | 'spot'
   eventWord: string; // 'wedding' | 'celebration'
   vipTierLabel: string; // top seating-tier label
+  /**
+   * The register the guest tree speaks in (owner 2026-08-17: a funeral is "a
+   * TONE build across the whole guest tree, not a row in a table").
+   *
+   * 'celebratory' — every type that existed before the funeral. The guest tree
+   * keeps saying "celebration", renders the countdown, offers the upsells.
+   * 'solemn' — a wake/funeral. The tree never says "celebrate", never counts
+   * down, never pitches; each site renders a deliberately-drafted quiet arm.
+   *
+   * Parsed strictly in toProfile: anything that is not the literal 'solemn'
+   * resolves to the fallback profile's register, so a typo in an admin-edited
+   * row degrades to today's voice for the 15 celebratory types — and the
+   * FUNERAL_PROFILE code fallback keeps a funeral solemn even when its DB row
+   * is missing entirely.
+   */
+  register: 'celebratory' | 'solemn';
+  /**
+   * The word for the occasion in mechanical guest-read slots ("during the
+   * ___", "for this ___"). 'celebration' everywhere today — byte-identical —
+   * and 'gathering' for the funeral, where "celebration" is the defect.
+   */
+  occasionNoun: string;
 };
 
 export type EventTypeProfile = {
@@ -100,6 +122,8 @@ export const WEDDING_PROFILE: EventTypeProfile = {
     seatWord: 'table',
     eventWord: 'wedding',
     vipTierLabel: 'Family & sponsors',
+    register: 'celebratory',
+    occasionNoun: 'celebration',
   },
   enabledSurfaces: ALL_SURFACES,
   marketplaceEnabled: true,
@@ -136,6 +160,8 @@ export const GENERIC_PROFILE: EventTypeProfile = {
     seatWord: 'table',
     eventWord: 'event',
     vipTierLabel: 'Guests of honor',
+    register: 'celebratory',
+    occasionNoun: 'celebration',
   },
   enabledSurfaces: [
     'website',
@@ -178,6 +204,8 @@ export const SIMPLE_PROFILE: EventTypeProfile = {
     seatWord: 'table',
     eventWord: 'event',
     vipTierLabel: 'Guests',
+    register: 'celebratory',
+    occasionNoun: 'celebration',
   },
   // ⚠ 'website' IS REQUIRED HERE, and leaving it out was a DEAD END (2026-08-02).
   //
@@ -226,16 +254,50 @@ export const TRAVEL_PROFILE: EventTypeProfile = {
     seatWord: 'seat',
     eventWord: 'trip',
     vipTierLabel: 'Travelers',
+    register: 'celebratory',
+    occasionNoun: 'celebration',
   },
   layerMode: 'roaming',
   multiDay: true,
   onboardingFlowKey: 'travel',
 };
 
+/**
+ * Funeral — the one SOLEMN type (owner 2026-08-17, "yes to all four": funeral
+ * approved as a new event type, ruled a TONE build across the whole guest
+ * tree). Mirrors the seeded DB row the same way TRAVEL_PROFILE does, and for
+ * the same reason with higher stakes: on a DB hiccup a funeral must degrade to
+ * the SAME solemn traits its row carries — a read error must never flip a
+ * wake's page back to "The celebration is underway".
+ *
+ * Surfaces match GENERIC_PROFILE (no save_the_date, no monogram — the wake
+ * additionally never ENTERS the save_the_date lifecycle phase, gated on this
+ * register in app/[slug]/page.tsx). `multiDay` is TRUE because a Filipino
+ * lamay runs for days before the interment. A wake MAY accept money (owner,
+ * same ruling) — the pabuya surfaces stay reachable and wear their gentler
+ * solemn wording instead of "digital money dance".
+ */
+export const FUNERAL_PROFILE: EventTypeProfile = {
+  ...GENERIC_PROFILE,
+  eventType: 'funeral',
+  terminology: {
+    organizerNoun: 'family',
+    personA: null,
+    personB: null,
+    seatWord: 'table',
+    eventWord: 'wake',
+    vipTierLabel: 'Immediate family',
+    register: 'solemn',
+    occasionNoun: 'gathering',
+  },
+  multiDay: true,
+};
+
 function fallbackFor(eventType: string): EventTypeProfile {
   if (eventType === 'wedding') return WEDDING_PROFILE;
   if (eventType === 'simple_event') return SIMPLE_PROFILE;
   if (eventType === 'travel') return TRAVEL_PROFILE;
+  if (eventType === 'funeral') return FUNERAL_PROFILE;
   return { ...GENERIC_PROFILE, eventType };
 }
 
@@ -273,6 +335,16 @@ function toProfile(row: ProfileRow): EventTypeProfile {
       seatWord: str(t.seat_word, fb.terminology.seatWord),
       eventWord: str(t.event_word, fb.terminology.eventWord),
       vipTierLabel: str(t.vip_tier_label, fb.terminology.vipTierLabel),
+      // Only the exact literals are honoured; anything else takes the code
+      // fallback's register, so a malformed row can neither turn a birthday
+      // solemn nor a funeral celebratory (FUNERAL_PROFILE carries 'solemn').
+      register:
+        t.register === 'solemn'
+          ? 'solemn'
+          : t.register === 'celebratory'
+            ? 'celebratory'
+            : fb.terminology.register,
+      occasionNoun: str(t.occasion_noun, fb.terminology.occasionNoun),
     },
     enabledSurfaces:
       Array.isArray(row.enabled_surfaces) && row.enabled_surfaces.length > 0

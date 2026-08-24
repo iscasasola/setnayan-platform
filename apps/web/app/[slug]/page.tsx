@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { Suspense } from 'react';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
-import { eventWordsFor } from './_lib/event-words';
+import { eventWordsFor, solemnAdjustedPhase } from './_lib/event-words';
 import { InvitationSkeleton } from './_components/invitation-skeleton';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { isSetnayanHost, isLocalOrPreviewHost } from '@/lib/custom-domain-resolve';
@@ -662,14 +662,19 @@ async function InvitationBody({
       : 'inactive';
 
   // `lifecyclePhase` is only consumed when `phasesEnabled`; threads into
-  // SiteBody like heroPhotoUrl.
-  const lifecyclePhase: LifecyclePhase =
+  // SiteBody like heroPhotoUrl. The solemn adjustment runs AFTER the preview
+  // override on purpose: a host previewing their funeral's phases must also
+  // never meet the wedding-shaped save-the-date film or the joyful recap —
+  // the preview exists to show what guests get, and guests never get those.
+  const lifecyclePhase: LifecyclePhase = solemnAdjustedPhase(
     phaseOverride ??
-    getLifecyclePhase(
-      event.event_date,
-      venueTz,
-      (event as { event_end_date?: string | null }).event_end_date ?? null,
-    );
+      getLifecyclePhase(
+        event.event_date,
+        venueTz,
+        (event as { event_end_date?: string | null }).event_end_date ?? null,
+      ),
+    eventTypeProfile.terminology.register === 'solemn',
+  );
 
   // PR4 P1 — flag-gate the auto-playing Save-the-Date "film". The bare film is
   // the free base (the static STD view is the fallback); the cinematic openings

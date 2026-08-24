@@ -47,6 +47,13 @@ export type ClientEventWords = {
   /** 'wedding' · 'birthday' · 'graduation'. Carried because one client surface
    *  — the countdown — has a label that is a WEDDING VOW, not a generic one. */
   eventWord: string;
+  /** 'celebration' for every pre-existing type; 'gathering' for the funeral.
+   *  Fills the mechanical slots ("during the ___", "for this ___"). */
+  occasion: string;
+  /** TRUE only for the funeral's solemn register. Client consumers use it to
+   *  render their quiet arm — or, for the countdown, to render nothing: a
+   *  screen counting down to a funeral is the defect, not a wording bug. */
+  solemn: boolean;
 };
 
 /**
@@ -60,6 +67,10 @@ export const WORDS_AS_SHIPPED: ClientEventWords = {
   TheOrganizer: 'The couple',
   theOrganizerPossessive: 'the couple’s',
   eventWord: 'wedding',
+  occasion: 'celebration',
+  // The fallback must never be able to silence a real wedding's widgets, so it
+  // is celebratory — same reasoning as the wedding nouns above.
+  solemn: false,
 };
 
 const EventWordsContext = createContext<ClientEventWords | null>(null);

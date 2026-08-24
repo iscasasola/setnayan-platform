@@ -69,7 +69,7 @@ export function DayOfFaceEnroll({
           {faceMode === 'mode_a' ? (
             <>
               Your candid photos will find their way to you. Look for &ldquo;Photos
-              of you&rdquo; right here as the celebration unfolds.
+              of you&rdquo; right here as the {w.occasion} unfolds.
             </>
           ) : (
             <>

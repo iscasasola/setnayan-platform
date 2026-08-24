@@ -119,6 +119,13 @@ export const HOST_ROLES_BY_EVENT_TYPE: Readonly<
   reunion: [...ORGANISERS, ...UNIVERSAL],
   hangout: [...ORGANISERS, ...UNIVERSAL],
 
+  // A wake: the family organises, relatives help, others may look. NO
+  // 'celebrant' — the person being honoured at a funeral is not a role anyone
+  // claims — and none of the wedding cast. Without this entry the picker
+  // fails open to the full wedding-shaped list at exactly the event where
+  // "Maid of honor" would land worst.
+  funeral: [...ORGANISERS, ...UNIVERSAL],
+
   // Work events: an organiser and people who can look. No family vocabulary.
   corporate: [...ORGANISERS, 'viewer'],
   tournament: [...ORGANISERS, 'viewer'],

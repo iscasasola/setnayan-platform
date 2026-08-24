@@ -510,21 +510,34 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // is host-voiced, so we render it ONLY live-with-blocks and show a guest-voiced
   // status card otherwise (no false live badge at pre/post/inactive).
   const showWhatsHappening = isLive && topLevelBlocks.length > 0;
+  // The solemn arms are drafted whole, not word-swapped: "enjoy every moment"
+  // and "we can't wait to see you" are anticipation copy, and no noun swap
+  // rescues them at a wake. Celebratory arms are byte-identical to before.
   const phaseStatus =
     dayOfPhase === 'live'
-      ? 'The celebration is underway — enjoy every moment.'
+      ? words.solemn
+        ? 'The gathering is underway. Thank you for being here.'
+        : 'The celebration is underway — enjoy every moment.'
       : dayOfPhase === 'post'
-        ? 'The celebration has wrapped. Thank you for being part of the day.'
+        ? words.solemn
+          ? 'The gathering has ended. Thank you for standing with the family.'
+          : 'The celebration has wrapped. Thank you for being part of the day.'
         : dayOfPhase === 'pre'
-          ? 'The celebration is almost here. We can’t wait to see you.'
+          ? words.solemn
+            ? 'The gathering is near. It will mean a great deal to have you close.'
+            : 'The celebration is almost here. We can’t wait to see you.'
           : 'Everything for the day, in one place.';
   const phaseLabel =
     dayOfPhase === 'live'
       ? 'Happening now'
       : dayOfPhase === 'post'
-        ? 'Just wrapped'
+        ? words.solemn
+          ? 'After the day'
+          : 'Just wrapped'
         : dayOfPhase === 'pre'
-          ? 'Almost here'
+          ? words.solemn
+            ? 'Soon'
+            : 'Almost here'
           : 'The day';
 
   // ───────────────────────────── Panels ─────────────────────────────────────
@@ -582,7 +595,10 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           }`}
         >
           <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-terracotta">
-            {arrived && tableLabel ? (
+            {arrived && tableLabel && !words.solemn ? (
+              // A party-popper on a wake's check-in chip is the icon-shaped
+              // version of "Let's get this celebration started" — solemn events
+              // keep the quiet map pin in both states.
               <PartyPopper aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             ) : (
               <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -668,7 +684,11 @@ export default async function EventHubPage({ params, searchParams }: Props) {
               Send a blessing
             </span>
             <span className="mt-0.5 block text-xs text-ink/55">
-              The digital money dance — straight to {words.theOrganizer}.
+              {/* Owner 2026-08-17: a wake MAY accept money — abuloy is normal —
+                  "with gentler wording than a wedding's digital money dance". */}
+              {words.solemn
+                ? <>A gift of sympathy — straight to {words.theOrganizer}.</>
+                : <>The digital money dance — straight to {words.theOrganizer}.</>}
             </span>
           </span>
           <span aria-hidden className="text-ink/40">
@@ -732,7 +752,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // so the hub and the wedding page can never disagree about which doors show.
   const watchPanel = watchEmbed ? (
     <div className="mx-auto max-w-md">
-      <WatchLiveBlock watchLive={watchEmbed} />
+      <WatchLiveBlock watchLive={watchEmbed} occasion={words.occasion} />
     </div>
   ) : null;
 
@@ -809,8 +829,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           ) : (
             <p className="text-sm text-ink/55">
               {isLive || isPost
-                ? 'No tagged photos yet — they’ll appear here as the celebration unfolds.'
-                : 'Your tagged photos will appear here during the celebration.'}
+                ? `No tagged photos yet — they’ll appear here as the ${words.occasion} unfolds.`
+                : `Your tagged photos will appear here during the ${words.occasion}.`}
             </p>
           )}
         </article>

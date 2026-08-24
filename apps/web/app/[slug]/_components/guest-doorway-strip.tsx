@@ -82,7 +82,11 @@ export function GuestDoorwayStrip({
           href={pabuya}
           icon={<Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
           title="Send a blessing"
-          detail={`The digital money dance — straight to ${words.theOrganizer}.`}
+          detail={
+            words.solemn
+              ? `A gift of sympathy — straight to ${words.theOrganizer}.`
+              : `The digital money dance — straight to ${words.theOrganizer}.`
+          }
         />
       ) : null}
 
@@ -101,7 +105,7 @@ export function GuestDoorwayStrip({
               Watching from afar
             </span>
             <span className="mt-0.5 block text-sm text-ink/75">
-              This celebration will be streamed live
+              This {words.occasion} will be streamed live
               {dateLabel ? <> on {dateLabel}</> : null}. Come back to this page
               on the day — the player appears right here, so there is nothing to
               install and nothing to open yet.

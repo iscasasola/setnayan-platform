@@ -59,6 +59,13 @@ export function CountdownWidget({ targetIso }: Props) {
   // Auto-hide once the wedding starts.
   if (remaining.isPast) return null;
 
+  // A solemn event renders NO countdown at all. Ticking boxes counting down
+  // "Days · Hours · Mins · Secs" are anticipation machinery — right for every
+  // celebration, wrong at a wake regardless of what the label above them says.
+  // (Owner 2026-08-17: a countdown to a funeral is "the clearest example of a
+  // shipped mechanism that is actively wrong for it.")
+  if (w.solemn) return null;
+
   const boxes: { label: string; value: number }[] = [
     { label: 'Days', value: remaining.days },
     { label: 'Hours', value: remaining.hours },

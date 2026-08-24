@@ -20,7 +20,15 @@ import { RoamWatchPicker } from './roam-watch-picker';
  *   both          → the same player, with a second link beside "Open on YouTube"
  *   Facebook only → the link card below (no player — there is nothing to embed)
  */
-export function WatchLiveBlock({ watchLive }: { watchLive: WatchLiveData }) {
+export function WatchLiveBlock({
+  watchLive,
+  occasion = 'celebration',
+}: {
+  watchLive: WatchLiveData;
+  /** EventWords.occasion — 'celebration' (default) or the funeral's 'gathering'.
+   *  Reaches only assistive text (aria-labels, the iframe title). */
+  occasion?: string;
+}) {
   const facebookUrl = watchLive.facebookUrl ?? null;
 
   // Live Studio ROAM: when a multi-camera manifest is present, render the
@@ -40,8 +48,9 @@ export function WatchLiveBlock({ watchLive }: { watchLive: WatchLiveData }) {
           guestCameras={guestCameras}
           mainEmbedUrl={watchLive.embedUrl}
           mainWatchUrl={watchLive.watchUrl}
+          occasion={occasion}
         />
-        {facebookUrl ? <FacebookWatchCard href={facebookUrl} /> : null}
+        {facebookUrl ? <FacebookWatchCard href={facebookUrl} occasion={occasion} /> : null}
       </div>
     );
   }
@@ -49,12 +58,12 @@ export function WatchLiveBlock({ watchLive }: { watchLive: WatchLiveData }) {
   // Facebook-only: no player, just the door. Without this the page would render
   // nothing at all for a couple who chose Facebook as their single destination.
   if (!watchLive.embedUrl) {
-    return facebookUrl ? <FacebookWatchCard href={facebookUrl} /> : null;
+    return facebookUrl ? <FacebookWatchCard href={facebookUrl} occasion={occasion} /> : null;
   }
 
   return (
     <section
-      aria-label="Watch the celebration live"
+      aria-label={`Watch the ${occasion} live`}
       className="overflow-hidden rounded-2xl border-2 border-terracotta/40 bg-ink shadow-sm"
     >
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">
@@ -87,7 +96,7 @@ export function WatchLiveBlock({ watchLive }: { watchLive: WatchLiveData }) {
       </div>
       <div className="aspect-video w-full">
         <iframe
-          title="Live broadcast of the celebration"
+          title={`Live broadcast of the ${occasion}`}
           src={watchLive.embedUrl}
           className="h-full w-full border-0"
           allow="autoplay; encrypted-media; picture-in-picture"
@@ -121,10 +130,16 @@ export function WatchLiveBlock({ watchLive }: { watchLive: WatchLiveData }) {
  * under the Roam picker. `href` is always the output of normalizeFacebookWatchUrl,
  * so it is structurally `https://www.facebook.com/…` or `https://fb.watch/…`.
  */
-function FacebookWatchCard({ href }: { href: string }) {
+function FacebookWatchCard({
+  href,
+  occasion = 'celebration',
+}: {
+  href: string;
+  occasion?: string;
+}) {
   return (
     <section
-      aria-label="Watch the celebration live on Facebook"
+      aria-label={`Watch the ${occasion} live on Facebook`}
       className="rounded-2xl border-2 border-terracotta/40 bg-ink px-4 py-3 shadow-sm"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">

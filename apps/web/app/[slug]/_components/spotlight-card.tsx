@@ -19,8 +19,15 @@ import { SITE_MENU_ANCHORS } from '../_lib/site-menu';
  * and neutral — the brand-voice pass + designed empty/teaser states are PR8
  * (owner copy sign-off). This is the functional lead card PR8 restyles.
  */
-export function SpotlightCard({ spotlight }: { spotlight: HomeSpotlight }) {
-  const content = spotlightContent(spotlight);
+export function SpotlightCard({
+  spotlight,
+  occasion = 'celebration',
+}: {
+  spotlight: HomeSpotlight;
+  /** EventWords.occasion — 'celebration' (default) or the funeral's 'gathering'. */
+  occasion?: string;
+}) {
+  const content = spotlightContent(spotlight, occasion);
   if (!content) return null;
   return (
     <Link
@@ -43,12 +50,13 @@ export function SpotlightCard({ spotlight }: { spotlight: HomeSpotlight }) {
 
 function spotlightContent(
   spotlight: HomeSpotlight,
+  occasion: string,
 ): { eyebrow: string; title: string; href: string } | null {
   switch (spotlight.kind) {
     case 'rsvp':
       return {
         eyebrow: 'Your invitation',
-        title: 'RSVP for the celebration',
+        title: `RSVP for the ${occasion}`,
         href: `#${SITE_MENU_ANCHORS.me}`,
       };
     case 'find_invite':
@@ -60,7 +68,7 @@ function spotlightContent(
     case 'watch_live':
       return {
         eyebrow: 'Happening now',
-        title: 'Watch the celebration live',
+        title: `Watch the ${occasion} live`,
         href: `#${SITE_MENU_ANCHORS.gallery}`,
       };
     // std_film / countdown / editorial_cover are full-body moments — no card.

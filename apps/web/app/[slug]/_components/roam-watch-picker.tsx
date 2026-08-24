@@ -56,6 +56,7 @@ export function RoamWatchPicker({
   guestCameras = [],
   mainEmbedUrl = null,
   mainWatchUrl = null,
+  occasion = 'celebration',
 }: {
   manifest: RoamManifest;
   /** Required for side cameras; omitted on the pre-Wave-10 render path. */
@@ -64,6 +65,8 @@ export function RoamWatchPicker({
   /** Director's cut when there is no roam manifest (the CAST single embed). */
   mainEmbedUrl?: string | null;
   mainWatchUrl?: string | null;
+  /** EventWords.occasion — assistive text only. */
+  occasion?: string;
 }) {
   // The zone whose feed the directed Main Stage currently carries (the cut, else
   // the featured/first zone). Guests land here by default.
@@ -134,7 +137,7 @@ export function RoamWatchPicker({
 
   return (
     <section
-      aria-label="Watch the celebration live — choose your camera"
+      aria-label={`Watch the ${occasion} live — choose your camera`}
       className="overflow-hidden rounded-2xl border-2 border-terracotta/40 bg-ink shadow-sm"
     >
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">

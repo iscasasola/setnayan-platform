@@ -52,6 +52,14 @@ export const AI_TIER_BY_EVENT_TYPE: Readonly<Record<string, AiPriceTier>> = {
   date: 'D', // casual romantic outing (dinner/lunch/movie date) — ₱99, Tier D.
   hangout: 'D', // casual barkada get-together (coffee, movie night) — ₱99, Tier D.
   simple_event: 'E',
+  // ⚠ THE DEFAULT MADE EXPLICIT, NOT A PRICE DECISION. The owner approved the
+  // funeral TYPE (2026-08-17) and has not tiered it; 'C' is exactly what an
+  // unmapped type resolves to in code AND in the DB's setnayan_ai_price_tier()
+  // ELSE branch, so this entry changes nothing — it only satisfies the
+  // coverage guard's "no silent ₱499 default" rule by making the ₱499 visible.
+  // Whether the assisted planner should offer itself for a funeral at all, or
+  // at a different rung, is flagged as an open owner decision.
+  funeral: 'C',
 };
 
 /**

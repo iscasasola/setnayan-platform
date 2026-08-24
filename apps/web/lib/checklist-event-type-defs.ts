@@ -200,6 +200,27 @@ const HANGOUT_TEMPLATE: ChecklistTemplateItem[] = [
   { key: 'hang_split', title: 'Sort the bill split, if there is one', category: 'foundations', dueOffsetDays: 1 },
 ];
 
+// ── Funeral (lamay at libing) ───────────────────────────────────────────────
+// A wake is arranged in DAYS — the short-runway rule that shrank DATE_TEMPLATE
+// applies with more force here, so the longest offset is one week and nothing
+// assumes months of planning. The words carry the weight: no "theme", no
+// "party", no "celebrate" — this list is the quiet paperwork and care a
+// Filipino family actually does between a death and the interment. Without a
+// dedicated def this type would seed the CELEBRATION template ("Set the
+// purpose & theme", "Book a host") — the exact wrong voice at the worst time.
+const FUNERAL_TEMPLATE: ChecklistTemplateItem[] = [
+  { key: 'fun_funeral_home', title: 'Arrange with the funeral home (chapel or home wake)', category: 'vendors', dueOffsetDays: 7 },
+  { key: 'fun_documents', title: 'Secure the papers (death certificate, permits)', category: 'paperwork', dueOffsetDays: 6 },
+  { key: 'fun_schedule', title: 'Set the wake schedule and the day of the service', category: 'logistics', dueOffsetDays: 6 },
+  { key: 'fun_notify', title: 'Let family and friends know', category: 'guests', dueOffsetDays: 5 },
+  { key: 'fun_resting_place', title: 'Confirm the resting place (cemetery or columbarium)', category: 'paperwork', dueOffsetDays: 5 },
+  { key: 'fun_service', title: 'Arrange the funeral service or mass', category: 'logistics', dueOffsetDays: 4 },
+  { key: 'fun_food', title: 'Arrange food for the wake', category: 'vendors', dueOffsetDays: 4 },
+  { key: 'fun_flowers', title: 'Order flowers', category: 'vendors', dueOffsetDays: 3 },
+  { key: 'fun_transport', title: 'Arrange transport for the procession', category: 'vendors', dueOffsetDays: 2 },
+  { key: 'fun_memorial_cards', title: 'Prepare memorial cards and a photo of remembrance', category: 'logistics', dueOffsetDays: 2 },
+];
+
 const CELEBRATION_DEF: EventTypeChecklistDef = { eventType: 'celebration', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['catering', 'photo_video', 'host'], template: CELEBRATION_TEMPLATE };
 
 export const EVENT_TYPE_CHECKLIST_DEFS: Readonly<Record<string, EventTypeChecklistDef>> = {
@@ -213,6 +234,9 @@ export const EVENT_TYPE_CHECKLIST_DEFS: Readonly<Record<string, EventTypeCheckli
   celebration: CELEBRATION_DEF,
   date: { eventType: 'date', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['restaurant'], template: DATE_TEMPLATE },
   hangout: { eventType: 'hangout', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['restaurant'], template: HANGOUT_TEMPLATE },
+  // anchorCategory null: the funeral home is the anchor in life, but it has no
+  // plan-group key, and a home wake needs no venue booking at all.
+  funeral: { eventType: 'funeral', dateModel: 'input', anchorCategory: null, tier2Core: ['catering', 'florist', 'photo_video'], template: FUNERAL_TEMPLATE },
 };
 
 /**

@@ -52,8 +52,13 @@ export function PublicHideableWidget({
     case 'countdown':
       // Match InvitationSite's per-widget skip — no event date, no
       // countdown. The widget row stays "visible" in the editor; the
-      // renderer just skips when the data isn't available.
-      return event.event_date ? <CountdownWidget targetIso={event.event_date} /> : null;
+      // renderer just skips when the data isn't available. A solemn event
+      // (the funeral) skips it unconditionally — the widget also guards
+      // itself client-side, but this server gate holds even outside the
+      // words provider.
+      return event.event_date && !words.solemn ? (
+        <CountdownWidget targetIso={event.event_date} />
+      ) : null;
 
     case 'schedule':
       // Match InvitationSite — no double-render during day-of mode (the

@@ -165,13 +165,13 @@ export function LiveWallBlock({
         aria-label="Live photo wall"
         className="rounded-2xl border border-ink/10 bg-cream p-6 text-center shadow-sm"
       >
-        <LiveWallHeader count={0} />
+        <LiveWallHeader count={0} occasion={w.occasion} />
         <p className="mx-auto mt-2 max-w-prose text-sm text-ink/60">
           {closed
             ? // Said plainly, and without blame. The wall did not break and the
               // guest did nothing wrong — the couple chose to keep it to the
               // room. A card that simply emptied itself would read as a fault.
-              `The photo wall is playing on the screens at the venue. ${w.TheOrganizer} has kept it off phones for this celebration.`
+              `The photo wall is playing on the screens at the venue. ${w.TheOrganizer} has kept it off phones for this ${w.occasion}.`
             : stalled
               ? 'We can’t reach the wall right now — this venue’s signal may be busy. It keeps trying, and photos appear the moment it reconnects.'
               : 'The wall is warming up — photos appear here the moment they’re taken.'}
@@ -185,7 +185,7 @@ export function LiveWallBlock({
       aria-label="Live photo wall"
       className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
     >
-      <LiveWallHeader count={count} />
+      <LiveWallHeader count={count} occasion={w.occasion} />
       <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">
         {display.map((tile) => (
           <figure
@@ -231,12 +231,12 @@ export function LiveWallBlock({
   );
 }
 
-function LiveWallHeader({ count }: { count: number }) {
+function LiveWallHeader({ count, occasion }: { count: number; occasion: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta" />
-        Live from the celebration
+        Live from the {occasion}
       </p>
       {count > 0 ? (
         <p className="flex items-baseline gap-1 text-ink/55">

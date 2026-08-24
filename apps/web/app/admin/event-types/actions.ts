@@ -398,7 +398,24 @@ export async function upsertEventTypeProfile(formData: FormData) {
     redirect(`${BASE}?error=${encodeURIComponent('Bad event-type key.')}`);
   }
 
+  // ⚠ MERGE OVER THE STORED BLOB, NEVER REBUILD IT. `terminology` is JSONB and
+  // carries keys this form has no field for — the funeral row's `register:
+  // 'solemn'` and `occasion_noun` (the whole guest-tree tone switch). A
+  // rebuild-from-form here silently DROPPED any such key on every admin save,
+  // flipping a wake's page back to the celebratory voice with no error. Read
+  // first, spread, then overwrite only the fields this form actually edits.
+  const adminForRead = createAdminClient();
+  const { data: existingProfile } = await adminForRead
+    .from('event_type_profiles')
+    .select('terminology')
+    .eq('event_type', key)
+    .maybeSingle();
+  const storedTerminology =
+    existingProfile?.terminology && typeof existingProfile.terminology === 'object'
+      ? (existingProfile.terminology as Record<string, unknown>)
+      : {};
   const terminology = {
+    ...storedTerminology,
     organizer_noun: cleanOptional(formData.get('organizer_noun'), 60),
     person_a: cleanOptional(formData.get('person_a'), 60),
     person_b: cleanOptional(formData.get('person_b'), 60),

@@ -89,13 +89,16 @@ test('every cadence in the map is a legal cadence', () => {
 });
 
 test('the map covers every live event type — a new type cannot repeat by accident', () => {
-  // The 16 live types. A type MISSING from the map cannot repeat, which is the
+  // The 17 live types. A type MISSING from the map cannot repeat, which is the
   // safe direction (event_type_vocab is admin-editable at runtime), but it must
   // be an explicit decision rather than an oversight.
   const LIVE = [
     'wedding', 'debut', 'gender_reveal', 'birthday', 'celebration', 'travel',
     'corporate', 'tournament', 'christening', 'anniversary', 'graduation',
     'reunion', 'gala_night', 'simple_event', 'date', 'hangout',
+    // funeral: [] — it happens once; a death anniversary (babang luksa) is a
+    // different event a family creates, not this one repeating.
+    'funeral',
   ];
   for (const t of LIVE) {
     assert.ok(t in CADENCES_BY_TYPE, `${t} has no entry in CADENCES_BY_TYPE`);

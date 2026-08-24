@@ -8,9 +8,26 @@
  * Once the payment lands in the inbox, an admin confirms it here.
  *
  *   approveSubscription → approve_vendor_subscription(id) sets tier_state +
- *     tier_expires_at (stacking) + grants the token bundle via
- *     grant_admin_direct_tokens (idempotent per purchase) + flips to 'paid'.
+ *     tier_expires_at (stacking) + flips to 'paid'. Idempotent per purchase.
  *   rejectSubscription  → reject_vendor_subscription(id, reason).
+ *
+ * ⚠ THIS BLOCK USED TO CLAIM THE APPROVE PATH HANDS OUT A BUNDLE OF THE OLD
+ * VENDOR CURRENCY, by calling `grant_admin_direct_tokens`. IT DOES NOT, AND
+ * HAS NOT SINCE 2026-08-07 — the day that currency was retired
+ * product-wide. (The exact old wording is deliberately NOT reproduced here: a
+ * guard bans that phrasing on the RAW source, and quoting it would put the
+ * defect back inside the sentence announcing its removal.) Read out of
+ * production, not inferred: `approve_vendor_subscription` delegates to
+ * `_apply_subscription_credit`, whose live body carries its own note — "The
+ * token bundle and the add-on credit were REMOVED here (2026-08-07).
+ * Activating a plan now activates a plan. Nothing else." — and returns
+ * `bundle: 0`, `addon_tokens: 0` as constants.
+ *
+ * 🔑 `grant_admin_direct_tokens` IS STILL IN PRODUCTION, WHICH IS EXACTLY WHY
+ * THIS SENTENCE SURVIVED A READING. Its continued existence makes the claim
+ * look checkable and true; the only way to find out is to read the body of the
+ * function that was supposed to call it. A named function is not a call site.
+ * Its one remaining caller is `redeem_vendor_token_voucher` — not this path.
  *
  * Both RPCs (migration 20261010000000) gate on is_console_admin() and read
  * auth.uid() for the audit trail — so we call them through the admin's OWN

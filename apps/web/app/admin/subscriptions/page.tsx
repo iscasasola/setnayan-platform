@@ -30,8 +30,6 @@ type SubscriptionRow = {
   paid_at: string | null;
   expires_at: string | null;
   rejection_reason: string | null;
-  addon_token_count: number | null;
-  addon_amount_php: number | string | null;
 };
 
 const NUMBER = new Intl.NumberFormat('en-PH');
@@ -52,9 +50,31 @@ function fmtDate(s: string) {
  *
  * A vendor starts an upgrade at /vendor-dashboard/subscription, pays our BDO /
  * GCash account with the reference code, and lands here as pending. Admin
- * confirms the payment → the tier activates + the token bundle is granted via
- * approve_vendor_subscription (idempotent). Same path a future Maya / PayMongo
- * webhook will hit via confirm_vendor_subscription_by_reference.
+ * confirms the payment → the PLAN activates, via approve_vendor_subscription
+ * (idempotent). Same path a future Maya / PayMongo webhook will hit via
+ * confirm_vendor_subscription_by_reference.
+ *
+ * ── WHAT THIS SCREEN NO LONGER SAYS, AND WHY (2026-08-24) ──────────────────
+ * It used to promise that confirming hands the vendor a bundle of the old
+ * currency, and to render a per-order pill counting it. (The exact old wording
+ * is deliberately NOT reproduced here — a guard bans that phrasing on the RAW
+ * source.) The vendor token currency was retired
+ * product-wide on 2026-08-07 and the GRANT was taken out of
+ * `_apply_subscription_credit` the same day — its live body in production says
+ * so in its own words. The sentence outlived the mechanism by seventeen days.
+ *
+ * 🔑 THE PILL COULD NEVER HAVE RENDERED, AND THAT IS WHY NOBODY NOTICED. It is
+ * gated on `addon_token_count > 0`; the only writer of that column reads the
+ * pack price from `vendor_billing_catalog WHERE offering_type = 'token_pack'
+ * AND is_active = TRUE`, and all six of those rows are inactive. A dead branch
+ * over a false sentence: the screen made a claim, and the one thing that could
+ * have contradicted it on-screen was unreachable.
+ *
+ * ⚠ `addon_token_count` and `addon_amount_php` ARE NO LONGER READ HERE — and
+ * this page was their ONLY reader in the whole repo. The COLUMNS STAY: their
+ * writer (`create_vendor_subscription`) is live and still populates them, so
+ * they are unread, not orphaned. Dropping them is a migration and a separate
+ * decision.
  */
 export default async function AdminSubscriptionsPage({ searchParams }: Props) {
   await requireAdmin();
@@ -78,7 +98,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
   const admin = createAdminClient();
 
   const COLS =
-    'purchase_id, vendor_id, sku_code, tier, billing_cycle, amount_php, reference_code, status, created_at, paid_at, expires_at, rejection_reason, addon_token_count, addon_amount_php';
+    'purchase_id, vendor_id, sku_code, tier, billing_cycle, amount_php, reference_code, status, created_at, paid_at, expires_at, rejection_reason';
 
   // Pending first (the actionable queue), then the 30 most recent resolved.
   const [pendingRes, recentRes] = await Promise.all([
@@ -128,11 +148,14 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
             with the reference code, THEN you confirm here) and it says the
             confirm is idempotent, which is what an operator needs when a
             press looks like it did nothing.
-            ⚠ Its wording is kept VERBATIM on purpose. It still promises that
-            confirming "grants the bundled tokens" — the token currency was
-            retired on 2026-08-07 — and correcting what a screen claims about
-            money is a change, not a refactor. Flagged separately, not
-            silently edited inside a header port. */}
+            ⚠ ITS TOKEN PROMISE IS GONE — READ OUT OF PRODUCTION, NOT INFERRED.
+            `approve_vendor_subscription` delegates to `_apply_subscription_credit`,
+            whose LIVE body carries its own comment dated 2026-08-07: "The token
+            bundle and the add-on credit were REMOVED here. Activating a plan now
+            activates a plan. Nothing else." It returns `bundle: 0` and
+            `addon_tokens: 0` as constants. So this sentence told an operator
+            that pressing Confirm hands a vendor tokens, and it has not done
+            that since the day the currency was retired. */}
         <PageMasthead
           title="Subscriptions"
           className="mb-2"
@@ -146,8 +169,8 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
         <p className="max-w-prose text-sm text-ink/70">
           Vendors upgrade to Pro / Enterprise apply-then-pay: they pay our BDO /
           GCash account with the reference code, then you confirm here. Confirming
-          activates the tier + grants the bundled tokens automatically (idempotent
-          — safe to retry).
+          activates the plan and nothing else — it is safe to press twice, a
+          repeat is a no-op.
           {pending.length > 0 && (
             <>
               {' '}
@@ -210,14 +233,6 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
                         {tier} · {p.billing_cycle ?? '—'} · ₱
                         {NUMBER.format(Number(p.amount_php ?? 0))}
                       </p>
-                      {Number(p.addon_token_count ?? 0) > 0 && (
-                        <p className="mt-0.5 text-[11px] font-medium text-orange">
-                          incl. {NUMBER.format(Number(p.addon_token_count))} tokens
-                          {Number(p.addon_amount_php ?? 0) > 0
-                            ? ` (₱${NUMBER.format(Number(p.addon_amount_php))})`
-                            : ''}
-                        </p>
-                      )}
                       <p className="mt-0.5 text-[11px] text-ink/50">
                         Started {fmtDate(p.created_at)}
                       </p>

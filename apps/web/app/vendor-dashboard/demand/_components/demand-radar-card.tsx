@@ -1,5 +1,6 @@
 import { Radar, MessageSquare, KeyRound, CheckCircle2 } from 'lucide-react';
 import type { DemandRadar } from '@/lib/demand-radar';
+import { ShopCard } from '../../_components/kit';
 
 /**
  * DemandRadarCard — presentational radar (server component, no client JS).
@@ -81,7 +82,7 @@ export function DemandRadarCard({
       </div>
 
       {/* Month heat strip */}
-      <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white">
+      <ShopCard pad="none" className="overflow-hidden">
         <header className="flex items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
           <h2 className="text-sm font-semibold text-ink">Month heat</h2>
           <span className="text-xs text-ink/55">
@@ -106,10 +107,10 @@ export function DemandRadarCard({
             </li>
           ))}
         </ul>
-      </section>
+      </ShopCard>
 
       {/* Hot looks */}
-      <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white">
+      <ShopCard pad="none" className="overflow-hidden">
         <header className="flex items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
           <h2 className="text-sm font-semibold text-ink">Hot looks</h2>
           <span className="text-xs text-ink/55">
@@ -132,12 +133,12 @@ export function DemandRadarCard({
             </li>
           ))}
         </ul>
-      </section>
+      </ShopCard>
 
       {/* Admin-only breakdowns: regions + event types */}
       {scope === 'admin' ? (
         <>
-          <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white">
+          <ShopCard pad="none" className="overflow-hidden">
             <header className="flex items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
               <h2 className="text-sm font-semibold text-ink">Top regions</h2>
               <span className="text-xs text-ink/55">Demand by market</span>
@@ -157,9 +158,9 @@ export function DemandRadarCard({
                 </li>
               ))}
             </ul>
-          </section>
+          </ShopCard>
 
-          <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white">
+          <ShopCard pad="none" className="overflow-hidden">
             <header className="flex items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
               <h2 className="text-sm font-semibold text-ink">By event type</h2>
               <span className="text-xs text-ink/55">Where the demand sits</span>
@@ -180,7 +181,7 @@ export function DemandRadarCard({
                 </li>
               ))}
             </ul>
-          </section>
+          </ShopCard>
         </>
       ) : null}
     </div>
@@ -197,12 +198,12 @@ function SignalTile({
   value: number;
 }) {
   return (
-    <div className="rounded-2xl border border-ink/10 bg-white p-4">
+    <ShopCard pad="tight">
       <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/55">
         <span className="text-terracotta">{icon}</span>
         {label}
       </span>
       <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">{value}</p>
-    </div>
+    </ShopCard>
   );
 }

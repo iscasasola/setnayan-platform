@@ -37,6 +37,7 @@ import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createVendorChallengeAction } from '../actions';
 import { PhotoChallengeBuy } from './photo-challenge-buy';
+import { ShopCard } from '../../../_components/kit';
 
 const STATUS_BADGE: Record<VendorChallengeStatus, { label: string; cls: string }> = {
   pending: { label: 'Awaiting couple', cls: 'bg-mulberry/15 text-mulberry' },
@@ -106,7 +107,7 @@ export async function VendorChallengeSection({
   });
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-white p-5 sm:p-6">
+    <ShopCard pad="roomy">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
         <Trophy aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
         Papic Challenges
@@ -204,6 +205,6 @@ export async function VendorChallengeSection({
           {PHOTO_CHALLENGE_DENY_MESSAGE[eligibility.reason]}
         </p>
       )}
-    </section>
+    </ShopCard>
   );
 }

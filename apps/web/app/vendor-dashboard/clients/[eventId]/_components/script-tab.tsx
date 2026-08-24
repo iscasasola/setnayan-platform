@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { buildScriptWorkbook, type ScriptBlock } from '@/lib/emcee-script-layer';
 import { matchLines, fillSlots, needsAttention, type SavedLine } from '@/lib/emcee-lines';
 import { ScriptComposer } from './script-composer';
+import { ShopCard } from '../../../_components/kit';
 
 /**
  * SCRIPT — the host/MC's prep surface on the Customer Card.
@@ -114,7 +115,7 @@ export async function ScriptTab({
 
   if (workbook.empty) {
     return (
-      <section className="rounded-2xl border border-ink/10 bg-white p-8 text-center">
+      <ShopCard pad="none" className="p-8 text-center">
         <Mic className="mx-auto h-6 w-6 text-ink/25" aria-hidden />
         <p className="mt-3 text-sm font-medium text-ink">
           {coupleName} haven&rsquo;t built their timeline yet.
@@ -123,7 +124,7 @@ export async function ScriptTab({
           The moment they add their program, every moment of the night appears here ready to
           script — nothing for you to set up.
         </p>
-      </section>
+      </ShopCard>
     );
   }
 

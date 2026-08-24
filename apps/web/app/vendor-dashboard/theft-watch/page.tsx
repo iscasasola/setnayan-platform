@@ -13,6 +13,7 @@ import {
   type RepostFlagStatus,
   type RepostSurface,
 } from '@/lib/vendor-theft-watch';
+import { shopCardClass } from '../_components/kit';
 
 export const metadata = { title: 'Theft Watch · Vendor' };
 
@@ -93,7 +94,7 @@ export default async function VendorTheftWatchPage() {
             return (
               <li
                 key={flag.publicId}
-                className="flex items-center gap-4 rounded-2xl border border-ink/10 bg-white p-3"
+                className={`flex items-center gap-4 ${shopCardClass} p-3`}
               >
                 <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-ink/5">
                   <Image

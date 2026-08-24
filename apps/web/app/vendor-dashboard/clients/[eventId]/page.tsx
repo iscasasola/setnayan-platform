@@ -130,7 +130,7 @@ import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { logQueryError } from '@/lib/supabase/error-detect';
 // The tree kit (W4-B): `Card` here IS ShopCard — the local definition this
 // file used to carry was byte-identical to the kit's dominant card recipe.
-import { ShopCard as Card, shopInputClass } from '../../_components/kit';
+import { ShopCard, ShopCard as Card, shopInputClass } from '../../_components/kit';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -1389,7 +1389,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   if (!chatTabNode) {
     // No thread for this event → a small empty state (not a blank panel).
     chatTabNode = (
-      <div className="space-y-3 rounded-2xl border border-ink/10 bg-white p-5 sm:p-6">
+      <ShopCard pad="roomy" className="space-y-3">
         <p className="text-sm text-ink/70">
           No conversation with {eventName} yet. When they message you (or you invite
           them), the thread opens here.
@@ -1400,7 +1400,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         >
           <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Go to Messages
         </Link>
-      </div>
+      </ShopCard>
     );
   }
 
@@ -1555,7 +1555,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   const contextRail = (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-ink/10 bg-white p-4">
+      <ShopCard pad="tight">
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">
           Your next move
         </p>
@@ -1573,7 +1573,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             {pendingPayments.length} awaiting confirmation
           </p>
         ) : null}
-      </div>
+      </ShopCard>
       <div className="grid grid-cols-2 gap-2">
         <a href={`/vendor-dashboard/clients/${eventId}?tab=chat`} className={vQuickLinkClass}>
           <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
@@ -1709,7 +1709,7 @@ function ReturningMarkerAndActions({
     'inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors';
 
   return (
-    <div className="rounded-2xl border border-ink/10 bg-white p-4 sm:p-5">
+    <ShopCard>
       {returningFlag ? (
         <div className="mb-3 flex items-start gap-3 rounded-xl border border-mulberry/20 bg-mulberry/[0.05] px-3 py-2.5">
           <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-mulberry/10 text-mulberry">
@@ -1779,7 +1779,7 @@ function ReturningMarkerAndActions({
           <Info aria-hidden className="h-3.5 w-3.5" /> Details
         </span>
       </div>
-    </div>
+    </ShopCard>
   );
 }
 
@@ -2158,7 +2158,7 @@ function OverviewTab(props: {
           <span className="shrink-0 text-sm font-semibold text-terracotta">Open →</span>
         </Link>
       ) : editorialEligibility.isRecommendedPick ? (
-        <div className="flex items-start gap-3 rounded-2xl border border-ink/10 bg-white p-4 sm:p-5">
+        <ShopCard className="flex items-start gap-3">
           <Sparkles aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/30" strokeWidth={1.75} />
           <span>
             <span className="block text-sm font-semibold">Add to their editorial ✨</span>
@@ -2168,7 +2168,7 @@ function OverviewTab(props: {
                 : `Once ${brief.event.display_name ?? 'the couple'} marks your service complete, you can add a photo or a 5-second clip to their story — credited to you on their front-page editorial.`}
             </span>
           </span>
-        </div>
+        </ShopCard>
       ) : null}
 
       {/* Deposit acknowledge (booked). */}
@@ -2712,7 +2712,7 @@ function ScheduleTab(props: {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-ink/10 bg-white p-4 sm:p-5">
+      <ShopCard>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
             <CalendarDays aria-hidden className="h-4 w-4 text-terracotta" /> Day-of timeline
@@ -3050,11 +3050,11 @@ function ScheduleTab(props: {
             </div>
           ) : null}
         </div>
-      </div>
+      </ShopCard>
 
       {/* Change-Order Trail (Wave 3). */}
       {eventVendorId ? (
-        <div className="rounded-2xl border border-ink/10 bg-white p-4 sm:p-5">
+        <ShopCard>
           <div className="mb-3 flex items-center gap-2">
             <FilePlus2 aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
             <h2 className="text-sm font-semibold text-ink">Change orders</h2>
@@ -3228,7 +3228,7 @@ function ScheduleTab(props: {
               })}
             </ul>
           )}
-        </div>
+        </ShopCard>
       ) : null}
     </div>
   );

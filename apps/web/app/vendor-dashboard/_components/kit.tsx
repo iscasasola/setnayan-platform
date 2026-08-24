@@ -44,6 +44,13 @@ import type { ReactNode } from 'react';
  * Card separation is border + shadowless white on the white page, per the
  * 2026-08-20 owner ruling — do not add a second surface colour.
  * ────────────────────────────────────────────────────────────────────────── */
+/**
+ * The card recipe itself, for the places that must keep their own element —
+ * an `<li>` in a roster, an `<article>` in a mapped list. `ShopCard` composes
+ * this same constant, so the recipe exists exactly once.
+ */
+export const shopCardClass = 'rounded-2xl border border-ink/10 bg-white';
+
 const CARD_PAD = {
   /** The dominant spelling (24 of the 34 shipped instances). */
   default: 'p-4 sm:p-5',
@@ -71,7 +78,7 @@ export function ShopCard({
   children: ReactNode;
 }) {
   return (
-    <section className={`rounded-2xl border border-ink/10 bg-white ${CARD_PAD[pad]} ${className}`}>
+    <section className={`${shopCardClass} ${CARD_PAD[pad]} ${className}`}>
       {eyebrow || actions ? (
         <div className="mb-3 flex items-start justify-between gap-3">
           {eyebrow ? <p className="sn-eye">{eyebrow}</p> : <span />}

@@ -22,10 +22,35 @@ export async function countVendorRecommendingCouples(
 ): Promise<number> {
   const { data, error } = await supabase
     .from('vendor_recommendations')
-    .select('event_id')
+    .select('recommendation_id, event_id')
     .eq('vendor_profile_id', vendorProfileId);
   if (error || !data) return 0;
-  return new Set((data as { event_id: string }[]).map((r) => r.event_id)).size;
+  /*
+    🚨 `event_id` ALONE IS NOT THE DEDUPE KEY ANY MORE, AND READING IT AS ONE
+    PRINTS A PLAUSIBLE WRONG NUMBER.
+
+    A recommendation now OUTLIVES its celebration (owner 2026-08-24, the same
+    ruling that keeps a review), so a deleted event leaves `event_id` NULL. A Set
+    collapses every NULL to ONE member — so three different couples who each
+    recommended this supplier and then deleted their events would have read as
+    "recommended by 1 couple". Not zero, which looks like an absence; a
+    believable wrong number instead.
+
+    🔑 AN ORPHAN IS ALREADY EXACTLY ONE COUPLE, so it needs no key. The database
+    collapses a celebration's duplicate endorsements down to one row at deletion
+    time (`collapse_recommendations_on_event_delete`), which is the only moment
+    they can still be grouped — so counting orphan ROWS is counting couples.
+    Living celebrations still dedupe by `event_id`, because both partners can
+    each recommend while the event exists.
+  */
+  const rows = data as { recommendation_id: string; event_id: string | null }[];
+  const liveCelebrations = new Set<string>();
+  let orphans = 0;
+  for (const r of rows) {
+    if (r.event_id) liveCelebrations.add(r.event_id);
+    else orphans += 1;
+  }
+  return liveCelebrations.size + orphans;
 }
 
 /** One recommended vendor for the Editorial "vendors we loved" block. */

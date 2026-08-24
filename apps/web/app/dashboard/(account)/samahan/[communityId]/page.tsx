@@ -20,9 +20,11 @@ import {
   fetchCommunityEvents,
   fetchCommunityRoster,
   fetchInviteToken,
+  fetchSamahanMessages,
   fetchViewerEventMemberships,
   type CommunityEventRow,
   type CommunityRosterEntry,
+  type SamahanMessage,
 } from '@/lib/communities';
 import { eventBoardHref, stanceClosedReason } from '@/lib/event-board';
 import { after } from 'next/server';
@@ -40,6 +42,8 @@ import {
   demoteMember,
   leaveCommunity,
   promoteMember,
+  deleteSamahanMessage,
+  postSamahanMessage,
   removeMember,
   rotateInviteToken,
 } from '../actions';
@@ -59,7 +63,7 @@ export const metadata = {
 // ONLY — never email, never photo, never an auth UUID in the DOM; organizer
 // action forms target the bigserial member_row_id.
 
-const TABS = ['overview', 'members', 'events'] as const;
+const TABS = ['overview', 'usapan', 'members', 'events'] as const;
 type Tab = (typeof TABS)[number];
 
 const ERROR_COPY: Record<string, string> = {
@@ -106,7 +110,7 @@ export default async function SamahanSpacePage({
 
   // Per-tab data — fetched only for the active tab (plus the header's event
   // count, which reuses the events fetch when the Events tab is active).
-  const [roster, events, viewerMemberships, inviteToken, stories] = await Promise.all([
+  const [roster, events, viewerMemberships, inviteToken, stories, messages] = await Promise.all([
     tab === 'members'
       ? fetchCommunityRoster(supabase, createAdminClient(), communityId, user.id)
       : Promise.resolve([] as CommunityRosterEntry[]),
@@ -120,6 +124,9 @@ export default async function SamahanSpacePage({
     tab === 'overview'
       ? fetchSamahanStories(supabase, createAdminClient(), communityId, user.id)
       : Promise.resolve([] as SamahanStory[]),
+    tab === 'usapan'
+      ? fetchSamahanMessages(supabase, createAdminClient(), communityId, user.id)
+      : Promise.resolve([] as SamahanMessage[]),
   ]);
 
   // Cron-free expiry sweep, fired from the surface whose audience visits —
@@ -238,6 +245,8 @@ export default async function SamahanSpacePage({
           memberCount={community.member_count}
           stories={stories}
         />
+      ) : tab === 'usapan' ? (
+        <UsapanTab communityId={community.community_id} messages={messages} />
       ) : tab === 'members' ? (
         <MembersTab
           communityId={community.community_id}
@@ -309,12 +318,15 @@ function OverviewTab({
             <p className="mt-1 font-mono text-2xl text-ink">{eventCount}</p>
           </div>
         </div>
-        {/* Honest note — chat is deferred to the 0019 reuse (plan §1). A note,
-            never a button. */}
-        <p className="mt-4 flex items-center gap-2 text-xs text-ink/45">
+        {/* Shipped 2026-08-24 — the note this replaced said "coming soon"
+            since 2026-07-15. */}
+        <Link
+          href={`${base}?tab=usapan`}
+          className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-link"
+        >
           <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Usapan — group chat is coming soon.
-        </p>
+          Usapan — the group chat
+        </Link>
       </div>
 
       {isOrganizer ? (
@@ -395,6 +407,81 @@ function OverviewTab({
           )}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function UsapanTab({
+  communityId,
+  messages,
+}: {
+  communityId: string;
+  messages: SamahanMessage[];
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+        {messages.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-ink/15 p-4 text-xs text-ink/55">
+            No one has said anything yet. Start it off.
+          </p>
+        ) : (
+          <ul className="space-y-3" role="list">
+            {messages.map((m) => (
+              <li
+                key={m.message_id}
+                className={m.is_self ? 'flex flex-col items-end' : 'flex flex-col items-start'}
+              >
+                <div
+                  className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm ${
+                    m.is_self ? 'bg-mulberry text-white' : 'bg-ink/5 text-ink'
+                  }`}
+                >
+                  {!m.is_self ? (
+                    <p className="mb-0.5 text-[11px] font-semibold text-ink/60">{m.author_name}</p>
+                  ) : null}
+                  {/* Plain text — React escapes it, so a message can never
+                      become markup. */}
+                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                </div>
+                {m.is_self ? (
+                  <form action={deleteSamahanMessage} className="mt-1">
+                    <input type="hidden" name="community_id" value={communityId} />
+                    <input type="hidden" name="message_id" value={m.message_id} />
+                    <SubmitButton
+                      className="text-[10px] text-ink/45"
+                      pendingLabel="Removing…"
+                    >
+                      Take it down
+                    </SubmitButton>
+                  </form>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <form action={postSamahanMessage} className="mt-4 flex items-end gap-2">
+          <input type="hidden" name="community_id" value={communityId} />
+          <label className="sr-only" htmlFor="usapan-body">
+            Your message
+          </label>
+          <textarea
+            id="usapan-body"
+            name="body"
+            rows={2}
+            maxLength={2000}
+            placeholder="Say something to the group…"
+            className="min-w-0 flex-1 rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+          />
+          <SubmitButton
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-mulberry px-3.5 py-2 text-xs font-semibold text-white"
+            pendingLabel="Sending…"
+          >
+            Send
+          </SubmitButton>
+        </form>
+      </div>
     </div>
   );
 }

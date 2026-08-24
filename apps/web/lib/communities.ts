@@ -546,3 +546,57 @@ export async function fetchSamahanSecondDegree(
     }))
     .sort((a, b) => a.display_name.localeCompare(b.display_name));
 }
+
+export type SamahanMessage = {
+  message_id: string;
+  author_name: string;
+  is_self: boolean;
+  body: string;
+  created_at: string;
+};
+
+/**
+ * Usapan messages for one samahan, oldest first (a chat reads downward).
+ * Reads through the CALLER'S client so RLS scopes it to members; the admin
+ * client resolves display names ONLY — the same split fetchCommunityRoster
+ * uses, and for the same RA 10173 reason (never email, never an auth uuid).
+ */
+export async function fetchSamahanMessages(
+  supabase: SupabaseClient,
+  admin: SupabaseClient,
+  communityId: string,
+  viewerId: string,
+): Promise<SamahanMessage[]> {
+  const { data, error } = await supabase
+    .from('samahan_messages')
+    .select('message_id, user_id, body, created_at')
+    .eq('community_id', communityId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error || !data) return [];
+  const rows = (data as Array<{
+    message_id: string;
+    user_id: string;
+    body: string;
+    created_at: string;
+  }>).slice().reverse();
+  if (rows.length === 0) return [];
+
+  const names = new Map<string, string>();
+  const { data: nameRows } = await admin
+    .from('users')
+    .select('user_id, display_name')
+    .in('user_id', [...new Set(rows.map((r) => r.user_id))]);
+  for (const r of (nameRows ?? []) as Array<{ user_id: string; display_name: string | null }>) {
+    const label = (r.display_name ?? '').trim();
+    if (label) names.set(r.user_id, label);
+  }
+  return rows.map((r) => ({
+    message_id: r.message_id,
+    author_name: names.get(r.user_id) ?? 'Member',
+    is_self: r.user_id === viewerId,
+    body: r.body,
+    created_at: r.created_at,
+  }));
+}

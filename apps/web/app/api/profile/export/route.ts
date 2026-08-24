@@ -184,6 +184,7 @@ export async function GET() {
     godparentsRes,
     communityMembershipsRes,
     samahanStoriesRes,
+    samahanMessagesRes,
     coordinatorConsentsRes,
     marketingShareConsentsRes,
     vendorReuseRequestsRes,
@@ -364,6 +365,16 @@ export async function GET() {
       .select('story_id, community_id, duration_ms, created_at, expires_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-08-24) — Usapan messages the subject WROTE, body
+    // included (their own words are their data). Scoped to the author:
+    // other members' messages are theirs, not this subject's. Soft-deleted
+    // ones are included — the subject wrote them, and a take-down hides a
+    // message from the group, it does not unwrite it.
+    supabase
+      .from('samahan_messages')
+      .select('message_id, community_id, body, created_at, deleted_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
     // RA 10173 (2026-07-19) — coordinator-access consent receipts the subject
     // GAVE as the couple/host (Coordinator_Role_Feature_Spec_2026-07-18.md § 3a):
     // their explicit decision to share event planning data (guest list · seating
@@ -507,6 +518,7 @@ export async function GET() {
   const godparents = listOutcome('alaga_godparents', godparentsRes);
   const communityMemberships = listOutcome('samahan_memberships', communityMembershipsRes);
   const samahanStories = listOutcome('samahan_stories', samahanStoriesRes);
+  const samahanMessages = listOutcome('samahan_messages', samahanMessagesRes);
   const coordinatorConsents = listOutcome('coordinator_access_consents', coordinatorConsentsRes);
   const marketingShareConsents = listOutcome('marketing_share_consents', marketingShareConsentsRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
@@ -653,6 +665,8 @@ export async function GET() {
     // Samahan stories the subject posted that are still live (24-hour
     // lifetime) — metadata only; the clip file itself is deleted at expiry.
     samahan_stories: samahanStories.rows,
+    // Usapan messages the subject wrote, including ones they took down.
+    samahan_messages: samahanMessages.rows,
     // RA 10173 (2026-07-19) — consent receipts the subject gave: coordinator
     // data-sharing consents (grant + revocation stamps) and marketing-share
     // consents (per-artifact FB-feature grants incl. post/take-down evidence).

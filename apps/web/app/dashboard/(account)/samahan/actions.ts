@@ -361,8 +361,8 @@ export async function updateCommunityIdentity(formData: FormData) {
   if (!user) redirect('/login?next=%2Fdashboard%2Fsamahan');
 
   const rawName = String(formData.get('name') ?? '').trim();
-  // The photo field is a stored-asset ref minted by <FileUpload> via
-  // /api/upload (tenancy: the samahan/<id> prefix admits members only).
+  // The photo field is a stored-asset ref minted via /api/upload (tenancy:
+  // the samahan/<id> prefix admits members only).
   // Absent field = leave the photo alone; empty string = remove it.
   const photoField = formData.get('photo_url');
 
@@ -393,4 +393,62 @@ export async function updateCommunityIdentity(formData: FormData) {
   revalidatePath(back);
   revalidatePath('/dashboard/samahan');
   redirect(`${back}?updated=1`);
+}
+
+/**
+ * Usapan — post a message into a samahan (owner 2026-08-24). USER-scoped
+ * client so RLS is the gate: the INSERT policy demands `user_id = auth.uid()`
+ * AND membership, so neither can be forged from the browser.
+ */
+export async function postSamahanMessage(formData: FormData) {
+  const communityId = String(formData.get('community_id') ?? '');
+  if (!communityId) redirect('/dashboard/samahan');
+  const back = `/dashboard/samahan/${communityId}?tab=usapan`;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login?next=%2Fdashboard%2Fsamahan');
+
+  const body = String(formData.get('body') ?? '').trim();
+  // An empty box is a mis-tap, not an error worth a message.
+  if (!body) redirect(back);
+  if (body.length > 2000) {
+    redirect(`${back}&error=${encodeURIComponent('That message is too long.')}`);
+  }
+
+  const { error } = await supabase
+    .from('samahan_messages')
+    .insert({ community_id: communityId, user_id: user.id, body });
+  if (error) {
+    redirect(`${back}&error=${encodeURIComponent('That didn’t send. Try again.')}`);
+  }
+  revalidatePath(back);
+  redirect(back);
+}
+
+/**
+ * Take your own message down. SOFT delete — the trigger allows no other
+ * field to move, so this cannot become a silent edit.
+ */
+export async function deleteSamahanMessage(formData: FormData) {
+  const communityId = String(formData.get('community_id') ?? '');
+  const messageId = String(formData.get('message_id') ?? '');
+  if (!communityId || !messageId) redirect('/dashboard/samahan');
+  const back = `/dashboard/samahan/${communityId}?tab=usapan`;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login?next=%2Fdashboard%2Fsamahan');
+
+  // RLS scopes this to the author's own row; no app-side role check needed.
+  await supabase
+    .from('samahan_messages')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('message_id', messageId);
+  revalidatePath(back);
+  redirect(back);
 }

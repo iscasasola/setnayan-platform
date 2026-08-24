@@ -253,6 +253,17 @@ function PriceSourceChip({ priceSource }: { priceSource: VendorPriceSource }) {
   );
 }
 
+/**
+ * One ledger cell — a money figure under its own micro-label.
+ *
+ * 🔤 THE FIGURE IS SET IN THE MONO FACE, and that is the archetype's rule, not
+ * a preference: the binding Ledger archetype asks for "every numeral … in Space
+ * Mono like a bank book" so magnitude scans down one edge. This cell set its
+ * LABEL in mono and its FIGURE in the body face until 2026-08-25, which put the
+ * word "Paid" on the budget screen twice in two different typefaces — once over
+ * a mono figure in payment progress, once over a body-face figure here.
+ * Pinned by budget/money-wears-the-ledger-face.test.ts.
+ */
 function Money({
   label,
   value,
@@ -266,7 +277,7 @@ function Money({
     <div className="rounded-md bg-ink/[0.03] p-2">
       <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">{label}</dt>
       <dd
-        className={`mt-0.5 text-sm font-semibold ${
+        className={`mt-0.5 font-mono text-sm font-semibold tabular-nums ${
           tone === 'warn'
             ? 'text-terracotta-700'
             : tone === 'good'

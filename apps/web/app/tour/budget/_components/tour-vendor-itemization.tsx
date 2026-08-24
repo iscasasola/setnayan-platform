@@ -120,7 +120,17 @@ function Money({
   return (
     <div className="rounded-md bg-[#1B1A17]/[0.03] p-2">
       <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#5F5E5A]">{label}</dt>
-      <dd className={`mt-0.5 text-sm font-semibold ${color}`}>{value}</dd>
+      {/* 🔤 THE LEDGER FACE, MATCHING THE COMPONENT THIS IS A FORK OF. The real
+          card set this label in mono and this figure in the body face until
+          2026-08-25, which put the word "Paid" on one screen twice in two
+          typefaces. That was fixed there and NOT here, so the defect survived
+          on the one budget surface a stranger can reach without signing in.
+          🔑 A CLONE INHERITS THE BUG ITS TWIN ALREADY FIXED — this repo has
+          paid for that at least twice (the Live Studio camera seat kept the
+          copy its Papic twin had corrected). Pinned by
+          app/tour/budget/the-tour-copy-does-not-drift.test.ts, which reads
+          BOTH files rather than this one. */}
+      <dd className={`mt-0.5 font-mono text-sm font-semibold tabular-nums ${color}`}>{value}</dd>
     </div>
   );
 }

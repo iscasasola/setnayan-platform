@@ -89,7 +89,7 @@ export default async function TeaCeremonyPage({ params }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link
           href={`/dashboard/${eventId}/guests`}
-          className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 hover:text-terracotta"
+          className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 hover:text-terracotta-700"
         >
           <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
           Back to guest list
@@ -264,7 +264,7 @@ function ServeRow({
       </div>
       <Link
         href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-        className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/40 underline-offset-2 hover:text-terracotta hover:underline print:hidden"
+        className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/40 underline-offset-2 hover:text-terracotta-700 hover:underline print:hidden"
       >
         Edit
       </Link>

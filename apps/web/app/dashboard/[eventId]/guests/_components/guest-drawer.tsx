@@ -123,7 +123,7 @@ export function GuestDrawerHost({
   return (
     <Drawer onClose={guestDrawer.close} labelledById={TITLE_ID}>
       <div className="mb-4 flex items-center justify-between">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700">
           Guest
         </p>
         <button

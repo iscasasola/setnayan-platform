@@ -26,7 +26,7 @@ export default async function ImportGuestsPage({ params, searchParams }: Props) 
       <header className="space-y-1">
         <Link
           href={`/dashboard/${eventId}/guests`}
-          className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
+          className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta-700"
         >
           ‹ Back to guest list
         </Link>
@@ -56,7 +56,7 @@ export default async function ImportGuestsPage({ params, searchParams }: Props) 
           <code> email</code> · <code>mobile</code> · <code>rsvp_status</code>
         </p>
         <details className="mt-3">
-          <summary className="cursor-pointer text-sm font-medium text-terracotta hover:underline">
+          <summary className="cursor-pointer text-sm font-medium text-terracotta-700 hover:underline">
             Show template
           </summary>
           <pre className="mt-2 overflow-x-auto rounded bg-ink/5 p-3 text-[11px] leading-relaxed text-ink/80">

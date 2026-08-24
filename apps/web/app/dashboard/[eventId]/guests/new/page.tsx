@@ -84,7 +84,7 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
       <header className="space-y-1">
         <Link
           href={`/dashboard/${eventId}/guests`}
-          className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
+          className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta-700"
         >
           ‹ Back to guest list
         </Link>

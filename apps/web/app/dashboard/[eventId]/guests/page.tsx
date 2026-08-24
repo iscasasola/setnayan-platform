@@ -1411,7 +1411,7 @@ function SummaryFacetBar({
         {paxProgress ? (
           <div className="mb-2.5">
             <div className="flex items-baseline justify-between gap-2 text-xs">
-              <span className="font-mono uppercase tracking-[0.15em] text-terracotta">
+              <span className="font-mono uppercase tracking-[0.15em] text-terracotta-700">
                 {paxProgress.exceeded ? 'Now planning for' : 'Guest target'}
               </span>
               <span className="font-mono tabular-nums text-ink/70">

@@ -121,7 +121,7 @@ export function UndoToastHost() {
           type="button"
           onClick={runUndo}
           disabled={toast.state === 'undoing'}
-          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-semibold text-terracotta hover:bg-terracotta/10 disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-semibold text-terracotta-700 hover:bg-terracotta/10 disabled:opacity-60"
         >
           <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           {toast.state === 'undoing' ? 'Undoing…' : 'Undo'}

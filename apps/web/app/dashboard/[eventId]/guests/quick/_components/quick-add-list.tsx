@@ -194,7 +194,7 @@ export function QuickAddList({ eventId }: Props) {
 
       {/* Live entry row */}
       <div className="rounded-xl border border-terracotta/40 bg-cream p-3 ring-1 ring-terracotta/10">
-        <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+        <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-700">
           New guest · row {guests.length + 1}
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">

@@ -156,7 +156,7 @@ export default async function CheckinDeskPage({ params }: Props) {
         </p>
         <Link
           href={`/dashboard/${eventId}/guests/souvenirs`}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta-700 hover:underline"
         >
           <Gift className="h-4 w-4" strokeWidth={1.75} /> Souvenir table →
         </Link>

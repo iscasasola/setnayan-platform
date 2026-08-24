@@ -42,6 +42,23 @@ test('the vendors page mounts the Marketplace mini-tour exactly once, in the tak
   );
 });
 
+test('the vendor dashboard mounts its welcome tour, gated on the batched profile read', () => {
+  const layout = read('../../../vendor-dashboard/layout.tsx');
+  const mounts = layout.match(/<GuidedTour tourKey="vendor_welcome_v1"/g) ?? [];
+  assert.equal(
+    mounts.length,
+    1,
+    `expected exactly one vendor_welcome_v1 mount in the vendor layout, found ${mounts.length}`,
+  );
+  // The gate reads tour_seen_keys from the layout's ONE batched users select —
+  // dropping the column there makes the gate read undefined and the tour fire
+  // on every page load forever, which is worse than no tour.
+  assert.ok(
+    /select\('[^']*tour_seen_keys[^']*'\)/.test(layout),
+    "the vendor layout's users select no longer fetches tour_seen_keys — the welcome-tour gate is reading undefined",
+  );
+});
+
 test('the tour definition describes the takeover, not the retired card/stage page', () => {
   const tours = read('../../../../lib/tours.ts');
   assert.ok(

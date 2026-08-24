@@ -68,6 +68,7 @@ export type TourKey =
   | 'couple_welcome_v1'
   | 'admin_welcome_v1'
   | 'guest_welcome_v1'
+  | 'vendor_welcome_v1'
   // Mini-tours — fire once per user when they first land on the surface.
   | 'customer_vendors_v1'
   | 'customer_seat_plan_v1'
@@ -79,6 +80,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'couple_welcome_v1',
   'admin_welcome_v1',
   'guest_welcome_v1',
+  'vendor_welcome_v1',
   'customer_vendors_v1',
   'customer_seat_plan_v1',
   'customer_papic_v1',
@@ -182,6 +184,45 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: PartyPopper,
         title: 'On the day, come back here',
         body: 'From one hour before the event, this same page shows you the live schedule, your table number, and (if enabled) the photo wall where everyone shares snaps.',
+      },
+    ],
+  },
+  // Added 2026-08-24 (W5-B). Couple, admin and guest each had a welcome tour;
+  // the vendor — the role iteration 0030 gave the second-longest script — had
+  // none at all. Claims below are verified against shipped behaviour: the
+  // permanent shop address + admin-approval gate (owner 2026-07-27), per-service
+  // schedules with auto-close + the booked-out waitlist (2026-08-09), free
+  // answering on every tier (0 tokens ever; tokens retired 2026-08-07), and the
+  // reply-time line on the public card (3+ replies floor, W3-B 2026-08-24).
+  vendor_welcome_v1: {
+    key: 'vendor_welcome_v1',
+    label: 'Vendor — welcome tour',
+    blurb: 'Five-step intro to the vendor dashboard. Fires on first sign-in.',
+    slides: [
+      {
+        Icon: Sparkles,
+        title: 'Welcome to your shop',
+        body: 'Everything about your business on Setnayan runs from here — your services, your calendar, your customers, and the public page couples see.',
+      },
+      {
+        Icon: Briefcase,
+        title: 'My Shop is your storefront',
+        body: 'Build service cards with photos, prices and what&rsquo;s included. Your shop address is yours for good — it goes live to couples once Setnayan approves your shop.',
+      },
+      {
+        Icon: Calendar,
+        title: 'Your calendar guards your dates',
+        body: 'Set a schedule per service and block days off. When a booking locks, that date closes by itself — and couples who just missed it can join your waitlist.',
+      },
+      {
+        Icon: MessageSquare,
+        title: 'Answering is always free',
+        body: 'Inquiries and bookings land in one place, and replying costs nothing on any plan. Couples see how quickly you usually reply once you&rsquo;ve built a track record — a fast answer works for you.',
+      },
+      {
+        Icon: ShieldCheck,
+        title: 'Get verified',
+        body: 'Verification is what puts your shop in front of couples. Send your documents once from My Shop — Setnayan reviews them, and your page goes live.',
       },
     ],
   },

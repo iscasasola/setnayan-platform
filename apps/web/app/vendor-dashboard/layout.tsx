@@ -24,6 +24,8 @@ import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { ServerTimer } from '@/lib/server-timing';
 import { PromoFreeWindowBannerVendor } from '@/app/_components/promo-free-window-banner-vendor';
+import { GuidedTour } from '@/app/_components/guided-tour';
+import { completeTour } from '@/lib/tour-actions';
 
 /**
  * Vendor dashboard layout — the shop, under the ONE shell.
@@ -166,7 +168,7 @@ export default async function VendorDashboardLayout({
     await timer.track('chrome', () => Promise.all([
       supabase
         .from('users')
-        .select('account_type, email, display_name, deleted_at')
+        .select('account_type, email, display_name, deleted_at, tour_seen_keys')
         .eq('user_id', user.id)
         .maybeSingle(),
       countUnread(supabase, user.id),
@@ -452,6 +454,13 @@ export default async function VendorDashboardLayout({
       {/* Push notification opt-in banner. Client-only; renders null once the
           vendor has granted push permission or dismissed the prompt. */}
       <PushNotificationRegistrar />
+      {/* Vendor welcome tour (W5-B 2026-08-24) — couple, admin and guest each
+          had one; the vendor had none. Gated on the tour_seen_keys already
+          fetched in this layout's batched users select, mirroring the couple
+          and admin layouts (never a second read per render). */}
+      {!(profile?.tour_seen_keys ?? []).includes('vendor_welcome_v1') ? (
+        <GuidedTour tourKey="vendor_welcome_v1" completeAction={completeTour} />
+      ) : null}
     </div>
   );
 }

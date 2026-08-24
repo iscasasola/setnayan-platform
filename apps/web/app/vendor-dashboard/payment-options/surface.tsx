@@ -143,7 +143,7 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
                 className="space-y-3 sn-tile p-5"
               >
                 <div className="flex items-start gap-3">
-                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta-700">
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
                     <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
                   </span>
                   <div className="min-w-0 flex-1 space-y-1">

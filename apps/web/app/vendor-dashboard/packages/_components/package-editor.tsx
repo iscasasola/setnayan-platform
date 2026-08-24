@@ -401,7 +401,7 @@ export function PackageEditor({
                       <button
                         type="button"
                         onClick={() => addChoice(item.ref)}
-                        className="text-xs text-terracotta underline underline-offset-2"
+                        className="text-xs text-mulberry underline underline-offset-2"
                       >
                         Let them choose between options
                       </button>
@@ -605,7 +605,7 @@ function OptionList({
         <button
           type="button"
           onClick={onAdd}
-          className="mt-2 text-xs text-terracotta underline underline-offset-2"
+          className="mt-2 text-xs text-mulberry underline underline-offset-2"
         >
           Add another option
         </button>

@@ -37,10 +37,11 @@ import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createVendorChallengeAction } from '../actions';
 import { PhotoChallengeBuy } from './photo-challenge-buy';
+import { ShopCard } from '../../../_components/kit';
 
 const STATUS_BADGE: Record<VendorChallengeStatus, { label: string; cls: string }> = {
   pending: { label: 'Awaiting couple', cls: 'bg-mulberry/15 text-mulberry' },
-  live: { label: 'Live', cls: 'bg-terracotta/15 text-terracotta' },
+  live: { label: 'Live', cls: 'bg-terracotta/15 text-terracotta-700' },
   rejected: { label: 'Declined', cls: 'bg-ink/10 text-ink/55' },
 };
 
@@ -106,12 +107,12 @@ export async function VendorChallengeSection({
   });
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-white p-5 sm:p-6">
+    <ShopCard pad="roomy">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
         <Trophy aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
         Papic Challenges
         {sponsored ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 text-[11px] font-semibold text-terracotta">
+          <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 text-[11px] font-semibold text-terracotta-700">
             <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
             Sponsored
           </span>
@@ -176,7 +177,7 @@ export async function VendorChallengeSection({
           </form>
           <Link
             href={`/vendor-dashboard/clients/${eventId}/challenge-photos`}
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta/80"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta-700 hover:text-terracotta-800"
           >
             <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={2} />
             View shared photos
@@ -204,6 +205,6 @@ export async function VendorChallengeSection({
           {PHOTO_CHALLENGE_DENY_MESSAGE[eligibility.reason]}
         </p>
       )}
-    </section>
+    </ShopCard>
   );
 }

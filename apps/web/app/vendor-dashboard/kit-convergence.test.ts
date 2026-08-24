@@ -45,10 +45,14 @@ const KIT = join(HERE, '_components', 'kit.tsx');
 const BASELINE_PATH = join(HERE, 'kit-convergence.baseline.json');
 
 /** The two converged spellings. The RULE and the FLOOR below share this
- * object, so the pattern source cannot drift from what the floor measures. */
+ * object, so the pattern source cannot drift from what the floor measures.
+ *
+ * The card pattern ends with a lookahead: `bg-white/60` and `bg-white/70` are
+ * the tree's deliberate TRANSLUCENT glass variant (a different surface, kept),
+ * and a bare-substring count was claiming them as hand-rolled solid cards. */
 const RECIPES = {
-  card: 'rounded-2xl border border-ink/10 bg-white',
-  input: 'rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm',
+  card: /rounded-2xl border border-ink\/10 bg-white(?![/\-\w])/g,
+  input: /rounded-lg border border-ink\/20 bg-white px-3 py-1\.5 text-sm/g,
 } as const;
 
 /** Strip /* *​/ and // comments (incl. JSX {/* *​/}) so a note NAMING a recipe
@@ -57,13 +61,11 @@ function stripComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 }
 
-function countOccurrences(haystack: string, needle: string): number {
+function countOccurrences(haystack: string, pattern: RegExp): number {
+  // Fresh lastIndex per call — the shared /g regexes are stateful.
+  const re = new RegExp(pattern.source, pattern.flags);
   let n = 0;
-  let i = haystack.indexOf(needle);
-  while (i !== -1) {
-    n += 1;
-    i = haystack.indexOf(needle, i + needle.length);
-  }
+  while (re.exec(haystack) !== null) n += 1;
   return n;
 }
 

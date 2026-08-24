@@ -29,7 +29,7 @@
  * In this repo the Tailwind slot named `terracotta` is the decorative GOLD
  * (#A9834B, 3.37:1 on white — FAILS AA for text) and the action colour lives
  * in the slot named `mulberry`. So:
- *   · no tone below ever emits bare `text-terracotta`;
+ *   · no tone below ever emits the bare gold text utility;
  *   · gold-toned TEXT uses `text-terracotta-700`, the dark text-gold;
  *   · the action tone uses `mulberry`.
  * Centralising the tone map means the contrast argument is made once, here,
@@ -44,6 +44,13 @@ import type { ReactNode } from 'react';
  * Card separation is border + shadowless white on the white page, per the
  * 2026-08-20 owner ruling — do not add a second surface colour.
  * ────────────────────────────────────────────────────────────────────────── */
+/**
+ * The card recipe itself, for the places that must keep their own element —
+ * an `<li>` in a roster, an `<article>` in a mapped list. `ShopCard` composes
+ * this same constant, so the recipe exists exactly once.
+ */
+export const shopCardClass = 'rounded-2xl border border-ink/10 bg-white';
+
 const CARD_PAD = {
   /** The dominant spelling (24 of the 34 shipped instances). */
   default: 'p-4 sm:p-5',
@@ -71,7 +78,7 @@ export function ShopCard({
   children: ReactNode;
 }) {
   return (
-    <section className={`rounded-2xl border border-ink/10 bg-white ${CARD_PAD[pad]} ${className}`}>
+    <section className={`${shopCardClass} ${CARD_PAD[pad]} ${className}`}>
       {eyebrow || actions ? (
         <div className="mb-3 flex items-start justify-between gap-3">
           {eyebrow ? <p className="sn-eye">{eyebrow}</p> : <span />}
@@ -111,7 +118,7 @@ export function ShopStat({
 /* ──────────────────────────────────────────────────────────────────────────
  * ShopPill — the status pill, with the tone argument settled once.
  * `gold` deliberately emits text-terracotta-700 (the dark text-gold), never
- * bare text-terracotta — see the colour rules in the header.
+ * the bare gold utility — see the colour rules in the header.
  * ────────────────────────────────────────────────────────────────────────── */
 export type ShopPillTone = 'ink' | 'action' | 'gold' | 'success' | 'warn' | 'danger';
 

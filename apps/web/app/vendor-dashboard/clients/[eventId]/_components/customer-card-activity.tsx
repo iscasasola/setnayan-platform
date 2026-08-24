@@ -37,10 +37,10 @@ const ICONS = {
 } as const;
 
 const TONES: Record<ActivityEvent['kind'], string> = {
-  proposal: 'text-terracotta bg-terracotta/10',
+  proposal: 'text-terracotta-700 bg-terracotta/10',
   payment: 'text-success-700 bg-success-50',
   handshake: 'text-ink/70 bg-ink/5',
-  schedule: 'text-terracotta bg-terracotta/10',
+  schedule: 'text-terracotta-700 bg-terracotta/10',
   deposit: 'text-success-700 bg-success-50',
   import: 'text-ink/60 bg-ink/5',
 };

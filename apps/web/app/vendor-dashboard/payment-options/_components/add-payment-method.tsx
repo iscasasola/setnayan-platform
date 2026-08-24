@@ -117,7 +117,7 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
               >
                 <Icon
                   aria-hidden
-                  className={`h-5 w-5 ${active ? 'text-terracotta-700' : 'text-ink/55'}`}
+                  className={`h-5 w-5 ${active ? 'text-terracotta' : 'text-ink/55'}`}
                   strokeWidth={1.75}
                 />
                 <span
@@ -158,7 +158,7 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
           <label htmlFor="account_number" className="block space-y-1">
             <span className="block text-sm font-medium text-ink">
               Account number / mobile
-              <span className="ml-1 text-terracotta">*</span>
+              <span className="ml-1 text-terracotta-700">*</span>
             </span>
             <input
               id="account_number"
@@ -181,7 +181,7 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
           <div className="space-y-1">
             <span className="block text-sm font-medium text-ink">
               QR image
-              <span className="ml-1 text-terracotta">*</span>
+              <span className="ml-1 text-terracotta-700">*</span>
             </span>
             <FileUpload
               bucket="media"
@@ -229,7 +229,7 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
           <label htmlFor="link_url" className="block space-y-1">
             <span className="block text-sm font-medium text-ink">
               Payment link
-              <span className="ml-1 text-terracotta">*</span>
+              <span className="ml-1 text-terracotta-700">*</span>
             </span>
             <input
               id="link_url"

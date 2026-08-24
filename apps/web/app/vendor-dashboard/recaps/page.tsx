@@ -66,7 +66,7 @@ export default async function VendorRecapsPage() {
 
       {recaps.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-ink/20 p-8 text-center sm:p-10">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta-700">
             Coming soon
           </p>
           <p className="mx-auto mt-3 max-w-md text-base font-medium text-ink">
@@ -89,7 +89,7 @@ export default async function VendorRecapsPage() {
                 className="sn-row flex flex-col gap-3 p-5"
               >
                 <div>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-700">
                     Published recap
                   </p>
                   <h2 className="mt-1.5 text-lg font-semibold leading-snug text-ink">
@@ -101,7 +101,7 @@ export default async function VendorRecapsPage() {
                   <Link
                     href={`/${r.slug}/recap`}
                     target="_blank"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-mulberry underline-offset-4 hover:underline"
                   >
                     View the recap
                     <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

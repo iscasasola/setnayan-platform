@@ -574,7 +574,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
                   <input type="hidden" name="requested_date" value={w.requestedDate} />
                   <SubmitButton
                     pendingLabel="Notifying…"
-                    className="rounded-lg border border-terracotta/40 px-3 py-1.5 text-sm font-medium text-terracotta hover:bg-terracotta/5"
+                    className="rounded-lg border border-terracotta/40 px-3 py-1.5 text-sm font-medium text-terracotta-700 hover:bg-terracotta/5"
                   >
                     A slot opened — notify them
                   </SubmitButton>
@@ -652,7 +652,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
             </p>
             <Link
               href="/vendor-dashboard/services"
-              className="mt-3 inline-block font-medium text-terracotta underline"
+              className="mt-3 inline-block font-medium text-mulberry underline"
             >
               Go to Services
             </Link>
@@ -760,7 +760,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
                                 : c.kind === 'whitelist'
                                   ? 'bg-success-100 text-success-900'
                                   : c.kind === 'full'
-                                    ? 'bg-terracotta/20 text-terracotta'
+                                    ? 'bg-terracotta/20 text-terracotta-700'
                                     : 'bg-warn-100 text-warn-900'
                             }`}
                           >
@@ -1059,7 +1059,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
                       </p>
                     </div>
                     {b.threadId ? (
-                      <Link href={`/vendor-dashboard/messages/${b.threadId}`} className="text-sm font-medium text-terracotta underline">
+                      <Link href={`/vendor-dashboard/messages/${b.threadId}`} className="text-sm font-medium text-mulberry underline">
                         Open chat
                       </Link>
                     ) : null}

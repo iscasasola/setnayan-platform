@@ -57,7 +57,7 @@ export default async function VendorNotificationsPage() {
             <>
               You&rsquo;ll be notified here when a couple sends a new message. Make sure
               your{' '}
-              <Link href="/vendor-dashboard" className="text-terracotta hover:underline">
+              <Link href="/vendor-dashboard" className="text-mulberry hover:underline">
                 contact email
               </Link>{' '}
               is filled in — that&rsquo;s how couples find you and start a conversation.

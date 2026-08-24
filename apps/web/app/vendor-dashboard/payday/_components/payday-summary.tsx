@@ -1,6 +1,7 @@
 import { Wallet, CheckCircle2, Clock3, AlertTriangle } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
 import type { PaydayTotals } from '@/lib/vendor-cashflow';
+import { shopCardClass } from '../../_components/kit';
 
 /**
  * Payday KPI cards — expected / confirmed / still-owed / overdue. Read-only
@@ -13,7 +14,7 @@ export function PaydaySummary({ totals }: { totals: PaydayTotals }) {
       label: 'Expected (all installments)',
       value: formatPhp(totals.expectedPhp),
       icon: Wallet,
-      tone: 'text-terracotta',
+      tone: 'text-terracotta-700',
       bg: 'bg-terracotta/10',
     },
     {
@@ -44,7 +45,7 @@ export function PaydaySummary({ totals }: { totals: PaydayTotals }) {
       {cards.map((c) => (
         <article
           key={c.label}
-          className="rounded-2xl border border-ink/10 bg-white p-4"
+          className={`${shopCardClass} p-4`}
         >
           <span
             className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${c.bg} ${c.tone}`}

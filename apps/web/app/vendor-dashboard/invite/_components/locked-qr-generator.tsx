@@ -353,7 +353,7 @@ export function LockedQrGenerator({
         </div>
         <div className="space-y-1.5">
           <label htmlFor="event_date" className="block text-sm font-medium text-ink/80">
-            {eventDateLabel} <span className="text-terracotta">*</span>
+            {eventDateLabel} <span className="text-terracotta-700">*</span>
           </label>
           <input
             id="event_date"
@@ -425,7 +425,7 @@ export function LockedQrGenerator({
             onChange={(e) => setInitialPaid(cleanNumeric(e.target.value))}
           />
           {overpaid && (
-            <p className="text-xs text-terracotta">
+            <p className="text-xs text-terracotta-700">
               Downpayment can&apos;t be more than the total value.
             </p>
           )}
@@ -438,7 +438,7 @@ export function LockedQrGenerator({
           isn't bombarded with every chip at once. */}
       <div className="space-y-3 rounded-2xl border border-ink/10 bg-white/60 p-5">
         <p className="text-sm font-medium text-ink/80">
-          Service(s) <span className="text-terracotta">*</span>
+          Service(s) <span className="text-terracotta-700">*</span>
           <span className="ml-1 font-normal text-ink/45">— pick every service this deal covers</span>
         </p>
 
@@ -451,7 +451,7 @@ export function LockedQrGenerator({
                 type="button"
                 onClick={() => toggleService(s.value)}
                 aria-label={`Remove ${prettyServiceLabel(s.label)}`}
-                className="inline-flex items-center gap-1.5 rounded-full border border-terracotta bg-terracotta/10 px-3 py-1.5 text-sm text-terracotta transition hover:bg-terracotta/15"
+                className="inline-flex items-center gap-1.5 rounded-full border border-terracotta bg-terracotta/10 px-3 py-1.5 text-sm text-terracotta-700 transition hover:bg-terracotta/15"
               >
                 <Check className="h-3.5 w-3.5" strokeWidth={2} />
                 {prettyServiceLabel(s.label)}
@@ -512,7 +512,7 @@ export function LockedQrGenerator({
       {/* What the couple availed — the scope of work frozen onto the couple's plan. */}
       <div className="space-y-1.5 rounded-2xl border border-ink/10 bg-white/60 p-5">
         <label htmlFor="service_description" className="block text-sm font-medium text-ink/80">
-          What the couple availed <span className="text-terracotta">*</span>
+          What the couple availed <span className="text-terracotta-700">*</span>
         </label>
         <textarea
           id="service_description"
@@ -554,7 +554,7 @@ export function LockedQrGenerator({
                     <button
                       type="button"
                       onClick={() => setRows((prev) => prev.filter((_, idx) => idx !== i))}
-                      className="rounded-lg p-2 text-ink/40 hover:bg-ink/5 hover:text-terracotta"
+                      className="rounded-lg p-2 text-ink/40 hover:bg-ink/5 hover:text-terracotta-700"
                       aria-label="Remove installment"
                     >
                       <Trash2 className="h-4 w-4" strokeWidth={1.75} />
@@ -597,7 +597,7 @@ export function LockedQrGenerator({
                     Auto-filled from “Initial paid / downpayment” above.
                   </p>
                 ) : badDate ? (
-                  <p className="mt-2 text-xs text-terracotta">
+                  <p className="mt-2 text-xs text-terracotta-700">
                     Date must be between today and the event date.
                   </p>
                 ) : null}
@@ -621,7 +621,7 @@ export function LockedQrGenerator({
             className={
               remaining === 0 && totalNum > 0
                 ? 'font-semibold text-emerald-700'
-                : 'font-semibold text-terracotta'
+                : 'font-semibold text-terracotta-700'
             }
           >
             {remaining === 0 && totalNum > 0 ? 'Fully scheduled ✓' : remainingLabel}
@@ -632,7 +632,7 @@ export function LockedQrGenerator({
       {/* Contract — pick one of the vendor's saved contracts to attach. */}
       <div className="space-y-1.5 rounded-2xl border border-ink/10 bg-white/60 p-5">
         <label htmlFor="source_contract_id" className="block text-sm font-medium text-ink/80">
-          Contract {contracts.length > 0 && <span className="text-terracotta">*</span>}
+          Contract {contracts.length > 0 && <span className="text-terracotta-700">*</span>}
         </label>
         {contracts.length > 0 ? (
           <>
@@ -663,7 +663,7 @@ export function LockedQrGenerator({
       <div className="space-y-4 rounded-2xl border border-ink/10 bg-white/60 p-5">
         <div>
           <h2 className="text-sm font-semibold text-ink">
-            Proof of payment <span className="text-terracotta">*</span>
+            Proof of payment <span className="text-terracotta-700">*</span>
           </h2>
           <p className="mt-1 text-xs text-ink/50">
             Upload the receipt/screenshot of the downpayment you received.
@@ -685,7 +685,7 @@ export function LockedQrGenerator({
               disabled={proof.busy}
             />
           </label>
-          {proof.err && <p className="mt-2 text-xs text-terracotta">{proof.err}</p>}
+          {proof.err && <p className="mt-2 text-xs text-terracotta-700">{proof.err}</p>}
         </div>
         <div className="border-t border-ink/10 pt-4">
           <h2 className="text-sm font-semibold text-ink">
@@ -711,7 +711,7 @@ export function LockedQrGenerator({
               disabled={remembrance.busy}
             />
           </label>
-          {remembrance.err && <p className="mt-2 text-xs text-terracotta">{remembrance.err}</p>}
+          {remembrance.err && <p className="mt-2 text-xs text-terracotta-700">{remembrance.err}</p>}
         </div>
       </div>
 

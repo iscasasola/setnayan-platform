@@ -150,7 +150,7 @@ export default async function RepertoirePage({ searchParams }: Props) {
                       <form action={addRepertoireSong} className="shrink-0">
                         <input type="hidden" name="song_id" value={song.song_id} />
                         <input type="hidden" name="q" value={query} />
-                        <SubmitButton className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta">
+                        <SubmitButton className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700">
                           <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Add
                         </SubmitButton>
                       </form>
@@ -207,7 +207,7 @@ export default async function RepertoirePage({ searchParams }: Props) {
                     <input type="hidden" name="song_id" value={song.song_id} />
                     <input type="hidden" name="q" value={query} />
                     <SubmitButton
-                      className="inline-flex items-center justify-center rounded-full p-1.5 text-ink/40 hover:bg-terracotta/10 hover:text-terracotta"
+                      className="inline-flex items-center justify-center rounded-full p-1.5 text-ink/40 hover:bg-terracotta/10 hover:text-terracotta-700"
                       aria-label={`Remove ${song.title}`}
                     >
                       <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />

@@ -75,7 +75,7 @@ function stateLabel(d: PoolDay): { text: string; cls: string; icon?: LucideIcon 
   if (d.whitelist)
     return { text: 'Approve-first', cls: 'bg-success-100 text-success-900', icon: CheckCircle2 };
   if (d.consumed >= d.pool.capacity)
-    return { text: `Full · ${d.consumed}/${d.pool.capacity}`, cls: 'bg-terracotta/20 text-terracotta' };
+    return { text: `Full · ${d.consumed}/${d.pool.capacity}`, cls: 'bg-terracotta/20 text-terracotta-700' };
   if (d.consumed > 0)
     return { text: `Booked · ${d.consumed}/${d.pool.capacity}`, cls: 'bg-warn-100 text-warn-900' };
   return { text: 'Open', cls: 'bg-success-50 text-success-900' };
@@ -154,7 +154,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
       <div>
         <Link
           href={backHref}
-          className="text-sm font-medium text-terracotta underline"
+          className="text-sm font-medium text-mulberry underline"
         >
           ← Back to calendar
         </Link>
@@ -300,7 +300,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
                 {b.threadId ? (
                   <Link
                     href={`/vendor-dashboard/messages/${b.threadId}`}
-                    className="text-sm font-medium text-terracotta underline"
+                    className="text-sm font-medium text-mulberry underline"
                   >
                     Open chat
                   </Link>
@@ -330,7 +330,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
             <input type="hidden" name="requested_date" value={date} />
             <SubmitButton
               pendingLabel="Notifying…"
-              className="rounded-lg border border-terracotta/40 px-3 py-1.5 text-sm font-medium text-terracotta hover:bg-terracotta/5"
+              className="rounded-lg border border-terracotta/40 px-3 py-1.5 text-sm font-medium text-terracotta-700 hover:bg-terracotta/5"
             >
               A slot opened — notify them
             </SubmitButton>

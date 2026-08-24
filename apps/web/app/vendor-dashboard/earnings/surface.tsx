@@ -373,7 +373,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
             <p className="text-sm font-medium text-ink">No bookings logged yet.</p>
             <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
               Add services on the{' '}
-              <Link href="/vendor-dashboard/services" className="text-terracotta hover:underline">
+              <Link href="/vendor-dashboard/services" className="text-mulberry hover:underline">
                 Services
               </Link>{' '}
               tab. Once couples lock you on their event, your booked work shows

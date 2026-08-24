@@ -164,7 +164,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
 
       {myPins.length > 0 ? (
         <p className="rounded-xl border border-terracotta/25 bg-terracotta/[0.06] px-4 py-3 text-sm">
-          <span className="font-semibold text-terracotta">Your spot:</span>{' '}
+          <span className="font-semibold text-terracotta-700">Your spot:</span>{' '}
           {myPins
             .map(
               (p) =>
@@ -182,7 +182,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
         >
           {/* Stage */}
           <div
-            className="absolute flex items-center justify-center rounded-md bg-terracotta/15 text-[10px] font-semibold uppercase tracking-wider text-terracotta"
+            className="absolute flex items-center justify-center rounded-md bg-terracotta/15 text-[10px] font-semibold uppercase tracking-wider text-terracotta-700"
             style={{
               left: `${plan.stage.x - plan.stage.w / 2}%`,
               top: `${plan.stage.y - plan.stage.h / 2}%`,

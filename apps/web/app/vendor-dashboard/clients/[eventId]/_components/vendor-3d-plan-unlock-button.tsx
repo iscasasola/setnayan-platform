@@ -32,7 +32,7 @@ export function Vendor3dPlanUnlockButton({ eventId }: { eventId: string }) {
       </SubmitButton>
 
       {state.status === 'error' ? (
-        <p className="rounded-lg border border-terracotta/25 bg-terracotta/[0.06] px-3 py-2 text-xs text-terracotta">
+        <p className="rounded-lg border border-terracotta/25 bg-terracotta/[0.06] px-3 py-2 text-xs text-terracotta-700">
           {state.message}
         </p>
       ) : null}

@@ -306,7 +306,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
           <button
             type="button"
             onClick={() => setAdding((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.06] px-3 py-1.5 text-sm font-medium text-terracotta hover:border-terracotta"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.06] px-3 py-1.5 text-sm font-medium text-terracotta-700 hover:border-terracotta"
           >
             <Plus className="h-4 w-4" /> Add booth
           </button>
@@ -329,7 +329,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
           <button
             type="button"
             onClick={addSign}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.06] px-3 py-1.5 text-sm font-medium text-terracotta hover:border-terracotta"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.06] px-3 py-1.5 text-sm font-medium text-terracotta-700 hover:border-terracotta"
           >
             <Signpost className="h-4 w-4" /> Add sign
           </button>
@@ -439,7 +439,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
           <div className="h-full w-full rounded-xl border-2 border-dashed border-terracotta/50 bg-terracotta/[0.05]" />
           <span
             onPointerDown={startRoom}
-            className={`pointer-events-auto absolute left-1.5 top-1.5 inline-flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-terracotta shadow-sm ${
+            className={`pointer-events-auto absolute left-1.5 top-1.5 inline-flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-terracotta-700 shadow-sm ${
               canArrange ? 'cursor-grab' : ''
             }`}
           >
@@ -487,7 +487,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={() => openOfferings(b)}
                     aria-label={`Edit what ${b.label} serves`}
-                    className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-terracotta"
+                    className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-terracotta-700"
                   >
                     <Pencil className="h-3 w-3" />
                   </button>
@@ -580,7 +580,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
               onPointerDown={canArrange ? startSign(s) : undefined}
               onDoubleClick={canArrange ? () => relabelSign(s) : undefined}
               title={canArrange ? `${s.label} · double-click to rename` : s.label}
-              className={`flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-white/70 px-2 py-1 text-[10px] font-semibold text-terracotta shadow-sm ${
+              className={`flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-white/70 px-2 py-1 text-[10px] font-semibold text-terracotta-700 shadow-sm ${
                 canArrange ? 'cursor-grab' : ''
               }`}
             >
@@ -597,7 +597,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => rotateSign(s)}
                   aria-label={`Rotate ${s.label}`}
-                  className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-terracotta"
+                  className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-terracotta-700"
                 >
                   <RotateCw className="h-3 w-3" />
                 </button>

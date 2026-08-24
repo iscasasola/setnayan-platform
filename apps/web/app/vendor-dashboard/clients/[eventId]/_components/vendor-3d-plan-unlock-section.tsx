@@ -23,6 +23,7 @@ import {
   VENDOR_3D_PLAN_UNLOCK_DENY_MESSAGE,
 } from '@/lib/vendor-3d-plan-unlock';
 import { Vendor3dPlanUnlockButton } from './vendor-3d-plan-unlock-button';
+import { ShopCard } from '../../../_components/kit';
 
 const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
 
@@ -59,12 +60,12 @@ export async function Vendor3dPlanUnlockSection({
       : `${peso(VENDOR_3D_PLAN_UNLOCK_PRICE_PHP)} for your couple.`;
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-white p-5 sm:p-6">
+    <ShopCard pad="roomy">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
         <Boxes aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
         3D Plan unlock
         {unlocked ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 text-[11px] font-semibold text-terracotta">
+          <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 text-[11px] font-semibold text-terracotta-700">
             <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
             Unlocked
           </span>
@@ -97,6 +98,6 @@ export async function Vendor3dPlanUnlockSection({
           {VENDOR_3D_PLAN_UNLOCK_DENY_MESSAGE[eligibility.reason]}
         </p>
       )}
-    </section>
+    </ShopCard>
   );
 }

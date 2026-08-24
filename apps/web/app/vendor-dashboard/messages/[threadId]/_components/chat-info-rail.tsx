@@ -109,7 +109,7 @@ function RailBody({
       {!inSheet ? (
         <p
           id={headingId}
-          className="border-b border-ink/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta"
+          className="border-b border-ink/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700"
         >
           Customer
         </p>

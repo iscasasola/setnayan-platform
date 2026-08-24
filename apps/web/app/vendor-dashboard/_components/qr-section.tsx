@@ -110,7 +110,7 @@ export async function VendorQrSection({
         address.{' '}
         <Link
           href="/vendor-dashboard/shop"
-          className="font-medium text-terracotta hover:underline"
+          className="font-medium text-mulberry hover:underline"
         >
           Set up my page
         </Link>
@@ -232,7 +232,7 @@ function LockedBody({
       <LockedQrGenerator eventTypes={eventTypes} services={services} contracts={contracts} />
       <Link
         href="/vendor-dashboard/locked-qr"
-        className="inline-block text-sm font-medium text-terracotta hover:underline"
+        className="inline-block text-sm font-medium text-mulberry hover:underline"
       >
         View your issued Locked QRs →
       </Link>

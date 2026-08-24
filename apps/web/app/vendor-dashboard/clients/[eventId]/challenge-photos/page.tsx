@@ -7,6 +7,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { fetchVendorChallengePhotos } from '@/lib/papic-games';
 import { displayChallengePrompt } from '@/lib/papic-missions';
+import { ShopCard } from '../../../_components/kit';
 
 export const metadata = { title: 'Challenge photos · Vendor' };
 export const dynamic = 'force-dynamic';
@@ -92,16 +93,16 @@ export default async function VendorChallengePhotosPage({
       </header>
 
       {total === 0 ? (
-        <div className="rounded-2xl border border-ink/10 bg-white p-8 text-center">
+        <ShopCard pad="none" className="p-8 text-center">
           <ImageIcon aria-hidden className="mx-auto h-8 w-8 text-ink/25" strokeWidth={1.5} />
           <p className="mt-3 text-sm text-ink/55">
             No shared photos yet. They appear here as guests complete your challenges and
             tap “share” — once you’ve sponsored Papic Challenges for this event.
           </p>
-        </div>
+        </ShopCard>
       ) : (
         sections.map((s, i) => (
-          <div key={i} className="rounded-2xl border border-ink/10 bg-white p-5 sm:p-6">
+          <ShopCard key={i} pad="roomy">
             <p className="text-sm font-medium text-ink">{displayChallengePrompt(s.prompt)}</p>
             <p className="mt-0.5 text-xs text-ink/45">
               {s.tiles.length} shared {s.tiles.length === 1 ? 'shot' : 'shots'}
@@ -130,7 +131,7 @@ export default async function VendorChallengePhotosPage({
                 </a>
               ))}
             </div>
-          </div>
+          </ShopCard>
         ))
       )}
     </section>

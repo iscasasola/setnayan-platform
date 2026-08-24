@@ -481,7 +481,7 @@ function LineRow({
                 <button
                   type="button"
                   onClick={() => onAddFollowUp(item.ref, o.ref)}
-                  className="shrink-0 text-[11px] text-terracotta underline underline-offset-2"
+                  className="shrink-0 text-[11px] text-mulberry underline underline-offset-2"
                 >
                   Ask something else
                 </button>
@@ -507,7 +507,7 @@ function LineRow({
           <button
             type="button"
             onClick={() => onAddOption(item.ref)}
-            className="text-xs text-terracotta underline underline-offset-2"
+            className="text-xs text-mulberry underline underline-offset-2"
           >
             Add another option
           </button>

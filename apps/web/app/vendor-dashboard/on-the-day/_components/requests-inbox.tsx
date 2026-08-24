@@ -44,7 +44,7 @@ type Props = {
 };
 
 const LANE_TONE: Record<string, string> = {
-  couple: 'bg-terracotta/10 text-terracotta',
+  couple: 'bg-terracotta/10 text-terracotta-700',
   vendor: 'bg-ink/10 text-ink/70',
   host: 'bg-success-500/10 text-success-600',
   coordinator: 'bg-warn-600/10 text-warn-600',
@@ -201,7 +201,7 @@ export function RequestsInbox({ eventId, initialRows, side }: Props) {
                       done
                         ? 'border-success-400 bg-success-500 text-white'
                         : row.status === 'acknowledged'
-                          ? 'border-terracotta bg-terracotta/15 text-terracotta'
+                          ? 'border-terracotta bg-terracotta/15 text-terracotta-700'
                           : 'border-ink/25 bg-white text-transparent hover:border-terracotta'
                     }`}
                   >

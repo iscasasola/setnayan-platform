@@ -2213,6 +2213,34 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy: 'RLS per event; the routed source is guarded by NOTHING',
     traps: 'panood_broadcasts has held ZERO rows for its entire existence while control_state shows the room driven live twice \u2014 the YouTube leg has never completed in prod. Its only writer sits behind three YouTube API calls that must all succeed. Downstream readers handle the empty table correctly and none mis-bills.',
   },
+  {
+    id: 'J40',
+    claims: [
+      { kind: 'table', table: 'samahan_stories' },
+      { kind: 'fk', table: 'samahan_stories', column: 'community_id', references: 'communities' },
+      {
+        kind: 'unique',
+        table: 'samahan_stories',
+        columns: ['community_id', 'user_id', 'hour_bucket'],
+      },
+      { kind: 'column', table: 'samahan_stories', column: 'expires_at' },
+      { kind: 'column', table: 'samahan_stories', column: 'screened_at' },
+    ],
+    chain: 12,
+    pair: ['TYPE-SAMAHAN', 'TYPE-USERS'],
+    title: 'Samahan \u2194 User (24-hour stories)',
+    joint: 'samahan_stories',
+    cardinality:
+      'Many-to-many, rate-shaped: UNIQUE(community_id, user_id, hour_bucket) \u2014 one story per member per samahan per clock hour (the Setlog rhythm, owner 2026-08-24)',
+    implementedBy:
+      'samahan_stories \u2014 browser-transcoded web720 clip + poster frame in R2, expires_at = created_at + 24h. The read policy carries expires_at > now(), so expiry is enforced by RLS the moment the clock passes; the cron-free samahan-story-sweep (lib/samahan-stories.ts) then deletes the R2 objects FIRST and the row LAST.',
+    writtenBy:
+      'POST /api/samahan/story only (service role, after a member check through the caller\u2019s own session and a SYNCHRONOUS NSFW screen of the poster frame \u2014 a flagged post never gets a row)',
+    guardedBy:
+      'No authenticated INSERT/UPDATE/DELETE \u2014 grants revoked, no policies. Author take-down goes through DELETE /api/samahan/story so files and row move together.',
+    traps:
+      'Rows are PRE-screened by construction (screened_at NOT NULL) \u2014 do not add an unscreened state or an async screen here; the whole design is that no unscreened row can exist. And a failed R2 delete keeps the row on purpose (the sweep retries) \u2014 \u201crow present past expiry\u201d is the retry queue, not a bug.',
+  },
 ];
 
 const UGAT_JOINT_PAIR_INDEX: Record<string, UgatJoint[]> = {};

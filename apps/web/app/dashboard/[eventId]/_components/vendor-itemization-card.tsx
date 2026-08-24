@@ -46,6 +46,7 @@ import {
   Plus,
   Trash2,
   Calendar,
+  ChevronDown,
   Receipt,
   Sparkles,
   MessageCircle,
@@ -123,7 +124,12 @@ export function VendorItemizationCard({
     lineItemsMeasured,
   } = summary;
 
-  const body = (
+  /**
+   * The ledger ROW — what the archetype shows without being asked: the money,
+   * and the notice when a read was refused. On /budget this is the summary of
+   * a collapsed card; in the workspace embed it simply leads, as before.
+   */
+  const ledgerRow = (
     <>
       {/* A refused read must never render as a money figure. `paidTotal` of 0
           makes `remaining` the FULL total, so an unmeasured payments read does
@@ -153,8 +159,16 @@ export function VendorItemizationCard({
           tone={paymentsMeasured && remaining > 0 ? 'warn' : 'good'}
         />
       </div>
+    </>
+  );
 
-      <div className="grid gap-0 border-t border-ink/10 lg:grid-cols-2 lg:divide-x lg:divide-ink/10">
+  /**
+   * The HISTORY — line items and the dated payment log. "Summary first, history
+   * on demand" (Ledger archetype, designer's note 3), so on /budget this lives
+   * behind the row rather than beside it.
+   */
+  const workingSections = (
+    <div className="grid gap-0 border-t border-ink/10 lg:grid-cols-2 lg:divide-x lg:divide-ink/10">
         <LineItemSection
           priceSource={priceSource}
           vendorControlledItems={vendorControlledItems}
@@ -174,8 +188,7 @@ export function VendorItemizationCard({
           directPayMethods={directPayMethods}
           installments={installments}
         />
-      </div>
-    </>
+    </div>
   );
 
   // 'embed' variant — no outer <article>, no header, no status pill. The
@@ -183,7 +196,8 @@ export function VendorItemizationCard({
   if (variant === 'embed') {
     return (
       <div className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
-        {body}
+        {ledgerRow}
+        {workingSections}
       </div>
     );
   }
@@ -191,35 +205,70 @@ export function VendorItemizationCard({
   // 'card' variant — full shell used on /budget. Anchored id added 2026-05-22
   // so the workspace page's "Add milestone" CTA (`/budget#vendor-${vendor_id}`)
   // can deep-link to this card.
+  //
+  // 📖 SUMMARY FIRST, HISTORY ON DEMAND (Ledger archetype, designer's note 3:
+  // "Each row expands to its dated payments and receipts; collapsed, the ledger
+  // stays one screen of truth"). The card used to hold every supplier's full
+  // line-item table and payment log open at once, so a couple with eight
+  // suppliers scrolled past eight open ledgers to reach the eighth. Collapsed,
+  // the row still carries everything the archetype puts on a row — who, what
+  // kind, where the booking stands, and Budget / Paid / Remaining — and the
+  // history opens on a tap.
+  //
+  // ⚠ NOT a client component and deliberately so: `<details>` is the browser's
+  // own disclosure, so this stays a server component, keeps working with no
+  // JavaScript, and announces its own expanded state. The forms inside it are
+  // the same server actions, unmoved.
+  //
+  // ⚠ 'embed' NEVER COLLAPSES. On the vendor workspace this card is already
+  // inside that page's own Payments disclosure; a second one would be a door
+  // behind a door.
   return (
     <article
       id={`vendor-${vendor.vendor_id}`}
       className="overflow-hidden rounded-xl border border-ink/10 bg-cream scroll-mt-24"
     >
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-ink/10 px-5 py-4">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="truncate text-base font-semibold tracking-tight text-ink">
-              {vendor.vendor_name}
-            </h2>
-            <PriceSourceChip priceSource={priceSource} />
+      <details className="group">
+        <summary className="cursor-pointer list-none pb-1 pt-4 transition-colors hover:bg-ink/[0.02] [&::-webkit-details-marker]:hidden">
+          <div className="flex flex-wrap items-start justify-between gap-3 px-5">
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-base font-semibold tracking-tight text-ink">
+                  {vendor.vendor_name}
+                </h2>
+                <PriceSourceChip priceSource={priceSource} />
+              </div>
+              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+                {VENDOR_CATEGORY_LABEL[vendor.category]}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <span
+                className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                  VENDOR_STATUS_TONE[vendor.status]
+                }`}
+              >
+                {VENDOR_STATUS_LABEL[vendor.status]}
+              </span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45 group-open:hidden">
+                Open
+              </span>
+              <span className="hidden font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45 group-open:inline">
+                Close
+              </span>
+              <ChevronDown
+                aria-hidden
+                className="h-4 w-4 shrink-0 text-ink/45 transition-transform group-open:rotate-180"
+                strokeWidth={2}
+              />
+            </div>
           </div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-            {VENDOR_CATEGORY_LABEL[vendor.category]}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-              VENDOR_STATUS_TONE[vendor.status]
-            }`}
-          >
-            {VENDOR_STATUS_LABEL[vendor.status]}
-          </span>
-        </div>
-      </header>
 
-      {body}
+          {ledgerRow}
+        </summary>
+
+        {workingSections}
+      </details>
     </article>
   );
 }

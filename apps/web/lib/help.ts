@@ -271,7 +271,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'plus-ones',
         title: 'How plus-ones work',
-        body: 'When you tick "Allow plus-one" on a guest, Setnayan creates a second guest row linked to the primary. The +1 has its own QR code and can RSVP independently. If the +1 is TBA, the primary names them on first scan via the welcome flow.',
+        body: 'When you tick "Allow plus-one" on a guest, Setnayan creates a second guest row linked to the primary. The +1 has its own QR code and can RSVP independently. If the +1 is TBA, either the guest names them on their own reply card, or the +1 names themselves the first time they open their invitation.',
       },
       {
         slug: 'import-csv',

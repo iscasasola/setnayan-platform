@@ -321,6 +321,13 @@ export type GuestRow = {
   group_category: string;
   plus_one_of_guest_id: string | null;
   plus_one_mode: 'full' | 'limited' | null;
+  /** Whether the host has allowed THIS guest to bring someone. The reply card
+   *  was not missing a name box so much as missing this fact — it had no way to
+   *  know the guest was entitled to one. Selected in loaders.ts. */
+  plus_one_allowed: boolean;
+  /** The name the host recorded for the +1, mirrored here so the host's own
+   *  list chips stop reading "+ TBA" once the guest names them. */
+  plus_one_name: string | null;
   rsvp_status: 'pending' | 'attending' | 'declined' | 'maybe';
   meal_preference: string | null;
   dietary_restrictions: string | null;

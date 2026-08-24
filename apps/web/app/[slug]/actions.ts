@@ -125,6 +125,11 @@ export async function submitRsvp(
   const contactEmail = clean(formData.get('contact_email')) || null;
   const contactMobile = clean(formData.get('contact_mobile')) || null;
   const contactName = clean(formData.get('contact_display_name')) || null;
+  // The guest names the person they are bringing. Blank changes nothing — see
+  // the write below; removing a +1 deletes a real guest row and is the HOST's
+  // action, not something a guest does by clearing a box.
+  const plusOneFirst = clean(formData.get('plus_one_first_name'));
+  const plusOneLast = clean(formData.get('plus_one_last_name'));
 
   if (meal && !MEAL_VALUES.includes(meal)) {
     return;
@@ -590,6 +595,81 @@ export async function submitRsvp(
       }
     } catch {
       // Notification failures must not break the guest-side RSVP submit.
+    }
+  }
+
+  // ── THE PERSON THEY ARE BRINGING ──────────────────────────────────────────
+  // The couple is promised in writing that this name arrives; until now nothing
+  // on the guest side could send it. No name ⇒ no row ⇒ no QR ⇒ no camera for
+  // that person.
+  //
+  // 🔒 THE ENTITLEMENT IS RE-READ FROM THE DATABASE, NEVER TAKEN FROM THE FORM.
+  // The block only RENDERS when `plus_one_allowed`, but a rendered gate is not a
+  // gate: these two fields can be posted by anyone with the URL. Without this
+  // read, any guest could mint themselves a second seat — with its own QR and
+  // its own camera — at an event whose host allowed them none.
+  //
+  // ⚖ A BLANK BOX IS NOT A REMOVAL, the same rule the contact boxes follow.
+  if (plusOneFirst || plusOneLast) {
+    const { data: primary } = await admin
+      .from('guests')
+      .select('plus_one_allowed, plus_one_mode, side, group_category')
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+
+    if (primary?.plus_one_allowed) {
+      const { data: existing } = await admin
+        .from('guests')
+        .select('guest_id')
+        .eq('event_id', eventId)
+        .eq('plus_one_of_guest_id', guestId)
+        .maybeSingle();
+
+      const first = plusOneFirst || 'TBA';
+      const last = plusOneLast || '+1';
+      const named = `${plusOneFirst} ${plusOneLast}`.trim();
+      const stamp = new Date().toISOString();
+
+      if (existing?.guest_id) {
+        await admin
+          .from('guests')
+          .update({
+            first_name: first,
+            last_name: last,
+            // Clearing this is what actually replaces "+ TBA · brought by …":
+            // guestDisplayName PREFERS display_name, so leaving it would keep
+            // the placeholder on the seating chart and in the emcee script —
+            // the same half-fix /welcome shipped with.
+            display_name: null,
+            plus_one_name_confirmed_at: stamp,
+            updated_at: stamp,
+          })
+          .eq('guest_id', existing.guest_id);
+      } else {
+        // Same shape the host's own "add a guest" form inserts, so the +1 gets a
+        // real row — and with it the qr_token the column mints by DEFAULT.
+        await admin.from('guests').insert({
+          event_id: eventId,
+          first_name: first,
+          last_name: last,
+          side: primary.side,
+          group_category: primary.group_category,
+          role: 'guest',
+          rsvp_status: 'pending',
+          photo_consent: true,
+          plus_one_of_guest_id: guestId,
+          plus_one_mode: primary.plus_one_mode,
+          plus_one_name_confirmed_at: stamp,
+        });
+      }
+
+      // Mirror onto the primary so the host's list chips stop reading "+ TBA".
+      await admin
+        .from('guests')
+        .update({ plus_one_name: named || null, updated_at: stamp })
+        .eq('guest_id', guestId)
+        .eq('event_id', eventId);
     }
   }
 

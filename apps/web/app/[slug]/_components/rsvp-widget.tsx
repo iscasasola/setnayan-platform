@@ -136,7 +136,7 @@ export function RsvpWidget({
           rule is dead weight AND its selector text is the only `rsvp_status`
           left in the markup, which reads to any scan like a live control. */}
       {replyLocked ? null : (
-        <style>{`.rsvp-form .selfie-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal{display:block}`}</style>
+        <style>{`.rsvp-form .selfie-reveal,.rsvp-form .attending-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal,.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attending-reveal{display:block}`}</style>
       )}
 
       {/* THE REPLY CARD (design 2026-07-25 §7) — the only thing on the page that
@@ -305,6 +305,49 @@ export function RsvpWidget({
         </div>
       )}
 
+      {/* ── WHO ARE YOU BRINGING ────────────────────────────────────────────
+          The card could not ask this before, and the reason was not a missing
+          box: it had no way to know the guest was ALLOWED one. `plus_one_allowed`
+          was never selected by the guest-side loader and had no slot on GuestRow,
+          so the widget was plus-one-BLIND. That fact is threaded now.
+
+          ⚠ Shown only when the host allowed it, and only to a guest who is
+          coming — revealed by the same CSS-only `:has()` rule the selfie block
+          already uses, so this adds no client JS and no new state.
+
+          ⚖ A BLANK BOX CHANGES NOTHING, deliberately, exactly like the contact
+          boxes above: leaving it empty is "I have not decided yet", which is the
+          state they were already in. Removing a +1 is the HOST's action — it
+          deletes a real guest row with its own QR, and a guest should not do
+          that by clearing a field. */}
+      {guest.plus_one_allowed && !replyLocked ? (
+        <div className="attending-reveal space-y-1.5">
+          <span className="block text-sm font-medium text-ink">
+            Who are you bringing?
+          </span>
+          <p className="text-xs text-ink/55">
+            {words.theOrganizer.charAt(0).toUpperCase() + words.theOrganizer.slice(1)} saved
+            you a seat for one more. Give us their name and they get their own
+            invitation, their own QR and their own photos — you can add it later
+            if you are still asking.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field
+              id="plus_one_first_name"
+              label="Their first name"
+              defaultValue={(guest.plus_one_name ?? '').split(' ')[0] ?? ''}
+              placeholder="First name"
+            />
+            <Field
+              id="plus_one_last_name"
+              label="Their last name"
+              defaultValue={(guest.plus_one_name ?? '').split(' ').slice(1).join(' ')}
+              placeholder="Last name"
+            />
+          </div>
+        </div>
+      ) : null}
+
       <div className="space-y-1.5">
         <label htmlFor="guest_note" className="block text-sm font-medium text-ink">
           A note to {words.theOrganizer} (optional)
@@ -380,7 +423,16 @@ function RsvpPill({ status }: { status: GuestRow['rsvp_status'] }) {
     status === 'attending'
       ? 'Going'
       : status === 'pending'
-        ? 'Pending'
+        // 🔑 THE WORD DESCRIBES THE ANSWER, NOT THE MEMBERSHIP. "Pending" was the
+        // only status-shaped element on the page a guest lands on, and it reads
+        // as "you are not finished" — when in fact they are on the list and the
+        // seat is theirs. This file already owns the honest wording 28 lines up
+        // ("No reply was received from you."), but that arm only renders once
+        // the list is frozen. ⚠ Must stay identical to guest-hub-card.tsx's
+        // default arm — the two surfaces show one guest one fact and already
+        // drifted once ("Pending" vs "RSVP pending"). Pinned by
+        // the-status-word-is-about-the-reply.test.ts.
+        ? 'No reply yet'
         : status === 'declined'
           ? 'Declined'
           : 'Maybe';

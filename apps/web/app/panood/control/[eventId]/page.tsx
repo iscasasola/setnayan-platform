@@ -2279,11 +2279,19 @@ function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }
       <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-ink/60">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 font-mono text-[9.5px] font-bold uppercase tracking-[0.1em] text-success-900">
           <Smartphone aria-hidden className="h-3 w-3" strokeWidth={2.25} />
-          Phone joined
+          Joined
         </span>
+        {/* 🔴 THIS SAID "A phone holds CH 3" ON EVERY CHANNEL. During the
+         *  ceremony the host is reading this list to decide which camera to cut
+         *  to, and eight identical sentences answer none of that. The claim has
+         *  always recorded WHO — `panood_camera_operators.claimer_user_id` —
+         *  and nothing ever joined it to a name for display.
+         *  ⚠ NAMING THE HOLDER DOES NOT MAKE REISSUING SAFER, so the warning
+         *  keeps its own sentence rather than being folded into the name. */}
         <span className="min-w-0 flex-1">
-          A phone holds CH {channel}. Reissuing makes a new QR and disconnects
-          them — the old link stops working immediately.
+          <strong className="text-ink/80">{camera.holderName ?? 'Someone'}</strong> holds
+          CH {channel}. Reissuing makes a new QR and disconnects them — the old
+          link stops working immediately.
         </span>
         <form action={reissueChannelJoinLink}>
           <input type="hidden" name="event_id" value={eventId} />
@@ -2291,7 +2299,7 @@ function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }
           <SubmitButton
             pendingLabel="…"
             overlay={false}
-            title={`Disconnect the phone on CH ${channel} and make a new QR`}
+            title={`Disconnect ${camera.holderName ?? 'the phone'} on CH ${channel} and make a new QR`}
             className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-ink/60 transition-colors hover:border-burgundy/40 hover:text-burgundy"
           >
             <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

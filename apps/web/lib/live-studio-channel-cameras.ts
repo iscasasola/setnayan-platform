@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateCameraClaimToken, panoodCameraClaimUrl } from '@/lib/panood-camera-seats-pure';
+import { crewHolderName } from '@/lib/papic-crew-roster';
 import type { RoamZoneStatus } from '@/lib/live-studio-roam';
 
 /**
@@ -158,6 +159,21 @@ export type ChannelCameraView = {
   /** A phone has claimed this seat and it has not been revoked. */
   claimed: boolean;
   /**
+   * WHO is holding this camera, for a claimed seat — null when nobody is.
+   *
+   * 🔴 The controller said "Phone joined · A phone holds CH 3" and stopped
+   * there, on the one screen a host is using DURING the ceremony to decide
+   * which camera to cut to. Eight channels out, eight identical sentences.
+   *
+   * 🔑 THE SAME GAP WAS ALREADY CLOSED FOR PAPIC and the fix is copied, not
+   * invented: `crewHolderName` in `lib/papic-crew-roster.ts`, with its own
+   * reasoning about the fallback. A seat can be claimed from an ANONYMOUS
+   * session (the join is login-free by design), so a claimed seat with no
+   * display name is a real, ordinary state — and "Someone" is the honest word
+   * for it, which is still strictly more than the screen said before.
+   */
+  holderName: string | null;
+  /**
    * The seat was retired (its token is dead to both the claim RPC and the
    * heartbeat). Surfaced rather than hidden so the controller offers "make a new
    * QR" instead of printing a code that silently cannot work.
@@ -218,6 +234,36 @@ export async function fetchChannelCameras(
   const seats = new Map<number, SeatRow>();
   for (const row of (data ?? []) as SeatRow[]) seats.set(row.id, row);
 
+  // ── WHO IS HOLDING EACH ONE ────────────────────────────────────────────────
+  // ⚠ IT HAS TO BE THE SERVICE-ROLE CLIENT — which this reader already is, for
+  // the seat table's own sake. `public.users` carries only `user_owns_row` and
+  // an admin policy, so a host reading another person's row under their own
+  // session gets ZERO ROWS AND NO ERROR: indistinguishable from "nobody holds
+  // this camera", which is exactly the wrong answer on this screen. The same
+  // note is written on the Papic crew page, which hit this first.
+  //
+  // A failed read degrades to an empty map, so every claimed channel falls back
+  // to "Someone" rather than the reader throwing during a live broadcast.
+  const claimerIds = [
+    ...new Set(
+      (data ?? [])
+        .map((r) => (r as SeatRow).claimer_user_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    ),
+  ];
+  const nameByUserId = new Map<string, string>();
+  if (claimerIds.length > 0) {
+    const { data: holders } = await admin
+      .from('users')
+      .select('user_id, display_name')
+      .in('user_id', claimerIds);
+    for (const h of (holders ?? []) as Array<Record<string, unknown>>) {
+      if (typeof h.user_id === 'string' && typeof h.display_name === 'string') {
+        nameByUserId.set(h.user_id, h.display_name);
+      }
+    }
+  }
+
   for (const zone of wanted) {
     const seat = seats.get(zone.camera_operator_id as number);
     // A binding whose seat is not on THIS event cannot happen (composite FK), and
@@ -240,6 +286,7 @@ export async function fetchChannelCameras(
       claimUrl: claimed || revoked ? null : panoodCameraClaimUrl(appUrl, seat.claim_qr_token),
       claimed,
       revoked,
+      holderName: claimed ? crewHolderName(nameByUserId.get(seat.claimer_user_id as string)) : null,
       lastSeenAt: seat.last_seen_at,
     });
   }

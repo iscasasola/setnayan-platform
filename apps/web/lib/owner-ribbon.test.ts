@@ -36,10 +36,11 @@ const SLUG = 'maria-and-jose';
 const HOST_USER_ID = 'user-host';
 
 /** A capability shaped exactly as `resolveOwnerCapability` produces one. */
-const ownerOf = (eventId: string): OwnerCapability => ({
+const ownerOf = (eventId: string, maySiteEdit = true): OwnerCapability => ({
   capability: 'owner',
   ownerUserId: HOST_USER_ID,
   ownerEventId: eventId,
+  maySiteEdit,
 });
 
 function build(overrides: Partial<Parameters<typeof buildOwnerRibbon>[0]> = {}) {
@@ -162,9 +163,46 @@ test('owner ribbon: phase links are withheld when the lifecycle engine is off', 
 
 test('owner ribbon: the model is links and labels only — no action surface', () => {
   const model = must(build());
-  assert.deepEqual(Object.keys(model).sort(), ['editorHref', 'phaseLinks']);
+  assert.deepEqual(Object.keys(model).sort(), ['editorHref', 'editorLabel', 'phaseLinks']);
   for (const link of model.phaseLinks) {
     assert.deepEqual(Object.keys(link).sort(), ['active', 'href', 'label', 'phase']);
     assert.equal(typeof link.href, 'string');
   }
+});
+
+
+// ── 5. THE DOORWAY GOES WHERE THE VIEWER CAN ACTUALLY GO ───────────────────
+//
+// `website/editor/page.tsx` redirects anybody whose `event_members.member_type`
+// is not `couple`, while the capability admits a `coordinator` member and every
+// accepted delegate. So the ribbon offered them a button that bounced them —
+// which reads as a broken product, not as a permission boundary.
+
+test('owner ribbon: the couple get the editor', () => {
+  const model = must(build({ ownerCapability: ownerOf(EVENT_ID, true) }));
+  assert.equal(model.editorHref, `/dashboard/${EVENT_ID}/website/editor`);
+  assert.equal(model.editorLabel, 'Edit this site');
+});
+
+test('owner ribbon: a host who is NOT the couple is sent somewhere that works', () => {
+  const model = must(build({ ownerCapability: ownerOf(EVENT_ID, false) }));
+  assert.equal(
+    model.editorHref,
+    `/dashboard/${EVENT_ID}`,
+    'a coordinator must not be pointed at the editor that redirects them',
+  );
+  assert.notEqual(model.editorLabel, 'Edit this site');
+  assert.ok(
+    model.editorLabel.length > 0,
+    'removing the only way out of the guest site would be a second defect, not a fix',
+  );
+});
+
+test('owner ribbon: a host without the edit fact keeps a working doorway, never none', () => {
+  // `maySiteEdit` absent (an older caller, or a resolver that did not ask)
+  // resolves to false — the safe direction, because the fallback is a page the
+  // event layout already admits every host to.
+  const legacy = { capability: 'owner', ownerUserId: HOST_USER_ID, ownerEventId: EVENT_ID } as unknown as OwnerCapability;
+  const model = must(build({ ownerCapability: legacy }));
+  assert.equal(model.editorHref, `/dashboard/${EVENT_ID}`);
 });

@@ -42,6 +42,7 @@ const ownerOf = (eventId: string): OwnerCapability => ({
   capability: 'owner',
   ownerUserId: 'user-host',
   ownerEventId: eventId,
+  maySiteEdit: true,
 });
 
 function decide(

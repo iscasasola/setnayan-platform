@@ -25,4 +25,9 @@ This is the first of four PRs. It lands the guard (bill of 50, can only shrink) 
 this session's territory and named in the guard so a green admin run is not read as "the app is
 done".
 
+**`port-control-baseline.json` regenerated in this PR**, because deleting the accordion removes a
+control the baseline still listed. Set-compared before → after across all 404 routes: **exactly one
+loss — `/admin` `<AccordionSection>` plus its file — and zero unintended.** The other 37 routes that
+moved all GAINED (the baseline was stale against work other sessions merged); nothing was absorbed.
+
 SPEC IMPACT: None.

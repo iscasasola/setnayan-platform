@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e8da08eeb",
+  "generatedFromRef": "3e9e5fa5d",
   "routeCount": 404,
-  "destinations": 862,
-  "actions": 581,
-  "blocks": 3849,
+  "destinations": 865,
+  "actions": 584,
+  "blocks": 3894,
   "routes": {
     "/": {
       "files": [
@@ -542,6 +542,7 @@
         "[slug]/_components/event-words-provider.tsx",
         "[slug]/_components/face-data-notice.tsx",
         "[slug]/_components/guest-camera-player.tsx",
+        "[slug]/_components/guest-code-keepers.tsx",
         "[slug]/_components/guest-column-card.tsx",
         "[slug]/_components/guest-column-form.tsx",
         "[slug]/_components/guest-doorway-strip.tsx",
@@ -631,6 +632,7 @@
         "/[seg]/print",
         "/[seg]/seat/claim?t=[seg]",
         "/[seg]/welcome",
+        "/api/guest/qr",
         "/dashboard/profile",
         "/login",
         "/papic/guest",
@@ -640,7 +642,9 @@
       ],
       "actions": [
         "action",
-        "submit"
+        "submit",
+        "toggleBlur",
+        "withdraw"
       ],
       "blocks": [
         "AnnouncementCard",
@@ -690,6 +694,7 @@
         "GracefulFallback",
         "GuestCameraPlayer",
         "GuestCameraWatcher",
+        "GuestCodeKeepers",
         "GuestColumnCard",
         "GuestColumnForm",
         "GuestColumnsWall",
@@ -816,6 +821,7 @@
         "VeilReveal",
         "VendorCapability",
         "VendorDoorway",
+        "VendorLocationMap",
         "VendorMediaStrip",
         "VendorRow",
         "VendorsWeLoved",
@@ -882,6 +888,7 @@
       "actions": [],
       "blocks": [
         "DayOfFaceEnroll",
+        "GuestCodeKeepers",
         "HubShell",
         "Link",
         "LiveWallBlock",
@@ -994,6 +1001,7 @@
         "PromptCard",
         "PublicTableView",
         "RoomFooter",
+        "SeatCouldNotLoad",
         "SeatPassShell",
         "WayfindingMap"
       ]
@@ -1074,7 +1082,6 @@
         "admin/_components/admin-sidebar.tsx",
         "admin/_components/console-table.tsx",
         "admin/_components/kpi-stat-card.tsx",
-        "admin/_components/mobile-landing-accordion.tsx",
         "admin/_components/mobile-landing-grid.tsx",
         "admin/_overview-tile.tsx",
         "admin/error.tsx",
@@ -1178,7 +1185,6 @@
       ],
       "actions": [],
       "blocks": [
-        "AccordionSection",
         "AccountSwitcher",
         "ActionQueueTile",
         "AdminBottomNav",
@@ -1589,6 +1595,7 @@
         "InspectModal",
         "JsonTree",
         "LogRow",
+        "PageMasthead",
         "StatCard",
         "TabButton"
       ]
@@ -3856,6 +3863,7 @@
     },
     "/dashboard/(account)/samahan/[communityId]": {
       "files": [
+        "dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx",
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
       "destinations": [
@@ -3870,11 +3878,15 @@
         "rotateInviteToken"
       ],
       "blocks": [
+        "Blob",
         "CopyButton",
         "EventsTab",
+        "HTMLInputElement",
         "Link",
         "MembersTab",
         "OverviewTab",
+        "SamahanStories",
+        "SamahanStory",
         "SubmitButton"
       ]
     },
@@ -4014,6 +4026,7 @@
         "dashboard/[eventId]/_components/papic-ready-nudge.tsx",
         "dashboard/[eventId]/_components/payment-under-review.tsx",
         "dashboard/[eventId]/_components/placeholder.tsx",
+        "dashboard/[eventId]/_components/read-refused-notice.tsx",
         "dashboard/[eventId]/_components/reveal-preview-card.tsx",
         "dashboard/[eventId]/_components/reveal-preview.tsx",
         "dashboard/[eventId]/_components/set-date-nudge.tsx",
@@ -4108,6 +4121,7 @@
         "EventDashboard",
         "EventDayPrepCta",
         "EventRailContext",
+        "EventScene",
         "EventVendorRowInput",
         "ExpandCard",
         "Field",
@@ -4165,6 +4179,7 @@
         "ProgressRing",
         "PromoFreeWindowBanner",
         "QrBody",
+        "ReadRefusedNotice",
         "RevealChoice",
         "ReviewAxis",
         "ReviewRow",
@@ -4774,6 +4789,7 @@
         "Link",
         "LiveRefresher",
         "MediaStream",
+        "ReadRefusedNotice",
         "UndoActionResult"
       ]
     },
@@ -4889,6 +4905,7 @@
         "Link",
         "LiveRefresher",
         "MediaStream",
+        "ReadRefusedNotice",
         "SouvenirActionResult",
         "SouvenirDesk",
         "UndoActionResult"
@@ -4937,6 +4954,7 @@
         "HTMLInputElement",
         "Link",
         "PageMasthead",
+        "ReadRefusedNotice",
         "SubmitButton"
       ]
     },
@@ -5081,6 +5099,7 @@
         "ChatThreadMenu",
         "Link",
         "NegotiationComposerMenu",
+        "ReadRefusedNotice",
         "SubmitButton",
         "ThreadCallLauncher",
         "ThreadInterestChips",
@@ -5336,6 +5355,7 @@
         "BulkRetimePanel",
         "DeletePreparationItemButton",
         "EmceePicks",
+        "EmceePicksUnread",
         "EmceeScriptButton",
         "EventDayView",
         "FeedPageSkeleton",
@@ -5541,6 +5561,7 @@
         "FileUpload",
         "Link",
         "PageMasthead",
+        "ReadRefusedNotice",
         "WalkthroughManager",
         "ZoneCard"
       ]
@@ -6175,6 +6196,7 @@
         "KwentoQueueControls",
         "Link",
         "PageMasthead",
+        "ReadRefusedNotice",
         "SubmitButton"
       ]
     },
@@ -6814,6 +6836,7 @@
         "Link",
         "PaymentPlanStepper",
         "QuoteBridge",
+        "ReadRefusedNotice",
         "RelationshipTabShell",
         "ReservationTermsAck",
         "SnapshotChargeLine",
@@ -7449,11 +7472,14 @@
       "files": [
         "join/[eventId]/check-email/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/[seg]"
+      ],
       "actions": [],
       "blocks": [
         "DoorNotice",
-        "DoorShell"
+        "DoorShell",
+        "Link"
       ]
     },
     "/join/[eventId]/set-password": {
@@ -8552,6 +8578,7 @@
         "vendor-dashboard/_components/feature-accordion.tsx",
         "vendor-dashboard/_components/first-steps.tsx",
         "vendor-dashboard/_components/instagram-connect-card.tsx",
+        "vendor-dashboard/_components/kit.tsx",
         "vendor-dashboard/_components/overview-sections.tsx",
         "vendor-dashboard/_components/push-notification-registrar.tsx",
         "vendor-dashboard/_components/qr-card.tsx",
@@ -8716,6 +8743,7 @@
         "MultiSelectOpen",
         "RemoveServiceButton",
         "ServiceForm",
+        "ShopNotice",
         "SubmitButton"
       ]
     },
@@ -8743,7 +8771,8 @@
       "blocks": [
         "CopyButton",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "ShopNotice"
       ]
     },
     "/vendor-dashboard/bookings": {
@@ -8766,6 +8795,7 @@
         "Link",
         "PrepKind",
         "PrepKindPicker",
+        "ShopEmpty",
         "VendorDeletePrepItem",
         "VendorPrepForBooking"
       ]
@@ -8940,6 +8970,8 @@
         "ScriptActionState",
         "ScriptComposer",
         "ScriptTab",
+        "ShopCard",
+        "ShopEmpty",
         "SubmitButton",
         "ThreadCallLauncherLazy",
         "ThreadInterestChips",
@@ -8960,7 +8992,8 @@
       ],
       "actions": [],
       "blocks": [
-        "Link"
+        "Link",
+        "ShopCard"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/cocktail": {
@@ -8996,6 +9029,7 @@
         "EditorialMediaStudio",
         "HTMLInputElement",
         "Link",
+        "ShopPill",
         "StatusBadge"
       ]
     },
@@ -9145,6 +9179,7 @@
         "Link",
         "MessagesSurface",
         "PaydaySurface",
+        "ShopEmpty",
         "Suspense",
         "VendorQrSection"
       ]
@@ -9177,6 +9212,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ShopCard",
         "SignalTile"
       ]
     },
@@ -9191,6 +9227,8 @@
       ],
       "blocks": [
         "DisputeCard",
+        "ShopEmpty",
+        "ShopNotice",
         "SubmitButton"
       ]
     },
@@ -9245,6 +9283,8 @@
         "LockedMode",
         "LockedQrGenerator",
         "Row",
+        "ShopCard",
+        "ShopNotice",
         "ShortlistMode",
         "SubmitButton"
       ]
@@ -9280,6 +9320,8 @@
         "CopyButton",
         "Icon",
         "Link",
+        "ShopEmpty",
+        "ShopPill",
         "StatusBadge"
       ]
     },
@@ -9320,6 +9362,7 @@
         "InquiryOutcomesRollup",
         "Link",
         "RevealList",
+        "ShopEmpty",
         "ThreadArchiveToggle",
         "ThreadListCard"
       ]
@@ -9405,6 +9448,7 @@
         "Image",
         "Link",
         "PalettePreview",
+        "ShopNotice",
         "StylistLibraryEditor"
       ]
     },
@@ -9484,6 +9528,7 @@
         "NonPhotoConsole",
         "RequestsInbox",
         "SetActionResult",
+        "ShopEmpty",
         "ShotList",
         "ShotListSection",
         "SongDeskGate",
@@ -9661,7 +9706,8 @@
       "blocks": [
         "Link",
         "PaydayRow",
-        "PaydaySummary"
+        "PaydaySummary",
+        "ShopEmpty"
       ]
     },
     "/vendor-dashboard/payment-options": {
@@ -9814,6 +9860,7 @@
         "Link",
         "SaveStoryCardButton",
         "ShareButtons",
+        "ShopEmpty",
         "VendorTierGate"
       ]
     },
@@ -9836,6 +9883,8 @@
         "NotAFitControl",
         "OptInOfferCard",
         "RecommendationsPanel",
+        "ShopEmpty",
+        "ShopNotice",
         "SubmitButton",
         "SuggestControl",
         "SuggestToCoupleControl"
@@ -9857,6 +9906,7 @@
       ],
       "blocks": [
         "Link",
+        "ShopNotice",
         "SubmitButton"
       ]
     },
@@ -9910,7 +9960,8 @@
         "vendor-dashboard/services/refinement-actions.ts"
       ],
       "destinations": [
-        "/vendor-dashboard/attributes"
+        "/vendor-dashboard/attributes",
+        "/vendor-dashboard/services/new/[seg]?from=[seg]"
       ],
       "actions": [
         "addServiceTimeSlot",
@@ -9921,6 +9972,7 @@
         "deleteServiceTimeSlot",
         "deleteVendorService",
         "proposeCategory",
+        "saveAudience",
         "saveServiceRefinements",
         "setServiceAddons",
         "setServiceLinks",
@@ -9948,6 +10000,7 @@
         "CoverageBrowse",
         "CoverageLeaf",
         "CoveragePanel",
+        "CoverageServesResult",
         "Crumb",
         "CustomizationStep",
         "DiscountBadge",
@@ -10258,6 +10311,7 @@
       ],
       "blocks": [
         "AgentServiceAssignment",
+        "ShopNotice",
         "SubmitButton"
       ]
     },
@@ -10307,6 +10361,7 @@
         "FileUpload",
         "PendingReviewCard",
         "RejectedCard",
+        "ShopNotice",
         "SlotInputForm",
         "StartApplicationCard",
         "SubmitButton",

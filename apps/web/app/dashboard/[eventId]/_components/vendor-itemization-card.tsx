@@ -129,25 +129,43 @@ export function VendorItemizationCard({
    * and the notice when a read was refused. On /budget this is the summary of
    * a collapsed card; in the workspace embed it simply leads, as before.
    */
+  /**
+   * The refused-read alert. It used to live inside `ledgerRow`, which on
+   * /budget put a paragraph of error prose INSIDE the `<summary>` — and a
+   * `<summary>` is announced as one control whose name is everything inside
+   * it, so a screen-reader user heard the failure notice read out as part of
+   * the button's label before they could act on it. It is an alert ABOUT the
+   * card, not part of the row, so it now sits above the disclosure on both
+   * variants: still always visible, no longer part of a control's name.
+   *
+   * A refused read must never render as a money figure. `paidTotal` of 0 makes
+   * `remaining` the FULL total, so an unmeasured payments read does not merely
+   * hide what you paid — it bills you for it again. Both figures derive from
+   * that one read, so both go together; "Budget" is kept because it survives on
+   * the headline figure, and flagged when its own line-items read was refused.
+   */
+  const refusedReadNotice = paymentsMeasured ? null : (
+    <div
+      role="status"
+      className="mx-5 mt-3 rounded-lg border-t-[3px] border-mulberry/70 bg-mulberry/5 px-3 py-2 text-xs text-ink/70"
+    >
+      We couldn&rsquo;t load your payments for this supplier, so what
+      you&rsquo;ve paid and what&rsquo;s left aren&rsquo;t shown. Nothing has
+      changed &mdash; refresh to try again.
+    </div>
+  );
+
   const ledgerRow = (
     <>
-      {/* A refused read must never render as a money figure. `paidTotal` of 0
-          makes `remaining` the FULL total, so an unmeasured payments read does
-          not merely hide what you paid — it bills you for it again. Both
-          figures derive from that one read, so both go together; "Budget" is
-          kept because it survives on the headline figure, and flagged when its
-          own line-items read was refused. */}
-      {paymentsMeasured ? null : (
-        <div
-          role="status"
-          className="mx-5 mt-3 rounded-lg border-t-[3px] border-mulberry/70 bg-mulberry/5 px-3 py-2 text-xs text-ink/70"
-        >
-          We couldn&rsquo;t load your payments for this supplier, so what
-          you&rsquo;ve paid and what&rsquo;s left aren&rsquo;t shown. Nothing has
-          changed &mdash; refresh to try again.
-        </div>
-      )}
-      <div className="grid gap-x-4 gap-y-2 px-5 py-3 sm:grid-cols-3">
+      {/* 🏷 A REAL <dl>. These are term/figure pairs and always were, but the
+          <dt>/<dd> sat inside a plain <div>, which leaves them orphaned: with
+          no <dl> ancestor the description-list semantics are dropped entirely
+          and assistive tech reads six unrelated fragments instead of three
+          labelled amounts. `dl > div > dt + dd` is the valid grouping form, so
+          Money's own wrapper is unchanged. (Repo-wide this shape appears in
+          three files; the other two are outside this screen and are reported,
+          not touched.) */}
+      <dl className="grid gap-x-4 gap-y-2 px-5 py-3 sm:grid-cols-3">
         <Money
           label={lineItemsMeasured ? 'Budget' : 'Budget (partly loaded)'}
           value={formatPhp(itemizedTotal)}
@@ -158,7 +176,7 @@ export function VendorItemizationCard({
           value={paymentsMeasured ? formatPhp(remaining) : '—'}
           tone={paymentsMeasured && remaining > 0 ? 'warn' : 'good'}
         />
-      </div>
+      </dl>
     </>
   );
 
@@ -196,15 +214,24 @@ export function VendorItemizationCard({
   if (variant === 'embed') {
     return (
       <div className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
+        {refusedReadNotice}
         {ledgerRow}
         {workingSections}
       </div>
     );
   }
 
-  // 'card' variant — full shell used on /budget. Anchored id added 2026-05-22
-  // so the workspace page's "Add milestone" CTA (`/budget#vendor-${vendor_id}`)
-  // can deep-link to this card.
+  // 'card' variant — full shell used on /budget.
+  //
+  // 🪧 THE ANCHOR SERVES NOBODY YET, AND THAT IS NOW SAID OUT LOUD. A comment
+  // here claimed the workspace page's "Add milestone" CTA deep-links to
+  // `/budget#vendor-${vendor_id}`. Grepped: there is exactly ONE occurrence of
+  // that URL shape in the repo and it was the comment itself — no caller has
+  // ever existed. The id + `scroll-mt-24` are kept because they are the right
+  // landing spot if one is ever built, but whoever builds it must know the
+  // card is now COLLAPSED on arrival: point the fragment at something INSIDE
+  // the <details> (browsers open the ancestor disclosure for a fragment target)
+  // rather than at the <article>, or the visitor lands on a shut row.
   //
   // 📖 SUMMARY FIRST, HISTORY ON DEMAND (Ledger archetype, designer's note 3:
   // "Each row expands to its dated payments and receipts; collapsed, the ledger
@@ -220,15 +247,28 @@ export function VendorItemizationCard({
   // JavaScript, and announces its own expanded state. The forms inside it are
   // the same server actions, unmoved.
   //
-  // ⚠ 'embed' NEVER COLLAPSES. On the vendor workspace this card is already
-  // inside that page's own Payments disclosure; a second one would be a door
-  // behind a door.
+  // ⚠ THE GROUP IS NAMED, AND IT HAS TO BE. A bare `className="group"` here
+  // becomes an ancestor `.group` for the whole card, and `group-hover:` matches
+  // ANY `.group` ancestor rather than the nearest — so hovering the header lit
+  // up a `group-hover:` chevron three components deep in vendor-direct-pay, as
+  // if that button were under the cursor. `group/ledger` + `group-open/ledger:`
+  // keeps this disclosure's state to itself.
+  //
+  // ⚠ 'embed' NEVER COLLAPSES — and the reason first written here was FALSE.
+  // It said the workspace page already wraps this card in a Payments
+  // disclosure. It does not: that page contains zero `<details>` of any kind.
+  // The true reason is simpler — the workspace IS the page for one supplier,
+  // reached by choosing that supplier, and folding away the only thing it
+  // exists to show is a door in front of the room you asked for. On /budget the
+  // fold earns its keep because there are N suppliers to scroll past; there,
+  // there is one.
   return (
     <article
       id={`vendor-${vendor.vendor_id}`}
       className="overflow-hidden rounded-xl border border-ink/10 bg-cream scroll-mt-24"
     >
-      <details className="group">
+      {refusedReadNotice}
+      <details className="group/ledger">
         <summary className="cursor-pointer list-none pb-1 pt-4 transition-colors hover:bg-ink/[0.02] [&::-webkit-details-marker]:hidden">
           <div className="flex flex-wrap items-start justify-between gap-3 px-5">
             <div className="min-w-0 space-y-1">
@@ -250,15 +290,24 @@ export function VendorItemizationCard({
               >
                 {VENDOR_STATUS_LABEL[vendor.status]}
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45 group-open:hidden">
+              {/* Decoration: a <summary> already carries its own expanded
+                  state, so these words would otherwise be read out as part of
+                  the control's name for no gain. */}
+              <span
+                aria-hidden
+                className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45 group-open/ledger:hidden"
+              >
                 Open
               </span>
-              <span className="hidden font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45 group-open:inline">
+              <span
+                aria-hidden
+                className="hidden font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45 group-open/ledger:inline"
+              >
                 Close
               </span>
               <ChevronDown
                 aria-hidden
-                className="h-4 w-4 shrink-0 text-ink/45 transition-transform group-open:rotate-180"
+                className="h-4 w-4 shrink-0 text-ink/45 transition-transform group-open/ledger:rotate-180"
                 strokeWidth={2}
               />
             </div>

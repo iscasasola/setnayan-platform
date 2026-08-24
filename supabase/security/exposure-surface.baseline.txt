@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6194
+# facts: 6200
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     596
-#   col       4534
+#   col       4540
 #   policy    839
 #   view      8
 #   func      213
@@ -2837,6 +2837,9 @@ col	public.papic_guest_captures.orig_bytes	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.poster_r2_key	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.preserved_at	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.r2_object_key	anon=SIU authenticated=SIU
+col	public.papic_guest_captures.safe_display_r2_key	anon=SIU authenticated=SIU
+col	public.papic_guest_captures.safe_thumb_r2_key	anon=SIU authenticated=SIU
+col	public.papic_guest_captures.safe_tile_r2_key	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.subject_center_x	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.subject_center_y	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.thumb_bytes	anon=SIU authenticated=SIU
@@ -2935,6 +2938,9 @@ col	public.papic_photos.photo_type	anon=S authenticated=SIU
 col	public.papic_photos.poster_r2_key	anon=S authenticated=SIU
 col	public.papic_photos.preserved_at	anon=S authenticated=SIU
 col	public.papic_photos.r2_object_key	anon=S authenticated=SIU
+col	public.papic_photos.safe_display_r2_key	anon=S authenticated=S
+col	public.papic_photos.safe_thumb_r2_key	anon=S authenticated=S
+col	public.papic_photos.safe_tile_r2_key	anon=S authenticated=S
 col	public.papic_photos.size_bytes	anon=S authenticated=SIU
 col	public.papic_photos.superseded_at	anon=S authenticated=SIU
 col	public.papic_photos.thumb_bytes	anon=S authenticated=SIU

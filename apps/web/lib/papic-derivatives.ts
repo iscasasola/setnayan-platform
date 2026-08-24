@@ -409,3 +409,96 @@ export async function generateTileDerivative(
     return null;
   }
 }
+
+/**
+ * Generate the BLURRED web copies — the same three sizes, derived from the
+ * already-blurred full-size image that `lib/face-blur.ts` baked.
+ *
+ * ─── WHY THIS EXISTS ──────────────────────────────────────────────────────
+ * Owner ruling 1 of 2026-08-17: *"Public = everyone except the couple — blur on
+ * the venue wall, the public event page, and the shared pool other guests
+ * browse. The couple's own album stays unblurred."*
+ *
+ * The venue wall projects `wall_safe_r2_key`, a full-size blurred JPEG. Every
+ * PUBLIC read serves the AVIF web copies instead, and deliberately so — they are
+ * the metadata-stripped ones. There was therefore **no blurred copy in any size
+ * a public page uses**, which is why blurring the public page is not a filter
+ * change. This makes those three.
+ *
+ * 🔒 A NEW FILE, NEVER AN OVERLAY. A CSS/overlay blur still ships the real photo
+ * to the device and can be switched off in two taps. The faces are already
+ * destroyed in the source bytes here; these are ordinary resizes of an image
+ * that has no faces left in it.
+ *
+ * 🪤 A SECOND COMPRESSION PASS, KNOWINGLY. The house rule is ONE lossy pass
+ * (owner 2026-07-11) — the web copy is born AVIF from the full-res original.
+ * The blurred source is a JPEG the baker produced, so these are pass two. That
+ * is accepted rather than worked around: the alternative is teaching the baker
+ * to emit AVIF at three sizes, which would put face detection on the critical
+ * path of every capture. This runs ONLY for captures that actually need a blur
+ * — today, none in production — so the extra pass costs nothing at rest and is
+ * invisible on a blurred face by construction.
+ *
+ * Idempotent: keyed off the SOURCE object, so a re-run overwrites itself.
+ * Best-effort: any failure returns nulls and NEVER throws. A missing safe copy
+ * is not a silent downgrade — the public read paths WITHHOLD the photo rather
+ * than fall back to the unblurred one.
+ */
+export async function generateSafeDerivatives(
+  safeSourceRef: string,
+  table: PapicDerivativeTable,
+  idColumn: string,
+  idValue: string,
+): Promise<DerivativeKeys> {
+  try {
+    const fetched = await fetchR2Bytes(safeSourceRef);
+    if (!fetched) return NULL_KEYS;
+    const { bytes, bucket, key } = fetched;
+
+    const [displayBuf, tileBuf, thumbBuf] = await Promise.all([
+      toAvif(bytes, DISPLAY_LONG_EDGE, DISPLAY_QUALITY),
+      toAvif(bytes, TILE_LONG_EDGE, TILE_QUALITY),
+      toAvif(bytes, THUMB_LONG_EDGE, THUMB_QUALITY),
+    ]);
+
+    const displayObjKey = derivativeKey(key, 'safe-display');
+    const tileObjKey = derivativeKey(key, 'safe-tile');
+    const thumbObjKey = derivativeKey(key, 'safe-thumb');
+
+    await Promise.all([
+      r2Upload({ bucket, key: displayObjKey, body: displayBuf, contentType: 'image/avif' }),
+      r2Upload({ bucket, key: tileObjKey, body: tileBuf, contentType: 'image/avif' }),
+      r2Upload({ bucket, key: thumbObjKey, body: thumbBuf, contentType: 'image/avif' }),
+    ]);
+
+    const displayKey = encodeR2Ref(bucket, displayObjKey);
+    const tileKey = encodeR2Ref(bucket, tileObjKey);
+    const thumbKey = encodeR2Ref(bucket, thumbObjKey);
+
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from(table)
+      .update({
+        safe_display_r2_key: displayKey,
+        safe_tile_r2_key: tileKey,
+        safe_thumb_r2_key: thumbKey,
+      })
+      .eq(idColumn, idValue);
+    // Uploaded but unreferenced is the one failure worth naming — a later run
+    // re-uploads harmlessly, and until the row points at them the public reads
+    // keep withholding, which is the safe direction.
+    if (error) {
+      console.warn(
+        `[papic-derivatives] safe copies persisted to R2 but not to the row — table=${table} id=${idValue}: ${error.code ?? ''} ${error.message}`,
+      );
+      return NULL_KEYS;
+    }
+
+    return { displayKey, tileKey, thumbKey };
+  } catch (err) {
+    console.warn(
+      `[papic-derivatives] safe derivatives skipped (best-effort) — table=${table} id=${idValue}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return NULL_KEYS;
+  }
+}

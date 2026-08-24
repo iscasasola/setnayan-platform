@@ -61,15 +61,26 @@ test('1280 stays put — the owner ruled on it', () => {
   assert.equal(constant('DISPLAY_LONG_EDGE'), 1280);
 });
 
-test('both generators actually produce a tile', () => {
+test('EVERY generator actually produces a tile', () => {
   // A size nothing writes is a column nothing fills, and the reader then falls
   // back forever with no error anywhere.
+  //
+  // ⚠ RE-ANCHORED 2026-08-24, AND STRICTLY STRONGER — not relaxed. This pinned
+  // the literal 3 ("the photo path, the clip path, and the backfill"), so adding
+  // a FOURTH encoder that DOES produce a tile — `generateSafeDerivatives`, the
+  // blurred web copies for public surfaces — failed a guard whose entire point
+  // is that every encoder makes one. The count is now DERIVED from the number of
+  // generators, so it still catches what the literal caught (an encoder dropping
+  // its tile) AND what the literal never could: a NEW encoder shipping without
+  // one, which a hard-coded 3 would have waved through forever.
+  const generators = [...SRC.matchAll(/export async function generate[A-Za-z]*\(/g)].length;
+  assert.ok(generators >= 3, `only ${generators} generators found — re-point this guard`);
   assert.equal(
     [...SRC.matchAll(/toAvif\([^)]*TILE_LONG_EDGE/g)].length,
-    3,
-    'Expected TILE_LONG_EDGE in all three encoders — the photo path, the clip ' +
-      'path, and the backfill. A clip that keeps the thumb is the one visibly ' +
-      'soft square in an otherwise sharp grid.',
+    generators,
+    `Expected TILE_LONG_EDGE in all ${generators} encoders. A generator that ` +
+      'keeps the thumb produces the one visibly soft square in an otherwise ' +
+      'sharp grid — and a new one that skips the tile leaves a column nothing fills.',
   );
   assert.match(SRC, /tile_r2_key: tileKey/, 'the photo/clip paths stopped persisting the ref');
 });

@@ -11,6 +11,7 @@ import {
 } from '@/lib/vendor-cashflow';
 import { PaydaySummary } from './_components/payday-summary';
 import { PaydayInstallmentRow as PaydayRow } from './_components/payday-installment-row';
+import { ShopEmpty } from '../_components/kit';
 
 export const metadata = { title: 'Payday · Vendor' };
 
@@ -66,7 +67,7 @@ export default async function VendorPaydayPage() {
           shortly.
         </p>
       ) : timeline.totals.installmentCount === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 p-10 text-center">
+        <ShopEmpty>
           <CalendarClock
             aria-hidden
             className="mx-auto h-8 w-8 text-ink/30"
@@ -81,7 +82,7 @@ export default async function VendorPaydayPage() {
             </Link>{' '}
             to track confirmed events.
           </p>
-        </div>
+        </ShopEmpty>
       ) : (
         <>
           <PaydaySummary totals={timeline.totals} />

@@ -7,6 +7,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { buildVendorLockUrl } from '@/lib/vendor-locked-qr';
 import { VENDOR_CATEGORY_LABEL, formatPhp, type VendorCategory } from '@/lib/vendors';
 import { CopyButton } from '@/app/_components/copy-button';
+import { ShopEmpty, ShopPill } from '../_components/kit';
 
 export const metadata = { title: 'Locked QRs · Vendor' };
 
@@ -49,18 +50,15 @@ function fmtDate(iso: string | null): string {
 
 function StatusBadge({ status }: { status: TokenRow['status'] }) {
   const map = {
-    pending: { label: 'Pending', bg: 'rgba(197,160,89,0.15)', fg: 'var(--m-orange-deep)', Icon: Clock },
-    claimed: { label: 'Claimed', bg: 'rgba(79,107,74,0.12)', fg: 'var(--m-sage-deep)', Icon: Check },
-    void: { label: 'Void', bg: 'rgba(0,0,0,0.06)', fg: 'var(--m-slate-2)', Icon: Ban },
+    pending: { label: 'Pending', tone: 'warn' as const, Icon: Clock },
+    claimed: { label: 'Claimed', tone: 'success' as const, Icon: Check },
+    void: { label: 'Void', tone: 'ink' as const, Icon: Ban },
   }[status];
   const Icon = map.Icon;
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-      style={{ background: map.bg, color: map.fg }}
-    >
+    <ShopPill tone={map.tone}>
       <Icon className="h-3 w-3" strokeWidth={2} /> {map.label}
-    </span>
+    </ShopPill>
   );
 }
 
@@ -143,13 +141,13 @@ export default async function VendorLockedQrListPage() {
           issuing a replacement.
         </p>
       ) : tokens.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-ink/20 p-8 text-center">
+        <ShopEmpty className="mt-6">
           <Lock className="mx-auto h-6 w-6 text-ink/40" strokeWidth={1.5} />
           <p className="mt-2 text-sm text-ink/70">
             No Locked QRs yet. Create one to lock in a customer who already paid a
             downpayment.
           </p>
-        </div>
+        </ShopEmpty>
       ) : (
         <ul className="mt-6 space-y-3">
           {tokens.map((t) => {

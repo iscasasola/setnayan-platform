@@ -23,6 +23,7 @@ import { RevealList } from '@/app/_components/reveal-list';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorOutcomeRollup } from '@/lib/inquiry-outcomes';
 import { InquiryOutcomesRollup } from './_components/inquiry-outcomes-rollup';
+import { ShopEmpty } from '../_components/kit';
 
 export const metadata = { title: 'Messages · Vendor' };
 
@@ -169,7 +170,7 @@ export default async function VendorMessagesPage() {
       <InquiryOutcomesRollup rollup={outcomeRollup} />
 
       {threads.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/20 p-8 text-center">
+        <ShopEmpty>
           <MessageSquare
             aria-hidden
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -185,7 +186,7 @@ export default async function VendorMessagesPage() {
             is filled in and your contact email is right — that&rsquo;s the field
             couples search by.
           </p>
-        </div>
+        </ShopEmpty>
       ) : (
         <>
           {activeThreads.length > 0 ? (
@@ -193,9 +194,9 @@ export default async function VendorMessagesPage() {
               {activeThreads.map(renderRow)}
             </RevealList>
           ) : (
-            <p className="rounded-xl border border-dashed border-ink/20 px-4 py-6 text-center text-sm text-ink/60">
+            <ShopEmpty inline>
               No active conversations — everything&rsquo;s tucked into Archived below.
-            </p>
+            </ShopEmpty>
           )}
 
           {archivedThreads.length > 0 ? (

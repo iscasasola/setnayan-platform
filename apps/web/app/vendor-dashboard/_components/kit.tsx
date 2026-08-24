@@ -189,34 +189,34 @@ export function ShopNotice({
  * in this tree fails a new unbound read. This component states the absence;
  * it cannot verify it.
  * ────────────────────────────────────────────────────────────────────────── */
+/**
+ * The inline spelling, exported for elements that must keep their own tag —
+ * a lone `<li>` standing in for an empty roster. `ShopEmpty inline` composes
+ * this same constant. text-ink/60, not the ink/45 three of the shipped list
+ * empties carried — ink/45 measures 2.62:1 on white, a hard AA fail the
+ * states kit corrected once already.
+ */
+export const shopEmptyInlineClass =
+  'rounded-xl border border-dashed border-ink/15 px-3 py-4 text-center text-sm text-ink/60';
+
 export function ShopEmpty({
   inline = false,
-  action,
   className = '',
   children,
 }: {
-  /** Inline note inside a card, instead of the standalone panel. */
+  /** Inline note inside a card or list, instead of the standalone panel. */
   inline?: boolean;
-  /** The one action that fills this surface, when the supplier can act. */
-  action?: ReactNode;
   className?: string;
   children: ReactNode;
 }) {
   if (inline) {
-    return (
-      <p
-        className={`rounded-xl border border-dashed border-ink/15 px-3 py-4 text-center text-sm text-ink/60 ${className}`}
-      >
-        {children}
-      </p>
-    );
+    return <p className={`${shopEmptyInlineClass} ${className}`}>{children}</p>;
   }
   return (
     <div
       className={`rounded-2xl border border-dashed border-ink/15 p-8 text-center text-sm text-ink/60 ${className}`}
     >
-      <div className="mx-auto max-w-sm">{children}</div>
-      {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
+      {children}
     </div>
   );
 }

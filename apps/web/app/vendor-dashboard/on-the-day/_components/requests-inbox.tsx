@@ -36,6 +36,7 @@ import {
   setDayRequestStatus,
   submitDayRequest,
 } from '../actions';
+import { shopEmptyInlineClass } from '../../_components/kit';
 
 type Props = {
   eventId: string;
@@ -179,7 +180,7 @@ export function RequestsInbox({ eventId, initialRows, side }: Props) {
 
       <ul className="mt-4 space-y-1.5">
         {ordered.length === 0 ? (
-          <li className="rounded-xl border border-dashed border-ink/15 px-3 py-4 text-center text-sm text-ink/45">
+          <li className={shopEmptyInlineClass}>
             All clear — nothing logged yet.
           </li>
         ) : (

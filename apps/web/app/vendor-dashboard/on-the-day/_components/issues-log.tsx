@@ -30,6 +30,7 @@ import { AlertTriangle, Check, Plus, Trash2 } from 'lucide-react';
 import type { DayRequestRow } from '@/lib/day-requests';
 import { getDayRequestsView } from '../actions';
 import { RequestsInbox } from './requests-inbox';
+import { shopEmptyInlineClass } from '../../_components/kit';
 
 type Issue = { id: string; text: string; resolved: boolean; at: number };
 
@@ -167,7 +168,7 @@ function LocalIssuesLog({ eventId }: { eventId: string }) {
 
       <ul className="mt-4 space-y-1.5">
         {issues.length === 0 ? (
-          <li className="rounded-xl border border-dashed border-ink/15 px-3 py-4 text-center text-sm text-ink/45">
+          <li className={shopEmptyInlineClass}>
             All clear — nothing logged yet.
           </li>
         ) : (

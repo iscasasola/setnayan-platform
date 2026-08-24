@@ -602,14 +602,11 @@ async function CustomersPipeline({ searchParams }: Props) {
             </Link>
           </div>
           {rows.length === 0 ? (
-            <p
-              className="rounded-2xl border border-dashed p-5 text-sm"
-              style={{ borderColor: 'var(--sn-line)', color: 'var(--m-slate-2)' }}
-            >
+            <ShopEmpty>
               No customers yet. When a couple books you, or you accept an inquiry,
               they show up here with their event, date, and where they&rsquo;re at
               with payments.
-            </p>
+            </ShopEmpty>
           ) : (
             <div className="sn-tile p-2 sm:p-2.5">
               <ul className="space-y-1">
@@ -707,6 +704,7 @@ import ClientsSurface from '../clients/surface';
 import CalendarSurface from '../calendar/surface';
 import PaydaySurface from '../payday/surface';
 import MessagesSurface from '../messages/surface';
+import { ShopEmpty } from '../_components/kit';
 
 // Folded sections below the pipeline (which already shows the ONE month
 // calendar + summary cards + QR + customers list). No "Calendar" section —

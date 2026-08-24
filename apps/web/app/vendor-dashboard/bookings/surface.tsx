@@ -19,6 +19,7 @@ import {
   VendorPrepForBooking,
   type VendorPrepItem,
 } from './_components/vendor-prep-add';
+import { ShopEmpty } from '../_components/kit';
 
 export const metadata = { title: 'Bookings · Vendor' };
 
@@ -267,7 +268,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
       </nav>
 
       {visible.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 p-8 text-center">
+        <ShopEmpty>
           <ClipboardList
             aria-hidden
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -277,7 +278,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
           <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
             Couples that send you a message land here.
           </p>
-        </div>
+        </ShopEmpty>
       ) : (
         <ul className="space-y-2">
           {visible.map((r) => {

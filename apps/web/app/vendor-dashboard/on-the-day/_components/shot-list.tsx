@@ -19,6 +19,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Camera, Check, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { shopEmptyInlineClass } from '../../_components/kit';
 
 type Shot = { id: string; label: string; done: boolean };
 
@@ -161,7 +162,7 @@ export function ShotList({ eventId, eventName }: { eventId: string; eventName: s
           </li>
         ))}
         {shots.length === 0 ? (
-          <li className="rounded-xl border border-dashed border-ink/15 px-3 py-4 text-center text-sm text-ink/45">
+          <li className={shopEmptyInlineClass}>
             Your list is empty — add a shot below or reset to the default list.
           </li>
         ) : null}

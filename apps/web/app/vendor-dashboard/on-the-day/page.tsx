@@ -49,6 +49,7 @@ import { VendorStatusUpdates } from './_components/vendor-status-updates';
 import { ModuleConfigurator, type ConfiguratorModule } from './_components/module-configurator';
 import { EventPicker } from './_components/event-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
+import { ShopEmpty } from '../_components/kit';
 
 export const metadata = { title: 'On the Day · Vendor' };
 
@@ -423,10 +424,7 @@ export default async function VendorOnTheDayPage({
           </div>
         </div>
       ) : (
-        <div
-          className="rounded-2xl border border-dashed p-8 text-center"
-          style={{ borderColor: 'var(--sn-line)' }}
-        >
+        <ShopEmpty>
           <CalendarClock
             aria-hidden
             className="mx-auto h-8 w-8"
@@ -447,7 +445,7 @@ export default async function VendorOnTheDayPage({
           >
             See your customers <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </Link>
-        </div>
+        </ShopEmpty>
       )}
 
       {/* 3 · Controller family + module readout (taxonomy-driven) + console. */}
@@ -885,10 +883,7 @@ function CompactDayOf({
       {bookings.length > 0 ? <EventPicker bookings={bookings} activeEventId={null} /> : null}
 
       {/* Promoted "No event today" explainer. */}
-      <div
-        className="rounded-2xl border border-dashed p-8 text-center"
-        style={{ borderColor: 'var(--sn-line)' }}
-      >
+      <ShopEmpty>
         <CalendarClock
           aria-hidden
           className="mx-auto h-8 w-8"
@@ -918,7 +913,7 @@ function CompactDayOf({
             Preview the console
           </Link>
         </div>
-      </div>
+      </ShopEmpty>
 
       {/* Day-of tools adapt — taxonomy-driven family + module readout. */}
       <ModuleReadout family={family} modules={modules} />

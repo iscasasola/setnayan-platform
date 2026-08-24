@@ -13,6 +13,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { setOptIn, flagFeedback } from './actions';
 import { suggestToCouple } from './share-actions';
+import { ShopEmpty } from '../_components/kit';
 
 /**
  * RecommendationsPanel — the vendor's private "Recommend to your couples"
@@ -148,7 +149,7 @@ export function RecommendationsPanel({
       ) : null}
 
       {groups.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 p-8 text-center">
+        <ShopEmpty>
           <Sparkles
             aria-hidden
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -161,7 +162,7 @@ export function RecommendationsPanel({
             As we curate add-ons that pair with what you do, they&rsquo;ll show up
             here. Add the services you offer on the Services tab to unlock matches.
           </p>
-        </div>
+        </ShopEmpty>
       ) : (
         <div className="space-y-8">
           {groups.map((group) => (

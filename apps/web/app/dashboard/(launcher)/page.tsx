@@ -1659,8 +1659,13 @@ function GlassEventCard({
    */
   storyHref?: string;
 }) {
-  const { badge, dateLabel, place, status, plannedLabel, stance, href, closedReason } =
+  const { badge, dateLabel, place, status, keptNote, stance, href, closedReason } =
     deriveEventView(event, pct, finished, todayISO);
+  // The score is an organiser's number for a plan still in motion: never on an
+  // invited card (whose plan is somebody else's), never on a finished one
+  // (whose day has happened — a planning score on a celebrated day is the
+  // board contradicting its own "Celebrated" badge one line up).
+  const showRing = pct != null && stance !== 'invited' && !finished;
   const resolvedHref = storyHref ?? href;
 
   return (
@@ -1746,9 +1751,9 @@ function GlassEventCard({
             along the plan is. Absent entirely when nothing waits. */}
         <EventAttention summary={summary} stance={stance} />
         <div className="mt-auto flex items-center gap-2.5 pt-1">
-          {pct != null ? (
+          {showRing ? (
             <ProgressRing
-              pct={pct}
+              pct={pct as number}
               size={44}
               stroke={4.5}
               trackColor="rgb(var(--color-ink) / 0.08)"
@@ -1761,16 +1766,18 @@ function GlassEventCard({
                 className="absolute inset-[4.5px] rounded-full bg-white/[0.78] backdrop-blur-[6px]"
               />
               <span className="relative font-mono text-[10px] font-bold text-ink">
-                <CountUp value={pct} suffix="%" delayMs={600 + 150 * index} />
+                <CountUp value={pct as number} suffix="%" delayMs={600 + 150 * index} />
+                {/* The ring is the ONE place the figure prints (the old
+                    "N% planned" text beside it was the D-6 double-print);
+                    this keeps the word for screen readers. */}
+                <span className="sr-only"> planned</span>
               </span>
             </ProgressRing>
           ) : null}
           <div className="min-w-0">
             <p className="truncate text-[12.5px] font-bold text-ink">{status}</p>
-            {plannedLabel ? (
-              <p className="truncate font-mono text-[11px] text-ink/45">
-                {plannedLabel}
-              </p>
+            {keptNote ? (
+              <p className="truncate text-[11px] text-ink/45">{keptNote}</p>
             ) : null}
             {/* Why this card does not open. Rendered whenever there is no
                 destination, on EVERY shelf — a silent dead card reads as the
@@ -1853,8 +1860,19 @@ function deriveEventView(
     : invited
       ? (countdown ?? 'You’re on the guest list')
       : (countdown ?? (pct != null ? 'Planning underway' : 'Just getting started'));
-  // "% planned" is an ORGANISER's number. Never shown on an invited card.
-  const plannedLabel = !invited && pct != null ? `${pct}% planned` : null;
+  // ⚠ `plannedLabel` ("N% planned") LIVED HERE AND IS GONE (2026-08-24). It
+  // printed the same number the ring already shows an inch away — the exact
+  // D-6 defect W1-A removed from the event dashboard, fixed there and not
+  // here. The ring is now the ONE place the figure prints (with an sr-only
+  // "planned" so a screen reader still hears what the number is), and the
+  // sub-line slot carries words that say something the ring cannot.
+  //
+  // A FINISHED celebration gets no score at all — the day happened, and "0%
+  // planned" on a celebrated day tells the person they planned none of it
+  // (observed live 2026-08-24, "Movie Night · Celebrated · 0% planned"). What
+  // it shows instead is the one sentence that is true of every kept
+  // celebration, in the shelf's own words: it is kept, not graded.
+  const keptNote = finished ? 'Kept for good' : null;
   return {
     badge,
     dateLabel,
@@ -1862,7 +1880,7 @@ function deriveEventView(
     dateMeta,
     countdown,
     status,
-    plannedLabel,
+    keptNote,
     stance,
     href,
     closedReason,

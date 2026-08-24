@@ -1,6 +1,11 @@
 import Link from 'next/link';
 
+import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
+import { NotSharedWithYou } from '../../_components/not-shared-with-you';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { KWENTO_MOMENTS, type KwentoMomentKey } from '@/lib/kwento-moments';
 import { GuestPicker, AssignmentRow } from './_components/assignment-controls';
@@ -13,6 +18,17 @@ type Props = { params: Promise<{ eventId: string }> };
 
 export default async function KwentoAssignmentsPage({ params }: Props) {
   const { eventId } = await params;
+  // ⚠ THIS PAGE HAD NO AUTHORIZATION OF ITS OWN — no user, no membership, no
+  // gate — and its guest read is on the service role, which bypasses RLS. The
+  // picker it fills IS the guest list, by name. The dashboard layout admits
+  // every accepted delegate, so the 2026-08-25 rule was reaching every other
+  // door and not this one.
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const viewer = await fetchEventViewer(await createClient(), eventId, user.id);
+  if (isDelegateWithoutArea(viewer, 'guest_list')) {
+    return <NotSharedWithYou title="Story Assignments" thing="guest list" />;
+  }
   const admin = createAdminClient();
 
   const [{ data: assignments, error: assignmentsError }, { data: guests, error: guestsError }] = await Promise.all([

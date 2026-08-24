@@ -31,3 +31,9 @@ writer and recorded WITH ITS REASON, not silently baselined.
 5 db tests · 4 measured mutations.
 
 SPEC IMPACT: DECISION_LOG.md 2026-08-24.
+
+⚠ `port-control-baseline.json` is regenerated because this PR deliberately
+removes a control (`archiveCommunity`). **Measured before committing:** across
+the **404 routes present in both baselines, exactly ONE action is lost —
+`archiveCommunity` — and zero destinations.** The regeneration absorbs no
+other removal; the rest of its diff is other people's additions.

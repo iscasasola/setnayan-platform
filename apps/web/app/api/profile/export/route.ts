@@ -183,6 +183,7 @@ export async function GET() {
     dependentsRes,
     godparentsRes,
     communityMembershipsRes,
+    samahanStoriesRes,
     coordinatorConsentsRes,
     marketingShareConsentsRes,
     vendorReuseRequestsRes,
@@ -352,6 +353,17 @@ export async function GET() {
       .select('role, joined_at, communities(public_id, name)')
       .eq('user_id', user.id)
       .order('joined_at', { ascending: true }),
+    // RA 10173 (2026-08-24) — samahan stories the subject posted that are
+    // still LIVE. Scoped to the AUTHOR, never the community: another
+    // member's stories are their data, not this subject's. Metadata only —
+    // the clip itself expires within 24 hours and is deleted, so the export
+    // records that a story existed, not the video. Reads through the
+    // subject's own session; RLS already hides expired rows.
+    supabase
+      .from('samahan_stories')
+      .select('story_id, community_id, duration_ms, created_at, expires_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
     // RA 10173 (2026-07-19) — coordinator-access consent receipts the subject
     // GAVE as the couple/host (Coordinator_Role_Feature_Spec_2026-07-18.md § 3a):
     // their explicit decision to share event planning data (guest list · seating
@@ -494,6 +506,7 @@ export async function GET() {
   const dependents = listOutcome('alaga_dependents', dependentsRes);
   const godparents = listOutcome('alaga_godparents', godparentsRes);
   const communityMemberships = listOutcome('samahan_memberships', communityMembershipsRes);
+  const samahanStories = listOutcome('samahan_stories', samahanStoriesRes);
   const coordinatorConsents = listOutcome('coordinator_access_consents', coordinatorConsentsRes);
   const marketingShareConsents = listOutcome('marketing_share_consents', marketingShareConsentsRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
@@ -637,6 +650,9 @@ export async function GET() {
     alaga_godparents: godparents.rows,
     // Samahan memberships — group name (user-chosen), role, joined_at.
     samahan_memberships: communityMemberships.rows,
+    // Samahan stories the subject posted that are still live (24-hour
+    // lifetime) — metadata only; the clip file itself is deleted at expiry.
+    samahan_stories: samahanStories.rows,
     // RA 10173 (2026-07-19) — consent receipts the subject gave: coordinator
     // data-sharing consents (grant + revocation stamps) and marketing-share
     // consents (per-artifact FB-feature grants incl. post/take-down evidence).

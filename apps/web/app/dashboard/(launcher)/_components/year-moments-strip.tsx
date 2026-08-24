@@ -7,6 +7,7 @@ import {
   buildYearMoments,
   buildSelfMoments,
   mergeSelfMoments,
+  worthPlanningMoments,
   type MomentEvent,
   type SelfForMoments,
 } from '@/lib/year-moments';
@@ -138,9 +139,20 @@ export async function YearMomentsStrip({
   // comes from the profile, not from an event: it is the one moment an account
   // can offer before it has a single event on it. `mergeSelfMoments` drops it
   // when an event already holds that day, so one date never prints twice.
-  const moments = mergeSelfMoments(
-    buildYearMoments(events, today, { includeHolidays: true }),
-    buildSelfMoments((selfRow as SelfForMoments | null) ?? null, today),
+  // 🔑 EXISTING EVENTS' OWN DAYS NEVER REACH THIS SHELF (2026-08-24). The
+  // shelf's whole reason to exist apart from Planning is that "Planning holds
+  // celebrations that EXIST and this holds days that do not" (owner naming
+  // ruling, DECISION_LOG 2026-08-21) — and the rows this filter drops were the
+  // shelf listing the very weddings sitting two shelves up, with an "Open plan"
+  // button confessing it. The rows were correct on the retired /dashboard/year
+  // page and came along unchanged when it folded into the board. Derived days
+  // (anniversaries, monthsaries) and no-event days (holidays, own birthday)
+  // stay — see `momentIsEventOwnDay` for the full rule.
+  const moments = worthPlanningMoments(
+    mergeSelfMoments(
+      buildYearMoments(events, today, { includeHolidays: true }),
+      buildSelfMoments((selfRow as SelfForMoments | null) ?? null, today),
+    ),
   );
 
   if (moments.length === 0) return <EmptyYear unsure={readFailed} heading={heading} />;

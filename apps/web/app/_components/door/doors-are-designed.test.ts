@@ -229,12 +229,16 @@ const DOOR_CARD_FRAME =
 /**
  * THE BILL, NAMED.
  *
- * Eight more pages carry that identical card (`w-full max-w-md rounded-2xl
- * border … bg-surface p-7`) — Papic capture surfaces, the Live Studio and 3D
- * demos. (There were nine until the Pabati page was deleted with its product on
- * 2026-08-21.) They are NOT all doors: several use the card only for a gate
- * or error state on a surface whose main job is a camera. Porting them changes
- * what those screens look like, which is a design call and not this PR's.
+ * THREE pages still carry that identical card (`w-full max-w-md rounded-2xl
+ * border … bg-surface p-7`): the two live demos and /signup, each staying by
+ * deliberate design (see the per-line notes below). This prose once said
+ * "eight more pages … there were nine" — that was the pre-port bill; the nine
+ * refusal screens were ported through <DoorShell> (e372a5e0f) and Pabati was
+ * deleted with its product on 2026-08-21, and the count in this comment went
+ * stale while the array beneath it stayed correct. The ARRAY is the bill;
+ * this sentence now just describes it instead of counting it.
+ * (Corrected 2026-08-24, W5-B — a doc that contradicts itself gets read from
+ * whichever half is wrong.)
  *
  * ⚖ SO THEY ARE LISTED, NOT SILENCED — and the assertion pins the set EXACTLY.
  * A new page adopting the shape fails. Porting one of these also fails,

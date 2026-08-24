@@ -259,7 +259,10 @@ export default async function AlaalaPage({ params }: Props) {
                 <div
                   className="absolute top-1.5 right-1.5 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-semibold"
                   style={{
-                    background: card.density >= 3 ? '#D97706' : card.density === 2 ? '#B45309' : 'rgba(0,0,0,0.45)',
+                    // Palette-locked gold, not stock amber: terracotta-800 #5C4726 (hottest)
+                    // and terracotta-700 #8C6932 — white at 10px bold reads 8.4:1 / 5.0:1
+                    // on them, both past the 4.5:1 AA floor the ambers skirted.
+                    background: card.density >= 3 ? '#5C4726' : card.density === 2 ? '#8C6932' : 'rgba(0,0,0,0.45)',
                     color: '#fff',
                   }}
                 >

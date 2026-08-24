@@ -77,7 +77,6 @@ const BILL: ReadonlyArray<readonly [string, number]> = [
   ['vendors/[vendorId]/workspace/_components/quote-bridge.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/handover-inbox.tsx', 2],
-  ['budget/page.tsx', 1],
   ['budget/_components/budget-live-summary.tsx', 1],
   ['budget/_components/share-budget-band-toggle.tsx', 1],
 ];

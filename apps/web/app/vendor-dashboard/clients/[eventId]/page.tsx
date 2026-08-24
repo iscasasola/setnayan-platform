@@ -128,6 +128,9 @@ import { VendorPaymentLive } from '../../messages/[threadId]/_components/vendor-
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { logQueryError } from '@/lib/supabase/error-detect';
+// The tree kit (W4-B): `Card` here IS ShopCard — the local definition this
+// file used to carry was byte-identical to the kit's dominant card recipe.
+import { ShopCard as Card, shopInputClass } from '../../_components/kit';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -1614,19 +1617,8 @@ function LockRow({ title, sub }: { title: string; sub: string }) {
   );
 }
 
-function Card({
-  children,
-  className = '',
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={`rounded-2xl border border-ink/10 bg-white p-4 sm:p-5 ${className}`}>
-      {children}
-    </div>
-  );
-}
+// The local `Card` that lived here (identical to the kit's card recipe) is
+// retired — `Card` is imported from `_components/kit` at the top of the file.
 
 // ===========================================================================
 // Completion handshake card (booked) — the vendor's "Mark service complete"
@@ -2860,7 +2852,7 @@ function ScheduleTab(props: {
                       maxLength={1000}
                       rows={2}
                       placeholder={`e.g. "We need ingress 2 hours before ${b.label}."`}
-                      className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                      className={shopInputClass}
                     />
                     <div className="flex flex-wrap items-center gap-2">
                       <input type="datetime-local" name="proposed_start_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
@@ -2882,14 +2874,14 @@ function ScheduleTab(props: {
           <summary className="cursor-pointer text-sm font-semibold">Suggest a new timeline entry</summary>
           <form action={suggestScheduleChange} className="mt-3 grid max-w-md gap-2">
             <input type="hidden" name="event_id" value={eventId} />
-            <input type="text" name="proposed_label" required maxLength={120} placeholder="e.g. Booth setup / ingress" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
-            <textarea name="note" required maxLength={1000} rows={2} placeholder="Why this slot matters" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+            <input type="text" name="proposed_label" required maxLength={120} placeholder="e.g. Booth setup / ingress" className={shopInputClass} />
+            <textarea name="note" required maxLength={1000} rows={2} placeholder="Why this slot matters" className={shopInputClass} />
             <div className="flex flex-wrap items-center gap-2">
               <input type="datetime-local" name="proposed_start_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
               <span className="text-xs text-ink/45">to</span>
               <input type="datetime-local" name="proposed_end_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
             </div>
-            <input type="text" name="proposed_location" maxLength={200} placeholder="Location (optional)" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+            <input type="text" name="proposed_location" maxLength={200} placeholder="Location (optional)" className={shopInputClass} />
             <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
               Send suggestion
             </SubmitButton>
@@ -2963,8 +2955,8 @@ function ScheduleTab(props: {
               <form action={vendorPostHandover} className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="gallery_link" />
-                <input type="text" name="label" maxLength={200} placeholder="e.g. Full wedding gallery" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
-                <input type="url" name="payload" required placeholder="https://…" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                <input type="text" name="label" maxLength={200} placeholder="e.g. Full wedding gallery" className={shopInputClass} />
+                <input type="url" name="payload" required placeholder="https://…" className={shopInputClass} />
                 <p className="text-[11px] text-ink/45">Big galleries stay on your link (Drive, Pixieset, etc.) — we don’t re-host them.</p>
                 <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                   Send link
@@ -2979,7 +2971,7 @@ function ScheduleTab(props: {
               <form action={vendorPostHandover} className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="file" />
-                <input type="text" name="label" maxLength={200} placeholder="e.g. Edited preview" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                <input type="text" name="label" maxLength={200} placeholder="e.g. Edited preview" className={shopInputClass} />
                 <input type="file" name="file" accept="image/png,image/jpeg,image/webp,image/gif,image/heic" required className="text-xs" />
                 <p className="text-[11px] text-ink/45">A single image, max 6 MB. For full sets, share a gallery link instead.</p>
                 <SubmitButton pendingLabel="Uploading…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
@@ -2995,8 +2987,8 @@ function ScheduleTab(props: {
               <form action={vendorPostHandover} className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="note" />
-                <input type="text" name="label" maxLength={200} placeholder="Subject (optional)" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
-                <textarea name="payload" required maxLength={4000} rows={2} placeholder="e.g. Drive folder shared to your email — download within 30 days." className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                <input type="text" name="label" maxLength={200} placeholder="Subject (optional)" className={shopInputClass} />
+                <textarea name="payload" required maxLength={4000} rows={2} placeholder="e.g. Drive folder shared to your email — download within 30 days." className={shopInputClass} />
                 <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                   Send note
                 </SubmitButton>
@@ -3010,7 +3002,7 @@ function ScheduleTab(props: {
               <form action={vendorPostHandover} className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="signoff" />
-                <textarea name="payload" maxLength={4000} rows={2} placeholder="Closing note (optional) — e.g. Everything’s been delivered. Thank you!" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                <textarea name="payload" maxLength={4000} rows={2} placeholder="Closing note (optional) — e.g. Everything’s been delivered. Thank you!" className={shopInputClass} />
                 <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                   Mark all delivered
                 </SubmitButton>

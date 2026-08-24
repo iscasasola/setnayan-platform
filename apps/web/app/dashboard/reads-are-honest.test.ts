@@ -352,6 +352,141 @@ test('a partially-refused screen says so instead of presenting itself as complet
   );
 });
 
+/**
+ * 🔑 RULE 8 — AN ERROR THAT IS BOUND AND THEN THROWN AWAY. Rules 2 and 5 ask
+ * only whether the error was NAMED. `if (error) return 0` names it, reads as
+ * careful code, and states an absence nobody measured — it satisfied every
+ * earlier rule in this file while doing the exact damage they exist to prevent.
+ *
+ * It cost the couple's own gallery hub: a refused count printed "As your guests
+ * and cameras shoot, every photo gathers here" and pointed at *Open Papic*
+ * instead of *View & download*, on the one page whose job is to reach photos
+ * that already exist. This area has paid for it before — the Papic home tile
+ * once told coordinators "0 cameras out" mid-shoot, an RLS silent-zero.
+ *
+ * ⚖ NOT EVERY ONE IS A DEFECT. A discard in the safe direction, ARGUED AT THE
+ * CALL SITE, is a decision — the shared-pool hint fails to 0 because the
+ * database refuses an over-hand-out anyway. Those go on the bill WITH the
+ * reason, not into an exemption that would quietly cover the next one too.
+ */
+const ERROR_BRANCH = String.raw`if\s*\(\s*!?\s*\w*(?:[Ee]rror|Err)\b[^)]*\)\s*\{`;
+
+/**
+ * Every `if (…error…) { … }` branch, with its body — matched by BEHAVIOUR, not
+ * by spelling.
+ *
+ * 🪤 THE FIRST DRAFT MATCHED ONLY THE TERSE ONE-LINER `if (error) return 0;`,
+ * and the stale half of this very rule caught it within the hour: adding a log
+ * line above the `return 0` moved the return two lines down, the pattern
+ * stopped matching, and the guard reported the discard FIXED while it was still
+ * there. **A LOGGED DISCARD IS STILL A DISCARD** — logging never changed a
+ * single pixel. Ask what the branch RETURNS, not how it is written.
+ */
+function errorBranches(src: string): Array<{ body: string }> {
+  const out: Array<{ body: string }> = [];
+  for (const m of src.matchAll(new RegExp(ERROR_BRANCH, 'g'))) {
+    let i = (m.index ?? 0) + m[0].length;
+    let depth = 1;
+    const from = i;
+    while (i < src.length && depth > 0) {
+      const c = src[i];
+      if (c === '{') depth += 1;
+      else if (c === '}') depth -= 1;
+      i += 1;
+    }
+    out.push({ body: src.slice(from, i - 1) });
+  }
+  return out;
+}
+
+/**
+ * A branch that FABRICATES a value rather than carrying the refusal.
+ *
+ * ⚖ `0` and `[]` only — and the omission of `null` is deliberate, decided after
+ * the wider version cried wolf on the very fix this stream is shipping.
+ * `return 0` and `return []` always invent data a nobody measured. `return null`
+ * is AMBIGUOUS: from a value helper it is the honest "unknown" that lets the
+ * caller say so (and is exactly what `countEventGuestCaptures` and
+ * `fetchMarketplaceServices` now do); from a React component it means "render
+ * nothing", which is sometimes the argued-safe answer.
+ *
+ * 🔑 A GUARD THAT CRIES WOLF TEACHES YOU TO SKIM PAST THE ONE TIME IT IS RIGHT,
+ * so this rule stays narrow and SAYS what it does not cover: a component that
+ * returns null on a refusal is not caught here. Rules 2, 5 and 7 catch the read
+ * itself; this one catches the invented value.
+ */
+const statesAnAbsence = (body: string): boolean =>
+  /return\s*(?:0|\[\])\s*;/.test(body) && !/ReadRefusedNotice/.test(body);
+
+const discardMatches = (src: string) => errorBranches(src).filter((b) => statesAnAbsence(b.body));
+
+/**
+ * THE BILL, with a reason on every line. Each is a bound error deliberately
+ * discarded in the SAFE direction, argued where it happens.
+ */
+const KNOWN_DISCARDED: Record<string, number> = {
+  // The shared-pool hint: failing to 0 can only refuse a hand-out the host
+  // could have made, never permit one they could not. Logged, direction kept.
+  'app/dashboard/[eventId]/studio/papic/_components/papic-cameras-card.tsx': 1,
+  // `isMissingRelation(error) → []` — the table does not exist yet, so there
+  // genuinely IS nothing to show. The other branch of that same function now
+  // returns null and the panel says so.
+  'app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx': 1,
+};
+
+test('an error that is bound is not allowed to be thrown away', () => {
+  // FLOOR — shared source with the rule, so blinding one blinds both.
+  const everyBranch = renderFiles(HERE).reduce(
+    (n, file) => n + errorBranches(stripComments(readFileSync(join(WEB_ROOT, file), 'utf8'))).length,
+    0,
+  );
+  assert.ok(
+    everyBranch >= 40,
+    `Only ${everyBranch} error branches seen anywhere in this tree. The scan has ` +
+      'stopped matching — that is not the same as the tree being clean.',
+  );
+
+  const counts = new Map<string, number>();
+  for (const file of renderFiles(HERE)) {
+    const n = discardMatches(stripComments(readFileSync(join(WEB_ROOT, file), 'utf8'))).length;
+    if (n > 0) counts.set(file, n);
+  }
+  const fresh: string[] = [];
+  for (const [file, n] of counts) {
+    if (n > (KNOWN_DISCARDED[file] ?? 0)) fresh.push(`${file} → ${n} discarded`);
+  }
+  assert.deepEqual(
+    fresh,
+    [],
+    'Naming the error and returning 0 or [] states an absence nobody ' +
+      'measured — the same defect as never binding it, in careful clothes, and ' +
+      'adding a log line does not change what the screen says. Either carry the ' +
+      'refusal to the screen, or put it on KNOWN_DISCARDED with the reason the ' +
+      `direction is safe. New: ${fresh.join(' · ')}`,
+  );
+  const stale = Object.entries(KNOWN_DISCARDED)
+    .filter(([f, allowed]) => (counts.get(f) ?? 0) < allowed)
+    .map(([f]) => f);
+  assert.deepEqual(stale, [], `Fixed — delete from KNOWN_DISCARDED: ${stale.join(' · ')}`);
+});
+
+test('the gallery hub never says "collecting" about a gallery it could not count', () => {
+  const hub = stripComments(
+    readFileSync(join(HERE, '[eventId]/galleries/page.tsx'), 'utf8'),
+  );
+  assert.match(
+    hub,
+    /const papicCountMeasured = papicPhotoCount !== null && guestCaptureCount !== null;/,
+    'Either half unread means the total is unknown — adding a measured number to ' +
+      'an unread one and printing the sum is the same lie in smaller type.',
+  );
+  assert.match(
+    hub,
+    /viewLabel: ready \? 'View & download' : papicCountMeasured \? 'Open Papic' : 'Look anyway'/,
+    'An uncounted gallery must not send the couple to the empty-state door.',
+  );
+});
+
 /** The same bill, for counts. Same rules: shrink it, never grow it. */
 const KNOWN_UNBOUND_COUNTS: Record<string, number> = {};
 

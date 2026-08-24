@@ -262,7 +262,20 @@ async function sharedRemaining(
 ): Promise<number> {
   try {
     const { data, error } = await admin.rpc('papic_event_pool_status', { p_event_id: eventId });
-    if (error) return 0;
+    if (error) {
+      // ⚖ THE ZERO STAYS — the docblock above argues it and the argument holds:
+      // ⚖ this is the box's hint, not the gate, and the database refuses an
+      // ⚖ over-hand-out either way, so failing to 0 can only ever refuse a
+      // ⚖ hand-out the host could have made. What was missing is the trace; a
+      // ⚖ pool that reads empty for days should not do so in silence.
+      logQueryError(
+        'PapicCamerasCard.sharedRemaining',
+        error,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+      return 0;
+    }
     const row = Array.isArray(data) ? data[0] : data;
     const n = Number((row as { remaining_points?: unknown } | null)?.remaining_points ?? 0);
     return Number.isFinite(n) && n > 0 ? n : 0;

@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
+import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { FileText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
@@ -53,7 +55,15 @@ export async function VendorProposalsCard({
     .eq('event_id', eventId)
     .eq('vendor_profile_id', marketplaceVendorId)
     .order('created_at', { ascending: false });
-  if (error) return null; // pre-migration graceful-degrade (42P01)
+  // ⚠ THE COMMENT NAMED ONE CAUSE; THE CODE SWALLOWED EVERY CAUSE. A table that
+  // ⚠ does not exist yet is a fair reason to render nothing quietly. A refusal
+  // ⚠ is not — and this card disappearing is how the quotations on this booking — go missing from the page that lists them.
+  // ⚠ The predicate it meant to use already lived one file away.
+  if (error) {
+    if (isMissingRelationError(error)) return null;
+    logQueryError('VendorProposalsCard.proposals', error, { event_id: eventId }, 'graceful_degrade');
+    return <ReadRefusedNotice what="the quotations on this booking" />;
+  }
 
   const proposals = (data ?? []) as Row[];
   if (proposals.length === 0) return null;

@@ -43,6 +43,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   VENDOR_CATEGORY_LABEL,
   formatPhp,
@@ -134,7 +136,12 @@ export async function fetchMarketplaceContact(
 export async function fetchMarketplaceServices(
   supabase: SupabaseClient,
   vendorProfileId: string,
-): Promise<VendorServiceRow[]> {
+): Promise<VendorServiceRow[] | null> {
+  // ⚠ `[]` AND "WE COULD NOT READ IT" WERE THE SAME ANSWER, on a panel that
+  // ⚠ tells a couple what the supplier they booked actually offers. A refusal
+  // ⚠ printed a shop with nothing on its shelves. `null` now means unknown; an
+  // ⚠ empty array still means the honest, measured none — and the table simply
+  // ⚠ not existing yet keeps returning `[]`, because that IS nothing to show.
   try {
     const { data, error } = await supabase
       .from('vendor_services')
@@ -146,15 +153,19 @@ export async function fetchMarketplaceServices(
       .order('created_at', { ascending: true });
     if (error) {
       if (isMissingRelation(error)) return [];
-      // eslint-disable-next-line no-console
-      console.error('[fetchMarketplaceServices] error', error.message);
-      return [];
+      logQueryError(
+        'fetchMarketplaceServices',
+        error,
+        { vendor_profile_id: vendorProfileId },
+        'graceful_degrade',
+      );
+      return null;
     }
     return (data ?? []) as VendorServiceRow[];
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('[fetchMarketplaceServices] threw', e);
-    return [];
+    return null;
   }
 }
 
@@ -301,7 +312,8 @@ export async function fetchMarketplaceReviews(
 // ----------------------------------------------------------------------------
 
 export type VendorMarketplaceInfoProps = {
-  services: VendorServiceRow[];
+  /** `null` = we could not read them. `[]` = measured, they have none. */
+  services: VendorServiceRow[] | null;
   contact: MarketplaceContact | null;
   reviewsData: MarketplaceReviewsData;
   vendorBusinessName: string;
@@ -328,7 +340,10 @@ export function VendorMarketplaceInfo({
   // — the workspace page has plenty of empty real estate already and a card
   // grid of empty-states reads as broken even if every individual empty
   // state copy is polite.
+  // An unread services list counts as "something" — the panel has to stay up so
+  // it can say it could not read them, rather than vanishing on a failed read.
   const hasAnything =
+    services === null ||
     services.length > 0 ||
     (contact !== null &&
       (contact.contact_email || contact.contact_phone || contact.website)) ||
@@ -375,7 +390,7 @@ function ServicesCard({
   services,
   vendorBusinessName,
 }: {
-  services: VendorServiceRow[];
+  services: VendorServiceRow[] | null;
   vendorBusinessName: string;
 }) {
   return (
@@ -394,7 +409,16 @@ function ServicesCard({
         </h2>
       </header>
 
-      {services.length === 0 ? (
+      {services === null ? (
+        /*
+         * 🚨 THE SENTENCE BELOW BLAMES SOMEBODY ELSE FOR OUR FAILED READ.
+         * "hasn't published a service list yet" is a claim about the supplier's
+         * own behaviour, and it was printed whenever this read was refused —
+         * to the couple who booked them. An absence we did not measure is never
+         * somebody else's fault to state.
+         */
+        <ReadRefusedNotice what={`what ${vendorBusinessName} offers`} />
+      ) : services.length === 0 ? (
         <p className="text-xs text-ink/55">
           {vendorBusinessName} hasn&rsquo;t published a service list yet. Ask them
           in chat — final quotes happen there anyway.

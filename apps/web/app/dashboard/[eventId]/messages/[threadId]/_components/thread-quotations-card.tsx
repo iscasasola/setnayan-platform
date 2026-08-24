@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
+import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { FileText, ChevronRight } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
@@ -64,7 +66,15 @@ export async function ThreadQuotationsCard({
     .eq('event_id', eventId)
     .eq('vendor_profile_id', vendorProfileId)
     .order('created_at', { ascending: false });
-  if (error) return null; // pre-migration graceful-degrade (42P01)
+  // ⚠ THE COMMENT NAMED ONE CAUSE; THE CODE SWALLOWED EVERY CAUSE. A table that
+  // ⚠ does not exist yet is a fair reason to render nothing quietly. A refusal
+  // ⚠ is not — and this card disappearing is how the quotation a supplier sent — never reaches the couple who has to accept it.
+  // ⚠ The predicate it meant to use already lived one file away.
+  if (error) {
+    if (isMissingRelationError(error)) return null;
+    logQueryError('ThreadQuotationsCard.proposals', error, { event_id: eventId }, 'graceful_degrade');
+    return <ReadRefusedNotice what="the quotation a supplier sent" />;
+  }
 
   const split = selectCurrentQuote((data ?? []) as Row[]);
   if (!split) return null;

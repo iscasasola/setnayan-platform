@@ -74,15 +74,31 @@ export default async function GalleriesHubPage({ params }: Props) {
   const base = `/dashboard/${eventId}`;
 
   // Papic media count = pro/crew captures (papic_photos) + guest captures
-  // (papic_guest_captures), both keyed by event_id. Graceful-degrade to 0 on a
-  // legacy/missing table so the hub never crashes — "collecting" is the safe
-  // default before the first delivery lands.
-  const countPapicPhotos = async (): Promise<number> => {
+  // (papic_guest_captures), both keyed by event_id.
+  //
+  // 🚨 "COLLECTING" WAS NOT A SAFE DEFAULT — IT WAS A CLAIM. This read bound its
+  // 🚨 error and then threw it away (`return error ? 0 : count ?? 0`), which is
+  // 🚨 the same value a real empty event gives. A refusal, an RLS silent-zero or
+  // 🚨 a legacy table therefore printed "As your guests and cameras shoot, every
+  // 🚨 photo gathers here" — and sent the couple to *Open Papic* instead of
+  // 🚨 *View & download* — on the one page whose whole job is to reach the
+  // 🚨 photos they already have. Binding an error and discarding it is not
+  // 🚨 carefulness; it is the defect wearing careful clothes.
+  const countPapicPhotos = async (): Promise<number | null> => {
     const { count, error } = await supabase
       .from('papic_photos')
       .select('photo_id', { count: 'exact', head: true })
       .eq('event_id', eventId);
-    return error ? 0 : count ?? 0;
+    if (error) {
+      logQueryError(
+        'GalleriesPage.papicPhotoCount',
+        error,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+      return null;
+    }
+    return count ?? 0;
   };
 
   const [hasPapic, panoodState, papicPhotoCount, guestCaptureCount, eventRow] = await Promise.all([
@@ -98,7 +114,12 @@ export default async function GalleriesHubPage({ params }: Props) {
     supabase.from('events').select('our_photos').eq('event_id', eventId).maybeSingle(),
   ]);
 
-  const papicCount = papicPhotoCount + guestCaptureCount;
+  // Either half unread ⇒ the total is unknown. Adding a measured 4 to an unread
+  // half and printing "4" is the same lie in smaller type.
+  const papicCountMeasured = papicPhotoCount !== null && guestCaptureCount !== null;
+  const papicCount = papicCountMeasured
+    ? (papicPhotoCount as number) + (guestCaptureCount as number)
+    : null;
   const ownsPanood = panoodState.state === 'launch';
   const ourPhotos = Array.isArray((eventRow.data as { our_photos?: unknown } | null)?.our_photos)
     ? ((eventRow.data as { our_photos: unknown[] }).our_photos as unknown[])
@@ -119,16 +140,19 @@ export default async function GalleriesHubPage({ params }: Props) {
   const sources: Source[] = [];
 
   if (hasPapic) {
-    const ready = papicCount > 0;
+    const ready = papicCount !== null && papicCount > 0;
     sources.push({
       key: 'papic',
       name: 'Papic — candid photos',
       blurb: ready
         ? 'Every shot your friends caught, ready to view and download.'
-        : "As your guests and cameras shoot, every photo gathers here.",
+        : papicCountMeasured
+          ? 'As your guests and cameras shoot, every photo gathers here.'
+          : 'We couldn’t count your photos just now — this does not mean there are none. Open Papic to look, and reload in a moment.',
       state: ready ? 'ready' : 'collecting',
       count: ready ? papicCount : null,
-      viewLabel: ready ? 'View & download' : 'Open Papic',
+      // Never send them to the empty-state door on a count we did not take.
+      viewLabel: ready ? 'View & download' : papicCountMeasured ? 'Open Papic' : 'Look anyway',
       viewHref: ready ? `${base}/studio/papic/recap` : `${base}/studio/papic`,
       Icon: Camera,
     });

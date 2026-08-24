@@ -67,6 +67,15 @@ import {
 } from './_components/customer-card-nav';
 import { ScriptTab } from './_components/script-tab';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
+// The coordinator's ask, reused exactly as the live floor console mounts it —
+// same component, same action, same host-side answering screen.
+import { AskAccess } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/ask-access';
+import {
+  fetchMyAreaGrants,
+  fetchMyPendingAsk,
+} from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions';
+import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
+import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { ActivityFeed, type ActivityEvent } from './_components/customer-card-activity';
@@ -460,6 +469,26 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // new stage discloses nothing until somebody deliberately opens it.
   const preAgreement = !isBooked;
   const lockRequest = brief.stage === 'requested' ? (brief.lock_request ?? null) : null;
+
+  // ── ASKING THE HOST FOR ACCESS, ON A DAY THAT IS NOT THE WEDDING ──────────
+  // 🚨 THE ASK EXISTED AND COULD ONLY BE REACHED ON THE EVENT DAY. The whole
+  // request half of the owner's 2026-08-24 ruling — "only the owner of the
+  // event and coordinator (by request)" — lived in the live floor console,
+  // and that page redirects unless the booking is dated TODAY. So a
+  // coordinator planning a wedding for six months could not ask for the guest
+  // list until the morning of it, which is the one day nobody wants to be
+  // waiting on an answer. Same shape as a gate with no handle: the handle
+  // existed for 24 hours.
+  //
+  // The component, the action and the host's answering screen are all reused
+  // untouched. Only booked suppliers may ask (the action re-checks it server
+  // side against the booking pool, so this is a display rule, not the gate).
+  const [myGrants, myPendingAsk] = isBooked
+    ? await Promise.all([fetchMyAreaGrants(eventId), fetchMyPendingAsk(eventId)])
+    : [{} as Partial<Record<DelegateArea, 'edit' | 'view' | null>>, null];
+  // Only what the host has not already shared — asking for what you hold
+  // spends the host's attention on nothing.
+  const askableAreas = FLOOR_REQUESTABLE_AREAS.filter((a) => !myGrants[a]) as DelegateArea[];
 
   const admin = createAdminClient();
   const clientTimer = new ServerTimer('vendor-dashboard/customer-card');
@@ -1238,6 +1267,15 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
           {/* ============================ BODY ============================ */}
           <div className={bodyPad}>
+            {tab === 'overview' && isBooked && (askableAreas.length > 0 || myPendingAsk) ? (
+              <div className="mb-5">
+                <AskAccess
+                  eventId={eventId}
+                  askable={askableAreas}
+                  pendingAreas={myPendingAsk?.requestedAreas ?? null}
+                />
+              </div>
+            ) : null}
             {tab === 'overview' ? overviewNode : null}
             {tab === 'quote' ? quoteNode : null}
             {tab === 'files' ? filesNode : null}

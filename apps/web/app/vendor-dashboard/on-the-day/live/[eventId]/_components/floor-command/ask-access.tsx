@@ -6,8 +6,13 @@
  * at /dashboard/[eventId]/access-requests.
  *
  * Only areas they do NOT already hold are offered, because asking for what you
- * already have wastes the one scarce thing in this flow: the host's attention
- * on the day.
+ * already have wastes the one scarce thing in this flow: the host's attention.
+ *
+ * ⚠ MOUNTED TWICE, AND THE SECOND ONE IS THE IMPORTANT ONE. This shipped only
+ * inside the live floor console, which redirects unless the booking is dated
+ * today — so the ask could not be made until the morning of the wedding. It is
+ * also on the client card now, where a coordinator plans for months. The copy
+ * here says nothing about "the day" or "here" for that reason.
  */
 
 import { useState, useTransition } from 'react';
@@ -49,7 +54,7 @@ export function AskAccess({
   if (sent) {
     return (
       <p className="rounded-xl border border-success-400/40 bg-success-500/5 px-3 py-3 text-sm text-success-700">
-        Sent. The host decides each one — you’ll see the tools appear here as they share them.
+        Sent. The host decides each one, and the parts they share open up for you.
       </p>
     );
   }

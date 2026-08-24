@@ -32,7 +32,6 @@ export default function AdminMoreLanding() {
   return (
     <MobileLandingGrid
       title="All surfaces"
-      subtitle="Every admin page there is, grouped and searchable. The same list on desktop and phone."
       searchable
       // VISIBLE ON DESKTOP TOO — 2026-08-04. This page was phone-only on the
       // premise that "the sidebar handles overflow there". The 2026-07-15

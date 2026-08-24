@@ -25,6 +25,7 @@ import Link from 'next/link';
 import { ADMIN_NAV_ALIASES } from './admin-nav-descriptions';
 import type { NavItem } from '@/app/_components/nav/types';
 import { MoreSearch } from '@/app/_components/more-search';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 type LandingItem = NavItem & {
   /** 1-line description rendered below the label on the landing card. */
@@ -40,10 +41,11 @@ type LandingGroup = {
 };
 
 type Props = {
-  /** Page heading rendered above the grid. */
+  /**
+   * The page name. Kept in the document as an `sr-only` <h1> — it is what a
+   * screen reader announces on arrival and what a skip link points at.
+   */
   title: string;
-  /** Page sub-heading — 1 sentence brand-voice context. */
-  subtitle: string;
   /** Flat card list (the /admin/directory + /admin/money landings). */
   items?: LandingItem[];
   /** Labeled sections (the redesigned /admin/more layout). Wins over `items`. */
@@ -116,7 +118,6 @@ function LandingCard({ item }: { item: LandingItem }) {
 
 export function MobileLandingGrid({
   title,
-  subtitle,
   items,
   groups,
   searchable,
@@ -134,17 +135,13 @@ export function MobileLandingGrid({
         desktopVisible ? 'max-w-5xl lg:px-8 lg:py-10' : 'max-w-3xl lg:hidden'
       }`}
     >
-      <header className="mb-6 space-y-2">
-        <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
-          Admin
-        </p>
-        <h1 className="m-display-tight text-3xl" style={{ color: 'var(--m-ink)' }}>
-          {title}
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          {subtitle}
-        </p>
-      </header>
+      {/* The page starts at its content. This header used to draw all three
+          retired rungs at once — a mono "Admin" eyebrow (killed 2026-07-21),
+          a 30px `m-display-tight` name (killed 2026-08-21) and a subtitle
+          sentence (killed 2026-08-18) — on the three surfaces that map the
+          whole console. The name stays in the document at zero pixels; the
+          cards and the search box are what the operator came for. */}
+      <PageMasthead title={title} />
 
       {searchable && !isEmpty ? <MoreSearch placeholder="Search settings & insights" /> : null}
 

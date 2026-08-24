@@ -1,6 +1,7 @@
 import { Lock, NotebookPen, Trash2, Users } from 'lucide-react';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { createClient } from '@/lib/supabase/server';
-import { logQueryError } from '@/lib/supabase/error-detect';
+import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   WORKING_NOTE_BODY_MAX,
@@ -92,7 +93,15 @@ export async function WorkingFolderNotes({
     .eq('event_vendor_id', vendorId)
     .eq('event_id', eventId)
     .order('created_at', { ascending: false });
-  if (error) return null; // pre-migration graceful-degrade (42P01)
+  // ⚠ THE COMMENT NAMED ONE CAUSE; THE CODE SWALLOWED EVERY CAUSE. A table that
+  // ⚠ does not exist yet is a fair reason to render nothing quietly. A refusal
+  // ⚠ is not — and this card disappearing is how the notes on this booking — vanish from the people writing them.
+  // ⚠ The predicate it meant to use already lived one file away.
+  if (error) {
+    if (isMissingRelationError(error)) return null;
+    logQueryError('WorkingFolderNotes.notes', error, { event_id: eventId }, 'graceful_degrade');
+    return <ReadRefusedNotice what="the notes on this booking" />;
+  }
 
   // RLS already withheld private rows from a couple session; filter again so
   // the render can never outrun the database.

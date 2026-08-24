@@ -138,9 +138,12 @@ export async function countPapicCaptures(
   if (!eventId) return 0;
   const [crew, guest] = await Promise.all([
     countCrewPhotos(db, eventId),
-    countEventGuestCaptures(db, eventId).catch(() => 0),
+    // The home tile has one number and nowhere to put a caveat, so it keeps
+    // choosing the zero — but now it CHOOSES it here, visibly, instead of
+    // being handed one that had already swallowed the error upstream.
+    countEventGuestCaptures(db, eventId).catch(() => null),
   ]);
-  return crew + guest;
+  return crew + (guest ?? 0);
 }
 
 /**

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventOwnsSku, eventSkuActive, eventHasPapicUnlock } from '@/lib/entitlements';
 import { fetchEventPoolStatus } from '@/lib/papic-event-pool';
 
@@ -204,17 +205,37 @@ export async function fetchGuestQuota(
 
 /**
  * Total guest captures across the whole event — drives the couple-facing
- * "Guest cameras" card. Admin client, constrained to event_id. Graceful-
- * degrade to 0 on a missing/legacy table.
+ * "Guest cameras" card. Admin client, constrained to event_id.
+ *
+ * ⚠ RETURNS `null` WHEN THE COUNT COULD NOT BE READ, and that is the whole
+ * point of the signature. It used to `return 0` on an error, which is the
+ * SAME VALUE a real empty event produces — so a refusal, an RLS silent-zero or
+ * a legacy/missing table all arrived at the gallery hub as "no photos yet", on
+ * a page whose entire job is to reach photos that exist. This area has paid for
+ * that exact mistake before: the home tile once told coordinators "0 cameras
+ * out" mid-shoot, an RLS silent-zero.
+ *
+ * 🔑 Binding the error is not enough if you then throw it away — `if (error)
+ * return 0` reads as careful code and states an absence nobody measured.
+ * Callers that genuinely cannot show a caveat may still `?? 0`; they are then
+ * choosing the zero, in the open, at the call site.
  */
 export async function countEventGuestCaptures(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<number> {
+): Promise<number | null> {
   const { count, error } = await supabase
     .from('papic_guest_captures')
     .select('id', { count: 'exact', head: true })
     .eq('event_id', eventId);
-  if (error) return 0;
+  if (error) {
+    logQueryError(
+      'countEventGuestCaptures',
+      error,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+    return null;
+  }
   return count ?? 0;
 }

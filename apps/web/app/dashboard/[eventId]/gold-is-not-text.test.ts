@@ -96,7 +96,6 @@ const BILL: ReadonlyArray<readonly [string, number]> = [
   ['guests/claims/page.tsx', 1],
   ['guests/invite/page.tsx', 2],
   ['guests/new/page.tsx', 2],
-  ['guests/page.tsx', 1],
   ['guests/souvenirs/_components/souvenir-desk.tsx', 1],
   ['guests/souvenirs/page.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/change-order-trail.tsx', 1],
@@ -216,6 +215,46 @@ test('no malformed terracotta shade class survives (the -700-700 typo shape)', (
       ) ?? [];
     if (hits.length > 0)
       offenders.push(`${relative(ROOT, file)}: ${hits.join(', ')}`);
+  }
+  assert.deepEqual(offenders, [], `\n${offenders.join('\n')}\n`);
+});
+
+/**
+ * alaala is the one tree that paints ENTIRELY in raw literals and inline vars —
+ * it has no Tailwind colour classes at all. So for that tree the literals ARE
+ * the styling system, and an inventory is the only way a guard can see them.
+ * Every entry carries its MEASURED ratio against the surface it lands on.
+ *
+ * ⚠ These two golds MUST STAY LITERALS. The themed `terracotta-700` token flips
+ * to #A88340 in dark, where the white count on it reads 3.51:1 — an AA fail.
+ * "Just tokenize it" is the obvious change here and it is the wrong one.
+ */
+const ALAALA_LITERAL_INVENTORY: Readonly<Record<string, string>> = {
+  '#5C4726': 'density badge, hottest — white 10px bold on it = 8.81:1',
+  '#8C6932': 'density badge, warm — white 10px bold on it = 5.02:1',
+  '#FFF': 'the badge count itself, on the two golds above',
+};
+
+test('alaala grows no unmeasured colour literal', () => {
+  // Rev 1 of this guard could not see this screen at all. A banned-values list
+  // only catches the failures somebody already knows about; an inventory catches
+  // the NEXT one, which is the whole point — the 2.03:1 numerals were nobody's
+  // known-bad value until they were measured.
+  const offenders: string[] = [];
+  for (const file of filesUnderGuard()) {
+    const rel = relative(ROOT, file);
+    if (!rel.startsWith('alaala/')) continue;
+    const src = stripComments(readFileSync(file, 'utf8'));
+    for (const hit of src.match(/#[0-9A-Fa-f]{3,8}\b/g) ?? []) {
+      if (!(hit.toUpperCase() in ALAALA_LITERAL_INVENTORY)) {
+        offenders.push(
+          `${rel}: colour literal \`${hit}\` is not in the alaala inventory. ` +
+            `This tree has no colour classes, so a literal here is invisible to ` +
+            `every token-reading check. MEASURE it against the surface it lands ` +
+            `on and add it with its ratio — or use a token class instead.`,
+        );
+      }
+    }
   }
   assert.deepEqual(offenders, [], `\n${offenders.join('\n')}\n`);
 });

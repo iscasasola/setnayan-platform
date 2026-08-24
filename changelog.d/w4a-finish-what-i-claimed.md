@@ -83,3 +83,24 @@ avatar's slot in select mode; it does not make the avatar the control. That is a
 design decision with an accessibility cost, not a port. Flagged, not taken.
 
 SPEC IMPACT: None.
+
+### Follow-up in the same PR — the billed line whose justification was false
+
+The audit's second finding: `guests/page.tsx` billed one bare-gold use as legal
+"because the 3:1 non-text bar makes it legal" — and that arrow, gold at 60% over
+its own gold/5 tint, measures **1.94:1**, under even that bar. It is
+`aria-hidden` so WCAG exempts it as decoration, but the bill's stated reason was
+untrue for the one line it was covering, and the arrow is the only thing marking
+that "N guests waiting for you" row as somewhere to go. Now `terracotta-700`
+(4.78:1), and its bill entry is deleted — `guests/page.tsx` drops off the bill
+entirely.
+
+Fourth guard rule: **an inventory of alaala's colour literals**, each with its
+measured ratio. alaala has no Tailwind colour classes at all, so in that tree the
+literals ARE the styling system and a banned-values list can only catch failures
+somebody already knows about. An inventory catches the NEXT one — the 2.03:1
+numerals were nobody's known-bad value until they were measured. Mutation-tested:
+a new unmeasured literal RED, its **shorthand** form RED, swapping one
+inventoried value for another GREEN (the rule is about being measured, not about
+being frozen). ⚠ Two of those sabotages printed 0→0 on the first attempt and were
+redone — an unmeasured mutation proves nothing.

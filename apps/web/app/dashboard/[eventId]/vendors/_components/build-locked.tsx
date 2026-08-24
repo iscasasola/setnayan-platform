@@ -523,7 +523,7 @@ function LockTile({
     <div className="rounded-xl border border-ink/10 bg-cream px-4 py-3">
       <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-ink/50">{k}</div>
       <div
-        className={`mt-1 truncate font-display text-lg italic ${toneClass ?? (accent ? 'text-terracotta' : 'text-ink')}`}
+        className={`mt-1 truncate font-display text-lg italic ${toneClass ?? (accent ? 'text-terracotta-700' : 'text-ink')}`}
       >
         {v}
       </div>

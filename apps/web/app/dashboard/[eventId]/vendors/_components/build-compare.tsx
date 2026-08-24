@@ -475,7 +475,7 @@ export function BuildCompare({
                       }}
                       disabled={pending}
                       aria-label={`Rename ${title}`}
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-ink/45 transition hover:text-terracotta disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-ink/45 transition hover:text-terracotta-700 disabled:opacity-50"
                     >
                       <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                       Rename
@@ -489,7 +489,7 @@ export function BuildCompare({
                           ? undefined
                           : 'Nothing to load — every vendor in this plan is either locked already or no longer on your shortlist.'
                       }
-                      className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/75 transition hover:border-terracotta/50 hover:text-terracotta disabled:opacity-40"
+                      className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/75 transition hover:border-terracotta/50 hover:text-terracotta-700 disabled:opacity-40"
                     >
                       <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                       Load
@@ -546,7 +546,7 @@ export function BuildCompare({
                       key={c.key}
                       className="px-2 py-2 text-right font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55"
                     >
-                      <div className={c.isCurrent ? 'text-terracotta' : 'text-ink/70'}>
+                      <div className={c.isCurrent ? 'text-terracotta-700' : 'text-ink/70'}>
                         {c.title}
                       </div>
                       {!c.isCurrent ? (
@@ -557,7 +557,7 @@ export function BuildCompare({
                               onClick={() => onApply(c.snapshot, 'build', c.title)}
                               disabled={pending || !canApply}
                               aria-label={replan ? `Load ${c.title}` : `Modify with ${c.title}`}
-                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/40 hover:text-terracotta disabled:opacity-40"
+                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/40 hover:text-terracotta-700 disabled:opacity-40"
                             >
                               {replan ? (
                                 <>
@@ -576,7 +576,7 @@ export function BuildCompare({
                               onClick={() => onApply(c.snapshot, 'lock', c.title)}
                               disabled={pending || !canApply}
                               aria-label={`Lock ${c.title}`}
-                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/40 hover:text-terracotta disabled:opacity-40"
+                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/40 hover:text-terracotta-700 disabled:opacity-40"
                             >
                               <Lock className="h-3 w-3" strokeWidth={1.75} aria-hidden /> lock
                             </button>
@@ -814,7 +814,7 @@ export function BuildCompare({
         </p>
       ) : (
         <p className="text-xs text-ink/45">
-          <span className="text-terracotta">Current</span> is your live plan. Save it as a new named
+          <span className="text-terracotta-700">Current</span> is your live plan. Save it as a new named
           build to bank a version, then change your picks and save another to compare. Use{' '}
           <span className="text-ink/70">Modify</span> to load a saved plan back into your working
           build, or <span className="text-ink/70">Lock</span> to load it and head to the Lock tab to

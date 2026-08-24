@@ -121,7 +121,7 @@ export function DepositReservation({
           href={depositProofUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-[11px] font-medium text-terracotta underline-offset-2 hover:underline"
+          className="inline-flex items-center gap-1.5 text-[11px] font-medium text-terracotta-700 underline-offset-2 hover:underline"
         >
           <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           View deposit proof

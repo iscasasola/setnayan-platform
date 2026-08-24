@@ -168,7 +168,7 @@ function HandoverItem({
           href={handover.payload}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-terracotta underline-offset-2 hover:underline"
+          className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-terracotta-700 underline-offset-2 hover:underline"
         >
           <Link2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Open gallery
@@ -178,7 +178,7 @@ function HandoverItem({
           href={handover.payload}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-terracotta underline-offset-2 hover:underline"
+          className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-terracotta-700 underline-offset-2 hover:underline"
         >
           <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           View file

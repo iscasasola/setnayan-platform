@@ -198,7 +198,7 @@ export function QuoteFillRow({
               {/* The budget page is the CANONICAL editor. Never re-declare it inline. */}
               <Link
                 href={`/dashboard/${eventId}/budget`}
-                className="font-medium text-terracotta underline-offset-2 hover:underline"
+                className="font-medium text-terracotta-700 underline-offset-2 hover:underline"
               >
                 Set a budget
               </Link>
@@ -377,7 +377,7 @@ function FallbackPanel({
         </button>
       ) : null}
 
-      {err ? <p className="mt-1.5 text-[11px] text-terracotta">{err}</p> : null}
+      {err ? <p className="mt-1.5 text-[11px] text-danger-700">{err}</p> : null}
     </div>
   );
 }

@@ -36,7 +36,13 @@ const CSS = `
   --paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:var(--m-ink-soft,#5C6660);
   --gold:var(--m-orange,#A9834B);--gold-deep:var(--m-orange-2,#8C6932);--mulberry:var(--m-mulberry,#1B1A17);
   --line:rgba(30,26,18,.1);
-  --serif:var(--font-serif,'Cormorant Garamond',serif);--sans:var(--font-sans,'Manrope',system-ui,sans-serif);--mono:var(--font-mono,'DM Mono',ui-monospace,monospace);
+  /* --font-serif is defined NOWHERE (the Tailwind font-serif UTILITY is a
+     different thing) and next/font hashes its family names, so the old
+     var(--font-serif,'Cormorant Garamond',serif) fell all the way through to
+     the phone's default serif on every title in this overlay. The face the
+     author drew IS Cormorant — it ships as --font-editorial-display on <html>
+     (app/layout.tsx), so point at the variable that actually resolves. */
+  --serif:var(--font-editorial-display,ui-serif,Georgia,serif);--sans:var(--font-sans,'Manrope',system-ui,sans-serif);--mono:var(--font-mono,'DM Mono',ui-monospace,monospace);
   background:var(--paper);color:var(--ink);font-family:var(--sans);
   animation:csov-up .3s cubic-bezier(.2,.7,.2,1)}
 @keyframes csov-up{from{transform:translateY(100%)}to{transform:translateY(0)}}

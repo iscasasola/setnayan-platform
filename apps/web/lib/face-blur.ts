@@ -453,6 +453,23 @@ export async function bakeFaceBlurForCapture(opts: {
     });
     if (rpcError) return { baked: false, reason: `rpc:${rpcError.message.slice(0, 60)}` };
 
+    // The blurred WEB copies, for the public page and the shared pool (owner
+    // ruling 1, 2026-08-17). Derived here, from the file we just made, because
+    // this is the only moment the blurred bytes are known to exist — and the
+    // public reads WITHHOLD a photo whose safe copy is missing, so a failure
+    // costs a tile and never a face.
+    //
+    // ⚖ Deliberately AFTER `wall_record_bake`: the venue wall must light up on
+    // the bake alone and must never wait on the public sizes. A failure below
+    // leaves the wall correct and the public surfaces withholding, which is the
+    // safe direction for both.
+    try {
+      const { generateSafeDerivatives } = await import('@/lib/papic-derivatives');
+      await generateSafeDerivatives(safeRef, opts.table, TABLE_ID_COLUMN[opts.table], opts.sourceId);
+    } catch {
+      /* best-effort — the row keeps NULL safe keys and public reads withhold */
+    }
+
     return { baked: true, facesFound: bake.facesFound };
   } catch (err) {
     console.warn(

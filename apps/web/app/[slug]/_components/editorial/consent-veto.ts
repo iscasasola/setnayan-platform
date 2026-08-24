@@ -135,17 +135,27 @@ export async function loadConsentVetoedPapicIds(
   // not be resolved, withhold everything"; this query only ever ADDS a
   // softer option. If it errors, the map stays empty and every vetoed capture
   // is withheld — exactly the pre-ruling behaviour. Fail closed, quietly.
+  //
+  // ⚖ THE WEB COPY FIRST, THE PROJECTOR FILE AS FALLBACK (2026-08-24).
+  // `wall_safe_r2_key` is a full-size blurred JPEG built for a venue projector.
+  // Handing it to a phone is the exact cost the AVIF pipeline exists to avoid —
+  // measured in this repo, a display copy averages 96 KB against a 780 KB max
+  // for the full-size one. `safe_display_r2_key` is the blurred copy at the size
+  // a public page actually renders. Rows baked before that column existed have
+  // none, so the projector file stays as the fallback: **both are blurred, and
+  // the fallback is heavier, never barer.** Preferring the smaller one is a COST
+  // fix, not a privacy fix, and must not be described as one.
   try {
     const { data, error } = await admin
       .from('papic_photos')
-      .select('photo_id, wall_safe_r2_key')
+      .select('photo_id, safe_display_r2_key, wall_safe_r2_key')
       .eq('event_id', eventId)
       .in('photo_id', [...ids])
-      .not('wall_safe_r2_key', 'is', null);
+      .or('safe_display_r2_key.not.is.null,wall_safe_r2_key.not.is.null');
     if (!error) {
       for (const r of (data ?? []) as Array<Record<string, unknown>>) {
         const id = asString(r.photo_id);
-        const safe = asString(r.wall_safe_r2_key);
+        const safe = asString(r.safe_display_r2_key) ?? asString(r.wall_safe_r2_key);
         if (id && safe) safeKeyById.set(id, safe);
       }
     }

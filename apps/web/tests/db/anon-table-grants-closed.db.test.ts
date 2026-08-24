@@ -253,12 +253,47 @@ const CLOSED_IN_BATCH_5 = [
   'vendor_wallets',
 ] as const;
 
+/**
+ * Batch 6 (20271161191013) — the admin desk's twelve, including the THREE that
+ * batch 4's notes explicitly held back (platform_compliance_facts,
+ * vendor_recommendation_feedback, vendor_review_appeals — deferred because an
+ * open PR was editing one of their files; it merged long ago).
+ *
+ * Every gate re-run in prod 2026-08-24, not inherited from an earlier batch's
+ * shortlist: anon held the grant on all 12 · no policy admits anon · none is a
+ * base of the three security_invoker views · no anon-executable SECURITY
+ * INVOKER function names them (and that pg_proc scan was PROVED able to match —
+ * the trivially-true pattern returned all 90 anon-executable invoker functions).
+ * Every query site runs on the admin client or authenticates first; the
+ * indirection sweep (table names reaching `.from()` through a CONSTANT, the
+ * shape that hides from a `from('name')` grep) found only metadata registries
+ * (lib/erasure/coverage.ts, lib/admin/queue-counts.ts), both admin-client.
+ *
+ * Dry-run against production in a ROLLED-BACK transaction: all 12 moved
+ * SELECT true → false. The revoke moves the measured surface.
+ */
+const CLOSED_IN_BATCH_6 = [
+  'chat_message_flags',
+  'discount_code_eligible_users',
+  'discount_code_redemptions',
+  'discount_codes',
+  'platform_compliance_facts',
+  'platform_expenses',
+  'social_evergreen_items',
+  'social_posts',
+  'social_publish_settings',
+  'token_redemptions_log',
+  'vendor_recommendation_feedback',
+  'vendor_review_appeals',
+] as const;
+
 const CLOSED = [
   ...CLOSED_IN_BATCH_1,
   ...CLOSED_IN_BATCH_2,
   ...CLOSED_IN_BATCH_3,
   ...CLOSED_IN_BATCH_4,
   ...CLOSED_IN_BATCH_5,
+  ...CLOSED_IN_BATCH_6,
 ];
 
 /** Every verb PostgREST can reach, plus the one RLS does not cover. */
@@ -300,7 +335,11 @@ test('META · the replay has the anon role and these tables, so a pass means som
     `batch 4's list has shrunk to ${CLOSED_IN_BATCH_4.length} — did someone trim it to go green?`,
   );
   assert.ok(
-    CLOSED.length >= 68,
+    CLOSED_IN_BATCH_6.length >= 12,
+    `batch 6's list has shrunk to ${CLOSED_IN_BATCH_6.length} — did someone trim it to go green?`,
+  );
+  assert.ok(
+    CLOSED.length >= 80,
     `the combined closed list has shrunk to ${CLOSED.length} — did someone trim it to go green?`,
   );
 
@@ -318,7 +357,7 @@ test('META · the replay has the anon role and these tables, so a pass means som
   );
 });
 
-test('anon holds NOTHING on any table closed so far (batches 1-4)', async () => {
+test('anon holds NOTHING on any table closed so far (batches 1-6)', async () => {
   const open: string[] = [];
   for (const table of CLOSED) {
     for (const verb of VERBS) {
@@ -332,7 +371,7 @@ test('anon holds NOTHING on any table closed so far (batches 1-4)', async () => 
   assert.deepEqual(
     open,
     [],
-    'anon has regained privileges that migration 20271145190664, 20271145286482, 20271147692197 or 20271148681647 revoked:\n  ' +
+    'anon has regained privileges that migration 20271145190664, 20271145286482, 20271147692197, 20271148681647, 20271148202591 or 20271161191013 revoked:\n  ' +
       open.join('\n  ') +
       '\n\nThis is almost never deliberate. The usual cause is a later migration ' +
       "re-creating the table or running a broad GRANT, which re-applies the schema's " +

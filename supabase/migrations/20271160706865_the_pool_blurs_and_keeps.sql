@@ -172,5 +172,21 @@ $function$;
 COMMENT ON FUNCTION public.guest_pool_gallery(uuid, timestamptz, integer) IS
   'Shared-pool browse for a cookie-validated guest. Owns every gate: the couple toggle, the strict clean allowlist, hidden_at, and the blur rule via papic_capture_needs_blur — a capture needing a blur serves ONLY a blurred derivative (the web copy, falling back to the projector-sized one), and a CLIP needing a blur is dropped because no video blur exists. Withdrawal BLURS AND KEEPS here as of 2026-08-24 (owner ruling 2026-08-17); it used to veto the capture outright, which removed everyone else in the frame too. Returns web-copy keys only, never the geo-bearing r2_object_key.';
 
-REVOKE ALL ON FUNCTION public.guest_pool_gallery(uuid, timestamptz, integer) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.guest_pool_gallery(uuid, timestamptz, integer) TO service_role;
+-- ⚠ GRANTS RE-ASSERTED EXACTLY AS PRODUCTION HOLDS THEM — anon INCLUDED.
+--
+-- 🪤 I nearly revoked `anon` and `authenticated` here. This module's own
+-- docstring says the RPC is *"service_role-only — every caller here is a
+-- cookie-validated route/page"*, and I turned that sentence into a REVOKE. It
+-- describes the CALLERS, not the GRANT: a guest browsing the shared pool holds
+-- a signed guest cookie and **no Supabase session at all**, so they are `anon`.
+-- Revoking it would have closed the shared pool to exactly the people it is
+-- for. Read out of prod before writing this block, never off a comment —
+-- `anon` · `authenticated` · `postgres` · `service_role` all hold EXECUTE.
+--
+-- CREATE OR REPLACE preserves the existing ACL, so this block is belt-and-braces
+-- for a fresh database. It deliberately does NOT widen or narrow anything: the
+-- capability model is unchanged (the function is SECURITY DEFINER and takes the
+-- guest id the route already validated), and changing that is a security
+-- decision, not a side effect of a blur fix.
+GRANT EXECUTE ON FUNCTION public.guest_pool_gallery(uuid, timestamptz, integer)
+  TO anon, authenticated, service_role;

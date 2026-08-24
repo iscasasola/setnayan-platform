@@ -3,7 +3,7 @@ import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-re
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { siteOrigin } from '@/lib/site-origin';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, ClipboardList, Mail, Trash2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ClipboardList, Mail, Trash2, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -271,6 +271,18 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
               ? `Who planned this ${eventNounWord} with you?`
               : `Who’s planning this ${eventNounWord} with you?`}
           </>
+        }
+        actions={
+          /* THE DOORWAY. This page answers one fifth of "who is in my event";
+             the roster above it answers all five. A page ships with its
+             doorway, and the roster is not reachable from anywhere else. */
+          <Link
+            href={`/dashboard/${eventId}/people`}
+            className="button-secondary inline-flex items-center gap-2"
+          >
+            <Users aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Everyone in this event
+          </Link>
         }
       />
 

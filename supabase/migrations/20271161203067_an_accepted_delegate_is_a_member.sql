@@ -112,3 +112,11 @@ WHERE m.accepted_at IS NOT NULL
   AND m.removed_at IS NULL
   AND m.user_id IS NOT NULL
 ON CONFLICT (event_id, user_id) DO NOTHING;
+
+-- The default grant publishes every public function to PostgREST's roles.
+-- Postgres refuses to CALL a trigger-returning function directly, and trigger
+-- firing ignores the caller's EXECUTE privilege — so this revoke costs the
+-- trigger nothing and takes the function off the anonymous RPC surface
+-- entirely, rather than adding a "trust the return type" line to the
+-- anon-rpc baseline. A surface you shrink needs no explanation to stay true.
+REVOKE ALL ON FUNCTION public.sync_delegate_membership() FROM PUBLIC, anon, authenticated;

@@ -31,10 +31,13 @@ const PRESENT_COPY: Record<EmptySectionKind, string> = {
   photos: 'The couple’s photos will appear here.',
 };
 
-const PAST_COPY: Record<EmptySectionKind, string> = {
-  details: 'No program was published for this celebration.',
-  story: 'No story was shared for this celebration.',
-  photos: 'No photos were shared for this celebration.',
+// "for this ___" — filled from EventWords.occasion. 'celebration' for every
+// pre-existing type (the default keeps an unwired call site byte-identical);
+// 'gathering' for the funeral, where "celebration" is the defect.
+const PAST_COPY: Record<EmptySectionKind, (occasion: string) => string> = {
+  details: (o) => `No program was published for this ${o}.`,
+  story: (o) => `No story was shared for this ${o}.`,
+  photos: (o) => `No photos were shared for this ${o}.`,
 };
 
 /**
@@ -46,11 +49,14 @@ const PAST_COPY: Record<EmptySectionKind, string> = {
 export function SectionEmptyPlate({
   kind,
   pastTense = false,
+  occasion = 'celebration',
 }: {
   kind: EmptySectionKind;
   pastTense?: boolean;
+  /** EventWords.occasion — 'celebration' (default) or the funeral's 'gathering'. */
+  occasion?: string;
 }) {
-  const copy = (pastTense ? PAST_COPY : PRESENT_COPY)[kind];
+  const copy = pastTense ? PAST_COPY[kind](occasion) : PRESENT_COPY[kind];
   return (
     <div className="rounded-2xl border border-dashed border-ink/15 bg-cream/40 px-6 py-10 text-center">
       <p className="font-serif text-base italic text-ink/55">{copy}</p>
@@ -70,20 +76,23 @@ export function FindModeCard({
   slug,
   reason,
   pastTense = false,
+  occasion = 'celebration',
 }: {
   slug: string;
   reason?: 'wrong_event' | 'invalid_invite' | null;
   pastTense?: boolean;
+  /** EventWords.occasion — 'celebration' (default) or the funeral's 'gathering'. */
+  occasion?: string;
 }) {
   const heading = pastTense
     ? 'Were you a guest?'
     : reason === 'wrong_event'
-      ? 'That invite is for a different celebration'
+      ? `That invite is for a different ${occasion}`
       : reason === 'invalid_invite'
         ? 'We couldn’t find that invitation'
         : 'Have an invitation?';
   const body = pastTense
-    ? 'Claim your photos from this celebration.'
+    ? `Claim your photos from this ${occasion}.`
     : reason
       ? 'Double-check your link, or open your personal invite again.'
       : 'Open your invite link, or scan your personal QR to see your greeting, seat, and RSVP.';

@@ -46,6 +46,7 @@ import {
   resolveProfileByEvent,
   type EventTypeProfile,
 } from '@/lib/event-type-profile';
+import type { LifecyclePhase } from '@/lib/invitation-widgets';
 
 /** The typographic apostrophe the guest tree writes everywhere. Never `'`. */
 const APOSTROPHE = '’';
@@ -63,6 +64,22 @@ export type EventWords = {
   TheOrganizerPossessive: string;
   /** 'wedding' · 'birthday' · 'graduation' · 'event'. */
   eventWord: string;
+  /**
+   * The occasion in mechanical slots — "during the ___", "for this ___".
+   * 'celebration' for every pre-existing type (byte-identical), 'gathering'
+   * for the funeral. Distinct from `eventWord` on purpose: "No photos were
+   * shared for this gathering" reads right where "…for this wake" turns blunt.
+   */
+  occasion: string;
+  /**
+   * TRUE only for the solemn register (the funeral). Owner ruling 2026-08-17:
+   * a funeral is a tone build across the whole guest tree. Consumers use this
+   * to render a deliberately-drafted quiet arm — and to NOT render the things
+   * whose presence is the defect (the countdown, the marketing upsells, the
+   * save-the-date). The celebratory arm of every such branch must stay
+   * byte-identical to what shipped; `event-words.test.ts` pins that.
+   */
+  solemn: boolean;
   /**
    * IS THIS WORD THE PERSON THE EVENT IS *ABOUT*, RATHER THAN THE PERSON WHO
    * *RUNS* IT? (owner ruling 2026-08-18)
@@ -117,6 +134,7 @@ export function eventWordsFromProfile(profile: EventTypeProfile): EventWords {
   // all populated, but this file is downstream of an admin-editable table.
   const organizer = profile.terminology.organizerNoun?.trim() || 'host';
   const eventWord = profile.terminology.eventWord?.trim() || 'event';
+  const occasion = profile.terminology.occasionNoun?.trim() || 'celebration';
   const possessive = possessiveOf(organizer);
   return {
     organizer,
@@ -126,6 +144,8 @@ export function eventWordsFromProfile(profile: EventTypeProfile): EventWords {
     theOrganizerPossessive: `the ${possessive}`,
     TheOrganizerPossessive: `The ${possessive}`,
     eventWord,
+    occasion,
+    solemn: profile.terminology.register === 'solemn',
     organizerIsHonoree: HONOREE_NOUNS.has(organizer),
   };
 }
@@ -136,6 +156,36 @@ export async function eventWordsFor(
   eventType: string | null | undefined,
 ): Promise<EventWords> {
   return eventWordsFromProfile(await resolveProfile(eventType ?? 'wedding'));
+}
+
+/**
+ * The lifecycle phase a guest actually receives, after the solemn register has
+ * its say. Pure so it is directly testable.
+ *
+ * A solemn event (the funeral) never enters:
+ *  · 'save_the_date' — a date-less or far-out event otherwise opens on the
+ *    WEDDING-SHAPED announcement film ("we'll celebrate together at…", a
+ *    countdown, add-to-calendar framing). The brief's words: the wake "never
+ *    offers a save-the-date". Demoted to the ordinary site.
+ *  · 'editorial' — the post-event recap is auto-composed in a joyful voice
+ *    ("a celebration their guests won't soon forget"). Until a memorial voice
+ *    exists for the composer, a wake keeps its ordinary page after the day,
+ *    which reads the solemn thank-you copy instead.
+ * 'rsvp' and 'event' pass through: the day-of layer (schedule, live stream,
+ * the hub) is exactly what a wake uses — vigil schedule, a stream for family
+ * abroad — and its strings carry their own solemn arms.
+ *
+ * Deliberately keyed on the REGISTER, not on `surfaceEnabled(…,
+ * 'save_the_date')`: the general "wedding-only parts stay home for every
+ * type" build is S15's, scoped separately (its register entry says the
+ * funeral must not ride along with it). This gate changes the funeral alone.
+ */
+export function solemnAdjustedPhase(
+  phase: LifecyclePhase,
+  solemn: boolean,
+): LifecyclePhase {
+  if (!solemn) return phase;
+  return phase === 'save_the_date' || phase === 'editorial' ? 'rsvp' : phase;
 }
 
 /**

@@ -86,8 +86,12 @@ export function HideableWidgetRender({
     case 'countdown':
       // Per-widget skip: no event date → no countdown. The widget row
       // is still "visible" in the editor; the renderer just skips when
-      // the data isn't available yet.
-      return event.event_date ? <CountdownWidget targetIso={event.event_date} /> : null;
+      // the data isn't available yet. A solemn event (the funeral) skips
+      // it unconditionally — the widget also guards itself client-side,
+      // but this server gate holds even outside the words provider.
+      return event.event_date && !words.solemn ? (
+        <CountdownWidget targetIso={event.event_date} />
+      ) : null;
 
     case 'schedule':
       // Per-widget skip: when live, the schedule is already pinned at

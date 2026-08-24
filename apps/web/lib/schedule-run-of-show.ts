@@ -472,6 +472,20 @@ const GENERIC: Beat[] = [
   { label: 'Socials', type: 'dancing', hour: 19, min: 30, durMin: 60 },
 ];
 
+// ── Funeral — the service day, quietly. WITHOUT this entry the type falls to
+// GENERIC, which seeds "Opening & program / Main highlights / Socials" (a
+// 'dancing' beat) onto a funeral's schedule on day one — the travel comment's
+// wrong-shaped-beats problem, with a far worse voice. Morning times: a
+// Filipino funeral mass is typically mid-morning with the interment before
+// the midday meal. The family re-times everything.
+const FUNERAL: Beat[] = [
+  { label: 'The family receives guests', type: 'pre_ceremony', hour: 8, min: 0, durMin: 60 },
+  { label: 'Funeral service', type: 'ceremony', hour: 9, min: 0, durMin: 90 },
+  { label: 'Procession to the resting place', type: 'custom', hour: 10, min: 30, durMin: 45 },
+  { label: 'Interment', type: 'ceremony', hour: 11, min: 15, durMin: 45 },
+  { label: 'A meal together', type: 'dinner', hour: 12, min: 0, durMin: 90 },
+];
+
 const PROGRAMS: Record<string, Beat[]> = {
   debut: DEBUT,
   birthday: BIRTHDAY,
@@ -482,6 +496,7 @@ const PROGRAMS: Record<string, Beat[]> = {
   gender_reveal: GENDER_REVEAL,
   graduation: GRADUATION,
   tournament: TOURNAMENT,
+  funeral: FUNERAL,
   // Travel deliberately seeds NOTHING (ai-travel-scheduling): a trip is a
   // multi-day itinerary built from hotel night-blocks + tour time-blocks
   // (lib/schedule-travel.ts), not a single-evening party spine — the GENERIC

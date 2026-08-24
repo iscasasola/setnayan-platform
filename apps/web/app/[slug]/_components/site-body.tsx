@@ -793,7 +793,7 @@ export async function SiteBody({
         </p>
       ) : dayOfPhase === 'post' ? (
         <p className="inline-flex rounded-full bg-ink/10 px-3 py-1 font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
-          Thank you for celebrating
+          {clientWords.solemn ? 'Thank you for being here' : 'Thank you for celebrating'}
         </p>
       ) : null;
 
@@ -804,7 +804,7 @@ export async function SiteBody({
         <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
         {/* Open-browse Home spotlight (PR7). Null (byte-inert) unless
             event.website_open_browse is TRUE; identity-aware. */}
-        {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} /> : null}
+        {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} /> : null}
         {/* When a hero photo/video is uploaded, render a full-bleed banner
             (normal body only — plan.anonymousHeroBanner). Otherwise fall back
             to the centered text-only treatment inside the normal branch. */}
@@ -923,7 +923,7 @@ export async function SiteBody({
                 viewers this exists for. */}
             {dayOfPhase === 'live' && plan.liveMediaVisible && watchLive ? (
               <section className="mt-10">
-                <WatchLiveBlock watchLive={watchLive} />
+                <WatchLiveBlock watchLive={watchLive} occasion={clientWords.occasion} />
               </section>
             ) : null}
 
@@ -967,7 +967,7 @@ export async function SiteBody({
                 />
                 {publicWidgetNodes}
                 {plan.publicSafeWidgets.length === 0 ? (
-                  <SectionEmptyPlate kind="details" pastTense={archiveTense} />
+                  <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
                 ) : null}
               </section>
             ) : plan.publicSafeWidgets.length > 0 ? (
@@ -985,7 +985,7 @@ export async function SiteBody({
               {event.love_story ? (
                 <OurStory loveStory={event.love_story} variant="full" />
               ) : plan.openBrowse ? (
-                <SectionEmptyPlate kind="story" pastTense={archiveTense} />
+                <SectionEmptyPlate kind="story" pastTense={archiveTense} occasion={clientWords.occasion} />
               ) : (
                 <OurStory loveStory={event.love_story} variant="full" />
               )}
@@ -1005,14 +1005,14 @@ export async function SiteBody({
             <div className="rounded-2xl border border-ink/10 bg-white/70 px-6 py-8 text-center shadow-sm">
               <p className="font-serif text-lg text-ink">You&rsquo;re the host</p>
               <p className="mx-auto mt-1 max-w-sm text-sm text-ink/60">
-                You don&rsquo;t need an invitation to your own celebration. Guests who open
-                their personal link see their greeting, seat and RSVP in this spot.
+                You don&rsquo;t need an invitation to your own {clientWords.occasion}. Guests
+                who open their personal link see their greeting, seat and RSVP in this spot.
               </p>
             </div>
           </section>
         ) : plan.openBrowse ? (
           <section id={SITE_MENU_ANCHORS.me} className="mt-12 scroll-mt-6">
-            <FindModeCard slug={event.slug} reason={reason} pastTense={archiveTense} />
+            <FindModeCard slug={event.slug} reason={reason} pastTense={archiveTense} occasion={clientWords.occasion} />
           </section>
         ) : (
           <div id={SITE_MENU_ANCHORS.me} aria-hidden className="scroll-mt-6" />
@@ -1152,7 +1152,7 @@ export async function SiteBody({
           {/* Open-browse Home spotlight (PR7). Null (byte-inert) unless
               event.website_open_browse is TRUE; identity-aware (guest → RSVP /
               event → Watch Live). */}
-          {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} /> : null}
+          {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} /> : null}
           {/* Guest Hub Card — persistent status summary for identified returning
               guests. Shows RSVP status, seat, meal, and next schedule item at
               a glance on every return visit. Hidden from anonymous visitors
@@ -1281,7 +1281,9 @@ export async function SiteBody({
                     Hi, <span className="text-gild">{guest.first_name}</span>.
                   </p>
                   <p className="max-w-prose text-base leading-relaxed text-ink/70">
-                    We&rsquo;d love to celebrate with you on{' '}
+                    {clientWords.solemn
+                      ? 'We hope you can be with us on'
+                      : 'We’d love to celebrate with you on'}{' '}
                     <span className="font-medium text-ink">{formatEventDate(event.event_date)}</span>
                     {event.venue_name ? (
                       <>
@@ -1303,7 +1305,7 @@ export async function SiteBody({
               {/* Panood Watch-Live — leads the live page: the loved ones who
                   couldn't fly home open the same link and watch the ceremony.
                   Spec §7.5: remote guests first. */}
-              {isLive && watchLive ? <WatchLiveBlock watchLive={watchLive} /> : null}
+              {isLive && watchLive ? <WatchLiveBlock watchLive={watchLive} occasion={clientWords.occasion} /> : null}
 
               {/* Pahina §7 · functional-color exile STARTS HERE: the day-of
                   promotion used to wrap the whole widget in an app-green box.
@@ -1432,7 +1434,7 @@ export async function SiteBody({
                     <p className="mt-4 rounded-lg border border-ink/10 bg-white px-3 py-3 text-sm text-ink/70">
                       {isLive
                         ? 'No one has tagged you yet — your photos appear here as they’re taken.'
-                        : 'No photos of you were tagged at this celebration.'}
+                        : `No photos of you were tagged at this ${clientWords.occasion}.`}
                     </p>
                   ) : null}
                   <div className="mt-4 grid grid-cols-3 gap-2">
@@ -1476,7 +1478,7 @@ export async function SiteBody({
                   {guestLiveGallery && guestLiveGallery.photos.length > 0 ? (
                     <p className="mt-3 text-sm text-ink/70">
                       {isLive
-                        ? 'More arrive as the day unfolds — and every photo of you is yours to keep after the celebration.'
+                        ? `More arrive as the day unfolds — and every photo of you is yours to keep after the ${clientWords.occasion}.`
                         : 'Tap any photo to open it full size and save it.'}{' '}
                       Tap <span className="font-medium">Not me</span> on any photo that isn&rsquo;t you.
                     </p>
@@ -1505,7 +1507,13 @@ export async function SiteBody({
                   marketplace vendors, savable to a guest's OWN account so they carry to
                   the guest's future planning (the growth loop). RSVP / Event / Editorial
                   only (never Save the Date), and only when there are credited vendors. */}
-              {lifecyclePhase !== 'save_the_date' && eventVendorCredits.length > 0 ? (
+              {/* A solemn event renders no vendor-save pitch: "Loved a vendor?
+                  Keep them… when you plan your own celebration" is marketing on
+                  a memorial page. The suppliers who served are still reachable
+                  through the marketplace; only the pitch is withheld. */}
+              {!clientWords.solemn &&
+              lifecyclePhase !== 'save_the_date' &&
+              eventVendorCredits.length > 0 ? (
                 <section
                   aria-label="Vendors who made this day"
                   className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"

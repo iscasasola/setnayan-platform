@@ -169,15 +169,21 @@ export function RsvpWidget({
         <>
           <p className="flex items-center gap-2.5 border-l-2 border-gild bg-veil/60 px-4 py-3 text-sm text-ink/80">
             <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-gild" />
-            Your place is reserved — we can&rsquo;t wait to celebrate with you.
+            {words.solemn
+              ? 'Your place is noted — thank you for being with the family.'
+              : 'Your place is reserved — we can’t wait to celebrate with you.'}
           </p>
-          <GuestToHostCta
-            surface="rsvp_confirmation"
-            eventId={eventId}
-            eventPublicId={eventPublicId}
-            headline="Planning your own celebration?"
-            sub="Start free on Setnayan — no card needed."
-          />
+          {/* No pitch on a solemn page: "Planning your own celebration? Start
+              free" under a wake RSVP is the defect class itself. */}
+          {words.solemn ? null : (
+            <GuestToHostCta
+              surface="rsvp_confirmation"
+              eventId={eventId}
+              eventPublicId={eventPublicId}
+              headline="Planning your own celebration?"
+              sub="Start free on Setnayan — no card needed."
+            />
+          )}
         </>
       ) : null}
 
@@ -189,11 +195,20 @@ export function RsvpWidget({
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {(
-            [
-              { key: 'attending', label: 'Joyfully accepts' },
-              { key: 'maybe', label: 'Undecided, for now' },
-              { key: 'declined', label: 'Regretfully declines' },
-            ] as const
+            // The celebratory labels are the spec's reply-card wording and stay
+            // byte-identical. A wake cannot ask anyone to "joyfully accept" —
+            // its labels answer the only question a mourner is being asked.
+            words.solemn
+              ? ([
+                  { key: 'attending', label: 'Will be there' },
+                  { key: 'maybe', label: 'Undecided, for now' },
+                  { key: 'declined', label: 'Unable to come' },
+                ] as const)
+              : ([
+                  { key: 'attending', label: 'Joyfully accepts' },
+                  { key: 'maybe', label: 'Undecided, for now' },
+                  { key: 'declined', label: 'Regretfully declines' },
+                ] as const)
           ).map((option) => (
             <label
               key={option.key}

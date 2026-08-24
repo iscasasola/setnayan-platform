@@ -131,15 +131,29 @@ export default async function PabuyaPublicPage({
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
         <div className="mb-8 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold-deep">
-            The pabuya · digital money dance
+            {/* Owner 2026-08-17: a wake MAY accept money — abuloy is normal at a
+                Filipino wake — "with gentler wording than a wedding's digital
+                money dance". Pinning cash is the dance's own gesture, so the
+                solemn arm replaces the sentence, not a word in it. */}
+            {words.solemn ? 'A gift of sympathy' : 'The pabuya · digital money dance'}
           </p>
           <h1 className="mt-2 font-display text-3xl font-medium italic sm:text-4xl">
             A blessing for {hostName}
           </h1>
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-ink/65">
-            Pin your cash on {words.theOrganizer} — wherever you are in the
-            world. Scan a QR or copy a handle and send it straight to their own
-            account.
+            {words.solemn ? (
+              <>
+                A quiet way to help {words.theOrganizer} — wherever you are in
+                the world. Scan a QR or copy a handle and send it straight to
+                their own account.
+              </>
+            ) : (
+              <>
+                Pin your cash on {words.theOrganizer} — wherever you are in the
+                world. Scan a QR or copy a handle and send it straight to their
+                own account.
+              </>
+            )}
           </p>
         </div>
 

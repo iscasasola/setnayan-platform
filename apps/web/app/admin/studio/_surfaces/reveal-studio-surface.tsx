@@ -1,3 +1,4 @@
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { fetchRevealConfig } from '@/lib/reveal-config';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -119,16 +120,20 @@ export async function RevealStudioSurface() {
   ]);
   return (
     <div>
-      <div className="mb-6">
-        <div className="mb-1 text-[11px] uppercase tracking-wider text-[var(--m-slate,#6a6e76)]">Content</div>
-        <h1 className="text-2xl font-semibold text-[var(--m-ink,#1b1a17)]">Reveal Studio</h1>
-        <p className="mt-2 max-w-2xl text-[14px] leading-relaxed text-[var(--m-slate,#4f535b)]">
-          The opening reveal on every Save-the-Date couple site — the bridal veil, envelopes and
-          doors guests lift to uncover the invitation. Turn it on or off, choose which templates
-          couples may use, toggle features, and tune the veil look with the live sliders. Changes
-          save as the house default and go live on couple sites.
-        </p>
-      </div>
+      {/* All three retired rungs, on one surface: a mono "Content" eyebrow,
+          the name the tab strip already carries, and a lede. The name stays in
+          the document at zero pixels.
+          ⚖ The sentence survives for its last line — what you change here
+          saves as the HOUSE DEFAULT and goes live on couple sites. Nothing
+          else on the screen says that a slider reaches strangers&apos; wedding
+          pages. */}
+      <PageMasthead title="Reveal Studio" />
+      <p className="mb-6 mt-2 max-w-2xl text-sm leading-relaxed text-ink/70">
+        The opening reveal on every Save-the-Date couple site — the bridal veil, envelopes and
+        doors guests lift to uncover the invitation. Turn it on or off, choose which templates
+        couples may use, toggle features, and tune the veil look with the live sliders. Changes
+        save as the house default and go live on couple sites.
+      </p>
       <RevealStudio initial={config} />
       <StdVideoModeration initial={stdVideos} />
     </div>

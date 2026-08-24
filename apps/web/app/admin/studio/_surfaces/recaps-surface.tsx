@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Images, ExternalLink, Globe } from 'lucide-react';
+import { ExternalLink, Globe } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { adminTakedownRecap } from '@/app/admin/recaps/actions';
@@ -51,16 +52,16 @@ export async function RecapsSurface({
 
   return (
     <section className="space-y-6">
-      <header className="space-y-2">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-mulberry/10 text-mulberry">
-          <Images aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-        </span>
-        <h1 className="text-2xl font-semibold tracking-tight">Recaps</h1>
-        <p className="max-w-prose text-sm text-ink/65">
-          Every couple-published Auto-Recap that&rsquo;s live right now. These are public pages with
-          guest photos and messages — take one down if you need to (the couple can re-publish).
-        </p>
-      </header>
+      {/* The tab strip already says "Recaps". The name and the decorative
+          tile go; the name stays in the document at zero pixels.
+          ⚖ The sentence survives whole. Every row here is a PUBLIC page of
+          somebody's guests' photographs, and the only control is take it
+          down — an operator needs both facts before pressing anything. */}
+      <PageMasthead title="Recaps" />
+      <p className="max-w-prose text-sm text-ink/70">
+        Every couple-published Auto-Recap that&rsquo;s live right now. These are public pages with
+        guest photos and messages — take one down if you need to (the couple can re-publish).
+      </p>
 
       {ok ? (
         <p className="rounded-md border border-success-300 bg-success-50 px-4 py-3 text-sm text-success-900">

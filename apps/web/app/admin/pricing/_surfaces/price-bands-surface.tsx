@@ -2,6 +2,7 @@
 // re-homed here (2026-07-10). actions/_components stay in /admin/price-bands; the
 // legacy route is now a redirect (or, for pricing/settings, the studio shell).
 import { Gauge, RefreshCw } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { regionBySlug } from '@/lib/region-source';
@@ -77,11 +78,15 @@ export async function PriceBandsSurface({
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <header className="mb-6 space-y-2">
-        <div className="flex items-center gap-2">
-          <Gauge className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          <h1 className="text-2xl font-semibold tracking-tight">Price bands</h1>
-        </div>
+      {/* The tab strip already says "Price bands", with the same Gauge icon
+          on it — so the row underneath was the second copy of both. The name
+          stays in the document at zero pixels.
+          ⚖ Both sentences survive: the first says these numbers are COMPUTED
+          and never hand-set, the second explains why a bucket you expect to
+          see is missing. Deleting either turns an empty screen into a bug
+          report. */}
+      <PageMasthead title="Price bands" />
+      <div className="mb-6 space-y-2">
         <p className="text-sm text-ink/65">
           The market low / median / high per{' '}
           <strong>category × region × guest-count bucket</strong>, computed from
@@ -97,7 +102,7 @@ export async function PriceBandsSurface({
           vendors. Founder-only today → expect few or zero rows until more vendors
           list.
         </p>
-      </header>
+      </div>
 
       {/* Recompute control */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 sn-tile px-4 py-3">

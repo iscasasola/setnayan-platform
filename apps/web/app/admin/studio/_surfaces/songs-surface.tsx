@@ -1,4 +1,5 @@
-import { Music, GitMerge, Search } from 'lucide-react';
+import { GitMerge, Search } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DeleteSongButton, MergeSongsFields } from './songs-danger-controls';
@@ -43,12 +44,15 @@ export async function SongsSurface({
 
   return (
     <section className="space-y-6">
-      <header className="space-y-3">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-          <Music aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-        </span>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Master song catalogue</h1>
-        <p className="max-w-prose text-base text-ink/65">
+      {/* The tab strip already says "Songs", and this one answered at 36px.
+          The name stays in the document at zero pixels.
+          ⚖ Both sentences survive. The first is the job (merge the near-
+          duplicates so compatibility overlap stays clean); the second says
+          what the two states MEAN, which the owner asked for on 2026-08-18
+          because it is not guessable from the words. */}
+      <PageMasthead title="Master song catalogue" />
+      <div className="space-y-3">
+        <p className="max-w-prose text-sm text-ink/70">
           The shared song list vendors and couples pick from. Merge near-duplicates
           (vendor-typed variants like &quot;Perfect&quot; vs &quot;Perfect - Ed Sheeran&quot;) so the
           compatibility overlap stays clean, and remove junk entries.
@@ -66,7 +70,7 @@ export async function SongsSurface({
           starter repertoire. Everything else still exists and is still findable by
           searching its name — bands add their own as they go.
         </p>
-      </header>
+      </div>
 
       {error ? (
         <p role="alert" className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">

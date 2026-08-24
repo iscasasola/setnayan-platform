@@ -1,4 +1,5 @@
-import { Gift, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -115,19 +116,20 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-4xl">
-      <header className="mb-6 space-y-2">
-        <div className="flex items-center gap-2">
-          <Gift className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          <h1 className="text-2xl font-semibold tracking-tight">Free windows</h1>
-        </div>
-        <p className="text-sm text-ink/65">
-          Schedule an announcement that makes services <strong>free during a date
-          range</strong> — pick services for <strong>couples</strong>, or a paid
-          tier for <strong>vendors</strong>. While it&rsquo;s live the freebie shows
-          as included (no code, no checkout) and a banner tells them about it. When
-          the window ends, it reverts to paid unless they already bought it.
-        </p>
-      </header>
+      {/* The tab strip already says "Free windows", with the same Gift icon.
+          The name stays in the document at zero pixels.
+          ⚖ The sentence survives whole. This screen gives a paid product away
+          on a schedule, and the last line — it reverts to paid unless they
+          already bought it — is the part an operator most needs before
+          pressing anything here. */}
+      <PageMasthead title="Free windows" />
+      <p className="mb-6 text-sm text-ink/70">
+        Schedule an announcement that makes services <strong>free during a date
+        range</strong> — pick services for <strong>couples</strong>, or a paid
+        tier for <strong>vendors</strong>. While it&rsquo;s live the freebie shows
+        as included (no code, no checkout) and a banner tells them about it. When
+        the window ends, it reverts to paid unless they already bought it.
+      </p>
 
       {/* Master-switch status */}
       {flagOn ? (

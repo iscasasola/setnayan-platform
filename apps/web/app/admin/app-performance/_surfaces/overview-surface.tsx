@@ -18,6 +18,7 @@ import {
   fetchAppPerformanceStats,
   type AppPerfStats,
 } from '@/lib/admin/app-performance-stats';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { DEMO_MODE_COOKIE_NAME } from '@/lib/demo-mode';
 
 import {
@@ -207,25 +208,26 @@ export async function CockpitSurface({ searchParams }: Props) {
       <style>{APX_CSS}</style>
       <CockpitFx />
 
-      <header className="mb-6 space-y-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="sn-h1">
-            App Performance
-          </h1>
-          {demoActive ? (
+      {/* The tab strip already says "App Performance". The name stays in the
+          document at zero pixels; the demo badge does NOT go with it — it is
+          the only thing saying the entity curves are illustrative, so it moves
+          into `actions`.
+          ⚖ The lede split in two. "Is it growing, and is it working — the
+          operator's daily screen" was orientation and goes. The rest is a
+          LEGEND for a pill that appears on every chart below, and nobody can
+          read those pills without it — so it moved DOWN to sit immediately
+          above the charts it explains, which is what rung four asks for. */}
+      <PageMasthead
+        title="App Performance"
+        className="mb-4"
+        actions={
+          demoActive ? (
             <span className="rounded-full border border-warn-300/70 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-warn-800">
               Entity curves: demo data
             </span>
-          ) : null}
-        </div>
-        <p className="max-w-prose text-base text-ink/65">
-          Is it growing, and is it working — the operator&apos;s daily screen over the{' '}
-          {rangeLabel.toLowerCase()}. Every chart is tagged{' '}
-          <StatusPill state="live" /> (computed from the platform&apos;s own tables) or{' '}
-          <StatusPill state="wiring" /> (one instrumentation step away — never
-          simulated).
-        </p>
-      </header>
+          ) : null
+        }
+      />
 
       {/* Range picker — GET form, no client JS (mirrors /admin/growth). */}
       <form method="get" className="mb-8 flex flex-wrap items-center gap-2">
@@ -264,6 +266,13 @@ export async function CockpitSurface({ searchParams }: Props) {
           Some metrics couldn&apos;t load: {errors.join(' · ')}
         </p>
       ) : null}
+
+      {/* The chart legend, beside the charts. */}
+      <p className="mb-6 max-w-prose text-sm text-ink/70">
+        Every chart below is tagged <StatusPill state="live" /> (computed from
+        the platform&apos;s own tables) or <StatusPill state="wiring" /> (one
+        instrumentation step away — never simulated).
+      </p>
 
       {/* ── CONTEXT STRIP — standing totals (owner list: Users · Vendors ·
              Services · Events · Editorials · Uptime · Error rate) ─────── */}

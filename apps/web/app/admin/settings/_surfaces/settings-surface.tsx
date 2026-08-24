@@ -12,6 +12,7 @@ import {
   Music,
   Trash2,
 } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
@@ -70,15 +71,18 @@ export async function SettingsSurface({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Platform settings</h1>
-        <p className="text-sm text-ink/60">
-          Business identity printed on every transaction receipt. Everything
-          here is read-everywhere across the app; only internal/team-pool
-          admins can edit. The actual BIR Official Receipt for a paid order
-          is issued separately, offline &mdash; these are not BIR ORs.
-        </p>
-      </header>
+      {/* The tab strip already says "Settings". The name stays in the
+          document at zero pixels.
+          ⚖ The sentence survives, for its last clause: these are NOT BIR
+          Official Receipts. Getting that wrong is a tax problem, not a
+          layout one. */}
+      <PageMasthead title="Platform settings" />
+      <p className="mb-6 text-sm text-ink/70">
+        Business identity printed on every transaction receipt. Everything
+        here is read-everywhere across the app; only internal/team-pool
+        admins can edit. The actual BIR Official Receipt for a paid order
+        is issued separately, offline &mdash; these are not BIR ORs.
+      </p>
 
       {search.error ? (
         <FormFlash tone="error">{decodeURIComponent(search.error)}</FormFlash>

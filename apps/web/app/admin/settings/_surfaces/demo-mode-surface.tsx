@@ -27,8 +27,9 @@
 
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Sparkles, ExternalLink, ShieldCheck } from 'lucide-react';
+import { ExternalLink, ShieldCheck } from 'lucide-react';
 import { cookies } from 'next/headers';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
@@ -105,12 +106,15 @@ export async function DemoModeSurface({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-3xl">
       {/* BackButton dropped — Demo mode is a tab inside the Settings studio. */}
 
-      <header className="mb-6 space-y-2">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          <h1 className="text-2xl font-semibold tracking-tight">Demo mode</h1>
-        </div>
-        <p className="text-sm text-ink/65">
+      {/* The tab strip already says "Demo mode", with the same icon on it.
+          The name stays in the document at zero pixels.
+          ⚖ The sentence survives: this switch changes what STRANGERS see on
+          the public marketplace, and the clause saying the real hide-prices
+          lock is untouched is the reassurance an operator needs before
+          flipping it. */}
+      <PageMasthead title="Demo mode" />
+      <div className="mb-6">
+        <p className="text-sm text-ink/70">
           When demo mode is on, the marketplace and individual vendor profile
           pages additionally surface vendors marked{' '}
           <code className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[11px]">
@@ -120,7 +124,7 @@ export async function DemoModeSurface({ searchParams }: Props) {
           2026-05-16 hide-prices lock) is unchanged. Admins only — non-admin
           sessions silently ignore the flag.
         </p>
-      </header>
+      </div>
 
       {justToggled ? (
         <FormFlash tone="success">

@@ -2,6 +2,7 @@
 // re-homed here (2026-07-10). actions/_components stay in /admin/custom-plans; the
 // legacy route is now a redirect (or, for pricing/settings, the studio shell).
 import Link from 'next/link';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchCustomUnitPrices } from '@/lib/vendor-custom-catalog';
@@ -185,19 +186,23 @@ export async function CustomPlansSurface({ searchParams }: Props) {
 
   return (
     <div>
-      <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Custom plans</h1>
-        <p className="max-w-2xl text-sm text-ink/60">
-          Compose a negotiated Custom tier for any vendor org — the SETNAYAN
-          rate card, scoped to one partner, with a discount and a
-          composition-first quote you send for apply-then-pay approval. Unit
-          prices are read live from{' '}
-          <Link href="/admin/pricing?tab=pricing" className="underline underline-offset-2">
-            /admin/pricing
-          </Link>
-          ; overrides here are per-quote only.
-        </p>
-      </header>
+      {/* The tab strip already says "Custom plans". The name stays in the
+          document at zero pixels.
+          ⚖ The sentence survives because of its last clause: unit prices are
+          read LIVE from the pricing tab and anything typed here is per-quote
+          only. Someone composing a partner's rate card who does not know that
+          will think they are changing the catalog. */}
+      <PageMasthead title="Custom plans" />
+      <p className="mb-6 max-w-2xl text-sm text-ink/70">
+        Compose a negotiated Custom tier for any vendor org — the SETNAYAN
+        rate card, scoped to one partner, with a discount and a
+        composition-first quote you send for apply-then-pay approval. Unit
+        prices are read live from{' '}
+        <Link href="/admin/pricing?tab=pricing" className="underline underline-offset-2">
+          /admin/pricing
+        </Link>
+        ; overrides here are per-quote only.
+      </p>
 
       {/* Requests inbox — vendors who composed a Custom plan (or a quote we sent
           that's still out). Each row opens the composer scoped to that vendor. */}

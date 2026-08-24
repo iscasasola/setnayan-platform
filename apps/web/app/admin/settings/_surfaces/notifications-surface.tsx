@@ -4,6 +4,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Bell, CheckCheck } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import {
   fetchOwnNotifications,
@@ -40,16 +41,14 @@ export async function NotificationsSurface() {
 
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <header className="mb-6 flex items-end justify-between gap-3">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Notifications</h1>
-          <p className="text-base text-ink/65">
-            Operational alerts routed to your admin account — dispute flags,
-            help-center intake, and other team signals. Email delivery also
-            fires when Resend is configured.
-          </p>
-        </div>
-      </header>
+      {/* The tab strip already says "Notifications", and this one said it at
+          36px — the exact size the owner pointed at. The name stays in the
+          document at zero pixels.
+          ⚖ The sentence goes. It describes what the list below already shows
+          and names nothing an operator has to do; "email delivery fires when
+          Resend is configured" is a fact about our deployment, not an
+          instruction for the person reading their alerts. */}
+      <PageMasthead title="Notifications" className="mb-6" />
 
       {unreadCount > 0 ? (
         <form action={markAllNotificationsRead} className="mb-4">

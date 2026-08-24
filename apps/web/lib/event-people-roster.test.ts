@@ -22,7 +22,7 @@ import {
   visibleGroupKeys,
   type PeopleViewer,
 } from './event-people-roster';
-import { COORDINATOR_AREAS, type ModeratorPermissions } from './delegate-areas';
+import { COORDINATOR_AREAS, resolveAreaLevel, type ModeratorPermissions } from './delegate-areas';
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8');
@@ -65,21 +65,45 @@ test('a coordinator sees the groups their grant actually opens — and no others
   assert.ok(!keys.has('photo_crew'), '/studio/papic/crew redirects a delegate');
 });
 
-test('the live external planner gets exactly what the shipped rule gives her', () => {
-  // ⚠ WRITTEN TWICE. The first version of this test asserted she sees only
-  // "hosts" — and it FAILED, because `moderator_area_level` in production ends
+test('the live external planner sees only the line her host actually granted', () => {
+  // ⚠ WRITTEN THREE TIMES, AND THE SECOND VERSION WAS WRONG ON PURPOSE.
+  // Rev 1 asserted she sees only "hosts" and failed. Rev 2 changed the
+  // assertion to match the code and recorded the reason as "that is the
+  // DECISION, not a defect", because `moderator_area_level` ended
   //   WHEN p_area IN ('guest_list','seat_plan','schedule','vendors','invitations')
   //     THEN CASE WHEN edit_all THEN 'edit' ELSE 'view' END
-  // so a delegate with no explicit key holds 'view' on the guest list and the
-  // suppliers. That is the DECISION, not a defect: it is written the same way in
-  // SQL and in the TS mirror, and `/guests` and `/vendors` admit her today.
-  // The roster mirrors it rather than narrowing it — quietly showing her less
-  // than the routes themselves do would be a second, invisible permission rule.
+  // so an unnamed area resolved to 'view'.
+  //
+  // 🔑 IT WAS NEVER A DECISION — IT WAS A LEGACY FALLBACK NOBODY HAD RULED ON,
+  // and a test comment is not where a permission gets decided. The owner ruled
+  // on 2026-08-24, asked directly who may see an event's guest list: "no. only
+  // the owner of the event and coordinator (by request)." This planner's host
+  // granted her the seat plan and nothing else, so the guest list is not hers.
+  // The fallback now applies only to rows carrying no `areas` map at all.
   const keys = visibleGroupKeys({ isCouple: false, delegatePermissions: LIVE_PLANNER });
-  assert.deepEqual([...keys].sort(), ['guests', 'hosts', 'suppliers']);
+  assert.deepEqual([...keys].sort(), ['hosts']);
+  assert.ok(!keys.has('guests'), 'her host granted seat_plan, never the guest list');
+  assert.ok(!keys.has('suppliers'), 'nor the suppliers');
   // The two couple-only routes stay closed to her whatever her grant says.
   assert.ok(!keys.has('helpers'));
   assert.ok(!keys.has('photo_crew'));
+});
+
+test('an area a host granted still opens, so the narrowing is not a blanket no', () => {
+  // The false-positive direction: narrowing must not close a grant the host
+  // DID make. `seat_plan` has no roster group of its own, so this asserts the
+  // resolver rather than the roster.
+  assert.equal(resolveAreaLevel(LIVE_PLANNER, 'seat_plan'), 'view');
+  assert.equal(resolveAreaLevel(LIVE_PLANNER, 'guest_list'), null);
+  // And a legacy row — no `areas` map — keeps the fallback it has always had.
+  // This is the couple's own host row; stripping it locks a groom out.
+  const legacyHost: ModeratorPermissions = {
+    edit_all: true,
+    checkout: true,
+    invite_hosts: true,
+    remove_hosts: true,
+  };
+  assert.equal(resolveAreaLevel(legacyHost, 'guest_list'), 'edit');
 });
 
 test('somebody with no membership at all sees nothing', () => {

@@ -92,9 +92,16 @@ export async function answerAccessRequest(
 
     const base: ModeratorPermissions =
       (existing as { permissions_json?: ModeratorPermissions } | null)?.permissions_json ??
-      // An external planner starts from the narrowest template, then gets only
-      // the lines the host just granted.
-      PERMISSION_TEMPLATES.wedding_planner_external;
+      // 🚨 THIS USED TO SAY "the narrowest template" AND NAME
+      // `wedding_planner_external`, WHICH CARRIES `edit_all: true`,
+      // `checkout: true` AND `invite_hosts: true` — the WIDEST template a
+      // delegate can hold. A sentence is not a mechanism. Combined with the
+      // resolver's legacy fallback, a coordinator whose host granted them one
+      // line came away holding EDIT on every planning area, the guest list
+      // included. `viewer` is the template that is actually narrow: every flag
+      // false. What they may touch comes from `areas` below — the lines the
+      // host said yes to, and nothing else.
+      PERMISSION_TEMPLATES.viewer;
 
     const merged: ModeratorPermissions = {
       ...base,
@@ -164,9 +171,10 @@ export async function revokeArea(
 
   const perms = (existing as { permissions_json: ModeratorPermissions }).permissions_json;
   const merged: ModeratorPermissions = { ...perms, areas: { ...(perms.areas ?? {}) } };
-  // Explicit null, not delete: `resolveAreaLevel` falls back to the coarse
-  // edit_all flag when a key is ABSENT, so removing the key could hand back
-  // more than it takes away.
+  // Explicit null, not delete — and it stays explicit now that an unnamed area
+  // on an `areas`-carrying row already resolves to nothing. A written null is
+  // the RECORD that the host took this back, which an absent key cannot be:
+  // "never granted" and "granted then withdrawn" must not look identical.
   merged.areas![area] = null;
 
   const { error } = await supabase

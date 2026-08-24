@@ -11,6 +11,15 @@
  * adding a new area to the union without an explicit branch silently grants it
  * to every delegate carrying `edit_all`. A test now proves it does not.
  *
+ * ⚖ NARROWED 2026-08-25 (owner: the guest list is the host's, "and coordinator
+ * (by request)"). That tail is now reachable ONLY by a row carrying no `areas`
+ * map — the legacy shape the couple's own host rows still use. Once a row has
+ * an `areas` map it has been answered area by area, and an area missing from
+ * it resolves to nothing rather than to a flag the host never set. Measured
+ * before the change on the one external planner in production, granted
+ * `{ seat_plan: 'view' }`: the fallback was handing them five more areas,
+ * the guest list among them.
+ *
  * Same posture as `lib/admin/queue-partition.ts`: no imports, so it can be
  * exercised directly rather than by rendering something.
  *
@@ -94,11 +103,25 @@ export function resolveAreaLevel(
   if (perms.areas && area in perms.areas) {
     return perms.areas[area] ?? null;
   }
+  // 🔑 AN `areas` MAP THAT DOES NOT NAME THIS AREA IS A NO, NOT A GAP.
+  // The host answers a coordinator's request line by line, and every grant
+  // written since that door opened carries an `areas` map. An area missing
+  // from it is a line the host did not grant — inheriting it from a legacy
+  // flag hands over exactly what they withheld. Measured on the one external
+  // planner live in production, granted `{ seat_plan: 'view' }` and nothing
+  // else: the fallback below was also giving them the guest list, the
+  // schedule, the suppliers and the invitations.
+  //
+  // ⚠ ONLY rows carrying NO `areas` map at all keep the fallback — those are
+  // the couple's own host rows, written before `areas` existed. Removing it
+  // for them would lock a groom out of his own wedding.
+  if (perms.areas) return null;
   if (area === 'budget') return perms.checkout ? 'view' : null;
   if (area === 'mood_board') return 'view';
-  // 🚨 NON-OPTIONAL, AND THE WHOLE REASON THIS FUNCTION NEEDED TOUCHING.
-  // The tail below FAILS OPEN: any delegate with `edit_all` and no explicit key
-  // gets 'edit'. Adding 'photos' to the union without this line would have
+  // 🚨 NON-OPTIONAL. The tail below still FAILS OPEN — but only now for a row
+  // with NO `areas` map at all (the couple's own host rows), because the guard
+  // above returns for every row that has one. Any delegate with `edit_all` and
+  // no `areas` key gets 'edit'. Adding 'photos' to the union without this line would have
   // silently handed the couple's guest photos to every existing delegate —
   // including the accepted planner row live in production right now — with no
   // approval, no migration and nothing on screen to show it happened.

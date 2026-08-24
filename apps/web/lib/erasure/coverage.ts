@@ -904,6 +904,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     why: 'CASCADE + NOT NULL — a membership row is the record of THIS person belonging to a community.',
   },
   {
+    table: 'samahan_messages',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL — a message is the person\u2019s own words in a group they chose to join. Mirrors chat_messages authored-body erasure; the soft `deleted_at` take-down is a PRODUCT act, not an erasure one, so erasure deletes the row outright rather than trusting a flag readers filter on.',
+  },
+  {
     table: 'samahan_stories',
     column: 'user_id',
     why: 'CASCADE + NOT NULL — a story is the subject\u2019s own clip, already 24-hour-ephemeral by design. \u26a0 The R2 objects (clip + poster) are named by NOTHING but the row, so purgeSamahanStories (purge.ts) hands them to storage BEFORE this generic row delete runs — the loop then no-ops. Do not reorder it after purgeUserOwnedRecords.',

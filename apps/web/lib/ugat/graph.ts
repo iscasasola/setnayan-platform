@@ -2241,6 +2241,27 @@ export const UGAT_JOINTS: UgatJoint[] = [
     traps:
       'Rows are PRE-screened by construction (screened_at NOT NULL) \u2014 do not add an unscreened state or an async screen here; the whole design is that no unscreened row can exist. And a failed R2 delete keeps the row on purpose (the sweep retries) \u2014 \u201crow present past expiry\u201d is the retry queue, not a bug.',
   },
+  {
+    id: 'J41',
+    claims: [
+      { kind: 'table', table: 'samahan_messages' },
+      { kind: 'fk', table: 'samahan_messages', column: 'community_id', references: 'communities' },
+      { kind: 'column', table: 'samahan_messages', column: 'deleted_at' },
+    ],
+    chain: 12,
+    pair: ['TYPE-SAMAHAN', 'TYPE-USERS'],
+    title: 'Samahan \u2194 User (Usapan \u2014 the group chat)',
+    joint: 'samahan_messages',
+    cardinality: 'Many-to-many \u00b7 one row per message; no thread table \u2014 a samahan IS the room',
+    implementedBy:
+      'samahan_messages \u2014 body + soft `deleted_at`. \u26d4 Deliberately NOT chat_threads: that table is a couple\u2013vendor BOOKING NEGOTIATION (event_id NOT NULL, vendor_profile_id NOT NULL, inquiry_status, agreed_price_centavos, locked_at), and a samahan has neither an event nor a vendor. The 2026-07-15 plan owner-locked \u201creuse 0019 chat\u201d; reading the live table out of prod is what overturned it.',
+    writtenBy:
+      'postSamahanMessage / deleteSamahanMessage (samahan actions) \u2014 user-scoped client, RLS is the gate',
+    guardedBy:
+      'INSERT policy demands user_id = auth.uid() AND membership (nobody posts in another member\u2019s voice); UPDATE policy scopes take-down to the author; samahan_messages_author_field_guard freezes every field except deleted_at.',
+    traps:
+      'Take-down is SOFT \u2014 readers MUST filter `deleted_at IS NULL`; a query that forgets shows messages their authors withdrew. Retention follows the 5-year CHAT rule via purge_expired_chat \u2014 no new sweep was added, and adding one would be a second definition of when a message is old.',
+  },
 ];
 
 const UGAT_JOINT_PAIR_INDEX: Record<string, UgatJoint[]> = {};

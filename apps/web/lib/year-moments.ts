@@ -59,6 +59,13 @@ export type YearMoment = {
   /** Link target — the event to open, or null for a holiday (a create prompt). */
   eventId: string | null;
   /**
+   * TRUE when this moment lands on the day an EXISTING event already occupies —
+   * the wedding's own date, a future recurring event's next occurrence (which
+   * IS its date). Stamped by `buildYearMoments` from the source row, never
+   * inferred from `kind`. Read it through `momentIsEventOwnDay`.
+   */
+  isEventOwnDay?: boolean;
+  /**
    * Create-flow prefill, meaningful only when `eventId` is null: the
    * `event_type_vocab` key the create page should preselect (the page validates
    * it against the enabled roster and ignores anything unknown, so a stale key
@@ -366,6 +373,28 @@ export function buildYearMoments(
     }
   }
 
+  /*
+    IS THIS MOMENT THE EVENT'S OWN DAY? STAMPED HERE, ONCE, FROM THE SOURCE ROW.
+
+    🔑 DERIVED, NOT ENUMERATED. The first cut asked `kind === 'wedding' ||
+    kind === 'recurring'` — a hand-written list of the kinds somebody thought
+    of, which is the shape this repo has been bitten by repeatedly. Measured, it
+    was also WRONG: a PAST event that repeats yearly produces a `recurring`
+    moment on NEXT year's date, which is emphatically not the event's own day,
+    and dropping it emptied the shelf of exactly the reminder it exists for
+    (prod: "Movie Night · every year" → next occurrence 2027-08-20, deleted).
+
+    The only question that is actually being asked is whether the moment lands
+    on the SAME DAY the event already occupies — so ask that, against the row
+    the moment came from. A new moment kind added later is classified correctly
+    without anyone remembering to extend a list.
+  */
+  const ownDayByEvent = new Map(events.map((e) => [e.event_id, e.event_date]));
+  for (const m of out) {
+    m.isEventOwnDay =
+      m.eventId != null && ownDayByEvent.get(m.eventId) === m.dateISO;
+  }
+
   return out
     .filter((m) => m.daysUntil >= 0 && m.daysUntil <= withinDays)
     .sort((a, b) => a.daysUntil - b.daysUntil || a.label.localeCompare(b.label));
@@ -399,7 +428,7 @@ export function buildYearMoments(
  * anniversary reminder lines (2026-07-13) from their only remaining surface.
  */
 export function momentIsEventOwnDay(m: YearMoment): boolean {
-  return m.eventId != null && (m.kind === 'wedding' || m.kind === 'recurring');
+  return m.isEventOwnDay === true;
 }
 
 /**

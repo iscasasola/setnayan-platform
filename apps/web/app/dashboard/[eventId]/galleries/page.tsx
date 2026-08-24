@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { redirect } from 'next/navigation';
-import { Camera, Radio, Image as ImageIcon, ArrowRight, Images } from 'lucide-react';
+import { Camera, Radio, Image as ImageIcon, ArrowRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -114,6 +114,24 @@ export default async function GalleriesHubPage({ params }: Props) {
     supabase.from('events').select('our_photos').eq('event_id', eventId).maybeSingle(),
   ]);
 
+  // 🚨 THE SAME DEFECT THIS FILE WAS REWRITTEN TO REMOVE, ONE CARD ACROSS.
+  // The Papic count above learned that binding an error and discarding it is
+  // the defect wearing careful clothes. This read never bound one at all: a
+  // refusal, an RLS silent-zero or a dropped connection all resolve with
+  // `data: null`, `our_photos` reads as an empty array, and the couple is told
+  // "Collecting… · Add your own photos to your Event Hub" — with an ADD button
+  // — on the page whose whole job is to reach photos they already have. An
+  // unread list is not an empty list.
+  if (eventRow.error) {
+    logQueryError(
+      'GalleriesPage.ourPhotos',
+      eventRow.error,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+  const ourPhotosMeasured = !eventRow.error;
+
   // Either half unread ⇒ the total is unknown. Adding a measured 4 to an unread
   // half and printing "4" is the same lie in smaller type.
   const papicCountMeasured = papicPhotoCount !== null && guestCaptureCount !== null;
@@ -177,16 +195,20 @@ export default async function GalleriesHubPage({ params }: Props) {
 
   // The couple's own curated photos — always available, never gated.
   {
-    const ready = ourPhotos.length > 0;
+    const ready = ourPhotosMeasured && ourPhotos.length > 0;
     sources.push({
       key: 'our-photos',
       name: 'Your photos',
       blurb: ready
         ? 'The photos you chose for your Event Hub.'
-        : 'Add your own photos to your Event Hub.',
+        : ourPhotosMeasured
+          ? 'Add your own photos to your Event Hub.'
+          : 'We couldn’t check your photos just now — this does not mean there are none. Open your photos to look, and reload in a moment.',
       state: ready ? 'ready' : 'collecting',
       count: ready ? ourPhotos.length : null,
-      viewLabel: ready ? 'View & manage' : 'Add photos',
+      // Never invite them to ADD on a count we did not take — the same rule the
+      // Papic card follows two blocks up.
+      viewLabel: ready ? 'View & manage' : ourPhotosMeasured ? 'Add photos' : 'Look anyway',
       viewHref: `${base}/website/our-photos`,
       Icon: ImageIcon,
     });
@@ -226,12 +248,26 @@ export default async function GalleriesHubPage({ params }: Props) {
                   <p className="mt-0.5 text-xs text-ink/55">{s.blurb}</p>
                 </div>
               </div>
+              {/* 🎨 THE ACTION COLOUR IS `mulberry`, NEVER THE SLOT NAMED
+                  `terracotta`. In this repo that slot is the atelier GOLD
+                  #A9834B, and white on it measures 3.48:1 — below the 4.5:1 AA
+                  floor — so the one control on this hub was the least readable
+                  thing on it. `mulberry` #C24E25 is the CTA the app already
+                  locked (`.button-primary`), and white on it measures 4.76:1.
+                  ⚠ Do NOT "correct" this back to the brand-sounding slot.
+                  ⚠ The dormant dark block would put white on #CBA766 at
+                  2.27:1 — worse — but that block is unreachable today
+                  (`darkMode: 'class'` with no prefers-color-scheme rule and a
+                  bootstrap that strips `.dark` before first paint), so it is
+                  recorded, not counted as live.
+                  The quiet button's label was `text-ink/60` = 3.99:1, also
+                  under the floor for a control; `text-ink/70` is 5.40:1. */}
               <Link
                 href={s.viewHref}
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                   ready
-                    ? 'bg-terracotta text-white hover:bg-terracotta-600'
-                    : 'border border-ink/15 text-ink/60 hover:bg-ink/5 hover:text-ink'
+                    ? 'bg-mulberry text-white hover:bg-mulberry-600'
+                    : 'border border-ink/15 text-ink/70 hover:bg-ink/5 hover:text-ink'
                 }`}
               >
                 {s.viewLabel}

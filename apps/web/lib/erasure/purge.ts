@@ -935,6 +935,64 @@ export async function purgeVendorVerificationDocuments(
 }
 
 /**
+ * RA 10173 right-to-erasure — the subject's SAMAHAN STORIES' R2 objects.
+ *
+ * The rows themselves are in SUBJECT_ROW_DELETES (a story is the subject's own
+ * clip), but the generic loop deletes ROWS only — and a story's clip + poster
+ * are named by NOTHING except its row, so the objects must be handed to
+ * storage FIRST. Ordering: called BEFORE purgeUserOwnedRecords in
+ * eraseUserAccount; the generic delete then finds nothing left and no-ops.
+ * Same rule as the daily expiry sweep (lib/samahan-stories.ts): files first,
+ * row last — a failed file delete leaves the row for a later pass.
+ *
+ * Best-effort per step, mirroring the other purges: every failure is
+ * audit-logged, never thrown.
+ */
+export async function purgeSamahanStories(
+  admin: ErasureAdminClient,
+  targetUserId: string,
+  actorUserId: string,
+  io: ErasureIo,
+): Promise<void> {
+  const auditFail = makeAuditFail(
+    admin,
+    targetUserId,
+    actorUserId,
+    'purgeSamahanStories',
+    'erasure_step_failed',
+    { kind: 'samahan_stories' },
+  );
+
+  const { data: rows, error: readErr } = await admin
+    .from('samahan_stories')
+    .select('id, r2_object_key, poster_r2_key')
+    .eq('user_id', targetUserId);
+  if (readErr) {
+    await auditFail('samahan-stories-lookup', readErr.message);
+    return;
+  }
+  for (const row of rows ?? []) {
+    const r = row as { id: number; r2_object_key?: string; poster_r2_key?: string };
+    let filesGone = true;
+    for (const ref of [r.r2_object_key, r.poster_r2_key]) {
+      if (typeof ref !== 'string' || !ref.startsWith('r2://')) continue;
+      try {
+        await io.deleteStoredAsset(ref);
+      } catch (e) {
+        filesGone = false;
+        await auditFail('samahan-stories-r2-delete', e instanceof Error ? e.message : String(e));
+      }
+    }
+    // Row last, and only once its files are gone — a surviving row is the
+    // retry handle for the objects it names.
+    if (filesGone) {
+      const { error: delErr } = await admin.from('samahan_stories').delete().eq('id', r.id);
+      if (delErr) await auditFail('samahan-stories-row-delete', delErr.message);
+    }
+  }
+}
+
+/**
  * RA 10173 right-to-erasure — the subject's PER-EVENT guest-side BIOMETRICS.
  *
  * The guest-face-enrolment table has NO user FK: a row holds the biometric
@@ -1241,6 +1299,9 @@ export async function eraseUserAccount(
   // running first means the vendor-document purge cannot be broken by a future
   // widening of the profile scrub.
   await purgeVendorVerificationDocuments(admin, targetUserId, actorUserId, io);
+  // BEFORE purgeUserOwnedRecords: the generic SUBJECT_ROW_DELETES loop there
+  // deletes the story rows, and the rows are the only thing naming the files.
+  await purgeSamahanStories(admin, targetUserId, actorUserId, io);
   await purgeUserOwnedRecords(admin, targetUserId, actorUserId, { originalEmail, now });
   await purgeUserGuestBiometrics(admin, targetUserId, actorUserId, io, now);
 

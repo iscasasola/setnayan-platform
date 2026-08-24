@@ -25,6 +25,13 @@ import {
   type CommunityRosterEntry,
 } from '@/lib/communities';
 import { eventBoardHref, stanceClosedReason } from '@/lib/event-board';
+import { after } from 'next/server';
+import {
+  fetchSamahanStories,
+  maybeRunSamahanStorySweep,
+  type SamahanStory,
+} from '@/lib/samahan-stories';
+import { SamahanStories } from './_components/samahan-stories';
 import type { EventWithRole } from '@/lib/events';
 
 type EventMemberType = EventWithRole['member_type'];
@@ -96,7 +103,7 @@ export default async function SamahanSpacePage({
 
   // Per-tab data — fetched only for the active tab (plus the header's event
   // count, which reuses the events fetch when the Events tab is active).
-  const [roster, events, viewerMemberships, inviteToken] = await Promise.all([
+  const [roster, events, viewerMemberships, inviteToken, stories] = await Promise.all([
     tab === 'members'
       ? fetchCommunityRoster(supabase, createAdminClient(), communityId, user.id)
       : Promise.resolve([] as CommunityRosterEntry[]),
@@ -107,7 +114,14 @@ export default async function SamahanSpacePage({
     isOrganizer && tab === 'overview'
       ? fetchInviteToken(supabase, communityId)
       : Promise.resolve(null),
+    tab === 'overview'
+      ? fetchSamahanStories(supabase, createAdminClient(), communityId, user.id)
+      : Promise.resolve([] as SamahanStory[]),
   ]);
+
+  // Cron-free expiry sweep, fired from the surface whose audience visits —
+  // stories expire by RLS the moment the clock passes; this reclaims bytes.
+  after(() => maybeRunSamahanStorySweep());
 
   const initial = community.name.trim().charAt(0).toUpperCase() || 'S';
   const rawError = sp.error ? decodeURIComponent(sp.error) : null;
@@ -218,6 +232,7 @@ export default async function SamahanSpacePage({
           inviteToken={inviteToken}
           isOrganizer={isOrganizer}
           memberCount={community.member_count}
+          stories={stories}
         />
       ) : tab === 'members' ? (
         <MembersTab
@@ -246,6 +261,7 @@ function OverviewTab({
   inviteToken,
   isOrganizer,
   memberCount,
+  stories,
 }: {
   base: string;
   communityId: string;
@@ -255,6 +271,7 @@ function OverviewTab({
   inviteToken: string | null;
   isOrganizer: boolean;
   memberCount: number;
+  stories: SamahanStory[];
 }) {
   // One resolver (lib/site-origin.ts). This chain omitted NEXT_PUBLIC_APP_URL,
   // so a preview deploy handed testers a PRODUCTION invite link.
@@ -263,6 +280,9 @@ function OverviewTab({
 
   return (
     <div className="space-y-4">
+      <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+        <SamahanStories communityId={communityId} stories={stories} />
+      </div>
       <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
         {description ? (
           <p className="text-sm leading-relaxed text-ink/75">{description}</p>

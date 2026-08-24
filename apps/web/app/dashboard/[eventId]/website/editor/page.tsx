@@ -8,6 +8,10 @@ import { getLifecyclePhase } from '@/lib/invitation-widgets';
 import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-std-button';
 import { EditorShell, type RailGroup } from './_components/editor-shell';
 import { TextPanel } from './_components/text-panel';
+import {
+  invitationWordsDraft,
+  INVITATION_WORDS_HINT,
+} from '@/lib/invitation-words-draft';
 import { ColorsPanel, ProLockPanel } from './_components/pro-panels';
 import {
   HeroPhotoPanel,
@@ -455,7 +459,34 @@ export default async function WebsiteEditorPage({
               label="Your message"
               maxLength={600}
               placeholder="A heartfelt note to everyone joining you…"
-              defaultValue={(event.special_message as string | null) ?? ''}
+              /* AP-11 · THE BOX STARTS SOMEWHERE. It was blank, and a blank box
+                 in front of a whole guest list is why most couples write
+                 nothing and the section never appears on their site.
+                 ⛔ NOTHING IS SAVED. `invitationWordsDraft` returns null the
+                 moment any words exist, so it can never sit on top of somebody's
+                 own message, and the stored column stays empty until they press
+                 Save — which is why the row above still honestly reads "Not set".
+                 ⛔ NOT A LANGUAGE MODEL. Deterministic, and it says only what
+                 the event already knows; with nothing known it returns null and
+                 the box is exactly as blank as before. */
+              defaultValue={
+                (event.special_message as string | null) ||
+                invitationWordsDraft({
+                  displayName: (event.display_name as string | null) ?? null,
+                  eventDate: (event.event_date as string | null) ?? null,
+                  venueName: (event.venue_name as string | null) ?? null,
+                  occasionNoun: profile.terminology.occasionNoun,
+                  // 🕊 THE LINE THAT MATTERS MOST. A wake takes the solemn arm;
+                  // a cheerful auto-draft on a funeral page is precisely the
+                  // defect the whole solemn register exists to prevent.
+                  register: profile.terminology.register,
+                  existing: (event.special_message as string | null) ?? null,
+                }) ||
+                ''
+              }
+              hint={
+                event.special_message ? undefined : INVITATION_WORDS_HINT
+              }
             />
           ),
         },

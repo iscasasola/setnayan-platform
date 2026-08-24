@@ -25,6 +25,7 @@ import {
 import { COORDINATOR_AREAS, type ModeratorPermissions } from './delegate-areas';
 
 const ROOT = join(import.meta.dirname, '..');
+const read = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8');
 const EVENT = 'event-alpha';
 
 const COUPLE: PeopleViewer = { isCouple: true, delegatePermissions: null };
@@ -174,7 +175,12 @@ test('every group links into the route that already owns it — nothing is rebui
   );
 });
 
-test('⛔ NO BROADCAST — the owner has not ruled on it and this page must not assume', () => {
+// ⚠ THE RULE IS UNCHANGED; ITS REASON WAS WRONG. This test was written on the
+// belief that messaging the guests was an open owner question. It is not — the
+// day-of announcement ships and is gated on the couple or a `schedule: 'edit'`
+// delegate. The assertion stays because a SECOND composer here would be a
+// second writer of the same row, which is the real defect it prevents.
+test('⛔ NO SECOND COMPOSER — the announcement already has a home, and one writer', () => {
   const moduleSrc = readFileSync(join(ROOT, 'lib/event-people-roster.ts'), 'utf8');
   for (const src of [pageSrc, moduleSrc]) {
     // Match the SHAPES a messaging surface takes, not one spelling of one word.
@@ -182,7 +188,8 @@ test('⛔ NO BROADCAST — the owner has not ruled on it and this page must not 
       !/<form|action=\{|useState|broadcast|sendTo|recipients|message[A-Z]/.test(
         src.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ''),
       ),
-      'a compose, send or recipient surface appeared on the roster — that is an owner decision',
+      'a compose, send or recipient surface appeared on the roster — the day-of ' +
+        'announcement already has one composer, and a second writer of the same row is the defect',
     );
   }
 });
@@ -214,4 +221,62 @@ test('the roster is reachable — a page ships with its doorway', () => {
   assert.match(hosts, /\/people`/, 'nothing links to the roster, so nobody can find it');
   const menu = readFileSync(join(ROOT, 'lib/customer-menu.ts'), 'utf8');
   assert.match(menu, /\$\{base\}\/people`/, 'the roster lights no menu item');
+});
+
+
+// ── THE ANNOUNCEMENT CHAIN, PINNED ─────────────────────────────────────────
+//
+// 🛑 WHY THIS IS IN THIS FILE. A claim in the roster's own docblock said
+// messaging the guests was an open owner question. It was not — the feature
+// ships. The correction is only as durable as the evidence for it, so the
+// chain is asserted here rather than described.
+//
+// 🔑 AND IT HAS BROKEN BEFORE, IN THE EXACT PLACE THIS WATCHES. The loader's
+// own header records it: the composer shipped "for months", the table was
+// live, the privacy control was active — and NOTHING ON THE GUEST SITE EVER
+// READ IT, so a coordinator could write "phones down, the ceremony is
+// starting" and only the couple's dashboard would show it. A writer with no
+// reader is invisible to every test that checks one end.
+
+test('the day-of announcement runs end to end: composer → row → the Event Hub', () => {
+  // 1 · THE COMPOSER writes the row.
+  const composer = read('app/dashboard/[eventId]/_actions/day-of-broadcast.ts');
+  assert.match(composer, /from\('coordinator_broadcasts'\)\s*\n?\s*\.insert\(/,
+    'the day-of composer stopped writing the announcement row');
+
+  // 2 · THE GUEST SIDE reads it. This is the half that was missing for months.
+  const loaders = read('app/[slug]/_lib/loaders.ts');
+  assert.match(loaders, /loadDayOfBroadcast/);
+  assert.match(loaders, /from\('coordinator_broadcasts'\)/,
+    'the guest-side reader stopped reading the announcement — the composer is writing to nobody');
+
+  // 3 · AND IT IS MOUNTED. A loader nothing renders is the same absence with a
+  // longer stack trace.
+  const page = read('app/[slug]/page.tsx');
+  assert.match(page, /loadDayOfBroadcast\(/, 'the Event Hub stopped loading the announcement');
+  const body = read('app/[slug]/_components/site-body.tsx');
+  assert.match(body, /<DayOfAnnouncement/, 'the announcement is loaded and never rendered');
+});
+
+test('an announcement is for the day, and is the latest one — not a feed', () => {
+  const loaders = read('app/[slug]/_lib/loaders.ts');
+  // Outside the live window it returns nothing, so a stale "we are running
+  // late" cannot haunt the page for a month.
+  assert.match(loaders, /if \(!isLive\) return null;/,
+    'the announcement outlived the day — a stale one now sits on the page forever');
+  // One, never a scrollback of operational chatter competing with the couple.
+  assert.match(loaders, /\.limit\(1\)/);
+});
+
+test('only the couple or a schedule-edit delegate may write one', () => {
+  // The question the roster docblock wrongly called open, answered in code:
+  // a coordinator nobody promoted holds no schedule grant, so cannot send.
+  const authority = read('lib/coordinator-broadcasts-server.ts');
+  assert.match(authority, /member_type', 'couple'/);
+  assert.match(
+    authority,
+    /resolveAreaLevel\(perms, 'schedule'\) === 'edit'/,
+    'the broadcast authority stopped requiring a schedule-edit grant — anyone ' +
+      'the event admits could now announce to the guests',
+  );
 });

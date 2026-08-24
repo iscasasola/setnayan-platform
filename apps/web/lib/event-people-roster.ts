@@ -12,9 +12,20 @@
  * the route that already owns it; nothing here duplicates an editor, a form or
  * a control. Rebuilding a working screen is the failure this repo pays for most.
  *
- * ⛔ ROSTER ONLY. Whether a coordinator nobody promoted may MESSAGE all the
- * guests is an owner decision and is deliberately absent — there is no compose,
- * no send, and no recipient list anywhere in this module.
+ * ⛔ ROSTER ONLY — no compose, no send, no recipient list anywhere in this
+ * module. ⚠ THE REASON WAS WRONG WHEN THIS SHIPPED, AND THE RULE IS RIGHT.
+ * This said messaging the guests was "an owner decision". It is not: the
+ * announcement SHIPS and is live end to end — `coordinator-broadcast-card.tsx`
+ * composes it on the couple's day-of screen, guests read it on the Event Hub
+ * (`loadDayOfBroadcast` → `<DayOfAnnouncement>`), and only the couple or a
+ * delegate holding `schedule: 'edit'` may write one, enforced by the
+ * `coordinator_broadcasts` INSERT policy. So "may a coordinator nobody
+ * promoted message all the guests?" was already answered — no, because
+ * nobody promoted them.
+ *
+ * 🔑 THE ROSTER STILL HAS NO COMPOSE BOX, FOR A BETTER REASON: the composer
+ * already has a home on the day-of screen, and a second one here would be a
+ * second way to write the same row. A roster is for reading who is here.
  *
  * ─── TWO RULES THIS MODULE EXISTS TO HOLD ─────────────────────────────────
  *

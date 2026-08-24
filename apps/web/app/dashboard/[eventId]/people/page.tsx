@@ -30,9 +30,11 @@ type Props = { params: Promise<{ eventId: string }> };
  * every gate they already have. This page adds only the view none of them can
  * give: all of it at once, with a way into each.
  *
- * ⛔ NO BROADCAST. Whether a coordinator nobody promoted may message all the
- * guests is an owner decision. There is no compose box, no send, and no
- * recipient list on this page or in the module behind it.
+ * ⛔ NO BROADCAST HERE — and ⚠ NOT because it is undecided, which is what this
+ * comment used to say. The day-of announcement ships: composed on the couple's
+ * day-of screen, read by guests on the Event Hub, and writable only by the
+ * couple or a `schedule: 'edit'` delegate. This page adds no compose box
+ * because that composer already has a home, not because the rule is open.
  *
  * ── WHY EVERY COUNT IS READ HERE RATHER THAN REUSED ────────────────────────
  * `getConfirmedVendorCount` already counts suppliers — and returns **0** on a

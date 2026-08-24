@@ -35,20 +35,15 @@
 # ⚠ A BASELINE IS A BILL. Each line is somebody deciding a control's promise has
 # been checked against its wiring. Adding one is allowed; adding one silently is
 # not.
-
 # ── FINDING: the control promises an effect it does not have ────────────────
-users.planner_mode | 🔴 FINDING 2026-08-17, verified by hand and left OPEN for the owner. The profile page says "Guided shows the 9-step checklist on your Overview tab. DIY hides it so you can plan on your own." The toggle writes this column; the event Overview renders its journey rail unconditionally and never reads it. So DIY hides nothing and Guided grants nothing. NOT fixed here because the repair depends on what a couple should be PROMISED — hide the checklist, or change the copy — which is an owner call, not an engineering one. No DECISION_LOG row exists for it in either direction.
-
 # ── DOCUMENTED DORMANT: the column is deliberately unread, and says so ─────
-users.theme_preference | Deliberately dormant and documented in TWO places: `app/dashboard/(account)/profile/page.tsx` — "Setnayan always renders light. `users.theme_preference` is left dormant" — and `app/_components/theme-provider.tsx` — "DORMANT: the `users.theme_preference` column + its `updateThemePreference`". The five-theme picker is parked, not broken. Its migration to three values is also recorded. Nothing to build.
-npc_filing_tasks.counsel_gated | Admin compliance bookkeeping written and read inside `/admin/npc-readiness`; the effect (an admin seeing which filing tasks are counsel-gated) IS on that surface. Minors/Phase-3 gating is genuinely counsel-dependent and tracked in the corpus, not by a cross-surface read.
-
 # ── SELF-CONTAINED BY DESIGN: writer and effect are the same surface ────────
 # Each of these is a flag a person sets on one screen whose whole visible effect
 # is on that same screen or its own feature folder. No cross-surface promise is
 # made in the copy beside them. Checked as a group, not individually researched
 # — if you are here because one of them turned out to promise something
 # elsewhere, replace this line with a real reason or a fix.
+
 demo_sessions.joined_a | Demo-session bookkeeping, written and consumed by `lib/demo-sessions.ts`.
 demo_sessions.joined_b | Same module, same reason.
 drive_copy_artifacts.copied_high_res | Drive-copy job bookkeeping inside `lib/drive-copy.ts`; the retention/compression model is the cross-surface contract, not this flag.
@@ -58,7 +53,11 @@ event_software_activations_v2.is_reward_issued | Idempotence marker on the manpo
 event_vendor_payment_plan.is_default_seeded | Seeding marker for the payment-plan rows; consumed by the same vendors surface and its server helper.
 event_vendors.crew_meal_covered | Written and read on the couple's vendors surface, where the crew-meal line is shown.
 faith_vocab.is_civil | Taxonomy row property authored in `/admin/taxonomy`; read where that vocabulary is administered.
+npc_filing_tasks.counsel_gated | Admin compliance bookkeeping written and read inside `/admin/npc-readiness`; the effect (an admin seeing which filing tasks are counsel-gated) IS on that surface. Minors/Phase-3 gating is genuinely counsel-dependent and tracked in the corpus, not by a cross-surface read.
 panood_control_state.director_mode | Live Studio control-room mode, written and read by `lib/panood-control.ts` and the room it drives. ⚠ The old control room is a DELIBERATE rollback kept until the roaming cutover is verified — its own file says "it is not dead code and must not be deleted".
+users.planner_mode | 🔴 FINDING 2026-08-17, verified by hand and left OPEN for the owner. The profile page says "Guided shows the 9-step checklist on your Overview tab. DIY hides it so you can plan on your own." The toggle writes this column; the event Overview renders its journey rail unconditionally and never reads it. So DIY hides nothing and Guided grants nothing. NOT fixed here because the repair depends on what a couple should be PROMISED — hide the checklist, or change the copy — which is an owner call, not an engineering one. No DECISION_LOG row exists for it in either direction.
+users.theme_preference | Deliberately dormant and documented in TWO places: `app/dashboard/(account)/profile/page.tsx` — "Setnayan always renders light. `users.theme_preference` is left dormant" — and `app/_components/theme-provider.tsx` — "DORMANT: the `users.theme_preference` column + its `updateThemePreference`". The five-theme picker is parked, not broken. Its migration to three values is also recorded. Nothing to build.
 vendor_bot_replies.was_llm | Provenance stamp on a bot reply, written by the reply path; a record, not a switch anybody sets.
 vendor_branches.branch_subscription_active | Branch subscription state, written by the branches surface and `lib/sku-activation.ts`, read where branches are shown.
 vendor_dayof_configs.song_requests_open | An on-the-day toggle written and read by the vendor's on-the-day surface. ⚠ Worth a second look if guest-facing song requests are ever built — that WOULD be a cross-surface promise.
+vendor_reply_times.was_accepted | Not a switch and not person-facing: a timing fact frozen at event-deletion time so a supplier's response RATE survives the couple removing their celebration (owner 2026-08-24, "keep the clock, throw away the words"). Written by the BEFORE DELETE trigger, read by the same recompute that reads the live threads beside it — deliberately one code path, because the rate, the median and the sample size are three readings of one set. No control writes it and no copy anywhere promises anything about it.

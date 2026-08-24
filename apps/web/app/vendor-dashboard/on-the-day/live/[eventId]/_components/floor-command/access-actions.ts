@@ -32,11 +32,18 @@ export async function fetchMyAreaGrants(
   if (!user) return {};
 
   // RLS scopes this to rows the caller may see; the filter keeps it to their own.
+  // ⚠ `accepted_at IS NOT NULL` MIRRORS THE DATABASE GATE, and it was missing.
+  // `public.moderator_area_level` only ever looks at accepted, non-removed rows,
+  // so an invitation nobody has accepted grants nothing — but this read counted
+  // it as "already held" and quietly dropped that area from what the
+  // coordinator could ask for. They would have been unable to ask for a thing
+  // they did not have, on both screens at once.
   const { data } = await supabase
     .from('event_moderators')
     .select('permissions_json, removed_at')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
+    .not('accepted_at', 'is', null)
     .is('removed_at', null)
     .maybeSingle();
 

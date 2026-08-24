@@ -1118,6 +1118,29 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     </div>
   );
 
+  /**
+   * "Ask the host for access" — one definition, mounted by BOTH renders.
+   *
+   * 🚨 IT SHIPPED ON ONE BRANCH ONLY. The first version sat inside the
+   * flag-OFF body, and the flag-ON `RelationshipTabShell` return never
+   * mentioned it — so whether a coordinator could ask for the guest list
+   * depended on an environment variable whose production value is not readable
+   * from a session (it inlines at build time). The file's own comment three
+   * hundred lines up asserts that both branches "render the SAME JSX"; a
+   * sentence is not a mechanism. Defined here, used twice, so the two cannot
+   * drift again.
+   */
+  const askBlock =
+    isBooked && (askableAreas.length > 0 || myPendingAsk) ? (
+      <div className="mt-4">
+        <AskAccess
+          eventId={eventId}
+          askable={askableAreas}
+          pendingAreas={myPendingAsk?.requestedAreas ?? null}
+        />
+      </div>
+    ) : null;
+
   const pipelineBlock = (
     <div className="mt-3">
       <PipelineStrip reached={reached} current={current} capAt={capAt} />
@@ -1267,15 +1290,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
           {/* ============================ BODY ============================ */}
           <div className={bodyPad}>
-            {tab === 'overview' && isBooked && (askableAreas.length > 0 || myPendingAsk) ? (
-              <div className="mb-5">
-                <AskAccess
-                  eventId={eventId}
-                  askable={askableAreas}
-                  pendingAreas={myPendingAsk?.requestedAreas ?? null}
-                />
-              </div>
-            ) : null}
+            {tab === 'overview' ? askBlock : null}
             {tab === 'overview' ? overviewNode : null}
             {tab === 'quote' ? quoteNode : null}
             {tab === 'files' ? filesNode : null}
@@ -1634,6 +1649,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           {identityBlock}
           {actionRow}
           {pipelineBlock}
+          {askBlock}
         </div>
       }
     />

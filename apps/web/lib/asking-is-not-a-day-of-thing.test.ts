@@ -22,6 +22,8 @@ import { readFileSync } from 'node:fs';
 const LIVE_CONSOLE = 'app/vendor-dashboard/on-the-day/live/[eventId]/page.tsx';
 const CLIENT_CARD = 'app/vendor-dashboard/clients/[eventId]/page.tsx';
 const ASK = 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/ask-access.tsx';
+const ACCESS_ACTIONS =
+  'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions.ts';
 
 /** Source with comments stripped — a rule that matches a comment explaining
  *  the rule is a rule that cannot fail. */
@@ -64,6 +66,42 @@ test('the ask is mounted on a screen that is NOT day-gated', () => {
   // It is offered to booked suppliers only — the server action re-checks this,
   // so the display rule must agree with it rather than contradict it.
   assert.ok(src.includes('isBooked && (askableAreas.length > 0'));
+});
+
+test('BOTH renders mount it — the ask must not depend on an environment flag', () => {
+  // 🚨 THE FIRST VERSION OF THIS FILE ASKED ONLY `src.includes('<AskAccess')`,
+  // and the mount sat inside the flag-OFF body while the flag-ON
+  // `RelationshipTabShell` return never mentioned it. A file-level match cannot
+  // say WHICH branch renders a thing — the same shape that let a colour guard
+  // report a screen clean. So whether a coordinator could ask for the guest
+  // list depended on a variable whose production value is not readable from a
+  // session, and this guard said it was fine.
+  const src = code(CLIENT_CARD);
+  const split = src.indexOf('<RelationshipTabShell');
+  assert.ok(split > 0, 'the flag-ON render moved — re-derive this split before trusting it');
+
+  const uses = [...src.matchAll(/\{\s*askBlock\s*\}|\?\s*askBlock/g)].map((m) => m.index ?? 0);
+  const before = uses.filter((i) => i < split).length;
+  const after = uses.filter((i) => i > split).length;
+
+  assert.ok(before >= 1, 'the flag-OFF render does not mount the ask');
+  assert.ok(after >= 1, 'the flag-ON render does not mount the ask');
+  assert.equal(
+    (src.match(/const askBlock =/g) ?? []).length,
+    1,
+    'one definition, used twice — two copies is how the branches drifted in the first place',
+  );
+});
+
+test('"what you already hold" asks the same question the database does', () => {
+  // An unaccepted invitation grants nothing, so counting it as held would hide
+  // that area from the ask — the coordinator could not ask for a thing they did
+  // not have. The database gate filters on accepted_at; this read must too.
+  const src = code(ACCESS_ACTIONS);
+  assert.ok(
+    /\.not\('accepted_at', 'is', null\)/.test(src),
+    'fetchMyAreaGrants counts unaccepted grants as already held',
+  );
 });
 
 test('the ask component says nothing that only makes sense on the day', () => {

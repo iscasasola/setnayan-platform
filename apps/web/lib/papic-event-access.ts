@@ -166,6 +166,16 @@ export const PAPIC_ACCESS_PHASE_1_TYPES = [
   'tournament',
   'date',
   'hangout',
+  // `funeral` — added 2026-08-24 with the type itself (W4-WORDS), following
+  // the standing owner ruling above: "offer Papic everywhere." The type
+  // arrived AFTER that ruling, so it landed on the fail-closed default and
+  // this line is the deliberate edit that default exists to force. It also
+  // fits the wake in substance, not just by rule — visitors' photographs of
+  // the vigil nights landing in one family gallery is remembrance, and the
+  // funeral profile enables `rsvp`, the last live gate below. The guest-tree
+  // surfaces it renders on speak the solemn register. If the owner wants
+  // wakes excluded from the camera, this one line is the whole change.
+  'funeral',
 ] as const;
 
 /**

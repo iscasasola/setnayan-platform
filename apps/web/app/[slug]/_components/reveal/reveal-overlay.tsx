@@ -248,17 +248,42 @@ export function RevealOverlay({
         {/* Legible instruction (owner 2026-06-20 "the text at the bottom should
             be visible so old people can understand the app"): larger type, full
             contrast, and a soft dark scrim so cream text never washes out on a
-            light/ivory veil. Still fades once the veil is lifted. */}
+            light/ivory veil. Still fades once the veil is lifted.
+
+            ✉️ 2026-08-24 (H-1) — IT ASKS LIKE AN INVITATION NOW, NOT LIKE A
+            TERMINAL. Measured on the live site at 375px: DM Mono, UPPERCASE,
+            3.52px and 2.24px of letter-spacing — a monospaced DATA face, set as
+            a system message, on the first thing a guest ever sees of somebody's
+            wedding. The WORDS are unchanged and deliberately so: they are the
+            owner's, and they are what made this understandable in the first
+            place. Only the voice setting them changed.
+
+            🔒 LEGIBILITY GOES UP, NEVER DOWN. That is the owner's lock on this
+            pill, so it is a constraint to clear, not something to trade against
+            a prettier face. The headline grows 16px → 24px. The second line
+            keeps its size and drops ALL-CAPS-at-wide-tracking, which is
+            measurably slower to read than sentence case. Scrim, contrast and
+            text-shadow are untouched.
+
+            📏 "you" WAS STRANDED ALONE ON ITS OWN LINE — measured on the live
+            page, not assumed: at 375px the second line rendered as
+            "or double-tap to lift it for" / "you". `text-balance` makes the
+            browser even the lines out, so the fix survives a longer translation
+            instead of depending on this exact string happening to fit.
+
+            ⛔ NOT H-2. That is the FILM's label face (`lib/std-themes.ts`), it
+            is owner-gated, and nothing here touches it. This is the reveal
+            overlay — a different component, and W3-D's own scheduled item. */}
         <div
           className={`pointer-events-none absolute inset-x-0 bottom-16 flex justify-center transition-opacity duration-500 ${
             open ? 'opacity-0' : 'opacity-100'
           }`}
         >
           <div className="rounded-full bg-black/35 px-6 py-3 text-center backdrop-blur-[2px]">
-            <p className="font-mono text-base uppercase tracking-[0.22em] text-cream [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
+            <p className="font-display text-2xl font-medium leading-snug text-cream [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
               Lift the veil ↑
             </p>
-            <p className="mt-1.5 font-mono text-sm uppercase tracking-[0.16em] text-cream/85 [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
+            <p className="mt-1 text-balance font-sans text-sm leading-snug text-cream/85 [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
               or double-tap to lift it for you
             </p>
           </div>

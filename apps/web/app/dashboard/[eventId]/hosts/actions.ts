@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { withArea } from '@/lib/delegate-areas';
 import {
   ROLE_SUBTYPES,
   PERMISSION_TEMPLATES,
@@ -273,12 +274,16 @@ export async function setDelegateBudget(formData: FormData) {
       invite_hosts: false,
       remove_hosts: false,
     }) as ModeratorPermissions;
-    const areas = { ...(perms.areas ?? {}) };
-    areas.budget = grant === 'view' ? 'view' : null;
+    // ⚠ NOT `{ ...(perms.areas ?? {}) }` — that spread is what turned this
+    // button into a withdrawal. A host row minted by the invite door carries no
+    // `areas` map at all, so setting one key wrote a map naming ONE area, and
+    // since 2026-08-25 an area a map does not name resolves to nothing. See
+    // `materializeAreas`.
+    const permissions = withArea(perms, 'budget', grant === 'view' ? 'view' : null);
     await admin
       .from('event_moderators')
       .update({
-        permissions_json: { ...perms, areas },
+        permissions_json: permissions,
         updated_at: new Date().toISOString(),
       })
       .eq('moderator_id', moderatorId)
@@ -334,15 +339,16 @@ export async function setDelegatePhotos(formData: FormData) {
       invite_hosts: false,
       remove_hosts: false,
     }) as ModeratorPermissions;
-    const areas = { ...(perms.areas ?? {}) };
     // An explicit null, never a deleted key. Absence would fall through to the
-    // resolver's tail, and its TypeScript half FAILS OPEN for a delegate with
-    // edit_all — withdrawal has to be written down, not implied.
-    areas.photos = grant === 'view' ? 'view' : null;
+    // resolver's tail, which FAILS OPEN for a delegate with edit_all —
+    // withdrawal has to be written down, not implied.
+    // ⚠ And every OTHER area is written down at the same time, or granting one
+    // silently withdraws the rest — see `materializeAreas`.
+    const permissions = withArea(perms, 'photos', grant === 'view' ? 'view' : null);
     await admin
       .from('event_moderators')
       .update({
-        permissions_json: { ...perms, areas },
+        permissions_json: permissions,
         updated_at: new Date().toISOString(),
       })
       .eq('moderator_id', moderatorId)

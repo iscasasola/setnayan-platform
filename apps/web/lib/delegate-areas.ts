@@ -13,7 +13,16 @@
  *
  * ⚖ NARROWED 2026-08-25 (owner: the guest list is the host's, "and coordinator
  * (by request)"). That tail is now reachable ONLY by a row carrying no `areas`
- * map — the legacy shape the couple's own host rows still use. Once a row has
+ * map.
+ *
+ * 🛑 AND THE SENTENCE THAT USED TO SIT HERE WAS WRONG. It called a row with no
+ * `areas` map "the legacy shape, written before `areas` existed". The couple's
+ * own host-invite door MINTS ONE TODAY: `hosts/actions.ts` writes a bare
+ * `PERMISSION_TEMPLATES[role]` for every role except the coordinator, and not
+ * one of those eighteen templates carries an `areas` key. So "no map" means
+ * "invited as a host, never narrowed" — a live shape, not a fossil. The
+ * fallback is right for them; the description was not, and the applied
+ * migration carries the same wrong sentence where it can no longer be edited. Once a row has
  * an `areas` map it has been answered area by area, and an area missing from
  * it resolves to nothing rather than to a flag the host never set. Measured
  * before the change on the one external planner in production, granted
@@ -89,6 +98,52 @@ export const COORDINATOR_AREAS: Readonly<Partial<Record<DelegateArea, AreaLevel>
   // from absence.
   photos: null,
 };
+
+/**
+ * EVERY AREA THIS ROW HOLDS RIGHT NOW, WRITTEN OUT IN FULL.
+ *
+ * 🚨 THIS EXISTS BECAUSE A GRANT BUTTON BECAME A WITHDRAWAL ON 2026-08-25.
+ * Four call sites edit one area of an existing grant by spreading
+ * `{ ...(perms.areas ?? {}) }` and setting a single key. On a row that had NO
+ * `areas` map that writes a map containing exactly ONE area — and since the
+ * narrowing landed the same day, every area missing from a map now resolves to
+ * nothing. So the couple pressing "Allow event photos" on a ninong's row, or on
+ * their own partner's, silently took away the guest list, the seat plan, the
+ * schedule, the suppliers, the invitations and the mood board. Before the
+ * narrowing that write was harmless, which is exactly why nobody re-read it.
+ *
+ * 🔑 THE FIX IS TO MATERIALISE, NOT TO EXEMPT. Widening the resolver back would
+ * undo the owner's ruling. Instead, before changing one area, write down what
+ * the row already resolves to for ALL of them — the answer is identical to what
+ * they hold today, so nothing changes hands — and then change the one line. An
+ * implicit grant becomes an explicit one, and the map stops being a cliff.
+ *
+ * ⚖ IT FREEZES THE ROW AGAINST FUTURE AREAS, AND THAT IS THE SAFE DIRECTION. A
+ * new area added later will not be inherited by a materialised row. `photos`
+ * shipped exactly that way, deliberately fail-closed, for the same reason.
+ */
+export function materializeAreas(
+  perms: ModeratorPermissions,
+): Partial<Record<DelegateArea, AreaLevel>> {
+  const out: Partial<Record<DelegateArea, AreaLevel>> = {};
+  for (const area of DELEGATE_AREAS) out[area] = resolveAreaLevel(perms, area);
+  return out;
+}
+
+/**
+ * Change ONE area of a grant without disturbing the others.
+ *
+ * The only safe way to edit an `areas` map, and the reason it is a function
+ * rather than a spread at four call sites: the four had drifted into the same
+ * one-line shape and all four were wrong in the same way.
+ */
+export function withArea(
+  perms: ModeratorPermissions,
+  area: DelegateArea,
+  level: AreaLevel,
+): ModeratorPermissions {
+  return { ...perms, areas: { ...materializeAreas(perms), [area]: level } };
+}
 
 /**
  * TS mirror of public.moderator_area_level (migration 20261129000000).

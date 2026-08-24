@@ -415,10 +415,21 @@ function errorBranches(src: string): Array<{ body: string }> {
  * returns null on a refusal is not caught here. Rules 2, 5 and 7 catch the read
  * itself; this one catches the invented value.
  */
-const statesAnAbsence = (body: string): boolean =>
-  /return\s*(?:0|\[\])\s*;/.test(body) && !/ReadRefusedNotice/.test(body);
+const fabricatedReturns = (body: string): number =>
+  [...body.matchAll(/return\s*(?:0|\[\])\s*;/g)].length;
 
-const discardMatches = (src: string) => errorBranches(src).filter((b) => statesAnAbsence(b.body));
+/**
+ * 🪤 THE FIRST VERSION COUNTED BRANCHES AND THE MUTATION RUN CAUGHT IT. One
+ * `if (error) { … }` can hold TWO returns — a legitimate `isMissingRelation →
+ * []` and, below it, the discard. Counting the branch gave 1 either way, so
+ * turning the honest `return null` into `return []` changed nothing the guard
+ * could see (measured: the sabotage landed, 0 failures). **COUNT THE THING THE
+ * BILL IS ABOUT — the fabricated value — not the container it sits in.**
+ */
+const discardMatches = (src: string) =>
+  errorBranches(src).flatMap((b) =>
+    Array.from({ length: fabricatedReturns(b.body) }, () => b),
+  );
 
 /**
  * THE BILL, with a reason on every line. Each is a bound error deliberately
@@ -468,6 +479,52 @@ test('an error that is bound is not allowed to be thrown away', () => {
     .filter(([f, allowed]) => (counts.get(f) ?? 0) < allowed)
     .map(([f]) => f);
   assert.deepEqual(stale, [], `Fixed — delete from KNOWN_DISCARDED: ${stale.join(' · ')}`);
+});
+
+/**
+ * The three cards that carried `if (error) return null; // pre-migration
+ * graceful-degrade (42P01)`. The COMMENT named one cause; the CODE swallowed
+ * every cause. Each must now narrow to the cause it names.
+ */
+const MUST_NARROW = [
+  '[eventId]/messages/[threadId]/_components/thread-quotations-card.tsx',
+  '[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx',
+  '[eventId]/vendors/[vendorId]/workspace/_components/working-folder-notes.tsx',
+];
+
+test('a degrade written for a missing table does not also swallow a refusal', () => {
+  const missing: string[] = [];
+  for (const rel of MUST_NARROW) {
+    const src = stripComments(readFileSync(join(HERE, rel), 'utf8'));
+    if (!/if \(isMissingRelationError\(error\)\) return null;/.test(src)) {
+      missing.push(`${rel} — no longer narrows to the missing-table case`);
+    }
+    if (!/<ReadRefusedNotice/.test(src)) missing.push(`${rel} — says nothing on a refusal`);
+  }
+  assert.deepEqual(
+    missing,
+    [],
+    'These cards vanish when the read is refused, taking a quotation or a ' +
+      'booking note off the screen of the person who needs it. Keep the silent ' +
+      `degrade for the missing table only. ${missing.join(' · ')}`,
+  );
+});
+
+test('a supplier is never blamed for a read WE could not make', () => {
+  const panel = stripComments(
+    readFileSync(join(HERE, '[eventId]/_components/vendor-marketplace-info.tsx'), 'utf8'),
+  );
+  assert.match(
+    panel,
+    /\{services === null \? \(/,
+    '"{Supplier} hasn’t published a service list yet" is a claim about somebody ' +
+      'else’s behaviour. It must be gated on our read having actually happened.',
+  );
+  assert.match(
+    panel,
+    /const hasAnything =[\s\S]{0,80}?services === null \|\|/,
+    'The panel must stay mounted when the list is unread, or it cannot say so.',
+  );
 });
 
 test('the gallery hub never says "collecting" about a gallery it could not count', () => {

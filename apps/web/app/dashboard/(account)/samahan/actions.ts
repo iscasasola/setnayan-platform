@@ -342,3 +342,55 @@ export async function archiveCommunity(formData: FormData) {
   revalidatePath('/dashboard/samahan');
   redirect('/dashboard/samahan?archived=1');
 }
+
+/**
+ * Rename the samahan / set its group photo — ANY member (owner 2026-08-24:
+ * "anyone can rename"). USER-scoped update so RLS (member_can_update_community)
+ * is the gate, and the communities_member_field_guard trigger — not this
+ * action — is what keeps a plain member away from archived/kind/identity.
+ */
+export async function updateCommunityIdentity(formData: FormData) {
+  const communityId = String(formData.get('community_id') ?? '');
+  if (!communityId) redirect('/dashboard/samahan');
+  const back = `/dashboard/samahan/${communityId}`;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login?next=%2Fdashboard%2Fsamahan');
+
+  const rawName = String(formData.get('name') ?? '').trim();
+  // The photo field is a stored-asset ref minted by <FileUpload> via
+  // /api/upload (tenancy: the samahan/<id> prefix admits members only).
+  // Absent field = leave the photo alone; empty string = remove it.
+  const photoField = formData.get('photo_url');
+
+  const patch: Record<string, string | null> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (rawName) {
+    if (rawName.length < 2 || rawName.length > 80) {
+      redirect(`${back}?error=${encodeURIComponent('A samahan name is 2 to 80 characters.')}`);
+    }
+    patch.name = rawName;
+  }
+  if (photoField !== null) {
+    const ref = String(photoField).trim();
+    if (ref && !ref.startsWith('r2://')) {
+      redirect(`${back}?error=${encodeURIComponent('That photo didn’t upload — try again.')}`);
+    }
+    patch.photo_url = ref || null;
+  }
+
+  const { error } = await supabase
+    .from('communities')
+    .update(patch)
+    .eq('community_id', communityId);
+  if (error) {
+    redirect(`${back}?error=${encodeURIComponent('That change didn’t save. Try again.')}`);
+  }
+  revalidatePath(back);
+  revalidatePath('/dashboard/samahan');
+  redirect(`${back}?updated=1`);
+}

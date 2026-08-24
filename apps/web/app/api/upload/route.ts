@@ -632,11 +632,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                   .select('vendor_profile_id')
                   .eq('vendor_profile_id', tenancy.id)
                   .maybeSingle()
-              : await supabase
-                  .from('chat_threads')
-                  .select('thread_id')
-                  .eq('thread_id', tenancy.id)
-                  .maybeSingle();
+              : tenancy.kind === 'community'
+                ? // A samahan the caller belongs to — RLS on `communities`
+                  // admits members only, so a stranger naming someone else's
+                  // group id gets nothing back and the same refusal.
+                  await supabase
+                    .from('communities')
+                    .select('community_id')
+                    .eq('community_id', tenancy.id)
+                    .maybeSingle()
+                : await supabase
+                    .from('chat_threads')
+                    .select('thread_id')
+                    .eq('thread_id', tenancy.id)
+                    .maybeSingle();
       if (!owned) {
         // Non-specific on purpose (r2-client-ref house style): a caller must not
         // be able to use this endpoint to learn whether an id exists.

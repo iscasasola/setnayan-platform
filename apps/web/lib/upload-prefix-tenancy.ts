@@ -61,6 +61,7 @@ export type UploadTenancy =
   | { kind: 'order'; id: string }
   | { kind: 'vendor'; id: string }
   | { kind: 'user'; id: string }
+  | { kind: 'community'; id: string }
   | null;
 
 /**
@@ -149,6 +150,12 @@ const VENDOR_ROOTS = new Set(['vendors']);
  */
 const USER_ROOTS = new Set(['profile-photo']);
 
+/** Prefix families whose UUID is a COMMUNITY (samahan) id. Without this arm
+ *  the default treats it as an event id, checks it against `events`, and
+ *  refuses every member — the exact `payments/<orderId>` break, one prefix
+ *  later. */
+const COMMUNITY_ROOTS = new Set(['samahan']);
+
 /**
  * Resolve the tenancy a sanitised `pathPrefix` implies.
  *
@@ -170,6 +177,7 @@ export function tenancyForPathPrefix(sanitizedPrefix: string): UploadTenancy {
   if (ORDER_ROOTS.has(root)) return { kind: 'order', id };
   if (VENDOR_ROOTS.has(root)) return { kind: 'vendor', id };
   if (USER_ROOTS.has(root)) return { kind: 'user', id };
+  if (COMMUNITY_ROOTS.has(root)) return { kind: 'community', id };
   return { kind: 'event', id };
 }
 

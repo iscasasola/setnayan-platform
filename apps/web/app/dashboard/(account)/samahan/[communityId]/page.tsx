@@ -42,7 +42,10 @@ import {
   promoteMember,
   removeMember,
   rotateInviteToken,
+  updateCommunityIdentity,
 } from '../actions';
+import { FileUpload } from '@/app/_components/file-upload';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 export const metadata = {
   title: 'Samahan',
@@ -71,6 +74,7 @@ type SearchParams = Promise<{
   created?: string;
   rotated?: string;
   removed?: string;
+  updated?: string;
   joined?: string;
   already?: string;
   confirm?: string;
@@ -124,6 +128,9 @@ export default async function SamahanSpacePage({
   after(() => maybeRunSamahanStorySweep());
 
   const initial = community.name.trim().charAt(0).toUpperCase() || 'S';
+  // Group photo (owner 2026-08-24): r2:// ref presigned server-side; a
+  // legacy/absent value falls back to the initial chip unchanged.
+  const photoDisplayUrl = await displayUrlForStoredAsset(community.photo_url);
   const rawError = sp.error ? decodeURIComponent(sp.error) : null;
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
   const successMessage =
@@ -137,7 +144,9 @@ export default async function SamahanSpacePage({
             ? 'New invite link ready — the old link no longer works.'
             : sp.removed === '1'
               ? 'Member removed from the roster.'
-              : null;
+              : sp.updated === '1'
+                ? 'Set na ’yan — your samahan’s new look is saved.'
+                : null;
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
@@ -154,9 +163,18 @@ export default async function SamahanSpacePage({
           metaline. */}
       <div className="mb-6 rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
         <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-mulberry/10 text-xl font-semibold text-mulberry ring-1 ring-terracotta-500">
-            {initial}
-          </span>
+          {photoDisplayUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- short-lived presigned URL; the optimizer would re-transform per render
+            <img
+              src={photoDisplayUrl}
+              alt=""
+              className="h-14 w-14 shrink-0 rounded-2xl object-cover ring-1 ring-terracotta-500"
+            />
+          ) : (
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-mulberry/10 text-xl font-semibold text-mulberry ring-1 ring-terracotta-500">
+              {initial}
+            </span>
+          )}
           <div className="min-w-0">
             <h1 className="truncate font-sans text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
               {community.name}
@@ -232,6 +250,9 @@ export default async function SamahanSpacePage({
           inviteToken={inviteToken}
           isOrganizer={isOrganizer}
           memberCount={community.member_count}
+          name={community.name}
+          photoUrl={community.photo_url}
+          photoDisplayUrl={photoDisplayUrl}
           stories={stories}
         />
       ) : tab === 'members' ? (
@@ -261,6 +282,9 @@ function OverviewTab({
   inviteToken,
   isOrganizer,
   memberCount,
+  name,
+  photoUrl,
+  photoDisplayUrl,
   stories,
 }: {
   base: string;
@@ -271,6 +295,9 @@ function OverviewTab({
   inviteToken: string | null;
   isOrganizer: boolean;
   memberCount: number;
+  name: string;
+  photoUrl: string | null;
+  photoDisplayUrl: string | null;
   stories: SamahanStory[];
 }) {
   // One resolver (lib/site-origin.ts). This chain omitted NEXT_PUBLIC_APP_URL,
@@ -283,6 +310,51 @@ function OverviewTab({
       <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
         <SamahanStories communityId={communityId} stories={stories} />
       </div>
+      {/* Name & photo — EVERY member may change these (owner 2026-08-24:
+          "anyone can rename"); the DB trigger keeps archived/kind/identity
+          organizer-side, so this form needs no role gate. */}
+      <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/45">
+          Name &amp; photo
+        </p>
+        <form action={updateCommunityIdentity} className="mt-3 space-y-3">
+          <input type="hidden" name="community_id" value={communityId} />
+          <label className="block text-xs text-ink/60">
+            What this samahan is called — anyone here can change it.
+            <input
+              type="text"
+              name="name"
+              defaultValue={name}
+              minLength={2}
+              maxLength={80}
+              className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+            />
+          </label>
+          <div className="text-xs text-ink/60">
+            Group photo
+            <div className="mt-1">
+              <FileUpload
+                bucket="media"
+                pathPrefix={`samahan/${communityId}/photo`}
+                acceptedTypes={['image/jpeg', 'image/png', 'image/webp']}
+                maxSizeMB={5}
+                name="photo_url"
+                currentValue={photoUrl}
+                initialDisplayUrls={
+                  photoUrl && photoDisplayUrl ? { [photoUrl]: photoDisplayUrl } : undefined
+                }
+              />
+            </div>
+          </div>
+          <SubmitButton
+            className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-3.5 py-2 text-xs font-semibold text-white"
+            pendingLabel="Saving…"
+          >
+            Save
+          </SubmitButton>
+        </form>
+      </div>
+
       <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
         {description ? (
           <p className="text-sm leading-relaxed text-ink/75">{description}</p>

@@ -380,7 +380,16 @@ function RsvpPill({ status }: { status: GuestRow['rsvp_status'] }) {
     status === 'attending'
       ? 'Going'
       : status === 'pending'
-        ? 'Pending'
+        // 🔑 THE WORD DESCRIBES THE ANSWER, NOT THE MEMBERSHIP. "Pending" was the
+        // only status-shaped element on the page a guest lands on, and it reads
+        // as "you are not finished" — when in fact they are on the list and the
+        // seat is theirs. This file already owns the honest wording 28 lines up
+        // ("No reply was received from you."), but that arm only renders once
+        // the list is frozen. ⚠ Must stay identical to guest-hub-card.tsx's
+        // default arm — the two surfaces show one guest one fact and already
+        // drifted once ("Pending" vs "RSVP pending"). Pinned by
+        // the-status-word-is-about-the-reply.test.ts.
+        ? 'No reply yet'
         : status === 'declined'
           ? 'Declined'
           : 'Maybe';

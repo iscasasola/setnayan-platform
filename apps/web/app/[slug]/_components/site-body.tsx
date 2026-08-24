@@ -1156,7 +1156,12 @@ export async function SiteBody({
               guests. Shows RSVP status, seat, meal, and next schedule item at
               a glance on every return visit. Hidden from anonymous visitors
               (this branch only runs when a guest session is present). */}
-          <GuestHubCard words={clientWords} data={guestHubData} guestListClosed={plan.guestListClosed} />
+          <GuestHubCard
+            words={clientWords}
+            data={guestHubData}
+            guestListClosed={plan.guestListClosed}
+            detailsCardOnPage={plan.rsvpShouldRender}
+          />
 
           {/* Invite/Join v2 — accountless guest's "claim your account" prompt.
               Per the lifecycle table: RSVP / Event / Editorial only (never Save the
@@ -1656,7 +1661,18 @@ export async function SiteBody({
                   the ask no longer competes with the reward, but nothing the
                   guest could do before is lost. */}
               {plan.rsvpShouldRender ? (
-                guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined' ? (
+                <>
+                  {/* 🔗 THE ONLY ANCHOR ON THE REPLY CARD, and it sits INSIDE the
+                      gate on purpose: the card is phase-gated to `rsvp`, so an
+                      anchor outside would survive into save_the_date / event /
+                      editorial and point a chip at nothing.
+                      ⚠ A zero-height sibling rather than a wrapper. Wrapping
+                      either mount — or adding an id to the `<div className="mt-4">`
+                      above one — breaks `only-the-answer-freezes.test.ts`, which
+                      pins each mount's immediate predecessor and is deliberately
+                      brittle. This changes neither. */}
+                  <span id="your-details" aria-hidden className="block scroll-mt-6" />
+                  {guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined' ? (
                   <>
                     {guest.rsvp_status === 'attending' ? (
                       <PahinaKeepsake
@@ -1681,9 +1697,14 @@ export async function SiteBody({
                     )}
                     <details className="group">
                       <summary className="cursor-pointer list-none font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50 hover:text-ink/70">
+                        {/* Names BOTH things behind it. The old open-list label
+                            advertised only the reply, so a guest wanting to fix
+                            a phone number had no reason to open it — the exact
+                            failure this file's own #4683 note cites four lines
+                            from the boxes. */}
                         {plan.guestListClosed
                           ? 'Need to update your details?'
-                          : 'Need to change your reply?'}
+                          : 'Need to change your reply or your details?'}
                       </summary>
                       <div className="mt-4">
                         <RsvpWidget words={clientWords}
@@ -1719,7 +1740,8 @@ export async function SiteBody({
                     replyLocked={plan.guestListClosed}
                     profileDetails={profileDetails}
                   />
-                )
+                  )}
+                </>
               ) : null}
 
               {guest.photo_source === 'selfie' ? (

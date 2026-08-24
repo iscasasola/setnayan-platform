@@ -27,6 +27,7 @@ import {
   ChevronDown,
   MapPin,
   PartyPopper,
+  User,
   UtensilsCrossed,
 } from 'lucide-react';
 import type { ScheduleBlockRow } from '@/lib/schedule';
@@ -107,7 +108,9 @@ function rsvpMeta(status: RsvpStatus): {
       };
     default:
       return {
-        label: 'RSVP pending',
+        // Identical to RsvpPill's pending label by requirement, not by luck —
+        // see rsvp-widget.tsx. These two drifted apart once already.
+        label: 'No reply yet',
         dot: 'bg-ink/30',
         badge: 'text-ink/55 border border-ink/15',
       };
@@ -208,6 +211,7 @@ export function GuestHubCard({
   data,
   words,
   guestListClosed = false,
+  detailsCardOnPage = false,
 }: {
   data: GuestHubData;
   words: EventWords;
@@ -219,6 +223,11 @@ export function GuestHubCard({
    * Defaults FALSE so every existing mount is unchanged.
    */
   guestListClosed?: boolean;
+  /** Whether the reply card is rendering on THIS page right now. The card is
+   *  phase-gated to `rsvp`; the chip below must not point at it in any other
+   *  phase, where the anchor does not exist. Defaults false — a chip that is
+   *  absent is a smaller failure than one that scrolls to nothing. */
+  detailsCardOnPage?: boolean;
 }) {
   const { firstName, displayName, rsvpStatus, tableLabel, mealPreference, dietaryRestrictions, nextScheduleBlock, slug, isLimitedPlusOne, arrived, firstVisit = false } = data;
   // Day-of arrival: once the guest has checked in at the door AND has a seat,
@@ -438,6 +447,15 @@ export function GuestHubCard({
               <MapPin aria-hidden className="h-3 w-3" strokeWidth={1.75} />
               Find my table
             </Link>
+            {detailsCardOnPage ? (
+              <a
+                href="#your-details"
+                className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs text-ink/70 hover:border-terracotta hover:text-terracotta-700"
+              >
+                <User aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                Your details
+              </a>
+            ) : null}
             {!isLimitedPlusOne ? (
               <Link
                 href={`/${slug}/welcome`}

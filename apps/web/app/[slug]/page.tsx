@@ -46,6 +46,7 @@ import {
   loadEventShell,
   loadGuestContext,
   loadHostMembership,
+  loadCoupleMembership,
   loadVendorBooking,
   loadDayOfBroadcast,
   loadLiveLayer,
@@ -733,6 +734,12 @@ async function InvitationBody({
     eventId: event.event_id,
     viewerUserId: viewerAccount?.id ?? null,
     checkHostMembership: (userId) => loadHostMembership(admin, event.event_id, userId),
+    // The stricter second question, asked only of somebody the first already
+    // admitted: are they one of the COUPLE? It decides which door the ribbon
+    // offers, because the site editor redirects every other member type. Same
+    // column, same value the editor itself checks — two copies of that rule is
+    // how the ribbon and the editor came to disagree about the same person.
+    checkSiteEditing: (userId) => loadCoupleMembership(admin, event.event_id, userId),
   });
 
   // The supplier doorway's grant. Same shape and same discipline as the owner

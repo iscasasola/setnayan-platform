@@ -4,7 +4,6 @@ import { notFound } from 'next/navigation';
 import {
   ArrowLeft,
   ArrowUpRight,
-  Archive,
   CalendarDays,
   MessageCircle,
   Plus,
@@ -38,7 +37,6 @@ import type { EventWithRole } from '@/lib/events';
 
 type EventMemberType = EventWithRole['member_type'];
 import {
-  archiveCommunity,
   demoteMember,
   leaveCommunity,
   promoteMember,
@@ -236,7 +234,6 @@ export default async function SamahanSpacePage({
       {tab === 'overview' ? (
         <OverviewTab
           base={base}
-          confirmArchive={sp.confirm === 'archive'}
           communityId={community.community_id}
           description={community.description}
           eventCount={events.length}
@@ -268,7 +265,6 @@ export default async function SamahanSpacePage({
 function OverviewTab({
   base,
   communityId,
-  confirmArchive,
   description,
   eventCount,
   inviteToken,
@@ -278,7 +274,6 @@ function OverviewTab({
 }: {
   base: string;
   communityId: string;
-  confirmArchive: boolean;
   description: string | null;
   eventCount: number;
   inviteToken: string | null;
@@ -368,43 +363,13 @@ function OverviewTab({
 
           <div aria-hidden className="my-4 h-px bg-ink/10" />
 
-          {confirmArchive ? (
-            <div className="space-y-3 rounded-xl border border-terracotta/25 bg-terracotta/[0.05] p-4">
-              <p className="text-sm font-medium text-ink">
-                Archive this samahan?
-              </p>
-              <p className="text-xs leading-relaxed text-ink/60">
-                Members keep their accounts and events — the samahan just goes
-                quiet.
-              </p>
-              <div className="flex items-center gap-2">
-                <form action={archiveCommunity}>
-                  <input name="community_id" type="hidden" value={communityId} />
-                  <SubmitButton
-                    pendingLabel="Archiving…"
-                    className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-4 py-2 text-xs font-medium text-cream transition hover:bg-mulberry-600"
-                  >
-                    <Archive aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                    Yes, archive it
-                  </SubmitButton>
-                </form>
-                <Link
-                  href={base}
-                  className="rounded-md px-3 py-2 text-xs font-medium text-ink/60 hover:text-ink"
-                >
-                  Cancel
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <Link
-              href={`${base}?confirm=archive`}
-              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/60 hover:bg-ink/5 hover:text-ink"
-            >
-              <Archive aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Archive samahan
-            </Link>
-          )}
+          {/* Owner 2026-08-24: closing is not a button. The samahan ends when
+              the last person leaves, so a sentence sits where the control was
+              — silence here would read as an unfinished feature. */}
+          <p className="text-xs leading-relaxed text-ink/55">
+            A samahan lives for as long as one person is still in it. It closes
+            on its own when the last member leaves.
+          </p>
         </div>
       ) : null}
     </div>

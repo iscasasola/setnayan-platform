@@ -145,19 +145,31 @@ export async function leaveCommunity(formData: FormData) {
   }
 
   // User-scoped DELETE of own row (RLS community_member_leave_or_remove).
-  const { error } = await supabase
+  // ⚠ `.select()` so the result PROVES the row went. Until 2026-08-24 there
+  // was no DELETE grant at all, so this was refused for everybody — and a
+  // refusal that only sets `error`, followed by a block acting on a count
+  // read BEFORE it, is how a stale number closes a samahan people are in.
+  const { data: removed, error } = await supabase
     .from('community_members')
     .delete()
-    .eq('id', self.id);
+    .eq('id', self.id)
+    .select('id');
   if (error) {
     redirect(
       `/dashboard/samahan/${communityId}?tab=members&error=${encodeURIComponent(error.message)}`,
     );
   }
+  if (!removed || removed.length === 0) {
+    // Refused with no error — RLS returns zero rows rather than throwing.
+    // Say so, instead of continuing as though they had left.
+    redirect(`/dashboard/samahan/${communityId}?tab=members&error=leave_failed`);
+  }
 
-  // Sole member walking away: archive so the community goes quiet instead of
-  // lingering as an unreachable orphan row (soft-archive-only lifecycle).
-  if (counts.members === 1) {
+  // Owner 2026-08-24: "for as long as there is one, the group lives." The
+  // samahan closes only when the roster is EMPTY — re-counted here, AFTER
+  // the delete, never inferred from the count taken before it.
+  const after = await fetchMemberCounts(admin, communityId);
+  if (after.members === 0) {
     await admin
       .from('communities')
       .update({ archived: true, updated_at: new Date().toISOString() })
@@ -313,35 +325,18 @@ export async function rotateInviteToken(formData: FormData) {
   redirect(`/dashboard/samahan/${communityId}?rotated=1`);
 }
 
-export async function archiveCommunity(formData: FormData) {
-  const communityId = String(formData.get('community_id') ?? '');
-  if (!communityId) redirect('/dashboard/samahan');
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login?next=%2Fdashboard%2Fsamahan');
-
-  const self = await fetchSelfMembership(supabase, communityId, user.id);
-  if (!self || self.role !== 'organizer') {
-    redirect(`/dashboard/samahan/${communityId}`);
-  }
-
-  // User-scoped UPDATE — RLS organizer_can_update_community authorizes it.
-  const { error } = await supabase
-    .from('communities')
-    .update({ archived: true, updated_at: new Date().toISOString() })
-    .eq('community_id', communityId);
-  if (error) {
-    redirect(
-      `/dashboard/samahan/${communityId}?error=${encodeURIComponent(error.message)}`,
-    );
-  }
-
-  revalidatePath('/dashboard/samahan');
-  redirect('/dashboard/samahan?archived=1');
-}
+/**
+ * ⛔ `archiveCommunity` is RETIRED 2026-08-24 — deleted, not disabled.
+ *
+ * Owner: "the only way to close a group/samahan is when all members leave the
+ * samahan. but for as long as there is one, the group lives." Closing is a
+ * CONSEQUENCE of the last person leaving (see leaveCommunity above), never an
+ * act one person performs on everybody else's group.
+ *
+ * The database refuses it independently — communities_member_field_guard
+ * raises while any membership row remains — because deleting an action closes
+ * the ACTION, and `communities` is served over PostgREST to a public key.
+ */
 
 /**
  * Rename the samahan / set its group photo — ANY member (owner 2026-08-24:

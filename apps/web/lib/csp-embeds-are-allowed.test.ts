@@ -522,6 +522,8 @@ test('the map host that caused this stays in frame-src', () => {
     enforcedFrameSrc(),
     /openstreetmap\.org/,
     'the OpenStreetMap embed host fell out of frame-src — the vendor location ' +
-      'map on every shop page silently reverts to a grey box',
+      'map on every shop page AND the venue map on every guest invitation ' +
+      '(app/[slug]/_components/venue-widget.tsx, since 2026-08-24) silently ' +
+      'revert to empty grey boxes',
   );
 });

@@ -32,6 +32,8 @@ export type CommunityRow = {
   public_id: string;
   name: string;
   description: string | null;
+  /** r2:// stored-asset ref for the group photo/logo, or null. */
+  photo_url: string | null;
   archived: boolean;
   created_at: string;
 };
@@ -173,7 +175,7 @@ export async function fetchCommunity(
       supabase
         .from('communities')
         .select(
-          'community_id, public_id, name, description, archived, created_at',
+          'community_id, public_id, name, description, photo_url, archived, created_at',
         )
         .eq('community_id', communityId)
         .maybeSingle(),

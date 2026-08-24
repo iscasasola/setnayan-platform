@@ -54,7 +54,7 @@ const THREAD = '00000000-0000-4000-8000-00000000c4a7';
  * until someone writes down which id its prefix carries — and writing that down
  * is the moment the mistake becomes obvious.
  */
-const ROOT_CARRIES: Record<string, 'event' | 'thread' | 'order' | 'vendor' | 'user' | null> = {
+const ROOT_CARRIES: Record<string, 'event' | 'thread' | 'order' | 'vendor' | 'user' | 'community' | null> = {
   // Genuinely an event id — the resolver's default is right for these.
   editorial: 'event',
   events: 'event',
@@ -70,6 +70,7 @@ const ROOT_CARRIES: Record<string, 'event' | 'thread' | 'order' | 'vendor' | 'us
   payments: 'order',
   vendors: 'vendor',
   'profile-photo': 'user',
+  samahan: 'community',
   // No UUID in the prefix at all, so this module says nothing about them.
   'merchant-qr': null,
   onboarding: null,
@@ -89,6 +90,9 @@ const KIND_TABLE: Record<string, string | null> = {
   thread: 'chat_threads',
   order: 'orders',
   vendor: 'vendor_profiles',
+  // Membership IS the RLS read on communities — a member sees the row, a
+  // stranger sees nothing, so the route's maybeSingle is the whole check.
+  community: 'communities',
   user: null,
 };
 
@@ -222,7 +226,7 @@ test('the route checks each tenancy kind against its OWN table', () => {
   // And the kinds the resolver can actually produce must be exactly the kinds
   // the table map covers, so neither side can grow without the other.
   const produced = new Set(
-    ['events', 'chat', 'payments', 'vendors', 'profile-photo'].map(
+    ['events', 'chat', 'payments', 'vendors', 'profile-photo', 'samahan'].map(
       (r) => tenancyForPathPrefix(`${r}/${EVENT}`)?.kind,
     ),
   );

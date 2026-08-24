@@ -22,6 +22,7 @@
 
 import Link from 'next/link';
 import { AlertTriangle, ShieldAlert, ShieldCheck, Users as UsersIcon } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FormFlash } from '@/app/_components/forms/form-flash';
@@ -148,11 +149,16 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Today&apos;s Focus enforcement
-        </h1>
-        <p className="text-sm text-ink/60">
+      {/* The page starts at its content.
+          ⚖ Both blocks survive. The first is the enforcement LADDER (strike 1
+          warning, 2 trial banned, 3+ full banned) — the rule a single admin
+          applies to somebody&apos;s account. The second is the read-only
+          notice saying this whole queue is retired and kept for audit and
+          appeal. Neither is orientation; a fast decision without either is the
+          exact harm this desk&apos;s no-buttons rule exists to prevent. */}
+      <PageMasthead title="Today’s Focus enforcement" />
+      <div className="mb-6 space-y-2">
+        <p className="text-sm text-ink/70">
           Multi-account trial-cycling review queue (iteration 0023 § 3.11). Tiered enforcement
           ladder: strike 1 → warning · strike 2 → trial banned · strike 3+ → full banned. Single-
           admin authority per § 4.3.
@@ -165,7 +171,7 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
           abuse model is being locked separately and will replace this queue
           when it ships.
         </p>
-      </header>
+      </div>
 
       <nav className="mb-6 flex flex-wrap gap-2">
         <Link

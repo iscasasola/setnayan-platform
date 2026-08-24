@@ -16,6 +16,7 @@ import {
   Store,
   Sparkle,
 } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { logAdminDataAccess } from '@/lib/admin-data-access';
@@ -313,6 +314,15 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
         </Link>
       </div>
 
+      {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME.
+          The owner removed the row that repeats the menu item you just tapped.
+          The name below is the RECORD — it is the content, it is why you
+          opened this page, and hiding it would be deleting data rather than
+          chrome. So the visible name stays exactly as it looked, and only its
+          `<h1>` moves to the masthead, which carries the same words at zero
+          pixels. One heading, in the document, where a screen reader and a
+          skip link can find it. */}
+      <PageMasthead titleNode={displayName} />
       {/* Sticky header + strip + tab rail */}
       <div className="sticky top-0 z-10 -mx-4 border-b border-ink/10 bg-white/70 px-4 pb-3 pt-1 backdrop-blur sm:mx-0 sm:rounded-t-2xl sm:px-6">
         <header className="flex flex-wrap items-start gap-4 py-4">
@@ -323,7 +333,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
             {initials(user.display_name as string, user.email as string)}
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate font-serif text-2xl text-ink">{displayName}</h1>
+            <p className="truncate font-serif text-2xl text-ink">{displayName}</p>
             <p className="mt-0.5 truncate text-sm text-ink/60">{user.email ?? '—'}</p>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {roleByEvent.size > 0 && [...new Set([...roleByEvent.values()])].includes('couple') ? (

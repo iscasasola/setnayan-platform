@@ -21,6 +21,7 @@
  * maps 1:1 to a sidebar entry — no orphan surfaces introduced.
  */
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ADMIN_NAV_ALIASES } from './admin-nav-descriptions';
 import type { NavItem } from '@/app/_components/nav/types';
@@ -46,6 +47,16 @@ type Props = {
    * screen reader announces on arrival and what a skip link points at.
    */
   title: string;
+  /**
+   * A sentence that belongs BESIDE the cards, not above them as a subtitle.
+   *
+   * ⚖ This is not the retired `subtitle` under a new name. That prop carried
+   * orientation — "every admin page there is, grouped and searchable" over a
+   * grid of exactly that — and it is gone. This one exists for a sentence that
+   * points somewhere the cards do NOT go, which is the one thing a grid of
+   * links cannot say for itself. Only `/admin/money` passes it today.
+   */
+  note?: ReactNode;
   /** Flat card list (the /admin/directory + /admin/money landings). */
   items?: LandingItem[];
   /** Labeled sections (the redesigned /admin/more layout). Wins over `items`. */
@@ -118,6 +129,7 @@ function LandingCard({ item }: { item: LandingItem }) {
 
 export function MobileLandingGrid({
   title,
+  note,
   items,
   groups,
   searchable,
@@ -142,6 +154,7 @@ export function MobileLandingGrid({
           whole console. The name stays in the document at zero pixels; the
           cards and the search box are what the operator came for. */}
       <PageMasthead title={title} />
+      {note ? <p className="mb-6 max-w-2xl text-sm text-ink/70">{note}</p> : null}
 
       {searchable && !isEmpty ? <MoreSearch placeholder="Search settings & insights" /> : null}
 

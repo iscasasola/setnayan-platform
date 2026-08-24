@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Flag, Gavel, ShieldOff } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -269,16 +270,21 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Review moderation</h1>
-        <p className="text-sm text-ink/60">
+      {/* The page starts at its content.
+          ⚖ The sentence survives: this screen is THREE queues stacked, and
+          which one you are looking at changes what a decision means — a vendor
+          disputing a review, a blocked reviewer appealing, and the audit trail
+          of overrides you yourself issued. */}
+      <PageMasthead title="Review moderation" />
+      <div className="mb-6">
+        <p className="text-sm text-ink/70">
           Three queues — <span className="font-medium">Vendor fake-review flags</span>{' '}
           (vendor-reported disputed reviews), <span className="font-medium">Self-review
           appeals</span> (blocked reviewers contesting the related-account gate), and{' '}
           <span className="font-medium">Admin override-published reviews</span> (audit
           trail of every override-publish you&rsquo;ve issued).
         </p>
-      </header>
+      </div>
 
       {flash ? (
         <p

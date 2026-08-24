@@ -1,5 +1,4 @@
 import {
-  ScanSearch,
   ArrowUpRight,
   Check,
   X,
@@ -7,6 +6,7 @@ import {
   RefreshCw,
   QrCode,
 } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
@@ -229,12 +229,16 @@ export default async function AdminRepostWatchPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <ScanSearch className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-            <h1 className="text-2xl font-semibold tracking-tight">Repost watch</h1>
-          </div>
+      {/* The page starts at its content. 🔒 Rescan all is the only way to
+          re-run the match from here, so it moves into `actions`.
+          ⚖ The sentence survives: DETECT AND REVIEW ONLY — resolving a flag
+          records a verdict and never touches anybody&apos;s image. On a queue
+          about one vendor allegedly using another&apos;s photograph, that is
+          the sentence that stops a reviewer expecting a takedown. */}
+      <PageMasthead
+        title="Repost watch"
+        className="mb-2"
+        actions={
           <form action={rescanAllRepostWatch}>
             <SubmitButton
               className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
@@ -243,8 +247,10 @@ export default async function AdminRepostWatchPage({
               <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Rescan all
             </SubmitButton>
           </form>
-        </div>
-        <p className="text-sm text-ink/65">
+        }
+      />
+      <div className="mb-6">
+        <p className="text-sm text-ink/70">
           Cross-vendor reverse-image matches — a vendor&apos;s newly-uploaded
           portfolio / service-cover image whose perceptual hash matches an older
           image owned by a <span className="font-medium">different</span> vendor.
@@ -252,7 +258,7 @@ export default async function AdminRepostWatchPage({
           touches the image. Demo vendors and same-vendor matches are excluded.
           The latest 200 matching the filter, newest first.
         </p>
-      </header>
+      </div>
 
       {(search.rescanned !== undefined) && (
         <div className="mb-4">

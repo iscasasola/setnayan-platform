@@ -1,5 +1,4 @@
 import {
-  ShieldCheck,
   Star,
   Store,
   Users,
@@ -11,6 +10,7 @@ import {
   Check,
 } from 'lucide-react';
 import Link from 'next/link';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
@@ -306,13 +306,18 @@ export default async function AdminIntegrityWatchPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-            <h1 className="text-2xl font-semibold tracking-tight">Integrity watch</h1>
-          </div>
-          {hasRescan && (
+      {/* The page starts at its content. 🔒 THE RESCAN CONTROL IS NOT THE
+          PAGE NAME — it is the only way to re-run the screening from this
+          screen, so it moves into `actions`.
+          ⚖ The sentence survives: it says what each of the three tabs
+          actually scores, and — on Inquiries — that THE VENDOR IS THE VICTIM.
+          Reading that queue the other way round would get an innocent shop
+          punished. */}
+      <PageMasthead
+        title="Integrity watch"
+        className="mb-2"
+        actions={
+          hasRescan ? (
             <form action={rescanAction}>
               <SubmitButton
                 className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
@@ -322,9 +327,11 @@ export default async function AdminIntegrityWatchPage({
                 {rescanLabel}
               </SubmitButton>
             </form>
-          )}
-        </div>
-        <p className="text-sm text-ink/65">
+          ) : null
+        }
+      />
+      <div className="mb-6">
+        <p className="text-sm text-ink/70">
           Deterministic integrity screening. <span className="font-medium">Reviews</span>{' '}
           scores every submitted review on velocity/burst, rating anomaly, and
           shared-device reviewer clusters; <span className="font-medium">Listings</span>{' '}
@@ -335,7 +342,7 @@ export default async function AdminIntegrityWatchPage({
           review flag never auto-deletes the review, and a listing is only hidden
           on an explicit click. Demo vendors are excluded.
         </p>
-      </header>
+      </div>
 
       {search.scanned !== undefined && (
         <div className="mb-4">

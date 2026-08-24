@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 115
-#   shadow  21
-#   omit    94
+# facts: 128
+#   shadow  20
+#   omit    108
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -61,7 +61,6 @@ shadow	app/(shell)/explore/page.tsx	WEDDING_TILE_ORDER	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_TILE_SLUG	lib/taxonomy.ts
 shadow	app/_components/plan3d/plan3d-scene.tsx	damp	app/_components/plan3d/kit/index.ts
 shadow	app/admin/disputes/page.tsx	tierRank	lib/vendor-tier-caps.ts
-shadow	app/admin/pricing/_surfaces/price-bands-surface.tsx	regionLabel	lib/region-source.ts
 shadow	app/admin/taxonomy/actions.ts	VALID_PHOTO	lib/refinements-mutations.ts
 shadow	app/admin/users/[userId]/page.tsx	ORDER_STATUS_LABEL	lib/orders.ts
 shadow	app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx	SIDE_LABELS	lib/guests.ts
@@ -70,11 +69,17 @@ shadow	app/onboarding/wedding/_components/onboarding-shell.tsx	cap	app/onboardin
 shadow	app/onboarding/wedding/_components/onboarding-shell.tsx	firstInitial	app/onboarding/wedding/_components/weave-story.ts
 shadow	app/vendor-dashboard/shop/page.tsx	TIER_LABEL	lib/vendor-tier-caps.ts
 shadow	lib/price-position.ts	regionLabel	lib/region-source.ts
+omit	app/[slug]/_components/editorial/data.ts	events	SECTION_CONTENT_EVENT_COLUMNS	venue_latitude
+omit	app/[slug]/_components/editorial/data.ts	events	SECTION_CONTENT_EVENT_COLUMNS	venue_longitude
 omit	app/[slug]/_components/editorial/data.ts	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
 omit	app/[slug]/hub/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
 omit	app/[slug]/hub/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/[slug]/hub/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
 omit	app/[slug]/hub/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
+omit	app/[slug]/hub/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	love_story
+omit	app/[slug]/hub/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	our_photos
+omit	app/[slug]/hub/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	special_message
+omit	app/[slug]/hub/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
 omit	app/[slug]/seat/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
 omit	app/[slug]/seat/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/[slug]/seat/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
@@ -150,6 +155,12 @@ omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_S
 omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	unspent_credit_policy
 omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	updated_at
 omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	vendor_profile_id
+omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	love_story
+omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	our_photos
+omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	special_message
+omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	venue_address
+omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	venue_name
+omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
 omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	consumable_budget_centavos
 omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	created_at
 omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	description
@@ -162,5 +173,7 @@ omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	vendor_profile_
 omit	lib/proposal-send.ts	events	SECTION_CONTENT_EVENT_COLUMNS	love_story
 omit	lib/proposal-send.ts	events	SECTION_CONTENT_EVENT_COLUMNS	our_photos
 omit	lib/proposal-send.ts	events	SECTION_CONTENT_EVENT_COLUMNS	special_message
+omit	lib/proposal-send.ts	events	SECTION_CONTENT_EVENT_COLUMNS	venue_latitude
+omit	lib/proposal-send.ts	events	SECTION_CONTENT_EVENT_COLUMNS	venue_longitude
 omit	lib/proposal-send.ts	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
 omit	lib/vendor-autoreply/inbox-hook.ts	vendor_packages	VENDOR_PACKAGE_SELECT	unspent_credit_policy

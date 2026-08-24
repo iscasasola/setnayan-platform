@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { MapPin, Sparkles, X } from 'lucide-react';
+import { hasVenueContent } from '@/lib/website-section-content';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { formatEventDate } from '@/lib/events';
 import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
@@ -455,7 +456,7 @@ export async function SiteBody({
   // flag-off path (resolveSiteBodyPlan ignores `content` when openBrowse=false).
   const openBrowseContent = {
     schedule: scheduleBlocks.length > 0,
-    venue_map: Boolean(event.venue_name || event.venue_address),
+    venue_map: hasVenueContent(event),
     our_love_story: Boolean(event.love_story),
     our_photos: ourPhotoUrls.length > 0,
     special_message: Boolean(event.special_message),

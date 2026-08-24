@@ -7,9 +7,14 @@
  * guest-facing section — so the editor disables the Shown button, and the
  * `setSectionMode` writer refuses `mode='shown'`, when a widget's source has
  * no content. "Has content" has to mean exactly what the guest site means by
- * it, or the two would drift. This helper mirrors the `openBrowseContent`
+ * it, or the two would drift — and for `venue_map` it DID drift, because both
+ * surfaces carried their own hand-typed copy of the rule and neither asked
+ * about venue coordinates. That one is now a shared function
+ * ({@link hasVenueContent}) that both call; the rest are still mirrored by
+ * hand and are the next ones to bite.
+ * This helper mirrors the `openBrowseContent`
  * signal map in `app/[slug]/_components/site-body.tsx` (schedule → public
- * block count, venue_map → venue name/address, our_love_story → love_story,
+ * block count, venue_map → name/address/COORDINATES, our_love_story → love_story,
  * our_photos → the photo-ref array, special_message, what_to_bring, countdown
  * → event_date) so both surfaces read the same truth.
  *
@@ -31,6 +36,14 @@ export type SectionContentEvent = {
   event_date: string | null;
   venue_name: string | null;
   venue_address: string | null;
+  /**
+   * ⚠ COORDINATES ARE CONTENT. They were absent from this type until
+   * 2026-08-24, and their absence is the whole reason `venue_map` could be
+   * dropped from an event that had a pin on the map — see
+   * {@link hasVenueContent}.
+   */
+  venue_latitude: number | null;
+  venue_longitude: number | null;
   love_story: string | null;
   special_message: string | null;
   what_to_bring: string | null;
@@ -38,11 +51,41 @@ export type SectionContentEvent = {
 };
 
 /**
+ * Does this event have anything to put in the `venue_map` section?
+ *
+ * 🔴 WHAT THIS FIXES, MEASURED IN PRODUCTION 2026-08-24. The predicate was
+ * `Boolean(venue_name || venue_address)` — it asked for the two things a
+ * couple TYPES and never for the one thing the section is NAMED after. The
+ * single production event carrying venue coordinates (`cale-ice`) had no
+ * venue name and no address, so a guest browsing that page would have been
+ * shown no venue section at all, on the very event we could have drawn a map
+ * for. **A widget called `venue_map` was gated on everything except the map.**
+ *
+ * 🔑 AND IT WAS WRITTEN DOWN TWICE. This file's own docblock said it "mirrors
+ * the `openBrowseContent` signal map in site-body.tsx … so both surfaces read
+ * the same truth" — two hand-kept copies of one rule, with a sentence where a
+ * mechanism belonged. Both call sites now call THIS function; there is no
+ * second copy left to drift.
+ */
+export function hasVenueContent(event: {
+  venue_name: string | null;
+  venue_address: string | null;
+  venue_latitude: number | null;
+  venue_longitude: number | null;
+}): boolean {
+  return Boolean(
+    event.venue_name ||
+      event.venue_address ||
+      (event.venue_latitude != null && event.venue_longitude != null),
+  );
+}
+
+/**
  * The exact `SELECT` column list a caller needs from `events` to build a
  * {@link SectionContentEvent}. Kept beside the type so the two never drift.
  */
 export const SECTION_CONTENT_EVENT_COLUMNS =
-  'event_date, venue_name, venue_address, love_story, special_message, what_to_bring, our_photos';
+  'event_date, venue_name, venue_address, venue_latitude, venue_longitude, love_story, special_message, what_to_bring, our_photos';
 
 /**
  * Build the per-widget content-presence map for an event. The only DB read is
@@ -83,7 +126,7 @@ export async function computeSectionContentMap(
 
   return {
     schedule: count === null ? undefined : count > 0,
-    venue_map: Boolean(event.venue_name || event.venue_address),
+    venue_map: hasVenueContent(event),
     our_love_story: Boolean(event.love_story),
     our_photos: ourPhotosCount > 0,
     special_message: Boolean(event.special_message),

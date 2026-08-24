@@ -145,7 +145,7 @@ export default function PrivacyPage() {
             <li>Event data you create — guest lists, vendor records, budget items, schedule, mood-board palettes</li>
             <li>Messages you send via the in-app chat</li>
             <li>Payment metadata — order amounts, reference codes, channel, your screenshot if you upload one</li>
-            <li>Anonymized product analytics — page views, button clicks, funnel events (via PostHog · no personal identifiers · opt-out available in your profile)</li>
+            <li>Anonymized product analytics — page views, button clicks, funnel events (via PostHog · no personal identifiers)</li>
             <li>Error reports — uncaught exceptions + their stack traces sent to Sentry so we can fix bugs; no message bodies, payment details, or guest data are included</li>
             <li>Automatic — IP address (truncated to first 3 octets for QR scan events), browser user-agent, timestamps</li>
           </ul>
@@ -1566,7 +1566,7 @@ export default function PrivacyPage() {
             </li>
             <li>Resend (transactional email)</li>
             <li>Sentry (server-side error monitoring · stack traces only)</li>
-            <li>PostHog Cloud (product analytics — opt-out available in your profile)</li>
+            <li>PostHog Cloud (product analytics)</li>
             <li>Anthropic (AI features, including AI web research for the vendor Deep Search tool · United States · never trained on your data)</li>
             <li>Suno (AI music generation for Pakanta and rendered videos · United States · no guest or personal data is sent)</li>
             <li>

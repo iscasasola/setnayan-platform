@@ -3,6 +3,8 @@ import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-re
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Gift } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
+import { NotSharedWithYou } from '../../_components/not-shared-with-you';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { guestDisplayName, type GuestRole, type GuestSide } from '@/lib/guests';
@@ -43,6 +45,18 @@ export default async function SouvenirTablePage({ params }: Props) {
     .in('member_type', ['couple', 'coordinator'])
     .maybeSingle();
   if (!membership) redirect(`/dashboard/${eventId}`);
+
+  // 🚨 THE DOOR CREW GATE IS A MEMBERSHIP CHECK, AND MEMBERSHIP IS NOT A GRANT.
+  // Every accepted delegate is minted a `coordinator` event_members row by
+  // trigger, so this passes for a helper the couple never shared the guest list
+  // with — and their guest read then comes back 200, zero rows, no error. The
+  // desk would open in full, promise "the headcount keeps itself", show an
+  // expected count of 0, and refuse every QR scanned at it by blaming the guest
+  // standing there. On the one day it matters.
+  const viewer = await fetchEventViewer(supabase, eventId, user.id);
+  if (isDelegateWithoutArea(viewer, 'guest_list')) {
+    return <NotSharedWithYou title="Souvenir table" thing="guest list" />;
+  }
 
   const [
     { data: guestsRaw, error: guestsRawError },

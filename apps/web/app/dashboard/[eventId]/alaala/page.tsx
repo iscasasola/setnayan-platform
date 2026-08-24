@@ -3,6 +3,9 @@ import Link from 'next/link';
 import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
 import { getKwentoDensity, type KwentoDensityRow } from '@/lib/kwento-density';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -108,6 +111,22 @@ const ARC: ReadonlyArray<Stage> = [
 export default async function AlaalaPage({ params }: Props) {
   const { eventId } = await params;
   const byKey = new Map(ADD_ONS.map((a) => [a.key, a]));
+  // ⚠ THIS PAGE HAD NO IDEA WHO WAS LOOKING AT IT. It carried no
+  // `getCurrentUser`, no membership read and no gate of any kind — the
+  // dashboard layout's own comment says the per-area question is left to "the
+  // moderator RLS policies", which is true for a page that reads through the
+  // caller's session and false for one that reads through the service role.
+  const viewerUser = await getCurrentUser();
+  // ⚠ FAILS CLOSED WITH NO USER. `fetchEventViewer` on a missing id reads as a
+  // stranger, and a stranger is not a delegate — so asking it that way would
+  // have answered "yes, name them" for a caller with no session at all. The
+  // absence of a user is decided here, not inside the helper.
+  const mayNameGuests = viewerUser
+    ? !isDelegateWithoutArea(
+        await fetchEventViewer(await createClient(), eventId, viewerUser.id),
+        'guest_list',
+      )
+    : false;
 
   // Fetch density map and recent approved stories in parallel.
   // If either fails (Papic not active, no data), we silently hide the sections.
@@ -189,7 +208,14 @@ export default async function AlaalaPage({ params }: Props) {
   const voiceQuotes: VoiceQuote[] = [];
   if (recentStories && recentStories.length > 0) {
     const guestIds = [...new Set((recentStories as Array<{ guest_id: string | null }>).map((r) => r.guest_id).filter(Boolean) as string[])];
-    const { data: guests } = guestIds.length
+    // 🔒 THE BYLINE IS A GUEST'S NAME, AND THIS READ IS ON THE SERVICE ROLE.
+    // Service role bypasses RLS, so the 2026-08-25 rule — a delegate reads the
+    // guest list only where the host granted it — cannot reach this query. The
+    // dashboard layout admits every accepted delegate, so without asking, a
+    // helper the couple shared nothing with would read the names of everyone
+    // who left a story. A refused viewer still sees the stories; they are just
+    // not told who wrote them.
+    const { data: guests } = guestIds.length && mayNameGuests
       ? await admin
           .from('guests')
           .select('guest_id, first_name, display_name')

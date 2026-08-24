@@ -4,6 +4,7 @@ import { redirect, notFound } from 'next/navigation';
 import { ArrowLeft, Newspaper } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { ColumnQueueControls, type ColumnRow } from './_components/column-queue-controls';
@@ -75,7 +76,17 @@ export default async function GuestColumnsQueuePage({
   // Author names in one read (kwento-queue pattern).
   const guestIds = [...new Set(rawRows.map((r) => r.guest_id as string))];
   const nameOf = new Map<string, string>();
-  if (guestIds.length > 0) {
+  // 🔒 SERVICE ROLE BYPASSES RLS, so the 2026-08-25 guest-list rule cannot reach
+  // this query. The gate above is a MEMBERSHIP check, and every accepted
+  // delegate is minted a `coordinator` membership by trigger — so without
+  // asking, a helper the couple never shared the guest list with would read
+  // every column author's name. The queue still works for them; the bylines
+  // just stay anonymous.
+  const mayNameGuests = !isDelegateWithoutArea(
+    await fetchEventViewer(supabase, eventId, user.id),
+    'guest_list',
+  );
+  if (guestIds.length > 0 && mayNameGuests) {
     const { data: guests, error: guestsError } = await admin
       .from('guests')
       .select('guest_id, first_name, last_name, display_name')

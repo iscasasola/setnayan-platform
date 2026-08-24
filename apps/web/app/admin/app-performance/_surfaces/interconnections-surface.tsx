@@ -1,3 +1,4 @@
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { PROBES } from '@/lib/interconnect/probes';
@@ -104,14 +105,18 @@ export async function InterconnectionsSurface() {
 
   return (
     <section>
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Interconnections</h1>
-        <p className="mt-1 max-w-3xl text-sm text-ink/65">
-          Whether the joints between subsystems still carry traffic. Each probe runs the
-          surface&apos;s own reader and compares it with what service_role can see — where they
-          disagree, the surface is hiding rows from someone entitled to them.
-        </p>
-      </header>
+      {/* The tab strip already says "Interconnections". The name stays in the
+          document at zero pixels.
+          ⚖ The sentence survives: it is what a probe verdict MEANS — that a
+          disagreement between the surface's own reader and service_role is a
+          surface hiding rows from somebody entitled to them. Nobody can read
+          the cards below without it, so it stays in the page, above them. */}
+      <PageMasthead title="Interconnections" />
+      <p className="mb-6 max-w-3xl text-sm text-ink/70">
+        Whether the joints between subsystems still carry traffic. Each probe runs the
+        surface&apos;s own reader and compares it with what service_role can see — where they
+        disagree, the surface is hiding rows from someone entitled to them.
+      </p>
 
       {faults.length > 0 ? (
         <p className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-800 ring-1 ring-inset ring-red-600/20">

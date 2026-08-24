@@ -3,13 +3,13 @@
 // legacy route is now a redirect (or, for pricing/settings, the studio shell).
 import { notFound, redirect } from 'next/navigation';
 import {
-  ShieldCheck,
   Users,
   Briefcase,
   UserRound,
   CalendarDays,
   ScanFace,
 } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ComplianceForm, type ComplianceFormState } from '@/app/admin/compliance/_components/compliance-form';
@@ -145,18 +145,20 @@ export async function ComplianceSurface() {
     <section className="mx-auto max-w-4xl space-y-6">
       {/* 'Back to admin' link dropped — Compliance is a tab inside the Settings
           studio now; the tab strip replaces it. */}
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <ShieldCheck aria-hidden className="h-6 w-6" strokeWidth={1.75} /> Compliance
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          The RA 10173 (Data Privacy Act) / NPC registration facts — one place for
-          the Personal Information Controller identity, DPO designation, breach
-          plan, sub-processors, and processing declarations. Enter the sensitive
-          identifiers here once; they live only in the database and feed the NPC
-          data sheet.
-        </p>
-      </header>
+      {/* The tab strip already says "Compliance". The name stays in the
+          document at zero pixels.
+          ⚖ The sentence survives, and its last clause is why: what you type on
+          this screen leaves the database only as the NPC data sheet. Somebody
+          entering a government identifier is entitled to know that before they
+          type it. */}
+      <PageMasthead title="Compliance" />
+      <p className="text-sm text-ink/70">
+        The RA 10173 (Data Privacy Act) / NPC registration facts — one place for
+        the Personal Information Controller identity, DPO designation, breach
+        plan, sub-processors, and processing declarations. Enter the sensitive
+        identifiers here once; they live only in the database and feed the NPC
+        data sheet.
+      </p>
 
       {/* Live scale counts — read-only, computed server-side. These feed the NPC
           "scale of processing" fields (total data subjects + sensitive-PII). */}

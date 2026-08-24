@@ -14,6 +14,7 @@ import {
   type SeriesPoint,
   type BreakdownRow,
 } from '@/lib/admin/growth-stats';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { DEMO_MODE_COOKIE_NAME } from '@/lib/demo-mode';
 
 type Props = {
@@ -45,32 +46,32 @@ export async function GrowthSurface({ searchParams }: Props) {
 
   return (
     <div>
-      <header className="mb-6 space-y-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="sn-h1">
-            Growth &amp; Population
-          </h1>
-          {stats.demo ? (
+      {/* The tab strip above already says "Growth & Population"; this row said
+          it again at 36px. The name stays in the document at zero pixels.
+          🔒 THE DEMO BADGE IS NOT THE PAGE NAME AND DOES NOT GO WITH IT. It is
+          the only thing on the screen saying these numbers are illustrative,
+          and every figure below it is wrong without it — so it moves into
+          `actions`, which is the slot for what the old header genuinely held.
+          ⚖ The lede splits: the demo sentence is an INSTRUCTION (it names the
+          switch that brings the real counts back) and survives beside the
+          badge; the live-mode sentence was orientation and goes. */}
+      <PageMasthead
+        title="Growth & Population"
+        className="mb-4"
+        actions={
+          stats.demo ? (
             <span className="rounded-full border border-warn-300/70 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-warn-800">
               Illustrative demo data
             </span>
-          ) : null}
-        </div>
-        <p className="max-w-prose text-base text-ink/65">
-          {stats.demo ? (
-            <>
-              Sample figures so you can see the shape of this surface before real
-              data accrues. Turn off demo mode to see live counts.
-            </>
-          ) : (
-            <>
-              Where the platform stands today, and how it&apos;s grown over the{' '}
-              {rangeLabel.toLowerCase()}. Counts are live from the platform&apos;s
-              own tables; curves track cumulative totals across the window.
-            </>
-          )}
+          ) : null
+        }
+      />
+      {stats.demo ? (
+        <p className="mb-6 max-w-prose text-sm text-ink/70">
+          Sample figures so you can see the shape of this surface before real
+          data accrues. Turn off demo mode to see live counts.
         </p>
-      </header>
+      ) : null}
 
       {/* Range picker — GET form, no client JS (mirrors /admin/funnels). */}
       <form method="get" className="mb-8 flex flex-wrap items-center gap-2">

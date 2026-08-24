@@ -1,6 +1,7 @@
 // Ugat Studio surface — the body of the former wedding-traditions page,
 // re-homed 2026-07-10. actions/_components stay in /admin/wedding-traditions; the legacy
 // route is now a redirect into /admin/ugat?tab=.
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -46,11 +47,15 @@ export async function WeddingTraditionsSurface() {
 
   return (
     <section className="mx-auto w-full max-w-4xl space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Wedding traditions
-        </h1>
-        <p className="max-w-prose text-sm text-ink/65">
+      {/* The tab strip already says "Wedding traditions". The name stays in
+          the document at zero pixels.
+          ⚖ The sentence survives, warning and all: this is STARTER content
+          that goes live to couples with no deploy, and several religions still
+          need validating. That is the one thing an operator must read before
+          pressing Load starter content. */}
+      <PageMasthead title="Wedding traditions" />
+      <div className="space-y-2">
+        <p className="max-w-prose text-sm text-ink/70">
           The per-religion &ldquo;What to expect&rdquo; guide on each couple&apos;s
           paperwork page. Edit / add / remove items here — they go live for couples
           with no deploy. ⚠️ This is starter content; validate each religion&apos;s
@@ -84,7 +89,7 @@ export async function WeddingTraditionsSurface() {
             built-in defaults (the latest accuracy pass) &mdash; it discards any manual edits.
           </p>
         ) : null}
-      </header>
+      </div>
 
       {RELIGIONS.map((religion) => (
         <ReligionSection

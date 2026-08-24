@@ -126,7 +126,9 @@ function exemptionHolds(rel: string, src: string): boolean {
 
 /**
  * The admin files that still draw their own page-name row. 54 at this guard's
- * landing, 50 after this PR converted the four below.
+ * landing, 50 after PR 1/4, **34 after PR 2/4 took the sixteen tabbed-console
+ * surfaces** — the ones where the tab strip above already carried the name and
+ * the row underneath was the second copy of it.
  *
  * ⚖ A FILE NOT ON THIS LIST DRAWING A TITLE FAILS. Converting one of these also
  * FAILS, telling you to delete its line. **Never add a line to go green** —
@@ -136,9 +138,6 @@ function exemptionHolds(rel: string, src: string): boolean {
  * A BASELINE IS A BILL, NOT A DECISION. This one is visible and directional.
  */
 const TITLE_ROW_BILL = [
-  'app-performance/_surfaces/growth-surface.tsx',
-  'app-performance/_surfaces/interconnections-surface.tsx',
-  'app-performance/_surfaces/overview-surface.tsx',
   'background-videos/page.tsx',
   'budget-planner/page.tsx',
   'chat-flags/page.tsx',
@@ -158,25 +157,12 @@ const TITLE_ROW_BILL = [
   'integrity-watch/page.tsx',
   'live-studio-channels/page.tsx',
   'pakanta/page.tsx',
-  'pricing/_surfaces/custom-plans-surface.tsx',
-  'pricing/_surfaces/free-windows-surface.tsx',
-  'pricing/_surfaces/price-bands-surface.tsx',
-  'pricing/_surfaces/pricing-surface.tsx',
   'receipts/page.tsx',
   'repost-watch/page.tsx',
   'reviews/page.tsx',
   'secrets/page.tsx',
-  'settings/_surfaces/compliance-surface.tsx',
-  'settings/_surfaces/demo-mode-surface.tsx',
-  'settings/_surfaces/notifications-surface.tsx',
-  'settings/_surfaces/settings-surface.tsx',
   'settings/payment-methods/page.tsx',
-  'studio/_surfaces/recaps-surface.tsx',
-  'studio/_surfaces/reveal-studio-surface.tsx',
-  'studio/_surfaces/songs-surface.tsx',
   'subscriptions/page.tsx',
-  'ugat/_surfaces/menus-surface.tsx',
-  'ugat/_surfaces/wedding-traditions-surface.tsx',
   'user-reports/page.tsx',
   'users/[userId]/page.tsx',
   'vendor-recommendations/page.tsx',
@@ -215,7 +201,8 @@ test('no new admin screen draws its own page-name row', () => {
  * Rule 1 is satisfied by a page that renders NO heading at all — which would
  * strip the console of the one thing a screen reader announces on arrival and
  * the one thing a skip link can point at. So the adoption is floored: 45 admin
- * files wore the masthead before this guard, 47 after this PR — TWO, not
+ * files wore the masthead before this guard, 47 after PR 1/4 and 63 after
+ * PR 2/4. The PR-1 figure was TWO, not
  * three, because the moodboard library already wore it on its success branch
  * and this PR only added the second instance INSIDE that same file. Counting
  * conversions instead of files would have set the floor one above what the
@@ -232,8 +219,8 @@ test('the admin console really wears the shared masthead', () => {
     if (/<PageMasthead\b/.test(code(readFileSync(file, 'utf8')))) wearing += 1;
   }
   assert.ok(
-    wearing >= 47,
-    `only ${wearing} admin files render <PageMasthead> — expected at least 47. ` +
+    wearing >= 63,
+    `only ${wearing} admin files render <PageMasthead> — expected at least 63. ` +
       'A page with no heading at all satisfies rule 1 and tells a screen ' +
       'reader nothing; the name belongs in the document, at zero pixels.',
   );
@@ -249,7 +236,7 @@ test('the admin console really wears the shared masthead', () => {
  * `/admin/integrity-watch` holds Rescan listings. Deleting a header is not
  * permission to delete what was in it.
  */
-const PORTED_THIS_PR: Array<{ file: string; namesItself: string }> = [
+const PORTED: Array<{ file: string; namesItself: string }> = [
   // `namesItself` is the EXACT source text that hands the name to the masthead,
   // not a description of it — so the assertion cannot pass on a file that
   // renders the component and forgets to tell it what the page is called.
@@ -262,11 +249,70 @@ const PORTED_THIS_PR: Array<{ file: string; namesItself: string }> = [
     file: 'studio/_surfaces/moodboard-library-surface.tsx',
     namesItself: 'title="Moodboard Library"',
   },
+  // ── PR 2/4 · the tabbed consoles ────────────────────────────────────────
+  {
+    file: 'app-performance/_surfaces/growth-surface.tsx',
+    namesItself: 'title="Growth & Population"',
+  },
+  {
+    file: 'app-performance/_surfaces/interconnections-surface.tsx',
+    namesItself: 'title="Interconnections"',
+  },
+  {
+    file: 'app-performance/_surfaces/overview-surface.tsx',
+    namesItself: 'title="App Performance"',
+  },
+  {
+    file: 'pricing/_surfaces/pricing-surface.tsx',
+    namesItself: 'title="Pricing & Catalog"',
+  },
+  {
+    file: 'pricing/_surfaces/custom-plans-surface.tsx',
+    namesItself: 'title="Custom plans"',
+  },
+  {
+    file: 'pricing/_surfaces/price-bands-surface.tsx',
+    namesItself: 'title="Price bands"',
+  },
+  {
+    file: 'pricing/_surfaces/free-windows-surface.tsx',
+    namesItself: 'title="Free windows"',
+  },
+  {
+    file: 'settings/_surfaces/settings-surface.tsx',
+    namesItself: 'title="Platform settings"',
+  },
+  {
+    file: 'settings/_surfaces/compliance-surface.tsx',
+    namesItself: 'title="Compliance"',
+  },
+  {
+    file: 'settings/_surfaces/demo-mode-surface.tsx',
+    namesItself: 'title="Demo mode"',
+  },
+  {
+    file: 'settings/_surfaces/notifications-surface.tsx',
+    namesItself: 'title="Notifications"',
+  },
+  { file: 'studio/_surfaces/recaps-surface.tsx', namesItself: 'title="Recaps"' },
+  {
+    file: 'studio/_surfaces/reveal-studio-surface.tsx',
+    namesItself: 'title="Reveal Studio"',
+  },
+  {
+    file: 'studio/_surfaces/songs-surface.tsx',
+    namesItself: 'title="Master song catalogue"',
+  },
+  { file: 'ugat/_surfaces/menus-surface.tsx', namesItself: 'title="Menus & icons"' },
+  {
+    file: 'ugat/_surfaces/wedding-traditions-surface.tsx',
+    namesItself: 'title="Wedding traditions"',
+  },
 ];
 
 test('each surface ported here still names itself, at zero pixels', () => {
   const offenders: string[] = [];
-  for (const { file, namesItself } of PORTED_THIS_PR) {
+  for (const { file, namesItself } of PORTED) {
     const src = code(read(file));
     if (!/<PageMasthead\b/.test(src)) {
       offenders.push(`${file} (no PageMasthead)`);
@@ -343,4 +389,81 @@ test('the dead landing accordion is gone, not left importing a type', () => {
       'not a design that survived — it is a second answer to a question the ' +
       'grid already answers.',
   );
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5 · DELETING A HEADER IS NOT PERMISSION TO DELETE WHAT WAS IN IT
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The app-wide sweep measured this cost rather than estimating it: 25 of the
+ * old headers held the ONLY doorway to another surface, and 16 routes lost
+ * their only on-page way up a level. The same trap is here, and `lint-port-no-
+ * lost-controls` catches a lost LINK but has nothing to say about a lost
+ * BADGE — a badge is not a control, and losing it is worse than losing a link,
+ * because the numbers underneath it stay on screen and become untrue.
+ *
+ * These three are each the only thing of their kind on their screen.
+ */
+const HELD_IN_THE_OLD_HEADER: Array<{ file: string; keeps: RegExp; why: string }> = [
+  {
+    file: 'pricing/_surfaces/pricing-surface.tsx',
+    keeps: /href="\/admin\/addons\/pricing-report"/,
+    why: 'the ONLY export path for the legacy v1 service_catalog — re-homed into this header on 2026-07-21 precisely so it would not be orphaned',
+  },
+  {
+    file: 'app-performance/_surfaces/growth-surface.tsx',
+    keeps: /Illustrative demo data/,
+    why: 'the only thing on the screen saying these counts are not real',
+  },
+  {
+    file: 'app-performance/_surfaces/overview-surface.tsx',
+    keeps: /Entity curves: demo data/,
+    why: 'same — every curve below it is wrong without it',
+  },
+];
+
+test('what the old header held survived the header', () => {
+  const offenders: string[] = [];
+  for (const { file, keeps, why } of HELD_IN_THE_OLD_HEADER) {
+    if (!keeps.test(code(read(file)))) offenders.push(`${file} — lost ${why}`);
+  }
+  assert.deepEqual(offenders, [], offenders.join(' · '));
+});
+
+/**
+ * ⚖ AND THE SENTENCES THAT SURVIVED HAD TO EARN IT, ONE AT A TIME.
+ *
+ * Rung four's rule is not "delete every lede" — it is that a sentence a person
+ * genuinely needs in order to USE the page belongs IN the page, beside the
+ * thing it governs. Applied here that split 16 ledes roughly down the middle.
+ * Orientation went (`Notifications`: "operational alerts routed to your admin
+ * account", above a list of exactly that). These three stayed because deleting
+ * them costs something real, and they are pinned so a later tidy-up cannot
+ * quietly finish the job.
+ */
+const SENTENCES_THAT_EARNED_THEIR_KEEP: Array<{ file: string; keeps: RegExp; why: string }> = [
+  {
+    file: 'settings/_surfaces/settings-surface.tsx',
+    keeps: /these are not BIR ORs/,
+    why: 'mistaking this screen for BIR Official Receipts is a tax problem, not a layout one',
+  },
+  {
+    file: 'studio/_surfaces/reveal-studio-surface.tsx',
+    keeps: /go live on couple sites/,
+    why: 'nothing else says a slider here reaches strangers’ wedding pages',
+  },
+  {
+    file: 'ugat/_surfaces/wedding-traditions-surface.tsx',
+    keeps: /starter content/,
+    why: 'it goes live to couples with no deploy and several religions are still unvalidated',
+  },
+];
+
+test('the ledes that were kept were kept for a reason that is still there', () => {
+  const offenders: string[] = [];
+  for (const { file, keeps, why } of SENTENCES_THAT_EARNED_THEIR_KEEP) {
+    if (!keeps.test(code(read(file)))) offenders.push(`${file} — lost the sentence: ${why}`);
+  }
+  assert.deepEqual(offenders, [], offenders.join(' · '));
 });

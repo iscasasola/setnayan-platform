@@ -4,6 +4,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -282,15 +283,19 @@ export async function PricingSurface({ searchParams }: Props) {
 
   return (
     <div>
-      <header className="mb-6 space-y-2">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">Pricing &amp; Catalog</h1>
-          {/*
-            Re-homed from the Add-ons tab when that tab was removed 2026-07-21.
-            The route (/admin/addons/pricing-report) is unchanged and still the
-            only export path for the legacy v1 `service_catalog`, so it needed a
-            doorway here rather than being orphaned.
-          */}
+      {/* The tab strip already says "Pricing". The name stays in the document
+          at zero pixels — but the download beside it does NOT go with it.
+          🔒 `/admin/addons/pricing-report` is the ONLY export path for the
+          legacy v1 `service_catalog`; it was re-homed here when the Add-ons tab
+          was removed on 2026-07-21 precisely so it would not be orphaned.
+          Deleting a header is not permission to delete what was inside it, so
+          it moves into `actions`.
+          ⚖ The lede survives, moved down: it is how you WORK this screen —
+          edit rows, then press Save all changes once — not a description of it. */}
+      <PageMasthead
+        title="Pricing & Catalog"
+        className="mb-4"
+        actions={
           <a
             href="/admin/addons/pricing-report"
             className="button-secondary self-start whitespace-nowrap text-sm"
@@ -298,15 +303,15 @@ export async function PricingSurface({ searchParams }: Props) {
           >
             Download legacy catalog report
           </a>
-        </div>
-        <p className="text-sm text-ink/60">
-          Every price in the app reads from here. Click the ⓘ on a row to see what it is,
-          edit any field, then hit <span className="font-medium text-ink">Save all changes</span>{' '}
-          once — saves propagate to{' '}
-          <Link href="/pricing" className="underline">/pricing</Link> and{' '}
-          <Link href="/vendors" className="underline">/vendors</Link> within seconds.
-        </p>
-      </header>
+        }
+      />
+      <p className="mb-6 text-sm text-ink/70">
+        Every price in the app reads from here. Click the ⓘ on a row to see what it is,
+        edit any field, then hit <span className="font-medium text-ink">Save all changes</span>{' '}
+        once — saves propagate to{' '}
+        <Link href="/pricing" className="underline">/pricing</Link> and{' '}
+        <Link href="/vendors" className="underline">/vendors</Link> within seconds.
+      </p>
 
       {savedCount !== null && (
         <SaveBanner

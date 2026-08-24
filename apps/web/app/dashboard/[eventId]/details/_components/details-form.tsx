@@ -31,6 +31,7 @@ export function DetailsForm({
   initialRegion,
   initialFeel,
   initialBudgetPesos,
+  mayEditBudget,
   // PR-G — opt-in BaZi birth-data (Chinese weddings, flag-gated). When
   // showBaziBirthData is false the section never renders and the form is
   // byte-identical to before. Defaulted so existing/other call sites stay valid.
@@ -54,6 +55,15 @@ export function DetailsForm({
   initialRegion: string;
   initialFeel: string;
   initialBudgetPesos: string;
+  /**
+   * May THIS reader see and change the couple's budget target? False for a
+   * delegate the couple has not given budget access. The field is not
+   * rendered, and — critically — `budget_pesos` is then NOT posted at all,
+   * because the server action treats an ABSENT key as "leave it alone" and an
+   * EMPTY one as "clear it". Posting an empty box she was never shown would
+   * have wiped the couple's target.
+   */
+  mayEditBudget: boolean;
   showBaziBirthData?: boolean;
   baziHasConsent?: boolean;
   initialPartnerABirthDate?: string;
@@ -105,7 +115,7 @@ export function DetailsForm({
     fd.set('groom_last', groomLast.trim());
     fd.set('region', region);
     fd.set('mood_feel_key', feel);
-    fd.set('budget_pesos', budget.replace(/[, ]/g, ''));
+    if (mayEditBudget) fd.set('budget_pesos', budget.replace(/[, ]/g, ''));
     // PR-G — only attach BaZi birth keys when the opt-in section is shown
     // (flag on + Chinese event). With the section hidden, the payload is
     // byte-identical to before, and the server action also re-guards on the
@@ -261,24 +271,26 @@ export function DetailsForm({
         <p className="text-[11px] text-ink/50">The overall look you&apos;re going for.</p>
       </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor="budget" className="block text-xs font-medium text-ink/70">
-          Budget (₱)
-        </label>
-        <input
-          id="budget"
-          type="text"
-          inputMode="numeric"
-          value={budget}
-          onChange={(e) => {
-            setBudget(e.target.value.replace(/[^0-9, ]/g, ''));
-            setSaved(false);
-          }}
-          placeholder="e.g. 800,000"
-          className={selectClass}
-        />
-        <p className="text-[11px] text-ink/50">A working figure — refine it anytime. Leave blank if undecided.</p>
-      </div>
+      {mayEditBudget ? (
+        <div className="space-y-1.5">
+          <label htmlFor="budget" className="block text-xs font-medium text-ink/70">
+            Budget (₱)
+          </label>
+          <input
+            id="budget"
+            type="text"
+            inputMode="numeric"
+            value={budget}
+            onChange={(e) => {
+              setBudget(e.target.value.replace(/[^0-9, ]/g, ''));
+              setSaved(false);
+            }}
+            placeholder="e.g. 800,000"
+            className={selectClass}
+          />
+          <p className="text-[11px] text-ink/50">A working figure — refine it anytime. Leave blank if undecided.</p>
+        </div>
+      ) : null}
 
       {/* ── DOES IT COME BACK? ───────────────────────────────────────────────
           The control the product has been PROMISING and never had: the

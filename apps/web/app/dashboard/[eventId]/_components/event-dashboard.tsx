@@ -22,6 +22,7 @@ import { digestSubWorthShowing } from '@/lib/digest-sub';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
+import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
 import { rsvpSegments, rsvpSummary } from '@/lib/rsvp-segments';
@@ -824,7 +825,16 @@ export async function EventDashboard({
   // silently short is worse than no number: it reads as progress they have not
   // made, on the screen they check to decide what they can still afford.
   const committedMeasured = vendorsMeasured && ordersMeasured;
+  // 🔒 THE SAME MONEY, THE SAME QUESTION, ON THE FIRST SCREEN SHE LANDS ON.
+  // The Budget tile prints "committed of ₱930,000" from this value, and an
+  // accepted delegate reaches this dashboard. Fixing only /budget would have
+  // moved the disclosure one screen earlier, so the tile asks the shared
+  // resolver too — the couple always sees it; a delegate sees it only if the
+  // couple gave them budget access. Null here means the tile falls into its
+  // existing no-target branch, which prints committed spend and no target.
+  const budgetVisibility = await resolveBudgetVisibility(supabase, eventId, user.id);
   const budgetTargetCentavos =
+    budgetVisibility.mayRead &&
     (event as { estimated_budget_centavos?: number | string | null })
       .estimated_budget_centavos != null
       ? Number(

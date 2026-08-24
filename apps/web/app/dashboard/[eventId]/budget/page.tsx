@@ -28,6 +28,8 @@ import { BudgetLiveSummaryCard } from './_components/budget-live-summary';
 import type { BudgetStripMoney } from '@/lib/budget-page-money';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { DeniedState } from '@/app/_components/states/denied-state';
+import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 
 export const metadata = { title: 'Budget' };
 
@@ -56,6 +58,34 @@ export default async function BudgetPage({ params }: Props) {
   const profile = await resolveProfileByEvent(eventId);
   if (!surfaceEnabled(profile, 'budget')) redirect(`/dashboard/${eventId}`);
   const supabase = await createClient();
+
+  // ── WHO IS READING THE MONEY ──────────────────────────────────────────────
+  // The layout admits an accepted delegate to every event surface, and
+  // `events_host` hands them `estimated_budget_centavos` because
+  // `current_moderator_event_ids()` has no area filter. This page asked
+  // nothing, so a coordinator with budget OFF — the live production case — was
+  // shown the couple's target. `'budget'` has been a declared delegate area,
+  // defaulted OFF, since migration 20261129000000; this is the call site it
+  // never had. Nothing about RLS, the view or any grant changes.
+  //
+  // ⚖ It runs BEFORE the reads below, not after: a refusal that still queries
+  // the money is a refusal on the screen only.
+  const budgetAccess = await resolveBudgetVisibility(supabase, eventId, user.id);
+  if (!budgetAccess.mayRead) {
+    // State 05 · DENIED, not Empty. The rows exist and this frame says so —
+    // an RLS-shaped "you have none" on a page about money would tell a planner
+    // her couple has no budget, which is a different and worse lie.
+    return (
+      <section className="sn-col space-y-6">
+        <PageMasthead id="budget-overview" className="scroll-mt-24" title="Budget" />
+        <DeniedState
+          title="The budget isn't shared with you"
+          scopedTo="the couple and anyone they give budget access to"
+          askPerson="the couple"
+        />
+      </section>
+    );
+  }
 
   // Pull the budget target + paid-orders aggregate in parallel with
   // the per-vendor snapshot so the page renders one round-trip wide.
@@ -310,7 +340,14 @@ export default async function BudgetPage({ params }: Props) {
        *  BudgetCountdownHeader on event home. Lives at the top of the
        *  page because it's the first thing a host needs to set before
        *  the rest of the budget math has anchors. */}
-      <BudgetSetter eventId={eventId} initialBudgetCentavos={initialBudgetCentavos} />
+      {/* 🔒 SETTING the target is the couple's alone — locked D1, "budget never
+          exceeds view in V1", stated in `moderator_area_level`'s own comment in
+          production and mirrored in `resolveAreaLevel`. A delegate who may READ
+          the money (one holding checkout) still never moves it, so the control
+          is not rendered rather than rendered-and-refused. */}
+      {budgetAccess.mayEdit ? (
+        <BudgetSetter eventId={eventId} initialBudgetCentavos={initialBudgetCentavos} />
+      ) : null}
 
       <BudgetSummaryStrip money={stripMoney} />
 
@@ -355,10 +392,15 @@ export default async function BudgetPage({ params }: Props) {
           {/* Opt-in to share this plan as a rounded RANGE with vendors — sits
            *  right under the split it derives from. Off by default; range-only,
            *  per-category, never an exact number (Customer Card respine PR-5). */}
-          <ShareBudgetBandToggle
-            eventId={eventId}
-            initialShare={initialShareBudgetBand}
-          />
+          {/* Sharing the couple's budget band with suppliers is a disclosure
+           *  ABOUT THE COUPLE'S MONEY, so it follows the same rule as setting
+           *  the target: theirs to make, nobody else's. */}
+          {budgetAccess.mayEdit ? (
+            <ShareBudgetBandToggle
+              eventId={eventId}
+              initialShare={initialShareBudgetBand}
+            />
+          ) : null}
         </div>
       ) : null}
 

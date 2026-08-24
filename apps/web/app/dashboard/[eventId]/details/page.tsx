@@ -5,6 +5,7 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Store } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getConfirmedVendorCount } from '@/lib/events';
+import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { titleCase } from '@/lib/personalized-menu';
 import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
 import { isChineseWedding } from '@/lib/chinese-wedding';
@@ -99,6 +100,14 @@ export default async function PersonalizationPage({
 
   const confirmedVendorCount = await getConfirmedVendorCount(supabase, eventId);
 
+  // This page had NO membership gate of any kind — it leaned on `events_host`,
+  // which admits any accepted delegate — so a coordinator opened the couple's
+  // Personalization form with their budget target sitting in an editable box.
+  // The read was half of it; `updateEventMatchCriteria` authorised
+  // "couple/coordinator OR accepted moderator" and wrote the field through the
+  // admin client, so she could also CHANGE it. Same shared resolver as /budget.
+  const budgetAccess = await resolveBudgetVisibility(supabase, eventId, user.id);
+
   const budgetCentavos = num('estimated_budget_centavos');
   const initialBudgetPesos =
     budgetCentavos != null && budgetCentavos > 0 ? String(Math.round(budgetCentavos / 100)) : '';
@@ -186,6 +195,7 @@ export default async function PersonalizationPage({
           initialRegion={str('region') ?? ''}
           initialFeel={moodFeel ?? ''}
           initialBudgetPesos={initialBudgetPesos}
+          mayEditBudget={budgetAccess.mayEdit}
           showBaziBirthData={showBaziBirthData}
           baziHasConsent={baziConsentAt != null}
           initialPartnerABirthDate={str('partner_a_birth_date') ?? ''}
@@ -239,7 +249,12 @@ export default async function PersonalizationPage({
           The rest of what you told us, on the record.
         </p>
         <dl className="divide-y divide-ink/5">
-          <DocRow label="Budget band" value={budgetBand ? titleCase(budgetBand) : null} />
+          {/* The band is the target in coarser clothes — one of five ranges the
+           *  couple's own figure falls into. Printing it to a delegate refused
+           *  the figure would hand back most of what the refusal withheld. */}
+          {budgetAccess.mayRead ? (
+            <DocRow label="Budget band" value={budgetBand ? titleCase(budgetBand) : null} />
+          ) : null}
           <DocRow label="Monogram" value={monogramDoc} />
           <DocRow
             label="Music"

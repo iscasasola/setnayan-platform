@@ -7,6 +7,7 @@
 // stale until manual reload. Same canonical fix as wizard-actions.ts
 // (PR #514) — see CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached
 // fields) stay stale after wizard save".
+import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { resolveCadence } from '@/lib/event-anchor';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -633,6 +634,33 @@ export async function updateEventMatchCriteria(
     return { ok: false, code: 'unauthorized', message: 'You are not a host on this event' };
   }
 
+  // ── WHOSE MONEY IS THIS? ───────────────────────────────────────────────────
+  // 🔴 The host check above admits a coordinator and an accepted delegate, and
+  // the patch below wrote `estimated_budget_centavos` through the ADMIN client.
+  // So the live external planner in production could not merely READ the
+  // couple's ₱930,000 target on this page — she could overwrite it. `'budget'`
+  // has been a declared delegate area, DEFAULTED OFF, since migration
+  // 20261129000000, and the locked D1 rule is that it never exceeds 'view';
+  // this action simply never asked. Same shared resolver as the three screens.
+  const budgetAccess = await resolveBudgetVisibility(supabase, eventId, user.id);
+
+  // 🪤 ABSENT ≠ EMPTY, AND GETTING THIS BACKWARDS WIPES THE TARGET. The form no
+  // longer posts `budget_pesos` to somebody who may not edit it, and an EMPTY
+  // `budget_pesos` legitimately means "clear my budget". Parsing an absent key
+  // as empty would have made every save by a delegate silently delete the
+  // couple's figure — worse than the leak this closes.
+  const budgetPosted = formData.has('budget_pesos');
+  if (budgetPosted && !budgetAccess.mayEdit) {
+    // A direct POST, not our own form. Refuse the whole write rather than
+    // quietly dropping one field: a save that reports success while ignoring
+    // what was typed is the shape this repo keeps paying for.
+    return {
+      ok: false,
+      code: 'unauthorized',
+      message: 'Only the couple can change the budget for this event',
+    };
+  }
+
   const admin = createAdminClient();
   const { data: before } = await admin
     .from('events')
@@ -655,10 +683,14 @@ export async function updateEventMatchCriteria(
   const updatePatch: Record<string, unknown> = {
     region,
     mood_feel_key: moodFeelKey,
-    estimated_budget_centavos: budgetCentavos,
     bride_name: brideName,
     groom_name: groomName,
   };
+  // Untouched when the key never arrived — the same "absent ⇒ leave it alone"
+  // rule `recur_cadence` below already follows, and for the same reason.
+  if (budgetPosted) {
+    updatePatch.estimated_budget_centavos = budgetCentavos;
+  }
 
   // ── THE REPEAT, EDITABLE AT LAST ────────────────────────────────────────────
   // 🔴 `events.recurs` HAD NO UPDATE PATH ANYWHERE. Every writer was an INSERT

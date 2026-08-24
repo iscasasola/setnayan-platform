@@ -244,7 +244,14 @@ function UpcomingRow({
           </p>
         </div>
       </div>
-      <p className="shrink-0 text-right text-sm font-semibold text-ink">
+      {/* 🔤 A LEDGER COLUMN, so it is set in the ledger face. "Next payments" is
+          a divided list of rows with the amount right-aligned down one edge —
+          the Ledger archetype's own `.l-amt .a` (Space Mono, tabular). It was
+          the one money column on this screen that the 2026-08-25 typeface pass
+          missed, because that pass found stat components by SHAPE (a component
+          taking `label` + `value`) and this row takes a `payment`. One shape is
+          not a survey; the guard now censuses every rendered figure. */}
+      <p className="shrink-0 text-right font-mono text-sm font-semibold tabular-nums text-ink">
         {formatPhp(payment.remainingPhp)}
       </p>
     </li>

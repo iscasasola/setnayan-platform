@@ -185,25 +185,33 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
     ],
   },
+  // Rewritten 2026-08-24 for the Marketplace takeover (the surface a couple
+  // actually sees — BUDGET_BUILD_ENABLED is live-by-default since 2026-06-09).
+  // The original copy described the pre-2026-05-31 card/stage page and its
+  // mount was deliberately removed when that page was replaced (879c1c138);
+  // the copy was never rewritten, so the tour sat defined-but-unmounted.
+  // ⚠ The takeover's section headings flip with isExploreReplanEnabled()
+  // ("Build your team" ↔ "Your team") — this copy deliberately describes what
+  // each section DOES rather than quoting a heading that can change under it.
   customer_vendors_v1: {
     key: 'customer_vendors_v1',
-    label: 'Vendors mini-tour',
-    blurb: 'Quick walkthrough of the vendor management surface.',
+    label: 'Marketplace mini-tour',
+    blurb: 'Quick walkthrough of the in-event supplier marketplace.',
     slides: [
       {
         Icon: Briefcase,
-        title: 'Track every vendor here',
-        body: 'Each vendor is a card with their category, cost, and stage. Tap a card to open their thread, log a payment, or move them to the next stage.',
+        title: 'Browse every category',
+        body: 'Every supplier category for your celebration, in calm folders. Open one to see who you&rsquo;re considering, find more in the marketplace, or add someone you already know by hand.',
       },
       {
         Icon: CheckCircle2,
-        title: 'Six stages, one flow',
-        body: 'Considering → Shortlisted → Contracted → Deposit paid → Delivered → Complete. Move forward when you make a decision; you can always step back.',
+        title: 'Build your team',
+        body: 'Your picks come together into one plan, with price ranges held up against your budget. Move a supplier forward when you decide — you can always step back.',
       },
       {
         Icon: Wallet,
-        title: 'Costs roll up into Budget',
-        body: 'Whatever you put in a vendor&rsquo;s total/deposit fields shows up on the Budget page. Update one place, both pages stay in sync.',
+        title: 'Save plans, compare, and see your spend',
+        body: 'Save your team under a name and compare saved plans side by side. Your budget and payments live further down this same page, and they stay in sync on their own.',
       },
     ],
   },

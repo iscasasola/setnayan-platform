@@ -114,18 +114,103 @@ test('the sweep sees the table — photos ONLY', () => {
     1,
     'exactly one candidate query, and it is the photo one',
   );
-  assert.match(src, /\.eq\('media_type', 'photo'\)/, 'photos only');
-  // THE SAFETY PROPERTY, pinned: no web copy ⇒ not a candidate.
-  assert.match(
-    src,
-    /\.not\('display_r2_key', 'is', null\)/,
-    'a capture whose compression has not landed must never be a drop candidate',
+
+  /*
+   * 🪤 SCOPED TO **THIS** QUERY, NOT THE FILE.
+   *
+   * The first cut of this test matched `.not('display_r2_key', 'is', null)`
+   * anywhere in the module — and THREE queries carry that line (seat photos,
+   * guest photos, and this one). Deleting it from the supplier query left two
+   * behind and the test stayed GREEN at 3 → 2, while the single most dangerous
+   * regression in this change sailed through: a capture whose compression had
+   * not landed becoming eligible, and its original deleted with no copy to
+   * replace it.
+   *
+   * Measured before → after, which is the only reason it was caught.
+   */
+  const vendorQuery = src.slice(
+    src.indexOf(".from('vendor_papic_captures')"),
+    src.indexOf('.limit(limit)', src.indexOf(".from('vendor_papic_captures')")),
   );
-  assert.match(src, /\.is\('full_res_dropped_at', null\)/, 'and never dropped twice');
+  assert.ok(vendorQuery.length > 0 && vendorQuery.length < 1200, 'query block located');
+  assert.match(vendorQuery, /\.eq\('media_type', 'photo'\)/, 'photos only');
+  // THE SAFETY PROPERTY: no web copy ⇒ not a candidate.
+  assert.match(
+    vendorQuery,
+    /\.not\('display_r2_key', 'is', null\)/,
+    'a capture whose compression has not landed must never be a drop candidate — ' +
+      'without this line an original is deleted with nothing to replace it',
+  );
+  assert.match(
+    vendorQuery,
+    /\.is\('full_res_dropped_at', null\)/,
+    'and never dropped twice',
+  );
+  assert.match(
+    vendorQuery,
+    /\.in\('event_id', expiredEventIds\)/,
+    'and only once the retention window has passed',
+  );
   // No vendor CLIP mapper exists, deliberately — it would be refused every pass.
   assert.doesNotMatch(
     code('lib/papic-fullres-drop-core.ts'),
     /export function vendorClipItem/,
     'a vendor clip has no transcoded video copy to be replaced by',
   );
+});
+
+test('EVERY candidate query keeps its no-web-copy safety filter — derived, not listed', () => {
+  /*
+   * 🔑 THE ONE LINE BETWEEN THIS SWEEP AND A DELETED PHOTOGRAPH.
+   *
+   * The sweep deletes a full-res original and lets the compressed copy become
+   * the photograph. `.not('<web copy>', 'is', null)` is what guarantees the copy
+   * EXISTS first. Remove it from any candidate query and the sweep deletes
+   * originals with nothing to replace them — the one outcome the owner's
+   * "not delete, just compress" rule exists to forbid.
+   *
+   * 🪤 FOUND BY ACCIDENT, AND IT WAS ALREADY OPEN. While mutation-testing the
+   * supplier query, a mis-aimed substitution removed this filter from the
+   * COUPLE'S guest-capture query instead — and the entire 9785-test suite passed.
+   * Nothing guarded it for any table. It is guarded for all of them now.
+   *
+   * DERIVED FROM THE CODE, not from a list of tables I happened to think of: a
+   * fourth capture table added later is checked the day it appears. FLOORED at
+   * three so an empty sweep — a renamed helper, a moved query — cannot pass by
+   * finding nothing to check, which is how a guard becomes decoration.
+   */
+  const src = code('lib/papic-fullres-drop.ts');
+
+  // Every `.from('<table>')` … `.limit(limit)` block that selects a drop
+  // candidate. A candidate query is recognised by the column the drop stamps.
+  const blocks: { table: string; body: string }[] = [];
+  const fromRe = /\.from\('([a-z_]+)'\)/g;
+  for (let m = fromRe.exec(src); m !== null; m = fromRe.exec(src)) {
+    const end = src.indexOf('.limit(limit)', m.index);
+    if (end === -1) continue;
+    const body = src.slice(m.index, end);
+    if (body.length > 2000) continue; // not a single query block
+    if (!body.includes(".is('full_res_dropped_at', null)")) continue;
+    blocks.push({ table: m[1]!, body });
+  }
+
+  assert.ok(
+    blocks.length >= 3,
+    `expected at least 3 drop-candidate queries, found ${blocks.length}. ` +
+      'A floor, not a formality: if the shape of these queries changes and this ' +
+      'finds nothing, the check must fail rather than silently pass.',
+  );
+
+  for (const { table, body } of blocks) {
+    const isClipQuery = body.includes("'clip'");
+    const required = isClipQuery
+      ? ".not('clip_web_r2_key', 'is', null)"
+      : ".not('display_r2_key', 'is', null)";
+    assert.ok(
+      body.includes(required),
+      `${table} (${isClipQuery ? 'clip' : 'photo'}) candidates no longer require a ` +
+        `web copy. Without ${required} this sweep deletes a full-res original ` +
+        'with nothing to replace it — the photograph is gone, not compressed.',
+    );
+  }
 });

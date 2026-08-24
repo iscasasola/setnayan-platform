@@ -261,8 +261,30 @@ export function BuildCompare({
     });
   }
 
-  function onDelete(buildId: string) {
+  async function onDelete(buildId: string, title: string) {
     setErr(null);
+    // 🔑 A DESTRUCTIVE ACTION MUST ASK, AND THIS ONE DID NOT. `deleteBudgetBuild`
+    // is a HARD row delete — no soft-delete column, no undo, and the couple's
+    // picks are not recoverable from the working build. Meanwhile CLEARING the
+    // rebuildable candidate list, on this same screen, already stops and asks
+    // with a named keep ("Keep them", team-controls.tsx). The screen guarded the
+    // reversible thing and not the irreversible one.
+    // The dialog was already imported, already instantiated and already mounted
+    // at {dialog} below — it simply was never put in front of this one control.
+    const ok = await confirm({
+      title: 'Delete this plan?',
+      body: (
+        <>
+          <span className="font-medium text-ink">“{title}”</span> is deleted for
+          good — the picks saved in it are not kept anywhere else. Your current
+          build and your locked vendors are untouched.
+        </>
+      ),
+      confirmLabel: 'Delete plan',
+      cancelLabel: 'Keep it',
+      destructive: true,
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await save.run(() => deleteBudgetBuild({ eventId, buildId }), {
         steps: ['Deleting your build'],
@@ -496,7 +518,7 @@ export function BuildCompare({
                     </button>
                     <button
                       type="button"
-                      onClick={() => onDelete(b.build_id)}
+                      onClick={() => onDelete(b.build_id, title)}
                       disabled={pending}
                       aria-label={`Delete ${title}`}
                       className="shrink-0 rounded-full p-1 text-ink/35 transition hover:text-danger-600 disabled:opacity-50"
@@ -582,7 +604,7 @@ export function BuildCompare({
                             </button>
                             <button
                               type="button"
-                              onClick={() => onDelete(c.key)}
+                              onClick={() => onDelete(c.key, c.title)}
                               disabled={pending}
                               aria-label={`Delete ${c.title}`}
                               className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/35 hover:text-danger-600 disabled:opacity-50"

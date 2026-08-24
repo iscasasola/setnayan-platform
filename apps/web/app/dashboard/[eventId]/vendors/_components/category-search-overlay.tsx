@@ -35,6 +35,12 @@ const CSS = `
 .csov{position:fixed;inset:0;z-index:120;display:flex;flex-direction:column;
   --paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:var(--m-ink-soft,#5C6660);
   --gold:var(--m-orange,#A9834B);--gold-deep:var(--m-orange-2,#8C6932);--mulberry:var(--m-mulberry,#1B1A17);
+  /* Gold text on a GOLD TINT has no headroom: --gold-deep measures 4.06:1 on
+     the .16 pills and 3.96:1 on the .18 ones — both AA fails at 8-9px. It is
+     fine at 4.78:1 on the paper, so this is a second slot, not a deepening of
+     the first. Same law that put the Alaala eyebrows below the floor on their
+     tinted card: measure gold against the surface it actually lands on. */
+  --gold-on-tint:#6F5A2E;
   --line:rgba(30,26,18,.1);
   /* --font-serif is defined NOWHERE (the Tailwind font-serif UTILITY is a
      different thing) and next/font hashes its family names, so the old
@@ -63,16 +69,16 @@ const CSS = `
 .csov .r .sub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:3px;font-family:var(--mono);font-size:8.5px;letter-spacing:.03em;color:var(--ink-soft)}
 .csov .r .stars{color:var(--gold-deep);letter-spacing:0}
 .csov .r .badge{display:inline-flex;flex:0 0 auto;align-self:center;min-height:0;align-items:center;gap:3px;border-radius: var(--m-r-full);padding:2px 6px;line-height:1.4;white-space:nowrap;text-transform:uppercase}
-.csov .r .badge.vrf{color:var(--gold-deep);background:rgba(169,131,75,.16)}
+.csov .r .badge.vrf{color:var(--gold-on-tint);background:rgba(169,131,75,.16)}
 .csov .r .badge.bst{color:var(--mulberry);background:rgba(30, 26, 18,.1)}
 /* Paid-placement disclosure + hybrid-anonymity hint — quiet, ink-soft so
    they read as clarifications, not alarms. */
 .csov .r .disclose{display:block;width:100%;margin-top:4px;font-family:var(--mono);font-size:8px;letter-spacing:.04em;color:var(--ink-soft);opacity:.82}
 .csov .r .badge.mt{font-weight:600;color:var(--mulberry);background:rgba(30, 26, 18,.12)}
-.csov .r .badge.mt.good{color:var(--gold-deep);background:rgba(169,131,75,.18)}
+.csov .r .badge.mt.good{color:var(--gold-on-tint);background:rgba(169,131,75,.18)}
 .csov .r .badge.mt.fair{color:var(--ink-soft);background:rgba(30,26,18,.06)}
 /* Last-minute (Setnayan AI §4) — opportunity tone, not alarm. */
-.csov .r .badge.lm{font-weight:600;color:var(--gold-deep);background:rgba(169,131,75,.16);border:1px solid rgba(169,131,75,.4)}
+.csov .r .badge.lm{font-weight:600;color:var(--gold-on-tint);background:rgba(169,131,75,.16);border:1px solid rgba(169,131,75,.4)}
 .csov .r .badge.lm .pct{font-weight:700;margin-left:2px}
 .csov .r .badge.near{color:#2f7d4f;background:rgba(47,125,79,.12)}
 .csov .r .badge.far{color:#9a6a00;background:rgba(169,131,75,.16)}
@@ -85,7 +91,7 @@ const CSS = `
 /* Relationship-depth badges */
 .csov .r .badge.rel-3{font-weight:600;color:var(--paper);background:var(--ink)}
 .csov .r .badge.rel-2{font-weight:600;color:var(--mulberry);background:rgba(30, 26, 18,.12);border:1px solid rgba(30, 26, 18,.25)}
-.csov .r .badge.rel-1{font-weight:600;color:var(--gold-deep);background:rgba(169,131,75,.18);border:1px solid rgba(169,131,75,.35)}
+.csov .r .badge.rel-1{font-weight:600;color:var(--gold-on-tint);background:rgba(169,131,75,.18);border:1px solid rgba(169,131,75,.35)}
 .csov .r .sub .faraway{color:#9a6a00}
 .csov .farther-btn{display:block;width:100%;margin:2px 0 14px;border:1px dashed var(--line);border-radius: var(--m-r-md);background:transparent;color:var(--ink-soft);padding:11px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;transition:border-color .2s,color .2s}
 .csov .farther-btn:active{border-color:var(--gold);color:var(--gold-deep)}

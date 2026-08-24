@@ -233,8 +233,7 @@ export default async function AlaalaPage({ params }: Props) {
       {densityCards.length > 0 ? (
         <div className="space-y-3">
           <p
-            className="sn-eye"
-            style={{ color: 'var(--m-orange-2)' }}
+            className="sn-eye text-terracotta-800"
           >
             Most storied moments
           </p>
@@ -259,9 +258,14 @@ export default async function AlaalaPage({ params }: Props) {
                 <div
                   className="absolute top-1.5 right-1.5 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-semibold"
                   style={{
-                    // Palette-locked gold, not stock amber: terracotta-800 #5C4726 (hottest)
-                    // and terracotta-700 #8C6932 — white at 10px bold reads 8.4:1 / 5.0:1
-                    // on them, both past the 4.5:1 AA floor the ambers skirted.
+                    // Palette-locked gold, not stock amber: terracotta-800 #5C4726
+                    // (hottest) and the LIGHT value of terracotta-700 #8C6932 — white
+                    // at 10px bold measures 8.81:1 / 5.02:1, both past the 4.5:1 AA
+                    // floor the ambers skirted.
+                    // ⚠ THESE MUST STAY LITERALS. `bg-terracotta-700` is THEMED and
+                    // flips to #A88340 in dark, where this white count would read
+                    // 3.51:1 — an AA FAIL. "Tokenize it" is the obvious change and it
+                    // is the wrong one; the literal is what keeps dark mode legal.
                     background: card.density >= 3 ? '#5C4726' : card.density === 2 ? '#8C6932' : 'rgba(0,0,0,0.45)',
                     color: '#fff',
                   }}
@@ -290,10 +294,11 @@ export default async function AlaalaPage({ params }: Props) {
             className="rounded-2xl border p-5 sm:p-6"
             style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
           >
-            <span
-              className="font-mono text-[11px] tabular-nums"
-              style={{ color: 'var(--m-orange-3)' }}
-            >
+            {/* terracotta-800 (#5C4726, 7.87:1 on this card), as a CLASS not an
+                inline var. It was --m-orange-3 #CBA766 = 2.03:1 — worse than the
+                3.37:1 gold the W4-A sweep existed to remove, and invisible to that
+                sweep because this page paints in vars, not class names. */}
+            <span className="font-mono text-[11px] tabular-nums text-terracotta-800">
               {String(i + 1).padStart(2, '0')}
             </span>
 
@@ -314,7 +319,7 @@ export default async function AlaalaPage({ params }: Props) {
                       <span style={{ color: 'var(--m-slate-2)' }}> · {r.note}</span>
                     ) : null}
                     {r.comingSoon ? (
-                      <span style={{ color: 'var(--m-slate-3)' }}> · soon</span>
+                      <span style={{ color: 'var(--m-slate-2)' }}> · soon</span>
                     ) : null}
                   </>
                 );
@@ -349,15 +354,13 @@ export default async function AlaalaPage({ params }: Props) {
         <div className="space-y-3">
           <div className="flex items-baseline justify-between">
             <p
-              className="sn-eye"
-              style={{ color: 'var(--m-orange-2)' }}
+              className="sn-eye text-terracotta-800"
             >
               Mga Boses · what your guests are saying
             </p>
             <Link
               href={`/dashboard/${eventId}/studio/papic/moderation`}
-              className="text-[12px]"
-              style={{ color: 'var(--m-orange-2)' }}
+              className="text-[12px] text-terracotta-800"
             >
               See all →
             </Link>
@@ -393,8 +396,7 @@ export default async function AlaalaPage({ params }: Props) {
         style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
       >
         <p
-          className="sn-eye"
-          style={{ color: 'var(--m-orange-2)' }}
+          className="sn-eye text-terracotta-800"
         >
           Story Assignments
         </p>

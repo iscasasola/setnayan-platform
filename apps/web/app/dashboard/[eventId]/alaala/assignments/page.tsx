@@ -92,15 +92,13 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
               style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
             >
               <div className="flex items-baseline gap-3">
-                <span
-                  className="font-mono text-[11px] tabular-nums"
-                  style={{ color: 'var(--m-orange-3)' }}
-                >
+                {/* terracotta-800 as a CLASS — was --m-orange-3 at 2.03:1. See the
+                    twin on the Alaala page. */}
+                <span className="font-mono text-[11px] tabular-nums text-terracotta-800">
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 <span
-                  className="sn-eye"
-                  style={{ color: 'var(--m-orange-2)' }}
+                  className="sn-eye text-terracotta-800"
                 >
                   {moment.eyebrow}
                 </span>

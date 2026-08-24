@@ -507,7 +507,7 @@ function ContactCard({
             <li>
               <a
                 href={`tel:${contact.contact_phone.replace(/\s/g, '')}`}
-                className="inline-flex items-center gap-2 text-sm text-ink hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                className="inline-flex items-center gap-2 text-sm text-ink hover:text-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
               >
                 <Phone aria-hidden className="h-3.5 w-3.5 text-ink/55" strokeWidth={1.75} />
                 {contact.contact_phone}
@@ -518,7 +518,7 @@ function ContactCard({
             <li>
               <a
                 href={`mailto:${contact.contact_email}`}
-                className="inline-flex items-center gap-2 text-sm text-ink hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                className="inline-flex items-center gap-2 text-sm text-ink hover:text-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
               >
                 <Mail aria-hidden className="h-3.5 w-3.5 text-ink/55" strokeWidth={1.75} />
                 {contact.contact_email}
@@ -531,7 +531,7 @@ function ContactCard({
                 href={contact.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-ink hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                className="inline-flex items-center gap-2 text-sm text-ink hover:text-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
               >
                 <Globe aria-hidden className="h-3.5 w-3.5 text-ink/55" strokeWidth={1.75} />
                 Website

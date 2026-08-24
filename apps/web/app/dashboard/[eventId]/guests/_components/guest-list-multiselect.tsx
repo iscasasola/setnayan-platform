@@ -392,7 +392,7 @@ function DesktopRow({
           />
         </label>
       </td>
-      <td className="px-4 py-2.5">
+      <td className="px-3 py-2.5">
         <div className="flex items-center justify-between gap-2">
           {/* Name → the master-detail trigger (Inspector P2). Desktop (≥xl)
               plain click SELECTS this guest into the sticky inspector column and
@@ -792,13 +792,29 @@ export function GuestListMultiselect({
                   />
                 </label>
               </th>
-              <th className="px-4 py-2.5 font-medium">Name</th>
-              <th className="w-[10%] px-3 py-2.5 font-medium">Side</th>
-              <th className="w-[18%] px-3 py-2.5 font-medium">Role</th>
-              <th className="w-[14%] px-3 py-2.5 font-medium">Groups</th>
-              <th className="w-[11%] px-3 py-2.5 font-medium">RSVP</th>
-              <th className="w-[12%] px-3 py-2.5 font-medium">Seat</th>
-              <th className="w-[13%] px-3 py-2.5 font-medium">Contact</th>
+              {/* ── COLUMN WIDTHS · the name gets the leftover, so keep the
+                  leftover worth having ──────────────────────────────────────
+                  These six fixed columns summed to 78%, leaving Name 22% MINUS
+                  the 40px checkbox — and the name cell spends 116px of that on
+                  padding, the avatar and the quick-view button before a glyph
+                  is drawn, so "Maria Villanueva" rendered "Maria Vil…". With a
+                  guest inspected the rail takes clamp(340px,30vw,420px) more,
+                  and at 1440px the name had ~0px of text left.
+                  🔑 The binding Roster archetype gives the name the free space;
+                  it is the one column a couple actually reads. Nothing is
+                  REMOVED — which columns exist was never ruled on, only that
+                  desktop is rows and not tiles (owner 2026-06-05); the six are
+                  simply no longer allowed to eat the table.
+                  Role keeps the largest share of the six because it renders
+                  CHIPS, not text, and was widest for that reason. The extra
+                  comes from Contact, one line of `text-xs`. */}
+              <th className="px-3 py-2.5 font-medium">Name</th>
+              <th className="w-[7%] px-3 py-2.5 font-medium">Side</th>
+              <th className="w-[15%] px-3 py-2.5 font-medium">Role</th>
+              <th className="w-[10%] px-3 py-2.5 font-medium">Groups</th>
+              <th className="w-[8%] px-3 py-2.5 font-medium">RSVP</th>
+              <th className="w-[8%] px-3 py-2.5 font-medium">Seat</th>
+              <th className="w-[8%] px-3 py-2.5 font-medium">Contact</th>
             </tr>
           </thead>
           <tbody>

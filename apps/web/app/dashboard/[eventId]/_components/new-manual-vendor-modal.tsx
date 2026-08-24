@@ -1176,7 +1176,7 @@ function Field({
         className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65"
       >
         {label}
-        {required ? <span className="ml-0.5 text-terracotta">*</span> : null}
+        {required ? <span className="ml-0.5 text-terracotta-700">*</span> : null}
       </label>
       {children}
       {hint ? <p className="text-[10px] text-ink/45">{hint}</p> : null}

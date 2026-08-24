@@ -1,4 +1,5 @@
 import { Mail } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -78,13 +79,16 @@ export default async function AdminHelpPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Help inbox</h1>
-        <p className="text-sm text-ink/60">
-          Messages submitted via <code className="text-xs">/help</code>. Anyone (anon or
-          signed-in) can submit; replies go via email (manual until Resend wires).
-        </p>
-      </header>
+      {/* The page starts at its content — the filter chips below are the
+          first thing an operator actually uses.
+          ⚖ The sentence survives: replies here are MANUAL. Somebody marking a
+          message closed without having emailed anybody would otherwise think
+          the app had answered it. */}
+      <PageMasthead title="Help inbox" />
+      <p className="mb-6 text-sm text-ink/70">
+        Messages submitted via <code className="text-xs">/help</code>. Anyone (anon or
+        signed-in) can submit; replies go via email (manual until Resend wires).
+      </p>
 
       <nav className="mb-6 flex flex-wrap gap-2">
         <FilterChip active={filter} target="open" label="Open" />

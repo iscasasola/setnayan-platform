@@ -1,4 +1,5 @@
-import { CreditCard, Smartphone, Trash2, Wallet } from 'lucide-react';
+import { Smartphone, Trash2, Wallet } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { BackButton } from '@/app/_components/back-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -169,18 +170,20 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
       <BackButton href="/admin/settings" label="Back to settings" />
 
-      <header className="mb-6 space-y-2">
-        <div className="flex items-center gap-2">
-          <CreditCard className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          <h1 className="text-2xl font-semibold tracking-tight">Payment methods</h1>
-        </div>
-        <p className="text-sm text-ink/65">
+      {/* The page starts at its content — the Back to settings link above is
+          untouched, because on a phone it is the only way up a level.
+          ⚖ The sentence survives: an edit here changes the account number a
+          couple is told to transfer money to, on order pages, receipts and
+          confirmation emails, immediately. */}
+      <PageMasthead title="Payment methods" />
+      <div className="mb-6">
+        <p className="text-sm text-ink/70">
           BDO and GCash account details + QR codes the app shows to couples on
           order detail pages so they can transfer. Edits propagate everywhere
           immediately — order pages, receipts, and confirmation emails read
           from the same row.
         </p>
-      </header>
+      </div>
 
       {search.error ? (
         <FormFlash tone="error">

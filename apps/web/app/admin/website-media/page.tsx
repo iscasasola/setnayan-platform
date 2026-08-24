@@ -1,5 +1,6 @@
 import { AlertTriangle, Images } from 'lucide-react';
 
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { humanBytes } from '@/lib/website-media';
 import { loadWebsiteMedia } from '@/lib/website-media-server';
@@ -33,12 +34,15 @@ export default async function AdminWebsiteMediaPage() {
 
   return (
     <div className="px-5 py-8 sm:px-8 max-w-5xl">
+      {/* All three retired rungs — a mono "Content" eyebrow, the name, a
+          lede. The page starts at its content.
+          ⚖ The sentence survives whole, and its last line is why: guests&apos;
+          photos, receipts and vendor documents are NOT on this page and cannot
+          be touched from it. An operator about to press Delete is entitled to
+          know exactly how far the button reaches. */}
+      <PageMasthead title="Website media" />
       <div className="mb-6">
-        <div className="text-[11px] uppercase tracking-wider text-[var(--m-slate,#6a6e76)] mb-1">
-          Content
-        </div>
-        <h1 className="text-2xl font-semibold text-[var(--m-ink,#1b1a17)]">Website media</h1>
-        <p className="text-[14px] leading-relaxed text-[var(--m-slate,#4f535b)] mt-2 max-w-2xl">
+        <p className="text-[14px] leading-relaxed text-ink/70 mt-2 max-w-2xl">
           The website&rsquo;s own pictures and videos — the homepage clips, the sign-in page, the
           onboarding music, the logo set and the menu icons. Files marked <strong>Left over</strong>{' '}
           are ones nothing on the site points at any more; download a copy, then remove them to free

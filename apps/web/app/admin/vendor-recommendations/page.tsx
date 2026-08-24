@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -216,18 +216,19 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          <h1 className="text-2xl font-semibold tracking-tight">Vendor recommendations</h1>
-        </div>
-        <p className="max-w-3xl text-sm text-ink/65">
+      {/* The page starts at its content.
+          ⚖ The sentence survives: it is the editorial rule this whole screen
+          exists to enforce — sparse by design, and Opt-in whenever a
+          recommendation could compete with the vendor&apos;s own service. */}
+      <PageMasthead title="Vendor recommendations" />
+      <div className="mb-6">
+        <p className="max-w-3xl text-sm text-ink/70">
           Recommend only what helps them — a SKU appears for a leaf only when it amplifies that
           vendor&apos;s own deliverable. Sparse by design. Mark a recommendation{' '}
           <span className="font-medium text-ink">Opt-in</span> when it could compete with the
           vendor&apos;s own service (it stays hidden until the vendor turns it on).
         </p>
-      </header>
+      </div>
 
       <Banner search={search} />
 

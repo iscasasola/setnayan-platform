@@ -1,4 +1,5 @@
-import { Music, Sparkles, Heart, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Heart, CheckCircle2 } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
@@ -230,19 +231,17 @@ export default async function AdminPakantaPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
-      <header className="mb-6 flex items-start gap-3">
-        <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-terracotta/10 text-terracotta">
-          <Music aria-hidden className="h-6 w-6" strokeWidth={1.75} />
-        </span>
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">Pakanta queue</h1>
-          <p className="mt-1 max-w-2xl text-sm text-ink/65">
-            Each couple’s custom-song brief, auto-composed from the love story they told in
-            onboarding plus any Pakanta music preferences. Copy the brief into Suno to write the
-            song — no re-interview needed.
-          </p>
-        </div>
-      </header>
+      {/* The page starts at its content; the decorative tile goes with the
+          name.
+          ⚖ The sentence survives: it is the WORKFLOW — the brief is already
+          composed from what the couple told us, so you copy it into Suno and
+          never re-interview anybody. */}
+      <PageMasthead title="Pakanta queue" />
+      <p className="mb-6 max-w-2xl text-sm text-ink/70">
+        Each couple’s custom-song brief, auto-composed from the love story they told in
+        onboarding plus any Pakanta music preferences. Copy the brief into Suno to write the
+        song — no re-interview needed.
+      </p>
 
       {queryError ? (
         <div className="mb-6 rounded-lg border border-warn-300 bg-warn-50 px-4 py-3 text-sm text-warn-900">

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Crown } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -119,15 +120,30 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <div className="flex items-center gap-2">
-          <Crown aria-hidden className="h-5 w-5 text-orange" strokeWidth={2} />
-          <span className="rounded-full bg-orange/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-orange">
-            {pending.length} pending
-          </span>
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight">Subscriptions</h1>
-        <p className="max-w-prose text-sm text-ink/60">
+      <div className="mb-6 space-y-2">
+        {/* The page starts at its content. 🔒 THE PENDING COUNT IS NOT THE
+            PAGE NAME and does not go with it — it is the number of vendors
+            waiting on somebody here, so it moves into `actions`.
+            ⚖ The sentence survives: it is the procedure (they pay our account
+            with the reference code, THEN you confirm here) and it says the
+            confirm is idempotent, which is what an operator needs when a
+            press looks like it did nothing.
+            ⚠ Its wording is kept VERBATIM on purpose. It still promises that
+            confirming "grants the bundled tokens" — the token currency was
+            retired on 2026-08-07 — and correcting what a screen claims about
+            money is a change, not a refactor. Flagged separately, not
+            silently edited inside a header port. */}
+        <PageMasthead
+          title="Subscriptions"
+          className="mb-2"
+          actions={
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-orange/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-orange">
+              <Crown aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              {pending.length} pending
+            </span>
+          }
+        />
+        <p className="max-w-prose text-sm text-ink/70">
           Vendors upgrade to Pro / Enterprise apply-then-pay: they pay our BDO /
           GCash account with the reference code, then you confirm here. Confirming
           activates the tier + grants the bundled tokens automatically (idempotent
@@ -142,7 +158,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
             </>
           )}
         </p>
-      </header>
+      </div>
 
       {search.done === 'approved' && (
         <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">

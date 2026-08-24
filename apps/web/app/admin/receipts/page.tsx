@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ExternalLink, Receipt as ReceiptIcon } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatReceiptNumber, formatPhpFromString } from '@/lib/receipts';
@@ -98,14 +99,18 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Transaction receipts</h1>
-        <p className="text-sm text-ink/60">
+      {/* The page starts at its content. ⚖ The sentence survives for the same
+          reason it does on Platform settings: these are NOT BIR Official
+          Receipts, and somebody reconciling a month's takings has to know that
+          before they file anything. */}
+      <PageMasthead title="Transaction receipts" />
+      <div className="mb-6">
+        <p className="text-sm text-ink/70">
           App-issued transaction receipts (one per paid order). These are{' '}
           <strong>not</strong> BIR Official Receipts &mdash; cross-reference with your
           BIR-side OR records before filing. Filter by month for reconciliation.
         </p>
-      </header>
+      </div>
 
       <form className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end" method="get">
         <label className="space-y-1">

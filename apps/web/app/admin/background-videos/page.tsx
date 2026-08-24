@@ -1,3 +1,4 @@
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { fetchBackgroundVideosForAdmin } from '@/lib/background-videos';
 import { BackgroundVideosManager, type SlotState } from './background-videos-manager';
 
@@ -26,10 +27,15 @@ export default async function AdminBackgroundVideosPage() {
 
   return (
     <div className="px-5 py-8 sm:px-8 max-w-5xl">
+      {/* All three retired rungs again — eyebrow, name, lede. The page starts
+          at its content.
+          ⚖ The sentence survives: uploading is not publishing, and until a
+          slot is published the homepage keeps what it has. Without that line
+          an operator uploads a clip, sees no change on the live site, and
+          reports a bug. */}
+      <PageMasthead title="Homepage background videos" />
       <div className="mb-6">
-        <div className="text-[11px] uppercase tracking-wider text-[var(--m-slate,#6a6e76)] mb-1">Content</div>
-        <h1 className="text-2xl font-semibold text-[var(--m-ink,#1b1a17)]">Homepage background videos</h1>
-        <p className="text-[14px] leading-relaxed text-[var(--m-slate,#4f535b)] mt-2 max-w-2xl">
+        <p className="text-[14px] leading-relaxed text-ink/70 mt-2 max-w-2xl">
           Six looping background videos for the homepage. The first is the{' '}
           <strong>main background video</strong> (the full-screen looping hero). The other five are the{' '}
           <strong>pillar icons</strong> shown in the dock at the bottom of the page — Ala Ala, Likha, Plano,

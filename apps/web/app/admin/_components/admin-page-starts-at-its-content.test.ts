@@ -113,6 +113,18 @@ const NOT_A_PAGE_NAME: Array<{ file: string; why: string; proof: RegExp }> = [
     why: 'the error boundary — its h1 IS the message, not a page name',
     proof: /reset:\s*\(\)\s*=>\s*void/,
   },
+  {
+    file: 'compliance/data-sheet/page.tsx',
+    // 🖨 THE ONE ADMIN SCREEN THAT IS A DOCUMENT, NOT A SCREEN. Its own copy
+    // tells the operator to "copy or print this to file with the National
+    // Privacy Commission", and `sr-only` is `position:absolute` + `clip` — it
+    // does not print. Converting this page would hand the owner an NPC filing
+    // with no heading on it, which is a worse defect than the row it removes.
+    // The owner's rule is about a page repeating the menu item you just
+    // tapped; a title on a document you file with a regulator is not that.
+    why: 'a printed NPC filing — an sr-only title would not appear on the paper',
+    proof: /print this to file with the National/,
+  },
 ];
 
 function exemptionHolds(rel: string, src: string): boolean {
@@ -128,7 +140,9 @@ function exemptionHolds(rel: string, src: string): boolean {
  * The admin files that still draw their own page-name row. 54 at this guard's
  * landing, 50 after PR 1/4, **34 after PR 2/4 took the sixteen tabbed-console
  * surfaces** — the ones where the tab strip above already carried the name and
- * the row underneath was the second copy of it.
+ * the row underneath was the second copy of it — and **18 after PR 3/4 took the
+ * fifteen money-and-records desks** (one more, the NPC data sheet, left the bill
+ * as an exemption rather than a conversion; see NOT_A_PAGE_NAME).
  *
  * ⚖ A FILE NOT ON THIS LIST DRAWING A TITLE FAILS. Converting one of these also
  * FAILS, telling you to delete its line. **Never add a line to go green** —
@@ -138,12 +152,8 @@ function exemptionHolds(rel: string, src: string): boolean {
  * A BASELINE IS A BILL, NOT A DECISION. This one is visible and directional.
  */
 const TITLE_ROW_BILL = [
-  'background-videos/page.tsx',
-  'budget-planner/page.tsx',
   'chat-flags/page.tsx',
-  'compliance/data-sheet/page.tsx',
   'concierge-abuse/page.tsx',
-  'demand/page.tsx',
   'editorial-review/[editorialId]/page.tsx',
   'editorial-review/page.tsx',
   'event-types/[eventType]/categories/page.tsx',
@@ -151,26 +161,14 @@ const TITLE_ROW_BILL = [
   'event-types/[eventType]/profile/page.tsx',
   'force-majeure/[flagId]/page.tsx',
   'force-majeure/page.tsx',
-  'founder-seats/page.tsx',
-  'help/page.tsx',
-  'integrations/page.tsx',
   'integrity-watch/page.tsx',
-  'live-studio-channels/page.tsx',
-  'pakanta/page.tsx',
-  'receipts/page.tsx',
   'repost-watch/page.tsx',
   'reviews/page.tsx',
-  'secrets/page.tsx',
-  'settings/payment-methods/page.tsx',
-  'subscriptions/page.tsx',
   'user-reports/page.tsx',
   'users/[userId]/page.tsx',
-  'vendor-recommendations/page.tsx',
   'vendors/[vendorProfileId]/edit/page.tsx',
   'vendors/[vendorProfileId]/plan/page.tsx',
   'vendors/[vendorProfileId]/team/page.tsx',
-  'verification-docs/page.tsx',
-  'website-media/page.tsx',
 ].sort();
 
 test('no new admin screen draws its own page-name row', () => {
@@ -202,7 +200,7 @@ test('no new admin screen draws its own page-name row', () => {
  * strip the console of the one thing a screen reader announces on arrival and
  * the one thing a skip link can point at. So the adoption is floored: 45 admin
  * files wore the masthead before this guard, 47 after PR 1/4 and 63 after
- * PR 2/4. The PR-1 figure was TWO, not
+ * PR 2/4, and 78 after PR 3/4. The PR-1 figure was TWO, not
  * three, because the moodboard library already wore it on its success branch
  * and this PR only added the second instance INSIDE that same file. Counting
  * conversions instead of files would have set the floor one above what the
@@ -219,8 +217,8 @@ test('the admin console really wears the shared masthead', () => {
     if (/<PageMasthead\b/.test(code(readFileSync(file, 'utf8')))) wearing += 1;
   }
   assert.ok(
-    wearing >= 63,
-    `only ${wearing} admin files render <PageMasthead> — expected at least 63. ` +
+    wearing >= 78,
+    `only ${wearing} admin files render <PageMasthead> — expected at least 78. ` +
       'A page with no heading at all satisfies rule 1 and tells a screen ' +
       'reader nothing; the name belongs in the document, at zero pixels.',
   );
@@ -308,6 +306,37 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
     file: 'ugat/_surfaces/wedding-traditions-surface.tsx',
     namesItself: 'title="Wedding traditions"',
   },
+  // ── PR 3/4 · the money and records desks ────────────────────────────────
+  { file: 'receipts/page.tsx', namesItself: 'title="Transaction receipts"' },
+  { file: 'subscriptions/page.tsx', namesItself: 'title="Subscriptions"' },
+  { file: 'budget-planner/page.tsx', namesItself: 'title="Budget Planner"' },
+  { file: 'founder-seats/page.tsx', namesItself: 'title="Founder seats"' },
+  {
+    file: 'settings/payment-methods/page.tsx',
+    namesItself: 'title="Payment methods"',
+  },
+  {
+    file: 'verification-docs/page.tsx',
+    namesItself: 'title="Vendor verification documents"',
+  },
+  { file: 'website-media/page.tsx', namesItself: 'title="Website media"' },
+  {
+    file: 'background-videos/page.tsx',
+    namesItself: 'title="Homepage background videos"',
+  },
+  {
+    file: 'live-studio-channels/page.tsx',
+    namesItself: 'title="Setnayan channel pool"',
+  },
+  { file: 'pakanta/page.tsx', namesItself: 'title="Pakanta queue"' },
+  { file: 'demand/page.tsx', namesItself: 'title="Demand Radar"' },
+  {
+    file: 'vendor-recommendations/page.tsx',
+    namesItself: 'title="Vendor recommendations"',
+  },
+  { file: 'help/page.tsx', namesItself: 'title="Help inbox"' },
+  { file: 'integrations/page.tsx', namesItself: 'title="Integrations"' },
+  { file: 'secrets/page.tsx', namesItself: 'title="Secrets & Rotation"' },
 ];
 
 test('each surface ported here still names itself, at zero pixels', () => {
@@ -421,6 +450,11 @@ const HELD_IN_THE_OLD_HEADER: Array<{ file: string; keeps: RegExp; why: string }
     keeps: /Entity curves: demo data/,
     why: 'same — every curve below it is wrong without it',
   },
+  {
+    file: 'subscriptions/page.tsx',
+    keeps: /\{pending\.length\} pending/,
+    why: 'the number of vendors waiting on somebody at this desk — a count, not a page name',
+  },
 ];
 
 test('what the old header held survived the header', () => {
@@ -457,6 +491,21 @@ const SENTENCES_THAT_EARNED_THEIR_KEEP: Array<{ file: string; keeps: RegExp; why
     file: 'ugat/_surfaces/wedding-traditions-surface.tsx',
     keeps: /starter content/,
     why: 'it goes live to couples with no deploy and several religions are still unvalidated',
+  },
+  {
+    file: 'verification-docs/page.tsx',
+    keeps: /Deleting is permanent and there is no undo/,
+    why: 'these are strangers’ government IDs and the only control is an irreversible delete',
+  },
+  {
+    file: 'website-media/page.tsx',
+    keeps: /are not shown on this page and cannot/,
+    why: 'it is the sentence that says how far the Delete button reaches — and how far it does not',
+  },
+  {
+    file: 'secrets/page.tsx',
+    keeps: /Values are write-only/,
+    why: 'without it, an operator looking for a key they already hold concludes the page is broken',
   },
 ];
 

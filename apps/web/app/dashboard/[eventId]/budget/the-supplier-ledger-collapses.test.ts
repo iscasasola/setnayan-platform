@@ -228,3 +228,28 @@ test('the row is a description list, and the disclosure keeps its state to itsel
     'the disclosure lost its named group — the Open/Close pair and the chevron no longer track its own state.',
   );
 });
+
+/**
+ * Alpha-on-white ratios for this card's ground (`bg-cream`, which is #FFFFFF
+ * since the owner's 2026-08-20 reversal — the token kept its name):
+ *   ink/40 2.32:1 · ink/45 2.64:1 · ink/50 3.02:1 · ink/55 3.45:1
+ *   ink/65 4.60:1 · ink/70 5.40:1
+ * The AA floor for normal text is 4.5:1; the non-text floor for an icon is 3:1.
+ */
+const TOO_FAINT_FOR_THE_DISCLOSURE = ['text-ink/40', 'text-ink/45', 'text-ink/50'] as const;
+
+test('the words that state the control’s state are legible', () => {
+  const { card } = regions();
+  const summaryEnd = card.indexOf('</summary>');
+  const summary = card.slice(0, summaryEnd > 0 ? summaryEnd : card.length);
+
+  const faint = TOO_FAINT_FOR_THE_DISCLOSURE.filter((c) => summary.includes(c));
+  assert.deepEqual(
+    faint,
+    [],
+    'The Open/Close pair and the chevron are the only things telling a couple whether a supplier row ' +
+      'is shut, and they were the FAINTEST text on the card — ink/45 measures 2.64:1 on this ground, ' +
+      'below even the 3:1 non-text floor an icon has to clear, let alone the 4.5:1 for words. ' +
+      'The app-wide micro-label register (ink/55, 3.45:1) is not good enough for a control’s own state.',
+  );
+});

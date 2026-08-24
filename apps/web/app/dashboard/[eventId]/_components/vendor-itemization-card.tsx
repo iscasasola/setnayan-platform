@@ -53,6 +53,7 @@ import {
   PencilLine,
 } from 'lucide-react';
 import {
+  describeSupplierBalance,
   formatPhp,
   type LineItemRow,
   type PaymentRow,
@@ -117,7 +118,6 @@ export function VendorItemizationCard({
     payments,
     itemizedTotal,
     paidTotal,
-    remaining,
     priceSource,
     vendorControlledItems,
     paymentsMeasured,
@@ -144,6 +144,13 @@ export function VendorItemizationCard({
    * that one read, so both go together; "Budget" is kept because it survives on
    * the headline figure, and flagged when its own line-items read was refused.
    */
+  const balance = describeSupplierBalance({
+    itemizedTotal,
+    paidTotal,
+    paymentsMeasured,
+    lineItemsMeasured,
+  });
+
   const refusedReadNotice = paymentsMeasured ? null : (
     <div
       role="status"
@@ -171,10 +178,23 @@ export function VendorItemizationCard({
           value={formatPhp(itemizedTotal)}
         />
         <Money label="Paid" value={paymentsMeasured ? formatPhp(paidTotal) : '—'} tone="muted" />
+        {/* 🚨 AN OVERPAID SUPPLIER IS NOT A SETTLED ONE. `remaining` is clamped
+            at zero, so paying ₱450,000 against a ₱400,000 supplier rendered
+            "Remaining ₱0.00" in success green — identical to an account that
+            balances, with no signal that ₱50,000 went out beyond the agreed
+            figure. The strip at the top of this same screen already says "Over
+            target" in the warning tone for its own version of this. The claim
+            needs BOTH reads: see describeSupplierBalance. */}
         <Money
-          label="Remaining"
-          value={paymentsMeasured ? formatPhp(remaining) : '—'}
-          tone={paymentsMeasured && remaining > 0 ? 'warn' : 'good'}
+          label={
+            balance.state === 'overpaid'
+              ? 'Overpaid by'
+              : 'Remaining'
+          }
+          value={balance.state === 'unknown' ? '—' : formatPhp(balance.amountPhp)}
+          tone={
+            balance.state === 'owing' || balance.state === 'overpaid' ? 'warn' : 'good'
+          }
         />
       </dl>
     </>
@@ -295,19 +315,19 @@ export function VendorItemizationCard({
                   the control's name for no gain. */}
               <span
                 aria-hidden
-                className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45 group-open/ledger:hidden"
+                className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70 group-open/ledger:hidden"
               >
                 Open
               </span>
               <span
                 aria-hidden
-                className="hidden font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45 group-open/ledger:inline"
+                className="hidden font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70 group-open/ledger:inline"
               >
                 Close
               </span>
               <ChevronDown
                 aria-hidden
-                className="h-4 w-4 shrink-0 text-ink/45 transition-transform group-open/ledger:rotate-180"
+                className="h-4 w-4 shrink-0 text-ink/70 transition-transform group-open/ledger:rotate-180"
                 strokeWidth={2}
               />
             </div>

@@ -130,10 +130,28 @@ const CARD = join(
 );
 const card = () => stripComments(readFileSync(CARD, 'utf8'));
 
+/**
+ * ⚠ THE REMAINING ANCHOR MOVED ON 2026-08-25, AND WAS RE-ANCHORED RATHER THAN
+ * DELETED. This used to pin the literal `paymentsMeasured ? formatPhp(remaining)
+ * : '—'`. That cell now asks `describeSupplierBalance`, which is STRICTER: it
+ * requires BOTH reads, because `itemizedTotal` falls back to the headline figure
+ * when the line-items read is refused and can therefore INVENT an overpayment.
+ * The intent — the flag has to reach the money — survives; only its spelling
+ * changed. A guard whose anchor breaks is a guard to re-aim, never one to drop.
+ */
 test('the card never prints a peso figure it did not measure', () => {
   const src = card();
   assert.match(src, /paymentsMeasured \? formatPhp\(paidTotal\) : '—'/, 'Paid must be gated');
-  assert.match(src, /paymentsMeasured \? formatPhp\(remaining\) : '—'/, 'Remaining must be gated');
+  assert.match(
+    src,
+    /balance\.state === 'unknown' \? '—' : formatPhp\(balance\.amountPhp\)/,
+    'the balance cell must be gated on the measured state, not printed unconditionally',
+  );
+  assert.match(
+    src,
+    /describeSupplierBalance\(\{[\s\S]{0,200}?paymentsMeasured,[\s\S]{0,200}?lineItemsMeasured,/,
+    'and that state must be derived from BOTH flags — one refused read alone can invent an overpayment or hide one',
+  );
   assert.match(src, /We couldn&rsquo;t load your payments/, 'and the person must be told why');
 });
 

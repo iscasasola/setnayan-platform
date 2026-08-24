@@ -12,6 +12,12 @@ import { PageMasthead } from '@/app/_components/page-masthead';
  * ⛔ NO CTA. There is nothing for them to press: the host grants access, and
  * a button here would either do nothing or send an ask from the wrong screen.
  * It names the person who can change it and stops.
+ *
+ * ⚠ AND IT DOES NOT SAY "the couple" — it used to, one day after the solemn
+ * register shipped. There is no couple at a funeral, and 15 of the 16 event
+ * types are not weddings. This screen has no access to the event's terminology,
+ * so it uses wording that is true for all of them rather than a noun that is
+ * right for one.
  */
 export function NotSharedWithYou({
   title,
@@ -27,9 +33,9 @@ export function NotSharedWithYou({
       <PageMasthead title={title} />
       <div className="sn-tile p-5">
         <p className="text-sm text-ink/70">
-          The couple haven&rsquo;t shared the {thing} with you, so there is nothing to
-          show here. Ask them if you need it — they can share it from their own
-          screen, one part at a time.
+          The {thing} hasn&rsquo;t been shared with you, so there is nothing to show
+          here. Ask whoever is organising the day if you need it — they can share
+          it from their own screen, one part at a time.
         </p>
       </div>
     </section>

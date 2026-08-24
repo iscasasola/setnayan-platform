@@ -35,7 +35,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   } = await supabase.auth.getUser();
   if (!user) return new NextResponse('Unauthorized', { status: 401 });
 
-  // RLS scopes every read to the couple — a non-member gets null/empty.
+  // ⚠ RLS SCOPES THIS TO A MEMBER, NOT TO THE COUPLE — the sentence that used
+  // to sit here named the wrong audience. `events_moderator_read` admits every
+  // accepted delegate, so a helper reaches this route; what they get back from
+  // the guest read depends on whether the couple granted them the guest list,
+  // and a refusal arrives as zero rows with no error. A delegate holding the
+  // seat plan alone therefore downloads a complete-looking, empty document.
+  // Left as it is deliberately: refusing on `guest_list` would also strip the
+  // floor plan and the table signs from somebody the couple DID give the seat
+  // plan to, and that widening is not what the owner ruled on.
   const { data: event } = await supabase
     .from('events')
     .select('display_name, slug, event_date, monogram_text')

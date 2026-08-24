@@ -27,7 +27,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   } = await supabase.auth.getUser();
   if (!user) return new NextResponse('Unauthorized', { status: 401 });
 
-  // RLS scopes every read to the couple's own event.
+  // ⚠ RLS SCOPES THIS TO A MEMBER OF THE EVENT, NOT TO THE COUPLE. The
+  // sentence here used to say "the couple", and `events_moderator_read`
+  // admits every accepted delegate — so a helper reaches this route too.
+  // That is fine for a mood board, which carries no guest identity; it is
+  // written down because the same wrong sentence sat on two seating exports
+  // where it was load-bearing.
   const { data: event } = await supabase
     .from('events')
     .select(

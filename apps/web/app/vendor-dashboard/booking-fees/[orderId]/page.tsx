@@ -28,6 +28,7 @@ import { bookingFeeErrorCopy,
   isFeeOrderPayable,
   VENDOR_BOOKING_FEES_PATH,
 } from '@/lib/vendor-booking-fees';
+import { ShopNotice } from '../../_components/kit';
 
 export const metadata = { title: 'Booking fee · Vendor' };
 
@@ -93,13 +94,10 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
       </Link>
 
       {search.logged === '1' ? (
-        <p
-          role="status"
-          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
-        >
+        <ShopNotice tone="success" role="status">
           Payment logged. Our team reconciles within 24 hours and your fee moves
           to paid — no action needed on your end.
-        </p>
+        </ShopNotice>
       ) : null}
       {/* 🚨 WAS `decodeURIComponent(search.error)` RENDERED DIRECTLY. Harmless
           only because nothing ever wrote the parameter — a dead reader. Now that
@@ -108,12 +106,9 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
           our red warning styling, on the screen where a vendor sends us money.
           An unknown code renders nothing at all. */}
       {bookingFeeErrorCopy(search.error) ? (
-        <p
-          role="alert"
-          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <ShopNotice tone="gold" role="alert">
           {bookingFeeErrorCopy(search.error)}
-        </p>
+        </ShopNotice>
       ) : null}
 
       <PageMasthead

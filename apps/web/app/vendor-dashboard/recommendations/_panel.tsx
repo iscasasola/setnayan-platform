@@ -13,7 +13,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { setOptIn, flagFeedback } from './actions';
 import { suggestToCouple } from './share-actions';
-import { ShopEmpty } from '../_components/kit';
+import { ShopEmpty, ShopNotice } from '../_components/kit';
 
 /**
  * RecommendationsPanel — the vendor's private "Recommend to your couples"
@@ -116,36 +116,24 @@ export function RecommendationsPanel({
       </header>
 
       {errorFlash ? (
-        <p
-          role="alert"
-          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <ShopNotice tone="gold" role="alert">
           {errorFlash}
-        </p>
+        </ShopNotice>
       ) : null}
       {savedFlash ? (
-        <p
-          role="status"
-          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
-        >
+        <ShopNotice tone="success" role="status">
           Saved.
-        </p>
+        </ShopNotice>
       ) : null}
       {flaggedFlash ? (
-        <p
-          role="status"
-          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
-        >
+        <ShopNotice tone="success" role="status">
           Thanks — we&rsquo;ll review your note and get back to you.
-        </p>
+        </ShopNotice>
       ) : null}
       {suggestedFlash ? (
-        <p
-          role="status"
-          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
-        >
+        <ShopNotice tone="success" role="status">
           Suggested — the couple will see it in their Studio.
-        </p>
+        </ShopNotice>
       ) : null}
 
       {groups.length === 0 ? (

@@ -16,7 +16,7 @@ import { fetchVendorContracts } from '@/lib/contracts';
 import { CopyButton } from '@/app/_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { LockedQrGenerator } from './_components/locked-qr-generator';
-import { ShopCard } from '../_components/kit';
+import { ShopCard, ShopNotice } from '../_components/kit';
 
 export const metadata = { title: 'QR Code Generator · Vendor' };
 
@@ -281,10 +281,7 @@ async function LockedMode({
   return (
     <>
       {error ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-xl border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <ShopNotice tone="gold" role="alert" className="mt-4">
           {error === 'category'
             ? 'Pick at least one service you actually offer.'
             : error === 'total'
@@ -304,7 +301,7 @@ async function LockedMode({
                       : error === 'date_unavailable'
                         ? 'That date is already booked or blocked on your calendar — you can’t lock a second booking on it. Free it up first, or use the waitlist.'
                         : 'Could not create the Locked QR. Please try again.'}
-        </p>
+        </ShopNotice>
       ) : null}
       <LockedQrGenerator
         eventTypes={eventTypes}

@@ -37,6 +37,7 @@ import {
   updateVendorTeamMember,
   voteAdminMotion,
 } from './actions';
+import { ShopNotice } from '../_components/kit';
 
 export const metadata = { title: 'Team · Vendor' };
 
@@ -135,14 +136,14 @@ export default async function VendorTeamPage({ searchParams }: Props) {
       </header>
 
       {search.error ? (
-        <p role="alert" className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
+        <ShopNotice tone="gold" role="alert">
           {decodeURIComponent(search.error)}
-        </p>
+        </ShopNotice>
       ) : null}
       {search.invited ? (
-        <p role="status" className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800">
+        <ShopNotice tone="success" role="status">
           Team member added.
-        </p>
+        </ShopNotice>
       ) : null}
       {search.motion ? (
         <p role="status" className="rounded-md border border-sky-300/60 bg-sky-50 px-4 py-3 text-sm text-sky-800">
@@ -155,9 +156,9 @@ export default async function VendorTeamPage({ searchParams }: Props) {
         </p>
       ) : null}
       {search.saved ? (
-        <p role="status" className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800">
+        <ShopNotice tone="success" role="status">
           Team updated.
-        </p>
+        </ShopNotice>
       ) : null}
 
       {/* ── Open admin votes ──────────────────────────────────────────── */}

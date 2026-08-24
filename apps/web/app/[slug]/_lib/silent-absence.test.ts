@@ -201,3 +201,105 @@ test('a slug that matches no event 404s, on every sub-route that answers for one
       'revoked or expired join token still needs it — that is not a 404.',
   );
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2026-08-24 · W2-A — the three guest-tree files where a refused read rendered
+// as a confident absence. Each of these pages had reads whose error was thrown
+// away, and every resulting "nothing here" state ACCUSES SOMEBODY: the guest of
+// arriving wrongly, or the couple of not having done their seating. None of
+// those accusations is recoverable by the person reading it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SEAT = readFileSync(join(HERE, '..', 'seat', 'page.tsx'), 'utf8');
+const FIND_TABLE = readFileSync(join(HERE, '..', 'find-my-table', 'page.tsx'), 'utf8');
+const EMPTY_STATES = readFileSync(join(HERE, '..', '_components', 'empty-states.tsx'), 'utf8');
+
+test('the seat pass never blames the guest for a read that failed', () => {
+  // 🔴 THE SHARPEST ONE. A discarded error made the guest read look like "you
+  // are not a guest here", so the page told somebody who had just scanned their
+  // own invitation to go and open their invitation.
+  // ⚠ Anchored on the BINDING, not on the first `.from('guests')`: this file
+  // has THREE guest reads and the first is the token lookup. The positional
+  // version of this assertion failed against a correct fix, which is how the
+  // third read got found.
+  assert.match(
+    SEAT,
+    /const \{ data: guestRow, error: guestErr \}/,
+    'the seat pass guest read discards its error — a blip tells the ticket holder to go and get a ticket',
+  );
+  assert.match(SEAT, /if \(guestErr\) return/, 'the error is bound but never acted on');
+  // The token lookup is the third, and the most alarming: a failed read told a
+  // guest their QR had been replaced.
+  assert.match(
+    SEAT,
+    /if \(tokenGuestErr \|\| tokenTableErr\)/,
+    'a failed token lookup still renders as a dead QR',
+  );
+});
+
+test('a failed read never renders as "the floor plan is on its way"', () => {
+  // That sentence is a claim about the COUPLE'S progress. Produced by our own
+  // outage it is simply untrue, and the guest cannot act on it.
+  assert.match(
+    SEAT,
+    /const \{ data, error \} = await admin[\s\S]{0,400}?from\('event_tables'\)/,
+    'seat: the tables read discards its error',
+  );
+  assert.match(SEAT, /failed: Boolean\(error\)/, 'seat: the failure is not reported to the caller');
+  assert.match(FIND_TABLE, /error: tablesErr/, 'find-my-table: the tables read discards its error');
+  assert.match(
+    FIND_TABLE,
+    /if \(assignmentErr \|\| tablesErr\)/,
+    'find-my-table: a failed read still falls through to the empty-plan plate',
+  );
+});
+
+test('a failed event read is never rendered as "no such celebration"', () => {
+  // notFound() tells a guest holding a printed QR that their wedding is not a
+  // real page, and returns an indexable 200-shaped 404 for a transient blip.
+  for (const [name, src] of [['seat', SEAT], ['find-my-table', FIND_TABLE]] as const) {
+    assert.match(src, /error: eventErr/, `${name}: the event read discards its error`);
+    assert.match(
+      src,
+      /if \(eventErr\) throw/,
+      `${name}: a failed event read still reaches notFound()`,
+    );
+  }
+});
+
+test('the honest failure surface blames nobody', () => {
+  // It must not reuse any of the three accusing sentences.
+  const at = SEAT.indexOf('function SeatCouldNotLoad');
+  assert.notEqual(at, -1, 'the failure surface is gone');
+  // ⚠ BOUNDED BY THE NEXT TOP-LEVEL DECLARATION, NOT BY `\n}`. The first `\n}`
+  // after the name closes the DESTRUCTURED PARAMETERS, so the slice was 57
+  // characters and every `!includes` below passed over nothing at all. A
+  // negative assertion over an empty slice always passes — measured: the
+  // mutation that put "is being arranged" in this component's title stayed
+  // GREEN. The length assertion is what makes the collapse visible.
+  const nextDecl = SEAT.slice(at + 10).search(/\n(?:export |function |async function |\/\/ ─)/);
+  const body = SEAT.slice(at, nextDecl === -1 ? undefined : at + 10 + nextDecl);
+  assert.ok(body.length > 400, `the failure surface slice collapsed to ${body.length} chars`);
+  for (const accusation of ['Open this from your invitation', 'is being arranged', 'on its way']) {
+    assert.ok(
+      !body.includes(accusation),
+      `the failure surface reuses an accusing absence: "${accusation}"`,
+    );
+  }
+});
+
+test('the unreachable photos plate cannot be wired up saying "the couple"', () => {
+  // ⚖ NOT A DEFECT AND DELIBERATELY NOT REWORDED — its own comment records the
+  // decision, and rewording a string no guest can reach is a fix nobody sees.
+  // What IS a defect is wiring it up as-is: a birthday's guests would read "The
+  // couple's photos will appear here." This converts that comment's warning
+  // into the thing that fails if somebody does it.
+  const wiredUp = /kind=["']photos["']|kind:\s*['"]photos['"]/.test(
+    readFileSync(join(HERE, '..', '_components', 'site-body.tsx'), 'utf8'),
+  );
+  const stillSaysCouple = /photos: 'The couple’s photos will appear here\.'/.test(EMPTY_STATES);
+  assert.ok(
+    !(wiredUp && stillSaysCouple),
+    'the photos plate is now reachable while still hardcoding "the couple" — take the organiser word from _lib/event-words.ts, as every other room does',
+  );
+});

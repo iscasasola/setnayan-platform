@@ -54,12 +54,15 @@ export default async function FindMyTablePage({ params }: Props) {
 
   const admin = createAdminClient();
 
-  const { data: event } = await admin
+  const { data: event, error: eventErr } = await admin
     .from('events')
     .select('event_id, display_name, slug, venue_name, event_type, event_date, landing_page_visibility')
     .ilike('slug', slug)
     .maybeSingle();
 
+  // 🔴 A FAILED READ IS NOT A CELEBRATION THAT DOES NOT EXIST — `notFound()`
+  // told a guest their event is not a real page. Throw instead.
+  if (eventErr) throw new Error('find-my-table: could not read the event');
   if (!event) notFound();
   // Iteration 0053: public guest pages under /[slug] are the 'website' surface.
   // Non-wedding (generic) profiles don't enable it → still notFound() (same as
@@ -105,7 +108,7 @@ export default async function FindMyTablePage({ params }: Props) {
   // the couple hasn't built a seating chart yet.
 
   // Resolve this guest's table assignment.
-  const { data: assignment } = await admin
+  const { data: assignment, error: assignmentErr } = await admin
     .from('event_seat_assignments')
     .select('table_id')
     .eq('event_id', event.event_id)
@@ -113,7 +116,7 @@ export default async function FindMyTablePage({ params }: Props) {
     .maybeSingle();
 
   // Fetch this event's tables (admin client; constrained to event_id).
-  const { data: tablesRaw } = await admin
+  const { data: tablesRaw, error: tablesErr } = await admin
     .from('event_tables')
     .select(
       'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos',
@@ -122,6 +125,20 @@ export default async function FindMyTablePage({ params }: Props) {
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   const tables = (tablesRaw ?? []) as EventTableRow[];
+
+  // 🔴 A failed read renders as "the floor plan is on its way" — a confident
+  // statement about the COUPLE'S progress produced by our own outage. Neither
+  // absence below is recoverable by the guest; "try again" is.
+  if (assignmentErr || tablesErr) {
+    return (
+      <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
+        <PromptCard
+          title="We couldn't load the floor plan"
+          body="Something went wrong on our side — your table is fine. Refresh the page, or open it again in a moment."
+        />
+      </Shell>
+    );
+  }
 
   // Entrance marker (optional columns from migration 20260717000000) →
   // bottom-center default when unset / pre-migration.

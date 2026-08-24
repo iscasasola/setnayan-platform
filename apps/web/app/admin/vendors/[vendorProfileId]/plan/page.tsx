@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, BadgeCheck } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -105,21 +106,30 @@ export default async function AdminVendorPlanPage({
         Back to vendors
       </Link>
 
-      <header className="mb-6 space-y-2">
+      {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME.
+          The owner removed the row that repeats the menu item you just tapped.
+          The name below is the RECORD — it is the content, it is why you
+          opened this page, and hiding it would be deleting data rather than
+          chrome. So the visible name stays exactly as it looked, and only its
+          `<h1>` moves to the masthead, which carries the same words at zero
+          pixels. One heading, in the document, where a screen reader and a
+          skip link can find it. */}
+      <PageMasthead titleNode={`Plan · ${vendor.business_name}`} />
+      <div className="mb-6 space-y-2">
         <div className="flex items-center gap-2">
           <BadgeCheck aria-hidden className="h-5 w-5 text-orange" strokeWidth={2} />
           <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900">
             {isClaimed ? 'Claimed' : 'Unclaimed'}
           </span>
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <p className="text-2xl font-semibold tracking-tight">
           Plan · {vendor.business_name}
-        </h1>
+        </p>
         <p className="text-sm text-ink/60">
           {vendor.location_city ?? 'No city set'} ·{' '}
           <span className="font-mono text-xs">{vendor.public_id}</span>
         </p>
-      </header>
+      </div>
 
       {tierSet !== null && (
         <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">

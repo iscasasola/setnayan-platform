@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -155,14 +156,23 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
         Back to queue
       </Link>
 
-      <header className="mb-6 space-y-2">
+      {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME.
+          The owner removed the row that repeats the menu item you just tapped.
+          The name below is the RECORD — it is the content, it is why you
+          opened this page, and hiding it would be deleting data rather than
+          chrome. So the visible name stays exactly as it looked, and only its
+          `<h1>` moves to the masthead, which carries the same words at zero
+          pixels. One heading, in the document, where a screen reader and a
+          skip link can find it. */}
+      <PageMasthead titleNode={row.public_id} />
+      <div className="mb-6 space-y-2">
         <div className="flex flex-wrap items-center gap-3">
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
             <AlertTriangle aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </span>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <p className="text-2xl font-semibold tracking-tight">
             {row.public_id}
-          </h1>
+          </p>
           <span
             className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${FLAG_STATUS_TONE[row.status]}`}
           >
@@ -173,7 +183,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
           {FLAG_TYPE_LABEL[row.flag_type]} · filed {row.created_at.slice(0, 10)}{' '}
           {countdown ? `· ${countdown}` : ''}
         </p>
-      </header>
+      </div>
 
       <dl className="mb-6 grid gap-4 sn-tile p-5 sm:grid-cols-2">
         <Field

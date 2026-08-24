@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, BadgeCheck, Gavel, Users } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -71,15 +72,26 @@ export default async function AdminVendorTeamPage({ params }: Props) {
         <ArrowLeft className="h-4 w-4" strokeWidth={1.75} /> All vendors
       </Link>
 
-      <header className="space-y-2">
+      {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME.
+          The owner removed the row that repeats the menu item you just tapped.
+          The name below is the RECORD — it is the content, it is why you
+          opened this page, and hiding it would be deleting data rather than
+          chrome. So the visible name stays exactly as it looked, and only its
+          `<h1>` moves to the masthead, which carries the same words at zero
+          pixels. One heading, in the document, where a screen reader and a
+          skip link can find it. */}
+      <PageMasthead
+        titleNode={`${(vendor as { business_name: string | null }).business_name ?? 'Vendor'} · Team`}
+      />
+      <div className="space-y-2">
         <div className="flex items-center gap-2">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100 text-sky-800">
             <Users aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <p className="text-2xl font-semibold tracking-tight">
               {(vendor as { business_name: string | null }).business_name ?? 'Vendor'} · Team
-            </h1>
+            </p>
             <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
               {(vendor as { public_id: string }).public_id} ·{' '}
               {adminCount} admin{adminCount === 1 ? '' : 's'} · {members.length} member
@@ -93,7 +105,7 @@ export default async function AdminVendorTeamPage({ params }: Props) {
         >
           <BadgeCheck className="h-4 w-4" strokeWidth={1.75} /> Plan
         </Link>
-      </header>
+      </div>
 
       {motions.length > 0 ? (
         <section className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50/50 p-4">

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -152,22 +153,16 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <div className="flex items-center gap-2">
-          {/* The gold moves from the container to the GLYPH. Same look, and it is
-              what the rule actually permits: gold clears the 3:1 non-text bar
-              (3.04:1 measured on this tint) but fails 4.5:1 for text, and a
-              colour on the wrapper is indistinguishable from a text colour. */}
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-terracotta/10">
-            <AlertTriangle aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          </span>
-          <h1 className="text-2xl font-semibold tracking-tight">Force majeure</h1>
-        </div>
-        <p className="text-sm text-ink/60">
-          Inbound flags from <code className="text-xs">/dashboard/&lt;event&gt;/disputes</code>.
-          7-day auto-resolution timer; review and route to one of 6 resolutions.
-        </p>
-      </header>
+      {/* The page starts at its content; the decorative tile goes with the
+          name.
+          ⚖ The sentence survives: there is a 7-DAY AUTO-RESOLUTION TIMER on
+          this queue. A judgement desk where not deciding is itself a decision
+          has to say so on the screen. */}
+      <PageMasthead title="Force majeure" />
+      <p className="mb-6 text-sm text-ink/70">
+        Inbound flags from <code className="text-xs">/dashboard/&lt;event&gt;/disputes</code>.
+        7-day auto-resolution timer; review and route to one of 6 resolutions.
+      </p>
 
       <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
         <label

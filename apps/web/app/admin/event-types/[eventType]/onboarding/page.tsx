@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { resolveOnboardingSpec, type OnboardingOverrideRow } from '@/lib/onboarding/onboarding-spec';
@@ -80,9 +81,10 @@ export default async function EventTypeOnboardingPage({
         <Link href="/admin/taxonomy?view=vocab-event" className="text-sm text-ink/55 hover:text-mulberry">
           ← Event types
         </Link>
-        <h1 className="mt-3 text-2xl font-semibold text-ink">
+        <PageMasthead titleNode="Wedding · Onboarding content" />
+        <p className="mt-3 text-2xl font-semibold text-ink">
           {vocab.emoji} Wedding · Onboarding content
-        </h1>
+        </p>
         <p className="mt-4 rounded-md border border-warn-200 bg-warn-50 px-3 py-3 text-sm text-warn-700">
           Wedding runs a <strong>bespoke guided wizard</strong> (its own screens, copy, and
           plan logic) — it isn&rsquo;t edited from this content editor. Adjust wedding
@@ -118,10 +120,17 @@ export default async function EventTypeOnboardingPage({
       <Link href="/admin/taxonomy?view=vocab-event" className="text-sm text-ink/55 hover:text-mulberry">
         ← Event types
       </Link>
+      {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME.
+          The name below is the EVENT TYPE this screen edits — it is the record,
+          not the menu item you tapped, and hiding it would be deleting data
+          rather than chrome. The visible line stays exactly as it looked; only
+          its heading element moves to the masthead, which carries the same
+          words at zero pixels. */}
+      <PageMasthead titleNode={`${vocab.label_en} · Onboarding content`} />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-ink">
+        <p className="text-2xl font-semibold text-ink">
           {vocab.emoji} {vocab.label_en} · Onboarding content
-        </h1>
+        </p>
         <Link
           href={`/onboarding/${eventType}`}
           target="_blank"

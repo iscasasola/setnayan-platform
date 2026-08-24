@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { ScanFlag } from '@/lib/editorial-scan';
@@ -41,15 +42,24 @@ export default async function EditorialReviewDetailPage({
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
+      {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME.
+          The owner removed the row that repeats the menu item you just tapped.
+          The name below is the RECORD — it is the content, it is why you
+          opened this page, and hiding it would be deleting data rather than
+          chrome. So the visible name stays exactly as it looked, and only its
+          `<h1>` moves to the masthead, which carries the same words at zero
+          pixels. One heading, in the document, where a screen reader and a
+          skip link can find it. */}
+      <PageMasthead titleNode={event?.display_name ?? 'Unnamed couple'} />
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-widest text-[--m-ink-tertiary] mb-1">
             Editorial review
           </p>
-          <h1 className="text-xl font-semibold">
+          <p className="text-xl font-semibold">
             {event?.display_name ?? 'Unnamed couple'}
-          </h1>
+          </p>
           {event?.event_date && (
             <p className="text-sm text-[--m-ink-secondary] mt-0.5">
               {formatCalendarDate(event.event_date, {

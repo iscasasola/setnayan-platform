@@ -1,4 +1,5 @@
-import { ShieldAlert, Check, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
@@ -137,12 +138,15 @@ export default async function AdminChatFlagsPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <div className="flex items-center gap-2">
-          <ShieldAlert className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          <h1 className="text-2xl font-semibold tracking-tight">Chat contact flags</h1>
-        </div>
-        <p className="text-sm text-ink/65">
+      {/* The page starts at its content.
+          ⚖ The sentence survives, and this is the clearest case in the whole
+          console: it says Setnayan staff do NOT read chats, that this queue
+          carries only the signal, and that the blocked message never reached
+          anybody. Somebody reviewing a flag without those three facts would
+          reasonably think they were about to read a private conversation. */}
+      <PageMasthead title="Chat contact flags" />
+      <div className="mb-6">
+        <p className="text-sm text-ink/70">
           Couple↔vendor chat messages <strong>blocked</strong> for sharing
           off-platform contact info (phone, email, social/messaging links,
           @handles, app names, or &ldquo;add me on&hellip;&rdquo; solicitations).
@@ -152,7 +156,7 @@ export default async function AdminChatFlagsPage({
           repeat off-platform-pusher; review or dismiss false positives. Latest 200
           matching the filter, newest first.
         </p>
-      </header>
+      </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {STATUS_FILTERS.map((f) => (

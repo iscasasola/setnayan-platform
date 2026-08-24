@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -89,16 +90,19 @@ export default async function AdminEditUnclaimedVendorPage({
         Back to vendors
       </Link>
 
-      <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Edit unclaimed vendor
-        </h1>
-        <p className="text-sm text-ink/60">
+      {/* The page starts at its content — the Back to vendors link above is
+          untouched.
+          ⚖ The sentence survives: you are editing somebody else's shop as a
+          TEMPORARY owner, and they take it over the moment they claim it.
+          That is the whole basis on which this screen is allowed to exist. */}
+      <PageMasthead title="Edit unclaimed vendor" />
+      <div className="mb-6">
+        <p className="text-sm text-ink/70">
           You&rsquo;re editing this vendor as a temporary owner. The vendor will
           take it over the moment they sign up via the claim link. Publish
           when you want it to appear in the marketplace.
         </p>
-      </header>
+      </div>
 
       {search.saved === '1' ? (
         <p

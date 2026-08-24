@@ -30,6 +30,16 @@ export default function AdminMoneyHub() {
     <MobileLandingGrid
       desktopVisible
       title="Money & Settings"
+      // 🔑 THE ONE HALF OF THE RETIRED SUBTITLE THAT WAS NOT ORIENTATION.
+      // A grid of links can say what is ON it; it cannot say what is NOT. An
+      // operator looking for Payments on the Money page would otherwise
+      // conclude it is missing, when it is one menu away in Overview.
+      note={
+        <>
+          The act-now money queues — Payments, Payouts and Subscriptions — live
+          in Overview, not here.
+        </>
+      }
       items={items}
     />
   );

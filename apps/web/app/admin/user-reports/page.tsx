@@ -1,4 +1,5 @@
-import { Flag, EyeOff, UserX, ArrowUpRight, Check, X } from 'lucide-react';
+import { EyeOff, UserX, ArrowUpRight, Check, X } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
@@ -255,19 +256,20 @@ export default async function AdminUserReportsPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <div className="flex items-center gap-2">
-          <Flag className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          <h1 className="text-2xl font-semibold tracking-tight">User reports</h1>
-        </div>
-        <p className="text-sm text-ink/65">
+      {/* The page starts at its content.
+          ⚖ The sentence survives: it names the four things a press here can do
+          to somebody — hide their photo, block them for that event, escalate
+          to legal, or dismiss — and it discloses the 200-row cap. */}
+      <PageMasthead title="User reports" />
+      <div className="mb-6">
+        <p className="text-sm text-ink/70">
           Reports filed against guest gallery content (Papic), Setnayan AI
           output (Play GenAI policy), and public pages (an invitation page,
           a profile, or a creator chapter). Hide the photo, block the uploader
           for that event, escalate for owner/legal review, or dismiss. The
           latest 200 matching the filter, newest first.
         </p>
-      </header>
+      </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {STATUS_FILTERS.map((f) => (

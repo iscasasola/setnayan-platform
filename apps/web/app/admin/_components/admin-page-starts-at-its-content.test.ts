@@ -27,6 +27,19 @@
  * fixed by it. Naming the number here so nobody reads a green admin guard as
  * proof the app is done.
  *
+ * ── AND TWO MASTHEAD GUARDS ALREADY EXISTED, NEITHER OF WHICH COULD SEE THIS ─
+ * `page-masthead.test.ts` polices the COMPONENT — no eyebrow prop, no lede, no
+ * back chevron, the h1 stays `sr-only`. It says nothing about whether any page
+ * renders it. `lint-page-masthead.mjs` polices a `.sn-eye` element INSIDE a
+ * `<header>` — the exact card-token drift that started this, deliberately
+ * narrow, with a 15-file baseline. **Measured: not one of those 15 is an admin
+ * file**, because no admin header used `.sn-eye`; they hand-rolled a plain
+ * `<h1>` instead, which is invisible to both.
+ *
+ * 🔑 A DEFECT CAN LIVE IN THE SEAM BETWEEN TWO CORRECT GUARDS. Same shape as
+ * the alpha-fill contrast bug that two working contrast guards both waved
+ * through on 2026-08-13. This third guard is the seam, not a duplicate.
+ *
  * ── Both regressions are silent ────────────────────────────────────────────
  * A 55th page that hand-rolls the row renders perfectly. A ported page whose
  * `<h1>` quietly comes back looks like a page with a title on it. Neither
@@ -138,11 +151,9 @@ function exemptionHolds(rel: string, src: string): boolean {
 
 /**
  * The admin files that still draw their own page-name row. 54 at this guard's
- * landing, 50 after PR 1/4, **34 after PR 2/4 took the sixteen tabbed-console
- * surfaces** — the ones where the tab strip above already carried the name and
- * the row underneath was the second copy of it — and **18 after PR 3/4 took the
- * fifteen money-and-records desks** (one more, the NPC data sheet, left the bill
- * as an exemption rather than a conversion; see NOT_A_PAGE_NAME).
+ * landing, 50 after PR 1/4, 34 after PR 2/4 (the tabbed consoles), 18 after
+ * PR 3/4 (the money-and-records desks), and **0 after PR 4/4 took the judgement
+ * queues and the record pages**.
  *
  * ⚖ A FILE NOT ON THIS LIST DRAWING A TITLE FAILS. Converting one of these also
  * FAILS, telling you to delete its line. **Never add a line to go green** —
@@ -151,24 +162,18 @@ function exemptionHolds(rel: string, src: string): boolean {
  *
  * A BASELINE IS A BILL, NOT A DECISION. This one is visible and directional.
  */
-const TITLE_ROW_BILL = [
-  'chat-flags/page.tsx',
-  'concierge-abuse/page.tsx',
-  'editorial-review/[editorialId]/page.tsx',
-  'editorial-review/page.tsx',
-  'event-types/[eventType]/categories/page.tsx',
-  'event-types/[eventType]/onboarding/page.tsx',
-  'event-types/[eventType]/profile/page.tsx',
-  'force-majeure/[flagId]/page.tsx',
-  'force-majeure/page.tsx',
-  'integrity-watch/page.tsx',
-  'repost-watch/page.tsx',
-  'reviews/page.tsx',
-  'user-reports/page.tsx',
-  'users/[userId]/page.tsx',
-  'vendors/[vendorProfileId]/edit/page.tsx',
-  'vendors/[vendorProfileId]/plan/page.tsx',
-  'vendors/[vendorProfileId]/team/page.tsx',
+const TITLE_ROW_BILL: string[] = [
+  // 🎉 EMPTY, AND IT STAYS EMPTY. Every admin screen now starts at its content.
+  // The two files that still render a visible <h1> are in NOT_A_PAGE_NAME
+  // above, each pinned to a pattern that must still match — the error boundary
+  // (its h1 IS the crash message) and the NPC data sheet (a document the owner
+  // prints and files, where an sr-only title would not appear on the paper).
+  //
+  // ⚖ AN EMPTY LIST IS THE ONE STATE THIS GUARD CANNOT PROVE ANYTHING FROM ON
+  // ITS OWN — a sweep that matched nothing produces exactly the same empty
+  // array as a console with nothing left to fix. That is what rule 2's floor
+  // is for: 95 admin files must still RENDER the masthead, so an empty bill
+  // and a broken walk() cannot pass together.
 ].sort();
 
 test('no new admin screen draws its own page-name row', () => {
@@ -200,7 +205,7 @@ test('no new admin screen draws its own page-name row', () => {
  * strip the console of the one thing a screen reader announces on arrival and
  * the one thing a skip link can point at. So the adoption is floored: 45 admin
  * files wore the masthead before this guard, 47 after PR 1/4 and 63 after
- * PR 2/4, and 78 after PR 3/4. The PR-1 figure was TWO, not
+ * PR 2/4, 78 after PR 3/4 and 95 after PR 4/4. The PR-1 figure was TWO, not
  * three, because the moodboard library already wore it on its success branch
  * and this PR only added the second instance INSIDE that same file. Counting
  * conversions instead of files would have set the floor one above what the
@@ -217,8 +222,8 @@ test('the admin console really wears the shared masthead', () => {
     if (/<PageMasthead\b/.test(code(readFileSync(file, 'utf8')))) wearing += 1;
   }
   assert.ok(
-    wearing >= 78,
-    `only ${wearing} admin files render <PageMasthead> — expected at least 78. ` +
+    wearing >= 95,
+    `only ${wearing} admin files render <PageMasthead> — expected at least 95. ` +
       'A page with no heading at all satisfies rule 1 and tells a screen ' +
       'reader nothing; the name belongs in the document, at zero pixels.',
   );
@@ -337,7 +342,106 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
   { file: 'help/page.tsx', namesItself: 'title="Help inbox"' },
   { file: 'integrations/page.tsx', namesItself: 'title="Integrations"' },
   { file: 'secrets/page.tsx', namesItself: 'title="Secrets & Rotation"' },
+  // ── PR 4/4 · the judgement queues ───────────────────────────────────────
+  { file: 'chat-flags/page.tsx', namesItself: 'title="Chat contact flags"' },
+  {
+    file: 'concierge-abuse/page.tsx',
+    namesItself: 'title="Today’s Focus enforcement"',
+  },
+  { file: 'integrity-watch/page.tsx', namesItself: 'title="Integrity watch"' },
+  { file: 'repost-watch/page.tsx', namesItself: 'title="Repost watch"' },
+  { file: 'reviews/page.tsx', namesItself: 'title="Review moderation"' },
+  { file: 'user-reports/page.tsx', namesItself: 'title="User reports"' },
+  { file: 'force-majeure/page.tsx', namesItself: 'title="Force majeure"' },
+  { file: 'editorial-review/page.tsx', namesItself: 'title="Editorial review"' },
+  {
+    file: 'vendors/[vendorProfileId]/edit/page.tsx',
+    namesItself: 'title="Edit unclaimed vendor"',
+  },
 ];
+
+/**
+ * ── AND THE RECORD PAGES, WHICH ARE THE ONE PLACE THE HEADING IS NOT A PAGE
+ *    NAME ──────────────────────────────────────────────────────────────────
+ *
+ * The owner removed the row that repeats the menu item you just tapped. On a
+ * record page the heading is the RECORD — a person's name, a shop's name, a
+ * flag's reference, the event type this screen edits. That is the content, it
+ * is why you opened the page, and hiding it would be deleting DATA rather than
+ * chrome.
+ *
+ * ⚖ So these eight were ported the other way: the visible line is unchanged
+ * and keeps its exact type treatment, only its element moves from `<h1>` to
+ * `<p>`, and `titleNode` carries the same words into the masthead at zero
+ * pixels. One heading, in the document, where a screen reader announces it on
+ * arrival and a skip link can point at it.
+ *
+ * The rule below is what stops a later pass "finishing the job" by deleting
+ * the visible name too — which on these pages would leave a person's record
+ * with nothing on it saying whose record it is.
+ */
+const RECORD_PAGES: Array<{ file: string; keepsVisible: RegExp; why: string }> = [
+  {
+    file: 'users/[userId]/page.tsx',
+    keepsVisible: /<p className="truncate font-serif text-2xl text-ink">\{displayName\}<\/p>/,
+    why: 'whose account this is',
+  },
+  {
+    file: 'force-majeure/[flagId]/page.tsx',
+    keepsVisible: /\{row\.public_id\}\s*<\/p>/,
+    why: 'which flag you are deciding',
+  },
+  {
+    file: 'editorial-review/[editorialId]/page.tsx',
+    keepsVisible: /\{event\?\.display_name \?\? 'Unnamed couple'\}\s*<\/p>/,
+    why: 'whose editorial is held back from them',
+  },
+  {
+    file: 'vendors/[vendorProfileId]/plan/page.tsx',
+    keepsVisible: /Plan · \{vendor\.business_name\}/,
+    why: 'whose plan you are about to change',
+  },
+  {
+    file: 'vendors/[vendorProfileId]/team/page.tsx',
+    keepsVisible: /business_name \?\? 'Vendor'\} · Team/,
+    why: 'whose team you are looking at',
+  },
+  {
+    file: 'event-types/[eventType]/categories/page.tsx',
+    keepsVisible: /\{row\.emoji\}<\/span>/,
+    why: 'which event type these categories belong to',
+  },
+  {
+    file: 'event-types/[eventType]/onboarding/page.tsx',
+    keepsVisible: /\{vocab\.emoji\} \{vocab\.label_en\} · Onboarding content/,
+    why: 'which event type this content belongs to',
+  },
+  {
+    file: 'event-types/[eventType]/profile/page.tsx',
+    keepsVisible: /\{vocab\.emoji\} \{vocab\.label_en\} · Onboarding profile/,
+    why: 'which event type this profile belongs to',
+  },
+];
+
+test('a record page keeps its record NAME visible, and moves only the heading element', () => {
+  const offenders: string[] = [];
+  for (const { file, keepsVisible, why } of RECORD_PAGES) {
+    const src = code(read(file));
+    if (!/<PageMasthead\b[^>]*titleNode=/.test(src) && !/titleNode=/.test(src)) {
+      offenders.push(`${file} (no titleNode — the record's name is not in the document)`);
+    }
+    if (!keepsVisible.test(src)) {
+      offenders.push(`${file} (the visible name is gone — nothing says ${why})`);
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    'On a record page the name is the CONTENT. Hiding it is deleting data, ' +
+      `not chrome. Offenders: ${offenders.join(', ')}`,
+  );
+});
+
 
 test('each surface ported here still names itself, at zero pixels', () => {
   const offenders: string[] = [];
@@ -455,12 +559,43 @@ const HELD_IN_THE_OLD_HEADER: Array<{ file: string; keeps: RegExp; why: string }
     keeps: /\{pending\.length\} pending/,
     why: 'the number of vendors waiting on somebody at this desk — a count, not a page name',
   },
+  {
+    file: 'integrity-watch/page.tsx',
+    keeps: /action=\{rescanAction\}/,
+    why: 'the only way to re-run the screening from this screen',
+  },
+  {
+    file: 'repost-watch/page.tsx',
+    keeps: /action=\{rescanAllRepostWatch\}/,
+    why: 'the only way to re-run the reverse-image match from this screen',
+  },
 ];
+
+/**
+ * 🪤 EXACTLY ONE, NOT AT LEAST ONE — AND THIS RULE WAS DECORATIVE UNTIL THE
+ *    MUTATION RUN SAID SO.
+ *
+ * The first cut asked only whether the pattern still MATCHED the file. Three of
+ * the phrases it pinned appear more than once in their own file — `chat-flags`
+ * repeats "Setnayan staff don't read chats" on every row, `repost-watch` says
+ * "never touches the image" twice, and "starter content" occurs SIX times in
+ * wedding-traditions. So deleting the sentence from the lede left a second
+ * occurrence standing and the guard reported GREEN. Measured: 2 → 1 and 3 → 2,
+ * both green, both proving nothing.
+ *
+ * Requiring an exact count of ONE fixes it in both directions: a deletion drops
+ * to 0 and fails, and a future duplicate that would re-arm the same blind spot
+ * goes to 2 and fails too — so nobody can quietly restore the hole.
+ */
+const occurrences = (src: string, re: RegExp): number =>
+  (src.match(new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`)) ?? [])
+    .length;
 
 test('what the old header held survived the header', () => {
   const offenders: string[] = [];
   for (const { file, keeps, why } of HELD_IN_THE_OLD_HEADER) {
-    if (!keeps.test(code(read(file)))) offenders.push(`${file} — lost ${why}`);
+    const n = occurrences(code(read(file)), keeps);
+    if (n !== 1) offenders.push(`${file} — ${n} matches (want exactly 1) for ${why}`);
   }
   assert.deepEqual(offenders, [], offenders.join(' · '));
 });
@@ -489,7 +624,7 @@ const SENTENCES_THAT_EARNED_THEIR_KEEP: Array<{ file: string; keeps: RegExp; why
   },
   {
     file: 'ugat/_surfaces/wedding-traditions-surface.tsx',
-    keeps: /starter content/,
+    keeps: /This is starter content; validate each religion/,
     why: 'it goes live to couples with no deploy and several religions are still unvalidated',
   },
   {
@@ -507,12 +642,59 @@ const SENTENCES_THAT_EARNED_THEIR_KEEP: Array<{ file: string; keeps: RegExp; why
     keeps: /Values are write-only/,
     why: 'without it, an operator looking for a key they already hold concludes the page is broken',
   },
+  {
+    file: 'chat-flags/page.tsx',
+    keeps: /This queue shows only the/,
+    why: 'the strongest case in the console — without it a reviewer thinks they are about to read somebody’s private conversation',
+  },
+  {
+    file: 'repost-watch/page.tsx',
+    keeps: /Detect-and-review only/,
+    why: 'on a queue about one vendor allegedly using another’s photograph, it is what stops a reviewer expecting a takedown',
+  },
+  {
+    file: 'force-majeure/page.tsx',
+    keeps: /7-day auto-resolution timer/,
+    why: 'a judgement desk where NOT deciding is itself a decision has to say so on the screen',
+  },
+  {
+    file: 'money/page.tsx',
+    keeps: /live\s+in Overview, not here/,
+    why: 'a grid of links can say what is ON it and not what is NOT — without this, somebody looking for Payments on the Money page concludes it is missing',
+  },
 ];
+
+/**
+ * 🛑 AND `note` MUST NOT BECOME `subtitle` UNDER A NEW NAME.
+ *
+ * The retired prop carried orientation on all three landings — "every admin
+ * page there is, grouped and searchable", over a grid of exactly that. Its
+ * replacement exists for one thing a grid of links genuinely cannot say: where
+ * something that is NOT on this page lives. Exactly one page has ever needed
+ * it. If a second appears, this fails and the person adding it has to say what
+ * their sentence points at that the cards do not.
+ */
+test('the landing grid’s note slot is used once, for a pointer off the page', () => {
+  const users = ['more/page.tsx', 'directory/page.tsx', 'money/page.tsx'].filter((rel) =>
+    /\bnote=\{/.test(code(read(rel))),
+  );
+  assert.deepEqual(
+    users,
+    ['money/page.tsx'],
+    '`note` is for a sentence pointing somewhere the cards do NOT go, not for a ' +
+      'subtitle. If a second landing needs one, say in its call site what it ' +
+      'points at — then update this list deliberately.',
+  );
+});
 
 test('the ledes that were kept were kept for a reason that is still there', () => {
   const offenders: string[] = [];
   for (const { file, keeps, why } of SENTENCES_THAT_EARNED_THEIR_KEEP) {
-    if (!keeps.test(code(read(file)))) offenders.push(`${file} — lost the sentence: ${why}`);
+    // Exactly one — see the note above `occurrences`. A phrase that also
+    // appears on every row of the table below the lede cannot tell you the
+    // lede is still there.
+    const n = occurrences(code(read(file)), keeps);
+    if (n !== 1) offenders.push(`${file} — ${n} matches (want exactly 1): ${why}`);
   }
   assert.deepEqual(offenders, [], offenders.join(' · '));
 });

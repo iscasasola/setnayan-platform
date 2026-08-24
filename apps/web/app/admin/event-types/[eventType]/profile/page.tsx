@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { upsertEventTypeProfile } from '../../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -110,9 +111,16 @@ export default async function EventTypeProfilePage({
       <Link href="/admin/taxonomy?view=vocab-event" className="text-sm text-ink/55 hover:text-mulberry">
         ← Event types
       </Link>
-      <h1 className="mt-3 text-2xl font-semibold text-ink">
+      {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME.
+          The name below is the EVENT TYPE this screen edits — it is the record,
+          not the menu item you tapped, and hiding it would be deleting data
+          rather than chrome. The visible line stays exactly as it looked; only
+          its heading element moves to the masthead, which carries the same
+          words at zero pixels. */}
+      <PageMasthead titleNode={`${vocab.label_en} · Onboarding profile`} />
+      <p className="mt-3 text-2xl font-semibold text-ink">
         {vocab.emoji} {vocab.label_en} · Onboarding profile
-      </h1>
+      </p>
       <p className="mt-1 text-sm text-ink/55">
         Per-type terminology + which surfaces apply. Drives the dashboard copy and the
         generic onboarding flow.{' '}

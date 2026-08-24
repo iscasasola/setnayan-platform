@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { ScanFlag } from '@/lib/editorial-scan';
 
@@ -31,9 +32,13 @@ export default async function EditorialReviewPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8">
+      {/* The page starts at its content.
+          ⚖ The sentence survives: it says the draft is held back from the
+          couple until somebody here unlocks it. Without that, an operator does
+          not know that leaving this queue alone leaves a couple waiting. */}
       <div>
-        <h1 className="text-xl font-semibold">Editorial review</h1>
-        <p className="text-sm text-[--m-ink-secondary] mt-1">
+        <PageMasthead title="Editorial review" />
+        <p className="text-sm text-ink/70">
           Editorials are scanned for vulgarity (OpenAI Moderation) and grammar (LanguageTool)
           before the couple sees their draft. Resolve red flags here, then unlock.
         </p>

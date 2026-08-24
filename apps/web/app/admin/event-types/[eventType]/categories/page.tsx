@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setTileEventTypeOffered, setFolderEventTypeOffered } from '../../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -88,11 +89,18 @@ export default async function ScopeCategoriesPage({
         ← Event types
       </Link>
 
-      <header className="mb-6 mt-3 space-y-2">
-        <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+      {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME.
+          The name below is the EVENT TYPE this screen edits — it is the record,
+          not the menu item you tapped, and hiding it would be deleting data
+          rather than chrome. The visible line stays exactly as it looked; only
+          its heading element moves to the masthead, which carries the same
+          words at zero pixels. */}
+      <PageMasthead titleNode={row.label_en} />
+      <div className="mb-6 mt-3 space-y-2">
+        <p className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
           <span aria-hidden className="text-3xl leading-none">{row.emoji}</span>
           {row.label_en}
-        </h1>
+        </p>
         <p className="max-w-3xl text-base text-ink/65">
           Choose which categories a <strong>{row.label_en}</strong> offers. A category left{' '}
           <em>Offered</em> while still universal serves every event type; marking it{' '}
@@ -103,7 +111,7 @@ export default async function ScopeCategoriesPage({
           Offers {offeredCount} of {total} categories
           {offeredCount === total ? ' · universal (not yet tailored)' : ' · tailored'}
         </p>
-      </header>
+      </div>
 
       {ok ? (
         <div role="status" className="mb-6 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">{ok}</div>

@@ -239,7 +239,7 @@ export async function recomputeVendorActivityStats(vendorProfileId: string): Pro
   // -----------------------------------------------------------------------
   // 1. Fetch all needed data in parallel
   // -----------------------------------------------------------------------
-  const [profileResult, reviewsResult, bookingsResult, inquiriesResult] =
+  const [profileResult, reviewsResult, bookingsResult, inquiriesResult, keptClockResult] =
     await Promise.all([
       // Vendor profile (for completeness + user_id to resolve last_login)
       supabase
@@ -279,6 +279,17 @@ export async function recomputeVendorActivityStats(vendorProfileId: string): Pro
       supabase
         .from('chat_threads')
         .select('thread_id,inquiry_status,accepted_at,created_at,vendor_first_reply_at')
+        .eq('vendor_profile_id', vendorProfileId),
+
+      // THE CONVERSATIONS WHOSE CELEBRATION WAS DELETED — timing only.
+      // `chat_threads` is NOT NULL on event_id and CASCADEs, so without this a
+      // couple removing their celebration silently erased part of a supplier's
+      // response rate and median reply time (measured against prod: threads
+      // 1 → 0). Owner 2026-08-24: "keep the clock, throw away the words" — the
+      // messages go with the event; these three timings do not.
+      supabase
+        .from('vendor_reply_times')
+        .select('opened_at,first_replied_at,was_accepted')
         .eq('vendor_profile_id', vendorProfileId),
 
     ]);
@@ -356,8 +367,41 @@ export async function recomputeVendorActivityStats(vendorProfileId: string): Pro
     created_at: string;
     vendor_first_reply_at: string | null;
   }>;
-  const totalThreads = threadRows.length;
-  const repliedThreads = threadRows.filter((t) => t.inquiry_status === 'accepted').length;
+  /*
+    THE CONVERSATIONS THAT NO LONGER EXIST STILL COUNT — AS CLOCKS, NOT WORDS.
+
+    Normalised into the SAME shape as a live thread so every statistic below is
+    computed once, over one list. Folding them in here rather than adding a
+    second code path is deliberate: the response rate, the median and the sample
+    size are three readings of one set, and a second path is how two of them
+    start disagreeing.
+
+    🔑 `was_accepted` was frozen at deletion time from the same
+    `inquiry_status = 'accepted'` test used one line below, so a preserved
+    conversation and a live one answer the same question the same way. If they
+    diverged, a supplier's rate would move at deletion time for a reason nobody
+    could see.
+  */
+  const keptClocks = (keptClockResult.data ?? []) as Array<{
+    opened_at: string;
+    first_replied_at: string | null;
+    was_accepted: boolean;
+  }>;
+  const allThreads: Array<{
+    inquiry_status: string;
+    created_at: string;
+    vendor_first_reply_at: string | null;
+  }> = [
+    ...threadRows,
+    ...keptClocks.map((k) => ({
+      inquiry_status: k.was_accepted ? 'accepted' : 'kept',
+      created_at: k.opened_at,
+      vendor_first_reply_at: k.first_replied_at,
+    })),
+  ];
+
+  const totalThreads = allThreads.length;
+  const repliedThreads = allThreads.filter((t) => t.inquiry_status === 'accepted').length;
   const responseRatePct =
     totalThreads > 0 ? Math.round((repliedThreads / totalThreads) * 100) : 0;
 
@@ -366,7 +410,7 @@ export async function recomputeVendorActivityStats(vendorProfileId: string): Pro
   // Median is more robust than mean for response-time data (outliers from very slow
   // replies on old threads skew the mean heavily).
   // Fallback: 0 when no threads have a reply yet.
-  const replyDeltas: number[] = threadRows
+  const replyDeltas: number[] = allThreads
     .filter((t) => t.vendor_first_reply_at != null)
     .map((t) => {
       const replyMs = new Date(t.vendor_first_reply_at!).getTime();

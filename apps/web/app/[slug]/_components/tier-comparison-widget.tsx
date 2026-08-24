@@ -2,6 +2,29 @@ import type { EventWords } from '../_lib/event-words';
 import Link from 'next/link';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 
+/*
+ * ✉️ 2026-08-24 (AP-3) — THE INVITATION STOPPED READING LIKE A RECEIPT.
+ *
+ * The labels here were set in DM Mono — a monospaced DATA face — on somebody's
+ * wedding invitation. Measured on a live guest page: these are the mono words a
+ * real guest actually reads.
+ *
+ * 🔒 THE SCOPE IS EXACTLY H-2'S, APPLIED WHERE IT IS NOT GATED: size, tracking,
+ * uppercase and tone ALL STAY — ONLY THE FACE CHANGES, and it changes to the
+ * editorial sans (delegated call #5 of 2026-08-23 already settled the
+ * direction: "sans not DM Mono"). A small tracked label is a normal editorial
+ * device; the typewriter face is what made it a receipt.
+ *
+ * 🔢 MONO KEEPS DIGITS AND LOSES WORDS — the same rule D-8 applies on the
+ * dashboard. Anything here that is a VALUE rather than a word stays in mono;
+ * the only one is the moment's time label.
+ *
+ * ⛔ UNTOUCHED, DELIBERATELY: the 0.66rem gild section eyebrows (explicitly
+ * protected), the film's small announcements and its "press and hold" pill
+ * (that is H-2, and it is OWNER-GATED because the cinematic look is approved
+ * and paid for), and the "Created at Setnayan" watermark.
+ */
+
 export function TierComparisonWidget({
   limited,
   eventNoun,
@@ -17,7 +40,7 @@ export function TierComparisonWidget({
     return (
       <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
         <header>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">
             Your access
           </p>
           <h3 className="mt-1 text-2xl font-semibold tracking-tight">Two ways to celebrate</h3>
@@ -29,13 +52,13 @@ export function TierComparisonWidget({
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2 rounded-lg border border-dashed border-ink/15 bg-cream p-5 opacity-55">
-            <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
+            <p className="font-sans text-xs uppercase tracking-[0.15em] text-ink/50">
               Public
             </p>
             <p className="text-sm text-ink/60">View invitation · RSVP · 3-day photo window</p>
           </div>
           <div className="space-y-2 rounded-lg border border-dashed border-terracotta/30 bg-cream p-5 opacity-55">
-            <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
+            <p className="font-sans text-xs uppercase tracking-[0.15em] text-terracotta">
               Registered (locked for +1s)
             </p>
             <p className="text-sm text-ink/60">
@@ -58,12 +81,12 @@ export function TierComparisonWidget({
   return (
     <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
       <header>
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">Your access</p>
+        <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">Your access</p>
         <h3 className="mt-1 text-2xl font-semibold tracking-tight">Two ways to celebrate</h3>
       </header>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-3 rounded-lg border border-ink/15 bg-cream p-5">
-          <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
+          <p className="font-sans text-xs uppercase tracking-[0.15em] text-ink/50">
             Public · As you are now
           </p>
           <p className="font-medium text-ink">Free · No sign-up needed</p>
@@ -91,7 +114,7 @@ export function TierComparisonWidget({
           </p>
         </div>
         <div className="space-y-3 rounded-lg border border-terracotta/40 bg-gradient-to-br from-terracotta/10 to-cream p-5">
-          <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
+          <p className="font-sans text-xs uppercase tracking-[0.15em] text-terracotta">
             With Setnayan account
           </p>
           <p className="font-medium text-ink">Free · One-tap sign-up</p>

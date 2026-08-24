@@ -4,6 +4,29 @@ import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 
 import { useEffect, useState } from 'react';
 
+/*
+ * ✉️ 2026-08-24 (AP-3) — THE INVITATION STOPPED READING LIKE A RECEIPT.
+ *
+ * The labels here were set in DM Mono — a monospaced DATA face — on somebody's
+ * wedding invitation. Measured on a live guest page: these are the mono words a
+ * real guest actually reads.
+ *
+ * 🔒 THE SCOPE IS EXACTLY H-2'S, APPLIED WHERE IT IS NOT GATED: size, tracking,
+ * uppercase and tone ALL STAY — ONLY THE FACE CHANGES, and it changes to the
+ * editorial sans (delegated call #5 of 2026-08-23 already settled the
+ * direction: "sans not DM Mono"). A small tracked label is a normal editorial
+ * device; the typewriter face is what made it a receipt.
+ *
+ * 🔢 MONO KEEPS DIGITS AND LOSES WORDS — the same rule D-8 applies on the
+ * dashboard. Anything here that is a VALUE rather than a word stays in mono;
+ * the only one is the moment's time label.
+ *
+ * ⛔ UNTOUCHED, DELIBERATELY: the 0.66rem gild section eyebrows (explicitly
+ * protected), the film's small announcements and its "press and hold" pill
+ * (that is H-2, and it is OWNER-GATED because the cinematic look is approved
+ * and paid for), and the "Created at Setnayan" watermark.
+ */
+
 type Props = { targetIso: string };
 
 type Remaining = { days: number; hours: number; minutes: number; seconds: number; isPast: boolean };
@@ -45,7 +68,7 @@ export function CountdownWidget({ targetIso }: Props) {
 
   return (
     <section className="rounded-2xl border border-ink/10 bg-veil/40 p-6 text-center sm:p-8">
-      <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+      <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">
         {w.eventWord === 'wedding' ? (
           <>Until we say &lsquo;I do&rsquo;</>
         ) : (
@@ -58,7 +81,7 @@ export function CountdownWidget({ targetIso }: Props) {
             <p className="font-pahina text-3xl font-light tabular-nums sm:text-5xl">
               {String(b.value).padStart(2, '0')}
             </p>
-            <p className="mt-1 font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
+            <p className="mt-1 font-sans text-xs uppercase tracking-[0.15em] text-ink/50">
               {b.label}
             </p>
           </div>

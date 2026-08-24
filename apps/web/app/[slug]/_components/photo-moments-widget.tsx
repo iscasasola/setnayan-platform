@@ -1,6 +1,29 @@
 import type { EventWords } from '../_lib/event-words';
 import { Camera, CircleSlash, Sparkles } from 'lucide-react';
 
+/*
+ * ✉️ 2026-08-24 (AP-3) — THE INVITATION STOPPED READING LIKE A RECEIPT.
+ *
+ * The labels here were set in DM Mono — a monospaced DATA face — on somebody's
+ * wedding invitation. Measured on a live guest page: these are the mono words a
+ * real guest actually reads.
+ *
+ * 🔒 THE SCOPE IS EXACTLY H-2'S, APPLIED WHERE IT IS NOT GATED: size, tracking,
+ * uppercase and tone ALL STAY — ONLY THE FACE CHANGES, and it changes to the
+ * editorial sans (delegated call #5 of 2026-08-23 already settled the
+ * direction: "sans not DM Mono"). A small tracked label is a normal editorial
+ * device; the typewriter face is what made it a receipt.
+ *
+ * 🔢 MONO KEEPS DIGITS AND LOSES WORDS — the same rule D-8 applies on the
+ * dashboard. Anything here that is a VALUE rather than a word stays in mono;
+ * the only one is the moment's time label.
+ *
+ * ⛔ UNTOUCHED, DELIBERATELY: the 0.66rem gild section eyebrows (explicitly
+ * protected), the film's small announcements and its "press and hold" pill
+ * (that is H-2, and it is OWNER-GATED because the cinematic look is approved
+ * and paid for), and the "Created at Setnayan" watermark.
+ */
+
 // Mode enum matches the server-side validator at
 // /dashboard/[eventId]/website/photo-moments/actions.ts. Three values
 // each get a distinct visual treatment on the landing page:
@@ -55,7 +78,7 @@ export function PhotoMomentsWidget({
     return (
       <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
         <header>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">
             Savour the moments
           </p>
           <h3 className="mt-1 text-2xl font-semibold tracking-tight">
@@ -72,7 +95,7 @@ export function PhotoMomentsWidget({
   return (
     <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
       <header>
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+        <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">
           Savour the moments
         </p>
         <h3 className="mt-1 text-2xl font-semibold tracking-tight">Photo moments</h3>
@@ -108,7 +131,7 @@ function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
     return (
       /* Functional-color exile (§4): app-green becomes the gild rule. The three
          modes stay distinguishable by icon + key, not by hue. */
-      <span className="inline-flex items-center gap-1.5 border border-gild px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-gild">
+      <span className="inline-flex items-center gap-1.5 border border-gild px-2 py-0.5 font-sans text-xs uppercase tracking-[0.15em] text-gild">
         <Camera aria-hidden className="h-3 w-3" strokeWidth={2} />
         Cameras welcome
       </span>
@@ -116,7 +139,7 @@ function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
   }
   if (mode === 'papic_only') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-terracotta-700">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/15 px-2 py-0.5 font-sans text-xs uppercase tracking-[0.15em] text-terracotta-700">
         <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
         {/* Was the singular "Our paparazzo" — Papic Pool has no limit on how many
             phones shoot, so the badge should not imply one appointed shooter. */}
@@ -125,7 +148,7 @@ function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2 py-0.5 font-sans text-xs uppercase tracking-[0.15em] text-ink/70">
       <CircleSlash aria-hidden className="h-3 w-3" strokeWidth={2} />
       Phone-down
     </span>

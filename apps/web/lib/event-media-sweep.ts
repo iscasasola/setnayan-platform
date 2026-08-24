@@ -66,6 +66,26 @@ const PAPIC_KEY_COLUMNS = [
   'clip_web_r2_key',
 ] as const;
 
+/**
+ * A SUPPLIER'S OWN CAPTURES at this celebration (`vendor_papic_captures`).
+ *
+ * 🔑 THE ROWS CASCADE; THE FILES DO NOT. That table's `event_id` is
+ * `ON DELETE CASCADE`, so deleting the celebration removes every row — and with
+ * the rows go the only records of which objects those photographs were. The
+ * files stay in storage, permanently orphaned and unreachable, which is the
+ * worst of both: the couple is told their photographs are gone, and they are
+ * still there.
+ *
+ * The owner's ruling of 2026-08-20 is that when a couple deletes their own
+ * celebration the photographs go with it. It did not say "except the ones a
+ * supplier took" — supplier captures land in the couple's own gallery, which is
+ * exactly what that ruling was about.
+ *
+ * ⚠ COLLECTED BEFORE THE DELETE, like everything else here, and for a sharper
+ * reason: after the cascade there is nothing left to read.
+ */
+const VENDOR_CAPTURE_KEY_COLUMNS = ['r2_object_key', 'poster_r2_key'] as const;
+
 /** The event's own website media — hero, film, music, gallery. */
 const EVENT_KEY_COLUMNS = [
   'landing_page_hero_image_url',
@@ -127,6 +147,17 @@ export async function collectEventMediaRefs(
   if (photoErr) return null;
   for (const row of (photos ?? []) as unknown as Record<string, unknown>[]) {
     for (const col of PAPIC_KEY_COLUMNS) pushRef(refs, row[col]);
+  }
+
+  // A supplier's own captures at this celebration. Same rule, same sweep — see
+  // VENDOR_CAPTURE_KEY_COLUMNS for why the FK cascade is not enough on its own.
+  const { data: captures, error: captureErr } = await admin
+    .from('vendor_papic_captures')
+    .select(VENDOR_CAPTURE_KEY_COLUMNS.join(','))
+    .eq('event_id', eventId);
+  if (captureErr) return null;
+  for (const row of (captures ?? []) as unknown as Record<string, unknown>[]) {
+    for (const col of VENDOR_CAPTURE_KEY_COLUMNS) pushRef(refs, row[col]);
   }
 
   const { data: ev, error: evErr } = await admin

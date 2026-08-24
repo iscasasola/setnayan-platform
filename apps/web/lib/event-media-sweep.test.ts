@@ -137,3 +137,52 @@ test('the confirmation says the photos are gone for good', () => {
       'BEFORE the press.',
   );
 });
+
+test('a supplier’s own captures are swept too — the rows cascade, the files do not', () => {
+  const src = read(SWEEP);
+  // `vendor_papic_captures.event_id` is ON DELETE CASCADE, so deleting the
+  // celebration removes every row — and with the rows go the only records of
+  // which objects those photographs were. Leaving the files behind is the worst
+  // of both: the couple is told their photographs are gone, and they are not.
+  //
+  // The owner's 2026-08-20 ruling did not say "except the ones a supplier
+  // took", and supplier captures land in the couple's own gallery — which is
+  // exactly what that ruling was about.
+  assert.match(
+    src,
+    /\.from\('vendor_papic_captures'\)/,
+    'A supplier’s captures at this celebration are no longer collected. Their ' +
+      'rows cascade away on delete, so the files become permanently orphaned ' +
+      'and the couple is told photographs are gone that still exist.',
+  );
+  // Both stored addresses, not just the original: a clip's poster is a second
+  // fetchable copy of the same moment — the defect the seven-key test above
+  // exists for, one table across.
+  assert.match(
+    src,
+    /const VENDOR_CAPTURE_KEY_COLUMNS = \['r2_object_key', 'poster_r2_key'\] as const;/,
+    'A capture key column was dropped. A clip poster left behind is the ' +
+      'photograph still being there, just at a different address.',
+  );
+  // …and it must be collected BEFORE the delete, like everything else here —
+  // after the cascade there is nothing left to read.
+  const collectorStart = src.indexOf('export async function collectEventMediaRefs');
+  const captureRead = src.indexOf(".from('vendor_papic_captures')");
+  assert.ok(
+    collectorStart > -1 && captureRead > collectorStart,
+    'the capture read must sit inside the collector, which runs before the delete',
+  );
+});
+
+test('a refused capture read is not an empty one', () => {
+  // Same rule the papic and events reads already follow: `null` means "we
+  // looked and could not see", and the caller must not report "nothing to
+  // remove" from a read that fell over.
+  const src = read(SWEEP);
+  assert.match(
+    src,
+    /if \(captureErr\) return null;/,
+    'A failed capture read now degrades to "no supplier files", which is a ' +
+      'claim the query never earned.',
+  );
+});

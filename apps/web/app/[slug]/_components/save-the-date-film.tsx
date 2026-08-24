@@ -33,7 +33,7 @@
 
 import type * as React from 'react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { Music, Volume2, VolumeX } from 'lucide-react';
+import { CalendarPlus, Music, Volume2, VolumeX } from 'lucide-react';
 import { type StdFilmContent } from '@/lib/save-the-date-content';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/lib/std-themes';
@@ -1532,16 +1532,60 @@ export function SaveTheDateFilm({
         </div>
       ) : null}
 
+      {/* 📅 ADD TO CALENDAR, AVAILABLE THROUGHOUT — not only at the end (H-5).
+          The closing beat has always carried this button, and that beat is the
+          LAST one: a guest who lifted the veil, saw the date and left had no way
+          to put it in their phone without watching the whole film to its end.
+          Measured on two live invitations 2026-08-24 — "Add to calendar"
+          appeared EXACTLY ONCE on each, at the terminal beat.
+
+          This is the SAME repair the way-out above already made, for the same
+          reason, and it deliberately reuses its shape: `started` as the mount
+          condition, the same quiet `bg-current/10` chrome weight, and the
+          closing beat keeping its full accent button as the finale. The one
+          thing that must not happen is a second competing call to action
+          shouting over the film the couple paid for.
+
+          `started` IS LOAD-BEARING AND IS NOT A STYLE. Every beat of this film
+          is mounted from frame one behind `pointer-events-none` + `aria-hidden`,
+          and NEITHER removes an element from the tab order — so a control merely
+          rendered here would be Tab-reachable under the veil, before the music,
+          the clip or the gallery have played. `started` only flips at the lift.
+
+          Sits above the bottom row rather than in it: that row already holds the
+          way-out on the left and mute on the right, and a centred chip between
+          them overlaps both on a 375px phone. */}
+      {started && !preview && (content.icsHref || content.gcalUrl) ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex justify-center px-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <a
+            href={content.icsHref ?? content.gcalUrl ?? '#'}
+            {...(content.icsHref
+              ? { download: content.icsFilename }
+              : { target: '_blank', rel: 'noopener noreferrer' })}
+            className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-current/10 px-4 py-2.5 text-sm font-medium opacity-75 transition-opacity hover:opacity-100"
+          >
+            <CalendarPlus aria-hidden className="h-4 w-4" />
+            Add to calendar
+          </a>
+        </div>
+      ) : null}
+
       {/* The film carries no "swipe up to continue" cue — it duplicated the veil's
           "Lift the veil ↑ / or double-tap" swipe-up pill, so the two were
           consolidated into that single pill (owner 2026-06-21). What remains is a
           DIFFERENT, one-time cue: "press and hold to pause", since the film has no
           transport chrome and pausing would otherwise be undiscoverable. It fades
           after a few seconds and never returns. pointer-events-none so it never
-          blocks a press or hold. */}
+          blocks a press or hold.
+          bottom-28, not bottom-16: the persistent "Add to calendar" chip took
+          that row (H-5). This cue is transient — it fades after a few seconds and
+          never returns — so it yields to the control that stays. */}
       {!preview ? (
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-16 z-20 flex justify-center transition-opacity duration-700 ${
+          className={`pointer-events-none absolute inset-x-0 bottom-28 z-20 flex justify-center transition-opacity duration-700 ${
             showHoldHint ? 'opacity-100' : 'opacity-0'
           }`}
         >

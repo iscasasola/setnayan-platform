@@ -315,25 +315,40 @@ test('a read inside a parallel batch binds its error too', () => {
  * example: a coordinator once read only the vendor documentation shots under a
  * card headed "Your gallery".
  */
-const MUST_SAY_PARTIAL = [
-  '[eventId]/guests/checkin/page.tsx',
-  '[eventId]/guests/souvenirs/page.tsx',
-  '[eventId]/hosts/page.tsx',
-  '[eventId]/seating/walkthrough/page.tsx',
-  '[eventId]/studio/papic/moderation/page.tsx',
+const MUST_SAY_PARTIAL: Array<{ file: string; gate: RegExp }> = [
+  { file: '[eventId]/guests/checkin/page.tsx', gate: /\{somethingRefused \? \(/ },
+  { file: '[eventId]/guests/souvenirs/page.tsx', gate: /\{somethingRefused \? \(/ },
+  { file: '[eventId]/hosts/page.tsx', gate: /\{hostsPartlyRefused \? \(/ },
+  { file: '[eventId]/seating/walkthrough/page.tsx', gate: /\{walkthroughPartlyRefused \? \(/ },
+  {
+    file: '[eventId]/studio/papic/moderation/page.tsx',
+    gate: /\{moderationPartlyRefused \? \(/,
+  },
 ];
 
 test('a partially-refused screen says so instead of presenting itself as complete', () => {
-  const missing = MUST_SAY_PARTIAL.filter((rel) => {
-    const src = stripComments(readFileSync(join(HERE, rel), 'utf8'));
-    return !/<ReadRefusedNotice[\s\S]{0,200}?partial/.test(src);
-  });
+  // 🪤 THE FIRST DRAFT OF THIS TEST WAS DECORATION AND THE MUTATION RUN CAUGHT
+  // IT. It asked only whether `<ReadRefusedNotice … partial` appeared in the
+  // file — so replacing the CONDITION with `false` left the JSX sitting there,
+  // unreachable, and the guard stayed GREEN (measured: the gate went 1 → 0
+  // occurrences, 0 failures). **A COMPONENT THAT IS PRESENT IN THE SOURCE IS NOT
+  // A COMPONENT ANYTHING CAN RENDER** — the same family as proving a card was
+  // imported rather than mounted, one step further along. Both halves are named
+  // now: the notice AND the flag that can switch it on.
+  const missing: string[] = [];
+  for (const { file, gate } of MUST_SAY_PARTIAL) {
+    const src = stripComments(readFileSync(join(HERE, file), 'utf8'));
+    if (!/<ReadRefusedNotice[\s\S]{0,200}?partial/.test(src)) {
+      missing.push(`${file} — no partial notice`);
+    }
+    if (!gate.test(src)) missing.push(`${file} — nothing can switch it on: ${gate}`);
+  }
   assert.deepEqual(
     missing,
     [],
     'These screens are built from several reads at once. When one is refused ' +
       'the page still renders and still looks whole, so it has to say that part ' +
-      `of it is missing. Missing: ${missing.join(', ')}`,
+      `of it is missing — and something has to be able to say it. ${missing.join(', ')}`,
   );
 });
 

@@ -64,6 +64,15 @@ export function roomForOutcome(params: Record<string, unknown>): PapicRoom | nul
     // choice no capture path ever read).
     has('style_set') ||
     has('style_error') ||
+    // ⚠ NOT A STORAGE ERROR, AND NOT REALLY A ROOM. `papic_access_error` is the
+    // SHARED couple-check refusal — every action in this tree redirects here
+    // when the caller is not a couple on the event. It is mapped anyway because
+    // the invariant is "every outcome an action emits has a room", and an
+    // unmapped one is indistinguishable from a forgotten one. Set up is the
+    // default landing, so a refusal lands where a stranger would have started.
+    // The banner itself renders ABOVE the room branch, so which room resolves
+    // does not change whether they see it.
+    has('papic_access_error') ||
     has('faceTagging')
   ) {
     return 'setup';

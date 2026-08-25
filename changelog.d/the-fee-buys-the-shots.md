@@ -35,3 +35,30 @@ The reason was honest when written — the module's own header says the booking-
 - 🔴 The whole supplier lane is still **switched off** behind the DPO ruling (`isVendorPapicCaptureEnabled`, route 403s). This change is inert until that opens.
 
 **SPEC IMPACT:** None — it connects an existing owner ruling (2026-07-22) that had never been wired.
+
+---
+
+## 2026-08-26 (same PR) · the rate is reset, and video unlocks at 800
+
+Owner, after seeing the numbers: *"okay. this is reasonable. 800 credits will allow them to take videos."*
+
+**⚖ THE RATE CHANGED BECAUSE THE ALLOWANCE CHANGED PURPOSE.** The 50→200-at-₱4,000 curve was sized for a supplier **documenting the day** — a handful of shots between jobs. Owner 2026-08-26: *"they can upload their work via papic credits as well per event."* A wedding photographer delivers **300–800 photographs**; 200 cannot hold a gallery. The old ceiling was sized for a job nobody is doing any more.
+
+**The principle is unchanged and still his** (2026-07-22, *"points in proportion to what they paid"*) — only the rate and ceiling move: **one shot per ₱5 of fee paid, floor 50, ceiling 2,000.**
+
+| package | fee collected | was | now |
+|---|---|---|---|
+| ₱30,000 | ₱1,500 | 106 | **300** |
+| ₱50,000 | ₱2,500 | 144 | **500** |
+| ₱80,000 | ₱4,000 | 200 | **800** |
+| ₱250,000 | ₱6,500 | 200 | **1,300** |
+
+🔑 **It costs us nothing that matters.** 500 kept photos are about **six centavos a year** of storage, against **₱165** if a couple bought the same 500. The gift feels substantial and is a rounding error to serve. The 2,000 ceiling stops a ₱2M booking minting twenty thousand free shots.
+
+**🚨 AND THE VIDEO RULE FILLS A BRANCH THAT COULD NEVER FIRE.** `allowVideo` was `true` on **every** tier, so `canCapture`'s `video_not_allowed` refusal was unreachable — a rule described and enforced by nothing. Video is now derived from the **allowance**, not the tier: **≥ 800 points**, which at one shot per ₱5 is a ₱4,000 booking fee. The tier flag is still ANDed in so a future tier can veto outright, rather than deleted and silently losing that ability.
+
+⚠ **This NARROWS video relative to the unreachable state before it** — a supplier on the 50-point floor could nominally shoot video and now cannot. **Safe by arithmetic**: production holds zero vendor captures and the lane is switched off, so nobody loses something they were using. Stated rather than buried, because it is a narrowing.
+
+**🚨 A THIRD SURFACE WAS SHOWING THE STALE NUMBER.** `tierReadout` is the badge a supplier reads on their on-the-day page, and on the bare tier it would have said **"Papic Lite · 50 pts · photos + video"** to somebody whose real allowance is 800 photos with no video. Three surfaces now read the same three inputs: the capture route (what they GET), the capture screen's allowance, and the badge (what they READ). **Wiring any two of three leaves a supplier reading one number and getting another, with nothing anywhere reporting a disagreement.**
+
+**Guards:** the caller guard is now **8 rules** — three surfaces, the video threshold, and the four original wire rules. Mutations, counts printed before → after: 800 threshold removed (1→0) 🔴 · video back on the always-true flag (3→2) 🔴 · badge drops the fee (1→0) 🔴, plus the five earlier. Green on both clean sides. Two pre-existing expectations were updated with the reason recorded inline, never quietly.

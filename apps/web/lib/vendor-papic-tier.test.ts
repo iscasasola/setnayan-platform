@@ -21,6 +21,8 @@ import {
   tierReadout,
   vendorPapicPointsForBookingFee,
   allowancePointsFor,
+  allowVideoFor,
+  VENDOR_PAPIC_VIDEO_MIN_POINTS,
   VENDOR_PAPIC_BASE_GIFT_POINTS,
   VENDOR_PAPIC_MAX_POINTS,
   type VendorAcceptProvenance,
@@ -100,19 +102,16 @@ test('resolve: no upgrade → the derived base tier', () => {
 
 test('fee-scaled points: ₱0 → 50 (gift floor), ₱4,000 → 200 (ceiling)', () => {
   assert.equal(vendorPapicPointsForBookingFee(0), VENDOR_PAPIC_BASE_GIFT_POINTS);
-  assert.equal(vendorPapicPointsForBookingFee(0), 50);
-  assert.equal(vendorPapicPointsForBookingFee(4000), VENDOR_PAPIC_MAX_POINTS);
-  assert.equal(vendorPapicPointsForBookingFee(4000), 200);
-});
-
-test('fee-scaled points: proportional in between, capped above the ceiling', () => {
-  assert.equal(vendorPapicPointsForBookingFee(2000), 125); // halfway → 50 + 75
-  assert.equal(vendorPapicPointsForBookingFee(1000), 88); // 50 + 37.5 → round
-  assert.equal(vendorPapicPointsForBookingFee(8000), 200); // clamped at the ceiling
-});
-
-test('fee-scaled points: junk fee (negative / NaN) → the gift floor', () => {
-  assert.equal(vendorPapicPointsForBookingFee(-500), 50);
+  assert.equal(vendorPapicPointsForBookingFee(0), 50, 'the floor: paid nothing, still gifted 50');
+  // ⚖ ONE SHOT PER ₱5 (owner 2026-08-26). The old 50→200-at-₱4,000 curve was
+  // sized for a supplier documenting the day; the allowance is now for
+  // UPLOADING THEIR FINISHED WORK, and 200 cannot hold a wedding gallery.
+  assert.equal(vendorPapicPointsForBookingFee(1500), 300, '₱30k package → ₱1,500 fee');
+  assert.equal(vendorPapicPointsForBookingFee(2500), 500, '₱50k package → ₱2,500 fee');
+  assert.equal(vendorPapicPointsForBookingFee(4000), 800, 'the video threshold sits here');
+  assert.equal(vendorPapicPointsForBookingFee(10_000), VENDOR_PAPIC_MAX_POINTS);
+  assert.equal(vendorPapicPointsForBookingFee(20_000), 2000, 'clamped — a ₱2M booking mints no windfall');
+  assert.equal(vendorPapicPointsForBookingFee(-500), 50, 'nonsense earns the floor, never a windfall');
   assert.equal(vendorPapicPointsForBookingFee(Number.NaN), 50);
 });
 
@@ -156,13 +155,20 @@ test('canCapture: Unli is unlimited (photos + clips, any count)', () => {
 });
 
 test('captureAllowance: points left clamps at 0, unlimited stays null', () => {
+  // ⚠ allowVideo is FALSE here, and that is the change of 2026-08-26, not a
+  // regression: video now unlocks at 800 points and this supplier has 50. It
+  // used to be `true` on every tier, which is why canCapture's
+  // video_not_allowed branch could never fire.
   assert.deepEqual(captureAllowance('lite', 5), {
     tier: 'lite',
-    allowVideo: true,
+    allowVideo: false,
     pointsCap: 50,
     pointsSpent: 5,
     pointsLeft: 45,
   });
+  // …and with a fee that clears the threshold, it comes back.
+  assert.equal(captureAllowance('lite', 5, 4000).allowVideo, true);
+  assert.equal(captureAllowance('lite', 5, 4000).pointsLeft, 795);
   assert.equal(captureAllowance('lite', 999).pointsLeft, 0);
   assert.equal(captureAllowance('unli', 999).pointsLeft, null);
   // Negative/garbage spent is clamped to 0.
@@ -170,8 +176,9 @@ test('captureAllowance: points left clamps at 0, unlimited stays null', () => {
 });
 
 test('tierReadout: human badge strings', () => {
-  assert.equal(tierReadout('lite'), 'Papic Lite · 50 pts · photos + video');
-  assert.equal(tierReadout('ltd'), 'Papic Ltd · 70 pts · photos + video');
+  // Bare tier = what they get having paid nothing: the floor, photos only.
+  assert.equal(tierReadout('lite'), 'Papic Lite · 50 photos');
+  assert.equal(tierReadout('ltd'), 'Papic Ltd · 70 photos');
   assert.equal(tierReadout('unli'), 'Papic Unli · unlimited');
 });
 
@@ -192,10 +199,11 @@ test('an unread fee changes nothing — null is not "they paid nothing"', () => 
 
 test('the fee raises the allowance, proportionally', () => {
   assert.equal(allowancePointsFor('lite', 0), 50);
-  assert.equal(allowancePointsFor('lite', 2000), 125);
-  assert.equal(allowancePointsFor('lite', 4000), 200);
-  assert.equal(allowancePointsFor('lite', 8000), 200, 'clamped at the ceiling');
-  assert.equal(captureAllowance('lite', 10, 2000).pointsLeft, 115);
+  assert.equal(allowancePointsFor('lite', 2000), 400);
+  assert.equal(allowancePointsFor('lite', 4000), 800);
+  assert.equal(allowancePointsFor('lite', 8000), 1600);
+  assert.equal(allowancePointsFor('lite', 20_000), 2000, 'clamped at the ceiling');
+  assert.equal(captureAllowance('lite', 10, 2000).pointsLeft, 390);
 });
 
 test('🚨 the fee can only ever RAISE — a comped supplier never loses points', () => {
@@ -203,8 +211,8 @@ test('🚨 the fee can only ever RAISE — a comped supplier never loses points'
   // formula alone would hand them 50 and TAKE 20 POINTS AWAY. Nobody may lose
   // an allowance they already had because a wire was connected.
   assert.equal(allowancePointsFor('ltd', 0), 70, 'ltd must keep 70, not drop to the 50 floor');
-  assert.equal(allowancePointsFor('ltd', 1000), 88, 'below ltd the tier still wins');
-  assert.equal(allowancePointsFor('ltd', 2000), 125, 'above ltd the fee wins');
+  assert.equal(allowancePointsFor('ltd', 100), 70, 'below ltd the tier still wins');
+  assert.equal(allowancePointsFor('ltd', 2000), 400, 'above ltd the fee wins');
 });
 
 test('unlimited stays unlimited — null points is not a number to compare', () => {
@@ -215,10 +223,31 @@ test('unlimited stays unlimited — null points is not a number to compare', () 
 
 test('canCapture spends against the RAISED cap, not the tier cap', () => {
   // 50-point lite, 48 spent, one clip costs 8 → refused on the tier number...
+  // Below the video threshold a clip is refused for that reason FIRST...
   assert.deepEqual(canCapture('lite', 48, 'clip', null), {
     ok: false,
-    reason: 'out_of_points',
+    reason: 'video_not_allowed',
   });
-  // ...and afforded once the fee they paid is known.
+  // ...and at 800 points (a ₱4,000 fee) it is both allowed and affordable.
   assert.deepEqual(canCapture('lite', 48, 'clip', 4000), { ok: true });
+});
+
+test('🚨 video unlocks at 800 credits, and not before', () => {
+  // Owner 2026-08-26: "800 credits will allow them to take videos."
+  // ⚠ Until this, `allowVideo` was `true` on EVERY tier, so canCapture's
+  // video_not_allowed branch could never fire — a rule nothing enforced.
+  assert.equal(VENDOR_PAPIC_VIDEO_MIN_POINTS, 800);
+  assert.equal(allowVideoFor('lite', 2500), false, '500 shots — photos only');
+  assert.equal(allowVideoFor('lite', 3995), false, 'just under the line');
+  assert.equal(allowVideoFor('lite', 4000), true, 'exactly 800 — video');
+  assert.equal(allowVideoFor('lite', null), false, 'an unread fee grants no video either');
+  assert.equal(allowVideoFor('unli', 0), true, 'unlimited has no threshold to clear');
+});
+
+test('what a supplier READS matches what they get', () => {
+  // The readout is the third surface. On the bare tier it said "50 pts" to
+  // somebody with 800 — a screen contradicting the two beside it.
+  assert.equal(tierReadout('lite', 2500), 'Papic Lite · 500 photos');
+  assert.equal(tierReadout('lite', 4000), 'Papic Lite · 800 pts · photos + video');
+  assert.equal(tierReadout('unli', 0), 'Papic Unli · unlimited');
 });

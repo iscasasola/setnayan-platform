@@ -92,3 +92,34 @@ test('🚨 what a supplier SEES and what a supplier GETS read the same inputs', 
     'the fee is read for the supplier-facing allowance and then dropped before captureAllowance',
   );
 });
+
+test('🚨 all THREE supplier surfaces read the fee — not two of three', () => {
+  // The route decides what is ACCEPTED, fetchVendorPapicAllowance feeds the
+  // capture screen, and tierReadout is the badge on the on-the-day page. Wiring
+  // any two of the three leaves a supplier reading one number and getting
+  // another, with nothing anywhere reporting a disagreement.
+  const onTheDay = readFileSync(join(WEB, 'app/vendor-dashboard/on-the-day/page.tsx'), 'utf8');
+  assert.ok(
+    /fetchVendorBookingFeePaidPhp\(/.test(onTheDay),
+    "the on-the-day badge stopped reading the fee — it will show a supplier the 50-point floor while the route accepts their 800th",
+  );
+  assert.ok(
+    /tierReadout\([^)]*fee/i.test(onTheDay),
+    'the fee is read for the badge and then dropped before tierReadout',
+  );
+});
+
+test('🚨 video is gated on the ALLOWANCE, not on an always-true tier flag', () => {
+  // Owner 2026-08-26: "800 credits will allow them to take videos." Every tier
+  // sets allowVideo: true, so keying the refusal on the tier alone means it can
+  // never fire — which is exactly the state this replaced.
+  assert.ok(
+    /export const VENDOR_PAPIC_VIDEO_MIN_POINTS = 800/.test(TIER_SRC),
+    'the 800-credit video threshold is gone',
+  );
+  const check = /export function canCapture[\s\S]*?\n}/.exec(TIER_SRC)?.[0] ?? '';
+  assert.ok(
+    /allowVideoFor\(tier, bookingFeePaidPhp\)/.test(check),
+    'canCapture is back to asking the tier flag, which is true for every tier — the refusal can never fire again',
+  );
+});

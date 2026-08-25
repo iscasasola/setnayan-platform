@@ -44,3 +44,20 @@ before matching, all four mutation-checked by occurrence count.
 
 SPEC IMPACT: None — no product rule, price or SKU moves; this surfaces records that
 already existed.
+
+### Three guards caught the note removal — updated deliberately, not weakened
+
+Deleting the apologetic `note` from the Money landing failed three shipped guards, which is
+the design working:
+
+1. `admin-console-is-one-table` — a file wearing the console archetype must be ON `CONVERTED`,
+   or it is silently exempt from the error-vs-empty, cap and colour rules. The ledger is now
+   registered (the guard says *add it, never delete a line to go green*).
+2. `the landing grid's note slot is used once` — the expectation moves to `[]` **with the reason
+   recorded in the test**: the ledger now links Payments · Fees owed · Payouts · Subscriptions by
+   name with live counts, so the sentence no longer points off the page. The prop is KEPT; the
+   rule still governs whatever needs it next.
+3. `the ledes that were kept were kept for a reason that is still there` — the money entry is
+   removed because the condition it described ended, not to go green.
+
+Verified: full unit suite **10,046 pass / 0 fail, exit 0**; `tsc --noEmit` **exit 0**.

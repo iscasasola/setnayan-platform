@@ -45,6 +45,18 @@ export type InvitableCandidate = {
   source: InvitableSource;
   from: string;
   email: string | null;
+  /**
+   * EVERY samahan this person is in, not just the one the `from` line shows.
+   *
+   * 🔑 THE `from` LINE IS LOSSY IN TWO WAYS AND A GROUP FILTER CANNOT BE BUILT
+   * ON IT. It carries the FIRST samahan alphabetically, so somebody in two of
+   * your groups is labelled with one of them; and cross-source de-duplication
+   * keeps the richest row, so a barkada member who was also a guest at your
+   * engagement party survives as an `event` row labelled with that party. A
+   * chip that matched the label therefore left real members out of "the whole
+   * barkada" — silently, which is the only way that can go wrong.
+   */
+  groups?: string[];
 };
 
 export type InvitablePerson = InvitableCandidate & { alreadyHere: boolean };
@@ -95,7 +107,25 @@ export function assembleInvitable(
         for an ambiguous name match: admit the ambiguity rather than guess.
       */
       const compatible = already.some((e) => e === null || email === null || e === email);
-      if (compatible) continue;
+      if (compatible) {
+        // 🔑 A DROPPED DUPLICATE STILL CARRIES SOMETHING THE SURVIVOR NEEDS.
+        // The richer row wins (rule 1), but the row being dropped may be the
+        // only one that knows this person is in your barkada — so its groups
+        // are folded into the survivor before it goes. Without this, "the whole
+        // barkada" quietly omits everybody who is also on another of your
+        // guest lists.
+        const survivor = out.find(
+          (o) =>
+            nameKey(o.firstName, o.lastName || o.name) === k &&
+            (o.email === null || email === null || o.email === email),
+        );
+        if (survivor && c.groups?.length) {
+          survivor.groups = [...new Set([...(survivor.groups ?? []), ...c.groups])].sort((a, b) =>
+            a.localeCompare(b),
+          );
+        }
+        continue;
+      }
     }
 
     kept.set(k, [...(already ?? []), email]);
@@ -119,8 +149,7 @@ export function assembleInvitable(
  * lands are ordinary guests the couple owns.
  */
 
-/** Does this candidate match what the host typed? Name OR the `from` line —
- *  the `from` line is what makes a samahan's name select its members. */
+/** Does this candidate match what the host typed? Name OR the `from` line. */
 export function matchesInvitableQuery(
   row: { name: string; from: string },
   query: string,
@@ -128,6 +157,27 @@ export function matchesInvitableQuery(
   const q = query.trim().toLowerCase();
   if (!q) return true;
   return row.name.toLowerCase().includes(q) || row.from.toLowerCase().includes(q);
+}
+
+/**
+ * Is this person in that samahan?
+ *
+ * ⚖ AN EXACT MEMBERSHIP TEST, NEVER A SUBSTRING. The first cut of the group
+ * chip set the search box to the samahan's name and let the text matcher do the
+ * work, which failed in both directions at once: a group called "Ana" matched
+ * Diana and Joana — one press putting strangers on a wedding list — and any
+ * member whose row was labelled with a different group, or with the event they
+ * were also a guest at, was left out of "the whole barkada" with nothing said.
+ */
+export function isInSamahan(row: { groups?: string[] }, group: string): boolean {
+  return (row.groups ?? []).includes(group);
+}
+
+/** Every samahan named across these rows — the chips a host can press. */
+export function samahanGroupsIn(rows: readonly { groups?: string[] }[]): string[] {
+  const names = new Set<string>();
+  for (const r of rows) for (const g of r.groups ?? []) if (g) names.add(g);
+  return [...names].sort((a, b) => a.localeCompare(b));
 }
 
 /**

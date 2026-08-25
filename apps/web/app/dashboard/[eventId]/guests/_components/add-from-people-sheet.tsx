@@ -33,7 +33,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from 'next/navigation';
 import { Search, Users } from 'lucide-react';
 import { Drawer } from './overlay-primitives';
-import { chooseAllShown, matchesInvitableQuery } from '@/lib/people-you-can-invite-core';
+import {
+  chooseAllShown,
+  isInSamahan,
+  matchesInvitableQuery,
+  samahanGroupsIn,
+} from '@/lib/people-you-can-invite-core';
 import { SIDE_LABELS, type GuestSide } from '@/lib/guests';
 import {
   addGuestsFromPeople,
@@ -64,6 +69,8 @@ type Row = {
   from: string;
   source: 'event' | 'people' | 'samahan';
   alreadyHere: boolean;
+  /** Every samahan this person is in — what a chip filters on. */
+  groups: string[];
 };
 
 const SIDES: GuestSide[] = ['bride', 'groom', 'both'];
@@ -85,6 +92,7 @@ export function AddFromPeopleSheet({
   const [partial, setPartial] = useState(false);
   const [readFailed, setReadFailed] = useState(false);
   const [query, setQuery] = useState('');
+  const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
   const [lastNames, setLastNames] = useState<Record<string, string>>({});
   const [side, setSide] = useState<GuestSide>(defaultSide);
@@ -103,6 +111,7 @@ export function AddFromPeopleSheet({
       setOpen(true);
       setError(null);
       setQuery('');
+      setActiveGroup(null);
       setPicked({});
       setSide(defaultSide);
       /*
@@ -153,11 +162,15 @@ export function AddFromPeopleSheet({
   }, [open, rows, loading, eventId]);
 
   const visible = useMemo(() => {
-    // The match rule lives ONCE, in the pure core, because a samahan chip works
-    // by matching the `from` line — a second copy here would drift and the chip
-    // would quietly stop finding its own members.
-    return (rows ?? []).filter((r) => matchesInvitableQuery(r, query));
-  }, [rows, query]);
+    // ⚖ TWO FILTERS, NOT ONE STRING. The chip is an EXACT membership test and
+    // the box is free text; stuffing the samahan's name into the box (which is
+    // what shipped first) made "the whole barkada" a substring search — a group
+    // called "Ana" swept up Diana, and any member labelled with a different
+    // group, or with an event they were also a guest at, was silently left out.
+    // Both rules live in the pure core; neither is copied here.
+    const inGroup = (rows ?? []).filter((r) => !activeGroup || isInSamahan(r, activeGroup));
+    return inGroup.filter((r) => matchesInvitableQuery(r, query));
+  }, [rows, query, activeGroup]);
 
   const pickedKeys = useMemo(
     () => Object.keys(picked).filter((k) => picked[k]),
@@ -174,11 +187,7 @@ export function AddFromPeopleSheet({
   // or left a group chat would be a list the couple does not own. These become
   // ordinary guests the moment they land, exactly as a hand-typed name does —
   // which also sidesteps the snapshot-vs-live question that stalled this item.
-  const samahanGroups = useMemo(() => {
-    const names = new Set<string>();
-    for (const r of rows ?? []) if (r.source === 'samahan' && r.from) names.add(r.from);
-    return [...names].sort((a, b) => a.localeCompare(b));
-  }, [rows]);
+  const samahanGroups = useMemo(() => samahanGroupsIn(rows ?? []), [rows]);
 
   // Everyone the current search is showing who is not already on the list.
   const addableShown = useMemo(
@@ -274,12 +283,12 @@ export function AddFromPeopleSheet({
             Samahan
           </span>
           {samahanGroups.map((g) => {
-            const active = query.trim().toLowerCase() === g.toLowerCase();
+            const active = activeGroup === g;
             return (
               <button
                 key={g}
                 type="button"
-                onClick={() => setQuery(active ? '' : g)}
+                onClick={() => setActiveGroup(active ? null : g)}
                 aria-pressed={active}
                 className={`rounded-full border px-3 py-1 text-sm ${
                   active
@@ -360,7 +369,13 @@ export function AddFromPeopleSheet({
         ) : null}
 
         {!loading && (rows ?? []).length > 0 && visible.length === 0 ? (
-          <p className="py-6 text-center text-sm text-ink/60">No one matches “{query}”.</p>
+          <p className="py-6 text-center text-sm text-ink/60">
+            {activeGroup && !query.trim()
+              ? `Everybody in ${activeGroup} is already on your list.`
+              : activeGroup
+                ? `No one in ${activeGroup} matches “${query}”.`
+                : `No one matches “${query}”.`}
+          </p>
         ) : null}
 
         {visible.map((r) => {

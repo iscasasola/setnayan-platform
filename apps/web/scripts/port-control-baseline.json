@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2dd996518",
-  "routeCount": 404,
-  "destinations": 866,
+  "generatedFromRef": "5d6f7b907",
+  "routeCount": 405,
+  "destinations": 867,
   "actions": 586,
-  "blocks": 3934,
+  "blocks": 3951,
   "routes": {
     "/": {
       "files": [
@@ -846,6 +846,7 @@
       ],
       "actions": [],
       "blocks": [
+        "DetailPageSkeleton",
         "EntrancePos",
         "Link",
         "LiveRefresher",
@@ -1065,6 +1066,7 @@
         "confirmAction"
       ],
       "blocks": [
+        "DetailPageSkeleton",
         "DoorNotice",
         "DoorShell",
         "SubmitButton"
@@ -1213,7 +1215,6 @@
         "Row",
         "Screen",
         "Sk",
-        "SkLine",
         "Tile",
         "UnreadBellBadge"
       ]
@@ -4362,6 +4363,7 @@
         "BudgetSummaryStrip",
         "ChineseTraditionInfoCard",
         "ConfidenceChip",
+        "DeniedState",
         "EmptyBudget",
         "EventMoney",
         "HTMLButtonElement",
@@ -4981,7 +4983,8 @@
         "dashboard/[eventId]/hosts/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]"
+        "/dashboard/[seg]",
+        "/dashboard/[seg]/people"
       ],
       "actions": [
         "inviteHost",
@@ -5319,6 +5322,17 @@
         "TraditionsGuide",
         "UnknownCeremonyPrompt",
         "UploadBlock"
+      ]
+    },
+    "/dashboard/[eventId]/people": {
+      "files": [
+        "dashboard/[eventId]/people/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/progress": {
@@ -6737,6 +6751,7 @@
         "MarketplaceVendorSuggestion",
         "MerkadoBudgetLens",
         "MerkadoGuardBanner",
+        "MiniTour",
         "NewManualVendorModal",
         "PageMasthead",
         "PendingLockProposals",
@@ -7453,6 +7468,7 @@
       "blocks": [
         "DoorActions",
         "DoorShell",
+        "FormPageSkeleton",
         "Icon",
         "Link",
         "SubmitButton",
@@ -7505,6 +7521,7 @@
       "blocks": [
         "DoorShell",
         "FormFlash",
+        "FormPageSkeleton",
         "InvalidTokenScreen",
         "JoinFlow",
         "JoinShell",
@@ -7556,6 +7573,7 @@
       "blocks": [
         "DoorNotice",
         "DoorShell",
+        "FormPageSkeleton",
         "Link"
       ]
     },
@@ -7795,6 +7813,7 @@
         "CameraPublisher",
         "DoorNotice",
         "DoorShell",
+        "FormPageSkeleton",
         "GuestFanout",
         "HTMLVideoElement",
         "Link",
@@ -7936,6 +7955,7 @@
       "blocks": [
         "DoorNotice",
         "DoorShell",
+        "FormPageSkeleton",
         "Link",
         "SubmitButton",
         "TurnstileField"
@@ -7997,6 +8017,7 @@
         "ChallengePanelInner",
         "DayOfFaceEnroll",
         "DoorShell",
+        "GridPageSkeleton",
         "HTMLButtonElement",
         "HTMLCanvasElement",
         "Link",
@@ -8061,6 +8082,7 @@
         "Blob",
         "DoorShell",
         "File",
+        "FormPageSkeleton",
         "GuestGallery",
         "GuestStoryMaker",
         "GuestStoryPlan",
@@ -8112,6 +8134,7 @@
         "CameraBridgePanel",
         "DoorShell",
         "DslrPairingController",
+        "FormPageSkeleton",
         "HTMLButtonElement",
         "HTMLCanvasElement",
         "Link",
@@ -8248,6 +8271,7 @@
       "blocks": [
         "DoorActions",
         "DoorShell",
+        "FormPageSkeleton",
         "InviteDoor",
         "Link",
         "SubmitButton"
@@ -8704,6 +8728,7 @@
         "EnergyKpi",
         "FeedCard",
         "FieldSaveResult",
+        "GuidedTour",
         "HTMLDivElement",
         "Icon",
         "Image",
@@ -10467,6 +10492,7 @@
       "blocks": [
         "DeclineForm",
         "DoorShell",
+        "FormPageSkeleton",
         "Link",
         "Perk",
         "SnapshotField",
@@ -10486,6 +10512,7 @@
       "blocks": [
         "DoorShell",
         "ErrorShell",
+        "FormPageSkeleton",
         "Link"
       ]
     },

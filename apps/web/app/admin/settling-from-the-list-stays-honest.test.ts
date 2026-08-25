@@ -49,10 +49,22 @@ test('every settle refuses an unknown answer instead of defaulting', () => {
 });
 
 test('only a redirect is swallowed — a refusal still travels', () => {
-  const helper = actions.slice(actions.indexOf('async function settleViaRedirectingAction'));
-  assert.match(helper, /startsWith\('NEXT_REDIRECT'\)/);
-  assert.match(helper, /throw e;/,
-    'a real failure must be rethrown — otherwise a refusal reads as success');
+  /* ⚠ THIS ASSERTION WAS DECORATION ON ITS FIRST WRITING. It sliced from the
+     helper to END OF FILE and matched `throw e;` anywhere in the remainder —
+     so deleting the digest check from the helper left another function's
+     `throw e;` satisfying it, and a well-formed sabotage reported GREEN.
+     Scoped to the helper's OWN body now, and it asserts the guard LINE, not
+     the two words. */
+  const start = actions.indexOf('async function settleViaRedirectingAction');
+  assert.notEqual(start, -1, 'the shared redirect helper is gone');
+  const body = actions.slice(start, actions.indexOf('\n}', start));
+  // The rethrow and its condition are ONE line — matching them together is what
+  // makes deleting the condition fail.
+  assert.match(
+    body,
+    /!digest\.startsWith\('NEXT_REDIRECT'\)\)\s*throw e;/,
+    'the helper no longer rethrows non-redirect errors — a refusal would read as success',
+  );
 });
 
 test('money with nothing to check it against gets no form', () => {

@@ -32,3 +32,19 @@ Verification: `tsc --noEmit` **exit 0**; unit suite **10,060 pass / 0 fail**; **
 scripts, all exit 0.
 
 SPEC IMPACT: None — no rule, price or behaviour changes; three queues gain an inline form.
+
+### 🪤 One of my own assertions was decoration, and the sabotage that proved it also missed
+
+Two failures in one check, both worth recording:
+
+1. **The assertion was too wide.** *"Only a redirect is swallowed"* sliced from the helper to
+   **end of file** and matched `throw e;` anywhere in the remainder — so deleting the digest
+   guard left a *different* function's rethrow satisfying it. Scoped to the helper's own body
+   and anchored to the guard **line**, not the two words.
+2. **The sabotage hit the wrong line.** Two identical `!digest.startsWith('NEXT_REDIRECT')`
+   lines exist in that file, and `perl -0pi -e s/…/…/` without `/g` deleted the **first** —
+   in `publishReviewFromWorkList`, not in the new helper. The occurrence count still moved
+   (3→2), which is exactly what a landed mutation looks like.
+
+🔑 **A COUNT THAT MOVED IS NOT PROOF THE RIGHT THING MOVED.** Re-run targeting the helper's
+own body: 1→0, and the check goes **red**.

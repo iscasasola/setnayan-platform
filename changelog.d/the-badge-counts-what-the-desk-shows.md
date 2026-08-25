@@ -55,3 +55,31 @@ they are excluded today only because their celebrations are in the future, so wh
 December passes ~44 land at once. Flagged, not decided.
 
 SPEC IMPACT: None.
+
+### Two existing guards caught this change, and both catches were worth having
+
+**1 · A REAL BUG IN MY OWN QUERY.**
+`the-cure-was-already-written-down.test.ts` rejected the new read for embedding
+`events` without naming the foreign key. A bare `events!inner` from
+`event_vendors` is **REFUSED by PostgREST (PGRST201)** — one direct FK, nineteen
+junction tables also joining the two, so it cannot choose. The count would have
+returned null and the badge would have read "unavailable" **forever**, which is
+the same silent-refusal class this whole fix is about. Three sites had already
+died that way; the guard exists because of them. Now written in the exact shape
+of the two queries proven in production, alias and all.
+
+**2 · A GUARD THAT STARTED CRYING WOLF, AND WHY.**
+`guards-can-actually-fire.test.ts` bounds a Supabase chain at *the next*
+`.from(…)`, falling back to end-of-file. That silently assumes every file has a
+SECOND literal `.from(`. `queue-counts.ts` had none until this change added the
+first, so the "chain" ran to the bottom of a 500-line module and swallowed
+sixteen other queues' status literals — reporting `payments`' `'pending'` and
+`help`'s `'in_progress'` as non-existent **vendor** statuses. 17 false offenders.
+A chain is ONE STATEMENT: bounded at the first `;` now, in all three scans that
+shared the idiom.
+🛡 Because that LOOSENS a guard, it is mutation-proved in both directions: a
+genuinely non-existent vendor status inside the chain goes **red** (0 → 1), and a
+real one (`contracted`) stays **green** — so it still catches the thing it is for
+and no longer flags what it never should have.
+
+Full suite after both: **9985/9985 pass**, `tsc --noEmit` exit 0.

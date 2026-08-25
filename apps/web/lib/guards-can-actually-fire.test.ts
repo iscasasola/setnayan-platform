@@ -5,6 +5,27 @@ import { join } from 'node:path';
 import { MONEY_STATUSES } from './payment-reference-match';
 
 /**
+ * Where a Supabase builder chain ENDS.
+ *
+ * 🪤 IT USED TO BE "the next `.from(…)`, else end of file" — which silently
+ * assumes every file has a SECOND literal `.from(`. On 2026-08-25
+ * `lib/admin/queue-counts.ts` gained its FIRST one, so the chain ran to the
+ * bottom of a 500-line module and swallowed the status literals of sixteen OTHER
+ * queues: it reported `payments`' 'pending' and `help`'s 'in_progress' as
+ * non-existent VENDOR statuses. Seventeen false offenders — and a guard that
+ * cries wolf teaches you to skim past the one time it is right.
+ *
+ * A builder chain is ONE STATEMENT. Bound it at the first `;` after the
+ * `.from(…)`, or at the next `.from(…)` if that comes sooner — which leaves
+ * every chain that was already bounded correctly behaving exactly as before.
+ */
+function chainEnd(src: string, after: number, nextFrom: number | undefined): number {
+  const semi = src.indexOf(';', after);
+  return Math.min(nextFrom ?? src.length, semi === -1 ? src.length : semi);
+}
+
+
+/**
  * Guards that cannot fire, and refusals nobody sees.
  *
  * 🚨 THREE OF THESE SHIPPED IN ONE DAY, all mine, all green in CI:
@@ -150,7 +171,7 @@ test('no other admin query filters on a payment status that does not exist', () 
       const s = starts[i];
       if (!s || s[1] !== 'payments') continue;
       const from = s.index! + s[0].length;
-      const to = starts[i + 1]?.index ?? src.length;
+      const to = chainEnd(src, from, starts[i + 1]?.index);
       const chain = src.slice(from, to);
       for (const m of chain.matchAll(/\.(?:eq|in|neq)\('status',\s*(\[[^\]]*\]|'[a-z_]+')/g)) {
         for (const v of (m[1] ?? '').matchAll(/'([a-z_]+)'/g)) {
@@ -245,7 +266,7 @@ test('every vendor status named in a status array is a real enum value', () => {
       const s = starts[i];
       if (!s || s[1] !== 'event_vendors') continue;
       const from = s.index! + s[0].length;
-      const to = starts[i + 1]?.index ?? src.length;
+      const to = chainEnd(src, from, starts[i + 1]?.index);
       for (const m of src
         .slice(from, to)
         .matchAll(/\.(?:eq|in|neq)\('status',\s*([A-Za-z_][A-Za-z0-9_]*)/g)) {
@@ -288,7 +309,7 @@ test('no event_vendors query filters on a vendor status that does not exist', ()
       const s = starts[i];
       if (!s || s[1] !== 'event_vendors') continue;
       const from = s.index! + s[0].length;
-      const to = starts[i + 1]?.index ?? src.length;
+      const to = chainEnd(src, from, starts[i + 1]?.index);
       const chain = src.slice(from, to);
       for (const m of chain.matchAll(
         /\.(?:eq|in|neq)\('status',\s*(\[[^\]]*\]|'[a-z_]+')/g,

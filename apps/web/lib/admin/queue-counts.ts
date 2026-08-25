@@ -129,7 +129,13 @@ export async function countStuckCompletions(
   const { data, error } = await admin
     .from('event_vendors')
     .select(
-      'completion_status, service_marked_complete_at, customer_confirmed_received_at, completion_disputed_at, events!inner(event_date)',
+      /* 🚨 THE FOREIGN KEY IS NAMED ON PURPOSE. A bare `events!inner` from
+         event_vendors is REFUSED by PostgREST (PGRST201): there is one direct FK
+         but nineteen junction tables also join the two, so it cannot choose and
+         rejects the whole query. Three sites had already died silently that way
+         — a guard exists for it, and it caught this line. Without the hint this
+         count would have read "unavailable" forever. */
+      'completion_status, service_marked_complete_at, customer_confirmed_received_at, completion_disputed_at, event:events!event_vendors_event_id_fkey!inner(event_date)',
     )
     .is('completion_resolved_at', null)
     .in('completion_status', ['disputed', 'awaiting_vendor', 'vendor_marked']);
@@ -142,12 +148,12 @@ export async function countStuckCompletions(
   for (const raw of data) {
     const row = raw as unknown as CompletionCandidate & {
       completion_disputed_at: string | null;
-      events: { event_date: string | null } | { event_date: string | null }[] | null;
+      event: { event_date: string | null } | { event_date: string | null }[] | null;
     };
     /* An embedded to-one arrives as an object OR a one-element array depending
        on how PostgREST resolves the relationship. Handle both rather than
        assume — guessing here silently zeroes the whole queue. */
-    const ev = Array.isArray(row.events) ? row.events[0] : row.events;
+    const ev = Array.isArray(row.event) ? row.event[0] : row.event;
     const eventDate = ev?.event_date ?? null;
     const reason = completionStuckReason(row, eventDate, nowMs);
     if (!reason) continue;

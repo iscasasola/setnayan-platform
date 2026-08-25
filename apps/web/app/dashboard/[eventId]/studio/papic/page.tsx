@@ -38,7 +38,6 @@ import { fetchPapicGallery, fetchPreservationTotals } from '@/lib/papic-gallery'
 import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { getKwentoDensity } from '@/lib/kwento-density';
-import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
 import {
   resolveStoredWindow,
   formatWindowSummary,
@@ -48,8 +47,6 @@ import PapicWindowPicker from './papic-window-picker';
 import StylePicker from './style-picker';
 import { VendorChallengesApproval } from './vendor-challenges-approval';
 import { CoupleChallengesManager } from './couple-challenges-manager';
-import QualityPicker from './quality-picker';
-import { FIDELITY_READ_FAILSAFE } from '@/lib/papic-fidelity';
 import {
   fetchCameraRates,
   papicRungRate,
@@ -137,8 +134,10 @@ type Props = {
     drive_connected?: string;
     drive_disconnected?: string;
     drive_error?: string;
-    storage_set?: string;
-    storage_error?: string;
+    /** The shared couple-check refusal — every action in this tree, not
+     *  storage. Renamed from `storage_error` 2026-08-26 when the storage
+     *  question was deleted and its old name started lying. */
+    papic_access_error?: string;
     papic_purchased?: string;
     papic_order?: string;
     papic_ref?: string;
@@ -161,8 +160,6 @@ type Props = {
     // vendor visibility or guest cameras all saved AND FAILED in silence.
     style_set?: string;
     style_error?: string;
-    quality_set?: string;
-    quality_error?: string;
     showcase_set?: string;
     showcase_error?: string;
     faceTagging?: string;
@@ -173,7 +170,6 @@ type Props = {
   }>;
 };
 
-type StorageTarget = 'setnayan_r2' | 'google_drive_only';
 
 type DriveGrant = {
   grant_id: string;
@@ -208,8 +204,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     drive_connected: driveConnected,
     drive_disconnected: driveDisconnected,
     drive_error: driveError,
-    storage_set: storageSet,
-    storage_error: storageError,
+    papic_access_error: papicAccessError,
     papic_purchased: papicPurchased,
     papic_order: papicOrder,
     papic_ref: papicRef,
@@ -226,8 +221,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     papic_window_error: papicWindowError,
     style_set: styleSet,
     style_error: styleError,
-    quality_set: qualitySet,
-    quality_error: qualityError,
     showcase_set: showcaseSet,
     showcase_error: showcaseError,
     faceTagging,
@@ -256,11 +249,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   }
   if (!event) notFound();
 
-  const storageTarget: StorageTarget =
-    (event.papic_storage_target as StorageTarget | null) === 'google_drive_only'
-      ? 'google_drive_only'
-      : 'setnayan_r2';
-
   // Event-wide Papic look (the couple's locked capture template). Read
   // defensively: the papic_style column lands in migration 20270307004141, so
   // on a pre-migration DB this select returns an error (not a throw) and we keep
@@ -278,29 +266,12 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const papicStyle =
     (styleRow as { papic_style?: string } | null)?.papic_style ?? 'ORIG';
 
-  // Per-event photo fidelity tier (brief PR-4) — the WRITE seam's current
-  // state. Read defensively like papic_style: the column lands in migration
-  // 20270825539466, so a pre-migration DB errors this select — the page never
-  // breaks on the column.
-  //
-  // ⚠ The fallback is the READ FAIL-SAFE, not the new-event default. A new
-  // event's tier is materialized by the database default ('optimal' since
-  // 20271127772092) and arrives here as a real value; reaching this `??` means
-  // the read failed, and the honest thing to show then is the tier that
-  // processes nothing. Never re-type the literal — that is how the two
-  // meanings got merged in the first place.
-  const { data: qualityRow, error: qualityRowError } = await supabase
-    .from('events')
-    .select('papic_quality_tier')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  // ⚠ the chosen quality setting. Same shape as the style above.
-  if (qualityRowError) {
-    logQueryError('PapicStudioPage.qualityRow', qualityRowError, { eventId }, 'graceful_degrade');
-  }
-  const papicQualityTier =
-    (qualityRow as { papic_quality_tier?: string } | null)
-      ?.papic_quality_tier ?? FIDELITY_READ_FAILSAFE;
+  // ⚠ A SECOND DEAD ROUND TRIP, REMOVED 2026-08-26. The per-event photo
+  // fidelity tier was read here for one reason: to feed the "Photo quality"
+  // picker. Owner: *"the photo quality is already set for us by default. we do
+  // not need to ask them."* The picker is gone, so the read is gone with it —
+  // the column keeps its database default ('optimal'), capture ingest still
+  // reads it, and nothing on this page asks a person about megapixels.
 
   // ⚠ A DEAD ROUND TRIP, REMOVED. `eventOwnsPapicSeats(...)` ran alongside this
   // read and its answer was destructured into `ownsPapicSeats` and then
@@ -610,8 +581,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         driveConnected={!!driveConnected}
         driveDisconnected={!!driveDisconnected}
         driveError={driveError}
-        storageSet={storageSet}
-        storageError={storageError}
+        papicAccessError={papicAccessError}
         connectedAccount={driveGrant?.external_account_display ?? null}
         eventId={eventId}
         papicPurchased={papicPurchased}
@@ -626,8 +596,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         papicWindowError={papicWindowError}
         styleSet={styleSet}
         styleError={styleError}
-        qualitySet={qualitySet}
-        qualityError={qualityError}
         showcaseSet={showcaseSet}
         showcaseError={showcaseError}
         faceTagging={faceTagging}
@@ -980,36 +948,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           <StylePicker eventId={eventId} current={papicStyle} />
         </section>
 
-        {/* Photo quality — the per-event fidelity tier (brief PR-4). Writes the
-            SAME events.papic_quality_tier column the capture ingest reads, so
-            what the couple picks here is exactly what ingest applies. Weddings
-            get the Optimal (~12 MP) recommendation. */}
-        <section className="space-y-4 rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
-          <div className="space-y-1.5">
-            <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
-              <Camera aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
-              Photo quality
-            </p>
-            <p className="max-w-prose text-sm text-ink/65">
-              Choose how your event&rsquo;s photos are stored. Optimal keeps
-              phone-native sharpness in lighter files; Full resolution keeps
-              every pixel exactly as uploaded.
-            </p>
-          </div>
-          <QualityPicker
-            eventId={eventId}
-            current={papicQualityTier}
-            recommendOptimal={
-              ((event as Record<string, unknown>).event_type as string | null) ===
-              'wedding'
-            }
-          />
-        </section>
-
-        {/* Storage. */}
-        <StorageChoiceCard
+        {/* Yours to keep — Google Drive as an OFFER, not a destination choice.
+            Owner 2026-08-26: "i was thinking of not asking for setnayan storage?
+            what we want is to offer them to sync this to a google drive." The
+            either/or it replaced never worked: no capture or storage path has
+            ever read events.papic_storage_target, so "Use my Google Drive only"
+            was never Drive-only and every photo has always landed in Setnayan
+            storage. We hold the photos; Drive is a copy on top. */}
+        <DriveCopyCard
           eventId={eventId}
-          storageTarget={storageTarget}
           driveOAuthReady={driveOAuthReady}
           driveGrant={driveGrant}
           loginEmail={user.email ?? null}
@@ -1209,8 +1156,7 @@ function StatusBanners({
   driveConnected,
   driveDisconnected,
   driveError,
-  storageSet,
-  storageError,
+  papicAccessError,
   connectedAccount,
   papicPurchased,
   papicOrder,
@@ -1224,8 +1170,6 @@ function StatusBanners({
   papicWindowError,
   styleSet,
   styleError,
-  qualitySet,
-  qualityError,
   showcaseSet,
   showcaseError,
   faceTagging,
@@ -1238,8 +1182,7 @@ function StatusBanners({
   driveConnected: boolean;
   driveDisconnected: boolean;
   driveError: string | undefined;
-  storageSet: string | undefined;
-  storageError: string | undefined;
+  papicAccessError: string | undefined;
   connectedAccount: string | null;
   papicPurchased: string | undefined;
   papicOrder: string | undefined;
@@ -1253,8 +1196,6 @@ function StatusBanners({
   papicWindowError: string | undefined;
   styleSet: string | undefined;
   styleError: string | undefined;
-  qualitySet: string | undefined;
-  qualityError: string | undefined;
   showcaseSet: string | undefined;
   showcaseError: string | undefined;
   faceTagging: string | undefined;
@@ -1274,8 +1215,7 @@ function StatusBanners({
     driveConnected ||
     driveDisconnected ||
     driveError ||
-    storageSet ||
-    storageError ||
+    papicAccessError ||
     papicPurchased ||
     papicUnlockProvisioned ||
     papicError ||
@@ -1289,8 +1229,6 @@ function StatusBanners({
     // nine got lost the first time.
     styleSet ||
     styleError ||
-    qualitySet ||
-    qualityError ||
     showcaseSet ||
     showcaseError ||
     faceTagging ||
@@ -1405,20 +1343,6 @@ function StatusBanners({
         <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           Could not save that look — please try again.
-        </p>
-      ) : null}
-
-      {qualitySet ? (
-        <p className={ok}>
-          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Photo quality saved. It applies to photos taken from now on — the ones
-          already in your gallery are never changed.
-        </p>
-      ) : null}
-      {qualityError ? (
-        <p className={bad}>
-          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
-          Could not save that photo quality — please try again.
         </p>
       ) : null}
 
@@ -1568,28 +1492,13 @@ function StatusBanners({
         </p>
       ) : null}
 
-      {storageSet === 'r2' ? (
-        <p className={ok}>
-          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Storage set to Setnayan — we keep a secure copy of every photo.
-        </p>
-      ) : null}
-      {storageSet === 'drive' ? (
-        <p className={ok}>
-          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Storage set to your Google Drive only.
-        </p>
-      ) : null}
-
-      {storageError ? (
+      {papicAccessError ? (
         <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           <span>
-            Could not update storage (
-            <span className="font-mono text-xs">{storageError}</span>).{' '}
-            {storageError === 'connect_drive_first'
-              ? 'Connect Google Drive before switching to Drive-only.'
-              : 'Try again, or contact support.'}
+            {papicAccessError === 'not_a_couple'
+              ? 'Only the couple can change this celebration’s Papic settings.'
+              : 'That didn’t go through — try again, or contact support.'}
           </span>
         </p>
       ) : null}
@@ -1598,24 +1507,43 @@ function StatusBanners({
 }
 
 // -----------------------------------------------------------------------------
-// Storage choice (radio cards) + Drive connect
+// Yours to keep — the Google Drive copy offer
 // -----------------------------------------------------------------------------
 
-function StorageChoiceCard({
+/**
+ * ⚠ THIS REPLACED A CHOICE THAT NEVER DID ANYTHING.
+ *
+ * Until 2026-08-26 this card asked "Where your photos go" and offered a
+ * radiogroup: Setnayan storage, or "Use my Google Drive only". Measured on
+ * `origin/main` before the change, `events.papic_storage_target` was read by
+ * exactly THREE files — the card that drew it, the actions that wrote it, and
+ * the Drive disconnect route. **No capture, upload or storage path read it**,
+ * and the comment describing that branch was still a `TODO(0012)`. So "only"
+ * was never true: every photo has always landed in Setnayan storage, including
+ * for the events sitting in `google_drive_only`.
+ *
+ * Owner ruling, verbatim: *"i was thinking of not asking for setnayan storage?
+ * what we want is to offer them to sync this to a google drive."* Which is the
+ * system as BUILT — we hold the photos, Drive is a copy on top. It also repairs
+ * a promise the either/or broke: we tell couples we keep their gallery for
+ * life, which is impossible for photos we never held.
+ *
+ * 🔑 The COLUMN is deliberately left in place. It is inert for capture, the
+ * disconnect route still resets legacy `google_drive_only` rows, and dropping a
+ * column to delete a question nobody is asked any more is risk with no payoff.
+ */
+function DriveCopyCard({
   eventId,
-  storageTarget,
   driveOAuthReady,
   driveGrant,
   loginEmail,
 }: {
   eventId: string;
-  storageTarget: StorageTarget;
   driveOAuthReady: boolean;
   driveGrant: DriveGrant | null;
   loginEmail: string | null;
 }) {
-  const r2Selected = storageTarget === 'setnayan_r2';
-  const driveSelected = storageTarget === 'google_drive_only';
+  const connected = !!driveGrant;
 
   return (
     <article
@@ -1625,175 +1553,38 @@ function StorageChoiceCard({
       <div className="space-y-1">
         <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
           <Cloud aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          Where your photos go
+          Send a copy to your Google Drive
+          {!driveOAuthReady ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+              <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
+              Coming soon
+            </span>
+          ) : connected ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900">
+              <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
+              Connected
+            </span>
+          ) : null}
         </h2>
         <p className="max-w-prose text-sm text-ink/60">
-          Setnayan storage is the default. You can point Papic at your own Google
-          Drive instead.
+          Every photo lands in your own Drive too, as it arrives — so you keep
+          the originals at full size, on a drive you control. We keep your
+          gallery either way.
         </p>
       </div>
 
-      <ul role="radiogroup" aria-label="Papic storage target" className="space-y-3">
-        <li>
-          <StorageOptionR2 eventId={eventId} selected={r2Selected} />
-        </li>
-        <li>
-          <StorageOptionDrive
-            eventId={eventId}
-            selected={driveSelected}
-            driveOAuthReady={driveOAuthReady}
-            driveGrant={driveGrant}
-            loginEmail={loginEmail}
-          />
-        </li>
-      </ul>
-
-      <p className="text-xs text-ink/55">Switch any time — it only affects new photos.</p>
+      {!driveOAuthReady ? (
+        <p className="text-xs italic text-ink/55">
+          Coming soon — Setnayan&rsquo;s Drive verified-app review is in
+          progress. Your photos are safe with us today; we&rsquo;ll email you
+          when Drive is ready.
+        </p>
+      ) : connected ? (
+        <DriveConnectedPanel eventId={eventId} grant={driveGrant!} loginEmail={loginEmail} />
+      ) : (
+        <DriveConnectCTA eventId={eventId} />
+      )}
     </article>
-  );
-}
-
-function StorageOptionR2({
-  eventId,
-  selected,
-}: {
-  eventId: string;
-  selected: boolean;
-}) {
-  return (
-    <form
-      action={setPapicStorageR2}
-      className={
-        selected
-          ? 'block rounded-xl border-2 border-terracotta bg-terracotta/5 p-4'
-          : 'block rounded-xl border border-ink/10 bg-cream/60 p-4 hover:border-ink/20'
-      }
-    >
-      <input type="hidden" name="event_id" value={eventId} />
-      <button type="submit" aria-pressed={selected} className="flex w-full items-start gap-3 text-left">
-        <RadioDot selected={selected} />
-        <div className="flex-1 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-ink">Setnayan storage</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-              <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
-              Recommended
-            </span>
-          </div>
-          <p className="text-xs text-ink/65">
-            Fast and reliable. We keep a secure copy of every photo. No setup.
-          </p>
-        </div>
-      </button>
-    </form>
-  );
-}
-
-function StorageOptionDrive({
-  eventId,
-  selected,
-  driveOAuthReady,
-  driveGrant,
-  loginEmail,
-}: {
-  eventId: string;
-  selected: boolean;
-  driveOAuthReady: boolean;
-  driveGrant: DriveGrant | null;
-  loginEmail: string | null;
-}) {
-  const connected = !!driveGrant;
-  const disabled = !driveOAuthReady;
-  const containerClass = selected
-    ? 'rounded-xl border-2 border-terracotta bg-terracotta/5 p-4'
-    : disabled
-      ? 'rounded-xl border border-dashed border-ink/15 bg-cream/40 p-4 opacity-90'
-      : 'rounded-xl border border-ink/10 bg-cream/60 p-4 hover:border-ink/20';
-
-  return (
-    <div className={containerClass}>
-      <form action={setPapicStorageDrive}>
-        <input type="hidden" name="event_id" value={eventId} />
-        <button
-          type="submit"
-          aria-pressed={selected}
-          disabled={disabled || !connected}
-          className="flex w-full items-start gap-3 text-left disabled:cursor-not-allowed"
-        >
-          <RadioDot selected={selected} disabled={disabled || !connected} />
-          <div className="flex-1 space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold text-ink">
-                Use my Google Drive only
-              </span>
-              {disabled ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                  <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
-                  Coming soon
-                </span>
-              ) : connected ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900">
-                  <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
-                  Connected
-                </span>
-              ) : null}
-            </div>
-            <p className="text-xs text-ink/65">
-              {/* Type-neutral on purpose: this is a STORAGE sizing note, and
-                  30–60 GB is a function of how many cameras shoot for how long,
-                  not of what the day is called. Naming the event type here
-                  would mean threading a prop into a component that has no other
-                  reason to know it. */}
-              A full day of shooting can run 30–60 GB — make sure your Drive has
-              space. If it
-              runs out or disconnects, Setnayan won&rsquo;t have a backup copy.
-            </p>
-          </div>
-        </button>
-      </form>
-
-      <div className="mt-3 pl-7">
-        {disabled ? (
-          <p className="text-xs italic text-ink/55">
-            Coming soon — Setnayan&rsquo;s Drive verified-app review is in progress.
-            Setnayan storage works today; we&rsquo;ll email you when Drive is ready.
-          </p>
-        ) : connected ? (
-          <DriveConnectedPanel eventId={eventId} grant={driveGrant!} loginEmail={loginEmail} />
-        ) : (
-          <DriveConnectCTA eventId={eventId} />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RadioDot({
-  selected,
-  disabled = false,
-}: {
-  selected: boolean;
-  disabled?: boolean;
-}) {
-  if (disabled) {
-    return (
-      <span
-        aria-hidden
-        className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/20 bg-cream"
-      />
-    );
-  }
-  return (
-    <span
-      aria-hidden
-      className={
-        selected
-          ? 'mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-terracotta bg-cream'
-          : 'mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/30 bg-cream'
-      }
-    >
-      {selected ? <span className="inline-block h-2 w-2 rounded-full bg-terracotta" /> : null}
-    </span>
   );
 }
 

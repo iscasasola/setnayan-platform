@@ -29,7 +29,7 @@ function isRoom(value: unknown): value is PapicRoom {
  * ⚠ THE ROOM AN OUTCOME BELONGS TO — read from the URL the action already built.
  *
  * Every server action on this page finishes by redirecting back with an outcome
- * in the query string (`?storage_set=1`, `?papic_pool_error=…`). There are ~95
+ * in the query string (`?style_set=1`, `?papic_pool_error=…`). There are ~95
  * such redirects across four files, and not one of them carries a room.
  *
  * 🔑 SO THE ROOM IS DERIVED FROM THE OUTCOME, NOT ADDED TO 95 REDIRECTS. Editing
@@ -46,24 +46,24 @@ export function roomForOutcome(params: Record<string, unknown>): PapicRoom | nul
   // Set up — storage, the Drive connection, the capture window, and the
   // once-only choices.
   if (
-    has('storage_set') ||
-    has('storage_error') ||
     has('drive_connected') ||
     has('drive_disconnected') ||
     has('drive_error') ||
     has('papic_window_saved') ||
     has('papic_window_error') ||
-    // ⚠ THESE NINE SAVE IN SILENCE TODAY. `style_*`, `quality_*`, `showcase_*`,
-    // `faceTagging`, `guestCameras` and `vendorMedia` are each emitted by a
-    // redirect and read by NOTHING — they are not even in the page's
-    // searchParams type, so changing the look, the photo quality, face matching,
-    // showcase state or vendor visibility all confirm and fail into the void.
-    // Wiring them to a banner is its own change; giving them a ROOM is this
-    // one's job, so the map is complete the moment the rooms exist.
+    // ⚠ THIS COMMENT USED TO SAY THESE NINE "SAVE IN SILENCE". THAT IS NO
+    // LONGER TRUE AND HAS NOT BEEN FOR SOME TIME — every one of them is in the
+    // page's searchParams type and `StatusBanners` renders a plain-English
+    // confirmation for each. The stale sentence outlived its defect and was
+    // read as current on 2026-08-26, which cost a round trip with the owner.
+    // 🔑 A COMMENT IS NOT EVIDENCE: check the reader before repeating it.
+    //
+    // `quality_*` and `storage_*` are gone from this map entirely — the two
+    // questions they confirmed were deleted on 2026-08-26 (owner: photo
+    // quality is already right by default, and "where your photos go" was a
+    // choice no capture path ever read).
     has('style_set') ||
     has('style_error') ||
-    has('quality_set') ||
-    has('quality_error') ||
     has('faceTagging')
   ) {
     return 'setup';

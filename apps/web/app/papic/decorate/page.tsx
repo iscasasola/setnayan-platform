@@ -2,7 +2,7 @@ import { Sparkles } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { eventPapicGuestAccess } from '@/lib/papic-guest';
 import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { KwentoDecorator } from './_components/kwento-decorator';
@@ -35,8 +35,15 @@ export default async function PapicDecoratePage() {
   }
 
   const admin = createAdminClient();
-  const owns = await eventPapicGuestActive(admin, session.event_id);
-  if (!owns) {
+  /* 🔴 "OFF" AND "WE COULD NOT TELL" ARE DIFFERENT SENTENCES, and only one of
+     them is about the host. This asked a boolean that fails closed on a read
+     error, then printed the failure as a decision somebody had made. Measured
+     2026-08-25: the guest-camera pool applies on ALL FIVE production events, so
+     the refusal below is unreachable through the gate today — which means every
+     time it HAS rendered, it was the read failing, and it named the wrong
+     culprit. The gate still fails closed; only the wording knows the difference. */
+  const access = await eventPapicGuestAccess(admin, session.event_id);
+  if (access !== 'on') {
     return (
       <DoorShell
         tone="dead_end"
@@ -46,8 +53,12 @@ export default async function PapicDecoratePage() {
             Photo decorating
           </>
         }
-        title="Not on yet."
-        sub="The host hasn't turned on guest cameras for this event yet."
+        title={access === 'unknown' ? 'We couldn’t check just now.' : 'Not on yet.'}
+        sub={
+          access === 'unknown'
+            ? 'Something on our side didn’t answer, so we can’t open the decorator yet. Give it a moment and try again — nothing is wrong with your invitation.'
+            : 'Guest cameras aren’t on for this event yet, so there’s nothing to decorate. Enjoy the celebration!'
+        }
       />
     );
   }

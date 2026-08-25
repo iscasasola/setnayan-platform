@@ -241,18 +241,45 @@ export async function fetchEventPoolStatus(
   admin: SupabaseClient,
   eventId: string,
 ): Promise<EventPoolStatus> {
-  if (!eventId) return EVENT_POOL_ABSENT;
+  return (await readEventPoolStatus(admin, eventId)).status;
+}
+
+/**
+ * The same read, WITH whether it succeeded.
+ *
+ * 🔴 WHY IT WAS SPLIT OUT. `fetchEventPoolStatus` returns the ABSENT sentinel
+ * for two completely different facts: "this event has no pool" and "we could
+ * not find out". For the banner above, that conflation is harmless — degrading
+ * a display never widens a fence. But `eventPapicGuestActive` also reads it, and
+ * two guest-facing pages turn its `false` into a sentence about the HOST: "the
+ * host hasn't turned on guest cameras for this event yet." A metering outage
+ * should not be printed on a guest's phone as somebody's decision.
+ *
+ * `ok` is about the READ, never about permission. Both callers still fail
+ * closed; only the wording downstream changes.
+ */
+export type EventPoolRead = {
+  /** False when the RPC errored or threw — NOT when the event simply has no pool. */
+  ok: boolean;
+  status: EventPoolStatus;
+};
+
+export async function readEventPoolStatus(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<EventPoolRead> {
+  if (!eventId) return { ok: true, status: EVENT_POOL_ABSENT };
   try {
     const { data, error } = await admin.rpc('papic_event_pool_status', {
       p_event_id: eventId,
     });
-    if (error) return EVENT_POOL_ABSENT;
+    if (error) return { ok: false, status: EVENT_POOL_ABSENT };
     // SETOF-returning plpgsql surfaces as an array through PostgREST.
     const row = Array.isArray(data)
       ? (data[0] as PoolStatusRow | undefined)
       : (data as PoolStatusRow | null);
-    return shapeEventPoolStatus(row);
+    return { ok: true, status: shapeEventPoolStatus(row) };
   } catch {
-    return EVENT_POOL_ABSENT;
+    return { ok: false, status: EVENT_POOL_ABSENT };
   }
 }

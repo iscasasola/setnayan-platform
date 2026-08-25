@@ -42,7 +42,7 @@ import { TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 /**
  * The word the 72px icon strip shows at 1024–1279, keyed by the STABLE key and
  * never by the label — an admin can rename any of these from the registry, and
- * "On the Day (BEO)".split(' ')[0] is the word "On", which is not a place.
+ * "On the Day".split(' ')[0] is the word "On", which is not a place.
  * A renamed row falls back to its own first word, which is the best guess
  * available for a word we have never seen.
  */
@@ -54,7 +54,8 @@ import { TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 const PLAN_KEY = '__plan';
 
 const CAPTION: Record<string, string> = {
-  overview: 'Overview',
+  // Re-cut 2026-08-26: the landing row reads "Today" everywhere it is drawn.
+  overview: 'Today',
   shop: 'Shop',
   customers: 'Customers',
   performance: 'Performance',

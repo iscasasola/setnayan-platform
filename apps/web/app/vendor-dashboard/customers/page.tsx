@@ -693,7 +693,7 @@ function moneyNote(r: CustomerRow): { text: string; tone: string } {
  * pipeline (this file's original body), Bookings, Clients, Calendar, Payday,
  * Messages. The old routes redirect in with their params preserved. */
 import { Suspense } from 'react';
-import { Users as UsersIcon, SlidersHorizontal } from 'lucide-react';
+import { Users as UsersIcon, SlidersHorizontal, FileSignature, FileText } from 'lucide-react';
 import {
   FeatureAccordion,
   AccordionSkeleton,
@@ -704,6 +704,8 @@ import ClientsSurface from '../clients/surface';
 import CalendarSurface from '../calendar/surface';
 import PaydaySurface from '../payday/surface';
 import MessagesSurface from '../messages/surface';
+import ContractsSurface from '../contracts/surface';
+import ProposalsSurface from '../proposals/surface';
 import { ShopEmpty } from '../_components/kit';
 
 // Folded sections below the pipeline (which already shows the ONE month
@@ -744,6 +746,27 @@ const CUSTOMER_SECTIONS: AccordionSection[] = [
     sub: 'Set daily limits, block dates, import clients, manage the waitlist',
     icon: <SlidersHorizontal className="h-4 w-4" strokeWidth={1.75} />,
   },
+  /*
+    MOVED HERE FROM MY SHOP 2026-08-26 (owner re-cut, "yes i agree"). A quote
+    and a contract are papers about a deal with one customer; they belong in
+    the room where that customer is, not beside the shop's opening hours.
+    ⚠ The keys `contracts` / `proposals` are the SAME words the old My Shop
+    accordion used, and both hubs read `?open=` / the legacy `?tab=` alias — so
+    the forwarding stubs need no new vocabulary and every old deep-link lands
+    on the same section it always named.
+  */
+  {
+    key: 'proposals',
+    label: 'Proposals',
+    sub: 'Build quotes and reusable proposal templates',
+    icon: <FileText className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'contracts',
+    label: 'Contracts',
+    sub: 'Send, sign, and track your booking contracts',
+    icon: <FileSignature className="h-4 w-4" strokeWidth={1.75} />,
+  },
 ];
 
 async function CustomerSectionBody({
@@ -762,6 +785,10 @@ async function CustomerSectionBody({
     case 'availability':
       // Management tools only — the month grid stays in the pipeline above.
       return <CalendarSurface searchParams={pass as never} variant="manage" />;
+    case 'proposals':
+      return <ProposalsSurface searchParams={pass as never} />;
+    case 'contracts':
+      return <ContractsSurface />;
     default:
       return null;
   }

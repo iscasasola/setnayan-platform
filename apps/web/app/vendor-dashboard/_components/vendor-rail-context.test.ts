@@ -28,6 +28,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+// Relative, not '@/lib/…': under `tsx --test` the alias hands back a module
+// whose named exports are empty, so the loop below would run zero times and
+// report a pass. The `checked` floor catches that too — belt and braces.
+import { NAV_SLOT_DEFAULTS } from '../../../lib/nav-registry-defaults';
 
 import { activeRailKey } from '@/app/_components/frontdoor/rail-active';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
@@ -103,14 +107,74 @@ test('every rail row also tells a screen reader, not just the eye', () => {
    2 · THE KEYS ARE THE CONTRACT
    ══════════════════════════════════════════════════════════════════════════ */
 
-test('the five destinations are exactly the owner-locked five, in order', () => {
+/*
+  TWO ASSERTIONS, NOT ONE, AND THE SPLIT IS THE POINT. The SET is owner-locked
+  and load-bearing in four systems. The ORDER is a display choice and was
+  re-cut on 2026-08-26. Pinning both in a single deepEqual made a re-order
+  look like a lock being broken, which is how a real guard gets weakened by
+  somebody in a hurry.
+*/
+test('the five destination KEYS are exactly the owner-locked five', () => {
   assert.deepEqual(
-    VENDOR_DESTINATIONS.map((d) => d.key),
-    ['overview', 'shop', 'customers', 'performance', 'on-the-day'],
+    [...VENDOR_DESTINATIONS.map((d) => d.key)].sort(),
+    ['customers', 'on-the-day', 'overview', 'performance', 'shop'],
     'Owner-locked 2026-07-12 ("overview, my shop, my customers, my performance, ' +
       'BEO are all 1-page each"). These keys are ALSO the staff role-filter set, ' +
       'the `vendor.sidebar.<key>` registry slots and the localStorage section ' +
       'state. Adding a sixth row here is a product change, not a chrome change.',
+  );
+});
+
+/*
+  ── THE TWO PLACES A ROW IS NAMED MUST AGREE ────────────────────────────────
+  `resolveVendorDestinations` REPLACES the in-code label with the registry's
+  whenever a slot exists, so the registry default is what a shop owner actually
+  reads and the in-code word is only the fallback when a read fails. Rename one
+  and not the other and the app has two answers to one question, with NO error
+  to notice: a fresh deployment shows the registry word, a failed registry read
+  shows the code word. That is the shape this repo keeps paying for.
+
+  DERIVED FROM BOTH SIDES, never a hand-typed third copy of the word.
+*/
+test('every destination is named the same in the code and in the rename registry', () => {
+  const bySlot = new Map(
+    NAV_SLOT_DEFAULTS.filter((d) => d.area === 'vendor-sidebar').map((d) => [d.key, d]),
+  );
+  let checked = 0;
+  for (const d of VENDOR_DESTINATIONS) {
+    const slot = bySlot.get(`vendor.sidebar.${d.key}`);
+    if (!slot) continue;
+    checked += 1;
+    assert.equal(
+      slot.label,
+      d.label,
+      `"${d.key}" is "${d.label}" in the code and "${slot.label}" in the registry. ` +
+        'The registry wins, so the code word is what nobody sees — rename in both.',
+    );
+  }
+  // A FLOOR, so a renamed slot key cannot empty the loop and report a pass.
+  assert.equal(checked, 5, `only ${checked} of the five destinations had a registry slot`);
+});
+
+test('the rail order is the 2026-08-26 re-cut — people before setup', () => {
+  assert.deepEqual(
+    VENDOR_DESTINATIONS.map((d) => d.key),
+    ['overview', 'customers', 'shop', 'performance', 'on-the-day'],
+    'Owner re-cut 2026-08-26 ("yes i agree"): My Customers sits ahead of My ' +
+      'Shop because people are the daily job and setting up a shop is a once. ' +
+      'Order is display-only — nothing reads it — so this is the assertion to ' +
+      'edit if the order changes again. The KEY SET above is the one that is ' +
+      'locked.',
+  );
+});
+
+test('the landing row is labelled Today, not Overview', () => {
+  assert.equal(
+    VENDOR_DESTINATIONS.find((d) => d.key === 'overview')?.label,
+    'Today',
+    'Re-cut 2026-08-26. The key stays `overview` on purpose — four systems ' +
+      'read it and three fail silently — but the WORD a shop owner reads is ' +
+      '"Today", the same rename the admin console took the same week.',
   );
 });
 
@@ -177,8 +241,8 @@ test('an owner sees all five', () => {
   const rows = resolveVendorDestinations({ role: 'admin' });
   assert.deepEqual(rows.map((r) => r.key), [
     'overview',
-    'shop',
     'customers',
+    'shop',
     'performance',
     'on-the-day',
   ]);

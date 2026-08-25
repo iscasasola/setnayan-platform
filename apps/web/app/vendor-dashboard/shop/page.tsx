@@ -1035,29 +1035,24 @@ async function ShopHome({
         }
       />
 
-      {/* ── GET VERIFIED — the verification journey, promoted to its own
-          always-visible stage (owner redesign 2026-07-03). SEQUENCED (owner
-          flow): a teaser until the profile is 100% complete → the documents
-          reveal (auto-open) → upload + send VALIDATE → Submit → "we'll contact
-          you for final confirmation" (the Meet). Hero pill deep-links here. */}
-      <VerifySection
-        businessName={data.businessName}
-        vendorProfileId={data.profileFields.vendorProfileId}
-        isVerified={data.isVerified}
-        profileComplete={data.completionPct >= 100}
-        profileFieldsLeft={data.checklist.filter((i) => !i.ok).length}
-        verify={data.verify}
-      />
-
       {/* ── YOUR SERVICES — the full Services manager, fully consolidated onto
           My Shop (owner 2026-07-02: "My Services" retired everywhere). The
           standalone /vendor-dashboard/services route now redirects here; the
-          guided-wizard child route still renders separately. Deep-links open it. */}
-      <ServicesDisclosure
-        defaultOpen={Boolean(
-          sp.offpeak || sp.add || sp.saved || sp.error || sp.requested,
-        )}
-      >
+          guided-wizard child route still renders separately. Deep-links open it.
+
+          ── MOVED UP AND OPENED BY DEFAULT 2026-08-26 ────────────────────────
+          Owner named "setting up their services" as one of the jobs a shop
+          owner does, and it was a shut drawer below the verification block —
+          two taps from the rail to reach the thing this page is most for.
+          It is now the first thing under the identity tiles, already open.
+          🔑 Verification moved BELOW it deliberately: getting verified is a
+          once, with its own deep-linked hero pill to jump straight to it;
+          services is the work that never stops. It used to open only when a
+          deep-link carried ?offpeak / ?add / ?saved / ?error / ?requested;
+          `defaultOpen` is now unconditional, which is a SUPERSET of every one
+          of those — each of them opened it, and it is open regardless — so no
+          link that worked before can stop working. */}
+      <ServicesDisclosure defaultOpen>
         <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" />
       </ServicesDisclosure>
 
@@ -1100,6 +1095,20 @@ async function ShopHome({
           </Link>
         </section>
       ) : null}
+
+      {/* ── GET VERIFIED — the verification journey, promoted to its own
+          always-visible stage (owner redesign 2026-07-03). SEQUENCED (owner
+          flow): a teaser until the profile is 100% complete → the documents
+          reveal (auto-open) → upload + send VALIDATE → Submit → "we'll contact
+          you for final confirmation" (the Meet). Hero pill deep-links here. */}
+      <VerifySection
+        businessName={data.businessName}
+        vendorProfileId={data.profileFields.vendorProfileId}
+        isVerified={data.isVerified}
+        profileComplete={data.completionPct >= 100}
+        profileFieldsLeft={data.checklist.filter((i) => !i.ok).length}
+        verify={data.verify}
+      />
 
       {/* ── AUTO-REPLY ASSISTANT — Phase-4 config card (flag-DARK: renders
           only behind NEXT_PUBLIC_VENDOR_AUTOREPLY_V1; flag-off = today's page
@@ -1589,14 +1598,12 @@ function BranchPanel({
  * How clients pay you, Manpower as tabs, and a Tools tab linking the
  * long-tail surfaces that left the sidebar. Old routes redirect in. */
 import { Suspense } from 'react';
-import { FileSignature, FileText, HandCoins, HardHat, Boxes } from 'lucide-react';
+import { HandCoins, HardHat, Boxes } from 'lucide-react';
 import {
   FeatureAccordion,
   AccordionSkeleton,
   type AccordionSection,
 } from '../_components/feature-accordion';
-import ContractsSurface from '../contracts/surface';
-import ProposalsSurface from '../proposals/surface';
 import EarningsSurface from '../earnings/surface';
 import PaymentOptionsSurface from '../payment-options/surface';
 import ManpowerSurface from '../manpower/surface';
@@ -1604,19 +1611,22 @@ import ManpowerSurface from '../manpower/surface';
 // The folded feature sections, in strategic order below the shop home. Each
 // expands in place and loads its server body on open (owner one-page IA
 // 2026-07-12). Home (profile · services · verify · website) stays above.
+/*
+  ── CONTRACTS AND PROPOSALS LEFT THIS PAGE 2026-08-26 ───────────────────────
+  Owner re-cut ("yes i agree"): a contract and a quote are papers about a deal
+  with ONE customer, so a shop owner looks for them beside that customer, not
+  beside their opening hours. Both now fold into the My Customers hub; their
+  own routes still exist and now forward there, so every inbound link — the
+  client page, the message thread's send-a-quote card, the requote nudge, the
+  public proposal page — keeps working untouched.
+
+  🔑 THIS RESTORES AN AGREEMENT THAT WAS ALREADY BROKEN. The phone's bottom bar
+  has lit **Customers** for `/contracts` and `/proposals` all along, while the
+  laptop rendered them under My Shop — the same question answered two ways
+  depending on which screen you held. Nothing lit Shop for them, so no phone
+  tab goes dark.
+*/
 const SHOP_SECTIONS: AccordionSection[] = [
-  {
-    key: 'contracts',
-    label: 'Contracts',
-    sub: 'Send, sign, and track your booking contracts',
-    icon: <FileSignature className="h-4 w-4" strokeWidth={1.75} />,
-  },
-  {
-    key: 'proposals',
-    label: 'Proposals',
-    sub: 'Build quotes and reusable proposal templates',
-    icon: <FileText className="h-4 w-4" strokeWidth={1.75} />,
-  },
   {
     key: 'payments',
     label: 'How clients pay you',
@@ -1632,59 +1642,107 @@ const SHOP_SECTIONS: AccordionSection[] = [
   {
     key: 'tools',
     label: 'More tools',
-    sub: 'Reviews · Stories · Recaps · Partnerships · Attributes · Branches …',
+    sub: 'What couples see · Working with others · Protection',
     icon: <Boxes className="h-4 w-4" strokeWidth={1.75} />,
   },
 ];
 
-const SHOP_TOOLS: { href: string; label: string; sub: string }[] = [
+/*
+  ── THE FOURTEEN TOOLS, ON THREE NAMED SHELVES (2026-08-26) ─────────────────
+  Owner re-cut ("yes i agree"). Until now these were one undifferentiated grid
+  of fourteen cards, so finding "Theft Watch" meant reading all fourteen labels.
+  NOTHING IS REMOVED, RENAMED OR RE-ROUTED — every href, label and sub-line
+  below is byte-identical to the flat list it replaces. The only new thing is
+  which of three headings a card sits under. That is the same discipline the
+  admin console's own re-cut used: order the pile, never shorten it.
+
+  The cut is by WHO THE TOOL IS FOR, which is the only question a shop owner
+  can answer without opening the card:
+    · what couples see   — the shopfront's proof and its detail
+    · working with others — other shops, creators, and your own team
+    · protection          — the two rooms you open when something is wrong
+*/
+type ShopTool = { href: string; label: string; sub: string };
+type ShopToolShelf = { key: string; label: string; tools: ShopTool[] };
+
+const TOOLS_COUPLES_SEE: ShopTool[] = [
   { href: '/vendor-dashboard/reviews', label: 'Reviews', sub: 'Ratings and written reviews from booked couples.' },
   { href: '/vendor-dashboard/track-record', label: 'Track record', sub: 'Completed events and the public proof they build.' },
   { href: '/vendor-dashboard/real-stories', label: 'Stories', sub: 'Editorial features starring your work.' },
   { href: '/vendor-dashboard/recaps', label: 'Recaps', sub: 'Living recaps from events you served.' },
-  { href: '/vendor-dashboard/recommendations', label: 'Recommend', sub: 'Vendors you vouch for, and who vouches for you.' },
-  { href: '/vendor-dashboard/partnerships', label: 'Partnerships', sub: 'Preferred-partner ties with other vendors.' },
-  { href: '/vendor-dashboard/creators', label: 'Creators', sub: 'Offer discounts to creators for a credited feature in their story.' },
-  { href: '/vendor-dashboard/attributes', label: 'Attributes', sub: 'Traits and tags that sharpen your matching.' },
   { href: '/vendor-dashboard/repertoire', label: 'Repertoire', sub: 'Your set list / portfolio pieces for couples to browse.' },
+  { href: '/vendor-dashboard/attributes', label: 'Attributes', sub: 'Traits and tags that sharpen your matching.' },
   // 🔴 ADDED 2026-08-06 — /vendor-dashboard/activities shipped 2026-07-28 with
   // NO doorway anywhere in the repo: no <Link>, no router.push, no redirect, no
   // nav-config entry, no route-builder, no registry key. Its deliberately-
   // identical sibling /vendor-dashboard/repertoire (the line above) had five.
   // A host wrote his segments into a page he could only reach by typing the URL.
   { href: '/vendor-dashboard/activities', label: 'Your segments', sub: 'The parts of the night you run — couples tick these onto their timeline.' },
+];
+
+const TOOLS_WITH_OTHERS: ShopTool[] = [
+  { href: '/vendor-dashboard/recommendations', label: 'Recommend', sub: 'Vendors you vouch for, and who vouches for you.' },
+  { href: '/vendor-dashboard/partnerships', label: 'Partnerships', sub: 'Preferred-partner ties with other vendors.' },
+  { href: '/vendor-dashboard/creators', label: 'Creators', sub: 'Offer discounts to creators for a credited feature in their story.' },
   // Branches removed 2026-07-16 — the Branch tile above (ManageTiles, inline
   // BranchManager) is the canonical branch surface; the standalone /branches
   // route now redirects here. Team stays: /team hosts the extra-seat purchase
   // flow the inline Team tile doesn't.
   { href: '/vendor-dashboard/team', label: 'Team & Setnayan', sub: 'Seats, roles, and your Setnayan relationship.' },
+];
+
+const TOOLS_PROTECTION: ShopTool[] = [
   { href: '/vendor-dashboard/disputes', label: 'Disputes', sub: 'Open cases and their timelines.' },
   { href: '/vendor-dashboard/theft-watch', label: 'Theft Watch', sub: 'Portfolio-theft reports and takedowns.' },
 ];
 
 // Stylist-only card (owner-locked 2026-07-12: the Moodboard library is a
-// stylist's own collection — reception_decor vendors only).
-const STYLIST_TOOL = { href: '/vendor-dashboard/moodboard-library', label: 'Moodboard library', sub: 'Your own moodboard collection — recolourable sets couples match to their palette.' };
+// stylist's own collection — reception_decor vendors only). It sits on the
+// couples-see shelf because that is what it feeds.
+const STYLIST_TOOL: ShopTool = { href: '/vendor-dashboard/moodboard-library', label: 'Moodboard library', sub: 'Your own moodboard collection — recolourable sets couples match to their palette.' };
+
+function shopToolShelves(isStylist: boolean): ShopToolShelf[] {
+  return [
+    {
+      key: 'couples-see',
+      label: 'What couples see',
+      tools: isStylist ? [STYLIST_TOOL, ...TOOLS_COUPLES_SEE] : TOOLS_COUPLES_SEE,
+    },
+    { key: 'with-others', label: 'Working with others', tools: TOOLS_WITH_OTHERS },
+    { key: 'protection', label: 'Protection', tools: TOOLS_PROTECTION },
+  ];
+}
 
 function ShopTools({ isStylist }: { isStylist: boolean }) {
-  const tools = isStylist ? [STYLIST_TOOL, ...SHOP_TOOLS] : SHOP_TOOLS;
+  const shelves = shopToolShelves(isStylist);
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {tools.map((t) => (
-          <li key={t.href}>
-            {/* Flat `.sn-row` cards — 12+ in this grid, so blur is banned here
-                (blur budget § 1.6: no blur in >10-item collections). */}
-            <Link
-              href={t.href}
-              className="sn-row sn-press block p-4 transition hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <span className="block text-[14px] font-semibold text-ink">{t.label}</span>
-              <span className="mt-1 block text-[12.5px] leading-relaxed text-ink/60">{t.sub}</span>
-            </Link>
-          </li>
+      <div className="space-y-7">
+        {shelves.map((shelf) => (
+          <div key={shelf.key}>
+            {/* The shelf heading is the whole point of the re-cut: it is the
+                one word that tells you whether the card you want is on this
+                shelf without reading the cards. */}
+            <h3 className="sn-eye mb-2.5">{shelf.label}</h3>
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {shelf.tools.map((t) => (
+                <li key={t.href}>
+                  {/* Flat `.sn-row` cards — 14 across this section, so blur is
+                      banned here (blur budget § 1.6: no blur in >10-item
+                      collections). Shelving them does not lower the count. */}
+                  <Link
+                    href={t.href}
+                    className="sn-row sn-press block p-4 transition hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <span className="block text-[14px] font-semibold text-ink">{t.label}</span>
+                    <span className="mt-1 block text-[12.5px] leading-relaxed text-ink/60">{t.sub}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         ))}
-      </ul>
+      </div>
     </section>
   );
 }
@@ -1702,10 +1760,6 @@ async function ShopSectionBody({
 }) {
   const pass = Promise.resolve(sp);
   switch (open) {
-    case 'contracts':
-      return <ContractsSurface />;
-    case 'proposals':
-      return <ProposalsSurface searchParams={pass as never} />;
     case 'payments':
       return <PaymentOptionsSurface searchParams={pass as never} />;
     case 'manpower':

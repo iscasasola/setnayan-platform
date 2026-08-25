@@ -26,12 +26,12 @@ const home = code(read('page.tsx'));
 /** Every `key: '…'` that sits on a nav ITEM (8-space indent), not a group. */
 function navItemKeys(src: string): Set<string> {
   return new Set(
-    [...src.matchAll(/^ {8}key: '([a-z0-9-]+)',$/gm)].map((m) => m[1]),
+    [...src.matchAll(/^ {8}key: '([a-z0-9-]+)',$/gm)].map((m) => m[1]!),
   );
 }
 
 test('every tile resolves to a nav item that exists', () => {
-  const keys = [...tile.matchAll(/\{ key: '([a-z0-9-]+)'/g)].map((m) => m[1]);
+  const keys = [...tile.matchAll(/\{ key: '([a-z0-9-]+)'/g)].map((m) => m[1]!);
   assert.equal(keys.length, 6, `expected six jobs, found ${keys.length}`);
   const known = navItemKeys(nav);
   const dead = keys.filter((k) => !known.has(k));

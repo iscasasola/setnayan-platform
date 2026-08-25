@@ -20,7 +20,11 @@
  * TAB CHOICE (≤5) — the owner's three "sure" priority menus (Overview · Ugat
  * Console · App Performance) get their own tab, plus Accounts (record look-up)
  * and a More tab that opens the complete 6-group menu:
- *   Overview · Accounts · Ugat Console · App Performance · More
+ *   Today · People · Set up · Numbers · More
+ *
+ * ⚠ RELABELLED 2026-08-26 with the six-menu regroup. The strip is still the
+ * ≤5-tab SUBSET SHORTCUT — its tabs must NAME the menus they open, or the phone
+ * and the desktop disagree about what a place is called.
  * The retired 2026-07-03 "Marketing" tab is GONE — its group folded into Studio
  * on desktop, so its surfaces are reachable in More → Studio. Studio + Money
  * (the two non-tab desktop menus) are always one tap away inside More.
@@ -41,7 +45,7 @@
  *                      tab's route also starts with /admin/) PLUS every act-now
  *                      queue route as a prefix umbrella.
  *   - Accounts       — /admin/directory OR any account record route
- *   - Ugat Console   — /admin/taxonomy OR any Ugat data-structure route
+ *   - Set up         — /admin/taxonomy OR any Set-up route
  *   - App Performance— /admin/app-performance OR any Performance route
  *   - More           — /admin/more OR any Studio / Money route (the two
  *                      non-tab desktop menus). /admin/settings umbrella also
@@ -72,7 +76,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     // lights for the exact /admin path (activeMatchAlsoExact — every other
     // admin route starts with /admin/) AND for every act-now queue route.
     key: 'home',
-    label: 'Overview',
+    label: 'Today',
     href: '/admin',
     icon: Home,
     activeMatchAlsoExact: ['/admin'],
@@ -107,7 +111,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   },
   {
     key: 'directory',
-    label: 'Accounts',
+    label: 'People',
     href: '/admin/directory',
     icon: Users,
     activeMatch: [
@@ -123,10 +127,10 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
     // UGAT CONSOLE (2026-07-04 respine · replaces the retired 'marketing' slot)
     // — the data-structure / mapping wing, an owner "sure" priority menu. Lands
-    // on /admin/taxonomy, the Taxonomy-Studio anchor of the Ugat Console group,
+    // on /admin/taxonomy, the Taxonomy-Studio anchor of the Set up group,
     // and claims every Ugat data-structure route as its umbrella.
     key: 'ugat',
-    label: 'Ugat Console',
+    label: 'Set up',
     href: '/admin/taxonomy',
     icon: Tag,
     activeMatch: [
@@ -144,7 +148,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     // 2026-07-03 respine, still within the ≤5 ruleset (Work + Money tabs
     // dissolved). /admin/insights now redirects into the studio's Intelligence tab.
     key: 'performance',
-    label: 'Performance',
+    label: 'Numbers',
     href: '/admin/app-performance',
     icon: Activity,
     activeMatch: [

@@ -56,6 +56,11 @@ import { RoiAttributionCard } from './_components/roi-attribution-card';
 import type { MomentumWindow, MomentumMode } from './_components/momentum-card';
 import { FunnelPreviewCard } from './_components/funnel-preview-card';
 import { DemandRadarCard } from '../demand/_components/demand-radar-card';
+import { FunnelBenchmarkCard } from './_components/funnel-benchmark-card';
+import {
+  EMPTY_FUNNEL_BENCHMARK,
+  getVendorFunnelBenchmark,
+} from '@/lib/funnel-benchmark';
 import { regionLabel } from '@/lib/region-source';
 import {
   ServiceScopeSelector,
@@ -208,6 +213,7 @@ export default async function PerformanceHome({
     vendorCatalog,
     funnelTotalsYear,
     demandRadar,
+    funnelBenchmark,
     inquiryAnalytics,
     conversionAnalytics,
     funnelTotalsMonth,
@@ -243,6 +249,19 @@ export default async function PerformanceHome({
       'funnel_totals',
     ),
     safeRead(getVendorDemandRadar(supabase, profile.vendor_profile_id), EMPTY_RADAR, 'demand_radar'),
+    /* 🔴 THE FIRST READER THIS MODULE HAS EVER HAD. `lib/funnel-benchmark.ts`
+       shipped with the SQL bands, the min-N privacy floor and the percentile
+       math — and ZERO importers, so no vendor could reach any of it. Read on the
+       SAME Pro-and-up section as the radar (its own docblock's stated gate), and
+       through safeRead so a metering hiccup lands on the honest suppressed card
+       rather than taking the page down. */
+    canMarket
+      ? safeRead(
+          getVendorFunnelBenchmark(supabase, profile.vendor_profile_id),
+          EMPTY_FUNNEL_BENCHMARK,
+          'funnel_benchmark',
+        )
+      : Promise.resolve(EMPTY_FUNNEL_BENCHMARK),
     // Inquiry-handling + conversion analytics — shop-level, Pro+ (own-business).
     // Skip the RPCs entirely for tiers that won't render the sections.
     canAdvanced
@@ -737,6 +756,9 @@ export default async function PerformanceHome({
                   </div>
                 </div>
                 <DemandRadarCard radar={demandRadar} marketLabel={marketLabel} scope="vendor" />
+                <div className="mt-6">
+                  <FunnelBenchmarkCard benchmark={funnelBenchmark} />
+                </div>
               </section>
             </Reanimate>
           ) : (

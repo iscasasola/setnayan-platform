@@ -9,7 +9,9 @@ import {
   isPapicVendorTerminalError,
 } from '@/lib/offline/service-handlers/papic-vendor-drain';
 import { triggerSyncNow } from '@/lib/offline/sync-daemon';
-import { VENDOR_PAPIC_POINTS, type VendorPapicTier } from '@/lib/vendor-papic-tier';
+import { VENDOR_PAPIC_POINTS, type VendorPapicTier,
+  VENDOR_PAPIC_VIDEO_MIN_POINTS,
+} from '@/lib/vendor-papic-tier';
 
 // The vendor on-the-day Papic capture controller (owner-locked 2026-07-18).
 // A consent gate → the live camera → gesture shutter (tap = photo · press-and-
@@ -472,7 +474,19 @@ export function PapicCaptureController({
             />
           </button>
           <span className="text-[11px] font-medium text-white/80">
-            {canClip ? 'Tap photo · hold for a 10s clip' : allowVideo ? '' : 'Photos only on Papic Lite'}
+            {canClip
+              ? 'Tap photo · hold for a 10s clip'
+              : allowVideo
+                ? ''
+                : /* ⚠ THE REASON IS THE CREDIT THRESHOLD, NOT THE TIER. This
+                     read "Photos only on Papic Lite" until 2026-08-26, when
+                     video moved from an always-true tier flag onto the
+                     allowance (owner: "800 credits will allow them to take
+                     videos"). Left alone it named the wrong tier to a Ltd
+                     supplier AND the wrong reason to everyone — a refusal that
+                     misdescribes itself sends somebody to fix the wrong thing.
+                     The number is DERIVED, never re-typed. */
+                  `Photos only — video unlocks at ${VENDOR_PAPIC_VIDEO_MIN_POINTS} shots`}
           </span>
         </div>
       </div>

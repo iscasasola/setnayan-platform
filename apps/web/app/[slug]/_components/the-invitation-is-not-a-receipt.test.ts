@@ -134,20 +134,44 @@ test('⛔ the PROTECTED 0.66rem gild eyebrows are untouched across the guest tre
   );
 });
 
-test('⛔ the OWNER-GATED film face and its pill are untouched', () => {
+test('🎬 the film’s lettering left the terminal face — and stopped exactly there', () => {
+  /* INVERTED, NOT DELETED (2026-08-24). This assertion used to hold H-2 SHUT
+     while it was owner-gated. He was shown a side-by-side and said "lettering
+     YES", so it now holds the change IN — nobody re-mono-s the film by accident
+     and files it as a tidy-up. The protections it carried are untouched below. */
   const themes = readFileSync(join(WEB, 'lib', 'std-themes.ts'), 'utf8');
-  assert.match(
+  assert.equal(
     /labelCls: '([^']*)'/.exec(themes)?.[1] ?? '',
-    /^font-mono /,
-    'lib/std-themes.ts labelCls left DM Mono — that is H-2, it is OWNER-GATED, ' +
-      'and it must not ride along with AP-3',
+    'font-serif text-sm uppercase tracking-[0.18em] text-terracotta',
+    'the film’s shared label class moved off the approved face, or a size / ' +
+      'tracking / case / tone change rode along with it. ONLY the face was approved.',
   );
+
   const film = readFileSync(join(HERE, 'save-the-date-film.tsx'), 'utf8');
-  assert.match(
-    film,
-    /font-mono text-sm uppercase tracking-\[0\.16em\] text-cream\/90/,
-    'the film’s "press and hold to pause" pill left the mono face — that is ' +
-      'named in H-2’s scope and is OWNER-GATED',
+
+  /* Both legibility tones and both on-screen cues. The tone overrides are the
+     ones that actually render most of the time — a background that sets a tone
+     REPLACES labelCls wholesale, so changing only the shared default would have
+     left the film in mono on every event that has a background. */
+  for (const shape of [
+    /labelCls: 'font-serif text-sm uppercase tracking-\[0\.18em\] text-white\/90'/,
+    /labelCls: 'font-serif text-sm uppercase tracking-\[0\.18em\] text-black\/80'/,
+    /px-5 py-2\.5 font-serif text-sm uppercase tracking-\[0\.16em\] text-cream\/90/,
+    /px-5 py-3 font-serif text-sm uppercase tracking-\[0\.16em\] text-white/,
+  ]) {
+    assert.match(film, shape, `the film lost an approved lettering site: ${shape}`);
+  }
+
+  /* THE FLOOR. Exactly one monospaced thing may remain in the film, and it is
+     the protected watermark. A bare "no font-mono" rule would pass on an empty
+     file; a bare "the watermark is mono" rule would pass with four cues still
+     mono beside it. This asks both questions at once. */
+  const mono = film.match(/font-mono/g) ?? [];
+  assert.equal(
+    mono.length,
+    1,
+    `the film carries ${mono.length} monospaced sites; exactly 1 is correct — ` +
+      'the "Created at Setnayan" watermark, which is explicitly PROTECTED.',
   );
   assert.match(
     film,

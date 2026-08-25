@@ -215,7 +215,7 @@ function applyTextTone(theme: StdTheme, tone: 'light' | 'dark' | null): StdTheme
       outerFg: 'text-[#fbf7f0]',
       accentText: 'text-[#fbf7f0]',
       subtleText: 'text-white/75',
-      labelCls: 'font-mono text-sm uppercase tracking-[0.18em] text-white/90',
+      labelCls: 'font-serif text-sm uppercase tracking-[0.18em] text-white/90',
       scrubFill: 'bg-white',
     };
   }
@@ -224,7 +224,7 @@ function applyTextTone(theme: StdTheme, tone: 'light' | 'dark' | null): StdTheme
     outerFg: 'text-[#211d18]',
     accentText: 'text-[#211d18]',
     subtleText: 'text-black/65',
-    labelCls: 'font-mono text-sm uppercase tracking-[0.18em] text-black/80',
+    labelCls: 'font-serif text-sm uppercase tracking-[0.18em] text-black/80',
     scrubFill: 'bg-black/70',
   };
 }
@@ -1608,7 +1608,7 @@ export function SaveTheDateFilm({
             showHoldHint ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          <p className="rounded-full bg-black/35 px-5 py-2.5 font-mono text-sm uppercase tracking-[0.16em] text-cream/90 backdrop-blur-[2px] [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
+          <p className="rounded-full bg-black/35 px-5 py-2.5 font-serif text-sm uppercase tracking-[0.16em] text-cream/90 backdrop-blur-[2px] [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
             Press and hold to pause
           </p>
         </div>
@@ -1855,7 +1855,7 @@ export function SaveTheDateFilm({
             <button
               type="button"
               onClick={enableVideoSound}
-              className="pointer-events-auto absolute bottom-10 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white/15 px-5 py-3 font-mono text-sm uppercase tracking-[0.16em] text-white backdrop-blur-md transition hover:bg-white/25"
+              className="pointer-events-auto absolute bottom-10 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white/15 px-5 py-3 font-serif text-sm uppercase tracking-[0.16em] text-white backdrop-blur-md transition hover:bg-white/25"
             >
               <Volume2 aria-hidden className="h-5 w-5" />
               Tap for sound

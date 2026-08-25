@@ -40,6 +40,7 @@ import {
 import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { AnalyticsChoice } from './_components/analytics-choice';
 import {
   CIVIL_STATUSES,
   CIVIL_STATUS_LABELS,
@@ -1099,6 +1100,8 @@ export default async function ProfilePage({ searchParams }: Props) {
             effect.
           </p>
         </div>
+        <AnalyticsChoice />
+
         <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink">Export my data</p>

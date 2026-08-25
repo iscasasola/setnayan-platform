@@ -40,7 +40,9 @@ function score(d: Dest, needle: string): number {
     for (let c = 0; c < l.length && p < needle.length; c++) if (l[c] === needle[p]) p++;
     raw = p === needle.length ? 8 : 0;
   }
-  return d.source === 'map' ? raw / 2 : raw;
+  if (d.source === 'map') return raw / 2;
+  if (d.source === 'row') return raw / 3;
+  return raw;
 }
 
 /** Exactly what the palette did before this change. The regression reference. */
@@ -178,7 +180,18 @@ test('the palette really uses the sentence ranker, and its scorer matches this c
   assert.match(src, /rankBySentence\(all, q, score, 30\)/, 'the palette stopped ranking sentences');
   assert.match(src, /unknownNote/, 'the palette stopped reporting unmatched words');
   // The copied scorer above must stay identical to the shipped one.
-  for (const band of ['raw = 100', 'Math.max(20, 60 - i)', 'raw = 15', "source === 'map' ? raw / 2"]) {
+  // 🪤 THIS LIST IS WHAT MAKES THE COPY HONEST, and it was one band short. A
+  // mutation moving the ROW band (`raw / 3` → `raw * 3`) — which would let one
+  // catalogue entry shadow the screen that edits all of them — changed nothing
+  // any test could see, because the tests score with the copy above. Every band
+  // the palette has must be named here or it is unguarded.
+  for (const band of [
+    'raw = 100',
+    'Math.max(20, 60 - i)',
+    'raw = 15',
+    "if (d.source === 'map') return raw / 2;",
+    "if (d.source === 'row') return raw / 3;",
+  ]) {
     assert.ok(src.includes(band), `the palette's scorer changed (${band}) — update the copy here`);
   }
 });

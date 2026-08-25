@@ -131,9 +131,12 @@ test('the palette actually uses the map', () => {
   // this test reported a clean pass. Match the CALL SITE, on stripped source, so
   // a docblock that merely mentions the function cannot stand in for using it.
   const palette = stripComments(readFileSync(join(HERE, 'admin-command-palette.tsx'), 'utf8'));
+  // The call site, not the word. The shape changed on 2026-08-26 when the
+  // palette started passing database rows in — this matches either form, and
+  // still fails if the call is replaced by a literal list.
   assert.match(
     palette,
-    /useMemo\(\s*buildDestinations\s*[,)]/,
+    /useMemo\(\s*(buildDestinations\s*[,)]|\(\)\s*=>\s*buildDestinations\()/,
     'the palette no longer CALLS buildDestinations',
   );
   assert.doesNotMatch(

@@ -7,7 +7,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { claimCommandKey } from '@/lib/command-key-claim';
 import { rankBySentence } from '@/lib/admin-map/rank-by-sentence';
 
-import { buildDestinations, type Dest } from './admin-destinations';
+import { buildDestinations, type Dest, type RowDest } from './admin-destinations';
 
 /**
  * AdminCommandPalette — ⌘K / Ctrl-K, type three letters, go.
@@ -55,10 +55,15 @@ function score(d: Dest, needle: string): number {
   // curated menu for. Halving keeps the bands apart in both directions: an exact
   // name match on an unlisted page (50) still beats a vague description hit on a
   // menu page (15), and never beats the menu page with the same name (100).
-  return d.source === 'map' ? raw / 2 : raw;
+  // Bands: the curated menu at full strength, a scanned page at half, a row
+  // inside a page at a third. A row must never outrank the page that holds it
+  // for a vague query — it wins only when its own words are what you typed.
+  if (d.source === 'map') return raw / 2;
+  if (d.source === 'row') return raw / 3;
+  return raw;
 }
 
-export function AdminCommandPalette() {
+export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
@@ -66,7 +71,7 @@ export function AdminCommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  const all = useMemo(buildDestinations, []);
+  const all = useMemo(() => buildDestinations(rows), [rows]);
   /**
    * A SENTENCE, not just a word. The old line here scored the whole typed string
    * as one needle, so "papic prices" — two words — returned nothing at all, and

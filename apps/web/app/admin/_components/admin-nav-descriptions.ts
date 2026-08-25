@@ -243,7 +243,13 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   'data-privacy': 'npc privacy dpo consent ra10173 filing',
   approvals: 'pending sign off second admin two admin',
   subscriptions: 'pro plan upgrade billing recurring',
-  pricing: 'price cost sku catalog catalogue amount',
+  // 'prices' and 'papic' added 2026-08-26 under this list's own rule — the owner
+  // typed "show me the prices of papic" and "take me to the pricing for papic
+  // services" and got nothing. Measured why: the plural 'prices' appeared in ZERO
+  // admin haystacks (there is no stemmer anywhere in this repo), and 'papic'
+  // appeared in exactly one — Papic storage, which is not the money. Both words
+  // are true of this page: every Papic SKU is a row in this catalogue.
+  pricing: 'price prices papic cost sku catalog catalogue amount',
   'price-bands': 'market range benchmark',
   secrets: 'keys api credentials rotate env',
   integrations: 'connect services resend openai gcash maya switches',

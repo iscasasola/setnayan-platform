@@ -1,5 +1,9 @@
 import 'server-only';
 
+import { cookies } from 'next/headers';
+
+import { CONSENT_STORAGE_KEY } from '@/lib/cookie-consent';
+
 // Server-side PostHog capture. Backed by plain `fetch` against the
 // `/capture/` REST endpoint — the JS SDK is browser-only and bringing in
 // `posthog-node` would just add weight for what is, in practice, three
@@ -22,10 +26,53 @@ export type CaptureEventArgs = {
   properties?: Record<string, unknown>;
 };
 
+/**
+ * 🔴 THE SERVER HALF OF THE ANALYTICS CHOICE — added 2026-08-25.
+ *
+ * The browser SDK has been consent-gated since the cookie banner shipped. This
+ * module was not: 15 call sites captured events keyed to the Supabase user_id
+ * from server actions — signup, login, onboarding, event creation, payments —
+ * with NO consent check anywhere. Somebody could decline analytics in the banner
+ * and still be measured, by name, from the server. A choice honoured on one of
+ * two paths is not honoured.
+ *
+ * ONE GATE, AT THE ONE FUNCTION. Checking the cookie at 15 call sites is 15
+ * chances to forget, and the sixteenth call site makes it 16. This is the same
+ * reasoning that fused the photo wall's three surface checks into one.
+ *
+ * ⚖ FAILS CLOSED, on purpose and in three directions:
+ *   · no cookie yet (nobody has answered)  → no capture. Consent is OPT-IN, and
+ *     this is exactly what the browser already does.
+ *   · a malformed cookie                   → no capture.
+ *   · no request context at all            → no capture.
+ * Silence is the recoverable failure here; capturing somebody who said no is not.
+ *
+ * ⚠ NAMED, NOT SOLVED: the cookie belongs to the BROWSER MAKING THE REQUEST,
+ * while `distinctId` names the SUBJECT. For 14 of the 15 call sites those are
+ * the same person. The exception is the admin payment action, which captures
+ * against the couple's user_id from an admin's session — so that one is gated on
+ * the ADMIN's choice, not the couple's. That is strictly MORE private than
+ * today (which gates on nothing) and never less, so it ships; keying consent to
+ * the subject would require a per-user consent record, which is a DPO decision
+ * the owner has not made.
+ */
+async function analyticsConsented(): Promise<boolean> {
+  try {
+    const store = await cookies();
+    const raw = store.get(CONSENT_STORAGE_KEY)?.value;
+    if (!raw) return false;
+    const parsed = JSON.parse(decodeURIComponent(raw)) as { analytics?: unknown };
+    return parsed.analytics === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function captureEvent(args: CaptureEventArgs): Promise<void> {
   const apiKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
   const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
   if (!apiKey || !host) return; // not configured — silently no-op
+  if (!(await analyticsConsented())) return; // they said no, or have not said yes
 
   const { distinctId, event, properties } = args;
   if (!distinctId || !event) return;

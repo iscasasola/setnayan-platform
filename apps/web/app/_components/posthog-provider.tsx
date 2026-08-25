@@ -81,12 +81,46 @@ export function PostHogProvider({ children, userId }: PostHogProviderProps) {
   // whenever the consent banner saves a new choice, so accepting activates
   // analytics live (and the SDK is never loaded for visitors who decline).
   const [consentReady, setConsentReady] = useState(false);
+  /* Shared between the identify effect and the withdrawal effect: clearing it on
+     opt-out means a later re-grant re-identifies instead of short-circuiting. */
+  const lastIdentifiedRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     const sync = () => setConsentReady(analyticsAllowed());
     sync();
     window.addEventListener(CONSENT_CHANGE_EVENT, sync);
     return () => window.removeEventListener(CONSENT_CHANGE_EVENT, sync);
   }, []);
+
+  /**
+   * 🔴 WITHDRAWAL, NOT JUST GRANT. Until 2026-08-25 this effect only ever
+   * INITIALIZED PostHog, and every other capture site asked `isLoaded(client)`
+   * and nothing else. So consent was honoured on the way IN and ignored on the
+   * way OUT: a person who accepted analytics, then opened Cookie settings and
+   * switched them off, kept an initialized SDK capturing `$pageview` on every
+   * navigation, plus autocapture and `capture_pageleave`, for the rest of that
+   * session. The control saved their answer and nothing acted on it — the
+   * opposite face of this project's "gate with no handle".
+   *
+   * `opt_out_capturing()` is the SDK's own kill switch: it stops every capture
+   * path at once, including the ones this file never calls directly. `reset()`
+   * then drops the distinct_id and any identification, so what remains is not
+   * tied to them. Re-granting opts back in, live, with no reload.
+   */
+  useEffect(() => {
+    if (!isPostHogConfigured()) return;
+    if (consentReady) return;
+    let cancelled = false;
+    void loadPostHog().then((client) => {
+      if (cancelled || !client) return;
+      if (!isLoaded(client)) return; // never initialized ⇒ nothing to stop
+      client.opt_out_capturing();
+      client.reset();
+      lastIdentifiedRef.current = undefined;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [consentReady]);
 
   // Init once consent is granted. The library guards against double-init
   // internally, but the explicit `__loaded` check keeps the React 19 strict
@@ -99,7 +133,11 @@ export function PostHogProvider({ children, userId }: PostHogProviderProps) {
       if (cancelled || !client) return;
       const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
       if (!key) return;
-      if (isLoaded(client)) return;
+      if (isLoaded(client)) {
+        // Already initialized and previously opted out — this is a re-grant.
+        client.opt_in_capturing();
+        return;
+      }
       client.init(key, {
         api_host:
           process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com',
@@ -157,16 +195,19 @@ export function PostHogProvider({ children, userId }: PostHogProviderProps) {
   // SDK chunk to land before issuing the call — if it hasn't yet, the
   // init useEffect above will eventually fire and we'll re-run when
   // resolvedUserId next changes.
-  const lastIdentified = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     if (!isPostHogConfigured()) return;
     if (resolvedUserId === undefined) return; // still loading
-    if (lastIdentified.current === resolvedUserId) return;
+    /* ⛔ AND NOT WHILE THEY HAVE SAID NO. Without this, somebody who declined
+       analytics and then signed in would have had their user id attached to the
+       very session they refused — `identify()` fired on the id change alone. */
+    if (!consentReady) return;
+    if (lastIdentifiedRef.current === resolvedUserId) return;
     let cancelled = false;
     void loadPostHog().then((client) => {
       if (cancelled || !client) return;
       if (!isLoaded(client)) return;
-      lastIdentified.current = resolvedUserId;
+      lastIdentifiedRef.current = resolvedUserId;
       if (resolvedUserId) {
         client.identify(resolvedUserId);
       } else {
@@ -176,7 +217,7 @@ export function PostHogProvider({ children, userId }: PostHogProviderProps) {
     return () => {
       cancelled = true;
     };
-  }, [resolvedUserId]);
+  }, [resolvedUserId, consentReady]);
 
   return (
     <>
@@ -201,11 +242,26 @@ export function PostHogProvider({ children, userId }: PostHogProviderProps) {
 function PostHogPageTracker() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  /* Re-evaluate the gate when the visitor changes their mind mid-session, so a
+     RE-GRANT starts capturing the page they are already on rather than waiting
+     for the next navigation. */
+  const [consentTick, setConsentTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setConsentTick((n) => n + 1);
+    window.addEventListener(CONSENT_CHANGE_EVENT, bump);
+    return () => window.removeEventListener(CONSENT_CHANGE_EVENT, bump);
+  }, []);
 
   useEffect(() => {
     if (!isPostHogConfigured()) return;
     if (!pathname) return;
     let cancelled = false;
+    /* 🔴 ASK THE CHOICE, NOT THE SDK. `isLoaded` answers "did we ever start
+       analytics", which stays true forever once consent was granted — so this
+       captured a pageview on every navigation after somebody switched analytics
+       off. `opt_out_capturing()` would drop it anyway; refusing to build the
+       event at all means the URL is never assembled either. */
+    if (!analyticsAllowed()) return;
     void loadPostHog().then((client) => {
       if (cancelled || !client) return;
       if (!isLoaded(client)) return;
@@ -221,7 +277,7 @@ function PostHogPageTracker() {
     return () => {
       cancelled = true;
     };
-  }, [pathname, searchParams]);
+  }, [pathname, searchParams, consentTick]);
 
   return null;
 }

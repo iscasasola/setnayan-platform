@@ -109,3 +109,46 @@ export function assembleInvitable(
     return a.name.localeCompare(b.name);
   });
 }
+
+
+/**
+ * ── THE GROUP GESTURE (2026-08-25) ────────────────────────────────────────
+ * A samahan reaches this picker one name at a time. These two turn that into
+ * "the whole barkada" without inventing a link between a group and a guest
+ * list: the group is a FILTER over rows that are already offered, and what
+ * lands are ordinary guests the couple owns.
+ */
+
+/** Does this candidate match what the host typed? Name OR the `from` line —
+ *  the `from` line is what makes a samahan's name select its members. */
+export function matchesInvitableQuery(
+  row: { name: string; from: string },
+  query: string,
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return row.name.toLowerCase().includes(q) || row.from.toLowerCase().includes(q);
+}
+
+/**
+ * Choosing (or letting go of) everyone currently shown.
+ *
+ * 🔑 SOMEBODY ALREADY ON THE LIST IS NEVER TOUCHED — not when choosing, and not
+ * when clearing. Adding a guest twice is the mistake this sheet exists to
+ * prevent, and a bulk control is exactly where it would happen.
+ * 🔑 AND IT NEVER DISTURBS A PICK THAT IS NOT SHOWN. A host who chose two
+ * people, then searched for a samahan, must not lose those two.
+ */
+export function chooseAllShown(
+  picked: Readonly<Record<string, boolean>>,
+  shown: readonly { key: string; alreadyHere: boolean }[],
+  letGo: boolean,
+): Record<string, boolean> {
+  const next: Record<string, boolean> = { ...picked };
+  for (const row of shown) {
+    if (row.alreadyHere) continue;
+    if (letGo) delete next[row.key];
+    else next[row.key] = true;
+  }
+  return next;
+}

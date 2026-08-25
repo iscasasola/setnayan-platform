@@ -33,6 +33,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from 'next/navigation';
 import { Search, Users } from 'lucide-react';
 import { Drawer } from './overlay-primitives';
+import { chooseAllShown, matchesInvitableQuery } from '@/lib/people-you-can-invite-core';
 import { SIDE_LABELS, type GuestSide } from '@/lib/guests';
 import {
   addGuestsFromPeople,
@@ -152,18 +153,40 @@ export function AddFromPeopleSheet({
   }, [open, rows, loading, eventId]);
 
   const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const all = rows ?? [];
-    if (!q) return all;
-    return all.filter(
-      (r) => r.name.toLowerCase().includes(q) || r.from.toLowerCase().includes(q),
-    );
+    // The match rule lives ONCE, in the pure core, because a samahan chip works
+    // by matching the `from` line — a second copy here would drift and the chip
+    // would quietly stop finding its own members.
+    return (rows ?? []).filter((r) => matchesInvitableQuery(r, query));
   }, [rows, query]);
 
   const pickedKeys = useMemo(
     () => Object.keys(picked).filter((k) => picked[k]),
     [picked],
   );
+
+  // ── ADDING A WHOLE SAMAHAN ────────────────────────────────────────────────
+  // A barkada already reaches this sheet one name at a time (the `samahan`
+  // source has been here since 2026-08-21). What was missing is the GROUP
+  // gesture: the whole barkada, without twelve taps.
+  //
+  // 🔑 IT IS A FILTER, NOT A STORED LINK. No column ties a guest list to a
+  // samahan, deliberately: a wedding list that changed whenever somebody joined
+  // or left a group chat would be a list the couple does not own. These become
+  // ordinary guests the moment they land, exactly as a hand-typed name does —
+  // which also sidesteps the snapshot-vs-live question that stalled this item.
+  const samahanGroups = useMemo(() => {
+    const names = new Set<string>();
+    for (const r of rows ?? []) if (r.source === 'samahan' && r.from) names.add(r.from);
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [rows]);
+
+  // Everyone the current search is showing who is not already on the list.
+  const addableShown = useMemo(
+    () => visible.filter((r) => !r.alreadyHere),
+    [visible],
+  );
+  const allShownPicked =
+    addableShown.length > 0 && addableShown.every((r) => picked[r.key]);
 
   // Add stays shut while a chosen one-word name still has no surname — the
   // server refuses it anyway, and finding that out after pressing Add is worse.
@@ -245,6 +268,32 @@ export function AddFromPeopleSheet({
         />
       </div>
 
+      {samahanGroups.length > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
+            Samahan
+          </span>
+          {samahanGroups.map((g) => {
+            const active = query.trim().toLowerCase() === g.toLowerCase();
+            return (
+              <button
+                key={g}
+                type="button"
+                onClick={() => setQuery(active ? '' : g)}
+                aria-pressed={active}
+                className={`rounded-full border px-3 py-1 text-sm ${
+                  active
+                    ? 'border-mulberry/60 bg-mulberry/10 text-mulberry-700'
+                    : 'border-ink/15 text-ink/70 hover:border-ink/30'
+                }`}
+              >
+                {g}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       {showSides ? (
         <div className="mt-3 flex items-center gap-2">
           <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
@@ -265,6 +314,28 @@ export function AddFromPeopleSheet({
               {SIDE_LABELS[s]}
             </button>
           ))}
+        </div>
+      ) : null}
+
+      {!loading && addableShown.length > 1 ? (
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-ink/10 pt-3">
+          <button
+            type="button"
+            onClick={() => {
+              // Toggle: the same control that picks everyone shown lets go of
+              // them again. Rows already on the list are never touched — adding
+              // somebody twice is the mistake this sheet exists to prevent.
+              setPicked((prev) => chooseAllShown(prev, addableShown, allShownPicked));
+            }}
+            className="text-sm font-medium text-mulberry-700 underline underline-offset-4"
+          >
+            {allShownPicked
+              ? `Clear these ${addableShown.length}`
+              : `Choose all ${addableShown.length} shown`}
+          </button>
+          {pickedKeys.length > 0 ? (
+            <span className="text-[11px] text-ink/55">{pickedKeys.length} chosen</span>
+          ) : null}
         </div>
       ) : null}
 

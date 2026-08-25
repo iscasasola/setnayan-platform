@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   assembleInvitable,
+  chooseAllShown,
+  matchesInvitableQuery,
   nameKey,
   type InvitableCandidate,
 } from './people-you-can-invite-core';
@@ -170,4 +172,65 @@ test('three same-name people with three addresses are three rows', () => {
     new Set(),
   );
   assert.equal(out.length, 3);
+});
+
+// ── THE GROUP GESTURE (2026-08-25) ──────────────────────────────────────────
+// "You cannot invite a whole samahan" was half true and worth measuring before
+// building: a samahan's members have been offered in this picker one at a time
+// since 2026-08-21. What was missing was the group — twelve taps for a barkada.
+
+test('a samahan name finds its members, because the `from` line is matched too', () => {
+  const rows = [
+    { name: 'Ana Cruz', from: 'Barkada ng Bayan' },
+    { name: 'Ben Diaz', from: 'Barkada ng Bayan' },
+    { name: 'Cara Reyes', from: 'Graduation 2025' },
+  ];
+  const hit = rows.filter((r) => matchesInvitableQuery(r, 'barkada'));
+  assert.deepEqual(
+    hit.map((r) => r.name),
+    ['Ana Cruz', 'Ben Diaz'],
+  );
+  // And a name still matches a name.
+  assert.equal(rows.filter((r) => matchesInvitableQuery(r, 'cara')).length, 1);
+  // An empty search hides nobody.
+  assert.equal(rows.filter((r) => matchesInvitableQuery(r, '   ')).length, 3);
+});
+
+test('choosing everyone shown never picks somebody already on the list', () => {
+  const shown = [
+    { key: 'a', alreadyHere: false },
+    { key: 'b', alreadyHere: true },
+    { key: 'c', alreadyHere: false },
+  ];
+  const picked = chooseAllShown({}, shown, false);
+  assert.deepEqual(Object.keys(picked).sort(), ['a', 'c']);
+  assert.equal(picked.b, undefined, 'a guest who is already here was picked again');
+});
+
+test('choosing everyone shown leaves picks that are not shown alone', () => {
+  // The host picks two people, then searches for their samahan. The two must
+  // survive the search — losing them is a silent subtraction they only notice
+  // after the invitations go out.
+  const before = { tita: true, tito: true };
+  const after = chooseAllShown(before, [{ key: 'ana', alreadyHere: false }], false);
+  assert.deepEqual(Object.keys(after).sort(), ['ana', 'tita', 'tito']);
+});
+
+test('letting go of everyone shown is the same control, in reverse', () => {
+  const before = { ana: true, ben: true, tita: true };
+  const after = chooseAllShown(
+    before,
+    [
+      { key: 'ana', alreadyHere: false },
+      { key: 'ben', alreadyHere: false },
+    ],
+    true,
+  );
+  assert.deepEqual(Object.keys(after), ['tita']);
+});
+
+test('neither helper mutates what it was given', () => {
+  const picked = { ana: true };
+  chooseAllShown(picked, [{ key: 'ben', alreadyHere: false }], false);
+  assert.deepEqual(Object.keys(picked), ['ana']);
 });

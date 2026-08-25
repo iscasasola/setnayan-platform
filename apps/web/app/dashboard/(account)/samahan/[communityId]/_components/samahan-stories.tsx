@@ -2,8 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Clapperboard, Loader2, RefreshCw, Trash2, X } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clapperboard,
+  Loader2,
+  Play,
+  RefreshCw,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { compressVideoForWeb } from '@/lib/video-compress';
+import { orderTheDay } from '@/lib/samahan-reel';
 import type { SamahanStory } from '@/lib/samahan-stories';
 
 // Samahan Stories strip (Setlog concept, owner 2026-08-24): raw short clips,
@@ -93,8 +103,38 @@ export function SamahanStories({
   const [recElapsed, setRecElapsed] = useState(0);
   const [busy, setBusy] = useState<'idle' | 'compressing' | 'posting'>('idle');
   const [message, setMessage] = useState<string | null>(null);
-  const [playing, setPlaying] = useState<SamahanStory | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+
+  // THE DAY PLAYS THROUGH. The strip is newest-first (what is new), but a day
+  // is watched FORWARDS, so the film runs oldest → newest: tapping any clip
+  // plays from there to now, and "Play the day" starts at the beginning.
+  // Nothing is stored and nothing is stitched — these are the same clips that
+  // already expire in 24 hours, played one after another instead of one at a
+  // time behind a close button.
+  const reel = useMemo(() => orderTheDay(stories), [stories]);
+  const at = playingId ? reel.findIndex((s) => s.story_id === playingId) : -1;
+  const playing = at >= 0 ? reel[at] : null;
+  const goTo = useCallback(
+    (index: number) => {
+      const next = reel[index];
+      setPlayingId(next ? next.story_id : null);
+    },
+    [reel],
+  );
+
+  // Arrow keys move through the day; Escape leaves it. A viewer you can only
+  // drive by tapping a moving target is a viewer nobody uses twice.
+  useEffect(() => {
+    if (at < 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') goTo(at + 1);
+      else if (e.key === 'ArrowLeft') goTo(Math.max(0, at - 1));
+      else if (e.key === 'Escape') setPlayingId(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [at, goTo]);
 
   const myHourUsed = useMemo(() => {
     const hourStart = new Date();
@@ -325,7 +365,11 @@ export function SamahanStories({
         body: JSON.stringify({ story_id: storyId }),
       });
       if (res.ok) {
-        setPlaying(null);
+        // Taking your own clip down should not end everybody else's day: step
+        // to the next one, and only close when there is nothing after it.
+        const gone = reel.findIndex((x) => x.story_id === storyId);
+        const next = gone >= 0 ? reel[gone + 1] : undefined;
+        setPlayingId(next ? next.story_id : null);
         router.refresh();
       }
     } finally {
@@ -380,12 +424,27 @@ export function SamahanStories({
           Nothing yet this day. Record three seconds of whatever is in front of you.
         </p>
       ) : (
-        <ul className="mt-4 flex gap-3 overflow-x-auto pb-2" role="list">
+        <>
+          {reel.length > 1 ? (
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => goTo(0)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-3 py-1.5 text-xs font-medium text-white"
+              >
+                <Play className="h-3.5 w-3.5" aria-hidden /> Play the day
+              </button>
+              <span className="text-[11px] text-ink/55">
+                {reel.length} clips, one after another
+              </span>
+            </div>
+          ) : null}
+          <ul className="mt-4 flex gap-3 overflow-x-auto pb-2" role="list">
           {stories.map((s) => (
             <li key={s.story_id} className="w-24 flex-none">
               <button
                 type="button"
-                onClick={() => setPlaying(s)}
+                onClick={() => setPlayingId(s.story_id)}
                 className="block w-full overflow-hidden rounded-xl border border-ink/10 bg-ink/5"
                 aria-label={`Play ${s.author_name}’s story`}
               >
@@ -408,7 +467,8 @@ export function SamahanStories({
               <p className="text-[10px] text-ink/50">{hoursLeft(s.expires_at)}</p>
             </li>
           ))}
-        </ul>
+          </ul>
+        </>
       )}
 
       {cameraOpen ? (
@@ -486,20 +546,35 @@ export function SamahanStories({
           aria-label={`${playing.author_name}’s story`}
         >
           <div className="relative w-full max-w-sm">
+            {/* One clip at a time, each played ONCE — `loop` is what used to stop
+                the day ever reaching its end. `key` remounts the element so a
+                new source starts on its own instead of holding the last frame. */}
             {playing.clip_url ? (
               <video
+                key={playing.story_id}
                 src={playing.clip_url}
                 poster={playing.poster_url ?? undefined}
                 autoPlay
-                loop
                 playsInline
                 controls
+                onEnded={() => goTo(at + 1)}
                 className="w-full rounded-2xl"
               />
             ) : null}
+            <div className="mt-2 flex gap-1" aria-hidden>
+              {reel.map((s, i) => (
+                <span
+                  key={s.story_id}
+                  className={`h-0.5 flex-1 rounded-full ${
+                    i < at ? 'bg-white/70' : i === at ? 'bg-mulberry' : 'bg-white/25'
+                  }`}
+                />
+              ))}
+            </div>
             <div className="mt-3 flex items-center justify-between text-xs text-white/80">
               <span>
                 {playing.is_self ? 'You' : playing.author_name} · {hoursLeft(playing.expires_at)}
+                {reel.length > 1 ? ` · ${at + 1} of ${reel.length}` : ''}
               </span>
               <span className="flex items-center gap-3">
                 {playing.is_self ? (
@@ -514,7 +589,23 @@ export function SamahanStories({
                 ) : null}
                 <button
                   type="button"
-                  onClick={() => setPlaying(null)}
+                  onClick={() => goTo(at - 1)}
+                  disabled={at <= 0}
+                  className="inline-flex items-center gap-1 disabled:opacity-40"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" aria-hidden /> Back
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goTo(at + 1)}
+                  disabled={at >= reel.length - 1}
+                  className="inline-flex items-center gap-1 disabled:opacity-40"
+                >
+                  Next <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlayingId(null)}
                   className="inline-flex items-center gap-1"
                 >
                   <X className="h-3.5 w-3.5" aria-hidden /> Close

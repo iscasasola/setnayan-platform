@@ -123,3 +123,23 @@ test('🚨 video is gated on the ALLOWANCE, not on an always-true tier flag', ()
     'canCapture is back to asking the tier flag, which is true for every tier — the refusal can never fire again',
   );
 });
+
+test('🚨 the no-video refusal names the REAL reason', () => {
+  // It read "Photos only on Papic Lite" while video was a tier flag. Now video
+  // is the 800-credit threshold, so that copy named the wrong tier to a Ltd
+  // supplier AND the wrong reason to everyone. A refusal that misdescribes
+  // itself sends somebody to fix the thing that was never the problem.
+  const ctl = readFileSync(
+    join(WEB, 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/papic-capture-controller.tsx'),
+    'utf8',
+  );
+  const rendered = ctl.replace(/\/\*[\s\S]*?\*\//g, ' '); // the fix explains itself in a comment
+  assert.ok(
+    !/Photos only on Papic/.test(rendered),
+    'the shutter hint blames the tier again — the reason is the credit threshold',
+  );
+  assert.ok(
+    /VENDOR_PAPIC_VIDEO_MIN_POINTS/.test(rendered),
+    'the threshold is hard-typed into the copy instead of derived — it will drift the first time the number moves',
+  );
+});

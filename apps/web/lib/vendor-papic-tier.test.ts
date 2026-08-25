@@ -115,13 +115,25 @@ test('fee-scaled points: ₱0 → 50 (gift floor), ₱4,000 → 200 (ceiling)', 
   assert.equal(vendorPapicPointsForBookingFee(Number.NaN), 50);
 });
 
-test('canCapture: Lite now allows clips (documentation is photos + video)', () => {
-  assert.deepEqual(canCapture('lite', 0, 'clip'), { ok: true });
-  assert.deepEqual(canCapture('lite', 0, 'photo'), { ok: true });
-  // The last clip that fits under the 50-point Lite ceiling, and the first that
-  // does not — both derived, so a reprice moves them together.
-  assert.deepEqual(canCapture('lite', 50 - PAPIC_CLIP_COST_MAX, 'clip'), { ok: true });
-  assert.deepEqual(canCapture('lite', 50 - PAPIC_CLIP_COST_MAX + 1, 'clip'), {
+test('canCapture: a clip needs the VIDEO THRESHOLD first, then the points', () => {
+  // ⚠ REWRITTEN 2026-08-26. This used to read "Lite now allows clips" and
+  // asserted a clip at the bare 50-point floor. Owner: *"800 credits will allow
+  // them to take videos."* Below 800 the refusal is video_not_allowed, and it
+  // is checked BEFORE affordability — being told "out of points" when the real
+  // answer is "video isn't unlocked yet" sends a supplier to buy shots that
+  // would not have helped.
+  assert.deepEqual(canCapture('lite', 0, 'clip'), {
+    ok: false,
+    reason: 'video_not_allowed',
+  });
+  assert.deepEqual(canCapture('lite', 0, 'photo'), { ok: true }, 'photos never need the threshold');
+
+  // With a fee that clears 800, the clip arithmetic applies as before — the last
+  // clip that fits, and the first that does not. Both derived from the cap and
+  // the clip cost, so a reprice moves them together.
+  const CAP = 800; // = a ₱4,000 fee at one shot per ₱5
+  assert.deepEqual(canCapture('lite', CAP - PAPIC_CLIP_COST_MAX, 'clip', 4000), { ok: true });
+  assert.deepEqual(canCapture('lite', CAP - PAPIC_CLIP_COST_MAX + 1, 'clip', 4000), {
     ok: false,
     reason: 'out_of_points',
   });
@@ -135,13 +147,23 @@ test('canCapture: Lite runs out at 50 points', () => {
   });
 });
 
-test('canCapture: Ltd — a clip needs a whole clip of headroom', () => {
-  assert.deepEqual(canCapture('ltd', 70 - PAPIC_CLIP_COST_MAX, 'clip'), { ok: true });
-  assert.deepEqual(canCapture('ltd', 70 - PAPIC_CLIP_COST_MAX + 1, 'clip'), {
+test('canCapture: Ltd — a clip needs a whole clip of headroom, once video is unlocked', () => {
+  // ⚠ The clip half now needs a fee that clears the 800 video threshold; the
+  // ltd tier's own 70 points never could. The PHOTO half is untouched and still
+  // proves the bare tier's ceiling exactly where it always did.
+  assert.deepEqual(canCapture('ltd', 0, 'clip'), {
+    ok: false,
+    reason: 'video_not_allowed',
+  }, 'ltd on its own 70 points is below the video threshold');
+
+  const CAP = 800;
+  assert.deepEqual(canCapture('ltd', CAP - PAPIC_CLIP_COST_MAX, 'clip', 4000), { ok: true });
+  assert.deepEqual(canCapture('ltd', CAP - PAPIC_CLIP_COST_MAX + 1, 'clip', 4000), {
     ok: false,
     reason: 'out_of_points',
   });
-  // ...but a single photo still fits at 69.
+
+  // ...and a single photo still fits at 69 on the bare tier.
   assert.deepEqual(canCapture('ltd', 69, 'photo'), { ok: true });
   assert.deepEqual(canCapture('ltd', 70, 'photo'), {
     ok: false,

@@ -97,3 +97,18 @@ Owner, ruling on whether suppliers may reach guest media at all: *"the host will
 **🛡 Guard `lib/vendor-sponsored-shots-are-scoped.test.ts`** — 11 rules: an anti-vacuum floor, one per gate with the specific harm named in its failure message, the allowlist rule, and the failed-read rule. **Six mutations**, counts printed before → after — dropping the vendor gate (1→0), the host-approval gate (1→0), the guest-consent gate (3→2), the screen gate (1→0), the take-down gate (1→0), and a failed read pretending success (1→0) — **all red**. Green on both clean sides.
 
 **Mounted** on the supplier's existing on-the-day Papic page, grouped by challenge prompt, rendering **nothing** when there is nothing — a supplier without an approved challenge never meets an empty frame implying photographs sit behind it.
+
+---
+
+## 2026-08-26 (same PR) · the fallout of moving video onto the allowance
+
+Making video depend on the allowance rather than an always-true tier flag broke assumptions in four places. All four are fixed, and none was quietly re-pointed at the new answer:
+
+- **Two pre-existing tests asserted a clip at the bare tier.** They tested *clip point arithmetic*, which is still worth testing — so they now exercise it at a fee that clears the threshold, **and additionally pin the new rule**: below 800 the refusal is `video_not_allowed`, checked **before** affordability. 🔑 That ordering matters to a person: being told *"out of points"* when the real answer is *"video isn't unlocked yet"* sends a supplier to buy shots that would not have helped.
+- **Two more expectations** (`captureAllowance`'s `allowVideo`, and `tierReadout`'s badge strings) were updated with the reason recorded inline.
+
+**🐛 AND THE REFUSAL COPY BECAME A LIE.** The shutter hint read **"Photos only on Papic Lite"** — written when video was a tier flag. With video on the allowance it named **the wrong tier** to a Ltd supplier and **the wrong reason** to everyone. It now reads *"Photos only — video unlocks at 800 shots"*, with the number **derived from the constant, never re-typed**, so it cannot drift the first time the threshold moves.
+
+🔑 **A refusal that misdescribes itself sends somebody to fix the thing that was never the problem.** The screen was already handling `allowVideo: false` correctly — badge, hint and hidden control — so nothing *looked* broken. Only the sentence was wrong, and only because the meaning underneath it had moved.
+
+**Swept for the rest rather than waiting for CI to find them one at a time:** every `canCapture(…'clip')` call without a fee argument (3 — all now deliberate, including `unli`, which has no threshold to clear), every `allowVideo` consumer, and every `captureAllowance` caller. **Guard is now 9 rules**; the ninth pins the copy, mutation-tested (1→0 🔴).

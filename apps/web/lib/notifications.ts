@@ -286,7 +286,16 @@ export type NotificationType =
   | 'connection_request'
   // The answer, back to the person who asked. Without it the declarer learns
   // nothing: their row silently changes state the next time they load the page.
-  | 'connection_confirmed';
+  | 'connection_confirmed'
+  // The samahan finally rings (2026-08-25). Until now NOT ONE of the 70 values
+  // above belonged to a samahan, so a group could not reach its own members: a
+  // 3-second story expires in 24 hours whether or not anybody was told it
+  // existed. Both are group-social, so both stay OFF the email and push
+  // allowlists — the tray rings, the phone does not, until the owner rules on
+  // quiet hours. Deliberately NOT `chat_message`, which means the couple↔vendor
+  // booking thread and carries an email.
+  | 'samahan_story'
+  | 'samahan_message';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -372,6 +381,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   appointment_reminder: 'Appointment confirmed',
   connection_request: 'Someone added you',
   connection_confirmed: 'Connection confirmed',
+  samahan_story: 'New in your samahan',
+  samahan_message: 'New in Usapan',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -520,6 +531,9 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // takes the emerald the other mutual-yes signals use.
   connection_request: 'bg-terracotta/15 text-terracotta-700',
   connection_confirmed: 'bg-success-100 text-success-800',
+  // Informational / social → sky, the same register as chat_message.
+  samahan_story: 'bg-sky-100 text-sky-800',
+  samahan_message: 'bg-sky-100 text-sky-800',
 };
 
 export type NotificationRow = {

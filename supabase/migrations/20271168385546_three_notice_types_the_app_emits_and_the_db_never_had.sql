@@ -1,0 +1,42 @@
+-- three_notice_types_the_app_emits_and_the_db_never_had
+-- ============================================================================
+-- FOUR LIVE EMIT SITES HAVE BEEN WRITING NOTIFICATIONS THE DATABASE REFUSES.
+--
+-- Found while adding the samahan values next door, by asking the only question
+-- that finds this class: does every value the TypeScript union declares exist
+-- as an enum label? Measured two ways that agree exactly —
+--   · 70 labels parsed out of supabase/migrations
+--   · 70 labels read out of production (pg_enum)
+--   · 72 values in the app's NotificationType union
+-- and the three below are in the app and in NEITHER database source. No
+-- migration has ever added them.
+--
+-- 🔑 REJECTED, NOT THROWN — the whole reason nobody noticed. An INSERT naming an
+-- enum label that does not exist is refused by Postgres; emitNotification only
+-- console.errors the failure ("[notifications] emit failed"), by design, so the
+-- action it follows completes normally. Nothing crashes, no test fails, CI is
+-- green, and the only symptom is a person who is never told. Same family as the
+-- phantom column, the phantom RPC argument name and the blocked iframe.
+--
+-- WHAT WAS SILENT, in the words of the people it happened to:
+--   connection_request   → "<name> added you to their people." Somebody says
+--                          you are their cousin, their ninang, their helper —
+--                          and you are never told there is anything to answer.
+--                          TWO emit sites (the claim and the invite path).
+--   connection_confirmed → the answer, back to the asker. They never learn they
+--                          were confirmed; the row just changes under them.
+--   order_cancelled      → "the celebration this order belonged to was removed,
+--                          so the bill is cancelled." The one notice that
+--                          reaches somebody about MONEY they may have already
+--                          sent. Prod has never hit it (one order ever, and an
+--                          admin cancelled it by hand), so this is latent, not
+--                          historic.
+--
+-- ⚠ ITS OWN FILE, NO BEGIN/COMMIT, NOTHING ELSE IN IT — a newly added enum value
+-- may not be USED in the transaction that adds it (see 20271142676882).
+-- Idempotent, so re-running is safe.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'connection_request';
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'connection_confirmed';
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'order_cancelled';

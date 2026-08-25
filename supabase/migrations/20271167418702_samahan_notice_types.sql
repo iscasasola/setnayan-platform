@@ -1,0 +1,33 @@
+-- samahan_notice_types
+-- ============================================================================
+-- THE SAMAHAN WAS SILENT. Two new notification_type values so a group can
+-- reach its own members.
+--
+-- Measured on prod the day this was written: 70 notification_type values, 61
+-- files calling emitNotification, and NOT ONE of them on the samahan surface —
+-- so a member posted a 3-second story that dies in 24 hours, or wrote in
+-- Usapan, and nobody was told anything. The feed only works if the group hears
+-- it while it is still there.
+--
+--   samahan_story   → the OTHER members. "Ana added to Barkada today."
+--                     Time-shaped, not merely informational: the clip is gone
+--                     in 24 hours by RLS, so a notice nobody sees today is a
+--                     notice about something that no longer exists.
+--   samahan_message → the OTHER members. Someone wrote in Usapan.
+--
+-- 🔑 NOT `chat_message` WORN AS A COSTUME. That value means the couple↔vendor
+-- booking thread — it is on the EMAIL allowlist and the PUSH allowlist, it
+-- renders "New message" in the tray, and its related_url points into the
+-- booking negotiation. Reusing it would email a barkada's small talk to
+-- somebody as a transactional booking signal and put a stored word in front of
+-- a reader that means a different thing (the `sponsored_included` /
+-- `tagged_only` disease). Two facts, two values.
+--
+-- ⚠ ITS OWN FILE, AND NOTHING ELSE IN IT, ON PURPOSE — notification_type is a
+-- Postgres ENUM and Postgres forbids USING a newly added value in the same
+-- transaction that adds it. No BEGIN/COMMIT, no other statements. Same reason
+-- 20271142676882 and 20271143774146 are each alone.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'samahan_story';
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'samahan_message';

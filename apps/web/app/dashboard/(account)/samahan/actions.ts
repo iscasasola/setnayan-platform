@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -8,6 +9,7 @@ import {
   generateCommunityInviteToken,
     type CommunityRole,
 } from '@/lib/communities';
+import { notifySamahanCoMembers } from '@/lib/samahan-notify';
 
 // Samahan (Communities) — server actions for the minimal cut (PR-2 of 4).
 // Spec: Samahan_Minimal_Build_Plan_2026-07-15.md §3. Redirect-with-error-param
@@ -419,6 +421,12 @@ export async function postSamahanMessage(formData: FormData) {
   if (error) {
     redirect(`${back}&error=${encodeURIComponent('That didn’t send. Try again.')}`);
   }
+  // Tell the rest of the group — after the response, never in front of it, and
+  // never able to fail the message that already landed. Collapsed to one unread
+  // notice per person per samahan, so a burst of chat rings once.
+  after(() =>
+    notifySamahanCoMembers({ communityId, actorUserId: user.id, kind: 'message' }),
+  );
   revalidatePath(back);
   redirect(back);
 }

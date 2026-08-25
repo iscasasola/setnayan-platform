@@ -7,6 +7,8 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { claimCommandKey } from '@/lib/command-key-claim';
 import { rankBySentence } from '@/lib/admin-map/rank-by-sentence';
 
+import { askTheAdmin, type AskAnswer } from './ask-actions';
+
 import { buildDestinations, type Dest, type RowDest } from './admin-destinations';
 
 /**
@@ -85,10 +87,39 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
     [all, q],
   );
 
+  /**
+   * The escape hatch, and the only place a model is ever reached.
+   *
+   * 🔑 IT IS OFFERED, NEVER AUTOMATIC. Nothing here fires while the free word
+   * matching has an answer — which is nearly always — so the ordinary day costs
+   * ₱0. A phrase it has been taught before never reaches a model either: the
+   * action looks that up first. The button appears only when the box would
+   * otherwise say "nothing", which is exactly the case the owner kept hitting.
+   */
+  const [asking, setAsking] = useState(false);
+  const [asked, setAsked] = useState<AskAnswer | null>(null);
+
+  const ask = useCallback(async () => {
+    setAsking(true);
+    setAsked(null);
+    try {
+      const choices = all
+        .filter((d) => d.source !== 'row')
+        .map((d) => ({ label: d.label, href: d.href }));
+      setAsked(await askTheAdmin(q, choices));
+    } catch {
+      setAsked({ ok: false, reason: 'unavailable' });
+    } finally {
+      setAsking(false);
+    }
+  }, [all, q]);
+
   const close = useCallback(() => {
     setOpen(false);
     setQ('');
     setSel(0);
+    setAsked(null);
+    setAsking(false);
   }, []);
 
   // The SHARED focus contract, not a hand-rolled one: trap Tab inside the
@@ -143,6 +174,8 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
   }, [open]);
   useEffect(() => {
     setSel(0);
+    // A new question is not the old question's answer.
+    setAsked(null);
   }, [q]);
 
   if (!open) return null;
@@ -206,10 +239,53 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
             </p>
           ) : null}
           {hits.length === 0 ? (
-            <p className="px-3 py-8 text-center text-sm" style={{ color: 'var(--sn-ink-500)' }}>
-              Nothing matches “{q}”. Everything is also browsable under{' '}
-              <span className="whitespace-nowrap">All surfaces</span>.
-            </p>
+            <div className="px-3 py-6 text-center text-sm" style={{ color: 'var(--sn-ink-500)' }}>
+              <p>
+                Nothing matches “{q}”. Everything is also browsable under{' '}
+                <span className="whitespace-nowrap">All surfaces</span>.
+              </p>
+              {asked?.ok ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    close();
+                    router.push(asked.answer.href);
+                  }}
+                  className="mt-3 w-full rounded-lg border px-3 py-2.5 text-left"
+                  style={{ borderColor: 'var(--sn-line)' }}
+                >
+                  <span className="block text-[13px] font-semibold" style={{ color: 'var(--sn-ink)' }}>
+                    {asked.answer.label}
+                  </span>
+                  <span className="block text-[11.5px]">{asked.answer.because}</span>
+                  {asked.answer.from === 'remembered' ? (
+                    <span className="mt-1 block font-mono text-[9.5px] uppercase tracking-[0.14em]">
+                      remembered · free
+                    </span>
+                  ) : (
+                    <span className="mt-1 block font-mono text-[9.5px] uppercase tracking-[0.14em]">
+                      learned just now · free from here on
+                    </span>
+                  )}
+                </button>
+              ) : asked && !asked.ok ? (
+                <p className="mt-3 text-[12px]">
+                  {asked.reason === 'unavailable'
+                    ? 'The assistant is not switched on here.'
+                    : 'It could not place that one either.'}
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={ask}
+                  disabled={asking || q.trim().length < 3}
+                  className="mt-3 rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold disabled:opacity-50"
+                  style={{ borderColor: 'var(--sn-line)', color: 'var(--sn-ink)' }}
+                >
+                  {asking ? 'Thinking…' : 'Ask Setnayan where this lives'}
+                </button>
+              )}
+            </div>
           ) : (
             hits.map((d, i) => {
               const header = d.group !== lastGroup ? ((lastGroup = d.group), d.group) : null;

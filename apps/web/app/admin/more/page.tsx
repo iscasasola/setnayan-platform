@@ -5,8 +5,8 @@
  * but the content of menu should be the same on desktop and mobile." This
  * landing is the COMPLETE mobile menu — it renders EVERY group + item from the
  * desktop sidebar's canonical ADMIN_NAV_GROUPS (admin-sidebar.tsx), in mobile
- * card orientation. All 6 menus — Overview · Accounts · Studio · Ugat Console ·
- * App Performance · Money — with identical labels, items, hrefs, and icons.
+ * card orientation. All 6 menus — Today · People & shops · Studio · Set up ·
+ * Numbers · Money — with identical labels, items, hrefs, and icons.
  *
  * NO hand-maintained duplicate item lists live here anymore: the old
  * "Content / System Settings" hardcoded sections (which had drifted from the

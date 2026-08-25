@@ -120,7 +120,10 @@ const params = (q: string) => new URLSearchParams(q);
 for (const [pathname, query, expected] of [
   ['/admin', '', 'queues'],
   ['/admin/work', '', 'queues'],
-  ['/admin/verify', '', 'queues'],
+  // MOVED 2026-08-26: checking a shop is a shop job, so Verify left the work
+  // list for People & shops. The row it lights moved with it — this expectation
+  // is UPDATED, not relaxed: it still demands exactly one row.
+  ['/admin/verify', '', 'directory'],
   ['/admin/accounts', '', 'directory'],
   ['/admin/accounts', 'tab=users', 'directory'],
   ['/admin/studio', '', 'media'],
@@ -131,7 +134,10 @@ for (const [pathname, query, expected] of [
   // row is only found by reading the current query. Dropping the params here
   // is what double-lighting looks like before it happens.
   ['/admin/pricing', 'tab=pricing', 'settings-group'],
-  ['/admin/settings', 'tab=notifications', 'settings-group'],
+  // MOVED 2026-08-26: Settings, Compliance, Notifications, Integrations and
+  // Secrets left Money for Set up — carrying them was what made Money a
+  // grab bag. Money now holds money.
+  ['/admin/settings', 'tab=notifications', 'ugat'],
   ['/admin/more', '', 'all-surfaces'],
 ] as const) {
   const url = query ? `${pathname}?${query}` : pathname;

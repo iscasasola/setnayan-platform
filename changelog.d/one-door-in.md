@@ -21,3 +21,19 @@ Whoever holds a **claimed camera** can still insert a row for that camera, becau
 **🛡 `tests/db/one-door-into-papic-photos.db.test.ts`** — 5 rules against the replayed schema: the table exists at all (anti-vacuum) · **no couple policy permits `ALL` or `INSERT`** · the couple keeps SELECT, UPDATE and DELETE · **the camera's policy still permits INSERT** (one door, not zero) · and the table comment still records why, since a comment a reader queries is the only warning at the point of the mistake.
 
 **SPEC IMPACT:** None — it enforces the credit model already described in `DECISION_LOG.md`.
+
+---
+
+## The exposure-freeze guard caught a real mistake in this very change
+
+The first push failed `THE FREEZE: the exposure surface has not widened`. Two things came out of it, and only one was the guard's known limitation.
+
+**1 · The limitation (expected).** The freeze compares **policy by policy** and cannot net a split against a removal, so replacing one `FOR ALL` with three narrower verbs reads as *three widenings plus one narrowing* even though the net is strictly tighter. Regenerating the baseline is the sanctioned path, and the diff was checked line by line: **8 changed lines — two header pairs, one policy removed, three added. Nothing else absorbed.** (A baseline regenerated against a newer main can silently swallow somebody else's widening; that is why it is counted rather than trusted.)
+
+**2 · 🚨 A REAL WIDENING I HAD WRITTEN MYSELF.** The three new policies came out as `roles=PUBLIC` while the one they replaced was `roles=authenticated`. **`CREATE POLICY` with no `TO` clause defaults to PUBLIC — which includes `anon`, and `anon` holds SELECT on all 45 columns of this table.**
+
+The predicate saves it (an anon caller has no `auth.uid()`, so the `EXISTS` can never match) — but **a policy that is only safe because of its predicate is one edit away from not being.** All three now say `TO authenticated`, matching exactly what they replace, and the regenerated diff is a pure narrowing at the same role.
+
+🔑 **This is the guard doing precisely its job on a change that was otherwise correct** — and it is why "regenerate the baseline" must never be the reflex. The first regeneration would have *recorded* the widening as intended.
+
+**Verified locally, not only in CI:** with the toolchain installed, the freeze test (6 rules) and this PR's own db test (5 rules) both pass against the full replayed schema, and the db test was mutation-checked — a couple policy restored to `FOR ALL` turns it red (2 rules), and removing the couple's DELETE turns it red.

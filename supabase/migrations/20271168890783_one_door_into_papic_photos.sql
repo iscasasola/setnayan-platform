@@ -46,12 +46,21 @@
 -- belongs in the upload PR, where the camera that reopens the gap is created,
 -- and NOT here, where it would rewrite a live capture path for no present gain.
 
+-- ⚠ `TO authenticated` ON ALL THREE, MATCHING WHAT THEY REPLACE. A CREATE
+-- POLICY with no TO clause defaults to PUBLIC, which includes `anon` — and
+-- `anon` holds SELECT on all 45 columns of this table. The predicate saves it
+-- (an anon caller has no `auth.uid()`, so the EXISTS can never match), but a
+-- policy that is only safe because of its predicate is one edit away from not
+-- being. The exposure-freeze guard caught this on the first run and it is the
+-- guard doing exactly its job on a change that was otherwise a narrowing.
+
 BEGIN;
 
 DROP POLICY IF EXISTS papic_photos_couple_full ON public.papic_photos;
 
 CREATE POLICY papic_photos_couple_read ON public.papic_photos
   FOR SELECT
+  TO authenticated
   USING (
     is_admin() OR EXISTS (
       SELECT 1 FROM public.event_members em
@@ -63,6 +72,7 @@ CREATE POLICY papic_photos_couple_read ON public.papic_photos
 
 CREATE POLICY papic_photos_couple_update ON public.papic_photos
   FOR UPDATE
+  TO authenticated
   USING (
     is_admin() OR EXISTS (
       SELECT 1 FROM public.event_members em
@@ -82,6 +92,7 @@ CREATE POLICY papic_photos_couple_update ON public.papic_photos
 
 CREATE POLICY papic_photos_couple_delete ON public.papic_photos
   FOR DELETE
+  TO authenticated
   USING (
     is_admin() OR EXISTS (
       SELECT 1 FROM public.event_members em

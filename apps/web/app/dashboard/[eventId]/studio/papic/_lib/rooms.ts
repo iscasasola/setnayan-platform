@@ -29,7 +29,7 @@ function isRoom(value: unknown): value is PapicRoom {
  * ⚠ THE ROOM AN OUTCOME BELONGS TO — read from the URL the action already built.
  *
  * Every server action on this page finishes by redirecting back with an outcome
- * in the query string (`?storage_set=1`, `?papic_pool_error=…`). There are ~95
+ * in the query string (`?style_set=1`, `?papic_pool_error=…`). There are ~95
  * such redirects across four files, and not one of them carries a room.
  *
  * 🔑 SO THE ROOM IS DERIVED FROM THE OUTCOME, NOT ADDED TO 95 REDIRECTS. Editing
@@ -46,24 +46,33 @@ export function roomForOutcome(params: Record<string, unknown>): PapicRoom | nul
   // Set up — storage, the Drive connection, the capture window, and the
   // once-only choices.
   if (
-    has('storage_set') ||
-    has('storage_error') ||
     has('drive_connected') ||
     has('drive_disconnected') ||
     has('drive_error') ||
     has('papic_window_saved') ||
     has('papic_window_error') ||
-    // ⚠ THESE NINE SAVE IN SILENCE TODAY. `style_*`, `quality_*`, `showcase_*`,
-    // `faceTagging`, `guestCameras` and `vendorMedia` are each emitted by a
-    // redirect and read by NOTHING — they are not even in the page's
-    // searchParams type, so changing the look, the photo quality, face matching,
-    // showcase state or vendor visibility all confirm and fail into the void.
-    // Wiring them to a banner is its own change; giving them a ROOM is this
-    // one's job, so the map is complete the moment the rooms exist.
+    // ⚠ THIS COMMENT USED TO SAY THESE NINE "SAVE IN SILENCE". THAT IS NO
+    // LONGER TRUE AND HAS NOT BEEN FOR SOME TIME — every one of them is in the
+    // page's searchParams type and `StatusBanners` renders a plain-English
+    // confirmation for each. The stale sentence outlived its defect and was
+    // read as current on 2026-08-26, which cost a round trip with the owner.
+    // 🔑 A COMMENT IS NOT EVIDENCE: check the reader before repeating it.
+    //
+    // `quality_*` and `storage_*` are gone from this map entirely — the two
+    // questions they confirmed were deleted on 2026-08-26 (owner: photo
+    // quality is already right by default, and "where your photos go" was a
+    // choice no capture path ever read).
     has('style_set') ||
     has('style_error') ||
-    has('quality_set') ||
-    has('quality_error') ||
+    // ⚠ NOT A STORAGE ERROR, AND NOT REALLY A ROOM. `papic_access_error` is the
+    // SHARED couple-check refusal — every action in this tree redirects here
+    // when the caller is not a couple on the event. It is mapped anyway because
+    // the invariant is "every outcome an action emits has a room", and an
+    // unmapped one is indistinguishable from a forgotten one. Set up is the
+    // default landing, so a refusal lands where a stranger would have started.
+    // The banner itself renders ABOVE the room branch, so which room resolves
+    // does not change whether they see it.
+    has('papic_access_error') ||
     has('faceTagging')
   ) {
     return 'setup';
@@ -119,7 +128,21 @@ export function roomForOutcome(params: Record<string, unknown>): PapicRoom | nul
  * mid-party. Correct there, wrong here: an event whose window was never set
  * would read `open` and land the couple in Cameras, with no hint that the one
  * thing stopping every camera is a date they have not picked. Unset means Set
- * up, where the attention row is.
+ * up.
+ *
+ * ⚠ THIS COMMENT USED TO END "…where the attention row is". THERE WAS NO
+ * ATTENTION ROW — the capture-window picker's only mount was inside Cameras &
+ * shots, the room a window-unset couple never lands in. So the sentence
+ * described a mechanism that did not exist, and every one of the five
+ * production events (all window-unset) landed somebody in a room that could
+ * not tell them what to do.
+ *
+ * ✅ It is true now, and it is true in a way that does not depend on this
+ * function: `page.tsx` renders the do-this-first card ABOVE the room branch,
+ * so the required act shows in ALL THREE rooms while the window is unset. The
+ * landing rule is a nicety again rather than the only thing standing between a
+ * couple and a working camera. Held by
+ * `_lib/the-required-act-is-in-the-room.test.ts`.
  */
 export function resolvePapicRoom(opts: {
   requested?: unknown;

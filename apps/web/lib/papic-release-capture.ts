@@ -30,7 +30,15 @@ export async function releaseCaptureCredits(
   admin: SupabaseClient,
   args: {
     seatId: string | null;
-    eventId: string;
+    /**
+     * ⚠ NULLABLE ON PURPOSE. The seat path carries the event id as
+     * `string | null` — it is captured alongside the reserve figures, and on
+     * the branch where nothing was reserved it was never set. A release with no
+     * event to release against is a no-op, not a runtime error, so this widens
+     * rather than forcing a non-null assertion at the call site. An `!` there
+     * would be the same claim with none of the handling.
+     */
+    eventId: string | null;
     dedicatedSpent: number;
     poolSpent: number;
     /** Where this ran, so a failure names the path that lost the credits. */
@@ -39,7 +47,9 @@ export async function releaseCaptureCredits(
 ): Promise<{ released: boolean }> {
   const { seatId, eventId, dedicatedSpent, poolSpent, callSite } = args;
 
-  // Nothing was reserved ⇒ nothing to give back. Not a failure.
+  // Nothing was reserved, or nothing to release it against ⇒ nothing to give
+  // back. Not a failure, and not something to log: no credits moved.
+  if (!eventId) return { released: true };
   if (!(dedicatedSpent > 0 || poolSpent > 0)) return { released: true };
 
   try {

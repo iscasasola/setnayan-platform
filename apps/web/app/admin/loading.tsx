@@ -1,4 +1,4 @@
-import { Screen, Sk, SkLine } from '@/components/skeletons';
+import { Screen, Sk } from '@/components/skeletons';
 
 /**
  * Skeleton for /admin — mirrors the 3-section admin overview layout:
@@ -9,12 +9,11 @@ export default function AdminLoading() {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <Screen label="Loading Setnayan HQ">
-        {/* Header — eyebrow + "Overview" h1 + subtitle */}
-        <header className="space-y-2">
-          <Sk className="h-3 w-36 rounded" />
-          <Sk className="h-10 w-44 rounded-md" />
-          <SkLine w="w-3/4 max-w-lg" />
-        </header>
+        {/* NO HEADER STRIP. The overview's masthead draws an sr-only heading and
+            nothing else — no eyebrow, no title, no subtitle — so a shimmer for
+            those three is ~70px of chrome that never arrives and the whole page
+            jumps up the moment it does. 46 of the 47 admin pages this boundary
+            covers are the same. */}
 
         {/* Action queues panel — terracotta-tinted card + 4 queue tiles */}
         <div className="rounded-2xl border border-terracotta/20 bg-terracotta/[0.03] p-5 sm:p-6">

@@ -1,2 +1,6 @@
 // Custom QR per Guest add-on — card-grid shell while the gallery loads.
-export { GridPageSkeleton as default } from '@/components/skeletons';
+import { GridPageSkeleton } from '@/components/skeletons';
+
+export default function Loading() {
+  return <GridPageSkeleton title />;
+}

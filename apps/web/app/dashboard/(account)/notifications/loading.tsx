@@ -13,12 +13,14 @@ export default function NotificationsLoading() {
   return (
     <Screen label="Loading notifications" className="">
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-        {/* Back link */}
-        <Sk className="mb-4 h-7 w-32 rounded-md" />
-        {/* Header (title + subtitle) */}
-        <div className="mb-6 space-y-2">
-          <Sk className="h-9 w-52 max-w-full rounded-lg" />
-          <SkLine w="w-80" className="max-w-full" />
+        {/* The page has no back link, no title and no subtitle — its masthead
+            draws one thing, the "Mark all read" button, right-aligned. This used
+            to shimmer all three of the others; each one was ~30-40px of chrome
+            that never arrived. */}
+        <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+            <Sk className="h-11 w-28 rounded-md" />
+          </div>
         </div>
         {/* Branded "what we're doing" strip */}
         <LoadingNarration

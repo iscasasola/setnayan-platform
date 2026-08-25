@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2dd996518",
-  "routeCount": 404,
-  "destinations": 866,
+  "generatedFromRef": "d5f18e49c",
+  "routeCount": 405,
+  "destinations": 867,
   "actions": 586,
-  "blocks": 3934,
+  "blocks": 3991,
   "routes": {
     "/": {
       "files": [
@@ -846,6 +846,7 @@
       ],
       "actions": [],
       "blocks": [
+        "DetailPageSkeleton",
         "EntrancePos",
         "Link",
         "LiveRefresher",
@@ -1065,6 +1066,7 @@
         "confirmAction"
       ],
       "blocks": [
+        "DetailPageSkeleton",
         "DoorNotice",
         "DoorShell",
         "SubmitButton"
@@ -1213,7 +1215,6 @@
         "Row",
         "Screen",
         "Sk",
-        "SkLine",
         "Tile",
         "UnreadBellBadge"
       ]
@@ -3606,6 +3607,7 @@
         "EventTypeKey",
         "EventTypePhotoPicker",
         "EventTypePicker",
+        "FormPageSkeleton",
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
@@ -3847,6 +3849,7 @@
         "Field",
         "FileUpload",
         "FormFlash",
+        "FormPageSkeleton",
         "HapticsToggle",
         "Link",
         "PageMasthead",
@@ -3874,6 +3877,7 @@
         "ActionContext",
         "EventPicker",
         "FactRow",
+        "FormPageSkeleton",
         "Link",
         "PageMasthead",
         "StatusPanel"
@@ -4066,6 +4070,7 @@
         "dashboard/[eventId]/_components/inline-checkout-drawer.tsx",
         "dashboard/[eventId]/_components/new-manual-vendor-modal.tsx",
         "dashboard/[eventId]/_components/nikah-essentials-card.tsx",
+        "dashboard/[eventId]/_components/not-shared-with-you.tsx",
         "dashboard/[eventId]/_components/overview-inspector-body.tsx",
         "dashboard/[eventId]/_components/papic-ready-nudge.tsx",
         "dashboard/[eventId]/_components/payment-under-review.tsx",
@@ -4294,6 +4299,7 @@
       ],
       "actions": [],
       "blocks": [
+        "FeedPageSkeleton",
         "Link",
         "PageMasthead"
       ]
@@ -4330,6 +4336,7 @@
         "AssignmentRow",
         "GuestPicker",
         "Link",
+        "NotSharedWithYou",
         "PageMasthead"
       ]
     },
@@ -4362,6 +4369,7 @@
         "BudgetSummaryStrip",
         "ChineseTraditionInfoCard",
         "ConfidenceChip",
+        "DeniedState",
         "EmptyBudget",
         "EventMoney",
         "HTMLButtonElement",
@@ -4427,6 +4435,7 @@
         "ContractCard",
         "ContractsEmptyState",
         "Link",
+        "ListPageSkeleton",
         "PageMasthead"
       ]
     },
@@ -4469,6 +4478,7 @@
         "CeremonyType",
         "ChineseSpecialistNudge",
         "DatePicker",
+        "FormPageSkeleton",
         "FourQuestionFlow",
         "Icon",
         "IndoorOutdoor",
@@ -4605,6 +4615,7 @@
         "DateCard",
         "FindYourDate",
         "FindYourDateBody",
+        "FormPageSkeleton",
         "Link",
         "Shell"
       ]
@@ -4742,6 +4753,7 @@
         "ModeSeg",
         "NewGroupForm",
         "NewGroupInlineForm",
+        "NotSharedWithYou",
         "OpenAddFromPeopleButton",
         "OpenQuickAddButton",
         "OptimisticDeleteButton",
@@ -4804,6 +4816,7 @@
         "FaceBlock",
         "FaceRecognitionExclude",
         "Field",
+        "FormPageSkeleton",
         "InvitedToChips",
         "Link",
         "PhotoConsent",
@@ -4833,6 +4846,7 @@
         "Link",
         "LiveRefresher",
         "MediaStream",
+        "NotSharedWithYou",
         "ReadRefusedNotice",
         "UndoActionResult"
       ]
@@ -4864,6 +4878,7 @@
         "action"
       ],
       "blocks": [
+        "FormPageSkeleton",
         "Link",
         "SubmitButton"
       ]
@@ -4903,6 +4918,7 @@
       ],
       "blocks": [
         "Field",
+        "FormPageSkeleton",
         "GuestNameFields",
         "InvitedToChips",
         "Link",
@@ -4928,6 +4944,7 @@
       ],
       "blocks": [
         "FormFlash",
+        "FormPageSkeleton",
         "HTMLInputElement",
         "Link",
         "QuickAddList",
@@ -4949,6 +4966,7 @@
         "Link",
         "LiveRefresher",
         "MediaStream",
+        "NotSharedWithYou",
         "ReadRefusedNotice",
         "SouvenirActionResult",
         "SouvenirDesk",
@@ -4981,7 +4999,8 @@
         "dashboard/[eventId]/hosts/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]"
+        "/dashboard/[seg]",
+        "/dashboard/[seg]/people"
       ],
       "actions": [
         "inviteHost",
@@ -4997,6 +5016,7 @@
         "HTMLFormElement",
         "HTMLInputElement",
         "Link",
+        "ListPageSkeleton",
         "PageMasthead",
         "ReadRefusedNotice",
         "SubmitButton"
@@ -5020,6 +5040,7 @@
       ],
       "blocks": [
         "CheckResult",
+        "DetailPageSkeleton",
         "HTMLDivElement",
         "Icon",
         "Link",
@@ -5224,6 +5245,7 @@
       "actions": [],
       "blocks": [
         "Link",
+        "ListPageSkeleton",
         "PageMasthead"
       ]
     },
@@ -5240,6 +5262,7 @@
         "cancelOrder"
       ],
       "blocks": [
+        "DetailPageSkeleton",
         "Link",
         "Stat",
         "SubmitButton"
@@ -5319,6 +5342,17 @@
         "TraditionsGuide",
         "UnknownCeremonyPrompt",
         "UploadBlock"
+      ]
+    },
+    "/dashboard/[eventId]/people": {
+      "files": [
+        "dashboard/[eventId]/people/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/progress": {
@@ -5495,6 +5529,7 @@
         "MenuRow",
         "MetreSizeField",
         "MiniTour",
+        "NotSharedWithYou",
         "PriorityOrder",
         "SaveStatusChip",
         "SeatBadge",
@@ -5674,6 +5709,7 @@
       "blocks": [
         "AddOnDetailView",
         "AppStoreLayout",
+        "GridPageSkeleton",
         "Icon",
         "InspectorColumn",
         "InspectorLayout",
@@ -5700,6 +5736,7 @@
       ],
       "actions": [],
       "blocks": [
+        "GridPageSkeleton",
         "IterationPlaceholder",
         "Link"
       ]
@@ -5737,6 +5774,7 @@
       ],
       "actions": [],
       "blocks": [
+        "GridPageSkeleton",
         "InlineCheckoutDrawer",
         "Link",
         "OwnedView",
@@ -6129,6 +6167,7 @@
         "Fragment",
         "GalleryPhoto",
         "GalleryPreviewCard",
+        "GridPageSkeleton",
         "GuestCameraTierPicker",
         "GuestCamerasChoice",
         "GuestContributionsCard",
@@ -6298,6 +6337,7 @@
         "BoothTag",
         "BuyCard",
         "CategoryChips",
+        "GridPageSkeleton",
         "HTMLDivElement",
         "HTMLVideoElement",
         "HowItWorks",
@@ -6446,6 +6486,7 @@
         "DeviceToggle",
         "FeatureUsCard",
         "FileUpload",
+        "GridPageSkeleton",
         "Icon",
         "InlineCheckoutDrawer",
         "LaunchStdButton",
@@ -6532,6 +6573,7 @@
       "blocks": [
         "CartDrawer",
         "CategoryChip",
+        "GridPageSkeleton",
         "HTMLDivElement",
         "Link",
         "ProductCard",
@@ -6737,6 +6779,7 @@
         "MarketplaceVendorSuggestion",
         "MerkadoBudgetLens",
         "MerkadoGuardBanner",
+        "MiniTour",
         "NewManualVendorModal",
         "PageMasthead",
         "PendingLockProposals",
@@ -6814,6 +6857,7 @@
         "AppealForm",
         "ConfirmReceiptState",
         "DisputedState",
+        "FormPageSkeleton",
         "Link",
         "NoLinkedProfileState",
         "NotEligibleState",
@@ -6869,6 +6913,7 @@
         "ChatThreadMenu",
         "ClaimLinkShare",
         "DepositReservation",
+        "DetailPageSkeleton",
         "DisputeLinkButton",
         "HTMLDivElement",
         "HTMLFormElement",
@@ -6910,6 +6955,7 @@
       "actions": [],
       "blocks": [
         "Link",
+        "ListPageSkeleton",
         "SaveGateHint",
         "SaveToContinue",
         "UnlockCategoriesList"
@@ -6930,6 +6976,7 @@
         "removeItemFromPackage"
       ],
       "blocks": [
+        "DetailPageSkeleton",
         "Link",
         "SubmitButton",
         "VendorPackageItemRow"
@@ -7453,6 +7500,7 @@
       "blocks": [
         "DoorActions",
         "DoorShell",
+        "FormPageSkeleton",
         "Icon",
         "Link",
         "SubmitButton",
@@ -7505,6 +7553,7 @@
       "blocks": [
         "DoorShell",
         "FormFlash",
+        "FormPageSkeleton",
         "InvalidTokenScreen",
         "JoinFlow",
         "JoinShell",
@@ -7556,6 +7605,7 @@
       "blocks": [
         "DoorNotice",
         "DoorShell",
+        "FormPageSkeleton",
         "Link"
       ]
     },
@@ -7795,6 +7845,7 @@
         "CameraPublisher",
         "DoorNotice",
         "DoorShell",
+        "FormPageSkeleton",
         "GuestFanout",
         "HTMLVideoElement",
         "Link",
@@ -7936,6 +7987,7 @@
       "blocks": [
         "DoorNotice",
         "DoorShell",
+        "FormPageSkeleton",
         "Link",
         "SubmitButton",
         "TurnstileField"
@@ -7997,6 +8049,7 @@
         "ChallengePanelInner",
         "DayOfFaceEnroll",
         "DoorShell",
+        "GridPageSkeleton",
         "HTMLButtonElement",
         "HTMLCanvasElement",
         "Link",
@@ -8061,6 +8114,7 @@
         "Blob",
         "DoorShell",
         "File",
+        "FormPageSkeleton",
         "GuestGallery",
         "GuestStoryMaker",
         "GuestStoryPlan",
@@ -8112,6 +8166,7 @@
         "CameraBridgePanel",
         "DoorShell",
         "DslrPairingController",
+        "FormPageSkeleton",
         "HTMLButtonElement",
         "HTMLCanvasElement",
         "Link",
@@ -8248,6 +8303,7 @@
       "blocks": [
         "DoorActions",
         "DoorShell",
+        "FormPageSkeleton",
         "InviteDoor",
         "Link",
         "SubmitButton"
@@ -8704,6 +8760,7 @@
         "EnergyKpi",
         "FeedCard",
         "FieldSaveResult",
+        "GuidedTour",
         "HTMLDivElement",
         "Icon",
         "Image",
@@ -8783,6 +8840,7 @@
       "blocks": [
         "AttributeFieldRenderer",
         "CompletenessBadge",
+        "FormPageSkeleton",
         "Link",
         "MultiSelectOpen",
         "RemoveServiceButton",
@@ -8987,6 +9045,7 @@
       "blocks": [
         "ActivityFeed",
         "AppointmentsSection",
+        "AskAccess",
         "BoothPosterCard",
         "Card",
         "CardTabs",
@@ -9152,6 +9211,7 @@
         "publishContractToCouple"
       ],
       "blocks": [
+        "DetailPageSkeleton",
         "Link",
         "SubmitButton"
       ]
@@ -9169,6 +9229,7 @@
         "uploadVendorContract"
       ],
       "blocks": [
+        "FormPageSkeleton",
         "Link",
         "SubmitButton"
       ]
@@ -9489,6 +9550,7 @@
       "actions": [],
       "blocks": [
         "ColorRangeManipulator",
+        "GridPageSkeleton",
         "Image",
         "Link",
         "PalettePreview",
@@ -9522,6 +9584,7 @@
       ],
       "blocks": [
         "Link",
+        "ListPageSkeleton",
         "NotificationsList",
         "PermissionState",
         "PushToggle",
@@ -9949,6 +10012,7 @@
         "setPerformanceLink"
       ],
       "blocks": [
+        "GridPageSkeleton",
         "Link",
         "ShopNotice",
         "SubmitButton"
@@ -9969,6 +10033,7 @@
         "AxisStat",
         "ExistingReplySection",
         "FlagForm",
+        "ListPageSkeleton",
         "ReplyForm",
         "ReviewAxis",
         "StarRow",
@@ -10355,6 +10420,7 @@
       ],
       "blocks": [
         "AgentServiceAssignment",
+        "FormPageSkeleton",
         "ShopNotice",
         "SubmitButton"
       ]
@@ -10467,6 +10533,7 @@
       "blocks": [
         "DeclineForm",
         "DoorShell",
+        "FormPageSkeleton",
         "Link",
         "Perk",
         "SnapshotField",
@@ -10486,6 +10553,7 @@
       "blocks": [
         "DoorShell",
         "ErrorShell",
+        "FormPageSkeleton",
         "Link"
       ]
     },

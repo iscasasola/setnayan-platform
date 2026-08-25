@@ -1,2 +1,6 @@
 // Event join success — form shell while confirmation loads.
-export { FormPageSkeleton as default } from '@/components/skeletons';
+import { FormPageSkeleton } from '@/components/skeletons';
+
+export default function Loading() {
+  return <FormPageSkeleton title />;
+}

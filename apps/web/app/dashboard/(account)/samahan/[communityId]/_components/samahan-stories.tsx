@@ -10,6 +10,7 @@ import {
   Play,
   RefreshCw,
   Trash2,
+  Volume2,
   X,
 } from 'lucide-react';
 import { compressVideoForWeb } from '@/lib/video-compress';
@@ -113,6 +114,13 @@ export function SamahanStories({
   // already expire in 24 hours, played one after another instead of one at a
   // time behind a close button.
   const reel = useMemo(() => orderTheDay(stories), [stories]);
+  const reelVideoRef = useRef<HTMLVideoElement | null>(null);
+  // Sound is what a phone refuses, not the film. See the effect below.
+  const [reelMuted, setReelMuted] = useState(false);
+  // Taking your own clip down from the strip is two taps — the first arms it,
+  // the second does it — because the control sits under a thumbnail your thumb
+  // is already near, and a hard delete has no undo.
+  const [armedForRemoval, setArmedForRemoval] = useState<string | null>(null);
   const at = playingId ? reel.findIndex((s) => s.story_id === playingId) : -1;
   const playing = at >= 0 ? reel[at] : null;
   const goTo = useCallback(
@@ -122,6 +130,60 @@ export function SamahanStories({
     },
     [reel],
   );
+
+  // 🚨 THE DAY MUST NOT STOP BECAUSE A PHONE REFUSED SOUND.
+  //
+  // Only ONE thing advances this reel: a clip reaching its end. The first clip
+  // plays because a tap started it — every clip after it is mounted from an
+  // `ended` handler, with no user gesture behind it, and iOS Safari (the PWA
+  // this product is installed as) refuses to autoplay a clip that carries
+  // audio without one. These clips ALWAYS carry audio: the recorder asks for
+  // it and the web copy keeps it. So the second clip would sit on a still
+  // frame, nothing would say why, and since nothing can then reach an `ended`
+  // event, the film could never move again — the exact defect "Play the day"
+  // exists to remove, on the devices it matters most on.
+  //
+  // So: ask to play, and if the phone says no, CONTINUE MUTED and say so on
+  // screen. A silent day is a smaller loss than a day that stops at clip one,
+  // and one tap on "Turn sound on" — a real gesture — brings the sound back
+  // for the rest of the reel.
+  //
+  // The same effect covers the other stall: a clip whose file is missing has
+  // no element to fire `ended`, so it is stepped over rather than sat on.
+  useEffect(() => {
+    if (at < 0) return;
+    if (!playing?.clip_url) {
+      // Nothing to play — step over it instead of stalling the day.
+      if (playing) goTo(at + 1);
+      return;
+    }
+    const el = reelVideoRef.current;
+    if (!el) return;
+    let cancelled = false;
+    const attempt = el.play();
+    if (attempt && typeof attempt.catch === 'function') {
+      attempt.catch(() => {
+        if (cancelled) return;
+        el.muted = true;
+        setReelMuted(true);
+        void el.play().catch(() => {
+          // Even muted playback was refused — do not leave the reel frozen on a
+          // frame with no way forward; the person still has Next and the bar.
+        });
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [at, playing, goTo]);
+
+  // An armed delete disarms itself. Leaving a live "Delete" under a thumbnail
+  // indefinitely is how a stray tap removes something nobody meant to lose.
+  useEffect(() => {
+    if (!armedForRemoval) return;
+    const t = setTimeout(() => setArmedForRemoval(null), 5000);
+    return () => clearTimeout(t);
+  }, [armedForRemoval]);
 
   // Arrow keys move through the day; Escape leaves it. A viewer you can only
   // drive by tapping a moving target is a viewer nobody uses twice.
@@ -367,9 +429,14 @@ export function SamahanStories({
       if (res.ok) {
         // Taking your own clip down should not end everybody else's day: step
         // to the next one, and only close when there is nothing after it.
-        const gone = reel.findIndex((x) => x.story_id === storyId);
-        const next = gone >= 0 ? reel[gone + 1] : undefined;
-        setPlayingId(next ? next.story_id : null);
+        // ⚠ ONLY when the viewer is actually showing the clip being removed —
+        // taking one down from the strip must not OPEN the film on somebody
+        // else's video, which is what advancing unconditionally would do.
+        if (playingId === storyId) {
+          const gone = reel.findIndex((x) => x.story_id === storyId);
+          const next = gone >= 0 ? reel[gone + 1] : undefined;
+          setPlayingId(next ? next.story_id : null);
+        }
         router.refresh();
       }
     } finally {
@@ -465,6 +532,35 @@ export function SamahanStories({
                 {s.is_self ? 'You' : s.author_name}
               </p>
               <p className="text-[10px] text-ink/50">{hoursLeft(s.expires_at)}</p>
+              {/* 🔑 TAKING YOUR OWN CLIP DOWN IS NOT ON A THREE-SECOND TIMER.
+                  It used to live ONLY inside the player, which looped and waited
+                  — then the film learned to advance, and the button began
+                  dismissing itself after three seconds, landing you on somebody
+                  else's clip with no delete control at all. Regret is not a
+                  race. Here it sits still, under your own thumbnail. */}
+              {s.is_self ? (
+                armedForRemoval === s.story_id ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setArmedForRemoval(null);
+                      void onRemove(s.story_id);
+                    }}
+                    disabled={removing === s.story_id}
+                    className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-danger-700 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3 w-3" aria-hidden /> Yes, remove it
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setArmedForRemoval(s.story_id)}
+                    className="mt-1 inline-flex items-center gap-1 text-[10px] text-ink/55 hover:text-ink"
+                  >
+                    <Trash2 className="h-3 w-3" aria-hidden /> Take it down
+                  </button>
+                )
+              ) : null}
             </li>
           ))}
           </ul>
@@ -552,12 +648,17 @@ export function SamahanStories({
             {playing.clip_url ? (
               <video
                 key={playing.story_id}
+                ref={reelVideoRef}
                 src={playing.clip_url}
                 poster={playing.poster_url ?? undefined}
                 autoPlay
+                muted={reelMuted}
                 playsInline
                 controls
                 onEnded={() => goTo(at + 1)}
+                // A clip whose file will not load can never end, so it would
+                // hold the whole day still. Step over it.
+                onError={() => goTo(at + 1)}
                 className="w-full rounded-2xl"
               />
             ) : null}
@@ -585,6 +686,24 @@ export function SamahanStories({
                     className="inline-flex items-center gap-1 text-white/80 disabled:opacity-50"
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden /> Take it down
+                  </button>
+                ) : null}
+                {reelMuted ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // A real tap — which is the only thing the phone was
+                      // waiting for. Sound stays on for the rest of the day.
+                      const el = reelVideoRef.current;
+                      setReelMuted(false);
+                      if (el) {
+                        el.muted = false;
+                        void el.play().catch(() => {});
+                      }
+                    }}
+                    className="inline-flex items-center gap-1"
+                  >
+                    <Volume2 className="h-3.5 w-3.5" aria-hidden /> Turn sound on
                   </button>
                 ) : null}
                 <button

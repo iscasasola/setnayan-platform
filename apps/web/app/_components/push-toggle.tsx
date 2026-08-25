@@ -2,8 +2,19 @@
 
 /**
  * Push-notification opt-in toggle (compliance/push-offline — Apple guideline
- * 4.2 "minimum functionality"). Lives in the customer-profile Feedback section
- * next to the haptics toggle — the home for device/notification preferences.
+ * 4.2 "minimum functionality").
+ *
+ * 📍 MOVED HERE 2026-08-26 from the customer profile's private `_components`.
+ * It is the ONLY working implementation — the vendor surface has a 90-line stub
+ * whose "Enable" path just raises a banner — and the admin console had no push
+ * control at all. Three trees sharing one component is why it is no longer
+ * filed under one of them.
+ *
+ * ⚠ THE REASON THIS MATTERED: prod holds **zero** push subscriptions, and the
+ * only two toggles in the product lived on the couple and vendor doorways. So
+ * the person running Setnayan could not turn on phone alerts for admin work —
+ * every admin notice was tray-and-email only, and the first real sale's
+ * "awaiting reconciliation" notice sat unread overnight.
  *
  * Deliberately NON-INTRUSIVE: the browser permission prompt only fires when the
  * user flips this switch ON — never on first paint, never on login. If push

@@ -21,7 +21,7 @@ import {
   signOutOtherDevices,
 } from '@/lib/account-security-actions';
 import { HapticsToggle } from './_components/haptics-toggle';
-import { PushToggle } from './_components/push-toggle';
+import { PushToggle } from '@/app/_components/push-toggle';
 import { SHARE_ARTIFACT_LABEL, type ShareArtifactType } from '@/lib/social-sharing';
 import { resolvePublicProfile } from '@/lib/public-profile';
 import { ProfileShareButton } from '@/app/_components/profile-share-button';

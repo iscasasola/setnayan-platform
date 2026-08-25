@@ -38,6 +38,22 @@ export const VERIFICATION_STATE_LABEL: Record<VerificationState, string> = {
   rejected: 'Rejected',
 };
 
+/**
+ * What each state MEANS, for the person hovering the badge.
+ *
+ * 🔑 The badge's tooltip used to read `Vendor verification_state = pending_review`
+ * — the column name and its stored value, shown to a human and read aloud by a
+ * screen reader. A label answers "what is this called"; a tooltip should answer
+ * "what does that mean for this shop", or it should not exist.
+ */
+export const VERIFICATION_STATE_MEANING: Record<VerificationState, string> = {
+  unverified: 'This shop has not sent its documents yet.',
+  pending_review: 'Documents are in and waiting for someone to check them.',
+  verified: 'Setnayan has checked this shop.',
+  demoted: 'This shop was verified and has lost the badge.',
+  rejected: 'The documents were checked and turned down.',
+};
+
 export function parseVerificationState(raw: unknown): VerificationState {
   return typeof raw === 'string' &&
     (VERIFICATION_STATES as readonly string[]).includes(raw)

@@ -61,6 +61,36 @@ test('no admin screen prints schema at the person using it', () => {
   );
 });
 
+/**
+ * 🪤 THE SHAPE THAT SLIPPED PAST THE RULE ABOVE, found 2026-08-26 while checking
+ * whether Verify still spoke database (it does not — both its badges map to
+ * English, and my earlier claim that they did not was a crude grep counting a
+ * value PASSED to a mapping component as if it were rendered raw).
+ *
+ * What it did find: `title={`Vendor verification_state = ${state}`}` — a column
+ * name and its stored value, shown on hover and read aloud by a screen reader.
+ * The rule above could never match it: no <code>, no migration number, no
+ * iteration. **A tooltip is text a person reads.**
+ */
+const SCHEMA_IN_A_TOOLTIP =
+  /(?:title|aria-label)=\{?[`"'][^`"']*\b[a-z]+_[a-z_]+\s*=[^`"']*[`"']/g;
+
+test('no tooltip names a column at the person hovering it', () => {
+  const found: string[] = [];
+  for (const file of walk(ADMIN).concat(walk(join(process.cwd(), 'app/_components')))) {
+    const rel = file.slice(process.cwd().length + 1);
+    if (rel.endsWith('.test.tsx')) continue;
+    const hits = code(readFileSync(file, 'utf8')).match(SCHEMA_IN_A_TOOLTIP) ?? [];
+    for (const h of hits) found.push(`${rel} → ${h.replace(/\s+/g, ' ').slice(0, 90)}`);
+  }
+  assert.deepEqual(
+    found,
+    [],
+    'A tooltip is text a person reads:\n  ' + found.join('\n  ') +
+      '\nSay what the state MEANS for this shop, or drop the tooltip.',
+  );
+});
+
 test('the guard can actually fire — it reads real files and a real pattern', () => {
   // A sweep that silently matches nothing passes forever. Both floors are far
   // below the real values (≈380 admin .tsx files).
@@ -69,6 +99,10 @@ test('the guard can actually fire — it reads real files and a real pattern', (
   assert.ok(
     OFFENDERS.test('table <code>event_vendors</code> (migration 20270101000000)'),
     'the pattern no longer matches the exact string this rule was written for',
+  );
+  assert.ok(
+    SCHEMA_IN_A_TOOLTIP.test('title={`Vendor verification_state = ${state}`}'),
+    'the tooltip pattern no longer matches the exact string it was written for',
   );
 });
 

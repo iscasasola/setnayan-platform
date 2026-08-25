@@ -416,12 +416,10 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
           ]}
         />
 
-        <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          Source · spec corpus 2026-05-16 (a0fa3c7) · flat 5.0% lock 2026-05-16
-          row 16 · ₱50 min-fee floor 2026-05-17 row 9 · table{' '}
-          <code>setnayan_pay_methods</code> · retired 2026-05-28 V2 cutover
-          (historical audit only).
-        </p>
+        <p className="mt-4 text-sm text-ink/70">
+        These are the old payment rails. Nothing new goes through them &mdash; they are
+        kept so past records stay readable.
+      </p>
       </div>
     </div>
   );

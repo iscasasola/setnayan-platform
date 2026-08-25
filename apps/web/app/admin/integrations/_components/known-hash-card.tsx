@@ -67,8 +67,7 @@ export function KnownHashCard({ status }: { status: KnownHashIntegrationStatus }
 
       {status.countsUnavailable ? (
         <p className="text-xs text-ink/55">
-          The <code>media_hash_checks</code> table could not be read, so these
-          counts are <strong>unknown</strong> — deliberately not shown as zero. An
+          These counts could not be read, so they are <strong>unknown</strong> — deliberately not shown as zero. An
           unreadable table and an empty one return the same value, and “0
           unchecked” would be the exact wrong reading.
         </p>

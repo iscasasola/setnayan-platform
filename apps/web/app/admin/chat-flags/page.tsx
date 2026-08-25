@@ -277,10 +277,7 @@ export default async function AdminChatFlagsPage({
         </ul>
       )}
 
-      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-        Source · iteration 0019 · table <code>chat_message_flags</code> (migration
-        20270920573307) · gated by <code>NEXT_PUBLIC_CHAT_CONTACT_FILTER_ENABLED</code>
-      </p>
+      
     </div>
   );
 }

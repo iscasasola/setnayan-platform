@@ -302,8 +302,24 @@ export async function fetchGuestRollSeat(
  *   • 'ready'   — the Limited snapshot is active (paid) AND this guest has a live
  *                 camera → route into capture at /papic/seat/[claimToken].
  */
+/**
+ * 🔑 `reason` EXISTS BECAUSE ONE WORD WAS DOING TWO JOBS, AND A SCREEN WAS
+ * BLAMING THE HOST FOR BOTH. The comment above already said `'none'` meant
+ * "Limited isn't activated for this event, OR this guest has no camera" — and
+ * `/papic/me/[token]`, the page a printed personal QR opens, rendered "the host
+ * hasn't turned on Papic for the guest list yet" either way. The second case is
+ * not the host's doing at all.
+ *
+ *   • 'not_offered' — no live Limited snapshot on this event. Nobody has a roll
+ *                     camera, and that genuinely IS the host's setup.
+ *   • 'no_seat'     — the event HAS a live snapshot; this particular guest has
+ *                     no live seat (declined, past the camera cap, deleted, or
+ *                     a provisioning hiccup the self-heal could not fix).
+ */
+export type GuestCameraMissingReason = 'not_offered' | 'no_seat';
+
 export type GuestCameraResolution =
-  | { status: 'none' }
+  | { status: 'none'; reason: GuestCameraMissingReason }
   | { status: 'pending'; claimToken: string; snapshot: LimitedSnapshotRow }
   | { status: 'ready'; claimToken: string; snapshot: LimitedSnapshotRow };
 
@@ -332,7 +348,7 @@ export async function resolveGuestCamera(
   opts: { sync?: boolean } = {},
 ): Promise<GuestCameraResolution> {
   const snapshot = await fetchActiveLimitedSnapshot(admin, eventId);
-  if (!snapshot) return { status: 'none' };
+  if (!snapshot) return { status: 'none', reason: 'not_offered' };
 
   let seat = await fetchGuestRollSeat(admin, eventId, guestId);
   if (!seat && opts.sync) {
@@ -344,7 +360,7 @@ export async function resolveGuestCamera(
       // best-effort — fall through to 'none' if provisioning hiccups.
     }
   }
-  if (!seat) return { status: 'none' };
+  if (!seat) return { status: 'none', reason: 'no_seat' };
 
   const status = await reconcileLimitedSnapshot(admin, snapshot);
   return {

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventOwnsSku, eventSkuActive, eventHasPapicUnlock } from '@/lib/entitlements';
-import { fetchEventPoolStatus } from '@/lib/papic-event-pool';
+import { readEventPoolStatus } from '@/lib/papic-event-pool';
 
 /**
  * apps/web/lib/papic-guest.ts
@@ -93,12 +93,39 @@ export async function eventPapicGuestActive(
   // the camera: the capture screen explains "out of shots" far better than a
   // missing button does, and closing the door at zero would strand a guest who
   // scanned seconds earlier. Same reasoning as the poster join action.
+  return (await eventPapicGuestAccess(supabase, eventId)) === 'on';
+}
+
+/**
+ * The same question, answered in THREE states instead of two.
+ *
+ * 🔴 WHY. `eventPapicGuestActive` collapses "we could not find out" into
+ * "false", and two guest-facing pages then print that as a sentence about the
+ * HOST: "the host hasn't turned on guest cameras for this event yet."
+ * `fetchEventPoolStatus` returns its ABSENT sentinel on any RPC error, and the
+ * call below used to wrap it in a second `.catch(() => null)` — so a metering
+ * outage, a missing grant or a renamed function all arrived at a guest's phone
+ * as a decision their host had made. This repo's own rule: a rejected query is
+ * not a thrown error, and the only symptom is an absence.
+ *
+ * 'unknown' is NOT a third permission. Every gate keeps failing closed — the
+ * boolean above still returns false for it, so all ten existing callers behave
+ * exactly as before. It exists so a screen can tell a person the truth about
+ * WHY the camera is not opening.
+ */
+export type PapicGuestAccess = 'on' | 'off' | 'unknown';
+
+export async function eventPapicGuestAccess(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<PapicGuestAccess> {
   const [owned, pool] = await Promise.all([
     Promise.all(PAPIC_PASS_SERVICE_KEYS.map((key) => eventSkuActive(supabase, eventId, key))),
-    fetchEventPoolStatus(supabase, eventId).catch(() => null),
+    readEventPoolStatus(supabase, eventId).catch(() => ({ ok: false, status: null })),
   ]);
-  if (owned.some(Boolean)) return true;
-  return pool?.applies === true;
+  if (owned.some(Boolean)) return 'on';
+  if (!pool.ok) return 'unknown';
+  return pool.status?.applies === true ? 'on' : 'off';
 }
 
 /**

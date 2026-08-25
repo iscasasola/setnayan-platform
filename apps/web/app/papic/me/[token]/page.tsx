@@ -4,6 +4,7 @@ import { ArrowRight, Camera, CircleAlert, Clock, Download, Images, Sparkles } fr
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveGuestCamera } from '@/lib/papic-limited';
+import { eventPapicGuestAccess } from '@/lib/papic-guest';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
 import { groupIntoChapters, type ChapterContext } from '@/lib/papic-chapters';
 import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
@@ -241,15 +242,72 @@ export default async function PapicMyCameraPage({ params }: Props) {
     </Link>
   ) : null;
 
+  const greetName = (guest.first_name ?? '').trim();
+
   // Resolve THIS guest's Limited roll camera. sync:true self-heals a late "yes"
   // RSVP whose camera hasn't been materialized yet (provision-on-scan).
   const camera = await resolveGuestCamera(admin, guest.event_id, guest.guest_id, {
     sync: true,
   });
 
-  // No camera for this guest — Limited isn't activated, or they declined / are
-  // beyond the cost cap. Still show their gallery if they have tagged photos.
+  /* 🔴 NO ROLL CAMERA IS NOT THE SAME AS NO CAMERA — and this page told 40 of
+     40 production guests it was.
+     `resolveGuestCamera` answers only about the PAID Limited roll. Production
+     holds ZERO Limited snapshots, ever (measured 2026-08-25), so every guest on
+     every event landed here and read "the host hasn't turned on Papic for the
+     guest list yet" — while the guest camera was OPEN on all five events, the
+     free pool applying to each. The page asked the wrong question and then blamed
+     the host for its own answer.
+     So: when the roll has nothing for this guest, ask the gate that actually
+     decides whether they may shoot. If it says yes, hand them the camera that is
+     already theirs, through the same token→session bridge the pool gallery link
+     below already uses — no token in the destination URL, allowlisted target. */
   if (camera.status === 'none') {
+    const access = await eventPapicGuestAccess(admin, guest.event_id);
+
+    if (access === 'on') {
+      return (
+        <DoorShell
+          eyebrow={
+            <>
+              <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Your camera
+            </>
+          }
+          title={greetName ? `${greetName}, your camera’s ready` : 'Your camera’s ready'}
+          sub="Tap below and your phone turns into a candid camera. Every photo you shoot lands straight in the host's gallery — no app to install."
+        >
+          <a
+            href={`/papic/me/${encodeURIComponent(cleanToken!)}/session?next=guest`}
+            className="button-primary w-full gap-2"
+          >
+            <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Open my camera
+            <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </a>
+          <GuestGallery
+            eventId={guest.event_id}
+            guestId={guest.guest_id}
+            token={cleanToken!}
+            chapters={guest.chapters}
+          />
+          <PoolDoorway eventId={guest.event_id} token={cleanToken!} />
+          {backLink}
+        </DoorShell>
+      );
+    }
+
+    /* Still no camera. Say which of the three things is actually true, and stop
+       asserting anything about the host that we have not checked. */
+    const title =
+      access === 'unknown' ? 'We couldn’t check just now.' : 'No camera for you yet.';
+    const sub =
+      access === 'unknown'
+        ? 'Something on our side didn’t answer, so we can’t open your camera yet. Give it a moment and try again — your invitation is fine.'
+        : camera.reason === 'no_seat'
+          ? 'Cameras are set up for this event, but there isn’t one under your name yet. Ask your host to add you — it takes them a moment.'
+          : 'Guest cameras aren’t on for this event yet. Check back closer to the day.';
+
     return (
       <DoorShell
         tone="dead_end"
@@ -259,8 +317,8 @@ export default async function PapicMyCameraPage({ params }: Props) {
             Your camera
           </>
         }
-        title="Your Papic camera isn't ready yet."
-        sub="The host hasn't turned on Papic for the guest list yet — or your spot is still being set up. Check back closer to the day."
+        title={title}
+        sub={sub}
       >
         <GuestGallery
           eventId={guest.event_id}
@@ -302,7 +360,6 @@ export default async function PapicMyCameraPage({ params }: Props) {
 
   // Ready (paid + active). Hand off to the existing capture surface via the
   // seat's claim token, and surface the guest's gallery alongside it.
-  const greetName = (guest.first_name ?? '').trim();
   return (
     <DoorShell
       eyebrow={

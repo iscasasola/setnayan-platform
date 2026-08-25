@@ -21,6 +21,12 @@ export const dynamic = 'force-dynamic';
 const NEXT_DESTINATIONS: Record<string, string> = {
   decorate: '/papic/decorate',
   pool: '/papic/pool',
+  /* Added 2026-08-25. /papic/me only ever resolved the PAID Limited roll camera,
+     so on an event running the free pool — which is every production event — a
+     guest scanning their printed QR was told cameras were off while the pool
+     camera stood open. It is session-scoped like the other two, so it needs the
+     same bridge. Allowlisted key, fixed path: no caller-supplied redirect. */
+  guest: '/papic/guest',
 };
 
 export async function GET(req: Request, ctx: { params: Promise<{ token: string }> }) {

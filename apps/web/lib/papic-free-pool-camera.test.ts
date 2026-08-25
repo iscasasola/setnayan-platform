@@ -30,13 +30,15 @@ test('the guest-camera gate accepts a pool, not only a purchase', () => {
   const src = read('lib/papic-guest.ts');
   assert.match(
     src,
-    /fetchEventPoolStatus\(/,
-    'eventPapicGuestActive must consult the pool — a free grant has no order, ' +
-      'so a purchase-only check leaves free events with unspendable shots.',
+    /readEventPoolStatus\(/,
+    'the guest-camera gate must consult the pool — a free grant has no order, ' +
+      'so a purchase-only check leaves free events with unspendable shots. ' +
+      '(The reader was renamed on 2026-08-25 so a FAILED read can be told apart ' +
+      'from an absent pool; the pool is still what opens the camera.)',
   );
   assert.match(
     src,
-    /pool\?\.applies === true/,
+    /pool\.status\?\.applies === true/,
     'a pool that APPLIES opens the camera',
   );
 });
@@ -60,10 +62,14 @@ test('a purchase still opens it, independently of the pool', () => {
   // A paid pass must not depend on a pool row existing — the two are separate
   // reasons, checked with OR, so neither can mask the other.
   const src = read('lib/papic-guest.ts');
-  const gate = src.slice(src.indexOf('export async function eventPapicGuestActive'));
+  /* The logic moved into eventPapicGuestAccess on 2026-08-25 (three states, so
+     "we could not tell" stops being printed as "the host turned it off").
+     eventPapicGuestActive is now a thin `=== 'on'` wrapper over it and still
+     fails closed. The invariant under test is unchanged: purchase first. */
+  const gate = src.slice(src.indexOf('export async function eventPapicGuestAccess'));
   assert.match(gate, /owned\.some\(Boolean\)/);
   assert.ok(
-    gate.indexOf('owned.some(Boolean)') < gate.indexOf('pool?.applies'),
+    gate.indexOf("owned.some(Boolean)") < gate.indexOf('pool.status?.applies'),
     'the purchase check should short-circuit before the pool read',
   );
 });

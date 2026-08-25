@@ -56,6 +56,7 @@ import {
   papicRungSku,
   isPapicUncapped,
   provisionFreeCamerasAdmin,
+  provisionUploadsCameraAdmin,
   PAPIC_MIN_PAID_CAMERAS,
   PAPIC_FREE_CAMERA_COUNT,
   PAPIC_MINI_CAP_FALLBACK_PHP,
@@ -436,6 +437,28 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // idempotent (fixed seat index + a partial unique index on the grant), so the
   // creation call and the studio self-heal collapse to one camera.
   await ensureFreePapicOneCameraAdmin(unlockAdmin, eventId);
+
+  // …and the couple's own UPLOADS camera — the shutter that is a file picker.
+  // Owner 2026-08-26: "papic is the source where they collect media files for
+  // that event" and "they can upload their work via papic credits as well per
+  // event." An upload is a camera taking a shot, so it inherits the metering,
+  // the safety screen, the derivatives and the Drive copy verbatim.
+  //
+  // ⛔ IT IS PROVISIONED HERE AND ONLY HERE, and that is a security decision,
+  // not tidiness. This is a SERVICE-ROLE write; a standalone server action
+  // taking a client-supplied event id would let a signed-in stranger mint a
+  // live seat on somebody else's wedding and claim it, after which every gate
+  // downstream waves them through — the upload presign and the record path both
+  // check CLAIMER IDENTITY and nothing else. This render already ran the couple
+  // check, so the event id is not client-supplied by the time we are here.
+  //
+  // Same window as every other camera: `captureWindowState` returns 'open' on
+  // null bounds, so a null-window seat would be the only one in the product
+  // exempt from the dates the couple picked.
+  await provisionUploadsCameraAdmin(unlockAdmin, eventId, {
+    validFrom: papicWindow.startIso,
+    validUntil: papicWindow.endIso,
+  });
 
   // ── LIMITED (guest-list) state ──────────────────────────────────────────
   // Auto-count = guests who haven't declined. One reversible snapshot freezes

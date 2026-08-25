@@ -10,8 +10,10 @@
  *
  * FLAT MODEL (2026-07-22 naming lock · migration 20270830568357). Papic is two
  * products, both flat-priced — no per-day multiplier, no per-tier wedding cap:
- *   • Papic One  — dedicated cameras, a flat price PER CAMERA (first N free).
- *   • Papic Pool — one shared shot pool for every guest's phone, a flat pass
+ *   ⚠ Papic One is GONE (owner 2026-08-26: "no 2 ways of papic service.
+ *     just 1"). Setting shots aside for one camera is a FEATURE of the single
+ *     pot, done inside the event — never a second thing to buy here.
+ *   • Papic — ONE pot of shots the whole celebration draws from, a flat pass
  *     per bucket (3,000 / 6,000 / 10,000 shots).
  * The old per-camera × rate × days engine (and the per-tier wedding cap it
  * applied to the removed "Papic Max" rung) is gone.
@@ -20,9 +22,7 @@
  * catalog + the admin-editable papic_tier_config (owner 2026-07-20 — "make
  * every Papic price/capacity claim honest and derived, never hardcoded"). This
  * file must never spell a rung, a photo/clip count, or a free-camera count:
- *   • Papic One price    → platform_retail_catalog_v2, via papic_one_tiers
- *   • Papic One capacity → papic_one_tiers.points + papicBucketPhrase()
- *   • Papic Pool buckets → platform_retail_catalog_v2 (PAPIC_GUEST*)
+ *   • Papic shot pots   → platform_retail_catalog_v2 (PAPIC_GUEST*)
  *   • free ONE camera    → PAPIC_FREE_ONE_CAMERA_COUNT (structural) +
  *                          papic_event_pool_config.free_one_camera_points
  * `lib/papic-copy-guardrails.test.ts` fails CI if a literal creeps back.
@@ -30,17 +30,7 @@
 
 import { useState } from 'react';
 
-/** Papic One — the dedicated-camera product (flat, per camera, no days). */
-export type EstimatorOne = {
-  /** papic_tier_config.display_title — "Papic One". */
-  label: string;
-  /** Flat price per camera, from the rung's catalog SKU. */
-  pricePhp: number;
-  /** Derived capacity sentence (papicBucketPhrase) — never written here. */
-  capacity: string;
-};
-
-/** Papic Pool — one shared shot-pool pass (a flat bucket price). */
+/** One shot pot (a flat bucket price). */
 export type EstimatorPoolBucket = {
   /** platform_retail_catalog_v2 service_code — React key / selection id. */
   key: string;
@@ -51,97 +41,26 @@ export type EstimatorPoolBucket = {
 };
 
 export type EstimatorRates = {
-  /**
-   * Free DEDICATED cameras every event gets — `PAPIC_FREE_ONE_CAMERA_COUNT`,
-   * zeroed when the admin allowance is 0.
-   *
-   * ⚠ NOT `papic_tier_config.free.seats_per_event`. That counts free SHARED-POOL
-   * seats, which belong to the other product entirely; reading it here quoted the
-   * pool's allowance on the dedicated tab and under-billed every multi-camera
-   * estimate. Fixed 2026-07-29 — see the block in page.tsx.
-   */
-  freeCameras: number;
-  /**
-   * What the free camera actually holds (papicBucketPhrase over
-   * free_one_camera_points). Null when there is no free camera. Stated because
-   * the free camera's bucket is SMALLER than any paid rung — "1 free" without
-   * it reads as a free camera equal to a bought one.
-   */
-  freeCameraCapacity: string | null;
-  /** Papic One — the dedicated-camera rung. null = the ladder is unreadable. */
-  one: EstimatorOne | null;
-  /** Papic Pool — the shared-pool buckets, in price order. Empty = none active. */
+  /** The shot pots, in price order. Empty = none active. */
   pool: EstimatorPoolBucket[];
   /** Tickable one-time add-ons — label + price, resolved from the catalog. */
   addons: Array<{ key: string; label: string; price: number }>;
 };
 
-type Mode = 'one' | 'pool';
 
 const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-
-function Stepper({
-  value,
-  onDec,
-  onInc,
-}: {
-  value: string | number;
-  onDec: () => void;
-  onInc: () => void;
-}) {
-  return (
-    <div className="inline-flex items-center gap-3 rounded-full border border-ink/15 bg-cream p-1">
-      <button
-        type="button"
-        onClick={onDec}
-        aria-label="Decrease"
-        className="flex h-8 w-8 items-center justify-center rounded-full text-lg text-ink/70 transition-colors hover:bg-ink/[0.05]"
-      >
-        −
-      </button>
-      <span className="min-w-[2ch] text-center text-base font-semibold tabular-nums text-ink">
-        {value}
-      </span>
-      <button
-        type="button"
-        onClick={onInc}
-        aria-label="Increase"
-        className="flex h-8 w-8 items-center justify-center rounded-full text-lg text-ink/70 transition-colors hover:bg-ink/[0.05]"
-      >
-        +
-      </button>
-    </div>
-  );
-}
 
 export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
-  const hasOne = rates.one != null;
   const hasPool = rates.pool.length > 0;
 
-  const [mode, setMode] = useState<Mode>(hasOne ? 'one' : 'pool');
-  const [cameras, setCameras] = useState(5);
   const [bucketKey, setBucketKey] = useState<string>(rates.pool[0]?.key ?? '');
   const [checked, setChecked] = useState<Record<string, boolean>>({});
 
   // Nothing readable → render nothing rather than an invented price.
-  if (!hasOne && !hasPool) return null;
+  if (!hasPool) return null;
 
-  // A selected mode that isn't available falls back to the one that is.
-  const effectiveMode: Mode =
-    mode === 'one' ? (hasOne ? 'one' : 'pool') : hasPool ? 'pool' : 'one';
-
-  const one = rates.one;
   const bucket = rates.pool.find((b) => b.key === bucketKey) ?? rates.pool[0];
-
-  // Papic One: the first `freeCameras` are free; only the rest are billed.
-  const paidCameras = Math.max(0, cameras - rates.freeCameras);
-  const productTotal =
-    effectiveMode === 'one' && one
-      ? paidCameras * one.pricePhp
-      : bucket
-        ? bucket.pricePhp
-        : 0;
+  const productTotal = bucket ? bucket.pricePhp : 0;
 
   const addonsTotal = rates.addons.reduce(
     (sum, a) => (checked[a.key] ? sum + a.price : sum),
@@ -152,15 +71,9 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
   // Summary line — computed with narrowing so no non-null assertions are needed.
   let productLabel = '';
   let productDetail = '';
-  if (effectiveMode === 'one' && one) {
-    productLabel = `Papic · ${one.label}`;
-    productDetail =
-      rates.freeCameras > 0
-        ? `${cameras} camera${cameras === 1 ? '' : 's'} · ${rates.freeCameras} free · ${paidCameras} × ${peso(one.pricePhp)}`
-        : `${cameras} camera${cameras === 1 ? '' : 's'} × ${peso(one.pricePhp)}`;
-  } else if (bucket) {
+  if (bucket) {
     productLabel = `Papic · ${bucket.label}`;
-    productDetail = 'One shared pass for the whole event';
+    productDetail = 'One pot of shots for the whole celebration';
   }
 
   return (
@@ -169,71 +82,39 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
         Build your Papic
       </p>
       <p className="mt-2 font-display text-2xl font-medium tracking-tight text-ink">
-        Estimate your Papic — dedicated cameras or a shared pool.
+        Estimate your Papic — one pot of shots for the whole celebration.
       </p>
 
-      {/* Product toggle — only when both are available */}
-      {hasOne && hasPool ? (
-        <div className="mt-5 inline-flex rounded-full border border-ink/15 bg-cream p-1">
-          {(['one', 'pool'] as Mode[]).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              aria-pressed={effectiveMode === m}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                effectiveMode === m
-                  ? 'bg-terracotta text-cream'
-                  : 'text-ink/70 hover:bg-ink/[0.05]'
-              }`}
-            >
-              {m === 'one' ? (one?.label ?? 'A camera of its own') : 'Papic'}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      {/* ⚠ THERE IS NO PRODUCT TOGGLE, AND THERE MUST NEVER BE ONE AGAIN.
+          Owner, 2026-08-26: *"we do not have papic one or papic pool. no 2
+          ways of papic service. just 1. papic pool will be our papic service.
+          this was documented before already."* (First locked 2026-08-11.)
 
-      {/* Papic One — flat per-camera */}
-      {effectiveMode === 'one' && one ? (
+          What used to sit here was a two-way switch between "A camera of its
+          own" and "Papic", plus a whole flat-per-camera branch. It has not
+          RENDERED on the live page for some time — it draws itself only when
+          both catalog rungs are active, and the dedicated-camera rung is
+          `is_active = false` in production ("Dedicated camera (legacy)"). But
+          it was one catalog flip away from offering a fork the owner has ruled
+          does not exist, so it is deleted rather than left armed.
+
+          🔑 GIVING ONE CAMERA ITS OWN SHOTS IS A FEATURE OF THIS ONE PRODUCT,
+          NOT AN ALTERNATIVE TO IT. Owner: *"they just alot some photos for a
+          specific Papic. so for example they get 3000 photos. and then they can
+          assign the 500 photos to 1 papic."* That ships — `setCameraShots`
+          writes it and `papic_reserve_capture_split` spends the camera's own
+          allocation first, then the pot, under one row lock. Dedicated shots
+          are a FLOOR, never a ceiling. The estimator prices the pot; the
+          allocation happens later, inside the event. */}
+
+      {/* The shot pots — flat buckets. */}
+      {bucket ? (
         <div className="mt-6">
           <p className="max-w-2xl text-sm leading-relaxed text-ink/65">
-            {one.label} is a flat {peso(one.pricePhp)} per camera for the friends
-            or family you trust. Each camera shoots {one.capacity}.
-            {rates.freeCameras > 0 ? (
-              <>
-                {' '}
-                Your{' '}
-                {rates.freeCameras === 1
-                  ? 'first camera is'
-                  : `first ${rates.freeCameras} cameras are`}{' '}
-                free to try
-                {rates.freeCameraCapacity ? ` — ${rates.freeCameraCapacity}` : ''} —
-                beyond that, add as many as you like.
-              </>
-            ) : (
-              <> Add as many as you like — there is no cap.</>
-            )}
-          </p>
-          <div className="mt-5">
-            <label className="mb-2 block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-              Cameras · <span className="text-ink/70">{cameras}</span> dedicated
-              shooters
-            </label>
-            <Stepper
-              value={cameras}
-              onDec={() => setCameras((c) => clamp(c - 1, 1, 50))}
-              onInc={() => setCameras((c) => clamp(c + 1, 1, 50))}
-            />
-          </div>
-        </div>
-      ) : null}
-
-      {/* Papic Pool — flat bucket */}
-      {effectiveMode === 'pool' && bucket ? (
-        <div className="mt-6">
-          <p className="max-w-2xl text-sm leading-relaxed text-ink/65">
-            Papic Pool is one shared pass every guest&rsquo;s phone draws from —
-            no per-camera math. Pick your shot pool; the whole event shares it.
+            Papic is one pot of shots the whole celebration draws from &mdash; every
+            camera, every guest, no per-camera maths. Pick your pot below. You can
+            set some of it aside for a particular camera later, and take back
+            whatever they don&rsquo;t use.
           </p>
           <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
             {rates.pool.map((b) => (
@@ -324,9 +205,8 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-ink/50">
-        {effectiveMode === 'one'
-          ? `A camera of its own is a flat per-camera price${rates.freeCameras > 0 ? `, with ${rates.freeCameras} free to try` : ''} — no per-day or per-hour math. Add-ons are charged separately.`
-          : 'Papic is one flat pass for the whole event. Add-ons are charged separately.'}{' '}
+        Papic is one pot of shots for the whole celebration. Cameras are free and
+        unlimited; add-ons are charged separately.{' '}
         Estimate only — no charge is made here.
       </p>
     </div>

@@ -583,12 +583,12 @@ export default async function AdminIntegrityWatchPage({
         </ul>
       )}
 
-      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-        Source · review-fraud screener + ghost-listing detector +
-        inquiry-concentration sweep
-        {pricesEnabled ? ' + price-under-declaration scanner' : ''} · table{' '}
-        <code>integrity_flags</code> (migration 20270412000042) · deterministic ·
-        detect-and-review only · non-PII evidence
+      <p className="mt-6 text-sm text-ink/70">
+        This desk watches for made-up reviews, shops that look active but never
+        answer, and one shop taking a suspicious share of another&rsquo;s enquiries
+        {pricesEnabled ? ', plus prices declared lower than they were charged' : ''}.
+        It only ever flags for a person to look at &mdash; it never acts on its own,
+        and the evidence it keeps never identifies anybody.
       </p>
     </div>
   );

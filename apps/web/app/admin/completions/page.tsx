@@ -72,6 +72,23 @@ const STATUS_TONE: Record<string, string> = {
   vendor_marked: 'bg-sky-100 text-sky-800',
 };
 
+/**
+ * What the stored word MEANS, for the person reading the row.
+ *
+ * 🔑 The owner saw `AWAITING_VENDOR` on this screen and asked what it was. The
+ * value was rendered straight out of the database and uppercased by CSS, so the
+ * badge said what the column holds instead of what is happening. A stored value
+ * is not a sentence.
+ *
+ * Keyed beside STATUS_TONE deliberately: a status with a colour and no words is
+ * how this happened, and keeping them adjacent makes the omission visible.
+ */
+const STATUS_LABEL: Record<string, string> = {
+  disputed: 'Couple disputed it',
+  awaiting_vendor: 'Supplier has not confirmed',
+  vendor_marked: 'Supplier says it is done',
+};
+
 const REASON_LABEL: Record<AttentionRow['reason'], string> = {
   disputed: 'Non-delivery dispute',
   vendor_overdue: 'Vendor never marked complete',
@@ -232,11 +249,13 @@ export default async function AdminCompletionsPage() {
             hideBelow: 'md',
             cell: (r) => (
               <span
-                className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs ${
                   STATUS_TONE[r.completion_status ?? ''] ?? 'bg-ink/10 text-ink/70'
                 }`}
               >
-                {r.completion_status}
+                {/* An unmapped value falls back to the stored word rather than to
+                    an empty badge — an absence would be worse than an ugly one. */}
+                {STATUS_LABEL[r.completion_status ?? ''] ?? r.completion_status}
               </span>
             ),
           },
@@ -308,10 +327,7 @@ export default async function AdminCompletionsPage() {
         ]}
       />
 
-      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
-        Source · Event Lifecycle Menu §6.1 · table <code>event_vendors</code> (migrations 20270101000000
-        + 20270106000000)
-      </p>
+      
     </div>
   );
 }

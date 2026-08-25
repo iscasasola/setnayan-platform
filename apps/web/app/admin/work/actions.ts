@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { setHelpMessageStatus } from '@/app/admin/help/actions';
+import { resolveChatFlag } from '@/app/admin/chat-flags/actions';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { approvePaymentCore } from '@/app/admin/payments/actions';
@@ -215,4 +217,40 @@ export async function recordPayoutFromWorkList(formData: FormData): Promise<void
   await requireAdmin();
   await markPayoutPaidAction(formData);
   revalidatePath('/admin/work');
+}
+
+/**
+ * Settle a help ticket FROM THE LIST.
+ *
+ * 🔑 NO REDIRECT TO SWALLOW. `setHelpMessageStatus` does not redirect — unlike
+ * the review and payout paths, whose page actions end in one — so this needs no
+ * catch-the-digest dance. A real failure ("Invalid status") is a plain Error and
+ * travels untouched: a refusal can never read as success.
+ */
+export async function settleHelpFromWorkList(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const back =
+    typeof formData.get('back') === 'string' ? String(formData.get('back')) : '/admin/work';
+  await setHelpMessageStatus(formData);
+  revalidatePath('/admin/work');
+  revalidatePath('/admin/help');
+  redirect(`${back}${back.includes('?') ? '&' : '?'}settle=saved`);
+}
+
+/**
+ * Resolve a chat contact-flag FROM THE LIST.
+ *
+ * ⚠ The drawer deliberately shows the categories and the hit count, never the
+ * message body — the page's own kept sentence promises a reviewer is not
+ * reading somebody's private conversation, and settling from a list must not
+ * quietly break that promise.
+ */
+export async function settleChatFlagFromWorkList(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const back =
+    typeof formData.get('back') === 'string' ? String(formData.get('back')) : '/admin/work';
+  await resolveChatFlag(formData);
+  revalidatePath('/admin/work');
+  revalidatePath('/admin/chat-flags');
+  redirect(`${back}${back.includes('?') ? '&' : '?'}settle=saved`);
 }

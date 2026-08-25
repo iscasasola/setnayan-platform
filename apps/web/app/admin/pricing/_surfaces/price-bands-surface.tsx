@@ -209,10 +209,7 @@ export async function PriceBandsSurface({
         ]}
       />
 
-      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
-        Source · Price-Position Meter (Wave 6) · table <code>market_price_bands</code>{' '}
-        · RPC <code>recompute_market_price_bands()</code> · migration 20270324043850
-      </p>
+      
     </div>
   );
 }

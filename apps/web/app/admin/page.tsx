@@ -3,6 +3,7 @@ import { ArrowRight, AlertTriangle, ListChecks, KeyRound, Plug } from 'lucide-re
 import { Tile } from './_overview-tile';
 import { AppleSecretReminder } from './_apple-secret-reminder';
 import { KpiStatCard } from './_components/kpi-stat-card';
+import { WhatYouChange, EditingIsOnTheComputer } from './_components/what-you-change';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { CountUp } from '@/app/_components/count-up';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -486,6 +487,15 @@ export default async function AdminOverview() {
           </Link>
         </div>
       </section>
+
+      {/* WHAT YOU CHANGE · the six jobs the owner's own activity record shows he
+       *  actually does — 65 actions, all six groups, nothing left over. It sits
+       *  directly under the exception desk on purpose: the focal answers "what
+       *  needs me", this answers "what do I want to change", and every queue
+       *  detail follows below. Before this, "Pricing" — 52% of his recorded
+       *  work — appeared NOWHERE on this page. Nothing else here was moved. */}
+      <WhatYouChange />
+      <EditingIsOnTheComputer />
 
       {/* LANE BENTO · the overview's own curated consequence lanes (Trust &
        *  supply / Money / Recourse / Approvals & support — overview-only,

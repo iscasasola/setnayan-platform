@@ -492,9 +492,10 @@ export default async function AdminUserReportsPage({
         </ul>
       )}
 
-      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-        Source · iteration 0023 · table <code>user_reports</code> (migration
-        20261106000000) · Apple 1.2 / Google Play UGC
+      <p className="mt-6 text-sm text-ink/70">
+        Both app stores require a way for anyone to report content and for us to act
+        on it. This queue is that promise &mdash; leaving it unattended is a store
+        compliance problem, not only a moderation one.
       </p>
     </div>
   );

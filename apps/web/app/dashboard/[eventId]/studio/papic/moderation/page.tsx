@@ -316,11 +316,14 @@ export default async function PapicModerationPage({
 
       {!owns ? (
         <p className="sn-row px-4 py-3 text-sm text-ink/65">
-          {/* "the Premium Guest Camera Pack" named a product that has never
-              existed. Owner naming lock 2026-07-30: the two Papic products are
-              Papic Pool and Papic One — nothing else may be named here. */}
-          Photos from your guests will appear here once Papic Pool is on for this
-          wedding.
+          {/* ⚠ THE NAMING LOCK CITED HERE WAS SUPERSEDED. This used to quote the
+              2026-07-30 rule that "the two Papic products are Papic Pool and
+              Papic One". Owner, 2026-08-11 and again 2026-08-26: *"we do not
+              have papic one or papic pool. no 2 ways of papic service. just 1."*
+              There is ONE product, Papic. Setting shots aside for a particular
+              camera is a feature of it, not a second thing to name. */}
+          Photos from your guests will appear here once Papic is on for this
+          celebration.
         </p>
       ) : captureRows.length === 0 ? (
         <p className="sn-row px-4 py-3 text-sm text-ink/65">

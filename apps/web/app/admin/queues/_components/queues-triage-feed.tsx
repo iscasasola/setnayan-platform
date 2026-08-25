@@ -311,6 +311,12 @@ const SETTLE_NOTICES: Record<string, { tone: 'warn' | 'ok'; headline: string }> 
   refused: { tone: 'warn', headline: 'That could not be done' },
   missing: { tone: 'warn', headline: 'Nothing was sent — try again' },
   published: { tone: 'ok', headline: 'Published' },
+  /* 🔑 ADDED WITH THE HELP + CHAT-FLAG DRAWERS, 2026-08-26, BECAUSE A GUARD
+     REFUSED TO LET THEM SHIP WITHOUT IT. Both wrappers write `settle=saved`,
+     and an outcome with nowhere to be shown redraws the page identically to
+     doing nothing — the exact failure `guards-can-actually-fire` exists to
+     catch, and it caught this one before it left the branch. */
+  saved: { tone: 'ok', headline: 'Saved' },
 };
 
 export function QueuesTriageFeed({

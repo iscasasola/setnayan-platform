@@ -348,10 +348,7 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
         />
       </div>
 
-      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
-        Source · iteration 0023 § 3.6 · table{' '}
-        <code>vendor_disputes</code> (migration 20260516210000)
-      </p>
+      
     </div>
   );
 }

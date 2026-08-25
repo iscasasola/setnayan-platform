@@ -43,24 +43,27 @@ import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
 import { resolvePapicWindow, formatWindowSummary } from '@/lib/papic-window';
 import { PAPIC_FIDELITY_VALUES } from '@/lib/papic-fidelity';
 
-// Iteration 0012 Papic — storage-target server actions.
+// Iteration 0012 Papic — couple-side server actions.
 //
-// Server actions for the storage-choice radio cards on the Papic setup
-// page. The two actions share most of their logic; they're split so the
-// form posts read cleanly ("setPapicStorageR2" / "setPapicStorageDrive")
-// instead of relying on a hidden "target" field.
+// ⚠ THE STORAGE-TARGET ACTIONS WERE DELETED 2026-08-26, along with the
+// "Where your photos go" radio cards and the "Photo quality" picker they
+// sat beside. Owner: *"i was thinking of not asking for setnayan storage?
+// what we want is to offer them to sync this to a google drive"* and *"the
+// photo quality is already set for us by default. we do not need to ask
+// them."*
 //
-// Both actions:
-//   1. Verify caller is signed in and a couple on the target event.
-//   2. Refuse to switch to google_drive_only without an active
-//      oauth_grants row (provider='drive', revoked_at IS NULL). The
-//      Connect-Drive flow handles that upsert; switching to Drive before
-//      connecting would leave the capture pipeline in a broken state.
-//   3. Update events.papic_storage_target via the admin client (events
-//      writes are RLS-gated; admin client bypasses the gate after the
-//      app-level couple check above).
-//   4. Revalidate the Papic setup page so the radio reflects the new
-//      state on the next render.
+// 🔑 The storage choice never did anything. `events.papic_storage_target`
+// was read by exactly three files — the card that drew it, these actions,
+// and the Drive disconnect route — and by NO capture, upload or storage
+// path; the comment describing that branch is still a `TODO(0012)` at the
+// foot of page.tsx. "Use my Google Drive only" was never Drive-only.
+// Setnayan storage is simply how it works now, and Drive is an offer to
+// send yourself a copy (see `DriveCopyCard`).
+//
+// Both columns REMAIN, deliberately: `papic_quality_tier` keeps its
+// database default and capture ingest still reads it, and the disconnect
+// route still resets legacy `google_drive_only` rows. Dropping a column to
+// retire a question is risk with no payoff.
 
 async function getCoupleEventId(rawEventId: FormDataEntryValue | null): Promise<{
   ok: true;
@@ -88,40 +91,11 @@ async function getCoupleEventId(rawEventId: FormDataEntryValue | null): Promise<
   if (!membership || membership.member_type !== 'couple') {
     return {
       ok: false,
-      redirectTo: `/dashboard/${eventId}/studio/papic?storage_error=not_a_couple`,
+      redirectTo: `/dashboard/${eventId}/studio/papic?papic_access_error=not_a_couple`,
     };
   }
 
   return { ok: true, eventId };
-}
-
-/**
- * Switch Papic photo storage to Setnayan R2 (the default, recommended).
- * Always safe to call — no Drive grant is required.
- */
-export async function setPapicStorageR2(formData: FormData) {
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from('events')
-    .update({ papic_storage_target: 'setnayan_r2' })
-    .eq('event_id', eventId);
-
-  if (error) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic?storage_error=${encodeURIComponent(
-        error.message.slice(0, 64),
-      )}`,
-    );
-  }
-
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  redirect(`/dashboard/${eventId}/studio/papic?storage_set=r2`);
 }
 
 /**
@@ -419,95 +393,6 @@ export async function setPapicStyle(formData: FormData) {
   redirect(`/dashboard/${eventId}/studio/papic?style_set=${style}`);
 }
 
-/**
- * Set the per-event Papic photo fidelity tier (brief PR-4) — the WRITE seam of
- * the single `events.papic_quality_tier` column the capture ingest reads
- * (lib/papic-ingest-fidelity.ts). Couple-only (getCoupleEventId); the value is
- * validated against the shared PAPIC_FIDELITY_VALUES vocabulary (mirrors the
- * column CHECK) so a tampered form can't write an off-list value. Applies to
- * photos captured AFTER the change — existing photos are never re-processed.
- */
-export async function setPapicQualityTier(formData: FormData) {
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-
-  const raw = formData.get('quality_tier');
-  const tier = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
-  if (!(PAPIC_FIDELITY_VALUES as readonly string[]).includes(tier)) {
-    redirect(`/dashboard/${eventId}/studio/papic?quality_error=invalid`);
-  }
-
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from('events')
-    .update({ papic_quality_tier: tier })
-    .eq('event_id', eventId);
-
-  if (error) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic?quality_error=${encodeURIComponent(
-        error.message.slice(0, 64),
-      )}`,
-    );
-  }
-
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  redirect(`/dashboard/${eventId}/studio/papic?quality_set=${tier}`);
-}
-
-/**
- * Switch Papic photo storage to Google Drive only. Requires an active
- * oauth_grants row for the event (provider='drive', revoked_at IS NULL).
- * Refuses the switch otherwise — the UI gates the button on connection
- * state, but the server checks again so a stale form submission can't
- * leave the capture pipeline pointed at a phantom Drive grant.
- */
-export async function setPapicStorageDrive(formData: FormData) {
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-
-  const admin = createAdminClient();
-
-  // Defensive re-check: only flip the target if the couple has actually
-  // connected their Drive. The page hides the button when there's no
-  // grant, but the server checks again so a stale form submission can't
-  // leave the capture pipeline pointed at a phantom grant.
-  const { data: grant } = await admin
-    .from('oauth_grants')
-    .select('grant_id')
-    .eq('event_id', eventId)
-    .eq('provider', 'drive')
-    .is('revoked_at', null)
-    .maybeSingle();
-  if (!grant) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic?storage_error=connect_drive_first`,
-    );
-  }
-
-  const { error } = await admin
-    .from('events')
-    .update({ papic_storage_target: 'google_drive_only' })
-    .eq('event_id', eventId);
-
-  if (error) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic?storage_error=${encodeURIComponent(
-        error.message.slice(0, 64),
-      )}`,
-    );
-  }
-
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  redirect(`/dashboard/${eventId}/studio/papic?storage_set=drive`);
-}
-
 // ─────────────────────────────────────────────────────────────────────────
 // Papic · 5 Seats — couple-side seat lifecycle (provision + reissue).
 //
@@ -698,7 +583,8 @@ export async function setClipShowcaseApproval(formData: FormData) {
  * Unlike the seat-clip toggle, the couple has only a READ policy on
  * papic_guest_captures (papic_guest_captures_couple_read) — no couple UPDATE
  * policy. So the write goes through the admin client AFTER the app-level couple
- * check (the same pattern setPapicStorageR2/Drive use to update events), scoped
+ * check (the same admin-after-couple-check pattern the other event writes
+ * in this file use), scoped
  * to (capture_id, event_id) so a forged call can't touch another event's clip.
  */
 export async function setGuestClipShowcaseApproval(formData: FormData) {

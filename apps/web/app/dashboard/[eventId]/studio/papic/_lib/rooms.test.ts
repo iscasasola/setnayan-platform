@@ -51,7 +51,7 @@ test('a junk tab is ignored rather than trusted', () => {
 });
 
 test('after a save, the couple lands where the save happened', () => {
-  assert.equal(resolvePapicRoom({ outcomes: { storage_set: '1' }, windowStart: null }), 'setup');
+  assert.equal(resolvePapicRoom({ outcomes: { style_set: '1' }, windowStart: null }), 'setup');
   assert.equal(
     resolvePapicRoom({ outcomes: { papic_pool_error: 'unavailable' }, windowStart: null }),
     'cameras',

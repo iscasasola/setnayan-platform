@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "db42340bd",
+  "generatedFromRef": "6eca29334",
   "routeCount": 405,
   "destinations": 872,
-  "actions": 586,
-  "blocks": 4031,
+  "actions": 583,
+  "blocks": 4030,
   "routes": {
     "/": {
       "files": [
@@ -6131,6 +6131,7 @@
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-toggle.tsx",
         "dashboard/[eventId]/studio/papic/_components/recap-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/vendor-media-controls.tsx",
+        "dashboard/[eventId]/studio/papic/_components/where-you-stand.tsx",
         "dashboard/[eventId]/studio/papic/_lib/rooms.ts",
         "dashboard/[eventId]/studio/papic/actions.ts",
         "dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx",
@@ -6141,7 +6142,6 @@
         "dashboard/[eventId]/studio/papic/loading.tsx",
         "dashboard/[eventId]/studio/papic/page.tsx",
         "dashboard/[eventId]/studio/papic/papic-window-picker.tsx",
-        "dashboard/[eventId]/studio/papic/quality-picker.tsx",
         "dashboard/[eventId]/studio/papic/style-picker.tsx",
         "dashboard/[eventId]/studio/papic/vendor-challenges-approval.tsx",
         "dashboard/[eventId]/studio/papic/vendor-visibility-actions.ts"
@@ -6177,9 +6177,6 @@
         "setCoupleChallengeActiveAction",
         "setCoupleFaceTaggingDeclined",
         "setPapicGuestCaptureEarly",
-        "setPapicQualityTier",
-        "setPapicStorageDrive",
-        "setPapicStorageR2",
         "setPapicStyle",
         "setPapicWindow",
         "setVendorCapturesHidden"
@@ -6192,11 +6189,13 @@
         "CoupleChallengesManager",
         "DriveConnectCTA",
         "DriveConnectedPanel",
+        "DriveCopyCard",
         "DriveReconnectBanner",
         "DriveSafetyPanel",
         "DslrBridgeSection",
         "ExtraCamerasPicker",
         "FaceTaggingChoice",
+        "Fact",
         "FilterChip",
         "FilterId",
         "Fragment",
@@ -6227,24 +6226,21 @@
         "PoolGalleryToggle",
         "PreservationMeterLine",
         "PreserveToggle",
-        "QualityPicker",
-        "RadioDot",
         "RecapCard",
         "SavePhotoButton",
         "ShowcaseToggle",
         "ShutterSection",
         "StatusBanners",
         "Stepper",
-        "StorageChoiceCard",
-        "StorageOptionDrive",
-        "StorageOptionR2",
         "StudioBuyHero",
         "StylePicker",
         "SubmitButton",
         "TierOption",
+        "Unmeasured",
         "VendorChallengesApproval",
         "VendorMediaControls",
-        "WallTileLayout"
+        "WallTileLayout",
+        "WhereYouStand"
       ]
     },
     "/dashboard/[eventId]/studio/papic/challenges": {

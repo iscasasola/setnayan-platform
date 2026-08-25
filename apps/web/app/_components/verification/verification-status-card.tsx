@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import {
   VERIFICATION_STATE_LABEL,
+  VERIFICATION_STATE_MEANING,
   type VerificationState,
 } from '@/lib/vendor-verification';
 
@@ -114,7 +115,7 @@ export function VerificationStateBadge({ state }: { state: VerificationState }) 
   return (
     <span
       className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${ADMIN_STATE_PILL_TONE[state]}`}
-      title={`Vendor verification_state = ${state}`}
+      title={VERIFICATION_STATE_MEANING[state]}
     >
       Tier · {VERIFICATION_STATE_LABEL[state]}
     </span>

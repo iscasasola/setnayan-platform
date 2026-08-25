@@ -9,6 +9,12 @@
  * face matching, showcase state, vendor visibility or when guests may shoot got
  * no answer at all: not on success, and — worse — not on failure either.
  *
+ * ⚠ THAT IS HISTORY — ALL NINE ARE WIRED, AND THIS GUARD IS WHY. Do not read
+ * the paragraph above as a description of today. `quality_set` / `quality_error`
+ * have since left the product entirely along with the photo-quality question
+ * (owner, 2026-08-26), so the derived list no longer contains them; the floor
+ * below therefore names `style_error` instead.
+ *
  * 🔑 A GUARD THAT REFUSES IN SILENCE IS INDISTINGUISHABLE FROM ONE THAT PASSED.
  * Same family as the phantom column, the phantom enum value and the blocked
  * iframe: something happens, and the only symptom is an absence.
@@ -152,7 +158,7 @@ test('the scan finds the outcomes (a guard reading nothing passes everything)', 
       `${spanning} sits on a continuation line — if it is missing the scan has gone newline-blind again`,
     );
   }
-  for (const known of ['style_set', 'quality_error', 'faceTagging', 'guestCameras']) {
+  for (const known of ['style_set', 'style_error', 'faceTagging', 'guestCameras']) {
     assert.ok(KEYS.includes(known), `${known} must be found by the scan`);
   }
 });

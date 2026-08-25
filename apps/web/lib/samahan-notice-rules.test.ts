@@ -17,30 +17,55 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  COLLAPSE_WINDOW_MS,
   selectSamahanRecipients,
   samahanNoticeCopy,
   samahanNoticeUrl,
 } from './samahan-notice-rules';
+
+const NOW = Date.parse('2026-08-25T12:00:00Z');
+const minutesAgo = (m: number) => new Date(NOW - m * 60_000).toISOString();
 
 const ANA = 'ana';
 const BEN = 'ben';
 const CARI = 'cari';
 
 test('the person who posted is never told about their own post', () => {
-  assert.deepEqual(selectSamahanRecipients([ANA, BEN, CARI], ANA, []), [BEN, CARI]);
+  assert.deepEqual(selectSamahanRecipients([ANA, BEN, CARI], ANA, [], NOW), [BEN, CARI]);
 });
 
-test('a person already holding an unread notice is skipped', () => {
-  assert.deepEqual(selectSamahanRecipients([ANA, BEN, CARI], ANA, [BEN]), [CARI]);
-  assert.deepEqual(selectSamahanRecipients([ANA, BEN, CARI], ANA, [BEN, CARI]), []);
+test('a person already holding a recent unread notice is skipped', () => {
+  const recent = (id: string) => ({ userId: id, createdAt: minutesAgo(5) });
+  assert.deepEqual(
+    selectSamahanRecipients([ANA, BEN, CARI], ANA, [recent(BEN)], NOW),
+    [CARI],
+  );
+  assert.deepEqual(
+    selectSamahanRecipients([ANA, BEN, CARI], ANA, [recent(BEN), recent(CARI)], NOW),
+    [],
+  );
+});
+
+test('an OLD unread notice does not mute the group forever', () => {
+  // The tray's Open button does not mark anything read — that is a separate
+  // press many people never make. Collapsing on "has any unread notice" would
+  // therefore have silenced a samahan permanently for anybody with one stale
+  // notice, and the symptom would have been an absence nobody can see.
+  const stale = { userId: BEN, createdAt: minutesAgo(COLLAPSE_WINDOW_MS / 60_000 + 1) };
+  assert.deepEqual(selectSamahanRecipients([ANA, BEN, CARI], ANA, [stale], NOW), [BEN, CARI]);
+});
+
+test('an unreadable timestamp rings rather than mutes', () => {
+  const broken = { userId: BEN, createdAt: 'not a date' };
+  assert.deepEqual(selectSamahanRecipients([ANA, BEN, CARI], ANA, [broken], NOW), [BEN, CARI]);
 });
 
 test('a refused collapse read rings everybody rather than nobody', () => {
-  assert.deepEqual(selectSamahanRecipients([ANA, BEN, CARI], ANA, null), [BEN, CARI]);
+  assert.deepEqual(selectSamahanRecipients([ANA, BEN, CARI], ANA, null, NOW), [BEN, CARI]);
 });
 
 test('a duplicated or empty roster row cannot double-ring or crash', () => {
-  assert.deepEqual(selectSamahanRecipients([ANA, BEN, BEN, ''], ANA, []), [BEN]);
+  assert.deepEqual(selectSamahanRecipients([ANA, BEN, BEN, ''], ANA, [], NOW), [BEN]);
 });
 
 test('the notice points where the thing actually is, and that is the collapse key', () => {

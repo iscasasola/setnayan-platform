@@ -9,9 +9,12 @@ Two new notification types (`samahan_story`, `samahan_message`), one shared fan-
 (`lib/samahan-notify.ts`) called from the story route and the Usapan post action through
 `after()`, so the poster never waits on it and a failure can never unmake the post.
 
-- **One unread notice per samahan per person.** Group chat is bursty; a row per message would
-  bury every other notification under a conversation the person is already in. Reading the tray
-  clears it and the next burst rings once more.
+- **One unread notice per samahan per person, within an hour.** Group chat is bursty; a row per
+  message would bury every other notification under a conversation the person is already in.
+  🔑 **The hour is what stops the collapse becoming a permanent mute** — the tray's Open button
+  does not mark anything read, and clearing is a separate press many people never make, so
+  collapsing on "has any unread notice" would have silenced a samahan for good for anybody holding
+  one stale notice. Bursts are minutes apart; a mute is forever.
 - **The collapse read fails toward ringing.** Supabase resolves with `{ error }` and an empty
   list, which is indistinguishable from "nobody is ringing" — treating that as "everyone is
   already notified" would silence the feature the moment the query broke.

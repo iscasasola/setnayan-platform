@@ -2,6 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import {
+  COLLAPSE_WINDOW_MS,
   NOTICE_TYPE,
   samahanNoticeCopy,
   samahanNoticeUrl,
@@ -10,7 +11,7 @@ import {
 } from '@/lib/samahan-notice-rules';
 
 export type { SamahanNoticeKind };
-export { samahanNoticeCopy, samahanNoticeUrl, selectSamahanRecipients };
+export { COLLAPSE_WINDOW_MS, samahanNoticeCopy, samahanNoticeUrl, selectSamahanRecipients };
 
 // THE SAMAHAN WAS SILENT — the group could not reach its own members.
 //
@@ -112,17 +113,21 @@ export async function notifySamahanCoMembers(args: {
     // at the top of this file.
     const { data: standing, error: standingErr } = await admin
       .from('notifications')
-      .select('user_id')
+      .select('user_id, created_at')
       .eq('type', type)
       .eq('related_url', relatedUrl)
       .is('read_at', null)
+      .gte('created_at', new Date(Date.now() - COLLAPSE_WINDOW_MS).toISOString())
       .in('user_id', recipients);
     const toTell = selectSamahanRecipients(
       recipients,
       actorUserId,
       standingErr
         ? null
-        : (standing ?? []).map((r) => (r as { user_id: string }).user_id),
+        : (standing ?? []).map((r) => {
+            const row = r as { user_id: string; created_at: string };
+            return { userId: row.user_id, createdAt: row.created_at };
+          }),
     );
     if (toTell.length === 0) return 0;
 

@@ -76,16 +76,53 @@ export function Screen({
  * Composites
  * ------------------------------------------------------------------ */
 
-/** Eyebrow + title (+ optional trailing action buttons). */
-export function HeaderSkeleton({ actions = 0 }: { actions?: number }) {
+/**
+ * The top strip — and on most pages there is no longer one to draw.
+ *
+ * 🛑 A SKELETON IS A PROMISE ABOUT THE PAGE THAT REPLACES IT. This one drew an
+ * eyebrow pill and a 32px title bar on every screen that composed it, and
+ * `<PageMasthead>` stopped drawing either of those things: the eyebrow went on
+ * 2026-07-21, the lede on 08-18, the title and the back chevron on 08-21, the
+ * (i) hours after that. What ships now is an `sr-only` <h1> and, on a handful of
+ * pages, an actions row — "the page begins at its own first element". The
+ * skeletons never followed, so for months the shimmer reserved ~52px of chrome
+ * that never arrived and every screen jumped upward the moment it landed.
+ *
+ * So the title is now OPT-IN, and the default is nothing at all:
+ *   • `title` — pass it only when the real screen genuinely draws a big heading
+ *     of its own (a door card, a buy hero, a form page that kept its <h1>).
+ *     91 of the 144 loaders that compose a template want none.
+ *   • `actions` — how many buttons the page's masthead actually renders. Zero
+ *     means the strip does not exist, exactly as the masthead's own early
+ *     return means it does not exist.
+ * With neither, this renders NULL — no box, no margin, no gap.
+ *
+ * ⛔ The eyebrow bar is DELETED, not made opt-in. It is a retired element, and a
+ * prop named after it is an invitation to bring it back. The ~10 door screens
+ * whose card really does carry a terracotta eyebrow lose one 12px pill from
+ * their shimmer; that is the deliberate price of not keeping the retired shape
+ * alive in the shared component.
+ *
+ * 🛡 `the-skeleton-promises-only-what-the-page-draws.test.ts` derives the answer
+ * for every loader from its own route's page tree, so this cannot drift back.
+ */
+export function HeaderSkeleton({
+  title = false,
+  actions = 0,
+}: {
+  title?: boolean;
+  actions?: number;
+}) {
+  // The common case: the page starts at its content, so the skeleton does too.
+  if (!title && actions < 1) return null;
+
+  // Same wrapper the masthead uses, so the strip cannot land in a different
+  // place from the one the skeleton reserved for it.
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div className="space-y-2">
-        <Sk className="h-3 w-28 rounded" />
-        <Sk className="h-8 w-56 max-w-full rounded-md" />
-      </div>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      {title ? <Sk className="h-8 w-56 max-w-full rounded-md" /> : null}
       {actions > 0 ? (
-        <div className="flex gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
           {Array.from({ length: actions }).map((_, i) => (
             <Sk key={i} className="h-11 w-28 rounded-md" />
           ))}
@@ -144,16 +181,18 @@ export function ListPageSkeleton({
   rows = 8,
   toolbar = true,
   stats = 0,
-  actions = 2,
+  actions = 0,
+  title = false,
 }: {
   rows?: number;
   toolbar?: boolean;
   stats?: number;
   actions?: number;
+  title?: boolean;
 }) {
   return (
     <Screen>
-      <HeaderSkeleton actions={actions} />
+      <HeaderSkeleton title={title} actions={actions} />
       {stats > 0 ? <StatStripSkeleton count={stats} /> : null}
       {toolbar ? <ToolbarSkeleton /> : null}
       <div className="space-y-2.5">
@@ -170,16 +209,18 @@ export function GridPageSkeleton({
   tiles = 9,
   cols = 'sm:grid-cols-2 lg:grid-cols-3',
   tileClass = 'h-44',
-  actions = 1,
+  actions = 0,
+  title = false,
 }: {
   tiles?: number;
   cols?: string;
   tileClass?: string;
   actions?: number;
+  title?: boolean;
 }) {
   return (
     <Screen>
-      <HeaderSkeleton actions={actions} />
+      <HeaderSkeleton title={title} actions={actions} />
       <ul className={`grid grid-cols-1 gap-4 ${cols}`}>
         {Array.from({ length: tiles }).map((_, i) => (
           <li
@@ -197,10 +238,18 @@ export function GridPageSkeleton({
 }
 
 /** Form / editor pages: header → stacked label+field pairs → submit. */
-export function FormPageSkeleton({ fields = 6, actions = 0 }: { fields?: number; actions?: number }) {
+export function FormPageSkeleton({
+  fields = 6,
+  actions = 0,
+  title = false,
+}: {
+  fields?: number;
+  actions?: number;
+  title?: boolean;
+}) {
   return (
     <Screen className="mx-auto max-w-2xl space-y-6">
-      <HeaderSkeleton actions={actions} />
+      <HeaderSkeleton title={title} actions={actions} />
       <div className="space-y-5 rounded-2xl border border-ink/10 bg-cream p-5">
         {Array.from({ length: fields }).map((_, i) => (
           <div key={i} className="space-y-2">
@@ -215,10 +264,16 @@ export function FormPageSkeleton({ fields = 6, actions = 0 }: { fields?: number;
 }
 
 /** Detail pages: header → 2-col (main panel + aside). */
-export function DetailPageSkeleton() {
+export function DetailPageSkeleton({
+  actions = 0,
+  title = false,
+}: {
+  actions?: number;
+  title?: boolean;
+} = {}) {
   return (
     <Screen>
-      <HeaderSkeleton actions={1} />
+      <HeaderSkeleton title={title} actions={actions} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
           <Sk className="h-48 w-full rounded-2xl" />
@@ -238,10 +293,20 @@ export function DetailPageSkeleton() {
 }
 
 /** Admin table pages: header → toolbar → table rows. */
-export function TablePageSkeleton({ rows = 10, cols = 5 }: { rows?: number; cols?: number }) {
+export function TablePageSkeleton({
+  rows = 10,
+  cols = 5,
+  actions = 0,
+  title = false,
+}: {
+  rows?: number;
+  cols?: number;
+  actions?: number;
+  title?: boolean;
+}) {
   return (
     <Screen>
-      <HeaderSkeleton actions={1} />
+      <HeaderSkeleton title={title} actions={actions} />
       <ToolbarSkeleton />
       <div className="overflow-hidden rounded-xl border border-ink/10">
         <div className="flex gap-4 border-b border-ink/10 bg-ink/[0.02] px-4 py-3">
@@ -262,10 +327,18 @@ export function TablePageSkeleton({ rows = 10, cols = 5 }: { rows?: number; cols
 }
 
 /** Thread / feed pages: header → stacked message-ish cards. (Messages, activity…) */
-export function FeedPageSkeleton({ items = 6 }: { items?: number }) {
+export function FeedPageSkeleton({
+  items = 6,
+  actions = 0,
+  title = false,
+}: {
+  items?: number;
+  actions?: number;
+  title?: boolean;
+}) {
   return (
     <Screen>
-      <HeaderSkeleton actions={0} />
+      <HeaderSkeleton title={title} actions={actions} />
       <div className="space-y-3">
         {Array.from({ length: items }).map((_, i) => (
           <div key={i} className="flex gap-3 rounded-2xl border border-ink/10 bg-cream p-4">
@@ -283,10 +356,16 @@ export function FeedPageSkeleton({ items = 6 }: { items?: number }) {
 }
 
 /** Canvas / board editor pages: toolbar → sidebar + big canvas. (Seating, site-editor…) */
-export function BoardPageSkeleton() {
+export function BoardPageSkeleton({
+  actions = 0,
+  title = false,
+}: {
+  actions?: number;
+  title?: boolean;
+} = {}) {
   return (
     <Screen>
-      <HeaderSkeleton actions={2} />
+      <HeaderSkeleton title={title} actions={actions} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
         <aside className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -300,10 +379,16 @@ export function BoardPageSkeleton() {
 }
 
 /** Generic fallback for the long tail — a calm, content-shaped shell. */
-export function PageSkeleton() {
+export function PageSkeleton({
+  actions = 0,
+  title = false,
+}: {
+  actions?: number;
+  title?: boolean;
+} = {}) {
   return (
     <Screen>
-      <HeaderSkeleton actions={1} />
+      <HeaderSkeleton title={title} actions={actions} />
       <Sk className="h-40 w-full rounded-2xl" />
       <div className="space-y-2.5">
         {Array.from({ length: 5 }).map((_, i) => (

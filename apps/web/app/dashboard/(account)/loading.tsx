@@ -38,9 +38,11 @@
  * Shape rationale — generic-but-structured so it maps cleanly onto
  * every non-event `/dashboard/*` surface without pretending to be any
  * specific one:
- *   1. Header strip — eyebrow + title + subtitle stub, matches the
- *      page-header pattern used by `/profile` + `/create-event` +
- *      `/notifications` + `/api-keys`.
+ *   1. NO header strip. It used to draw an eyebrow + title + subtitle
+ *      "matching the page-header pattern used by /profile +
+ *      /create-event + /notifications + /api-keys" — and that pattern
+ *      was deleted in four steps between 2026-07-21 and 2026-08-21.
+ *      Every one of those pages now begins at its own first element.
  *   2. Primary panel — wide rounded card, reads as a "current focus"
  *      area: the create-event tile picker, the profile-edit form, the
  *      next-event card on dashboard root, etc.
@@ -74,12 +76,11 @@ export default function DashboardLoading() {
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <Screen label="Loading dashboard">
-        {/* Header — eyebrow + title + subtitle */}
-        <header className="space-y-2">
-          <Sk className="h-3 w-32 rounded" />
-          <Sk className="h-9 w-64 max-w-full rounded-md" />
-          <Sk className="h-4 w-80 max-w-full rounded" />
-        </header>
+        {/* NO HEADER STRIP — the pattern this used to mirror is gone. Every
+            page this boundary covers (profile · notifications · create-event ·
+            api-keys · your year · people · library · samahan) now starts at its
+            own first element, so an eyebrow + title + subtitle here is a promise
+            none of them keeps. */}
 
         {/* Primary panel — create-event picker / profile form / event card */}
         <Sk className="h-36 rounded-2xl" />

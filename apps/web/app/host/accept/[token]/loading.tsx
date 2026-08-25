@@ -1,2 +1,6 @@
 // Host-invite accept flow — form shell while the token resolves.
-export { FormPageSkeleton as default } from '@/components/skeletons';
+import { FormPageSkeleton } from '@/components/skeletons';
+
+export default function Loading() {
+  return <FormPageSkeleton title />;
+}

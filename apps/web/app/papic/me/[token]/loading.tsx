@@ -1,2 +1,6 @@
 // Papic · your camera — form shell while the personal QR resolves.
-export { FormPageSkeleton as default } from '@/components/skeletons';
+import { FormPageSkeleton } from '@/components/skeletons';
+
+export default function Loading() {
+  return <FormPageSkeleton title />;
+}

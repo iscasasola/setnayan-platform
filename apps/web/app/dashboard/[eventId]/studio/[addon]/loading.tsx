@@ -1,2 +1,6 @@
 // Generic add-on detail/landing — card-grid shell while the SKU loads.
-export { GridPageSkeleton as default } from '@/components/skeletons';
+import { GridPageSkeleton } from '@/components/skeletons';
+
+export default function Loading() {
+  return <GridPageSkeleton title />;
+}

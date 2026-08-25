@@ -1,2 +1,6 @@
 // Guest find-my-table — detail shell while the seating lookup loads.
-export { DetailPageSkeleton as default } from '@/components/skeletons';
+import { DetailPageSkeleton } from '@/components/skeletons';
+
+export default function Loading() {
+  return <DetailPageSkeleton title />;
+}

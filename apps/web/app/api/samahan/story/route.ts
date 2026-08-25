@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
 import { classifyImageBytes, decideNsfw } from '@/lib/nsfw-screen';
 import { hardDeleteStory } from '@/lib/samahan-stories';
+import { notifySamahanCoMembers } from '@/lib/samahan-notify';
 
 // POST /api/samahan/story — a member posts one story clip to their samahan.
 // DELETE /api/samahan/story — the author takes their own story down early.
@@ -125,6 +126,12 @@ export async function POST(req: Request): Promise<NextResponse> {
     if (error?.code === '23505') return bad(409, 'one_per_hour');
     return bad(500, 'save_failed');
   }
+  // The group hears it. A story is gone in 24 hours by RLS, so a member who is
+  // never told has not missed a notification — they have missed the thing
+  // itself. Runs after the response; a failure here cannot unmake the story.
+  after(() =>
+    notifySamahanCoMembers({ communityId, actorUserId: user.id, kind: 'story' }),
+  );
   return NextResponse.json({ ok: true, story: inserted });
 }
 

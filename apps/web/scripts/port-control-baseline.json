@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d5f18e49c",
+  "generatedFromRef": "c32f7c167",
   "routeCount": 405,
-  "destinations": 867,
+  "destinations": 869,
   "actions": 586,
-  "blocks": 3991,
+  "blocks": 4026,
   "routes": {
     "/": {
       "files": [
@@ -3810,6 +3810,7 @@
     },
     "/dashboard/(account)/profile": {
       "files": [
+        "dashboard/(account)/profile/_components/analytics-choice.tsx",
         "dashboard/(account)/profile/_components/haptics-toggle.tsx",
         "dashboard/(account)/profile/_components/push-toggle.tsx",
         "dashboard/(account)/profile/actions.ts",
@@ -3844,8 +3845,10 @@
         "updateUserSlug"
       ],
       "blocks": [
+        "AnalyticsChoice",
         "ArrayBuffer",
         "ConfirmForm",
+        "CookieConsent",
         "Field",
         "FileUpload",
         "FormFlash",
@@ -3897,7 +3900,8 @@
       "blocks": [
         "CommunityRow",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "QuietStart"
       ]
     },
     "/dashboard/(account)/samahan/[communityId]": {
@@ -3933,7 +3937,6 @@
         "OverviewTab",
         "SamahanIdentityHeader",
         "SamahanStories",
-        "SamahanStory",
         "SubmitButton",
         "UsapanTab"
       ]
@@ -4279,12 +4282,14 @@
       "files": [
         "dashboard/[eventId]/access-requests/_components/request-card.tsx",
         "dashboard/[eventId]/access-requests/actions.ts",
+        "dashboard/[eventId]/access-requests/loading.tsx",
         "dashboard/[eventId]/access-requests/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
         "AnswerResult",
+        "ListPageSkeleton",
         "PageMasthead",
         "RequestCard"
       ]
@@ -4295,17 +4300,20 @@
         "dashboard/[eventId]/activity/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]"
+        "/dashboard/[seg]",
+        "/dashboard/[seg]/guests"
       ],
       "actions": [],
       "blocks": [
         "FeedPageSkeleton",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "QuietStart"
       ]
     },
     "/dashboard/[eventId]/alaala": {
       "files": [
+        "dashboard/[eventId]/alaala/loading.tsx",
         "dashboard/[eventId]/alaala/page.tsx"
       ],
       "destinations": [
@@ -4317,6 +4325,7 @@
       "blocks": [
         "Chip",
         "Link",
+        "ListPageSkeleton",
         "PageMasthead",
         "Stage"
       ]
@@ -4325,6 +4334,7 @@
       "files": [
         "dashboard/[eventId]/alaala/assignments/_components/assignment-controls.tsx",
         "dashboard/[eventId]/alaala/assignments/actions.ts",
+        "dashboard/[eventId]/alaala/assignments/loading.tsx",
         "dashboard/[eventId]/alaala/assignments/page.tsx"
       ],
       "destinations": [
@@ -4336,6 +4346,7 @@
         "AssignmentRow",
         "GuestPicker",
         "Link",
+        "ListPageSkeleton",
         "NotSharedWithYou",
         "PageMasthead"
       ]
@@ -4399,12 +4410,14 @@
     },
     "/dashboard/[eventId]/checklist": {
       "files": [
+        "dashboard/[eventId]/checklist/loading.tsx",
         "dashboard/[eventId]/checklist/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
-        "ChecklistFull"
+        "ChecklistFull",
+        "ListPageSkeleton"
       ]
     },
     "/dashboard/[eventId]/clearance": {
@@ -4630,6 +4643,7 @@
     },
     "/dashboard/[eventId]/galleries": {
       "files": [
+        "dashboard/[eventId]/galleries/loading.tsx",
         "dashboard/[eventId]/galleries/page.tsx"
       ],
       "destinations": [],
@@ -4637,6 +4651,7 @@
       "blocks": [
         "Icon",
         "Link",
+        "ListPageSkeleton",
         "PageMasthead",
         "RevealList"
       ]
@@ -5063,11 +5078,13 @@
     },
     "/dashboard/[eventId]/launch": {
       "files": [
+        "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
+        "GridPageSkeleton",
         "Icon",
         "Link",
         "PageMasthead"
@@ -5346,12 +5363,14 @@
     },
     "/dashboard/[eventId]/people": {
       "files": [
+        "dashboard/[eventId]/people/loading.tsx",
         "dashboard/[eventId]/people/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
         "Link",
+        "ListPageSkeleton",
         "PageMasthead"
       ]
     },
@@ -5786,6 +5805,7 @@
     },
     "/dashboard/[eventId]/studio/custom-qr-guest/print": {
       "files": [
+        "dashboard/[eventId]/studio/custom-qr-guest/print/loading.tsx",
         "dashboard/[eventId]/studio/custom-qr-guest/print/page.tsx"
       ],
       "destinations": [
@@ -5793,6 +5813,7 @@
       ],
       "actions": [],
       "blocks": [
+        "GridPageSkeleton",
         "Link"
       ]
     },
@@ -5825,7 +5846,8 @@
       "blocks": [
         "ColumnActionResult",
         "ColumnQueueControls",
-        "Link"
+        "Link",
+        "QuietStart"
       ]
     },
     "/dashboard/[eventId]/studio/indoor-blueprint": {
@@ -5938,6 +5960,7 @@
         "dashboard/[eventId]/studio/pakanta/_components/pakanta-music-form.tsx",
         "dashboard/[eventId]/studio/pakanta/_components/use-song-button.tsx",
         "dashboard/[eventId]/studio/pakanta/actions.ts",
+        "dashboard/[eventId]/studio/pakanta/loading.tsx",
         "dashboard/[eventId]/studio/pakanta/page.tsx"
       ],
       "destinations": [
@@ -5952,6 +5975,7 @@
         "HTMLFormElement",
         "InlineCheckoutDrawer",
         "Link",
+        "ListPageSkeleton",
         "PageMasthead",
         "PakantaIntakeResponses",
         "PakantaMusicForm",
@@ -6019,6 +6043,7 @@
         "CopyLink",
         "Link",
         "PageMasthead",
+        "QuietStart",
         "ReissueCameraButton"
       ]
     },
@@ -6214,6 +6239,7 @@
     },
     "/dashboard/[eventId]/studio/papic/challenges": {
       "files": [
+        "dashboard/[eventId]/studio/papic/challenges/loading.tsx",
         "dashboard/[eventId]/studio/papic/challenges/page.tsx"
       ],
       "destinations": [
@@ -6222,7 +6248,8 @@
       "actions": [],
       "blocks": [
         "CoupleChallengesManager",
-        "Link"
+        "Link",
+        "ListPageSkeleton"
       ]
     },
     "/dashboard/[eventId]/studio/papic/crew": {
@@ -6267,6 +6294,7 @@
         "dashboard/[eventId]/studio/papic/moderation/_components/kwento-queue-controls.tsx",
         "dashboard/[eventId]/studio/papic/moderation/_components/kwento-queue.tsx",
         "dashboard/[eventId]/studio/papic/moderation/actions.ts",
+        "dashboard/[eventId]/studio/papic/moderation/loading.tsx",
         "dashboard/[eventId]/studio/papic/moderation/page.tsx"
       ],
       "destinations": [
@@ -6274,6 +6302,7 @@
       ],
       "actions": [],
       "blocks": [
+        "GridPageSkeleton",
         "KwentoActionResult",
         "KwentoQueue",
         "KwentoQueueControls",
@@ -6288,6 +6317,7 @@
         "dashboard/[eventId]/studio/papic/recap/_components/recap-drive-nudge.tsx",
         "dashboard/[eventId]/studio/papic/recap/_components/recap-social-feature-toggle.tsx",
         "dashboard/[eventId]/studio/papic/recap/actions.ts",
+        "dashboard/[eventId]/studio/papic/recap/loading.tsx",
         "dashboard/[eventId]/studio/papic/recap/page.tsx"
       ],
       "destinations": [
@@ -6302,6 +6332,7 @@
       "blocks": [
         "DriveSafetyPanel",
         "Link",
+        "ListPageSkeleton",
         "PageMasthead",
         "RecapDriveNudge",
         "RecapSocialFeatureToggle",
@@ -6511,6 +6542,7 @@
     },
     "/dashboard/[eventId]/studio/save-the-date/stamp": {
       "files": [
+        "dashboard/[eventId]/studio/save-the-date/stamp/loading.tsx",
         "dashboard/[eventId]/studio/save-the-date/stamp/page.tsx",
         "dashboard/[eventId]/studio/save-the-date/stamp/wax-stamp-maker.tsx"
       ],
@@ -6521,6 +6553,7 @@
         "saveWaxSeal"
       ],
       "blocks": [
+        "FormPageSkeleton",
         "FrameRequestCallback",
         "HTMLCanvasElement",
         "HTMLDivElement",
@@ -6619,6 +6652,7 @@
         "dashboard/[eventId]/suite/_components/suite-search.tsx",
         "dashboard/[eventId]/suite/_components/suite-service-card.tsx",
         "dashboard/[eventId]/suite/_components/suite-vignette-card.tsx",
+        "dashboard/[eventId]/suite/loading.tsx",
         "dashboard/[eventId]/suite/page.tsx"
       ],
       "destinations": [
@@ -6637,6 +6671,7 @@
       "blocks": [
         "Icon",
         "Link",
+        "ListPageSkeleton",
         "PageMasthead",
         "RevealList",
         "RowPill",
@@ -8106,6 +8141,7 @@
         "/papic/me/[seg]/download",
         "/papic/me/[seg]/photo?id=[seg]&src=[seg]",
         "/papic/me/[seg]/session",
+        "/papic/me/[seg]/session?next=guest",
         "/papic/me/[seg]/session?next=pool",
         "/papic/seat/[seg]"
       ],
@@ -8852,6 +8888,7 @@
     "/vendor-dashboard/booking-fees": {
       "files": [
         "vendor-dashboard/booking-fees/actions.ts",
+        "vendor-dashboard/booking-fees/loading.tsx",
         "vendor-dashboard/booking-fees/page.tsx"
       ],
       "destinations": [
@@ -8861,17 +8898,20 @@
       "blocks": [
         "FeeGroup",
         "Link",
+        "ListPageSkeleton",
         "PageMasthead"
       ]
     },
     "/vendor-dashboard/booking-fees/[orderId]": {
       "files": [
+        "vendor-dashboard/booking-fees/[orderId]/loading.tsx",
         "vendor-dashboard/booking-fees/[orderId]/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
         "CopyButton",
+        "DetailPageSkeleton",
         "Link",
         "PageMasthead",
         "ShopNotice"
@@ -8918,6 +8958,7 @@
     "/vendor-dashboard/calendar": {
       "files": [
         "vendor-dashboard/calendar/actions.ts",
+        "vendor-dashboard/calendar/loading.tsx",
         "vendor-dashboard/calendar/page.tsx",
         "vendor-dashboard/calendar/surface.tsx"
       ],
@@ -8941,6 +8982,7 @@
         "updateWaitlistSettings"
       ],
       "blocks": [
+        "BoardPageSkeleton",
         "ConfirmForm",
         "Link",
         "SubmitButton"
@@ -8965,6 +9007,7 @@
     },
     "/vendor-dashboard/clients": {
       "files": [
+        "vendor-dashboard/clients/loading.tsx",
         "vendor-dashboard/clients/page.tsx",
         "vendor-dashboard/clients/surface.tsx"
       ],
@@ -8981,6 +9024,7 @@
       "blocks": [
         "ConfirmForm",
         "Link",
+        "ListPageSkeleton",
         "StageChip",
         "SubmitButton"
       ]
@@ -9294,6 +9338,7 @@
         "vendor-dashboard/deep-search/_components/deep-search-runner.tsx",
         "vendor-dashboard/deep-search/_components/dossier-view.tsx",
         "vendor-dashboard/deep-search/actions.ts",
+        "vendor-dashboard/deep-search/loading.tsx",
         "vendor-dashboard/deep-search/page.tsx"
       ],
       "destinations": [],
@@ -9303,6 +9348,7 @@
       "blocks": [
         "DeepSearchRunner",
         "DossierView",
+        "ListPageSkeleton",
         "PageMasthead",
         "Section",
         "SubmitButton",
@@ -9312,11 +9358,13 @@
     "/vendor-dashboard/demand": {
       "files": [
         "vendor-dashboard/demand/_components/demand-radar-card.tsx",
+        "vendor-dashboard/demand/loading.tsx",
         "vendor-dashboard/demand/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ListPageSkeleton",
         "ShopCard",
         "SignalTile"
       ]
@@ -9533,6 +9581,7 @@
         "ThreadAttribution",
         "ThreadCallLauncher",
         "ThreadInterestChips",
+        "VendorEventDayPrepCta",
         "VendorOfferService",
         "VendorPaymentLive"
       ]
@@ -9663,6 +9712,7 @@
         "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-notes-actions.ts",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-notes-card.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-script/stage-script.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/loading.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/page.tsx"
       ],
       "destinations": [
@@ -9690,6 +9740,7 @@
         "ConsoleRule",
         "Coverage",
         "CueCard",
+        "FeedPageSkeleton",
         "FloorActionResult",
         "FloorClock",
         "Group",
@@ -9782,6 +9833,7 @@
     "/vendor-dashboard/partnerships": {
       "files": [
         "vendor-dashboard/partnerships/actions.ts",
+        "vendor-dashboard/partnerships/loading.tsx",
         "vendor-dashboard/partnerships/page.tsx"
       ],
       "destinations": [],
@@ -9794,6 +9846,7 @@
       ],
       "blocks": [
         "FormFlash",
+        "ListPageSkeleton",
         "PageMasthead",
         "SearchParams",
         "SubmitButton"
@@ -9803,6 +9856,7 @@
       "files": [
         "vendor-dashboard/payday/_components/payday-installment-row.tsx",
         "vendor-dashboard/payday/_components/payday-summary.tsx",
+        "vendor-dashboard/payday/loading.tsx",
         "vendor-dashboard/payday/page.tsx",
         "vendor-dashboard/payday/surface.tsx"
       ],
@@ -9812,6 +9866,7 @@
       "actions": [],
       "blocks": [
         "Link",
+        "ListPageSkeleton",
         "PaydayRow",
         "PaydaySummary",
         "ShopEmpty"
@@ -9847,6 +9902,7 @@
         "vendor-dashboard/performance/_components/capacity-card.tsx",
         "vendor-dashboard/performance/_components/conversion-deals-card.tsx",
         "vendor-dashboard/performance/_components/count-up.tsx",
+        "vendor-dashboard/performance/_components/funnel-benchmark-card.tsx",
         "vendor-dashboard/performance/_components/funnel-preview-card.tsx",
         "vendor-dashboard/performance/_components/growth-recs-card.tsx",
         "vendor-dashboard/performance/_components/health-composite-card.tsx",
@@ -9877,6 +9933,7 @@
         "CountUp",
         "DemandRadarCard",
         "EarningsSparkline",
+        "FunnelBenchmarkCard",
         "FunnelPreviewCard",
         "GrowthCard",
         "GrowthRecsCard",
@@ -9897,6 +9954,7 @@
         "SectionEyebrow",
         "ServiceScopeSelectClient",
         "ServiceScopeSelector",
+        "ShopCard",
         "SourceBreakdown",
         "T",
         "Tile",
@@ -9919,6 +9977,7 @@
       "files": [
         "vendor-dashboard/proposals/_components/reuse-inbox.tsx",
         "vendor-dashboard/proposals/actions.ts",
+        "vendor-dashboard/proposals/loading.tsx",
         "vendor-dashboard/proposals/page.tsx",
         "vendor-dashboard/proposals/reuse-actions.ts",
         "vendor-dashboard/proposals/surface.tsx"
@@ -9935,6 +9994,7 @@
       ],
       "blocks": [
         "Link",
+        "ListPageSkeleton",
         "ReuseActionResult",
         "SubmitButton",
         "VendorReuseInbox"
@@ -10338,6 +10398,7 @@
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
+        "vendor-dashboard/subscription/loading.tsx",
         "vendor-dashboard/subscription/page.tsx"
       ],
       "destinations": [
@@ -10355,6 +10416,7 @@
         "BandRail",
         "BoothAddonCard",
         "CycleLink",
+        "GridPageSkeleton",
         "Link",
         "PageMasthead",
         "PayBox",
@@ -10371,6 +10433,7 @@
       "files": [
         "vendor-dashboard/subscription/custom/_components/custom-configurator.tsx",
         "vendor-dashboard/subscription/custom/actions.ts",
+        "vendor-dashboard/subscription/custom/loading.tsx",
         "vendor-dashboard/subscription/custom/page.tsx"
       ],
       "destinations": [
@@ -10383,6 +10446,7 @@
         "ControlShell",
         "CustomComposition",
         "CustomConfigurator",
+        "FormPageSkeleton",
         "K",
         "Link",
         "PageMasthead",
@@ -10485,6 +10549,7 @@
       "files": [
         "vendor-dashboard/website/_domain-manager.tsx",
         "vendor-dashboard/website/actions.ts",
+        "vendor-dashboard/website/loading.tsx",
         "vendor-dashboard/website/page.tsx"
       ],
       "destinations": [
@@ -10494,6 +10559,7 @@
       "blocks": [
         "DomainActionResult",
         "DomainManager",
+        "FormPageSkeleton",
         "Link",
         "PageMasthead"
       ]

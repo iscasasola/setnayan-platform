@@ -159,7 +159,7 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
       <PageMasthead title="Today’s Focus enforcement" />
       <div className="mb-6 space-y-2">
         <p className="text-sm text-ink/70">
-          Multi-account trial-cycling review queue (iteration 0023 § 3.11). Tiered enforcement
+          People opening extra accounts to get another free trial. Tiered enforcement
           ladder: strike 1 → warning · strike 2 → trial banned · strike 3+ → full banned. Single-
           admin authority per § 4.3.
         </p>

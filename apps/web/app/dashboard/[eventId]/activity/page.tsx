@@ -1,6 +1,7 @@
 import Link from 'next/link';
+import { QuietStart } from '@/app/_components/states/quiet-start';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Footprints, Plus } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { fetchEventActivity, relativeTime } from '@/lib/activity';
@@ -50,9 +51,20 @@ export default async function EventActivityPage({
       />
 
       {activity.length === 0 ? (
-        <p className="sn-row border-dashed p-6 text-center text-sm text-ink/55">
-          Nothing yet. Add a guest, book a vendor, or place an order — it&rsquo;ll show up here.
-        </p>
+        <QuietStart
+          Icon={Footprints}
+          title="Nothing has happened yet."
+          blurb="Every guest you add, supplier you book and order you place lands here, newest first — so you can see what moved without asking anyone."
+          action={
+            <Link
+              href={`/dashboard/${eventId}/guests`}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-mulberry-600"
+            >
+              <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Add your first guest
+            </Link>
+          }
+        />
       ) : (
         <ol className="space-y-6">
           {grouped.map(({ day, items }) => (

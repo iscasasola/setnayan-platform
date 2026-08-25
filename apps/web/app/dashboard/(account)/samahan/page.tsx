@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { QuietStart } from '@/app/_components/states/quiet-start';
 import { ArrowUpRight, HeartHandshake, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -49,27 +50,23 @@ export default async function SamahanIndexPage({
       ) : null}
 
       {communities.length === 0 ? (
-        <div className="sn-tile p-8 text-center">
-          <HeartHandshake
-            aria-hidden
-            className="mx-auto h-8 w-8 text-ink/35"
-            strokeWidth={1.75}
-          />
-          <p className="mt-4 text-sm font-semibold text-ink">
-            Wala ka pang samahan.
-          </p>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-ink/60">
-            One shared space for your barkada, parish, or clan — their reunions,
-            tournaments, and outings all in one place.
-          </p>
-          <Link
-            href="/dashboard/samahan/new"
-            className="mt-6 inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-mulberry-600"
-          >
-            <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Create a Samahan
-          </Link>
-        </div>
+        /* The pattern this screen invented now lives in <QuietStart>, so the
+           other screens can wear it too. Same marks, same words — the card was
+           extracted, never redrawn. */
+        <QuietStart
+          Icon={HeartHandshake}
+          title="Wala ka pang samahan."
+          blurb="One shared space for your barkada, parish, or clan — their reunions, tournaments, and outings all in one place."
+          action={
+            <Link
+              href="/dashboard/samahan/new"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-mulberry-600"
+            >
+              <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Create a Samahan
+            </Link>
+          }
+        />
       ) : (
         <div className="sn-tile p-5">
           <div className="divide-y divide-ink/5">

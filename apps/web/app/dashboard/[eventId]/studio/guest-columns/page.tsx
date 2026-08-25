@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { PenLine } from 'lucide-react';
+import { QuietStart } from '@/app/_components/states/quiet-start';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect, notFound } from 'next/navigation';
 import { ArrowLeft, Newspaper } from 'lucide-react';
@@ -151,10 +153,15 @@ export default async function GuestColumnsQueuePage({
           note if it needs another pass. Held columns stay hidden until you decide.
         </p>
         {rows.length === 0 ? (
-          <p className="mt-4 rounded-lg border border-ink/10 bg-cream/40 p-4 text-sm text-ink/50">
-            No columns yet — when a guest writes one from their invitation page, it
-            lands here for your review.
-          </p>
+          /* NO ACTION, deliberately. Only a guest can write a column, from
+             their own invitation page — a button here would be one the host
+             can never press, which is worse than no button. */
+          <QuietStart
+            className="mt-4"
+            Icon={PenLine}
+            title="No one has written yet."
+            blurb="When a guest writes a few words from their invitation page, it arrives here for you to read before anyone else sees it."
+          />
         ) : (
           <>
             {pendingCount > 0 ? (

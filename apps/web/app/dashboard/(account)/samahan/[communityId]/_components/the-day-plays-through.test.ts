@@ -98,3 +98,53 @@ test('taking your own clip down does not end everybody else’s day', () => {
     'removing a clip still closes the whole viewer',
   );
 });
+
+// ── WHAT AN ADVERSARIAL AUDIT OF THIS FILE'S OWN PR FOUND (2026-08-25) ───────
+
+test('the screen actually uses the ordering — not just the library', () => {
+  // 🪤 EVERY OTHER ASSERTION HERE SCANS THE COMPONENT, AND THE ORDERING ONE DID
+  // NOT: it exercised `orderTheDay` directly and never tied the screen to it.
+  // Proved by mutation: deleting the call from the component left the whole
+  // suite green while "Play the day" walked the day backwards to breakfast.
+  assert.match(code, /orderTheDay\(stories\)/, 'the component no longer orders the day at all');
+});
+
+test('a phone that refuses sound does not stop the day', () => {
+  // Only one thing advances this reel: a clip ending. Every clip after the
+  // first is mounted from an `ended` handler with no user gesture behind it,
+  // and iOS refuses to autoplay audio without one — so the film would sit on
+  // clip two forever, with nothing to say why. Continue muted instead, and
+  // offer the sound back on a real tap.
+  assert.match(code, /\.play\(\)/, 'nothing asks the clip to play');
+  assert.match(code, /setReelMuted\(true\)/, 'a refused play does not fall back to muted');
+  assert.match(code, /muted=\{reelMuted\}/, 'the fallback never reaches the element');
+  assert.match(code, /Turn sound on/, 'no way to get the sound back');
+});
+
+test('a clip that cannot load is stepped over, never sat on', () => {
+  // A missing file fires no `ended`, so it would hold the whole day still.
+  assert.match(code, /onError=\{\(\) => goTo\(at \+ 1\)\}/, 'a broken clip stalls the reel');
+  assert.match(code, /if \(!playing\?\.clip_url\)/, 'a clip with no file stalls the reel');
+});
+
+test('taking your own clip down is not a three-second race', () => {
+  // The control used to live ONLY in the player, which looped and waited. Once
+  // the film learned to advance, the button began dismissing itself after three
+  // seconds — and if the clip was not your newest you landed on somebody else's
+  // video with no delete control at all.
+  const strip = code.slice(code.indexOf('{stories.map('), code.indexOf('{cameraOpen ?'));
+  assert.match(strip, /Take it down/, 'the strip has no take-down for your own clip');
+  assert.match(strip, /armedForRemoval === s\.story_id/, 'the strip delete is one careless tap');
+  assert.match(strip, /s\.is_self \?/, 'the strip delete is offered on other people’s clips');
+});
+
+test('removing a clip from the strip does not open the film on somebody else', () => {
+  const from = code.indexOf('async function onRemove');
+  assert.ok(from > 0, 'onRemove not found');
+  const body = code.slice(from, code.indexOf('\n  }', from));
+  assert.match(
+    body,
+    /if \(playingId === storyId\)/,
+    'a take-down from the strip advances the viewer into a stranger’s clip',
+  );
+});

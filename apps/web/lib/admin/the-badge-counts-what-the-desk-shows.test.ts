@@ -39,10 +39,20 @@ const DESK = join(WEB, 'app/admin/completions/page.tsx');
 const COUNTS = join(HERE, 'queue-counts.ts');
 
 const DAY = 24 * 60 * 60 * 1000;
+
+/** A booking with a REAL supplier on the other side, unless a test says otherwise. */
+const booking = (over: Partial<Parameters<typeof completionStuckReason>[0]> = {}) => ({
+  completion_status: 'awaiting_vendor',
+  service_marked_complete_at: null,
+  customer_confirmed_received_at: null,
+  marketplace_vendor_id: 'a-real-shop',
+  ...over,
+});
+
 const NOW = Date.parse('2026-08-25T00:00:00Z');
 
 test('🔴 a future celebration is not stuck — the 44 that made the badge lie', () => {
-  const inDecember = { completion_status: 'awaiting_vendor', service_marked_complete_at: null, customer_confirmed_received_at: null };
+  const inDecember = booking();
   assert.equal(
     completionStuckReason(inDecember, '2026-12-12', NOW),
     null,
@@ -53,11 +63,7 @@ test('🔴 a future celebration is not stuck — the 44 that made the badge lie'
 
 test('a celebration well past IS stuck, so the rule still catches real work', () => {
   assert.equal(
-    completionStuckReason(
-      { completion_status: 'awaiting_vendor', service_marked_complete_at: null, customer_confirmed_received_at: null },
-      '2026-08-01',
-      NOW,
-    ),
+    completionStuckReason(booking(), '2026-08-01', NOW),
     'vendor_overdue',
     'the rule must not have become a rule that catches nothing',
   );
@@ -65,34 +71,53 @@ test('a celebration well past IS stuck, so the rule still catches real work', ()
 
 test('⚖ an unknown celebration date never manufactures urgency', () => {
   assert.equal(
-    completionStuckReason(
-      { completion_status: 'awaiting_vendor', service_marked_complete_at: null, customer_confirmed_received_at: null },
-      null,
-      NOW,
-    ),
+    completionStuckReason(booking(), null, NOW),
     null,
   );
   /* …but a DISPUTED row does not wait on a date: somebody actively raised it. */
   assert.equal(
-    completionStuckReason(
-      { completion_status: 'disputed', service_marked_complete_at: null, customer_confirmed_received_at: null },
-      null,
-      NOW,
-    ),
+    completionStuckReason(booking({ completion_status: 'disputed' }), null, NOW),
     'disputed',
   );
 });
 
 test('🕒 the clock ages from when it BECAME stuck, never from when it was typed', () => {
-  const since = completionStuckSince(
-    { completion_status: 'awaiting_vendor', service_marked_complete_at: null, customer_confirmed_received_at: null },
-    '2026-08-01',
-    'vendor_overdue',
-  );
+  const since = completionStuckSince(booking(), '2026-08-01', 'vendor_overdue');
   assert.equal(
     since,
     new Date(Date.parse('2026-08-01') + STUCK_AWAITING_DAYS * DAY).toISOString(),
     'ageing on created_at is what rendered a December wedding 68 days overdue',
+  );
+});
+
+test('⚖ OWNER RULING — a supplier typed in by hand is a reference, never work', () => {
+  /* Owner, 2026-08-25: "manual only gives them reference unless they connect to
+     each other." 44 of the 45 rows on this desk were hand-typed names. */
+  const handTyped = booking({ marketplace_vendor_id: null });
+  assert.equal(
+    completionStuckReason(handTyped, '2026-08-01', NOW),
+    null,
+    'a supplier the couple only wrote down has no shop on the other side, so ' +
+      'nobody can ever mark the job done — it could never leave this desk',
+  );
+  /* The same row WITH a shop attached is work, so the rule has not become one
+     that catches nothing. */
+  assert.equal(
+    completionStuckReason(booking(), '2026-08-01', NOW),
+    'vendor_overdue',
+  );
+});
+
+test('⛔ …but a real dispute is never filtered away for want of a shop', () => {
+  /* A dispute is an active human complaint. Defensive — prod holds none — but
+     hiding one would be a worse failure than showing a stray row. */
+  assert.equal(
+    completionStuckReason(
+      booking({ completion_status: 'disputed', marketplace_vendor_id: null }),
+      null,
+      NOW,
+    ),
+    'disputed',
   );
 });
 
@@ -124,6 +149,40 @@ test('⛔ the badge does not count through the bare filter alone', () => {
     'completions is counting through its coarse filter again — that filter ' +
       'matches every event_vendors row ever inserted, because the column ' +
       'defaults to awaiting_vendor',
+  );
+});
+
+test('🔴 the badge SELECTS every field the rule reads — or it silently counts zero', () => {
+  /* 🪤 THIS ASSERTION EXISTS BECAUSE A MUTATION SLIPPED PAST THE OTHERS. Drop
+     `marketplace_vendor_id` from the badge's select and every row reads
+     `undefined`; `!undefined` is true, so EVERY row is excluded and the badge
+     reads 0 — forever, with no error anywhere. A silent zero is the exact
+     failure this whole file exists to stop, and my first eight assertions all
+     stayed green through it.
+
+     The field list is DERIVED from the rule's own type, so a field added to the
+     predicate tomorrow is required of the query on the same day. */
+  const ruleSrc = readFileSync(join(HERE, 'completions-stuck.ts'), 'utf8');
+  const block = /export type CompletionCandidate = \{([\s\S]*?)\n\};/.exec(ruleSrc);
+  assert.ok(block, 'could not find CompletionCandidate — re-point this guard');
+  const fields = [...(block[1] ?? '').matchAll(/^\s{2}([a-z_]+):/gm)].map((m) => m[1]);
+  assert.ok(
+    fields.length >= 4,
+    `floor: expected 4+ fields on the rule's input, parsed ${fields.length} — ` +
+      'the parse is probably broken, not the type',
+  );
+
+  const countsSrc = code(COUNTS);
+  const sel = /\.select\(\s*\n?\s*'([^']+)'/.exec(
+    countsSrc.slice(countsSrc.indexOf('export async function countStuckCompletions')),
+  );
+  assert.ok(sel, 'could not find the badge query select');
+  const missing = fields.filter((f) => !sel[1]!.includes(f as string));
+  assert.deepEqual(
+    missing,
+    [],
+    'the badge query does not select every field the stuck rule reads. Any ' +
+      'missing one arrives as undefined and quietly excludes every row.',
   );
 });
 

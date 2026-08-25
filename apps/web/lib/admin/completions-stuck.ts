@@ -38,6 +38,11 @@ export type CompletionCandidate = {
   completion_status: string | null;
   service_marked_complete_at: string | null;
   customer_confirmed_received_at: string | null;
+  /**
+   * The supplier's own shop on the other side of this booking. NULL means the
+   * couple typed a name into their list by hand — see the ruling below.
+   */
+  marketplace_vendor_id: string | null;
 };
 
 function olderThan(iso: string | null, days: number, nowMs: number): boolean {
@@ -59,7 +64,26 @@ export function completionStuckReason(
   eventDate: string | null,
   nowMs: number,
 ): CompletionStuckReason | null {
+  /* A dispute is an active human complaint and never waits on anything — it
+     stays unconditional so no real grievance can be filtered away. Production
+     holds none, so this branch is defensive rather than load-bearing. */
   if (row.completion_status === 'disputed') return 'disputed';
+
+  /* ⚖ OWNER RULING 2026-08-25: "manual only gives them reference unless they
+     connect to each other." A supplier the couple TYPED INTO THEIR LIST is a
+     note for the couple, not a booking, and it is not settled work.
+
+     🔑 AND IT IS STRUCTURALLY TRUE, NOT A PREFERENCE. The only thing that can
+     mark a job done is the supplier's own dashboard, which finds its row by
+     `.eq('marketplace_vendor_id', profile.vendor_profile_id)`. With that column
+     NULL there is NO supplier who can ever reach the row — so it could never
+     leave this desk, which is exactly why it must never enter it.
+
+     Measured in prod the day of the ruling: 44 of the 45 rows on this desk were
+     hand-typed references. They are excluded today only because those weddings
+     are in December; without this they would all have landed at once. */
+  if (!row.marketplace_vendor_id) return null;
+
   if (row.completion_status === 'awaiting_vendor' && olderThan(eventDate, STUCK_AWAITING_DAYS, nowMs)) {
     return 'vendor_overdue';
   }

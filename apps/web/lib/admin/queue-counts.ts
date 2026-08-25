@@ -135,7 +135,7 @@ export async function countStuckCompletions(
          rejects the whole query. Three sites had already died silently that way
          — a guard exists for it, and it caught this line. Without the hint this
          count would have read "unavailable" forever. */
-      'completion_status, service_marked_complete_at, customer_confirmed_received_at, completion_disputed_at, event:events!event_vendors_event_id_fkey!inner(event_date)',
+      'completion_status, service_marked_complete_at, customer_confirmed_received_at, completion_disputed_at, marketplace_vendor_id, event:events!event_vendors_event_id_fkey!inner(event_date)',
     )
     .is('completion_resolved_at', null)
     .in('completion_status', ['disputed', 'awaiting_vendor', 'vendor_marked']);

@@ -83,3 +83,40 @@ real one (`contracted`) stays **green** — so it still catches the thing it is 
 and no longer flags what it never should have.
 
 Full suite after both: **9985/9985 pass**, `tsc --noEmit` exit 0.
+
+### ⚖ OWNER RULING 2026-08-25 — a hand-typed supplier is a reference, never work
+
+Owner, verbatim: *"you mean the added a supplier manually. no. manual only gives
+them reference unless they connect to each other."*
+
+**Measured the same minute: 44 of the 45 rows on that desk were hand-typed
+names.** They were excluded today only because those weddings are in December —
+so without this ruling roughly 44 would have landed on the desk at once when
+December passed, and it is the ruling, not the date, that keeps them off.
+
+🔑 **AND IT IS STRUCTURALLY TRUE, NOT A PREFERENCE — which is why it belongs in
+the rule rather than in a filter somewhere.** The only thing that can mark a job
+done is the supplier's own dashboard, which finds its row by
+`.eq('marketplace_vendor_id', profile.vendor_profile_id)`. With that column NULL
+there is **no supplier who can ever reach the row** — it could never leave the
+desk, which is exactly why it must never enter it.
+
+⛔ **A DISPUTE STAYS UNCONDITIONAL.** A dispute is an active human complaint and
+is never filtered away for want of a shop. Production holds none, so this is
+defensive — but hiding a real grievance would be a worse failure than showing a
+stray row. Pinned by its own test.
+
+Verified against prod with the full rule: **45 → 1**, and the 44 hand-typed rows
+are now excluded **permanently**, not until December.
+
+🪤 **AND A MUTATION CAUGHT A HOLE MY FIRST EIGHT ASSERTIONS ALL SLEPT THROUGH.**
+Drop `marketplace_vendor_id` from the badge's select and every row reads
+`undefined`; `!undefined` is true, so **every row is excluded and the badge reads
+0 — forever, with no error anywhere.** A silent zero, the exact failure this file
+exists to stop, and it passed. There is now an assertion that the query selects
+every field the rule reads, with the field list **derived from the rule's own
+type** — so a field added to the predicate tomorrow is required of the query the
+same day. Both directions mutation-proved (column dropped → red; new field added
+without updating the query → red).
+
+Full suite: **9988 / 9988 pass**, `tsc --noEmit` exit 0.

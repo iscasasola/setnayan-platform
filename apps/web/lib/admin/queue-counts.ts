@@ -1,5 +1,12 @@
 import { cache } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import {
+  completionStuckReason,
+  completionStuckSince,
+  type CompletionCandidate,
+} from '@/lib/admin/completions-stuck';
 
 /**
  * Admin Work-queue counting + urgency — the single source of truth behind the
@@ -77,6 +84,19 @@ type QueueDef = {
    * this list, arriving by a different route.
    */
   slaHours: number | null;
+  /**
+   * A queue whose open work CANNOT be a single-table head-count reads itself.
+   *
+   * 🔴 WHY THIS EXISTS. `completions` was added here on 2026-08-19 with a plain
+   * `.in('completion_status', …)` filter — but its destination page has always
+   * applied a second cut needing the CELEBRATION DATE, which lives on another
+   * table. So the badge counted 45 while the page listed 1, and it aged on
+   * `created_at` (when a couple typed a supplier's name in) so it rendered RED.
+   * An escape hatch beats a filter that quietly means something else: when
+   * `digest` is set it replaces the generic count, and the queue is obliged to
+   * return the same rows its page shows.
+   */
+  digest?: (admin: SupabaseClient, nowMs: number) => Promise<AdminQueueDigestRow>;
   /** Applies the queue's "open work" filter to a select()-ed builder. */
   filter: (q: any, ctx: { nowIso: string }) => any;
   /**
@@ -92,6 +112,52 @@ type QueueDef = {
  * mirror the destination page's own filter so the count matches the rows the
  * admin sees on arrival. Both consumers below build off this list.
  */
+/**
+ * The completions count, asking the SAME question /admin/completions asks.
+ *
+ * Embeds the celebration date (a PostgREST `!inner` join) so the shared stuck
+ * rule can run, counts the survivors, and ages the queue from when each row
+ * BECAME stuck rather than when it was created.
+ *
+ * ⚠ FAILS TO NULL, NEVER TO ZERO. A refused read must stay tellable from a real
+ * empty — that is what `unknownCount` and "some counts unavailable" rest on.
+ */
+export async function countStuckCompletions(
+  admin: SupabaseClient,
+  nowMs: number,
+): Promise<AdminQueueDigestRow> {
+  const { data, error } = await admin
+    .from('event_vendors')
+    .select(
+      'completion_status, service_marked_complete_at, customer_confirmed_received_at, completion_disputed_at, events!inner(event_date)',
+    )
+    .is('completion_resolved_at', null)
+    .in('completion_status', ['disputed', 'awaiting_vendor', 'vendor_marked']);
+  if (error || !Array.isArray(data)) {
+    logQueryError('countStuckCompletions', error ?? null, {}, 'graceful_degrade');
+    return { count: null, oldestAt: null };
+  }
+  let count = 0;
+  let oldestAt: string | null = null;
+  for (const raw of data) {
+    const row = raw as unknown as CompletionCandidate & {
+      completion_disputed_at: string | null;
+      events: { event_date: string | null } | { event_date: string | null }[] | null;
+    };
+    /* An embedded to-one arrives as an object OR a one-element array depending
+       on how PostgREST resolves the relationship. Handle both rather than
+       assume — guessing here silently zeroes the whole queue. */
+    const ev = Array.isArray(row.events) ? row.events[0] : row.events;
+    const eventDate = ev?.event_date ?? null;
+    const reason = completionStuckReason(row, eventDate, nowMs);
+    if (!reason) continue;
+    count += 1;
+    const since = completionStuckSince(row, eventDate, reason);
+    if (since && (!oldestAt || since < oldestAt)) oldestAt = since;
+  }
+  return { count, oldestAt };
+}
+
 const QUEUE_DEFS: QueueDef[] = [
   /* ─── ADDED 2026-08-19 · THE OWNER WENT THROUGH THEM ONE BY ONE ───────────
      The Work page said "You're all caught up" while counting 14 queues and
@@ -124,16 +190,28 @@ const QUEUE_DEFS: QueueDef[] = [
     filter: (q) => q.eq('status', 'pending'),
   },
   {
-    // A booking whose completion both sides have not settled. Mirrors
-    // /admin/completions exactly, including the unresolved test.
+    /*
+      A booking whose completion both sides have not settled.
+
+      ⚠ IT MIRRORS /admin/completions *THROUGH A SHARED PREDICATE*. This comment
+      used to claim it mirrored the page "exactly" while the filter alone did
+      not: `completion_status` DEFAULTS to 'awaiting_vendor', so the bare filter
+      matched every event_vendors row ever inserted. Measured in prod
+      2026-08-25 — badge 45, page 1, and 44 of the 45 were weddings 109 and 115
+      days in the FUTURE. See lib/admin/completions-stuck.ts.
+    */
     key: 'completions',
     table: 'event_vendors',
     lane: 'trust',
     slaHours: 72,
+    // Kept so the shape stays uniform and a reader can see the coarse cut; the
+    // COUNT comes from `digest` below, which also applies the celebration-date
+    // half. Never re-point a consumer at this filter alone.
     filter: (q) =>
       q
         .is('completion_resolved_at', null)
         .in('completion_status', ['disputed', 'awaiting_vendor', 'vendor_marked']),
+    digest: countStuckCompletions,
   },
   {
     // Messages flagged for trying to take a deal off-platform. Mirrors
@@ -340,13 +418,26 @@ export const ADMIN_QUEUE_META: Record<
 // "pending count" and/or actionable age is COMPUTED, not a single-table head-
 // count, so an approximate filter would show a WRONG number (worse than none):
 //   • pax-changes      — pax_change_audit joined across vendor_profiles + events
-//   • completions      — event_vendors, multi-column actionable age (vendor-marked
-//                        vs disputed) + a JS "stuck" cut the DB can't replicate
 //   • social-queue     — social_posts auto-publish states ≠ "awaiting admin"
 //   • pakanta          — orders filtered to the Pakanta SKU (cross-table)
 //   • editorial-review — event_editorial flag severity computed from a jsonb array
 // These keep their /admin/<route> pages; closing this would need per-queue
 // count RPCs, tracked as a follow-up — NOT a silent omission.
+//
+// 🛑 `completions` WAS ON THIS LIST AND ITS REASONING WAS RIGHT — it needs the
+// celebration date from another table plus a JS "stuck" cut. On 2026-08-19 it
+// was added to QUEUE_DEFS anyway, with a filter that applied neither. This list
+// was NOT updated, so for six days the file said in one place that completions
+// carried no badge and in another that it did. The badge counted 45 while its
+// page listed 1, and it aged on `created_at`, so it rendered RED "past SLA" for
+// weddings 109 days in the FUTURE.
+// 🔑 THIS COMMENT WAS THE MECHANISM KEEPING THAT ALIVE: it is what an engineer
+// reads before touching the overview, and it told them the omission was
+// deliberate. Corrected 2026-08-25 — completions now counts through the
+// `digest` escape hatch, which applies the full rule from
+// lib/admin/completions-stuck.ts, shared with the page. If you add a queue whose
+// count needs a join, use `digest` — do NOT approximate it with `filter` and
+// leave this list saying otherwise.
 
 const num = (c: number | null | undefined): number | null =>
   typeof c === 'number' ? c : null;
@@ -373,22 +464,35 @@ export type AdminQueueDigest = Record<string, AdminQueueDigestRow>;
 export const getAdminQueueDigest = cache(async (): Promise<AdminQueueDigest> => {
   const admin = createAdminClient();
   const nowIso = new Date().toISOString();
+  const nowMs = Date.parse(nowIso);
   const results = await Promise.all(
-    QUEUE_DEFS.map((d) => {
+    QUEUE_DEFS.map(async (d): Promise<AdminQueueDigestRow> => {
+      /* A queue that cannot be a single-table head-count reads itself. Caught
+         here so a rejection degrades THAT queue to null instead of poisoning
+         its siblings in this Promise.all. */
+      if (d.digest) {
+        try {
+          return await d.digest(admin, nowMs);
+        } catch {
+          return { count: null, oldestAt: null };
+        }
+      }
       const ts = d.tsCol ?? 'created_at';
-      return d
+      const r = await d
         .filter(admin.from(d.table).select(ts, { count: 'exact' }), { nowIso })
         .order(ts, { ascending: true })
         .limit(1);
+      const rows = r?.data as Record<string, unknown>[] | null | undefined;
+      const oldestAt =
+        Array.isArray(rows) && rows[0]?.[ts] ? String(rows[0][ts]) : null;
+      return { count: num(r?.count), oldestAt };
     }),
   );
   const out: AdminQueueDigest = {};
   QUEUE_DEFS.forEach((d, i) => {
-    const ts = d.tsCol ?? 'created_at';
-    const r = results[i];
-    const oldestAt =
-      Array.isArray(r?.data) && r.data[0]?.[ts] ? String(r.data[0][ts]) : null;
-    out[d.key] = { count: num(r?.count), oldestAt };
+    /* Index-aligned with the Promise.all above by construction; the fallback is
+       for the type, and it fails to NULL rather than inventing a zero. */
+    out[d.key] = results[i] ?? { count: null, oldestAt: null };
   });
   return out;
 });

@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
 
+import { keepByTokens } from '@/lib/admin-map/rank-by-sentence';
+
 /**
  * MoreSearch — a client filter for the "More" overflow landings (vendor + admin).
  *
@@ -23,18 +25,30 @@ export function MoreSearch({ placeholder = 'Search' }: { placeholder?: string })
     const root = ref.current?.closest('[data-more-root]');
     if (!root) return;
     const query = q.trim().toLowerCase();
+
+    /**
+     * A SENTENCE, not just a substring.
+     *
+     * 🪤 THIS WAS THE 2026 BUG REPEATING. The test was `hay.includes(query)` —
+     * the whole typed string, in order — so "papic prices" and every sentence
+     * hid EVERY card and showed the empty note, on the one device the owner
+     * actually reports from. Its laptop twin had the identical bug.
+     *
+     * The rule itself lives in `keepByTokens` rather than here, so the parity
+     * guard can run the laptop's ranking and this filter over the SAME input and
+     * compare the sets. A rule written inline in an effect is a rule no test can
+     * reach — which is exactly how the laptop and the phone drifted apart twice.
+     */
+    const cards = Array.from(root.querySelectorAll<HTMLElement>('[data-more-card]'));
+    const hays = cards.map((c) => (c.dataset.moreHay ?? c.dataset.moreLabel ?? '').toLowerCase());
+    const keep = keepByTokens(hays, query);
+
     let anyVisible = false;
-    root.querySelectorAll<HTMLElement>('[data-more-card]').forEach((card) => {
-      // Prefer the full haystack (name + section + description + aliases) and
-      // fall back to the label, so a card from a grid that has not adopted
-      // `data-more-hay` still filters exactly as it did before rather than
-      // silently matching nothing.
-      const hay = (
-        card.dataset.moreHay ??
-        card.dataset.moreLabel ??
-        ''
-      ).toLowerCase();
-      const match = query === '' || hay.includes(query);
+    cards.forEach((card, i) => {
+      // The haystack falls back to the label so a card from a grid that has not
+      // adopted `data-more-hay` still filters exactly as it did before, rather
+      // than silently matching nothing.
+      const match = query === '' || keep[i] === true;
       card.hidden = !match;
       if (match) anyVisible = true;
     });

@@ -24,9 +24,19 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ADMIN_NAV_ALIASES } from './admin-nav-descriptions';
+import { buildDestinations } from './admin-destinations';
 import type { NavItem } from '@/app/_components/nav/types';
 import { MoreSearch } from '@/app/_components/more-search';
 import { PageMasthead } from '@/app/_components/page-masthead';
+
+/**
+ * The desktop palette's haystack, by address. Built once per render of a server
+ * component — `buildDestinations` is pure and reads only generated constants.
+ * The fallback below it keeps a card that has no destination row (a grid item
+ * that is not in the admin menu) filtering exactly as it did before, rather than
+ * silently matching nothing.
+ */
+const DESKTOP_HAY = new Map(buildDestinations().map((d) => [d.href, d.hay]));
 
 type LandingItem = NavItem & {
   /** 1-line description rendered below the label on the landing card. */
@@ -80,14 +90,22 @@ function LandingCard({ item }: { item: LandingItem }) {
     <li
       data-more-card
       data-more-label={item.label}
-      // 🔑 THE SAME HAYSTACK THE DESKTOP PALETTE SEARCHES. The filter used to
-      // match the LABEL only, so the owner's "pending" found nothing on a
-      // phone while finding three pages on a laptop — the identical complaint,
-      // fixed on one device and left live on the other. Name + section +
-      // description + the hand-picked aliases, all from the one shared module.
-      data-more-hay={[item.label, item.description, ADMIN_NAV_ALIASES[item.key] ?? '']
-        .join(' ')
-        .toLowerCase()}
+      // 🔑 THE SAME HAYSTACK THE DESKTOP PALETTE SEARCHES — and as of 2026-08-26
+      // that is taken FROM the desktop rather than rebuilt beside it.
+      //
+      // 🪤 THE PARITY THIS COMMENT CLAIMED HAD ALREADY LAPSED. It listed name +
+      // description + aliases, which WAS the desktop's haystack when it was
+      // written. The desktop has since gained the scanned route map, the old
+      // addresses of ~40 pages that moved into tabs, and the words of 283 jobs —
+      // so the phone quietly fell 234 words behind while a comment above it said
+      // the two were identical. A sentence is not a mechanism: read the
+      // destination's own haystack, and the two cannot diverge again.
+      data-more-hay={
+        DESKTOP_HAY.get(item.href ?? '') ??
+        [item.label, item.description, ADMIN_NAV_ALIASES[item.key] ?? '']
+          .join(' ')
+          .toLowerCase()
+      }
     >
       <Link
         href={item.href}

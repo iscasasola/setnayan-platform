@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { claimCommandKey } from '@/lib/command-key-claim';
+import { rankBySentence } from '@/lib/admin-map/rank-by-sentence';
+
 import { buildDestinations, type Dest } from './admin-destinations';
 
 /**
@@ -65,15 +67,18 @@ export function AdminCommandPalette() {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const all = useMemo(buildDestinations, []);
-  const hits = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return all
-      .map((d) => ({ d, s: score(d, needle) }))
-      .filter((x) => x.s > 0)
-      .sort((a, b) => b.s - a.s || a.d.label.localeCompare(b.d.label))
-      .slice(0, 30)
-      .map((x) => x.d);
-  }, [all, q]);
+  /**
+   * A SENTENCE, not just a word. The old line here scored the whole typed string
+   * as one needle, so "papic prices" — two words — returned nothing at all, and
+   * so did every sentence the owner tried. rankBySentence keeps today's
+   * whole-string score as the FIRST sort key, so nothing that already answers
+   * changes; the per-word evidence only breaks ties and rescues zeroes. `score`
+   * below is passed in untouched, which is what makes that guarantee checkable.
+   */
+  const { hits, unknown } = useMemo(
+    () => rankBySentence(all, q, score, 30),
+    [all, q],
+  );
 
   const close = useCallback(() => {
     setOpen(false);
@@ -92,8 +97,9 @@ export function AdminCommandPalette() {
     ⌘K IS OURS ON THIS DOORWAY (One top bar, 2026-08-14). The shared top bar
     now mounts a palette over the person's own events on every signed-in
     surface, this one included — and two ⌘K listeners open two stacked dialogs
-    with nothing thrown. This palette indexes all 108 admin surfaces, which the
-    shared one cannot see, so it keeps the shortcut here and the shared one
+    with nothing thrown. This palette indexes every admin destination — the
+    menu plus the scanned route map — which the shared one cannot see, so it
+    keeps the shortcut here and the shared one
     stands down. Pressing the bar's search box still opens the shared palette,
     so neither control is ever dead.
   */
@@ -136,6 +142,21 @@ export function AdminCommandPalette() {
 
   if (!open) return null;
 
+  /**
+   * The words nothing knows, said out loud.
+   *
+   * 🔑 WITHOUT THIS THE BOX LIES BY OMISSION. "papic prices" resolves on "papic"
+   * alone and opens *Papic storage* — a real page, and not the prices. The Papic
+   * PRICES are rows inside a page and this map indexes pages, so the truthful
+   * answer is "no page has the word prices", not a confident near-miss.
+   */
+  const unknownNote =
+    unknown.length > 0 && hits.length > 0
+      ? `No page has ${unknown.length === 1 ? 'the word' : 'the words'} ${unknown
+          .map((w) => `“${w}”`)
+          .join(', ')}.`
+      : null;
+
   let lastGroup = '';
   return (
     <>
@@ -171,6 +192,14 @@ export function AdminCommandPalette() {
         </div>
 
         <div className="max-h-[min(58vh,430px)] overflow-auto p-1.5">
+          {unknownNote ? (
+            <p
+              className="mx-1.5 mb-1 mt-1 rounded-md px-2.5 py-1.5 text-[11.5px]"
+              style={{ background: 'var(--sn-sunk, #F4F2EC)', color: 'var(--sn-ink-500)' }}
+            >
+              {unknownNote}
+            </p>
+          ) : null}
           {hits.length === 0 ? (
             <p className="px-3 py-8 text-center text-sm" style={{ color: 'var(--sn-ink-500)' }}>
               Nothing matches “{q}”. Everything is also browsable under{' '}

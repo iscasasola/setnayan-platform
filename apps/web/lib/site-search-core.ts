@@ -1,4 +1,5 @@
 import { publishedBlogArticles, blogCategoryLabel } from '@/lib/blog';
+import { searchTokens, STOP_WORDS } from '@/lib/search-stop-words';
 import { ALL_HELP_ARTICLES } from '@/lib/help';
 import type { PublicSearchNoun } from '@/lib/public-search-nouns';
 
@@ -80,43 +81,21 @@ type InCodeSource = {
  * reads the WHOLE typed query (see `normalizedPhrase`), so "the release of
  * doves" keeps its phrase hit on a title containing exactly that.
  */
-const STOP_WORDS = new Set([
-  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'can', 'do', 'does',
-  'for', 'from', 'get', 'had', 'has', 'have', 'how', 'i', 'if', 'in', 'is',
-  'it', 'me', 'my', 'no', 'not', 'of', 'on', 'or', 'our', 'so', 'that', 'the',
-  'their', 'them', 'then', 'there', 'they', 'this', 'to', 'up', 'we', 'what',
-  'when', 'where', 'which', 'who', 'why', 'will', 'with', 'you', 'your',
-]);
-
 /**
- * Split a query into the tokens a document must actually contain.
- *
- * Single characters are dropped: a stray letter matches almost every document
- * and would turn one keystroke into a page of noise.
- *
- * ⚠ IF THE QUERY IS *ONLY* FUNCTION WORDS, THEY ARE KEPT. Someone searching
- * "the one" means those words; stripping them would leave nothing and silently
- * turn a real query into an empty one — the same "returns nothing, explains
- * nothing" shape this whole change exists to remove.
+ * The stop list and the splitter moved to `lib/search-stop-words.ts` on
+ * 2026-08-26 so the admin command palette could share them: this module imports
+ * `@/lib/blog` and `@/lib/help` at its first two lines, so a client component
+ * importing it would pull both corpora into its bundle. Re-exported here so
+ * every existing caller of `searchTokens` keeps working unchanged — one list,
+ * two readers, and no second hand-typed copy to drift.
  */
-export function searchTokens(query: string): string[] {
-  const all = query
-    .toLowerCase()
-    .split(/[^a-z0-9']+/i)
-    .map((t) => t.trim())
-    .filter((t) => t.length >= 2);
-  const content = all.filter((t) => !STOP_WORDS.has(t));
-  return content.length > 0 ? content : all;
-}
+// 🪤 IMPORTED ABOVE *AND* RE-EXPORTED HERE, and the pair is load-bearing: a bare
+// `export … from` re-export does NOT bind the name inside this module, so
+// `searchInCodeReads` below threw `searchTokens is not defined` at runtime while
+// typecheck stayed clean. The public search's own tests caught it on the first
+// run — seven of them, instantly.
+export { searchTokens, STOP_WORDS };
 
-/**
- * The whole typed query, normalized — what the exact-phrase bonus reads.
- *
- * Kept separate from `searchTokens` on purpose: the tokens decide WHETHER a
- * document matches, the phrase decides how HIGH it ranks. Deriving the phrase
- * from the stripped tokens instead would have cost "the release of doves" its
- * phrase hit on the article of that exact name.
- */
 export function normalizedPhrase(query: string): string {
   return query
     .toLowerCase()

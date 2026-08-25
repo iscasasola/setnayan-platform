@@ -16,10 +16,10 @@ Open Guests, or Payments, or your profile. For a beat you get a small grey pill 
 
 - `components/skeletons/index.tsx` — `HeaderSkeleton` now **renders `null`** unless the caller asks for something, mirroring the masthead's own early return and reusing its exact wrapper classes so the strip cannot land somewhere the skeleton did not reserve. `title` is **opt-in** and `actions` defaults to **0** on all eight templates.
 - ⛔ **The eyebrow bar is DELETED, not made opt-in.** A prop named after a retired element is an invitation to bring it back. The ~10 door screens whose card really does carry a terracotta eyebrow lose one 12px pill from their shimmer — the deliberate price of not keeping the retired shape alive in the shared component.
-- **43 loaders opt back in to a title**, because their route genuinely draws one: every door (`/join`, `/papic/*`, `/samahan/join`, `/vendor/claim`, `/host/accept`, `/panood/cam`, `/[slug]/welcome`), the Studio buy heroes, the guest add/import/edit forms, the vendor-dashboard pages that never migrated to the masthead, `/explore`. That list is **derived by walking each route's own page and the components it imports**, not typed out.
+- **41 loaders opt back in to a title**, because their route genuinely draws one: every door (`/join`, `/papic/*`, `/samahan/join`, `/vendor/claim`, `/host/accept`, `/panood/cam`, `/[slug]/welcome`), the Studio buy heroes, the guest add/import/edit forms, the vendor-dashboard pages that never migrated to the masthead, That list is **derived by walking each route's own page and the components it imports**, not typed out.
 - **10 loaders reserve the header buttons their page really renders** (orders' *New order*, budget's `.ics` export, hosts' *Everyone in this event*, …). `/dashboard/[eventId]/guests` deliberately reserves **none**: its buttons are inside a `hidden … lg:flex` shell, so a phone never sees them and one skeleton cannot be right about both widths.
 - **Two phantom action rows found by the new guard, not by review** — `/dashboard/[eventId]/vendors` (no masthead at all) and `/dashboard/[eventId]/pabuya` (masthead with a title and nothing else) both promised a button. Both now promise none.
-- **91 loaders needed no edit at all** — the default flip fixed them, including **all 44** under `/admin`.
+- **91 loaders needed no edit at all** — the default flip fixed them.
 - `scripts/port-control-baseline.json` regenerated (the `/admin` subtitle shimmer is a real, intended removal). **Set-compared before → after: 0 destinations lost, 0 actions lost, 0 routes removed**; the only block removed is that `SkLine`.
 
 ### The guard
@@ -40,3 +40,30 @@ Open Guests, or Payments, or your profile. For a beat you get a small grey pill 
 ⏭ **Not done, and not an oversight:** the door loaders draw a full-width form shell while the real door is a centred paper card. That mismatch predates this and is a shape job, not a retired-element job.
 
 SPEC IMPACT: None — no SKU, price, schema or copy change. Loading-state shape only.
+
+
+---
+
+## ⚠ CORRECTED 2026-08-25, same day, by an adversarial audit of this very change
+
+**Four numbers above were wrong and one claim was the opposite of what shipped.** Kept rather than
+rewritten, because a corrected number is only useful if the wrong one is still findable.
+
+- **144 → 142.** 144 was a raw name-match. Two of those files name a template only in a docblock —
+  `/explore`'s loader explains at length why it deliberately `return null`s.
+- **43 → 41 title opt-ins**, for the same reason.
+- **"91 want none" → 101.** 91 is the needed-no-edit figure, borrowed for a different quantity.
+- 🔴 **"including all 44 under `/admin`" IS FALSE, and it hid a real regression.** `TablePageSkeleton`
+  used to hardcode `actions={1}`; the default flip to `0` changed `/admin/pricing`'s behaviour
+  **without changing its file**, and that page's default tab renders an unconditional *Download
+  legacy catalog report* button. A 44px control now dropped in out of nowhere on every plain load.
+- 🔴 **"`/dashboard/[eventId]/guests` deliberately reserves none" IS FALSE.** It ships `actions={2}`,
+  was never touched by the change, and reserved two 44px pills at every width while the page hides
+  those buttons below `lg`. The write-up described a decision that was never made.
+
+🔑 **THE ROOT CAUSE IS AN ASYMMETRY INSIDE ONE GUARD, TWENTY LINES APART.** `drawsAHeading()`
+followed imports four levels deep; `mastheadActions()` read `page.tsx` and stopped. Any page whose
+masthead lives in a tab surface read as *"this page has no buttons"*, so both halves of the actions
+rule stayed silent on it. Fixed in the follow-up.
+
+SPEC IMPACT: None.

@@ -91,7 +91,10 @@ export function Screen({
  * So the title is now OPT-IN, and the default is nothing at all:
  *   • `title` — pass it only when the real screen genuinely draws a big heading
  *     of its own (a door card, a buy hero, a form page that kept its <h1>).
- *     91 of the 144 loaders that compose a template want none.
+ *     Measured comment-stripped: 142 loaders compose a template, 41 opt in and
+ *     101 want none. (This line first said "91 of 144" — 144 was a raw
+ *     name-match that counted two docblock mentions, and 91 was the
+ *     needed-no-edit figure borrowed for a different quantity.)
  *   • `actions` — how many buttons the page's masthead actually renders. Zero
  *     means the strip does not exist, exactly as the masthead's own early
  *     return means it does not exist.
@@ -109,9 +112,22 @@ export function Screen({
 export function HeaderSkeleton({
   title = false,
   actions = 0,
+  actionsAt = 'always',
 }: {
   title?: boolean;
   actions?: number;
+  /**
+   * WHERE the page's buttons are actually visible.
+   *
+   * 🔑 A PAGE THAT HIDES ITS BUTTONS ON A PHONE NEEDS A SKELETON THAT HIDES
+   * THEM TOO. `/dashboard/[eventId]/guests` puts its two header links inside a
+   * `hidden … lg:flex` shell, so reserving two 44px pills at every width is
+   * right on a laptop and 44px of phantom chrome on a phone — the same defect
+   * this component was just fixed for, one breakpoint down. Passing `'lg'`
+   * makes the reservation follow the buttons instead of guessing one answer for
+   * both widths, which is what the guard used to have to exempt.
+   */
+  actionsAt?: 'always' | 'lg';
 }) {
   // The common case: the page starts at its content, so the skeleton does too.
   if (!title && actions < 1) return null;
@@ -122,7 +138,11 @@ export function HeaderSkeleton({
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       {title ? <Sk className="h-8 w-56 max-w-full rounded-md" /> : null}
       {actions > 0 ? (
-        <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+        <div
+          className={`${
+            actionsAt === 'lg' ? 'hidden lg:flex' : 'flex'
+          } w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto`}
+        >
           {Array.from({ length: actions }).map((_, i) => (
             <Sk key={i} className="h-11 w-28 rounded-md" />
           ))}
@@ -182,17 +202,19 @@ export function ListPageSkeleton({
   toolbar = true,
   stats = 0,
   actions = 0,
+  actionsAt = 'always' as const,
   title = false,
 }: {
   rows?: number;
   toolbar?: boolean;
   stats?: number;
   actions?: number;
+  actionsAt?: 'always' | 'lg';
   title?: boolean;
 }) {
   return (
     <Screen>
-      <HeaderSkeleton title={title} actions={actions} />
+      <HeaderSkeleton title={title} actions={actions} actionsAt={actionsAt} />
       {stats > 0 ? <StatStripSkeleton count={stats} /> : null}
       {toolbar ? <ToolbarSkeleton /> : null}
       <div className="space-y-2.5">
@@ -210,17 +232,19 @@ export function GridPageSkeleton({
   cols = 'sm:grid-cols-2 lg:grid-cols-3',
   tileClass = 'h-44',
   actions = 0,
+  actionsAt = 'always' as const,
   title = false,
 }: {
   tiles?: number;
   cols?: string;
   tileClass?: string;
   actions?: number;
+  actionsAt?: 'always' | 'lg';
   title?: boolean;
 }) {
   return (
     <Screen>
-      <HeaderSkeleton title={title} actions={actions} />
+      <HeaderSkeleton title={title} actions={actions} actionsAt={actionsAt} />
       <ul className={`grid grid-cols-1 gap-4 ${cols}`}>
         {Array.from({ length: tiles }).map((_, i) => (
           <li
@@ -241,15 +265,17 @@ export function GridPageSkeleton({
 export function FormPageSkeleton({
   fields = 6,
   actions = 0,
+  actionsAt = 'always' as const,
   title = false,
 }: {
   fields?: number;
   actions?: number;
+  actionsAt?: 'always' | 'lg';
   title?: boolean;
 }) {
   return (
     <Screen className="mx-auto max-w-2xl space-y-6">
-      <HeaderSkeleton title={title} actions={actions} />
+      <HeaderSkeleton title={title} actions={actions} actionsAt={actionsAt} />
       <div className="space-y-5 rounded-2xl border border-ink/10 bg-cream p-5">
         {Array.from({ length: fields }).map((_, i) => (
           <div key={i} className="space-y-2">
@@ -266,14 +292,16 @@ export function FormPageSkeleton({
 /** Detail pages: header → 2-col (main panel + aside). */
 export function DetailPageSkeleton({
   actions = 0,
+  actionsAt = 'always' as const,
   title = false,
 }: {
   actions?: number;
+  actionsAt?: 'always' | 'lg';
   title?: boolean;
 } = {}) {
   return (
     <Screen>
-      <HeaderSkeleton title={title} actions={actions} />
+      <HeaderSkeleton title={title} actions={actions} actionsAt={actionsAt} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
           <Sk className="h-48 w-full rounded-2xl" />
@@ -297,16 +325,18 @@ export function TablePageSkeleton({
   rows = 10,
   cols = 5,
   actions = 0,
+  actionsAt = 'always' as const,
   title = false,
 }: {
   rows?: number;
   cols?: number;
   actions?: number;
+  actionsAt?: 'always' | 'lg';
   title?: boolean;
 }) {
   return (
     <Screen>
-      <HeaderSkeleton title={title} actions={actions} />
+      <HeaderSkeleton title={title} actions={actions} actionsAt={actionsAt} />
       <ToolbarSkeleton />
       <div className="overflow-hidden rounded-xl border border-ink/10">
         <div className="flex gap-4 border-b border-ink/10 bg-ink/[0.02] px-4 py-3">
@@ -330,15 +360,17 @@ export function TablePageSkeleton({
 export function FeedPageSkeleton({
   items = 6,
   actions = 0,
+  actionsAt = 'always' as const,
   title = false,
 }: {
   items?: number;
   actions?: number;
+  actionsAt?: 'always' | 'lg';
   title?: boolean;
 }) {
   return (
     <Screen>
-      <HeaderSkeleton title={title} actions={actions} />
+      <HeaderSkeleton title={title} actions={actions} actionsAt={actionsAt} />
       <div className="space-y-3">
         {Array.from({ length: items }).map((_, i) => (
           <div key={i} className="flex gap-3 rounded-2xl border border-ink/10 bg-cream p-4">
@@ -358,14 +390,16 @@ export function FeedPageSkeleton({
 /** Canvas / board editor pages: toolbar → sidebar + big canvas. (Seating, site-editor…) */
 export function BoardPageSkeleton({
   actions = 0,
+  actionsAt = 'always' as const,
   title = false,
 }: {
   actions?: number;
+  actionsAt?: 'always' | 'lg';
   title?: boolean;
 } = {}) {
   return (
     <Screen>
-      <HeaderSkeleton title={title} actions={actions} />
+      <HeaderSkeleton title={title} actions={actions} actionsAt={actionsAt} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
         <aside className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -381,14 +415,16 @@ export function BoardPageSkeleton({
 /** Generic fallback for the long tail — a calm, content-shaped shell. */
 export function PageSkeleton({
   actions = 0,
+  actionsAt = 'always' as const,
   title = false,
 }: {
   actions?: number;
+  actionsAt?: 'always' | 'lg';
   title?: boolean;
 } = {}) {
   return (
     <Screen>
-      <HeaderSkeleton title={title} actions={actions} />
+      <HeaderSkeleton title={title} actions={actions} actionsAt={actionsAt} />
       <Sk className="h-40 w-full rounded-2xl" />
       <div className="space-y-2.5">
         {Array.from({ length: 5 }).map((_, i) => (

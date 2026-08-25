@@ -128,7 +128,21 @@ export function roomForOutcome(params: Record<string, unknown>): PapicRoom | nul
  * mid-party. Correct there, wrong here: an event whose window was never set
  * would read `open` and land the couple in Cameras, with no hint that the one
  * thing stopping every camera is a date they have not picked. Unset means Set
- * up, where the attention row is.
+ * up.
+ *
+ * ⚠ THIS COMMENT USED TO END "…where the attention row is". THERE WAS NO
+ * ATTENTION ROW — the capture-window picker's only mount was inside Cameras &
+ * shots, the room a window-unset couple never lands in. So the sentence
+ * described a mechanism that did not exist, and every one of the five
+ * production events (all window-unset) landed somebody in a room that could
+ * not tell them what to do.
+ *
+ * ✅ It is true now, and it is true in a way that does not depend on this
+ * function: `page.tsx` renders the do-this-first card ABOVE the room branch,
+ * so the required act shows in ALL THREE rooms while the window is unset. The
+ * landing rule is a nicety again rather than the only thing standing between a
+ * couple and a working camera. Held by
+ * `_lib/the-required-act-is-in-the-room.test.ts`.
  */
 export function resolvePapicRoom(opts: {
   requested?: unknown;

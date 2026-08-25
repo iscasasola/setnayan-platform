@@ -605,6 +605,57 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         preserveError={preserveError}
       />
 
+      {/* ⚠ THE ONE REQUIRED ACT, IN WHATEVER ROOM THE COUPLE LANDS IN.
+          Owner, opening his own wedding's Papic page: *"entering papic inside an
+          event needs to me simpler and better to manage. if I am a customer and
+          I see this, I will be confused."*
+
+          🔑 THE ROOMS FILE ALREADY CLAIMED THIS EXISTED. `resolvePapicRoom`
+          sends a couple with no capture window to Set up, and its comment gave
+          the reason: *"Unset means Set up, where the attention row is."* There
+          was no attention row. The picker's ONLY mount was inside Cameras &
+          shots — a room a new couple never lands in — so the single thing
+          standing between them and a working camera was in the one place they
+          could not see it. Measured 2026-08-26: all five production events have
+          no window set, so EVERY couple who has ever opened Papic landed in a
+          room that could not tell them what to do.
+
+          It renders in all three rooms on purpose. Which room a person is in is
+          not a reason to hide the only thing they must do. */}
+      {!windowIsSet ? (
+        <section className="overflow-hidden rounded-2xl border border-mulberry/25 bg-surface">
+          <div className="h-[3px] w-full bg-mulberry" aria-hidden />
+          <div className="space-y-3 p-5 sm:p-6">
+            {/* ⚠ mulberry-600, NOT -700. The 700 slot flips to the LIGHT theme's
+                #C24E25 on a dark panel and measures 3.05:1 there — a fail —
+                while looking fine at 5.86:1 in light. 600 measures 4.92 light /
+                5.78 dark. A light-only contrast check waves the bad one through;
+                this repo has paid for that exact swap once already. */}
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-mulberry-600">
+              Do this first · then the library fills itself
+            </p>
+            <h2 className="text-lg font-semibold tracking-tight text-ink">
+              When can your cameras shoot?
+            </h2>
+            <p className="max-w-prose text-sm text-ink/65">
+              Nothing can be captured until you pick the days. Cameras can start up
+              to {PAPIC_CAPTURE_MONTHS_BEFORE} months before your celebration, so
+              they catch the preparations too.
+            </p>
+            <PapicWindowPicker
+              eventId={eventId}
+              eventType={(ev.event_type as string | null) ?? null}
+              eventDate={(ev.event_date as string | null) ?? null}
+              windowStart={(ev.papic_window_start as string | null) ?? null}
+              windowEnd={(ev.papic_window_end as string | null) ?? null}
+              windowIsSet={windowIsSet}
+              days={papicDays}
+              summary={papicWindowSummary}
+            />
+          </div>
+        </section>
+      ) : null}
+
       {/* Photos — the room they come back to for years. */}
       {room === 'photos' ? (
         <>
@@ -766,7 +817,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             </div>
           ) : null}
 
-          {/* Capture window — sets the price (days) AND how long cameras shoot. */}
+          {/* Capture window — sets the price (days) AND how long cameras shoot.
+              ⚠ ONLY ONCE IT IS SET. While it is unset the picker lives in the
+              do-this-first card above, which renders in EVERY room; showing it
+              here as well would put two of the same picker on one page. */}
+          {windowIsSet ? (
           <PapicWindowPicker
             eventId={eventId}
             eventType={(ev.event_type as string | null) ?? null}
@@ -777,6 +832,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             days={papicDays}
             summary={papicWindowSummary}
           />
+          ) : null}
 
           <LimitedCard
             eventId={eventId}

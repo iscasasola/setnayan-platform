@@ -153,6 +153,17 @@ export default async function AdminOverview() {
           'Vendor bank/QR links to screen',
           '/admin/payment-options',
         ),
+        /* ADDED 2026-08-25. These four queues were given counts on 2026-08-19
+           and never given tiles here, so the headline above could report work
+           with nothing beneath it accounting for it — the exact hole closed once
+           already for integrity-watch (council fix #2). A coverage guard now
+           makes a future omission impossible rather than merely unlikely. */
+        queueTile(
+          'completions',
+          'Finished jobs to settle',
+          'Booked work neither side has signed off',
+          '/admin/completions',
+        ),
       ],
     },
     {
@@ -167,6 +178,7 @@ export default async function AdminOverview() {
           'Vendor Pro / Enterprise to confirm',
           '/admin/subscriptions',
         ),
+        queueTile('booking-fees', 'Fees to sync', 'Suppliers who have not paid to sync', '/admin/booking-fees'),
       ],
     },
     {
@@ -198,6 +210,7 @@ export default async function AdminOverview() {
           'Review-fraud + ghost-listing flags',
           '/admin/integrity-watch',
         ),
+        queueTile('chat-flags', 'Chat flags', 'Messages taking a deal off-platform', '/admin/chat-flags'),
       ],
     },
     {
@@ -211,6 +224,7 @@ export default async function AdminOverview() {
           '/admin/approvals',
         ),
         queueTile('help', 'Help tickets', 'Open · 24-hr SLA', '/admin/help'),
+        queueTile('corrections', 'Profile corrections', 'Shops asking to fix a locked detail', '/admin/corrections'),
       ],
     },
   ];
@@ -535,10 +549,16 @@ export default async function AdminOverview() {
        *  corrections / repost watch). */}
       <section aria-label="More queues" className="mb-8">
         <h2 className="sn-sec">More queues</h2>
+        {/* ⚠ THIS CAPTION WAS FALSE FOR TWO OF ITS OWN TILES. It said "these
+            carry no live count" while completions and corrections had both had a
+            counted badge since 2026-08-19 — which is the sentence that told
+            every reader, including the owner, not to expect a number from the
+            one desk that had work in it. Both now have counted tiles above and
+            are gone from this list. */}
         <p className="mb-4 mt-0.5 text-sm text-[color:var(--sn-ink-500)]">
           These carry no live count — their open work is worked out per item, so
-          open each to see what&rsquo;s waiting. Fraud, corrections, and repost
-          watch are time-sensitive.
+          open each to see what&rsquo;s waiting. Fraud and repost watch are
+          time-sensitive.
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Tile
@@ -554,22 +574,10 @@ export default async function AdminOverview() {
             body="Vendor fraud signals + enforcement to review."
           />
           <Tile
-            href="/admin/corrections"
-            icon="briefcase"
-            title="Profile corrections"
-            body="Verified vendors requesting a locked-field fix."
-          />
-          <Tile
             href="/admin/repost-watch"
             icon="shield-check"
             title="Repost watch"
             body="Possible reposted / ghost listings + QR-media flags."
-          />
-          <Tile
-            href="/admin/completions"
-            icon="calendar"
-            title="Completions"
-            body="Stuck event-vendor completions to force-resolve."
           />
           <Tile
             href="/admin/pax-changes"

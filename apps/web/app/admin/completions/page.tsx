@@ -1,4 +1,5 @@
 import { Handshake } from 'lucide-react';
+import { completionStuckReason } from '@/lib/admin/completions-stuck';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
@@ -31,10 +32,9 @@ export const metadata = { title: 'Completions · Admin' };
  * service-role behind requireAdmin().
  */
 
-// "Stuck" thresholds — when a non-disputed row is overdue enough to surface.
-const STUCK_AWAITING_DAYS = 14; // vendor never marked complete, event long past
-const STUCK_MARKED_DAYS = 5; // vendor marked, couple hasn't confirmed
-const DAY_MS = 24 * 60 * 60 * 1000;
+/* The "stuck" rule lives in lib/admin/completions-stuck.ts, imported below. It
+   used to be declared here and NOWHERE else — which is why the queue badge,
+   added on 2026-08-19, counted 45 rows while this page listed 1. */
 
 /**
  * The cap on the SOURCE scan, not on the rendered list.
@@ -77,12 +77,6 @@ const REASON_LABEL: Record<AttentionRow['reason'], string> = {
   vendor_overdue: 'Vendor never marked complete',
   awaiting_confirm: 'Couple hasn’t confirmed',
 };
-
-function olderThan(iso: string | null, days: number, now: number): boolean {
-  if (!iso) return false;
-  const t = new Date(iso).getTime();
-  return Number.isFinite(t) && now >= t + days * DAY_MS;
-}
 
 export default async function AdminCompletionsPage() {
   await requireAdmin();
@@ -142,18 +136,7 @@ export default async function AdminCompletionsPage() {
   for (const r of scanned) {
     const ev = eventMap.get(r.event_id);
     const eventDate = ev?.date ?? null;
-    let reason: AttentionRow['reason'] | null = null;
-    if (r.completion_status === 'disputed') {
-      reason = 'disputed';
-    } else if (r.completion_status === 'awaiting_vendor' && olderThan(eventDate, STUCK_AWAITING_DAYS, now)) {
-      reason = 'vendor_overdue';
-    } else if (
-      r.completion_status === 'vendor_marked' &&
-      !r.customer_confirmed_received_at &&
-      olderThan(r.service_marked_complete_at, STUCK_MARKED_DAYS, now)
-    ) {
-      reason = 'awaiting_confirm';
-    }
+    const reason = completionStuckReason(r, eventDate, now);
     if (!reason) continue;
     attention.push({
       ...r,

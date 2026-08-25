@@ -13,6 +13,30 @@ import { createAdminClient } from '@/lib/supabase/admin';
 export type AdminQueueLane = 'money' | 'trust' | 'growth' | 'support';
 
 /**
+ * THE ONE ORDER THE LANES ARE SHOWN IN.
+ *
+ * 🔴 WHY IT LIVES HERE. Until 2026-08-25 there were TWO `LANE_ORDER` constants,
+ * neither aware of the other, ranking the same four lanes in OPPOSITE orders:
+ * the admin triage feed led with `money`, the daily digest email led with
+ * `trust`. Same queues, same person, two answers about what to do first — and
+ * the disagreement was invisible because each file was internally consistent.
+ * It lives beside the lane TYPE now, so a fifth lane cannot be added without
+ * meeting the order it will be shown in.
+ *
+ * ⚖ TRUST FIRST, and the reason is the clock rather than the money. `trust` is
+ * the only lane carrying a STATUTORY deadline — RA 10173 erasure requests,
+ * disputes, recourse. A compliance deadline missed is not recoverable; a payment
+ * confirmed an hour later is. `money` follows immediately because a real person
+ * is waiting on it, then `growth` (a vendor waiting), then `support`.
+ */
+export const ADMIN_LANE_ORDER: readonly AdminQueueLane[] = Object.freeze([
+  'trust',
+  'money',
+  'growth',
+  'support',
+]);
+
+/**
  * Per-queue metadata the command center ranks by.
  *   slaHours — how long the OLDEST open item may sit before the queue is
  *              "overdue" (the clock that turns it red). OWNER-TUNABLE: these are

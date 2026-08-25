@@ -29,6 +29,7 @@ import {
   compareQueuePriority,
   ageShort,
   ADMIN_QUEUE_META,
+  ADMIN_LANE_ORDER,
   type AdminQueueDigest,
   type AdminQueueLane,
 } from '@/lib/admin/queue-counts';
@@ -45,7 +46,12 @@ export const metadata = { title: 'Work · Admin' };
 // on volume alone, so the two screens disagreed about what was most urgent.
 // BASE_ROWS order breaks ties within a band.
 
-const LANES = ['money', 'trust', 'growth', 'support'] as const;
+/* 🔑 A THIRD PRIVATE COPY OF THE LANE LIST, found by the new guard rather than
+   by the finding that started this — which said "two admin screens". This one is
+   a MEMBERSHIP set, not an order, so it never disagreed about ranking; it would
+   simply have refused `?lane=<a fifth lane>` the day a fifth lane was added,
+   silently, on a stale bookmark. One list now. */
+const LANES = ADMIN_LANE_ORDER;
 
 /** `?lane=` → a known lane, or undefined. An unknown value shows everything
  *  rather than 404-ing: a stale bookmark should degrade to the full list. */

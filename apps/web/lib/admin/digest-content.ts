@@ -11,6 +11,7 @@ import {
   type AdminQueueDigest,
   type QueueUrgency,
   type AdminQueueLane,
+  ADMIN_LANE_ORDER,
 } from '@/lib/admin/queue-counts';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
@@ -38,7 +39,7 @@ const LANE_LABEL: Record<AdminQueueLane, string> = {
   growth: 'Growth',
   support: 'Support',
 };
-const LANE_ORDER: AdminQueueLane[] = ['trust', 'money', 'growth', 'support'];
+/* Order comes from lib/admin/queue-counts.ts — see ADMIN_LANE_ORDER. */
 
 export type LaneRollup = { lane: AdminQueueLane; open: number; overdue: number };
 
@@ -56,7 +57,7 @@ export function rollupByLane(
     if (urgency.states[key] === 'overdue') r.overdue += 1;
     by.set(meta.lane, r);
   }
-  return LANE_ORDER.filter((l) => by.has(l)).map((l) => by.get(l)!);
+  return ADMIN_LANE_ORDER.filter((l) => by.has(l)).map((l) => by.get(l)!);
 }
 
 export type DigestEmail = { subject: string; text: string; html: string };

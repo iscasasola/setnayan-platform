@@ -14,7 +14,24 @@
  * (ADD_ONS[].Icon) and the admin overview map (_overview-tile ICONS) — those routes
  * read THROUGH their catalog, not a fork here.
  *
- * AUTO-GENERATED skeleton — safe to hand-edit; additive (nothing imports it yet).
+ * 🛑 SUPERSEDED — DO NOT EDIT, DO NOT WIRE ANYTHING TO IT (marked 2026-08-25).
+ *
+ * The successor is `lib/nav-registry-defaults.ts`, which says so itself ("the
+ * route-meta successor") and is what every nav, sidebar, tile and launcher
+ * actually reads. Measured on `origin/main`: this file has ZERO importers
+ * anywhere in the repo, application code and tests alike.
+ *
+ * The line that used to sit here — "additive (nothing imports it yet)" — read as
+ * a file waiting to be adopted. It is a file that was overtaken. That sentence
+ * is the whole harm: it invites the next reader to change a glyph here and
+ * wonder why nothing moves.
+ *
+ * ⛔ IT IS DELIBERATELY NOT DELETED. The 2026-08-06 cleanliness pass records
+ * eighteen files parked on purpose, "each saying so in its own docblock", and
+ * warns that the two largest deletion recommendations of that day were both
+ * wrong — one would have deleted a 4,100-line wizard that is live. Correcting
+ * the sentence removes the harm at zero risk; deleting the file is a separate,
+ * evidenced decision.
  */
 import type { LucideIcon } from 'lucide-react';
 import {

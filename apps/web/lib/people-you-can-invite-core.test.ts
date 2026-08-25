@@ -1,10 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { stripComments } from './strip-comments';
 import {
   assembleInvitable,
   chooseAllShown,
+  isInSamahan,
   matchesInvitableQuery,
   nameKey,
+  samahanGroupsIn,
   type InvitableCandidate,
 } from './people-you-can-invite-core';
 
@@ -233,4 +239,128 @@ test('neither helper mutates what it was given', () => {
   const picked = { ana: true };
   chooseAllShown(picked, [{ key: 'ben', alreadyHere: false }], false);
   assert.deepEqual(Object.keys(picked), ['ana']);
+});
+
+// ── THE CHIP IS A MEMBERSHIP TEST (2026-08-25, after an audit of the first cut)
+
+test('a chip matches a samahan exactly — never a substring of one', () => {
+  const anaSquad = { groups: ['Ana'] };
+  assert.equal(isInSamahan(anaSquad, 'Ana'), true);
+  assert.equal(isInSamahan({}, 'Ana'), false, 'a row with no groups belongs to none');
+  assert.equal(
+    isInSamahan({ groups: ['Barkada ng Bayan'] }, 'Ana'),
+    false,
+    'a group called Ana swept up an unrelated barkada',
+  );
+
+  // 🪤 THE CASE THAT ACTUALLY SEPARATES EXACT FROM SUBSTRING, and the first
+  // version of this test did not have it: mutating `includes(group)` into
+  // `some((g) => g.includes(group))` left the suite GREEN, because none of the
+  // fixtures had one group name inside another. Two real barkadas can easily be
+  // "Ana" and "Ana Barkada"; pressing the first must not sweep in the second.
+  assert.equal(
+    isInSamahan({ groups: ['Ana Barkada'] }, 'Ana'),
+    false,
+    'pressing one samahan selected the members of a differently-named one',
+  );
+  assert.equal(
+    isInSamahan({ groups: ['Ana'] }, 'Ana Barkada'),
+    false,
+    'the substring test in the other direction',
+  );
+});
+
+test('the chips are every samahan named across the rows, deduped and sorted', () => {
+  const rows = [
+    { groups: ['Barkada', 'Team Lakad'] },
+    { groups: ['Barkada'] },
+    { groups: [] },
+    {},
+  ];
+  assert.deepEqual(samahanGroupsIn(rows), ['Barkada', 'Team Lakad']);
+});
+
+test('a person in TWO samahans belongs to both chips, not just the first', () => {
+  // The `from` line carries only the alphabetically first, which is why the
+  // filter cannot be built on it.
+  const row = { groups: ['Barkada ng Bayan', 'Team Lakad'] };
+  assert.equal(isInSamahan(row, 'Team Lakad'), true);
+});
+
+test('a dropped duplicate donates its samahan to the row that survives', () => {
+  // 🚨 THE DEFECT THIS CLOSES. The cousin who is in your barkada AND was a guest
+  // at your engagement party survives as the richer `event` row, labelled with
+  // that party. Before this, her samahan went with the row that was dropped, so
+  // "the whole barkada" quietly left her out.
+  const candidates: InvitableCandidate[] = [
+    {
+      key: 'event:1',
+      firstName: 'Maria',
+      lastName: 'Cruz',
+      name: 'Maria Cruz',
+      source: 'event',
+      from: 'Engagement party',
+      email: null,
+    },
+    {
+      key: 'samahan:9',
+      firstName: 'Maria',
+      lastName: 'Cruz',
+      name: 'Maria Cruz',
+      source: 'samahan',
+      from: 'Barkada ng Bayan',
+      email: null,
+      groups: ['Barkada ng Bayan'],
+    },
+  ];
+  const out = assembleInvitable(candidates, new Set());
+  assert.equal(out.length, 1, 'one person, one row');
+  assert.equal(out[0]?.source, 'event', 'the richer row still wins');
+  assert.equal(
+    isInSamahan(out[0] ?? {}, 'Barkada ng Bayan'),
+    true,
+    'her barkada was lost with the row that was dropped',
+  );
+});
+
+test('two different people who share a name keep their own groups', () => {
+  // The compatibility rule emits both; neither may inherit the other's samahan.
+  const candidates: InvitableCandidate[] = [
+    {
+      key: 'event:1',
+      firstName: 'Maria',
+      lastName: 'Santos',
+      name: 'Maria Santos',
+      source: 'event',
+      from: 'Graduation',
+      email: 'one@example.com',
+    },
+    {
+      key: 'event:2',
+      firstName: 'Maria',
+      lastName: 'Santos',
+      name: 'Maria Santos',
+      source: 'event',
+      from: 'Reunion',
+      email: 'two@example.com',
+    },
+  ];
+  const out = assembleInvitable(candidates, new Set());
+  assert.equal(out.length, 2, 'two known-and-different addresses are two people');
+  for (const row of out) assert.deepEqual(row.groups ?? [], []);
+});
+
+test('every samahan a person is in reaches the filter, not just the first', () => {
+  // The server builder is the only place `via` becomes `groups`, and there is
+  // no pure function to exercise — so this asserts the one line. Mutating it to
+  // `m.via.slice(0, 1)` left every behavioural test green, which is precisely
+  // the defect this whole change exists to remove, one level upstream.
+  const src = stripComments(
+    readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'people-you-can-invite.ts'), 'utf8'),
+  );
+  assert.match(
+    src,
+    /groups: m\.via,/,
+    'the samahan candidate no longer carries every samahan the person is in',
+  );
 });

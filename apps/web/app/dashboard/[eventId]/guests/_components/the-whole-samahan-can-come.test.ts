@@ -30,13 +30,42 @@ const code = stripComments(readFileSync(join(HERE, 'add-from-people-sheet.tsx'),
 test('the samahan chips are derived from the rows, never hand-listed', () => {
   // A hand-written list of groups is a list of the groups somebody thought of,
   // and this sheet cannot know a host's samahan names in advance.
-  assert.match(code, /r\.source === 'samahan'/, 'chips are not built from the rows');
+  assert.match(code, /samahanGroupsIn\(rows \?\? \[\]\)/, 'chips are not built from the rows');
   assert.match(code, /samahanGroups\.map/, 'the chips do not render from that list');
 });
 
-test('a chip drives the search that already exists, and can be turned off', () => {
-  assert.match(code, /setQuery\(active \? '' : g\)/, 'a chip cannot be un-pressed');
+test('a chip is a membership filter, not a word typed into the search box', () => {
+  // 🚨 THE FIRST CUT STUFFED THE SAMAHAN'S NAME INTO THE SEARCH BOX and let the
+  // text matcher do the work. That made "the whole barkada" a SUBSTRING search,
+  // wrong in both directions at once: a group called "Ana" swept up Diana and
+  // Joana — one press putting strangers on a wedding list — and any member whose
+  // row was labelled with a different group, or with an event they were also a
+  // guest at, was left out with nothing said.
+  assert.match(code, /isInSamahan\(r, activeGroup\)/, 'the chip does not filter by membership');
+  assert.match(code, /setActiveGroup\(active \? null : g\)/, 'a chip cannot be un-pressed');
   assert.match(code, /aria-pressed=\{active\}/, 'a pressed chip does not say so');
+  assert.ok(
+    !/setQuery\(active \? '' : g\)/.test(code),
+    'the chip is back to typing into the search box',
+  );
+});
+
+test('a group filter and a typed search are two filters, not one string', () => {
+  // Both must apply, so a host can narrow inside a barkada.
+  assert.match(code, /!activeGroup \|\| isInSamahan/, 'no chip means no filter — that must hold');
+  assert.match(code, /inGroup\.filter\(\(r\) => matchesInvitableQuery\(r, query\)\)/);
+});
+
+test('nothing is dropped past the cap without saying so', () => {
+  // 🪤 `picks.slice(0, 200)` has always been here and `failed` was only ever
+  // incremented INSIDE the loop, so picks 201..N were neither added nor counted
+  // and the call returned added:200, failed:0 — the sheet closed as if it had
+  // worked. A one-tap "choose all" on a list that reads up to 500 candidates is
+  // what made that reachable.
+  const actions = stripComments(readFileSync(join(HERE, '..', 'people-add-actions.ts'), 'utf8'));
+  assert.match(actions, /const overflow = Math\.max\(0, picks\.length - MAX_PICKS_PER_ADD\)/);
+  assert.match(actions, /failed \+= overflow/, 'the overflow is dropped in silence again');
+  assert.match(actions, /picks\.slice\(0, MAX_PICKS_PER_ADD\)/, 'the cap and the count disagree');
 });
 
 test('choosing everyone shown goes through the shared rule', () => {

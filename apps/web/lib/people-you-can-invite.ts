@@ -243,6 +243,10 @@ export async function getPeopleYouCanInvite(
           source: 'samahan',
           from: m.via[0] ?? 'Your samahan',
           email: null,
+          // The `from` line shows one; the FILTER needs all of them — a person
+          // in two of your samahans belongs to both chips, and the alphabetical
+          // first is not a membership fact.
+          groups: m.via,
         });
       }
     }

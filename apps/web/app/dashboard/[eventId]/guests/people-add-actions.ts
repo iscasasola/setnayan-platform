@@ -40,6 +40,10 @@ import type { GuestSide } from '@/lib/guests';
 
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 
+/** How many people one press may add. The number is unchanged; what changed is
+ *  that going past it is now REPORTED rather than dropped in silence. */
+const MAX_PICKS_PER_ADD = 200;
+
 export type PeoplePick = {
   /** The `key` from `getPeopleYouCanInvite` — the only handle the client holds. */
   key: string;
@@ -80,7 +84,27 @@ export async function addGuestsFromPeople(
   let failed = 0;
   let firstError: string | null = null;
 
-  for (const pick of picks.slice(0, 200)) {
+  /*
+    🪤 THE CAP USED TO DROP THE OVERFLOW IN SILENCE. `picks.slice(0, 200)` has
+    always been here, and `failed` was only ever incremented INSIDE the loop —
+    so picks 201..N were neither added nor counted, and the call returned
+    `{ added: 200, failed: 0, firstError: null }`. The sheet only speaks when
+    `failed` is non-zero, so it closed as if everything had worked: 140 people
+    simply not invited, and the first anybody hears of it is a relative who
+    never got their invitation.
+    It became reachable in one tap on 2026-08-25, when a "Choose all N shown"
+    control landed on a list that reads up to 500 candidates. NO SILENT CAPS —
+    the overflow is counted and named.
+  */
+  const overflow = Math.max(0, picks.length - MAX_PICKS_PER_ADD);
+  if (overflow > 0) {
+    failed += overflow;
+    firstError =
+      `Only ${MAX_PICKS_PER_ADD} can go on at once — ${overflow} were not added. ` +
+      'Add the rest in a second batch.';
+  }
+
+  for (const pick of picks.slice(0, MAX_PICKS_PER_ADD)) {
     const person = byKey.get(pick?.key ?? '');
     if (!person || person.alreadyHere) {
       failed += 1;
@@ -139,6 +163,9 @@ export async function listPeopleYouCanInvite(eventId: string): Promise<{
     from: string;
     source: 'event' | 'people' | 'samahan';
     alreadyHere: boolean;
+    /** Every samahan this person is in — what the group chips filter on. The
+     *  `from` line shows at most one and is not a membership fact. */
+    groups: string[];
   }>;
   partial: boolean;
 }> {
@@ -153,6 +180,7 @@ export async function listPeopleYouCanInvite(eventId: string): Promise<{
       from: p.from,
       source: p.source,
       alreadyHere: p.alreadyHere,
+      groups: p.groups ?? [],
     })),
     partial,
   };

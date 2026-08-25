@@ -1,6 +1,5 @@
 import { NextResponse, after } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
 import { classifyImageBytes, decideNsfw } from '@/lib/nsfw-screen';
@@ -11,8 +10,9 @@ import { notifySamahanCoMembers } from '@/lib/samahan-notify';
 // DELETE /api/samahan/story — the author takes their own story down early.
 //
 // The Setlog rules live where they can't be argued with:
-//   · membership   — the caller's OWN client must be able to see the
-//     community row (RLS: members only);
+//   · membership   — a `community_members` row for this caller, read as a FACT
+//     with the service-role client. NOT "can the caller see the community row":
+//     that policy carries `OR is_admin()`, so it answers a different question;
 //   · one per hour — the UNIQUE (community_id, user_id, hour_bucket) index;
 //     the route only translates 23505 into words;
 //   · screening    — the poster frame is classified HERE, before any row
@@ -57,15 +57,39 @@ export async function POST(req: Request): Promise<NextResponse> {
   if (poster.size < 1 || poster.size > MAX_POSTER_BYTES) return bad(400, 'poster_size');
   if (!/^video\/(mp4|webm)$/.test(clip.type)) return bad(400, 'clip_type');
 
-  // Membership gate through the caller's OWN session — RLS hides the
-  // community row from non-members, so an empty read IS the refusal.
-  const supabase = await createClient();
-  const { data: community } = await supabase
-    .from('communities')
-    .select('community_id, archived')
-    .eq('community_id', communityId)
-    .maybeSingle();
-  if (!community || (community as { archived?: boolean }).archived) {
+  // ── MEMBERSHIP GATE ───────────────────────────────────────────────────────
+  // 🚨 THIS USED TO ASK WHETHER THE CALLER COULD *READ* THE COMMUNITY ROW, and
+  // its comment claimed "RLS hides the community row from non-members, so an
+  // empty read IS the refusal." Measured against the policy, that is false:
+  //
+  //     USING (community_id IN (SELECT public.current_community_ids())
+  //            OR public.is_admin())
+  //
+  // The `OR is_admin()` disjunct exists so Setnayan staff can support a group —
+  // it was never meant to let staff POST into one. RLS IS A FLOOR, NOT A SCOPE:
+  // a policy with a second disjunct does not scope the narrower caller. Usapan
+  // never had this hole, because a message is written through the caller's own
+  // session and its INSERT policy demands real membership; a story is written
+  // with the service-role client, so the app-side gate IS the only gate.
+  //
+  // So ask the fact, not the policy: is there a membership row for this caller?
+  // Read with the admin client precisely so no policy can widen the answer.
+  const gate = createAdminClient();
+  const [{ data: membership }, { data: community, error: communityErr }] = await Promise.all([
+    gate
+      .from('community_members')
+      .select('id')
+      .eq('community_id', communityId)
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    gate
+      .from('communities')
+      .select('community_id, archived')
+      .eq('community_id', communityId)
+      .maybeSingle(),
+  ]);
+  // A read we could not make is a refusal, never a pass.
+  if (communityErr || !membership || !community || (community as { archived?: boolean }).archived) {
     return bad(403, 'not_a_member');
   }
 

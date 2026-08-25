@@ -1,5 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { emitNotification } from '@/lib/notification-emit';
 import {
   COLLAPSE_WINDOW_MS,
@@ -41,6 +42,13 @@ export { COLLAPSE_WINDOW_MS, samahanNoticeCopy, samahanNoticeUrl, selectSamahanR
 // everyone: a duplicate notice is noise, silence is the bug this file exists to
 // fix.
 //
+// ⚠ THE OTHER TWO READS CANNOT FAIL THAT WAY, AND SAYING SO IS THE POINT. You
+// cannot ring a roster you were unable to enumerate, and you must not announce
+// into a samahan whose `archived` state you could not read. Both therefore fail
+// SILENT — the very outcome this file exists to remove — so both check their
+// error explicitly and LOG it. An unlogged silent return is how a feature dies
+// with nobody noticing; this way the group going quiet leaves a trace.
+//
 // 🔑 NO MESSAGE PREVIEW, ON PURPOSE. Taking a message down is a SOFT delete, and
 // a preview copied into a notification row has no inverse — the words would
 // survive in the tray of every recipient after the author removed them. The
@@ -75,10 +83,24 @@ export async function notifySamahanCoMembers(args: {
     // The roster fan-out uses the service-role client because the ACTOR is the
     // one acting: their own session can read the roster, but this runs after
     // the response in `after()`, where that session is no longer the caller.
-    const { data: memberRows } = await admin
+    const { data: memberRows, error: rosterErr } = await admin
       .from('community_members')
       .select('user_id')
       .eq('community_id', communityId);
+    // 🔑 A REFUSED READ IS NOT AN EMPTY GROUP, AND THIS ONE CANNOT FAIL TOWARD
+    // RINGING — you cannot tell people you were unable to enumerate. So it fails
+    // SILENT, which is the outcome this whole file exists to prevent, and the
+    // only honest thing left is to say so where somebody will find it. An
+    // unlogged silent return is how a feature dies without anybody noticing.
+    if (rosterErr) {
+      logQueryError(
+        'notifySamahanCoMembers.roster',
+        rosterErr,
+        { community_id: communityId },
+        'graceful_degrade',
+      );
+      return 0;
+    }
     // The actor filter lives in selectSamahanRecipients and NOWHERE ELSE — two
     // copies of one rule drift, and the copy that drifts is the one that stops
     // excluding you from your own notifications.
@@ -86,12 +108,26 @@ export async function notifySamahanCoMembers(args: {
     const recipients = selectSamahanRecipients(roster, actorUserId, []);
     if (recipients.length === 0) return 0;
 
-    const { data: community } = await admin
+    const { data: community, error: communityErr } = await admin
       .from('communities')
       .select('name, archived')
       .eq('community_id', communityId)
       .maybeSingle();
-    // A closed samahan rings nobody.
+    // A closed samahan rings nobody — and a read we could not make is treated as
+    // closed, DELIBERATELY the opposite direction from the collapse read below.
+    // Ringing on an unknown `archived` would mean announcing into a samahan that
+    // may have been closed, which is worse than staying quiet; not knowing who
+    // is in it, or whether it is still there, is not a state to broadcast from.
+    // Logged for the same reason as the roster read.
+    if (communityErr) {
+      logQueryError(
+        'notifySamahanCoMembers.community',
+        communityErr,
+        { community_id: communityId },
+        'graceful_degrade',
+      );
+      return 0;
+    }
     if (!community || (community as { archived?: boolean }).archived) return 0;
 
     const { data: actor } = await admin

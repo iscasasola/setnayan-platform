@@ -46,6 +46,8 @@ import {
 } from '@/lib/papic-window';
 import PapicWindowPicker from './papic-window-picker';
 import StylePicker from './style-picker';
+import { SettingRow } from './_components/setting-row';
+import { PAPIC_STYLES } from '@/lib/papic-photo-styles';
 import { VendorChallengesApproval } from './vendor-challenges-approval';
 import { CoupleChallengesManager } from './couple-challenges-manager';
 import {
@@ -266,6 +268,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   }
   const papicStyle =
     (styleRow as { papic_style?: string } | null)?.papic_style ?? 'ORIG';
+  // The look's human name for the row. DERIVED from the style table — the row
+  // must never carry a second copy of these five words.
+  const papicStyleLabel =
+    PAPIC_STYLES.find((st) => st.id === papicStyle)?.label ?? 'Orig';
 
   // ⚠ A SECOND DEAD ROUND TRIP, REMOVED 2026-08-26. The per-event photo
   // fidelity tier was read here for one reason: to feed the "Photo quality"
@@ -997,23 +1003,36 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       {/* Set up — the choices they make once, months before. */}
       {room === 'setup' ? (
         <>
-        {/* Your Papic look — the event-wide capture template the couple picks
-            once. Baked into every camera's photos (seats, guests) on
-            device at capture. Shooters never see a picker. */}
-        <section className="space-y-4 rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
-          <div className="space-y-1.5">
-            <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
-              <Sparkles aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
-              Your Papic look
-            </p>
-            <p className="max-w-prose text-sm text-ink/65">
+        {/* ⚠ YOUR PAPIC LOOK IS A ROW NOW, NOT FIVE CARDS.
+            Owner, opening his own wedding's Papic page: *"entering papic inside
+            an event needs to me simpler and better to manage. if I am a
+            customer and I see this, I will be confused."* The FIRST thing on
+            that screen was five large gradient cards asking him to pick a look
+            — a decision made once, months before the day, occupying the space
+            where "what do I do" belongs.
+
+            🔑 THE RULE IS HOW OFTEN YOU TOUCH IT. Made once → a row showing its
+            current answer. Come back to it → stays on the page. We can answer
+            it ourselves → deleted (photo quality, where photos go, 2026-08-26).
+
+            ⚠ THE PICKER IS NOT REDRAWN. `StylePicker` ships into the sheet
+            exactly as it is, lock note and all — a row is a different DOOR to
+            the same control, never a second copy of it. */}
+        <div className="overflow-hidden rounded-2xl border border-ink/10 bg-surface">
+          <SettingRow
+            icon={<Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+            label="Your Papic look"
+            value={papicStyleLabel}
+            sheetTitle="Your Papic look"
+          >
+            <p className="mb-4 text-sm text-ink/65">
               Choose one look for your whole event. Every photo your crew and
-              guests capture gets it automatically, so your gallery feels like one
-              beautiful set.
+              guests capture gets it automatically, so your gallery feels like
+              one beautiful set.
             </p>
-          </div>
-          <StylePicker eventId={eventId} current={papicStyle} />
-        </section>
+            <StylePicker eventId={eventId} current={papicStyle} />
+          </SettingRow>
+        </div>
 
         {/* Yours to keep — Google Drive as an OFFER, not a destination choice.
             Owner 2026-08-26: "i was thinking of not asking for setnayan storage?

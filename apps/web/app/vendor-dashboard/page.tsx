@@ -40,6 +40,11 @@ import { PageMasthead } from '@/app/_components/page-masthead';
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
  *
  * REBUILT 2026-07-01 to the finalized prototype (editorial `--m-*` palette).
+ * ⚠ LABELLED "Today" SINCE 2026-08-26 (owner: "yes i agree"). The word was
+ * always wrong for what this page does — the docblock below said so from the
+ * first day — and the admin console took the same rename the same week. The
+ * key stays `overview`; four systems read it and three fail silently.
+ *
  * The Overview is a DECISION SURFACE — "what needs you today" — not a stat
  * board. Three live streams, all wired to real sources (never the mockup's
  * sample numbers), assembled in `fetchVendorOverviewData`:
@@ -60,7 +65,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
  * Overview.
  */
 
-export const metadata = { title: 'Overview · Vendor' };
+export const metadata = { title: 'Today · Vendor' };
 
 function AgentHome() {
   return (
@@ -114,7 +119,7 @@ export default async function VendorOverviewPage() {
     return (
       <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <header className="mb-6 space-y-1.5">
-          <h1 className="sn-h1">Overview</h1>
+          <h1 className="sn-h1">Today</h1>
           <p className="text-sm text-ink/60">
             What needs you today — {todayLabel()}.
           </p>
@@ -177,7 +182,7 @@ export default async function VendorOverviewPage() {
           />
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold tracking-tight">
-              Overview is temporarily unavailable.
+              This page is temporarily unavailable.
             </h1>
             <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
               Refreshing usually clears this. Your data is safe.

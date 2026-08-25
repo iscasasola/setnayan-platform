@@ -4,6 +4,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Bell, CheckCheck } from 'lucide-react';
+import { PushToggle } from '@/app/_components/push-toggle';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import {
@@ -49,6 +50,25 @@ export async function NotificationsSurface() {
           Resend is configured" is a fact about our deployment, not an
           instruction for the person reading their alerts. */}
       <PageMasthead title="Notifications" className="mb-6" />
+
+      {/* 🔔 THE CONSOLE CAN REACH YOUR PHONE — added 2026-08-26.
+       *
+       * Everything else in this admin assumes you OPEN it. Nothing made you.
+       * In-app notices fan out correctly (order_awaiting_reconciliation reaches
+       * every admin, and it IS on the email allowlist), but prod held **zero**
+       * push subscriptions and the only two toggles in the product lived on the
+       * couple and vendor doorways — so the person running Setnayan had no
+       * control anywhere to turn on phone alerts for admin work. The first real
+       * sale's "awaiting reconciliation" notice sat unread overnight.
+       *
+       * Same component the couple's profile uses, not a third copy. It asks for
+       * browser permission only when you flip it ON, and where push cannot work
+       * (no VAPID key, no service worker, iOS Safari outside an installed PWA)
+       * it renders a quiet "not available" note rather than a dead switch — so
+       * this is safe to ship before the keys are confirmed in hosting. */}
+      <div className="mb-6">
+        <PushToggle />
+      </div>
 
       {unreadCount > 0 ? (
         <form action={markAllNotificationsRead} className="mb-4">

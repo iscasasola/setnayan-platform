@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "765107896",
+  "generatedFromRef": "6eca29334",
   "routeCount": 405,
   "destinations": 872,
   "actions": 583,
-  "blocks": 4031,
+  "blocks": 4030,
   "routes": {
     "/": {
       "files": [
@@ -2744,6 +2744,7 @@
         "PageMasthead",
         "PreviewSwatch",
         "ProcessStatus",
+        "PushToggle",
         "SDLoader",
         "SentrySmokeTestButton",
         "SettingsSurface",
@@ -3824,7 +3825,6 @@
       "files": [
         "dashboard/(account)/profile/_components/analytics-choice.tsx",
         "dashboard/(account)/profile/_components/haptics-toggle.tsx",
-        "dashboard/(account)/profile/_components/push-toggle.tsx",
         "dashboard/(account)/profile/actions.ts",
         "dashboard/(account)/profile/face-profile-actions.ts",
         "dashboard/(account)/profile/loading.tsx",
@@ -3858,7 +3858,6 @@
       ],
       "blocks": [
         "AnalyticsChoice",
-        "ArrayBuffer",
         "ConfirmForm",
         "CookieConsent",
         "Field",
@@ -3871,7 +3870,6 @@
         "ProfileShareButton",
         "PushToggle",
         "Row",
-        "Status",
         "SubmitButton",
         "TurnstileField"
       ]

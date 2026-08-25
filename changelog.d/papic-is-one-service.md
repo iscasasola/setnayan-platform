@@ -28,3 +28,21 @@ He was right that it was documented. **The database had honoured it and the code
 **Mutation results**, counts printed before → after: retired name back in rendered copy (0→1) 🔴 · the two-product switch returns 🔴 · the census sweeps zero files 🔴. Green on both clean sides.
 
 **SPEC IMPACT:** None — this restores an existing owner lock (2026-08-11) that the code had drifted from.
+
+---
+
+🚨 **AND THE TEST GUARDING THAT TITLE MADE THE SAME FALSE CLAIM, ONE LEVEL UP.**
+
+`papic-copy-guardrails.test.ts` pins the fallback tier table to the migration seed byte-for-byte, then hand-applies one post-seed rename for the `mini` row — setting `'Papic One'` under a comment reading *"the fallback mirrors the **LIVE** display title"*.
+
+**It has never read the database.** Measured 2026-08-26, there are **three different values for that one row**:
+
+| where | value |
+|---|---|
+| migration seed | `Papic Mini` |
+| code fallback | `Papic One` |
+| **live production** | **`Dedicated camera (legacy)`**, `is_active = false` |
+
+…and a comment asserting they agreed. 🔑 **A claim to mirror something is not a mirror** — that is the second instance of this exact shape in this one change, and it is what let a retired name survive two owner rulings.
+
+The override is now `'A camera with its own shots'` and its comment says plainly that it is **hand-typed product copy, not a mirror**, records all three real values, and states why it is deliberately not the live DB string (that title can reach a public card; *"legacy"* is an operator's word). ⛔ **Every other field still pins byte-for-byte to the seed** — points, rate SKU, seats, cap and sort order are economics and must never drift.

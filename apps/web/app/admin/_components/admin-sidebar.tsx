@@ -252,32 +252,32 @@ const MENU_HUBS: Record<
     href: '/admin',
     icon: Home,
     matchPrefix: '/admin/work',
-    description: 'The admin pulse — every act-now queue at a glance.',
+    description: 'Everything waiting on a decision, most urgent first.',
   },
   directory: {
     href: '/admin/accounts',
     icon: Users,
-    description: 'Users, vendors, events, and venues — pure record look-up.',
+    description: 'Shops and the people behind them — checking, verifying, looking up.',
   },
   media: {
     href: '/admin/studio',
     icon: Clapperboard,
-    description: 'Everything you curate or publish — content and marketing.',
+    description: 'Everything you make — the website, films, songs, mood boards.',
   },
   ugat: {
     href: '/admin/ugat',
     icon: Network,
-    description: 'The data-structure wing — taxonomy, menus, onboarding, AI brain.',
+    description: 'How Setnayan is put together — categories, onboarding, settings, test data.',
   },
   funnels: {
     href: '/admin/app-performance',
     icon: Activity,
-    description: 'Growth, health, and where to focus next.',
+    description: 'How the site is doing — traffic, growth, search, errors.',
   },
   'settings-group': {
     href: '/admin/money',
     icon: Banknote,
-    description: 'Pricing and money config, plus the settings tail.',
+    description: 'Money in and money out — payments, fees, payouts, and what you charge.',
   },
 };
 

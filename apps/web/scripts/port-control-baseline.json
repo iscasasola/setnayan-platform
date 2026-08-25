@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "3752c6041",
+  "generatedFromRef": "db42340bd",
   "routeCount": 405,
   "destinations": 872,
   "actions": 586,
@@ -399,10 +399,8 @@
         "HTMLParagraphElement",
         "LineRevealHeading",
         "Link",
-        "Mode",
         "PapicEstimator",
-        "RevealBand",
-        "Stepper"
+        "RevealBand"
       ]
     },
     "/(shell)/privacy": {
@@ -1085,6 +1083,7 @@
         "admin/_components/console-table.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/mobile-landing-grid.tsx",
+        "admin/_components/what-you-change.tsx",
         "admin/_overview-tile.tsx",
         "admin/error.tsx",
         "admin/layout.tsx",
@@ -1198,6 +1197,7 @@
         "AppleSecretReminder",
         "BottomNav",
         "CountUp",
+        "EditingIsOnTheComputer",
         "EmptyState",
         "ErrorState",
         "GuidedTour",
@@ -1216,7 +1216,8 @@
         "Screen",
         "Sk",
         "Tile",
-        "UnreadBellBadge"
+        "UnreadBellBadge",
+        "WhatYouChange"
       ]
     },
     "/admin/account-deletions": {

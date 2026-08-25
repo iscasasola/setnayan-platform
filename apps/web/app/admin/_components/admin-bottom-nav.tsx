@@ -20,7 +20,11 @@
  * TAB CHOICE (≤5) — the owner's three "sure" priority menus (Overview · Ugat
  * Console · App Performance) get their own tab, plus Accounts (record look-up)
  * and a More tab that opens the complete 6-group menu:
- *   Overview · Accounts · Ugat Console · App Performance · More
+ *   Today · People · Money · More
+ *
+ * ⚠ RELABELLED 2026-08-26 with the six-menu regroup. The strip is still the
+ * ≤5-tab SUBSET SHORTCUT — its tabs must NAME the menus they open, or the phone
+ * and the desktop disagree about what a place is called.
  * The retired 2026-07-03 "Marketing" tab is GONE — its group folded into Studio
  * on desktop, so its surfaces are reachable in More → Studio. Studio + Money
  * (the two non-tab desktop menus) are always one tap away inside More.
@@ -41,7 +45,7 @@
  *                      tab's route also starts with /admin/) PLUS every act-now
  *                      queue route as a prefix umbrella.
  *   - Accounts       — /admin/directory OR any account record route
- *   - Ugat Console   — /admin/taxonomy OR any Ugat data-structure route
+ *   - Money          — /admin/money OR any money queue
  *   - App Performance— /admin/app-performance OR any Performance route
  *   - More           — /admin/more OR any Studio / Money route (the two
  *                      non-tab desktop menus). /admin/settings umbrella also
@@ -59,7 +63,7 @@
  * Symmetric with admin-sidebar.tsx. Caught + fixed 2026-05-29.
  */
 
-import { Home, Users, Tag, Activity, Menu } from 'lucide-react';
+import { Home, Users, Banknote, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
@@ -72,7 +76,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     // lights for the exact /admin path (activeMatchAlsoExact — every other
     // admin route starts with /admin/) AND for every act-now queue route.
     key: 'home',
-    label: 'Overview',
+    label: 'Today',
     href: '/admin',
     icon: Home,
     activeMatchAlsoExact: ['/admin'],
@@ -107,7 +111,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   },
   {
     key: 'directory',
-    label: 'Accounts',
+    label: 'People',
     href: '/admin/directory',
     icon: Users,
     activeMatch: [
@@ -121,41 +125,34 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     ],
   },
   {
-    // UGAT CONSOLE (2026-07-04 respine · replaces the retired 'marketing' slot)
-    // — the data-structure / mapping wing, an owner "sure" priority menu. Lands
-    // on /admin/taxonomy, the Taxonomy-Studio anchor of the Ugat Console group,
-    // and claims every Ugat data-structure route as its umbrella.
-    key: 'ugat',
-    label: 'Ugat Console',
-    href: '/admin/taxonomy',
-    icon: Tag,
+    /* 💰 MONEY — the third ANSWERING desk, and the reason this strip changed.
+     *
+     * OWNER 2026-08-26: *"for mobile version, we only provide quick answers. no
+     * editing of settings or features. just responses for those that needs
+     * decision and response."*
+     *
+     * The two tabs that stood here — Set up and Numbers — are editing and
+     * looking. Neither answers anything, and Set up opens the taxonomy editor,
+     * which is exactly the work this ruling moves off the phone. Money replaces
+     * them because confirming a payment IS a response: the receipt is on the
+     * row and one press settles it.
+     *
+     * ⚖ STILL WITHIN THE LOCKED ≤5 PRIMITIVE — this takes the strip to four.
+     * More is deliberately KEPT: removing the only route from a phone to sixty
+     * pages is a capability deletion nobody asked for. Its landing carries the
+     * signpost instead. */
+    key: 'settings-group',
+    label: 'Money',
+    href: '/admin/money',
+    icon: Banknote,
     activeMatch: [
-      '/admin/taxonomy',
-      '/admin/ugat',
-      '/admin/menus',
-      '/admin/onboarding',
-      '/admin/wedding-traditions',
-      '/admin/brain',
-    ],
-  },
-  {
-    // PERFORMANCE — lands directly on the App Performance cockpit (a real
-    // page, not an overflow grid). Re-promoted to a dedicated tab by the
-    // 2026-07-03 respine, still within the ≤5 ruleset (Work + Money tabs
-    // dissolved). /admin/insights now redirects into the studio's Intelligence tab.
-    key: 'performance',
-    label: 'Performance',
-    href: '/admin/app-performance',
-    icon: Activity,
-    activeMatch: [
-      '/admin/app-performance',
-      '/admin/insights',
-      '/admin/growth',
-      '/admin/intelligence',
-      '/admin/funnels',
-      '/admin/operations-hiring',
-      '/admin/connection-logs',
-      '/admin/offline',
+      '/admin/money',
+      '/admin/payments',
+      '/admin/booking-fees',
+      '/admin/payouts',
+      '/admin/subscriptions',
+      '/admin/payment-options',
+      '/admin/receipts',
     ],
   },
   {

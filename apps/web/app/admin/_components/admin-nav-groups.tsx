@@ -93,7 +93,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     // UNCHANGED by the 2026-07-04 respine. (Social queue lives in Studio; two-
     // admin Approvals + Taxonomy-requests join here once their surfaces ship.)
     key: 'queues',
-    label: 'Overview',
+    label: 'Today',
     items: [
       {
         key: 'overview',
@@ -111,76 +111,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/work',
         icon: ListChecks,
         matchPrefix: '/admin/work',
-      },
-      {
-        key: 'verify',
-        label: 'Verify',
-        href: '/admin/verify',
-        icon: BadgeCheck,
-        matchPrefix: '/admin/verify',
-      },
-      {
-        // Verification documents — the READ side of the vendor-verification
-        // bucket, next to the queue that collects them. Deliberately NOT part of
-        // Website media: that page manages the site's own furniture, and a
-        // person's government ID is not furniture. Re-uploads and abandoned
-        // applications leave identity documents behind that nothing else in the
-        // app can see, let alone remove.
-        key: 'verification-docs',
-        label: 'ID documents',
-        href: '/admin/verification-docs',
-        icon: FileWarning,
-        matchPrefix: '/admin/verification-docs',
-      },
-      {
-        // Vendor Partnerships — two-admin verification queue for vendor-to-vendor
-        // commercial relationships (accredited / sponsored / general). Badges are
-        // invisible until a second admin confirms. Vendor-side stub at
-        // /vendor-dashboard/partnerships lets vendors submit claims.
-        key: 'vendor-partnerships',
-        label: 'Partnerships',
-        href: '/admin/vendor-partnerships',
-        icon: Handshake,
-        matchPrefix: '/admin/vendor-partnerships',
-      },
-      {
-        key: 'payments',
-        label: 'Payments',
-        href: '/admin/payments',
-        icon: Banknote,
-        matchPrefix: '/admin/payments',
-      },
-      {
-        // Who owes Setnayan a syncing fee and has not paid it. Sits beside
-        // Payments because that is where the money is actually confirmed —
-        // this page only shows WHO owes; it deliberately has no buttons.
-        key: 'booking-fees',
-        label: 'Fees owed',
-        href: '/admin/booking-fees',
-        icon: Receipt,
-        matchPrefix: '/admin/booking-fees',
-      },
-      {
-        // Money queue — vendor payout release (was in Money group).
-        key: 'payouts',
-        label: 'Payouts',
-        href: '/admin/payouts',
-        icon: Wallet,
-      },
-      {
-        // Money queue — vendor Pro/Enterprise subscription reconcile (Phase D).
-        key: 'subscriptions',
-        label: 'Subscriptions',
-        href: '/admin/subscriptions',
-        icon: RefreshCw,
-        matchPrefix: '/admin/subscriptions',
-      },
-      {
-        key: 'payment-options',
-        label: 'Payment options',
-        href: '/admin/payment-options',
-        icon: CreditCard,
-        matchPrefix: '/admin/payment-options',
       },
       {
         key: 'disputes',
@@ -347,8 +277,50 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     // record-lookup. UNCHANGED items. (Spotlight Awards + Journal Spotlights
     // live in Studio — featuring is a curation/publishing lever, not look-up.)
     key: 'directory',
-    label: 'Accounts',
+    label: 'People & shops',
     items: [
+      {
+        key: 'verify',
+        label: 'Verify',
+        href: '/admin/verify',
+        icon: BadgeCheck,
+        matchPrefix: '/admin/verify',
+      },
+      {
+        // Verification documents — the READ side of the vendor-verification
+        // bucket, next to the queue that collects them. Deliberately NOT part of
+        // Website media: that page manages the site's own furniture, and a
+        // person's government ID is not furniture. Re-uploads and abandoned
+        // applications leave identity documents behind that nothing else in the
+        // app can see, let alone remove.
+        key: 'verification-docs',
+        label: 'ID documents',
+        href: '/admin/verification-docs',
+        icon: FileWarning,
+        matchPrefix: '/admin/verification-docs',
+      },
+      {
+        // Repointed to the Accounts Studio Vendors tab (slice 3). matchPrefix
+        // keeps this item lit on the legacy /admin/vendors path + the
+        // standalone /admin/vendors/[id]/edit + /tokens + /team detail routes
+        // (which stay standalone).
+        key: 'vendors',
+        label: 'Vendors',
+        href: '/admin/accounts?tab=vendors',
+        icon: Briefcase,
+        matchPrefix: '/admin/vendors',
+      },
+      {
+        // Vendor Partnerships — two-admin verification queue for vendor-to-vendor
+        // commercial relationships (accredited / sponsored / general). Badges are
+        // invisible until a second admin confirms. Vendor-side stub at
+        // /vendor-dashboard/partnerships lets vendors submit claims.
+        key: 'vendor-partnerships',
+        label: 'Partnerships',
+        href: '/admin/vendor-partnerships',
+        icon: Handshake,
+        matchPrefix: '/admin/vendor-partnerships',
+      },
       {
         // Repointed to the Accounts Studio Users tab (slice 1). matchPrefix
         // keeps this item lit on the legacy /admin/users path + any future
@@ -369,28 +341,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/founder-seats',
         icon: Crown,
         matchPrefix: '/admin/founder-seats',
-      },
-      {
-        // Repointed to the Accounts Studio Vendors tab (slice 3). matchPrefix
-        // keeps this item lit on the legacy /admin/vendors path + the
-        // standalone /admin/vendors/[id]/edit + /tokens + /team detail routes
-        // (which stay standalone).
-        key: 'vendors',
-        label: 'Vendors',
-        href: '/admin/accounts?tab=vendors',
-        icon: Briefcase,
-        matchPrefix: '/admin/vendors',
-      },
-      {
-        // Repointed to the Accounts Studio Demo vendors tab (slice 4, final).
-        // matchPrefix keeps this item lit on the legacy /admin/demo-vendors
-        // path + the standalone /admin/demo-vendors/inquiries +
-        // inquiries/[threadId] flows (which stay standalone).
-        key: 'demo-vendors',
-        label: 'Demo vendors',
-        href: '/admin/accounts?tab=demo-vendors',
-        icon: TestTube,
-        matchPrefix: '/admin/demo-vendors',
       },
       {
         // Repointed to the Accounts Studio Events tab (slice 1). matchPrefix
@@ -433,17 +383,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Globe,
         matchPrefix: '/admin/website',
       },
-      // 'hero-video' item REMOVED 2026-08-02 — the sign-in hero was retired
-      // (deleted, no tombstone) because it sliced every upload into stills for a
-      // screen nothing rendered. Guarded by lib/website-media-retired-hero.test.ts.
-      // Live Studio channel pool (WAVE 9 · Live_Studio_Unified_Spec § 4h) — the
-      // Setnayan-owned YouTube channels every event streams on, so couples never
-      // connect a Google account. CONDITIONAL on the Live Studio flag, deliberately:
-      // the route itself notFound()s when the flag is off, and a nav row pointing at
-      // a 404 is worse than no row. Flag off ⇒ this surface does not exist at all.
-      // Reads the inlined NEXT_PUBLIC_ literal directly (through the shared
-      // lenient parser) rather than lib/live-studio-roam's helper, because this
-      // module is imported by the 'use client' sidebar.
       ...(envFlagEnabled(process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED)
         ? [
             {
@@ -541,9 +480,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Palette,
         matchPrefix: '/admin/moodboard-library',
       },
-      // ── old MARKETING lane (retired 'marketing' group · folded in 2026-07-04)
-      // — the social publishing queue + the two featuring levers + the growth
-      // incentives, appended after the Content lane. Item keys/icons unchanged.
       {
         // Repointed to the Studio Studio Social queue tab (slice 4 · final).
         // matchPrefix keeps this item lit on the legacy /admin/social-queue
@@ -576,27 +512,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: BookOpen,
         matchPrefix: '/admin/journal-spotlights',
       },
-      {
-        // Repointed to the Studio Studio Discount codes tab (slice 3). matchPrefix
-        // keeps this item lit on the legacy /admin/discount-codes path AND its
-        // standalone /new + /[id]/edit sub-routes (list redirects in; the CRUD
-        // sub-routes stay standalone).
-        key: 'discount-codes',
-        label: 'Discount codes',
-        href: '/admin/studio?tab=discount-codes',
-        icon: TagIcon,
-        matchPrefix: '/admin/discount-codes',
-      },
-      {
-        // Repointed to the Studio Studio Referrals tab (slice 3). matchPrefix
-        // keeps this item lit on the legacy /admin/referrals path (which now
-        // redirects in).
-        key: 'referrals',
-        label: 'Referrals',
-        href: '/admin/studio?tab=referrals',
-        icon: Gift,
-        matchPrefix: '/admin/referrals',
-      },
     ],
   },
   // ── ENGINE ROOMS (collapsible) ────────────────────────────────────────
@@ -610,36 +525,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     // carry.) The first PR of the HQ studio-consolidation program will turn
     // these into Taxonomy-Studio-style surfaces.
     key: 'ugat',
-    label: 'Ugat Console',
+    label: 'Set up',
     defaultOpen: false,
     items: [
-      {
-        // Nav/icon/menu registry — the single source for the name + icon of
-        // every menu across all account types (foundation 2026-06-16).
-        // Ugat Studio default tab (fold 2026-07-10). NORMAL matchPrefix on the
-        // legacy path — /admin/ugat != /admin/menus so no shell-path collision.
-        key: 'menus',
-        label: 'Menus & icons',
-        href: '/admin/ugat?tab=menus',
-        icon: Shapes,
-        matchPrefix: '/admin/menus',
-      },
       {
         key: 'taxonomy',
         label: 'Taxonomy',
         href: '/admin/taxonomy',
         icon: Tag,
       },
-      // 'event-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
-      // Vocabularies → Event types rail (/admin/taxonomy?view=vocab-event), where
-      // the event-type roster (couple-launch `enabled` lever + picker-card
-      // presentation + retire/un-retire) now lives beside the category-scoping
-      // controls. The standalone page redirects there.
-      // 'refinements' sidebar item REMOVED 2026-07-03 — /admin/refinements was
-      // retired to a redirect(/admin/taxonomy); refinements are now edited in the
-      // Taxonomy Studio inspector's Refinements tab (reachable via the Taxonomy
-      // item above). Dedicated nav item dropped so it stops surfacing here + in
-      // /admin/menus. The redirect page stays for old bookmarks.
       {
         // Onboarding-flow config (background music + future per-flow knobs),
         // grouped by onboarding type. Scales as new event-type onboardings ship.
@@ -649,9 +543,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Compass,
         matchPrefix: '/admin/onboarding',
       },
-      // 'wedding-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
-      // Vocabularies → Faiths rail (/admin/taxonomy?view=vocab-faith). The
-      // standalone page now redirects there.
       {
         key: 'wedding-traditions',
         label: 'Wedding traditions',
@@ -667,6 +558,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/brain',
       },
       {
+        // Nav/icon/menu registry — the single source for the name + icon of
+        // every menu across all account types (foundation 2026-06-16).
+        // Ugat Studio default tab (fold 2026-07-10). NORMAL matchPrefix on the
+        // legacy path — /admin/ugat != /admin/menus so no shell-path collision.
+        key: 'menus',
+        label: 'Menus & icons',
+        href: '/admin/ugat?tab=menus',
+        icon: Shapes,
+        matchPrefix: '/admin/menus',
+      },
+      {
         // Ugat entity map — the live console (slice 1 · PR #2788): the nine
         // platform entity types as nodes on a dark canvas, the schema-audited
         // connections as clickable joints, the 2026-07-05 audit's health
@@ -680,6 +582,111 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Network,
         matchPrefix: '/admin/ugat/map',
       },
+      {
+        // Repointed to the Accounts Studio Demo vendors tab (slice 4, final).
+        // matchPrefix keeps this item lit on the legacy /admin/demo-vendors
+        // path + the standalone /admin/demo-vendors/inquiries +
+        // inquiries/[threadId] flows (which stay standalone).
+        key: 'demo-vendors',
+        label: 'Demo vendors',
+        href: '/admin/accounts?tab=demo-vendors',
+        icon: TestTube,
+        matchPrefix: '/admin/demo-vendors',
+      },
+      {
+        key: 'demo-mode',
+        label: 'Demo mode',
+        href: '/admin/settings?tab=demo-mode',
+        icon: Settings,
+        matchPrefix: '/admin/settings/demo-mode',
+      },
+      {
+        // Settings Studio shell + first tab (Money split 2026-07-10). Same
+        // active-state subtlety as the Pricing row: an ABSENT matchPrefix would
+        // default to the pathname /admin/settings and steal every ?tab sibling
+        // (and over-claim the standalone /admin/settings/payment-methods +
+        // demo-mode routes via the startsWith arm). The full QUERY matchPrefix
+        // can't prefix-match a query-less pathname, so only the query-aware
+        // hrefMatch (tab===settings) lights this row. (Money-split review.)
+        key: 'settings',
+        label: 'Settings',
+        href: '/admin/settings?tab=settings',
+        icon: Settings,
+        matchPrefix: '/admin/settings?tab=settings',
+      },
+      {
+        // Compliance — the RA 10173 / NPC registration facts (PIC identity, DPO
+        // designation, breach plan, sub-processors, processing declarations).
+        // Sits in the settings tail beside Settings: it's platform-config the
+        // owner sets once. The sensitive identifiers (BIR TIN, address, DPO
+        // phone) live only in the DB behind admin-only RLS, never in the repo.
+        key: 'compliance',
+        label: 'Compliance',
+        href: '/admin/settings?tab=compliance',
+        icon: ShieldCheck,
+        matchPrefix: '/admin/compliance',
+      },
+      {
+        key: 'notifications',
+        label: 'Notifications',
+        href: '/admin/settings?tab=notifications',
+        icon: Bell,
+        matchPrefix: '/admin/notifications',
+      },
+      {
+        // Integration Activation Console — the one place the solo operator flips
+        // every external-service switch (Resend email · OpenAI · Maya/GCash pay)
+        // and the AI-paywall flag. Sits in the settings tail beside Compliance /
+        // Notifications / Demo-mode: it's platform-config the owner sets once. A
+        // STANDALONE page (mirrors Papic storage above), not a Settings-studio
+        // tab, so the matchPrefix is the plain pathname. Wayfinding 2026-07-15 —
+        // previously reachable only from a tile on the /admin dashboard.
+        key: 'integrations',
+        label: 'Integrations',
+        href: '/admin/integrations',
+        icon: Plug,
+        matchPrefix: '/admin/integrations',
+      },
+      {
+        // Secrets & Rotation — every platform key in one place with an age
+        // alarm, a per-key runbook, in-app writes to the Vercel env, and the
+        // dual-key ENCRYPTION_KEY procedure. Sits directly beside Integrations
+        // (the two are halves of the same job: Integrations turns a service ON,
+        // this one keeps its credential fresh) and cross-links to it for the
+        // DB-stored secrets. A page ships with its doorway — 2026-07-25.
+        key: 'secrets',
+        label: 'Secrets & Rotation',
+        href: '/admin/secrets',
+        icon: KeyRound,
+        matchPrefix: '/admin/secrets',
+      },
+      {
+        key: 'budget-planner',
+        label: 'Budget Planner',
+        href: '/admin/budget-planner',
+        icon: PiggyBank,
+      },
+      {
+        // Papic storage telemetry (owner 2026-07-11) — the real web-copy ratio +
+        // per-event web-copy GB vs the 40 GB ceiling, to lock the provisional
+        // storage numbers from measured data before hard-coding them.
+        key: 'papic-storage',
+        label: 'Papic storage',
+        href: '/admin/papic-storage',
+        icon: BarChart3,
+        matchPrefix: '/admin/papic-storage',
+      },
+      {
+        // Personal account security — admins use the shared /dashboard/profile
+        // surface (the /dashboard layout only redirects vendors). Without this
+        // entry the admin doorway had NO path to change-password / sign-out-
+        // other-devices except detouring through the customer role pill.
+        // Account-security suite 2026-06-11.
+        key: 'my-account',
+        label: 'My account',
+        href: '/dashboard/profile',
+        icon: CircleUser,
+      },
     ],
   },
   {
@@ -692,7 +699,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     // collision with the group label is accepted for now (owner). Items
     // UNCHANGED by the 2026-07-04 respine.
     key: 'funnels',
-    label: 'App Performance',
+    label: 'Numbers',
     defaultOpen: false,
     items: [
       {
@@ -702,9 +709,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Activity,
         matchPrefix: '/admin/app-performance',
       },
-      // Insights Studio tabs (2026-07-10) — repointed to /admin/app-performance
-      // ?tab=<key>; matchPrefix keeps each item lit on its legacy /admin/<x>
-      // path (which now redirects into the studio) + its detail routes.
       {
         key: 'growth',
         label: 'Growth',
@@ -788,9 +792,62 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     // tail into a seventh top-level group would trade one wayfinding problem
     // for a longer sidebar.
     key: 'settings-group',
-    label: 'Money & Settings',
+    label: 'Money',
     defaultOpen: false,
     items: [
+      {
+        key: 'payments',
+        label: 'Payments',
+        href: '/admin/payments',
+        icon: Banknote,
+        matchPrefix: '/admin/payments',
+      },
+      {
+        // Who owes Setnayan a syncing fee and has not paid it. Sits beside
+        // Payments because that is where the money is actually confirmed —
+        // this page only shows WHO owes; it deliberately has no buttons.
+        key: 'booking-fees',
+        label: 'Fees owed',
+        href: '/admin/booking-fees',
+        icon: Receipt,
+        matchPrefix: '/admin/booking-fees',
+      },
+      {
+        // Money queue — vendor payout release (was in Money group).
+        key: 'payouts',
+        label: 'Payouts',
+        href: '/admin/payouts',
+        icon: Wallet,
+      },
+      {
+        // Money queue — vendor Pro/Enterprise subscription reconcile (Phase D).
+        key: 'subscriptions',
+        label: 'Subscriptions',
+        href: '/admin/subscriptions',
+        icon: RefreshCw,
+        matchPrefix: '/admin/subscriptions',
+      },
+      {
+        key: 'payment-options',
+        label: 'Payment options',
+        href: '/admin/payment-options',
+        icon: CreditCard,
+        matchPrefix: '/admin/payment-options',
+      },
+      {
+        key: 'receipts',
+        label: 'Receipts',
+        href: '/admin/receipts',
+        icon: Receipt,
+      },
+      {
+        // Canonical home stays with money config (the data IS money — vendor
+        // payouts + customer payment instructions both consume it).
+        key: 'payment-methods',
+        label: 'Payment methods',
+        href: '/admin/settings/payment-methods',
+        icon: Landmark,
+      },
       {
         // Catalog Studio shell + first tab (Money split 2026-07-10). The shell
         // path /admin/pricing equals this tab's own legacy route, so the
@@ -819,14 +876,32 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/custom-plans',
       },
       {
-        // Papic storage telemetry (owner 2026-07-11) — the real web-copy ratio +
-        // per-event web-copy GB vs the 40 GB ceiling, to lock the provisional
-        // storage numbers from measured data before hard-coding them.
-        key: 'papic-storage',
-        label: 'Papic storage',
-        href: '/admin/papic-storage',
-        icon: BarChart3,
-        matchPrefix: '/admin/papic-storage',
+        key: 'price-bands',
+        label: 'Price bands',
+        href: '/admin/pricing?tab=price-bands',
+        icon: Gauge,
+        matchPrefix: '/admin/price-bands',
+      },
+      {
+        // Repointed to the Studio Studio Discount codes tab (slice 3). matchPrefix
+        // keeps this item lit on the legacy /admin/discount-codes path AND its
+        // standalone /new + /[id]/edit sub-routes (list redirects in; the CRUD
+        // sub-routes stay standalone).
+        key: 'discount-codes',
+        label: 'Discount codes',
+        href: '/admin/studio?tab=discount-codes',
+        icon: TagIcon,
+        matchPrefix: '/admin/discount-codes',
+      },
+      {
+        // Repointed to the Studio Studio Referrals tab (slice 3). matchPrefix
+        // keeps this item lit on the legacy /admin/referrals path (which now
+        // redirects in).
+        key: 'referrals',
+        label: 'Referrals',
+        href: '/admin/studio?tab=referrals',
+        icon: Gift,
+        matchPrefix: '/admin/referrals',
       },
       {
         // Vendor "recommend to your couples" map — the admin-editable vendor-leaf
@@ -836,112 +911,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/vendor-recommendations',
         icon: Lightbulb,
         matchPrefix: '/admin/vendor-recommendations',
-      },
-      {
-        key: 'price-bands',
-        label: 'Price bands',
-        href: '/admin/pricing?tab=price-bands',
-        icon: Gauge,
-        matchPrefix: '/admin/price-bands',
-      },
-      {
-        key: 'budget-planner',
-        label: 'Budget Planner',
-        href: '/admin/budget-planner',
-        icon: PiggyBank,
-      },
-      {
-        key: 'receipts',
-        label: 'Receipts',
-        href: '/admin/receipts',
-        icon: Receipt,
-      },
-      {
-        // Canonical home stays with money config (the data IS money — vendor
-        // payouts + customer payment instructions both consume it).
-        key: 'payment-methods',
-        label: 'Payment methods',
-        href: '/admin/settings/payment-methods',
-        icon: Landmark,
-      },
-      // ── SETTINGS TAIL — system + personal config, bottom of the collapsible.
-      {
-        // Settings Studio shell + first tab (Money split 2026-07-10). Same
-        // active-state subtlety as the Pricing row: an ABSENT matchPrefix would
-        // default to the pathname /admin/settings and steal every ?tab sibling
-        // (and over-claim the standalone /admin/settings/payment-methods +
-        // demo-mode routes via the startsWith arm). The full QUERY matchPrefix
-        // can't prefix-match a query-less pathname, so only the query-aware
-        // hrefMatch (tab===settings) lights this row. (Money-split review.)
-        key: 'settings',
-        label: 'Settings',
-        href: '/admin/settings?tab=settings',
-        icon: Settings,
-        matchPrefix: '/admin/settings?tab=settings',
-      },
-      {
-        // Compliance — the RA 10173 / NPC registration facts (PIC identity, DPO
-        // designation, breach plan, sub-processors, processing declarations).
-        // Sits in the settings tail beside Settings: it's platform-config the
-        // owner sets once. The sensitive identifiers (BIR TIN, address, DPO
-        // phone) live only in the DB behind admin-only RLS, never in the repo.
-        key: 'compliance',
-        label: 'Compliance',
-        href: '/admin/settings?tab=compliance',
-        icon: ShieldCheck,
-        matchPrefix: '/admin/compliance',
-      },
-      {
-        key: 'notifications',
-        label: 'Notifications',
-        href: '/admin/settings?tab=notifications',
-        icon: Bell,
-        matchPrefix: '/admin/notifications',
-      },
-      {
-        key: 'demo-mode',
-        label: 'Demo mode',
-        href: '/admin/settings?tab=demo-mode',
-        icon: Settings,
-        matchPrefix: '/admin/settings/demo-mode',
-      },
-      {
-        // Integration Activation Console — the one place the solo operator flips
-        // every external-service switch (Resend email · OpenAI · Maya/GCash pay)
-        // and the AI-paywall flag. Sits in the settings tail beside Compliance /
-        // Notifications / Demo-mode: it's platform-config the owner sets once. A
-        // STANDALONE page (mirrors Papic storage above), not a Settings-studio
-        // tab, so the matchPrefix is the plain pathname. Wayfinding 2026-07-15 —
-        // previously reachable only from a tile on the /admin dashboard.
-        key: 'integrations',
-        label: 'Integrations',
-        href: '/admin/integrations',
-        icon: Plug,
-        matchPrefix: '/admin/integrations',
-      },
-      {
-        // Secrets & Rotation — every platform key in one place with an age
-        // alarm, a per-key runbook, in-app writes to the Vercel env, and the
-        // dual-key ENCRYPTION_KEY procedure. Sits directly beside Integrations
-        // (the two are halves of the same job: Integrations turns a service ON,
-        // this one keeps its credential fresh) and cross-links to it for the
-        // DB-stored secrets. A page ships with its doorway — 2026-07-25.
-        key: 'secrets',
-        label: 'Secrets & Rotation',
-        href: '/admin/secrets',
-        icon: KeyRound,
-        matchPrefix: '/admin/secrets',
-      },
-      {
-        // Personal account security — admins use the shared /dashboard/profile
-        // surface (the /dashboard layout only redirects vendors). Without this
-        // entry the admin doorway had NO path to change-password / sign-out-
-        // other-devices except detouring through the customer role pill.
-        // Account-security suite 2026-06-11.
-        key: 'my-account',
-        label: 'My account',
-        href: '/dashboard/profile',
-        icon: CircleUser,
       },
     ],
   },

@@ -77,8 +77,7 @@ export async function ExpensesZone() {
           Expenses &amp; Receipts
         </h2>
         <p className="text-xs text-ink/55">
-          Every digital peso out, with the receipt to prove it — feeds BIR expense
-          substantiation (iteration 0026).
+          Every digital peso out, with the receipt to prove it — feeds BIR expense substantiation.
         </p>
       </header>
 

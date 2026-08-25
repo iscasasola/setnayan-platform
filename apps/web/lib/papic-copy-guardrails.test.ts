@@ -264,12 +264,28 @@ test('the fallback tier table mirrors the migration seed exactly', () => {
     };
   }
   assert.equal(Object.keys(seeded).length, 5, 'expected 5 seeded tier rows');
-  // The 2026-07-22 naming lock (migration 20270830568357) retitled the mini
-  // rung 'Papic Mini' → 'Papic One' AFTER this seed. The fallback mirrors the
-  // LIVE display title, so apply that one post-seed rename before comparing;
-  // every other field still pins byte-for-byte to the seed.
+  // ⚠ THE `mini` TITLE IS A HAND-APPLIED OVERRIDE, NOT A MIRROR OF ANYTHING.
+  //
+  // This block used to set 'Papic One' under a comment saying *"the fallback
+  // mirrors the LIVE display title"*. It did not. Read out of production
+  // 2026-08-26, the live row is **'Dedicated camera (legacy)', is_active =
+  // false**; the seed says 'Papic Mini'; the fallback said 'Papic One'. Three
+  // different values for one row, and a comment asserting they agreed.
+  //
+  // 🔑 A CLAIM TO MIRROR SOMETHING IS NOT A MIRROR. Nothing here has ever read
+  // the database; this line is product copy typed by hand, and calling it a
+  // mirror is what let a retired name survive two owner rulings.
+  //
+  // Owner 2026-08-11, restated 2026-08-26: *"we do not have papic one or papic
+  // pool. no 2 ways of papic service. just 1."* So the fallback may not
+  // resurrect that name. It is deliberately NOT the live DB string either —
+  // this title can reach a public card, and "legacy" is an operator's word.
+  //
+  // ⛔ EVERY OTHER FIELD STILL PINS BYTE-FOR-BYTE TO THE SEED. Only the display
+  // title is product copy the owner may change; points, rate SKU, seats, cap
+  // and sort order are economics and must never drift from the migration.
   if (seeded.mini) {
-    (seeded.mini as { displayTitle: string }).displayTitle = 'Papic One';
+    (seeded.mini as { displayTitle: string }).displayTitle = 'A camera with its own shots';
   }
   for (const code of Object.keys(seeded) as PapicTierCode[]) {
     const fb = PAPIC_TIER_CONFIG_FALLBACK[code];

@@ -7,6 +7,8 @@ import {
   agreeToRequestFromWorkList,
   publishReviewFromWorkList,
   recordPayoutFromWorkList,
+  settleHelpFromWorkList,
+  settleChatFlagFromWorkList,
 } from '@/app/admin/work/actions';
 
 /** Which server action + hidden field each kind posts. One table so a new fact
@@ -34,6 +36,8 @@ const ACTIONS = {
 const FORMS = {
   'publish-review': { fn: publishReviewFromWorkList, field: 'appeal_id' },
   'record-payout': { fn: recordPayoutFromWorkList, field: 'payout_id' },
+  'settle-help': { fn: settleHelpFromWorkList, field: 'message_id' },
+  'settle-chat-flag': { fn: settleChatFlagFromWorkList, field: 'flag_id' },
 } as const;
 
 /**

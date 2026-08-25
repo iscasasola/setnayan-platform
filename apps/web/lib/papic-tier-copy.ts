@@ -86,10 +86,23 @@ export const PAPIC_TIER_CONFIG_FALLBACK: Record<PapicTierCode, PapicTierConfigRo
   },
   mini: {
     tierCode: 'mini',
-    // Renamed 'Papic Mini' → 'Papic One' by the 2026-07-22 naming lock
-    // (migration 20270830568357). "Papic One" = the dedicated per-camera
-    // product. Mirrors the live `papic_tier_config.display_title` DB value.
-    displayTitle: 'Papic One',
+    // ⚠ THE OLD COMMENT HERE CLAIMED TO MIRROR THE DATABASE. IT DID NOT, AND
+    // THAT CLAIM IS WHAT KEPT A RETIRED NAME ALIVE. It said this mirrored
+    // `papic_tier_config.display_title` and read 'Papic One'; the live row
+    // reads 'Dedicated camera (legacy)' with `is_active = false`.
+    //
+    // Owner 2026-08-11, restated 2026-08-26: *"we do not have papic one or
+    // papic pool. no 2 ways of papic service. just 1."* And on what this
+    // actually is: *"they just alot some photos for a specific Papic. so for
+    // example they get 3000 photos. and then they can assign the 500 photos to
+    // 1 papic."* So it is a FEATURE of the one Papic, and the title now says
+    // that instead of naming a second product.
+    //
+    // 🔑 DELIBERATELY NOT THE DB STRING — 'Dedicated camera (legacy)' is an
+    // operator's word. This title can reach a public card (the synthetic
+    // PAPIC_CAMERAS row on /pricing), and "legacy" is not a word to sell with.
+    // It renders only while a rung is active; today none is.
+    displayTitle: 'A camera with its own shots',
     pointsPerDay: 20,
     rateServiceCode: 'PAPIC_CAMERA_MINI_DAY',
     seatsPerEvent: 0,

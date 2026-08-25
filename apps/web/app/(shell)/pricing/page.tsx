@@ -470,27 +470,13 @@ export default async function PricingPage() {
     // Pakanta (custom wedding song, 0036) is NOT a Papic add-on — deliberately
     // excluded from the per-camera Papic estimator (owner 2026-07-10).
   ];
-  // Papic One — the rung the estimator prices a camera at: the CHEAPEST live
-  // one (papicOneLadder is price-sorted). null = the ladder is unreadable at
-  // build time (catalog empty).
-  const papicOneRung = papicOneLadder[0] ?? null;
-
+  // ⚠ THE ESTIMATOR NO LONGER PRICES A SECOND PRODUCT. It used to carry a
+  // dedicated-camera rung (`one`) plus its free-camera allowance, and drew a
+  // two-way switch between that and the shared pot. Owner 2026-08-26: *"we do
+  // not have papic one or papic pool. no 2 ways of papic service. just 1."*
+  // Setting shots aside for one camera is a FEATURE of the single pot, done
+  // inside the event — not a thing to choose between here.
   const estimatorRates: EstimatorRates = {
-    // ONE free dedicated camera, not the three shared-pool seats — see the
-    // papicFreeOneCameras block above. This makes the quote go UP for anyone
-    // estimating more than one camera, which is the correct direction: they
-    // were previously quoted for two fewer paid cameras than they would buy.
-    freeCameras: papicFreeOneCameras,
-    freeCameraCapacity: papicFreeOnePoints > 0 ? papicBucketPhrase(papicFreeOnePoints) : null,
-    one: papicOneRung
-      ? {
-          label: papicOneTitle,
-          pricePhp: papicOneRung.pricePhp,
-          // The rung's LIFETIME shot bucket, not a per-day meter — see the
-          // ladder block above for why the per-day reading was false.
-          capacity: papicBucketPhrase(papicOneRung.tier.points),
-        }
-      : null,
     pool: papicPoolBuckets,
     addons: estimatorAddonDefs
       // Only offer an add-on the catalog actually carries (else drop it).

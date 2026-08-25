@@ -631,13 +631,7 @@ export default async function AdminRepostWatchPage({
         )}
       </section>
 
-      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-        Source · reverse-image repost-watch · tables <code>vendor_image_hashes</code>{' '}
-        + <code>vendor_image_flags</code> (migration 20270330665855) · 64-bit DCT
-        pHash · detect-and-review only · QR-in-media guard ·{' '}
-        <code>vendor_qr_media_flags</code> (migration 20270504200000) ·
-        reject-at-save + retro-scan
-      </p>
+      
     </div>
   );
 }

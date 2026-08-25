@@ -37,6 +37,7 @@ import {
 import { fetchPapicGallery, fetchPreservationTotals } from '@/lib/papic-gallery';
 import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
+import { WhereYouStand } from './_components/where-you-stand';
 import { getKwentoDensity } from '@/lib/kwento-density';
 import {
   resolveStoredWindow,
@@ -603,6 +604,16 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         guestCameras={guestCameras}
         preserveSet={preserveSet}
         preserveError={preserveError}
+      />
+
+      {/* ⚠ WHERE YOU STAND — four facts, above every room and above the ask.
+          The order is deliberate: a person is told the state of their own
+          celebration BEFORE anything asks them to decide something. Reversing
+          it is how this screen came to open on a look picker. */}
+      <WhereYouStand
+        eventId={eventId}
+        windowIsSet={windowIsSet}
+        windowSummary={papicWindowSummary}
       />
 
       {/* ⚠ THE ONE REQUIRED ACT, IN WHATEVER ROOM THE COUPLE LANDS IN.

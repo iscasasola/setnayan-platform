@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c32f7c167",
+  "generatedFromRef": "312cdc40c",
   "routeCount": 405,
-  "destinations": 869,
+  "destinations": 872,
   "actions": 586,
-  "blocks": 4026,
+  "blocks": 4030,
   "routes": {
     "/": {
       "files": [
@@ -399,10 +399,8 @@
         "HTMLParagraphElement",
         "LineRevealHeading",
         "Link",
-        "Mode",
         "PapicEstimator",
-        "RevealBand",
-        "Stepper"
+        "RevealBand"
       ]
     },
     "/(shell)/privacy": {
@@ -2191,13 +2189,23 @@
     },
     "/admin/money": {
       "files": [
+        "admin/money/_components/transactions-ledger.tsx",
         "admin/money/loading.tsx",
         "admin/money/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/admin/receipts",
+        "/receipts/[seg]"
+      ],
       "actions": [],
       "blocks": [
-        "MobileLandingGrid"
+        "ConsoleTable",
+        "KpiStatCard",
+        "Link",
+        "MobileLandingGrid",
+        "Suspense",
+        "TablePageSkeleton",
+        "TransactionsLedger"
       ]
     },
     "/admin/moodboard-library": {
@@ -2374,6 +2382,7 @@
         "admin/payments/page.tsx"
       ],
       "destinations": [
+        "/admin/payments?filter=[seg]",
         "/admin/payments?filter=[seg]${platform ?",
         "/admin/payments?filter=[seg]${target ?"
       ],

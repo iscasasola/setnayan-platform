@@ -323,7 +323,12 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
      * cluster on the platform and the first concept promoted off the
      * map-backlog (2026-07-30).
      *
-     * NAMING LOCK: the two product types are **Papic Pool** and **Papic One**.
+     * ⚠ NAMING LOCK SUPERSEDED. This said "the two product types are Papic
+     * Pool and Papic One". Owner 2026-08-11, restated 2026-08-26: *"we do not
+     * have papic one or papic pool. no 2 ways of papic service. just 1."*
+     * There is ONE product, Papic. Giving one camera its own shots is a
+     * FEATURE of it — a floor on what that camera can spend, never a ceiling,
+     * and never a second thing to buy.
      * Never print "Papic Guest" as a product name. Several TABLES still carry
      * the older `papic_guest_*` naming (`papic_guest_captures`,
      * `papic_guest_orders`) — table names are facts and are cited as-is, but
@@ -1655,7 +1660,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     joint: 'papic_guest_captures',
     cardinality: 'Many captures per guest · a guest may also hold a seat',
     implementedBy:
-      'Two distinct bonds. papic_guest_captures.guest_id (CASCADE) is the Papic One side — a guest’s own captures. paparazzi_seats.guest_id (NO ACTION) is a guest HOLDING a shooting seat. NOTE the product names are Papic Pool and Papic One; the `papic_guest_*` tables predate that naming and are not product names.',
+      'Two distinct bonds. papic_guest_captures.guest_id (CASCADE) is the guest-own-camera side — a guest’s own captures. paparazzi_seats.guest_id (NO ACTION) is a guest HOLDING a shooting seat. NOTE there is ONE product, Papic (owner-locked 2026-08-11, restated 2026-08-26); the `papic_guest_*` and `papic_one_*` table names predate that lock and are not product names.',
     writtenBy: 'Guest capture upload · seat assignment to a guest',
     guardedBy: 'current_event_ids() plus guest-scoped policies — guest scope is NOT couple scope',
     traps:
@@ -1677,7 +1682,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     cardinality:
       'One paying order per seat/grant · several order tables, one per purchase shape',
     implementedBy:
-      'THREE parallel order bonds, one per purchase shape: paparazzi_seats.paid_order_id (a bought seat), papic_one_orders (Papic One), papic_guest_orders (the guest-purchased shape). papic_event_point_grants carries the capture-point allowance an order buys.',
+      'THREE parallel order bonds, one per purchase shape: paparazzi_seats.paid_order_id (a bought seat), papic_one_orders (a camera given its own shots — the table name predates the one-product lock), papic_guest_orders (the guest-purchased shape). papic_event_point_grants carries the capture-point allowance an order buys.',
     writtenBy: 'SKU activation on admin payment approval — never on purchase alone',
     guardedBy: 'requireAdmin on the activation path; order_ledger rows as idempotency guards',
     traps:

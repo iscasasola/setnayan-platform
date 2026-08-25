@@ -74,12 +74,11 @@ export default function DashboardLoading() {
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <Screen label="Loading dashboard">
-        {/* Header — eyebrow + title + subtitle */}
-        <header className="space-y-2">
-          <Sk className="h-3 w-32 rounded" />
-          <Sk className="h-9 w-64 max-w-full rounded-md" />
-          <Sk className="h-4 w-80 max-w-full rounded" />
-        </header>
+        {/* NO header strip. The page-header retirement of 2026-08-21 (PRs #4664
+            + #4669) left every page in this tree starting straight at its
+            content: PageMasthead renders an sr-only heading and nothing else.
+            A skeleton eyebrow + title here promised a header that never
+            arrives, so the content jumped up by its height on every load. */}
 
         {/* Primary panel — create-event picker / profile form / event card */}
         <Sk className="h-36 rounded-2xl" />

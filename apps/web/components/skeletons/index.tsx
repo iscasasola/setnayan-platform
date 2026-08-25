@@ -76,14 +76,50 @@ export function Screen({
  * Composites
  * ------------------------------------------------------------------ */
 
-/** Eyebrow + title (+ optional trailing action buttons). */
-export function HeaderSkeleton({ actions = 0 }: { actions?: number }) {
+/**
+ * The row above a page's content: trailing action buttons, and — only where a
+ * page really paints one — an eyebrow + title.
+ *
+ * `title` DEFAULTS TO FALSE, and that default is the point. On 2026-08-21 the
+ * owner removed the page header from the three authenticated trees outright
+ * (PRs #4664 + #4669): no back chevron, no visible title, no (i). `<PageMasthead>`
+ * now renders an `sr-only` <h1> and NOTHING ELSE when a page passes no actions.
+ * The skeletons were never told. So 131 loading screens went on drawing an
+ * eyebrow bar and a 32px title bar that the arriving page does not paint — the
+ * content then jumped up by the height of a header that no longer exists, which
+ * reads as the page having failed to finish rather than having loaded.
+ *
+ * A skeleton is a PROMISE ABOUT THE SHAPE THAT IS COMING. Promising a header the
+ * product deleted is the same defect as an empty state that reads as unfinished.
+ *
+ * Pass `title` on the surfaces that genuinely paint one — the door pages
+ * (`<DoorShell>` carries an eyebrow + title inside its card), the guest
+ * doorways, the public marketing tree, and the two dashboard ROOTS whose hero is
+ * a real visible `.sn-h1`. Never pass it from a page whose only heading comes
+ * from `<PageMasthead>`.
+ */
+export function HeaderSkeleton({
+  actions = 0,
+  title = false,
+}: {
+  actions?: number;
+  title?: boolean;
+}) {
+  /* Neither a title nor actions is the majority case after the retirement —
+     render nothing at all rather than an empty flex row holding open a gap. */
+  if (!title && actions === 0) return null;
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div className="space-y-2">
-        <Sk className="h-3 w-28 rounded" />
-        <Sk className="h-8 w-56 max-w-full rounded-md" />
-      </div>
+    <div
+      className={`flex flex-col gap-3 sm:flex-row sm:items-end ${
+        title ? 'sm:justify-between' : 'sm:justify-end'
+      }`}
+    >
+      {title ? (
+        <div className="space-y-2">
+          <Sk className="h-3 w-28 rounded" />
+          <Sk className="h-8 w-56 max-w-full rounded-md" />
+        </div>
+      ) : null}
       {actions > 0 ? (
         <div className="flex gap-2">
           {Array.from({ length: actions }).map((_, i) => (
@@ -145,15 +181,17 @@ export function ListPageSkeleton({
   toolbar = true,
   stats = 0,
   actions = 2,
+  title = false,
 }: {
   rows?: number;
   toolbar?: boolean;
   stats?: number;
   actions?: number;
+  title?: boolean;
 }) {
   return (
     <Screen>
-      <HeaderSkeleton actions={actions} />
+      <HeaderSkeleton actions={actions} title={title} />
       {stats > 0 ? <StatStripSkeleton count={stats} /> : null}
       {toolbar ? <ToolbarSkeleton /> : null}
       <div className="space-y-2.5">
@@ -171,15 +209,17 @@ export function GridPageSkeleton({
   cols = 'sm:grid-cols-2 lg:grid-cols-3',
   tileClass = 'h-44',
   actions = 1,
+  title = false,
 }: {
   tiles?: number;
   cols?: string;
   tileClass?: string;
   actions?: number;
+  title?: boolean;
 }) {
   return (
     <Screen>
-      <HeaderSkeleton actions={actions} />
+      <HeaderSkeleton actions={actions} title={title} />
       <ul className={`grid grid-cols-1 gap-4 ${cols}`}>
         {Array.from({ length: tiles }).map((_, i) => (
           <li
@@ -197,10 +237,18 @@ export function GridPageSkeleton({
 }
 
 /** Form / editor pages: header → stacked label+field pairs → submit. */
-export function FormPageSkeleton({ fields = 6, actions = 0 }: { fields?: number; actions?: number }) {
+export function FormPageSkeleton({
+  fields = 6,
+  actions = 0,
+  title = false,
+}: {
+  fields?: number;
+  actions?: number;
+  title?: boolean;
+}) {
   return (
     <Screen className="mx-auto max-w-2xl space-y-6">
-      <HeaderSkeleton actions={actions} />
+      <HeaderSkeleton actions={actions} title={title} />
       <div className="space-y-5 rounded-2xl border border-ink/10 bg-cream p-5">
         {Array.from({ length: fields }).map((_, i) => (
           <div key={i} className="space-y-2">
@@ -215,10 +263,10 @@ export function FormPageSkeleton({ fields = 6, actions = 0 }: { fields?: number;
 }
 
 /** Detail pages: header → 2-col (main panel + aside). */
-export function DetailPageSkeleton() {
+export function DetailPageSkeleton({ title = false }: { title?: boolean } = {}) {
   return (
     <Screen>
-      <HeaderSkeleton actions={1} />
+      <HeaderSkeleton actions={1} title={title} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
           <Sk className="h-48 w-full rounded-2xl" />
@@ -238,10 +286,18 @@ export function DetailPageSkeleton() {
 }
 
 /** Admin table pages: header → toolbar → table rows. */
-export function TablePageSkeleton({ rows = 10, cols = 5 }: { rows?: number; cols?: number }) {
+export function TablePageSkeleton({
+  rows = 10,
+  cols = 5,
+  title = false,
+}: {
+  rows?: number;
+  cols?: number;
+  title?: boolean;
+}) {
   return (
     <Screen>
-      <HeaderSkeleton actions={1} />
+      <HeaderSkeleton actions={1} title={title} />
       <ToolbarSkeleton />
       <div className="overflow-hidden rounded-xl border border-ink/10">
         <div className="flex gap-4 border-b border-ink/10 bg-ink/[0.02] px-4 py-3">
@@ -262,10 +318,16 @@ export function TablePageSkeleton({ rows = 10, cols = 5 }: { rows?: number; cols
 }
 
 /** Thread / feed pages: header → stacked message-ish cards. (Messages, activity…) */
-export function FeedPageSkeleton({ items = 6 }: { items?: number }) {
+export function FeedPageSkeleton({
+  items = 6,
+  title = false,
+}: {
+  items?: number;
+  title?: boolean;
+}) {
   return (
     <Screen>
-      <HeaderSkeleton actions={0} />
+      <HeaderSkeleton actions={0} title={title} />
       <div className="space-y-3">
         {Array.from({ length: items }).map((_, i) => (
           <div key={i} className="flex gap-3 rounded-2xl border border-ink/10 bg-cream p-4">
@@ -283,10 +345,10 @@ export function FeedPageSkeleton({ items = 6 }: { items?: number }) {
 }
 
 /** Canvas / board editor pages: toolbar → sidebar + big canvas. (Seating, site-editor…) */
-export function BoardPageSkeleton() {
+export function BoardPageSkeleton({ title = false }: { title?: boolean } = {}) {
   return (
     <Screen>
-      <HeaderSkeleton actions={2} />
+      <HeaderSkeleton actions={2} title={title} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
         <aside className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -300,10 +362,10 @@ export function BoardPageSkeleton() {
 }
 
 /** Generic fallback for the long tail — a calm, content-shaped shell. */
-export function PageSkeleton() {
+export function PageSkeleton({ title = false }: { title?: boolean } = {}) {
   return (
     <Screen>
-      <HeaderSkeleton actions={1} />
+      <HeaderSkeleton actions={1} title={title} />
       <Sk className="h-40 w-full rounded-2xl" />
       <div className="space-y-2.5">
         {Array.from({ length: 5 }).map((_, i) => (

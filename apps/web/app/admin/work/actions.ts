@@ -4,6 +4,18 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { setHelpMessageStatus } from '@/app/admin/help/actions';
 import { resolveChatFlag } from '@/app/admin/chat-flags/actions';
+import {
+  applyCorrectionRequest,
+  declineCorrectionRequest,
+} from '@/app/admin/corrections/actions';
+import {
+  approveSubscription,
+  rejectSubscription,
+} from '@/app/admin/subscriptions/actions';
+import {
+  approvePaymentMethod,
+  holdPaymentMethod,
+} from '@/app/admin/payment-options/actions';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { approvePaymentCore } from '@/app/admin/payments/actions';
@@ -253,4 +265,84 @@ export async function settleChatFlagFromWorkList(formData: FormData): Promise<vo
   revalidatePath('/admin/work');
   revalidatePath('/admin/chat-flags');
   redirect(`${back}${back.includes('?') ? '&' : '?'}settle=saved`);
+}
+
+/** Shared: run a page action that ends in `redirect()` without the page jump. */
+async function settleViaRedirectingAction(
+  run: () => Promise<void>,
+  paths: string[],
+  back: string,
+  outcome: string,
+): Promise<void> {
+  // Next signals a redirect by THROWING. 🔑 ONLY a redirect is swallowed — a
+  // real failure ("Reason is required") is a plain Error with no digest and is
+  // rethrown untouched, so a refusal can never be mistaken for success.
+  try {
+    await run();
+  } catch (e) {
+    const digest = (e as { digest?: unknown })?.digest;
+    if (typeof digest !== 'string' || !digest.startsWith('NEXT_REDIRECT')) throw e;
+  }
+  for (const p of paths) revalidatePath(p);
+  redirect(`${back}${back.includes('?') ? '&' : '?'}settle=${outcome}`);
+}
+
+const backOf = (fd: FormData) =>
+  typeof fd.get('back') === 'string' ? String(fd.get('back')) : '/admin/work';
+
+/** Apply or decline a shop's request to fix a locked detail, from the list. */
+export async function settleCorrectionFromWorkList(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const decision = formData.get('decision');
+  // The action is chosen by the admin's answer — never defaulted. An unknown
+  // value must refuse rather than silently pick the kinder one.
+  if (decision !== 'apply' && decision !== 'decline') {
+    throw new Error('Choose apply or decline.');
+  }
+  await settleViaRedirectingAction(
+    () =>
+      decision === 'apply'
+        ? applyCorrectionRequest(formData)
+        : declineCorrectionRequest(formData),
+    ['/admin/work', '/admin/corrections'],
+    backOf(formData),
+    'saved',
+  );
+}
+
+/** Approve or reject a vendor plan purchase, from the list. */
+export async function settleSubscriptionFromWorkList(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const decision = formData.get('decision');
+  if (decision !== 'approve' && decision !== 'reject') {
+    throw new Error('Choose approve or reject.');
+  }
+  await settleViaRedirectingAction(
+    () =>
+      decision === 'approve' ? approveSubscription(formData) : rejectSubscription(formData),
+    ['/admin/work', '/admin/subscriptions'],
+    backOf(formData),
+    'saved',
+  );
+}
+
+/**
+ * Approve or hold a payout destination, from the list.
+ *
+ * ⚠ REMOVE IS DELIBERATELY NOT REACHABLE HERE. It is irreversible and belongs
+ * on the page with its own confirmation, not on a list built for speed.
+ */
+export async function settlePaymentOptionFromWorkList(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const decision = formData.get('decision');
+  if (decision !== 'approve' && decision !== 'hold') {
+    throw new Error('Choose approve or hold.');
+  }
+  await settleViaRedirectingAction(
+    () =>
+      decision === 'approve' ? approvePaymentMethod(formData) : holdPaymentMethod(formData),
+    ['/admin/work', '/admin/payment-options'],
+    backOf(formData),
+    'saved',
+  );
 }

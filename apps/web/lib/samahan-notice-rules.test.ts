@@ -16,6 +16,10 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { stripComments } from './strip-comments';
 import {
   COLLAPSE_WINDOW_MS,
   selectSamahanRecipients,
@@ -90,13 +94,69 @@ test('the words say who, where, and how long it will be there', () => {
   assert.match(anon.title, /^Someone added to your samahan$/);
 });
 
-test('a message notice carries no copy of the message', () => {
-  // Taking a message down is a SOFT delete. A preview copied into a
-  // notification row has no inverse — the words would outlive the take-down in
+test('nothing can carry the message text into a notice', () => {
+  // 🪤 THE FIRST VERSION OF THIS TEST COULD NOT FAIL. It built a long string,
+  // never passed it to anything, and then asserted the output did not contain
+  // it — of course it did not: `samahanNoticeCopy` has no parameter that could
+  // carry a message. Three green assertions guarding nothing. An audit of my own
+  // merged work caught it.
+  //
+  // What actually keeps the words out is the SHAPE — the copy function has no
+  // slot for them, and neither caller offers one — so that is what this asserts.
+  // It matters because taking a message down is a SOFT delete: a preview copied
+  // into a notification row has no inverse and would outlive the take-down in
   // every recipient's tray.
-  const long = 'the secret is '.repeat(20);
-  const notice = samahanNoticeCopy('message', 'Ana', 'Barkada');
-  assert.ok(!notice.title.includes('secret'));
-  assert.ok(!notice.body.includes('secret'));
-  assert.ok(!(notice.title + notice.body).includes(long.slice(0, 20)));
+  assert.equal(
+    samahanNoticeCopy.length,
+    3,
+    'samahanNoticeCopy grew a parameter — if it is the message text, take it back out',
+  );
+
+  const notify = stripComments(
+    readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'samahan-notify.ts'), 'utf8'),
+  );
+  const callAt = notify.indexOf('samahanNoticeCopy(');
+  assert.ok(callAt > 0, 'samahan-notify.ts no longer calls samahanNoticeCopy');
+  const call = notify.slice(callAt, notify.indexOf(');', callAt));
+  // Three arguments, and the third is the samahan name — a fourth would be the
+  // one thing this rule forbids.
+  assert.equal(
+    call.split(',').filter((part) => part.trim().length > 0).length,
+    3,
+    `samahanNoticeCopy is being called with something extra: ${call}`,
+  );
+
+  // And the fan-out is only ever told WHICH KIND of thing happened, never what
+  // it said: both call sites pass exactly communityId, actorUserId and kind.
+  for (const caller of [
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'api', 'samahan', 'story', 'route.ts'),
+    join(
+      dirname(fileURLToPath(import.meta.url)),
+      '..',
+      'app',
+      'dashboard',
+      '(account)',
+      'samahan',
+      'actions.ts',
+    ),
+  ]) {
+    const src = stripComments(readFileSync(caller, 'utf8'));
+    const at = src.indexOf('notifySamahanCoMembers({');
+    assert.ok(at > 0, `${caller} no longer calls the fan-out`);
+    const args = src.slice(src.indexOf('{', at) + 1, src.indexOf('})', at));
+    // 🪤 NOT A WORD BAN — the first cut of this rejected anything containing
+    // "message", and `kind: 'message'` is the correct, required argument. A
+    // guard that cries wolf teaches you to skim past the one time it is right.
+    // Assert the SHAPE instead: exactly these three keys, no fourth.
+    const keys = args
+      .split(',')
+      .map((part) => part.split(':')[0]?.trim())
+      .filter((k) => k && k.length > 0)
+      .sort();
+    assert.deepEqual(
+      keys,
+      ['actorUserId', 'communityId', 'kind'],
+      `${caller} hands the fan-out something beyond which samahan, who acted and what kind: ${args}`,
+    );
+  }
 });

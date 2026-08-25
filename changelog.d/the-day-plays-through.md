@@ -25,9 +25,11 @@ hours, played one after another. What a samahan KEEPS after 24 hours remains an 
 🪤 **The guard's first comment-stripper ate 8,350 characters of the component** — a third of the
 file — and then reported that the "Play the day" button did not exist. The culprit was the
 attribute `accept="video/*"`: inside that string `/*` opens a comment as far as a regex is
-concerned, and it ran to the next `*/` thousands of characters later. Replaced with a state
-machine that knows when it is inside a string. Six mutations, each measured before → after, all
-red — including one that first stayed GREEN because it matched a line `goTo` also contains, and is
-now scoped to the function it is about.
+concerned, and it ran to the next `*/` thousands of characters later. **RULE 0 caught the second
+mistake: `lib/strip-comments.ts` already exists**, is string-aware, and its docblock records that
+exact trap measured at 5,104 lines across 1,031 files — so the hand-rolled replacement was
+deleted and the shared one imported. Six mutations, each measured before → after, all red —
+including one that first stayed GREEN because it matched a line `goTo` also contains, and is now
+scoped to the function it is about.
 
 SPEC IMPACT: None.

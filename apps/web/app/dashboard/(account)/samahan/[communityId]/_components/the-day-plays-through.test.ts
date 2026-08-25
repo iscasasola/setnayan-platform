@@ -19,59 +19,21 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { orderTheDay } from '../../../../../../lib/samahan-reel';
+import { stripComments } from '../../../../../../lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const src = readFileSync(join(HERE, 'samahan-stories.tsx'), 'utf8');
 
 /**
- * Strip comments with a STATE MACHINE, never with a pair of regexes.
- *
- * 🪤 THE REGEX VERSION ATE 8,350 CHARACTERS OF THIS COMPONENT — a third of the
- * file — and the guard then reported that "Play the day" did not exist. The
- * culprit is one attribute: `accept="video/*"`. Inside that string, `/*` opens
- * a comment as far as a regex is concerned, and it ran to the next `*​/` five
- * thousand characters later, taking the viewer with it. A scanner that knows it
- * is inside a string cannot make that mistake.
+ * 🪤 THE COMMENT STRIPPER IS THE SHARED ONE, AND WRITING A SECOND WAS THE FIRST
+ * MISTAKE HERE. My own version — regexes, then a hand-rolled state machine —
+ * ate 8,350 characters of this component before it worked, because the
+ * attribute `accept="video/*"` opens a comment as far as a regex is concerned
+ * and it ran to the next `*​/` thousands of characters later; the guard then
+ * reported that the "Play the day" button did not exist. lib/strip-comments.ts
+ * already existed, is string-aware, and its own docblock records that exact
+ * trap measured at 5,104 lines across 1,031 files. Find it before you build it.
  */
-function stripComments(input: string): string {
-  let out = '';
-  let i = 0;
-  let quote: string | null = null;
-  while (i < input.length) {
-    const two = input.slice(i, i + 2);
-    if (quote) {
-      if (input[i] === '\\') {
-        out += input.slice(i, i + 2);
-        i += 2;
-        continue;
-      }
-      if (input[i] === quote) quote = null;
-      out += input[i];
-      i += 1;
-      continue;
-    }
-    if (input[i] === '"' || input[i] === "'" || input[i] === '`') {
-      quote = input[i] as string;
-      out += input[i];
-      i += 1;
-      continue;
-    }
-    if (two === '//') {
-      while (i < input.length && input[i] !== '\n') i += 1;
-      continue;
-    }
-    if (two === '/*') {
-      i += 2;
-      while (i < input.length && input.slice(i, i + 2) !== '*/') i += 1;
-      i += 2;
-      continue;
-    }
-    out += input[i];
-    i += 1;
-  }
-  return out;
-}
-
 /** Comments name the very attributes this file bans — strip before matching. */
 const code = stripComments(src);
 

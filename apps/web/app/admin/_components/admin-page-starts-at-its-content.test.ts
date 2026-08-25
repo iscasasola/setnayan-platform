@@ -657,11 +657,13 @@ const SENTENCES_THAT_EARNED_THEIR_KEEP: Array<{ file: string; keeps: RegExp; why
     keeps: /7-day auto-resolution timer/,
     why: 'a judgement desk where NOT deciding is itself a decision has to say so on the screen',
   },
-  {
-    file: 'money/page.tsx',
-    keeps: /live\s+in Overview, not here/,
-    why: 'a grid of links can say what is ON it and not what is NOT — without this, somebody looking for Payments on the Money page concludes it is missing',
-  },
+  /* ⚖ MONEY'S LEDE WAS RETIRED 2026-08-25 AND ITS REASON RETIRED WITH IT.
+     It read "the act-now money queues live in Overview, not here" — true only
+     while this page had no money on it. The ledger above the grid now names
+     those four queues and shows their counts, so the sentence would now be
+     contradicted by the links directly above it. Removed because the condition
+     it described ended, NOT to go green: the guard is what caught the removal
+     and made this reasoning necessary. */
 ];
 
 /**
@@ -678,11 +680,21 @@ test('the landing grid’s note slot is used once, for a pointer off the page', 
   const users = ['more/page.tsx', 'directory/page.tsx', 'money/page.tsx'].filter((rel) =>
     /\bnote=\{/.test(code(read(rel))),
   );
+  /* 🛑 THIS LIST IS NOW EMPTY, AND THAT IS THE DELIBERATE UPDATE THE MESSAGE
+     BELOW ASKS FOR — 2026-08-25. Money's note said the act-now money queues
+     "live in Overview, not here". The transactions ledger now sits above that
+     grid and links Payments · Fees owed · Payouts · Subscriptions BY NAME with
+     their live counts, so the sentence no longer points off the page: the page
+     goes there. The harm it existed to prevent — somebody looking for Payments
+     on the Money page and concluding it is missing — is closed by a link with a
+     number on it, which is strictly better than a sentence saying "elsewhere".
+     The prop is KEPT, not deleted: the rule it enforces is still the right one
+     for whatever legitimately needs it next. */
   assert.deepEqual(
     users,
-    ['money/page.tsx'],
+    [],
     '`note` is for a sentence pointing somewhere the cards do NOT go, not for a ' +
-      'subtitle. If a second landing needs one, say in its call site what it ' +
+      'subtitle. If a landing needs one, say in its call site what it ' +
       'points at — then update this list deliberately.',
   );
 });

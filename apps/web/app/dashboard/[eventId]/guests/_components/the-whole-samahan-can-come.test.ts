@@ -84,3 +84,37 @@ test('the match rule is not re-implemented in the sheet', () => {
       'matching the `from` line stops finding its own samahan',
   );
 });
+
+// ── THE DEAD STATE THE BULK CONTROL MADE REACHABLE (2026-08-25, completeness pass)
+
+test('a pick that is off screen cannot hold Add shut in silence', () => {
+  // 🚨 THE TRAP. `missingSurname` is computed over EVERY loaded row, but the
+  // only control that can satisfy it — the "Last name" box — renders inside the
+  // visible list. Press the barkada chip, choose all twelve, clear the chip, and
+  // the one-word names are picked, off screen, and holding Add shut. Before the
+  // bulk control you reached that state one tick at a time, with the input right
+  // under your finger; one tap made it reachable for a dozen people at once.
+  // Samahan rows are the population it bites: they come from a single
+  // display-name string, and a group-chat handle is one word far more often than
+  // a guest-list entry is.
+  assert.match(
+    code,
+    /missingSurname\.length\} of your \{pickedKeys\.length\} need a last name/,
+    'the footer does not say why Add is dead',
+  );
+  assert.match(code, /setOnlyBlocking\(true\)/, 'there is no way to reach the blocking picks');
+  assert.match(
+    code,
+    /return \(rows \?\? \[\]\)\.filter\(\(r\) => missingSurname\.includes\(r\.key\)\)/,
+    'the blocking view does not reach past the chip and the search',
+  );
+});
+
+test('the blocking view has a way out, and lets itself out', () => {
+  assert.match(code, /Show everyone again/, 'no way back to the whole list');
+  assert.match(
+    code,
+    /if \(onlyBlocking && missingSurname\.length === 0\) setOnlyBlocking\(false\)/,
+    'filling the last surname leaves you staring at an empty list',
+  );
+});

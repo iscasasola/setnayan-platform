@@ -17,30 +17,47 @@
  * bottom-nav Money tab keeps landing here unchanged.
  */
 
+import { Suspense } from 'react';
+
 import { ADMIN_NAV_GROUPS } from '../_components/admin-nav-groups';
 import { MobileLandingGrid } from '../_components/mobile-landing-grid';
 import { adaptAdminGroupItems } from '../_components/admin-nav-descriptions';
+import { requireAdmin } from '@/lib/admin/require-admin';
+import { TablePageSkeleton } from '@/components/skeletons';
+import { TransactionsLedger } from './_components/transactions-ledger';
 
 export const metadata = { title: 'Money & Settings HQ' };
 
-export default function AdminMoneyHub() {
+/**
+ * THE MONEY IS ON THE MONEY PAGE NOW — 2026-08-25.
+ *
+ * This landing used to be links only, under a note apologising that the money
+ * queues lived somewhere else. That note is deleted because it is no longer
+ * true: the ledger above the grid lists every transaction, and its top strip
+ * links to each money queue with its live count. A grid of links CAN now say
+ * what is on it, because the thing a person came for is on it.
+ *
+ * ⚠ requireAdmin() IS LOAD-BEARING AND MUST STAY FIRST. This page was a pure
+ * link grid with no reads, so it needed no page-level gate. It now mounts a
+ * component that reaches the RLS-bypassing service-role client, and the admin
+ * layout alone is NOT a safe auth boundary in front of one (layouts do not
+ * re-run on soft navigation or a crafted RSC request) — the same council fix
+ * that /admin and /admin/work carry. Removing it leaks the full transaction
+ * ledger to any authenticated non-admin.
+ */
+export default async function AdminMoneyHub() {
+  await requireAdmin();
+
   const items = adaptAdminGroupItems(ADMIN_NAV_GROUPS, 'settings-group');
 
   return (
-    <MobileLandingGrid
-      desktopVisible
-      title="Money & Settings"
-      // 🔑 THE ONE HALF OF THE RETIRED SUBTITLE THAT WAS NOT ORIENTATION.
-      // A grid of links can say what is ON it; it cannot say what is NOT. An
-      // operator looking for Payments on the Money page would otherwise
-      // conclude it is missing, when it is one menu away in Overview.
-      note={
-        <>
-          The act-now money queues — Payments, Payouts and Subscriptions — live
-          in Overview, not here.
-        </>
-      }
-      items={items}
-    />
+    <>
+      {/* Streamed: the settings grid below is static and paints immediately,
+          so a slow ledger read never holds up the rest of the page. */}
+      <Suspense fallback={<TablePageSkeleton />}>
+        <TransactionsLedger />
+      </Suspense>
+      <MobileLandingGrid desktopVisible title="Money & Settings" items={items} />
+    </>
   );
 }

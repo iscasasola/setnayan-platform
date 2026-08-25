@@ -26,6 +26,7 @@ import type {
   AdminQueueLane,
   AdminQueueDueState,
 } from '@/lib/admin/queue-counts';
+import { ADMIN_LANE_ORDER } from '@/lib/admin/queue-counts';
 
 export type TriageItem = {
   key: string;
@@ -74,7 +75,12 @@ const LANE_LABEL: Record<AdminQueueLane, string> = {
   support: 'Support',
 };
 
-const LANE_ORDER: AdminQueueLane[] = ['money', 'trust', 'growth', 'support'];
+/* Order comes from lib/admin/queue-counts.ts — see ADMIN_LANE_ORDER. This file
+   used to keep its own, leading with `money` while the daily digest led with
+   `trust`: the same queues ranked two ways for the same person.
+   ⚖ The LABELS deliberately still differ — this is a compact chip ("Trust") and
+   the digest is a line of prose ("Trust & recourse"). Two densities, one
+   meaning; a test pins the pair so a THIRD spelling cannot appear quietly. */
 
 // Accent + badge colour by urgency. ok/open keeps the brand orange; overdue and
 // due-soon escalate to red / amber so the eye lands on the deadline first.
@@ -256,7 +262,7 @@ function LaneChips({
   const waiting = (rows: TriageItem[]) =>
     rows.reduce((sum, i) => sum + Math.max(0, i.count ?? 0), 0);
 
-  const present = LANE_ORDER.filter((l) => items.some((i) => i.lane === l));
+  const present = ADMIN_LANE_ORDER.filter((l) => items.some((i) => i.lane === l));
   if (present.length < 2) return null; // a filter with one option is not a filter
 
   const chip = (href: string, label: string, n: number, active: boolean) => (

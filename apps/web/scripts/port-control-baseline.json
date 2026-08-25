@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c32f7c167",
+  "generatedFromRef": "725ee0238",
   "routeCount": 405,
-  "destinations": 869,
-  "actions": 586,
-  "blocks": 4026,
+  "destinations": 872,
+  "actions": 583,
+  "blocks": 4028,
   "routes": {
     "/": {
       "files": [
@@ -2191,13 +2191,23 @@
     },
     "/admin/money": {
       "files": [
+        "admin/money/_components/transactions-ledger.tsx",
         "admin/money/loading.tsx",
         "admin/money/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/admin/receipts",
+        "/receipts/[seg]"
+      ],
       "actions": [],
       "blocks": [
-        "MobileLandingGrid"
+        "ConsoleTable",
+        "KpiStatCard",
+        "Link",
+        "MobileLandingGrid",
+        "Suspense",
+        "TablePageSkeleton",
+        "TransactionsLedger"
       ]
     },
     "/admin/moodboard-library": {
@@ -2374,6 +2384,7 @@
         "admin/payments/page.tsx"
       ],
       "destinations": [
+        "/admin/payments?filter=[seg]",
         "/admin/payments?filter=[seg]${platform ?",
         "/admin/payments?filter=[seg]${target ?"
       ],
@@ -6131,7 +6142,6 @@
         "dashboard/[eventId]/studio/papic/loading.tsx",
         "dashboard/[eventId]/studio/papic/page.tsx",
         "dashboard/[eventId]/studio/papic/papic-window-picker.tsx",
-        "dashboard/[eventId]/studio/papic/quality-picker.tsx",
         "dashboard/[eventId]/studio/papic/style-picker.tsx",
         "dashboard/[eventId]/studio/papic/vendor-challenges-approval.tsx",
         "dashboard/[eventId]/studio/papic/vendor-visibility-actions.ts"
@@ -6167,9 +6177,6 @@
         "setCoupleChallengeActiveAction",
         "setCoupleFaceTaggingDeclined",
         "setPapicGuestCaptureEarly",
-        "setPapicQualityTier",
-        "setPapicStorageDrive",
-        "setPapicStorageR2",
         "setPapicStyle",
         "setPapicWindow",
         "setVendorCapturesHidden"
@@ -6182,6 +6189,7 @@
         "CoupleChallengesManager",
         "DriveConnectCTA",
         "DriveConnectedPanel",
+        "DriveCopyCard",
         "DriveReconnectBanner",
         "DriveSafetyPanel",
         "DslrBridgeSection",
@@ -6217,17 +6225,12 @@
         "PoolGalleryToggle",
         "PreservationMeterLine",
         "PreserveToggle",
-        "QualityPicker",
-        "RadioDot",
         "RecapCard",
         "SavePhotoButton",
         "ShowcaseToggle",
         "ShutterSection",
         "StatusBanners",
         "Stepper",
-        "StorageChoiceCard",
-        "StorageOptionDrive",
-        "StorageOptionR2",
         "StudioBuyHero",
         "StylePicker",
         "SubmitButton",

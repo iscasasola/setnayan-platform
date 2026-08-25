@@ -37,7 +37,7 @@ type Props = {
   // `notice` / `noticeType` surface an inline banner after a server action
   // redirects back here instead of throwing — e.g. approvePayment's shortfall
   // guard ("payment matched, order not promoted — ₱X short"). See actions.ts.
-  searchParams: Promise<{ filter?: string; platform?: string; notice?: string; noticeType?: string }>;
+  searchParams: Promise<{ filter?: string; platform?: string; notice?: string; noticeType?: string; q?: string }>;
 };
 
 type Filter = 'pending' | 'all' | 'orders_needing_quote';
@@ -114,6 +114,16 @@ function buyerLabel(email: string | null | undefined, userId: string | null | un
   return userId ? '—' : 'Guest · no account';
 }
 
+/**
+ * Case-insensitive contains across the fields a person might quote. Used for
+ * the unquoted-orders branch, which is a single small read.
+ */
+function matchesQuery(q: string, fields: Array<string | null | undefined>): boolean {
+  if (!q) return true;
+  const needle = q.toLowerCase();
+  return fields.some((f) => (f ?? '').toLowerCase().includes(needle));
+}
+
 export default async function AdminPaymentsPage({ searchParams }: Props) {
   await requireAdmin();
   const search = await searchParams;
@@ -125,6 +135,22 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
   // guard). Trim + cap length so a crafted `?notice=` can't blow out the layout.
   const notice = typeof search.notice === 'string' ? search.notice.slice(0, 400).trim() : '';
   const noticeIsWarn = search.noticeType === 'warn';
+
+  // ── FIND ONE PAYMENT BY THE NUMBER THE BUYER WAS GIVEN ────────────────────
+  // 🔑 FOUND BY THE FIRST REAL PURCHASE (2026-08-25). This queue had NO search
+  // of any kind — only status + platform filters over the newest 100 rows. A
+  // buyer writing in "my order SN9B5605B1 hasn't activated" could not be looked
+  // up at all; the only recourse was to eyeball the list and hope it was recent.
+  //
+  // 🪤 SANITISED, NOT ESCAPED. PostgREST's `.or()` takes a COMMA-SEPARATED
+  // filter string, so a comma / parenthesis / dot in the term does not fail —
+  // it silently re-parses as extra filters, i.e. rejected-not-thrown with an
+  // empty queue as the only symptom. Reference codes, public ids, bank refs and
+  // emails are all drawn from this set, so narrowing the input is lossless.
+  const rawQ = typeof search.q === 'string' ? search.q.trim().slice(0, 64) : '';
+  const q = rawQ.replace(/[^A-Za-z0-9@_-]/g, '');
+  // The term as typed, for the input's value — never fed to a query.
+  const qDisplay = rawQ;
 
   const admin = createAdminClient();
 
@@ -152,7 +178,9 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
       .eq('status', 'submitted')
       .order('created_at', { ascending: true })
       .limit(100);
-    unquotedOrders = (data ?? []) as unknown as OrderJoined[];
+    unquotedOrders = ((data ?? []) as unknown as OrderJoined[]).filter((row) =>
+      matchesQuery(q, [row.public_id, row.reference_code, row.user?.email]),
+    );
   } else {
     // When a platform filter is active, the order embed becomes !inner so rows
     // whose order doesn't match the platform are excluded (a plain left-join
@@ -170,6 +198,27 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
       .limit(100);
     if (filter === 'pending') paymentsQuery = paymentsQuery.eq('status', 'pending');
     if (platformFilter) paymentsQuery = paymentsQuery.eq('order.platform', platformFilter);
+    // A search must reach PAST the newest-100 window — the whole point is
+    // finding an older payment somebody wrote in about. So when a term is
+    // present we resolve the matching orders first and scope the payment read
+    // to them, rather than filtering the page we already fetched.
+    if (q) {
+      const { data: hits } = await admin
+        .from('orders')
+        .select('order_id')
+        .or(`public_id.ilike.%${q}%,reference_code.ilike.%${q}%`)
+        .limit(200);
+      const ids = (hits ?? []).map((r) => (r as { order_id: string }).order_id);
+      // 🪤 An empty id list must NOT become `.in.()` — PostgREST rejects the
+      // whole query, which reads as "no results" rather than as an error. Fall
+      // back to the bank reference the buyer typed, which is often what they
+      // actually quote from their own receipt.
+      paymentsQuery = ids.length
+        ? paymentsQuery.or(
+            `order_id.in.(${ids.join(',')}),reference_number.ilike.%${q}%`,
+          )
+        : paymentsQuery.ilike('reference_number', `%${q}%`);
+    }
     const { data } = await paymentsQuery;
     payments = (data ?? []) as unknown as PaymentJoined[];
   }
@@ -205,6 +254,46 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
       <PageMasthead
         title="Payments & reconciliation"
       />
+
+      {/* Find one payment by any number a person might quote at you: the
+          reference code from their email, our internal order id, or the bank
+          reference they typed off their own receipt. */}
+      <form method="get" className="mb-6 flex flex-wrap items-center gap-2">
+        {filter ? <input type="hidden" name="filter" value={filter} /> : null}
+        {platformFilter ? <input type="hidden" name="platform" value={platformFilter} /> : null}
+        <label htmlFor="payment-search" className="sr-only">
+          Search by order reference, order id, or bank reference
+        </label>
+        <input
+          id="payment-search"
+          type="search"
+          name="q"
+          defaultValue={qDisplay}
+          placeholder="Reference code, order id, or bank reference"
+          className="min-w-0 flex-1 rounded-card border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/45"
+        />
+        <button
+          type="submit"
+          className="rounded-card bg-mulberry px-4 py-2 text-sm font-medium text-white"
+        >
+          Search
+        </button>
+        {q ? (
+          <a
+            href={`/admin/payments?filter=${encodeURIComponent(filter)}`}
+            className="rounded-card border border-ink/15 px-4 py-2 text-sm text-ink"
+          >
+            Clear
+          </a>
+        ) : null}
+      </form>
+
+      {q ? (
+        <p className="mb-4 text-sm text-ink/70">
+          Showing matches for <span className="font-medium text-ink">{qDisplay}</span>. A search
+          looks past the newest 100 rows.
+        </p>
+      ) : null}
 
       {notice ? (
         <div

@@ -35,3 +35,15 @@ The soft-stop signal — the *"running low on shots"* warning — used `fetchEve
 **Mutations**, counts printed before → after: the resolved error stops being checked (1→0) 🔴 · downgraded to `graceful_degrade` (3→0) 🔴 · a caller goes back to swallowing (1→0) 🔴 two rules. Green on both clean sides.
 
 **SPEC IMPACT:** None.
+
+---
+
+🪤 **AND A PRE-EXISTING TEST HAD TO FOLLOW THE VALUE INTO THE CALLEE.**
+
+`papic-guest-own-camera.test.ts` asserted the route's own source contained `papic_release_capture_split` with `p_dedicated_spent` / `p_pool_spent`. Moving the RPC into the shared helper broke it — correctly, because the route no longer contains those strings.
+
+**It was not simply re-pointed at the helper.** Asserting only the helper would have gone green while the *route* passed it garbage; asserting only the route would have gone green while the *helper* did something else. **A function's NAME is not its behaviour.** The test now checks **both hops**: the route hands over the two real figures, and the helper spends them on one atomic call under the right argument names.
+
+**Mutations**, counts printed before → after: the route drops a figure (1→0) 🔴 · the helper releases the wrong figure (1→0) 🔴.
+
+**Verified locally with the toolchain installed:** `tsc --noEmit` exit **0** (printed, not piped — a piped exit code has produced a false green here before), and the full unit suite **10,139 tests, 0 failures**.

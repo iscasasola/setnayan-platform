@@ -12,6 +12,9 @@ import {
   type PayoutStage,
 } from '@/lib/payouts';
 import { markPayoutPaidAction, holdPayoutAction } from './actions';
+// Lives in payments/actions.ts beside the other money reversals, not in
+// payouts/actions.ts — which is part of why nothing ever imported it.
+import { releasePayoutHoldAction } from '@/app/admin/payments/actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -419,7 +422,35 @@ function PayoutCard({ row }: { row: PayoutRow }) {
                 Place on hold
               </SubmitButton>
             </ConfirmForm>
-          ) : null}
+          ) : (
+            /* 🚨 THE WAY BACK. Holding was fully wired and releasing was not:
+             * `releasePayoutHoldAction` existed, was audit-logged, and NO PAGE
+             * IMPORTED IT — so a payout could be frozen, listed under the "On
+             * hold" filter, and never lifted. This branch rendered `null`.
+             *
+             * 🔑 The hold confirmation PROMISES this control in so many words —
+             * "it stays held until you lift it manually" — which is what made
+             * the absence invisible: the screen said the lever existed.
+             * A forward primitive with no inverse, and a promise the product
+             * could not keep. */
+            <ConfirmForm
+              action={releasePayoutHoldAction}
+              title="Release this hold?"
+              confirmLabel="Release hold"
+              message="The payout goes back to its normal schedule and the vendor can be paid again. The release is recorded against your account."
+              className="flex flex-wrap items-center gap-2"
+            >
+              <input type="hidden" name="payout_id" value={row.payout_id} />
+              <input
+                name="reason"
+                placeholder="Why release? (optional)"
+                className="h-8 w-48 rounded-md border border-ink/20 bg-white px-2 text-xs"
+              />
+              <SubmitButton className="button-secondary h-8 px-3 text-xs">
+                Release hold
+              </SubmitButton>
+            </ConfirmForm>
+          )}
         </div>
       ) : null}
     </li>

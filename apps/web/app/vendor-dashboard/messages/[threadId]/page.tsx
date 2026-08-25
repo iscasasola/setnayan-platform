@@ -43,6 +43,7 @@ import { SendProposalCard } from './_components/send-proposal-card';
 import { ProposalMaker } from '@/app/_components/proposal-maker';
 import { ChatInfoRailColumn, ChatInfoRailTrigger } from './_components/chat-info-rail';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
 import { interestChipLabel } from '@/lib/thread-interests';
 import {
   deriveThreadStage,
@@ -391,6 +392,21 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
 
   msgTimer.flush();
 
+  /* 🔴 A SHIPPED FEATURE NOBODY COULD REACH. `<VendorEventDayPrepCta>` — the
+     supplier's "have the day ready offline" card — has existed since iteration
+     0036 with ZERO mount sites: the couple's twin `<EventDayPrepCta>` is mounted
+     on their event home, and the supplier's was never given a home at all. This
+     thread page is the one screen that already holds every prop it needs.
+
+     ⚖ GATED ON `booked`, deliberately. The component's own docblock scopes it to
+     "a single upcoming event the vendor has a CONTRACTED relationship with", and
+     an ASKED supplier must not be nudged to pull down a run-of-show they have
+     not earned — the same boundary PR-H draws. Nothing is widened either way:
+     the action runs on the RLS-bound user client, so a supplier can only cache
+     what they could already read. The card also self-gates to the T-3 → T+1
+     window, so on most days it renders nothing at all. */
+  const showDayPrep = railStage === 'booked' && Boolean(event?.event_date);
+
   return (
     <div className="mx-auto flex h-[calc(100dvh-12rem)] w-full max-w-3xl gap-4 px-4 py-6 sm:px-6 lg:max-w-6xl lg:px-8">
       <section className="flex min-w-0 flex-1 flex-col gap-4">
@@ -450,6 +466,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           />
         </div>
       </header>
+
+      {showDayPrep ? (
+        <VendorEventDayPrepCta
+          threadId={threadId}
+          eventId={thread.event_id}
+          eventDisplayName={coupleLabel}
+          eventDate={event?.event_date ?? null}
+        />
+      ) : null}
 
       {/* Creator Economy PR-C — the influencer-referral context (vendor-private).
           Names the storyteller + chapter behind this inquiry and restates the

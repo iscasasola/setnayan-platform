@@ -142,19 +142,35 @@ function resolveImport(spec: string, from: string): string | null {
   return null;
 }
 
-/** Does this route draw a heading a person can SEE, anywhere it can reach? */
-function drawsAHeading(file: string, depth = 4, seen = new Set<string>()): boolean {
-  if (depth < 0 || seen.has(file) || !existsSync(file)) return false;
+/**
+ * EVERY file this route's UI can reach — page.tsx plus the app-tree components
+ * it imports, four levels deep.
+ *
+ * 🔑 ONE TRAVERSAL, SHARED, ON PURPOSE. This used to be inlined in the heading
+ * rule while the actions rule read page.tsx and stopped, and that difference —
+ * twenty lines apart in this same file — is how a real regression shipped green
+ * on 2026-08-25: a page whose masthead lives in a component it imports read as
+ * "this page has no buttons", so both halves of the actions rule went silent on
+ * it. When two rules each locate something in the codebase, they must locate it
+ * the same way or the gap between them is a blind spot. `the two rules resolve
+ * the same way` below fails if anyone narrows one of them again.
+ */
+function routeFiles(file: string, depth = 4, seen = new Set<string>()): string[] {
+  if (depth < 0 || seen.has(file) || !existsSync(file)) return [];
   seen.add(file);
-  const s = src(file);
-  if (/<h1(?![^>]*sr-only)[^>]*>/.test(s)) return true;
-  for (const m of s.matchAll(/import\s+[^;]*?from\s+'([^']+)'/g)) {
+  let out = [file];
+  for (const m of src(file).matchAll(/import\s+[^;]*?from\s+'([^']+)'/g)) {
     const r = resolveImport(m[1] ?? '', file);
     // Only follow into the app tree — a design-system import is not this
     // route's heading.
-    if (r && r.includes(`${WEB_ROOT}/app/`) && drawsAHeading(r, depth - 1, seen)) return true;
+    if (r && r.includes(`${WEB_ROOT}/app/`)) out = out.concat(routeFiles(r, depth - 1, seen));
   }
-  return false;
+  return out;
+}
+
+/** Does this route draw a heading a person can SEE, anywhere it can reach? */
+function drawsAHeading(file: string): boolean {
+  return routeFiles(file).some((f) => /<h1(?![^>]*sr-only)[^>]*>/.test(src(f)));
 }
 
 /**
@@ -239,8 +255,26 @@ function defaultTabSurface(pageFile: string): string | null {
 function mastheadActions(pageFile: string): null | 'always' | 'responsive' | 'conditional' {
   const own = actionsIn(src(pageFile));
   if (own) return own;
+  // A tabbed shell is judged on the tab it opens on: one loader stands in for
+  // many tabs and cannot be right about all of them.
   const surface = defaultTabSurface(pageFile);
-  return surface ? actionsIn(src(surface)) : null;
+  if (surface) {
+    // ⛔ AND STOP HERE. Falling through to the general traversal would pick up
+    // the OTHER tabs' surfaces and demand a reservation for a button that only
+    // appears once you have navigated to a different tab — phantom chrome on
+    // the load a person actually makes.
+    return actionsIn(src(surface));
+  }
+  // Otherwise the SAME traversal the heading rule uses. `/dashboard/[eventId]/checklist`
+  // keeps its masthead in a component two directories up; before this, that
+  // route read as having no header element at all.
+  let verdict: null | 'always' | 'responsive' | 'conditional' = null;
+  for (const f of routeFiles(pageFile)) {
+    const v = actionsIn(src(f));
+    if (v === 'always') return 'always';
+    if (v && verdict === null) verdict = v;
+  }
+  return verdict;
 }
 
 /* ------------------------------------------------------------------ *
@@ -453,80 +487,43 @@ test('a loading screen reserves the header actions its page renders — at the w
   );
 });
 
-test('no page hides its masthead somewhere this rule cannot follow', () => {
-  // Measured 2026-08-25: 10 routes hold their masthead actions in page.tsx and
-  // 4 delegate to a `_surfaces/*` tab surface. ZERO use any other shape. If a
-  // third appears, the actions rule above would go quietly blind on it — which
-  // is exactly how /admin/pricing's regression shipped — so this FAILS rather
-  // than letting it pass unnoticed.
-  const strays: string[] = [];
+test('the two rules resolve the same way — no masthead is reachable by one and not the other', () => {
+  // 🔑 THE LESSON THIS FILE PAID FOR, ENCODED. If any file the heading rule can
+  // reach carries masthead actions, the actions rule must have seen them too.
+  // Before 2026-08-25 it did not: `drawsAHeading` recursed four levels and
+  // `mastheadActions` read page.tsx and stopped, so /admin/pricing's button
+  // reservation could vanish with nothing complaining. Narrow either traversal
+  // again and this goes red.
+  const blind: string[] = [];
+  let checked = 0;
   for (const f of loaders()) {
     const page = f.replace(/loading\.tsx$/, 'page.tsx');
     if (!existsSync(page)) continue;
-    if (actionsIn(src(page))) continue;
-    // Every tab surface of this route is a shape the rule UNDERSTANDS (it
-    // deliberately judges only the default tab — one loader stands in for many
-    // tabs and cannot be right about all of them). What must never appear is a
-    // masthead somewhere else entirely, because that is the blind spot that let
-    // /admin/pricing's reservation vanish unseen.
-    defaultTabSurface(page);
-    const surfaceDir = join(dirname(page), '_surfaces');
-    const reachable = (x: string) => x === page || x.startsWith(`${surfaceDir}/`);
-    const found: string[] = [];
-    collect(page, 4, new Set(), found);
-    const unseen = found.filter((x) => !reachable(x));
-    if (unseen.length) strays.push(`${page.replace(`${WEB_ROOT}/`, '')} -> ${unseen[0]!.replace(`${WEB_ROOT}/`, '')}`);
-  }
-  assert.deepEqual(
-    strays,
-    [],
-    `these routes render masthead actions from a component the actions rule does not follow, so it is silently blind to them:\n  ${strays.join('\n  ')}\nEither teach mastheadActions() the new shape or move the masthead into page.tsx.`,
-  );
-
-  function collect(file: string, depth: number, seen: Set<string>, out: string[]) {
-    if (depth < 0 || seen.has(file) || !existsSync(file)) return;
-    seen.add(file);
-    const body = src(file);
-    if (actionsIn(body)) out.push(file);
-    for (const m of body.matchAll(/import\s+[^;]*?from\s+'([^']+)'/g)) {
-      const r = resolveImport(m[1] ?? '', file);
-      if (r && r.includes(`${WEB_ROOT}/app/`)) collect(r, depth - 1, seen, out);
+    checked += 1;
+    // A tab surface OTHER than the default one is invisible on purpose — that
+    // is the recorded decision, not a blind spot — so it does not count as a
+    // carrier here. Anything else that holds a masthead must be visible to the
+    // actions rule.
+    const surfaceDir = `${join(dirname(page), '_surfaces')}/`;
+    const carriers = routeFiles(page).filter(
+      (x) => actionsIn(src(x)) && !x.startsWith(surfaceDir),
+    );
+    if (carriers.length && mastheadActions(page) === null) {
+      blind.push(
+        `${page.replace(`${WEB_ROOT}/`, '')} renders masthead actions from ${carriers[0]!.replace(`${WEB_ROOT}/`, '')}, and the actions rule cannot see them`,
+      );
     }
   }
-});
-
-/** The `<HeaderSkeleton>` element a template renders, without executing it —
- *  the tree also holds a client component, and running that would throw. */
-function headerElementOf(tree: unknown, name: string): { props: Record<string, unknown> } {
-  const target = HeaderSkeletonOf();
-  const found = find(tree);
   assert.ok(
-    found,
-    `${name} no longer renders <HeaderSkeleton>. If a template stops composing the shared strip it also stops being covered by this guard — teach it the new shape rather than deleting the rule.`,
+    checked >= 100,
+    `only ${checked} routes were walked (floor 100) — the pairing broke, so this rule was asking nothing.`,
   );
-  return found as { props: Record<string, unknown> };
-
-  function find(node: unknown): unknown {
-    if (node == null || typeof node !== 'object') return null;
-    if (Array.isArray(node)) {
-      for (const n of node) {
-        const hit = find(n);
-        if (hit) return hit;
-      }
-      return null;
-    }
-    const el = node as { type?: unknown; props?: { children?: unknown } };
-    if (el.type === target) return el;
-    return el.props ? find(el.props.children) : null;
-  }
-}
-
-/** Indirection so the import stays honest if the export is ever renamed. */
-function HeaderSkeletonOf() {
-  const fn = (SKELETONS as Record<string, unknown>).HeaderSkeleton;
-  assert.ok(typeof fn === 'function', 'HeaderSkeleton is no longer exported from @/components/skeletons.');
-  return fn as (p: object) => unknown;
-}
+  assert.deepEqual(
+    blind,
+    [],
+    `the heading rule and the actions rule disagree about where these routes' UI lives:\n  ${blind.join('\n  ')}`,
+  );
+});
 
 test('no hand-rolled loading screen shimmers a heading its page never draws', () => {
   // 🔑 THE BILL ABOVE IS A BILL OF THE LOADERS THAT USE THE SHARED TEMPLATE.
@@ -573,3 +570,126 @@ test('no hand-rolled loading screen shimmers a heading its page never draws', ()
     `these loading screens paint a page-title bar for a page that draws no heading:\n  ${offenders.join('\n  ')}`,
   );
 });
+
+test('no loading boundary promises a title to a route that INHERITS it and draws none', () => {
+  // 🔑 THE RULES ABOVE ASK EACH LOADER ABOUT ITS OWN SIBLING PAGE. A boundary
+  // also stands in for every route BELOW it that has no nearer one, and that is
+  // where this defect went on hiding after the first sweep: 27 screens borrowed
+  // a boundary written for a screen that genuinely has a heading. Eight of them
+  // were couple-facing (Alaala, the checklist, galleries, people, launch, the
+  // suite, access requests, story assignments) and thirteen were the supplier's.
+  // Each borrowed ~64px of title-and-subtitle that never arrived.
+  //
+  // The remedy is a route-local loading.tsx, which is what the other ~170
+  // routes already do. It is status-neutral: an inheriting route ALREADY
+  // streams through the boundary above it, so nothing here changes when the
+  // HTTP status commits. (That distinction matters — a route-level loading file
+  // is what turned a notFound() into a soft-404 on /v/[slug]; see
+  // app/[slug]/_lib/first-byte.test.ts. 35 pages in this app already pair
+  // notFound() with their own sibling loader.)
+  const loaderFiles = execFileSync('find', ['app', '-name', 'loading.tsx'], {
+    cwd: WEB_ROOT,
+    encoding: 'utf8',
+  })
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((p) => join(WEB_ROOT, p));
+  const pageFiles = execFileSync('find', ['app', '-name', 'page.tsx'], {
+    cwd: WEB_ROOT,
+    encoding: 'utf8',
+  })
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((p) => join(WEB_ROOT, p));
+
+  const loaderDirs = new Set(loaderFiles.map((f) => dirname(f)));
+  const appRoot = join(WEB_ROOT, 'app');
+  function nearestBoundary(page: string): string | null {
+    let d = dirname(page);
+    for (;;) {
+      if (loaderDirs.has(d)) return join(d, 'loading.tsx');
+      if (d === appRoot) return null;
+      const up = dirname(d);
+      if (up === d) return null;
+      d = up;
+    }
+  }
+
+  const covers = new Map<string, string[]>();
+  for (const pg of pageFiles) {
+    const b = nearestBoundary(pg);
+    if (!b) continue;
+    if (!covers.has(b)) covers.set(b, []);
+    covers.get(b)!.push(pg);
+  }
+
+  /** A stub whose whole job is to send you somewhere else draws nothing. */
+  const isRedirectStub = (pg: string) => {
+    const body = src(pg);
+    return /redirect\(/.test(body) && !/<[A-Za-z]/.test(body);
+  };
+
+  /** Promised through a template prop, or painted by hand. */
+  const promisesATitle = (loader: string) =>
+    promisesTitle(loader) ||
+    [...src(loader).matchAll(/className="([^"]*)"/g)].map((m) => m[1] ?? '').some(isTitleBar);
+
+  const shared = [...covers.values()].filter((v) => v.length > 1).length;
+  assert.ok(
+    shared >= 15,
+    `only ${shared} loading boundaries were found to cover more than their own page (floor 15) — the coverage map broke, so this rule was asking nothing.`,
+  );
+
+  const offenders: string[] = [];
+  for (const [loader, pages] of covers) {
+    if (!promisesATitle(loader)) continue;
+    const bare = pages.filter((pg) => !isRedirectStub(pg) && !drawsAHeading(pg));
+    if (bare.length) {
+      offenders.push(
+        `${loader.replace(`${WEB_ROOT}/`, '')} is borrowed by ${bare.length} route(s) that draw no heading:\n      ${bare
+          .map((b) => b.replace(`${WEB_ROOT}/`, ''))
+          .join('\n      ')}`,
+      );
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `these loading boundaries paint a page title for routes that never draw one — give each of those routes its own loading.tsx:\n  ${offenders.join('\n  ')}`,
+  );
+});
+
+/** The `<HeaderSkeleton>` element a template renders, without executing it —
+ *  the tree also holds a client component, and running that would throw. */
+function headerElementOf(tree: unknown, name: string): { props: Record<string, unknown> } {
+  const target = HeaderSkeletonOf();
+  const found = find(tree);
+  assert.ok(
+    found,
+    `${name} no longer renders <HeaderSkeleton>. If a template stops composing the shared strip it also stops being covered by this guard — teach it the new shape rather than deleting the rule.`,
+  );
+  return found as { props: Record<string, unknown> };
+
+  function find(node: unknown): unknown {
+    if (node == null || typeof node !== 'object') return null;
+    if (Array.isArray(node)) {
+      for (const n of node) {
+        const hit = find(n);
+        if (hit) return hit;
+      }
+      return null;
+    }
+    const el = node as { type?: unknown; props?: { children?: unknown } };
+    if (el.type === target) return el;
+    return el.props ? find(el.props.children) : null;
+  }
+}
+
+/** Indirection so the import stays honest if the export is ever renamed. */
+function HeaderSkeletonOf() {
+  const fn = (SKELETONS as Record<string, unknown>).HeaderSkeleton;
+  assert.ok(typeof fn === 'function', 'HeaderSkeleton is no longer exported from @/components/skeletons.');
+  return fn as (p: object) => unknown;
+}

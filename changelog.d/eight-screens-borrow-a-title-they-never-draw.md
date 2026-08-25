@@ -32,4 +32,13 @@ None of those 27 screens has a loading file of its own, so each borrows the near
 
 ✅ typecheck exit 0 · `next lint` exit 0 · **9977 unit tests pass** · masthead / port-controls / radius / changelog-dir lints pass.
 
+### Two more from the same audit, closed here
+
+- **Notifications reserved a button that is only sometimes there.** Its masthead's one control is *Mark all read*, rendered only when something is unread — a number no loading state can know before the fetch. It reserved a 44px pill unconditionally, so anyone with nothing unread watched ~68px collapse, and **the comment in that file described the button as unconditional**. Both corrected: nothing is reserved, for the same reason the shared guard exempts every other conditional masthead.
+- **A comment in the guard described an exemption the code never implemented** — *"a boundary that covers a whole subtree is not asked this question"*, above a line that skips only the two loaders in the app with no sibling page at all. **A sentence is not a mechanism.** The mechanism is now rule 9, and the comment says so.
+
+### And one open question from the audit, answered with evidence
+
+The audit flagged that *"CI would fail on a regression"* was one step short of proven — it had confirmed the guard runs, not that the job is **required**. Read from branch protection: `typecheck + lint` **is** a required check on `main`, and that job runs `test:unit`, which runs this guard. A regression blocks the merge.
+
 SPEC IMPACT: None — loading-state shape only.

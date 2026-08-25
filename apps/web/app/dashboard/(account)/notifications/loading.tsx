@@ -13,15 +13,17 @@ export default function NotificationsLoading() {
   return (
     <Screen label="Loading notifications" className="">
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-        {/* The page has no back link, no title and no subtitle — its masthead
-            draws one thing, the "Mark all read" button, right-aligned. This used
-            to shimmer all three of the others; each one was ~30-40px of chrome
-            that never arrived. */}
-        <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
-            <Sk className="h-11 w-28 rounded-md" />
-          </div>
-        </div>
+        {/* NOTHING AT THE TOP. The page has no back link, no title and no
+            subtitle — this used to shimmer all three, each ~30-40px of chrome
+            that never arrived.
+
+            ⚖ AND NOT THE BUTTON EITHER, corrected 2026-08-25. The masthead's one
+            control is "Mark all read", rendered only when `unreadCount > 0` — a
+            number no loading state can know before the fetch. An earlier note
+            here described it as unconditional and reserved a 44px pill for it,
+            so anyone with nothing unread watched ~68px collapse. **An action that
+            may not be there is not an action to reserve** — the same rule the
+            shared guard applies to every other conditional masthead. */}
         {/* Branded "what we're doing" strip */}
         <LoadingNarration
           className="mb-6 justify-start"

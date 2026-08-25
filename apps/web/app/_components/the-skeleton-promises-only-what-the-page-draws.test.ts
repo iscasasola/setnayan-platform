@@ -549,8 +549,15 @@ test('no hand-rolled loading screen shimmers a heading its page never draws', ()
   let checked = 0;
   for (const f of files) {
     const page = f.replace(/loading\.tsx$/, 'page.tsx');
-    // A boundary that covers a whole subtree is not asked this question: it is
-    // a shimmer for many pages at once and cannot be right about all of them.
+    // No sibling page.tsx means this boundary has no single screen to be judged
+    // against here. It is NOT unexamined: `no loading boundary promises a title
+    // to a route that INHERITS it` below walks the real coverage map and asks
+    // about every route that resolves to it.
+    //
+    // ⚠ This comment used to claim subtree boundaries were "not asked this
+    // question", which was never what the line below implemented — it skips only
+    // the two loaders in the app with no sibling page at all. A sentence is not
+    // a mechanism; the mechanism is rule 9.
     if (!existsSync(page)) continue;
     checked += 1;
     const bars = [...src(f).matchAll(/className="([^"]*)"/g)]

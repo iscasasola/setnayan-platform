@@ -93,6 +93,8 @@ export function AddFromPeopleSheet({
   const [readFailed, setReadFailed] = useState(false);
   const [query, setQuery] = useState('');
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
+  // "Show me the ones that need a last name" — see the note at `missingSurname`.
+  const [onlyBlocking, setOnlyBlocking] = useState(false);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
   const [lastNames, setLastNames] = useState<Record<string, string>>({});
   const [side, setSide] = useState<GuestSide>(defaultSide);
@@ -112,6 +114,7 @@ export function AddFromPeopleSheet({
       setError(null);
       setQuery('');
       setActiveGroup(null);
+      setOnlyBlocking(false);
       setPicked({});
       setSide(defaultSide);
       /*
@@ -161,6 +164,42 @@ export function AddFromPeopleSheet({
       .finally(() => setLoading(false));
   }, [open, rows, loading, eventId]);
 
+  const pickedKeys = useMemo(
+    () => Object.keys(picked).filter((k) => picked[k]),
+    [picked],
+  );
+
+  // Add stays shut while a chosen one-word name still has no surname — the
+  // server refuses it anyway, and finding that out after pressing Add is worse.
+  //
+  // 🚨 THAT RULE BECAME A DEAD END THE DAY ONE TAP COULD PICK TWELVE PEOPLE.
+  // It is computed over EVERY loaded row, but the only control that can satisfy
+  // it — the "Last name" box — renders inside the visible list. So: press the
+  // barkada chip, choose all twelve, clear the chip, and the three one-word
+  // names are picked, off screen, and holding Add shut with nothing on the
+  // screen naming them. Closing the sheet is the only escape and it discards
+  // the whole selection. Samahan rows are exactly the population this bites:
+  // they are built from one display-name string, and a group-chat handle is one
+  // word far more often than a guest-list entry is.
+  //
+  // So the count is stated, and `onlyBlocking` below brings those rows back —
+  // past the chip and past the search, because that is where they went.
+  const missingSurname = useMemo(
+    () =>
+      pickedKeys.filter((k) => {
+        const row = (rows ?? []).find((r) => r.key === k);
+        if (!row) return false;
+        return !row.lastName && !(lastNames[k] ?? '').trim();
+      }),
+    [pickedKeys, rows, lastNames],
+  );
+
+  // The blocking view empties itself: fill the last surname and you are back
+  // with everybody, rather than staring at a list with nothing in it.
+  useEffect(() => {
+    if (onlyBlocking && missingSurname.length === 0) setOnlyBlocking(false);
+  }, [onlyBlocking, missingSurname]);
+
   const visible = useMemo(() => {
     // ⚖ TWO FILTERS, NOT ONE STRING. The chip is an EXACT membership test and
     // the box is free text; stuffing the samahan's name into the box (which is
@@ -169,13 +208,13 @@ export function AddFromPeopleSheet({
     // group, or with an event they were also a guest at, was silently left out.
     // Both rules live in the pure core; neither is copied here.
     const inGroup = (rows ?? []).filter((r) => !activeGroup || isInSamahan(r, activeGroup));
-    return inGroup.filter((r) => matchesInvitableQuery(r, query));
-  }, [rows, query, activeGroup]);
-
-  const pickedKeys = useMemo(
-    () => Object.keys(picked).filter((k) => picked[k]),
-    [picked],
-  );
+    const matching = inGroup.filter((r) => matchesInvitableQuery(r, query));
+    // 🔑 THE ONE FILTER THAT IGNORES THE OTHER TWO. The rows that block Add can
+    // be anywhere in the list — including outside the chip or the search that is
+    // on — so "show me those" has to reach past both, or it cannot show them.
+    if (!onlyBlocking) return matching;
+    return (rows ?? []).filter((r) => missingSurname.includes(r.key));
+  }, [rows, query, activeGroup, onlyBlocking, missingSurname]);
 
   // ── ADDING A WHOLE SAMAHAN ────────────────────────────────────────────────
   // A barkada already reaches this sheet one name at a time (the `samahan`
@@ -196,18 +235,6 @@ export function AddFromPeopleSheet({
   );
   const allShownPicked =
     addableShown.length > 0 && addableShown.every((r) => picked[r.key]);
-
-  // Add stays shut while a chosen one-word name still has no surname — the
-  // server refuses it anyway, and finding that out after pressing Add is worse.
-  const missingSurname = useMemo(
-    () =>
-      pickedKeys.filter((k) => {
-        const row = (rows ?? []).find((r) => r.key === k);
-        if (!row) return false;
-        return !row.lastName && !(lastNames[k] ?? '').trim();
-      }),
-    [pickedKeys, rows, lastNames],
-  );
 
   const submit = () => {
     if (pickedKeys.length === 0 || missingSurname.length > 0 || pending) return;
@@ -326,7 +353,22 @@ export function AddFromPeopleSheet({
         </div>
       ) : null}
 
-      {!loading && addableShown.length > 1 ? (
+      {onlyBlocking ? (
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-ink/10 pt-3">
+          <span className="text-[11px] text-ink/60">
+            Showing only the picks that still need a last name.
+          </span>
+          <button
+            type="button"
+            onClick={() => setOnlyBlocking(false)}
+            className="text-sm font-medium text-mulberry-700 underline underline-offset-4"
+          >
+            Show everyone again
+          </button>
+        </div>
+      ) : null}
+
+      {!loading && !onlyBlocking && addableShown.length > 1 ? (
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-ink/10 pt-3">
           <button
             type="button"
@@ -445,9 +487,21 @@ export function AddFromPeopleSheet({
 
       <div className="mt-5 flex items-center justify-between gap-3">
         <span className="text-sm text-ink/55">
-          {pickedKeys.length === 0
-            ? 'Nobody picked'
-            : `${pickedKeys.length} picked`}
+          {pickedKeys.length === 0 ? (
+            'Nobody picked'
+          ) : missingSurname.length > 0 ? (
+            // Name the blockage and hand over the way to clear it. A disabled
+            // button with no explanation is the same as a broken one.
+            <button
+              type="button"
+              onClick={() => setOnlyBlocking(true)}
+              className="text-left text-sm text-mulberry-700 underline underline-offset-4"
+            >
+              {missingSurname.length} of your {pickedKeys.length} need a last name — show them
+            </button>
+          ) : (
+            `${pickedKeys.length} picked`
+          )}
         </span>
         <button
           type="button"

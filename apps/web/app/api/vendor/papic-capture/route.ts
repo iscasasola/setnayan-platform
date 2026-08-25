@@ -8,6 +8,7 @@ import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import {
   deriveVendorPapicTier,
   fetchVendorPapicPointsSpent,
+  fetchVendorBookingFeePaidPhp,
 } from '@/lib/vendor-papic-grants';
 import { canCapture, pointsForMedia } from '@/lib/vendor-papic-tier';
 
@@ -139,11 +140,19 @@ export async function POST(req: Request) {
   // RLS-scoped to owner/admin, and the tier must be authoritative). Each tier's
   // point budget is the ceiling (photo=1, clip=7); free Lite is 50 pts + video.
   const admin = createAdminClient();
-  const [tier, spent] = await Promise.all([
+  // ⚠ THE FEE THEY PAID IS NOW PART OF THE ALLOWANCE — owner 2026-07-22,
+  // *"points in proportion to what they paid"*. That ruling shipped as a pure,
+  // fully unit-tested function with NO CALLER for over a month, because the
+  // booking-fee mechanism did not exist yet; `booking_fee_charges` does now.
+  // The fee can only ever RAISE the number (see `allowancePointsFor`), and an
+  // unread fee is `null`, which grants nothing — never a zero that would look
+  // like "they paid nothing".
+  const [tier, spent, feePaidPhp] = await Promise.all([
     deriveVendorPapicTier(admin, vendorProfileId, eventId),
     fetchVendorPapicPointsSpent(admin, vendorProfileId, eventId),
+    fetchVendorBookingFeePaidPhp(admin, vendorProfileId, eventId),
   ]);
-  const check = canCapture(tier, spent, mediaType);
+  const check = canCapture(tier, spent, mediaType, feePaidPhp);
   if (!check.ok) {
     return NextResponse.json(
       { error: check.reason, tier, pointsSpent: spent },

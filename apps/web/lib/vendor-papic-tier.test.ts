@@ -20,6 +20,7 @@ import {
   resolveVendorPapicTier,
   tierReadout,
   vendorPapicPointsForBookingFee,
+  allowancePointsFor,
   VENDOR_PAPIC_BASE_GIFT_POINTS,
   VENDOR_PAPIC_MAX_POINTS,
   type VendorAcceptProvenance,
@@ -172,4 +173,52 @@ test('tierReadout: human badge strings', () => {
   assert.equal(tierReadout('lite'), 'Papic Lite · 50 pts · photos + video');
   assert.equal(tierReadout('ltd'), 'Papic Ltd · 70 pts · photos + video');
   assert.equal(tierReadout('unli'), 'Papic Unli · unlimited');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The fee actually reaching the allowance (owner 2026-07-22, wired 2026-08-26).
+// `vendorPapicPointsForBookingFee` existed and was fully tested for over a month
+// with NO application caller — every supplier got the flat tier number whatever
+// they paid. These pin the wire, not just the arithmetic.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('an unread fee changes nothing — null is not "they paid nothing"', () => {
+  // The mirror of fetchVendorPapicPointsSpent failing CLOSED: a metering outage
+  // must never MINT points either.
+  assert.equal(allowancePointsFor('lite', null), 50);
+  assert.equal(allowancePointsFor('ltd', null), 70);
+  assert.equal(captureAllowance('lite', 10, null).pointsLeft, 40);
+});
+
+test('the fee raises the allowance, proportionally', () => {
+  assert.equal(allowancePointsFor('lite', 0), 50);
+  assert.equal(allowancePointsFor('lite', 2000), 125);
+  assert.equal(allowancePointsFor('lite', 4000), 200);
+  assert.equal(allowancePointsFor('lite', 8000), 200, 'clamped at the ceiling');
+  assert.equal(captureAllowance('lite', 10, 2000).pointsLeft, 115);
+});
+
+test('🚨 the fee can only ever RAISE — a comped supplier never loses points', () => {
+  // A founder-comped supplier sits on ltd (70) having paid nothing. The fee
+  // formula alone would hand them 50 and TAKE 20 POINTS AWAY. Nobody may lose
+  // an allowance they already had because a wire was connected.
+  assert.equal(allowancePointsFor('ltd', 0), 70, 'ltd must keep 70, not drop to the 50 floor');
+  assert.equal(allowancePointsFor('ltd', 1000), 88, 'below ltd the tier still wins');
+  assert.equal(allowancePointsFor('ltd', 2000), 125, 'above ltd the fee wins');
+});
+
+test('unlimited stays unlimited — null points is not a number to compare', () => {
+  assert.equal(allowancePointsFor('unli', 4000), null);
+  assert.equal(captureAllowance('unli', 999, 4000).pointsLeft, null);
+  assert.deepEqual(canCapture('unli', 10_000, 'clip', 0), { ok: true });
+});
+
+test('canCapture spends against the RAISED cap, not the tier cap', () => {
+  // 50-point lite, 48 spent, one clip costs 8 → refused on the tier number...
+  assert.deepEqual(canCapture('lite', 48, 'clip', null), {
+    ok: false,
+    reason: 'out_of_points',
+  });
+  // ...and afforded once the fee they paid is known.
+  assert.deepEqual(canCapture('lite', 48, 'clip', 4000), { ok: true });
 });

@@ -128,6 +128,44 @@ export function pointsSpent(
   return captures.reduce((sum, c) => sum + pointsForMedia(c.media_type), 0);
 }
 
+/**
+ * THE ALLOWANCE A SUPPLIER ACTUALLY HAS, once the booking fee they PAID is known.
+ *
+ * Owner 2026-07-22: *"points in proportion to what they paid"* — 50 points at
+ * ₱0, up to 200 at a ₱4,000 fee, proportional in between. Restated 2026-08-26:
+ * *"photographer will buy shots or use their free shots from booking fee to
+ * upload their photos."*
+ *
+ * 🚨 THAT RULING WAS WRITTEN, UNIT-TESTED, AND CALLED BY NOTHING.
+ * `vendorPapicPointsForBookingFee` has existed since the ruling with **zero**
+ * application callers — only its own tests referenced it — so every supplier
+ * has been getting the flat tier number regardless of what they paid. The
+ * reason is recorded in this file's own header: when it was written *"the
+ * booking-fee mechanism is still a working doc (unbuilt)"*, so there was no fee
+ * to scale on. `booking_fee_charges` exists now. This is the wire.
+ *
+ * 🔑 THE FEE CAN ONLY EVER RAISE, NEVER LOWER. A founder-comped supplier sits
+ * on `ltd` (70) having paid nothing; the fee formula would hand them 50 and
+ * TAKE 20 POINTS AWAY. Nobody may lose an allowance they already had because we
+ * connected a wire, so this is a MAX, not a replacement.
+ *
+ * 🔑 AN UNPROVEN FEE GRANTS NOTHING. `null` means we could not read what they
+ * paid — never "they paid nothing extra". It falls back to the tier's own
+ * number, which is the mirror of this module's existing posture that a failed
+ * spend read fails CLOSED. A metering outage must not mint points.
+ *
+ * ⛔ Unlimited stays unlimited: `null` points is not a number to compare.
+ */
+export function allowancePointsFor(
+  tier: VendorPapicTier,
+  bookingFeePaidPhp: number | null,
+): number | null {
+  const base = tierSpec(tier).points;
+  if (base == null) return null; // unli — nothing to raise
+  if (bookingFeePaidPhp == null) return base;
+  return Math.max(base, vendorPapicPointsForBookingFee(bookingFeePaidPhp));
+}
+
 export type CaptureAllowance = {
   tier: VendorPapicTier;
   allowVideo: boolean;
@@ -141,15 +179,18 @@ export type CaptureAllowance = {
 export function captureAllowance(
   tier: VendorPapicTier,
   spent: number,
+  /** What the supplier PAID in booking fees for this event. null = unread; see
+   *  `allowancePointsFor`. Omitted → today's flat tier number, unchanged. */
+  bookingFeePaidPhp: number | null = null,
 ): CaptureAllowance {
   const spec = tierSpec(tier);
+  const cap = allowancePointsFor(tier, bookingFeePaidPhp);
   const cleanSpent = Math.max(0, Math.floor(Number(spent)) || 0);
-  const pointsLeft =
-    spec.points == null ? null : Math.max(0, spec.points - cleanSpent);
+  const pointsLeft = cap == null ? null : Math.max(0, cap - cleanSpent);
   return {
     tier,
     allowVideo: spec.allowVideo,
-    pointsCap: spec.points,
+    pointsCap: cap,
     pointsSpent: cleanSpent,
     pointsLeft,
   };
@@ -164,14 +205,17 @@ export function canCapture(
   tier: VendorPapicTier,
   spent: number,
   media: VendorPapicMedia,
+  /** See `allowancePointsFor`. Omitted → today's flat tier number, unchanged. */
+  bookingFeePaidPhp: number | null = null,
 ): CaptureCheck {
   const spec = tierSpec(tier);
   if (media === 'clip' && !spec.allowVideo) {
     return { ok: false, reason: 'video_not_allowed' };
   }
-  if (spec.points == null) return { ok: true }; // unlimited
+  const cap = allowancePointsFor(tier, bookingFeePaidPhp);
+  if (cap == null) return { ok: true }; // unlimited
   const cleanSpent = Math.max(0, Math.floor(Number(spent)) || 0);
-  if (cleanSpent + pointsForMedia(media) > spec.points) {
+  if (cleanSpent + pointsForMedia(media) > cap) {
     return { ok: false, reason: 'out_of_points' };
   }
   return { ok: true };

@@ -114,6 +114,53 @@ export async function deriveVendorPapicTier(
 }
 
 /** Capture points already spent by this vendor on this event (non-hidden rows). */
+/**
+ * WHAT THIS SUPPLIER ACTUALLY PAID IN BOOKING FEES FOR THIS EVENT, in pesos.
+ *
+ * Feeds `allowancePointsFor` — the owner's 2026-07-22 rule that a supplier's
+ * free Papic shots scale with the fee they paid (50 at ₱0 → 200 at ₱4,000).
+ *
+ * 🔑 ONLY `status = 'paid'` COUNTS, and that is the whole point of the rule.
+ * The other statuses are real and none of them is money we received:
+ * `pending` (not yet), `failed`, `expired`, `waived_import`, and
+ * `waived_free5` — the owner's own first-5-sourced-bookings-free rule, which
+ * by construction means they paid ₱0 and get the 50-point floor. Reading a
+ * waived charge as paid would hand the free five a 200-point allowance.
+ *
+ * ⚠ RETURNS null ON A READ ERROR, NEVER 0 — and null is NOT "they paid
+ * nothing". `allowancePointsFor` treats null as "unproven" and falls back to
+ * the tier's own number, so a transient failure can never MINT points. That is
+ * the mirror of `fetchVendorPapicPointsSpent` above, which fails closed in the
+ * other direction by assuming the budget is exhausted. Both refuse to invent
+ * generosity out of an outage.
+ *
+ * ⚠ Supabase does not throw on a failed read — it resolves with `{ error }` —
+ * so the explicit error check below is the only one that exists.
+ */
+export async function fetchVendorBookingFeePaidPhp(
+  client: SupabaseClient,
+  vendorProfileId: string,
+  eventId: string,
+): Promise<number | null> {
+  if (!vendorProfileId || !eventId) return null;
+  try {
+    const { data, error } = await client
+      .from('booking_fee_charges')
+      .select('amount_charged_centavos')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('event_id', eventId)
+      .eq('status', 'paid');
+    if (error) return null; // unproven — never an uplift
+    const centavos = (data ?? []).reduce(
+      (sum, r) => sum + Math.max(0, Number((r as { amount_charged_centavos?: number }).amount_charged_centavos) || 0),
+      0,
+    );
+    return Math.floor(centavos / 100);
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchVendorPapicPointsSpent(
   client: SupabaseClient,
   vendorProfileId: string,
@@ -138,15 +185,25 @@ export async function fetchVendorPapicPointsSpent(
   }
 }
 
-/** Tier + live allowance (points spent, remaining, video-allowed) for a booked event. */
+/**
+ * Tier + live allowance (points spent, remaining, video-allowed) for a booked event.
+ *
+ * ⚠ IT MUST READ THE SAME THREE THINGS THE CAPTURE ROUTE READS. This is what a
+ * supplier SEES; the route is what a supplier GETS. When this was wired to the
+ * booking fee, missing it here would have shown a supplier "50 shots" on their
+ * own screen while the route happily accepted their 125th — a screen
+ * contradicting the screen beside it, with no error anywhere. Pinned by
+ * `the-fee-reaches-the-allowance.test.ts`.
+ */
 export async function fetchVendorPapicAllowance(
   admin: SupabaseClient,
   vendorProfileId: string,
   eventId: string,
 ): Promise<CaptureAllowance> {
-  const [tier, spent] = await Promise.all([
+  const [tier, spent, feePaidPhp] = await Promise.all([
     deriveVendorPapicTier(admin, vendorProfileId, eventId),
     fetchVendorPapicPointsSpent(admin, vendorProfileId, eventId),
+    fetchVendorBookingFeePaidPhp(admin, vendorProfileId, eventId),
   ]);
-  return captureAllowance(tier, spent);
+  return captureAllowance(tier, spent, feePaidPhp);
 }

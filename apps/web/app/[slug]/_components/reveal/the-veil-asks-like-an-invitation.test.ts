@@ -119,15 +119,18 @@ test('it uses the guest editorial stack, not a third register', () => {
   assert.match(pill, /font-sans/, 'the second line left the editorial sans');
 });
 
-test('⛔ the OWNER-GATED film label face is untouched', () => {
-  // H-2 is scoped, decided-under-delegation, and explicitly NOT this session's
-  // to build. If this ever fails, somebody has quietly shipped it alongside H-1
-  // and the owner never saw it.
-  const themes = readFileSync(join(WEB, 'lib', 'std-themes.ts'), 'utf8');
-  assert.match(
-    /labelCls: '([^']*)'/.exec(themes)?.[1] ?? '',
-    /^font-mono /,
-    'lib/std-themes.ts labelCls is no longer DM Mono — that is H-2, it is ' +
-      'OWNER-GATED, and it must not ride along with H-1',
-  );
-});
+/* ⛔ THE H-2 GATE THAT USED TO SIT HERE IS GONE, DELIBERATELY — NOT LOST.
+ *
+ * It asserted that `lib/std-themes.ts` labelCls was still DM Mono, so H-1 could
+ * not ship the film's lettering by accident while it was owner-gated. The owner
+ * saw a side-by-side on 2026-08-24 and said "lettering YES", so the gate is
+ * open and the invariant flipped: the film's lettering must now STAY off the
+ * terminal face.
+ *
+ * That flipped invariant lives in ONE place — the sibling guard
+ * `../the-invitation-is-not-a-receipt.test.ts` ("the film's lettering left the
+ * terminal face"), which owns the whole film including both legibility tones,
+ * both on-screen cues and the protected watermark floor. Inverting this copy as
+ * well would have left two statements of one rule in two files, which is how
+ * they drift apart.
+ */

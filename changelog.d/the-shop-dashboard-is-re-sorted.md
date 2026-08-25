@@ -51,3 +51,14 @@ tier-gated ledger is its own change, and it was not in what the owner agreed to.
 
 SPEC IMPACT: vendor-dashboard IA — labels and ordering only. The five destination keys,
 all 46 surfaces and every route are unchanged. Corpus row appended to `DECISION_LOG.md`.
+
+🪤 **A TRAP THIS PR PAID FOR, WORTH MORE THAN THE CHANGE.** `origin/main` moved three times while
+this branch was open (another session works this repo concurrently) and the rebase conflicted on
+`port-control-baseline.json`, a GENERATED file. Resolving it by taking one side — either side —
+left the baseline describing a tree that no longer existed, and the guard failed in CI having
+passed locally an hour earlier. 🔑 **A generated file's merge conflict is never resolved by
+choosing a side; it is REGENERATED from the merged tree.** The other session's own commits are
+literally titled *"merge main again; regenerate the port baseline from the merged tree"* — they
+had already learned it. The regenerated diff was read line by line a second time: 8 insertions,
+5 deletions, and every deletion is the ref, the block count, or one of the two surfaces that
+reappears as an insertion on its new route. **Zero real removals absorbed.**

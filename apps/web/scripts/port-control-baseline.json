@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6eca29334",
+  "generatedFromRef": "4527a990a",
   "routeCount": 405,
   "destinations": 872,
   "actions": 583,
-  "blocks": 4030,
+  "blocks": 4031,
   "routes": {
     "/": {
       "files": [
@@ -1075,6 +1075,7 @@
         "admin/_apple-secret-reminder.tsx",
         "admin/_components/admin-bottom-nav.tsx",
         "admin/_components/admin-command-palette.tsx",
+        "admin/_components/admin-destinations.ts",
         "admin/_components/admin-nav-descriptions.ts",
         "admin/_components/admin-nav-fab.tsx",
         "admin/_components/admin-nav-groups.tsx",
@@ -9324,6 +9325,7 @@
         "BookingsSurface",
         "CalendarSurface",
         "ClientsSurface",
+        "ContractsSurface",
         "CustomerCalendarMonth",
         "CustomerSectionBody",
         "CustomersCalendar",
@@ -9334,6 +9336,7 @@
         "Link",
         "MessagesSurface",
         "PaydaySurface",
+        "ProposalsSurface",
         "ShopEmpty",
         "Suspense",
         "VendorQrSection"
@@ -9714,6 +9717,7 @@
         "vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/song-desk.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/specialization-registry.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/specialization-slot.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/sponsored-shots-strip.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-note-compose.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-notes-actions.ts",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-notes-card.tsx",
@@ -9799,7 +9803,8 @@
       "blocks": [
         "Link",
         "OwnCapturesStrip",
-        "PapicCaptureController"
+        "PapicCaptureController",
+        "SponsoredShotsStrip"
       ]
     },
     "/vendor-dashboard/packages": {
@@ -10304,7 +10309,6 @@
         "Collapsible",
         "CompletenessRing",
         "ContactsStep",
-        "ContractsSurface",
         "CopyButton",
         "DocSlotCard",
         "DocSlotSaveResult",
@@ -10343,7 +10347,6 @@
         "PinRow",
         "PlainInput",
         "ProfileChecklistEditor",
-        "ProposalsSurface",
         "PublicLineCard",
         "PublicLineSaveResult",
         "ReachMap",

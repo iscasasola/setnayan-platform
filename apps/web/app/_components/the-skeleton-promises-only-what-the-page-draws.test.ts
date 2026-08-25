@@ -97,10 +97,19 @@ function loaders(): string[] {
  * What the loader promises
  * ------------------------------------------------------------------ */
 
+/**
+ * EVERY template call in the file, joined — not just the first.
+ *
+ * A loader with two returns (a conditional shell, an early bail) would
+ * otherwise be judged on whichever call happened to appear first in the source,
+ * which is a coin flip rather than a rule.
+ */
 function templateCall(file: string): string {
   const s = src(file);
-  const m = new RegExp(`<(?:${TEMPLATES.join('|')})\\b[\\s\\S]*?/>`).exec(s);
-  return m ? m[0] : '';
+  const all = [...s.matchAll(new RegExp(`<(?:${TEMPLATES.join('|')})\\b[\\s\\S]*?/>`, 'g'))].map(
+    (m) => m[0],
+  );
+  return all.join('\n');
 }
 
 function promisesTitle(file: string): boolean {
@@ -111,6 +120,11 @@ function promisesTitle(file: string): boolean {
 function promisedActions(file: string): number {
   const m = /\sactions=\{(\d+)\}/.exec(templateCall(file));
   return m ? Number(m[1]) : 0;
+}
+
+/** Does the loader reserve its buttons only from the `lg` breakpoint up? */
+function promisesActionsAtLg(file: string): boolean {
+  return /\sactionsAt=(?:"lg"|\{'lg'\})/.test(templateCall(file));
 }
 
 /* ------------------------------------------------------------------ *
@@ -144,16 +158,32 @@ function drawsAHeading(file: string, depth = 4, seen = new Set<string>()): boole
 }
 
 /**
- * `null` — the masthead draws no actions.
- * `'always'` — it draws them at every width.
- * `'responsive'` — the actions are inside a `hidden … lg:flex` shell, so a
- *   phone never sees them and the skeleton is free to reserve nothing.
+ * Where a route's header buttons really live, and at which widths.
+ *
+ * 🔑 THIS USED TO READ `page.tsx` AND STOP, WHILE THE HEADING RULE 20 LINES
+ * ABOVE FOLLOWED IMPORTS FOUR DEEP. That asymmetry inside one file is how a
+ * real regression shipped green on 2026-08-25: `/admin/pricing` has no
+ * `<PageMasthead>` of its own — its masthead lives in the tab surface it
+ * imports — so the rule read "this page has no actions", stayed silent, and the
+ * loader's reservation was allowed to vanish when a default flipped. The button
+ * then dropped in out of nowhere on every plain load.
+ *
+ * Measured across the whole bill: 10 pages hold their own masthead actions, 4
+ * delegate to a `_surfaces/*` tab surface, and ZERO delegate anywhere else. So
+ * there are exactly two legal shapes, and `no page delegates its masthead
+ * anywhere else` below FAILS if a third ever appears rather than skipping it.
+ *
+ * For a tabbed shell only the DEFAULT tab counts: one loader stands in for many
+ * tabs and cannot be right about all of them, and the tab a person lands on
+ * without asking is the one worth being right about.
+ *
+ * Returns `'always'`, `'responsive'` (the buttons sit inside a `hidden … lg:`
+ * shell, so a phone never sees them) or `null`.
  */
-function mastheadActions(pageFile: string): null | 'always' | 'responsive' {
-  const s = src(pageFile);
-  let verdict: null | 'always' | 'responsive' = null;
-  for (const m of s.matchAll(/<PageMasthead\b/g)) {
-    const seg = s.slice(m.index!, m.index! + 4000);
+function actionsIn(source: string): null | 'always' | 'responsive' | 'conditional' {
+  let verdict: null | 'always' | 'responsive' | 'conditional' = null;
+  for (const m of source.matchAll(/<PageMasthead\b/g)) {
+    const seg = source.slice(m.index!, m.index! + 4000);
     const j = seg.indexOf('actions={');
     if (j < 0) continue;
     const k = j + 'actions='.length;
@@ -171,13 +201,46 @@ function mastheadActions(pageFile: string): null | 'always' | 'responsive' {
     }
     if (!body.trim()) continue;
     const flat = body.replace(/\s+/g, ' ').trim();
-    if (/^<\w+[^>]*className="[^"]*\bhidden\b/.test(flat)) {
-      if (verdict === null) verdict = 'responsive';
+    // 🔑 AN ACTION THAT MAY NOT BE THERE IS NOT AN ACTION TO RESERVE.
+    // `/admin/app-performance`'s overview tab passes
+    // `actions={demoActive ? <span…/> : null}` — a badge shown only on demo
+    // data. Demanding a 44px reservation for it would put phantom chrome on
+    // every ordinary load, which is the defect this whole file exists to
+    // remove. Conditional bodies are recorded and exempted from the MUST
+    // RESERVE half; they are still not allowed to be called phantom.
+    if (/:\s*null\s*$/.test(flat) || /^\{?\s*!?\w[\w.]*\s*&&/.test(flat)) {
+      if (verdict === null) verdict = 'conditional';
+    } else if (/^<\w+[^>]*className="[^"]*\bhidden\b/.test(flat)) {
+      if (verdict === null || verdict === 'conditional') verdict = 'responsive';
     } else {
       verdict = 'always';
     }
   }
   return verdict;
+}
+
+/** The `_surfaces/<defaultTab>-surface.tsx` a tabbed shell lands on unasked. */
+function defaultTabSurface(pageFile: string): string | null {
+  const dir = dirname(pageFile);
+  if (!existsSync(join(dir, '_surfaces'))) return null;
+  const m = /includes\([^)]*\)\s*\?[^:]*:\s*'([a-z0-9-]+)'/.exec(src(pageFile));
+  assert.ok(
+    m,
+    `${pageFile.replace(`${WEB_ROOT}/`, '')} has a _surfaces/ directory but this guard cannot work out which tab it opens on. Teach it the new shape — do not let it fall through, because a tabbed shell whose default tab has a header button is exactly the case that shipped a regression.`,
+  );
+  const file = join(dir, '_surfaces', `${m![1]}-surface.tsx`);
+  assert.ok(
+    existsSync(file),
+    `${pageFile.replace(`${WEB_ROOT}/`, '')} opens on tab '${m![1]}' but ${file.replace(`${WEB_ROOT}/`, '')} does not exist. The <tab>-surface.tsx convention this rule derives from has changed; teach the guard rather than skipping the route.`,
+  );
+  return file;
+}
+
+function mastheadActions(pageFile: string): null | 'always' | 'responsive' | 'conditional' {
+  const own = actionsIn(src(pageFile));
+  if (own) return own;
+  const surface = defaultTabSurface(pageFile);
+  return surface ? actionsIn(src(surface)) : null;
 }
 
 /* ------------------------------------------------------------------ *
@@ -256,6 +319,26 @@ test('a page that asks for a title gets one, and it is the only thing added', ()
       `${name} swallows \`title\` instead of passing it on, so the opt-in does nothing on that template.`,
     );
   }
+  // 🔑 THE `title` HALF WAS ASSERTED AND THE `actions` HALF WAS NOT. A template
+  // that dropped `actions={actions}` would read `undefined ?? 0` = 0 inside the
+  // strip and stay green here while all nine reserving loaders silently
+  // reserved nothing — and nothing else would catch it: tsconfig sets no
+  // noUnusedLocals and eslint has no unused-vars rule.
+  for (const name of TEMPLATES) {
+    const tpl = (SKELETONS as Record<string, (p: object) => unknown>)[name]!;
+    const strip = headerElementOf(tpl({ actions: 3, actionsAt: 'lg' }), name);
+    assert.equal(
+      strip.props.actions,
+      3,
+      `${name} swallows \`actions\` instead of passing it on, so every loader that reserves buttons through it reserves nothing.`,
+    );
+    assert.equal(
+      strip.props.actionsAt,
+      'lg',
+      `${name} swallows \`actionsAt\`, so a page whose buttons are desktop-only would reserve them on a phone too.`,
+    );
+  }
+
   const titled = classNames(HeaderSkeletonOf()({ title: true })).filter(isTitleBar);
   assert.equal(
     titled.length,
@@ -272,6 +355,15 @@ test('a page that asks for a title gets one, and it is the only thing added', ()
     acted.filter((c) => /\bh-11\b/.test(c) && /\bw-28\b/.test(c)).length,
     2,
     'the strip must reserve room for exactly as many action buttons as it was asked for.',
+  );
+  const atLg = classNames(HeaderSkeletonOf()({ actions: 1, actionsAt: 'lg' }));
+  assert.ok(
+    atLg.some((c) => /\bhidden\b/.test(c) && /\blg:flex\b/.test(c)),
+    '`actionsAt="lg"` must actually hide the reserved buttons below lg — otherwise the prop is decoration and a phone still shimmers a row it never gets.',
+  );
+  assert.ok(
+    !classNames(HeaderSkeletonOf()({ actions: 1 })).some((c) => /\bhidden\b/.test(c)),
+    'the default must NOT hide the reserved buttons — 9 of the 10 pages with header buttons show them at every width.',
   );
 });
 
@@ -300,20 +392,50 @@ test('no loading screen shimmers a heading its page never draws', () => {
   );
 });
 
-test('a loading screen reserves the header actions its page renders — and no others', () => {
+test('a loading screen reserves the header actions its page renders — at the widths it renders them', () => {
   const missing: string[] = [];
   const phantom: string[] = [];
+  const wrongWidth: string[] = [];
+  let pagesWithButtons = 0;
+  let unconditional = 0;
   for (const f of loaders()) {
     const page = f.replace(/loading\.tsx$/, 'page.tsx');
     if (!existsSync(page)) continue;
     const real = mastheadActions(page);
     const promised = promisedActions(f);
+    const atLg = promisesActionsAtLg(f);
     const rel = f.replace(`${WEB_ROOT}/`, '');
-    if (real === 'always' && promised < 1) missing.push(rel);
-    // 'responsive' is exempt in both directions: the buttons exist on a laptop
-    // and not on a phone, and one skeleton cannot be right about both.
+    if (real) pagesWithButtons += 1;
+    if (real === 'always') unconditional += 1;
+    if (real === 'always') {
+      if (promised < 1) missing.push(rel);
+      else if (atLg) wrongWidth.push(`${rel} (reserves only from lg; the page shows its buttons at every width)`);
+    }
+    // 🔑 NO BLANKET EXEMPTION ANY MORE. This used to skip 'responsive'
+    // entirely — "one skeleton cannot be right about both widths" — which let
+    // /dashboard/[eventId]/guests reserve two 44px pills on a phone that never
+    // sees them. `actionsAt="lg"` makes the reservation follow the buttons, so
+    // the rule can be enforced instead of waived.
+    if (real === 'responsive') {
+      if (promised < 1) missing.push(`${rel} (the page shows buttons from lg up)`);
+      else if (!atLg) wrongWidth.push(`${rel} (reserves at every width; the page hides its buttons below lg)`);
+    }
+    // 'conditional' sits between the two: nothing is owed, nothing is wrong.
     if (real === null && promised > 0) phantom.push(rel);
   }
+  assert.ok(
+    pagesWithButtons >= 10,
+    `only ${pagesWithButtons} routes were found to have header buttons at all (floor 10) — the masthead scan stopped matching, so every half of this rule was asking nothing.`,
+  );
+  // A SECOND FLOOR, on the unconditional ones specifically. The 'conditional'
+  // class is an exemption, and an exemption that quietly grows swallows the
+  // rule it lives inside: if a loosened match started filing everything as
+  // conditional, the count above would still be met while MUST RESERVE asked
+  // nothing at all. Measured 2026-08-25: 9 always · 1 responsive · 1 conditional.
+  assert.ok(
+    unconditional >= 8,
+    `only ${unconditional} routes render header buttons unconditionally (floor 8) — the 'conditional' exemption has grown and swallowed the rule.`,
+  );
   assert.deepEqual(
     missing,
     [],
@@ -324,6 +446,53 @@ test('a loading screen reserves the header actions its page renders — and no o
     [],
     `these loading screens reserve header buttons their page does not have, so the space collapses when the page lands:\n  ${phantom.join('\n  ')}`,
   );
+  assert.deepEqual(
+    wrongWidth,
+    [],
+    `these loading screens reserve their buttons at the wrong widths:\n  ${wrongWidth.join('\n  ')}`,
+  );
+});
+
+test('no page hides its masthead somewhere this rule cannot follow', () => {
+  // Measured 2026-08-25: 10 routes hold their masthead actions in page.tsx and
+  // 4 delegate to a `_surfaces/*` tab surface. ZERO use any other shape. If a
+  // third appears, the actions rule above would go quietly blind on it — which
+  // is exactly how /admin/pricing's regression shipped — so this FAILS rather
+  // than letting it pass unnoticed.
+  const strays: string[] = [];
+  for (const f of loaders()) {
+    const page = f.replace(/loading\.tsx$/, 'page.tsx');
+    if (!existsSync(page)) continue;
+    if (actionsIn(src(page))) continue;
+    // Every tab surface of this route is a shape the rule UNDERSTANDS (it
+    // deliberately judges only the default tab — one loader stands in for many
+    // tabs and cannot be right about all of them). What must never appear is a
+    // masthead somewhere else entirely, because that is the blind spot that let
+    // /admin/pricing's reservation vanish unseen.
+    defaultTabSurface(page);
+    const surfaceDir = join(dirname(page), '_surfaces');
+    const reachable = (x: string) => x === page || x.startsWith(`${surfaceDir}/`);
+    const found: string[] = [];
+    collect(page, 4, new Set(), found);
+    const unseen = found.filter((x) => !reachable(x));
+    if (unseen.length) strays.push(`${page.replace(`${WEB_ROOT}/`, '')} -> ${unseen[0]!.replace(`${WEB_ROOT}/`, '')}`);
+  }
+  assert.deepEqual(
+    strays,
+    [],
+    `these routes render masthead actions from a component the actions rule does not follow, so it is silently blind to them:\n  ${strays.join('\n  ')}\nEither teach mastheadActions() the new shape or move the masthead into page.tsx.`,
+  );
+
+  function collect(file: string, depth: number, seen: Set<string>, out: string[]) {
+    if (depth < 0 || seen.has(file) || !existsSync(file)) return;
+    seen.add(file);
+    const body = src(file);
+    if (actionsIn(body)) out.push(file);
+    for (const m of body.matchAll(/import\s+[^;]*?from\s+'([^']+)'/g)) {
+      const r = resolveImport(m[1] ?? '', file);
+      if (r && r.includes(`${WEB_ROOT}/app/`)) collect(r, depth - 1, seen, out);
+    }
+  }
 });
 
 /** The `<HeaderSkeleton>` element a template renders, without executing it —

@@ -62,3 +62,38 @@ Owner, after seeing the numbers: *"okay. this is reasonable. 800 credits will al
 **🚨 A THIRD SURFACE WAS SHOWING THE STALE NUMBER.** `tierReadout` is the badge a supplier reads on their on-the-day page, and on the bare tier it would have said **"Papic Lite · 50 pts · photos + video"** to somebody whose real allowance is 800 photos with no video. Three surfaces now read the same three inputs: the capture route (what they GET), the capture screen's allowance, and the badge (what they READ). **Wiring any two of three leaves a supplier reading one number and getting another, with nothing anywhere reporting a disagreement.**
 
 **Guards:** the caller guard is now **8 rules** — three surfaces, the video threshold, and the four original wire rules. Mutations, counts printed before → after: 800 threshold removed (1→0) 🔴 · video back on the always-true flag (3→2) 🔴 · badge drops the fee (1→0) 🔴, plus the five earlier. Green on both clean sides. Two pre-existing expectations were updated with the reason recorded inline, never quietly.
+
+---
+
+## 2026-08-26 (same PR) · a supplier sees the shots from THEIR challenge, and nothing else
+
+Owner, ruling on whether suppliers may reach guest media at all: *"the host will allow access. they only get shots from the sponsored papic challenge."*
+
+**🔑 THAT WHOLE CHAIN ALREADY EXISTED IN THE SCHEMA.** A supplier writes a challenge (`papic_missions.source='vendor'`), **the host approves or declines it with one tap** (the panel ships), sponsorship is recorded against what they paid, and every guest photo is already linked to the challenge it answered — **carrying that guest's own `consent_to_share` flag**. Nothing new was modelled; the access rule is a query over data we already hold.
+
+**Measured first:** no supplier surface reads `papic_photos` or `papic_guest_captures` **at all** today, so the constraint was satisfied by absence. This ADDS a bounded capability rather than restricting an existing one.
+
+**`fetchVendorSponsoredShots` — eight gates, each one somebody's decision:**
+
+| gate | what it protects |
+|---|---|
+| `m.event_id` | this event, never another of their bookings |
+| `m.vendor_id` | THEIR challenge, never another supplier's |
+| `m.source='vendor'` | a supplier challenge, never the couple's own |
+| **`m.approved`** | **the host said yes — this clause IS the access grant, and un-approving is the revoke** |
+| `m.is_active` | a retired challenge stops feeding |
+| **`mc.consent_to_share`** | **the guest said yes, per photograph** |
+| `c.hidden_at IS NULL` | the couple's own take-down is honoured |
+| `c.moderation_state='clean'` | the safety screen passed it |
+
+🔑 **THE SCREEN CHECK IS AN ALLOWLIST, NOT A DENY-LIST**, and that is deliberate: two of the five states in that column (`consent_withheld`, `faceblock_withheld`) are filtered on elsewhere in the app and **written by nothing**. A deny-list lets through every state nobody thought of — including `unscreened`.
+
+⚠ **SERVICE-ROLE READ, SO THE APP-SIDE GATE IS THE WHOLE FENCE.** RLS is a floor, not a scope; there is no policy underneath to catch a dropped clause. Losing any one gate silently widens this from *"the photos guests took for your challenge"* to *"the couple's gallery"* — the exact shape that has cost this project three times (an admin posting into any private samahan, a shop reading every other shop's correction requests, a coordinator served the whole album).
+
+⚠ **A failed read returns `ok: false` and an empty list, and the strip SAYS SO.** *"We couldn't load your challenge photos just now — this isn't a sign there are none."* Telling a supplier their challenge produced nothing when we simply could not look is the same lie as an unread count rendered as zero.
+
+🪤 **A bug caught before it shipped:** `displayUrlForStoredAsset` is **async**, and the first cut called it inside the render map — which would have put a Promise into `src` and rendered **nothing, silently**. `r2://` refs are not URLs, and an unresolved one fails as an empty frame with no error. This repo has paid for that across sixteen surfaces.
+
+**🛡 Guard `lib/vendor-sponsored-shots-are-scoped.test.ts`** — 11 rules: an anti-vacuum floor, one per gate with the specific harm named in its failure message, the allowlist rule, and the failed-read rule. **Six mutations**, counts printed before → after — dropping the vendor gate (1→0), the host-approval gate (1→0), the guest-consent gate (3→2), the screen gate (1→0), the take-down gate (1→0), and a failed read pretending success (1→0) — **all red**. Green on both clean sides.
+
+**Mounted** on the supplier's existing on-the-day Papic page, grouped by challenge prompt, rendering **nothing** when there is nothing — a supplier without an approved challenge never meets an empty frame implying photographs sit behind it.

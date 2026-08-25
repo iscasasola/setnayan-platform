@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
+import { SponsoredShotsStrip } from '../_components/sponsored-shots-strip';
 import { fetchVendorPapicAllowance } from '@/lib/vendor-papic-grants';
 import { PapicCaptureController } from '../_components/papic-capture-controller';
 import { OwnCapturesStrip } from '../_components/own-captures-strip';
@@ -119,6 +120,18 @@ export default async function VendorPapicCapturePage({
           same screen. After the day it is the whole point of the page. Read
           with the vendor's OWN client so the RLS policy stays the boundary. */}
       <OwnCapturesStrip supabase={supabase} eventId={eventId} />
+
+      {/* Shots guests took FOR this supplier's sponsored challenge — the only
+          guest photographs a supplier may ever see (owner 2026-08-26: "the host
+          will allow access. they only get shots from the sponsored papic
+          challenge"). Eight gates live in the reader and are pinned by
+          vendor-sponsored-shots-are-scoped.test.ts; it renders nothing when
+          there is nothing, so a supplier without an approved challenge never
+          meets an empty frame implying photographs sit behind it. */}
+      <SponsoredShotsStrip
+        vendorProfileId={profile.vendor_profile_id}
+        eventId={eventId}
+      />
     </section>
   );
 }

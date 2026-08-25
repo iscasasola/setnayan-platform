@@ -52,6 +52,22 @@ async function installedBody(): Promise<string> {
   return r.rows[0]!.src;
 }
 
+/**
+ * The body with SQL comments removed.
+ *
+ * 🪤 THE GUARD READ ITS OWN EXPLANATION AND WENT RED. The function carries a
+ * comment saying *"current_user, NOT auth.role() … every `auth.role() IS NULL`
+ * privileged branch is DEAD CODE"* — and the rule below bans exactly that
+ * string. The body was correct; the assertion was matching prose.
+ *
+ * This repo has now paid for the same shape three times (a contrast guard that
+ * fired on the comment explaining the fix; a naming census that matched its own
+ * ban list). **Strip comments before matching, every time.**
+ */
+async function installedCode(): Promise<string> {
+  return (await installedBody()).replace(/--[^\n]*/g, ' ');
+}
+
 before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
@@ -112,7 +128,7 @@ test('🚨 an unprivileged UPDATE cannot move either field', async () => {
 });
 
 test('🚨 privilege is derived from current_user, never auth.role()', async () => {
-  const src = await installedBody();
+  const src = await installedCode();
   assert.match(
     src,
     /current_user NOT IN \('authenticated', 'anon'\)/,

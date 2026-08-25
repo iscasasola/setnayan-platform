@@ -34,3 +34,13 @@ This is the distinction recorded on 2026-08-12: **revoke** when no RLS client wr
 **Found by:** an adversarial pass over the upload design — and **not by any of its four skeptics**. It surfaced in the synthesis, from reading how the meter counts rather than how the upload writes.
 
 **SPEC IMPACT:** None — it enforces the allowance model already recorded for 2026-08-26.
+
+---
+
+🪤 **THE GUARD READ ITS OWN EXPLANATION AND WENT RED — the third time this shape has been paid for here.**
+
+The trigger carries a comment saying *"current_user, NOT auth.role() … every `auth.role() IS NULL` privileged branch is DEAD CODE in every db test in this repo"*. The rule below it bans exactly that string. **The function body was correct; the assertion was matching prose.**
+
+Same family as the contrast guard that fired on the comment explaining the fix, and the naming census that matched its own ban list. **Strip comments before matching, every time** — the assertion now reads a comment-stripped copy.
+
+**Mutations run against the REPLAYED schema, counts printed before → after:** the meter can be reset again (1→0) 🔴 · the supplier owns the verdict again (1→0) 🔴 · `BEFORE UPDATE` only — the #4361 half-fix (1→0) 🔴 · back to the dead `auth.role()` branch (1→0) 🔴 **two rules**. Green on both clean sides, run locally with the toolchain installed rather than discovered in CI.

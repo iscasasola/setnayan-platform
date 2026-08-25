@@ -9,6 +9,9 @@ import {
   recordPayoutFromWorkList,
   settleHelpFromWorkList,
   settleChatFlagFromWorkList,
+  settleCorrectionFromWorkList,
+  settleSubscriptionFromWorkList,
+  settlePaymentOptionFromWorkList,
 } from '@/app/admin/work/actions';
 
 /** Which server action + hidden field each kind posts. One table so a new fact
@@ -38,6 +41,9 @@ const FORMS = {
   'record-payout': { fn: recordPayoutFromWorkList, field: 'payout_id' },
   'settle-help': { fn: settleHelpFromWorkList, field: 'message_id' },
   'settle-chat-flag': { fn: settleChatFlagFromWorkList, field: 'flag_id' },
+  'settle-correction': { fn: settleCorrectionFromWorkList, field: 'request_id' },
+  'settle-subscription': { fn: settleSubscriptionFromWorkList, field: 'purchase_id' },
+  'settle-payment-option': { fn: settlePaymentOptionFromWorkList, field: 'payment_method_id' },
 } as const;
 
 /**

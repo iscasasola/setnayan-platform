@@ -61,7 +61,14 @@ export type PeekAction = {
  * form and the arguments its action requires are described once.
  */
 export type PeekForm = {
-  kind: 'publish-review' | 'record-payout' | 'settle-help' | 'settle-chat-flag';
+  kind:
+    | 'publish-review'
+    | 'record-payout'
+    | 'settle-help'
+    | 'settle-chat-flag'
+    | 'settle-correction'
+    | 'settle-subscription'
+    | 'settle-payment-option';
   /** The row id the action needs. */
   id: string;
   submitLabel: string;
@@ -170,6 +177,9 @@ const PEEK_QUEUES = [
   'payouts',
   'help',
   'chat-flags',
+  'corrections',
+  'subscriptions',
+  'payment-options',
 ] as const;
 
 export const EXPANDABLE_QUEUES: ReadonlySet<string> = new Set<string>([
@@ -411,6 +421,128 @@ export async function peekQueue(
           };
         }),
       };
+    }
+
+    if (key === 'corrections') {
+      /* A verified shop asking us to fix a detail it cannot edit itself.
+         A FORM because the decision is apply-or-decline and the action needs to
+         be told which — there is no honest one-click here. The row shows the
+         field, what it says now and what they want, because a correction that
+         cannot be compared cannot be judged. */
+      const q = open('id, field_key, current_value, requested_value, created_at');
+      if (!q) return null;
+      const { data, count, error } = await q
+        .order('created_at', { ascending: true })
+        .limit(PEEK_LIMIT);
+      if (error) return { items: [], total: 0, unreadable: true };
+
+      const items: PeekItem[] = (data ?? []).map((r: unknown) => {
+        const row = r as {
+          id: string;
+          field_key: string | null;
+          current_value: string | null;
+          requested_value: string | null;
+        };
+        return {
+          id: row.id,
+          title: `Change ${row.field_key ?? 'a locked detail'}`,
+          detail: `${row.current_value ?? '(blank)'} → ${row.requested_value ?? '(blank)'}`,
+          form: {
+            kind: 'settle-correction',
+            id: row.id,
+            submitLabel: 'Save',
+            fields: [
+              { name: 'decision', type: 'select', options: ['apply', 'decline'], required: true },
+            ],
+          },
+          href: '/admin/corrections',
+        };
+      });
+      return { items, total: count ?? items.length };
+    }
+
+    if (key === 'subscriptions') {
+      /* ⚠ THE ROW SHOWS THE REFERENCE AND THE AMOUNT, and that is the whole
+         point: approving activates a paid plan, so the same rule the payments
+         queue lives by applies — you cannot confirm money you cannot see. A
+         row with no reference gets NO form and says why. */
+      const q = open('purchase_id, tier, billing_cycle, amount_php, reference_code, created_at');
+      if (!q) return null;
+      const { data, count, error } = await q
+        .order('created_at', { ascending: true })
+        .limit(PEEK_LIMIT);
+      if (error) return { items: [], total: 0, unreadable: true };
+
+      const items: PeekItem[] = (data ?? []).map((r: unknown) => {
+        const row = r as {
+          purchase_id: string;
+          tier: string | null;
+          billing_cycle: string | null;
+          amount_php: number | null;
+          reference_code: string | null;
+        };
+        const hasProof = row.reference_code != null && row.reference_code.trim() !== '';
+        return {
+          id: row.purchase_id,
+          title: formatCentavosPhp(Math.round((row.amount_php ?? 0) * 100)),
+          detail: [row.tier, row.billing_cycle, row.reference_code ? `ref ${row.reference_code}` : null]
+            .filter(Boolean)
+            .join(' · '),
+          form: hasProof
+            ? {
+                kind: 'settle-subscription',
+                id: row.purchase_id,
+                submitLabel: 'Save',
+                fields: [
+                  { name: 'decision', type: 'select', options: ['approve', 'reject'], required: true },
+                  { name: 'reason', type: 'text', placeholder: 'Reason (needed to reject)', required: false },
+                ],
+              }
+            : undefined,
+          note: hasProof
+            ? undefined
+            : 'No payment reference yet — nothing to check this against. Open it to see the plan.',
+          href: '/admin/subscriptions',
+        };
+      });
+      return { items, total: count ?? items.length };
+    }
+
+    if (key === 'payment-options') {
+      /* Where a supplier wants to be paid. A FORM, and deliberately a NARROW
+         one: approve or hold. **Remove is not offered here** — it is
+         irreversible and belongs on the page with its confirmation, not on a
+         list built for speed. */
+      const q = open('payment_method_id, method_type, label, account_name, created_at');
+      if (!q) return null;
+      const { data, count, error } = await q
+        .order('created_at', { ascending: true })
+        .limit(PEEK_LIMIT);
+      if (error) return { items: [], total: 0, unreadable: true };
+
+      const items: PeekItem[] = (data ?? []).map((r: unknown) => {
+        const row = r as {
+          payment_method_id: string;
+          method_type: string | null;
+          label: string | null;
+          account_name: string | null;
+        };
+        return {
+          id: row.payment_method_id,
+          title: row.label?.trim() || row.method_type || 'A payout destination',
+          detail: row.account_name ?? '',
+          form: {
+            kind: 'settle-payment-option',
+            id: row.payment_method_id,
+            submitLabel: 'Save',
+            fields: [
+              { name: 'decision', type: 'select', options: ['approve', 'hold'], required: true },
+            ],
+          },
+          href: '/admin/payment-options',
+        };
+      });
+      return { items, total: count ?? items.length };
     }
 
     if (key === 'help') {

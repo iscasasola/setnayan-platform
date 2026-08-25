@@ -58,6 +58,7 @@ import { appendLedger } from '@/lib/ledger';
 // nothing else references them).
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
+import { customerOrderName, orderSubject } from '@/lib/order-naming';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -286,7 +287,7 @@ export async function approvePaymentCore(args: {
   // and so the PostHog `order_paid` event below has `service_key` to slice on.
   const { data: order } = await admin
     .from('orders')
-    .select('event_id, public_id, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos')
+    .select('event_id, public_id, reference_code, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos')
     .eq('order_id', payment.order_id)
     .maybeSingle();
 
@@ -313,7 +314,11 @@ export async function approvePaymentCore(args: {
   try {
     await notifyBuyerIfAny(payment.user_id, {
       type: 'payment_matched',
-      title: `Payment of ${formatPhp(payment.amount_php)} matched`,
+      // Names the order: this notice used to identify nothing at all, so a
+      // buyer with more than one open order could not tell which was paid.
+      title: customerOrderName(order)
+        ? `Payment of ${formatPhp(payment.amount_php)} matched · order ${customerOrderName(order)}`
+        : `Payment of ${formatPhp(payment.amount_php)} matched`,
       body: adminNotes ?? 'The Setnayan team confirmed your payment.',
       relatedUrl: order?.event_id
         ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
@@ -419,7 +424,7 @@ export async function approvePaymentCore(args: {
     try {
       await notifyBuyerIfAny(payment.user_id, {
         type: 'order_paid',
-        title: `Order ${order?.public_id ?? ''} marked paid`,
+        title: orderSubject('Your order is marked paid', 'marked paid', order),
         body: "Your order is fully paid. We'll start work right away.",
         relatedUrl: order?.event_id
           ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
@@ -1150,7 +1155,7 @@ export async function requestPaymentResubmit(formData: FormData) {
   // link directly to the order detail page where they re-upload.
   const { data: order } = await admin
     .from('orders')
-    .select('event_id, public_id')
+    .select('event_id, public_id, reference_code')
     .eq('order_id', payment.order_id)
     .maybeSingle();
 
@@ -1172,7 +1177,9 @@ export async function requestPaymentResubmit(formData: FormData) {
   // here surfaces verbatim to the couple's inbox.
   await notifyBuyerIfAny(payment.user_id, {
     type: 'payment_resubmit_requested',
-    title: `Please re-upload your payment for order ${order?.public_id ?? ''}`.trim(),
+    title: customerOrderName(order)
+      ? `Please re-upload your payment for order ${customerOrderName(order)}`
+      : 'Please re-upload your payment',
     // The admin's notice IS the body — they know what the couple needs to
     // fix. We don't editorialize · we pass it through verbatim.
     body: notice,

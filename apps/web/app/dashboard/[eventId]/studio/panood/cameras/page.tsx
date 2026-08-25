@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { Video } from 'lucide-react';
+import { QuietStart } from '@/app/_components/states/quiet-start';
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Camera, Printer, CheckCircle2 } from 'lucide-react';
@@ -160,9 +162,20 @@ export default async function PanoodCamerasPage({ params }: Props) {
       </div>
 
       {rows.length === 0 ? (
-        <p className="sn-tile p-6 text-sm text-ink/65">
-          No camera seats yet. Open the control room once and they’ll be created for you.
-        </p>
+        <QuietStart
+          Icon={Video}
+          title="No cameras yet."
+          blurb="Open the control room once and your camera seats are made for you — then each one gets a link you can hand to whoever is holding the phone."
+          action={
+            <Link
+              href={liveStudioControllerHref(eventId)}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-mulberry-600"
+            >
+              <Video aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Open the control room
+            </Link>
+          }
+        />
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2">
           {rows.map((r) => (

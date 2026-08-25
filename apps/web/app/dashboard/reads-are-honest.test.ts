@@ -44,6 +44,25 @@
  * `actions.ts` / `*-actions.ts` / `_actions/` are out of scope for the same
  * reason as (2): there an absence denies (`if (!row) return { error }`).
  *
+ * ✅ AND THAT EXEMPTION IS NOW MEASURED RATHER THAN ARGUED (2026-08-25). The
+ * open question was: can a server action's failed read still surface as a FALSE
+ * EMPTY STATE downstream? Answered by sweeping the four action trees —
+ * **243 files, 563 unbound `const { data: X } = await` reads** — and keeping
+ * only those where the value is RETURNED to a caller without any guard on its
+ * absence. **Four survived the filter, and all four are false positives on
+ * reading:** two are the 23505 "already done" recovery in the check-in and
+ * souvenir scanners (`if (existing) return ok` and otherwise an explicit
+ * error), one is an admin-profile read whose absence THROWS "Admin only"
+ * (failing closed), and one is a samahan's NAME behind `?? 'your samahan'` — a
+ * generic word in an invitation, not a false emptiness.
+ * ⇒ **No action returns an unmeasured absence to a screen as content.** A
+ * sentence is not a mechanism, so this one is a count.
+ * 🪤 The first pass of that sweep reported NINE and every extra one was the
+ * DETECTOR: its deny-pattern required `if (!row)` to close immediately, so
+ * `if (!row || row.owner_id !== …)` read as no guard at all. A guard that cries
+ * wolf teaches you to skim past the one time it is right — including when the
+ * guard is a one-off script.
+ *
  * ── The baseline is a BILL, not a decision ────────────────────────────────
  * Every line in KNOWN_UNBOUND is a place a couple can still be told something
  * that was never measured. It is keyed by file + variable + COUNT so a moved

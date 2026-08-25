@@ -36,6 +36,7 @@ import {
   Store,
   Globe,
   UserCog,
+  Laptop,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -78,7 +79,15 @@ export const WHAT_YOU_CHANGE: readonly Job[] = [
 
 export function WhatYouChange() {
   return (
-    <section aria-label="What you change" className="mb-8">
+    /* 📱 HIDDEN ON A PHONE — owner 2026-08-26: *"for mobile version, we only
+     * provide quick answers. no editing of settings or features. just responses
+     * for those that needs decision and response."*
+     *
+     * Every one of these six is an editing door — prices, categories, the
+     * website, test data. On a phone the console is the list of things waiting
+     * on a decision and the means to answer them, so these stand down and the
+     * screen says where they went instead of leaving a silent gap. */
+    <section aria-label="What you change" className="mb-8 hidden lg:block">
       <h2 className="sn-sec">What you change</h2>
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {WHAT_YOU_CHANGE.map(({ key, label, note, share, Icon }) => (
@@ -109,5 +118,27 @@ export function WhatYouChange() {
         ))}
       </div>
     </section>
+  );
+}
+
+/**
+ * What a phone sees where the six would have been.
+ *
+ * ⚖ A GAP IS NOT AN ANSWER. Hiding the tiles without saying so reads as a
+ * broken screen or a missing feature; saying it reads as a decision. Kept in
+ * this file next to the thing it explains, so the two cannot drift apart.
+ */
+export function EditingIsOnTheComputer() {
+  return (
+    <p className="mb-8 flex items-start gap-2.5 rounded-xl border border-dashed border-ink/15 p-4 text-sm text-ink/70 lg:hidden">
+      <Laptop aria-hidden strokeWidth={1.7} className="mt-0.5 h-4 w-4 shrink-0 text-ink/45" />
+      <span>
+        <strong className="font-semibold text-ink">
+          Prices, the website and settings are on the computer.
+        </strong>{' '}
+        This screen is for answering what needs a decision — it does not change how
+        Setnayan works.
+      </span>
+    </p>
   );
 }

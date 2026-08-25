@@ -61,7 +61,7 @@ export type PeekAction = {
  * form and the arguments its action requires are described once.
  */
 export type PeekForm = {
-  kind: 'publish-review' | 'record-payout';
+  kind: 'publish-review' | 'record-payout' | 'settle-help' | 'settle-chat-flag';
   /** The row id the action needs. */
   id: string;
   submitLabel: string;
@@ -154,7 +154,23 @@ export const JUDGEMENT_QUEUES: Record<string, string> = {
  * `key === '…'` the function actually branches on, and fails if the two differ.
  * The guard compares the list against the CODE, not against another list.
  */
-const PEEK_QUEUES = ['payments', 'verify', 'approvals', 'reviews', 'payouts'] as const;
+/* ⚠ KEEP THIS ARRAY A PLAIN LIST OF STRING LITERALS. queue-peek-coverage.test.ts
+   reads it by regex — the same text-scanning approach the house nav lints use —
+   so a comment INSIDE the brackets is parsed as a queue name and the guard fails
+   with the comment as its "missing branch". Annotate above, never within.
+
+   'help' + 'chat-flags' joined 2026-08-26: both settle WITHOUT a page jump,
+   because neither action redirects, so neither needs the swallow-the-redirect
+   wrapper that reviews and payouts require. */
+const PEEK_QUEUES = [
+  'payments',
+  'verify',
+  'approvals',
+  'reviews',
+  'payouts',
+  'help',
+  'chat-flags',
+] as const;
 
 export const EXPANDABLE_QUEUES: ReadonlySet<string> = new Set<string>([
   ...PEEK_QUEUES,
@@ -395,6 +411,88 @@ export async function peekQueue(
           };
         }),
       };
+    }
+
+    if (key === 'help') {
+      /* A FORM, because `setHelpMessageStatus` refuses to run without a status
+         and will not take one it does not recognise ("Invalid status"). The
+         reply box is optional and posts as `admin_notes`; the action only
+         notifies the person when that content actually CHANGED, so leaving it
+         blank flips the status silently and does not spam them. */
+      const q = open('message_id, subject, sender_name, sender_email, topic, created_at');
+      if (!q) return null;
+      const { data, count, error } = await q
+        .order('created_at', { ascending: true })
+        .limit(PEEK_LIMIT);
+      // Supabase resolves with { error } — a rejected read must not read as "clear".
+      if (error) return { items: [], total: 0, unreadable: true };
+
+      const items: PeekItem[] = (data ?? []).map((r: unknown) => {
+        const row = r as {
+          message_id: string;
+          subject: string | null;
+          sender_name: string | null;
+          sender_email: string | null;
+          topic: string | null;
+        };
+        return {
+          id: row.message_id,
+          title: row.subject?.trim() || 'No subject',
+          detail: [row.sender_name ?? row.sender_email, row.topic].filter(Boolean).join(' · '),
+          form: {
+            kind: 'settle-help',
+            id: row.message_id,
+            submitLabel: 'Save',
+            fields: [
+              // The stored values, in the order a person works through them.
+              { name: 'status', type: 'select', options: ['in_progress', 'closed'], required: true },
+              { name: 'admin_notes', type: 'text', placeholder: 'Reply (optional)', required: false },
+            ],
+          },
+          href: '/admin/help',
+        };
+      });
+      return { items, total: count ?? items.length };
+    }
+
+    if (key === 'chat-flags') {
+      /* A FORM, because `resolveChatFlag` refuses without one ("Pick an
+         action"). ⚠ THE MESSAGE ITSELF IS DELIBERATELY NOT SHOWN. The page's
+         own kept sentence — "This queue shows only the …" — exists so a
+         reviewer does not think they are about to read somebody's private
+         conversation, and a drawer that leaked the body would break that
+         promise in the one place nobody would look for it. */
+      const q = open('flag_id, categories, hit_count, sender_role, created_at');
+      if (!q) return null;
+      const { data, count, error } = await q
+        .order('created_at', { ascending: true })
+        .limit(PEEK_LIMIT);
+      if (error) return { items: [], total: 0, unreadable: true };
+
+      const items: PeekItem[] = (data ?? []).map((r: unknown) => {
+        const row = r as {
+          flag_id: string;
+          categories: string[] | null;
+          hit_count: number | null;
+          sender_role: string | null;
+        };
+        const what = (row.categories ?? []).join(', ') || 'a contact detail';
+        return {
+          id: row.flag_id,
+          title: `A ${row.sender_role ?? 'message'} shared ${what}`,
+          detail: `${row.hit_count ?? 1} match${(row.hit_count ?? 1) === 1 ? '' : 'es'}`,
+          form: {
+            kind: 'settle-chat-flag',
+            id: row.flag_id,
+            submitLabel: 'Save',
+            fields: [
+              { name: 'action', type: 'select', options: ['reviewed', 'dismiss'], required: true },
+            ],
+          },
+          href: '/admin/chat-flags',
+        };
+      });
+      return { items, total: count ?? items.length };
     }
 
     if (key === 'payouts') {

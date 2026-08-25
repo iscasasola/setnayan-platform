@@ -5,13 +5,12 @@ import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { claimCommandKey } from '@/lib/command-key-claim';
-import { ADMIN_NAV_GROUPS } from './admin-nav-groups';
-import { ADMIN_NAV_DESCRIPTIONS, ADMIN_NAV_ALIASES } from './admin-nav-descriptions';
+import { buildDestinations, type Dest } from './admin-destinations';
 
 /**
  * AdminCommandPalette — ⌘K / Ctrl-K, type three letters, go.
  *
- * WHY: the admin is 108 pages behind a sidebar the owner locked to six flat
+ * WHY: the admin is a large tree behind a sidebar the owner locked to six flat
  * doorways (2026-07-15, "solid menu with no submenus"). A short menu is only
  * safe if the long tail is reachable by NAME — otherwise finding a page depends
  * on remembering which drawer it lives in. This is that.
@@ -21,56 +20,14 @@ import { ADMIN_NAV_DESCRIPTIONS, ADMIN_NAV_ALIASES } from './admin-nav-descripti
  * unlabelled without stranding anything. If a destination is EVER reachable
  * only by typing, that is a bug in the menu, not a feature of this.
  *
- * CLIENT BOUNDARY: it imports ADMIN_NAV_GROUPS directly rather than receiving it
- * as a prop. The array carries `icon: LucideIcon` refs — function objects that
- * cannot cross the Server→Client boundary as props (the same crash the admin
- * sidebar hit and documents). Importing it into a 'use client' module bundles
- * the real array instead, exactly as admin-sidebar.tsx does. Only the label and
- * href are read here; the icons are never touched.
+ * 🪤 THIS DOCBLOCK USED TO SAY IT "indexes all 108 admin surfaces". It indexed
+ * the MENU — 78 items — and the menu is smaller than the tree, so seven real
+ * pages were reachable only by knowing their URL and ~40 moved pages could not
+ * be found under the address people still type. The destination list now comes
+ * from admin-destinations.ts, which joins the menu with a SCANNED map of the
+ * route tree. Corrected here rather than deleted, because the claim was the
+ * reason nobody looked.
  */
-
-type Dest = { label: string; href: string; group: string; hay: string };
-
-/**
- * Words an admin TYPES that are in no page's name.
- *
- * The owner searched "pending" and got nothing — because matching was on the
- * label alone and no page is called Pending. People search for the JOB, not the
- * menu word. Descriptions close most of that gap for free ("reconcil" → Payments,
- * "badge" → Verify); these are the concept words that appear in neither.
- *
- * Deliberately small and hand-picked. A synonym list that tries to be complete
- * becomes a second vocabulary to maintain — and this project already has one
- * pair of vocabularies that drifted apart and made a whole surface unreachable.
- * Add a word here only after someone actually typed it and found nothing.
- */
-
-/** Flatten the menu into one searchable list. Single source — never a second
- *  hand-typed roster, which is how the two drift and one goes stale. */
-function destinations(): Dest[] {
-  const out: Dest[] = [];
-  for (const g of ADMIN_NAV_GROUPS) {
-    for (const item of g.items) {
-      if (!item.href) continue;
-      // One haystack per destination: its name, its menu, its own description,
-      // and the words people type for it. Built once at module load.
-      out.push({
-        label: item.label,
-        href: item.href,
-        group: g.label,
-        hay: [
-          item.label,
-          g.label,
-          ADMIN_NAV_DESCRIPTIONS[item.key] ?? '',
-          ADMIN_NAV_ALIASES[item.key] ?? '',
-        ]
-          .join(' ')
-          .toLowerCase(),
-      });
-    }
-  }
-  return out;
-}
 
 /**
  * The NAME always wins, then the meaning.
@@ -82,13 +39,21 @@ function destinations(): Dest[] {
 function score(d: Dest, needle: string): number {
   if (!needle) return 1;
   const l = d.label.toLowerCase();
+  let raw = 0;
   const i = l.indexOf(needle);
-  if (i === 0) return 100;
-  if (i > 0) return Math.max(20, 60 - i);
-  if (d.hay.includes(needle)) return 15;
-  let p = 0;
-  for (let c = 0; c < l.length && p < needle.length; c++) if (l[c] === needle[p]) p++;
-  return p === needle.length ? 8 : 0;
+  if (i === 0) raw = 100;
+  else if (i > 0) raw = Math.max(20, 60 - i);
+  else if (d.hay.includes(needle)) raw = 15;
+  else {
+    let p = 0;
+    for (let c = 0; c < l.length && p < needle.length; c++) if (l[c] === needle[p]) p++;
+    raw = p === needle.length ? 8 : 0;
+  }
+  // A page the map found is worth offering and is never worth REORDERING the
+  // curated menu for. Halving keeps the bands apart in both directions: an exact
+  // name match on an unlisted page (50) still beats a vague description hit on a
+  // menu page (15), and never beats the menu page with the same name (100).
+  return d.source === 'map' ? raw / 2 : raw;
 }
 
 export function AdminCommandPalette() {
@@ -99,7 +64,7 @@ export function AdminCommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  const all = useMemo(destinations, []);
+  const all = useMemo(buildDestinations, []);
   const hits = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return all

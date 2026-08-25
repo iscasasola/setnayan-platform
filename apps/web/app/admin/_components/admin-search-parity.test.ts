@@ -22,12 +22,26 @@ import { ADMIN_NAV_ALIASES, ADMIN_NAV_DESCRIPTIONS } from './admin-nav-descripti
 
 const HERE = join(process.cwd(), 'app/admin/_components');
 const PALETTE = readFileSync(join(HERE, 'admin-command-palette.tsx'), 'utf8');
+/**
+ * The desktop palette stopped building its own haystack on 2026-08-26: it now
+ * imports the destination list from admin-destinations.ts, which joins the menu
+ * with the scanned route map. The QUESTION this guard asks is unchanged — does
+ * the desktop search read the shared aliases — so it follows the one hop rather
+ * than being loosened. 🔑 Matching only the palette's own text would now fail on
+ * a correct refactor, and "make the guard pass" is how a guard becomes a rubber
+ * stamp; matching the pair keeps it honest in both directions.
+ */
+const DESKTOP_SOURCE =
+  PALETTE +
+  (/from '\.\/admin-destinations'/.test(PALETTE)
+    ? readFileSync(join(HERE, 'admin-destinations.ts'), 'utf8')
+    : '');
 const GRID = readFileSync(join(HERE, 'mobile-landing-grid.tsx'), 'utf8');
 const FILTER = readFileSync(join(process.cwd(), 'app/_components/more-search.tsx'), 'utf8');
 
 test('both surfaces read the SHARED alias list, not a local copy', () => {
   assert.match(
-    PALETTE,
+    DESKTOP_SOURCE,
     /ADMIN_NAV_ALIASES\[item\.key\]/,
     'the desktop palette must read the shared aliases',
   );

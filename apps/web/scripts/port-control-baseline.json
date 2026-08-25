@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c32f7c167",
+  "generatedFromRef": "3752c6041",
   "routeCount": 405,
-  "destinations": 869,
+  "destinations": 872,
   "actions": 586,
-  "blocks": 4026,
+  "blocks": 4031,
   "routes": {
     "/": {
       "files": [
@@ -2191,13 +2191,23 @@
     },
     "/admin/money": {
       "files": [
+        "admin/money/_components/transactions-ledger.tsx",
         "admin/money/loading.tsx",
         "admin/money/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/admin/receipts",
+        "/receipts/[seg]"
+      ],
       "actions": [],
       "blocks": [
-        "MobileLandingGrid"
+        "ConsoleTable",
+        "KpiStatCard",
+        "Link",
+        "MobileLandingGrid",
+        "Suspense",
+        "TablePageSkeleton",
+        "TransactionsLedger"
       ]
     },
     "/admin/moodboard-library": {
@@ -2374,6 +2384,7 @@
         "admin/payments/page.tsx"
       ],
       "destinations": [
+        "/admin/payments?filter=[seg]",
         "/admin/payments?filter=[seg]${platform ?",
         "/admin/payments?filter=[seg]${target ?"
       ],
@@ -2732,6 +2743,7 @@
         "PageMasthead",
         "PreviewSwatch",
         "ProcessStatus",
+        "PushToggle",
         "SDLoader",
         "SentrySmokeTestButton",
         "SettingsSurface",
@@ -3812,7 +3824,6 @@
       "files": [
         "dashboard/(account)/profile/_components/analytics-choice.tsx",
         "dashboard/(account)/profile/_components/haptics-toggle.tsx",
-        "dashboard/(account)/profile/_components/push-toggle.tsx",
         "dashboard/(account)/profile/actions.ts",
         "dashboard/(account)/profile/face-profile-actions.ts",
         "dashboard/(account)/profile/loading.tsx",
@@ -3846,7 +3857,6 @@
       ],
       "blocks": [
         "AnalyticsChoice",
-        "ArrayBuffer",
         "ConfirmForm",
         "CookieConsent",
         "Field",
@@ -3859,7 +3869,6 @@
         "ProfileShareButton",
         "PushToggle",
         "Row",
-        "Status",
         "SubmitButton",
         "TurnstileField"
       ]

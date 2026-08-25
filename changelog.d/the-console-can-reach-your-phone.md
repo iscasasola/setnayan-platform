@@ -33,3 +33,27 @@ prompts only on a deliberate press and still degrades quietly.
 
 SPEC IMPACT: None — no rule, price or behaviour changes; a control is added where one was
 missing.
+
+### The port-controls baseline is regenerated, and audited before trusting it
+
+Moving the file made `lint-port-no-lost-controls` report that
+`/dashboard/(account)/profile` *"no longer shows `<ArrayBuffer>`"* and *"`<Status>`"* —
+TypeScript **type names** the scanner had harvested as blocks from the file that moved, not
+controls anybody can press. The switch itself is still on that page; only its import path
+changed.
+
+🔑 **A BASELINE IS A BILL, NOT A RUBBER STAMP** — so the regeneration was diffed before it
+was accepted, not after:
+
+```
+routes       405 → 405     (none lost, none gained)
+actions      586 → 586     (unchanged)
+destinations 869 → 872     (three GAINED — the admin's new switch)
+absorbed:    the moved file path, and the blocks 'ArrayBuffer' + 'Status'
+```
+
+**No route lost a destination or an action.** Nothing a person can do was removed.
+
+🪤 **And the reason CI caught this and I did not:** on this branch I ran `tsc` and the unit
+suite but **not the lints**. `lint` in CI is a family of ~24 scripts, and the suite passing
+says nothing about them.

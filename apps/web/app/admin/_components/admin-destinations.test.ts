@@ -15,6 +15,7 @@ import { stripComments } from '@/lib/strip-comments';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { ADMIN_JOBS } from '@/lib/admin-map/admin-jobs.generated';
 import { ADMIN_ROUTES } from '@/lib/admin-map/admin-routes.generated';
 
 import { buildDestinations, labelFromPath } from './admin-destinations';
@@ -85,6 +86,38 @@ test('an unlisted page is named by its whole path, not its last word', () => {
   // Two different pages end in `new`. "New" twice in a palette tells you nothing.
   assert.equal(labelFromPath('/admin/venues/new'), 'Venues · New');
   assert.equal(labelFromPath('/admin/booking-fees'), 'Booking fees');
+});
+
+test('a page is findable by the work done on it', () => {
+  const dests = buildDestinations();
+  const taxonomy = dests.find((d) => d.href.startsWith('/admin/taxonomy'));
+  assert.ok(taxonomy, 'the taxonomy destination is gone — re-pin this');
+  // Words that appear nowhere in the page's name or its one-line description,
+  // and only reach the search because a job on that page asks for them.
+  for (const word of ['refinement', 'faith', 'canonical leaf', 'planning deadline']) {
+    assert.ok(taxonomy.hay.includes(word), `"${word}" no longer finds Taxonomy`);
+  }
+});
+
+test('every job puts its words on a destination — none are dropped', () => {
+  const dests = buildDestinations();
+  const hay = dests.map((d) => d.hay).join(' | ');
+  // A job may legitimately land nowhere: its page can be behind a feature flag,
+  // and a hidden page's work must stay hidden with it. That set is DERIVED from
+  // the map, never hand-listed — a hand-listed exception set is how a guard
+  // quietly stops covering the thing it was written for.
+  const hiddenPaths = new Set(
+    ADMIN_ROUTES.filter((r) => r.inMenuSource).map((r) => r.path),
+  );
+  const lost = ADMIN_JOBS.filter((j) => !hay.includes(j.phrase))
+    .filter((j) => !hiddenPaths.has(j.resolvedPath))
+    .map((j) => `${j.name} → ${j.resolvedPath}`);
+  assert.deepEqual(lost, [], 'a job found no destination to attach its words to');
+  // A floor on the spread as well as the total: if every job landed on one
+  // destination the assertion above would still pass and the search would be
+  // useless. 30+ distinct pages carry job words today.
+  const carrying = dests.filter((d) => ADMIN_JOBS.some((j) => d.hay.includes(j.phrase)));
+  assert.ok(carrying.length >= 25, `only ${carrying.length} destinations carry any job words`);
 });
 
 test('the palette actually uses the map', () => {

@@ -23,12 +23,27 @@
  *    the stub would work while telling them the wrong address for where they
  *    landed.
  *
+ * ── WHAT THE JOBS ADD ───────────────────────────────────────────────────────
+ * A page is also findable by the WORK done on it. Every admin job names itself
+ * and the fields it asks for — `createCanonicalLeaf` reads tile_id, faith,
+ * refinement_label — so those words join the haystack of the page that owns the
+ * job. Typing "refinement" or "faith" now finds Taxonomy; before, only the
+ * page's own name and its one-line description could match.
+ *
+ * ⚠ THIS DOES NOT MAKE "add a new category" WORK, and it is not meant to. The
+ * code's words are the code's ("create canonical leaf"), and a person's words
+ * are their own. Closing that gap is the assistant's job, not a synonym list —
+ * this palette's own notes already warn that a synonym list trying to be
+ * complete becomes a second vocabulary to maintain, and this project has paid
+ * for two vocabularies drifting apart.
+ *
  * 🔑 THE MENU ALWAYS WINS. Map-only destinations score in a lower band, so
  * typing "pay" still lands on Payments and never on some page whose folder
  * happens to start with the same letters. A map that reorders a curated menu
  * would be a regression wearing a feature's clothes.
  */
 
+import { ADMIN_JOBS } from '@/lib/admin-map/admin-jobs.generated';
 import { ADMIN_ROUTES } from '@/lib/admin-map/admin-routes.generated';
 
 import { ADMIN_NAV_GROUPS } from './admin-nav-groups';
@@ -124,6 +139,29 @@ export function buildDestinations(): Dest[] {
       source: 'map',
     });
     coveredPaths.add(route.path);
+  }
+
+    // 🪤 THIS RUNS LAST, AND THE ORDER IS THE POINT. It was written above the
+  // route loop first, so any job living on a page the MAP had added — and not
+  // the menu — found no destination yet and its words were dropped on the floor:
+  // three jobs on the demo-vendor inquiries screen, silently unsearchable.
+  //
+  // A job's words belong to the page you would OPEN to do it — the scan's
+  // resolvedPath, then through redirects. Both hops are needed and for different
+  // reasons: ~40 owner folders are stubs now (/admin/users/actions.ts drives a
+  // page that lives at /admin/accounts?tab=users), and five jobs sit in a folder
+  // with no page at all (their screen moved into a Studio tab). Attaching to
+  // either would put the words on somewhere nobody is ever sent.
+  const redirectByPath = new Map(
+    ADMIN_ROUTES.filter((r) => r.kind === 'redirect').map((r) => [r.path, r.redirectsTo ?? '']),
+  );
+  for (const job of ADMIN_JOBS) {
+    const target = redirectByPath.get(job.resolvedPath) ?? job.resolvedPath;
+    const host =
+      byHref.get(target) ?? out.find((d) => pathOf(d.href) === pathOf(target));
+    if (!host) continue;
+    const words = [job.phrase, ...job.fields.map((f) => f.replace(/_/g, ' '))].join(' ');
+    host.hay += ` ${words.toLowerCase()}`;
   }
 
   return out;

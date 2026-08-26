@@ -656,9 +656,18 @@ test('neither mount hands out the palette without asking who is looking', () => 
       while the search goes back to unconditional — it would be measuring the
       wrong two lines and reporting green.
     */
+    /*
+      🔧 WIDENED 2026-08-26 FOR ONE SHAPE, NOT LOOSENED. The rail gained an
+      optional `searchSlot` so the admin can hand in its own box — the palette
+      that knows the admin's own pages, which is not the one this line mounts.
+      The branch it guards is unchanged and still required; it now sits inside
+      the fallback: `searchSlot ?? (account.signedIn ? … : undefined)`.
+      The `undefined` arm is still pinned, because THAT is what makes a
+      signed-out visitor get the marketplace box instead of an empty palette.
+    */
     assert.match(
       src,
-      /search=\{\s*account\.signedIn \? \(\s*<HomeCommandBar items=\{commandItems\} variant="rail" \/>\s*\) : undefined\s*\}/,
+      /search=\{\s*(searchSlot \?\? \()?\s*account\.signedIn \? \(?\s*<HomeCommandBar items=\{commandItems\} variant="rail" \/>\s*\)? : undefined\)?\s*\}/,
       `${m.name} no longer branches its search on whether anybody is signed ` +
         'in. Signed out, the palette searches events, people and vendors the ' +
         'visitor does not have: the index is empty without a session, so it ' +
@@ -677,8 +686,20 @@ test('both mounts answer it the same way', () => {
     joined, and holding both is what put two answers on the public web. So the
     expression is compared BETWEEN the files, not just checked within each.
   */
+  /*
+    🔧 THE COMPARISON IS OF THE FALLBACK, NOT THE WRAPPER — 2026-08-26.
+    The rail gained an optional `searchSlot` so a host can hand in its own box;
+    only the admin does, and the admin is not a surface a public visitor crosses
+    into. The question this test exists to ask is unchanged: what does a person
+    get when NOBODY overrides it — and both mounts must still answer identically.
+    So strip a `searchSlot ?? ( … )` wrapper before comparing, and nothing else.
+    Widening it to "both contain HomeCommandBar somewhere" would have passed the
+    exact divergence the owner photographed.
+  */
   const expr = (src: string) =>
-    (code(src).match(/search=\{[\s\S]*?\n      \}/) ?? [''])[0].replace(/\s+/g, ' ');
+    (code(src).match(/search=\{[\s\S]*?\n      \}/) ?? [''])[0]
+      .replace(/\s+/g, ' ')
+      .replace(/^search=\{ searchSlot \?\? \((.*)\) \}$/, 'search={ $1 }');
   const [a, b] = SEARCH_MOUNTS.map((m) => expr(read(m.file)));
   assert.ok(a && a.length > 40, 'The front door mount matched no search expression at all.');
   assert.equal(

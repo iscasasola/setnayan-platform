@@ -23,6 +23,7 @@ import {
   Users,
   BatteryWarning,
   QrCode,
+  Upload,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
@@ -37,6 +38,9 @@ import {
 import { fetchPapicGallery, fetchPreservationTotals } from '@/lib/papic-gallery';
 import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
+import { AddToLibrary } from './_components/add-to-library';
+import { UploadsOpenChoice } from './_components/uploads-open-choice';
+import { claimUploadsCamera } from './actions';
 import { WhereYouStand } from './_components/where-you-stand';
 import { getKwentoDensity } from '@/lib/kwento-density';
 import {
@@ -63,6 +67,7 @@ import {
   PAPIC_LTD_CAP_FALLBACK_PHP,
   PAPIC_UNLI_CAP_FALLBACK_PHP,
   PAPIC_RUNGS,
+  PAPIC_UPLOADS_CAMERA_INDEX,
 } from '@/lib/papic-cameras';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { ensureFreePapicOneCameraAdmin, fetchPapicOneTiers } from '@/lib/papic-one';
@@ -142,6 +147,10 @@ type Props = {
      *  storage. Renamed from `storage_error` 2026-08-26 when the storage
      *  question was deleted and its old name started lying. */
     papic_access_error?: string;
+    /** Turning on the Uploads camera — see claimUploadsCamera. */
+    uploads_ready?: string;
+    uploads_error?: string;
+    uploads_open_set?: string;
     papic_purchased?: string;
     papic_order?: string;
     papic_ref?: string;
@@ -209,6 +218,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     drive_disconnected: driveDisconnected,
     drive_error: driveError,
     papic_access_error: papicAccessError,
+    uploads_ready: uploadsReady,
+    uploads_error: uploadsError,
+    uploads_open_set: uploadsOpenSet,
     papic_purchased: papicPurchased,
     papic_order: papicOrder,
     papic_ref: papicRef,
@@ -273,6 +285,29 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // must never carry a second copy of these five words.
   const papicStyleLabel =
     PAPIC_STYLES.find((st) => st.id === papicStyle)?.label ?? 'Orig';
+
+  // Who may add photos by hand (owner 2026-08-26). Read on its OWN round trip,
+  // exactly like papic_style above and for the same reason: the column lands in
+  // migration 20271170068924, and naming an unknown column in the main event
+  // select would make PostgREST refuse that WHOLE query — the page would call
+  // notFound() on a celebration that exists.
+  //
+  // 🪤 THIS READ WAS MISSING ON THE FIRST CUT AND THE SWITCH GOVERNED NOTHING.
+  // `ev.papic_uploads_open` was read off the main select, which never named the
+  // column, so it was always `undefined` and `?? true` reported OPEN no matter
+  // what the couple had chosen. It saved, it showed the right state on its own
+  // control, and the picker ignored it. A stored value with no reader, in a
+  // feature whose entire point is the reader.
+  const { data: uploadsRow, error: uploadsRowError } = await supabase
+    .from('events')
+    .select('papic_uploads_open')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  // ⚠ the couple's choice about hand-added photos. Refused, it falls OPEN —
+  // ⚠ see the note at `uploadsOpen` for why that is the right direction here.
+  if (uploadsRowError) {
+    logQueryError('PapicStudioPage.uploadsRow', uploadsRowError, { eventId }, 'graceful_degrade');
+  }
 
   // ⚠ A SECOND DEAD ROUND TRIP, REMOVED 2026-08-26. The per-event photo
   // fidelity tier was read here for one reason: to feed the "Photo quality"
@@ -460,6 +495,42 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     validUntil: papicWindow.endIso,
   });
 
+  // …then read it back, so the studio can either offer the picker or offer to
+  // turn it on. Admin client on purpose: `paparazzi_seats_claimer_read` only
+  // returns a seat once you ARE its claimer, so a couple cannot see their own
+  // UNCLAIMED Uploads camera under RLS. Pinned to this event and the reserved
+  // index, so it can only ever return the one seat.
+  //
+  // ⚠ A REFUSED READ IS NOT "THERE IS NO CAMERA". Both stay null and the block
+  // renders nothing, rather than offering a picker that cannot work or a
+  // turn-on button for a camera we could not look for.
+  // ⚠ THE SWITCH IS READ DEFENSIVELY, AND ABSENT MEANS OPEN. The column lands
+  // in migration 20271170068924; on a pre-migration database the select would
+  // error and `?? true` keeps the library's most obvious door working rather
+  // than closing it on everybody because a column is not there yet. Same shape
+  // as papic_style above.
+  const uploadsOpen =
+    (((uploadsRow as { papic_uploads_open?: boolean | null } | null)?.papic_uploads_open) ?? true) !==
+    false;
+
+  let uploadsToken: string | null = null;
+  let uploadsClaimed = false;
+  {
+    const { data: up, error: upErr } = await unlockAdmin
+      .from('paparazzi_seats')
+      .select('claim_qr_token, claimer_user_id')
+      .eq('event_id', eventId)
+      .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
+      .is('revoked_at', null)
+      .maybeSingle();
+    if (upErr) {
+      logQueryError('PapicStudioPage.uploadsCamera', upErr, { eventId }, 'graceful_degrade');
+    } else if (up) {
+      uploadsClaimed = !!up.claimer_user_id && up.claimer_user_id === user.id;
+      uploadsToken = uploadsClaimed ? ((up.claim_qr_token as string) ?? null) : null;
+    }
+  }
+
   // ── LIMITED (guest-list) state ──────────────────────────────────────────
   // Auto-count = guests who haven't declined. One reversible snapshot freezes
   // the bill; render-time sync keeps cameras in line with late RSVPs (free,
@@ -612,6 +683,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         driveDisconnected={!!driveDisconnected}
         driveError={driveError}
         papicAccessError={papicAccessError}
+        uploadsReady={uploadsReady}
+        uploadsError={uploadsError}
+        uploadsOpenSet={uploadsOpenSet}
         connectedAccount={driveGrant?.external_account_display ?? null}
         eventId={eventId}
         papicPurchased={papicPurchased}
@@ -699,6 +773,38 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       {/* Photos — the room they come back to for years. */}
       {room === 'photos' ? (
         <>
+        {/* ⚠ ADDING TO THE LIBRARY BELONGS IN THE LIBRARY, not in Set up.
+            Owner 2026-08-26: *"papic is the source where they collect media
+            files for that event."* The person who has just been shown what is
+            in their library is the person about to add to it. Putting the
+            picker behind a settings tab is how a look picker came to be the
+            first thing anybody saw. */}
+        <section className="space-y-4 sn-tile p-5 sm:p-6">
+          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <Upload aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+            Add to your library
+          </h2>
+          {!uploadsOpen ? (
+            <p className="max-w-prose text-sm text-ink/65">
+              Adding photos by hand is switched off for this celebration — only
+              what your cameras capture goes into the gallery. You can turn it
+              back on in Set up.
+            </p>
+          ) : uploadsToken ? (
+            <AddToLibrary token={uploadsToken} />
+          ) : (
+            <form action={claimUploadsCamera} className="space-y-3">
+              <input type="hidden" name="event_id" value={eventId} />
+              <p className="max-w-prose text-sm text-ink/65">
+                Add photos and clips from your phone or laptop — older memories
+                too. They land in the same gallery as everything your cameras
+                take, and cost the same: one credit a photo.
+              </p>
+              <SubmitButton className="sn-btn-primary">Turn this on</SubmitButton>
+            </form>
+          )}
+        </section>
+
         {/* ── Keep Full-Res (owner 2026-07-11 · sold on apply-then-pay) ─────── */}
         {ownsKeepFullRes ? (
           <section className="rounded-2xl border border-success-200/70 bg-success-50/50 p-4 text-xs text-ink/70">
@@ -1071,6 +1177,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           loginEmail={user.email ?? null}
         />
 
+        <UploadsOpenChoice eventId={eventId} open={uploadsOpen} />
+
         <FaceTaggingChoice eventId={eventId} />
 
         {/* Papic Games — the couple's own challenge authoring + curation (§5).
@@ -1266,6 +1374,9 @@ function StatusBanners({
   driveDisconnected,
   driveError,
   papicAccessError,
+  uploadsReady,
+  uploadsError,
+  uploadsOpenSet,
   connectedAccount,
   papicPurchased,
   papicOrder,
@@ -1292,6 +1403,9 @@ function StatusBanners({
   driveDisconnected: boolean;
   driveError: string | undefined;
   papicAccessError: string | undefined;
+  uploadsReady: string | undefined;
+  uploadsError: string | undefined;
+  uploadsOpenSet: string | undefined;
   connectedAccount: string | null;
   papicPurchased: string | undefined;
   papicOrder: string | undefined;
@@ -1325,6 +1439,9 @@ function StatusBanners({
     driveDisconnected ||
     driveError ||
     papicAccessError ||
+    uploadsReady ||
+    uploadsError ||
+    uploadsOpenSet ||
     papicPurchased ||
     papicUnlockProvisioned ||
     papicError ||
@@ -1598,6 +1715,33 @@ function StatusBanners({
             <span className="font-mono text-xs">{driveError}</span>). Try again, or
             contact support.
           </span>
+        </p>
+      ) : null}
+
+      {uploadsOpenSet ? (
+        <p className={ok}>
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          {uploadsOpenSet === '1'
+            ? 'Photos can now be added by hand. Each one uses a credit, the same as a camera shot.'
+            : 'Adding photos by hand is off. Only what your cameras capture goes into the gallery.'}
+        </p>
+      ) : null}
+
+      {uploadsReady ? (
+        <p className={ok}>
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Uploads are on. Add photos and clips from your phone or laptop — each
+          one uses a credit, the same as a camera shot.
+        </p>
+      ) : null}
+      {uploadsError ? (
+        <p className={bad}>
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          {uploadsError === 'taken'
+            ? 'Someone else is already holding this celebration’s uploads camera.'
+            : uploadsError === 'no_camera'
+              ? 'Your uploads camera isn’t ready yet — refresh in a moment.'
+              : 'We couldn’t turn uploads on just now. Try again in a moment.'}
         </p>
       ) : null}
 

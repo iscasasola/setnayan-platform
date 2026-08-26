@@ -68,6 +68,8 @@ export async function AppRailShell({
   contextMatchRows,
   studioEventId,
   topBarSlot,
+  searchSlot,
+  createSlot,
   variant = 'app',
   bleed,
 }: {
@@ -105,6 +107,23 @@ export async function AppRailShell({
    * tree stops passing it.
    */
   topBarSlot?: React.ReactNode;
+  /**
+   * A doorway's own search control, when the shared palette is the wrong one.
+   *
+   * 🔴 ADDED 2026-08-26 BECAUSE THE OWNER COULD NOT FIND WHAT HAD SHIPPED.
+   * The admin gained a search that knows its 96 pages, 284 jobs and its price
+   * rows, and can answer a whole sentence — and it sat behind ⌘K, unlabelled.
+   * The only VISIBLE box on the admin bar was this shared palette, which looks
+   * through the person's own events, people and vendors. So the console had a
+   * search bar and an assistant, and the one control on screen opened neither.
+   * *A fix nobody can reach is no fix* — the third time this project has paid
+   * for that exact shape.
+   *
+   * Default unchanged: hand in nothing and every other tree behaves as before.
+   */
+  searchSlot?: React.ReactNode;
+  /** This surface's own create button — see `front-door-shell.tsx`. Passed straight through. */
+  createSlot?: React.ReactNode;
   /**
    * Which chrome. Defaults to the signed-in `app`.
    *
@@ -222,6 +241,7 @@ export async function AppRailShell({
         See `signed-in-cluster.tsx` for the measured no-cost note.
       */
       topBarSlot={topBarSlot ?? (account.signedIn ? <SignedInCluster /> : undefined)}
+      createSlot={createSlot}
       /*
         THE SEARCH FOLLOWS WHO IS LOOKING, NOT WHICH PAGE THEY ARE ON — the
         third time this file settles that question the same way (the Studio
@@ -252,9 +272,9 @@ export async function AppRailShell({
         ⌘K listener on a page whose visitor it can never answer.
       */
       search={
-        account.signedIn ? (
+        searchSlot ?? (account.signedIn ? (
           <HomeCommandBar items={commandItems} variant="rail" />
-        ) : undefined
+        ) : undefined)
       }
     >
       {children}

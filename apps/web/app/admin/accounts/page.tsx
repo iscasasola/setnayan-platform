@@ -29,7 +29,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
  * so this must never be statically generated.
  */
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Accounts · Admin' };
+export const metadata = { title: 'People & shops · Admin' };
 
 // The WIRED tabs this slice renders inline. All 5 are now wired (final slice).
 const TABS = ['users', 'vendors', 'events', 'venues', 'demo-vendors'] as const;

@@ -263,7 +263,11 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
   },
   {
     file: 'app-performance/_surfaces/overview-surface.tsx',
-    namesItself: 'title="App Performance"',
+    // Renamed with its menu 2026-08-26 (was "App Performance", a retired menu
+    // name). ⚠ THIS LIST IS ANOTHER COPY OF THE PAGE NAME — it is pinned on
+    // purpose, so a rename has to be acknowledged here rather than sliding
+    // through; it is not a place to edit reflexively to go green.
+    namesItself: 'title="Numbers"',
   },
   {
     file: 'pricing/_surfaces/pricing-surface.tsx',

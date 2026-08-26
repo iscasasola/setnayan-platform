@@ -14,14 +14,14 @@ import { ADMIN_NAV_GROUPS } from '../_components/admin-nav-groups';
 import { MobileLandingGrid } from '../_components/mobile-landing-grid';
 import { adaptAdminGroupItems } from '../_components/admin-nav-descriptions';
 
-export const metadata = { title: 'Accounts · Admin' };
+export const metadata = { title: 'People & shops · Admin' };
 
 export default function AdminDirectoryLanding() {
   const items = adaptAdminGroupItems(ADMIN_NAV_GROUPS, 'directory');
 
   return (
     <MobileLandingGrid
-      title="Accounts"
+      title="People & shops"
       items={items}
     />
   );

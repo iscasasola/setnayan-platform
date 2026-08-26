@@ -396,6 +396,25 @@ export default async function VendorDashboardLayout({
           />
         }
         topBarSlot={topBar}
+        /*
+          🔴 THE SHOP MAKES CARDS, NOT WEDDINGS (owner 2026-08-26). Until today
+          this bar carried the shared "+ Create event", so a supplier standing in
+          their own Shop was one press from a couple's wedding wizard.
+
+          The words are the shop's own: its services screen calls the thing a
+          "service card" and its in-page control "Add a service", and the bar's
+          grammar on Home is "+ Create …". 🔑 The word CREATE is owner-locked in
+          this bar (2026-08-15: renaming it read as DELETING it — he scanned for
+          the word and it was gone), so it stays.
+
+          It points at the picker, not a bare /new route, because a card cannot
+          exist without a category: the guided wizard asks for one first.
+        */
+        createSlot={
+          <Link href="/vendor-dashboard/services#add-service-picker" className="fd-btn-gold">
+            + Create service card
+          </Link>
+        }
       >
       {/*
         ─── `<SidebarShell>` IS RETIRED (2026-08-15) — ITS LAST THREE JOBS ARE

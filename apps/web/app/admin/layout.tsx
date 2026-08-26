@@ -26,6 +26,7 @@ import { completeTour } from '@/lib/tour-actions';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { AdminRailContext } from './_components/admin-rail-context';
 import { AdminCommandPalette } from './_components/admin-command-palette';
+import { AdminSearchBox } from './_components/admin-search-box';
 import { fetchAdminRows } from '@/lib/admin-map/admin-row-index';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
 import { AdminNavFab } from './_components/admin-nav-fab';
@@ -376,6 +377,22 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           />
         }
         topBarSlot={topBar}
+        /* The admin's own search — the shared palette looks through the person's
+           OWN events, which is not what somebody standing in HQ is asking for. */
+        searchSlot={<AdminSearchBox />}
+        /*
+          🔴 HQ MAKES NOTHING, AND THAT IS FROM THE RECORD, NOT FROM TASTE.
+          Owner 2026-08-26 asked what HQ's create button should say. Measured
+          across every admin action ever logged — 65 of them — only NINE created
+          anything (4 taxonomy nodes, 3 demo suppliers, 1 schema stub, 1 ceremony
+          type). Thirty-one were price edits. HQ is where you answer and adjust.
+
+          And its real primary action is already in this bar: the overdue /
+          due-soon pill, which is the one thing that should pull the eye. A gold
+          "+ Create" beside it would be a second loud button competing with it,
+          for a job done four times a year.
+        */
+        createSlot={null}
       >
         {/* `sn-vt-page` → `view-transition-name: sn-page`. During the mobile
             bottom-nav carousel slide (NavSlideController, which lists `/admin`

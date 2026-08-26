@@ -294,7 +294,7 @@ export function UgatConsole({
         <div className="ug-brand">
           <div className="ug-brand-t">
             <span className="ug-brand-dot" />
-            Ugat Console
+            Entity map
           </div>
           <div className="ug-brand-s">
             The live entity map — it shows what connects, and documents each binding.

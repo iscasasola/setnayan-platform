@@ -162,6 +162,28 @@ export const PAPIC_FREE_CAMERA_INDEX_BASE = 100;
 export const PAPIC_FREE_ONE_CAMERA_INDEX = 110;
 
 /**
+ * THE COUPLE'S OWN "UPLOADS" CAMERA — the shutter that is a file picker.
+ *
+ * Owner 2026-08-26: *"papic is the source where they collect media files for
+ * that event"* and *"they can upload their work via papic credits as well per
+ * event."* An upload is not a new kind of thing needing new rules — it is a
+ * camera taking a shot, so it rides the metering, the safety screen, the
+ * derivatives and the Drive copy that every other capture already gets.
+ *
+ * ⚠ 150 IS NOT ARBITRARY, AND 110 WOULD HAVE BEEN A SILENT NO-OP. The build
+ * plan proposed 110; measured in production, `seat_index = 110` already holds
+ * the free dedicated camera on FOUR events (100/101/102 are the free block).
+ * Minting there upserts with `ignoreDuplicates: true`, so it would have created
+ * NOTHING, returned success, and left the couple with no Uploads camera and no
+ * error — a gate with no handle, on every event that already exists.
+ *
+ * 150 sits clear of the free block (100–102), clear of 110, and below the paid
+ * base (200). Keep this space legible: read all four constants together before
+ * adding a fifth.
+ */
+export const PAPIC_UPLOADS_CAMERA_INDEX = 150;
+
+/**
  * Last-resort fallbacks if the catalog row is missing. Live prices come from the
  * catalog. Owner ladder 2026-07-20 (migration 20270828150000): Mini ₱100 · Max
  * ₱200. Ltd is DEACTIVATED — its constant survives for lineage only, so a stale
@@ -893,6 +915,71 @@ export async function provisionFreeCamerasAdmin(
       .upsert(missing, { onConflict: 'event_id,seat_index', ignoreDuplicates: true });
     if (insertErr) return 0;
     return missing.length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Mint the couple's single "Uploads" camera for this event.
+ *
+ * A sibling of `provisionFreeCamerasAdmin` above, deliberately: same seat shape,
+ * same free tier, same idempotency. **Idempotency is the `(event_id,
+ * seat_index)` UNIQUE constraint in SQL, never a check in TypeScript** — two
+ * concurrent renders both see "missing" and both insert; only the database can
+ * settle that.
+ *
+ * ⚠ IT TAKES THE EVENT'S REAL CAPTURE WINDOW, AND MUST. `captureWindowState`
+ * returns `'open'` on null bounds — deliberate, so a legacy seat is never
+ * bricked mid-party. Passing null here would make this the ONLY seat in the
+ * product exempt from the window a couple sets, inventing a rule silently.
+ *
+ * ⛔ THERE IS NO SERVER ACTION FOR THIS, ON PURPOSE. This is a service-role
+ * write, so a standalone action taking a client-supplied `eventId` would let a
+ * signed-in stranger mint a live seat on somebody else's wedding and then claim
+ * it — after which every downstream gate passes them through, because the
+ * upload presign and the record path both check *claimer identity* and nothing
+ * else. It is called only from the studio page's render, AFTER the couple check
+ * that page already performs.
+ *
+ * Best-effort + non-fatal: returns 1 if a seat was created, 0 otherwise
+ * (including on any error — the next render retries).
+ */
+export async function provisionUploadsCameraAdmin(
+  admin: SupabaseClient,
+  eventId: string,
+  window?: { validFrom: string | null; validUntil: string | null },
+): Promise<number> {
+  if (!eventId) return 0;
+  try {
+    const { data: existing, error: readErr } = await admin
+      .from('paparazzi_seats')
+      .select('seat_index')
+      .eq('event_id', eventId)
+      .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
+      .maybeSingle();
+    // ⚠ A refused read is NOT "there is none". Returning 0 here retries next
+    // render; inserting on an unread would race the UNIQUE constraint for
+    // nothing.
+    if (readErr) return 0;
+    if (existing) return 0;
+
+    const { error: insertErr } = await admin.from('paparazzi_seats').upsert(
+      [
+        {
+          event_id: eventId,
+          seat_index: PAPIC_UPLOADS_CAMERA_INDEX,
+          sku_code: PAPIC_CAMERA_FREE_SKU,
+          tier: 'free' as CameraTier,
+          claim_qr_token: generateSeatClaimToken(),
+          valid_from: window?.validFrom ?? null,
+          valid_until: window?.validUntil ?? null,
+        },
+      ],
+      { onConflict: 'event_id,seat_index', ignoreDuplicates: true },
+    );
+    if (insertErr) return 0;
+    return 1;
   } catch {
     return 0;
   }

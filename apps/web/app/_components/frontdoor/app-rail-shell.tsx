@@ -69,6 +69,7 @@ export async function AppRailShell({
   studioEventId,
   topBarSlot,
   searchSlot,
+  createSlot,
   variant = 'app',
   bleed,
 }: {
@@ -121,6 +122,8 @@ export async function AppRailShell({
    * Default unchanged: hand in nothing and every other tree behaves as before.
    */
   searchSlot?: React.ReactNode;
+  /** This surface's own create button — see `front-door-shell.tsx`. Passed straight through. */
+  createSlot?: React.ReactNode;
   /**
    * Which chrome. Defaults to the signed-in `app`.
    *
@@ -238,6 +241,7 @@ export async function AppRailShell({
         See `signed-in-cluster.tsx` for the measured no-cost note.
       */
       topBarSlot={topBarSlot ?? (account.signedIn ? <SignedInCluster /> : undefined)}
+      createSlot={createSlot}
       /*
         THE SEARCH FOLLOWS WHO IS LOOKING, NOT WHICH PAGE THEY ARE ON — the
         third time this file settles that question the same way (the Studio

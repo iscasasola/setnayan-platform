@@ -38,6 +38,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ADMIN_ROUTES } from '@/lib/admin-map/admin-routes.generated';
+import { buildDestinations } from '@/app/admin/_components/admin-destinations';
 
 export type AskResult = {
   label: string;
@@ -61,12 +62,30 @@ export function normalisePhrase(q: string): string {
  * route map. A page that moved makes a learned row degrade to "no answer", never
  * to a link that 404s, and a model that improvises an address is simply refused.
  */
-export function isKnownAdminHref(href: string, extra: readonly string[] = []): boolean {
-  if (!href.startsWith('/admin')) return false;
-  if (extra.includes(href)) return true;
-  const path = href.split('?')[0]?.split('#')[0] ?? '';
-  return ADMIN_ROUTES.some((r) => r.path === path);
+export function isKnownAdminHref(href: string, _extra: readonly string[] = []): boolean {
+  // 🪤 THE `/admin` PREFIX WAS NOT THE RIGHT QUESTION, and it silently threw away
+  // a real answer: "My account" is a curated menu destination that lives OUTSIDE
+  // /admin — it exists because the admin doorway had no other path to changing a
+  // password or signing out other devices — so the model could pick it and this
+  // function would drop it on the floor, every time.
+  //
+  // 🔑 AND THE OLD `extra` ARGUMENT WAS THE HOLE IT LOOKED LIKE. It trusted a
+  // list the BROWSER sent, which is exactly what a validator must not do. The
+  // answer to both is the same: the SERVER rebuilds the destination list itself.
+  // `buildDestinations` is pure and reads only generated constants, so this is
+  // one honest source of truth on the trusted side. The parameter is kept for
+  // call-site compatibility and deliberately ignored.
+  if (!href.startsWith('/')) return false;
+  const bare = (h: string) => h.split('?')[0]?.split('#')[0] ?? '';
+  if (KNOWN_HREFS.has(href) || KNOWN_HREFS.has(bare(href))) return true;
+  // A price row's anchor is legitimate and is not a route of its own.
+  return ADMIN_ROUTES.some((r) => r.path === bare(href));
 }
+
+/** Every address the admin's own search can offer, rebuilt on the server. */
+const KNOWN_HREFS: ReadonlySet<string> = new Set(
+  buildDestinations().flatMap((d) => [d.href, d.href.split('?')[0] ?? d.href]),
+);
 
 /** Step 2 — what the box has been taught. One indexed lookup, no model. */
 export async function recallPhrase(question: string): Promise<AskResult | null> {
@@ -82,7 +101,7 @@ export async function recallPhrase(question: string): Promise<AskResult | null> 
 
   const { data, error } = await admin
     .from('admin_search_phrases')
-    .select('href, label')
+    .select('href, label, times_used')
     .eq('phrase', phrase)
     .maybeSingle();
 
@@ -93,11 +112,21 @@ export async function recallPhrase(question: string): Promise<AskResult | null> 
   if (!data) return null;
   if (!isKnownAdminHref(String(data.href))) return null;
 
-  // Fire-and-forget: a failed counter must never cost the person their answer.
-  void admin
+  // 🪤 THIS WAS TWO BUGS IN ONE LINE, BOTH FOUND BY AN AUDIT THAT RAN IT.
+  // (1) `void <builder>` never issues the request — a PostgREST builder is lazy
+  //     and only sends when something calls `.then()`, so the write was never
+  //     made at all. "Fire and forget" forgot to fire.
+  // (2) It assigned the literal 1 rather than adding one, so even had it run the
+  //     count could never reach 2.
+  // Awaited now: it is one indexed UPDATE on a row already in hand, and an
+  // answer that arrives a millisecond later is worth a number that is true.
+  const seen = Number(data.times_used ?? 0);
+  const { error: bumpError } = await admin
     .from('admin_search_phrases')
-    .update({ times_used: 1, last_used_at: new Date().toISOString() })
+    .update({ times_used: seen + 1, last_used_at: new Date().toISOString() })
     .eq('phrase', phrase);
+  // A failed counter must still never cost the person their answer.
+  if (bumpError) logQueryError('recallPhrase bump (admin_search_phrases)', bumpError);
 
   return {
     label: String(data.label),
@@ -163,7 +192,7 @@ export async function askTheModel(
   const index = Number(match[1]);
   if (!Number.isInteger(index) || index < 1 || index > choices.length) return null;
   const picked = choices[index - 1];
-  if (!picked || !isKnownAdminHref(picked.href, choices.map((c) => c.href))) return null;
+  if (!picked || !isKnownAdminHref(picked.href)) return null;
 
   return {
     label: picked.label,

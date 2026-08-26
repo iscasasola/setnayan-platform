@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
 
+import { buildDestinations } from '@/app/admin/_components/admin-destinations';
+
 import { isKnownAdminHref, normalisePhrase, aiConfigured } from './ask-the-admin';
 import { ADMIN_ROUTES } from './admin-routes.generated';
 
@@ -39,13 +41,45 @@ test('an address the admin does not have is refused', () => {
   );
 });
 
-test('a choice from the offered list is honoured even with a query it invented', () => {
-  // The extra list exists so a tab or anchor the browser legitimately offered is
-  // not refused for not being a bare route path.
-  assert.equal(isKnownAdminHref('/admin/studio?tab=songs', ['/admin/studio?tab=songs']), true);
-  // But an outside address is refused even if the list contains it — a tampered
-  // list must not be able to widen where this can send somebody.
-  assert.equal(isKnownAdminHref('https://evil.example', ['https://evil.example']), false);
+test('the browser\'s list is IGNORED — the server rebuilds the truth itself', () => {
+  // 🪤 THE OLD RULE TRUSTED A LIST THE BROWSER SENT, which is exactly what a
+  // validator must not do, and the docblock beside it claimed the opposite. The
+  // server now rebuilds the destination list with `buildDestinations()` — pure,
+  // reading only generated constants — so the argument is inert.
+  assert.equal(isKnownAdminHref('/admin/studio?tab=songs', []), true, 'a real tab was refused');
+  assert.equal(
+    isKnownAdminHref('https://evil.example', ['https://evil.example']),
+    false,
+    'a supplied list widened where this can send somebody',
+  );
+  assert.equal(
+    isKnownAdminHref('/admin/not-a-page', ['/admin/not-a-page']),
+    false,
+    'a supplied list conjured an admin page that does not exist',
+  );
+});
+
+test('the one menu destination outside /admin is reachable', () => {
+  // 🪤 "My account" exists because the admin doorway had no other path to
+  // changing a password or signing out other devices — and a bare `/admin`
+  // prefix check threw it away every time the model picked it.
+  const account = buildDestinations().find((d) => !d.href.startsWith('/admin'));
+  assert.ok(account, 'no non-/admin destination in the menu — re-pin this test');
+  assert.equal(
+    isKnownAdminHref(account.href),
+    true,
+    `${account.label} (${account.href}) can never be offered`,
+  );
+});
+
+test('the recall counter actually counts', () => {
+  // 🪤 TWO BUGS IN ONE LINE. `void <builder>` never sends the request — a
+  // PostgREST builder only fires when something calls .then() — and it assigned
+  // the literal 1, so even had it run the count could never reach 2.
+  const src = stripComments(readFileSync(join(WEB, 'lib/admin-map/ask-the-admin.ts'), 'utf8'));
+  assert.ok(!/void admin\s*\n?\s*\.from\(/.test(src), 'the counter went back to a lazy builder');
+  assert.match(src, /await admin[\s\S]{0,120}times_used: seen \+ 1/, 'the counter stopped incrementing');
+  assert.match(src, /select\('href, label, times_used'\)/, 'the current count is no longer read');
 });
 
 test('the same question in different clothes is the same question', () => {

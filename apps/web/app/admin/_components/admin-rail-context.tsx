@@ -18,10 +18,10 @@
  * ─── THE SIX ROWS ARE NOT REDRAWN HERE ────────────────────────────────────
  * 🔒 `ADMIN_NAV_GROUPS` → `adminRailMenus()` in `admin-sidebar.tsx` is THE
  * source: six groups rendered FLAT as six top-level rows (owner 2026-07-15,
- * *"solid menu with no submenus"*) — Overview · Accounts · Studio · Ugat
- * Console · App Performance · Money — then "All surfaces", which is a LINK to
- * /admin/more and is deliberately NOT a seventh group. This file chooses the
- * ELEMENT, never the membership. If a row is wrong, the fix is in the groups.
+ * *"solid menu with no submenus"*) — Today · People & shops · Studio · Set up ·
+ * Numbers · Money — then "All surfaces", which is a LINK to /admin/more and is
+ * deliberately NOT a seventh group. This file chooses the ELEMENT, never the
+ * membership. If a row is wrong, the fix is in the groups.
  *
  * ─── WHY THE ROWS WEAR `.fd-*` AND NOT `--m-sidebar-*` ────────────────────
  * The rail is chrome and paints the front door's cream (`.fd[data-chrome='app']
@@ -57,20 +57,30 @@ import { adminRailMenus, activeAdminMenuKey } from './admin-sidebar';
 
 /**
  * The word under the icon at the 72px strip. The full label is often two words
- * ("Ugat Console", "App Performance", "All surfaces") and the strip is one
- * ellipsised line, so a caption that is just the label truncates to "Ugat…" /
- * "App P…" — three rows that read the same at a glance. These are the
- * distinguishing word, chosen the way the shared rows choose theirs.
+ * ("People & shops", "All surfaces") and the strip is one ellipsised line, so a
+ * caption that is just the label truncates — rows that read the same at a
+ * glance. These are the distinguishing word, chosen the way the shared rows
+ * choose theirs.
  *
  * A key with no entry falls back to the label; a missing caption costs
  * legibility at one breakpoint, never a row.
+ *
+ * 🛑 THIS IS A SECOND COPY OF EVERY MENU NAME, AND IT SILENTLY OUT-RANKED THE
+ * FIRST. Between 1024px and 1280px the stylesheet hides `.fd-label-text` and
+ * shows `.fd-icon-caption`, so on that width THIS MAP IS THE MENU — the group
+ * label is in the markup and invisible. The 2026-08-25 recut renamed the six
+ * groups in `ADMIN_NAV_GROUPS` and did not touch this, so the owner opened the
+ * console the next morning and reported, correctly, *"it still looks the
+ * same"*: he was reading the captions. A caption must be a contiguous word-run
+ * of its own group's label, and `the-menu-name-has-one-source.test.ts` fails
+ * if it is not — so the next rename cannot leave this behind in silence.
  */
 const STRIP_CAPTION: Record<string, string> = {
-  queues: 'Overview',
-  directory: 'Accounts',
+  queues: 'Today',
+  directory: 'People',
   media: 'Studio',
-  ugat: 'Ugat',
-  funnels: 'Stats',
+  ugat: 'Set up',
+  funnels: 'Numbers',
   'settings-group': 'Money',
   'all-surfaces': 'All',
 };

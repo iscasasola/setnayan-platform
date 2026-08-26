@@ -70,7 +70,7 @@ import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { AdminQueueCounts } from '@/lib/admin/queue-counts';
 
-const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
+export const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
     // OVERVIEW — the merged Home+Work task inbox. Lands on the /admin pulse;
     // lights for the exact /admin path (activeMatchAlsoExact — every other

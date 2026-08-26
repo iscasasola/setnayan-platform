@@ -64,6 +64,8 @@ export function roomForOutcome(params: Record<string, unknown>): PapicRoom | nul
     // choice no capture path ever read).
     has('style_set') ||
     has('style_error') ||
+    // Whether photos may be added by hand — a set-once choice, so Set up.
+    has('uploads_open_set') ||
     // ⚠ NOT A STORAGE ERROR, AND NOT REALLY A ROOM. `papic_access_error` is the
     // SHARED couple-check refusal — every action in this tree redirects here
     // when the caller is not a couple on the event. It is mapped anyway because

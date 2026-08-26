@@ -390,6 +390,44 @@ const PAPIC_STYLE_VALUES = ['ORIG', 'RETRO', 'MONO', 'CINE', 'LOMO'] as const;
  * is pinned to this event and to the reserved index, so it can only ever return
  * the one seat this action exists to claim.
  */
+/**
+ * "Can photos be added by hand to this celebration?" — the couple's own switch.
+ *
+ * Owner 2026-08-26: *"a toggle will set if they will allow people to upload
+ * photos manually as well."*
+ *
+ * ⚠ IT WRITES ON THE ADMIN CLIENT AFTER AN APP-LEVEL COUPLE CHECK, the same
+ * pattern every other event write in this file uses — `events` is RLS-gated and
+ * the couple's own policy on it is deliberately narrow.
+ *
+ * 🔑 THE OUTCOME IS CONFIRMED, NOT SILENT. Nine settings on this page once
+ * saved into the void; the guard written afterwards is why this redirect
+ * carries a param the banner reads.
+ */
+export async function setPapicUploadsOpen(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) redirect(result.redirectTo);
+  const { eventId } = result;
+  const back = `/dashboard/${eventId}/studio/papic`;
+
+  // The form posts the value it wants, not a flip of what it read — a toggle
+  // that flips whatever it last saw double-fires on a double-tap and lands on
+  // the opposite of what the person pressed.
+  const open = String(formData.get('open') ?? '') === '1';
+
+  const { error } = await createAdminClient()
+    .from('events')
+    .update({ papic_uploads_open: open })
+    .eq('event_id', eventId);
+
+  if (error) {
+    logQueryError('setPapicUploadsOpen', error, { event_id: eventId, open }, 'graceful_degrade');
+    redirect(`${back}?uploads_error=save_failed`);
+  }
+  revalidatePath(back);
+  redirect(`${back}?uploads_open_set=${open ? '1' : '0'}`);
+}
+
 export async function claimUploadsCamera(formData: FormData) {
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);

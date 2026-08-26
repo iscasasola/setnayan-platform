@@ -39,6 +39,7 @@ import { fetchPapicGallery, fetchPreservationTotals } from '@/lib/papic-gallery'
 import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { AddToLibrary } from './_components/add-to-library';
+import { UploadsOpenChoice } from './_components/uploads-open-choice';
 import { claimUploadsCamera } from './actions';
 import { WhereYouStand } from './_components/where-you-stand';
 import { getKwentoDensity } from '@/lib/kwento-density';
@@ -149,6 +150,7 @@ type Props = {
     /** Turning on the Uploads camera — see claimUploadsCamera. */
     uploads_ready?: string;
     uploads_error?: string;
+    uploads_open_set?: string;
     papic_purchased?: string;
     papic_order?: string;
     papic_ref?: string;
@@ -218,6 +220,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     papic_access_error: papicAccessError,
     uploads_ready: uploadsReady,
     uploads_error: uploadsError,
+    uploads_open_set: uploadsOpenSet,
     papic_purchased: papicPurchased,
     papic_order: papicOrder,
     papic_ref: papicRef,
@@ -478,6 +481,13 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // ⚠ A REFUSED READ IS NOT "THERE IS NO CAMERA". Both stay null and the block
   // renders nothing, rather than offering a picker that cannot work or a
   // turn-on button for a camera we could not look for.
+  // ⚠ THE SWITCH IS READ DEFENSIVELY, AND ABSENT MEANS OPEN. The column lands
+  // in migration 20271170068924; on a pre-migration database the select would
+  // error and `?? true` keeps the library's most obvious door working rather
+  // than closing it on everybody because a column is not there yet. Same shape
+  // as papic_style above.
+  const uploadsOpen = ((ev.papic_uploads_open as boolean | null) ?? true) !== false;
+
   let uploadsToken: string | null = null;
   let uploadsClaimed = false;
   {
@@ -650,6 +660,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         papicAccessError={papicAccessError}
         uploadsReady={uploadsReady}
         uploadsError={uploadsError}
+        uploadsOpenSet={uploadsOpenSet}
         connectedAccount={driveGrant?.external_account_display ?? null}
         eventId={eventId}
         papicPurchased={papicPurchased}
@@ -748,7 +759,13 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             <Upload aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
             Add to your library
           </h2>
-          {uploadsToken ? (
+          {!uploadsOpen ? (
+            <p className="max-w-prose text-sm text-ink/65">
+              Adding photos by hand is switched off for this celebration — only
+              what your cameras capture goes into the gallery. You can turn it
+              back on in Set up.
+            </p>
+          ) : uploadsToken ? (
             <AddToLibrary token={uploadsToken} />
           ) : (
             <form action={claimUploadsCamera} className="space-y-3">
@@ -1135,6 +1152,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           loginEmail={user.email ?? null}
         />
 
+        <UploadsOpenChoice eventId={eventId} open={uploadsOpen} />
+
         <FaceTaggingChoice eventId={eventId} />
 
         {/* Papic Games — the couple's own challenge authoring + curation (§5).
@@ -1332,6 +1351,7 @@ function StatusBanners({
   papicAccessError,
   uploadsReady,
   uploadsError,
+  uploadsOpenSet,
   connectedAccount,
   papicPurchased,
   papicOrder,
@@ -1360,6 +1380,7 @@ function StatusBanners({
   papicAccessError: string | undefined;
   uploadsReady: string | undefined;
   uploadsError: string | undefined;
+  uploadsOpenSet: string | undefined;
   connectedAccount: string | null;
   papicPurchased: string | undefined;
   papicOrder: string | undefined;
@@ -1395,6 +1416,7 @@ function StatusBanners({
     papicAccessError ||
     uploadsReady ||
     uploadsError ||
+    uploadsOpenSet ||
     papicPurchased ||
     papicUnlockProvisioned ||
     papicError ||
@@ -1668,6 +1690,15 @@ function StatusBanners({
             <span className="font-mono text-xs">{driveError}</span>). Try again, or
             contact support.
           </span>
+        </p>
+      ) : null}
+
+      {uploadsOpenSet ? (
+        <p className={ok}>
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          {uploadsOpenSet === '1'
+            ? 'Photos can now be added by hand. Each one uses a credit, the same as a camera shot.'
+            : 'Adding photos by hand is off. Only what your cameras capture goes into the gallery.'}
         </p>
       ) : null}
 

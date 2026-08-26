@@ -64,6 +64,8 @@ export function roomForOutcome(params: Record<string, unknown>): PapicRoom | nul
     // choice no capture path ever read).
     has('style_set') ||
     has('style_error') ||
+    // Whether photos may be added by hand — a set-once choice, so Set up.
+    has('uploads_open_set') ||
     // ⚠ NOT A STORAGE ERROR, AND NOT REALLY A ROOM. `papic_access_error` is the
     // SHARED couple-check refusal — every action in this tree redirects here
     // when the caller is not a couple on the event. It is mapped anyway because
@@ -85,7 +87,11 @@ export function roomForOutcome(params: Record<string, unknown>): PapicRoom | nul
     has('vendorMedia') ||
     // Preservation is chosen from the gallery, so its answer belongs there.
     has('preserve_set') ||
-    has('preserve_error')
+    has('preserve_error') ||
+    // Turning on the Uploads camera. Photos, because the picker lives in the
+    // library — a confirmation belongs where the thing it confirms is.
+    has('uploads_ready') ||
+    has('uploads_error')
   ) {
     return 'photos';
   }

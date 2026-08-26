@@ -57,9 +57,16 @@ test('🚨 the switch actually GOVERNS the picker', () => {
 test('⚠ an absent column means OPEN, never closed', () => {
   // The column lands in 20271170068924. On a pre-migration database the read
   // must not close the library's most obvious door on everybody.
+  // ⚠ MATCHED ON THE ASSIGNMENT, NOT ON ONE SPELLING OF THE CAST. The first
+  // version pinned the exact expression `papic_uploads_open as boolean | null)
+  // ?? true`, and went red the moment the read moved onto its own round trip —
+  // a correct change failing a guard that was describing characters instead of
+  // behaviour. What must hold is that the fallback in THIS assignment is open.
+  const assignment = PAGE.match(/const uploadsOpen\s*=[\s\S]{0,300}?;/)?.[0] ?? '';
+  assert.ok(assignment, 'the uploadsOpen assignment is gone from the page');
   assert.match(
-    PAGE,
-    /papic_uploads_open as boolean \| null\) \?\? true/,
+    assignment,
+    /\?\?\s*true/,
     'a missing column no longer falls back to open — every couple on a pre-migration database loses uploading with no explanation',
   );
 });
@@ -86,4 +93,57 @@ test('🚨 saving it is confirmed, never silent', () => {
   // Nine settings on this page once saved into the void.
   assert.match(ACTIONS, /uploads_open_set=/, 'the action no longer reports its outcome');
   assert.match(PAGE, /uploadsOpenSet \?/, 'the outcome is emitted and read by nothing — the exact defect the banners guard was written after');
+});
+
+/**
+ * 🪤 RULE 7 EXISTS BECAUSE RULES 1–6 PASSED WHILE THE SWITCH GOVERNED NOTHING.
+ *
+ * The first cut read `ev.papic_uploads_open` off the page's main event select —
+ * which never named the column. It was always `undefined`, `?? true` reported
+ * OPEN, and the picker rendered for a couple who had switched it off. Every
+ * other rule here was satisfied: the column existed, the control was mounted,
+ * the branch was wired, the save was confirmed. **I guarded the branch and not
+ * the source**, which is the same mistake as guarding a component's shape
+ * instead of censusing the thing.
+ *
+ * ⚠ It must be its OWN round trip, not an extra name on the main select. The
+ * column lands in a migration; naming an unknown column makes PostgREST refuse
+ * the WHOLE query, and this page calls `notFound()` when that read comes back
+ * empty — so the "safe" one-line version turns a missing migration into a
+ * celebration that does not exist. `papic_style` above it is the precedent.
+ */
+test('7 · the value the picker branches on is actually SELECTED from the database', () => {
+  const src = PAGE.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+
+  // ⚠ `,?` IS LOAD-BEARING. Without it this missed every multi-line select —
+  // which in this file is written `.select(\n  '…',\n)` with a trailing comma —
+  // so folding the column into the main event read counted as ZERO selects and
+  // the rule passed on the arrangement it exists to forbid. Measured, not
+  // assumed: the sabotage went 1 → 1 and stayed green.
+  const selects = src.match(/\.select\(\s*'[^']*papic_uploads_open[^']*'\s*,?\s*\)/g) ?? [];
+  assert.equal(
+    selects.length,
+    1,
+    `papic_uploads_open is named in ${selects.length} select(s) on the Papic ` +
+      `studio page — expected exactly 1. Zero means the switch governs nothing ` +
+      `and reports OPEN forever; more than one is a second copy of the read.`,
+  );
+
+  // …and on its own, so an unknown column cannot take the main event read down.
+  assert.doesNotMatch(
+    selects[0]!,
+    /event_id,|papic_storage_target/,
+    'papic_uploads_open was folded into the main event select. On a database ' +
+      'that predates its migration PostgREST refuses that whole query, and this ' +
+      'page answers an unreadable event with notFound() — a live celebration ' +
+      'would render as missing.',
+  );
+
+  // The branch must consume THAT read, not something shaped like it.
+  assert.match(
+    src,
+    /const uploadsOpen\s*=[\s\S]{0,200}uploadsRow/,
+    'the picker branches on a value that does not come from the select above — ' +
+      'which is exactly how this shipped governing nothing the first time',
+  );
 });

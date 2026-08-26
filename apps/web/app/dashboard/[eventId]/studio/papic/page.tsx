@@ -286,6 +286,29 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const papicStyleLabel =
     PAPIC_STYLES.find((st) => st.id === papicStyle)?.label ?? 'Orig';
 
+  // Who may add photos by hand (owner 2026-08-26). Read on its OWN round trip,
+  // exactly like papic_style above and for the same reason: the column lands in
+  // migration 20271170068924, and naming an unknown column in the main event
+  // select would make PostgREST refuse that WHOLE query — the page would call
+  // notFound() on a celebration that exists.
+  //
+  // 🪤 THIS READ WAS MISSING ON THE FIRST CUT AND THE SWITCH GOVERNED NOTHING.
+  // `ev.papic_uploads_open` was read off the main select, which never named the
+  // column, so it was always `undefined` and `?? true` reported OPEN no matter
+  // what the couple had chosen. It saved, it showed the right state on its own
+  // control, and the picker ignored it. A stored value with no reader, in a
+  // feature whose entire point is the reader.
+  const { data: uploadsRow, error: uploadsRowError } = await supabase
+    .from('events')
+    .select('papic_uploads_open')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  // ⚠ the couple's choice about hand-added photos. Refused, it falls OPEN —
+  // ⚠ see the note at `uploadsOpen` for why that is the right direction here.
+  if (uploadsRowError) {
+    logQueryError('PapicStudioPage.uploadsRow', uploadsRowError, { eventId }, 'graceful_degrade');
+  }
+
   // ⚠ A SECOND DEAD ROUND TRIP, REMOVED 2026-08-26. The per-event photo
   // fidelity tier was read here for one reason: to feed the "Photo quality"
   // picker. Owner: *"the photo quality is already set for us by default. we do
@@ -486,7 +509,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // error and `?? true` keeps the library's most obvious door working rather
   // than closing it on everybody because a column is not there yet. Same shape
   // as papic_style above.
-  const uploadsOpen = ((ev.papic_uploads_open as boolean | null) ?? true) !== false;
+  const uploadsOpen =
+    (((uploadsRow as { papic_uploads_open?: boolean | null } | null)?.papic_uploads_open) ?? true) !==
+    false;
 
   let uploadsToken: string | null = null;
   let uploadsClaimed = false;

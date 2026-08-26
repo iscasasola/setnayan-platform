@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6209
+# facts: 6210
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     571
-#   col       4570
+#   col       4571
 #   policy    843
 #   view      8
 #   func      213
@@ -2001,6 +2001,7 @@ col	public.events.papic_quality_tier	anon=SIU authenticated=SIU
 col	public.events.papic_storage_target	anon=SIU authenticated=SIU
 col	public.events.papic_style	anon=SIU authenticated=SIU
 col	public.events.papic_unli_cap_php	anon=S authenticated=S
+col	public.events.papic_uploads_open	anon=- authenticated=SU
 col	public.events.papic_window_end	anon=SIU authenticated=SIU
 col	public.events.papic_window_start	anon=SIU authenticated=SIU
 col	public.events.partner_a_birth_date	anon=IU authenticated=IU

@@ -12,6 +12,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stripComments } from '@/lib/strip-comments';
+
 import { rankBySentence, keepByTokens } from '@/lib/admin-map/rank-by-sentence';
 import { searchTokens } from '@/lib/search-stop-words';
 
@@ -114,6 +116,56 @@ test('a word no page knows is reported, never silently dropped', () => {
   assert.deepEqual(rankBySentence(ALL, 'papic prices', score, 5).unknown, []);
 });
 
+test('every example the search box ADVERTISES actually works', () => {
+  /*
+    🪤 THE BOX PRINTED AN EXAMPLE THAT OPENED THE WRONG PAGE. Its placeholder
+    reads “papic prices”, “add a category” — and "add a category" tied App
+    Performance, Taxonomy and Vendors at coverage 1.0 and mean 15, so the
+    ALPHABET decided and a metrics dashboard won the default-selected row. App
+    Performance carries the words once, from an "add expense … category" job.
+
+    🔑 THE EXAMPLES ARE READ OUT OF THE COMPONENT, NEVER RE-TYPED HERE. A guard
+    that hard-codes the strings stops covering the box the moment somebody edits
+    the placeholder — which is exactly when a new example goes unchecked.
+  */
+  // Stripped first, and CURLY quotes only: the docblock quotes the owner
+  // (*"i do not see the AI searchbar"*) and the JSX is full of straight-quoted
+  // class names. The placeholder's examples are the ones typeset with “ ”.
+  const box = stripComments(readFileSync(join(HERE, 'admin-search-box.tsx'), 'utf8'));
+  const examples = [...box.matchAll(/\u201C([^\u201C\u201D]{3,60})\u201D/g)].map((m) => m[1]!);
+  assert.ok(examples.length >= 2, `only ${examples.length} examples found in the box — re-pin this`);
+
+  const expected: Record<string, RegExp> = {
+    'papic prices': /^\/admin\/pricing/,
+    'add a category': /^\/admin\/taxonomy$/,
+  };
+  for (const ex of examples) {
+    const hits = rankBySentence(ALL, ex, score, 5).hits;
+    assert.ok(hits.length > 0, `the box advertises "${ex}" and it answers nothing`);
+    const want = expected[ex];
+    assert.ok(want, `the box advertises "${ex}" — add what it should open to this guard`);
+    assert.match(
+      hits[0]!.href,
+      want,
+      `"${ex}" opens ${hits[0]!.label} (${hits[0]!.href}) — the box advertises it, so it must land`,
+    );
+  }
+});
+
+test('an apostrophe does not make the box say something false', () => {
+  // 🪤 "vendor's payouts" answered correctly AND printed “No page has the word
+  // “vendor's”.” above it — about a word 26 destinations contain. Phones type
+  // the curly one (U+2019), so the person cannot see what is wrong. Only the
+  // REPORT is corrected; the splitter is shared with the public site search.
+  for (const q of ["vendor's payouts", 'vendor\u2019s payouts', "the couple's event"]) {
+    const { unknown } = rankBySentence(ALL, q, score, 5);
+    const wrong = unknown.filter((w) => /['\u2019]/.test(w));
+    assert.deepEqual(wrong, [], `"${q}" reported ${wrong.join(', ')} as unknown`);
+  }
+  // …and a word the product genuinely does not have is still reported.
+  assert.deepEqual(rankBySentence(ALL, 'i want a category', score, 5).unknown, ['want']);
+});
+
 test('a word that is only a SUBSEQUENCE is not a match', () => {
   // 🪤 At the palette's weakest band (8, letters of the name in order) the word
   // "prices" matched *Profile corrections* — p·r·i·c·e·s appear in that order —
@@ -158,19 +210,36 @@ test('the whole-string score is the FIRST sort key, not the word average', () =>
   assert.equal(first, todaysRanking('pay')[0], 'a working query was re-ranked');
 });
 
-test('the phone keeps the same SET the laptop ranks — executed, not read', () => {
+test('the phone shows EXACTLY the set the laptop ranks — the owner\'s sentences included', () => {
   // 🪤 The existing parity guard compares SOURCE TEXT — whether both files import
   // the shared alias list — so it would have waved through a laptop-only fix.
   // This one runs both rules over one input.
+  // 🪤 REV 1 OF THIS GUARD COULD NOT FAIL FOR THE DIVERGENCE IT WAS NAMED FOR.
+  // It asked only whether the laptop's TOP hit was somewhere in the phone's set,
+  // over four queries that pass either way — while the phone required EVERY word
+  // and the laptop any one, so the two owner sentences 70 lines above showed
+  // 0 cards against 10 and 16. A one-directional check over hand-picked queries
+  // is not a set comparison. Compare the SETS, and include the sentences the
+  // feature exists for.
   const hays = ALL.map((d) => d.hay);
-  for (const q of ['papic prices', 'pending', 'who is waiting to be approved', 'taxonomy']) {
+  const queries = [
+    'papic prices',
+    'pending',
+    'taxonomy',
+    'take me to the pricing for papic services',
+    'i want to add a new category on the taxonomy service',
+    'who is waiting to be approved',
+    'how many events do we have',
+  ];
+  for (const q of queries) {
     const keep = keepByTokens(hays, q);
-    const phoneShows = ALL.filter((_, i) => keep[i]).map((d) => d.href);
-    const laptopTop = ranked(q)[0];
-    assert.ok(phoneShows.length > 0, `the phone hides everything for "${q}"`);
-    assert.ok(
-      phoneShows.includes(laptopTop!),
-      `the phone hides the laptop's best answer for "${q}"`,
+    const phone = ALL.filter((_, i) => keep[i]).map((d) => d.href).sort();
+    const laptop = rankBySentence(ALL, q, score, ALL.length).hits.map((d) => d.href).sort();
+    assert.ok(phone.length > 0, `the phone hides every card for "${q}"`);
+    assert.deepEqual(
+      phone,
+      laptop,
+      `the phone and the laptop disagree for "${q}" (${phone.length} vs ${laptop.length})`,
     );
   }
 });

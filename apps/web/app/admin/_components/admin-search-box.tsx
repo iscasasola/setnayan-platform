@@ -32,8 +32,16 @@ export function AdminSearchBox() {
       onClick={() => window.dispatchEvent(new CustomEvent(ADMIN_SEARCH_OPEN_EVENT))}
       // Desktop only, on purpose. The owner ruled on 2026-08-26 that the phone
       // admin answers what needs a decision and does not edit — and this box
-      // opens doors into editing screens. The phone keeps its own filter on
-      // "All surfaces", which already understands a sentence.
+      // opens doors into editing screens. The phone reaches the same words
+      // through "All surfaces", whose filter now runs the SAME rule as the
+      // laptop (it did not, for one day — it required every word and blanked on
+      // a sentence).
+      //
+      // ⚠ SO THE PHONE'S TOP BAR HAS NO SEARCH IN THE MIDDLE, AND THAT IS THE
+      // RULING, NOT AN OVERSIGHT. Before this slot existed the bar carried the
+      // SHARED palette there — a search over the person's own events, which is
+      // not what somebody standing in HQ is asking for. Do not "restore" it
+      // without re-opening the ruling.
       className="hidden w-full max-w-sm items-center gap-2 rounded-lg border px-3 py-1.5 text-left transition-colors lg:flex"
       style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-paper, #FBFAF7)' }}
       aria-label="Search the admin, or ask where something lives"

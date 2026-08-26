@@ -96,10 +96,6 @@ export const metadata = { title: 'Setnayan HQ' };
  * consistent with the customer doorway; going HOME is the rail's job.
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  // The things INSIDE pages — price rows today — so the search can land on one.
-  // Plain data only: it crosses the Server→Client boundary to the palette, which
-  // is why this is a list of strings and not the catalog objects.
-  const paletteRows = await fetchAdminRows();
   const user = await getCurrentUser();
   if (!user) redirect(loginRedirectPath('/admin'));
   const supabase = await createClient();
@@ -143,6 +139,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // gate is called by admin PAGES directly, because a layout alone is not a
   // safe auth boundary in front of the service-role client.
   await requireAdmin();
+
+  // The things INSIDE pages — price rows today — so the search can land on one.
+  // Plain data only: it crosses the Server→Client boundary to the palette, which
+  // is why this is a list of strings and not the catalog objects.
+  //
+  // ⚠ AFTER THE ADMIN CHECK, NEVER BEFORE IT. This is a service-role read of the
+  // whole retail catalog; running it above the gate meant a signed-out request
+  // did the work before being turned away. It changed no outcome — the gate
+  // still refused — but doing privileged work for a stranger is the wrong
+  // default to leave lying around.
+  const paletteRows = await fetchAdminRows();
 
   // Social auto-publish flush — cron-free: dispatch piggybacks on admin
   // traffic via after(). Fire-and-forget; the 10-min throttle inside

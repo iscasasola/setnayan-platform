@@ -106,8 +106,28 @@ test('every job puts its words on a destination — none are dropped', () => {
   // and a hidden page's work must stay hidden with it. That set is DERIVED from
   // the map, never hand-listed — a hand-listed exception set is how a guard
   // quietly stops covering the thing it was written for.
+  // 🪤 THIS EXEMPTION USED TO BE `r.inMenuSource` ALONE, AND IT EXCUSED 252 OF
+  // THE 284 JOBS. `inMenuSource` means "the menu FILE quotes this address" — true
+  // of nearly every page — while the thing that legitimately has nowhere to land
+  // is the far smaller set that the menu file mentions and the RUNTIME menu does
+  // not: a page a feature flag is holding back. Measured by mutation: dropping
+  // 27 real job phrases from the haystack passed the old version.
+  const inRuntimeMenu = new Set(
+    ADMIN_NAV_GROUPS.flatMap((g) => g.items.map((i) => i.href).filter(Boolean) as string[]).map(
+      (h) => h.split('?')[0],
+    ),
+  );
+  // …and a REDIRECT STUB is never hidden — it resolves to its target, so its
+  // jobs land there. Only a real page the menu file names and the runtime menu
+  // omits is being held back by a flag. That is one page today, not 252.
   const hiddenPaths = new Set(
-    ADMIN_ROUTES.filter((r) => r.inMenuSource).map((r) => r.path),
+    ADMIN_ROUTES.filter(
+      (r) => r.kind === 'page' && r.inMenuSource && !inRuntimeMenu.has(r.path),
+    ).map((r) => r.path),
+  );
+  assert.ok(
+    hiddenPaths.size <= 3,
+    `${hiddenPaths.size} pages are exempt — the exemption is the flag-hidden few, not the menu`,
   );
   const lost = ADMIN_JOBS.filter((j) => !hay.includes(j.phrase))
     .filter((j) => !hiddenPaths.has(j.resolvedPath))

@@ -40,10 +40,14 @@ export const STOP_WORDS = new Set([
  * Split a query into the tokens a document must actually contain.
  *
  * Single characters are dropped: a stray letter matches almost every document
- * and would turn one keystroke into a page of noise. 🪤 Mutation-proved on the
- * public search and again here — without the 2-character minimum, "what's
- * pending" splits to [what, s] and a bare `s` prefix-matches every page whose
- * name starts with S.
+ * and would turn one keystroke into a page of noise.
+ *
+ * 🪤 THE WORKED EXAMPLE NEEDS ITS APOSTROPHE NAMED, and an audit caught the
+ * imprecision. The straight apostrophe is INSIDE the kept character class, so
+ * "what's pending" stays ["what's", pending] with or without the floor. It is
+ * the CURLY one — U+2019, which is what a phone types — that is not kept, so
+ * *"what’s pending"* splits to [what, s] and a bare `s` prefix-matches every
+ * page whose name starts with S. That is the case the floor exists for.
  *
  * ⚠ IF THE QUERY IS *ONLY* FUNCTION WORDS, THEY ARE KEPT. Someone searching
  * "the one" means those words; stripping them would leave nothing and silently

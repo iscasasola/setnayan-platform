@@ -218,7 +218,7 @@ export async function CockpitSurface({ searchParams }: Props) {
           read those pills without it — so it moved DOWN to sit immediately
           above the charts it explains, which is what rung four asks for. */}
       <PageMasthead
-        title="App Performance"
+        title="Numbers"
         className="mb-4"
         actions={
           demoActive ? (

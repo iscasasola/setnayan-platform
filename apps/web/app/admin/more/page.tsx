@@ -23,7 +23,7 @@ import { ADMIN_NAV_GROUPS } from '../_components/admin-nav-groups';
 import { MobileLandingGrid } from '../_components/mobile-landing-grid';
 import { adaptAdminGroupsToLanding } from '../_components/admin-nav-descriptions';
 
-export const metadata = { title: 'Menu · Admin' };
+export const metadata = { title: 'All surfaces · Admin' };
 
 export default function AdminMoreLanding() {
   // Single source of truth: the desktop 6-menu IA, adapted to mobile cards.

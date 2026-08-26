@@ -97,7 +97,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     items: [
       {
         key: 'overview',
-        label: 'Overview',
+        label: 'Today',
         href: '/admin',
         icon: Home,
       },
@@ -704,7 +704,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     items: [
       {
         key: 'app-performance',
-        label: 'App Performance',
+        label: 'Numbers',
         href: '/admin/app-performance',
         icon: Activity,
         matchPrefix: '/admin/app-performance',

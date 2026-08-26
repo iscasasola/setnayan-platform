@@ -414,6 +414,28 @@ type Props = {
    */
   topBarSlot?: React.ReactNode;
   /**
+   * This surface's own primary "make something" button.
+   *
+   * 🔴 ADDED 2026-08-26, OWNER: *"this needs to change depending on where they
+   * are. Home - Create Event. Shop - Create Service Card. HQ - Create what?"*
+   * One hardcoded `+ Create event` was rendering on all six signed-in trees, so
+   * **a supplier standing in their own Shop was offered a couple's wedding
+   * wizard.** Not a matter of taste — a wrong button.
+   *
+   * THREE STATES, and the middle one is the reason this is not a boolean:
+   *   · `undefined` — you said nothing, so the shell keeps `+ Create event`.
+   *     Every existing caller is byte-identical.
+   *   · a node   — your surface's own button.
+   *   · `null`   — this surface makes nothing. HQ passes this: measured across
+   *     every admin action ever recorded, only 9 of 65 created anything, and
+   *     HQ's real primary action is the overdue pill already in that bar.
+   *
+   * 🔒 `.fd-btn-gold` is owner-locked (2026-08-14, one chrome one button
+   * colour): a surface may change the WORDS and the destination, never the
+   * treatment.
+   */
+  createSlot?: React.ReactNode;
+  /**
    * The search control. Defaults to the front door's marketplace GET form.
    * The app variant passes the command palette — see the file header for why
    * that is the one question worth answering inside the app.
@@ -537,6 +559,7 @@ export function FrontDoorShell({
   insideEvent = false,
   navLabels,
   topBarSlot,
+  createSlot,
   search,
   bleed,
   bleedPaths,
@@ -939,9 +962,21 @@ export function FrontDoorShell({
                 thing this button makes — which is why it is not reverted to
                 the bare "+ Create" that used to point at the wrong page.
               */}
-              <Link href="/dashboard/create-event" className="fd-btn-gold">
-                + Create event
-              </Link>
+              {/*
+                🔴 IT FOLLOWS THE SURFACE NOW (owner 2026-08-26). This one line
+                rendered on all six signed-in trees, so a supplier in their own
+                Shop was handed a couple's wedding wizard. `undefined` keeps
+                exactly this button — every caller that says nothing is
+                unchanged — a node replaces it, and `null` means this surface
+                makes nothing.
+              */}
+              {createSlot === undefined ? (
+                <Link href="/dashboard/create-event" className="fd-btn-gold">
+                  + Create event
+                </Link>
+              ) : (
+                createSlot
+              )}
               {/*
                 THE HOST'S OWN CLUSTER, OR THIS PAGE'S. When a surface hands
                 one in, it carries that surface's live bell (pointed at ITS

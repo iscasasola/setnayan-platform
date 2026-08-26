@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6212
+# facts: 6214
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     571
 #   col       4571
-#   policy    845
+#   policy    847
 #   view      8
 #   func      213
 #
@@ -2882,51 +2882,51 @@ col	public.papic_photo_challenge_sponsorships.order_id	anon=SIU authenticated=SI
 col	public.papic_photo_challenge_sponsorships.sponsored_at	anon=SIU authenticated=SIU
 col	public.papic_photo_challenge_sponsorships.sponsorship_id	anon=SIU authenticated=SIU
 col	public.papic_photo_challenge_sponsorships.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.papic_photos.captured_at	anon=S authenticated=SIU
-col	public.papic_photos.captured_by_person_id	anon=S authenticated=SIU
-col	public.papic_photos.clip_web_bytes	anon=S authenticated=SIU
-col	public.papic_photos.clip_web_r2_key	anon=S authenticated=SIU
-col	public.papic_photos.consent_to_public	anon=S authenticated=SIU
-col	public.papic_photos.couple_approved_for_showcase	anon=S authenticated=SIU
-col	public.papic_photos.created_at	anon=S authenticated=SIU
-col	public.papic_photos.device_model	anon=S authenticated=SIU
-col	public.papic_photos.display_bytes	anon=S authenticated=SIU
-col	public.papic_photos.display_r2_key	anon=S authenticated=SIU
-col	public.papic_photos.drive_transferred_at	anon=S authenticated=SIU
-col	public.papic_photos.event_id	anon=S authenticated=SIU
-col	public.papic_photos.expires_at	anon=S authenticated=SIU
-col	public.papic_photos.faceblock_baked_at	anon=S authenticated=SIU
-col	public.papic_photos.faceblock_faces_found	anon=S authenticated=SIU
-col	public.papic_photos.full_res_drop_deferred_at	anon=S authenticated=SIU
-col	public.papic_photos.full_res_dropped_at	anon=S authenticated=SIU
-col	public.papic_photos.geo_accuracy_m	anon=S authenticated=SIU
-col	public.papic_photos.geo_lat	anon=S authenticated=SIU
-col	public.papic_photos.geo_lon	anon=S authenticated=SIU
-col	public.papic_photos.geo_unavailable	anon=S authenticated=SIU
-col	public.papic_photos.height_px	anon=S authenticated=SIU
-col	public.papic_photos.hidden_at	anon=S authenticated=SIU
-col	public.papic_photos.id	anon=S authenticated=SIU
-col	public.papic_photos.mime_type	anon=S authenticated=SIU
+col	public.papic_photos.captured_at	anon=S authenticated=SU
+col	public.papic_photos.captured_by_person_id	anon=S authenticated=SU
+col	public.papic_photos.clip_web_bytes	anon=S authenticated=SU
+col	public.papic_photos.clip_web_r2_key	anon=S authenticated=SU
+col	public.papic_photos.consent_to_public	anon=S authenticated=SU
+col	public.papic_photos.couple_approved_for_showcase	anon=S authenticated=SU
+col	public.papic_photos.created_at	anon=S authenticated=SU
+col	public.papic_photos.device_model	anon=S authenticated=SU
+col	public.papic_photos.display_bytes	anon=S authenticated=SU
+col	public.papic_photos.display_r2_key	anon=S authenticated=SU
+col	public.papic_photos.drive_transferred_at	anon=S authenticated=SU
+col	public.papic_photos.event_id	anon=S authenticated=SU
+col	public.papic_photos.expires_at	anon=S authenticated=SU
+col	public.papic_photos.faceblock_baked_at	anon=S authenticated=SU
+col	public.papic_photos.faceblock_faces_found	anon=S authenticated=SU
+col	public.papic_photos.full_res_drop_deferred_at	anon=S authenticated=SU
+col	public.papic_photos.full_res_dropped_at	anon=S authenticated=SU
+col	public.papic_photos.geo_accuracy_m	anon=S authenticated=SU
+col	public.papic_photos.geo_lat	anon=S authenticated=SU
+col	public.papic_photos.geo_lon	anon=S authenticated=SU
+col	public.papic_photos.geo_unavailable	anon=S authenticated=SU
+col	public.papic_photos.height_px	anon=S authenticated=SU
+col	public.papic_photos.hidden_at	anon=S authenticated=SU
+col	public.papic_photos.id	anon=S authenticated=SU
+col	public.papic_photos.mime_type	anon=S authenticated=SU
 col	public.papic_photos.moderation_state	anon=S authenticated=S
-col	public.papic_photos.orig_bytes	anon=S authenticated=SIU
-col	public.papic_photos.paparazzi_seat_id	anon=S authenticated=SIU
-col	public.papic_photos.photo_id	anon=S authenticated=SIU
-col	public.papic_photos.photo_type	anon=S authenticated=SIU
-col	public.papic_photos.poster_r2_key	anon=S authenticated=SIU
-col	public.papic_photos.preserved_at	anon=S authenticated=SIU
-col	public.papic_photos.r2_object_key	anon=S authenticated=SIU
+col	public.papic_photos.orig_bytes	anon=S authenticated=SU
+col	public.papic_photos.paparazzi_seat_id	anon=S authenticated=SU
+col	public.papic_photos.photo_id	anon=S authenticated=SU
+col	public.papic_photos.photo_type	anon=S authenticated=SU
+col	public.papic_photos.poster_r2_key	anon=S authenticated=SU
+col	public.papic_photos.preserved_at	anon=S authenticated=SU
+col	public.papic_photos.r2_object_key	anon=S authenticated=SU
 col	public.papic_photos.safe_display_r2_key	anon=S authenticated=S
 col	public.papic_photos.safe_thumb_r2_key	anon=S authenticated=S
 col	public.papic_photos.safe_tile_r2_key	anon=S authenticated=S
-col	public.papic_photos.size_bytes	anon=S authenticated=SIU
-col	public.papic_photos.superseded_at	anon=S authenticated=SIU
-col	public.papic_photos.thumb_bytes	anon=S authenticated=SIU
-col	public.papic_photos.thumb_r2_key	anon=S authenticated=SIU
+col	public.papic_photos.size_bytes	anon=S authenticated=SU
+col	public.papic_photos.superseded_at	anon=S authenticated=SU
+col	public.papic_photos.thumb_bytes	anon=S authenticated=SU
+col	public.papic_photos.thumb_r2_key	anon=S authenticated=SU
 col	public.papic_photos.tile_bytes	anon=S authenticated=S
 col	public.papic_photos.tile_r2_key	anon=S authenticated=S
-col	public.papic_photos.wall_hidden_at	anon=S authenticated=SIU
-col	public.papic_photos.wall_safe_r2_key	anon=S authenticated=SIU
-col	public.papic_photos.width_px	anon=S authenticated=SIU
+col	public.papic_photos.wall_hidden_at	anon=S authenticated=SU
+col	public.papic_photos.wall_safe_r2_key	anon=S authenticated=SU
+col	public.papic_photos.width_px	anon=S authenticated=SU
 col	public.papic_seat_day_usage.created_at	anon=- authenticated=SIU
 col	public.papic_seat_day_usage.event_id	anon=- authenticated=SIU
 col	public.papic_seat_day_usage.id	anon=- authenticated=SIU
@@ -5610,7 +5610,9 @@ policy	public.papic_pass_tiers|papic_pass_tiers_read	mode=PERMISSIVE cmd=SELECT 
 policy	public.papic_photo_challenge_sponsorships|papic_photo_challenge_sponsorships_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.papic_photo_challenge_sponsorships|papic_photo_challenge_sponsorships_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_photo_challenge_sponsorships.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))) check=NULL
 policy	public.papic_photo_challenge_sponsorships|papic_photo_challenge_sponsorships_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
-policy	public.papic_photos|papic_photos_claimer_own	mode=PERMISSIVE cmd=ALL roles=authenticated using=(EXISTS ( SELECT 1 FROM paparazzi_seats ps WHERE ((ps.seat_id = papic_photos.paparazzi_seat_id) AND (ps.claimer_user_id = auth.uid()) AND (ps.event_id = papic_photos.event_id)))) check=(EXISTS ( SELECT 1 FROM paparazzi_seats ps WHERE ((ps.seat_id = papic_photos.paparazzi_seat_id) AND (ps.claimer_user_id = auth.uid()) AND (ps.revoked_at IS NULL) AND (ps.event_id = papic_photos.event_id))))
+policy	public.papic_photos|papic_photos_claimer_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(EXISTS ( SELECT 1 FROM paparazzi_seats ps WHERE ((ps.seat_id = papic_photos.paparazzi_seat_id) AND (ps.claimer_user_id = auth.uid()) AND (ps.event_id = papic_photos.event_id)))) check=NULL
+policy	public.papic_photos|papic_photos_claimer_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM paparazzi_seats ps WHERE ((ps.seat_id = papic_photos.paparazzi_seat_id) AND (ps.claimer_user_id = auth.uid()) AND (ps.event_id = papic_photos.event_id)))) check=NULL
+policy	public.papic_photos|papic_photos_claimer_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(EXISTS ( SELECT 1 FROM paparazzi_seats ps WHERE ((ps.seat_id = papic_photos.paparazzi_seat_id) AND (ps.claimer_user_id = auth.uid()) AND (ps.event_id = papic_photos.event_id)))) check=(EXISTS ( SELECT 1 FROM paparazzi_seats ps WHERE ((ps.seat_id = papic_photos.paparazzi_seat_id) AND (ps.claimer_user_id = auth.uid()) AND (ps.revoked_at IS NULL) AND (ps.event_id = papic_photos.event_id))))
 policy	public.papic_photos|papic_photos_couple_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_photos.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=NULL
 policy	public.papic_photos|papic_photos_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_photos.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=NULL
 policy	public.papic_photos|papic_photos_couple_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_photos.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_photos.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type)))))

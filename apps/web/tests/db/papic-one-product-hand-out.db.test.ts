@@ -21,6 +21,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { PAPIC_LADDER_EXPECTED } from './papic-ladder.expected';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
 let replay: ReplayResult;
@@ -89,7 +90,7 @@ const dedicated = (seatId: string) =>
 
 // ── the ladder ─────────────────────────────────────────────────────────────
 
-test('exactly the four rungs the owner named are sellable, at his prices', async () => {
+test('exactly the rungs the owner named are sellable, at his prices', async () => {
   const rungs = await db.query<{ points: number; php: string }>(
     `SELECT t.points, c.retail_price_php AS php
        FROM public.papic_pass_tiers t
@@ -99,17 +100,25 @@ test('exactly the four rungs the owner named are sellable, at his prices', async
   );
   assert.deepEqual(
     rungs.rows.map((r) => [r.points, Number(r.php)]),
-    [
-      [100, 50],
-      [3_000, 1_000],
-      [10_000, 3_000],
-      [20_000, 5_000],
-    ],
-    'the ladder is owner-locked 2026-08-11 — a rung added or repriced here is a pricing decision, not a code change',
+    PAPIC_LADDER_EXPECTED.map(([shots, php]) => [shots, php]),
+    'the ladder is owner-set — a rung added or repriced here is a pricing decision, not a code change',
   );
 });
 
-test('value strictly improves up the ladder, so no rung is one nobody should buy', async () => {
+test('no rung is one nobody should buy — the absolute price strictly rises', async () => {
+  /*
+    🔑 THIS IS THE RULE THAT WOULD HAVE CAUGHT THE OWNER'S OWN FIRST TABLE. It
+    had 40,000 at ₱10,000 and 50,000 at ₱10,000 — the same money for 10,000
+    fewer shots, so the 40,000 rung was dominated and nobody could rationally
+    choose it. Absolute price, not rate, is what catches that.
+
+    ⚠ IT REPLACED A STRICTLY-FALLING RATE CHECK, which the ladder now breaks BY
+    DESIGN: the discount holds FLAT across whole bands — ₱0.50 a credit from 100
+    through 2,000, ₱0.40 from 3,000 through 7,000, ₱0.25 across 20,000 and
+    30,000. A rung at the same rate as the one below it is not dominated; it is
+    the same value in a bigger size, which is the entire point of a scrollable
+    list. The rate rule survives below as "never gets WORSE".
+  */
   const rungs = await db.query<{ points: number; php: string }>(
     `SELECT t.points, c.retail_price_php AS php
        FROM public.papic_pass_tiers t
@@ -117,14 +126,26 @@ test('value strictly improves up the ladder, so no rung is one nobody should buy
       WHERE t.is_active AND c.is_active
       ORDER BY t.points`,
   );
+  assert.ok(rungs.rows.length >= 10, `only ${rungs.rows.length} rungs read back — this rule is vacuous`);
+
+  const dominated: string[] = [];
   const rates = rungs.rows.map((r) => Number(r.php) / r.points);
-  for (let i = 1; i < rates.length; i += 1) {
-    assert.ok(
-      rates[i]! < rates[i - 1]!,
-      `rung ${i} costs ${rates[i]}/credit, no better than the ${rates[i - 1]} below it`,
-    );
+  for (let i = 1; i < rungs.rows.length; i += 1) {
+    const prev = rungs.rows[i - 1]!;
+    const here = rungs.rows[i]!;
+    if (Number(here.php) <= Number(prev.php)) {
+      dominated.push(
+        `${prev.points} shots cost ₱${prev.php} and ${here.points} cost ₱${here.php} — ` +
+          `nobody should ever buy the ${prev.points} rung`,
+      );
+    }
+    if (rates[i]! > rates[i - 1]!) {
+      dominated.push(`${here.points} costs ₱${rates[i]!.toFixed(4)} a credit, worse than the rung below it`);
+    }
   }
+  assert.deepEqual(dominated, [], dominated.join('; '));
 });
+
 
 test('Papic One is retired as a purchase, but its legacy grant can still resolve', async () => {
   assert.equal(

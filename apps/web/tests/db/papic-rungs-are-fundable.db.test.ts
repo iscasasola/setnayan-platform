@@ -34,6 +34,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+import { PAPIC_LADDER_EXPECTED } from './papic-ladder.expected';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -131,24 +132,7 @@ test('the ladder the owner set is exactly what is on sale', async () => {
   const rungs = await sellableRungs('papic_pass_tiers');
   assert.deepEqual(
     rungs.map((r) => [Number(r.points), Number(r.php)]),
-    [
-      [100, 50],
-      [200, 100],
-      [300, 150],
-      [400, 200],
-      [500, 250],
-      [1_000, 500],
-      [2_000, 1_000],
-      [3_000, 1_200],
-      [4_000, 1_600],
-      [5_000, 2_000],
-      [6_000, 2_400],
-      [7_000, 2_800],
-      [10_000, 3_200],
-      [20_000, 5_000],
-      [30_000, 7_500],
-      [50_000, 10_000],
-    ],
+    PAPIC_LADDER_EXPECTED.map(([shots, php]) => [shots, php]),
     'the ladder drifted from the owner-set one',
   );
 });

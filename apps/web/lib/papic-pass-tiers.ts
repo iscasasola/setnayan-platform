@@ -38,8 +38,19 @@ export type PapicPassTier = {
   sortOrder: number;
 };
 
-/** Points a couple must already hold before the repeatable top-up unlocks. */
-export const PAPIC_TOPUP_UNLOCK_POINTS = 10_000;
+/*
+  🪤 `PAPIC_TOPUP_UNLOCK_POINTS` LIVED HERE AND HAD ZERO READERS — an exported
+  constant that read as a rule ("points a couple must already hold before the
+  repeatable top-up unlocks") while nothing anywhere enforced it. Deleted
+  2026-08-26 with the sixteen-rung ladder, because the concept it described is
+  gone twice over: `PAPIC_GUEST_TOPUP` was retired in 2026-07-29 and EVERY rung
+  is additive and repeatable now, so there is nothing to unlock.
+
+  It is called out rather than quietly removed because this is the smallest
+  version of the shape this codebase keeps paying for: a value that states a
+  threshold, is exported, is cited in another module's docblock — and gates
+  nothing. Anybody reading it would have believed a rule that was not there.
+*/
 
 /**
  * Fallbacks — used ONLY when papic_pass_tiers is unreadable (pre-migration).

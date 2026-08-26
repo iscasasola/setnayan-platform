@@ -57,7 +57,9 @@ So the eleven new rungs are three places each: the catalog row, the tier row, an
 
 ## The couple sees the saving, and it is derived
 
-The buy sheet already renders every sellable rung from the tier table and prices them from the catalog — **no hardcoded list**, and it is already `max-h-[85vh] overflow-y-auto`, so the seventeen rungs scroll without a layout change. **RULE 0 paid: the scrollable list the owner described already ships.**
+**RULE 0 paid — the scrollable list already ships, in both places it needed to.** The guest buy sheet renders every sellable rung from the tier table, priced from the catalog (**no hardcoded list**) inside a `max-h-[85vh] overflow-y-auto` panel. And the couple's own studio card puts the same rungs in a native `<select>` labelled *"How many shots"* — a dropdown of sixteen **is** a scrollable amount, on a phone and on a laptop, and it needed no change at all.
+
+Both label their options through the same phrase helper, so the discount lands on both surfaces from one edit.
 
 What was missing is the half his framing is about. A rung now reads:
 
@@ -75,6 +77,9 @@ Two rules added beside the pinned ladder: **no rung may cost more than ₱1 a cr
 | a rung priced above ₱1 a credit | 1 → 0 | 🔴 |
 | buying more costs more per credit | 1 → 0 | 🔴 |
 | a rung silently dropped from the ladder | 1 → 0 | 🔴 (the migration refuses to apply) |
+| **the dominated 40,000 rung restored** | 0 → 1 | 🔴 |
+
+That last one is the proof that matters: putting 40,000 back at ₱10,000 — the exact row the owner removed — now fails a test. What was a judgement call read off a table is a rule the build enforces.
 
 ## The AI-facing price list quotes the whole ladder, rendered not typed
 
@@ -87,6 +92,24 @@ Two rules added beside the pinned ladder: **no rung may cost more than ₱1 a cr
 It held **two rows for `PAPIC_GUEST`** — one at ₱1,200 (mine) and a leftover at ₱1,000 carrying retired *"Papic Pool"* wording. `buildPriceBook` keeps the **last**, so the 3,000 rung silently resolved to a price no rung had, and the failure read as "₱1,200 is active but never appears" — pointing at the prose rather than the fixture.
 
 **A hand-typed second copy of the catalog can disagree with ITSELF, not only with production.** A new rule asserts the fixture names each code exactly once, before any other rule reads it. Mutation: re-introducing a duplicate goes **red**.
+
+## 🪤 The ladder was written down TWICE, inside the guards meant to prevent exactly that
+
+`papic-rungs-are-fundable` and `papic-one-product-hand-out` each pinned the four-rung ladder **independently**. Repricing updated the first and left the second asserting prices that no longer exist — *"two copies of a rule always drift"*, this time inside the guards. Both now import one `papic-ladder.expected.ts`.
+
+### 🔑 And the second file already had the rule that would have caught the 40,000 automatically
+
+It asserted *"no rung is one nobody should buy"* — but as a **strictly falling rate**, which the new ladder breaks **by design**: the discount holds flat across whole bands (₱0.50 a credit from 100 to 2,000, ₱0.40 from 3,000 to 7,000, ₱0.25 across 20,000 and 30,000). A rung at the same rate as the one below is not dominated; it is the same value in a bigger size, which is the point of a scrollable list.
+
+**The real test is absolute price, not rate.** 40,000 at ₱10,000 beside 50,000 at ₱10,000 is the same money for 10,000 fewer shots — dominated, and now caught by a rule that says the price must **strictly rise** up the ladder. The rate rule survives as "never gets worse".
+
+So the thing I surfaced by reading his table is now enforced by a test.
+
+## 🪤 And a threshold that gated nothing came out with it
+
+`PAPIC_TOPUP_UNLOCK_POINTS = 10_000` — *"points a couple must already hold before the repeatable top-up unlocks"* — was **exported, cited in another module's docblock, and read by nothing**. The concept was dead twice over: that rung was retired in July, and every rung is additive and repeatable now.
+
+Called out rather than quietly removed, because it is the smallest version of the shape this codebase keeps paying for: **a value that states a rule, looks authoritative, and enforces nothing.** Anybody reading it would have believed a threshold that was not there.
 
 ## 🔬 Dry-run against production, rolled back
 

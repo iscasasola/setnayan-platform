@@ -85,7 +85,11 @@ export function roomForOutcome(params: Record<string, unknown>): PapicRoom | nul
     has('vendorMedia') ||
     // Preservation is chosen from the gallery, so its answer belongs there.
     has('preserve_set') ||
-    has('preserve_error')
+    has('preserve_error') ||
+    // Turning on the Uploads camera. Photos, because the picker lives in the
+    // library — a confirmation belongs where the thing it confirms is.
+    has('uploads_ready') ||
+    has('uploads_error')
   ) {
     return 'photos';
   }

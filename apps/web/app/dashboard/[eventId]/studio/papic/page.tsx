@@ -23,6 +23,7 @@ import {
   Users,
   BatteryWarning,
   QrCode,
+  Upload,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
@@ -37,6 +38,8 @@ import {
 import { fetchPapicGallery, fetchPreservationTotals } from '@/lib/papic-gallery';
 import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
+import { AddToLibrary } from './_components/add-to-library';
+import { claimUploadsCamera } from './actions';
 import { WhereYouStand } from './_components/where-you-stand';
 import { getKwentoDensity } from '@/lib/kwento-density';
 import {
@@ -63,6 +66,7 @@ import {
   PAPIC_LTD_CAP_FALLBACK_PHP,
   PAPIC_UNLI_CAP_FALLBACK_PHP,
   PAPIC_RUNGS,
+  PAPIC_UPLOADS_CAMERA_INDEX,
 } from '@/lib/papic-cameras';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { ensureFreePapicOneCameraAdmin, fetchPapicOneTiers } from '@/lib/papic-one';
@@ -142,6 +146,9 @@ type Props = {
      *  storage. Renamed from `storage_error` 2026-08-26 when the storage
      *  question was deleted and its old name started lying. */
     papic_access_error?: string;
+    /** Turning on the Uploads camera — see claimUploadsCamera. */
+    uploads_ready?: string;
+    uploads_error?: string;
     papic_purchased?: string;
     papic_order?: string;
     papic_ref?: string;
@@ -209,6 +216,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     drive_disconnected: driveDisconnected,
     drive_error: driveError,
     papic_access_error: papicAccessError,
+    uploads_ready: uploadsReady,
+    uploads_error: uploadsError,
     papic_purchased: papicPurchased,
     papic_order: papicOrder,
     papic_ref: papicRef,
@@ -460,6 +469,33 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     validUntil: papicWindow.endIso,
   });
 
+  // …then read it back, so the studio can either offer the picker or offer to
+  // turn it on. Admin client on purpose: `paparazzi_seats_claimer_read` only
+  // returns a seat once you ARE its claimer, so a couple cannot see their own
+  // UNCLAIMED Uploads camera under RLS. Pinned to this event and the reserved
+  // index, so it can only ever return the one seat.
+  //
+  // ⚠ A REFUSED READ IS NOT "THERE IS NO CAMERA". Both stay null and the block
+  // renders nothing, rather than offering a picker that cannot work or a
+  // turn-on button for a camera we could not look for.
+  let uploadsToken: string | null = null;
+  let uploadsClaimed = false;
+  {
+    const { data: up, error: upErr } = await unlockAdmin
+      .from('paparazzi_seats')
+      .select('claim_qr_token, claimer_user_id')
+      .eq('event_id', eventId)
+      .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
+      .is('revoked_at', null)
+      .maybeSingle();
+    if (upErr) {
+      logQueryError('PapicStudioPage.uploadsCamera', upErr, { eventId }, 'graceful_degrade');
+    } else if (up) {
+      uploadsClaimed = !!up.claimer_user_id && up.claimer_user_id === user.id;
+      uploadsToken = uploadsClaimed ? ((up.claim_qr_token as string) ?? null) : null;
+    }
+  }
+
   // ── LIMITED (guest-list) state ──────────────────────────────────────────
   // Auto-count = guests who haven't declined. One reversible snapshot freezes
   // the bill; render-time sync keeps cameras in line with late RSVPs (free,
@@ -612,6 +648,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         driveDisconnected={!!driveDisconnected}
         driveError={driveError}
         papicAccessError={papicAccessError}
+        uploadsReady={uploadsReady}
+        uploadsError={uploadsError}
         connectedAccount={driveGrant?.external_account_display ?? null}
         eventId={eventId}
         papicPurchased={papicPurchased}
@@ -699,6 +737,32 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       {/* Photos — the room they come back to for years. */}
       {room === 'photos' ? (
         <>
+        {/* ⚠ ADDING TO THE LIBRARY BELONGS IN THE LIBRARY, not in Set up.
+            Owner 2026-08-26: *"papic is the source where they collect media
+            files for that event."* The person who has just been shown what is
+            in their library is the person about to add to it. Putting the
+            picker behind a settings tab is how a look picker came to be the
+            first thing anybody saw. */}
+        <section className="space-y-4 sn-tile p-5 sm:p-6">
+          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <Upload aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+            Add to your library
+          </h2>
+          {uploadsToken ? (
+            <AddToLibrary token={uploadsToken} />
+          ) : (
+            <form action={claimUploadsCamera} className="space-y-3">
+              <input type="hidden" name="event_id" value={eventId} />
+              <p className="max-w-prose text-sm text-ink/65">
+                Add photos and clips from your phone or laptop — older memories
+                too. They land in the same gallery as everything your cameras
+                take, and cost the same: one credit a photo.
+              </p>
+              <SubmitButton className="sn-btn-primary">Turn this on</SubmitButton>
+            </form>
+          )}
+        </section>
+
         {/* ── Keep Full-Res (owner 2026-07-11 · sold on apply-then-pay) ─────── */}
         {ownsKeepFullRes ? (
           <section className="rounded-2xl border border-success-200/70 bg-success-50/50 p-4 text-xs text-ink/70">
@@ -1266,6 +1330,8 @@ function StatusBanners({
   driveDisconnected,
   driveError,
   papicAccessError,
+  uploadsReady,
+  uploadsError,
   connectedAccount,
   papicPurchased,
   papicOrder,
@@ -1292,6 +1358,8 @@ function StatusBanners({
   driveDisconnected: boolean;
   driveError: string | undefined;
   papicAccessError: string | undefined;
+  uploadsReady: string | undefined;
+  uploadsError: string | undefined;
   connectedAccount: string | null;
   papicPurchased: string | undefined;
   papicOrder: string | undefined;
@@ -1325,6 +1393,8 @@ function StatusBanners({
     driveDisconnected ||
     driveError ||
     papicAccessError ||
+    uploadsReady ||
+    uploadsError ||
     papicPurchased ||
     papicUnlockProvisioned ||
     papicError ||
@@ -1598,6 +1668,24 @@ function StatusBanners({
             <span className="font-mono text-xs">{driveError}</span>). Try again, or
             contact support.
           </span>
+        </p>
+      ) : null}
+
+      {uploadsReady ? (
+        <p className={ok}>
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Uploads are on. Add photos and clips from your phone or laptop — each
+          one uses a credit, the same as a camera shot.
+        </p>
+      ) : null}
+      {uploadsError ? (
+        <p className={bad}>
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          {uploadsError === 'taken'
+            ? 'Someone else is already holding this celebration’s uploads camera.'
+            : uploadsError === 'no_camera'
+              ? 'Your uploads camera isn’t ready yet — refresh in a moment.'
+              : 'We couldn’t turn uploads on just now. Try again in a moment.'}
         </p>
       ) : null}
 

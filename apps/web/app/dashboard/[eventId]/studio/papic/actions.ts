@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { eventIsOver } from '@/lib/event-is-over.server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventSkuActive } from '@/lib/entitlements';
 import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
@@ -23,6 +24,7 @@ import {
   fetchCameraRates,
   mintPapicReferenceCode,
   provisionPaidCamerasAdmin,
+  PAPIC_UPLOADS_CAMERA_INDEX,
 } from '@/lib/papic-cameras';
 import {
   countLimitedGuests,
@@ -362,6 +364,72 @@ const PAPIC_STYLE_VALUES = ['ORIG', 'RETRO', 'MONO', 'CINE', 'LOMO'] as const;
  * events.papic_style via the admin client (events writes are RLS-gated).
  * Every camera on the event inherits it at capture time.
  */
+/**
+ * TURN ON UPLOADS — claim this event's Uploads camera for the couple.
+ *
+ * Owner 2026-08-26: *"they can upload their work via papic credits as well per
+ * event."* An upload is a camera taking a shot, so the couple has to be holding
+ * the camera: `recordSeatCapture` and the `/api/upload` presign both check that
+ * the caller is the seat's CLAIMER, and that is the whole authorization for a
+ * capture.
+ *
+ * ⛔ IT DOES NOT REUSE `claimPapicSeat`, AND THAT IS NOT AN OVERSIGHT. That
+ * action redirects to `/papic/seat/${token}` on success — the camera screen —
+ * so posting the studio's button at it would carry the couple OUT of their own
+ * studio onto a viewfinder they did not ask for. The build plan proposed
+ * exactly that. Same RPC, same session, different destination.
+ *
+ * 🔑 THE CLAIM RUNS UNDER THE COUPLE'S OWN SESSION, never the admin client, so
+ * the `SECURITY DEFINER` RPC re-checks `auth.uid()` itself and refuses `'taken'`
+ * rather than overwriting an existing claimer. The couple check above is who may
+ * ASK; the RPC is what decides.
+ *
+ * ⚠ The token is read on the admin client because the seat is not theirs YET —
+ * `paparazzi_seats_claimer_read` only returns a seat once you are its claimer,
+ * so a couple cannot see their own unclaimed Uploads camera under RLS. The read
+ * is pinned to this event and to the reserved index, so it can only ever return
+ * the one seat this action exists to claim.
+ */
+export async function claimUploadsCamera(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) redirect(result.redirectTo);
+  const { eventId } = result;
+  const back = `/dashboard/${eventId}/studio/papic`;
+
+  const admin = createAdminClient();
+  const { data: seat, error: seatError } = await admin
+    .from('paparazzi_seats')
+    .select('claim_qr_token, claimer_user_id')
+    .eq('event_id', eventId)
+    .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
+    .is('revoked_at', null)
+    .maybeSingle();
+
+  // ⚠ A refused read is not "there is no camera". The studio render provisions
+  // it, so the honest answer is "try again in a moment", never a silent no-op.
+  if (seatError) {
+    logQueryError('claimUploadsCamera.seat', seatError, { event_id: eventId }, 'graceful_degrade');
+    redirect(`${back}?uploads_error=unavailable`);
+  }
+  if (!seat?.claim_qr_token) redirect(`${back}?uploads_error=no_camera`);
+  // Already ours ⇒ nothing to do. Not an error.
+  if (seat.claimer_user_id) redirect(`${back}?uploads_ready=1`);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('papic_claim_seat', {
+    p_token: seat.claim_qr_token as string,
+  });
+  if (error) {
+    logQueryError('claimUploadsCamera.claim', error, { event_id: eventId }, 'graceful_degrade');
+    redirect(`${back}?uploads_error=claim_failed`);
+  }
+  const status = ((data ?? {}) as { status?: string }).status ?? 'error';
+  if (status !== 'claimed') redirect(`${back}?uploads_error=${encodeURIComponent(status)}`);
+
+  revalidatePath(back);
+  redirect(`${back}?uploads_ready=1`);
+}
+
 export async function setPapicStyle(formData: FormData) {
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {

@@ -30,6 +30,7 @@
 import { useEffect, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { savePushSubscription, removePushSubscription } from '@/lib/push-actions';
+import { unblockSteps, type UnblockGuide } from '@/lib/push-unblock-steps';
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '';
 
@@ -48,28 +49,89 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 
 type Status = 'unknown' | 'unsupported' | 'denied' | 'off' | 'on';
 
-export function PushToggle() {
+/**
+ * Who is reading this switch. Three trees share this component, and until
+ * 2026-08-26 all three were told the SAME thing — *"when a vendor messages you
+ * or a new inquiry comes in"* — including the admin console, where a vendor
+ * never messages you and there are no inquiries. 🔑 A shared component inherits
+ * the copy of whichever tree it was born in; moving it does not re-audience it.
+ */
+export type PushAudience = 'admin' | 'couple' | 'vendor';
+
+const PROMISE: Record<PushAudience, string> = {
+  admin:
+    'Get alerted on this device when money needs confirming, a shop is waiting to be checked, or something goes past its due date — even when the app is closed.',
+  couple:
+    'Get alerted on this device when a supplier messages you or something on your plan needs an answer — even when the app is closed.',
+  vendor:
+    'Get alerted on this device when a couple messages you or a new inquiry comes in — even when the app is closed.',
+};
+
+/** Running as an installed app rather than a browser tab. On iOS this is the
+ *  difference between web push existing and not existing at all. */
+function isStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  const iosStandalone = (window.navigator as Navigator & { standalone?: boolean }).standalone;
+  return Boolean(iosStandalone) || window.matchMedia?.('(display-mode: standalone)').matches === true;
+}
+
+export function PushToggle({ audience = 'couple' }: { audience?: PushAudience } = {}) {
   const [status, setStatus] = useState<Status>('unknown');
   const [busy, setBusy] = useState(false);
+  const [guide, setGuide] = useState<UnblockGuide | null>(null);
 
-  // Determine current state after mount (SSR-safe — these APIs are browser-only).
+  /*
+    Determine current state after mount (SSR-safe — these APIs are browser-only),
+    AND KEEP WATCHING.
+
+    🔑 THE WATCH IS THE POINT, not a nicety. Unblocking happens OUTSIDE this
+    page — in browser settings, or in a system settings app. Resolving the
+    permission once on mount meant somebody could follow the instructions to the
+    letter, come back to a switch that was still dead, and reasonably conclude
+    the feature was broken. That is the "a fix nobody can reach" shape, one step
+    further along: a fix they DID reach, that the screen refused to notice.
+
+    Two channels, because neither covers everything: the Permissions API fires
+    `change` the instant the setting flips (Chrome, Edge, Firefox), and
+    `visibilitychange` catches the rest when the tab is looked at again — which
+    is exactly the moment somebody returns from settings.
+  */
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const supported =
-        typeof window !== 'undefined' &&
-        'serviceWorker' in navigator &&
-        'PushManager' in window &&
-        'Notification' in window &&
-        Boolean(VAPID_PUBLIC_KEY);
+    let permissionStatus: PermissionStatus | null = null;
+
+    const supported =
+      typeof window !== 'undefined' &&
+      'serviceWorker' in navigator &&
+      'PushManager' in window &&
+      'Notification' in window &&
+      Boolean(VAPID_PUBLIC_KEY);
+
+    const resolve = async () => {
+      if (cancelled) return;
       if (!supported) {
-        if (!cancelled) setStatus('unsupported');
+        setStatus('unsupported');
+        // iOS outside an installed app lands here, and the way in is a real
+        // instruction rather than a shrug — so it gets a guide too.
+        setGuide(
+          unblockSteps({
+            userAgent: navigator.userAgent,
+            standalone: isStandalone(),
+          }),
+        );
         return;
       }
       if (Notification.permission === 'denied') {
-        if (!cancelled) setStatus('denied');
+        setStatus('denied');
+        setGuide(
+          unblockSteps({
+            userAgent: navigator.userAgent,
+            standalone: isStandalone(),
+          }),
+        );
         return;
       }
+      setGuide(null);
       try {
         const reg = await navigator.serviceWorker.ready;
         const existing = await reg.pushManager.getSubscription();
@@ -77,9 +139,34 @@ export function PushToggle() {
       } catch {
         if (!cancelled) setStatus('off');
       }
-    })();
+    };
+
+    void resolve();
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void resolve();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+
+    if (supported && navigator.permissions?.query) {
+      navigator.permissions
+        .query({ name: 'notifications' as PermissionName })
+        .then((p) => {
+          if (cancelled) return;
+          permissionStatus = p;
+          p.addEventListener('change', onVisible);
+        })
+        .catch(() => {
+          /* Safari and older browsers reject this name — visibilitychange covers them. */
+        });
+    }
+
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+      permissionStatus?.removeEventListener('change', onVisible);
     };
   }, []);
 
@@ -137,7 +224,8 @@ export function PushToggle() {
   const interactive = status === 'on' || status === 'off';
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-ink/10 bg-cream p-4">
+    <div className="rounded-xl border border-ink/10 bg-cream p-4">
+      <div className="flex items-center justify-between gap-4">
       <span className="flex min-w-0 items-start gap-3">
         <span
           aria-hidden
@@ -151,10 +239,10 @@ export function PushToggle() {
           </span>
           <span className="text-xs text-ink/55">
             {status === 'unsupported'
-              ? 'Not available on this device or browser. On iPhone, add Setnayan to your Home Screen first.'
+              ? 'Not available in this browser. Install Setnayan first and alerts become available.'
               : status === 'denied'
-                ? 'Blocked in your browser settings. Re-enable notifications for this site to turn them on.'
-                : 'Get alerted on this device when a vendor messages you or a new inquiry comes in — even when the app is closed.'}
+                ? 'This device is blocking them. Nothing is broken — the steps below switch them back on.'
+                : PROMISE[audience]}
           </span>
         </span>
       </span>
@@ -175,6 +263,34 @@ export function PushToggle() {
           }`}
         />
       </button>
+      </div>
+
+      {/*
+        THE WAY OUT. A blocked device cannot be re-prompted by any code we can
+        write — `requestPermission()` returns 'denied' with no dialog — so the
+        only honest thing a screen can do is say exactly which buttons to press
+        on the device in front of you. Steps are numbered because they are
+        performed in order, somewhere else, from memory.
+      */}
+      {guide && (status === 'denied' || status === 'unsupported') ? (
+        <div className="mt-3 border-t border-ink/10 pt-3">
+          <p className="text-xs font-semibold text-ink/70">
+            How to turn them on — {guide.platform}
+          </p>
+          <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-xs text-ink/60 marker:text-ink/40">
+            {guide.steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+          {guide.systemNote ? (
+            <p className="mt-2 text-xs text-ink/50">{guide.systemNote}</p>
+          ) : null}
+          <p className="mt-2 text-xs text-ink/50">
+            You do not need to come back here and press anything — this switch
+            notices by itself once the device allows it.
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -33,7 +33,7 @@ export default async function VendorNotificationsPage() {
       </header>
 
       {/* Push notification opt-in / disable toggle */}
-      <PushToggle />
+      <PushToggle audience="vendor" />
 
       {unreadCount > 0 ? (
         <form action={markAllNotificationsRead} className="mb-4">

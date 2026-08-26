@@ -1085,7 +1085,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             phones that support it.
           </p>
         </div>
-        <PushToggle />
+        <PushToggle audience="couple" />
         <HapticsToggle />
       </section>
 

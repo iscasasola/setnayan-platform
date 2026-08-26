@@ -67,7 +67,7 @@ export async function NotificationsSurface() {
        * it renders a quiet "not available" note rather than a dead switch — so
        * this is safe to ship before the keys are confirmed in hosting. */}
       <div className="mb-6">
-        <PushToggle />
+        <PushToggle audience="admin" />
       </div>
 
       {unreadCount > 0 ? (

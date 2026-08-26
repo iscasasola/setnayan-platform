@@ -43,7 +43,9 @@ import { join } from 'node:path';
 import { ADMIN_NAV_GROUPS } from './admin-nav-groups';
 import { ALL_SURFACES_MENU } from './admin-sidebar';
 import { ADMIN_BOTTOM_NAV_ITEMS } from './admin-bottom-nav';
+import { ADMIN_NAV_ALIASES } from './admin-nav-descriptions';
 import { NAV_SLOT_DEFAULTS } from '@/lib/nav-registry-defaults';
+import { readdirSync, statSync } from 'node:fs';
 
 const RAIL_SRC = readFileSync(
   join(__dirname, 'admin-rail-context.tsx'),
@@ -191,5 +193,109 @@ test('5 · a bottom-nav slot may not disagree with the tab it overlays', () => {
       'out-ranks a correct rename in code and the tab keeps its old name. ' +
       'This is not an admin rename — those live in nav_slot_override; this ' +
       'is the shipped DEFAULT, and it must agree with the code it replaces.',
+  );
+});
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * 2026-08-26 — THE SECOND HALF OF THE SAME BUG.
+ *
+ * Fixing the rail and the phone made the owner say *"do it"* about the pages,
+ * and measuring those turned up the same shape twice more:
+ *
+ *   · the SIDEBAR overlays registry labels onto items exactly as the bottom nav
+ *     does — 62 slots, and one ("Real Stories" in code, "Stories" in the
+ *     registry) had been silently drifting, the registry winning;
+ *   · five page titles still named a menu that no longer exists, and one of
+ *     them — "Money & Settings" — had become plainly FALSE, because the recut
+ *     moved every settings surface out of Money and into Set up.
+ *
+ * ⚠ AND RENAMING A MENU ITEM SILENTLY DELETES ITS OLD NAME FROM THE SEARCH BOX.
+ * A menu item's searchable words are label + group label + description + alias.
+ * The route is NOT among them. So "app performance", typed for months, would
+ * have returned nothing with no clue why. Rule 8 is what keeps that honest.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+test('6 · a sidebar registry slot may not disagree with the item it overlays', () => {
+  const byKey = new Map<string, string>();
+  for (const g of ADMIN_NAV_GROUPS) for (const it of g.items) byKey.set(it.key, it.label);
+
+  const conflicts = NAV_SLOT_DEFAULTS.filter((s) => s.key.startsWith('admin.sidebar.'))
+    .map((s) => ({ s, code: byKey.get(s.key.slice('admin.sidebar.'.length)) }))
+    .filter(({ s, code }) => code !== undefined && code !== s.label)
+    .map(({ s, code }) => `${s.key}: registry "${s.label}" overrides code "${code}"`);
+
+  assert.deepEqual(
+    conflicts,
+    [],
+    'the desktop sidebar overlays the slot label on top of the item label, so a ' +
+      'stale default here silently out-ranks a correct rename — the same ' +
+      'mechanism that made the whole menu recut invisible. Fix the registry.',
+  );
+});
+
+/** Names the six menus carried BEFORE the 2026-08-25 recut. This is a CLOSED
+ *  historical record, not a list anybody has to keep feeding: these words were
+ *  retired on one day and nothing can retire more of them. A page still calling
+ *  itself one of these is naming a menu that does not exist. */
+const RETIRED_MENU_NAMES = [
+  'Overview HQ',
+  'Money & Settings HQ',
+  'Money & Settings',
+  'Accounts · Admin',
+  'Menu · Admin',
+  'Ugat Console',
+];
+
+/** Every page.tsx under app/admin, found by walking — never hand-listed, so a
+ *  page added tomorrow is covered without anybody remembering to add it. */
+function adminPageFiles(dir: string, acc: string[] = []): string[] {
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) adminPageFiles(full, acc);
+    else if (entry === 'page.tsx') acc.push(full);
+  }
+  return acc;
+}
+
+test('7 · no admin page titles itself with a menu name that was retired', () => {
+  const pages = adminPageFiles(join(__dirname, '..'));
+  assert.ok(pages.length > 40, `walked only ${pages.length} admin pages — the walk is wrong`);
+
+  const offenders: string[] = [];
+  for (const file of pages) {
+    const src = codeOnly(readFileSync(file, 'utf8'));
+    for (const name of RETIRED_MENU_NAMES) {
+      // Only titles — the word may legitimately appear elsewhere ("Overview" is
+      // a real tab name on two hubs). This asks what the PAGE calls itself.
+      const re = new RegExp(`title[:=]\\s*[{]?\\s*['"\`]${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`);
+      if (re.test(src)) offenders.push(`${file.split('/app/admin/')[1]} still titles itself "${name}"`);
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    'a page that names a retired menu sends the reader looking for a menu that ' +
+      'is not there — and "Money & Settings" is worse than mismatched, it is ' +
+      'false: settings moved to Set up in the recut.',
+  );
+});
+
+test('8 · a renamed menu item keeps its old name findable', () => {
+  // The search box indexes label + group + description + alias, NOT the route.
+  // These two items were renamed to match their menus; without the alias their
+  // old names stop resolving and the box answers a confident nothing.
+  const RENAMED: { key: string; oldName: string }[] = [
+    { key: 'overview', oldName: 'overview' },
+    { key: 'app-performance', oldName: 'app performance' },
+  ];
+  const lost = RENAMED.filter(
+    ({ key, oldName }) => !(ADMIN_NAV_ALIASES[key] ?? '').toLowerCase().includes(oldName),
+  ).map(({ key, oldName }) => `${key}: "${oldName}" is no longer searchable`);
+
+  assert.deepEqual(
+    lost,
+    [],
+    'renaming deleted a word people have been typing for months, and a search ' +
+      'that finds nothing looks identical to a page that does not exist.',
   );
 });

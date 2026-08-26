@@ -26,7 +26,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { TablePageSkeleton } from '@/components/skeletons';
 import { TransactionsLedger } from './_components/transactions-ledger';
 
-export const metadata = { title: 'Money & Settings HQ' };
+export const metadata = { title: 'Money' };
 
 /**
  * THE MONEY IS ON THE MONEY PAGE NOW — 2026-08-25.
@@ -57,7 +57,7 @@ export default async function AdminMoneyHub() {
       <Suspense fallback={<TablePageSkeleton />}>
         <TransactionsLedger />
       </Suspense>
-      <MobileLandingGrid desktopVisible title="Money & Settings" items={items} />
+      <MobileLandingGrid desktopVisible title="Money" items={items} />
     </>
   );
 }

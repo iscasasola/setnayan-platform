@@ -20,7 +20,7 @@ import {
   type AdminQueueDueState,
 } from '@/lib/admin/queue-counts';
 
-export const metadata = { title: 'Overview HQ' };
+export const metadata = { title: 'Today' };
 
 function take(c: number | null | undefined): number | null {
   return typeof c === 'number' ? c : null;
@@ -321,7 +321,7 @@ export default async function AdminOverview() {
       <PageMasthead
         titleNode={
           <>
-            Overview <span>— what needs you</span>
+            Today <span>— what needs you</span>
           </>
         }
       />

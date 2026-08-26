@@ -263,4 +263,14 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   help: 'support tickets questions',
   seo: 'search google ranking llms',
   receipts: 'invoice or bir official receipt',
+  // ── RETIRED NAMES, KEPT FINDABLE (2026-08-26) ────────────────────────────
+  // A menu item's searchable words are its label + its group's label + its
+  // description + this alias line. THE ROUTE IS NOT AMONG THEM — only redirect
+  // stubs contribute their address. So renaming a menu item silently deletes
+  // its old name from the search box, and somebody who has typed "app
+  // performance" for months gets nothing back with no clue why. These two
+  // items were renamed to match the menus they open; their old names live on
+  // here, and `the-menu-name-has-one-source.test.ts` fails if one goes missing.
+  overview: 'overview hq pulse dashboard front page what needs me',
+  'app-performance': 'app performance stats metrics speed health uptime',
 };

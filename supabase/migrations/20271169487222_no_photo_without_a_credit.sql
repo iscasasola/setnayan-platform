@@ -99,8 +99,8 @@
 -- ============================================================================
 
 -- 1 ── the grant. Table-level, so every column goes with it.
--- SABOTAGE REVOKE INSERT ON TABLE public.papic_photos FROM authenticated;
--- SABOTAGE REVOKE INSERT ON TABLE public.papic_photos FROM anon;
+REVOKE INSERT ON TABLE public.papic_photos FROM authenticated;
+REVOKE INSERT ON TABLE public.papic_photos FROM anon;
 
 -- 2 ── the policy. FOR ALL → three verbs, same predicates.
 DROP POLICY IF EXISTS papic_photos_claimer_own ON public.papic_photos;

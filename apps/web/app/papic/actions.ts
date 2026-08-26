@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { releaseCaptureCredits } from '@/lib/papic-release-capture';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
@@ -562,14 +563,63 @@ export async function recordSeatCapture(
   // caller that transmits geo to a control-off event has it dropped here (the
   // client also self-gates and won't request a fix when off). buildPapicGeoFields
   // returns {} when off → spreading it writes no geo column, leaving them NULL.
+  //
+  // ⚠ THAT SENTENCE WAS ASPIRATIONAL UNTIL 2026-08-26 and is true now. A direct
+  // caller did not have to come through here at all — `authenticated` held
+  // INSERT on papic_photos (at column level, so a table-level audit read clean),
+  // and a POST straight to PostgREST wrote whatever geolocation it liked onto an
+  // event that had switched the control off. See the writer block below.
   const geoEnabled = await isDataPrivacyControlActive('papic_geo_metadata');
   const geoFields = buildPapicGeoFields(geoEnabled, geo);
 
   let insertedPhotoId: string | null = null;
 
+  /*
+    ── THE ROW IS WRITTEN WITH THE SERVICE ROLE, AND THAT IS THE WHOLE GATE ────
+
+    Everything above this line — the burst limiter, the 10-second cap, the
+    capture window, the paid-order gate, the put-away gate, the geo privacy
+    control, and the credit reservation — used to be advice. The insert went in
+    through the CLAIMER'S OWN SESSION, and `authenticated` held INSERT on
+    papic_photos, so the same person could skip this function and POST straight
+    to /rest/v1/papic_photos with the public anon key: no credits spent, no
+    length checked, no window, no payment, geo written on an event that had
+    switched geo off.
+
+    🔑 THE GRANT WAS INVISIBLE AT TABLE LEVEL. It was held on all 39 grantable
+    COLUMNS, so `role_table_grants` reported no INSERT at all and an audit read
+    clean. Migration 20271169487222 revokes it — at TABLE level, because that is
+    what drops column grants — and splits the claimer's FOR ALL policy so it no
+    longer declares an INSERT arm nobody can use.
+
+    So this write must not use `supabase`. It uses the service role, and the
+    checks above are now the only door rather than the recommended one.
+
+    ⚠ An unavailable admin client is a REFUSAL here, not a fail-open. The reads
+    above fail open on purpose — a config error must never stop a wedding being
+    photographed by wrongly answering a question. This is not a question: with
+    the grant gone there is no second path to fall back to, so the honest
+    outcome is a soft error the camera can show and retry.
+
+    ⛔ THIS IS STILL TWO STEPS, NOT ONE TRANSACTION. The credits were reserved
+    above and the row is written here; a failure between them unwinds in
+    application code below. A process that dies in the gap leaks the reserved
+    credits — charged for a photo that does not exist. That errs against us
+    rather than against the meter, which is the right direction to fail while it
+    stands, but it is debt: the repair is a SECURITY DEFINER function that
+    reserves and inserts under one transaction, which deletes the unwind
+    outright. Do not read "service role" as "atomic".
+  */
+  let writer: SupabaseClient;
+  try {
+    writer = createAdminClient();
+  } catch {
+    return { ok: false, error: 'unavailable' };
+  }
+
   {
     const insertWithoutPoster = () =>
-      supabase
+      writer
         .from('papic_photos')
         .insert({
           event_id: seat.event_id,
@@ -585,7 +635,7 @@ export async function recordSeatCapture(
         .single();
 
     let { data: inserted, error: insertError } = cleanPoster
-      ? await supabase
+      ? await writer
           .from('papic_photos')
           .insert({
             event_id: seat.event_id,
@@ -605,7 +655,7 @@ export async function recordSeatCapture(
     // PGRST204): retry with the MINIMAL shape (no poster, no geo) — losing the
     // screen proxy or the geo stamp must never lose the clip/photo itself.
     if (insertError && insertError.code === 'PGRST204') {
-      ({ data: inserted, error: insertError } = await supabase
+      ({ data: inserted, error: insertError } = await writer
         .from('papic_photos')
         .insert({
           event_id: seat.event_id,

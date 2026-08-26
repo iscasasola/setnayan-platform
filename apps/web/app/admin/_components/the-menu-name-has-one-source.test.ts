@@ -66,10 +66,13 @@ function parseStripCaptions(): Map<string, string> {
     /const STRIP_CAPTION: Record<string, string> = \{([\s\S]*?)\};/,
   );
   const found = new Map<string, string>();
-  if (!body) return found;
-  for (const line of body[1].split('\n')) {
+  const inner = body?.[1];
+  if (!inner) return found;
+  for (const line of inner.split('\n')) {
     const m = line.match(/^\s*'?([a-z-]+)'?\s*:\s*'([^']+)'\s*,/);
-    if (m) found.set(m[1], m[2]);
+    const key = m?.[1];
+    const caption = m?.[2];
+    if (key && caption) found.set(key, caption);
   }
   return found;
 }

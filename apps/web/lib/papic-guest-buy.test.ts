@@ -86,8 +86,13 @@ test('a live rung resolves to its kind and its points', () => {
   assert.equal(one.rung.points, 100);
 });
 
+/* ⚠ The placeholder here must be a code that can NEVER be minted. It used to
+   be PAPIC_GUEST_50K, which became a REAL rung on 2026-08-26 — at which point
+   this test was still green while asserting that a live product is unknown.
+   A negative fixture borrowed from the real namespace rots the day the
+   namespace grows into it. */
 test('an unknown service code is REFUSED, never defaulted to a rung', () => {
-  for (const code of ['', '   ', 'PAPIC_GUEST_50K', 'SETNAYAN_AI', 'PAPIC_GUEST_TOPUP']) {
+  for (const code of ['', '   ', 'PAPIC_GUEST_999K', 'SETNAYAN_AI', 'PAPIC_GUEST_TOPUP']) {
     const r = resolveGuestRung(code, POOL, ONE);
     assert.equal(r.ok, false, `"${code}" resolved to a rung`);
   }

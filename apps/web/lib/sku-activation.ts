@@ -930,6 +930,28 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   PAPIC_GUEST_23K: grantPapicPassPoints,
   PAPIC_GUEST_26K: grantPapicPassPoints,
   PAPIC_GUEST_30K: grantPapicPassPoints,
+  // 🚨 THE SCROLLABLE LADDER — TEN NEW RUNGS (owner 2026-08-26 · migration
+  // 20271170435163). The ladder is now 16 rungs priced off ₱1 = 1 credit, and
+  // 40,000 is deliberately ABSENT — owner: "remove the 40,000", because at
+  // ₱10,000 it cost the same as 50,000 and could never be anybody's best choice.
+  // these ten did not exist in any form: not retired, not switched off,
+  // never created. Every one of them is added HERE in the same PR as its
+  // catalog row and its papic_pass_tiers row, because two of the three ship a
+  // rung that takes the couple's money and grants ZERO shots, silently.
+  //
+  // ⚠ The corpus DECISION_LOG recorded this ladder as "Built as given" on
+  // 2026-08-26 and it was NOT built — no migration, no branch, no PR. That row
+  // is why this comment exists: a decision log is not evidence of code.
+  PAPIC_GUEST_200: grantPapicPassPoints,
+  PAPIC_GUEST_300: grantPapicPassPoints,
+  PAPIC_GUEST_400: grantPapicPassPoints,
+  PAPIC_GUEST_500: grantPapicPassPoints,
+  PAPIC_GUEST_1K: grantPapicPassPoints,
+  PAPIC_GUEST_2K: grantPapicPassPoints,
+  PAPIC_GUEST_4K: grantPapicPassPoints,
+  PAPIC_GUEST_5K: grantPapicPassPoints,
+  PAPIC_GUEST_7K: grantPapicPassPoints,
+  PAPIC_GUEST_50K: grantPapicPassPoints,
   // Retired 2026-07-29 (catalog + papic_pass_tiers row both deactivated) because
   // every rung is additive now, so a separate "+10,000 top-up" was a duplicate of
   // PAPIC_GUEST_10K. The hook stays wired: an order minted before the retirement

@@ -165,10 +165,15 @@ COMMENT ON FUNCTION public.tg_stamp_capturer_person() IS
   'INSERT and UPDATE. The column had ZERO writers and ZERO non-null rows in '
   'production for three months while a reader grouped by it. Derived, never '
   'supplied: a caller-named value is redundant at best and a forgery at worst, '
-  'and `authenticated` holds UPDATE on the column. Deliberately NOT gated on '
-  'current_user — unlike tg_pin_vendor_capture_verdict, which protects a '
-  'decision the service role must be able to make, this reproduces a join, and '
-  'the honest capture path writes AS the service role.';
+  'and `authenticated` holds UPDATE on the column. It also PINS '
+  'paparazzi_seat_id on UPDATE, because the credit is derived from the seat and '
+  'is therefore only as trustworthy as it — a host could otherwise move a '
+  'friend''s photo onto their own camera and be credited for it. '
+  '⚠ NEITHER rule is gated on current_user, and do not add such a gate here: '
+  'inside a SECURITY DEFINER function current_user is the OWNER, never the '
+  'caller, so the gate is silently always false. That mistake was made and '
+  'caught in this very function. tg_pin_vendor_capture_verdict next door can '
+  'use one only because it is SECURITY INVOKER.';
 
 -- ⚠ SECURITY DEFINER, AND THEN EXECUTE TAKEN AWAY. Two things are going on and
 -- they are easy to conflate:

@@ -164,7 +164,20 @@ test('8 · the switch NOTICES when the device is unblocked elsewhere', () => {
 test('9 · each tree is promised what IT actually gets', () => {
   // The shared component was born on the couple profile and carried its copy
   // into the admin console, promising the operator vendor messages.
-  assert.match(TOGGLE_CODE, /PROMISE/, 'the promise must be per audience');
+  /*
+    🪤 REV 1 OF THIS RULE WAS DECORATION AND A MUTATION SAID SO. It asserted
+    that PROMISE existed and that all three keys were written — and replacing
+    the render's `PROMISE[audience]` with a hardcoded `PROMISE.vendor`, which
+    puts vendor copy back on the admin console, left it GREEN. A map that
+    nothing indexes is three sentences nobody reads. **A grep cannot tell a
+    name appearing from a name being USED.**
+  */
+  assert.match(
+    TOGGLE_CODE,
+    /PROMISE\[\s*audience\s*\]/,
+    'the render must index the promise BY the audience prop, not pick one for everybody',
+  );
+  assert.match(TOGGLE_CODE, /audience\s*=\s*'couple'/, 'the default audience must be explicit');
   for (const aud of ['admin', 'couple', 'vendor']) {
     assert.ok(
       new RegExp(`${aud}:`).test(TOGGLE_CODE),

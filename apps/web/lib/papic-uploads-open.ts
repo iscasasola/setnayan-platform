@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { manualUploadsClosedFrom } from '@/lib/papic-uploads-open-rule';
 import { PAPIC_UPLOADS_CAMERA_INDEX } from '@/lib/papic-cameras';
 
 /**
@@ -52,6 +53,12 @@ import { PAPIC_UPLOADS_CAMERA_INDEX } from '@/lib/papic-cameras';
  * read that something else depends on turns a missing migration into a live
  * celebration rendering as missing. That is a mistake this Papic surface has
  * already made once.
+ *
+ * 🔑 THE DECISION ITSELF IS IN `papic-uploads-open-rule.ts`, which is pure and
+ * unit-tested. This file is the round trip and nothing else — the same split
+ * `event-accepts-captures.ts` has, and for the same reason: a `server-only`
+ * module cannot be imported by a test in this repo, so a rule living in one is
+ * a rule nothing measures.
  */
 export async function papicManualUploadsClosed(
   admin: SupabaseClient,
@@ -59,6 +66,8 @@ export async function papicManualUploadsClosed(
   seatIndex: number | null | undefined,
 ): Promise<boolean> {
   // Not the Uploads camera → not a manual upload → the switch has no opinion.
+  // Asked before the round trip, so an ordinary capture never pays for a read
+  // whose answer it would ignore.
   if (seatIndex !== PAPIC_UPLOADS_CAMERA_INDEX) return false;
   if (!eventId) return false;
 
@@ -68,11 +77,16 @@ export async function papicManualUploadsClosed(
       .select('papic_uploads_open')
       .eq('event_id', eventId)
       .maybeSingle();
-    // ⚠ Supabase RESOLVES with { error } rather than throwing, so this explicit
-    // check is the only one there is. A refused read is not "closed".
-    if (error || !data) return false;
-    return ((data as { papic_uploads_open?: boolean | null }).papic_uploads_open ?? true) === false;
+    // ⚠ Supabase RESOLVES with { error } rather than throwing, so passing the
+    // error in explicitly is the only way the rule can see it. A refused read is
+    // not "closed".
+    return manualUploadsClosedFrom(
+      seatIndex,
+      data as { papic_uploads_open?: boolean | null } | null,
+      Boolean(error),
+    );
   } catch {
+    // An unavailable admin client is a config error, not an answer.
     return false;
   }
 }

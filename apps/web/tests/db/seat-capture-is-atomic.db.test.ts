@@ -29,6 +29,7 @@
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import type { PGlite } from '@electric-sql/pglite';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
@@ -452,9 +453,15 @@ test('8 · 🪤 the function never asks `current_user` who the caller is', () =>
     the trigger watched. Second time this project has paid for it.
 
     ⚠ READ OFF THE MIGRATION FILE, not out of the replay: what is being defended
-    is the text somebody will edit. Comments are stripped first, because this
-    function's own header explains the trap at length and a raw match would
-    report the mistake it is warning about.
+    is the text somebody will edit.
+
+    🪤 AND SCOPED TO THE DOLLAR-QUOTED BODY, WHICH THE FIRST CUT WAS NOT — it
+    went red on its own explanation. Stripping `--` comments is not enough here,
+    because the `COMMENT ON FUNCTION` beside it is a SQL *string literal* saying
+    "never current_user, which inside a SECURITY DEFINER function is this
+    function's OWNER". Prose that describes a rule is not a violation of it, and
+    a guard that cannot tell the difference teaches you to skim past the one time
+    it is right.
   */
   const src = readFileSync(
     new URL(
@@ -463,13 +470,11 @@ test('8 · 🪤 the function never asks `current_user` who the caller is', () =>
     ),
     'utf8',
   );
-  const body = src.slice(src.indexOf('CREATE OR REPLACE FUNCTION'));
-  const stripped = body
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*--.*$/gm, '');
+  const body = /\$function\$([\s\S]*?)\$function\$/.exec(src)?.[1] ?? '';
+  const stripped = body.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*--.*$/gm, '');
 
   assert.ok(
-    stripped.includes('papic_record_seat_capture'),
+    stripped.includes('papic_reserve_capture_split'),
     'the function body could not be located in the migration — this rule is vacuous',
   );
   assert.equal(

@@ -114,26 +114,87 @@ test('Papic One is not sellable at all — there is one product now', async () =
   );
 });
 
+/**
+ * The ladder the owner set, pinned as a SET — not as prose in a doc. The corpus
+ * has been wrong about a live price before, and a number in a sentence cannot
+ * fail.
+ *
+ * ⚠ SUPERSEDES the four-rung ladder of 2026-08-11 (100 ₱50 · 3,000 ₱1,000 ·
+ * 10,000 ₱3,000 · 20,000 ₱5,000), which itself superseded a nine-rung one. Owner
+ * 2026-08-26, given as a table and then as the rule behind it: *"if they were to
+ * add a number of shots, and we have a scrollable amount it would be something
+ * like this if compared to 1 peso = 1 credit."*
+ *
+ * ⚖ 40,000 IS DELIBERATELY ABSENT. His first table had it at ₱10,000 — the same
+ * price as 50,000 — so nobody could rationally choose it. Surfaced rather than
+ * silently corrected, and he removed it: *"remove the 40,000"*. Do not re-add it
+ * without a price of its own.
+ */
+const OWNER_LADDER_2026_08_26: [number, number][] = [
+  [100, 50],
+  [200, 100],
+  [300, 150],
+  [400, 200],
+  [500, 250],
+  [1_000, 500],
+  [2_000, 1_000],
+  [3_000, 1_200],
+  [4_000, 1_600],
+  [5_000, 2_000],
+  [6_000, 2_400],
+  [7_000, 2_800],
+  [10_000, 3_200],
+  [20_000, 5_000],
+  [30_000, 7_500],
+  [50_000, 10_000],
+];
+
 test('the ladder the owner set is exactly what is on sale', async () => {
-  // Owner 2026-08-11, final of four revisions the same day: 50 free, then
-  // ₱50/100 · ₱1,000/3,000 · ₱3,000/10,000 · ₱5,000/20,000. Pinned as a set, not
-  // as prose in a doc — the corpus has been wrong about a live price before, and
-  // a number in a sentence cannot fail.
-  //
-  // ⚠ SUPERSEDES the nine-rung ladder to 30,000 asserted here hours earlier. That
-  // ladder never reached production; it and this file's version of it merge in
-  // the same deploy that corrects them.
   const rungs = await sellableRungs('papic_pass_tiers');
   assert.deepEqual(
     rungs.map((r) => [Number(r.points), Number(r.php)]),
-    [
-      [100, 50],
-      [3_000, 1_000],
-      [10_000, 3_000],
-      [20_000, 5_000],
-    ],
+    OWNER_LADDER_2026_08_26,
     'the ladder drifted from the owner-set one',
   );
+});
+
+/**
+ * TWO DERIVED RULES, asserted against the LIVE ladder rather than the pinned
+ * literal — so they still bite on a future re-cut that nobody remembers to run
+ * past this file.
+ *
+ * 🔑 The REGULAR price of a rung is its credit count (₱1 = 1 shot). That rule is
+ * never stored as a column — storing a second copy of a rule is how prices
+ * drift — so it can only be enforced here.
+ */
+test('no rung costs more than ₱1 a credit, and buying more never costs more per credit', async () => {
+  const rungs = (await sellableRungs('papic_pass_tiers')).map((r) => ({
+    credits: Number(r.points),
+    php: Number(r.php),
+  }));
+  assert.ok(rungs.length > 0, 'no sellable rungs at all — the ladder is empty');
+
+  for (const r of rungs) {
+    assert.ok(
+      r.php <= r.credits,
+      `the ${r.credits}-shot rung costs ₱${r.php} — above the ₱1-a-credit regular price, so the "discount" is a markup`,
+    );
+  }
+
+  // `<=` deliberately, not `<`. Today every step is a strict improvement, but a
+  // future ladder may legitimately repeat a per-credit rate across two rungs;
+  // what must never happen is buying MORE costing more per shot.
+  for (let i = 1; i < rungs.length; i += 1) {
+    const prev = rungs[i - 1]!;
+    const cur = rungs[i]!;
+    const prevPer = prev.php / prev.credits;
+    const curPer = cur.php / cur.credits;
+    assert.ok(
+      curPer <= prevPer + 1e-9,
+      `the ${cur.credits}-shot rung costs ₱${curPer.toFixed(4)}/shot but the smaller ` +
+        `${prev.credits}-shot rung costs ₱${prevPer.toFixed(4)}/shot — buying more must never cost more per shot`,
+    );
+  }
 });
 
 test('every rung is repeatable, which is what makes four of them enough', async () => {

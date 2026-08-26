@@ -30,7 +30,14 @@ const COUPLE_PAGE = 'app/dashboard/(account)/profile/page.tsx';
 
 test('the admin has a way to turn phone alerts on', () => {
   const src = code(read(ADMIN_SURFACE));
-  assert.match(src, /<PushToggle \/>/, 'the admin Notifications tab must mount the toggle');
+  // Pins the MOUNT, not the absence of props. It gained `audience` on
+  // 2026-08-26 so the admin stops being promised vendor messages.
+  assert.match(src, /<PushToggle[\s/>]/, 'the admin Notifications tab must mount the toggle');
+  assert.match(
+    src,
+    /<PushToggle[^>]*audience="admin"/,
+    'the admin mount must declare its audience — the shared default is couple copy',
+  );
   assert.match(src, /from '@\/app\/_components\/push-toggle'/);
 });
 

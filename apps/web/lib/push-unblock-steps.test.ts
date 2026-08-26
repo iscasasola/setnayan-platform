@@ -191,3 +191,39 @@ test('9 · each tree is promised what IT actually gets', () => {
     'the single hardcoded vendor sentence must not be the fallback for all three trees',
   );
 });
+
+
+test('10 · the vendor card, which cannot enable at all, still shows the way out', () => {
+  /*
+    ⚠ THE VENDOR SURFACE IS NOT THE SHARED TOGGLE. `vendor-dashboard/notifications`
+    imports its OWN 90-line card, and typecheck is what proved it — passing the
+    new `audience` prop there failed to compile, which is the only reason the
+    difference surfaced at all. My own note had already claimed that file was
+    "mounted nowhere"; it is mounted, and a grep whose --include flag had errored
+    is where that false claim came from.
+
+    That card CANNOT enable — it defers to the registrar's banner — and its
+    denied branch rendered five words and then `: null`: a dead card with no
+    control and nowhere to go. It is NOT replaced with the shared toggle,
+    because it owns something the shared one does not: `deactivateAllPushTokens`,
+    a SERVER-side switch-off across every device the vendor has registered.
+    Swapping it would delete that inverse. It gets the same helper instead.
+  */
+  const src = code(
+    readFileSync(
+      join(__dirname, '..', 'app', 'vendor-dashboard', 'notifications', 'push-toggle.tsx'),
+      'utf8',
+    ),
+  );
+  assert.match(src, /unblockSteps/, 'the vendor card must offer the way out too');
+  assert.match(
+    src,
+    /guide\.steps\.map/,
+    'it must RENDER the steps, not merely compute them',
+  );
+  assert.match(
+    src,
+    /deactivateAllPushTokens/,
+    'and it must keep the server-side switch-off — that is why it was not replaced',
+  );
+});

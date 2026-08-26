@@ -53,3 +53,20 @@ all RED. 11 lints green.
 
 SPEC IMPACT: None. No schema, no route, no SKU. VAPID keys were already set; this
 changes nothing about delivery, only about a person's ability to switch it on.
+
+### 🚨 The vendor card was the worst of the three, and only `tsc` found it
+
+`vendor-dashboard/notifications` imports its **own** 90-line card, not the shared toggle — proved
+by the new `audience` prop failing to compile there. That card **cannot enable at all** (it defers
+to a banner mounted by the vendor layout), and its blocked branch rendered five words —
+*"Blocked in browser settings."* — followed by `: null`. **A dead card, no control, nowhere to go.**
+It now shows the same per-device steps.
+
+⛔ **It is deliberately NOT replaced by the shared toggle.** It owns `deactivateAllPushTokens`, a
+SERVER-side switch-off across every device the vendor has registered; the shared toggle only
+unsubscribes the current browser. **Swapping it would delete that inverse.** Consolidating the two
+properly is real work, not a tidy-up — named, not done.
+
+🪤 **And a note of mine claimed that file was "mounted nowhere, 0 import sites".** It came from a
+grep whose `--include` flag errored under zsh — the command printed "no matches found" and the
+zero was read as a result. **A grep that errored is not a zero result.**

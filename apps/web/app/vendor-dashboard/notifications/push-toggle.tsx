@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Bell, BellOff } from 'lucide-react';
 import { deactivateAllPushTokens } from '@/app/vendor-dashboard/actions/push-tokens';
+import { unblockSteps, type UnblockGuide } from '@/lib/push-unblock-steps';
 
 type PermissionState = 'unsupported' | 'default' | 'granted' | 'denied';
 
@@ -25,6 +26,7 @@ export function PushToggle() {
   const [permission, setPermission] = useState<PermissionState>('default');
   const [disabling, setDisabling] = useState(false);
   const [disabled, setDisabled] = useState(false);
+  const [guide, setGuide] = useState<UnblockGuide | null>(null);
 
   useEffect(() => {
     if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) {
@@ -32,6 +34,12 @@ export function PushToggle() {
       return;
     }
     setPermission(Notification.permission as PermissionState);
+    if (Notification.permission === 'denied') {
+      const standalone =
+        Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone) ||
+        window.matchMedia?.('(display-mode: standalone)').matches === true;
+      setGuide(unblockSteps({ userAgent: navigator.userAgent, standalone }));
+    }
   }, []);
 
   const handleDisable = useCallback(async () => {
@@ -52,7 +60,8 @@ export function PushToggle() {
   const isActive = permission === 'granted' && !disabled;
 
   return (
-    <div className="mb-6 flex items-center justify-between sn-row px-4 py-3">
+    <div className="mb-6 sn-row px-4 py-3">
+      <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
         {isActive ? (
           <Bell aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
@@ -65,7 +74,7 @@ export function PushToggle() {
             {isActive
               ? 'On — you\'ll get an instant alert when a couple sends an inquiry.'
               : permission === 'denied'
-                ? 'Blocked in browser settings.'
+                ? 'This device is blocking them. Nothing is broken — the steps below switch them back on.'
                 : 'Off — enable to get instant alerts.'}
           </p>
         </div>
@@ -84,6 +93,30 @@ export function PushToggle() {
         <span className="rounded-lg bg-ink/5 px-3 py-1.5 text-xs text-ink/50">
           Allow via banner below
         </span>
+      ) : null}
+      </div>
+
+      {/*
+        🔑 THE DENIED BRANCH USED TO RENDER FIVE WORDS AND NO CONTROL AT ALL —
+        "Blocked in browser settings." and then `: null`. A blocked vendor was
+        left with a dead card and nowhere to go, and no code can re-open the
+        browser prompt for them. Same fix as the shared toggle, same pure
+        helper: say which buttons to press on the device in front of you.
+      */}
+      {guide && permission === 'denied' ? (
+        <div className="mt-3 border-t border-ink/10 pt-3">
+          <p className="text-xs font-semibold text-ink/70">
+            How to turn them on — {guide.platform}
+          </p>
+          <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-xs text-ink/60 marker:text-ink/40">
+            {guide.steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+          {guide.systemNote ? (
+            <p className="mt-2 text-xs text-ink/50">{guide.systemNote}</p>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

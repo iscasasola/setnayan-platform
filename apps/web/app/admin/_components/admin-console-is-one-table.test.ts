@@ -141,6 +141,7 @@ const CONVERTED = [
   'accounts/_surfaces/vendors-surface.tsx',
   'accounts/_surfaces/venues-surface.tsx',
   'pax-changes/page.tsx',
+  'pricing/_components/legacy-catalog.tsx',
   'pricing/_surfaces/price-bands-surface.tsx',
   'receipts/page.tsx',
   // Lane C · the five /admin/studio surfaces, 2026-08-17. Two of them printed

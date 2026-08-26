@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6214
+# facts: 6226
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     571
-#   col       4571
+#   col       4583
 #   policy    847
 #   view      8
 #   func      213
@@ -3209,7 +3209,11 @@ col	public.platform_package_catalog.created_at	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.description	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.is_active	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.package_code	anon=SIU authenticated=SIU
+col	public.platform_package_catalog.replaced_by_package_code	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.retail_price_php	anon=SIU authenticated=SIU
+col	public.platform_package_catalog.retired_at	anon=SIU authenticated=SIU
+col	public.platform_package_catalog.retired_by_admin_id	anon=SIU authenticated=SIU
+col	public.platform_package_catalog.retirement_reason	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.title	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.updated_at	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.updated_by_admin_id	anon=SIU authenticated=SIU
@@ -3224,7 +3228,11 @@ col	public.platform_retail_catalog_v2.pax_floor	anon=SIU authenticated=SIU
 col	public.platform_retail_catalog_v2.pax_floor_price_php	anon=SIU authenticated=SIU
 col	public.platform_retail_catalog_v2.pax_increment_price_php	anon=SIU authenticated=SIU
 col	public.platform_retail_catalog_v2.pax_increment_size	anon=SIU authenticated=SIU
+col	public.platform_retail_catalog_v2.replaced_by_service_code	anon=SIU authenticated=SIU
 col	public.platform_retail_catalog_v2.retail_price_php	anon=SIU authenticated=SIU
+col	public.platform_retail_catalog_v2.retired_at	anon=SIU authenticated=SIU
+col	public.platform_retail_catalog_v2.retired_by_admin_id	anon=SIU authenticated=SIU
+col	public.platform_retail_catalog_v2.retirement_reason	anon=SIU authenticated=SIU
 col	public.platform_retail_catalog_v2.saas_overhead_cost_php	anon=SIU authenticated=SIU
 col	public.platform_retail_catalog_v2.service_code	anon=SIU authenticated=SIU
 col	public.platform_retail_catalog_v2.title	anon=SIU authenticated=SIU
@@ -3955,6 +3963,10 @@ col	public.vendor_billing_catalog.max_categories	anon=SIU authenticated=SIU
 col	public.vendor_billing_catalog.max_sub_seats	anon=SIU authenticated=SIU
 col	public.vendor_billing_catalog.offering_type	anon=SIU authenticated=SIU
 col	public.vendor_billing_catalog.price_php	anon=SIU authenticated=SIU
+col	public.vendor_billing_catalog.replaced_by_sku_code	anon=SIU authenticated=SIU
+col	public.vendor_billing_catalog.retired_at	anon=SIU authenticated=SIU
+col	public.vendor_billing_catalog.retired_by_admin_id	anon=SIU authenticated=SIU
+col	public.vendor_billing_catalog.retirement_reason	anon=SIU authenticated=SIU
 col	public.vendor_billing_catalog.sku_code	anon=SIU authenticated=SIU
 col	public.vendor_billing_catalog.title	anon=SIU authenticated=SIU
 col	public.vendor_billing_catalog.token_grant_count	anon=SIU authenticated=SIU

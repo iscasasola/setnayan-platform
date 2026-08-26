@@ -1,55 +1,42 @@
 // Money-split studio surface — the body of the former pricing page,
 // re-homed here (2026-07-10). actions/_components stay in /admin/pricing; the
 // legacy route is now a redirect (or, for pricing/settings, the studio shell).
-import type { ReactNode } from 'react';
-import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { SubmitButton } from '@/app/_components/submit-button';
-import { ConfirmForm } from '@/app/_components/confirm-form';
-import { saveAllPricing } from '@/app/admin/pricing/actions';
 import { SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
+import { saveFeeSetting } from '@/app/admin/pricing/actions';
+import { computeRetailRemovabilityMap } from '@/lib/admin/pricing-removability';
+import { fetchPricingAuditHistory } from '@/lib/admin/pricing-audit-history';
 import {
-  RetailRowEditor,
-  BundleRowEditor,
-  VendorRowEditor,
+  PriceCatalogBrowser,
+  type PriceRowProp,
+  type RetailRowProp,
+  type BundleRowProp,
+  type VendorRowProp,
 } from '@/app/admin/pricing/_components/catalog-editor';
-import { RETAIL_GRID, TWOCOL_GRID } from '@/app/admin/pricing/_components/grids';
+import { FeeForm } from '@/app/admin/pricing/_components/fee-form';
+import { LegacyCatalogDisclosure } from '@/app/admin/pricing/_components/legacy-catalog';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 
 /**
- * /admin/pricing — V2 catalog single-form bulk editor.
+ * /admin/pricing — the price catalog browser (2026-08-26 rebuild).
  *
- * The whole catalog renders as ONE form where every row's price (+ title,
- * cost, description, active) is inline. A single "Save all changes" posts to
- * `saveAllPricing` which diffs each field and UPDATEs only what changed.
+ * Ported from WHATS_NEXT_Managing_Prices_2026-08-26.md § 6 /
+ * prototypes/admin_pricing_manager_2026-08-26.html's "What we recommend"
+ * pane. REPLACES the single-form "Save all changes" bulk editor — see
+ * catalog-editor.tsx's docblock for why that shape was the description-
+ * blanking bug, not just its symptom.
  *
- * Owner additions 2026-06-18:
- *   - Each row has a ⓘ "What this is for" panel (editable description) so codes
- *     like PANOOD / GUIDED_PACK are self-explanatory (client rows in
- *     _components/catalog-editor.tsx). Bundle + vendor descriptions land in the
- *     description columns added by migration 20270124000000.
+ * This server component does exactly the data work: fetch every row across
+ * the three catalogue tables, compute which retired customer rows are
+ * measurably safe to remove (never trusting a stale render), pull each row's
+ * saved-from-this-screen history out of `admin_audit_log`, then hand it all
+ * to the one client browser component that owns search/view/scope state.
  *
- * The "Create a bundle" card was REMOVED 2026-07-21 (owner: "we do not need the
- * bundle maker as well"). It could only ever produce a BROKEN bundle: it wrote a
- * platform_package_catalog row from a name + price, but a bundle is inert
- * without `bundle_components` rows saying which SKUs it unlocks, and the maker
- * had no way to write those (the page's own footer admitted it — "defining which
- * services a bundle unlocks is a separate follow-up"). So every bundle it made
- * would look sellable on /pricing while granting nothing. Zero bundles were ever
- * created through it. The four real bundles are migration-authored, and the two
- * live ones (PAPIC_UNLOCK ₱15,000 · PAPIC_UNLOCK_LTD ₱9,000) stay fully
- * editable in the Bundles section below — only the CREATE path is gone. If a new
- * bundle is ever needed, author it in a migration alongside its components.
- *
- * This surface is the single source of truth for app prices: saves revalidate
- * /pricing + /vendors so public prices update within seconds.
- *
- * Canonical V2 tables: platform_retail_catalog_v2 · platform_package_catalog ·
- * vendor_billing_catalog · platform_settings.setnayan_pay_fee_pct.
+ * Canonical V2 tables: platform_retail_catalog_v2 · platform_package_catalog
+ * · vendor_billing_catalog · platform_settings.setnayan_pay_fee_pct.
  */
 
 type RetailRow = {
@@ -58,8 +45,17 @@ type RetailRow = {
   description: string | null;
   retail_price_php: number;
   saas_overhead_cost_php: number;
-  is_token_able: boolean;
   is_active: boolean;
+  onboarding_price_php: number | null;
+  billing_period: string;
+  is_pax_priced: boolean;
+  pax_floor: number | null;
+  pax_floor_price_php: number | null;
+  pax_increment_size: number | null;
+  pax_increment_price_php: number | null;
+  retired_at: string | null;
+  retirement_reason: string | null;
+  replaced_by_service_code: string | null;
   updated_at: string;
   updated_by_admin_id: string | null;
 };
@@ -70,6 +66,9 @@ type BundleRow = {
   description: string | null;
   retail_price_php: number;
   is_active: boolean;
+  retired_at: string | null;
+  retirement_reason: string | null;
+  replaced_by_package_code: string | null;
   updated_at: string;
   updated_by_admin_id: string | null;
 };
@@ -80,9 +79,10 @@ type VendorRow = {
   description: string | null;
   price_php: number;
   offering_type: 'subscription_monthly' | 'subscription_annual' | 'token_pack';
-  token_grant_count: number | null;
   is_active: boolean;
-  display_order: number;
+  retired_at: string | null;
+  retirement_reason: string | null;
+  replaced_by_sku_code: string | null;
   updated_at: string;
 };
 
@@ -100,41 +100,8 @@ const VENDOR_OFFERING_LABEL: Record<VendorRow['offering_type'], string> = {
   token_pack: 'Token pack',
 };
 
-function formatPeso(amount: number): string {
-  return amount.toLocaleString('en-PH', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function marginPct(price: number, cost: number): number | null {
-  if (price <= 0) return null;
-  return Math.round(((price - cost) / price) * 100);
-}
-
-function timeAgo(iso: string): string {
-  const now = Date.now();
-  const then = new Date(iso).getTime();
-  const diff = Math.max(0, now - then);
-  const m = Math.floor(diff / 60_000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m} minute${m === 1 ? '' : 's'} ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} hour${h === 1 ? '' : 's'} ago`;
-  const d = Math.floor(h / 24);
-  if (d < 30) return `${d} day${d === 1 ? '' : 's'} ago`;
-  const mo = Math.floor(d / 30);
-  if (mo < 12) return `${mo} month${mo === 1 ? '' : 's'} ago`;
-  const y = Math.floor(d / 365);
-  return `${y} year${y === 1 ? '' : 's'} ago`;
-}
-
-export async function PricingSurface({ searchParams }: Props) {
+export async function PricingSurface(_props: Props) {
   await requireAdmin();
-  const search = await searchParams;
-  const savedCount = search.saved != null ? Number(search.saved) : null;
-  const skippedCount = search.skipped != null ? Number(search.skipped) : 0;
-  const hadError = search.error === '1';
 
   const admin = createAdminClient();
 
@@ -142,32 +109,25 @@ export async function PricingSurface({ searchParams }: Props) {
     admin
       .from('platform_retail_catalog_v2')
       .select(
-        'service_code,title,description,retail_price_php,saas_overhead_cost_php,is_token_able,is_active,updated_at,updated_by_admin_id',
+        'service_code,title,description,retail_price_php,saas_overhead_cost_php,is_active,onboarding_price_php,billing_period,is_pax_priced,pax_floor,pax_floor_price_php,pax_increment_size,pax_increment_price_php,retired_at,retirement_reason,replaced_by_service_code,updated_at,updated_by_admin_id',
       )
       .order('is_active', { ascending: false })
       .order('retail_price_php', { ascending: true }),
     admin
       .from('platform_package_catalog')
       .select(
-        'package_code,title,description,retail_price_php,is_active,updated_at,updated_by_admin_id',
+        'package_code,title,description,retail_price_php,is_active,retired_at,retirement_reason,replaced_by_package_code,updated_at,updated_by_admin_id',
       )
-      // Active-first, same as the retail + vendor queries. This was the ONE
-      // catalog query missing it, which is why a removed ₱12,999 bundle sorted
-      // above the live ₱15,000 one (price-ascending alone).
       .order('is_active', { ascending: false })
       .order('retail_price_php', { ascending: true }),
     admin
       .from('vendor_billing_catalog')
       .select(
-        'sku_code,title,description,price_php,offering_type,token_grant_count,is_active,display_order,updated_at',
+        'sku_code,title,description,price_php,offering_type,is_active,retired_at,retirement_reason,replaced_by_sku_code,updated_at',
       )
       .order('is_active', { ascending: false })
       .order('display_order', { ascending: true }),
-    admin
-      .from('platform_settings')
-      .select('setnayan_pay_fee_pct')
-      .eq('id', 1)
-      .maybeSingle(),
+    admin.from('platform_settings').select('setnayan_pay_fee_pct').eq('id', 1).maybeSingle(),
   ]);
 
   if (retailRes.error) logQueryError('AdminPricingPage (retail)', retailRes.error);
@@ -175,123 +135,99 @@ export async function PricingSurface({ searchParams }: Props) {
   if (vendorRes.error) logQueryError('AdminPricingPage (vendor)', vendorRes.error);
   if (settingsRes.error) logQueryError('AdminPricingPage (settings)', settingsRes.error);
 
-  const retailRows = ((retailRes.data ?? []) as RetailRow[]).map((row) => ({
-    ...row,
-    retail_price_php: Number(row.retail_price_php),
-    saas_overhead_cost_php: Number(row.saas_overhead_cost_php),
-  }));
-  const bundleRows = ((bundleRes.data ?? []) as BundleRow[]).map((row) => ({
-    ...row,
-    retail_price_php: Number(row.retail_price_php),
-  }));
-  const vendorRows = ((vendorRes.data ?? []) as VendorRow[]).map((row) => ({
-    ...row,
-    price_php: Number(row.price_php),
-  }));
+  const retailRows = (retailRes.data ?? []) as RetailRow[];
+  const bundleRows = (bundleRes.data ?? []) as BundleRow[];
+  const vendorRows = (vendorRes.data ?? []) as VendorRow[];
 
-  const settingsFee = (settingsRes.data as { setnayan_pay_fee_pct?: number | null } | null)
-    ?.setnayan_pay_fee_pct;
+  const settingsFee = settingsRes.data?.setnayan_pay_fee_pct;
   const feeIsFromDb = settingsFee != null && Number.isFinite(Number(settingsFee));
   const feePct = feeIsFromDb ? Number(settingsFee) : SETNAYAN_PAY_FEE_PCT;
 
-  // Last-editor display names, resolved in one batch.
-  const editorIds = new Set<string>();
-  for (const r of retailRows) if (r.updated_by_admin_id) editorIds.add(r.updated_by_admin_id);
-  for (const r of bundleRows) if (r.updated_by_admin_id) editorIds.add(r.updated_by_admin_id);
-  const editorMap = new Map<string, string>();
-  if (editorIds.size > 0) {
-    const { data: editors } = await admin
-      .from('users')
-      .select('user_id, display_name, email')
-      .in('user_id', Array.from(editorIds));
-    for (const u of editors ?? []) {
-      const name =
-        (u.display_name as string | null) ?? (u.email as string | null) ?? 'Unknown';
-      editorMap.set(u.user_id as string, name);
-    }
-  }
-  const editedStr = (iso: string, byId: string | null) => {
-    const by = byId ? editorMap.get(byId) ?? 'Unknown' : null;
-    return `${timeAgo(iso)}${by ? ` by ${by}` : ''}`;
-  };
+  const retiredRetailCodes = retailRows.filter((r) => !r.is_active).map((r) => r.service_code);
+  const allCodes = [
+    ...retailRows.map((r) => r.service_code),
+    ...bundleRows.map((r) => r.package_code),
+    ...vendorRows.map((r) => r.sku_code),
+  ];
 
-  // Row → editor-prop shapes. Extracted so the live list and the retired
-  // <details> render byte-identical editors (they must: both post into the same
-  // form, and a drifted prop shape here would make a retired row save
-  // differently from a live one).
-  const retailEditorRow = (row: RetailRow) => ({
-    service_code: row.service_code,
-    title: row.title,
-    description: row.description,
-    retail_price_php: row.retail_price_php,
-    saas_overhead_cost_php: row.saas_overhead_cost_php,
-    is_token_able: row.is_token_able,
-    is_active: row.is_active,
-    edited: editedStr(row.updated_at, row.updated_by_admin_id),
-  });
-  const bundleEditorRow = (row: BundleRow) => ({
-    package_code: row.package_code,
-    title: row.title,
-    description: row.description,
-    retail_price_php: row.retail_price_php,
-    is_active: row.is_active,
-    edited: editedStr(row.updated_at, row.updated_by_admin_id),
-  });
-  const vendorEditorRow = (row: VendorRow) => ({
-    sku_code: row.sku_code,
-    title: row.title,
-    description: row.description,
-    price_php: row.price_php,
-    offering_label: VENDOR_OFFERING_LABEL[row.offering_type],
-    token_grant_count: row.token_grant_count,
-    is_active: row.is_active,
-    edited: editedStr(row.updated_at, null),
-  });
+  const [removability, history] = await Promise.all([
+    computeRetailRemovabilityMap(admin, retiredRetailCodes),
+    fetchPricingAuditHistory(admin, allCodes),
+  ]);
 
-  // Retired-row split. Every catalog here is mostly-retired (the 2026-07-21
-  // audit measured 21/43 retail, 2/4 bundle, 2/27 vendor), and rendering them
-  // inline buried the ~49 rows an admin actually edits under ~117 total. Each
-  // section now shows its live rows and tucks the retired ones into a closed
-  // <details>.
-  //
-  // ⚠ <details>, NOT conditional rendering — on purpose. Every row below is a
-  // set of named inputs inside the ONE "Save all changes" form. Unmounting the
-  // retired rows would drop their fields from the POST body, silently changing
-  // what `saveAllPricing` diffs (it walks the submitted FormData). `<details>`
-  // keeps them mounted and submitted, just visually collapsed, so this is a
-  // pure presentation change with identical save semantics.
-  const activeRetail = retailRows.filter((r) => r.is_active);
-  const retiredRetail = retailRows.filter((r) => !r.is_active);
-  const activeBundles = bundleRows.filter((r) => r.is_active);
-  const retiredBundles = bundleRows.filter((r) => !r.is_active);
-  const activeVendor = vendorRows.filter((r) => r.is_active);
-  const retiredVendor = vendorRows.filter((r) => !r.is_active);
+  const rows: PriceRowProp[] = [
+    ...retailRows.map((r): RetailRowProp => {
+      const rm = !r.is_active ? removability.get(r.service_code) ?? null : null;
+      return {
+        kind: 'retail',
+        code: r.service_code,
+        title: r.title,
+        description: r.description,
+        price: Number(r.retail_price_php),
+        cost: Number(r.saas_overhead_cost_php),
+        isActive: r.is_active,
+        onboardingPrice: r.onboarding_price_php != null ? Number(r.onboarding_price_php) : null,
+        billingPeriod: r.billing_period,
+        isPaxPriced: r.is_pax_priced,
+        paxFloor: r.pax_floor,
+        paxFloorPrice: r.pax_floor_price_php != null ? Number(r.pax_floor_price_php) : null,
+        paxIncrementSize: r.pax_increment_size,
+        paxIncrementPrice: r.pax_increment_price_php != null ? Number(r.pax_increment_price_php) : null,
+        retiredAt: r.retired_at,
+        retirementReason: r.retirement_reason,
+        replacedByCode: r.replaced_by_service_code,
+        editedAgo: timeAgoLabel(r.updated_at),
+        removability: rm
+          ? { safeToRemove: rm.safeToRemove, reasons: rm.reasons, papicConfigPointer: rm.papicConfigPointer }
+          : null,
+        history: history.get(r.service_code) ?? [],
+      };
+    }),
+    ...bundleRows.map(
+      (r): BundleRowProp => ({
+        kind: 'bundle',
+        code: r.package_code,
+        title: r.title,
+        description: r.description,
+        price: Number(r.retail_price_php),
+        isActive: r.is_active,
+        retiredAt: r.retired_at,
+        retirementReason: r.retirement_reason,
+        replacedByCode: r.replaced_by_package_code,
+        editedAgo: timeAgoLabel(r.updated_at),
+        history: history.get(r.package_code) ?? [],
+      }),
+    ),
+    ...vendorRows.map(
+      (r): VendorRowProp => ({
+        kind: 'vendor',
+        code: r.sku_code,
+        title: r.title,
+        description: r.description,
+        price: Number(r.price_php),
+        offeringLabel: VENDOR_OFFERING_LABEL[r.offering_type],
+        isActive: r.is_active,
+        retiredAt: r.retired_at,
+        retirementReason: r.retirement_reason,
+        replacedByCode: r.replaced_by_sku_code,
+        editedAgo: timeAgoLabel(r.updated_at),
+        history: history.get(r.sku_code) ?? [],
+      }),
+    ),
+  ];
 
-  // Stats.
-  const activeCount = activeRetail.length;
-  const inactiveCount = retiredRetail.length;
-  const paidRows = retailRows.filter((r) => r.retail_price_php > 0);
-  const maxPrice = paidRows.length > 0 ? Math.max(...paidRows.map((r) => r.retail_price_php)) : 0;
-  const minPrice = paidRows.length > 0 ? Math.min(...paidRows.map((r) => r.retail_price_php)) : 0;
-  const marginValues = paidRows
-    .map((r) => marginPct(r.retail_price_php, r.saas_overhead_cost_php))
-    .filter((m): m is number => m !== null);
-  const avgMargin =
-    marginValues.length > 0
-      ? Math.round(marginValues.reduce((s, m) => s + m, 0) / marginValues.length)
-      : null;
+  const retailTitlesForReplacement: [string, string][] = retailRows
+    .filter((r) => r.is_active)
+    .map((r) => [r.service_code, r.title]);
 
   return (
     <div>
       {/* The tab strip already says "Pricing". The name stays in the document
-          at zero pixels — but the download beside it does NOT go with it.
-          🔒 `/admin/addons/pricing-report` is the ONLY export path for the
-          legacy v1 `service_catalog`; it was re-homed here when the Add-ons tab
-          was removed on 2026-07-21 precisely so it would not be orphaned.
-          Deleting a header is not permission to delete what was inside it, so
-          it moves into `actions`.
-          ⚖ The lede survives, moved down: it is how you WORK this screen —
-          edit rows, then press Save all changes once — not a description of it. */}
+          at zero pixels (owner-locked 2026-08-21 — every admin page "starts
+          straight at its content"; no eyebrow, no lede, no back chevron) but
+          the download link beside it does NOT go with it — `HELD_IN_THE_OLD_
+          HEADER` in admin-page-starts-at-its-content.test.ts pins this as the
+          ONLY export path for the legacy v1 `service_catalog`. */}
       <PageMasthead
         title="Pricing & Catalog"
         className="mb-4"
@@ -305,351 +241,45 @@ export async function PricingSurface({ searchParams }: Props) {
           </a>
         }
       />
-      <p className="mb-6 text-sm text-ink/70">
-        Every price in the app reads from here. Click the ⓘ on a row to see what it is,
-        edit any field, then hit <span className="font-medium text-ink">Save all changes</span>{' '}
-        once — saves propagate to{' '}
-        <Link href="/pricing" className="underline">/pricing</Link> and{' '}
-        <Link href="/vendors" className="underline">/vendors</Link> within seconds.
-      </p>
 
-      {savedCount !== null && (
-        <SaveBanner
-          saved={Number.isFinite(savedCount) ? savedCount : 0}
-          skipped={Number.isFinite(skippedCount) ? skippedCount : 0}
-          hadError={hadError}
-        />
-      )}
-
-      <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl border border-ink/10 bg-paper p-4 sm:grid-cols-3 lg:grid-cols-5">
-        <Stat label="Active SKUs" value={activeCount.toString()} />
-        <Stat label="Inactive" value={inactiveCount.toString()} />
-        <Stat label="Max price" value={maxPrice > 0 ? `₱${formatPeso(maxPrice)}` : '—'} />
-        <Stat label="Min price (paid)" value={minPrice > 0 ? `₱${formatPeso(minPrice)}` : '—'} />
-        <Stat label="Avg margin (paid)" value={avgMargin !== null ? `${avgMargin}%` : '—'} />
-      </div>
-
-      {(retailRes.error || bundleRes.error) && (
+      {(retailRes.error || bundleRes.error || vendorRes.error) && (
         <div className="mb-6 rounded-2xl border border-danger-300/60 bg-danger-50/80 p-5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-danger-900">
-            Catalog load error
-          </p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-danger-900">Catalog load error</p>
           <p className="mt-1 text-sm text-danger-900">
-            The pricing catalog couldn&apos;t load right now. We&apos;ve logged the issue — refresh
-            in a moment or check Sentry.
+            The pricing catalog couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.
           </p>
         </div>
       )}
 
-      <ConfirmForm
-        action={saveAllPricing}
-        title="Save these prices live?"
-        confirmLabel="Save all changes"
-        destructive={false}
-        message="Saving ships these prices LIVE to the public catalog right away — only the rows you changed get written. Double-check the values before you confirm."
-      >
-        {/* ─── Customer SKUs ─────────────────────────────────────────── */}
-        <section className="mb-10">
-          <h2 className="mb-3 text-base font-semibold tracking-tight">
-            Customer SKUs ({sectionCount(activeRetail.length, retiredRetail.length)})
-          </h2>
-          <div className="overflow-hidden rounded-2xl border border-ink/10">
-            {retailRows.length === 0 ? (
-              <Empty label="No SKUs in platform_retail_catalog_v2 yet." />
-            ) : (
-              <>
-                <ColHeader
-                  grid={RETAIL_GRID}
-                  cols={[
-                    { label: 'SKU · title', align: 'left' },
-                    { label: 'Cost / event', align: 'right' },
-                    { label: 'Retail price', align: 'right' },
-                    { label: 'Margin', align: 'right' },
-                    { label: 'Active', align: 'center' },
-                  ]}
-                />
-                {activeRetail.map((row) => (
-                  <RetailRowEditor key={row.service_code} row={retailEditorRow(row)} />
-                ))}
-                {retiredRetail.length > 0 && (
-                  <RetiredDisclosure count={retiredRetail.length} noun="SKU">
-                    {retiredRetail.map((row) => (
-                      <RetailRowEditor key={row.service_code} row={retailEditorRow(row)} />
-                    ))}
-                  </RetiredDisclosure>
-                )}
-              </>
-            )}
-          </div>
-        </section>
+      <PriceCatalogBrowser rows={rows} retailTitlesForReplacement={retailTitlesForReplacement} />
 
-        {/* ─── Bundles ───────────────────────────────────────────────── */}
-        <section className="mb-10">
-          <h2 className="mb-1 text-base font-semibold tracking-tight">
-            Bundles ({sectionCount(activeBundles.length, retiredBundles.length)})
-          </h2>
-          <p className="mb-3 text-sm text-ink/60">
-            Migration-authored packages from{' '}
-            <code className="rounded bg-ink/5 px-1 font-mono text-xs">platform_package_catalog</code>.
-            Price, description + active state are editable here; which SKUs a bundle unlocks lives in{' '}
-            <code className="rounded bg-ink/5 px-1 font-mono text-xs">bundle_components</code> and is
-            migration-owned, so new bundles are authored in a migration alongside their components.
-          </p>
-          <div className="overflow-hidden rounded-2xl border border-ink/10">
-            {bundleRows.length === 0 ? (
-              <Empty label="No bundles yet — create one below." />
-            ) : (
-              <>
-                <ColHeader
-                  grid={TWOCOL_GRID}
-                  cols={[
-                    { label: 'Bundle · title', align: 'left' },
-                    { label: 'Retail price', align: 'right' },
-                    { label: 'Active', align: 'center' },
-                  ]}
-                />
-                {activeBundles.map((row) => (
-                  <BundleRowEditor key={row.package_code} row={bundleEditorRow(row)} />
-                ))}
-                {retiredBundles.length > 0 && (
-                  <RetiredDisclosure count={retiredBundles.length} noun="bundle">
-                    {retiredBundles.map((row) => (
-                      <BundleRowEditor key={row.package_code} row={bundleEditorRow(row)} />
-                    ))}
-                  </RetiredDisclosure>
-                )}
-              </>
-            )}
-          </div>
-        </section>
-
-        {/* ─── Vendor pricing ────────────────────────────────────────── */}
-        <section className="mb-10">
-          <h2 className="mb-1 text-base font-semibold tracking-tight">
-            Vendor pricing ({sectionCount(activeVendor.length, retiredVendor.length)})
-          </h2>
-          <p className="mb-3 text-sm text-ink/60">
-            Subscriptions + bidding token packs from{' '}
-            <code className="rounded bg-ink/5 px-1 font-mono text-xs">vendor_billing_catalog</code>.
-            Price, description + active state are editable; titles, tier caps + token grants stay
-            migration-owned.
-          </p>
-          <div className="overflow-hidden rounded-2xl border border-ink/10">
-            {vendorRows.length === 0 ? (
-              <Empty label="No SKUs in vendor_billing_catalog yet." />
-            ) : (
-              <>
-                <ColHeader
-                  grid={TWOCOL_GRID}
-                  cols={[
-                    { label: 'SKU · offering', align: 'left' },
-                    { label: 'Price', align: 'right' },
-                    { label: 'Active', align: 'center' },
-                  ]}
-                />
-                {activeVendor.map((row) => (
-                  <VendorRowEditor key={row.sku_code} row={vendorEditorRow(row)} />
-                ))}
-                {retiredVendor.length > 0 && (
-                  <RetiredDisclosure count={retiredVendor.length} noun="SKU">
-                    {retiredVendor.map((row) => (
-                      <VendorRowEditor key={row.sku_code} row={vendorEditorRow(row)} />
-                    ))}
-                  </RetiredDisclosure>
-                )}
-              </>
-            )}
-          </div>
-        </section>
-
-        {/* ─── Platform fee ──────────────────────────────────────────── */}
-        <section className="mb-10">
-          <h2 className="mb-1 text-base font-semibold tracking-tight">Platform fee</h2>
-          <p className="mb-3 text-sm text-ink/60">
-            Setnayan Pay convenience fee added to a customer invoice when they pay a vendor booking
-            through Setnayan. The vendor still receives the full booking amount — the fee is the
-            customer&apos;s cost. Code constant {SETNAYAN_PAY_FEE_PCT}% is the fallback.
-          </p>
-          <div className="rounded-2xl border border-ink/10 p-4">
-            <label className="block max-w-xs">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                Setnayan Pay fee (%)
-              </span>
-              <input
-                name="setnayan_pay_fee_pct"
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                defaultValue={feePct}
-                className="input-field mt-1 w-full tabular-nums"
-              />
-              <span className="mt-1 block text-[11px] text-ink/45">
-                {feeIsFromDb
-                  ? 'Set in platform_settings.'
-                  : 'Falling back to the code constant — save once to persist it.'}
-              </span>
-            </label>
-          </div>
-        </section>
-
-        {/* ─── Sticky single save bar ───────────────────────────────── */}
-        <div className="sticky bottom-0 z-10 -mx-4 mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-ink/10 bg-paper/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-paper/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-          <p className="max-w-md text-xs text-ink/55">
-            Type new prices in any field above, then save them all at once. Only the rows you
-            changed get written.
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="reset"
-              className="rounded-md border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 transition hover:bg-ink/5"
-            >
-              Reset
-            </button>
-            <SubmitButton
-              className="rounded-md bg-terracotta-700 px-5 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta-800"
-              pendingLabel="Saving all prices…"
-            >
-              Save all changes
-            </SubmitButton>
-          </div>
-        </div>
-      </ConfirmForm>
-
-      <div className="rounded-2xl border border-warn-300/60 bg-warn-50/80 p-5">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-900">
-          Deferred V1.x
+      <section className="mt-10">
+        <h2 className="mb-1 text-base font-semibold tracking-tight">Platform fee</h2>
+        <p className="mb-3 text-sm text-ink/60">
+          Setnayan Pay convenience fee added to a customer invoice when they pay a vendor booking
+          through Setnayan. The vendor still receives the full booking amount — the fee is the
+          customer&apos;s cost. Code constant {SETNAYAN_PAY_FEE_PCT}% is the fallback.
         </p>
-        <p className="mt-1 text-sm text-warn-900">
-          Two-admin approval gate on price deltas above ₱500 logs to console only for now.
-        </p>
-      </div>
+        <FeeForm action={saveFeeSetting} feePct={feePct} feeIsFromDb={feeIsFromDb} />
+      </section>
+
+      <section className="mt-10">
+        <LegacyCatalogDisclosure />
+      </section>
     </div>
   );
 }
 
-/** "22 active · 21 retired", or just "22" when nothing is retired. */
-function sectionCount(active: number, retired: number): string {
-  return retired === 0 ? `${active}` : `${active} active · ${retired} retired`;
-}
-
-/**
- * Collapsed drawer holding a section's retired rows.
- *
- * Native <details> so it works without JS in a Server Component, and — the
- * load-bearing part — so the rows inside STAY MOUNTED while hidden. They are
- * inputs in the page's single "Save all changes" form; unmounting them would
- * quietly shrink the POST body and change what `saveAllPricing` diffs. Closed
- * by default: an admin opens this only to resurrect or re-price a dead SKU.
- */
-function RetiredDisclosure({
-  count,
-  noun,
-  children,
-}: {
-  count: number;
-  noun: string;
-  children: ReactNode;
-}) {
-  return (
-    <details className="group border-t border-ink/10 bg-ink/[0.02]">
-      <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-3 text-sm font-medium text-ink/60 transition hover:bg-ink/5 [&::-webkit-details-marker]:hidden">
-        <ChevronRight
-          aria-hidden
-          className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90"
-          strokeWidth={2}
-        />
-        <span>
-          {count} retired {noun}
-          {count === 1 ? '' : 's'}
-        </span>
-        <span className="text-xs font-normal text-ink/40">
-          — hidden from customers; still editable here
-        </span>
-      </summary>
-      <div className="border-t border-ink/10">{children}</div>
-    </details>
-  );
-}
-
-function Empty({ label }: { label: string }) {
-  return (
-    <div className="p-8 text-center">
-      <p className="text-sm text-ink/60">{label}</p>
-    </div>
-  );
-}
-
-function SaveBanner({
-  saved,
-  skipped,
-  hadError,
-}: {
-  saved: number;
-  skipped: number;
-  hadError: boolean;
-}) {
-  if (hadError) {
-    return (
-      <div className="mb-6 rounded-2xl border border-danger-300/60 bg-danger-50/80 p-4">
-        <p className="text-sm text-danger-900">
-          Something went wrong saving one or more prices — we logged the error. Refresh and confirm
-          the values below, then try again.
-        </p>
-      </div>
-    );
-  }
-  const skippedNote =
-    skipped > 0
-      ? ` ${skipped} row${skipped === 1 ? ' was' : 's were'} skipped (left unchanged — check for a blank or invalid price).`
-      : '';
-  if (saved > 0) {
-    return (
-      <div className="mb-6 rounded-2xl border border-success-300/60 bg-success-50/80 p-4">
-        <p className="text-sm text-success-900">
-          Saved {saved} price change{saved === 1 ? '' : 's'} — now live on /pricing and
-          /vendors.{skippedNote}
-        </p>
-      </div>
-    );
-  }
-  return (
-    <div className="mb-6 rounded-2xl border border-ink/15 bg-white/70 p-4">
-      <p className="text-sm text-ink/70">
-        No changes to save — everything already matches what&apos;s live.{skippedNote}
-      </p>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-ink/10 bg-white/70 p-3">
-      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">{label}</p>
-      <p className="mt-1 text-lg font-semibold tracking-tight text-ink">{value}</p>
-    </div>
-  );
-}
-
-function ColHeader({
-  grid,
-  cols,
-}: {
-  grid: string;
-  cols: { label: string; align: 'left' | 'right' | 'center' }[];
-}) {
-  return (
-    <div className={`hidden border-b border-ink/10 bg-ink/3 px-4 py-2 ${grid}`}>
-      {cols.map((c) => (
-        <span
-          key={c.label}
-          className={`font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 ${
-            c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left'
-          }`}
-        >
-          {c.label}
-        </span>
-      ))}
-    </div>
-  );
+function timeAgoLabel(iso: string): string {
+  const diff = Math.max(0, Date.now() - new Date(iso).getTime());
+  const m = Math.floor(diff / 60_000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} minute${m === 1 ? '' : 's'} ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hour${h === 1 ? '' : 's'} ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d} day${d === 1 ? '' : 's'} ago`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo} month${mo === 1 ? '' : 's'} ago`;
+  return `${Math.floor(d / 365)} year${Math.floor(d / 365) === 1 ? '' : 's'} ago`;
 }

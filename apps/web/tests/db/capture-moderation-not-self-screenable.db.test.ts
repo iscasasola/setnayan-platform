@@ -176,11 +176,40 @@ before(async () => {
   `);
   OUTER_LOCK_HELD = (openCols.rows[0]?.n ?? -1) === 0 && (insertPolicies.rows[0]?.n ?? -1) === 0;
 
-  await db.exec(
-    `GRANT INSERT (event_id, paparazzi_seat_id, r2_object_key, photo_type,
-                   poster_r2_key, expires_at, hidden_at, clip_web_r2_key)
-       ON public.papic_photos TO authenticated`,
-  );
+  /*
+    🪤 THE HAND-TYPED VERSION OF THIS WAS DECORATION, exactly where it mattered.
+    It listed eight columns and omitted `moderation_state` — so lane 1 below
+    refused because MY LIST omitted it, not because the schema does. Delete the
+    revoke this whole file exists to guard and every rule still passes: the
+    scaffolding was carrying the assertion.
+
+    ⚖ DERIVED INSTEAD. `20271169487222` revoked INSERT and left UPDATE alone, so
+    the columns `authenticated` may still UPDATE are exactly the ones it could
+    INSERT before that migration — 39 of 45, with the six the moderation revoke
+    withholds (moderation_state and the safe_/tile_ derivatives) absent from
+    both. Granting INSERT on precisely that set reproduces the pre-2026-08-26
+    shape from the schema rather than from memory.
+
+    🔑 And it restores the guard's teeth: if somebody ever hands `moderation_state`
+    its UPDATE grant back, this scaffolding grants INSERT on it too and lane 1
+    goes RED — which is the whole point of a second lock.
+  */
+  await db.exec(`
+    DO $scaffold$
+    DECLARE cols TEXT;
+    BEGIN
+      SELECT string_agg(quote_ident(c.column_name), ', ' ORDER BY c.ordinal_position)
+        INTO cols
+      FROM information_schema.columns c
+      WHERE c.table_schema = 'public' AND c.table_name = 'papic_photos'
+        AND has_column_privilege('authenticated', 'public.papic_photos', c.column_name, 'UPDATE');
+      IF cols IS NULL THEN
+        RAISE EXCEPTION 'scaffolding found no updatable columns — the grant below would be empty';
+      END IF;
+      EXECUTE format('GRANT INSERT (%s) ON public.papic_photos TO authenticated', cols);
+    END
+    $scaffold$;
+  `);
 
   // ⚠ THE OUTER LOCK HAS TWO HALVES AND BOTH HAVE TO BE LIFTED. The same
   // migration removed the INSERT arm from the claimer's policy (it was FOR ALL;

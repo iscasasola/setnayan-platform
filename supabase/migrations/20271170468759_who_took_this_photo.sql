@@ -81,6 +81,62 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    /*
+      🚨 A PHOTO DOES NOT MOVE BETWEEN CAMERAS — AND WITHOUT THIS, THE CREDIT
+      WAS FORGEABLE ONE COLUMN OVER.
+
+      Found by an adversarial pass over this very migration, and obvious in
+      hindsight: deriving the credit from the seat is only as trustworthy as the
+      seat. `authenticated` holds UPDATE on `paparazzi_seat_id`, and the
+      couple's policy admits any photo on their own event — so a host could
+      PATCH a photo shot on a friend's camera onto their OWN seat, and this
+      trigger would then dutifully re-credit it to them. The derivation was
+      honest; the input was not.
+
+      Nothing in the product moves a photo between seats (grepped every non-test
+      file for a write of this column: none), so pinning costs no feature.
+
+      🪤 THE FIRST CUT OF THIS PIN WAS INERT, AND THE TEST FOR IT IS THE ONLY
+      REASON I KNOW. It read `IF current_user IN ('authenticated','anon')`,
+      copying `tg_pin_vendor_capture_verdict` next door — but that function is
+      SECURITY **INVOKER** and this one is DEFINER, and inside a DEFINER
+      function `current_user` is the function's OWNER, never the caller. The
+      gate could not be true, so the pin never fired: the forgery test moved the
+      photo and the trigger watched. `SECURITY DEFINER` DISARMS A `current_user`
+      CHECK — second time this project has paid for that.
+
+      ⚖ So the pin is UNCONDITIONAL, and that is the better rule anyway. A photo
+      does not move between cameras — not for a browser, not for us. Nothing in
+      the product does it, so nothing is lost; and if some future feature needs
+      to, that is a decision somebody should have to come here and make
+      explicitly rather than one this trigger quietly permits.
+    */
+    IF NEW.paparazzi_seat_id IS DISTINCT FROM OLD.paparazzi_seat_id THEN
+      NEW.paparazzi_seat_id := OLD.paparazzi_seat_id;
+    END IF;
+
+    /*
+      🚨 A SUPERSEDED PHOTO IS NEVER RE-CREDITED — and this one is not
+      hypothetical either.
+
+      `reissueSeat` hands a camera to a NEW friend: it nulls the claimer,
+      rotates the token, and stamps `superseded_at` on every photo the previous
+      claimer took, deliberately KEEPING them because they still belong to the
+      event. When friend B then claims that same seat, the seat's claimer is B —
+      and a plain derivation would credit B with photographs A took.
+
+      The previous claimer's identity is not recoverable from the seat once it
+      has been handed on, so the honest answer is NULL: an absence, not a guess.
+      Written HERE and not only in the backfill's WHERE clause, so it holds for
+      every future filler rather than for the one below.
+    */
+    IF NEW.superseded_at IS NOT NULL THEN
+      NEW.captured_by_person_id := NULL;
+      RETURN NEW;
+    END IF;
+  END IF;
+
   -- The one join, identical to the 20270523457332 backfill's.
   -- people.claimed_by_user_id is UNIQUE (one account claims at most one
   -- person) and paparazzi_seats.claimer_user_id references auth.users(id) —
@@ -93,6 +149,10 @@ BEGIN
    WHERE s.seat_id = NEW.paparazzi_seat_id
      AND s.claimer_user_id IS NOT NULL;
 
+  -- Runs on every INSERT and on the UPDATEs that reach here, so a value the
+  -- caller named is always replaced by the derived one: there is no path where
+  -- a PATCH of this column is honoured.
+  --
   -- No row found leaves NEW.captured_by_person_id NULL, which is the correct
   -- answer for a photo with no seat, an unclaimed seat, or a claimer with no
   -- person row. SELECT INTO does not raise on zero rows.
@@ -155,4 +215,10 @@ JOIN public.people AS pe
   ON pe.claimed_by_user_id = s.claimer_user_id
 WHERE ph.paparazzi_seat_id = s.seat_id
   AND s.claimer_user_id IS NOT NULL
-  AND ph.captured_by_person_id IS NULL;
+  AND ph.captured_by_person_id IS NULL
+  -- ⚠ A SUPERSEDED PHOTO BELONGS TO THE PREVIOUS CLAIMER OF THAT CAMERA, whose
+  -- identity the seat no longer carries. Without this line a reissued seat
+  -- credits the new friend with the old friend's photographs — silently, and
+  -- permanently. The trigger enforces the same rule, so this is the belt to its
+  -- braces rather than the only copy.
+  AND ph.superseded_at IS NULL;

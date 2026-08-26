@@ -45,17 +45,29 @@ test('1 · no papic_photos INSERT runs on the caller session client', () => {
   const offenders: number[] = [];
   let inserts = 0;
 
+  /*
+    🪤 THE FIRST VERSION OF THIS ONLY FLAGGED A CHAIN WHOSE OPENING LINE
+    LITERALLY SAID `supabase`. A refactor holding the client in any other local
+    — `const rowWriter = supabase;` — walked straight past it, and since the
+    grant is now revoked that ships a camera that cannot record anything. An
+    ALLOW-LIST of one name is the only shape that cannot be walked around: the
+    chain must be opened by `writer`, and `writer` must be the admin client.
+  */
   lines.forEach((line, i) => {
     if (!line.includes("from('papic_photos')")) return;
     const window = lines.slice(i, i + 8).join('\n');
     if (!/\.insert\(/.test(window)) return;
     inserts += 1;
-    // Walk back to the token that opened the chain.
-    const opener = lines
-      .slice(Math.max(0, i - 3), i)
-      .reverse()
-      .find((l) => /\b(writer|supabase|admin)\b/.test(l));
-    if (opener && /\bsupabase\b/.test(opener)) offenders.push(i + 1);
+    // The token that opens the chain: the last non-empty thing before
+    // `.from('papic_photos')`, on this line or the ones just above it.
+    const opener =
+      (line.match(/([A-Za-z_$][\w$]*)\s*$/) ?? [])[1] ??
+      lines
+        .slice(Math.max(0, i - 4), i)
+        .reverse()
+        .map((l) => (l.match(/([A-Za-z_$][\w$]*)\s*$/) ?? [])[1])
+        .find(Boolean);
+    if (opener !== 'writer') offenders.push(i + 1);
   });
 
   // Anti-vacuity: if the shape of the file changes so no insert is found, this
@@ -70,10 +82,11 @@ test('1 · no papic_photos INSERT runs on the caller session client', () => {
   assert.deepEqual(
     offenders,
     [],
-    `papic_photos is inserted through the caller's own session at line(s) ` +
-      `${offenders.join(', ')}. That role no longer holds INSERT, so this is ` +
-      `both a broken camera and — if the grant is ever handed back — every ` +
-      `gate in recordSeatCapture becoming optional again.`,
+    `a papic_photos insert at line(s) ${offenders.join(', ')} is not opened by ` +
+      `\`writer\`. Only \`writer\` is the service-role client; \`authenticated\` ` +
+      `no longer holds INSERT, so anything else is both a broken camera and — ` +
+      `if the grant is ever handed back — every gate in recordSeatCapture ` +
+      `becoming optional again.`,
   );
 });
 
@@ -85,6 +98,11 @@ test('2 · the writer is the service role, and an unavailable one REFUSES', () =
     1,
     'the capture writer is no longer resolved from createAdminClient()',
   );
+
+  // ⚠ AND THAT `writer` IS WHAT THE INSERTS USE — asserted by rule 1, which
+  // requires every papic_photos insert chain to be opened by that exact name.
+  // On its own this rule only proves the admin client is CREATED: it would stay
+  // green with `writer` as dead code. The two rules are load-bearing together.
 
   // The reads above this point fail OPEN on purpose — a config error must not
   // stop a wedding being photographed. The WRITE cannot: with the grant gone

@@ -49,3 +49,38 @@ The trigger **overwrites** what was supplied rather than filling only NULLs. A s
 🪤 **And the fixture failed twice before it was right, both times for reasons that read like a broken product**: `events.display_name` is NOT NULL, and creating an account already mints its own claimed person node (`people.claimed_by_user_id` is UNIQUE), so seeding one by hand fails with a duplicate key.
 
 **SPEC IMPACT:** None.
+
+---
+
+## 🔬 An adversarial pass over this same change found two real forgery routes
+
+Five lenses, each finding attacked by an independent skeptic. Two survived, both mine, both closed here.
+
+**1 · The credit was forgeable one column over.** Deriving the capturer from the seat is only as trustworthy as the seat — and `authenticated` holds UPDATE on `paparazzi_seat_id` while the couple's policy admits any photo on their own event. So a host could PATCH a photo shot on a friend's camera onto their **own** seat, and the trigger would dutifully re-credit it to them. The derivation was honest; the input was not. **A photo does not move between cameras** now: nothing in the product does it (grepped every non-test writer of that column: none), so pinning costs no feature.
+
+🪤 **And the first cut of that pin was INERT.** It read `IF current_user IN ('authenticated','anon')`, copied from `tg_pin_vendor_capture_verdict` next door — but that function is `SECURITY INVOKER` and this one is `DEFINER`, and **inside a DEFINER function `current_user` is the owner, never the caller**. The gate could never be true; the forgery test moved the photo and the trigger watched. Second time this project has paid for that. The pin is unconditional now, which is the better rule anyway.
+
+**2 · A superseded photo would be re-credited to the camera's new holder.** `reissueSeat` hands a camera to a new friend: it nulls the claimer, rotates the token, and stamps `superseded_at` on the previous claimer's photos, **keeping** them. When friend B claims that seat, a plain derivation credits B with photographs A took. The previous claimer's identity is not recoverable from the seat once it has been handed on, so the honest answer is **NULL** — an absence, not a guess. Enforced in the trigger, not only in the backfill's `WHERE`, so it holds for every future filler.
+
+### 🚨 And the pass sabotaged my working tree to prove a third
+
+A lens-4 agent appended `AND ph.photo_type = 'clip'` to the shipped backfill — a change that would have left **every photograph in production uncredited forever** — and this file reported **6 pass, 0 fail**. Two more stray edits were found in the same sweep, one of them inside an **already-applied migration**. Only `git diff` caught them; `git add -A` would have swept them into the commit.
+
+🔑 **Never point an audit at a live working tree you are also editing.** Give subagents a detached read-only worktree, and diff before every `add`.
+
+The finding was right: rule 5 matched two fragments that survived the narrowing, and rule 6 ran a **hand-typed copy** of the statement. Rule 6 now **lifts the statement out of the migration file and executes it**, with a floor so a truncated match cannot silently prove nothing. Re-running the agent's exact sabotage: **red**.
+
+| sabotage | count | result |
+|---|---|---|
+| the seat pin removed | 1 → 0 | 🔴 |
+| the superseded guard removed | 1 → 0 | 🔴 |
+| the backfill loses its `superseded_at` scope | 1 → 0 | 🔴 |
+| the backfill narrowed to clips (the agent's own) | 1 → 1 clause added | 🔴 |
+
+⚠ **One clause is asserted textually because it cannot be observed:** the trigger NULLs a superseded photo's credit whatever the backfill does, so deleting `AND ph.superseded_at IS NULL` changes no outcome — measured 1 → 0, still 8 pass. It is kept because it protects a bulk backfill run with the **trigger disabled**, which is how anybody repairs this column at scale, and an unobservable line is one somebody deletes as dead.
+
+## 🛡 Two more guards of mine were decoration, and the pass found both
+
+**`the-meter-is-the-only-door` rule 1 only flagged a session-client insert when the opening line literally said `supabase`.** `const rowWriter = supabase;` walked straight past — and since the grant is revoked, that ships a camera that cannot record anything. It is an **allow-list** now: the chain must be opened by `writer`, and rule 2 proves `writer` is the admin client. Neither rule is sufficient alone and the file says so. Both of the finding's own scenarios now go red.
+
+**`capture-moderation`'s scaffolding hand-picked eight columns**, so lane 1 refused because *my list* omitted `moderation_state`, not because the schema does — delete the revoke the whole file guards and every rule still passed. The grant is **derived from the schema** now: the columns `authenticated` may still UPDATE are exactly the ones it could INSERT before this week's revoke. If anybody hands `moderation_state` its UPDATE grant back, the scaffolding grants INSERT on it too and lane 1 goes **red** — which is the entire point of a second lock.

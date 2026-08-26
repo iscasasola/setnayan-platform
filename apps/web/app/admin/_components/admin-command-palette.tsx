@@ -8,6 +8,7 @@ import { claimCommandKey } from '@/lib/command-key-claim';
 import { rankBySentence } from '@/lib/admin-map/rank-by-sentence';
 
 import { askTheAdmin, type AskAnswer } from './ask-actions';
+import { ADMIN_SEARCH_OPEN_EVENT } from './admin-search-open-event';
 
 import { buildDestinations, type Dest, type RowDest } from './admin-destinations';
 
@@ -140,6 +141,19 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
     so neither control is ever dead.
   */
   useEffect(() => claimCommandKey(), []);
+
+  /**
+   * The visible box opens this same panel.
+   *
+   * 🔴 Until 2026-08-26 there was no way in but ⌘K, and the owner — the only
+   * person who uses this console — said plainly: *"i do not see the AI
+   * searchbar."* A shortcut nobody was told about is not a door.
+   */
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener(ADMIN_SEARCH_OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(ADMIN_SEARCH_OPEN_EVENT, onOpen);
+  }, []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

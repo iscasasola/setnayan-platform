@@ -26,6 +26,7 @@ import { completeTour } from '@/lib/tour-actions';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { AdminRailContext } from './_components/admin-rail-context';
 import { AdminCommandPalette } from './_components/admin-command-palette';
+import { AdminSearchBox } from './_components/admin-search-box';
 import { fetchAdminRows } from '@/lib/admin-map/admin-row-index';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
 import { AdminNavFab } from './_components/admin-nav-fab';
@@ -376,6 +377,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           />
         }
         topBarSlot={topBar}
+        /* The admin's own search — the shared palette looks through the person's
+           OWN events, which is not what somebody standing in HQ is asking for. */
+        searchSlot={<AdminSearchBox />}
       >
         {/* `sn-vt-page` → `view-transition-name: sn-page`. During the mobile
             bottom-nav carousel slide (NavSlideController, which lists `/admin`

@@ -164,7 +164,14 @@ const REQUIRED_RETAIL = [
   // Same gitleaks `generic-api-key` false positive as app/pricing/page.tsx —
   // the adjacent PAPIC_GUEST* codes read as a keyword + high-entropy pair. Kept
   // on one line so the inline allow covers the whole match, per that precedent.
-  'PAPIC_GUEST_100', 'PAPIC_GUEST', 'PAPIC_GUEST_10K', 'PAPIC_GUEST_20K', // gitleaks:allow — catalog service_codes, not secrets
+  // 🔑 THE WHOLE LADDER, and it is rendered from these codes rather than typed —
+  // see PAPIC_LADDER below. Sixteen rungs (owner 2026-08-26): naming them all
+  // here is what makes a missing or renamed one throw MissingSkuError instead of
+  // quietly going unquoted while it is on sale.
+  'PAPIC_GUEST_100', 'PAPIC_GUEST_200', 'PAPIC_GUEST_300', 'PAPIC_GUEST_400', 'PAPIC_GUEST_500', // gitleaks:allow — catalog service_codes, not secrets
+  'PAPIC_GUEST_1K', 'PAPIC_GUEST_2K', 'PAPIC_GUEST', 'PAPIC_GUEST_4K', 'PAPIC_GUEST_5K', // gitleaks:allow — catalog service_codes, not secrets
+  'PAPIC_GUEST_6K', 'PAPIC_GUEST_7K', 'PAPIC_GUEST_10K', 'PAPIC_GUEST_20K', // gitleaks:allow — catalog service_codes, not secrets
+  'PAPIC_GUEST_30K', 'PAPIC_GUEST_50K', // gitleaks:allow — catalog service_codes, not secrets
   'CUSTOM_QR_GUEST',
 ] as const;
 
@@ -177,6 +184,43 @@ const REQUIRED_VENDOR = [
   'enterprise_vendor_annual',
   'vendor_branch_28day',
 ] as const;
+
+/**
+ * The Papic ladder, in order, as `[service_code, shots]`. Prices are NOT here —
+ * they come from the catalog through the price book, because a second typed copy
+ * of a price is exactly how this file drifted for three weeks before.
+ *
+ * ⚖ 40,000 is deliberately absent: it was in the owner's first table at ₱10,000,
+ * the same price as 50,000, so nobody could rationally choose it. He removed it.
+ */
+const PAPIC_LADDER: readonly (readonly [string, number])[] = [
+  ['PAPIC_GUEST_100', 100],
+  ['PAPIC_GUEST_200', 200],
+  ['PAPIC_GUEST_300', 300],
+  ['PAPIC_GUEST_400', 400],
+  ['PAPIC_GUEST_500', 500],
+  ['PAPIC_GUEST_1K', 1_000],
+  ['PAPIC_GUEST_2K', 2_000],
+  ['PAPIC_GUEST', 3_000],
+  ['PAPIC_GUEST_4K', 4_000],
+  ['PAPIC_GUEST_5K', 5_000],
+  ['PAPIC_GUEST_6K', 6_000],
+  ['PAPIC_GUEST_7K', 7_000],
+  ['PAPIC_GUEST_10K', 10_000],
+  ['PAPIC_GUEST_20K', 20_000],
+  ['PAPIC_GUEST_30K', 30_000],
+  ['PAPIC_GUEST_50K', 50_000],
+] as const;
+
+/** "₱50 for 100 · ₱100 for 200 · …" — every rung, priced from the catalog. */
+export function papicLadderPhrase(price: (code: string) => string): string {
+  return PAPIC_LADDER.map(([code, shots]) => `${price(code)} for ${shots.toLocaleString('en-PH')}`).join(' · ');
+}
+
+/** "₱50/100 · ₱100/200 · …" — the compact form for the FAQ answer. */
+export function papicLadderCompact(price: (code: string) => string): string {
+  return PAPIC_LADDER.map(([code, shots]) => `${price(code)}/${shots.toLocaleString('en-PH')}`).join(' · ');
+}
 
 export type PriceBook = {
   retail: ReadonlyMap<string, number>;
@@ -379,7 +423,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Patiktok** — ${R('PATIKTOK_COMPILER')}. Mimic-station booth; unlimited 9:16 vertical recordings compiled into post-ready reels.
 - **Kwento** — free. Guest-contributed stories and messages.
-- **Papic** — one shared pot of shots every guest's phone can spend from, and the host can set some aside for one camera's QR that nobody else can touch. 50 shots free on every event, then ${R('PAPIC_GUEST_100')} for 100 · ${R('PAPIC_GUEST')} for 3,000 · ${R('PAPIC_GUEST_10K')} for 10,000 · ${R('PAPIC_GUEST_20K')} for 20,000, added on top and repeatable. Cameras are free and unlimited. A photo spends 1 credit; a video spends 2 to 8 depending on its length (1–2s = 2 · 3s = 3 · 4–6s = 5 · 7–10s = 8). 6-month access window.
+- **Papic** — one shared pot of shots every guest's phone can spend from, and the host can set some aside for one camera's QR that nobody else can touch. 50 shots free on every event, then ${papicLadderPhrase(R)}, added on top and repeatable — the regular rate is one peso a shot and every rung is a bundle discount off it, 50% at the bottom to 80% at the top. Cameras are free and unlimited. A photo spends 1 credit; a video spends 2 to 8 depending on its length (1–2s = 2 · 3s = 3 · 4–6s = 5 · 7–10s = 8). 6-month access window.
 - **Custom QR per Guest** — free. Individual QR codes for guests (RSVP, seating, photo tagging).
 
 ## The mood board is free
@@ -414,7 +458,7 @@ Vendor-side: public profile editor · inquiry inbox · calendar with intra-day b
 - **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Setnayan AI is the one paid planning tier, priced by event type: ${aiLadderLine}. Everything else is à la carte, no bundles. Vendor side: Verified free during launch, Solo ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')}/28-day block), Pro ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), Enterprise ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). 0% commission.
 - **Is Setnayan free?** Starting is free and the planning workspace stays free. The 4-in-1 Event Hub with unlimited RSVP is free; premium touches come with Event Hub PRO ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is free.
 - **What is Setnayan AI?** The assisted-planning tier. One-time, access until the event date, priced by how much planning load the event type carries — a wedding at ${aiA} down to ${peso(ladder[3]!.php)} for a casual outing.
-- **What is Papic?** Guests' phones become a coordinated capture crew. You buy shots once — 50 free on every event, then ${R('PAPIC_GUEST_100')}/100 · ${R('PAPIC_GUEST')}/3,000 · ${R('PAPIC_GUEST_10K')}/10,000 · ${R('PAPIC_GUEST_20K')}/20,000 — and every guest shoots from that shared pot. The host can set some of it aside for one camera's QR, so the person they trust with the important moments has shots nobody else can spend; when those run out that camera carries on from the pot. Cameras are free and unlimited. Photos auto-tag to guests and feed per-guest highlight reels, and every guest goes home with their own copy.
+- **What is Papic?** Guests' phones become a coordinated capture crew. You buy shots once — 50 free on every event, then ${papicLadderCompact(R)} — and every guest shoots from that shared pot. The host can set some of it aside for one camera's QR, so the person they trust with the important moments has shots nobody else can spend; when those run out that camera carries on from the pot. Cameras are free and unlimited. Photos auto-tag to guests and feed per-guest highlight reels, and every guest goes home with their own copy.
 - **What is Live Studio?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} per event-day; single-camera streaming is free, and rehearsing with up to 12 cameras is free.
 - **What is Pakanta?** A custom Filipino-style song written for the couple. ${R('PAKANTA')}.
 - **Does Setnayan support discount codes?** Yes — admins issue codes for promos, refunds, or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.

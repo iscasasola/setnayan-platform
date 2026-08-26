@@ -25,7 +25,12 @@ import {
   PAPIC_POINTS_PER_CLIP,
   PAPIC_POINTS_PER_PHOTO,
 } from './papic-cameras';
-import { papicOneRungPhrase, papicPoolRungPhrase, papicBucketPhrase } from './papic-tier-copy';
+import {
+  papicOneRungPhrase,
+  papicPoolRungPhrase,
+  papicBucketPhrase,
+  papicRungDiscountPercent,
+} from './papic-tier-copy';
 
 // ── the currency ───────────────────────────────────────────────────────────
 
@@ -187,12 +192,26 @@ test('rung copy takes its numbers as arguments and names what makes One differen
     "₱50 — 50 shots, that camera's own",
   );
   assert.equal(
-    papicPoolRungPhrase(3000, 1000),
-    '₱1,000 — adds 3,000 shots to your shared pool',
+    papicPoolRungPhrase(3000, 1200),
+    '₱1,200 — adds 3,000 shots to your shared pool · 60% off ₱3,000',
   );
   // Reprice either side and the sentence follows — nothing is spelled.
   assert.match(papicOneRungPhrase(100, 100), /₱100 — 100 shots/);
-  assert.match(papicPoolRungPhrase(10000, 3000), /₱3,000 — adds 10,000 shots/);
+  assert.match(papicPoolRungPhrase(10000, 3200), /₱3,200 — adds 10,000 shots/);
+
+  // ⚠ THE SAVING IS ONLY SHOWN WHEN IT IS REAL. A rung at or above ₱1 a shot
+  // must say nothing rather than print "0% off" or a negative one — the ladder
+  // is a discount off ₱1 = 1 credit, and a rung that is not a discount is a
+  // pricing mistake, not a badge.
+  assert.equal(
+    papicPoolRungPhrase(100, 100),
+    '₱100 — adds 100 shots to your shared pool',
+    'a rung priced at exactly ₱1 a shot advertised a discount',
+  );
+  assert.equal(papicRungDiscountPercent(100, 100), null);
+  assert.equal(papicRungDiscountPercent(100, 150), null);
+  assert.equal(papicRungDiscountPercent(50_000, 10_000), 80);
+  assert.equal(papicRungDiscountPercent(40_000, 10_000), 75);
 });
 
 test('a bucket never promises an exact photo+clip split, and discloses the clip cost', () => {

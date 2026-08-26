@@ -667,7 +667,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // ── LIVE since 2026-07-30. It was `coming_soon` ("Soon" pill, not clickable),
     // and the flip is the owner's 2026-07-29 two-type lock catching up with the
     // doorway: Pool is deliberately on sale. Verified against prod, not assumed —
-    // `PAPIC_GUEST` ₱1,000 · `PAPIC_GUEST_6K` ₱2,000 · `PAPIC_GUEST_10K` ₱3,000 are
+    // `PAPIC_GUEST` · `PAPIC_GUEST_6K` · `PAPIC_GUEST_10K` were (⚠ the prices this
+    // line used to quote went stale on 2026-08-26 — read the catalog, never a comment)
     // all `is_active = true` (the pax-priced ₱2,999 row is `PAPIC_GUEST_TOPUP`,
     // now inactive), so the two gates this comment named as blockers are closed:
     // 0b (the repricing off the pax curve — done) and 0c (the event-scoped points

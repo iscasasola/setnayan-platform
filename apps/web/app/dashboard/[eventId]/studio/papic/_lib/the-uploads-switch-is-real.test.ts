@@ -29,6 +29,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -145,5 +146,65 @@ test('7 · the value the picker branches on is actually SELECTED from the databa
     /const uploadsOpen\s*=[\s\S]{0,200}uploadsRow/,
     'the picker branches on a value that does not come from the select above — ' +
       'which is exactly how this shipped governing nothing the first time',
+  );
+});
+
+/**
+ * 🔒 RULE 8 — THE TRIPWIRE THAT MAKES THE BASELINE LINE HONEST.
+ *
+ * `handles-have-gates.db.test.ts` flags a switch written and read by one surface
+ * and asks the question a scanner cannot: does the copy beside it promise
+ * something it does not do? For this switch the answer is NO — **today**. The
+ * OFF text reads *"Nothing can be added from a phone or laptop"*, which is a
+ * claim about the whole gallery, and it is true only because the couple's own
+ * picker is the ONLY manual-upload path that exists. That reasoning is written
+ * into `tests/db/handles-have-gates.baseline.txt`.
+ *
+ * A baseline line that stops being true is worse than no line, because it reads
+ * as "somebody checked". So this rule fails the moment a FOURTH thing records a
+ * capture — a guest picker, a supplier upload, a new camera surface. At that
+ * moment two things must happen together, and neither is optional:
+ *
+ *   1. the OFF copy stops being true unless the new path honours the switch, and
+ *   2. **the SERVER must read the column, not just the screen.** Hiding a
+ *      control is not closing a door — the live photo wall mirrored to every
+ *      guest's phone while the only "off" switch closed the venue screens.
+ *
+ * ⚠ Counted at the CALL, not by importing the module: the point is how many
+ * places can put a row in, and an import that is never called is not a path.
+ */
+test('8 · exactly three things record a capture — a fourth must gate the write, not the button', () => {
+  const WEB = join(import.meta.dirname, '..', '..', '..', '..', '..', '..');
+  const known = [
+    'app/dashboard/[eventId]/studio/papic/_components/add-to-library.tsx',
+    'app/papic/seat/[token]/_components/camera-bridge-panel.tsx',
+    'app/papic/seat/[token]/_components/papic-seat-capture.tsx',
+  ];
+
+  const found = execFileSync(
+    'grep',
+    ['-rlE', 'recordSeatCapture\\(', 'app', 'lib', '--include=*.ts', '--include=*.tsx'],
+    { cwd: WEB, encoding: 'utf8' },
+  )
+    .split('\n')
+    .filter(Boolean)
+    .filter((f) => !f.includes('.test.'))
+    // app/papic/actions.ts DECLARES it; it does not call it.
+    .filter((f) => f !== 'app/papic/actions.ts')
+    // The offline drain and the camera-bridge sink take a `record` CALLBACK that
+    // the two seat components above hand them — they are the same path, plumbed.
+    .filter((f) => !f.startsWith('lib/offline/') && !f.startsWith('lib/camera-bridge/'))
+    .sort();
+
+  assert.deepEqual(
+    found,
+    known.slice().sort(),
+    `the set of capture recorders changed:\n  expected ${known.join('\n           ')}\n  found    ${found.join('\n           ')}\n\n` +
+      `If a NEW one adds photos BY HAND: it must read events.papic_uploads_open ` +
+      `ON THE SERVER before writing, not merely hide its button — and the OFF ` +
+      `copy on the switch ("Nothing can be added from a phone or laptop") stops ` +
+      `being true until it does. Then delete the events.papic_uploads_open line ` +
+      `from tests/db/handles-have-gates.baseline.txt, which says this switch's ` +
+      `effect is local.`,
   );
 });

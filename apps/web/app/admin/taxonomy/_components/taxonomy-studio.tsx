@@ -20,8 +20,8 @@
  * label_en only; a re-home edits parent_id (+ denormalized folder_id) only.
  */
 
-import { useCallback, useMemo, useState, useTransition, type DragEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState, useTransition, type DragEvent } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
   Plus,
@@ -54,6 +54,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { getLucideIcon } from '@/lib/nav-icons';
+import { ADMIN_ASK_PARAM } from '@/lib/admin-map/humanize-field';
 import { Sheet } from '@/app/_components/sheet';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -290,6 +291,18 @@ export type StudioData = {
 
 export type InspectorTab = 'details' | 'services' | 'refinements';
 
+/** What the search box's assistant gathered for `createCanonicalLeaf`, before
+ *  the admin has reviewed or pressed anything. See the `TaxonomyStudio` mount
+ *  effect for how it is read off the URL. */
+export type AddServicePrefill = {
+  displayNameEn: string;
+  faith: string;
+  refinementLabel: string;
+  refinementOptions: string;
+  isRental: boolean;
+  isPh: boolean;
+};
+
 export type StudioView =
   | 'all'
   | 'faith'
@@ -345,6 +358,44 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
   // inspector re-opens where the admin left off; ?opentab picks the tab.
   const [openTileId, setOpenTileId] = useState<string | null>(data.initialOpenTileId);
   const [openTab, setOpenTab] = useState<InspectorTab | null>(data.initialOpenTab);
+
+  // ── Prefilled from the search box's assistant (createCanonicalLeaf) ─────────
+  //
+  // The admin can now ask the search box "add a new category on the taxonomy
+  // service" and answer a few questions there; it navigates here carrying
+  // `?admin_ask=createCanonicalLeaf&aa_<field>=<value>`. This is the ONE
+  // consumer wired so far — see `lib/admin-map/humanize-field.ts` for the
+  // param contract and `admin-command-palette.tsx` for where it is built.
+  //
+  // 🔑 THE ASSISTANT NEVER KNOWS A REAL tile_id — it only has the words the
+  // admin typed for "which tile", so this resolves that text against the real
+  // tile list ourselves. An unresolved tile is an HONEST MISS: nothing
+  // pre-opens rather than guessing wrong and silently misplacing a service.
+  const searchParams = useSearchParams();
+  const [addServicePrefill, setAddServicePrefill] = useState<AddServicePrefill | null>(null);
+  useEffect(() => {
+    if (searchParams.get(ADMIN_ASK_PARAM) !== 'createCanonicalLeaf') return;
+    const tileQuery = (searchParams.get('aa_tile_id') ?? '').trim().toLowerCase();
+    const match = tileQuery
+      ? (data.tiles.find((t) => t.label.toLowerCase() === tileQuery) ??
+        data.tiles.find((t) => t.label.toLowerCase().includes(tileQuery)) ??
+        data.tiles.find((t) => tileQuery.includes(t.label.toLowerCase())))
+      : null;
+    if (!match) return;
+    setOpenTileId(match.id);
+    setOpenTab('services');
+    setAddServicePrefill({
+      displayNameEn: searchParams.get('aa_display_name_en') ?? '',
+      faith: searchParams.get('aa_faith') ?? '',
+      refinementLabel: searchParams.get('aa_refinement_label') ?? '',
+      refinementOptions: searchParams.get('aa_refinement_options') ?? '',
+      isRental: searchParams.get('aa_is_rental') === '1',
+      isPh: searchParams.get('aa_is_ph') === '1',
+    });
+    // Runs once, off the URL the page loaded with — not a dependency loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [dragTileId, setDragTileId] = useState<string | null>(null);
   const [dropTargetFolder, setDropTargetFolder] = useState<string | null>(null);
   const [dropTileIdx, setDropTileIdx] = useState<number | null>(null);
@@ -787,6 +838,7 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
             services={servicesByTile.get(openTile.id) ?? []}
             refinements={data.refinementsByTile[openTile.id] ?? []}
             initialTab={openTab ?? 'details'}
+            addServicePrefill={addServicePrefill}
             eventLabel={eventLabel}
             onDeleted={() => {
               setOpenTileId(null);
@@ -940,6 +992,7 @@ function Inspector({
   services,
   refinements,
   initialTab,
+  addServicePrefill,
   eventLabel,
   onDeleteRequest,
   confirm,
@@ -950,6 +1003,7 @@ function Inspector({
   services: StudioService[];
   refinements: StudioRefinementLeaf[];
   initialTab: InspectorTab;
+  addServicePrefill: AddServicePrefill | null;
   eventLabel: (e: string) => string;
   onDeleted: () => void;
   onDeleteRequest: (
@@ -1245,6 +1299,7 @@ function Inspector({
             tile={tile}
             data={data}
             services={services}
+            addServicePrefill={addServicePrefill}
             onServiceDragStart={onServiceDragStart}
           />
         ) : (
@@ -1320,11 +1375,13 @@ function ServicesTab({
   tile,
   data,
   services,
+  addServicePrefill,
   onServiceDragStart,
 }: {
   tile: StudioTile;
   data: StudioData;
   services: StudioService[];
+  addServicePrefill: AddServicePrefill | null;
   onServiceDragStart: (canonical: string) => (e: DragEvent) => void;
 }) {
   return (
@@ -1429,22 +1486,33 @@ function ServicesTab({
       )}
 
       {/* Add a service (with optional starter refinement + faith) */}
-      <details className="rounded-lg border border-success-200 bg-success-50/30 p-3">
+      <details
+        className="rounded-lg border border-success-200 bg-success-50/30 p-3"
+        open={addServicePrefill != null || undefined}
+      >
         <summary className="cursor-pointer text-xs font-medium text-success-800">
           ＋ Add a service to this tile
         </summary>
+        {addServicePrefill ? (
+          <p className="mt-2 flex items-center gap-1.5 rounded-md bg-success-100/60 px-2 py-1.5 text-[11px] text-success-800">
+            <Sparkles className="h-3 w-3 shrink-0" aria-hidden />
+            Prepared from your question in the search box — review the details below, then
+            press Add service yourself. Nothing has been added yet.
+          </p>
+        ) : null}
         <form action={createCanonicalLeaf} className="mt-3 space-y-2">
           <input type="hidden" name="tile_id" value={tile.id} />
           <input type="hidden" name="_anchor" value={`t-${tile.id}`} />
           <input
             name="display_name_en"
             required
+            defaultValue={addServicePrefill?.displayNameEn ?? ''}
             placeholder="Service name"
             className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm"
           />
           <select
             name="faith"
-            defaultValue=""
+            defaultValue={addServicePrefill?.faith ?? ''}
             className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm"
           >
             <option value="">Universal (everyone)</option>
@@ -1456,20 +1524,34 @@ function ServicesTab({
           </select>
           <input
             name="refinement_label"
+            defaultValue={addServicePrefill?.refinementLabel ?? ''}
             placeholder="Starter refinement (optional) — e.g. Customization"
             className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm"
           />
           <input
             name="refinement_options"
+            defaultValue={addServicePrefill?.refinementOptions ?? ''}
             placeholder="Options, comma-separated"
             className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm"
           />
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-1.5 text-xs text-ink/70">
-              <input type="checkbox" name="is_rental" className="h-3.5 w-3.5" /> Rental
+              <input
+                type="checkbox"
+                name="is_rental"
+                defaultChecked={addServicePrefill?.isRental ?? false}
+                className="h-3.5 w-3.5"
+              />{' '}
+              Rental
             </label>
             <label className="flex items-center gap-1.5 text-xs text-ink/70">
-              <input type="checkbox" name="is_ph" className="h-3.5 w-3.5" /> PH-specific
+              <input
+                type="checkbox"
+                name="is_ph"
+                defaultChecked={addServicePrefill?.isPh ?? false}
+                className="h-3.5 w-3.5"
+              />{' '}
+              PH-specific
             </label>
             <SubmitButton
               className="ml-auto rounded-md bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700"

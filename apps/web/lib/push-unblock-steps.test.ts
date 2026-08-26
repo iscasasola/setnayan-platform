@@ -193,21 +193,25 @@ test('9 · each tree is promised what IT actually gets', () => {
 });
 
 
-test('10 · the vendor card, which cannot enable at all, still shows the way out', () => {
+test('10 · the vendor card can both enable and disable, and still shows the way out', () => {
   /*
     ⚠ THE VENDOR SURFACE IS NOT THE SHARED TOGGLE. `vendor-dashboard/notifications`
-    imports its OWN 90-line card, and typecheck is what proved it — passing the
-    new `audience` prop there failed to compile, which is the only reason the
-    difference surfaced at all. My own note had already claimed that file was
-    "mounted nowhere"; it is mounted, and a grep whose --include flag had errored
-    is where that false claim came from.
+    imports its OWN card, and typecheck is what proved it — passing the shared
+    toggle's `audience` prop there failed to compile, which is the only reason
+    the difference surfaced at all. My own note had already claimed that file
+    was "mounted nowhere"; it is mounted, and a grep whose --include flag had
+    errored is where that false claim came from.
 
-    That card CANNOT enable — it defers to the registrar's banner — and its
-    denied branch rendered five words and then `: null`: a dead card with no
-    control and nowhere to go. It is NOT replaced with the shared toggle,
-    because it owns something the shared one does not: `deactivateAllPushTokens`,
-    a SERVER-side switch-off across every device the vendor has registered.
-    Swapping it would delete that inverse. It gets the same helper instead.
+    That card USED TO defer entirely to the layout's registrar banner for
+    enabling, which dead-ended once the vendor dismissed that banner (30-day
+    cooldown) or it was hidden for any other reason — the card said "Allow via
+    banner below" pointing at nothing on screen. It now enables inline, through
+    the same registerPushToken('web') path the registrar uses, so either one
+    can turn the device on and `deactivateAllPushTokens` can always turn it back
+    off. It is still NOT replaced with the shared toggle, because it owns
+    something the shared one does not: `deactivateAllPushTokens`, a SERVER-side
+    switch-off across every device the vendor has registered. Swapping it would
+    delete that inverse.
   */
   const src = code(
     readFileSync(
@@ -225,5 +229,15 @@ test('10 · the vendor card, which cannot enable at all, still shows the way out
     src,
     /deactivateAllPushTokens/,
     'and it must keep the server-side switch-off — that is why it was not replaced',
+  );
+  assert.match(
+    src,
+    /registerPushToken/,
+    'it must be able to enable inline, not only point at a banner that may be hidden',
+  );
+  assert.doesNotMatch(
+    src,
+    /Allow via banner below/,
+    'the dead-end enable copy must not come back',
   );
 });

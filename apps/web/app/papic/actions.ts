@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { releaseCaptureCredits } from '@/lib/papic-release-capture';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 import { ingestToWall } from '@/lib/live-wall';
@@ -34,10 +36,7 @@ import {
   eventUnliFreeViaUnlock,
   eventLtdFreeViaUnlock,
 } from '@/lib/papic-cameras';
-import {
-  fetchEventPoolStatus,
-  type EventPoolStatus,
-} from '@/lib/papic-event-pool';
+import { readEventPoolStatus } from '@/lib/papic-event-pool';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captchaOptions, captchaTokenFromForm, isCaptchaRefusal } from '@/lib/turnstile';
 import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
@@ -624,7 +623,13 @@ export async function recordSeatCapture(
       // release the reserved points so the couple isn't charged for a photo
       // that does not exist. Best-effort + never fatal (mirrors the refusal
       // unwind above); a failed release costs points, not a broken camera.
-      if (abortReleaseDedicated > 0 || abortReleasePool > 0) {
+      // ⚠ THIS USED TO END `.then(() => undefined, () => undefined)`.
+      // Supabase RESOLVES with { error } rather than throwing, so the second
+      // handler almost never ran and the FIRST discarded a real failure: a
+      // revoked grant, a replaced signature or a lock wait left the credits
+      // spent, the photo absent, and NOTHING anywhere knowing. Best-effort was
+      // right; SILENT was the bug.
+      {
         const rel = (() => {
           try {
             return createAdminClient();
@@ -635,14 +640,13 @@ export async function recordSeatCapture(
         if (rel) {
           // ONE call, both halves — passing back exactly the two figures the
           // reserve returned, which is the whole reason it returns them.
-          await rel
-            .rpc('papic_release_capture_split', {
-              p_seat_id: abortReleaseSeatId,
-              p_event_id: abortReleaseEventId,
-              p_dedicated_spent: abortReleaseDedicated,
-              p_pool_spent: abortReleasePool,
-            })
-            .then(() => undefined, () => undefined);
+          await releaseCaptureCredits(rel, {
+            seatId: abortReleaseSeatId,
+            eventId: abortReleaseEventId,
+            dedicatedSpent: abortReleaseDedicated,
+            poolSpent: abortReleasePool,
+            callSite: 'recordSeatCapture.releaseAfterInsertFailed',
+          });
         }
       }
       return { ok: false, error: insertError.message.slice(0, 80) };
@@ -738,11 +742,19 @@ export async function recordSeatCapture(
     // best-effort
   }
 
-  const { count } = await supabase
+  // ⚠ `{ count }` IS A DIFFERENT SHAPE FROM `{ data }`, and this read never
+  // checked its error — so a refused count came back null and the `?? 0` below
+  // turned it into "0 photos taken" on a camera that had just taken one. An
+  // unread count is not zero. Supabase resolves with { error } rather than
+  // throwing, so this explicit check is the only one there is.
+  const { count, error: countError } = await supabase
     .from('papic_photos')
     .select('photo_id', { count: 'exact', head: true })
     .eq('paparazzi_seat_id', seat.seat_id)
     .is('superseded_at', null);
+  if (countError) {
+    logQueryError('recordSeatCapture.galleryCount', countError, { seat_id: seat.seat_id }, 'graceful_degrade');
+  }
 
   // SOFT-STOP signal (Phase 0c): the event-scoped pass pool's live state rides
   // back on every successful capture so the camera can warn BEFORE the hard
@@ -750,22 +762,35 @@ export async function recordSeatCapture(
   // fence when a shot is refused. Absent (applies=false) for every non-pass
   // event, and a pure display read — degrades to "no fence" on any error, which
   // can never widen the actual gate (the reserve RPC above is the gate).
+  // ⚠ THIS USED `fetchEventPoolStatus`, WHICH CANNOT TELL YOU IT FAILED.
+  // That function returns the ABSENT sentinel on a read error, and absent means
+  // "this event has no fence" — so a refused read reached the camera as good
+  // news and the soft-stop warning silently stopped existing. `readEventPoolStatus`
+  // was split out for exactly this distinction (its own docblock says so); this
+  // caller was still on the wrong one.
+  //
+  // ⚠ AND THE try/catch WAS DECORATION. Supabase resolves with { error } rather
+  // than throwing, so the catch could never have fired on the case that matters.
+  //
+  // The direction of failure is unchanged and deliberate: on an unreadable pool
+  // the camera shows NO fence rather than inventing one. It can never widen the
+  // actual gate — the reserve RPC above is the gate; this is a display hint.
   let eventPool: EventPoolSignal | undefined;
   if (cameraTier) {
-    try {
-      const status: EventPoolStatus = await fetchEventPoolStatus(
-        createAdminClient(),
-        seat.event_id as string,
+    const read = await readEventPoolStatus(createAdminClient(), seat.event_id as string);
+    if (!read.ok) {
+      logQueryError(
+        'recordSeatCapture.eventPoolSignal',
+        { message: 'event pool unreadable — the camera shows no soft-stop warning' },
+        { event_id: seat.event_id },
+        'graceful_degrade',
       );
-      if (status.applies) {
-        eventPool = {
-          remaining: status.remainingPoints,
-          total: status.totalPoints,
-          soft: status.soft,
-        };
-      }
-    } catch {
-      eventPool = undefined;
+    } else if (read.status.applies) {
+      eventPool = {
+        remaining: read.status.remainingPoints,
+        total: read.status.totalPoints,
+        soft: read.status.soft,
+      };
     }
   }
 

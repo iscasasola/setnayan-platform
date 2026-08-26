@@ -15,6 +15,7 @@ import {
   papicEventPoolPreCheckExhausted,
   papicReserveEventPoolForCapture,
 } from '@/lib/papic-event-pool-gate';
+import { releaseCaptureCredits } from '@/lib/papic-release-capture';
 import {
   resolveGuestOwnCamera,
   reserveGuestOwnCameraCapture,
@@ -533,19 +534,18 @@ export async function POST(req: Request) {
     // cost to either side alone would move credits between the two: the guest
     // paid for theirs, and the leak in that direction is somebody's money
     // rather than the host's allowance.
-    if (dedicatedSpent > 0 || poolSpent > 0) {
-      await admin
-        .rpc('papic_release_capture_split', {
-          p_seat_id: ownCamera?.seatId ?? null,
-          p_event_id: session.event_id,
-          p_dedicated_spent: dedicatedSpent,
-          p_pool_spent: poolSpent,
-        })
-        .then(
-          () => undefined,
-          () => undefined,
-        );
-    }
+    // ⚠ THIS USED TO END `.then(() => undefined, () => undefined)`. Supabase
+    // RESOLVES with { error } rather than throwing, so the FIRST handler
+    // discarded a real failure and the guest's own credits stayed spent on a
+    // photo that does not exist, silently. Best-effort was right; SILENT was
+    // the bug.
+    await releaseCaptureCredits(admin, {
+      seatId: ownCamera?.seatId ?? null,
+      eventId: session.event_id,
+      dedicatedSpent,
+      poolSpent,
+      callSite: 'papic.guestCapture.releaseAfterRecordFailed',
+    });
   }
   if (error) {
     return NextResponse.json({ error: 'record_failed' }, { status: 500 });

@@ -74,17 +74,43 @@ import { vendorCustomersBadge } from '@/lib/nav-badges';
 
 const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
-    // Overview — the at-a-glance landing. `key: 'profile'` preserved so any
+    // Today — the at-a-glance landing. Labelled "Today" since the 2026-08-26
+    // re-cut (owner: "yes i agree"): it is the room a shop owner opens in the
+    // morning, and "Overview" named the layout rather than the job. My
+    // Customers sits ahead of My Shop for the same reason — people are the
+    // daily job, setting up a shop is a once.
+    // `key: 'profile'` preserved so any
     // per-tab localStorage state from existing users doesn't reset on the
     // 2026-07-01 6-tab reroster. Exact-match override — every other vendor
     // route also begins with `/vendor-dashboard/`, so a default startsWith
     // match would keep this tab active on every page.
     key: 'profile',
-    label: 'Overview',
+    label: 'Today',
     href: '/vendor-dashboard',
     icon: Home,
     activeMatch: '/vendor-dashboard',
     activeMatchExact: true,
+  },
+  {
+    // My Customers — the booking-pipeline destination + its cluster (messages ·
+    // clients · bookings · calendar · contracts · proposals · earnings · payday
+    // · payment-options).
+    key: 'customers',
+    label: 'Customers',
+    href: '/vendor-dashboard/customers',
+    icon: Users,
+    activeMatch: [
+      '/vendor-dashboard/customers',
+      '/vendor-dashboard/messages',
+      '/vendor-dashboard/clients',
+      '/vendor-dashboard/bookings',
+      '/vendor-dashboard/calendar',
+      '/vendor-dashboard/contracts',
+      '/vendor-dashboard/proposals',
+      '/vendor-dashboard/earnings',
+      '/vendor-dashboard/payday',
+      '/vendor-dashboard/payment-options',
+    ],
   },
   {
     // My Shop — the storefront destination + its whole cluster. The sub-routes
@@ -127,27 +153,6 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/activities',
       '/vendor-dashboard/manpower',
       '/vendor-dashboard/moodboard-library',
-    ],
-  },
-  {
-    // My Customers — the booking-pipeline destination + its cluster (messages ·
-    // clients · bookings · calendar · contracts · proposals · earnings · payday
-    // · payment-options).
-    key: 'customers',
-    label: 'Customers',
-    href: '/vendor-dashboard/customers',
-    icon: Users,
-    activeMatch: [
-      '/vendor-dashboard/customers',
-      '/vendor-dashboard/messages',
-      '/vendor-dashboard/clients',
-      '/vendor-dashboard/bookings',
-      '/vendor-dashboard/calendar',
-      '/vendor-dashboard/contracts',
-      '/vendor-dashboard/proposals',
-      '/vendor-dashboard/earnings',
-      '/vendor-dashboard/payday',
-      '/vendor-dashboard/payment-options',
     ],
   },
   {

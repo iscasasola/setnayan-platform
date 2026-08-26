@@ -49,6 +49,30 @@
  * Every former sub-surface lives as a TAB inside its hub and the old routes
  * redirect in with their params preserved. Do NOT re-add children here —
  * extend the hub's own tab strip instead.
+ *
+ * ─── RE-CUT 2026-08-26 — LABELS AND ORDER ONLY, NEVER THE KEYS ───────────
+ * Owner, after the admin console was re-cut the same way: *"we also want to
+ * rearrange the vendor dashboard to be easy to manage for the vendors. where
+ * they have customers, responses to requests, setting up their shop, setting
+ * up their services, performance analysis"* — then, on the drawing,
+ * *"yes i agree."*
+ *
+ * TWO THINGS MOVED AND NOTHING WAS ADDED:
+ *   · `overview` is labelled **Today**. It is the room a shop owner opens in
+ *     the morning to see who is waiting on them; "Overview" named the layout,
+ *     not the job. Same rename the admin console took on 2026-08-26.
+ *   · **My Customers now sits ahead of My Shop.** Setting up a shop is what
+ *     you do once; people are what you do every day, so the daily job is
+ *     nearer the top. Order is a display concern only — nothing reads it.
+ *   · `on-the-day` drops the "(BEO)" parenthetical from the MENU. It is hotel
+ *     and catering jargon and a florist does not use it; the room's own
+ *     heading still may.
+ *
+ * 🔑 THE KEYS DID NOT MOVE, and that is the whole reason this is safe: the
+ * staff role filter, the admin's rename registry (`vendor.sidebar.<key>`),
+ * the per-section localStorage and the badge map all key off them, and three
+ * of those four fail SILENTLY. A label is a string; a key is a contract.
+ * `vendor-rail-context.test.ts` pins the pair.
  */
 
 import { Home, ShoppingBag, Users, Gauge, CalendarCheck } from 'lucide-react';
@@ -74,17 +98,10 @@ import { vendorCustomersBadge } from '@/lib/nav-badges';
 export const VENDOR_DESTINATIONS: readonly NavItem[] = [
   {
     key: 'overview',
-    label: 'Overview',
+    label: 'Today',
     href: '/vendor-dashboard',
     icon: Home,
     matchPrefix: '__overview-exact__',
-  },
-  {
-    key: 'shop',
-    label: 'My Shop',
-    href: '/vendor-dashboard/shop',
-    icon: ShoppingBag,
-    matchPrefix: '/vendor-dashboard/shop',
   },
   {
     key: 'customers',
@@ -92,6 +109,13 @@ export const VENDOR_DESTINATIONS: readonly NavItem[] = [
     href: '/vendor-dashboard/customers',
     icon: Users,
     matchPrefix: '/vendor-dashboard/customers',
+  },
+  {
+    key: 'shop',
+    label: 'My Shop',
+    href: '/vendor-dashboard/shop',
+    icon: ShoppingBag,
+    matchPrefix: '/vendor-dashboard/shop',
   },
   {
     key: 'performance',
@@ -102,7 +126,7 @@ export const VENDOR_DESTINATIONS: readonly NavItem[] = [
   },
   {
     key: 'on-the-day',
-    label: 'On the Day (BEO)',
+    label: 'On the Day',
     href: '/vendor-dashboard/on-the-day',
     icon: CalendarCheck,
     matchPrefix: '/vendor-dashboard/on-the-day',

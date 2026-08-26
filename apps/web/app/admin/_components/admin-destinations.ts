@@ -55,9 +55,15 @@ export type Dest = {
   group: string;
   /** Everything this destination can be matched on, lowercased. */
   hay: string;
-  /** `menu` keeps full ranking; `map` is banded below it. */
-  source: 'menu' | 'map';
+  /** `menu` keeps full ranking; `map` and `row` are banded below it. */
+  source: 'menu' | 'map' | 'row';
 };
+
+/**
+ * A thing INSIDE a page — a price row today. Passed in from the server, because
+ * rows come from the database and a client component cannot read it.
+ */
+export type RowDest = { label: string; href: string; hay: string; hint: string };
 
 /**
  * `/admin/booking-fees` → `Booking fees`; `/admin/venues/new` → `Venues · New`.
@@ -81,7 +87,7 @@ function pathOf(href: string): string {
   return href.split('?')[0] ?? href;
 }
 
-export function buildDestinations(): Dest[] {
+export function buildDestinations(rows: readonly RowDest[] = []): Dest[] {
   const out: Dest[] = [];
   const byHref = new Map<string, Dest>();
   const coveredPaths = new Set<string>();
@@ -162,6 +168,18 @@ export function buildDestinations(): Dest[] {
     if (!host) continue;
     const words = [job.phrase, ...job.fields.map((f) => f.replace(/_/g, ' '))].join(' ');
     host.hay += ` ${words.toLowerCase()}`;
+  }
+
+  // Rows last, and banded lowest. A page is almost always the better answer to a
+  // vague query; a row wins only when its own words are what you typed.
+  for (const r of rows) {
+    out.push({
+      label: r.label,
+      href: r.href,
+      group: r.hint === 'price' ? 'Prices' : 'Prices · off sale',
+      hay: r.hay.toLowerCase(),
+      source: 'row',
+    });
   }
 
   return out;

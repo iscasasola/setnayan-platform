@@ -16,6 +16,7 @@
  */
 
 import { useState } from 'react';
+import { skuAnchorId } from '@/lib/admin-map/sku-anchor';
 import { Info } from 'lucide-react';
 import { RETAIL_GRID, TWOCOL_GRID } from './grids';
 
@@ -137,7 +138,13 @@ export function RetailRowEditor({ row }: { row: Retail }) {
   const m = marginPct(Number(price), Number(cost));
   const c = row.service_code;
   return (
-    <div className={`gap-3 border-b border-ink/5 px-4 py-3.5 last:border-b-0 max-md:space-y-3 ${RETAIL_GRID} ${row.is_active ? '' : 'bg-ink/3'}`}>
+    <div
+      // The anchor the admin search links to. Its id comes from the SAME helper
+      // that builds the link, so the two cannot drift into a link that opens the
+      // right page and quietly fails to scroll.
+      id={skuAnchorId(c)}
+      className={`scroll-mt-24 gap-3 border-b border-ink/5 px-4 py-3.5 last:border-b-0 max-md:space-y-3 ${RETAIL_GRID} ${row.is_active ? '' : 'bg-ink/3'}`}
+    >
       <div className="min-w-0">
         <div className="mb-1.5 flex flex-wrap items-center gap-2">
           <code className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">{c}</code>

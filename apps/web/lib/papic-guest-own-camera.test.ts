@@ -179,14 +179,33 @@ test('the route unwinds BOTH halves in one call, with the real figures', () => {
   // Releasing the whole cost to either side alone moves credits between the
   // guest's paid balance and the host's pot. The two figures the reserve
   // returned are the only honest thing to hand back.
-  const src = noComments(read('app/api/papic/guest-capture/route.ts'));
-  assert.match(src, /papic_release_capture_split/);
-  assert.match(src, /p_dedicated_spent: dedicatedSpent/);
-  assert.match(src, /p_pool_spent: poolSpent/);
-  assert.ok(
-    !/papic_release_camera_points/.test(src),
-    'the two separate releases are gone — one call unwinds the pair it booked',
-  );
+  //
+  // ⚠ THIS NOW FOLLOWS THE VALUE INTO THE CALLEE, and that is the point. The
+  // RPC moved out of the route into the shared `releaseCaptureCredits` on
+  // 2026-08-26 (the inline version discarded its own error, so a failed refund
+  // was invisible). Asserting only the route would have gone green while the
+  // helper did something else entirely — a function's NAME is not its
+  // behaviour. Both hops are checked.
+  const route = noComments(read('app/api/papic/guest-capture/route.ts'));
+  const helper = noComments(read('lib/papic-release-capture.ts'));
+
+  // Hop 1 — the route hands the shared release the two REAL figures.
+  assert.match(route, /releaseCaptureCredits\(/, 'the route no longer releases through the shared helper');
+  const call = /releaseCaptureCredits\([\s\S]{0,400}?\}\)/.exec(route)?.[0] ?? '';
+  assert.match(call, /dedicatedSpent/, 'the dedicated figure is no longer passed back');
+  assert.match(call, /poolSpent/, 'the pool figure is no longer passed back');
+
+  // Hop 2 — the helper spends them on ONE atomic call, under the right names.
+  assert.match(helper, /papic_release_capture_split/, 'the helper no longer makes the atomic release call');
+  assert.match(helper, /p_dedicated_spent: dedicatedSpent/);
+  assert.match(helper, /p_pool_spent: poolSpent/);
+
+  for (const [where, src] of [['route', route], ['helper', helper]] as const) {
+    assert.ok(
+      !/papic_release_camera_points/.test(src),
+      `the two separate releases are back in the ${where} — one call unwinds the pair it booked`,
+    );
+  }
 });
 
 test('🪤 what each side spent is a COUNT, never a boolean', () => {

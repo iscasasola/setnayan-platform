@@ -1283,11 +1283,16 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 4,
   },
   {
+    // Re-cut 2026-08-26 (owner: "yes i agree"): "Today", because it is the
+    // room a shop owner opens in the morning — "Overview" named the layout.
+    // ⚠ THE REGISTRY LABEL WINS over the one in the code: the rail replaces
+    // its own word with this one whenever a slot exists. Rename in both or
+    // the rename does not happen.
     key: "vendor.sidebar.overview",
     scope: "vendor",
     area: "vendor-sidebar",
     route: "/vendor-dashboard",
-    label: "Overview",
+    label: "Today",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Home",
@@ -1305,7 +1310,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "ShoppingBag",
     customRef: null,
-    sortOrder: 1,
+    sortOrder: 2,
   },
   {
     // My Customers — the booking-pipeline destination (proto-shell 6-menu).
@@ -1318,7 +1323,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "Users",
     customRef: null,
-    sortOrder: 2,
+    sortOrder: 1,
   },
   {
     // Overview tab (key 'home' — the flat item key stays 'profile', mapped to
@@ -1327,7 +1332,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "vendor",
     area: "vendor-bottom-nav",
     route: "/vendor-dashboard",
-    label: "Overview",
+    label: "Today",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Home",
@@ -1697,7 +1702,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "ShoppingBag",
     customRef: null,
-    sortOrder: 1,
+    sortOrder: 2,
   },
   {
     key: "vendor.bottom-nav.customers",
@@ -1709,7 +1714,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "Users",
     customRef: null,
-    sortOrder: 2,
+    sortOrder: 1,
   },
   {
     key: "vendor.bottom-nav.performance",
@@ -1815,7 +1820,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "admin",
     area: "admin-bottom-nav",
     route: "/admin",
-    label: "Overview",
+    label: "Today",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Home",
@@ -2602,26 +2607,12 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "admin",
     area: "admin-bottom-nav",
     route: "/admin/directory",
-    label: "Accounts",
+    label: "People",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Users",
     customRef: null,
     sortOrder: 1,
-  },
-  {
-    // Performance tab (6-menu respine 2026-07-03) — lands directly on the App
-    // Performance cockpit.
-    key: "admin.bottom-nav.performance",
-    scope: "admin",
-    area: "admin-bottom-nav",
-    route: "/admin/app-performance",
-    label: "Performance",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Activity",
-    customRef: null,
-    sortOrder: 3,
   },
   {
     key: "admin.bottom-nav.more",

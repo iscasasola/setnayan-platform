@@ -134,6 +134,28 @@ export const JUDGEMENT_QUEUES: Record<string, string> = {
   'account-deletions':
     'An erasure request is a legal duty with a clock. Opens the case file.',
   'force-majeure': 'An event-impacting flag affects other people’s bookings too.',
+  /* Added 2026-08-26. Force-complete unlocks a couple's public review; uphold
+     non-delivery freezes it. Both notify the couple and both move a rating —
+     that is a ruling on whether a supplier did the job, not a fact to tick. */
+  completions:
+    'Deciding whether a supplier delivered moves a public review either way. Opens the file.',
+};
+
+/**
+ * Queues with no button for a reason that is NOT judgement — the work is real,
+ * it simply does not happen here.
+ *
+ * 🔑 WHY THIS EXISTS. Three queues had neither a control nor a sentence, so an
+ * expanded row showed nothing at all and the reader learned nothing. The house
+ * rule above applies just as hard to them: *being explicit beats being silent;
+ * a reader should learn WHY there is no button here, not assume the feature is
+ * unfinished.* Judgement was never the only honest reason to withhold one.
+ */
+export const SETTLED_ELSEWHERE: Record<string, string> = {
+  'booking-fees':
+    'A fee is confirmed on Payments, where the supplier’s receipt is — this list only shows who has not paid yet.',
+  'vendor-partnerships':
+    'These wait on the other supplier, not on us. The only thing we can do is veto one, and that opens the file.',
 };
 
 /**
@@ -185,6 +207,7 @@ const PEEK_QUEUES = [
 export const EXPANDABLE_QUEUES: ReadonlySet<string> = new Set<string>([
   ...PEEK_QUEUES,
   ...Object.keys(JUDGEMENT_QUEUES),
+  ...Object.keys(SETTLED_ELSEWHERE),
 ]);
 
 export async function peekQueue(
@@ -198,7 +221,9 @@ export async function peekQueue(
    */
   viewerUserId?: string,
 ): Promise<QueuePeek | null> {
-  const note = JUDGEMENT_QUEUES[key];
+  // Both reasons a queue may withhold a control: it is a judgement, or the
+  // work happens somewhere else. Either way the row SAYS so.
+  const note = JUDGEMENT_QUEUES[key] ?? SETTLED_ELSEWHERE[key];
 
   // Build the query from the SAME table + filter the badge counted with. Never
   // re-type a predicate here: see getQueueSource() for the payouts mismatch

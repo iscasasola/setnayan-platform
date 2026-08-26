@@ -85,6 +85,12 @@
 -- INSERT grant and has never had one. The SEAT path is the odd one out, not the
 -- normal one. Whoever picks this up: copy the guest function's shape.
 --
+-- ⚠ IT WRITES A DIFFERENT TABLE — `papic_guest_captures`, not this one, and
+-- nothing copies between them. So it is a MODEL to follow, not a second writer
+-- of these rows; do not read the sentence above as "guest captures come in
+-- through here too." Measured: all 14 papic_photos rows in production carry a
+-- seat, and there are none without one.
+--
 -- 🔒 Do not "simplify" this by handing the INSERT grant back and relying on a
 -- WITH CHECK. A policy cannot count credits.
 --
@@ -142,9 +148,9 @@ CREATE POLICY papic_photos_claimer_delete ON public.papic_photos
   );
 
 COMMENT ON TABLE public.papic_photos IS
-  'Papic captures. INSERT is service-role only (2026-08-26): every seat capture '
-  'is metered by recordSeatCapture and every guest capture by '
-  'papic_record_guest_capture, and neither gate can be expressed as a policy '
-  'because a policy cannot count credits. Do not grant INSERT back. Claimers '
-  'keep SELECT/UPDATE/DELETE on their own seat''s rows; the couple keeps '
-  'SELECT/UPDATE/DELETE on their own event''s.';
+  'SEAT captures (a guest phone''s own captures live in papic_guest_captures, a '
+  'separate table nothing copies from). INSERT here is service-role only '
+  '(2026-08-26): every row is metered by recordSeatCapture, and that gate cannot '
+  'be expressed as a policy because a policy cannot count credits. Do not grant '
+  'INSERT back. Claimers keep SELECT/UPDATE/DELETE on their own seat''s rows; '
+  'the couple keeps SELECT/UPDATE/DELETE on their own event''s.';

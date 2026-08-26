@@ -28,7 +28,9 @@ The row went in through **the claimer's own session**, and `authenticated` held 
 
 **The reservation and the insert are still two steps, not one transaction.** Credits are booked, then the row is written, and an insert failure unwinds the booking in application code. A process that dies in the gap **leaks the credits it reserved** — the couple charged for a photo that does not exist. That errs against us rather than against the meter, which is the right direction to fail while it stands, but it is debt. The repair is a `SECURITY DEFINER` record function that reserves and inserts under one transaction, which deletes the unwind outright.
 
-🔑 **And that repair is not a new idea — it already ships, on the other half of this same feature.** `papic_record_guest_capture` is `SECURITY DEFINER` and does the whole thing in one function: resolve the guest, check the event owns the service, check the uploader is not blocked, check terms were accepted, check the unlock pass, reserve from the pool, insert. **That is why `anon` needs no INSERT grant and has never had one.** The seat path is the odd one out, not the normal one — whoever picks this up copies the guest function's shape rather than designing anything. **Do not read "service role" as "atomic"** — the guard says so too, so nobody quotes this file as proof of an invariant it does not test.
+🔑 **And that repair is not a new idea — it already ships, on the other half of this same feature.** `papic_record_guest_capture` is `SECURITY DEFINER` and does the whole thing in one function: resolve the guest, check the event owns the service, check the uploader is not blocked, check terms were accepted, check the unlock pass, reserve from the pool, insert. **That is why `anon` needs no INSERT grant and has never had one.** The seat path is the odd one out, not the normal one — whoever picks this up copies the guest function's shape rather than designing anything.
+
+⚠ **It writes a different table** — `papic_guest_captures`, and nothing copies between them. So it is a **model to follow, not a second writer of these rows**; the table comment was corrected before merge because the first draft implied otherwise. Measured: all 14 `papic_photos` rows carry a seat and there are none without one. **Do not read "service role" as "atomic"** — the guard says so too, so nobody quotes this file as proof of an invariant it does not test.
 
 ## 🛡 Guards + mutations
 
@@ -52,6 +54,16 @@ The row went in through **the claimer's own session**, and `authenticated` held 
 ## 🔬 Dry-run against production, rolled back
 
 Run inside `BEGIN … ROLLBACK` on the live database before committing, because the PGlite replay runs as **superuser** and cannot answer a privilege question honestly. End state measured **on the real objects**: `0` INSERT columns left for either browser role · **39 UPDATE columns kept**, so the camera can still stamp a clip's web copy · `0` policies declaring INSERT · 7 policies total. Re-queried afterwards to confirm the rollback took: prod is unchanged (39 INSERT columns, 5 policies, the `FOR ALL` still standing) until this merges.
+
+## 🪤 Three guards had to change, and one of them was mine from yesterday
+
+Closing this door broke **8 db tests** — every one of them a guard about this table doing its job.
+
+**`one-door-into-papic-photos` carried a paragraph of my own reasoning that was wrong**, and it is kept as a correction rather than deleted. It read: *"a blanket revoke would have been wrong — the claimer holding a camera IS an `authenticated` user; revoking the grant breaks every camera."* **The second half does not follow from the first.** A camera does not need the *browser* to hold the grant; it needs the capture recorded, and the record path can write with the service role after its gates run. The guest half of this same feature had already been built that way for months. So narrowing the couple's policy was **correct and insufficient** — it closed the couple's door and left the claimer's standing, and the Uploads camera then made every host a claimer, walking the couple straight back through it.
+
+**`capture-moderation-not-self-screenable` would have passed for the wrong reason.** Every behavioural rule there inserts as a paparazzo to prove the uploader cannot forge their own NSFW verdict; with the outer lock in place they would all go green on *"permission denied"* — proving the outer lock and saying nothing about the inner one. **A second lock you cannot test is not a second lock**, and the inner one is what still stands if a future feature ever needs a browser write. The file now restores the base grant **and the claimer's INSERT policy** — both halves, since a refusal by RLS instead of by the ACL is still the wrong reason — for exactly the columns an ordinary capture names, never `moderation_state`, and a new rule 0 asserts the outer lock is really there before the scaffolding lifts it.
+
+🪤 **And rule 0 was decoration on its first run, for the exact reason this whole change exists.** It asked `has_table_privilege(…,'INSERT')` and read FALSE as closed — the function that answers FALSE while 39 column grants are standing. Removing the revoke measured **1 → 0** and the rule stayed **green**. It now censuses every column and every policy: both sabotages red.
 
 ## Exposure baseline
 

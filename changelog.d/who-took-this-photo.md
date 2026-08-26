@@ -24,7 +24,9 @@ The trigger **overwrites** what was supplied rather than filling only NULLs. A s
 
 ⚠ **What it legitimately leaves NULL**, so nobody reads NULL as a fault: a photo with no seat, an unclaimed seat, a claimer with no `people` row. The column's own comment already says *"nullable for unclaimed/ephemeral seats."*
 
-⚠ **And one accuracy limit, named rather than hidden:** the Uploads camera is claimed by one host, so a co-host adding photos through it is credited to the claimer. The column means *"whose camera shot this frame"*, which is what the seat answers. Per-uploader credit is a different fact and needs its own column, not a redefinition of this one.
+⚠ **The other half is still unanswered, and that is named rather than hidden.** A guest phone's captures go to `papic_guest_captures`, a separate table nothing copies from — and it has **no capturer-person column at all**. So *"each person's own folder"* is solved here **for seat captures only**. That is a separate build and it needs a guest-to-person resolution that does not exist yet.
+
+⚠ **And one accuracy limit:** the Uploads camera is claimed by one host, so a co-host adding photos through it is credited to the claimer. The column means *"whose camera shot this frame"*, which is what the seat answers. Per-uploader credit is a different fact and needs its own column, not a redefinition of this one.
 
 ## Re-backfill
 

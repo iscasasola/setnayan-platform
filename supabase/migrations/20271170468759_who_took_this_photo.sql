@@ -25,11 +25,17 @@
 -- The value is DERIVED. It is not a decision anybody makes; it is a join the
 -- seat already answers. Three consequences follow:
 --
--- 1. **Enumerate by the column, not by the remembered list of writers.** There
---    are two capture paths today (recordSeatCapture and papic_record_guest_
---    capture) and this project has been bitten repeatedly by fixing the paths
---    somebody remembered. A trigger covers every path that exists and every
+-- 1. **Enumerate by the column, not by the remembered list of writers.** Today
+--    exactly one thing writes this table (recordSeatCapture); a guest phone's
+--    captures go to `papic_guest_captures`, a separate table nothing copies
+--    from. But this project has been bitten repeatedly by fixing the paths
+--    somebody remembered, and a trigger covers every path that exists and every
 --    path added later, including one written by somebody who never reads this.
+--
+--    ⚠ AND IT MEANS THE OTHER HALF IS STILL UNANSWERED: `papic_guest_captures`
+--    has NO capturer-person column at all, so "each person's own folder" is
+--    solved here only for seat captures. Named, not hidden — that is a separate
+--    build, and it needs a guest-to-person resolution that does not exist yet.
 --
 -- 2. **It cannot drift from the backfill.** The join below is the same join
 --    20270523457332 used. Written in the app it would be a second copy of a
@@ -103,6 +109,26 @@ COMMENT ON FUNCTION public.tg_stamp_capturer_person() IS
   'current_user — unlike tg_pin_vendor_capture_verdict, which protects a '
   'decision the service role must be able to make, this reproduces a join, and '
   'the honest capture path writes AS the service role.';
+
+-- ⚠ SECURITY DEFINER, AND THEN EXECUTE TAKEN AWAY. Two things are going on and
+-- they are easy to conflate:
+--
+--   · DEFINER is REQUIRED. `tg_pin_vendor_capture_verdict` next door is INVOKER
+--     and can afford to be, because it only inspects the row in front of it.
+--     This one READS `paparazzi_seats`, and `paparazzi_seats_claimer_read`
+--     returns a seat only to its own claimer — so under INVOKER, a couple
+--     updating a photo shot on a FRIEND'S camera would see no seat and the
+--     trigger would blank the credit it exists to write.
+--
+--   · EXECUTE MUST STILL GO. `CREATE FUNCTION` grants EXECUTE to PUBLIC by
+--     default on Supabase, which would put a new anon-callable SECURITY DEFINER
+--     function on the surface (`anon-rpc-surface.db.test.ts` catches exactly
+--     this). Postgres does not check EXECUTE when a row trigger fires — only at
+--     CREATE TRIGGER time — so revoking costs the trigger nothing.
+--     🔑 Name the roles: `FROM PUBLIC` alone leaves anon and authenticated
+--     their own explicit entries. Verified against prod 2026-07-26 on five
+--     functions that were still anon-callable after the PUBLIC-only form.
+REVOKE ALL ON FUNCTION public.tg_stamp_capturer_person() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS stamp_capturer_person ON public.papic_photos;
 CREATE TRIGGER stamp_capturer_person

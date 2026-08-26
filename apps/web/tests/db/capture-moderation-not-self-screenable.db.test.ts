@@ -45,6 +45,7 @@ import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 
+let OUTER_LOCK_HELD = false;
 let replay: ReplayResult;
 let db: PGlite;
 
@@ -128,6 +129,90 @@ before(async () => {
     [F.eventId, F.papz],
   );
   F.seat = seat.rows[0]!.seat_id;
+
+  /*
+    ── 🛑 THIS FILE DELIBERATELY REACHES AROUND AN OUTER LOCK ────────────────
+
+    On 2026-08-26, `20271169487222_no_photo_without_a_credit` revoked INSERT on
+    papic_photos from `authenticated` altogether: the row is written by the
+    service role after the eight gates in recordSeatCapture, because a policy
+    cannot count credits. That closes every scenario below by a much blunter
+    route — a paparazzo can no longer insert ANYTHING, forged verdict or not.
+
+    ⚠ WHICH WOULD MAKE THIS WHOLE FILE PASS FOR THE WRONG REASON. Every
+    behavioural rule here would go green on "permission denied", proving the
+    outer lock and saying nothing about the inner one. And the inner one is
+    worth keeping: the outer lock is one migration away from being softened by
+    somebody who needs a browser write for a future feature, and on that day the
+    `moderation_state` revoke and its trigger are what still stand between an
+    uploader and their own NSFW verdict. **A second lock you cannot test is not
+    a second lock.**
+
+    So the base grant is restored HERE, for exactly the columns an ordinary
+    capture names — and NOT for `moderation_state`, which is the thing under
+    test. The rule immediately below asserts the outer lock is really there in
+    the schema before this lifts it, so nobody mistakes this scaffolding for the
+    product's shape.
+  */
+  /*
+    🪤 ASKED PER COLUMN, AND THE FIRST VERSION OF THIS WAS DECORATION FOR THE
+    EXACT REASON THE OUTER LOCK EXISTS. It read
+    `has_table_privilege('authenticated','public.papic_photos','INSERT')` and
+    treated FALSE as "closed" — but that function answers FALSE while 39
+    COLUMN-level grants are standing, which is precisely how the original hole
+    stayed invisible. Removing the revoke from the migration measured 1 → 0 and
+    this rule stayed GREEN.
+  */
+  const openCols = await db.query<{ n: number }>(`
+    SELECT count(*)::int AS n
+      FROM information_schema.columns c
+     WHERE c.table_schema = 'public' AND c.table_name = 'papic_photos'
+       AND (has_column_privilege('authenticated','public.papic_photos', c.column_name, 'INSERT')
+         OR has_column_privilege('anon','public.papic_photos', c.column_name, 'INSERT'))
+  `);
+  const insertPolicies = await db.query<{ n: number }>(`
+    SELECT count(*)::int AS n FROM pg_policies
+     WHERE schemaname='public' AND tablename='papic_photos' AND cmd IN ('ALL','INSERT')
+  `);
+  OUTER_LOCK_HELD = (openCols.rows[0]?.n ?? -1) === 0 && (insertPolicies.rows[0]?.n ?? -1) === 0;
+
+  await db.exec(
+    `GRANT INSERT (event_id, paparazzi_seat_id, r2_object_key, photo_type,
+                   poster_r2_key, expires_at, hidden_at, clip_web_r2_key)
+       ON public.papic_photos TO authenticated`,
+  );
+
+  // ⚠ THE OUTER LOCK HAS TWO HALVES AND BOTH HAVE TO BE LIFTED. The same
+  // migration removed the INSERT arm from the claimer's policy (it was FOR ALL;
+  // it is now three verbs). With only the GRANT restored the insert is refused
+  // by RLS instead of by the ACL — a different refusal, still the wrong reason.
+  // This is the claimer predicate exactly as it stood before 2026-08-26.
+  await db.exec(`
+    CREATE POLICY papic_photos_scaffold_claimer_insert ON public.papic_photos
+      FOR INSERT TO authenticated
+      WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.paparazzi_seats ps
+          WHERE ps.seat_id = papic_photos.paparazzi_seat_id
+            AND ps.claimer_user_id = auth.uid()
+            AND ps.revoked_at IS NULL
+            AND ps.event_id = papic_photos.event_id
+        )
+      )
+  `);
+});
+
+test('0 · THE OUTER LOCK: in the real schema no browser role can insert at all', () => {
+  assert.ok(
+    OUTER_LOCK_HELD,
+    'a browser role can insert into papic_photos again — by column grant, by ' +
+      'policy, or both. Every gate in ' +
+      'recordSeatCapture — burst limiter, clip cap, capture window, paid-order ' +
+      'gate, put-away gate, geo control, credit reserve — becomes advisory, ' +
+      'because a photo can then be POSTed straight to PostgREST. See ' +
+      'no-photo-without-a-credit.db.test.ts. Everything below this line runs ' +
+      'with that lock deliberately lifted, to exercise the SECOND one.',
+  );
 });
 
 after(async () => {
@@ -252,7 +337,12 @@ test('authenticated and anon hold no INSERT or UPDATE on moderation_state', asyn
   assert.deepEqual(open, [], `${open.join(', ')} is writable by the browser`);
 });
 
-test('authenticated CAN still write the columns a real capture needs', async () => {
+test('the capture columns are writable — i.e. the scaffolding above is in place', async () => {
+  // ⚠ THIS ONCE ASSERTED A PROPERTY OF THE SCHEMA and now asserts one of this
+  // file's own setup, because the schema stopped granting these on 2026-08-26.
+  // It is kept because a silently failed scaffolding GRANT would make every
+  // behavioural rule below go green on "permission denied" — passing for the
+  // wrong reason is the failure mode this file exists to avoid.
   const needed = ['event_id', 'paparazzi_seat_id', 'r2_object_key', 'hidden_at', 'clip_web_r2_key'];
   const denied: string[] = [];
   for (const c of needed) {

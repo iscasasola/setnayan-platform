@@ -14,9 +14,27 @@
  * could arrive without one being SPENT — the balance never moves because the
  * photo went around it.
  *
- * ⛔ AND A BLANKET REVOKE WOULD HAVE BEEN WRONG. The claimer holding a camera IS
- * an `authenticated` user; revoking the grant breaks every camera. Policies are
- * OR-ed, so narrowing the couple's is what leaves exactly one insert door.
+ * 🛑 THE PARAGRAPH THAT USED TO SIT HERE WAS WRONG, AND IT IS KEPT AS A
+ * CORRECTION RATHER THAN DELETED. It read: *"a blanket revoke would have been
+ * wrong — the claimer holding a camera IS an `authenticated` user; revoking the
+ * grant breaks every camera."* **The second half does not follow from the
+ * first.** A camera does not need the BROWSER to hold the grant; it needs the
+ * capture to be recorded, and `recordSeatCapture` can write with the service
+ * role after its eight gates have run — which is what
+ * `20271169487222_no_photo_without_a_credit` did the next day. The guest half of
+ * this same feature had already been built that way for months
+ * (`papic_record_guest_capture`, SECURITY DEFINER), which is why `anon` never
+ * needed an INSERT grant.
+ *
+ * 🔑 So narrowing the couple's policy was CORRECT AND INSUFFICIENT. It closed
+ * the couple's door and left the claimer's standing — and the Uploads camera
+ * then made every host a claimer, which walked the couple straight back through
+ * it. **There are now ZERO browser-role doors into this table**, and the rules
+ * below say so.
+ *
+ * ⚠ The grant and policy mechanics are asserted ONCE, in
+ * `no-photo-without-a-credit.db.test.ts`. This file keeps what is specific to
+ * the couple, and this correction.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -80,12 +98,36 @@ test('⚠ …but a couple keeps everything they actually use', async () => {
   }
 });
 
-test('🚨 the CAMERA can still insert — this is the one door, not zero doors', async () => {
-  const claimer = (await policies()).find((p) => p.polname === 'papic_photos_claimer_own');
-  assert.ok(claimer, 'papic_photos_claimer_own is gone — no camera can record a capture at all');
+test('🚨 the camera keeps the three verbs it uses — closing INSERT must not close those', async () => {
+  // The claimer's FOR ALL policy became three on 2026-08-26. The camera still
+  // counts its own shots (SELECT), stamps the web copy of a clip (UPDATE) and
+  // reads back what it wrote — only the INSERT arm went, and the row it writes
+  // now goes in under the service role.
+  const claimer = (await policies()).filter((p) => p.polname.startsWith('papic_photos_claimer'));
   assert.ok(
-    claimer.cmd === 'ALL' || claimer.cmd === 'INSERT',
-    `the camera's own policy no longer permits INSERT (${claimer.cmd}) — every capture in the product breaks`,
+    claimer.length > 0,
+    'every claimer policy is gone — a camera can no longer see or finish its own captures',
+  );
+  const cmds = new Set(claimer.map((p) => p.cmd));
+  for (const needed of ['SELECT', 'UPDATE', 'DELETE']) {
+    assert.ok(
+      cmds.has(needed),
+      `the camera lost ${needed} on its own captures (${[...cmds].join(', ')})`,
+    );
+  }
+});
+
+test('🚨 …and NO policy on this table admits INSERT from a browser role any more', async () => {
+  const inserting = (await policies())
+    .filter((p) => p.cmd === 'ALL' || p.cmd === 'INSERT')
+    .map((p) => `${p.polname}:${p.cmd}`);
+  assert.deepEqual(
+    inserting,
+    [],
+    `these policies still admit INSERT: ${inserting.join(', ')}. Every gate in ` +
+      `recordSeatCapture — the burst limiter, the clip cap, the window, the paid ` +
+      `gate, the geo control, the credit reserve — is app-side, and a policy ` +
+      `cannot count credits. The row belongs to the service role.`,
   );
 });
 
@@ -96,7 +138,7 @@ test('the table says why, so the next reader does not restore the wide policy', 
   const note = r.rows[0]?.d ?? '';
   assert.match(
     note,
-    /claimer_own/i,
-    'the table comment no longer records that INSERT belongs to the camera alone — a comment a reader queries is the only warning at the point of the mistake',
+    /service.role only|service_role only/i,
+    'the table comment no longer records that INSERT is service-role only — a comment a reader queries is the only warning at the point of the mistake, and this table has now been widened by accident twice',
   );
 });

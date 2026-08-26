@@ -42,7 +42,11 @@ before(async () => {
 });
 
 after(async () => {
-  await replay?.close?.();
+  // ⚠ `replay?.close?.()` — the shape I wrote first — TYPECHECKED AS AN ERROR and
+  // ran as a no-op: ReplayResult has no `close`, and optional chaining swallowed
+  // it, so the suite passed while never releasing the database. The rest of this
+  // directory calls `db.close()`.
+  await db?.close();
 });
 
 const CALLER_ROLES = ['authenticated', 'anon'] as const;

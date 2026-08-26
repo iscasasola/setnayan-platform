@@ -29,11 +29,31 @@ import { fileURLToPath } from 'node:url';
 const WEB = dirname(dirname(fileURLToPath(import.meta.url)));
 const HELPER = readFileSync(join(WEB, 'lib/papic-release-capture.ts'), 'utf8');
 
-/** Every file that releases capture credits, DERIVED — never a hand-typed list. */
-const CALLERS = [
-  'app/papic/actions.ts',
-  'app/api/papic/guest-capture/route.ts',
-].map((rel) => ({ rel, src: readFileSync(join(WEB, rel), 'utf8') }));
+/**
+ * Every file that releases capture credits.
+ *
+ * ⚠ IT IS ONE NOW, AND THAT IS A FIX RATHER THAN LOST COVERAGE.
+ * `app/papic/actions.ts` was on this list until 2026-08-26. The seat path's
+ * credit spend and its photo row now commit inside ONE transaction
+ * (`papic_record_seat_capture`, migration 20271170528490), so there is no state
+ * between them for a release to clean up — and no window in which a process
+ * death could leave credits spent on a photograph that does not exist. A release
+ * on that path today would refund a spend that either committed with its row or
+ * never happened.
+ *
+ * 🔒 THE OTHER DIRECTION IS HELD ELSEWHERE, which is what makes removing a line
+ * from this list safe: `app/papic/the-meter-is-the-only-door.test.ts` rule 3
+ * fails if `releaseCaptureCredits` — or a bare `papic_reserve_capture_split` —
+ * reappears in the seat path. Never shorten this list without pairing it with a
+ * rule that says why, or the next reader cannot tell a fix from a deletion.
+ *
+ * The GUEST route stays: its reserve and its insert are genuinely two steps, and
+ * the unwind there is real.
+ */
+const CALLERS = ['app/api/papic/guest-capture/route.ts'].map((rel) => ({
+  rel,
+  src: readFileSync(join(WEB, rel), 'utf8'),
+}));
 
 test('the helper exists and cannot throw — a failed refund must not kill the camera', () => {
   assert.ok(/export async function releaseCaptureCredits/.test(HELPER), 'the helper is gone');

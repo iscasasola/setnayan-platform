@@ -178,12 +178,16 @@ test('7 · the value the picker branches on is actually SELECTED from the databa
  * new camera surface — is outside the gate by design (the switch must never stop
  * a paparazzo photographing a wedding), and at that moment the OFF sentence
  * becomes a promise the product does not keep. So this fails the moment a FOURTH
- * thing records a capture, and whoever trips it owes two answers: does the new
- * path add photos BY HAND, and if so does it honour the switch — then the copy
- * and `tests/db/handles-have-gates.baseline.txt` are both updated.
+ * thing records a capture, and whoever trips it owes one answer: does the new
+ * path add photos BY HAND, and if so does it go through the same gate?
  *
- * A baseline line that stops being true is worse than no line, because it reads
- * as "somebody checked".
+ * 📎 THE BASELINE LINE THIS USED TO POINT AT IS GONE, and its removal was not a
+ * choice — `handles-have-gates.db.test.ts` demanded it. That baseline records
+ * switches written and read by ONE surface; the moment the server started
+ * reading this column the line stopped being true, and the guard failed until it
+ * was deleted. **A first attempt rewrote it to describe the new arrangement and
+ * that was also refused, correctly**: the file is a list of screen-local
+ * switches, not a place to explain one that has stopped being screen-local.
  *
  * ⚠ Counted at the CALL, not by importing the module: the point is how many
  * places can put a row in, and an import that is never called is not a path.
@@ -219,7 +223,6 @@ test('8 · exactly three things record a capture — a fourth must answer for th
       `papicManualUploadsClosed, keyed on the seat, called before the write and ` +
       `before the presign. Hiding a button is not closing a door. Until it does, ` +
       `the OFF copy ("Nothing can be added from a phone or laptop") is a promise ` +
-      `the product does not keep, and the events.papic_uploads_open line in ` +
-      `tests/db/handles-have-gates.baseline.txt has to be rewritten or deleted.`,
+      `the product does not keep.`,
   );
 });

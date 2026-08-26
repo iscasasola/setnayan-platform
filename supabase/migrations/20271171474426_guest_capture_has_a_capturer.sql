@@ -46,6 +46,35 @@
 -- it — so `guest_id` is pinned on UPDATE here. Pinning costs no feature and
 -- removes the one input that could make an honest derivation produce a lie.
 --
+-- ── THE EXPOSURE THIS ADDS, MEASURED AND ACCEPTED ───────────────────────────
+--
+-- The exposure freeze flagged one new capability and it was read rather than
+-- waved through: `col public.papic_guest_captures.captured_by_person_id
+-- anon=SIU authenticated=SIU`. Regenerating that baseline as a reflex would have
+-- RECORDED the decision instead of making it, so here is the decision.
+--
+-- ✅ ACCEPTED, on three measurements:
+--   1. Every OTHER column on this table already reads `anon=SIU authenticated=SIU`
+--      — the grants are table-level and the guest camera is an anonymous surface
+--      by design. This is not a new KIND of reach, it is one more column on a
+--      table already open to the same principals.
+--   2. It DISCLOSES NOTHING NEW. `papic_guest_captures.guest_id` is already
+--      anon=SIU and `guests.person_id` is already anon=SIU, so anybody who could
+--      read this column could already compute its value with one join. It is a
+--      denormalised copy of a mapping that was already reachable.
+--   3. The I and the U CANNOT FORGE IT. The trigger below derives the value on
+--      INSERT and on any UPDATE of the column, unconditionally, and pins
+--      `guest_id` so the derivation's input cannot be swapped either. Proven by
+--      `tests/db/guest-capture-has-a-capturer.db.test.ts` rule 4, which posts a
+--      stranger's person id three ways and reads the right one back each time.
+--
+-- ⛔ A COLUMN-LEVEL REVOKE WOULD HAVE BEEN THEATRE. These grants are held at
+-- TABLE level, and a `REVOKE … (column)` against a table-level grant is INERT —
+-- this project has already shipped one of those and watched its test pass.
+-- Closing I/U on one column here means revoking at table level and re-granting a
+-- per-column allowlist, which is the `events` pattern and a real change to every
+-- consumer of this table. Not worth it for a value nothing can forge.
+--
 -- ── THE BACKFILL, AND WHAT IT IS WORTH ──────────────────────────────────────
 --
 -- ⚠ A BACKFILL IS A POINT-IN-TIME ACT. It is written because it is correct, not
@@ -115,6 +144,14 @@ COMMENT ON FUNCTION public.tg_stamp_guest_capturer_person() IS
   'caller names is always replaced. Also pins guest_id on UPDATE: a capture does '
   'not move between guests, and an honest derivation from a forged input is '
   'still a lie.';
+
+-- ⚠ A TRIGGER FUNCTION DOES NOT NEED TO BE DIRECTLY CALLABLE, and a fresh one is
+-- created with EXECUTE granted to PUBLIC — which includes `anon`. Postgres runs a
+-- trigger regardless of who holds EXECUTE on its function, so this costs nothing
+-- and takes a SECURITY DEFINER function off the surface any holder of the
+-- publishable key can reach. `tg_stamp_capturer_person`, its twin, does exactly
+-- this; `anon-rpc-surface.db.test.ts` is what notices when a new one does not.
+REVOKE ALL ON FUNCTION public.tg_stamp_guest_capturer_person() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS stamp_guest_capturer_person ON public.papic_guest_captures;
 CREATE TRIGGER stamp_guest_capturer_person
